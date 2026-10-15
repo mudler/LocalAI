@@ -192,6 +192,169 @@ var _ = Describe("Realtime WebSocket API", Label("Realtime"), func() {
 		})
 	})
 
+	Context("Failover chain stage", Label("failover"), func() {
+		// userTurn adds a user text item, asks for a response and reads until
+		// response.done. It returns the user item id, the response.done event
+		// and the localai.model.failover events seen on the way.
+		userTurn := func(conn *websocket.Conn, text string) (string, map[string]any, []map[string]any) {
+			sendClientEvent(conn, map[string]any{
+				"type": "conversation.item.create",
+				"item": map[string]any{
+					"type":    "message",
+					"role":    "user",
+					"content": []map[string]any{{"type": "input_text", "text": text}},
+				},
+			})
+			added := drainUntil(conn, "conversation.item.added", 10*time.Second)
+			item, _ := added["item"].(map[string]any)
+			userID, _ := item["id"].(string)
+			ExpectWithOffset(1, userID).ToNot(BeEmpty())
+
+			sendClientEvent(conn, map[string]any{"type": "response.create"})
+			var failovers []map[string]any
+			deadline := time.Now().Add(60 * time.Second)
+			for time.Now().Before(deadline) {
+				evt := readServerEvent(conn, time.Until(deadline))
+				switch evt["type"] {
+				case "localai.model.failover":
+					failovers = append(failovers, evt)
+				case "error":
+					Fail(fmt.Sprintf("unexpected error event: %v", evt))
+				case "response.done":
+					return userID, evt, failovers
+				}
+			}
+			Fail("timed out waiting for response.done")
+			return "", nil, nil
+		}
+
+		retrieveItem := func(conn *websocket.Conn, id string) map[string]any {
+			sendClientEvent(conn, map[string]any{"type": "conversation.item.retrieve", "item_id": id})
+			evt := drainUntil(conn, "conversation.item.retrieved", 10*time.Second)
+			item, _ := evt["item"].(map[string]any)
+			return item
+		}
+
+		It("switches the LLM mid-session and keeps the conversation", func() {
+			conn := connectWS("rt-failover")
+			defer func() { _ = conn.Close() }()
+
+			Expect(readServerEvent(conn, 30*time.Second)["type"]).To(Equal("session.created"))
+			initial := drainUntil(conn, "localai.model.failover", 10*time.Second)
+			Expect(initial).To(HaveKeyWithValue("stage", "llm"))
+			Expect(initial).To(HaveKeyWithValue("chain", "chain-rt"))
+			Expect(initial).To(HaveKeyWithValue("reason", "initial"))
+			Expect(initial).To(HaveKeyWithValue("to", "fail-rt"))
+
+			sendClientEvent(conn, disableVADEvent())
+			drainUntil(conn, "session.updated", 10*time.Second)
+
+			firstID, done, failovers := userTurn(conn, "Hello, how are you?")
+			Expect(failovers).To(ContainElement(And(
+				HaveKeyWithValue("stage", "llm"),
+				HaveKeyWithValue("from", "fail-rt"),
+				HaveKeyWithValue("to", "mock-llm"),
+				HaveKeyWithValue("reason", "trip"),
+			)))
+			resp, _ := done["response"].(map[string]any)
+			Expect(resp).To(HaveKeyWithValue("status", "completed"))
+			output, _ := resp["output"].([]any)
+			Expect(output).ToNot(BeEmpty())
+			firstReply, _ := output[0].(map[string]any)
+			firstReplyID, _ := firstReply["id"].(string)
+			Expect(firstReplyID).ToNot(BeEmpty())
+
+			_, done, _ = userTurn(conn, "And now?")
+			resp, _ = done["response"].(map[string]any)
+			Expect(resp).To(HaveKeyWithValue("status", "completed"))
+
+			// The switch kept the session: the first turn is still in it.
+			Expect(retrieveItem(conn, firstID)).To(HaveKeyWithValue("id", firstID))
+			Expect(retrieveItem(conn, firstReplyID)).To(HaveKeyWithValue("id", firstReplyID))
+		})
+
+		It("serves the LLM stage from a remote LocalAI and switches to the local target when it fails", func() {
+			if localAIProxyPath == "" {
+				Skip("localai-proxy backend binary not built (make build-localai-proxy-backend)")
+			}
+			// The remote target reaches this server through a gate the spec
+			// can take down, as if the remote LocalAI lost its backends.
+			gate := newUpstreamGate(anthropicBaseURL)
+			DeferCleanup(gate.Close)
+			registerModelConfigs(
+				localAIProxyModel("lp-rt-llm", gate.URL(), "mock-llm", "chat"),
+				map[string]any{
+					"name": "chain-rt-lp",
+					"failover": map[string]any{
+						"targets": []map[string]any{{"model": "lp-rt-llm"}, {"model": "mock-llm"}},
+					},
+				},
+				map[string]any{
+					"name": "rt-lp",
+					"pipeline": map[string]any{
+						"vad":            "mock-vad",
+						"transcription":  "mock-stt",
+						"llm":            "chain-rt-lp",
+						"tts":            "mock-tts",
+						"disable_warmup": true,
+					},
+				},
+			)
+			Eventually(func() string { return chainActive("chain-rt-lp") }, 10*time.Second, 200*time.Millisecond).
+				Should(Equal("lp-rt-llm"))
+
+			conn := connectWS("rt-lp")
+			defer func() { _ = conn.Close() }()
+
+			Expect(readServerEvent(conn, 30*time.Second)["type"]).To(Equal("session.created"))
+			initial := drainUntil(conn, "localai.model.failover", 10*time.Second)
+			Expect(initial).To(HaveKeyWithValue("stage", "llm"))
+			Expect(initial).To(HaveKeyWithValue("chain", "chain-rt-lp"))
+			Expect(initial).To(HaveKeyWithValue("reason", "initial"))
+			Expect(initial).To(HaveKeyWithValue("to", "lp-rt-llm"))
+
+			sendClientEvent(conn, disableVADEvent())
+			drainUntil(conn, "session.updated", 10*time.Second)
+
+			// The first turn goes through the proxy to the remote mock-llm.
+			_, done, failovers := userTurn(conn, "Hello, how are you?")
+			Expect(failovers).To(BeEmpty())
+			resp, _ := done["response"].(map[string]any)
+			Expect(resp).To(HaveKeyWithValue("status", "completed"))
+			Expect(chainActive("chain-rt-lp")).To(Equal("lp-rt-llm"))
+
+			gate.SetDown(true)
+			_, done, failovers = userTurn(conn, "And now?")
+			Expect(failovers).To(ContainElement(And(
+				HaveKeyWithValue("stage", "llm"),
+				HaveKeyWithValue("from", "lp-rt-llm"),
+				HaveKeyWithValue("to", "mock-llm"),
+				HaveKeyWithValue("reason", "trip"),
+			)))
+			resp, _ = done["response"].(map[string]any)
+			Expect(resp).To(HaveKeyWithValue("status", "completed"))
+			Expect(chainActive("chain-rt-lp")).To(Equal("mock-llm"))
+		})
+
+		It("starts the session on the next target when the active one fails to warm up", func() {
+			conn := connectWS("rt-failover-warm")
+			defer func() { _ = conn.Close() }()
+
+			Expect(readServerEvent(conn, 30*time.Second)["type"]).To(Equal("session.created"))
+			initial := drainUntil(conn, "localai.model.failover", 10*time.Second)
+			Expect(initial).To(HaveKeyWithValue("chain", "chain-rt-warm"))
+			Expect(initial).To(HaveKeyWithValue("reason", "initial"))
+			Expect(initial).To(HaveKeyWithValue("to", "mock-llm"))
+
+			sendClientEvent(conn, disableVADEvent())
+			drainUntil(conn, "session.updated", 10*time.Second)
+
+			_, done, _ := userTurn(conn, "Hello?")
+			resp, _ := done["response"].(map[string]any)
+			Expect(resp).To(HaveKeyWithValue("status", "completed"))
+		})
+	})
+
 	Context("Manual audio commit", func() {
 		It("should produce a response with audio when audio is committed", func() {
 			conn := connectWS(pipelineModel())

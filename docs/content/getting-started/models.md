@@ -19,7 +19,7 @@ This section covers everything you need to know about installing and configuring
 
 The Model Gallery is the simplest way to install models. It provides pre-configured models ready to use.
 
-GPU recommendations require a memory estimate within 95% of the detected model memory budget at a 4096-token context. If none of the sampled candidates fit, the recommendation section is hidden. You can still browse the gallery and check individual models at your intended context size. The Home page also omits static GPU suggestions when no fitting recommendation is available.
+GPU recommendations require a memory estimate within 95% of the detected model memory budget at a 4096-token context. If none of the sampled candidates fit, the recommendation section is hidden. You can still browse the gallery and check individual models at your intended context size. On the Models page the recommendations appear as a "Best for this machine" list in the pane beside the table while no model is selected. Once you have installed a model, the list shows only the best fit and offers the others behind "more that fit". The Home page also omits static GPU suggestions when no fitting recommendation is available.
 
 ### Via WebUI
 
@@ -35,10 +35,13 @@ For more details, refer to the [Gallery Documentation]({{% relref "features/mode
 
 The same Models page owns the complete lifecycle. Switch to **Installed** to
 search local configurations, filter them by running, idle, disabled, pinned,
-or distributed state, and open a model's runtime controls. Load, stop, edit,
-pin, disable, inspect backend logs, and remove actions stay with the selected
-model. The current view, search, filter, and selection are stored in the URL so
-links and browser history preserve your place.
+or distributed state, and open a model's runtime controls. Load and stop are on
+each row; edit, pin, disable, backend logs, and remove are in the row menu and in
+the details of the selected model. The current view, search, filter, and
+selection are stored in the URL so links and browser history preserve your place.
+The disk strip in the page header shows the free space on the models disk and
+opens a review of what can be removed to free more (see
+[Model gallery]({{% relref "features/model-gallery" %}})).
 
 ### Via CLI
 
@@ -71,31 +74,48 @@ Note: The galleries available in LocalAI can be customized to point to a differe
 
 Visit [models.localai.io](https://models.localai.io) to browse all available models in your browser.
 
+On a phone, the model page wraps build descriptions in the **Variants** table
+to keep the fit status and install buttons visible.
+
 ## Method 1.5: Import Models via WebUI
 
-The WebUI import page takes either a source to resolve or a configuration to
-write. Both live on the same page, behind the two tabs in its header.
+The WebUI import page (**Build → Import**) takes either a source to resolve or a
+configuration to write. Both live on the same page, behind the two tabs in its
+header. From a source, it is a short guided flow: source, review, import, done.
 
 ### From a source
 
 1. Open the LocalAI WebUI at `http://localhost:8080`
-2. Click "Import Model"
-3. Paste the source into the **Source** field (e.g. `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`)
-4. Press Enter, or click **Import**
+2. Open **Build**, then **Import**
+3. Paste the source into the **Source** field (e.g. `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`), or start from one of the examples
+4. Review what the page says, then press Enter or click **Import**
+
+While you type, the page reads the spelling of the source (Hugging Face
+repository, direct URL, configuration file, OCI image, Ollama model, or a path
+on the host) and shows the request the form will send. It also runs the checks
+that can be made before the import starts: whether the name is already in use,
+whether the chosen backend is installed, and how much disk and memory are free.
+The server returns no preview of the model configuration, the size or the memory
+a model needs before the import starts, so the page does not show them. They
+appear once the import starts, next to the free memory and disk.
 
 The **What you can paste** panel beside the field lists every accepted scheme:
 `huggingface://`, `hf://`, a full Hugging Face URL, any direct `https://` URL,
 `file://` and absolute paths on the host, `oci://`, `ocifile://`, and
 `ollama://`.
 
-Expanding **Import options** reveals everything you can override before the
-import runs: backend, name, description, quantizations, MMProj quantizations,
+Expand **Advanced options** directly below the request preview to override settings before importing.
+The controls include backend, name, description, quantizations, MMProj quantizations,
 model type, embeddings support, the diffusers-specific fields, and arbitrary
 custom key-value preferences. The backend list can be narrowed by modality
 first. Fields that the selected backend cannot use are hidden, and anything you
 typed into them is kept in case you switch back.
 
-Leaving the backend on auto-detect lets LocalAI choose from the source. If more
+The source format check does not contact the source or validate it as a model.
+An HTTPS URL can point to a web page rather than model weights.
+
+Leaving the backend on auto-detect lets LocalAI choose from the source.
+Selecting a backend sends an explicit backend preference in the previewed request. If more
 than one installed backend can serve the detected modality, the page says so
 and offers the candidates inline — picking one resubmits the import.
 
@@ -105,8 +125,10 @@ vision-language models and `mlx-audio` for text-to-speech models; other MLX
 repositories use `mlx`. An explicit backend selection in the import form always
 overrides this automatic routing.
 
-Once the import starts, the page reports the current phase, the bytes
-transferred and a progress bar until the model is ready.
+Once the import starts, the page reports the download size and the memory the
+model needs against what is free, then the current phase, the bytes transferred
+and a progress bar. When the model is ready, the page names it and links to a
+chat with it and to Models.
 
 ### Writing YAML
 
@@ -120,6 +142,41 @@ This is especially useful for:
 - Fine-tuning model parameters
 - Setting up complex model setups
 - Editing existing model configurations
+
+When the configuration references remote assets, **Create** does not
+download them inside the request: the import is queued like a gallery
+installation, and the page reports the job's progress until the model is
+ready. These configurations are queued:
+
+- a URL in `parameters.model` or `mmproj`, or `download_files` entries;
+- an `hf://` reference or a bare `owner/repo` in `parameters.model`, on a
+  backend that consumes a model directory;
+- an explicit `artifacts:` block. The configuration file is written once every download
+has finished, so a failed download never leaves a config pointing at
+files that do not exist. A configuration that only references files
+already on disk is written immediately, as before.
+
+A queued import runs through the same installer as a gallery
+installation, so it differs from an immediate write in two ways:
+
+- Recommended sampling parameters for the model family (for example
+  `temperature` and `top_p`) are added under `parameters:` when the
+  configuration does not set them. The immediate write stores your
+  configuration exactly as posted.
+- When automatic backend installation is enabled, the backend named in the
+  configuration is installed as part of the job.
+
+Set the parameters you care about explicitly if you need the same stored
+file in both cases.
+
+The same split applies to the API behind the page: `POST /models/import`
+answers a queued import with a job id and a status URL to poll
+(`/models/jobs/{id}` — the same shape gallery installs use), and a
+download-free import with a plain success response.
+
+If you cancel a queued import, the import page and model editor report the
+cancellation and stay on the current page. They report success only after the
+job succeeds.
 
 ## Method 2: Installing from Hugging Face
 
@@ -391,6 +448,8 @@ See the [Model Configuration]({{% relref "advanced/model-configuration" %}}) gui
 
 ### List Installed Models
 
+Ollama clients can list configured models with `GET /api/tags` and loaded models with `GET /api/ps`. Each entry includes `size` in bytes when LocalAI can resolve a non-empty primary weights file on disk. This is the size of that file, not the total size of a multi-file model or its memory use. Unknown sizes are omitted; `/api/ps` also omits `size_vram` because per-model VRAM use is not available.
+
 ```bash
 # Via API
 curl http://localhost:8080/v1/models
@@ -398,6 +457,34 @@ curl http://localhost:8080/v1/models
 # Via CLI
 local-ai models list
 ```
+
+### Disk Usage
+
+In the WebUI, the **Installed** tab of **Models** shows how much disk each
+installed configuration uses. The **Size** column holds the size on disk, and
+for a model that shares files with others it adds the shared part ("1.2 GB
+shared"). A file referenced by more than one configuration is counted once in
+the total under the table, which also gives the shared total. The inspector
+beside the table names the models a model shares files with, and a model page
+lists its files under **Usage and history**, with each file's size, the other
+models that use it, and whether it is missing. Removing a model frees only its
+exclusive files; the files it shares stay while another configuration uses
+them. A reference whose file is not on disk (a download that never finished, or
+a file removed by hand) is marked on the model and in the cleanup review.
+
+Only an admin can read the report. For anyone else, or if the read fails, the
+Size column shows the size of the files the gallery lists, and "size unknown"
+for a model the gallery does not list.
+
+The report behind these views is available directly (admin only):
+
+```bash
+curl http://localhost:8080/api/models/storage
+```
+
+It returns per-model sizes with the shared portion split out, the
+file-to-models relation, and missing references. Files in the models directory
+that no configuration references are not included.
 
 ### Remove Models
 

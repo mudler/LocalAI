@@ -83,6 +83,13 @@ target_link_libraries(${TARGET} PRIVATE ${_LLAMA_COMMON_TARGET} llama mtmd ${CMA
   gRPC::${_REFLECTION}
   gRPC::${_GRPC_GRPCPP}
   protobuf::${_PROTOBUF_LIBPROTOBUF})
+# Match grpc-server.cpp's native-decision guard: older forks do not need
+# strict decision image decoders and must not acquire new dependencies.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../server/server-decision.cpp")
+    find_package(ZLIB REQUIRED)
+    find_package(JPEG REQUIRED)
+    target_link_libraries(${TARGET} PRIVATE ZLIB::ZLIB JPEG::JPEG)
+endif()
 target_compile_features(${TARGET} PRIVATE cxx_std_11)
 if(TARGET BUILD_INFO)
   add_dependencies(${TARGET} BUILD_INFO)
@@ -125,6 +132,11 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_include_directories(thread_params_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(thread_params_test PRIVATE cxx_std_17)
     add_test(NAME thread_params_test COMMAND thread_params_test)
+
+    add_executable(parallel_params_test parallel_params_test.cpp parallel_params.h)
+    target_include_directories(parallel_params_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(parallel_params_test PRIVATE cxx_std_17)
+    add_test(NAME parallel_params_test COMMAND parallel_params_test)
 
     add_executable(model_load_error_test model_load_error_test.cpp model_load_error.h)
     target_include_directories(model_load_error_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

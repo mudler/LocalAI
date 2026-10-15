@@ -27,6 +27,12 @@ type StoreResolver func(ctx context.Context, storeName string) (grpc.Backend, er
 // pass 0 to accept whatever dimension arrives (useful when the voice
 // backend exposes recognizers of different sizes, e.g. ECAPA-TDNN at
 // 192 vs ResNet at 256).
+//
+// A vector store holds one dimension only, so with dim 0 the registry keeps
+// one store per embedding dimension. The first dimension seen uses storeName
+// itself (single-encoder setups are unchanged); every later dimension uses
+// "<storeName>-<dim>". Identify compares the probe with voices of its own
+// dimension only.
 func NewStoreRegistry(resolve StoreResolver, storeName string, dim int) Registry {
 	return &storeRegistry{
 		resolve:   resolve,
@@ -41,11 +47,38 @@ type storeRegistry struct {
 	dim       int
 
 	// TODO(postgres): the local-store gRPC surface keys by embedding
-	// vector and exposes no "list all" method, so we cannot delete by
-	// ID without remembering the embedding. This in-memory index is
-	// rebuilt on every Register and lost on restart — acceptable while
-	// the only implementation is itself in-memory.
-	idIndex sync.Map // map[string][]float32
+	// vector and exposes no "list all" method, so we cannot delete by ID
+	// or list voices without remembering them. This in-memory index holds
+	// every registration with its metadata. It is rebuilt on every Register
+	// and lost on restart, which matches the lifetime of the in-memory store.
+	idIndex sync.Map // map[string]Entry
+
+	// namespaces maps an embedding dimension to the store that holds it.
+	nsMu       sync.Mutex
+	namespaces map[int]string
+}
+
+// namespace returns the store name for a dimension. With create set, an
+// unknown dimension gets a new name; without it, ok is false for a dimension
+// that has no voices yet.
+func (r *storeRegistry) namespace(dim int, create bool) (name string, ok bool) {
+	r.nsMu.Lock()
+	defer r.nsMu.Unlock()
+	if name, ok := r.namespaces[dim]; ok {
+		return name, true
+	}
+	if !create {
+		return "", false
+	}
+	if r.namespaces == nil {
+		r.namespaces = map[int]string{}
+	}
+	name = r.storeName
+	if len(r.namespaces) > 0 {
+		name = fmt.Sprintf("%s-%d", r.storeName, dim)
+	}
+	r.namespaces[dim] = name
+	return name, true
 }
 
 func (r *storeRegistry) Register(ctx context.Context, embedding []float32, meta Metadata) (Metadata, error) {
@@ -56,7 +89,8 @@ func (r *storeRegistry) Register(ctx context.Context, embedding []float32, meta 
 		return Metadata{}, fmt.Errorf("%w: expected %d, got %d", ErrDimensionMismatch, r.dim, len(embedding))
 	}
 
-	backend, err := r.resolve(ctx, r.storeName)
+	ns, _ := r.namespace(len(embedding), true)
+	backend, err := r.resolve(ctx, ns)
 	if err != nil {
 		return Metadata{}, fmt.Errorf("voicerecognition: resolve store: %w", err)
 	}
@@ -76,7 +110,7 @@ func (r *storeRegistry) Register(ctx context.Context, embedding []float32, meta 
 	}
 
 	embCopy := append([]float32(nil), embedding...)
-	r.idIndex.Store(meta.ID, embCopy)
+	r.idIndex.Store(meta.ID, Entry{Metadata: meta, Embedding: embCopy})
 	return meta, nil
 }
 
@@ -91,7 +125,13 @@ func (r *storeRegistry) Identify(ctx context.Context, probe []float32, topK int)
 		topK = 5
 	}
 
-	backend, err := r.resolve(ctx, r.storeName)
+	// No voice of this dimension was ever registered: nothing can match, and
+	// querying another dimension's store would be an error.
+	ns, ok := r.namespace(len(probe), false)
+	if !ok {
+		return []Match{}, nil
+	}
+	backend, err := r.resolve(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("voicerecognition: resolve store: %w", err)
 	}
@@ -124,9 +164,10 @@ func (r *storeRegistry) Forget(ctx context.Context, id string) error {
 	if !ok {
 		return ErrNotFound
 	}
-	embedding := raw.([]float32)
+	embedding := raw.(Entry).Embedding
 
-	backend, err := r.resolve(ctx, r.storeName)
+	ns, _ := r.namespace(len(embedding), true)
+	backend, err := r.resolve(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("voicerecognition: resolve store: %w", err)
 	}
@@ -135,4 +176,21 @@ func (r *storeRegistry) Forget(ctx context.Context, id string) error {
 	}
 	r.idIndex.Delete(id)
 	return nil
+}
+
+func (r *storeRegistry) List(ctx context.Context) ([]Entry, error) {
+	var out []Entry
+	r.idIndex.Range(func(_, v any) bool {
+		e := v.(Entry)
+		e.Embedding = append([]float32(nil), e.Embedding...)
+		out = append(out, e)
+		return true
+	})
+	sort.SliceStable(out, func(i, j int) bool {
+		if !out[i].Metadata.RegisteredAt.Equal(out[j].Metadata.RegisteredAt) {
+			return out[i].Metadata.RegisteredAt.Before(out[j].Metadata.RegisteredAt)
+		}
+		return out[i].Metadata.ID < out[j].Metadata.ID
+	})
+	return out, nil
 }

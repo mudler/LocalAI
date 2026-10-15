@@ -160,9 +160,12 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			for range n {
 				prompts := strings.Split(i, "|")
 				positive_prompt := prompts[0]
-				negative_prompt := ""
+				negative_prompt := strings.TrimSpace(input.NegativePrompt)
 				if len(prompts) > 1 {
-					negative_prompt = prompts[1]
+					if negative_prompt != "" {
+						negative_prompt += ", "
+					}
+					negative_prompt += strings.TrimSpace(prompts[1])
 				}
 
 				step := config.Step

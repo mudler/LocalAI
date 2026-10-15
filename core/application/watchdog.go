@@ -2,6 +2,7 @@ package application
 
 import (
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
@@ -22,6 +23,9 @@ func (a *Application) SyncPinnedModelsToWatchdog() {
 		if cfg.IsPinned() {
 			pinned = append(pinned, cfg.Name)
 		}
+	}
+	if a.failoverManager != nil {
+		pinned = failover.MergePinned(pinned, a.failoverManager.WarmTargets())
 	}
 	wd.SetPinnedModels(pinned)
 	xlog.Debug("Synced pinned models to watchdog", "count", len(pinned))

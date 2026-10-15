@@ -164,28 +164,42 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 		// at a known-unreachable worker, while the distributed registry remains
 		// the source of truth for anything that is still running remotely.
 		store.Delete(s)
+		if wd != nil {
+			wd.Untrack(model.address)
+		}
 		return unloadErr
 	}
 
 	// Mark the stop as intentional so the exit-watcher logs it as an
 	// expected stop, not a crash (signal-terminated children report -1).
 	ml.stoppingProcs.Store(process, struct{}{})
-	err := process.Stop()
-	if err != nil {
+	var localErr error
+	if err := process.Stop(); err != nil {
 		xlog.Error("(deleteProcess) error while deleting process", "error", err, "model", s)
 		if !process.IsAlive() {
 			// A concurrently crashed/already-reaped process can no longer own
 			// resources even if Stop could not read or signal its PID.
 			store.Delete(s)
 			ml.cleanupProcessRuntime(process)
-			return nil
+		} else {
+			localErr = err
 		}
-		return err
+	} else {
+		store.Delete(s)
+		ml.cleanupProcessRuntime(process)
 	}
 
-	store.Delete(s)
-	ml.cleanupProcessRuntime(process)
-	return nil
+	// A model can be resident on this frontend and on workers at the same
+	// time. Always attempt the remote half after the local half so a failure in
+	// either location does not leave the other placements running.
+	var remoteErr error
+	if remoteUnloader != nil {
+		remoteErr = unloadRemote(ctx, remoteUnloader, s, force)
+		if remoteErr != nil {
+			remoteErr = fmt.Errorf("unloading remote placements for model %q: %w", s, remoteErr)
+		}
+	}
+	return errors.Join(localErr, remoteErr)
 }
 func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 	var err error = nil
@@ -262,11 +276,10 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	env := backendTempEnvironment(os.Environ(), runtime.tempDir)
 	// Vulkan backends are self-contained: they bundle their own loader and
 	// Mesa driver .so files in lib/ plus the matching ICD manifests in
-	// vulkan/icd.d/. Point the loader at those manifests so it doesn't rely on
+	// vulkan/icd.d/. Add those manifests to the loader's search so it doesn't rely on
 	// the runtime base image shipping a Vulkan driver (it carries the
 	// SYCL/Level-Zero stack instead, so the default ICD search path is empty
 	// and the GPU would silently fall back to CPU). No-op for other backends.
-	env = append(env, vulkanICDEnv(workDir)...)
 
 	// Resolve and own the state directory here rather than through
 	// process.WithTemporaryStateDir(). process.New applies its options but
@@ -284,6 +297,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		}
 	}
 
+	env = vulkanICDEnv(workDir, env)
+
 	grpcControlProcess := process.New(
 		process.WithStateDir(stateDir),
 		process.WithName(filepath.Base(grpcProcess)),
@@ -298,6 +313,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 
 	if err := grpcControlProcess.Run(); err != nil {
+		ml.untrackProcess(grpcControlProcess)
 		runtime.cleanup()
 		return grpcControlProcess, err
 	}
@@ -354,6 +370,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	// whether the child is alive.
 	go func() {
 		<-grpcControlProcess.Done()
+		ml.untrackProcess(grpcControlProcess)
 		// LoadAndDelete both reads the intentional-stop marker and frees the
 		// map entry so it doesn't accumulate across the process's lifetime.
 		_, intentional := ml.stoppingProcs.LoadAndDelete(grpcControlProcess)
@@ -382,15 +399,49 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		}
 		runtime.cleanupScratch()
 		close(runtime.diagnosticsDone)
+		if !intentional {
+			ml.forgetExitedProcess(id, grpcControlProcess)
+		}
 	}()
 
 	return grpcControlProcess, nil
+}
+
+// NoteIntentionalStop marks a process that its owner is about to stop on
+// purpose, so its exit is logged as a stop and not as a crash. Callers that stop
+// a process directly, without going through the loader, use it.
+func (ml *ModelLoader) NoteIntentionalStop(proc *process.Process) {
+	if ml != nil && proc != nil {
+		ml.stoppingProcs.Store(proc, struct{}{})
+	}
+}
+
+// forgetExitedProcess drops the model store entry of a backend that exited on
+// its own, so it is no longer reported as loaded. It shares the lifecycle lock
+// with loading and shutdown and matches the process identity, so a late exit
+// notification cannot remove a replacement loaded under the same id.
+func (ml *ModelLoader) forgetExitedProcess(id string, p *process.Process) {
+	release := ml.operations.acquire(id, true)
+	defer release()
+	ml.mu.Lock()
+	store := ml.store
+	hooks := append([]ModelUnloadHook(nil), ml.onUnloadHooks...)
+	ml.mu.Unlock()
+	if m, ok := store.Get(id); !ok || m.Process() != p {
+		return
+	}
+	for _, hook := range hooks {
+		hook(id)
+	}
+	store.Delete(id)
+	ml.cleanupProcessRuntime(p)
 }
 
 func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {
 	if process == nil {
 		return
 	}
+	ml.untrackProcess(process)
 	value, ok := ml.processRuntimes.LoadAndDelete(process)
 	if !ok {
 		return
@@ -402,6 +453,18 @@ func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {
 	}()
 }
 
+// Use the current watchdog because settings updates can replace it while a
+// backend is running. Match the process identity so a late exit notification
+// cannot remove a replacement that happens to reuse the same address.
+func (ml *ModelLoader) untrackProcess(p *process.Process) {
+	ml.mu.Lock()
+	wd := ml.wd
+	ml.mu.Unlock()
+	if wd != nil {
+		wd.untrackProcess(p)
+	}
+}
+
 // CleanupProcessRuntime releases state and scratch owned by a process started
 // through StartProcess. Callers that supervise processes outside ModelLoader's
 // model store must invoke it after they have consumed exit diagnostics.
@@ -409,19 +472,15 @@ func (ml *ModelLoader) CleanupProcessRuntime(process *process.Process) {
 	ml.cleanupProcessRuntime(process)
 }
 
-// vulkanICDEnv returns environment overrides that point the Vulkan loader at
-// the ICD manifests a backend bundles in <workDir>/vulkan/icd.d. Vulkan
-// backends ship a self-contained stack — their own loader and Mesa driver .so
-// files in lib/ (resolved via the LD_LIBRARY_PATH that run.sh sets) plus the
-// matching ICD manifests — so the loader must be told where those manifests
-// live; its default search path (/usr/share/vulkan/icd.d, /etc/vulkan/icd.d)
-// is empty on the runtime base image. Returns nil when the directory holds no
-// manifests (CPU/CUDA/SYCL builds), leaving the host's Vulkan setup untouched.
-func vulkanICDEnv(workDir string) []string {
+// vulkanICDEnv adds the backend's manifests to the Vulkan loader's search path.
+// Do not replace the system manifests: NVIDIA's host-matched ICD is provided
+// by the container runtime, not bundled with our Mesa drivers.
+// CPU/CUDA/SYCL builds have no bundled manifests and leave the host untouched.
+func vulkanICDEnv(workDir string, env []string) []string {
 	icdDir := filepath.Join(workDir, "vulkan", "icd.d")
 	entries, err := os.ReadDir(icdDir)
 	if err != nil {
-		return nil
+		return env
 	}
 
 	manifests := make([]string, 0, len(entries))
@@ -432,14 +491,22 @@ func vulkanICDEnv(workDir string) []string {
 		manifests = append(manifests, filepath.Join(icdDir, e.Name()))
 	}
 	if len(manifests) == 0 {
-		return nil
+		return env
 	}
 
-	list := strings.Join(manifests, string(os.PathListSeparator))
-	// VK_DRIVER_FILES is the current loader variable; VK_ICD_FILENAMES is its
-	// deprecated alias, set too so older bundled loaders still pick it up.
-	return []string{
-		"VK_DRIVER_FILES=" + list,
-		"VK_ICD_FILENAMES=" + list,
+	const key = "VK_ADD_DRIVER_FILES="
+	merged := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if value, ok := strings.CutPrefix(entry, key); ok {
+			if value != "" {
+				manifests = append(manifests, value)
+			}
+		} else {
+			merged = append(merged, entry)
+		}
 	}
+	list := strings.Join(manifests, string(os.PathListSeparator))
+	// Explicit VK_DRIVER_FILES/VK_ICD_FILENAMES supplied by the operator take
+	// precedence over this additive path, as defined by the bundled loader.
+	return append(merged, key+list)
 }

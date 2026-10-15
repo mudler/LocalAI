@@ -41,6 +41,15 @@ docker ps -a | grep local-ai
 docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi
 ```
 
+## Request latency diagnostics
+
+Debug logging alone does not enable profiling or request phase timing.
+Use [Profiling and request diagnostics]({{% relref "features/diagnostics" %}}) for an opt-in, bounded investigation on one frontend.
+The guide distinguishes CPU execution, lock waits, discovery filesystem work, and the model router callback.
+It includes direct pod port-forward instructions and warnings about unauthenticated, sensitive profiles.
+Enable diagnostics only through a separately approved rollout; do not expose profiling through the public API.
+Report non-reproduction if matched requests do not reproduce the delay.
+
 ## Installation Issues
 
 ### Binary Won't Execute on Linux

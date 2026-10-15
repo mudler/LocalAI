@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -96,7 +96,7 @@ var _ = Describe("cold-load staging deadline", func() {
 			findIdleNode:   &BackendNode{ID: "n1", Name: "nvidia-thor", Address: "10.0.0.1:50051"},
 		}
 		factory = &stubClientFactory{client: &stubBackend{loadResult: &pb.Result{Success: true}}}
-		unloader = &fakeUnloader{installReply: &messaging.BackendInstallReply{
+		unloader = &fakeUnloader{installReply: &workerctl.BackendInstallReply{
 			Success: true,
 			Address: "10.0.0.1:9001",
 		}}

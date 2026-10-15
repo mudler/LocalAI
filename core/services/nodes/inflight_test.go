@@ -95,6 +95,10 @@ func (f *fakeGRPCBackend) Generate3D(_ context.Context, _ *pb.Generate3DRequest,
 	return &pb.Result{}, nil
 }
 
+func (f *fakeGRPCBackend) Animate3D(_ context.Context, _ *pb.Animate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return &pb.Result{}, nil
+}
+
 func (f *fakeGRPCBackend) TTS(_ context.Context, _ *pb.TTSRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return &pb.Result{}, nil
 }
@@ -212,6 +216,10 @@ func (f *fakeGRPCBackend) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallO
 
 func (f *fakeGRPCBackend) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
 	return nil, nil
+}
+
+func (f *fakeGRPCBackend) MotionStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.MotionStreamClient, error) {
+	return nil, fmt.Errorf("motion streaming not implemented by in-flight fake")
 }
 
 func (f *fakeGRPCBackend) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/systemone"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
@@ -65,6 +67,31 @@ type CorpusLoader interface {
 	EnsureLoaded(ctx context.Context, storeName, embeddingModel, embeddingFingerprint string, embedder backend.Embedder, store backend.VectorStore) (int, error)
 }
 
+// reseedingVectorStore runs the corpus sync before every lookup. It
+// wraps the RAW store and hands that raw store to the loader, so the
+// loader's own probe lookup never re-enters this wrapper. A sync error
+// fails the lookup closed, like the build-time load does: a decision
+// taken on an index that could not be synced is exactly the blind-
+// router bug this guards against.
+type reseedingVectorStore struct {
+	backend.VectorStore
+	ensure func(ctx context.Context) error
+}
+
+func (s *reseedingVectorStore) SearchK(ctx context.Context, vec []float32, k int) ([]backend.Neighbor, error) {
+	if err := s.ensure(ctx); err != nil {
+		return nil, fmt.Errorf("router: knn corpus sync before lookup: %w", err)
+	}
+	return s.VectorStore.SearchK(ctx, vec, k)
+}
+
+func (s *reseedingVectorStore) Search(ctx context.Context, vec []float32) (float64, []byte, bool, error) {
+	if err := s.ensure(ctx); err != nil {
+		return 0, nil, false, fmt.Errorf("router: knn corpus sync before lookup: %w", err)
+	}
+	return s.VectorStore.Search(ctx, vec)
+}
+
 // ClassifierDeps bundles the backend factories the router middleware
 // needs to build a classifier and its optional L2 cache. Bundled into
 // one struct because RouteModel already takes many positional
@@ -77,8 +104,9 @@ type CorpusLoader interface {
 // score classifier runs unwrapped and the embedding-cache YAML is
 // ignored with a warning.
 type ClassifierDeps struct {
-	Scorer   ScorerFactory
-	Embedder EmbedderFactory
+	Decisions func(string) backend.DecisionRunner
+	Scorer    ScorerFactory
+	Embedder  EmbedderFactory
 	// EmbedderFingerprint identifies the weights/config behind Embedder so
 	// KNN corpus vectors cannot be queried across embedding spaces.
 	EmbedderFingerprint EmbedderFingerprintFactory
@@ -127,6 +155,7 @@ type ClassifierDeps struct {
 func NewClassifierDeps(app *application.Application) ClassifierDeps {
 	return ClassifierDeps{
 		Scorer:              app.Scorer,
+		Decisions:           app.DecisionRunner,
 		Corpus:              app.RouterCorpus(),
 		TokenCounter:        app.TokenCounter,
 		Embedder:            app.Embedder,
@@ -160,9 +189,9 @@ type ProbeExtractor func(parsed any) (router.Probe, bool)
 //  3. Invokes the classifier matching cfg.Router.Classifier
 //     ("score" or "colbert"). If the classifier can't be built —
 //     missing classifier_model, misconfigured policies, etc. — the
-//     request fails with 503. cfg.Router.Fallback only catches
-//     Classify-time errors and label-coverage misses, not config
-//     bugs that would otherwise be silent.
+//     request fails with 503. Invalid configuration fails closed; only
+//     Classify-time errors and label-coverage misses use the
+//     configured fallback.
 //  4. Resolves the chosen candidate to its model name. Reloads the
 //     ModelConfig for that model and asserts depth-1 (the candidate
 //     must NOT itself have a Router). Violation returns 500 — config
@@ -232,6 +261,12 @@ func RouteModel(loader *config.ModelConfigLoader, appConfig *config.ApplicationC
 				req.ModelName(&chosen)
 			}
 
+			// Materialize the original payload only after choosing the served model.
+			if req, ok := parsed.(*schema.OpenAIRequest); ok {
+				if err := mergeOpenAIRequestAndModelConfig(result.ChosenConfig, req); err != nil {
+					return err
+				}
+			}
 			c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, result.ChosenConfig)
 			// Preserve an upstream requested model (e.g. an alias that points
 			// at this router model) so accounting keeps the name the client
@@ -321,6 +356,19 @@ func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.Model
 	h := fnv.New64a()
 	h.Write(bytes)
 	if classifierCfg != nil {
+		if rc.Classifier == router.ClassifierDecisions {
+			native, err := yaml.Marshal(classifierCfg)
+			if err != nil {
+				return uint64(time.Now().UnixNano())
+			}
+			h.Write(native)
+			h.Write([]byte(classifierCfg.PersistedConfigRevision()))
+			if classifierCfg.KnownUsecases != nil {
+				h.Write([]byte(fmt.Sprintf("usecases:%d", *classifierCfg.KnownUsecases)))
+			} else {
+				h.Write([]byte("usecases:nil"))
+			}
+		}
 		// Narrow projection: only the fields buildClassifier reads (renderer,
 		// stop tokens, context_size → MaxContextTokens). Hashing the whole
 		// ModelConfig would invalidate the cache on irrelevant changes;
@@ -381,6 +429,21 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 
 	var inner router.Classifier
 	switch name {
+	case router.ClassifierDecisions:
+		if rc.ClassifierModel == "" || deps.Decisions == nil || deps.ModelLookup == nil {
+			return nil, fmt.Errorf("decisions requires classifier_model, native factory and model lookup")
+		}
+		if rc.KNN != nil || rc.EmbeddingCache != nil {
+			return nil, fmt.Errorf("decisions does not support knn or embedding_cache composition")
+		}
+		modelCfg := deps.ModelLookup(rc.ClassifierModel)
+		if modelCfg == nil {
+			return nil, fmt.Errorf("decision model not available")
+		}
+		if err := systemone.ValidateDecisionModel(*modelCfg); err != nil {
+			return nil, err
+		}
+		return router.NewDecisionsClassifier(policies, deps.Decisions(rc.ClassifierModel), rc.ActivationThreshold)
 	case router.ClassifierScore:
 		if rc.ClassifierModel == "" {
 			return nil, fmt.Errorf("router classifier score requires classifier_model")
@@ -478,12 +541,23 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 			// Loading fails closed: a live index from a different embedding
 			// space may have the same vector width and return plausible but
 			// incorrect routes.
-			if n, err := deps.Corpus.EnsureLoaded(context.Background(), storeName, rc.KNN.EmbeddingModel, embeddingFingerprint, embedder, vstore); err != nil {
+			raw := vstore
+			if n, err := deps.Corpus.EnsureLoaded(context.Background(), storeName, rc.KNN.EmbeddingModel, embeddingFingerprint, embedder, raw); err != nil {
 				return nil, fmt.Errorf("router classifier knn: load corpus %q: %w", storeName, err)
 			} else if n > 0 {
 				xlog.Info("router: knn corpus loaded",
 					"router_model", cfg.Name, "store", storeName, "entries", n)
 			}
+			// The classifier built below is cached for the process lifetime
+			// (GetOrBuildClassifier), so this sync would otherwise be the
+			// only one — while the local-store process behind the index can
+			// be evicted or idle-killed and relaunched EMPTY at any later
+			// request. Re-check on every lookup; the corpus loader probes
+			// the live index and re-seeds it from the file on a miss.
+			vstore = &reseedingVectorStore{VectorStore: raw, ensure: func(ctx context.Context) error {
+				_, err := deps.Corpus.EnsureLoaded(ctx, storeName, rc.KNN.EmbeddingModel, embeddingFingerprint, embedder, raw)
+				return err
+			}}
 		}
 		knnClassifier := router.NewKNNClassifier(embedder, vstore, router.KNNClassifierOptions{
 			K:                   rc.KNN.K,
@@ -712,7 +786,7 @@ func modelTokenTrim(modelName string, deps ClassifierDeps) (func(string) (int, e
 	if count == nil {
 		return nil, 0
 	}
-	ceiling := backend.EffectiveContextSize(*cfg)
+	ceiling := backend.EffectiveRequestContextSize(*cfg)
 	if b := backend.EffectiveBatchSize(*cfg); b < ceiling {
 		ceiling = b
 	}
@@ -728,8 +802,7 @@ func newDecisionID() string {
 // OpenAIProbe extracts a router.Probe from a parsed *schema.OpenAIRequest.
 // Concatenates message contents (string-form or text blocks of the
 // structured `[]any` content) so the classifier sees a single corpus
-// for length and content-shape rules. Image blocks are skipped — a
-// future multimodal classifier can take a different route.
+// for text classifiers, retaining complete chat state for native decisions.
 func OpenAIProbe(parsed any) (router.Probe, bool) {
 	req, ok := parsed.(*schema.OpenAIRequest)
 	if !ok || req == nil {
@@ -741,6 +814,26 @@ func OpenAIProbe(parsed any) (router.Probe, bool) {
 // messageText flattens a chat message's Content to plain text: string content
 // verbatim; []any structured content contributes only its "text" blocks.
 func messageText(content any) string {
+	// Typed API content is handled directly, avoiding a lossy JSON round trip.
+	switch blocks := content.(type) {
+	case []schema.Content:
+		var texts []string
+		for _, block := range blocks {
+			if block.Type == "text" && block.Text != "" {
+				texts = append(texts, block.Text)
+			}
+		}
+		return strings.Join(texts, "\n")
+	case []schema.AnthropicContentBlock:
+		var texts []string
+		for _, block := range blocks {
+			if block.Type == "text" && block.Text != "" {
+				texts = append(texts, block.Text)
+			}
+		}
+		return strings.Join(texts, "\n")
+	}
+
 	switch ct := content.(type) {
 	case string:
 		return ct
@@ -781,6 +874,14 @@ func OpenAIProbeFromRequest(req *schema.OpenAIRequest) router.Probe {
 	if req == nil {
 		return router.Probe{}
 	}
+	release, admissionErr := systemone.AcquireAdmission(context.Background())
+	if admissionErr != nil {
+		return router.Probe{InputError: admissionErr}
+	}
+	defer release()
+	if err := probeBudget(req.Messages); err != nil {
+		return router.Probe{InputError: err}
+	}
 	texts := make([]string, len(req.Messages))
 	for i := range req.Messages {
 		texts[i] = messageText(req.Messages[i].Content)
@@ -789,7 +890,12 @@ func OpenAIProbeFromRequest(req *schema.OpenAIRequest) router.Probe {
 	// Prompt carries the full conversation; each classifier trims it to its own
 	// model's context (see modelTokenTrim). Messages preserves the per-turn
 	// split the trimmer drops oldest-first.
-	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts}
+	state, err := json.Marshal(req.Messages)
+	if len(state) > systemone.MaxImageBodyBytes {
+		state = nil
+		err = fmt.Errorf("router state exceeds decision image request budget")
+	}
+	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts, State: state, InputError: err}
 }
 
 // AnthropicProbe is the AnthropicRequest analogue of OpenAIProbe.
@@ -798,10 +904,23 @@ func AnthropicProbe(parsed any) (router.Probe, bool) {
 	if !ok || req == nil {
 		return router.Probe{}, false
 	}
+	release, admissionErr := systemone.AcquireAdmission(context.Background())
+	if admissionErr != nil {
+		return router.Probe{InputError: admissionErr}, true
+	}
+	defer release()
+	if err := probeBudget(req.Messages); err != nil {
+		return router.Probe{InputError: err}, true
+	}
 	texts := make([]string, len(req.Messages))
 	for i := range req.Messages {
 		texts[i] = messageText(req.Messages[i].Content)
 	}
 	parts := messageProbeParts(texts)
-	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts}, true
+	state, err := json.Marshal(req.Messages)
+	if len(state) > systemone.MaxImageBodyBytes {
+		state = nil
+		err = fmt.Errorf("router state exceeds decision image request budget")
+	}
+	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts, State: state, InputError: err}, true
 }

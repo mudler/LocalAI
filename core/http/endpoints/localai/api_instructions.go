@@ -24,6 +24,7 @@ type instructionDef struct {
 }
 
 var instructionDefs = []instructionDef{
+	{Name: "motion", Description: "Live human pose capture with Protobuf over WebSocket.", Tags: []string{"motion"}, Intro: "Create /api/motion/sessions and negotiate localai.motion.v2 on /poses for binary Protobuf RGB uploads and pose outputs with JSON flow credits. Browsers can POST /api/motion/sessions/{id}/tickets for a single-use 30-second WebSocket ticket. No SONIC controller or offline export."},
 	{
 		Name:        "chat-inference",
 		Description: "OpenAI-compatible chat completions, text completions, and embeddings",
@@ -40,7 +41,7 @@ var instructionDefs = []instructionDef{
 		Name:        "audio",
 		Description: "Text-to-speech, voice activity detection, transcription, speaker diarization, sound classification, and sound generation",
 		Tags:        []string{"audio"},
-		Intro:       "GET /v1/audio/voices lists named voices for installed TTS models and accepts an optional model filter. Diarization (/v1/audio/diarization) returns speaker-labelled time segments. Backends with native ASR-diarization (vibevoice-cpp) can also emit per-segment text via include_text=true; backends with a dedicated pipeline (sherpa-onnx + pyannote) emit segmentation only. Response formats: json (default), verbose_json (adds speakers summary + text), rttm (NIST format). Sound classification (/v1/audio/classification) returns scored AudioSet sound-event tags (audio tagging via the ced backend); top_k and threshold control the returned set.",
+		Intro:       "GET /v1/audio/voices lists named voices for installed TTS models and accepts an optional model filter. Diarization (/v1/audio/diarization) returns speaker-labelled time segments. Backends with native ASR-diarization (vibevoice-cpp) can also emit per-segment text via include_text=true; backends with a dedicated pipeline (sherpa-onnx + pyannote) emit segmentation only. include_sounds=true adds timed sound events (start, end, label, confidence) when the model has a sound companion, otherwise 501 include_sounds_unsupported. Response formats: json (default), verbose_json (adds speakers summary + text), rttm (NIST format). Sound classification (/v1/audio/classification) returns scored AudioSet sound-event tags (audio tagging via the ced backend); top_k and threshold control the returned set.",
 	},
 	{
 		Name:        "voice-library",
@@ -55,6 +56,7 @@ var instructionDefs = []instructionDef{
 	},
 	{
 		Name:        "model-management",
+		Intro:       "GET /api/models/{id}/load-status reports job_id and the lease of a distributed load. Admin POST /api/models/{id}/load-cancel needs that job_id: 200 means stopped or gone, 202 means the cancel is recorded and the stop is pending (retry_after says when the model is released regardless), 409 means a different attempt is current. Never cancel a replacement attempt.",
 		Description: "Browse the gallery, install, delete, and manage models and backends",
 		Tags:        []string{"models", "backends"},
 	},
@@ -89,9 +91,9 @@ var instructionDefs = []instructionDef{
 	},
 	{
 		Name:        "3d",
-		Description: "Image-to-3D asset generation (binary glTF / GLB) via TRELLIS.2",
+		Description: "3D mesh generation, remeshing, and animation (binary glTF / GLB)",
 		Tags:        []string{"3d"},
-		Intro:       "POST /3d/generations accepts a conditioning image as public URL, base64, or data URI (no text prompt) and returns one .glb asset as a URL under /generated-3d or as b64_json. quality selects the mesh pipeline (auto|coarse|512|1024); background controls solid-background removal (auto|keep|black|white); step, texture_steps, and cfg_scale tune the flow sampling. POST /3d/remesh accepts multipart model, mesh (GLB), and a single detail percentage to return a watertight print-ready GLB; the enclosing offset is derived automatically.",
+		Intro:       "POST /3d/generations accepts a conditioning image as public URL, base64, or data URI (no text prompt) and returns one .glb asset as a URL under /generated-3d or as b64_json. quality selects the mesh pipeline (auto|coarse|512|1024); background controls solid-background removal (auto|keep|black|white); step, texture_steps, and cfg_scale tune the flow sampling. POST /3d/remesh accepts multipart model, mesh (GLB), and a single detail percentage to return a watertight print-ready GLB; the enclosing offset is derived automatically. POST /3d/animate accepts named inputs with type and data, plus string-valued params. Consult the selected model's three_d_operations from /v1/models/capabilities for its required inputs, parameters, and output type. Kimodo produces text-conditioned animated skeletons without a mesh or skin; animation inputs are not universally text-only.",
 	},
 	{
 		Name:        "face-recognition",
@@ -104,6 +106,12 @@ var instructionDefs = []instructionDef{
 		Description: "Speaker verification (1:1), embedding, and demographic analysis from voice",
 		Tags:        []string{"voice-recognition"},
 		Intro:       "Voice (speaker) recognition — the audio analog to /v1/face/*. Use /v1/voice/verify for 1:1 speaker comparison, /v1/voice/identify for 1:N match against the registered store, /v1/voice/{register,forget} to manage that store, /v1/voice/embed for a raw speaker-encoder vector, and /v1/voice/analyze for age / gender / emotion inferred from speech. Registrations are in-memory by default and lost on restart. Audio inputs accept URL, base64, or data-URI; /v1/embeddings remains text-only.",
+	},
+	{
+		Name:        "decisions",
+		Description: "Typed local decisions through OpenAI-compatible /v1/decisions and SystemOne APIs",
+		Tags:        []string{"systemone"},
+		Intro:       "POST /v1/decisions accepts { model, input, questions: [{ type: predicate|choice|score, name, instructions, choices, levels }] } and returns ordered answers with typed string/boolean choices. It shares SystemOne execution and backend limits. POST /v1/systemone accepts { model, state, questions: { <id>: { type: choice|noul|score, instructions, criteria } } }. Both answer all questions in one pass. /v1/systemone/permute re-runs one choice question under n_perm option orders; /v1/systemone/separate answers each question in its own pass. Decision models declare known_usecases: [decisions]; /permute and /separate return 400 for these models. Zero-shot NER models declare token_classify and serve all four routes through the NER path. A vllm-cpp config with no declared usecases is treated as a decision model. Confidence comes from the local pipeline, without an OpenAI calibration guarantee. Usage reflects backend counts; unavailable detail breakdowns are empty objects. /v1/decisions accepts user messages with input_text and inline PNG/JPEG input_image parts; only default auto detail is supported. Text and images are flattened into SystemOne state and an image list. External URLs are never fetched. safety_identifier is compatibility metadata, not a safety service or authentication identity. Text-only bodies are limited to 64 KiB, image-bearing bodies to 16 MiB, and requests to 64 questions. Shared image limits and backend capability checks apply; see the Decisions API docs.",
 	},
 	{
 		Name:        "branding",
@@ -128,6 +136,12 @@ var instructionDefs = []instructionDef{
 		Description: "Inspect and configure the routing-module middleware (PII filter and routing)",
 		Tags:        []string{"middleware", "pii", "router"},
 		Intro:       "GET /api/middleware/status is the single round-trip the /app/middleware admin page reads to render the current state: every model's resolved PII enabled state and the NER detector models it references, recent event count, and the active routing models with their classifier configurations. Admin-only (the synthetic local user is admin in no-auth mode). PII detection policy is edited on each detector model's `pii_detection:` block via the model-config tools/UI — there is no global pattern set to mutate. GET /api/router/decisions returns the routing decision log filtered by correlation_id / user_id / router_model. The same surface is exposed as MCP tools (`get_middleware_status`, `get_pii_events`, `get_router_decisions`) for agent-driven inspection.",
+	},
+	{
+		Name:        "failover",
+		Description: "Model failover chains: target health, pinning and switch events",
+		Tags:        []string{"failover"},
+		Intro:       "A failover chain is a model config with a failover block. Requests for the chain name are served by its highest-priority healthy target; the X-LocalAI-Served-Model response header names it. Subscribe to GET /api/failover/events (SSE) to follow switches.",
 	},
 	{
 		Name:        "intelligent-routing",

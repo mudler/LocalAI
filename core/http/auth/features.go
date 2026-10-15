@@ -10,6 +10,11 @@ type RouteFeature struct {
 // RouteFeatureRegistry is the single source of truth for endpoint -> feature mappings.
 // To gate a new endpoint, add an entry here -- no other file changes needed.
 var RouteFeatureRegistry = []RouteFeature{
+	{"POST", "/api/motion/sessions", FeatureMotion},
+	{"GET", "/api/motion/sessions/:id", FeatureMotion},
+	{"DELETE", "/api/motion/sessions/:id", FeatureMotion},
+	{"GET", "/api/motion/sessions/:id/poses", FeatureMotion},
+	{"POST", "/api/motion/sessions/:id/tickets", FeatureMotion},
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},
@@ -71,6 +76,12 @@ var RouteFeatureRegistry = []RouteFeature{
 	// Detection
 	{"POST", "/v1/detection", FeatureDetection},
 
+	// Decisions API (OpenAI and SystemOne wire contracts)
+	{"POST", "/v1/decisions", FeatureDecisions},
+	{"POST", "/v1/systemone", FeatureDecisions},
+	{"POST", "/v1/systemone/permute", FeatureDecisions},
+	{"POST", "/v1/systemone/separate", FeatureDecisions},
+
 	// Face recognition
 	{"POST", "/v1/face/verify", FeatureFaceRecognition},
 	{"POST", "/v1/face/analyze", FeatureFaceRecognition},
@@ -98,6 +109,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	// 3D generation
 	{"POST", "/3d/generations", Feature3D},
 	{"POST", "/3d/remesh", Feature3D},
+	{"POST", "/3d/animate", Feature3D},
 
 	// Sound generation
 	{"POST", "/v1/sound-generation", FeatureSound},
@@ -196,6 +208,7 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureDetection, "Detection", true},
 		{FeatureVideo, "Video Generation", true},
 		{Feature3D, "3D Generation", true},
+		{FeatureMotion, "Motion Capture", true},
 		{FeatureEmbeddings, "Embeddings", true},
 		{FeatureSound, "Sound Generation", true},
 		{FeatureRealtime, "Realtime", true},
@@ -208,5 +221,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureVoiceRecognition, "Voice Recognition", true},
 		{FeatureAudioTransform, "Audio Transform", true},
 		{FeaturePIIFilter, "PII Analyze / Redact", true},
+		{FeatureDecisions, "Decisions", true},
 	}
 }

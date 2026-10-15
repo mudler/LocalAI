@@ -93,6 +93,10 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 		"draft_model", in.DraftModel,
 		"mmproj", in.MMProj)
 	recordLoadParams(in)
+	// Lets e2e specs build a failover target whose backend cannot load.
+	if strings.HasPrefix(in.Model, "fail-load") {
+		return &pb.Result{Message: "mock: load failure", Success: false}, nil
+	}
 	return &pb.Result{
 		Message: "Model loaded successfully (mocked)",
 		Success: true,
@@ -103,7 +107,17 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
+	if opts := snapshotLoadParams(); opts != nil && (strings.Contains(opts.Model, "mm-red") || strings.Contains(opts.Model, "mm-blue")) {
+		if err := auditDecision("predict", []byte(opts.Model)); err != nil {
+			return nil, err
+		}
+		b, err := json.Marshal(map[string]any{"model": opts.Model, "images": in.Images, "prompt": in.Prompt})
+		return &pb.Reply{Message: b, PromptTokens: 1, Tokens: 1}, err
+	}
 	xlog.Debug("Predict called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
+		return nil, errMockContextOverflow
+	}
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
 	}
@@ -255,11 +269,18 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	}, nil
 }
 
+// errMockContextOverflow is llama.cpp's error for a prompt that does not fit
+// the slot's context (tools/server/server-context.cpp).
+var errMockContextOverflow = fmt.Errorf("request (9739 tokens) exceeds the available context size (8192 tokens), try increasing it")
+
 func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
 	if err := checkModelIdentity(in); err != nil {
 		return err
 	}
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
+		return errMockContextOverflow
+	}
 	if strings.Contains(in.Prompt, "MOCK_ERROR_IMMEDIATE") {
 		return fmt.Errorf("mock backend stream error: simulated failure")
 	}
@@ -425,6 +446,9 @@ func mockToolNameFromRequest(in *pb.PredictOptions) string {
 }
 
 func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
+	if err := auditDecision("embedding", []byte("Embedding")); err != nil {
+		return nil, err
+	}
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
@@ -634,6 +658,7 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 	rms := 0.0
 
 	if dst != "" {
+		// #nosec G304 -- test-only mock backend reading the path core just staged
 		if data, err := os.ReadFile(dst); err == nil {
 			if len(data) >= 44 {
 				wavSR = int(binary.LittleEndian.Uint32(data[24:28]))
@@ -704,6 +729,9 @@ func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions)
 func (m *MockBackend) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
+	}
+	if in.QuestionType == "systemone" {
+		return mockDecision(ctx, in)
 	}
 	xlog.Debug("Score called", "candidates", len(in.Candidates))
 	hint := extractRouteHint(in.Prompt)
@@ -947,7 +975,7 @@ func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.D
 		}
 		return out
 	}
-	return &pb.DiarizeResponse{
+	resp := &pb.DiarizeResponse{
 		Segments: []*pb.DiarizeSegment{
 			seg(0.0, 1.0, "5", "hello there"),
 			seg(1.0, 2.0, "2", "general kenobi"),
@@ -956,7 +984,16 @@ func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.D
 		NumSpeakers: 2,
 		Duration:    3.5,
 		Language:    in.Language,
-	}, nil
+	}
+	// IncludeSounds gates the sound events; the mock always has a sound model.
+	if in.IncludeSounds {
+		resp.SoundsIncluded = true
+		resp.Sounds = []*pb.DiarizeSound{
+			{Start: 0.5, End: 1.25, Label: "Door", Confidence: 0.8},
+			{Start: 2.0, End: 3.0, Label: "Applause", Confidence: 0.6},
+		}
+	}
+	return resp, nil
 }
 
 func (m *MockBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
@@ -1004,7 +1041,7 @@ func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*
 // survive resampling (DC is sample-rate independent). Near-zero DC maps to a
 // neutral vector equidistant from both. Returns nil for unreadable audio.
 func voiceEmbedFromWAV(path string) []float32 {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- test-only mock backend reading the path core just staged
 	if err != nil || len(data) < 44 {
 		return nil
 	}

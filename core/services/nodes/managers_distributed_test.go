@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // scriptedMessagingClient maps a NATS subject to a canned reply payload
@@ -29,20 +30,8 @@ type scriptedMessagingClient struct {
 	errs                       map[string]error
 	calls                      []requestCall
 	matchedReplies             map[string][]matchedReply
-	publishes                  []progressPublishCall
 	scheduledProgressPublishes []scheduledProgressPublish
 	subscribes                 []string
-}
-
-// progressPublishCall records a single Publish invocation. The progress
-// publisher tests assert on the sequence of BackendInstallProgressEvent
-// values written to a per-op subject, so we capture both subject and the
-// decoded event. Named to avoid clashing with the simpler `publishCall`
-// already defined in unloader_test.go (which stores raw JSON bytes for
-// non-progress assertions).
-type progressPublishCall struct {
-	Subject string
-	Event   messaging.BackendInstallProgressEvent
 }
 
 // scheduledProgressPublish queues a batch of BackendInstallProgressEvent
@@ -52,7 +41,7 @@ type progressPublishCall struct {
 // delivered as soon as the subscription appears.
 type scheduledProgressPublish struct {
 	subject string
-	events  []messaging.BackendInstallProgressEvent
+	events  []workerctl.BackendInstallProgressEvent
 }
 
 // matchedReply lets a test script a canned reply that only fires when the
@@ -60,7 +49,7 @@ type scheduledProgressPublish struct {
 // distinguish "install Force=true" (the fallback) from "install Force=false"
 // on the same subject.
 type matchedReply struct {
-	pred        func(messaging.BackendInstallRequest) bool
+	pred        func(workerctl.BackendInstallRequest) bool
 	reply       []byte
 	fallback    []byte
 	fallbackErr error
@@ -106,7 +95,7 @@ func (s *scriptedMessagingClient) scriptNoResponders(subject string) {
 // If `pred` returns false (or the unmarshal of the payload into the
 // predicate's expected type fails), the subject falls through to whatever
 // was scripted before (or to the unscripted default ErrNoResponders).
-func (s *scriptedMessagingClient) scriptReplyMatching(subject string, pred func(messaging.BackendInstallRequest) bool, reply messaging.BackendInstallReply) {
+func (s *scriptedMessagingClient) scriptReplyMatching(subject string, pred func(workerctl.BackendInstallRequest) bool, reply workerctl.BackendInstallReply) {
 	raw, err := json.Marshal(reply)
 	Expect(err).ToNot(HaveOccurred())
 	s.mu.Lock()
@@ -131,7 +120,7 @@ func (s *scriptedMessagingClient) Request(subject string, data []byte, timeout t
 
 	// Predicate-matched replies take precedence over flat scriptReply.
 	if matchers, ok := s.matchedReplies[subject]; ok {
-		var req messaging.BackendInstallRequest
+		var req workerctl.BackendInstallRequest
 		_ = json.Unmarshal(data, &req)
 		for _, m := range matchers {
 			if m.pred(req) {
@@ -161,45 +150,17 @@ func (s *scriptedMessagingClient) Request(subject string, data []byte, timeout t
 	return nil, &fakeNoRespondersErr{}
 }
 
-// Publish records each call so progress-publisher tests can assert on the
-// stream of events written to a subject. The real messaging.Client JSON
-// encodes the payload before sending, but our publisher hands a typed
-// struct directly, so we handle both shapes.
-func (s *scriptedMessagingClient) Publish(subject string, data any) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	switch ev := data.(type) {
-	case messaging.BackendInstallProgressEvent:
-		s.publishes = append(s.publishes, progressPublishCall{Subject: subject, Event: ev})
-	case []byte:
-		var e messaging.BackendInstallProgressEvent
-		_ = json.Unmarshal(ev, &e)
-		s.publishes = append(s.publishes, progressPublishCall{Subject: subject, Event: e})
-	}
+// Publish drops every event: no spec reads what the frontend publishes
+// through this fake.
+func (s *scriptedMessagingClient) Publish(string, any) error {
 	return nil
-}
-
-// publishCalls returns every BackendInstallProgressEvent that was published
-// to `subject`, in order. Lets tests assert on debounce behavior without
-// depending on internal Publish timing.
-func (s *scriptedMessagingClient) publishCalls(subject string) []messaging.BackendInstallProgressEvent {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]messaging.BackendInstallProgressEvent, 0)
-	for _, c := range s.publishes {
-		if c.Subject != subject {
-			continue
-		}
-		out = append(out, c.Event)
-	}
-	return out
 }
 
 // scheduleProgressPublish queues a set of BackendInstallProgressEvent values
 // to be delivered on the next Subscribe call matching the per-op progress
 // subject. A short delay before delivery gives the subscriber time to install
 // its message handler before the events arrive.
-func (s *scriptedMessagingClient) scheduleProgressPublish(nodeID, opID string, events []messaging.BackendInstallProgressEvent) {
+func (s *scriptedMessagingClient) scheduleProgressPublish(nodeID, opID string, events []workerctl.BackendInstallProgressEvent) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.scheduledProgressPublishes = append(s.scheduledProgressPublishes, scheduledProgressPublish{
@@ -386,9 +347,9 @@ var _ = Describe("DistributedBackendManager", func() {
 				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
 
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(n1.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+					workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(n2.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.2:50100"})
+					workerctl.BackendInstallReply{Success: true, Address: "10.0.0.2:50100"})
 
 				Expect(mgr.InstallBackend(ctx, op("vllm-development"), nil)).To(Succeed())
 			})
@@ -400,9 +361,9 @@ var _ = Describe("DistributedBackendManager", func() {
 				n2 := registerHealthyBackend("nvidia-thor", "10.0.0.2:50051")
 
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(n1.ID),
-					messaging.BackendInstallReply{Success: false, Error: "no child with platform linux/arm64 in index quay.io/...master-cpu-vllm"})
+					workerctl.BackendInstallReply{Success: false, Error: "no child with platform linux/arm64 in index quay.io/...master-cpu-vllm"})
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(n2.ID),
-					messaging.BackendInstallReply{Success: false, Error: "disk full"})
+					workerctl.BackendInstallReply{Success: false, Error: "disk full"})
 
 				err := mgr.InstallBackend(ctx, op("vllm-development"), nil)
 				Expect(err).To(HaveOccurred())
@@ -420,9 +381,9 @@ var _ = Describe("DistributedBackendManager", func() {
 				bad := registerHealthyBackend("worker-bad", "10.0.0.2:50051")
 
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(ok.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+					workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(bad.ID),
-					messaging.BackendInstallReply{Success: false, Error: "out of memory"})
+					workerctl.BackendInstallReply{Success: false, Error: "out of memory"})
 
 				err := mgr.InstallBackend(ctx, op("vllm-development"), nil)
 				Expect(err).To(HaveOccurred())
@@ -459,7 +420,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				other := registerHealthyBackend("worker-other", "10.0.0.2:50051")
 
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(target.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+					workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
 				// No reply scripted for `other`: if InstallBackend fans out
 				// to it, the fakeNoRespondersErr default would surface and
 				// the test would fail.
@@ -545,8 +506,8 @@ var _ = Describe("DistributedBackendManager", func() {
 				// The worker finished installing in the background. Script
 				// backend.list on the same scriptedMessagingClient so the
 				// manager's ListBackends fan-out reports the backend.
-				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), messaging.BackendListReply{
-					Backends: []messaging.NodeBackendInfo{{Name: "vllm"}},
+				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), workerctl.BackendListReply{
+					Backends: []workerctl.NodeBackendInfo{{Name: "vllm"}},
 				})
 
 				backends, listErr := mgr.ListBackends()
@@ -581,8 +542,8 @@ var _ = Describe("DistributedBackendManager", func() {
 
 				// Worker finishes installing in the background. backend.list now
 				// confirms presence; ListBackends should proactively clear the row.
-				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), messaging.BackendListReply{
-					Backends: []messaging.NodeBackendInfo{{Name: "vllm"}},
+				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), workerctl.BackendListReply{
+					Backends: []workerctl.NodeBackendInfo{{Name: "vllm"}},
 				})
 
 				backends, listErr := mgr.ListBackends()
@@ -599,8 +560,8 @@ var _ = Describe("DistributedBackendManager", func() {
 
 				Expect(registry.UpsertPendingBackendOp(ctx, node.ID, "vllm", OpBackendUpgrade, []byte("[]"))).To(Succeed())
 
-				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), messaging.BackendListReply{
-					Backends: []messaging.NodeBackendInfo{{Name: "vllm"}},
+				mc.scriptReply(messaging.SubjectNodeBackendList(node.ID), workerctl.BackendListReply{
+					Backends: []workerctl.NodeBackendInfo{{Name: "vllm"}},
 				})
 
 				_, listErr := mgr.ListBackends()
@@ -615,8 +576,8 @@ var _ = Describe("DistributedBackendManager", func() {
 			It("invokes progressCb once per worker-published progress event", func() {
 				node := registerHealthyBackend("worker-prog", "10.0.0.7:50051")
 
-				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, Address: "10.0.0.7:50051"})
-				mc.scheduleProgressPublish(node.ID, "op-prog-1", []messaging.BackendInstallProgressEvent{
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), workerctl.BackendInstallReply{Success: true, Address: "10.0.0.7:50051"})
+				mc.scheduleProgressPublish(node.ID, "op-prog-1", []workerctl.BackendInstallProgressEvent{
 					{OpID: "op-prog-1", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "100 MB", Total: "1 GB", Percentage: 10},
 					{OpID: "op-prog-1", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100},
 				})
@@ -659,7 +620,7 @@ var _ = Describe("DistributedBackendManager", func() {
 		Context("InstallBackend tolerates silent (pre-Phase-2) workers", func() {
 			It("completes successfully even when no progress events are ever published", func() {
 				node := registerHealthyBackend("worker-silent", "10.0.0.8:50051")
-				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, Address: "10.0.0.8:50051"})
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), workerctl.BackendInstallReply{Success: true, Address: "10.0.0.8:50051"})
 				// NO scheduleProgressPublish call - silent worker.
 
 				var ticks int
@@ -702,7 +663,7 @@ var _ = Describe("DistributedBackendManager", func() {
 			It("emits a success entry for each healthy node visited", func() {
 				node := registerHealthyBackend("worker-ok", "10.0.0.9:50051")
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.9:50051"})
+					workerctl.BackendInstallReply{Success: true, Address: "10.0.0.9:50051"})
 
 				opVal := op("vllm")
 				opVal.ID = "op-node-success"
@@ -731,9 +692,9 @@ var _ = Describe("DistributedBackendManager", func() {
 			It("emits downloading entries from progress events", func() {
 				node := registerHealthyBackend("worker-dl", "10.0.0.11:50051")
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID),
-					messaging.BackendInstallReply{Success: true})
-				mc.scheduleProgressPublish(node.ID, "op-node-dl", []messaging.BackendInstallProgressEvent{
-					{OpID: "op-node-dl", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100, Phase: messaging.PhaseDownloading},
+					workerctl.BackendInstallReply{Success: true})
+				mc.scheduleProgressPublish(node.ID, "op-node-dl", []workerctl.BackendInstallProgressEvent{
+					{OpID: "op-node-dl", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100, Phase: workerctl.PhaseDownloading},
 				})
 
 				opVal := op("vllm")
@@ -766,13 +727,13 @@ var _ = Describe("DistributedBackendManager", func() {
 		scriptInstalled := func(backend string, nodeIDs ...string) {
 			for _, id := range nodeIDs {
 				mc.scriptReply(messaging.SubjectNodeBackendList(id),
-					messaging.BackendListReply{Backends: []messaging.NodeBackendInfo{{Name: backend}}})
+					workerctl.BackendListReply{Backends: []workerctl.NodeBackendInfo{{Name: backend}}})
 			}
 		}
 		scriptNoBackends := func(nodeIDs ...string) {
 			for _, id := range nodeIDs {
 				mc.scriptReply(messaging.SubjectNodeBackendList(id),
-					messaging.BackendListReply{Backends: nil})
+					workerctl.BackendListReply{Backends: nil})
 			}
 		}
 
@@ -783,9 +744,9 @@ var _ = Describe("DistributedBackendManager", func() {
 
 				scriptInstalled("vllm-development", n1.ID, n2.ID)
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID),
-					messaging.BackendUpgradeReply{Success: false, Error: "image manifest not found"})
+					workerctl.BackendUpgradeReply{Success: false, Error: "image manifest not found"})
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n2.ID),
-					messaging.BackendUpgradeReply{Success: false, Error: "registry unauthorized"})
+					workerctl.BackendUpgradeReply{Success: false, Error: "registry unauthorized"})
 
 				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
 				Expect(err).To(HaveOccurred())
@@ -801,7 +762,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
 				scriptInstalled("vllm-development", n1.ID)
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID),
-					messaging.BackendUpgradeReply{Success: true})
+					workerctl.BackendUpgradeReply{Success: true})
 				Expect(mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)).To(Succeed())
 			})
 		})
@@ -819,7 +780,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				scriptInstalled("cpu-insightface-development", has.ID)
 				scriptNoBackends(lacks.ID)
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(has.ID),
-					messaging.BackendUpgradeReply{Success: true})
+					workerctl.BackendUpgradeReply{Success: true})
 				// Deliberately don't script SubjectNodeBackendUpgrade for `lacks`:
 				// if the manager attempts it, the scripted-client default returns
 				// fakeNoRespondersErr and the assertion below fails loudly.
@@ -847,9 +808,9 @@ var _ = Describe("DistributedBackendManager", func() {
 
 				scriptInstalled("vllm-development", n1.ID, n2.ID)
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n1.ID),
-					messaging.BackendUpgradeReply{Success: true})
+					workerctl.BackendUpgradeReply{Success: true})
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n2.ID),
-					messaging.BackendUpgradeReply{Success: true})
+					workerctl.BackendUpgradeReply{Success: true})
 
 				op := upgradeOp("vllm-development")
 				op.TargetNodeID = n2.ID
@@ -877,7 +838,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				scriptInstalled("vllm-development", has.ID)
 				scriptNoBackends(lacks.ID)
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(has.ID),
-					messaging.BackendUpgradeReply{Success: true})
+					workerctl.BackendUpgradeReply{Success: true})
 
 				op := upgradeOp("vllm-development")
 				op.TargetNodeID = lacks.ID
@@ -915,12 +876,12 @@ var _ = Describe("DistributedBackendManager", func() {
 		})
 
 		// Rolling-update fallback: pre-2026-05-08 workers don't subscribe to
-		// backend.upgrade, so the manager catches nats.ErrNoResponders and
+		// backend.upgrade, so the adapter reports ErrNoRoute and the manager
 		// re-fires the legacy backend.install Force=true on the same node.
 		// Drop these specs once the fallback path itself is removed (see
 		// managers_distributed.go UpgradeBackend godoc for the deprecation).
 		Context("rolling-update fallback", func() {
-			It("falls back to backend.install Force=true when upgrade returns ErrNoResponders", func() {
+			It("falls back to backend.install Force=true when upgrade returns ErrNoRoute", func() {
 				n := registerHealthyBackend("worker-old", "10.0.0.1:50051")
 				scriptInstalled("vllm-development", n.ID)
 
@@ -928,18 +889,18 @@ var _ = Describe("DistributedBackendManager", func() {
 				mc.scriptNoResponders(messaging.SubjectNodeBackendUpgrade(n.ID))
 				// Fallback re-fires legacy backend.install with Force=true.
 				mc.scriptReplyMatching(messaging.SubjectNodeBackendInstall(n.ID),
-					func(req messaging.BackendInstallRequest) bool { return req.Force },
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+					func(req workerctl.BackendInstallRequest) bool { return req.Force },
+					workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
 
 				Expect(mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)).To(Succeed())
 			})
 
-			It("returns the upgrade error when it is not ErrNoResponders", func() {
+			It("returns the upgrade error when it is not ErrNoRoute", func() {
 				n := registerHealthyBackend("worker-bad", "10.0.0.1:50051")
 				scriptInstalled("vllm-development", n.ID)
 
 				mc.scriptReply(messaging.SubjectNodeBackendUpgrade(n.ID),
-					messaging.BackendUpgradeReply{Success: false, Error: "disk full"})
+					workerctl.BackendUpgradeReply{Success: false, Error: "disk full"})
 
 				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
 				Expect(err).To(HaveOccurred())
@@ -955,9 +916,9 @@ var _ = Describe("DistributedBackendManager", func() {
 				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
 
 				mc.scriptReply(messaging.SubjectNodeBackendDelete(n1.ID),
-					messaging.BackendDeleteReply{Success: false, Error: "backend not installed"})
+					workerctl.BackendDeleteReply{Success: false, Error: "backend not installed"})
 				mc.scriptReply(messaging.SubjectNodeBackendDelete(n2.ID),
-					messaging.BackendDeleteReply{Success: false, Error: "permission denied"})
+					workerctl.BackendDeleteReply{Success: false, Error: "permission denied"})
 
 				err := mgr.DeleteBackend("vllm-development")
 				Expect(err).To(HaveOccurred())
@@ -972,7 +933,7 @@ var _ = Describe("DistributedBackendManager", func() {
 			It("returns nil", func() {
 				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
 				mc.scriptReply(messaging.SubjectNodeBackendDelete(n1.ID),
-					messaging.BackendDeleteReply{Success: true})
+					workerctl.BackendDeleteReply{Success: true})
 				Expect(mgr.DeleteBackend("vllm-development")).To(Succeed())
 			})
 		})

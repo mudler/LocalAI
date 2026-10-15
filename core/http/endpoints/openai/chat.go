@@ -218,7 +218,7 @@ func applyAutoparserOverride(
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient, assistantHolder *mcpTools.LocalAIAssistantHolder, compressor middleware.ChatCompressor) echo.HandlerFunc {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, agentControl mcpTools.AgentControl, assistantHolder *mcpTools.LocalAIAssistantHolder, compressor middleware.ChatCompressor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var textContentToReturn string
 		id := uuid.New().String()
@@ -320,7 +320,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (config.MCP.Servers != "" || config.MCP.Stdio != "") {
 			remote, stdio, mcpErr := config.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, config.Name, remote, stdio, mcpServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, config.Name, remote, stdio, mcpServers)
 
 				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
 				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.Name, remote, stdio, mcpServers)
@@ -451,7 +451,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			}
 
 			// Update input grammar or json_schema based on use_llama_grammar option
-			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
+			jsStruct := config.FunctionsConfig.ToJSONStructure(funcs)
 			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
 			if err == nil {
 				config.Grammar = g
@@ -537,6 +537,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				}()
 
 				var finalUsage backend.TokenUsage
+				// wroteChunk records whether this iteration sent anything. The
+				// chunks go to the raw writer, so c.Response().Committed stays
+				// false and cannot tell.
+				wroteChunk := false
 				toolsCalled := false
 				var collectedToolCalls []schema.ToolCall
 				var collectedContent string
@@ -598,6 +602,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							input.Cancel()
 							return err
 						}
+						wroteChunk = true
 						c.Response().Flush()
 					case res := <-ended:
 						if res.err == nil {
@@ -605,6 +610,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							break LOOP
 						}
 						xlog.Error("Stream ended with error", "error", res.err)
+
+						// Nothing was sent yet, so the status line is still
+						// open: answer with a real HTTP error instead of an
+						// error chunk on a 200 stream. Clients then handle it
+						// like the same failure on a non-streaming request.
+						if mcpStreamIter == 0 && !wroteChunk {
+							h := c.Response().Header()
+							h.Del("Content-Type")
+							h.Del("Cache-Control")
+							h.Del("Connection")
+							return backendRequestError(res.err)
+						}
 
 						errorResp := schema.ErrorResponse{
 							Error: &schema.APIError{
@@ -881,7 +898,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					},
 				)
 				if err != nil {
-					return err
+					return backendRequestError(err)
 				}
 
 				// For non-tool requests: prefer C++ autoparser chat deltas over

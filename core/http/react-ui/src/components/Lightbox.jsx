@@ -1,4 +1,5 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
+import Icon from './Icon'
 
 // Fullscreen image viewer with prev/next, download, and keyboard control
 // (Esc to close, Left/Right to navigate). `images` is [{ url, alt }]; `index`
@@ -12,15 +13,21 @@ export default function Lightbox({ images, index, onClose, onIndex }) {
     onIndex(((index + delta) % count + count) % count)
   }, [count, index, onIndex])
 
+  // The key listener is registered once and reads the latest handlers from a
+  // ref. A parent that re-renders on the same key press (the Chat page does on
+  // Esc) would otherwise swap the listener in the middle of the dispatch, and
+  // the new one does not receive the event that is already on its way.
+  const latest = useRef({ onClose, go })
+  latest.current = { onClose, go }
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowRight') go(1)
-      else if (e.key === 'ArrowLeft') go(-1)
+      if (e.key === 'Escape') latest.current.onClose()
+      else if (e.key === 'ArrowRight') latest.current.go(1)
+      else if (e.key === 'ArrowLeft') latest.current.go(-1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, go])
+  }, [])
 
   if (!has) return null
   const img = images[index] || images[0]
@@ -30,16 +37,16 @@ export default function Lightbox({ images, index, onClose, onIndex }) {
       <div className="lightbox__toolbar" onClick={(e) => e.stopPropagation()}>
         {count > 1 && <span className="lightbox__count">{index + 1} / {count}</span>}
         <a className="btn btn-secondary btn-sm" href={img.url} download target="_blank" rel="noopener noreferrer" aria-label="Download">
-          <i className="fas fa-download" aria-hidden="true" />
+          <Icon name="download" />
         </a>
         <button type="button" className="btn btn-secondary btn-sm" onClick={onClose} aria-label="Close">
-          <i className="fas fa-times" aria-hidden="true" />
+          <Icon name="close" />
         </button>
       </div>
 
       {count > 1 && (
         <button type="button" className="lightbox__nav lightbox__nav--prev" onClick={(e) => { e.stopPropagation(); go(-1) }} aria-label="Previous">
-          <i className="fas fa-chevron-left" aria-hidden="true" />
+          <Icon name="chevron-left" />
         </button>
       )}
 
@@ -47,7 +54,7 @@ export default function Lightbox({ images, index, onClose, onIndex }) {
 
       {count > 1 && (
         <button type="button" className="lightbox__nav lightbox__nav--next" onClick={(e) => { e.stopPropagation(); go(1) }} aria-label="Next">
-          <i className="fas fa-chevron-right" aria-hidden="true" />
+          <Icon name="chevron-right" />
         </button>
       )}
     </div>

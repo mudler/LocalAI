@@ -9,16 +9,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
-	"github.com/nats-io/nats.go"
 	ggrpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
@@ -185,12 +185,18 @@ func (s *fakeLoadJobStore) ClaimLoadJob(_ context.Context, trackingKey, owner st
 	if s.jobs == nil {
 		s.jobs = map[string]*ModelLoadJob{}
 	}
-	if existing, ok := s.jobs[trackingKey]; ok && !existing.IsOrphaned(time.Now()) {
-		cp := *existing
-		return &cp, false, nil
-	}
 	now := time.Now()
-	job := &ModelLoadJob{TrackingKey: trackingKey, State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now}
+	if existing, ok := s.jobs[trackingKey]; ok {
+		past := func(t *time.Time) bool { return t != nil && now.After(*t) }
+		reclaim := existing.State == LoadJobStateFailed && past(existing.StopDeadline) ||
+			existing.State != LoadJobStateFailed && past(existing.LeaseUntil)
+		if !reclaim {
+			cp := *existing
+			return &cp, false, nil
+		}
+	}
+	lease := now.Add(loadJobLeaseTTL)
+	job := &ModelLoadJob{TrackingKey: trackingKey, Generation: uuid.NewString(), State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now, LeaseUntil: &lease}
 	s.jobs[trackingKey] = job
 	cp := *job
 	return &cp, true, nil
@@ -207,12 +213,22 @@ func (s *fakeLoadJobStore) GetLoadJob(_ context.Context, trackingKey string) (*M
 	return &cp, nil
 }
 
-func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, trackingKey string, u LoadJobUpdate) error {
+// owned returns the row ref still names, or nil when the attempt lost it.
+// Callers hold s.mu.
+func (s *fakeLoadJobStore) owned(ref LoadJobRef) *ModelLoadJob {
+	job, ok := s.jobs[ref.TrackingKey]
+	if !ok || !ref.owned() || job.Generation != ref.Generation {
+		return nil
+	}
+	return job
+}
+
+func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, ref LoadJobRef, u LoadJobUpdate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	job, ok := s.jobs[trackingKey]
-	if !ok {
-		return nil
+	job := s.owned(ref)
+	if job == nil || job.State == LoadJobStateFailed {
+		return ErrStaleLoadJob
 	}
 	if u.State != "" {
 		job.State = u.State
@@ -230,24 +246,60 @@ func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, trackingKey string, 
 	job.BytesSent, job.TotalBytes = u.BytesSent, u.TotalBytes
 	job.FileIndex, job.TotalFiles = u.FileIndex, u.TotalFiles
 	job.LastProgress = time.Now()
+	lease := time.Now().Add(loadJobLeaseTTL)
+	job.LeaseUntil = &lease
 	return nil
 }
 
-func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, trackingKey, msg string) error {
+func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, ref LoadJobRef, msg string, workMayRun bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if job, ok := s.jobs[trackingKey]; ok {
-		job.State = LoadJobStateFailed
-		job.LastError = msg
-		job.LastProgress = time.Now()
+	job := s.owned(ref)
+	if job == nil || job.State == LoadJobStateFailed {
+		return ErrStaleLoadJob
 	}
+	job.State = LoadJobStateFailed
+	job.LastError = msg
+	job.LastProgress = time.Now()
+	hold := loadJobFailureReport
+	if workMayRun {
+		hold = loadJobStopWindow
+	}
+	deadline := time.Now().Add(hold)
+	job.StopDeadline = &deadline
 	return nil
 }
 
-func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, trackingKey string) error {
+func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, ref LoadJobRef) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.jobs, trackingKey)
+	job := s.owned(ref)
+	if job == nil || job.State == LoadJobStateFailed {
+		return ErrStaleLoadJob
+	}
+	delete(s.jobs, ref.TrackingKey)
+	return nil
+}
+
+func (s *fakeLoadJobStore) ConfirmLoadOp(_ context.Context, ref LoadJobRef) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job := s.owned(ref)
+	if job == nil || job.State != LoadJobStateFailed {
+		return ErrStaleLoadJob
+	}
+	job.OpConfirmed = true
+	return nil
+}
+
+func (s *fakeLoadJobStore) DeleteFailedLoadJob(_ context.Context, ref LoadJobRef) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job := s.owned(ref)
+	if job == nil || job.State != LoadJobStateFailed || job.StopDeadline == nil || time.Now().Before(*job.StopDeadline) {
+		return ErrStaleLoadJob
+	}
+	delete(s.jobs, ref.TrackingKey)
 	return nil
 }
 
@@ -476,7 +528,7 @@ type stubClientFactory struct {
 	client *stubBackend
 }
 
-func (f *stubClientFactory) NewClient(_ string, _ bool) grpc.Backend {
+func (f *stubClientFactory) NewClient(_, _ string, _ bool) grpc.Backend {
 	return f.client
 }
 
@@ -489,7 +541,7 @@ type fakeUnloader struct {
 	// goroutines (e.g. singleflight specs) don't race the slice appends.
 	mu sync.Mutex
 
-	installReply *messaging.BackendInstallReply
+	installReply *workerctl.BackendInstallReply
 	installErr   error
 	installCalls []installCall // every InstallBackend invocation, in order
 	// installHook, if non-nil, runs at the start of InstallBackend before
@@ -498,7 +550,7 @@ type fakeUnloader struct {
 	// blocks on a channel to overlap two callers.
 	installHook func()
 
-	upgradeReply *messaging.BackendUpgradeReply
+	upgradeReply *workerctl.BackendUpgradeReply
 	upgradeErr   error
 	upgradeCalls []upgradeCall // every UpgradeBackend invocation, in order
 
@@ -533,7 +585,7 @@ type upgradeCall struct {
 	replica int
 }
 
-func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, _ string, _ func(messaging.BackendInstallProgressEvent)) (*messaging.BackendInstallReply, error) {
+func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
 	// installHook intentionally runs OUTSIDE the mutex: the hook may block
 	// on a channel and we don't want to serialize concurrent callers,
 	// which would defeat the singleflight-overlap test.
@@ -546,19 +598,47 @@ func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ strin
 	return f.installReply, f.installErr
 }
 
-func (f *fakeUnloader) UpgradeBackend(nodeID, backend, _, _, _, _ string, replica int, _ string, _ func(messaging.BackendInstallProgressEvent)) (*messaging.BackendUpgradeReply, error) {
+// The load operation verbs of the carrier seam. The default fake is a worker
+// that names operations and acknowledges every stop.
+func (f *fakeUnloader) InstallBackendOp(nodeID, backend, modelID, galleries string, replica int, opID, _ string, _ time.Duration, progress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+	reply, err := f.InstallBackend(nodeID, backend, modelID, galleries, "", "", "", replica, opID, progress)
+	if reply != nil {
+		withOps := *reply
+		withOps.ReportsOperations = true
+		reply = &withOps
+	}
+	return reply, err
+}
+
+func (f *fakeUnloader) StopLoadOperation(_ context.Context, _ string, req workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
+	return workerctl.ModelStopReply{Matched: true, Terminated: true, ProcessKey: req.ProcessKey}, nil
+}
+
+func (f *fakeUnloader) OperationControl(_ string, req workerctl.OperationRequest) (*workerctl.OperationReply, error) {
+	return &workerctl.OperationReply{Renewed: req.Renew, Completed: req.Complete}, nil
+}
+
+func (f *fakeUnloader) StopModelReplica(_ context.Context, _ string, replica NodeModel, _ bool) (workerctl.ModelStopReply, error) {
+	return workerctl.ModelStopReply{Matched: true, Terminated: true, ProcessKey: replica.ModelName}, nil
+}
+
+func (f *fakeUnloader) UnloadReplica(nodeID string, replica NodeModel) error {
+	return f.UnloadModelOnNode(nodeID, replica.ModelName)
+}
+
+func (f *fakeUnloader) UpgradeBackend(nodeID, backend, _, _, _, _ string, replica int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendUpgradeReply, error) {
 	f.mu.Lock()
 	f.upgradeCalls = append(f.upgradeCalls, upgradeCall{nodeID, backend, replica})
 	f.mu.Unlock()
 	return f.upgradeReply, f.upgradeErr
 }
 
-func (f *fakeUnloader) DeleteBackend(_, _ string) (*messaging.BackendDeleteReply, error) {
-	return &messaging.BackendDeleteReply{Success: true}, nil
+func (f *fakeUnloader) DeleteBackend(_, _ string) (*workerctl.BackendDeleteReply, error) {
+	return &workerctl.BackendDeleteReply{Success: true}, nil
 }
 
-func (f *fakeUnloader) ListBackends(_ string) (*messaging.BackendListReply, error) {
-	return &messaging.BackendListReply{}, nil
+func (f *fakeUnloader) ListBackends(_ string) (*workerctl.BackendListReply, error) {
+	return &workerctl.BackendListReply{}, nil
 }
 
 func (f *fakeUnloader) StopBackend(nodeID, backend string) error {
@@ -582,7 +662,7 @@ func (f *fakeUnloader) PingNode(nodeID string) error {
 	dead := f.deadNodes[nodeID]
 	f.mu.Unlock()
 	if dead {
-		return nats.ErrNoResponders
+		return ErrNoRoute
 	}
 	return f.pingErr
 }
@@ -608,7 +688,7 @@ var _ = Describe("SmartRouter", func() {
 			backend = &stubBackend{}
 			factory = &stubClientFactory{client: backend}
 			unloader = &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{
+				installReply: &workerctl.BackendInstallReply{
 					Success: true,
 					Address: "10.0.0.1:9001",
 				},
@@ -759,7 +839,7 @@ var _ = Describe("SmartRouter", func() {
 			}
 			factory = &stubClientFactory{client: backend}
 			unloader = &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{
+				installReply: &workerctl.BackendInstallReply{
 					Success: true,
 					Address: "10.0.0.1:9001",
 				},
@@ -843,6 +923,26 @@ var _ = Describe("SmartRouter", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no available nodes"))
 		})
+
+		It("wraps ErrNoAvailableNodes when all nodes are full and eviction cannot help", func() {
+			// gorm.ErrRecordNotFound is the registry's verdict that no node
+			// matches — the scheduler then falls through to eviction. With
+			// DB nil, eviction returns ErrEvictionBusy, and the scheduler
+			// wraps the error with ErrNoAvailableNodes so the HTTP layer can
+			// map it to 503 instead of 500.
+			reg.findIdleErr = errors.New("no idle")
+			reg.findLeastLoadedErr = gorm.ErrRecordNotFound
+
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: factory,
+			})
+
+			_, err := router.Route(context.Background(), "m5", "models/m5.gguf", "llama-cpp", "", nil, false)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrNoAvailableNodes)).To(BeTrue())
+			Expect(errors.Is(err, ErrEvictionBusy)).To(BeTrue())
+		})
 	})
 
 	Describe("UnloadModel (mock-based)", func() {
@@ -921,7 +1021,7 @@ var _ = Describe("SmartRouter", func() {
 			}
 			factory = &stubClientFactory{client: backend}
 			unloader = &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{
+				installReply: &workerctl.BackendInstallReply{
 					Success: true,
 					Address: "10.0.0.1:9001",
 				},
@@ -970,6 +1070,7 @@ var _ = Describe("SmartRouter", func() {
 			_, err := router.Route(context.Background(), "aliased-model", "models/aliased.gguf", "llama-cpp", "", nil, false)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no healthy nodes match selector"))
+			Expect(errors.Is(err, ErrNoAvailableNodes)).To(BeTrue())
 		})
 
 		It("returns error when no nodes match selector", func() {
@@ -988,6 +1089,7 @@ var _ = Describe("SmartRouter", func() {
 			_, err := router.Route(context.Background(), "no-match-model", "models/nomatch.gguf", "llama-cpp", "", nil, false)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no healthy nodes match selector"))
+			Expect(errors.Is(err, ErrNoAvailableNodes)).To(BeTrue())
 		})
 
 		It("uses regular methods when model has no scheduling config", func() {
@@ -1018,7 +1120,7 @@ var _ = Describe("SmartRouter", func() {
 			}
 			factory := &stubClientFactory{client: backend}
 			unloader := &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{
+				installReply: &workerctl.BackendInstallReply{
 					Success: true,
 					Address: "10.0.0.71:9001",
 				},
@@ -1288,7 +1390,7 @@ var _ = Describe("SmartRouter", func() {
 			started := make(chan struct{}, 5)
 			release := make(chan struct{})
 			unloader := &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
+				installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
 			}
 			unloader.installHook = func() {
 				started <- struct{}{}
@@ -1327,7 +1429,7 @@ var _ = Describe("SmartRouter", func() {
 		It("does NOT coalesce installs for different (modelID, replica) keys", func() {
 			node := &BackendNode{ID: "n1", Name: "node-1", Address: "10.0.0.1:50051"}
 			unloader := &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
+				installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
 			}
 			router := NewSmartRouter(&fakeModelRouter{}, SmartRouterOptions{
 				Unloader:      unloader,
@@ -1401,7 +1503,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		backend = &stubBackend{healthResult: true}
 		factory = &stubClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
 		}
 	})
 

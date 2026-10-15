@@ -49,7 +49,7 @@ func (s *ConfigService) toggleState(ctx context.Context, name string, action Act
 	if configPath == "" {
 		return nil, ErrConfigFileMissing
 	}
-	if err := utils.VerifyPath(configPath, s.modelsPath()); err != nil {
+	if err := utils.VerifyResolvedPath(configPath, s.modelsPath()); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 	}
 	var result *ToggleResult

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Icon from './Icon'
 
 /**
  * UserGroupSection — collapsible section showing other users' resources.
@@ -107,7 +108,7 @@ export default function UserGroupSection({ title, userGroups, userMap, currentUs
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(v => !v) } }}
         aria-expanded={open}
       >
-        <i className={`fas fa-chevron-right ugs-chevron ${open ? 'open' : ''}`} />
+        <Icon name="chevron-right" className={`ugs-chevron ${open ? 'open' : ''}`} />
         <span className="ugs-title">{title}</span>
         <span className="ugs-badge">{totalUsers} user{totalUsers !== 1 ? 's' : ''}</span>
       </div>
@@ -155,7 +156,7 @@ function UserSubSection({ uid, displayName, initials, avatarUrl, count, itemKey,
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(v => !v) } }}
         aria-expanded={open}
       >
-        <i className={`fas fa-chevron-right ugs-chevron ${open ? 'open' : ''} text-xs`} />
+        <Icon name="chevron-right" className={`ugs-chevron ${open ? 'open' : ''} text-xs`} />
         <div className="ugs-avatar">
           {avatarUrl ? <img src={avatarUrl} alt="" /> : initials}
         </div>

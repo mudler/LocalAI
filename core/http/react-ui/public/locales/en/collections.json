@@ -1,6 +1,6 @@
 {
-  "title": "Knowledge Base",
-  "subtitle": "Manage document collections for agent RAG",
+  "title": "Memory",
+  "subtitle": "Your library of collections. Search any of them here, or add one to an agent when you want it used.",
   "newPlaceholder": "New collection name...",
   "actions": {
     "create": "Create",
@@ -9,16 +9,20 @@
     "reset": "Reset",
     "delete": "Delete",
     "viewDetails": "View details",
-    "resetCollection": "Reset collection",
-    "deleteCollection": "Delete collection"
+    "resetCollection": "Remove every entry, keep the collection",
+    "deleteCollection": "Delete collection",
+    "newCollection": "New collection"
   },
   "sections": {
-    "yourCollections": "Your Collections",
-    "otherUsersCollections": "Other Users' Collections"
+    "yourCollections": "Your collections",
+    "otherUsersCollections": "Other users' collections"
   },
   "empty": {
-    "title": "No collections yet",
-    "text": "Collections let you organize documents into knowledge bases that agents can search using RAG (Retrieval-Augmented Generation). Create a collection above to get started.",
+    "title": "Memory holds documents an agent can search",
+    "text": "A collection is a set of files and web pages, indexed so that a question finds the passages that answer it. You can search it here without any agent.",
+    "stepCreate": "Create a collection.",
+    "stepFill": "Add files or a web page to it.",
+    "stepAsk": "Ask it a question to see what comes back, then give it to an agent.",
     "noPersonal": "You have no collections yet."
   },
   "deleteDialog": {
@@ -27,9 +31,9 @@
     "confirm": "Delete"
   },
   "resetDialog": {
-    "title": "Reset Collection",
-    "message": "Reset collection \"{{name}}\"? This will remove all entries but keep the collection.",
-    "confirm": "Reset"
+    "title": "Remove every entry",
+    "message": "Remove every entry from collection \"{{name}}\"? The collection stays. This cannot be undone.",
+    "confirm": "Remove entries"
   },
   "toasts": {
     "loadFailed": "Failed to load collections: {{message}}",
@@ -38,6 +42,101 @@
     "deleted": "Collection \"{{name}}\" deleted",
     "deleteFailed": "Failed to delete collection: {{message}}",
     "reset": "Collection \"{{name}}\" reset",
-    "resetFailed": "Failed to reset collection: {{message}}"
-  }
+    "resetFailed": "Failed to reset collection: {{message}}",
+    "entriesFailed": "Failed to load entries: {{message}}",
+    "sourcesFailed": "Failed to load sources: {{message}}",
+    "uploaded": "{{file}} added",
+    "sourceAdded": "Source added",
+    "sourceFailed": "Failed to add source: {{message}}",
+    "sourceRemoved": "Source removed",
+    "sourceRemoveFailed": "Failed to remove source: {{message}}",
+    "contentFailed": "Failed to load entry content: {{message}}",
+    "entryDeleted": "Entry deleted",
+    "entryDeleteFailed": "Failed to delete entry: {{message}}"
+  },
+  "newLabel": "New collection name",
+  "filter": {
+    "label": "Filter collections",
+    "placeholder": "Filter collections",
+    "show": "Show",
+    "all": "All",
+    "used": "Used",
+    "unused": "Not used yet",
+    "none": "No collection matches."
+  },
+  "list": {
+    "label": "Collections"
+  },
+  "pane": {
+    "back": "All collections",
+    "pick": "Pick a collection to search it, add to it, or see who uses it.",
+    "counts": "{{files}} files, {{sources}} web sources",
+    "failed": "{{count}} failed",
+    "addSource": "Add source"
+  },
+  "add": {
+    "file": "A file",
+    "upload": "Upload",
+    "url": "A web page or feed",
+    "interval": "Refresh every",
+    "intervalPlaceholder": "minutes",
+    "addUrl": "Add URL",
+    "adding": "Adding..."
+  },
+  "ask": {
+    "title": "Try a question",
+    "label": "Ask this collection a question",
+    "placeholder": "Ask a question",
+    "search": "Search",
+    "searching": "Searching...",
+    "alone": "Runs on this collection alone. No chat, model or agent is involved.",
+    "tune": "Tune the search",
+    "max": "Passages to return",
+    "none": "Nothing came back for that question.",
+    "ranked": "{{count}} passages, ranked by similarity"
+  },
+  "sources": {
+    "title": "Web sources",
+    "none": "No web sources. Add a URL to keep a page or feed in this collection.",
+    "every": "refreshes every {{count}} min",
+    "manual": "not refreshed automatically",
+    "updated": "last updated {{when}}",
+    "never": "not fetched yet",
+    "remove": "Remove {{url}}",
+    "removeTitle": "Remove source"
+  },
+  "entries": {
+    "title": "Files",
+    "none": "No files yet. Add a file or a web page to fill this collection.",
+    "failed": "Part of this collection could not be read.",
+    "indexing": "Indexing...",
+    "uploadFailed": "Upload failed",
+    "retry": "Retry",
+    "dismiss": "Dismiss",
+    "view": "View {{name}}",
+    "viewTitle": "View content",
+    "delete": "Delete {{name}}",
+    "deleteTitle": "Delete entry",
+    "chunks": "{{count}} chunks",
+    "close": "Close",
+    "empty": "(empty)",
+    "noContent": "No content available.",
+    "adding": "Adding files"
+  },
+  "removeSource": {
+    "title": "Remove Source",
+    "message": "Remove this source? What it added stays until you delete the entry.",
+    "confirm": "Remove"
+  },
+  "deleteEntry": {
+    "title": "Delete Entry",
+    "message": "Are you sure you want to delete this entry?",
+    "confirm": "Delete"
+  },
+  "api": {
+    "title": "Index, API and privacy",
+    "index": "Files are split into passages and indexed when they are added. A question is matched to passages by similarity, and each passage comes back with a score.",
+    "privacy": "Files you upload stay on this server. A web source is fetched from the address you give, on the interval you set."
+  },
+  "loading": "Loading..."
 }

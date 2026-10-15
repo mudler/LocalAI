@@ -60,24 +60,31 @@ async function mockVoiceAPIs(page) {
   return state
 }
 
-test.describe('Personality Library', () => {
+test.describe('Speech voices', () => {
   let apiState
 
   test.beforeEach(async ({ page }) => {
     apiState = await mockVoiceAPIs(page)
   })
 
-  test('renders the library-first master/detail view', async ({ page }) => {
+  test('lists the voices and opens one in a sheet', async ({ page }) => {
     await page.goto('/app/voice-library')
-    await expect(page.getByRole('heading', { name: /Personality Library/i })).toBeVisible()
-    await expect(page.locator('.voice-row', { hasText: 'Documentary narrator' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Voices', level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Speech voices/i, level: 2 })).toBeVisible()
+    await expect(page.locator('.idn-tabs').getByRole('tab', { name: /Speech voices/ })).toHaveAttribute('aria-current', 'page')
+    const row = page.locator('.voice-row', { hasText: 'Documentary narrator' })
+    await expect(row).toBeVisible()
+    // Nothing opens by itself: the detail is a sheet the person asks for.
+    await expect(page.getByTestId('speech-voice-sheet')).toHaveCount(0)
+    await row.click()
+    await expect(page.getByTestId('speech-voice-sheet')).toBeVisible()
     await expect(page.locator('.voice-library-detail')).toContainText('The exact words spoken in this reference.')
     await expect(page.locator('.voice-library-detail')).toContainText('Consent confirmed')
     await expect(page.getByRole('button', { name: /Use in Text to Speech/i })).toBeEnabled()
   })
 
   test('shows inline API usage and installed model compatibility', async ({ page }) => {
-    await page.goto('/app/voice-library')
+    await page.goto(`/app/voice-library?selected=${VOICE_ID}`)
     await page.getByText('API usage and compatible models').click()
     const apiHelp = page.locator('.voice-detail__api')
     await expect(apiHelp).toContainText('qwen-base')
@@ -113,7 +120,7 @@ test.describe('Personality Library', () => {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ jobID: 'voice-install' }) })
     })
 
-    await page.goto('/app/voice-library')
+    await page.goto(`/app/voice-library?selected=${VOICE_ID}`)
     await expect(page.getByRole('heading', { name: 'Install a voice-cloning model' })).toBeVisible()
     await expect(page.locator('.voice-detail__model-list')).toContainText('omnivoice-cpp')
     expect(galleryCapability).toBe('voice_cloning')
@@ -122,14 +129,18 @@ test.describe('Personality Library', () => {
     await expect(page.getByText(/Installing omnivoice-cpp/)).toBeVisible()
   })
 
-  test('keeps the Operate rail compact and accessible on small screens', async ({ page }) => {
+  test('keeps the Build tab bar compact and scrollable on small screens', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/app/voice-library')
-    const rail = page.locator('.console-rail')
-    await expect(rail.getByRole('link', { name: 'Backends' })).toBeHidden()
-    await rail.getByRole('button', { name: 'Expand Operate navigation' }).click()
-    await expect(rail.getByRole('link', { name: 'Backends' })).toBeVisible()
-    await expect(rail.getByRole('button', { name: 'Collapse Operate navigation' })).toBeVisible()
+    const bar = page.locator('.dk-hubtabs')
+    await expect(bar).toBeVisible()
+    expect((await bar.boundingBox()).width).toBeLessThanOrEqual(390)
+    const voices = bar.locator('[data-hub-tab="voices"]')
+    await voices.scrollIntoViewIfNeeded()
+    await expect(voices).toBeInViewport()
+    await expect(voices).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.idn-tabs').getByRole('tab', { name: /Speech voices/ })).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.hub-subnav')).toHaveCount(0)
   })
 
   test('passes the stable voice URI from the library into TTS', async ({ page }) => {
@@ -170,6 +181,8 @@ test.describe('Personality Library', () => {
 
     await page.goto('/app/tts')
     await page.getByPlaceholder('Enter text to synthesize...').fill('Read this sentence.')
+    // Delivery instructions sit in the Advanced fold of the workspace.
+    await page.getByRole('button', { name: /^Instructions/ }).click()
     await page.getByLabel('Instructions').fill('  Speak slowly and warmly.  ')
     await page.getByRole('button', { name: /Generate$/ }).click()
     await expect.poll(() => ttsBodies.length).toBe(1)

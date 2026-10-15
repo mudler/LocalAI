@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -178,5 +179,44 @@ var _ = Describe("Settings endpoints", func() {
 
 		Expect(app.ModelLoader().GetWatchDog()).ToNot(BeNil(),
 			"watchdog should be running after a cold enable, without waiting for a restart")
+	})
+	// The UI lists from the cached model listing, which is keyed by nothing.
+	// A gallery change through this endpoint (for example a tightened
+	// verification policy) must drop it, or the UI keeps showing what the old
+	// configuration admitted until the next background refresh, or forever
+	// when the new policy refuses the gallery.
+	It("drops the cached model listing when the galleries change", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte("- name: acme-model\n"))
+		}))
+		DeferCleanup(srv.Close)
+		gallery.ResetGalleryModelCache()
+		DeferCleanup(gallery.ResetGalleryModelCache)
+
+		loose := config.GalleryVerification{Issuer: "https://token.actions.githubusercontent.com", IdentityRegex: "^https://github.com/acme/.*$"}
+		appConfig := app.ApplicationConfig()
+		appConfig.Galleries = []config.Gallery{{Name: "acme", URL: srv.URL, Verification: &loose}}
+
+		listedPolicy := func() config.GalleryVerification {
+			GinkgoHelper()
+			models, err := gallery.AvailableGalleryModelsCached(appConfig.Galleries, appConfig.SystemState)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(HaveLen(1))
+			Expect(models[0].Gallery.Verification).ToNot(BeNil())
+			return *models[0].Gallery.Verification
+		}
+		Expect(listedPolicy()).To(Equal(loose))
+
+		tightened := loose
+		tightened.SourceRepository = "https://github.com/acme/gallery"
+		body, err := json.Marshal(map[string]any{
+			"galleries": []config.Gallery{{Name: "acme", URL: srv.URL, Verification: &tightened}},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		rec := post(string(body))
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(appConfig.Galleries[0].Verification.SourceRepository).To(Equal(tightened.SourceRepository), "precondition: the setting was applied")
+
+		Expect(listedPolicy()).To(Equal(tightened), "the listing cached under the old gallery configuration was served")
 	})
 })

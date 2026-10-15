@@ -22,11 +22,20 @@ import "slices"
 // NotBefore is the revocation lever: advance it to invalidate every
 // signature produced before a known compromise window. Keyless cosign
 // certs are ephemeral so there is no CA-side revocation.
+//
+// SourceRepository pins the certificate's source-repository extension. Set
+// it when the signing workflow is a reusable workflow shared by several
+// repositories: the identity then names the shared workflow, and only the
+// source repository says which repository the signature was made for.
 type GalleryVerification struct {
 	Issuer        string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 	IssuerRegex   string `json:"issuer_regex,omitempty" yaml:"issuer_regex,omitempty"`
 	Identity      string `json:"identity,omitempty" yaml:"identity,omitempty"`
 	IdentityRegex string `json:"identity_regex,omitempty" yaml:"identity_regex,omitempty"`
+
+	// SourceRepository is an https URL compared exactly against the
+	// certificate's source-repository extension. Empty skips the check.
+	SourceRepository string `json:"source_repository,omitempty" yaml:"source_repository,omitempty"`
 
 	// NotBefore is an RFC3339 timestamp. Empty disables the time check.
 	NotBefore string `json:"not_before,omitempty" yaml:"not_before,omitempty"`
@@ -38,10 +47,13 @@ type Gallery struct {
 	// fallback for availability, not a load-balancing pool: the primary is
 	// always preferred, and a mirror is only consulted after the one before
 	// it fails. Any URI the gallery loader understands works here
-	// (https://, github:, file://).
+	// (https://, github:, file://, oci://).
 	Mirrors      []string             `json:"mirrors,omitempty" yaml:"mirrors,omitempty"`
 	Name         string               `json:"name" yaml:"name"`
 	Verification *GalleryVerification `json:"verification,omitempty" yaml:"verification,omitempty"`
+	// ArtifactVerification overrides Verification only for the gallery OCI artifact.
+	// Backend images keep their separate Verification policy.
+	ArtifactVerification *GalleryVerification `json:"artifact_verification,omitempty" yaml:"artifact_verification,omitempty"`
 }
 
 // Equal reports whether two gallery entries describe the same gallery.
@@ -57,6 +69,13 @@ func (g Gallery) Equal(other Gallery) bool {
 		return false
 	}
 	if !slices.Equal(g.Mirrors, other.Mirrors) {
+		return false
+	}
+	if g.ArtifactVerification == nil || other.ArtifactVerification == nil {
+		if g.ArtifactVerification != other.ArtifactVerification {
+			return false
+		}
+	} else if *g.ArtifactVerification != *other.ArtifactVerification {
 		return false
 	}
 	if g.Verification == nil || other.Verification == nil {

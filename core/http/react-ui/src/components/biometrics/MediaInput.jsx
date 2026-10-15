@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMediaCapture } from '../../hooks/useMediaCapture'
 import { fileToBase64 } from '../../utils/api'
+import Icon from '../Icon'
 
 // MediaInput — one control, three ways to supply a sample.
 // mode: 'image' | 'audio'. onChange receives null | { base64, dataUrl, mime, source }.
@@ -14,7 +15,7 @@ function UnsupportedNotice({ mode }) {
   if (!isSecure) {
     return (
       <div className="biometrics-mediainput__notice">
-        <i className="fas fa-lock" aria-hidden="true" />
+        <Icon name="lock" />
         <div>
           <strong>{thing} needs a secure origin</strong>
           <p>
@@ -29,7 +30,7 @@ function UnsupportedNotice({ mode }) {
   }
   return (
     <div className="biometrics-mediainput__notice">
-      <i className="fas fa-circle-info" aria-hidden="true" />
+      <Icon name="info" />
       <div>
         <strong>Live {thing} not available</strong>
         <p>
@@ -137,12 +138,12 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
         <button type="button" role="tab" aria-selected={tab === 'file'}
           className={`biometrics-mediainput__tab ${tab === 'file' ? 'active' : ''}`}
           onClick={() => setTab('file')}>
-          <i className="fas fa-upload" aria-hidden="true" /> Upload
+          <Icon name="upload" /> Upload
         </button>
         <button type="button" role="tab" aria-selected={tab === 'live'}
           className={`biometrics-mediainput__tab ${tab === 'live' ? 'active' : ''}`}
           onClick={() => setTab('live')}>
-          <i className={`fas ${mode === 'image' ? 'fa-camera' : 'fa-microphone'}`} aria-hidden="true" />
+          <Icon name={mode === 'image' ? 'camera' : 'mic'} />
           {mode === 'image' ? ' Webcam' : ' Record'}
         </button>
       </div>
@@ -158,7 +159,7 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
             onChange={handleFile}
           />
           {mode === 'image' && (
-            <p className="form-hint"><i className="fas fa-clipboard" aria-hidden="true" /> Paste an image from the clipboard</p>
+            <p className="form-hint"><Icon name="clipboard" /> Paste an image from the clipboard</p>
           )}
         </div>
       )}
@@ -168,7 +169,7 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
           {!cap.supported && <UnsupportedNotice mode={mode} />}
           {cap.supported && !cap.active && (
             <button type="button" className="btn btn-secondary btn-full" onClick={cap.start}>
-              <i className={`fas ${mode === 'image' ? 'fa-camera' : 'fa-microphone'}`} aria-hidden="true" />
+              <Icon name={mode === 'image' ? 'camera' : 'mic'} />
               {mode === 'image' ? ' Start webcam' : ' Enable microphone'}
             </button>
           )}
@@ -177,7 +178,7 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
               <video ref={cap.videoRef} autoPlay muted playsInline className="biometrics-mediainput__video" />
               <div className="biometrics-mediainput__controls">
                 <button type="button" className="btn btn-primary" onClick={handleSnap}>
-                  <i className="fas fa-circle-dot" aria-hidden="true" /> Capture
+                  <Icon name="circle-dot" /> Capture
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={cap.stop}>Stop</button>
               </div>
@@ -186,12 +187,12 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
           {cap.active && mode === 'audio' && (
             <div className="biometrics-mediainput__live">
               <div className={`biometrics-mediainput__meter ${cap.recording ? 'recording' : ''}`}>
-                <i className="fas fa-microphone" aria-hidden="true" />
+                <Icon name="mic" />
                 <span>{cap.recording ? `Recording… ${cap.elapsed.toFixed(1)}s` : 'Microphone ready'}</span>
               </div>
               <div className="biometrics-mediainput__controls">
                 <button type="button" className={`btn ${cap.recording ? 'btn-secondary' : 'btn-primary'}`} onClick={handleRecordToggle}>
-                  <i className={`fas ${cap.recording ? 'fa-stop' : 'fa-circle'}`} aria-hidden="true" />
+                  <Icon name={cap.recording ? 'stop' : 'circle'} />
                   {cap.recording ? ' Stop' : ' Record'}
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={cap.stop} disabled={cap.recording}>Close</button>
@@ -211,11 +212,11 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
             : <audio controls src={value.dataUrl} />}
           <div className="biometrics-mediainput__preview-meta">
             <span className="biometrics-mediainput__source-pill">
-              <i className={`fas ${value.source === 'live' ? (mode === 'image' ? 'fa-camera' : 'fa-microphone') : value.source === 'paste' ? 'fa-clipboard' : 'fa-file'}`} aria-hidden="true" />
+              <Icon name={value.source === 'live' ? mode === 'image' ? 'camera' : 'mic' : value.source === 'paste' ? 'clipboard' : 'file'} />
               {value.source === 'live' ? ' Captured' : value.source === 'paste' ? ' Pasted image' : ` ${value.name || 'Uploaded'}`}
             </span>
             <button type="button" className="biometrics-mediainput__clear" onClick={clear} aria-label="Remove sample">
-              <i className="fas fa-xmark" aria-hidden="true" />
+              <Icon name="close" />
             </button>
           </div>
         </div>

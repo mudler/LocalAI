@@ -459,7 +459,7 @@ var _ = Describe("HuggingFace API Client", func() {
 				},
 				{
 					"type": "directory",
-					"path": "nested",
+					"path": "subfolder/nested",
 					"size": 0,
 					"oid": "nesteddir123"
 				}
@@ -483,15 +483,23 @@ var _ = Describe("HuggingFace API Client", func() {
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				urlPath := r.URL.Path
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
 
-				if strings.Contains(urlPath, "/tree/main/subfolder/nested") {
+				// Route on the exact tree path: the real API 404s on a wrong
+				// path, and nested entries carry root-relative paths
+				// ("subfolder/nested"), so a prefix match would hide a
+				// doubled "subfolder/subfolder/nested" request.
+				_, treePath, _ := strings.Cut(urlPath, "/tree/main")
+				switch treePath {
+				case "/subfolder/nested":
+					w.WriteHeader(http.StatusOK)
 					w.Write([]byte(mockNestedResponse))
-				} else if strings.Contains(urlPath, "/tree/main/subfolder") {
+				case "/subfolder":
+					w.WriteHeader(http.StatusOK)
 					w.Write([]byte(mockSubfolderResponse))
-				} else if strings.Contains(urlPath, "/tree/main") {
+				case "":
+					w.WriteHeader(http.StatusOK)
 					w.Write([]byte(mockRootResponse))
-				} else {
+				default:
 					w.WriteHeader(http.StatusNotFound)
 				}
 			}))

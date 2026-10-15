@@ -14,6 +14,18 @@ import (
 
 var _ = Describe("Usage", func() {
 	Describe("RecordUsage", func() {
+		It("persists animation accounting dimensions with token-compatible units", func() {
+			db := testDB()
+			record := &auth.UsageRecord{UserID: "user-1", Model: "kimodo", Endpoint: "/3d/animate",
+				PromptTokens: 32, CompletionTokens: 15000, TotalTokens: 15032,
+				Metadata: `{"usage":{"input_units":32,"output_units":15000,"details":{"output_frames":150,"sampling_steps":100}}}`, CreatedAt: time.Now()}
+			Expect(auth.RecordUsage(db, record)).To(Succeed())
+			var stored auth.UsageRecord
+			Expect(db.First(&stored, record.ID).Error).NotTo(HaveOccurred())
+			Expect(stored.PromptTokens).To(Equal(int64(32)))
+			Expect(stored.CompletionTokens).To(Equal(int64(15000)))
+			Expect(stored.Metadata).To(Equal(record.Metadata))
+		})
 		It("inserts a usage record", func() {
 			db := testDB()
 			record := &auth.UsageRecord{

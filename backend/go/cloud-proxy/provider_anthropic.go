@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,8 +31,8 @@ import (
 //     message_stop (terminates the stream). Others are ignored.
 
 type anthropicRequest struct {
-	Model         string               `json:"model"`
-	MaxTokens     int32                `json:"max_tokens"`
+	Model     string `json:"model"`
+	MaxTokens int32  `json:"max_tokens"`
 	// System is `any`: a bare string normally, or []anthropicSystemBlock
 	// when cache_prompt is on (the block form carries cache_control).
 	System        any                  `json:"system,omitempty"`
@@ -115,7 +116,10 @@ type anthropicResponse struct {
 	Role    string                  `json:"role"`
 	Content []anthropicContentBlock `json:"content"`
 	Model   string                  `json:"model"`
-	Usage   *anthropicUsage         `json:"usage,omitempty"`
+	// StopReason is "end_turn", "max_tokens", "tool_use", ... or
+	// "refusal" when the model declines to answer.
+	StopReason string          `json:"stop_reason,omitempty"`
+	Usage      *anthropicUsage `json:"usage,omitempty"`
 }
 
 type anthropicUsage struct {
@@ -140,7 +144,19 @@ type anthropicStreamDelta struct {
 	Type        string `json:"type,omitempty"`
 	Text        string `json:"text,omitempty"`
 	PartialJSON string `json:"partial_json,omitempty"`
+	// StopReason is set on message_delta events.
+	StopReason string `json:"stop_reason,omitempty"`
 }
+
+// anthropicStopRefusal is the stop_reason Anthropic returns when the
+// model declines to answer. Such a response carries no (or only partial)
+// content. Passing it through as a normal reply makes a refusal look like
+// an empty, successful completion (finish_reason "stop", no content), so
+// routers and agents cannot tell "declined" from "nothing to say" and
+// never fall back. Surface it as an error instead.
+const anthropicStopRefusal = "refusal"
+
+var errAnthropicRefusal = errors.New("cloud-proxy: upstream model refused to answer (stop_reason=refusal)")
 
 // Anthropic requires max_tokens. If the caller didn't set it, use a
 // generous-but-bounded default so the request doesn't 400.
@@ -438,6 +454,9 @@ func (c *CloudProxy) predictAnthropicRich(ctx context.Context, cfg *proxyConfig,
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
 		return nil, fmt.Errorf("cloud-proxy: decode response: %w", err)
 	}
+	if parsed.StopReason == anthropicStopRefusal {
+		return nil, errAnthropicRefusal
+	}
 
 	reply := &pb.Reply{}
 	if parsed.Usage != nil {
@@ -552,6 +571,9 @@ func (c *CloudProxy) predictAnthropicStreamRich(ctx context.Context, cfg *proxyC
 				}
 			}
 		case "message_delta":
+			if ev.Delta != nil && ev.Delta.StopReason == anthropicStopRefusal {
+				return errAnthropicRefusal
+			}
 			// Anthropic sends final usage in message_delta.usage. Emit
 			// a usage-only Reply so the consumer can record totals.
 			if ev.Usage != nil {

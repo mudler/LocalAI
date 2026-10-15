@@ -48,7 +48,7 @@ func SoundClassificationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLo
 			Threshold: float32(parseFormFloat(c, "threshold", 0)),
 		}
 
-		file, err := c.FormFile("file")
+		file, err := uploadedFile(c, "file")
 		if err != nil {
 			return err
 		}

@@ -108,6 +108,11 @@ func (i *ParakeetCppImporter) Import(details Details) (gallery.ModelConfig, erro
 
 	uri := downloader.URI(details.URI)
 	directGGUF := isParakeetGGUF(filepath.Base(details.URI))
+	// A speaker diarization GGUF is served by the same backend but answers
+	// /v1/audio/diarization, not transcription.
+	if directGGUF && isParakeetDiarGGUF(filepath.Base(details.URI)) {
+		modelConfig.KnownUsecaseStrings = []string{"diarization"}
+	}
 	switch {
 	case uri.LooksLikeURL() && directGGUF:
 		// Direct file URL (e.g. .../resolve/main/tdt_ctc-110m-f16.gguf). The
@@ -128,11 +133,22 @@ func (i *ParakeetCppImporter) Import(details Details) (gallery.ModelConfig, erro
 		// HF repo: collect every parakeet GGUF, pick the preferred quant, and
 		// nest under parakeet-cpp/models/<name>/ so a multi-quant repo doesn't
 		// collide on disk.
-		var ggufFiles []hfapi.ModelFile
+		// Prefer ASR weights: a repo that also ships the diarization model
+		// (mudler/parakeet-cpp-gguf) imports as a transcription model, and the
+		// diarization GGUF is imported by its direct URL. A repo with only
+		// diarization weights imports as a diarization model.
+		var ggufFiles, diarFiles []hfapi.ModelFile
 		for _, f := range details.HuggingFace.Files {
-			if isParakeetGGUF(filepath.Base(f.Path)) {
+			switch base := filepath.Base(f.Path); {
+			case isParakeetDiarGGUF(base):
+				diarFiles = append(diarFiles, f)
+			case isParakeetGGUF(base):
 				ggufFiles = append(ggufFiles, f)
 			}
+		}
+		if len(ggufFiles) == 0 && len(diarFiles) > 0 {
+			ggufFiles = diarFiles
+			modelConfig.KnownUsecaseStrings = []string{"diarization"}
 		}
 		if chosen, ok := pickPreferredGGMLFile(ggufFiles, quants); ok {
 			target := filepath.Join("parakeet-cpp", "models", name, filepath.Base(chosen.Path))
@@ -176,5 +192,14 @@ func isParakeetGGUF(name string) bool {
 			return true
 		}
 	}
-	return false
+	return isParakeetDiarGGUF(name)
+}
+
+// isParakeetDiarGGUF reports whether name is the parakeet.cpp speaker
+// diarization GGUF (nemotron-3-diarization-<quant>.gguf). Matched by its
+// published name only, so diarization weights for other backends are not
+// claimed.
+func isParakeetDiarGGUF(name string) bool {
+	lower := strings.ToLower(name)
+	return strings.HasSuffix(lower, ".gguf") && strings.Contains(lower, "nemotron-3-diarization")
 }

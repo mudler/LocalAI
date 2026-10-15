@@ -16,10 +16,10 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
 	application *application.Application) {
 
-	// NATS client for distributed MCP tool routing (nil when not in distributed mode)
-	var natsClient mcpTools.MCPNATSClient
+	// Agent control for distributed MCP tool routing (nil when not in distributed mode)
+	var agentControl mcpTools.AgentControl
 	if d := application.Distributed(); d != nil {
-		natsClient = d.Nats
+		agentControl = d.AgentControl
 
 		// Replicate response metadata across frontend replicas and subscribe to
 		// delegated cancels. Without this a GET, a previous_response_id lookup or
@@ -38,7 +38,7 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 		application.ModelLoader(),
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
-		natsClient,
+		agentControl,
 	)
 
 	responsesMiddleware := []echo.MiddlewareFunc{

@@ -48,6 +48,7 @@ const (
 	FeatureDetection           = "detection"
 	FeatureVideo               = "video"
 	Feature3D                  = "3d"
+	FeatureMotion              = "motion"
 	FeatureEmbeddings          = "embeddings"
 	FeatureSound               = "sound"
 	FeatureRealtime            = "realtime"
@@ -59,6 +60,7 @@ const (
 	FeatureFaceRecognition     = "face_recognition"
 	FeatureVoiceRecognition    = "voice_recognition"
 	FeatureAudioTransform      = "audio_transform"
+	FeatureDecisions           = "decisions"
 	// FeaturePIIFilter gates the synchronous PII analyze/redact service
 	// (POST /api/pii/{analyze,redact}). Default ON like the other API
 	// features; the admin-only events log is gated separately in-handler.
@@ -75,10 +77,10 @@ var GeneralFeatures = []string{FeatureFineTuning, FeatureQuantization}
 var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
 	FeatureAudioDiarization, FeatureAudioClassification,
-	FeatureVAD, FeatureDetection, FeatureVideo, Feature3D, FeatureEmbeddings, FeatureSound,
+	FeatureVAD, FeatureDetection, FeatureVideo, Feature3D, FeatureMotion, FeatureEmbeddings, FeatureSound,
 	FeatureRealtime, FeatureModeration, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
-	FeaturePIIFilter,
+	FeaturePIIFilter, FeatureDecisions,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

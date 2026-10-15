@@ -92,7 +92,9 @@ func (s *turnSink) Perform(e turncoord.Effect) {
 			s.lts.feedNewAudio(s.onsetAudio)
 		}
 	case turncoord.BargeIn:
-		s.session.respSink.cancel(respcoord.SourceVAD)
+		if s.session.interruptResponseEnabled() {
+			s.session.respSink.cancel(respcoord.SourceVAD)
+		}
 	case turncoord.EmitSpeechStarted:
 		sendEvent(s.transport, types.InputAudioBufferSpeechStartedEvent{
 			ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
@@ -125,8 +127,11 @@ func (s *turnSink) Perform(e turncoord.Effect) {
 		audio := s.commitAudio
 		gated := s.commitGated
 		conv := s.conv
-		s.session.respSink.issue(s.vadContext, respcoord.SourceVAD, func(ctx context.Context) {
-			commitUtteranceWithTranscript(ctx, audio, live, gated, itemID, s.session, conv, s.transport)
+		// Issue through the shared commit-ordering boundary (slot claim +
+		// issue under one lock, shared with the client commit path) so slot
+		// order == issue order across both producers (issue #12445).
+		s.session.issueCommit(s.vadContext, respcoord.SourceVAD, func(ctx context.Context, slot *commitSlot) {
+			commitUtteranceWithTranscript(ctx, audio, live, gated, itemID, s.session, conv, s.transport, slot)
 		})
 	case turncoord.DiscardTurn:
 		// No-op if the stream was never open (server_vad / already idle).

@@ -18,15 +18,14 @@ type SchedulerStore interface {
 }
 
 // AgentScheduler periodically checks for agents with standalone_job=true
-// and publishes background run events to the NATS agent execution queue.
+// and enqueues background run events as agent-run work.
 // Uses a PostgreSQL advisory lock so only one instance fires the cron.
 // Same pattern as notetaker's runAgentScheduler and LocalAI's cronLeaderLoop.
 type AgentScheduler struct {
 	db            *gorm.DB
-	nats          messaging.Publisher
+	queue         messaging.WorkQueue
 	store         SchedulerStore
 	skillProvider SkillContentProvider // optional: loads full skill info for enriching events
-	subject       string               // NATS subject for agent execution
 	pollInterval  time.Duration        // how often to check for due agents
 }
 
@@ -41,12 +40,11 @@ func WithSchedulerSkillProvider(provider SkillContentProvider) AgentSchedulerOpt
 }
 
 // NewAgentScheduler creates a new background agent scheduler.
-func NewAgentScheduler(db *gorm.DB, nats messaging.Publisher, store SchedulerStore, subject string, opts ...AgentSchedulerOpt) *AgentScheduler {
+func NewAgentScheduler(db *gorm.DB, queue messaging.WorkQueue, store SchedulerStore, opts ...AgentSchedulerOpt) *AgentScheduler {
 	s := &AgentScheduler{
 		db:           db,
-		nats:         nats,
+		queue:        queue,
 		store:        store,
-		subject:      subject,
 		pollInterval: 15 * time.Second,
 	}
 	for _, opt := range opts {
@@ -57,14 +55,14 @@ func NewAgentScheduler(db *gorm.DB, nats messaging.Publisher, store SchedulerSto
 
 // Start begins the scheduler loop. Blocks until ctx is cancelled.
 func (s *AgentScheduler) Start(ctx context.Context) {
-	xlog.Info("Agent scheduler started", "pollInterval", s.pollInterval, "subject", s.subject)
-	advisorylock.RunLeaderLoop(ctx, s.db, advisorylock.KeyAgentScheduler, s.pollInterval, s.runDueAgents)
+	xlog.Info("Agent scheduler started", "pollInterval", s.pollInterval)
+	advisorylock.RunLeaderLoop(ctx, s.db, advisorylock.KeyAgentScheduler, s.pollInterval, func() { s.runDueAgents(ctx) })
 	xlog.Info("Agent scheduler stopped")
 }
 
 // runDueAgents finds all agents with standalone_job=true that are due for a run
-// and publishes background execution events to the NATS queue.
-func (s *AgentScheduler) runDueAgents() {
+// and enqueues background execution events.
+func (s *AgentScheduler) runDueAgents(ctx context.Context) {
 	configs, err := s.store.ListConfigs("") // all users
 	if err != nil {
 		xlog.Error("Agent scheduler: failed to list configs", "error", err)
@@ -103,7 +101,6 @@ func (s *AgentScheduler) runDueAgents() {
 			}
 		}
 
-		// Publish background run event
 		evt := AgentChatEvent{
 			AgentName: rec.Name,
 			UserID:    rec.UserID,
@@ -112,8 +109,8 @@ func (s *AgentScheduler) runDueAgents() {
 			Config:    &cfg,
 			Skills:    skills,
 		}
-		if err := s.nats.Publish(s.subject, evt); err != nil {
-			xlog.Error("Agent scheduler: failed to publish event", "agent", rec.Name, "error", err)
+		if err := s.queue.Enqueue(ctx, messaging.WorkAgentRun, evt); err != nil {
+			xlog.Error("Agent scheduler: failed to enqueue event", "agent", rec.Name, "error", err)
 			continue
 		}
 

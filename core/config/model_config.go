@@ -4,8 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/piipattern"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
@@ -74,6 +78,10 @@ type ModelConfig struct {
 	// The target must be an existing, non-alias model (enforced at load and
 	// at create/swap time). See docs/content for Model Aliases.
 	Alias string `yaml:"alias,omitempty" json:"alias,omitempty"`
+
+	// Failover makes this config a failover chain over other models. Like an
+	// alias it has no backend of its own.
+	Failover *FailoverConfig `yaml:"failover,omitempty" json:"failover,omitempty"`
 
 	F16                 *bool               `yaml:"f16,omitempty" json:"f16,omitempty"`
 	Threads             *int                `yaml:"threads,omitempty" json:"threads,omitempty"`
@@ -298,12 +306,37 @@ const (
 	ProxyProviderAnthropic = "anthropic"
 )
 
+// ResolveAPIKey returns the upstream key from api_key_env or api_key_file, or
+// "" when neither is set. Mirrored (not imported, to keep backends independent
+// of core's package layout) by resolveAPIKey in backend/go/cloud-proxy/proxy.go
+// — keep the two in sync, empty-value handling included.
+func (p ProxyConfig) ResolveAPIKey(envLookup func(string) string) (string, error) {
+	switch {
+	case p.APIKeyEnv != "":
+		var v string
+		if envLookup != nil {
+			v = envLookup(p.APIKeyEnv)
+		}
+		if v == "" {
+			return "", fmt.Errorf("proxy api_key_env %q is unset", p.APIKeyEnv)
+		}
+		return v, nil
+	case p.APIKeyFile != "":
+		b, err := os.ReadFile(p.APIKeyFile)
+		if err != nil {
+			return "", fmt.Errorf("proxy api_key_file %q: %w", p.APIKeyFile, err)
+		}
+		return strings.TrimSpace(string(b)), nil
+	}
+	return "", nil
+}
+
 // IsCloudProxyBackendPassthrough reports whether this model uses the
 // cloud-proxy gRPC backend in passthrough mode. Empty Mode counts as
 // passthrough (SetDefaults normalises it, but Validate accepts empty
 // too — handlers should not rely on a particular call order).
 func (c *ModelConfig) IsCloudProxyBackendPassthrough() bool {
-	if c.Backend != "cloud-proxy" {
+	if c.Backend != model.CloudProxyBackend {
 		return false
 	}
 	return c.Proxy.Mode == "" || c.Proxy.Mode == ProxyModePassthrough
@@ -322,7 +355,7 @@ func (c *ModelConfig) IsCloudProxyBackendPassthrough() bool {
 // config load to keep the dispatch graph acyclic and predictable. The
 // middleware also asserts depth ≤ 1 at runtime as a defensive check.
 type RouterConfig struct {
-	// Classifier picks the implementation. Only "score" ships today:
+	// Classifier selects score, colbert, knn, or native decisions. For score:
 	// it asks the classifier model to score every Policy label as a
 	// continuation of the routing prompt and reads off the
 	// distribution. Empty defaults to "score".
@@ -360,6 +393,8 @@ type RouterConfig struct {
 	// 0 disables the cache. Default 1024.
 	ClassifierCacheSize int `yaml:"classifier_cache_size,omitempty" json:"classifier_cache_size,omitempty"`
 
+	// For decisions, ActivationThreshold is an independent P(true) floor;
+	// zero selects the default 0.5.
 	// ActivationThreshold is the softmax-probability floor a policy
 	// must clear to be considered "active" for the request. 0
 	// defaults to a sensible value (~0.15) inside the classifier.
@@ -621,6 +656,25 @@ type PIIDetectionConfig struct {
 	// subset (validated at load). Each match is reported under its Name as the
 	// entity group, so EntityActions/DefaultAction apply by Name.
 	Patterns []PIIPattern `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	// ExtendToNextWord lists entity groups (e.g. "ZIPCODE") whose accepted
+	// detections also cover the word right after them on the same line,
+	// with the same action - for a neighbour the model scores unreliably,
+	// such as the town after a postal code.
+	ExtendToNextWord []string `yaml:"extend_to_next_word,omitempty" json:"extend_to_next_word,omitempty"`
+	// ExtendToPreviousWord lists entity groups (e.g. "LASTNAME") whose accepted
+	// detections also cover the word right before them on the same line, when
+	// that word consists of letters only - for a neighbour the model scores
+	// unreliably, such as the first name before a recognised surname.
+	ExtendToPreviousWord []string `yaml:"extend_to_previous_word,omitempty" json:"extend_to_previous_word,omitempty"`
+	// ProtectedTerms are values that must pass the filter unchanged even
+	// when the model tags them (e.g. known business names read as
+	// surnames). They are hidden from the detector behind a placeholder and
+	// restored afterwards. Matched whole-word and case-insensitively.
+	ProtectedTerms []string `yaml:"protected_terms,omitempty" json:"protected_terms,omitempty"`
+	// ProtectedTermsFiles adds terms from files (one per line, '#' comments),
+	// resolved inside the models path and re-read when they change, so an
+	// external process can keep the list current without a restart.
+	ProtectedTermsFiles []string `yaml:"protected_terms_files,omitempty" json:"protected_terms_files,omitempty"`
 }
 
 // PIIPattern is one operator-defined pattern on a pattern detector model. Name
@@ -641,7 +695,7 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 	if c.PII.Enabled != nil {
 		return *c.PII.Enabled
 	}
-	return c.Backend == "cloud-proxy"
+	return c.Backend == model.CloudProxyBackend
 }
 
 // PIIDetectors returns the names of the token-classification models that
@@ -672,7 +726,7 @@ var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG
 // false naturally: HasUsecases short-circuits to false for any usecase a
 // declared score/token_classify model did not itself declare.
 func (c *ModelConfig) PIIFilterApplies() bool {
-	if c.Backend == "cloud-proxy" {
+	if c.Backend == model.CloudProxyBackend {
 		return true
 	}
 	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)
@@ -698,6 +752,31 @@ func (c *ModelConfig) PIIDetectionEntityActions() map[string]string {
 		out[k] = v
 	}
 	return out
+}
+
+// PIIDetectionExtendToNextWord returns the entity groups whose detections
+// are stretched over the following word (a fresh copy).
+func (c *ModelConfig) PIIDetectionExtendToNextWord() []string {
+	if len(c.PIIDetection.ExtendToNextWord) == 0 {
+		return nil
+	}
+	return append([]string(nil), c.PIIDetection.ExtendToNextWord...)
+}
+
+// PIIDetectionExtendToPreviousWord returns the entity groups whose detections
+// are stretched over the preceding word (a fresh copy).
+func (c *ModelConfig) PIIDetectionExtendToPreviousWord() []string {
+	if len(c.PIIDetection.ExtendToPreviousWord) == 0 {
+		return nil
+	}
+	return append([]string(nil), c.PIIDetection.ExtendToPreviousWord...)
+}
+
+// PIIDetectionProtectedTerms returns the inline protected terms and the
+// configured term files (fresh copies). The files are read by the pii
+// package (pii.LoadProtectedTerms), relative to the models path.
+func (c *ModelConfig) PIIDetectionProtectedTerms() (terms, files []string) {
+	return slices.Clone(c.PIIDetection.ProtectedTerms), slices.Clone(c.PIIDetection.ProtectedTermsFiles)
 }
 
 // IsPatternDetector reports whether this detector model matches secrets with
@@ -745,6 +824,11 @@ func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCP
 	if err := yaml.Unmarshal([]byte(c.Stdio), &stdio); err != nil {
 		return remote, stdio, err
 	}
+	for name, server := range remote.Servers {
+		if err := server.Validate(); err != nil {
+			return remote, stdio, fmt.Errorf("remote MCP server %q: %w", name, err)
+		}
+	}
 	return remote, stdio, nil
 }
 
@@ -761,6 +845,97 @@ type (
 type MCPRemoteServer struct {
 	URL   string `json:"url,omitempty"`
 	Token string `json:"token,omitempty"`
+	// OAuth2 makes LocalAI obtain short-lived access tokens with the
+	// client_credentials grant instead of sending a static Token. The two are
+	// mutually exclusive.
+	OAuth2 *MCPOAuth2Config `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
+}
+
+// @Description OAuth2 client_credentials settings for a remote MCP server
+type MCPOAuth2Config struct {
+	TokenURL string `yaml:"token_url,omitempty" json:"token_url,omitempty"`
+	// ClientID / ClientSecret may be given literally, or by naming an
+	// environment variable (*_env) so the secret stays out of the model YAML.
+	// Exactly one of the two forms must be set for each.
+	ClientID        string   `yaml:"client_id,omitempty" json:"client_id,omitempty"`
+	ClientIDEnv     string   `yaml:"client_id_env,omitempty" json:"client_id_env,omitempty"`
+	ClientSecret    string   `yaml:"client_secret,omitempty" json:"client_secret,omitempty"`
+	ClientSecretEnv string   `yaml:"client_secret_env,omitempty" json:"client_secret_env,omitempty"`
+	Scopes          []string `yaml:"scopes,omitempty" json:"scopes,omitempty"`
+	// EndpointParams are extra form parameters for the token request, e.g.
+	// "audience" (Auth0/Keycloak) or "resource" (RFC 8707).
+	EndpointParams map[string]string `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
+}
+
+// Validate checks the static shape of a remote server entry. Environment
+// variables are deliberately not resolved here: in distributed mode the
+// connection is made on an agent worker, whose environment may differ from
+// the frontend that loads the YAML.
+func (s MCPRemoteServer) Validate() error {
+	if s.OAuth2 == nil {
+		return nil
+	}
+	if s.Token != "" {
+		return errors.New("token and oauth2 are mutually exclusive")
+	}
+	o := s.OAuth2
+	if o.TokenURL == "" {
+		return errors.New("oauth2.token_url is required")
+	}
+	if err := validateTokenURL(o.TokenURL); err != nil {
+		return err
+	}
+	if err := exactlyOne("client_id", o.ClientID, o.ClientIDEnv); err != nil {
+		return err
+	}
+	return exactlyOne("client_secret", o.ClientSecret, o.ClientSecretEnv)
+}
+
+// validateTokenURL requires https for the token endpoint so the client
+// secret is not sent in clear text. Loopback hosts are exempt to allow
+// local identity providers and tests.
+func validateTokenURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("oauth2.token_url %q is not a valid absolute URL", raw)
+	}
+	switch u.Scheme {
+	case "https":
+		return nil
+	case "http":
+		switch u.Hostname() {
+		case "localhost", "127.0.0.1", "::1":
+			return nil
+		}
+	}
+	return errors.New("oauth2.token_url must use https (http is allowed only for localhost, 127.0.0.1 and ::1)")
+}
+
+func exactlyOne(field, literal, env string) error {
+	switch {
+	case literal != "" && env != "":
+		return fmt.Errorf("oauth2.%s and oauth2.%s_env are mutually exclusive", field, field)
+	case literal == "" && env == "":
+		return fmt.Errorf("oauth2 requires %s or %s_env", field, field)
+	}
+	return nil
+}
+
+// String redacts credentials when server entries are formatted as text.
+func (s MCPRemoteServer) String() string {
+	auth := "none"
+	switch {
+	case s.OAuth2 != nil:
+		auth = "oauth2(" + s.OAuth2.TokenURL + ")"
+	case s.Token != "":
+		auth = "token([redacted])"
+	}
+	return fmt.Sprintf("{url: %s, auth: %s}", s.URL, auth)
+}
+
+// LogValue also redacts credentials in structured JSON logs, which bypass String.
+func (s MCPRemoteServer) LogValue() slog.Value {
+	return slog.StringValue(s.String())
 }
 
 // @Description MCP STDIO server configuration
@@ -769,6 +944,18 @@ type MCPSTDIOServer struct {
 	Env     map[string]string `json:"env,omitempty"`
 	Command string            `json:"command,omitempty"`
 }
+
+// Pipeline stage names. They match the Pipeline yaml keys and are the stage
+// identifiers the realtime endpoint routes by (failover chains per stage,
+// model_failover events, preload roles), so every user shares one spelling.
+const (
+	PipelineStageVAD              = "vad"
+	PipelineStageTranscription    = "transcription"
+	PipelineStageLLM              = "llm"
+	PipelineStageTTS              = "tts"
+	PipelineStageSoundDetection   = "sound_detection"
+	PipelineStageVoiceRecognition = "voice_recognition"
+)
 
 // @Description Pipeline defines other models to use for audio-to-audio
 type Pipeline struct {
@@ -790,6 +977,14 @@ type Pipeline struct {
 	// client commits windows via input_audio_buffer.commit).
 	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
 	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
+
+	// Diarization asks the transcription model for speaker labels on each
+	// VAD-committed utterance and emits every labelled segment as a
+	// conversation.item.input_audio_transcription.segment event. It needs a
+	// transcription model that diarizes (e.g. parakeet-cpp with a
+	// diarization_model companion); off by default because some backends fail
+	// a diarize request they cannot serve. Speaker labels are per turn.
+	Diarization bool `yaml:"diarization,omitempty" json:"diarization,omitempty"`
 
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
@@ -1591,6 +1786,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	for _, operation := range c.ThreeDOperations() {
+		for _, parameter := range operation.Parameters {
+			if parameter.Default != "" {
+				if err := parameter.Validate(parameter.Default); err != nil {
+					return false, fmt.Errorf("%s default: %w", operation.ID, err)
+				}
+			}
+		}
+	}
 	if c.Compression.Enabled {
 		if c.IsCloudProxyBackendPassthrough() {
 			return false, fmt.Errorf("compression: cloud-proxy passthrough is unsupported; configure proxy mode translate")
@@ -1633,6 +1837,13 @@ func (c *ModelConfig) Validate() (bool, error) {
 	}
 	if len(c.Artifacts) > 0 && primaries != 1 {
 		return false, fmt.Errorf("a config with artifacts must declare exactly one %q target, found %d", modelartifacts.TargetModel, primaries)
+	}
+
+	if c.IsFailover() {
+		if err := c.validateFailover(); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
 	// An alias is a pure redirect: validate only its own shape here. Target
@@ -1747,6 +1958,29 @@ func (c *ModelConfig) Validate() (bool, error) {
 	default:
 		return false, fmt.Errorf("router: unknown score_normalization %q (expected %q or %q)",
 			c.Router.ScoreNormalization, ScoreNormalizationRaw, ScoreNormalizationMean)
+	}
+
+	if c.Router.Classifier == "decisions" {
+		t := c.Router.ActivationThreshold
+		if math.IsNaN(t) || math.IsInf(t, 0) || t < 0 || t > 1 {
+			return false, fmt.Errorf("router.decisions activation_threshold must be finite and in [0,1]")
+		}
+		if c.Router.ClassifierModel == "" {
+			return false, fmt.Errorf("router.decisions requires classifier_model")
+		}
+		if len(c.Router.Policies) == 0 || len(c.Router.Policies) > 64 {
+			return false, fmt.Errorf("router.decisions requires 1 to 64 policies")
+		}
+		seen := map[string]bool{}
+		for _, p := range c.Router.Policies {
+			if strings.TrimSpace(p.Label) == "" || strings.TrimSpace(p.Description) == "" || seen[p.Label] {
+				return false, fmt.Errorf("router.decisions requires unique nonblank labels and descriptions")
+			}
+			seen[p.Label] = true
+		}
+		if c.Router.KNN != nil || c.Router.EmbeddingCache != nil {
+			return false, fmt.Errorf("router.decisions does not support knn or embedding_cache composition")
+		}
 	}
 	if c.Router.KNN != nil {
 		if err := c.Router.KNN.Validate(); err != nil {
@@ -1987,7 +2221,23 @@ const (
 	// Marks a model as wired for the Generate3D gRPC primitive
 	// (image-conditioned 3D asset generation — a binary glTF mesh with
 	// optional PBR material, e.g. trellis2cpp).
-	FLAG_3D ModelConfigUsecase = 0b100000000000000000000000
+	FLAG_3D           ModelConfigUsecase = 0b100000000000000000000000
+	FLAG_3D_ANIMATION ModelConfigUsecase = 1 << 24
+
+	// Marks a model as a decision model: it answers typed choice / noul /
+	// score questions over a state (served by POST /v1/systemone).
+	// Explicit only, like FLAG_SCORE: a decision model never generates
+	// text, so guessing chat or embeddings for it would surface it in
+	// pickers it cannot serve.
+	FLAG_DECISIONS ModelConfigUsecase = 1 << 25
+
+	// Marks a model as an image upscaler served by the UpscaleImage RPC.
+	FLAG_UPSCALE ModelConfigUsecase = 1 << 26
+
+	// Marks a model as a motion-capture backend (GEM-X pose streaming).
+	// Keep every usecase flag a distinct bit: the "Usecase flags" spec
+	// guards against two flags silently sharing one.
+	FLAG_MOTION ModelConfigUsecase = 1 << 27
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
@@ -1998,11 +2248,11 @@ const (
 // both text/language). A model is multimodal when its usecases span 2+ groups.
 var ModalityGroups = []ModelConfigUsecase{
 	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                           // text/language
-	FLAG_VISION | FLAG_DETECTION,                                      // visual understanding
+	FLAG_VISION | FLAG_DETECTION | FLAG_MOTION,                        // visual understanding
 	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
 	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
 	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
-	FLAG_IMAGE | FLAG_VIDEO | FLAG_3D,                                 // visual generation
+	FLAG_IMAGE | FLAG_VIDEO | FLAG_3D | FLAG_3D_ANIMATION,             // visual generation
 }
 
 // IsMultimodal returns true if the given usecases span two or more orthogonal
@@ -2050,6 +2300,10 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DEPTH":                FLAG_DEPTH,
 		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 		"FLAG_3D":                   FLAG_3D,
+		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
+		"FLAG_DECISIONS":            FLAG_DECISIONS,
+		"FLAG_UPSCALE":              FLAG_UPSCALE,
+		"FLAG_MOTION":               FLAG_MOTION,
 	}
 }
 
@@ -2078,9 +2332,9 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 //
 // Declared known_usecases are normally additive — the guessing heuristic
 // still adds whatever it can infer from backend/templates. The exceptions
-// are FLAG_SCORE and FLAG_TOKEN_CLASSIFY: when the operator declared
-// either, they reserved the model for an internal direct-decode primitive
-// (the router classifier, or the PII NER tier). Letting GuessUsecases
+// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY, FLAG_DECISIONS and FLAG_UPSCALE: when the operator
+// declared any of them, they reserved the model for a direct-decode primitive
+// (the router classifier, the PII NER tier, or a decision head). Letting GuessUsecases
 // paint chat/completion/embeddings on top would surface it in pickers it
 // was deliberately kept out of. So a declared score or token_classify
 // list is authoritative; declare the generation usecases explicitly
@@ -2090,7 +2344,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY)) != 0 {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_DECISIONS | FLAG_UPSCALE)) != 0 {
 			return false
 		}
 	}
@@ -2101,6 +2355,16 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 // In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
+	// Upscaling requires a dedicated model declaration, not just an image backend.
+	if u&FLAG_UPSCALE != 0 {
+		return false
+	}
+	if u&FLAG_MOTION != 0 {
+		// Motion is declared by the backend registry, never inferred from templates.
+		if cap := GetBackendCapability(c.Backend); cap == nil || !slices.Contains(cap.PossibleUsecases, UsecaseMotion) {
+			return false
+		}
+	}
 	// Backends that are clearly not text-generation
 	nonTextGenBackends := []string{
 		"whisper", "piper", "kokoro",
@@ -2221,6 +2485,9 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 			return false
 		}
 	}
+	if (u&FLAG_3D_ANIMATION) == FLAG_3D_ANIMATION && c.Backend != "kimodocpp" {
+		return false
+	}
 
 	if (u & FLAG_FACE_RECOGNITION) == FLAG_FACE_RECOGNITION {
 		faceBackends := []string{"insightface"}
@@ -2307,6 +2574,14 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// on llama-cpp, and the model's TOKEN_CLS head isn't useful as
 		// general embeddings), so HasUsecases(FLAG_TOKEN_CLASSIFY) is true
 		// only when KnownUsecases declares it explicitly.
+		return false
+	}
+
+	if (u & FLAG_DECISIONS) == FLAG_DECISIONS {
+		// No heuristic: decisions intent is a deliberate operator choice
+		// (the model is a non-generative decision head), so
+		// HasUsecases(FLAG_DECISIONS) is true only when KnownUsecases
+		// declares it explicitly.
 		return false
 	}
 

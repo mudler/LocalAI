@@ -93,9 +93,69 @@ name: silero-vad
 backend: silero-vad
 ```
 
+Detection parameters can be overridden via model `options` (`key:value` entries):
+
+```yaml
+name: silero-vad
+backend: silero-vad
+options:
+  - threshold:0.55
+  - min_silence_duration_ms:50
+  - speech_pad_ms:450
+```
+
+Supported options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `threshold` | float | `0.5` | Speech probability threshold |
+| `min_silence_duration_ms` | int | `100` | Minimum silence before ending a speech segment |
+| `speech_pad_ms` | int | `30` | Padding added around each speech segment |
+
+Thresholds must be greater than 0 and less than 1. Durations must be nonnegative integers.
+Malformed values, negative durations, and NaN thresholds are ignored; the default or last valid value remains in use.
+
+Reload the model (or restart LocalAI) after changing these options.
+
+## parakeet-cpp backend
+
+The `parakeet-cpp` backend serves the same endpoint. It runs one of two detectors:
+
+- **Silero VAD** from a GGUF file (gallery entry `parakeet-cpp-silero-vad-f16`, 1.3 MB). One probability per 32 ms.
+- **The VAD head** of a full Moondream Ultra or Redux model (gallery entries `parakeet-cpp-vad-moondream-ultra-q8_0` and `parakeet-cpp-vad-moondream-redux-packed`). One probability per 80 ms. The packed Redux file runs on CPU only.
+- **A VAD-only slice** of that head (gallery entries `parakeet-cpp-vad-moondream-redux`, 9.9 MB, and `parakeet-cpp-vad-moondream-ultra`, 6.0 MB). The slice is cut out of the full model without retraining, so the segments are byte-identical to the full model's head, and the speed is the same. Compared with loading the whole model (213 MB to 1.4 GB), the file is 6 to 10 MB, loads in a few milliseconds instead of 0.1 to 0.7 s, and needs about 245 MiB of peak memory for a 33 s clip instead of 0.6 to 1.6 GiB. A slice cannot transcribe, and it needs a parakeet.cpp build with VAD-only GGUF support (pin e53a253 or newer).
+
+- **A bundle GGUF** (gallery entries `parakeet-cpp-bundle-small`, `parakeet-cpp-bundle-standard` and `parakeet-cpp-bundle-moondream-redux`). The bundle holds a Silero component next to the ASR model, and the backend uses it for this endpoint with no option. See [Bundle GGUF files]({{%relref "features/audio-to-text" %}}#bundle-gguf-files-several-models-in-one-file).
+
+The entry `parakeet-cpp-vad` installs Silero. The detectors differ and are not variants of one model, so install the entry of the VAD head by name if you want it (`parakeet-cpp-vad-moondream-redux` or `parakeet-cpp-vad-moondream-ultra` for the small files). The request is the same as above: `audio` is 16 kHz mono float32 PCM, and the response lists `segments` with `start` and `end` in seconds. An ASR model that has no VAD head fails the request with `model has no VAD head`.
+
+```yaml
+name: parakeet-vad
+backend: parakeet-cpp
+known_usecases:
+  - vad
+parameters:
+  model: parakeet-cpp/silero-vad-f16.gguf
+options:
+  - vad_threshold:0.5
+  - vad_min_pause:0.1
+```
+
+All options are optional. An unset value keeps the default of the detector in use (the library defaults differ between Silero and the head):
+
+| Option | Unit | Silero default | Head default | Description |
+|--------|------|---------------:|-------------:|-------------|
+| `vad_threshold` | 0 to 1 | `0.5` | `0.5` | Speech probability threshold |
+| `vad_min_pause` | seconds | `0.1` | `0.2` | A silence this long separates two segments; shorter gaps merge |
+| `vad_min_speech` | seconds | `0.25` | `0.1` | Shorter speech runs are dropped |
+| `vad_speech_pad` | seconds | `0.03` | `0` | Padding added around each segment |
+| `vad_trim` | seconds | `0.3` | `0.3` | Only for transcription with `vad:true` or `vad_model`: each piece shrinks to its speech plus this much. `0` keeps the whole cuts. The endpoint ignores it |
+
+Option names differ from the Silero backend above (`min_silence_duration_ms` and `speech_pad_ms` are in milliseconds there). The same options tune transcription with `vad:true` or `vad_model`; see [audio to text]({{%relref "features/audio-to-text" %}}). Requests on one loaded model run one at a time.
+
 ## Detection Parameters
 
-The Silero VAD backend uses the following internal defaults:
+The Silero VAD backend uses the following internal defaults (overridable via `options` above):
 
 - **Sample rate:** 16kHz
 - **Threshold:** 0.5

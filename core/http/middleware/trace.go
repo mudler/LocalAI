@@ -3,6 +3,8 @@ package middleware
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"net"
@@ -18,6 +20,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/xlog"
 )
@@ -214,13 +217,14 @@ func (w *bodyWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 // land in the in-memory trace buffer. Keys are canonical — http.Header
 // stores them that way, so range yields canonical keys directly.
 var sensitiveTraceHeaders = map[string]struct{}{
-	"Authorization":       {},
-	"Proxy-Authorization": {},
-	"Cookie":              {},
-	"Set-Cookie":          {},
-	"X-Api-Key":           {},
-	"Xi-Api-Key":          {},
-	"X-Auth-Token":        {},
+	"Authorization":          {},
+	"Proxy-Authorization":    {},
+	"Cookie":                 {},
+	"Set-Cookie":             {},
+	"X-Api-Key":              {},
+	"Xi-Api-Key":             {},
+	"X-Auth-Token":           {},
+	"Sec-Websocket-Protocol": {},
 }
 
 func redactSensitiveHeaders(h http.Header) http.Header {
@@ -233,7 +237,7 @@ func redactSensitiveHeaders(h http.Header) http.Header {
 	return out
 }
 
-// TraceMiddleware intercepts and logs JSON API requests and responses
+// TraceMiddleware logs JSON exchanges and transcription upload metadata.
 func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 	initializeTracing(app.ApplicationConfig().DataPath, app.ApplicationConfig().TracingMaxItems)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -242,19 +246,35 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			ct, _, _ := mime.ParseMediaType(c.Request().Header.Get("Content-Type"))
-			if ct != "application/json" {
+			// Biometric routes can carry vectors in either direction and JSON
+			// diarization carries base64 audio even without profile export.
+			// Exclude the whole exchange before reading or wrapping bodies,
+			// including registration if tracing is installed globally later.
+			switch c.Path() {
+			case "/v1/audio/diarization", "/audio/diarization", "/v1/voice/register":
 				return next(c)
 			}
 
-			body, err := io.ReadAll(c.Request().Body)
-			if err != nil {
-				xlog.Error("Failed to read request body")
-				return err
+			ct, _, _ := mime.ParseMediaType(c.Request().Header.Get("Content-Type"))
+			multipartTranscription := ct == "multipart/form-data" && (c.Path() == "/v1/audio/transcriptions" || c.Path() == "/audio/transcriptions")
+			if ct != "application/json" && !multipartTranscription {
+				return next(c)
 			}
 
-			// Restore the body for downstream handlers
-			c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
+			var body []byte
+			if !multipartTranscription {
+				var err error
+				body, err = io.ReadAll(c.Request().Body)
+				if err != nil {
+					xlog.Error("Failed to read request body")
+					return err
+				}
+				c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
+			} else {
+				// Leave the upload untouched. Only the endpoint should parse or
+				// spool audio, regardless of the configured trace capture limit.
+				body = []byte(`{"body_omitted":"multipart upload omitted"}`)
+			}
 
 			startTime := time.Now()
 
@@ -306,14 +326,30 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			c.Response().Writer = mw
 
 			handlerErr := next(c)
+			if multipartTranscription {
+				metadata := map[string]string{"body_omitted": "multipart upload omitted"}
+				if input, ok := c.Get(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest); ok && input != nil {
+					metadata["model"] = input.Model
+				}
+				body, _ = json.Marshal(metadata)
+				metadataBody, truncated := truncateForTrace(body, maxBodyBytes)
+				exchange.Request.Body = &metadataBody
+				exchange.Request.BodyTruncated = truncated
+				exchange.Request.BodyBytes = len(body)
+			}
 
 			// Restore original writer unconditionally
 			c.Response().Writer = mw.ResponseWriter
 
-			// Determine response status (use 500 if handler errored and no status was set)
+			// Echo renders returned errors after middleware unwinds. Its default
+			// response status is already 200, so use the error while uncommitted.
 			status := c.Response().Status
-			if status == 0 && handlerErr != nil {
+			if handlerErr != nil && !c.Response().Committed {
 				status = http.StatusInternalServerError
+				var httpErr *echo.HTTPError
+				if errors.As(handlerErr, &httpErr) {
+					status = httpErr.Code
+				}
 			}
 
 			// Create exchange log (always, even on error). Sensitive headers

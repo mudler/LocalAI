@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -44,10 +45,12 @@ const (
 // usecaseFilters maps UI filter keys to ModelConfigUsecase flags for
 // capability-based gallery filtering.
 var usecaseFilters = map[string]config.ModelConfigUsecase{
+	config.UsecaseMotion:              config.FLAG_MOTION,
 	config.UsecaseChat:                config.FLAG_CHAT,
 	config.UsecaseImage:               config.FLAG_IMAGE,
 	config.UsecaseVideo:               config.FLAG_VIDEO,
 	config.Usecase3D:                  config.FLAG_3D,
+	config.Usecase3DAnimation:         config.FLAG_3D_ANIMATION,
 	config.UsecaseVision:              config.FLAG_VISION,
 	config.UsecaseTTS:                 config.FLAG_TTS,
 	config.UsecaseTranscript:          config.FLAG_TRANSCRIPT,
@@ -820,12 +823,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			NodeStatus string `json:"node_status"`
 		}
 		type modelCapability struct {
-			ID           string                         `json:"id"`
-			Capabilities []string                       `json:"capabilities"`
-			Backend      string                         `json:"backend"`
-			Disabled     bool                           `json:"disabled"`
-			Pinned       bool                           `json:"pinned"`
-			VoiceCloning *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
+			UpscaleScale     int                            `json:"upscaleScale,omitempty"`
+			ThreeDOperations []schema.ThreeDOperation       `json:"three_d_operations,omitempty"`
+			ID               string                         `json:"id"`
+			Capabilities     []string                       `json:"capabilities"`
+			Backend          string                         `json:"backend"`
+			Disabled         bool                           `json:"disabled"`
+			Pinned           bool                           `json:"pinned"`
+			VoiceCloning     *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
 			// LoadedOn is populated only when the node registry is active
 			// (distributed mode). Lets the UI show "loaded on worker-1" without
 			// the operator having to expand every node manually. An empty slice
@@ -868,13 +873,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		for _, cfg := range modelConfigs {
 			seen[cfg.Name] = true
 			result = append(result, modelCapability{
-				ID:           cfg.Name,
-				Capabilities: cfg.KnownUsecaseStrings,
-				Backend:      cfg.Backend,
-				Disabled:     cfg.IsDisabled(),
-				Pinned:       cfg.IsPinned(),
-				VoiceCloning: config.VoiceCloningForModel(&cfg),
-				LoadedOn:     loadedByModel[cfg.Name],
+				ID:               cfg.Name,
+				Capabilities:     cfg.KnownUsecaseStrings,
+				UpscaleScale:     config.UpscaleScaleFromOptions(cfg),
+				ThreeDOperations: cfg.ThreeDOperations(),
+				Backend:          cfg.Backend,
+				Disabled:         cfg.IsDisabled(),
+				Pinned:           cfg.IsPinned(),
+				VoiceCloning:     config.VoiceCloningForModel(&cfg),
+				LoadedOn:         loadedByModel[cfg.Name],
 			})
 		}
 		for _, name := range modelsWithoutConfig {
@@ -1202,6 +1209,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
+
+	// On-disk storage report: per-model sizes, shared files, missing refs
+	app.GET("/api/models/storage", localai.ModelStorageEndpoint(appConfig), adminMiddleware)
 
 	// Get installed model YAML config for the React model editor
 	app.GET("/api/models/edit/:name", func(c echo.Context) error {
@@ -1891,6 +1901,22 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"reclaimer_enabled":   appConfig.MemoryReclaimerEnabled,
 			"reclaimer_threshold": appConfig.MemoryReclaimerThreshold,
 			"watchdog_interval":   watchdogInterval,
+		}
+
+		// The same host readings a distributed worker reports in its
+		// heartbeat, so a single-node install can draw the CPU and models-disk
+		// gauges the Nodes page draws for a cluster. Each is omitted on a
+		// failed read rather than zeroed: 0 cores or 0 free bytes would be a
+		// claim, not an absence.
+		if cpuInfo, err := xsysinfo.GetCPUInfo(); err == nil {
+			response["cpu"] = map[string]any{
+				"logical_cores": cpuInfo.LogicalCores,
+				"usage_percent": cpuInfo.UsagePercent,
+				"load_1":        cpuInfo.Load1,
+			}
+		}
+		if diskInfo, err := xsysinfo.GetDiskInfo(appConfig.SystemState.Model.ModelsPath); err == nil {
+			response["disk"] = diskInfo
 		}
 
 		// An additional field, never a rewrite of the local aggregate above:

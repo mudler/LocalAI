@@ -3,8 +3,10 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
+	nethttp "net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -30,6 +33,12 @@ import (
 // and document the deprecation in the help text.
 
 type RunCMD struct {
+	Pprof                     bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
+	PprofAddress              string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
+	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
+	PprofBlockProfileRate     int    `name:"pprof-block-profile-rate" env:"LOCALAI_PPROF_BLOCK_PROFILE_RATE" default:"0" help:"Block sampling rate in nanoseconds (0 disables sampling); requires pprof" group:"diagnostics"`
+	RequestPhaseTiming        bool   `name:"request-phase-timing" env:"LOCALAI_REQUEST_PHASE_TIMING" default:"false" help:"Log sanitized request and config-reload phase timings at Info" group:"diagnostics"`
+
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 	Color     string   `env:"COLOR" hidden:""`
 	NoColor   string   `env:"NO_COLOR" hidden:""`
@@ -42,6 +51,7 @@ type RunCMD struct {
 	BackendsPath                 string        `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
 	BackendsSystemPath           string        `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
 	ModelsPath                   string        `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
+	DownloadStagingPath          string        `env:"LOCALAI_DOWNLOAD_STAGING_PATH,DOWNLOAD_STAGING_PATH" type:"path" default:"${basepath}/downloading" help:"Path where in-flight downloads are staged before extraction" group:"storage"`
 	ArtifactDownloadConcurrency  int           `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
 	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
 	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
@@ -184,6 +194,7 @@ type RunCMD struct {
 	ModelLoadWait                string `env:"LOCALAI_MODEL_LOAD_WAIT" help:"How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with 503, a Retry-After header and live staging progress (default 60s). The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to 0 to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front." group:"distributed"`
 	StaleNodeThreshold           string `env:"LOCALAI_STALE_NODE_THRESHOLD" help:"How long a worker node may go without a durable heartbeat before the health monitor marks it offline (default 5m). Because a beat that only carries a fresher timestamp is held back by --node-heartbeat-checkpoint, this must stay comfortably wider than that interval; raise both together. Dead-node detection through the per-model gRPC health check and through request-time failure is unaffected by this knob." group:"distributed"`
 	NodeHeartbeatCheckpoint      string `env:"LOCALAI_NODE_HEARTBEAT_CHECKPOINT" help:"Minimum gap between durable heartbeat writes for a worker node (default 60s). A beat that only carries a fresher timestamp is dropped until this interval elapses; every field is compared against the value last written, so a node's first beat, a changed total VRAM/total disk/GPU vendor, and a free VRAM/RAM/disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set below the worker heartbeat interval to write on every beat." group:"distributed"`
+	ModelConfigResyncInterval    string `env:"LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL" help:"How often each frontend compares its model configs with the shared models directory (default 30s). Frontends normally learn about a model install, edit or removal from a message on NATS; this pass catches a change whose message a frontend missed, for example during a NATS reconnect, so an old config is served for at most this long. A pass reads only the config files and skips the parse when none of them changed." group:"distributed"`
 	NatsAccountSeed              string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
 	NatsServiceJWT               string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
 	NatsServiceSeed              string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
@@ -242,12 +253,23 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 	return d, nil
 }
 
-func (r *RunCMD) Run(ctx *cliContext.Context) error {
+func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
 
 	if r.Version {
 		fmt.Println(internal.Version)
 		return nil
+	}
+
+	diagnosticOpts := r.diagnosticsOptions()
+	if err := diagnosticOpts.Validate(); err != nil {
+		return err
+	}
+
+	if ctx.CredentialsFile == "" {
+		if err := LoadCredentials(resolveCredentialsFile("", r.DataPath)); err != nil {
+			return err
+		}
 	}
 
 	activatedListeners, err := systemdActivatedListeners()
@@ -274,17 +296,25 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		system.WithBackendSystemPath(r.BackendsSystemPath),
 		system.WithModelPath(r.ModelsPath),
 		system.WithBackendPath(r.BackendsPath),
+		system.WithStagingPath(r.DownloadStagingPath),
 		system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag),
 		system.WithBackendImagesBranchTag(r.BackendImagesBranchTag),
 		system.WithBackendDevSuffix(r.BackendDevSuffix),
 		system.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends),
+		system.WithRequireBackendIntegrity(r.RequireBackendIntegrity),
 	)
 	if err != nil {
 		return err
 	}
 
+	// CLI context holds configuration, not a cancellation context.
+	runCtx, cancelRun := context.WithCancelCause(context.Background())
+	if !r.PreloadBackendOnly {
+		defer cancelRun(nil)
+	}
 	opts := []config.AppOption{
-		config.WithContext(context.Background()),
+		config.WithProxyAPIKeyEnvLookup(os.Getenv),
+		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
 		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
 			modelartifacts.WithHuggingFaceToken(r.HFToken),
@@ -412,6 +442,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return err
 		}
 		opts = append(opts, config.WithNodeHeartbeatCheckpoint(d))
+	}
+	if r.ModelConfigResyncInterval != "" {
+		d, err := parseDistributedDuration("LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL", r.ModelConfigResyncInterval)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithModelConfigResyncInterval(d))
 	}
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))
@@ -771,9 +808,59 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
+	var stopProfiler func() error
+	if diagnosticOpts.Pprof {
+		profiler, err := diagnostics.Start(diagnosticOpts)
+		if err != nil {
+			return err
+		}
+		monitorDone := make(chan struct{})
+		var profilerErr error
+		go func() {
+			defer close(monitorDone)
+			if err := <-profiler.Errors(); err != nil {
+				profilerErr = err
+				cancelRun(err)
+			}
+		}()
+		stopProfiler = func() error {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err := profiler.Shutdown(shutdownCtx)
+			<-monitorDone
+			return errors.Join(err, profilerErr)
+		}
+		defer func() {
+			result = errors.Join(result, stopProfiler())
+		}()
+		// Signals exit the process without running defers. Register private
+		// cleanup before application cleanup, which has no bounded shutdown.
+		signals.RegisterGracefulTerminationHandler(func() {
+			cancelRun(nil)
+			if err := stopProfiler(); err != nil {
+				xlog.Error("error while shutting down profiler", "error", err)
+			}
+		})
+	}
+	if diagnosticOpts.RequestPhaseTiming {
+		opts = append(opts, config.WithDiagnosticsRecorder(diagnostics.NewRecorder(diagnostics.LogEvent)))
+	}
+
 	app, err := application.New(opts...)
 	if err != nil {
 		return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
+	}
+
+	defer func() {
+		cancelRun(nil)
+		if stopProfiler != nil {
+			// Release the bounded private resource even if app.Shutdown blocks.
+			_ = stopProfiler()
+		}
+		result = errors.Join(result, app.Shutdown())
+	}()
+	if err := runCtx.Err(); err != nil {
+		return context.Cause(runCtx)
 	}
 
 	// Refuse to bind a public-internet address without authentication unless
@@ -812,6 +899,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	signals.RegisterGracefulTerminationHandler(func() {
+		cancelRun(nil)
 		if err := app.Shutdown(); err != nil {
 			xlog.Error("error while shutting down application", "error", err)
 		}
@@ -822,10 +910,33 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	// collection initialization.
 	go func() {
 		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
-		app.StartAgentPool()
+		if runCtx.Err() == nil {
+			app.StartAgentPool()
+		}
 	}()
 
-	return appHTTP.Start(listenAddress)
+	if !diagnosticOpts.Pprof {
+		return appHTTP.Start(listenAddress)
+	}
+	served := make(chan error, 1)
+	go func() { served <- appHTTP.Start(listenAddress) }()
+	select {
+	case err := <-served:
+		return errors.Join(err, context.Cause(runCtx))
+	case <-runCtx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		shutdownErr := appHTTP.Shutdown(shutdownCtx)
+		if shutdownErr != nil {
+			shutdownErr = errors.Join(shutdownErr, appHTTP.Close())
+		}
+		serveErr := <-served
+		// Only intentional shutdown makes ErrServerClosed an expected result.
+		if errors.Is(serveErr, nethttp.ErrServerClosed) {
+			serveErr = nil
+		}
+		return errors.Join(serveErr, context.Cause(runCtx), shutdownErr)
+	}
 }
 
 // waitForServerReady polls the given address until the HTTP server is

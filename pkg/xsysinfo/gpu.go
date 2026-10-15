@@ -3,6 +3,7 @@ package xsysinfo
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/gpu"
@@ -612,56 +614,156 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 	return gpus
 }
 
-// getAMDGPUMemory queries AMD GPUs using rocm-smi
+// getAMDGPUMemory queries AMD GPUs using rocm-smi.
+// Prefers --showmeminfo all so APU GTT pools are visible (#12058); falls
+// back to vram-only on older rocm-smi builds that reject "all".
 func getAMDGPUMemory() []GPUMemoryInfo {
-	// Check if rocm-smi is available
 	if _, err := exec.LookPath("rocm-smi"); err != nil {
 		return nil
 	}
 
-	// Try CSV format first
-	cmd := exec.Command("rocm-smi", "--showmeminfo", "vram", "--csv")
+	out, err := runRocmSMIMemInfo("all")
+	if err != nil {
+		xlog.Debug("rocm-smi --showmeminfo all failed, falling back to vram", "error", err)
+		out, err = runRocmSMIMemInfo("vram")
+		if err != nil {
+			xlog.Debug("rocm-smi failed", "error", err)
+			return nil
+		}
+	}
 
+	return parseRocmSMIMemInfoCSV(out)
+}
+
+func runRocmSMIMemInfo(kind string) (string, error) {
+	cmd := exec.Command("rocm-smi", "--showmeminfo", kind, "--csv")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-
 	if err := cmd.Run(); err != nil {
-		xlog.Debug("rocm-smi failed", "error", err, "stderr", stderr.String())
+		return "", err
+	}
+	return stdout.String(), nil
+}
+
+// amdSharedMemoryAPU reports whether VRAM/GTT sizes look like an AMD
+// integrated GPU with a small UMA carve-out and a large GTT pool.
+// Dedicated dGPUs expose a host GTT aperture that must not be treated as
+// extra dedicated VRAM (see #12058 / maint guidance).
+func amdSharedMemoryAPU(vramTotal, gttTotal uint64) bool {
+	if vramTotal == 0 || gttTotal == 0 {
+		return false
+	}
+	// APU UMA defaults (e.g. 512 MiB) sit next to a GTT pool an order of
+	// magnitude larger. Discrete cards typically keep GTT within a small
+	// multiple of VRAM.
+	return gttTotal >= vramTotal*8
+}
+
+func scaleRocmMemIfMB(total, used uint64) (uint64, uint64) {
+	// Older rocm-smi builds reported MB; treat tiny totals as MB→bytes.
+	if total > 0 && total < 1000000 {
+		return total * 1024 * 1024, used * 1024 * 1024
+	}
+	return total, used
+}
+
+func parseAMDDeviceIndex(device string) int {
+	device = strings.TrimSpace(device)
+	if strings.HasPrefix(device, "GPU[") {
+		device = strings.TrimPrefix(device, "GPU[")
+		device = strings.TrimSuffix(device, "]")
+		idx, _ := strconv.Atoi(device)
+		return idx
+	}
+	if after, ok := strings.CutPrefix(device, "card"); ok {
+		idx, err := strconv.Atoi(after)
+		if err == nil {
+			return idx
+		}
+	}
+	return 0
+}
+
+// parseRocmSMIMemInfoCSV parses rocm-smi --showmeminfo {vram|all} --csv.
+// When the CSV includes GTT columns and the VRAM/GTT ratio matches an AMD
+// shared-memory APU, GTT is folded into Total/Used so detection reflects
+// usable HIP memory instead of the BIOS UMA carve-out alone (#12058).
+func parseRocmSMIMemInfoCSV(output string) []GPUMemoryInfo {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) == 0 {
 		return nil
 	}
 
+	header := strings.Split(lines[0], ",")
+	vramTotalIdx, vramUsedIdx, gttTotalIdx, gttUsedIdx := -1, -1, -1, -1
+	for i, col := range header {
+		key := strings.ToLower(strings.TrimSpace(col))
+		switch {
+		case strings.Contains(key, "vis_vram"):
+			// Ignore visible VRAM columns; they duplicate the UMA carve-out.
+			continue
+		case strings.Contains(key, "gtt") && strings.Contains(key, "used"):
+			gttUsedIdx = i
+		case strings.Contains(key, "gtt") && strings.Contains(key, "total"):
+			gttTotalIdx = i
+		case strings.Contains(key, "vram") && strings.Contains(key, "used"):
+			vramUsedIdx = i
+		case strings.Contains(key, "vram") && strings.Contains(key, "total"):
+			vramTotalIdx = i
+		}
+	}
+
+	// Legacy / headerless fallback: device,total,used positional layout.
+	headerAware := vramTotalIdx >= 0 && vramUsedIdx >= 0
+	if !headerAware {
+		vramTotalIdx, vramUsedIdx = 1, 2
+	}
+
 	var gpus []GPUMemoryInfo
-	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	start := 0
+	if headerAware || looksLikeRocmMemInfoHeader(lines[0]) {
+		start = 1
+	}
 
-	// Skip header line
-	for i, line := range lines {
-		if i == 0 || line == "" {
+	for _, line := range lines[start:] {
+		if line == "" {
 			continue
 		}
-
 		parts := strings.Split(line, ",")
-		if len(parts) < 3 {
+		need := vramUsedIdx
+		if gttUsedIdx > need {
+			need = gttUsedIdx
+		}
+		if gttTotalIdx > need {
+			need = gttTotalIdx
+		}
+		if vramTotalIdx > need {
+			need = vramTotalIdx
+		}
+		if len(parts) <= need || len(parts) < 3 {
 			continue
 		}
 
-		// Parse GPU index from first column (usually "GPU[0]" format)
-		idxStr := strings.TrimSpace(parts[0])
-		idx := 0
-		if strings.HasPrefix(idxStr, "GPU[") {
-			idxStr = strings.TrimPrefix(idxStr, "GPU[")
-			idxStr = strings.TrimSuffix(idxStr, "]")
-			idx, _ = strconv.Atoi(idxStr)
+		vramTotal, _ := strconv.ParseUint(strings.TrimSpace(parts[vramTotalIdx]), 10, 64)
+		vramUsed, _ := strconv.ParseUint(strings.TrimSpace(parts[vramUsedIdx]), 10, 64)
+		vramTotal, vramUsed = scaleRocmMemIfMB(vramTotal, vramUsed)
+
+		var gttTotal, gttUsed uint64
+		if headerAware && gttTotalIdx >= 0 && gttTotalIdx < len(parts) {
+			gttTotal, _ = strconv.ParseUint(strings.TrimSpace(parts[gttTotalIdx]), 10, 64)
+			if gttUsedIdx >= 0 && gttUsedIdx < len(parts) {
+				gttUsed, _ = strconv.ParseUint(strings.TrimSpace(parts[gttUsedIdx]), 10, 64)
+			}
+			gttTotal, gttUsed = scaleRocmMemIfMB(gttTotal, gttUsed)
 		}
 
-		// Parse memory values (in bytes or MB depending on rocm-smi version)
-		usedBytes, _ := strconv.ParseUint(strings.TrimSpace(parts[2]), 10, 64)
-		totalBytes, _ := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 64)
-
-		// If values seem like MB, convert to bytes
-		if totalBytes < 1000000 {
-			usedBytes *= 1024 * 1024
-			totalBytes *= 1024 * 1024
+		totalBytes, usedBytes := vramTotal, vramUsed
+		if amdSharedMemoryAPU(vramTotal, gttTotal) {
+			totalBytes = vramTotal + gttTotal
+			usedBytes = vramUsed + gttUsed
+			xlog.Debug("AMD shared-memory APU detected; folding GTT into VRAM totals",
+				"vram_total", vramTotal, "gtt_total", gttTotal, "combined_total", totalBytes)
 		}
 
 		freeBytes := uint64(0)
@@ -675,7 +777,7 @@ func getAMDGPUMemory() []GPUMemoryInfo {
 		}
 
 		gpus = append(gpus, GPUMemoryInfo{
-			Index:        idx,
+			Index:        parseAMDDeviceIndex(parts[0]),
 			Name:         "AMD GPU",
 			Vendor:       VendorAMD,
 			TotalVRAM:    totalBytes,
@@ -686,6 +788,11 @@ func getAMDGPUMemory() []GPUMemoryInfo {
 	}
 
 	return gpus
+}
+
+func looksLikeRocmMemInfoHeader(line string) bool {
+	lower := strings.ToLower(line)
+	return strings.Contains(lower, "device") && strings.Contains(lower, "memory")
 }
 
 // getIntelGPUMemory queries Intel GPUs via xpu-smi, intel_gpu_top, or
@@ -821,14 +928,23 @@ func getIntelXPUSMI() []GPUMemoryInfo {
 	return gpus
 }
 
+// intelGPUTopArgs returns flags for a single JSON sample from intel_gpu_top.
+// Do not use -s 1: on current intel_gpu_top, -s is the refresh period in
+// milliseconds and the default iteration count is infinite, which blocks startup.
+func intelGPUTopArgs() []string {
+	return []string{"-J", "-n", "1"}
+}
+
 // getIntelGPUTop queries Intel GPUs using intel_gpu_top
 func getIntelGPUTop() []GPUMemoryInfo {
 	if _, err := exec.LookPath("intel_gpu_top"); err != nil {
 		return nil
 	}
 
-	// intel_gpu_top with -J outputs JSON, -s 1 for single sample
-	cmd := exec.Command("intel_gpu_top", "-J", "-s", "1")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "intel_gpu_top", intelGPUTopArgs()...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

@@ -108,6 +108,8 @@ docker run -ti --name local-ai -p 8080:8080 --runtime nvidia --gpus all localai/
 
 ## Using Compose
 
+The repository's `docker-compose.yaml` installs `phi-2-chat` from the model gallery by default. Change its `command` list to select a different gallery model.
+
 For a more manageable setup, especially with persistent volumes, use Docker Compose or Podman Compose:
 
 ### Using CDI (Container Device Interface) - Recommended for NVIDIA Container Toolkit 1.14+
@@ -321,6 +323,7 @@ This indicates a Docker/NVIDIA Container Toolkit configuration issue. The contai
 - Check internet connection
 - Verify disk space: `df -h`
 - Check container logs for errors: `docker logs local-ai` or `podman logs local-ai`
+- If the logs show status 401 or 403, the source needs authentication. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}})
 
 ## Full image reference
 

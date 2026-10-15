@@ -6,13 +6,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/nats-io/nats.go"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // The scheduler's liveness probe asks a worker a question over NATS and treats
-// "no responders" as proof the worker is gone. That is only sound if every
+// "no route" as reason to skip the worker. That is only sound if every
 // worker in the fleet subscribes to the subject asked.
 //
 // It originally asked models.running, which arrived in 4.6. A 4.5 worker is
@@ -35,10 +35,10 @@ var _ = Describe("Node liveness probe subject", func() {
 	It("treats a worker that answers backend.list as alive", func() {
 		// A worker old enough to predate models.running: it answers the
 		// long-standing backend.list subject and nothing else.
-		mc.scriptReply(messaging.SubjectNodeBackendList(nodeID), messaging.BackendListReply{})
+		mc.scriptReply(messaging.SubjectNodeBackendList(nodeID), workerctl.BackendListReply{})
 		mc.scriptNoResponders(messaging.SubjectNodeModelsRunning(nodeID))
 
-		Expect(errors.Is(adapter.PingNode(nodeID), nats.ErrNoResponders)).To(BeFalse(),
+		Expect(errors.Is(adapter.PingNode(nodeID), ErrNoRoute)).To(BeFalse(),
 			"a worker answering backend.list is alive regardless of newer subjects")
 	})
 
@@ -46,6 +46,6 @@ var _ = Describe("Node liveness probe subject", func() {
 		mc.scriptNoResponders(messaging.SubjectNodeBackendList(nodeID))
 		mc.scriptNoResponders(messaging.SubjectNodeModelsRunning(nodeID))
 
-		Expect(errors.Is(adapter.PingNode(nodeID), nats.ErrNoResponders)).To(BeTrue())
+		Expect(errors.Is(adapter.PingNode(nodeID), ErrNoRoute)).To(BeTrue())
 	})
 })

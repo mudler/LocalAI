@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import Icon from '../Icon'
 
 // EntityRail is the scannable half of SplitView: one line per entity, grouped
 // while browsing and flat while searching.
@@ -15,7 +16,7 @@ import { useEffect, useRef } from 'react'
 // items:  [{ id, name, icon, meta, metaTone, stripe, groupId }]
 // groups: [{ id, label, icon }] - pass null, or grouped=false, for a flat list.
 //   metaTone: 'ok' | 'bad' | 'warn' | 'busy'
-//   stripe:   'run' | 'idle' | 'err' | 'off' - a left edge for surfaces read by
+//   stripe:   'run' | 'idle' | 'err' | 'off' - a status dot for surfaces read by
 //             condition before they are read by name. Omit where state is not
 //             the point.
 export default function EntityRail({
@@ -146,8 +147,8 @@ export default function EntityRail({
                   data-testid={`${testId}-group-${group.id}`}
                   onClick={() => onToggleGroup(group.id)}
                 >
-                  <i className={`fas fa-chevron-${open ? 'down' : 'right'} entity-rail__caret`} aria-hidden="true" />
-                  {group.icon && <i className={`fas ${group.icon} entity-rail__group-icon`} aria-hidden="true" />}
+                  <Icon name={`chevron-${open ? 'down' : 'right'}`} className="entity-rail__caret" />
+                  {group.icon && <Icon name={group.icon} className="entity-rail__group-icon" />}
                   <span className="entity-rail__group-label">{group.label}</span>
                   <span className="entity-rail__group-count">{inGroup.length}</span>
                 </button>
@@ -176,7 +177,7 @@ function RailItem({ item, selected, tabbable, onSelect, onKeyDown, testId }) {
       onKeyDown={onKeyDown}
     >
       {item.stripe && <span className={`entity-rail__stripe entity-rail__stripe--${item.stripe}`} />}
-      {item.icon && <i className={`fas ${item.icon} entity-rail__icon`} aria-hidden="true" />}
+      {item.icon && <Icon name={item.icon} className="entity-rail__icon" />}
       <span className="entity-rail__main">
         <span className="entity-rail__name">{item.name}</span>
         {item.meta && (

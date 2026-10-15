@@ -1,14 +1,27 @@
 basePath: /
 definitions:
+  auth.WebSocketTicketResponse:
+    properties:
+      expires_at:
+        type: string
+      ticket:
+        type: string
+    type: object
   config.Gallery:
     properties:
+      artifact_verification:
+        allOf:
+        - $ref: '#/definitions/config.GalleryVerification'
+        description: |-
+          ArtifactVerification overrides Verification only for the gallery OCI artifact.
+          Backend images keep their separate Verification policy.
       mirrors:
         description: |-
           Mirrors are tried in order when URL cannot be fetched. They are a
           fallback for availability, not a load-balancing pool: the primary is
           always preferred, and a mirror is only consulted after the one before
           it fails. Any URI the gallery loader understands works here
-          (https://, github:, file://).
+          (https://, github:, file://, oci://).
         items:
           type: string
         type: array
@@ -32,6 +45,11 @@ definitions:
       not_before:
         description: NotBefore is an RFC3339 timestamp. Empty disables the time check.
         type: string
+      source_repository:
+        description: |-
+          SourceRepository is an https URL compared exactly against the
+          certificate's source-repository extension. Empty skips the check.
+        type: string
     type: object
   config.TTSVoice:
     properties:
@@ -41,6 +59,70 @@ definitions:
         type: string
       name:
         type: string
+    type: object
+  failover.ChainState:
+    enum:
+    - primary
+    - fallback
+    - degraded
+    type: string
+    x-enum-varnames:
+    - ChainPrimary
+    - ChainFallback
+    - ChainDegraded
+  failover.ChainStatus:
+    properties:
+      active:
+        type: string
+      active_since:
+        type: string
+      name:
+        type: string
+      pinned:
+        type: string
+      state:
+        $ref: '#/definitions/failover.ChainState'
+      targets:
+        items:
+          $ref: '#/definitions/failover.TargetStatus'
+        type: array
+    type: object
+  failover.Kind:
+    enum:
+    - local
+    - remote
+    type: string
+    x-enum-varnames:
+    - KindLocal
+    - KindRemote
+  failover.TargetState:
+    enum:
+    - healthy
+    - down
+    - recovering
+    - missing
+    type: string
+    x-enum-varnames:
+    - StateHealthy
+    - StateDown
+    - StateRecovering
+    - StateMissing
+  failover.TargetStatus:
+    properties:
+      consecutive_ok:
+        type: integer
+      kind:
+        $ref: '#/definitions/failover.Kind'
+      last_error:
+        type: string
+      last_probe:
+        type: string
+      model:
+        type: string
+      state:
+        $ref: '#/definitions/failover.TargetState'
+      warm:
+        type: boolean
     type: object
   functions.Function:
     properties:
@@ -197,6 +279,23 @@ definitions:
           type: string
         type: array
     type: object
+  gallery.ModelStorage:
+    properties:
+      files:
+        items:
+          type: string
+        type: array
+      missing:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      shared_bytes:
+        type: integer
+      size_bytes:
+        type: integer
+    type: object
   gallery.NodeDriftInfo:
     properties:
       digest:
@@ -207,6 +306,41 @@ definitions:
         type: string
       version:
         type: string
+    type: object
+  gallery.StorageFile:
+    properties:
+      missing:
+        type: boolean
+      models:
+        items:
+          type: string
+        type: array
+      path:
+        description: Path is relative to the models directory.
+        type: string
+      size_bytes:
+        type: integer
+    type: object
+  gallery.StorageIndex:
+    properties:
+      errors:
+        description: |-
+          Errors carries per-config failures (malformed YAML, path escapes),
+          reported rather than fatal so one broken config cannot blank the
+          whole report.
+        items:
+          type: string
+        type: array
+      files:
+        items:
+          $ref: '#/definitions/gallery.StorageFile'
+        type: array
+      models:
+        items:
+          $ref: '#/definitions/gallery.ModelStorage'
+        type: array
+      total_bytes:
+        type: integer
     type: object
   gallery.UpgradeInfo:
     properties:
@@ -333,6 +467,18 @@ definitions:
       logo_url:
         type: string
     type: object
+  localai.FailoverChainsResponse:
+    properties:
+      chains:
+        items:
+          $ref: '#/definitions/failover.ChainStatus'
+        type: array
+    type: object
+  localai.FailoverPinRequest:
+    properties:
+      target:
+        type: string
+    type: object
   localai.GalleryBackend:
     properties:
       force:
@@ -439,6 +585,39 @@ definitions:
         type: integer
       success:
         type: boolean
+    type: object
+  localai.MotionSessionInfo:
+    properties:
+      frames:
+        type: integer
+      id:
+        type: string
+      model:
+        type: string
+      poses:
+        type: integer
+      profile:
+        type: string
+      time_origin:
+        type: string
+      upload_accepted:
+        type: integer
+      upload_dropped:
+        type: integer
+    type: object
+  localai.MotionSessionRequest:
+    properties:
+      model:
+        type: string
+      profile:
+        type: string
+      time_origin:
+        type: string
+    type: object
+  localai.MotionTicketRequest:
+    properties:
+      origin:
+        type: string
     type: object
   localai.TTSModelVoices:
     properties:
@@ -591,10 +770,27 @@ definitions:
       total:
         type: integer
     type: object
+  proto.SpeakerEncoder:
+    properties:
+      dimension:
+        type: integer
+      family:
+        description: embedding space of the encoder; empty when the backend cannot
+          tell
+        type: string
+      identity:
+        description: sha256 of loaded GGUF bytes
+        type: string
+    type: object
   proto.StatusResponse:
     properties:
       memory:
         $ref: '#/definitions/proto.MemoryUsageData'
+      speaker_encoder:
+        allOf:
+        - $ref: '#/definitions/proto.SpeakerEncoder'
+        description: trusted metadata from the loaded server encoder, never request
+          data
       state:
         $ref: '#/definitions/proto.StatusResponse_State'
     type: object
@@ -631,6 +827,13 @@ definitions:
       message:
         type: string
       param:
+        type: string
+      type:
+        type: string
+    type: object
+  schema.AnimationInput:
+    properties:
+      data:
         type: string
       type:
         type: string
@@ -804,6 +1007,114 @@ definitions:
       summary_tokens:
         type: integer
     type: object
+  schema.DecisionAnswer:
+    properties:
+      choice:
+        description: Choice preserves the selected string or boolean value. Swagger
+          2 uses a loose object placeholder for this union.
+        type: object
+      confidence:
+        type: number
+      name:
+        type: string
+      probabilities:
+        items:
+          $ref: '#/definitions/schema.DecisionProbability'
+        type: array
+      probability:
+        type: number
+      score:
+        type: number
+      type:
+        type: string
+    type: object
+  schema.DecisionChoice:
+    properties:
+      description:
+        type: string
+      value:
+        description: Value is a string or boolean choice. Swagger 2 uses a loose object
+          placeholder for this union.
+        type: object
+    type: object
+  schema.DecisionLevel:
+    properties:
+      description:
+        type: string
+      label:
+        type: string
+    type: object
+  schema.DecisionProbability:
+    properties:
+      label:
+        type: string
+      probability:
+        type: number
+      value:
+        description: Value is a string or boolean for choices, or a zero-based integer
+          for score levels. Swagger 2 uses a loose object placeholder for this union.
+        type: object
+    type: object
+  schema.DecisionQuestion:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/schema.DecisionChoice'
+        type: array
+      instructions:
+        type: string
+      levels:
+        items:
+          $ref: '#/definitions/schema.DecisionLevel'
+        type: array
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  schema.DecisionUsage:
+    properties:
+      input_tokens:
+        type: integer
+      input_tokens_details:
+        additionalProperties:
+          type: integer
+        type: object
+      output_tokens:
+        type: integer
+      output_tokens_details:
+        additionalProperties:
+          type: integer
+        type: object
+      total_tokens:
+        type: integer
+    type: object
+  schema.DecisionsRequest:
+    properties:
+      input:
+        description: Input is a text string or an array of user messages. Swagger
+          2 uses a loose object placeholder for this union.
+        type: object
+      model:
+        type: string
+      questions:
+        items:
+          $ref: '#/definitions/schema.DecisionQuestion'
+        type: array
+      safety_identifier:
+        type: string
+    type: object
+  schema.DecisionsResponse:
+    properties:
+      answers:
+        items:
+          $ref: '#/definitions/schema.DecisionAnswer'
+        type: array
+      model:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.DecisionUsage'
+    type: object
   schema.DepthRequest:
     properties:
       dst:
@@ -967,6 +1278,16 @@ definitions:
         items:
           $ref: '#/definitions/schema.DiarizationSegment'
         type: array
+      sounds:
+        description: |-
+          Sounds is present only when the request set include_sounds. An empty
+          list then means the model ran and heard no event; omitzero keeps a nil
+          list (not requested) out of the payload while an empty one stays.
+        items:
+          $ref: '#/definitions/schema.DiarizationSound'
+        type: array
+      speaker_profiles:
+        $ref: '#/definitions/schema.SpeakerProfiles'
       speakers:
         items:
           $ref: '#/definitions/schema.DiarizationSpeaker'
@@ -982,6 +1303,14 @@ definitions:
         type: integer
       label:
         type: string
+      name:
+        description: |-
+          Name is the registered speaker this segment was matched to, and NameScore
+          the cosine similarity of the match. Both are omitted when the backend did
+          not identify the speaker. Speaker stays the normalized SPEAKER_NN label.
+        type: string
+      name_score:
+        type: number
       speaker:
         type: string
       start:
@@ -989,11 +1318,24 @@ definitions:
       text:
         type: string
     type: object
+  schema.DiarizationSound:
+    properties:
+      confidence:
+        type: number
+      end:
+        type: number
+      label:
+        type: string
+      start:
+        type: number
+    type: object
   schema.DiarizationSpeaker:
     properties:
       id:
         type: string
       label:
+        type: string
+      name:
         type: string
       segment_count:
         type: integer
@@ -1022,6 +1364,10 @@ definitions:
         type: string
       model_id:
         type: string
+      params:
+        additionalProperties:
+          type: string
+        type: object
       prompt_influence:
         type: number
       text:
@@ -1555,6 +1901,21 @@ definitions:
           $ref: '#/definitions/schema.ToolCall'
         type: array
     type: object
+  schema.Model3DAnimationRequest:
+    properties:
+      inputs:
+        additionalProperties:
+          $ref: '#/definitions/schema.AnimationInput'
+        type: object
+      model:
+        type: string
+      params:
+        additionalProperties:
+          type: string
+        type: object
+      response_format:
+        type: string
+    type: object
   schema.Model3DRequest:
     description: 3D asset generation request body. Generation is image-conditioned
     properties:
@@ -1599,6 +1960,13 @@ definitions:
         items:
           type: string
         type: array
+      context_size:
+        description: |-
+          ContextSize is the effective context window in tokens the backend will
+          run with: the configured context_size, or the default when unset. 0 means
+          the value is unknown (e.g. a loose file with no config). Clients can use
+          this to size their context budget for auto-compaction and pruning.
+        type: integer
       id:
         type: string
       input_modalities:
@@ -1615,6 +1983,12 @@ definitions:
         items:
           type: string
         type: array
+      three_d_operations:
+        items:
+          $ref: '#/definitions/schema.ThreeDOperation'
+        type: array
+      upscale_scale:
+        type: integer
     type: object
   schema.ModelCapabilitiesResponse:
     properties:
@@ -1623,6 +1997,24 @@ definitions:
           $ref: '#/definitions/schema.ModelCapabilities'
         type: array
       object:
+        type: string
+    type: object
+  schema.ModelLoadCancelRequest:
+    properties:
+      job_id:
+        type: string
+    type: object
+  schema.ModelLoadCancelResponse:
+    properties:
+      current_job_id:
+        type: string
+      job_id:
+        type: string
+      model:
+        type: string
+      retry_after:
+        type: integer
+      state:
         type: string
     type: object
   schema.ModelLoadRequest:
@@ -1648,6 +2040,9 @@ definitions:
     properties:
       bytes_sent:
         type: integer
+      cancel_requested:
+        description: CancelRequested is true when an administrator cancelled the attempt.
+        type: boolean
       eta_seconds:
         description: |-
           ETASeconds is omitted rather than guessed until enough bytes have moved
@@ -1656,14 +2051,38 @@ definitions:
         type: integer
       file_index:
         type: integer
+      job_id:
+        description: |-
+          JobID names the load attempt. A cancel must quote it: it is the
+          precondition that keeps a cancel from hitting a replacement attempt.
+        type: string
+      last_error:
+        description: LastError is the cause of a failed attempt.
+        type: string
+      lease_expires_in:
+        description: |-
+          LeaseExpiresIn is the seconds left on the owner's lease. It is negative
+          when the lease already ran out, which means the owner is gone.
+        type: integer
       model:
         type: string
       node:
         type: string
       progress:
         type: number
+      retry_after:
+        description: RetryAfter is the seconds until a new load may start, for a failed
+          attempt.
+        type: integer
       state:
         type: string
+      stop_deadline:
+        type: string
+      stopping:
+        description: |-
+          Stopping is true while the remote work of a failed attempt is not yet
+          confirmed ended. StopDeadline is when the model is released regardless.
+        type: boolean
       total_bytes:
         type: integer
       total_files:
@@ -1816,7 +2235,6 @@ definitions:
         description: Always include in response
         type: boolean
       type:
-        description: always "function"
         type: string
     type: object
   schema.ORIncompleteDetails:
@@ -2078,6 +2496,12 @@ definitions:
         $ref: '#/definitions/functions.JSONFunctionStructure'
       ignore_eos:
         type: boolean
+      include_sounds:
+        type: boolean
+      include_speaker_profiles:
+        type: boolean
+      include_text:
+        type: boolean
       input: {}
       instruction:
         description: Edit endpoint
@@ -2130,6 +2554,10 @@ definitions:
       n_keep:
         type: integer
       negative_prompt:
+        description: |-
+          NegativePrompt for image generation (matches Stable Diffusion WebUI /
+          vLLM-Omni conventions). Combined, comma-separated, with any "|"-suffixed
+          negative tags in Prompt.
         type: string
       negative_prompt_scale:
         type: number
@@ -2230,6 +2658,8 @@ definitions:
         type: array
       id:
         type: string
+      metadata:
+        type: object
       model:
         type: string
       object:
@@ -2601,6 +3031,53 @@ definitions:
       model:
         type: string
     type: object
+  schema.SpeakerEncoder:
+    properties:
+      dimension:
+        type: integer
+      family:
+        description: |-
+          Family is the embedding space of the encoder. The server fills it from the
+          loaded encoder; exported profiles do not carry it and it is not matched.
+        type: string
+      identity:
+        type: string
+    type: object
+  schema.SpeakerProfile:
+    properties:
+      clean_duration:
+        type: number
+      embedding:
+        items:
+          type: number
+        type: array
+      intervals:
+        items:
+          $ref: '#/definitions/schema.SpeakerProfileInterval'
+        type: array
+      speaker:
+        type: integer
+      unavailable_reason:
+        type: string
+    type: object
+  schema.SpeakerProfileInterval:
+    properties:
+      end:
+        type: number
+      start:
+        type: number
+    type: object
+  schema.SpeakerProfiles:
+    properties:
+      encoder:
+        $ref: '#/definitions/schema.SpeakerEncoder'
+      speakers:
+        items:
+          $ref: '#/definitions/schema.SpeakerProfile'
+        type: array
+      version:
+        type: integer
+    type: object
   schema.StreamOptions:
     properties:
       include_usage:
@@ -2616,6 +3093,37 @@ definitions:
         type: string
       id:
         type: string
+      process:
+        allOf:
+        - $ref: '#/definitions/schema.SysInfoProcess'
+        description: |-
+          Process is the backend process serving the model on this host. Absent
+          when the model has no local process (a distributed worker holds it) or
+          the process could not be read.
+      size_vram:
+        description: |-
+          SizeVRAM is DRM-accounted resident device memory in bytes. Nil means
+          the backend process tree has no complete supported reading.
+        type: integer
+    type: object
+  schema.SysInfoProcess:
+    properties:
+      cpu_percent:
+        description: |-
+          CPUPercent is the share of the whole host's CPU used since the previous
+          reading, 0-100. Absent on the first reading of a process.
+        type: number
+      memory_percent:
+        type: number
+      pid:
+        type: integer
+      rss_bytes:
+        description: |-
+          RSSBytes is resident host memory. Weights offloaded to a GPU are not
+          in it.
+        type: integer
+      started_at:
+        type: string
     type: object
   schema.SystemInformationResponse:
     properties:
@@ -2629,6 +3137,106 @@ definitions:
         items:
           $ref: '#/definitions/schema.SysInfoModel'
         type: array
+    type: object
+  schema.SystemOneAnswer:
+    properties:
+      choice:
+        type: string
+      confidence:
+        type: number
+      entities:
+        items:
+          $ref: '#/definitions/schema.SystemOneEntity'
+        type: array
+      legend:
+        additionalProperties:
+          type: string
+        type: object
+      noul:
+        type: number
+      probabilities:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+      score:
+        type: number
+      type:
+        type: string
+    type: object
+  schema.SystemOneEntity:
+    properties:
+      confidence:
+        type: number
+      end:
+        type: integer
+      start:
+        type: integer
+      text:
+        type: string
+    type: object
+  schema.SystemOnePermuteRequest:
+    properties:
+      n_perm:
+        type: integer
+      question:
+        type: string
+      request:
+        $ref: '#/definitions/schema.SystemOneRequest'
+      seed:
+        type: integer
+    type: object
+  schema.SystemOnePermuteResponse:
+    properties:
+      argmax_stable:
+        type: boolean
+      runs:
+        items:
+          $ref: '#/definitions/schema.SystemOnePermuteRun'
+        type: array
+      spread:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+    type: object
+  schema.SystemOnePermuteRun:
+    properties:
+      choice:
+        type: string
+      latency_ms:
+        type: number
+      order:
+        items:
+          type: string
+        type: array
+      probabilities:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+    type: object
+  schema.SystemOneRequest:
+    type: object
+  schema.SystemOneResponse:
+    properties:
+      answers:
+        additionalProperties:
+          $ref: '#/definitions/schema.SystemOneAnswer'
+        type: object
+      latency_ms:
+        type: number
+      model:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.SystemOneUsage'
+    type: object
+  schema.SystemOneUsage:
+    properties:
+      input_tokens:
+        type: integer
+      output_tokens:
+        type: integer
     type: object
   schema.TTSRequest:
     description: TTS request body
@@ -2730,6 +3338,59 @@ definitions:
           $ref: '#/definitions/schema.WebhookConfig'
         type: array
     type: object
+  schema.ThreeDInput:
+    properties:
+      label:
+        type: string
+      max_bytes:
+        type: integer
+      name:
+        type: string
+      required:
+        type: boolean
+      type:
+        type: string
+    type: object
+  schema.ThreeDOperation:
+    properties:
+      endpoint:
+        type: string
+      id:
+        type: string
+      inputs:
+        items:
+          $ref: '#/definitions/schema.ThreeDInput'
+        type: array
+      label:
+        type: string
+      output:
+        type: string
+      parameters:
+        items:
+          $ref: '#/definitions/schema.ThreeDParameter'
+        type: array
+    type: object
+  schema.ThreeDParameter:
+    properties:
+      advanced:
+        type: boolean
+      default:
+        type: string
+      label:
+        type: string
+      max:
+        type: number
+      min:
+        type: number
+      name:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      type:
+        type: string
+    type: object
   schema.TokenizeRequest:
     properties:
       content:
@@ -2768,6 +3429,20 @@ definitions:
       model:
         type: string
     type: object
+  schema.VideoReference:
+    properties:
+      audio:
+        description: optional audio paired with this video
+        type: string
+      fps:
+        description: frame rate of the source frames; 0 means the backend default
+        type: integer
+      frames:
+        description: 'ordered frame images: URL, base64 or data URI'
+        items:
+          type: string
+        type: array
+    type: object
   schema.VideoRequest:
     properties:
       audio:
@@ -2804,6 +3479,21 @@ definitions:
       prompt:
         description: text description of the video to generate
         type: string
+      ref_audios:
+        description: reference audio clips (WAV); exclusive with start_image/end_image
+        items:
+          type: string
+        type: array
+      ref_images:
+        description: reference images (URL, base64 or data URI); exclusive with start_image/end_image
+        items:
+          type: string
+        type: array
+      ref_videos:
+        description: reference videos as frame lists; exclusive with start_image/end_image
+        items:
+          $ref: '#/definitions/schema.VideoReference'
+        type: array
       response_format:
         description: output format (url or b64_json)
         type: string
@@ -2944,6 +3634,10 @@ definitions:
         type: string
       name:
         type: string
+      speaker_profiles:
+        $ref: '#/definitions/schema.SpeakerProfiles'
+      speaker_slot:
+        type: integer
       store:
         type: string
     type: object
@@ -3061,6 +3755,23 @@ info:
   title: LocalAI API
   version: 2.0.0
 paths:
+  /3d/animate:
+    post:
+      parameters:
+      - description: Named conditioning inputs and model-specific parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Model3DAnimationRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates a 3D animation (binary glTF / GLB).
+      tags:
+      - 3d
   /3d/generations:
     post:
       parameters:
@@ -3616,6 +4327,107 @@ paths:
       summary: Upload a branding asset
       tags:
       - branding
+  /api/failover:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.FailoverChainsResponse'
+      summary: List failover chains and the health of their targets
+      tags:
+      - failover
+  /api/failover/{chain}:
+    get:
+      parameters:
+      - description: Chain name
+        in: path
+        name: chain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/failover.ChainStatus'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get one failover chain
+      tags:
+      - failover
+  /api/failover/{chain}/pin:
+    delete:
+      parameters:
+      - description: Chain name
+        in: path
+        name: chain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/failover.ChainStatus'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Remove the pin from a failover chain
+      tags:
+      - failover
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Chain name
+        in: path
+        name: chain
+        required: true
+        type: string
+      - description: Target to pin
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.FailoverPinRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/failover.ChainStatus'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Pin a failover chain to one target
+      tags:
+      - failover
+  /api/failover/events:
+    get:
+      description: The first event is "snapshot" with the full state, then "chain.switched"
+        and "target.state" events.
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+      summary: Stream failover events (server-sent events)
+      tags:
+      - failover
   /api/instructions:
     get:
       description: Returns a compact list of instruction areas with descriptions and
@@ -3662,12 +4474,70 @@ paths:
       summary: Get an instruction's API guide or OpenAPI fragment
       tags:
       - instructions
+  /api/models/{id}/load-cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancels the load attempt named by `job_id` and stops its remote
+        work. 200 means the attempt is gone or the worker confirmed the stop. 202
+        means the cancel is recorded and the stop is pending; the model is released
+        after `retry_after` seconds regardless. 409 means a different attempt is current
+        and carries its `current_job_id`. Repeating the call is safe and does not
+        extend the hold.
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: The exact attempt to cancel
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelLoadCancelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Stopped, or no such load any more
+          schema:
+            $ref: '#/definitions/schema.ModelLoadCancelResponse'
+        "202":
+          description: Cancel recorded; stop pending
+          schema:
+            $ref: '#/definitions/schema.ModelLoadCancelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown model
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: A different attempt is current
+          schema:
+            $ref: '#/definitions/schema.ModelLoadCancelResponse'
+      summary: Cancel one distributed model load.
+      tags:
+      - models
   /api/models/{id}/load-status:
     get:
-      description: Returns the live state of a distributed cold load — phase, node,
-        byte progress and ETA — or 404 when no load is running for the model. This
+      description: 'Returns the live state of a distributed cold load: job id, phase,
+        node, byte progress, ETA, lease freshness, and for a failed attempt the cause,
+        whether the stop is pending and when the model is released. 404 means no load
+        exists for the model. A database error is 503, never an empty answer. This
         is the same `loading` object the 503 response carries while a model is still
-        staging.
+        staging.'
       parameters:
       - description: Model ID
         in: path
@@ -3683,6 +4553,10 @@ paths:
             $ref: '#/definitions/schema.ModelLoadingStatus'
         "404":
           description: No load is running for this model
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: The job table could not be read
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Report the progress of an in-flight model load.
@@ -3788,6 +4662,20 @@ paths:
       summary: Get dynamic autocomplete values for a config field
       tags:
       - config
+  /api/models/storage:
+    get:
+      description: Per-model disk usage, shared-file relations and missing references
+        under the models path
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: storage report
+          schema:
+            $ref: '#/definitions/gallery.StorageIndex'
+      summary: Report model storage usage on disk
+      tags:
+      - models
   /api/models/toggle-pinned/{name}/{action}:
     put:
       description: Pin or unpin a model. Pinned models stay loaded and are excluded
@@ -3846,6 +4734,96 @@ paths:
       summary: Estimate VRAM usage for a model
       tags:
       - config
+  /api/motion/sessions:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Model, output profile and source clock origin
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.MotionSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/localai.MotionSessionInfo'
+      summary: Create a motion capture session
+      tags:
+      - motion
+  /api/motion/sessions/{id}:
+    delete:
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Close a motion session
+      tags:
+      - motion
+    get:
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.MotionSessionInfo'
+      summary: Get motion session status
+      tags:
+      - motion
+  /api/motion/sessions/{id}/poses:
+    get:
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "101":
+          description: Switching Protocols
+      summary: Stream motion frames and poses over a duplex WebSocket
+      tags:
+      - motion
+  /api/motion/sessions/{id}/tickets:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Browser origin
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.MotionTicketRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.WebSocketTicketResponse'
+      summary: Issue a motion WebSocket ticket (30 seconds, single use)
+      tags:
+      - motion
   /api/nodes/{id}/max-replicas-per-model:
     delete:
       parameters:
@@ -4799,6 +5777,42 @@ paths:
       summary: List all Galleries
       tags:
       - models
+  /models/import:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Writes the posted model configuration. A config referencing
+        remote assets (download_files entries, URI-valued model/mmproj)
+        is enqueued on the gallery job queue and answered with a job id
+        plus status URL to poll, like a gallery install; a config with
+        no downloads is written synchronously and answered with a
+        plain success response. A queued import runs the gallery
+        installer, which also adds recommended inference defaults the
+        config leaves unset and installs the backend when automatic
+        backend installation is enabled; the synchronous path stores
+        the body as posted.
+      parameters:
+      - description: model configuration (YAML or JSON body)
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'remote assets present: job id and status URL'
+          schema:
+            $ref: '#/definitions/schema.GalleryResponse'
+        "400":
+          description: invalid or incomplete configuration
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+      summary: Import a model from a raw YAML or JSON configuration
+      tags:
+      - models
   /models/jobs:
     get:
       responses:
@@ -4901,6 +5915,10 @@ paths:
     post:
       consumes:
       - multipart/form-data
+      - application/json
+      description: JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles,
+        include_sounds and response_format. Profiles require voice-recognition permission
+        and json or verbose_json; unsupported backends return 501.
       parameters:
       - description: model
         in: formData
@@ -4941,9 +5959,20 @@ paths:
         in: formData
         name: language
         type: string
+      - description: export portable biometric profiles (voice-recognition permission;
+          JSON formats only)
+        in: formData
+        name: include_speaker_profiles
+        type: boolean
       - description: include per-segment transcript when the backend supports it
         in: formData
         name: include_text
+        type: boolean
+      - description: include closed sound events (start, end, label, confidence) when
+          the model has a sound_model companion; otherwise 501 include_sounds_unsupported
+          (JSON formats only)
+        in: formData
+        name: include_sounds
         type: boolean
       - description: json (default), verbose_json, or rttm
         in: formData
@@ -5075,6 +6104,29 @@ paths:
       summary: Generate completions for a given prompt and model.
       tags:
       - inference
+  /v1/decisions:
+    post:
+      consumes:
+      - application/json
+      description: Uses the same local decision and NER execution as SystemOne. Supports
+        inline images on capable backends; confidence is not OpenAI calibrated.
+      parameters:
+      - description: input + questions + model
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DecisionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.DecisionsResponse'
+      summary: Answer ordered predicate, choice and score questions.
+      tags:
+      - systemone
   /v1/depth:
     post:
       parameters:
@@ -5348,9 +6400,11 @@ paths:
         name: image
         required: true
         type: file
-      - description: 'Upscale factor: 2 or 4 (default 2)'
+      - description: 'Upscale factor: integer from 1 to 16; must match the model native
+          scale'
         in: formData
         name: scale
+        required: true
         type: integer
       produces:
       - application/json
@@ -5559,6 +6613,64 @@ paths:
       summary: Generates audio from the input text.
       tags:
       - audio
+  /v1/systemone:
+    post:
+      description: 'Runs zero-shot NER over the supplied state and answers each question.
+        Question types: noul (binary entity presence), choice (pick one option), score
+        (pick one level).'
+      parameters:
+      - description: state + questions
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SystemOneRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SystemOneResponse'
+      summary: Answer structured-extraction questions over state text.
+      tags:
+      - systemone
+  /v1/systemone/permute:
+    post:
+      description: Re-runs one choice question under n_perm option orders. Reports
+        per-order probabilities, argmax stability, and spread.
+      parameters:
+      - description: request + question + n_perm + seed
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SystemOnePermuteRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SystemOnePermuteResponse'
+      summary: Re-run a choice question under multiple option orders.
+      tags:
+      - systemone
+  /v1/systemone/separate:
+    post:
+      description: Runs N independent NER passes, one per question, against the same
+        state. Response shape matches /v1/systemone.
+      parameters:
+      - description: state + questions
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SystemOneRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SystemOneResponse'
+      summary: Answer each question in a separate NER pass.
+      tags:
+      - systemone
   /v1/text-to-speech/{voice-id}:
     post:
       parameters:
@@ -5681,6 +6793,10 @@ paths:
       - voice-recognition
   /v1/voice/register:
     post:
+      description: Supply either audio or speaker_profiles plus an explicit numeric
+        speaker_slot. The selected model must expose matching trusted encoder metadata
+        for portable enrollment. Registrations are global and ephemeral, with a fresh
+        ID for each request.
       parameters:
       - description: query params
         in: body

@@ -50,6 +50,9 @@ type UsageRecord struct {
 	Duration         int64     // milliseconds
 	CreatedAt        time.Time `gorm:"index:idx_usage_user_time"`
 
+	// Metadata preserves the backend accounting convention and its original dimensions.
+	Metadata string `gorm:"type:text"`
+
 	// Routing extension fields. Nullable / zero-valued for legacy rows.
 	RequestedModel         string  `gorm:"size:255;index"`
 	ServedModel            string  `gorm:"size:255;index"`

@@ -183,16 +183,16 @@ test.describe('Middleware page — admin in no-auth mode', () => {
     await page.goto('/app/middleware')
 
     // The Detector models card renders every token_classify filter model.
-    await expect(page.getByText('Detector models')).toBeVisible()
-    const nerRow = page.locator('tr').filter({ hasText: 'privacy-filter-multilingual' }).first()
+    await expect(page.getByRole('heading', { name: 'Detector models' })).toBeVisible()
+    const detectors = page.getByRole('table', { name: 'Detector models' })
+    const nerRow = detectors.locator('tr').filter({ hasText: 'privacy-filter-multilingual' }).first()
     await expect(nerRow).toContainText(/NER/i)
-    const patternRow = page.locator('tr').filter({ hasText: 'secret-filter' }).first()
+    const patternRow = detectors.locator('tr').filter({ hasText: 'secret-filter' }).first()
     await expect(patternRow).toContainText(/pattern/i)
 
     // The NER detector is not (yet) a default — its toggle is unchecked.
-    // (The underlying checkbox is 0×0 by design, so we click the label wrapper.)
-    const nerToggle = nerRow.locator('label.toggle')
-    await expect(nerToggle.locator('input[type="checkbox"]')).not.toBeChecked()
+    const nerToggle = nerRow.getByRole('switch')
+    await expect(nerToggle).not.toBeChecked()
 
     // Toggling it on persists the new default set via POST /api/settings.
     const saved = page.waitForRequest(req =>
@@ -210,7 +210,7 @@ test.describe('Middleware page — admin in no-auth mode', () => {
     // default set — it must still appear (toggled on) so admins can remove it.
     const orphanRow = page.locator('tr').filter({ hasText: 'global-ner-default' }).first()
     await expect(orphanRow).toContainText(/not loaded/i)
-    await expect(orphanRow.locator('label.toggle input[type="checkbox"]')).toBeChecked()
+    await expect(orphanRow.getByRole('switch')).toBeChecked()
   })
 
   test('Filtering tab flags an enabled model with no detector as a no-op', async ({ page }) => {
@@ -232,8 +232,8 @@ test.describe('Middleware page — admin in no-auth mode', () => {
 
     // qwen-7b is OFF (enabled:false) — its PII toggle reads unchecked.
     const row = page.locator('tr').filter({ hasText: 'qwen-7b' }).first()
-    const toggle = row.locator('label.toggle')
-    await expect(toggle.locator('input[type="checkbox"]')).not.toBeChecked()
+    const toggle = row.getByRole('switch')
+    await expect(toggle).not.toBeChecked()
 
     // Toggling on PATCHes the model config with an explicit pii.enabled:true,
     // scoped to that model (no other field is sent — the server deep-merges).
@@ -320,7 +320,6 @@ test.describe('Middleware page — admin in no-auth mode', () => {
 
   test('Events tab renders rows but never the redacted content', async ({ page }) => {
     await page.goto('/app/middleware')
-    await page.getByRole('button', { name: /Events/i }).click()
     // Hash prefix is visible — that's how admins audit recurring leaks.
     await expect(page.getByText('ff8d9819')).toBeVisible()
     // The page only ever shows fields the EventStore stores. The matched
@@ -332,7 +331,6 @@ test.describe('Middleware page — admin in no-auth mode', () => {
 
   test('Events tab renders proxy_connect rows with intercept decision', async ({ page }) => {
     await page.goto('/app/middleware')
-    await page.getByRole('button', { name: /Events/i }).click()
 
     // Both intercept and tunnel decisions visible.
     const interceptRow = page.locator('tr').filter({ hasText: 'api.openai.com' }).first()
@@ -343,7 +341,6 @@ test.describe('Middleware page — admin in no-auth mode', () => {
 
   test('Events tab renders proxy_traffic byte counts and status', async ({ page }) => {
     await page.goto('/app/middleware')
-    await page.getByRole('button', { name: /Events/i }).click()
 
     // The traffic row formats as "HTTP 200 · ↑412B ↓1.2KB · 240ms".
     // We assert on the durable parts: status code, byte values, duration unit.
@@ -356,7 +353,6 @@ test.describe('Middleware page — admin in no-auth mode', () => {
 
   test('Events kind filter narrows the table to the chosen kind', async ({ page }) => {
     await page.goto('/app/middleware')
-    await page.getByRole('button', { name: /Events/i }).click()
 
     // Default = All: pii row + 2 connect rows + 1 traffic row visible.
     await expect(page.getByText('ff8d9819')).toBeVisible()
@@ -389,7 +385,6 @@ test.describe('Middleware page — admin in no-auth mode', () => {
 
   test('Events tab shows the kind badge for each row', async ({ page }) => {
     await page.goto('/app/middleware')
-    await page.getByRole('button', { name: /Events/i }).click()
 
     // The Kind column header is present.
     await expect(page.locator('th').filter({ hasText: /^Kind$/ })).toBeVisible()

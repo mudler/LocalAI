@@ -10,23 +10,23 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // fakeProcessLister stands in for the NATS round-trip to a worker.
 type fakeProcessLister struct {
-	running map[string][]messaging.RunningModelInfo
+	running map[string][]workerctl.RunningModelInfo
 	err     error
 	calls   int
 }
 
-func (f *fakeProcessLister) ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error) {
+func (f *fakeProcessLister) ListRunningModels(nodeID string) (*workerctl.ModelsRunningReply, error) {
 	f.calls++
 	if f.err != nil {
 		return nil, f.err
 	}
-	return &messaging.ModelsRunningReply{Models: f.running[nodeID]}, nil
+	return &workerctl.ModelsRunningReply{Models: f.running[nodeID]}, nil
 }
 
 // The worker owns the backend processes, so its answer is authoritative and,
@@ -80,7 +80,7 @@ var _ = Describe("ReplicaReconciler — reconcile against worker processes", fun
 
 	It("reaps a row for a model the worker is not running", func() {
 		seed("ghost-1", "ghost-model", 0, 5*time.Minute)
-		lister := &fakeProcessLister{running: map[string][]messaging.RunningModelInfo{}}
+		lister := &fakeProcessLister{running: map[string][]workerctl.RunningModelInfo{}}
 		rc := newReconciler(lister)
 
 		for range workerMissesBeforeReap {
@@ -95,7 +95,7 @@ var _ = Describe("ReplicaReconciler — reconcile against worker processes", fun
 
 	It("keeps and refreshes a row the worker confirms is running", func() {
 		seed("live-1", "live-model", 0, 5*time.Minute)
-		lister := &fakeProcessLister{running: map[string][]messaging.RunningModelInfo{
+		lister := &fakeProcessLister{running: map[string][]workerctl.RunningModelInfo{
 			node.ID: {{ModelID: "live-model", ReplicaIndex: 0, Address: "10.0.0.1:12345"}},
 		}}
 		rc := newReconciler(lister)
@@ -113,7 +113,7 @@ var _ = Describe("ReplicaReconciler — reconcile against worker processes", fun
 		// This is what keeps a busy backend off the port prober entirely: the
 		// worker vouches for it, so it never looks stale enough to probe.
 		seed("busy-1", "busy-model", 0, 5*time.Minute)
-		lister := &fakeProcessLister{running: map[string][]messaging.RunningModelInfo{
+		lister := &fakeProcessLister{running: map[string][]workerctl.RunningModelInfo{
 			node.ID: {{ModelID: "busy-model", ReplicaIndex: 0, Address: "10.0.0.1:12345"}},
 		}}
 		rc := newReconciler(lister)
@@ -128,7 +128,7 @@ var _ = Describe("ReplicaReconciler — reconcile against worker processes", fun
 	It("distinguishes replicas of the same model", func() {
 		seed("rep-0", "multi-model", 0, 5*time.Minute)
 		seed("rep-1", "multi-model", 1, 5*time.Minute)
-		lister := &fakeProcessLister{running: map[string][]messaging.RunningModelInfo{
+		lister := &fakeProcessLister{running: map[string][]workerctl.RunningModelInfo{
 			node.ID: {{ModelID: "multi-model", ReplicaIndex: 0, Address: "10.0.0.1:12345"}},
 		}}
 		rc := newReconciler(lister)
@@ -168,7 +168,7 @@ var _ = Describe("ReplicaReconciler — reconcile against worker processes", fun
 		// A row created moments ago may legitimately not be in the worker's
 		// table yet; judging it immediately would race every fresh load.
 		seed("fresh-1", "fresh-model", 0, 0)
-		lister := &fakeProcessLister{running: map[string][]messaging.RunningModelInfo{}}
+		lister := &fakeProcessLister{running: map[string][]workerctl.RunningModelInfo{}}
 		rc := newReconciler(lister)
 
 		for range workerMissesBeforeReap + 2 {
@@ -182,7 +182,7 @@ var _ = Describe("ReplicaReconciler — reconcile against worker processes", fun
 
 	It("requires consecutive misses before reaping", func() {
 		seed("flap-1", "flap-model", 0, 5*time.Minute)
-		lister := &fakeProcessLister{running: map[string][]messaging.RunningModelInfo{}}
+		lister := &fakeProcessLister{running: map[string][]workerctl.RunningModelInfo{}}
 		rc := newReconciler(lister)
 
 		for i := 1; i < workerMissesBeforeReap; i++ {
@@ -193,7 +193,7 @@ var _ = Describe("ReplicaReconciler — reconcile against worker processes", fun
 		}
 
 		// It shows up again: the streak resets.
-		lister.running[node.ID] = []messaging.RunningModelInfo{
+		lister.running[node.ID] = []workerctl.RunningModelInfo{
 			{ModelID: "flap-model", ReplicaIndex: 0, Address: "10.0.0.1:12345"},
 		}
 		rc.reconcileNodeProcesses(context.Background())

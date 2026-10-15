@@ -1,6 +1,27 @@
 package middleware
 
-import "github.com/labstack/echo/v4"
+import (
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/pkg/grpc/metadata"
+)
+
+const responseMetadataKey = "localai_response_metadata"
+
+// StampResponseMetadata extracts the shared usage convention while preserving
+// arbitrary metadata. Invalid counts never enter the accounting pipeline.
+func StampResponseMetadata(c echo.Context, model string, data []byte) error {
+	usage, err := metadata.ParseUsage(data)
+	if err != nil {
+		return err
+	}
+	if c != nil {
+		c.Set(responseMetadataKey, string(data))
+		if usage != nil {
+			StampUsage(c, model, usage.InputUnits, usage.OutputUnits)
+		}
+	}
+	return nil
+}
 
 // StampUsage records the canonical token counts on the echo context so
 // UsageMiddleware can attribute the request without parsing the response

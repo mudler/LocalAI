@@ -186,18 +186,6 @@
     "title": "追踪",
     "subtitle": "查看记录的 API 请求、响应和后端操作"
   },
-  "nodes": {
-    "title": "分布式节点",
-    "subtitle": "管理后端和智能体工作节点"
-  },
-  "scheduling": {
-    "title": "调度",
-    "subtitle": "集群中的模型放置和副本规则"
-  },
-  "p2p": {
-    "title": "分布式 AI 计算",
-    "subtitle": "通过点对点分发将您的 AI 工作负载扩展到多个设备"
-  },
   "users": {
     "title": "用户",
     "subtitle": "管理注册用户、角色和邀请"
@@ -252,7 +240,18 @@
         "p95": "p95 latency",
         "quiet": "No requests served in this window yet.",
         "host": "Host memory"
+      },
+      "running": {
+        "heading": "正在运行",
+        "cluster": "运行中的模型",
+        "clusterSummary": "集群中已加载的副本，见节点页面"
       }
     }
+  },
+  "localMachine": {
+    "title": "本机",
+    "subtitle": "此 LocalAI 实例上已加载的模型及其占用的主机容量。",
+    "scaleOut": "添加机器",
+    "hideScaleOut": "隐藏设置"
   }
 }

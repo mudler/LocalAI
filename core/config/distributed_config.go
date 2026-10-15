@@ -13,11 +13,14 @@ import (
 // DistributedConfig holds configuration for horizontal scaling mode.
 // When Enabled is true, PostgreSQL and NATS are required.
 type DistributedConfig struct {
-	Enabled           bool   // --distributed / LOCALAI_DISTRIBUTED
-	InstanceID        string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
-	NatsURL           string // --nats-url / LOCALAI_NATS_URL
-	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
-	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
+	Enabled    bool   // --distributed / LOCALAI_DISTRIBUTED
+	InstanceID string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
+	// InstanceIDGenerated is set when the ID above was generated at startup. A generated
+	// ID changes on every start, so on-disk state must not be keyed by it.
+	InstanceIDGenerated bool
+	NatsURL             string // --nats-url / LOCALAI_NATS_URL
+	StorageURL          string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
+	RegistrationToken   string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
 	// RegistrationRequireAuth fails startup when distributed mode is enabled but
 	// RegistrationToken is empty. The default (false) keeps the historical
 	// fail-open behavior with a loud warning; production should set it so the
@@ -64,6 +67,10 @@ type DistributedConfig struct {
 	HealthCheckInterval     time.Duration // Health monitor check interval (default 15s)
 	StaleNodeThreshold      time.Duration // Time before a node is considered stale (default 5m)
 	NodeHeartbeatCheckpoint time.Duration // Minimum gap between durable heartbeat writes (default 60s, 0 = every beat)
+	// ModelConfigResyncInterval is how often a frontend compares its model
+	// configs with the shared models directory, to catch a change whose
+	// invalidation event it missed (default 30s).
+	ModelConfigResyncInterval time.Duration
 	// DisablePerModelHealthCheck turns off the health monitor's per-model
 	// gRPC probe. When enabled (the default), the monitor pings each model's
 	// gRPC address and removes stale node_models rows whose backend has
@@ -97,7 +104,6 @@ type DistributedConfig struct {
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
 
 	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
-	JobWorkerConcurrency   int `yaml:"job_worker_concurrency" json:"job_worker_concurrency" env:"LOCALAI_JOB_WORKER_CONCURRENCY"`
 
 	// DiskHeadroomDisabled turns off the scheduler's free-disk admission check,
 	// restoring the pre-#11054 behaviour where node selection ignores whether a
@@ -181,6 +187,9 @@ func (c DistributedConfig) Validate() error {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
 		}
+	}
+	if c.ModelConfigResyncInterval < 0 {
+		return fmt.Errorf("%s must not be negative", FlagModelConfigResyncInterval)
 	}
 	return nil
 }
@@ -339,6 +348,14 @@ func WithModelLoadWait(d time.Duration) AppOption {
 	}
 }
 
+// WithModelConfigResyncInterval sets how often a frontend resyncs its model
+// configs from the shared models directory. Zero means the default.
+func WithModelConfigResyncInterval(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ModelConfigResyncInterval = d
+	}
+}
+
 // WithStaleNodeThreshold sets how long a node may go without a durable
 // heartbeat before the health monitor marks it offline. It has to be raised
 // alongside WithNodeHeartbeatCheckpoint: a checkpoint interval wider than this
@@ -431,6 +448,14 @@ const (
 	// log line knows exactly which knob produced it.
 	FlagDiskHeadroomCheck = "distributed-disk-headroom-check"
 )
+
+// FlagModelConfigResyncInterval names the model config resync interval.
+const FlagModelConfigResyncInterval = "model-config-resync-interval"
+
+// DefaultModelConfigResyncInterval bounds how long a frontend that missed a
+// models invalidation serves an old model config. It matches the tick of the
+// replica reconciler, which acts on those configs.
+const DefaultModelConfigResyncInterval = 30 * time.Second
 
 // Defaults for distributed timeouts.
 const (
@@ -545,6 +570,12 @@ func (c DistributedConfig) HealthCheckIntervalOrDefault() time.Duration {
 }
 
 // StaleNodeThresholdOrDefault returns the configured threshold or the default.
+// ModelConfigResyncIntervalOrDefault returns the configured interval or the
+// default.
+func (c DistributedConfig) ModelConfigResyncIntervalOrDefault() time.Duration {
+	return cmp.Or(c.ModelConfigResyncInterval, DefaultModelConfigResyncInterval)
+}
+
 func (c DistributedConfig) StaleNodeThresholdOrDefault() time.Duration {
 	return cmp.Or(c.StaleNodeThreshold, DefaultStaleNodeThreshold)
 }

@@ -36,7 +36,7 @@ from diffusers_dynamic_loader import (
     get_available_pipelines,
     load_diffusers_pipeline,
 )
-from load_options import single_file_load_kwargs
+from load_options import drop_negative_prompt_if_embedded, single_file_load_kwargs
 
 # Import specific items still needed for special cases and safety checker
 from diffusers import DiffusionPipeline, ControlNetModel
@@ -881,6 +881,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     pipe = self.pipe,
                     prompt = prompt,
                 )
+
+            # negative_prompt conflicts with negative_prompt_embeds; pipelines that
+            # got no negative embeds (e.g. Flux) keep the user's negative prompt
+            drop_negative_prompt_if_embedded(kwargs)
 
             image = self.pipe(
                 guidance_scale=self.cfg_scale,

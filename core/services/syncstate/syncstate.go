@@ -38,7 +38,7 @@ type Store[K comparable, V any] interface {
 type Config[K comparable, V any] struct {
 	Name      string                                 // subject namespace, e.g. "finetune.jobs"
 	Key       func(V) K                              // extract the key from a value
-	Nats      messaging.MessagingClient              // nil => standalone: in-memory only, no broadcast/subscribe
+	Nats      messaging.Broadcaster                  // nil => standalone: in-memory only, no broadcast/subscribe
 	Store     Store[K, V]                            // optional read-through persistence
 	Loader    func(ctx context.Context) ([]V, error) // source when there is no Store (e.g. disk reload)
 	OnApply   func(op string, k K, v V)              // optional hook after an applied change (e.g. ShutdownModel)
@@ -54,7 +54,7 @@ type delta[K comparable, V any] struct {
 }
 
 // SyncedMap is a cross-replica in-memory map. A local write (Set/Delete) updates
-// memory, the optional durable Store, then broadcasts a delta to peers. A peer's
+// the optional durable Store, then memory, then broadcasts a delta to peers. A peer's
 // delta updates memory only and fires OnApply - it never re-broadcasts and never
 // writes the Store. That structural split is the echo-loop guard (same pattern as
 // galleryop.mergeStatus / OpCache.applyStart): receiving your own broadcast just
@@ -111,7 +111,7 @@ func (m *SyncedMap[K, V]) Start(ctx context.Context) error {
 		// nats.go transparently resubscribes on reconnect, but it cannot know we
 		// kept derived in-memory state that may have drifted while the link was
 		// down, so re-hydrate from the durable source. Detected via an optional
-		// interface so MessagingClient itself stays minimal; standalone/test
+		// interface so Broadcaster itself stays minimal; standalone/test
 		// clients without the method simply fall back to the reconcile ticker.
 		if r, ok := m.cfg.Nats.(interface{ OnReconnect(func()) }); ok {
 			r.OnReconnect(func() {
@@ -141,34 +141,40 @@ func (m *SyncedMap[K, V]) Close() error {
 	return nil
 }
 
-// Set updates the value locally, writes through the Store, then broadcasts.
-// Per the data-flow contract the Store write happens under the lock so memory and
-// durable state move together; the broadcast is best-effort after unlocking.
+// Set writes through the Store, then updates the value locally, then
+// broadcasts. The Store write comes first and happens under the lock so memory
+// and durable state move together: when it fails, Set returns the error with
+// memory and peers untouched. Keeping an unpersisted value in memory would let
+// this replica serve it (and a caller that re-reads the map re-apply it) while
+// the Store and every other replica disagree, until the next re-hydrate.
+// The broadcast is best-effort after unlocking.
 func (m *SyncedMap[K, V]) Set(ctx context.Context, v V) error {
 	k := m.cfg.Key(v)
 	m.mu.Lock()
-	m.data[k] = v
 	if m.cfg.Store != nil {
 		if err := m.cfg.Store.Upsert(ctx, v); err != nil {
 			m.mu.Unlock()
 			return err
 		}
 	}
+	m.data[k] = v
 	m.mu.Unlock()
 	m.publish(opSet, k, v)
 	return nil
 }
 
-// Delete removes the key locally, deletes it from the Store, then broadcasts.
+// Delete deletes the key from the Store, then removes it locally, then
+// broadcasts. A failed Store delete leaves memory and peers untouched, for the
+// same reason as Set.
 func (m *SyncedMap[K, V]) Delete(ctx context.Context, k K) error {
 	m.mu.Lock()
-	delete(m.data, k)
 	if m.cfg.Store != nil {
 		if err := m.cfg.Store.Delete(ctx, k); err != nil {
 			m.mu.Unlock()
 			return err
 		}
 	}
+	delete(m.data, k)
 	m.mu.Unlock()
 	var zero V
 	m.publish(opDelete, k, zero)

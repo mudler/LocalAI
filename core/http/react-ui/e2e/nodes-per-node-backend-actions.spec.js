@@ -1,6 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// These specs cover the per-node backend row in the Nodes page:
+// These specs cover the per-node backend row on the node detail page:
 //   - the upgrade affordance is self-explanatory (icon + tooltip)
 //   - a delete affordance is present and goes through ConfirmDialog
 //
@@ -90,41 +90,49 @@ async function mockDistributedNodes(page, { onDelete } = {}) {
 }
 
 async function openNodeDetail(page) {
-  // The per-node backend table now lives on the deep-linkable detail page
-  // at /app/nodes/:id (the old expand-row + "Manage" disclosure was removed
-  // when the roster was restructured). Navigate straight there.
-  await page.goto(`/app/nodes/${NODE_ID}`)
+  // The per-node backend table is the Backends tab of the deep-linkable detail
+  // page at /app/nodes/:id. Navigate straight there.
+  await page.goto(`/app/nodes/${NODE_ID}?tab=backends`)
   await expect(page.getByRole('cell', { name: BACKEND_NAME, exact: true })).toBeVisible({ timeout: 10_000 })
 }
 
-test.describe('Nodes page — per-node backend actions', () => {
+async function openBackendActions(page) {
+  const trigger = page.getByRole('button', { name: `Actions for backend ${BACKEND_NAME}` })
+  await expect(trigger).toBeVisible()
+  await trigger.click()
+
+  const menu = page.getByRole('menu', { name: `${BACKEND_NAME} backend actions` })
+  await expect(menu).toBeVisible()
+  return menu
+}
+
+test.describe('Node detail — per-node backend actions', () => {
   test('upgrade affordance is self-explanatory (not "Reinstall backend" with a sync icon)', async ({ page }) => {
     await mockDistributedNodes(page)
     await openNodeDetail(page)
 
-    await expect(page.locator('.node-detail__metrics')).toContainText('RAM')
-    await expect(page.locator('.node-detail__metrics')).toContainText('3.7 GB / 7.5 GB')
+    await expect(page.getByRole('region', { name: 'Node resources' })).toContainText('RAM')
+    await expect(page.getByRole('region', { name: 'Node resources' })).toContainText('3.7 GB / 7.5 GB')
+
+    const menu = await openBackendActions(page)
 
     // Negative: the old, ambiguous wording must not be used.
-    await expect(page.locator('button[title="Reinstall backend"]')).toHaveCount(0)
-    await expect(page.locator('button[title="Reinstall backend"] i.fa-sync-alt')).toHaveCount(0)
+    await expect(menu.getByRole('menuitem', { name: 'Reinstall backend' })).toHaveCount(0)
 
-    // Positive: a self-explanatory upgrade affordance is rendered next to the
-    // backend row. We accept either an arrow-up or arrows-rotate glyph; both
-    // map to "upgrade" semantics in FontAwesome 6 unambiguously.
-    const upgradeBtn = page.locator('button[title="Upgrade backend on this node"]')
-    await expect(upgradeBtn).toBeVisible()
-    const iconClass = await upgradeBtn.locator('i').getAttribute('class')
-    expect(iconClass).toMatch(/fa-(arrow-up|arrows-rotate|up-long)/)
+    // Positive: the action menu names the operation and uses an upgrade icon.
+    const upgradeItem = menu.getByRole('menuitem', { name: 'Upgrade backend' })
+    await expect(upgradeItem).toBeVisible()
+    await expect(upgradeItem.locator('svg[data-icon="arrow-up"]')).toBeVisible()
   })
 
   test('per-node backend row shows a delete (trash) button next to upgrade', async ({ page }) => {
     await mockDistributedNodes(page)
     await openNodeDetail(page)
 
-    const deleteBtn = page.locator('button[title="Delete backend from this node"]')
-    await expect(deleteBtn).toBeVisible()
-    await expect(deleteBtn.locator('i.fa-trash')).toBeVisible()
+    const menu = await openBackendActions(page)
+    const deleteItem = menu.getByRole('menuitem', { name: 'Delete backend…' })
+    await expect(deleteItem).toBeVisible()
+    await expect(deleteItem.locator('svg[data-icon="trash"]')).toBeVisible()
   })
 
   test('clicking delete opens the confirm dialog and POSTs to the per-node delete endpoint', async ({ page }) => {
@@ -136,7 +144,8 @@ test.describe('Nodes page — per-node backend actions', () => {
     })
     await openNodeDetail(page)
 
-    await page.locator('button[title="Delete backend from this node"]').click()
+    const menu = await openBackendActions(page)
+    await menu.getByRole('menuitem', { name: 'Delete backend…' }).click()
 
     // ConfirmDialog uses role="alertdialog" and a danger confirm button.
     const dialog = page.getByRole('alertdialog')
@@ -158,7 +167,8 @@ test.describe('Nodes page — per-node backend actions', () => {
     })
     await openNodeDetail(page)
 
-    await page.locator('button[title="Delete backend from this node"]').click()
+    const menu = await openBackendActions(page)
+    await menu.getByRole('menuitem', { name: 'Delete backend…' }).click()
 
     const dialog = page.getByRole('alertdialog')
     await expect(dialog).toBeVisible()

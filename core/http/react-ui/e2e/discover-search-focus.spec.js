@@ -23,17 +23,17 @@ test.describe('Models Explore - searching keeps the view', () => {
     })
 
     await page.goto('/app/models')
-    const search = page.locator('.filter-bar-group__search input')
+    const search = page.getByTestId('models-search')
     await expect(search).toBeVisible({ timeout: 10_000 })
 
     await search.click()
     await search.fill('alpha')
 
     // Mid-refetch: the field is still mounted, still focused, still holding
-    // what was typed, and the rail is marked busy rather than replaced.
+    // what was typed, and the table is kept rather than replaced.
     await expect(search).toBeFocused()
     await expect(search).toHaveValue('alpha')
-    await expect(page.locator('.entity-rail')).toBeVisible()
+    await expect(page.locator('.ledger-wrap')).toBeVisible()
 
     await page.waitForTimeout(900)
     await expect(search).toBeFocused()

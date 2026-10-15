@@ -58,28 +58,28 @@ func (e *LocalToolExecutor) HasTools() bool {
 	return len(e.tools) > 0
 }
 
-// DistributedToolExecutor routes tool operations through NATS to agent workers.
+// DistributedToolExecutor routes tool operations to agent workers.
 type DistributedToolExecutor struct {
-	natsClient MCPNATSClient
-	modelName  string
-	remote     config.MCPGenericConfig[config.MCPRemoteServers]
-	stdio      config.MCPGenericConfig[config.MCPSTDIOServers]
-	toolDefs   []mcpRemote.MCPToolDef
+	agentControl AgentControl
+	modelName    string
+	remote       config.MCPGenericConfig[config.MCPRemoteServers]
+	stdio        config.MCPGenericConfig[config.MCPSTDIOServers]
+	toolDefs     []mcpRemote.MCPToolDef
 }
 
-// NewDistributedToolExecutor creates a ToolExecutor that routes through NATS.
-// It discovers tools immediately via a NATS request-reply to an agent worker.
-func NewDistributedToolExecutor(ctx context.Context, natsClient MCPNATSClient, modelName string,
+// NewDistributedToolExecutor creates a ToolExecutor that routes to agent workers.
+// It discovers tools immediately with a discovery request to an agent worker.
+func NewDistributedToolExecutor(ctx context.Context, agentControl AgentControl, modelName string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 ) *DistributedToolExecutor {
 	e := &DistributedToolExecutor{
-		natsClient: natsClient,
-		modelName:  modelName,
-		remote:     remote,
-		stdio:      stdio,
+		agentControl: agentControl,
+		modelName:    modelName,
+		remote:       remote,
+		stdio:        stdio,
 	}
-	resp, err := DiscoverMCPToolsRemote(ctx, natsClient, modelName, remote, stdio)
+	resp, err := DiscoverMCPToolsRemote(ctx, agentControl, modelName, remote, stdio)
 	if err != nil {
 		xlog.Error("Failed to discover MCP tools (distributed)", "error", err)
 	} else if resp != nil {
@@ -103,7 +103,7 @@ func (e *DistributedToolExecutor) IsTool(name string) bool {
 }
 
 func (e *DistributedToolExecutor) ExecuteTool(ctx context.Context, toolName, arguments string) (string, error) {
-	return ExecuteMCPToolCallRemote(ctx, e.natsClient, e.modelName, e.remote, e.stdio, toolName, arguments)
+	return ExecuteMCPToolCallRemote(ctx, e.agentControl, e.modelName, e.remote, e.stdio, toolName, arguments)
 }
 
 func (e *DistributedToolExecutor) HasTools() bool {
@@ -111,15 +111,15 @@ func (e *DistributedToolExecutor) HasTools() bool {
 }
 
 // NewToolExecutor creates the appropriate ToolExecutor based on the current mode.
-// When natsClient is non-nil, returns a DistributedToolExecutor that routes through NATS.
-// When natsClient is nil, creates local sessions and returns a LocalToolExecutor.
-func NewToolExecutor(ctx context.Context, natsClient MCPNATSClient, modelName string,
+// When agentControl is non-nil, returns a DistributedToolExecutor that routes to agent workers.
+// When agentControl is nil, creates local sessions and returns a LocalToolExecutor.
+func NewToolExecutor(ctx context.Context, agentControl AgentControl, modelName string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 	enabledServers []string,
 ) ToolExecutor {
-	if natsClient != nil {
-		return NewDistributedToolExecutor(ctx, natsClient, modelName, remote, stdio)
+	if agentControl != nil {
+		return NewDistributedToolExecutor(ctx, agentControl, modelName, remote, stdio)
 	}
 	sessions, err := NamedSessionsFromMCPConfig(modelName, remote, stdio, enabledServers)
 	if err != nil || len(sessions) == 0 {

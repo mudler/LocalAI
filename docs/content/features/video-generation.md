@@ -50,6 +50,9 @@ The request body is JSON with the following fields:
 | `start_image`     | `string` | No       |         | Starting image as base64 string or URL                   |
 | `end_image`       | `string` | No       |         | Ending image for guided generation                       |
 | `audio`           | `string` | No       |         | Audio conditioning as base64, a data URI, or URL          |
+| `ref_images`      | `string[]` | No     |         | Reference images as base64, data URIs or URLs. Cannot be combined with `start_image` or `end_image` |
+| `ref_videos`      | `object[]` | No     |         | Reference videos: `{"frames": [...], "fps": 24, "audio": "..."}`. `frames` is an ordered list of images, `fps` and `audio` are optional |
+| `ref_audios`      | `string[]` | No     |         | Reference audio clips. The `stablediffusion` backend reads WAV only |
 | `width`           | `int`    | No       | backend | Video width in pixels; omit it to get the model's own default canvas |
 | `height`          | `int`    | No       | backend | Video height in pixels; omit it to get the model's own default canvas |
 | `num_frames`      | `int`    | No       |         | Number of frames                                         |
@@ -447,6 +450,10 @@ The `/video` request's `params` object accepts string values. Unknown keys are r
 | `crf` | Per-request x264 CRF override |
 
 `negative_prompt`, `cfg_scale` and `fps` have no MiniMax-H3 equivalent: H3 has no negative prompt or CFG scale, and it renders at a fixed frame rate that the audio track is synchronised to. Setting them is logged and ignored rather than silently honoured.
+
+### Reference inputs with the `stablediffusion` backend
+
+A MiniMax-H3 Ref2VA checkpoint on the `stablediffusion` backend takes several reference images, reference videos (each with an fps and an optional paired audio clip) and reference audio clips through `ref_images`, `ref_videos` and `ref_audios`. The single `audio` field counts as one more reference audio. Reference inputs need the Ref2VA checkpoint and cannot be mixed with `start_image` or `end_image`. A request accepts at most 16 entries of each kind and at most 512 frames per reference video. Reference audio must be WAV.
 
 ### MiniMax-H3 troubleshooting
 

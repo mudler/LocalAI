@@ -77,12 +77,19 @@ func Resolve(ctx context.Context, routerCfg *config.ModelConfig, classifier Clas
 		return nil, fmt.Errorf("router.Resolve: config has no router block")
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	if classifier == nil {
 		return resolveFallback(routerCfg, loader, Decision{}, LabelFallback, "classifier unavailable")
 	}
 
 	start := time.Now()
 	decision, err := classifier.Classify(ctx, probe)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	if err != nil {
 		return resolveFallback(routerCfg, loader, Decision{Latency: time.Since(start)}, classifier.Name(), "classifier error: "+err.Error())
 	}

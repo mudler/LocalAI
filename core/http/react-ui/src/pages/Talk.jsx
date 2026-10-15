@@ -1,23 +1,20 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useOutletContext, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { realtimeApi } from '../utils/api'
 import { fromState } from '../utils/editorNav'
-import ModelSelector from '../components/ModelSelector'
+import { copyToClipboard } from '../utils/clipboard'
+// eslint-disable-next-line no-unused-vars
+import HomeModelPicker from '../components/home/HomeModelPicker'
+// eslint-disable-next-line no-unused-vars
+import SessionSheet from '../components/talk/SessionSheet'
+// eslint-disable-next-line no-unused-vars
 import VoiceVisualizer from '../components/VoiceVisualizer'
-import ClientMCPDropdown from '../components/ClientMCPDropdown'
 import { useMCPClient } from '../hooks/useMCPClient'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
 import { useAuth } from '../context/AuthContext'
-
-const STATUS_STYLES = {
-  disconnected: { icon: 'fa-solid fa-circle', color: 'var(--color-text-secondary)', bg: 'transparent' },
-  connecting:   { icon: 'fa-solid fa-spinner fa-spin', color: 'var(--color-primary)', bg: 'var(--color-primary-light)' },
-  connected:    { icon: 'fa-solid fa-circle', color: 'var(--color-success)', bg: 'var(--color-success-light)' },
-  listening:    { icon: 'fa-solid fa-microphone', color: 'var(--color-success)', bg: 'var(--color-success-light)' },
-  thinking:     { icon: 'fa-solid fa-brain fa-beat', color: 'var(--color-primary)', bg: 'var(--color-primary-light)' },
-  speaking:     { icon: 'fa-solid fa-volume-high fa-beat-fade', color: 'var(--color-accent)', bg: 'var(--color-accent-light)' },
-  error:        { icon: 'fa-solid fa-circle', color: 'var(--color-error)', bg: 'var(--color-error-light)' },
-}
+import Icon from '../components/Icon'
+import './talk.css'
 
 // upsertEntry merges a streamed transcript fragment into the entry identified
 // by the server's item_id, or appends a new entry (with the given role) if
@@ -44,21 +41,66 @@ function upsertAssistant(prev, itemId, text, mode) {
   return upsertEntry(prev, itemId, 'assistant', text, mode)
 }
 
+// The colours the diagnostics canvases draw with, read from the theme.
+function diagColors() {
+  const cs = getComputedStyle(document.documentElement)
+  const get = (name, fallback) => cs.getPropertyValue(name).trim() || fallback
+  return {
+    bg: get('--dk-inset', '#111'),
+    line: get('--dk-accent-text', '#3a8'),
+    bar: get('--dk-series-1', '#38c'),
+    muted: get('--dk-muted', '#888'),
+    error: get('--dk-error', '#c33'),
+  }
+}
+
+// What the page is showing, from what the connection is doing. These are the
+// states the code can reach: nothing is simulated.
+//   nopipe       no pipeline model is installed
+//   idle         no session
+//   connecting   the call is being set up (microphone, offer, answer, session)
+//   listening    the session is open and the server is waiting for you
+//   thinking     you stopped; the model is working or a tool is running
+//   speaking     the reply is playing
+//   blocked      the browser refused the microphone
+//   lost         the WebRTC link failed during a session
+//   error        anything else that stopped the session
+function viewOf(status, noPipeline) {
+  if (noPipeline) return 'nopipe'
+  switch (status) {
+    case 'connecting':
+    case 'connected': return 'connecting'
+    case 'listening': return 'listening'
+    case 'thinking': return 'thinking'
+    case 'speaking': return 'speaking'
+    case 'blocked': return 'blocked'
+    case 'lost': return 'lost'
+    case 'error': return 'error'
+    default: return 'idle'
+  }
+}
+
 export default function Talk() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation('talk')
 
   // Pipeline models
   const [pipelineModels, setPipelineModels] = useState([])
-  const pipelineModelNames = useMemo(() => pipelineModels.map(m => m.name), [pipelineModels])
+  const pickerModels = useMemo(() => pipelineModels.map(m => ({ id: m.name })), [pipelineModels])
   const [selectedModel, setSelectedModel] = useState('')
   const [modelsLoading, setModelsLoading] = useState(true)
 
-  // Connection state
+  // Connection state. `detail` is a small, translated line under the status
+  // (a tool that is running, the reason a call failed).
   const [status, setStatus] = useState('disconnected')
-  const [statusText, setStatusText] = useState('Disconnected')
+  const [detail, setDetail] = useState(null)
   const [isConnected, setIsConnected] = useState(false)
+  // True after a reply was cut off, until you speak again or the next reply plays.
+  const [interrupted, setInterrupted] = useState(false)
+  const [hearing, setHearing] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   // Transcript
   const [transcript, setTranscript] = useState([])
@@ -131,8 +173,9 @@ export default function Talk() {
           if (!voiceEdited) setVoice(models[0].voice || '')
         }
       })
-      .catch(err => addToast(`Failed to load realtime models: ${err.message}`, 'error', 5000, { link: { href: '/app/traces?tab=backend', text: 'View traces' } }))
+      .catch(err => addToast(t('toasts.modelsFailed', { message: err.message }), 'error', 5000, { link: { href: '/app/traces?tab=backend', text: t('toasts.viewTraces') } }))
       .finally(() => setModelsLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Auto-scroll the transcript's own overflow container. scrollIntoView bubbles
@@ -154,6 +197,7 @@ export default function Talk() {
         mcpDisconnect(server.id)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMCPIds.join(','), clientMCPServers, connectionStatuses, mcpConnect, mcpDisconnect])
 
   const handleClientMCPToggle = useCallback((serverId) => {
@@ -172,9 +216,9 @@ export default function Talk() {
   const selectedModelInfo = pipelineModels.find(m => m.name === selectedModel)
 
   // ── Status helper ──
-  const updateStatus = useCallback((state, text) => {
+  const updateStatus = useCallback((state, line) => {
     setStatus(state)
-    setStatusText(text || state)
+    setDetail(line || null)
   }, [])
 
   // ── Session update ──
@@ -227,7 +271,7 @@ export default function Talk() {
       dc.send(JSON.stringify({ type: 'response.create' }))
       return
     }
-    updateStatus('thinking', `Running tool ${name}...`)
+    updateStatus('thinking', { key: 'tool', params: { name } })
     try {
       const result = await executeTool(name, argsJson)
       dc.send(JSON.stringify({
@@ -249,15 +293,18 @@ export default function Talk() {
     switch (event.type) {
       case 'session.created':
         sendSessionUpdate()
-        updateStatus('listening', 'Listening...')
+        updateStatus('listening')
         break
       case 'session.updated':
         break
       case 'input_audio_buffer.speech_started':
-        updateStatus('listening', 'Hearing you speak...')
+        setHearing(true)
+        setInterrupted(false)
+        updateStatus('listening')
         break
       case 'input_audio_buffer.speech_stopped':
-        updateStatus('thinking', 'Processing...')
+        setHearing(false)
+        updateStatus('thinking', { key: 'processing' })
         break
       case 'conversation.item.input_audio_transcription.delta':
         // Live captions: semantic_vad streams the user's words while they
@@ -277,7 +324,7 @@ export default function Talk() {
             setTranscript(prev => [...prev, { role: 'user', text: event.transcript }])
           }
         }
-        updateStatus('thinking', 'Generating response...')
+        updateStatus('thinking', { key: 'generating' })
         break
       case 'conversation.item.input_audio_transcription.failed':
         // The turn was discarded after captions were shown (e.g. the buffer
@@ -299,7 +346,8 @@ export default function Talk() {
         inProgressIdRef.current = null
         break
       case 'response.output_audio.delta':
-        updateStatus('speaking', 'Speaking...')
+        setInterrupted(false)
+        updateStatus('speaking')
         break
       case 'response.output_item.done': {
         // Server-executed tools (Manage Mode) surface as output items —
@@ -316,7 +364,7 @@ export default function Talk() {
         } else if (item.FunctionCallOutput) {
           let preview = item.FunctionCallOutput.output || ''
           // Pretty-print JSON for readability; fall back to raw string.
-          try { preview = JSON.stringify(JSON.parse(preview), null, 2) } catch (_) { /* keep raw */ }
+          try { preview = JSON.stringify(JSON.parse(preview), null, 2) } catch { /* keep raw */ }
           setTranscript(prev => [...prev, { role: 'tool_result', text: preview }])
           inProgressIdRef.current = null // tool result ends the current assistant text run
         }
@@ -332,34 +380,42 @@ export default function Talk() {
         // incrementally-streamed assistant bubble behind. The server discards
         // the interrupted item from history; mirror that here (remove the
         // in-progress assistant entry by item_id) so the regenerated reply
-        // doesn't show up as a second assistant message.
-        if (event.response?.status === 'cancelled' && inProgressIdRef.current) {
+        // doesn't show up as a second assistant message. A quiet note marks
+        // where the reply was cut.
+        if (event.response?.status === 'cancelled') {
           const id = inProgressIdRef.current
           inProgressIdRef.current = null
-          setTranscript(prev => prev.filter(e => e.id !== id))
+          setTranscript(prev => {
+            const kept = id ? prev.filter(e => e.id !== id) : prev
+            return [...kept, { role: 'note', text: 'interrupted' }]
+          })
+          setInterrupted(true)
         }
-        updateStatus('listening', 'Listening...')
+        updateStatus('listening')
         break
       }
       case 'error':
         hasErrorRef.current = true
-        updateStatus('error', 'Error: ' + (event.error?.message || 'Unknown error'))
+        updateStatus('error', { key: 'server', params: { message: event.error?.message || t('detail.unknown') } })
         break
     }
-  }, [sendSessionUpdate, updateStatus, handleFunctionCall])
+  }, [sendSessionUpdate, updateStatus, handleFunctionCall, t])
 
   // ── Connect ──
   const connect = useCallback(async () => {
     if (!selectedModel) {
-      addToast('Please select a realtime model first.', 'warning')
+      addToast(t('toasts.selectModel'), 'warning')
       return
     }
     if (!navigator.mediaDevices?.getUserMedia) {
-      updateStatus('error', 'Microphone access requires HTTPS or localhost.')
+      updateStatus('error', { key: 'insecure' })
       return
     }
 
-    updateStatus('connecting', 'Connecting...')
+    hasErrorRef.current = false
+    setInterrupted(false)
+    setHearing(false)
+    updateStatus('connecting')
     setIsConnected(true)
 
     try {
@@ -392,8 +448,13 @@ export default function Talk() {
 
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') {
-          updateStatus('connected', 'Connected, waiting for session...')
-        } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          updateStatus('connected')
+        } else if (pc.connectionState === 'failed') {
+          // The link dropped under a session that was running.
+          hasErrorRef.current = true
+          updateStatus('lost')
+          disconnect()
+        } else if (pc.connectionState === 'closed') {
           disconnect()
         }
       }
@@ -418,10 +479,17 @@ export default function Talk() {
       await pc.setRemoteDescription({ type: 'answer', sdp: data.sdp })
     } catch (err) {
       hasErrorRef.current = true
-      updateStatus('error', 'Connection failed: ' + err.message)
+      if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError' || err?.name === 'PermissionDeniedError') {
+        updateStatus('blocked')
+      } else if (err?.name === 'NotFoundError') {
+        updateStatus('error', { key: 'noMic' })
+      } else {
+        updateStatus('error', { key: 'failed', params: { message: err?.message || t('detail.unknown') } })
+      }
       disconnect()
     }
-  }, [selectedModel, manageMode, diagVisible, handleServerEvent, updateStatus, addToast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModel, manageMode, diagVisible, handleServerEvent, updateStatus, addToast, t])
 
   // ── Disconnect ──
   const disconnect = useCallback(() => {
@@ -434,9 +502,11 @@ export default function Talk() {
     }
     if (audioRef.current) audioRef.current.srcObject = null
 
-    if (!hasErrorRef.current) updateStatus('disconnected', 'Disconnected')
+    if (!hasErrorRef.current) updateStatus('disconnected')
     hasErrorRef.current = false
     setIsConnected(false)
+    setHearing(false)
+    setInterrupted(false)
   }, [updateStatus])
 
   // Cleanup on unmount
@@ -454,7 +524,7 @@ export default function Talk() {
     const dc = dcRef.current
     if (!dc || dc.readyState !== 'open') return
     dc.send(JSON.stringify({ type: 'test_tone' }))
-    setTranscript(prev => [...prev, { role: 'assistant', text: '(Test tone requested)' }])
+    setTranscript(prev => [...prev, { role: 'note', text: 'tone' }])
   }, [])
 
   // ── Diagnostics ──
@@ -490,6 +560,7 @@ export default function Talk() {
   function drawDiagnostics() {
     const analyser = analyserRef.current
     if (!analyser) { diagFrameRef.current = null; return }
+    const colors = diagColors()
 
     diagFrameRef.current = requestAnimationFrame(drawDiagnostics)
 
@@ -500,8 +571,8 @@ export default function Talk() {
       const timeData = new Float32Array(analyser.fftSize)
       analyser.getFloatTimeDomainData(timeData)
       const w = waveCanvas.width, h = waveCanvas.height
-      wCtx.fillStyle = '#000'; wCtx.fillRect(0, 0, w, h)
-      wCtx.strokeStyle = '#0f0'; wCtx.lineWidth = 1; wCtx.beginPath()
+      wCtx.fillStyle = colors.bg; wCtx.fillRect(0, 0, w, h)
+      wCtx.strokeStyle = colors.line; wCtx.lineWidth = 1; wCtx.beginPath()
       const sliceWidth = w / timeData.length
       let x = 0
       for (let i = 0; i < timeData.length; i++) {
@@ -525,7 +596,7 @@ export default function Talk() {
       const freqData = new Float32Array(analyser.frequencyBinCount)
       analyser.getFloatFrequencyData(freqData)
       const sw = specCanvas.width, sh = specCanvas.height
-      sCtx.fillStyle = '#000'; sCtx.fillRect(0, 0, sw, sh)
+      sCtx.fillStyle = colors.bg; sCtx.fillRect(0, 0, sw, sh)
 
       const sampleRate = audioCtxRef.current.sampleRate
       const binHz = sampleRate / analyser.fftSize
@@ -533,7 +604,7 @@ export default function Talk() {
       const maxBin = Math.min(Math.ceil(maxFreqDisplay / binHz), freqData.length)
       const barWidth = sw / maxBin
 
-      sCtx.fillStyle = '#0cf'
+      sCtx.fillStyle = colors.bar
       let peakBin = 0, peakVal = -Infinity
       for (let i = 0; i < maxBin; i++) {
         const db = freqData[i]
@@ -543,7 +614,7 @@ export default function Talk() {
       }
 
       // Frequency labels
-      sCtx.fillStyle = '#888'; sCtx.font = '10px monospace'
+      sCtx.fillStyle = colors.muted; sCtx.font = '10px ui-monospace, monospace'
       for (let f = 500; f <= maxFreqDisplay; f += 500) {
         sCtx.fillText(f + '', (f / binHz) * barWidth - 10, sh - 2)
       }
@@ -551,9 +622,9 @@ export default function Talk() {
       // 440 Hz marker
       const bin440 = Math.round(440 / binHz)
       const x440 = bin440 * barWidth
-      sCtx.strokeStyle = '#f00'; sCtx.lineWidth = 1
+      sCtx.strokeStyle = colors.error; sCtx.lineWidth = 1
       sCtx.beginPath(); sCtx.moveTo(x440, 0); sCtx.lineTo(x440, sh); sCtx.stroke()
-      sCtx.fillStyle = '#f00'; sCtx.fillText('440', x440 + 2, 10)
+      sCtx.fillStyle = colors.error; sCtx.fillText('440', x440 + 2, 10)
 
       const peakFreq = peakBin * binHz
       const fundamentalBin = Math.round(440 / binHz)
@@ -600,7 +671,7 @@ export default function Talk() {
         }
       })
       setDiagStats(prev => ({ ...prev, raw: raw.join('\n') }))
-    } catch (_e) { /* stats polling error */ }
+    } catch { /* stats polling error */ }
   }
 
   const toggleDiagnostics = useCallback(() => {
@@ -615,274 +686,265 @@ export default function Talk() {
     })
   }, [])
 
-  const statusStyle = STATUS_STYLES[status] || STATUS_STYLES.disconnected
+  const noPipeline = !modelsLoading && pipelineModels.length === 0
+  const view = viewOf(status, noPipeline)
+  const showInterrupted = interrupted && view === 'listening'
 
-  // ── Render ──
+  // The heading and the sentence under it. Failures keep the reason the code
+  // has (a server message, the browser's error) in the detail line.
+  const headline = showInterrupted ? t('view.interrupted.title') : t(`view.${view}.title`)
+  let sentence = showInterrupted ? t('view.interrupted.body') : t(`view.${view}.body`)
+  if (view === 'listening' && hearing && !showInterrupted) sentence = t('view.listening.hearing')
+  if (detail) sentence = t(`detail.${detail.key}`, detail.params)
+
+  const failed = view === 'blocked' || view === 'lost' || view === 'error'
+  const busy = view === 'connecting' || view === 'thinking'
+
+  const copyTranscript = async () => {
+    const lines = transcript
+      .filter(e => e.role !== 'note')
+      .map(e => `${t(`transcript.${e.role}`)}: ${e.text}`)
+    const ok = await copyToClipboard(lines.join('\n'))
+    addToast(ok ? t('toasts.copied') : t('toasts.copyFailed'), ok ? 'success' : 'error', ok ? 2000 : 3000)
+  }
+
+  const openEditor = () => {
+    if (!selectedModel) return
+    navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`, { state: fromState(location, 'Talk') })
+  }
+
   return (
-    <div className="page page--narrow talk-page">
-      <div className="talk-col">
-        <div className="text-center mb-lg">
-          <h1 className="page-title">Talk</h1>
-          <p className="page-subtitle">Real-time voice conversation via WebRTC</p>
-        </div>
-
-        <div className="card pad-lg mb-md">
-          {/* Voice visualizer (hero) */}
-          <VoiceVisualizer audioRef={audioRef} micStreamRef={localStreamRef} status={status} active={isConnected} />
-
-          {/* Connection status */}
-          <div
-            className="talk-status mb-md"
-            style={{
-              background: statusStyle.bg,
-              border: '1px solid color-mix(in srgb, ' + statusStyle.color + ' 30%, transparent)',
-            }}
+    <div className="talk-page" data-view={view}>
+      <header className="talk-hd">
+        <h1>{t('title')}</h1>
+        <span className="talk-hd__sub">{t('subtitle')}</span>
+        <div className="talk-hd__acts">
+          {isConnected && (
+            <button
+              type="button"
+              className="talk-icobtn"
+              onClick={toggleDiagnostics}
+              aria-pressed={diagVisible}
+              title={t('controls.diagnostics')}
+              aria-label={t('controls.diagnostics')}
+              data-testid="talk-diag-toggle"
+            >
+              <Icon name="gauge" />
+            </button>
+          )}
+          <button
+            type="button"
+            className="talk-icobtn"
+            onClick={() => setSheetOpen(true)}
+            title={t('settings.title')}
+            aria-label={t('settings.title')}
+            data-testid="talk-settings-button"
           >
-            <i className={statusStyle.icon} style={{ color: statusStyle.color }} />
-            <span className="fw-medium" style={{ color: statusStyle.color }}>{statusText}</span>
-            {status === 'error' && (
-              <a href="/app/traces?tab=backend" className="chat-error-trace-link ml-auto">
-                <i className="fas fa-wave-square" /> View traces
-              </a>
-            )}
-          </div>
+            <Icon name="sliders" />
+          </button>
+        </div>
+      </header>
 
-          {/* Info note */}
-          <div className="talk-hint mb-md">
-            <i className="fas fa-info-circle text-primary mt-xs shrink-0" />
-            <p className="text-sub m-0">
-              <strong className="text-primary">Note:</strong> Select a pipeline model and click Connect.
-              Your microphone streams continuously; the server detects speech and responds automatically.
-            </p>
-          </div>
-
-          {/* Pipeline model selector */}
-          <div className="mb-md">
-            <label className="form-label text-sm">
-              <i className="fas fa-brain text-primary icon-before" /> Pipeline Model
-            </label>
-            <ModelSelector
+      <div className="talk-grid">
+        <section className="talk-stage" aria-label={t('stage')}>
+          <div className="talk-chips">
+            <HomeModelPicker
               value={selectedModel}
               onChange={(v) => {
                 setSelectedModel(v)
                 const m = pipelineModels.find(p => p.name === v)
                 if (m && !voiceEdited) setVoice(m.voice || '')
               }}
-              options={pipelineModelNames}
+              models={pickerModels}
               loading={modelsLoading}
-              disabled={isConnected}
-              searchPlaceholder="Search pipeline models..."
+              disabled={isConnected || noPipeline}
+              showWarm={false}
+              placeholder={noPipeline ? t('picker.none') : undefined}
+              labels={{ title: t('picker.title'), heading: t('picker.heading'), label: t('picker.label'), none: t('picker.none') }}
             />
-            <button className="btn btn-secondary btn-sm mt-xs" onClick={() => navigate('/app/model-editor?template=pipeline', { state: fromState(location, 'Talk') })}>
-              <i className="fas fa-plus icon-before" /> Create Pipeline Model
+            {!noPipeline && (
+              <>
+                <button type="button" className="home-chip talk-chip" onClick={() => setSheetOpen(true)} title={t('settings.voice')}>
+                  <Icon name="volume" />
+                  <span className="home-chip__text">{voice || t('picker.defaultVoice')}</span>
+                </button>
+                <button type="button" className="home-chip talk-chip" onClick={() => setSheetOpen(true)} title={t('settings.language')}>
+                  <Icon name="globe" />
+                  <span className="home-chip__text">{language || t('picker.auto')}</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {view === 'nopipe' ? (
+            <section className="talk-card" data-testid="talk-no-pipeline" aria-labelledby="talk-nopipe-title">
+              <h2 id="talk-nopipe-title">{t('view.nopipe.title')}</h2>
+              <p>{t('view.nopipe.body')}</p>
+              <div className="talk-card__acts">
+                <button type="button" className="home-primary" onClick={() => navigate('/app/model-editor?template=pipeline', { state: fromState(location, 'Talk') })}>
+                  <Icon name="plus" /> {t('view.nopipe.create')}
+                </button>
+                <button type="button" className="home-secondary" onClick={() => navigate('/app/models')}>
+                  <Icon name="store" /> {t('view.nopipe.gallery')}
+                </button>
+              </div>
+            </section>
+          ) : (
+            <>
+              <div className="talk-orb" data-view={view}>
+                <VoiceVisualizer audioRef={audioRef} micStreamRef={localStreamRef} status={status} active={isConnected} interrupted={showInterrupted} />
+              </div>
+
+              <div className="talk-status" role="status" aria-live="polite" data-testid="talk-status" data-state={showInterrupted ? 'interrupted' : view}>
+                <h2>
+                  {busy && <Icon name="spinner" spin />}
+                  <span>{headline}</span>
+                </h2>
+                <p>{sentence}</p>
+              </div>
+
+              {view === 'blocked' && (
+                <div className="talk-alert" role="alert" data-testid="talk-blocked">
+                  <Icon name="alert-circle" />
+                  <div>
+                    <h3>{t('view.blocked.cardTitle')}</h3>
+                    <p>{t('view.blocked.card')}</p>
+                  </div>
+                </div>
+              )}
+              {view === 'lost' && (
+                <div className="talk-alert" role="alert" data-testid="talk-lost">
+                  <Icon name="alert-circle" />
+                  <div>
+                    <h3>{t('view.lost.cardTitle')}</h3>
+                    <p>{t('view.lost.card')}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="talk-ctl">
+                {!isConnected ? (
+                  <button
+                    type="button"
+                    className="talk-start"
+                    onClick={connect}
+                    disabled={modelsLoading || !selectedModel}
+                    data-testid="talk-start"
+                  >
+                    <span>{failed ? t(`controls.retry.${view}`) : t('controls.start')}</span>
+                    <span className="talk-start__cell"><Icon name="mic" /></span>
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" className="talk-btn talk-btn--end" onClick={disconnect} data-testid="talk-end">
+                      <Icon name="plug-off" /> {t('controls.end')}
+                    </button>
+                    {view !== 'connecting' && (
+                      <button type="button" className="talk-btn" onClick={sendTestTone} data-testid="talk-test-tone">
+                        <Icon name="waveform" /> {t('controls.testTone')}
+                      </button>
+                    )}
+                  </>
+                )}
+                {(view === 'error' || view === 'lost') && (
+                  <a href="/app/traces?tab=backend" className="chat-error-trace-link">
+                    <Icon name="waveform" /> {t('controls.viewTraces')}
+                  </a>
+                )}
+              </div>
+              {!isConnected && view === 'idle' && <p className="talk-note">{t('view.idle.note')}</p>}
+
+              {isConnected && diagVisible && (
+                <div className="talk-diag" data-testid="talk-diag">
+                  <h3>{t('diag.title')}</h3>
+                  <div className="talk-split">
+                    <div>
+                      <p className="talk-diag__label">{t('diag.waveform')}</p>
+                      <canvas ref={waveCanvasRef} width={400} height={120} className="talk-canvas" />
+                    </div>
+                    <div>
+                      <p className="talk-diag__label">{t('diag.spectrum')}</p>
+                      <canvas ref={specCanvasRef} width={400} height={120} className="talk-canvas" />
+                    </div>
+                  </div>
+                  <dl className="talk-diag__grid">
+                    {[
+                      ['peakFreq', diagStats.peakFreq],
+                      ['thd', diagStats.thd],
+                      ['rms', diagStats.rms],
+                      ['sampleRate', diagStats.sampleRate],
+                      ['packetsRecv', diagStats.packetsRecv],
+                      ['packetsLost', diagStats.packetsLost],
+                      ['jitter', diagStats.jitter],
+                      ['concealed', diagStats.concealed],
+                    ].map(([key, value]) => (
+                      <div key={key} className="talk-diag__cell">
+                        <dt>{t(`diag.${key}`)}</dt>
+                        <dd>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <pre className="talk-diag__raw">{diagStats.raw || t('diag.waiting')}</pre>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className="talk-transcript" aria-label={t('transcript.title')}>
+          <div className="talk-transcript__head">
+            <h2>{t('transcript.title')}</h2>
+            <button type="button" className="talk-btn talk-btn--ghost" onClick={copyTranscript} disabled={transcript.length === 0} data-testid="talk-copy">
+              <Icon name="copy" /> {t('transcript.copy')}
             </button>
           </div>
-
-          {/* Tools (client-side MCP servers, mirroring the chat page) */}
-          <div className="mb-md">
-            <label className="form-label text-sm">
-              <i className="fas fa-screwdriver-wrench text-primary icon-before" /> Tools
-            </label>
-            <ClientMCPDropdown
-              activeServerIds={activeMCPIds}
-              onToggleServer={handleClientMCPToggle}
-              onServerAdded={handleClientMCPServerAdded}
-              onServerRemoved={handleClientMCPServerRemoved}
-              connectionStatuses={connectionStatuses}
-              getConnectedTools={getConnectedTools}
-            />
-            {isAdmin && (
-              <label className={`talk-check mt-xs${isConnected ? ' talk-check--locked' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={manageMode}
-                  disabled={isConnected}
-                  onChange={(e) => setManageMode(e.target.checked)}
-                />
-                <i className="fas fa-user-shield text-primary" />
-                Manage Mode
-                <span className="text-secondary text-xs">
-                  — let the model query LocalAI (models, backends, system info)
-                </span>
-              </label>
-            )}
-          </div>
-
-          {/* Pipeline details */}
-          {selectedModelInfo && selectedModelInfo.self_contained && (
-            <div className="talk-chip mb-xs">
-              <i className="fas fa-tower-broadcast text-primary" />
-              <span className="text-secondary">Self-contained any-to-any —</span>
-              <span className="text-mono cell-clip">
-                {selectedModelInfo.name}
-              </span>
-              <span className="text-secondary ml-auto">handles VAD · STT · LLM · TTS</span>
-            </div>
-          )}
-          {selectedModelInfo && !selectedModelInfo.self_contained && (
-            <div className="talk-slots mb-xs">
-              {[
-                { label: 'VAD', value: selectedModelInfo.vad },
-                { label: 'Transcription', value: selectedModelInfo.transcription },
-                { label: 'LLM', value: selectedModelInfo.llm },
-                { label: 'TTS', value: selectedModelInfo.tts },
-              ].map(item => (
-                <div key={item.label} className="talk-slot">
-                  <div className="text-secondary nowrap">{item.label}</div>
-                  {/* full width for the value; wrap rather than overflow when the
-                      model name is long (minWidth:0 lets the flex item shrink) */}
-                  <div className="talk-slot__value">{item.value || '—'}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          {selectedModelInfo && !isConnected && (
-            <div className="mb-md">
-              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`, { state: fromState(location, 'Talk') })}>
-                <i className="fas fa-pen-to-square icon-before" />
-                {selectedModelInfo.self_contained ? ' Edit Model Config' : ' Edit Pipeline'}
-              </button>
-            </div>
-          )}
-
-          {/* Session settings */}
-          <details className="talk-details mb-md">
-            <summary>
-              <i className="fas fa-sliders text-primary icon-before" />
-              Session Settings
-            </summary>
-            <div className="talk-details__body">
-              <div className="form-group m-0">
-                <label className="form-label text-xs">Instructions</label>
-                <textarea
-                  className="textarea text-sm"
-                  rows={3}
-                  value={instructions}
-                  onChange={e => setInstructions(e.target.value)}
-                  placeholder="System instructions for the model"
-                />
-              </div>
-              <div className="form-group m-0">
-                <label className="form-label text-xs">Voice</label>
-                <input
-                  className="input text-sm"
-                  value={voice}
-                  onChange={e => { setVoice(e.target.value); setVoiceEdited(true) }}
-                  placeholder="Voice name (leave blank for model default)"
-                />
-              </div>
-              <div className="form-group m-0">
-                <label className="form-label text-xs">Transcription Language</label>
-                <input
-                  className="input text-sm"
-                  value={language}
-                  onChange={e => setLanguage(e.target.value)}
-                  placeholder="Language code (e.g. 'en') — leave blank for auto-detect"
-                />
-              </div>
-            </div>
-          </details>
-
-          {/* Transcript */}
-          <div className="talk-transcript mb-md">
+          <div className="talk-transcript__body" data-testid="talk-transcript">
             {transcript.length === 0 && (
-              <p className="text-secondary text-italic m-0">
-                Conversation will appear here...
-              </p>
+              <p className="talk-transcript__empty">{noPipeline ? t('transcript.emptyNoPipeline') : t('transcript.empty')}</p>
             )}
             {transcript.map((entry, i) => {
-              const isToolCall = entry.role === 'tool_call'
-              const isToolResult = entry.role === 'tool_result'
-              const isUser = entry.role === 'user'
-              const iconClass = isToolCall ? 'fa-solid fa-screwdriver-wrench'
-                              : isToolResult ? 'fa-solid fa-clipboard-list'
-                              : isUser ? 'fa-solid fa-user' : 'fa-solid fa-robot'
-              const iconColor = isToolCall || isToolResult ? 'var(--color-text-secondary)'
-                              : isUser ? 'var(--color-primary)' : 'var(--color-accent)'
+              if (entry.role === 'note') {
+                return <p key={entry.id || i} className="talk-turn talk-turn--note" data-role="note"><span className="talk-tag">{entry.text === 'tone' ? t('transcript.toneRequested') : t('transcript.interrupted')}</span></p>
+              }
+              const tool = entry.role === 'tool_call' || entry.role === 'tool_result'
               return (
-                <div key={entry.id || i} className="talk-line">
-                  <i className={`${iconClass} talk-line__icon`} style={{ color: iconColor }} />
-                  <p className={`talk-line__text${(isToolCall || isToolResult) ? ' talk-line__text--tool' : ''}${isToolResult ? ' talk-line__text--result' : ''}`}>{entry.text}</p>
+                <div key={entry.id || i} className="talk-turn" data-role={entry.role}>
+                  <b>{t(`transcript.${entry.role}`)}</b>
+                  <p className={tool ? `talk-turn__tool${entry.role === 'tool_result' ? ' talk-turn__tool--result' : ''}` : undefined}>{entry.text}</p>
                 </div>
               )
             })}
             <div ref={transcriptEndRef} />
           </div>
-
-          {/* Buttons */}
-          <div className="hstack hstack--between">
-            <div className="hstack">
-              {!isConnected ? (
-                <button className="btn btn-primary" onClick={connect} disabled={modelsLoading || !selectedModel}>
-                  <i className="fas fa-plug icon-before" /> Connect
-                </button>
-              ) : (
-                <>
-                  <button className="btn btn--accent" onClick={sendTestTone}>
-                    <i className="fas fa-wave-square icon-before" /> Test Tone
-                  </button>
-                  <button className="btn btn-secondary" onClick={toggleDiagnostics}>
-                    <i className="fas fa-chart-line icon-before" /> Diag
-                  </button>
-                </>
-              )}
-            </div>
-            {isConnected && (
-              <button className="btn btn--error" onClick={disconnect}>
-                <i className="fas fa-plug-circle-xmark icon-before" /> Disconnect
-              </button>
-            )}
-          </div>
-
-          {/* Hidden audio element for WebRTC playback */}
-          <audio ref={audioRef} autoPlay className="hidden" />
-
-          {/* Diagnostics panel */}
-          {diagVisible && (
-            <div className="talk-diag mt-md">
-              <h3 className="text-base fw-semibold mb-sm">
-                <i className="fas fa-chart-line text-primary icon-before" />
-                Audio Diagnostics
-              </h3>
-
-              <div className="talk-split mb-sm">
-                <div>
-                  <p className="text-xs text-secondary mb-xs">Waveform</p>
-                  <canvas ref={waveCanvasRef} width={400} height={120}
-                    className="talk-canvas" />
-                </div>
-                <div>
-                  <p className="text-xs text-secondary mb-xs">Spectrum (FFT)</p>
-                  <canvas ref={specCanvasRef} width={400} height={120}
-                    className="talk-canvas" />
-                </div>
-              </div>
-
-              <div className="talk-diag__grid mb-sm">
-                {[
-                  { label: 'Peak Freq', value: diagStats.peakFreq },
-                  { label: 'THD', value: diagStats.thd },
-                  { label: 'RMS Level', value: diagStats.rms },
-                  { label: 'Sample Rate', value: diagStats.sampleRate },
-                  { label: 'Packets Recv', value: diagStats.packetsRecv },
-                  { label: 'Packets Lost', value: diagStats.packetsLost },
-                  { label: 'Jitter', value: diagStats.jitter },
-                  { label: 'Concealed', value: diagStats.concealed },
-                ].map(item => (
-                  <div key={item.label} className="talk-diag__cell">
-                    <div className="text-secondary text-xs">{item.label}</div>
-                    <div className="text-mono">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-
-              <pre className="talk-diag__raw">
-                {diagStats.raw || 'Waiting for stats...'}
-              </pre>
-            </div>
-          )}
-        </div>
+        </section>
       </div>
+
+      {/* Hidden audio element for WebRTC playback */}
+      <audio ref={audioRef} autoPlay className="hidden" />
+
+      {sheetOpen && (
+        <SessionSheet
+          connected={isConnected}
+          isAdmin={isAdmin}
+          instructions={instructions}
+          onInstructions={setInstructions}
+          voice={voice}
+          onVoice={(v) => { setVoice(v); setVoiceEdited(true) }}
+          language={language}
+          onLanguage={setLanguage}
+          manageMode={manageMode}
+          onManageMode={setManageMode}
+          pipeline={selectedModelInfo}
+          onEditPipeline={openEditor}
+          activeServerIds={activeMCPIds}
+          onToggleServer={handleClientMCPToggle}
+          onServerAdded={handleClientMCPServerAdded}
+          onServerRemoved={handleClientMCPServerRemoved}
+          connectionStatuses={connectionStatuses}
+          getConnectedTools={getConnectedTools}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
     </div>
   )
 }

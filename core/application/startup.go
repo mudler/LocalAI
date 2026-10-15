@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -242,13 +243,28 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	// Wire the routing decision log. Always-on when stats are enabled —
 	// the per-router admin page reads this as the live activity feed
-	// and as input to drift checks for subsystem 5.
-	if !options.DisableStats {
+	// and as input to drift checks for subsystem 5. Embedders may retain this
+	// bounded log independently without enabling billing stats.
+	if !options.DisableStats || options.RouterDecisionLog {
 		application.routerDecisions = router.NewMemoryDecisionStore(0)
 	}
 	// Process-wide classifier cache shared across all route middlewares so
 	// the embedding-cache stats endpoint sees a single source of truth.
 	application.routerRegistry = router.NewRegistry()
+
+	// Failover chains: probe targets and track which one is active per
+	// chain. WithOnWarmChanged pins and preloads warm local targets so a
+	// switch to them does not wait for a cold load.
+	application.failoverManager = failover.New(application.ModelConfigLoader(),
+		failover.WithProber(failover.NewProber(failoverLoadedBackend(application.ModelLoader()), options.ProxyAPIKeyEnvLookup)),
+		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
+	)
+	// The assistant client was built in start() (above), before this
+	// manager existed; wire it now so list_failover_chains /
+	// pin_failover_target / unpin_failover_target see real chains.
+	if application.assistantClient != nil {
+		application.assistantClient.Failover = application.failoverManager
+	}
 
 	// Subsystem 5: admission control. Limiter is always wired so a
 	// model that gains a limits: block via gallery install or YAML
@@ -270,13 +286,21 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// revisionStore is built inside the distributed block below but used after
 	// the model configs are loaded, so it is declared out here.
 	var revisionStore modeladmin.RevisionStore
+	// modelConfigResync is built there too, and started only once the model
+	// configs are loaded: a pass against an empty loader would treat every
+	// model as new.
+	var modelConfigResync *modeladmin.DirectoryResync
 
-	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader())
+	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader(),
+		&failoverPinnedResolver{base: application.ModelConfigLoader(), fm: application.failoverManager})
 	if err != nil {
 		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
 	}
 	if distSvc != nil {
 		application.distributed = distSvc
+		// Before failoverManager.Run starts below: the gate and sync must be
+		// in place for its first tick.
+		application.startFailoverDistributed(options.Context)
 		// Wire remote model unloader so ShutdownModel works for remote nodes
 		// Uses NATS to tell serve-backend nodes to Free + kill their backend process
 		application.modelLoader.SetRemoteUnloader(distSvc.Unloader)
@@ -305,8 +329,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		go distSvc.ModelCleanup.Run(options.Context)
 		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
 		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
-		// The dispatcher still subscribes to jobs.new for persistence (result/progress subs)
-		// but does NOT set a workerFn — agent workers consume jobs from the same NATS queue.
+		// The dispatcher only enqueues jobs and persists the results and traces workers publish.
 
 		// Wire model config loader so job events include model config for agent workers
 		distSvc.Dispatcher.SetModelConfigLoader(application.backendLoader)
@@ -380,6 +403,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			// Captured here, used after the model configs are loaded below: the
 			// resync reads the loader, which is still empty at this point.
 			revisionStore = modeladmin.NewRevisionStore(distSvc.Registry, modelRevisionLifecycle)
+			modelConfigResync = modeladmin.NewDirectoryResync(application.ModelConfigLoader(), sys.Model.ModelsPath, modelRevisionLifecycle, cfgLoaderOpts...)
 			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
 				// ApplyRemoteChange honors the op: a "delete" prunes the element
 				// (a reload-from-path is additive and cannot drop it), anything
@@ -419,6 +443,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 			xlog.Error("error installing external backend", "error", err)
 		}
 	}
+
+	// Attach the GGUF header cache now, before any model config is loaded, so the
+	// first load already starts from the shared file.
+	// Only an ID the operator set keys a per-instance file; a generated ID would
+	// give every restart its own file.
+	cacheInstanceID := ""
+	if !options.Distributed.InstanceIDGenerated {
+		cacheInstanceID = options.Distributed.InstanceID
+	}
+	config.ConfigureGGUFHeaderCache(options.Context, options.DataPath, cacheInstanceID)
 
 	configLoaderOpts := options.ToConfigLoaderOptions()
 
@@ -490,6 +524,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 		xlog.Error("error downloading models", "error", err)
 	}
 
+	// Catch up on model config changes whose invalidation this frontend
+	// missed. NATS keeps no history, so a change published while this
+	// frontend was disconnected is otherwise never applied here. Every
+	// frontend runs its own pass against the shared models directory; the
+	// pass is idempotent, so no leader is needed.
+	if modelConfigResync != nil && distSvc != nil {
+		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Nats)
+	}
+
 	if options.PreloadJSONModels != "" {
 		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
 			return nil, err
@@ -547,6 +590,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 		}
 	}
+
+	// Start the failover scheduler: it syncs chains from config, runs
+	// liveness/recovery probes and dwell-based fail-back. Run is the only
+	// caller of Sync in production so onWarm callbacks stay ordered.
+	application.registerFailoverMetrics()
+	go application.failoverManager.Run(options.Context)
 
 	// Watch the configuration directory
 	startWatcher(options)
@@ -721,4 +770,13 @@ func migrateDataFiles(srcDir, dstDir string) {
 	if migrated {
 		xlog.Info("Data migration complete", "from", srcDir, "to", dstDir)
 	}
+}
+
+// registerFailoverMetrics must not retain a manager on the global provider
+// when this application has metrics disabled.
+func (a *Application) registerFailoverMetrics() {
+	if a.applicationConfig.DisableMetrics || a.metricsService == nil {
+		return
+	}
+	failover.RegisterMetrics(a.failoverManager, a.metricsService.Meter)
 }

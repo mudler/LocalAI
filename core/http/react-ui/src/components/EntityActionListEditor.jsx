@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import SearchableSelect from './SearchableSelect'
+import Icon from './Icon'
 
 // Editor for a detector model's pii_detection.entity_actions map:
 // entity-group name -> action. The value is an object {GROUP: action};
@@ -84,13 +85,13 @@ export default function EntityActionListEditor({ value, onChange }) {
             onClick={() => remove(i)}
             style={{ padding: '2px 8px', fontSize: '0.75rem' }}
             aria-label="Remove entity action">
-            <i className="fas fa-times" />
+            <Icon name="close" />
           </button>
         </div>
       ))}
 
       <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
-        <i className="fas fa-plus" /> Add entity action
+        <Icon name="plus" /> Add entity action
       </button>
     </div>
   )

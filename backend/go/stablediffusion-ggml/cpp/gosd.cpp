@@ -1,5 +1,7 @@
 #include "stable-diffusion.h"
 #include <cmath>
+#include <memory>
+#include <climits>
 #include <cstdint>
 #define GGML_MAX_NAME 128
 
@@ -710,14 +712,14 @@ void sd_tiling_params_set_enabled(sd_tiling_params_t *params, bool enabled) {
     params->enabled = enabled;
 }
 
-void sd_tiling_params_set_tile_sizes(sd_tiling_params_t *params, int tile_size_x, int tile_size_y) {
-    params->tile_size_x = tile_size_x;
-    params->tile_size_y = tile_size_y;
+void sd_tiling_params_set_tile_sizes(sd_tiling_params_t *params, int tile_size_w, int tile_size_h) {
+    params->tile_size_w = tile_size_w;
+    params->tile_size_h = tile_size_h;
 }
 
-void sd_tiling_params_set_rel_sizes(sd_tiling_params_t *params, float rel_size_x, float rel_size_y) {
-    params->rel_size_x = rel_size_x;
-    params->rel_size_y = rel_size_y;
+void sd_tiling_params_set_rel_sizes(sd_tiling_params_t *params, float rel_size_w, float rel_size_h) {
+    params->rel_size_w = rel_size_w;
+    params->rel_size_h = rel_size_h;
 }
 
 void sd_tiling_params_set_target_overlap(sd_tiling_params_t *params, float target_overlap) {
@@ -800,6 +802,11 @@ void sd_img_gen_params_set_dimensions(sd_img_gen_params_t *params, int width, in
 
 void sd_img_gen_params_set_seed(sd_img_gen_params_t *params, int64_t seed) {
     params->seed = seed;
+}
+
+void sd_img_gen_params_set_custom_sigmas(sd_img_gen_params_t *params, float *sigmas, int count) {
+    params->sample_params.custom_sigmas = sigmas;
+    params->sample_params.custom_sigmas_count = count;
 }
 
 int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count) {
@@ -1141,6 +1148,87 @@ static uint8_t* load_and_resize_image(const char* path, int target_width, int ta
     return buf;
 }
 
+// Read a RIFF/WAVE file (PCM 16/24/32-bit or IEEE float 32-bit) into an
+// sd_audio_t holding planar float samples (all of channel 0, then channel 1,
+// ...), the layout sd.cpp expects. The caller owns out->data (free()).
+// Returns false and prints the reason on any unsupported or malformed input.
+static bool load_wav_audio(const char* path, sd_audio_t* out) {
+    *out = {0, 0, 0, nullptr};
+    FILE* f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "Failed to open reference audio '%s'\n", path); return false; }
+
+    auto rd16 = [](const uint8_t* b) { return (uint32_t)b[0] | ((uint32_t)b[1] << 8); };
+    auto rd32 = [](const uint8_t* b) { return (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24); };
+
+    uint8_t hdr[12];
+    if (fread(hdr, 1, 12, f) != 12 || memcmp(hdr, "RIFF", 4) != 0 || memcmp(hdr + 8, "WAVE", 4) != 0) {
+        fprintf(stderr, "Reference audio '%s' is not a WAV file (convert it to WAV first)\n", path);
+        fclose(f);
+        return false;
+    }
+
+    uint32_t format = 0, channels = 0, rate = 0, bits = 0;
+    std::vector<uint8_t> data;
+    bool have_data = false;
+    uint8_t ch[8];
+    while (fread(ch, 1, 8, f) == 8) {
+        uint32_t size = rd32(ch + 4);
+        if (memcmp(ch, "fmt ", 4) == 0 && size >= 16) {
+            std::vector<uint8_t> fmt(size);
+            if (fread(fmt.data(), 1, size, f) != size) break;
+            format = rd16(fmt.data());
+            channels = rd16(fmt.data() + 2);
+            rate = rd32(fmt.data() + 4);
+            bits = rd16(fmt.data() + 14);
+            // WAVE_FORMAT_EXTENSIBLE: the real format tag is the first two bytes of the sub-format GUID.
+            if (format == 0xFFFE && size >= 26) format = rd16(fmt.data() + 24);
+        } else if (memcmp(ch, "data", 4) == 0) {
+            data.resize(size);
+            size_t got = fread(data.data(), 1, size, f);
+            data.resize(got);
+            have_data = true;
+            break;
+        } else if (fseek(f, (long)size, SEEK_CUR) != 0) {
+            break;
+        }
+        if (size & 1) fseek(f, 1, SEEK_CUR);
+    }
+    fclose(f);
+
+    bool is_float = format == 3 && bits == 32;
+    bool is_pcm = format == 1 && (bits == 16 || bits == 24 || bits == 32);
+    if (!have_data || channels == 0 || rate == 0 || (!is_float && !is_pcm)) {
+        fprintf(stderr, "Unsupported or malformed WAV '%s' (format=%u bits=%u channels=%u rate=%u)\n",
+                path, format, bits, channels, rate);
+        return false;
+    }
+
+    size_t bytes_per_sample = bits / 8;
+    uint64_t frames = data.size() / (bytes_per_sample * channels);
+    if (frames == 0) { fprintf(stderr, "Reference audio '%s' has no samples\n", path); return false; }
+    float* planar = (float*)malloc((size_t)frames * channels * sizeof(float));
+    if (!planar) return false;
+    for (uint64_t i = 0; i < frames; i++) {
+        for (uint32_t c = 0; c < channels; c++) {
+            const uint8_t* b = data.data() + (i * channels + c) * bytes_per_sample;
+            float v;
+            if (is_float) {
+                memcpy(&v, b, 4);
+            } else if (bits == 16) {
+                v = (int16_t)rd16(b) / 32768.0f;
+            } else if (bits == 24) {
+                int32_t x = (int32_t)((uint32_t)b[0] << 8 | (uint32_t)b[1] << 16 | (uint32_t)b[2] << 24) >> 8;
+                v = x / 8388608.0f;
+            } else {
+                v = (int32_t)rd32(b) / 2147483648.0f;
+            }
+            planar[(uint64_t)c * frames + i] = v;
+        }
+    }
+    *out = {rate, channels, frames, planar};
+    return true;
+}
+
 // Write sd.cpp's audio buffer to a temp WAV file (IEEE float, interleaved).
 // sd_audio_t.data is planar (all channel 0 samples, then channel 1, etc.) — we
 // interleave on the fly so ffmpeg's standard wav demuxer can read it directly.
@@ -1358,7 +1446,7 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
     return 0;
 }
 
-int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image) {
+int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image, char *ref_images, char *ref_videos, char *ref_audios) {
     if (!p) return 1;
     if (!dst || strlen(dst) == 0) {
         fprintf(stderr, "gen_video: dst is empty\n");
@@ -1408,32 +1496,121 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
     p->init_image = init_img;
     p->end_image  = end_img;
 
+    // MiniMax-H3 Ref2VA references. Keyframes and references are mutually
+    // exclusive upstream; the Go side rejects the mix before getting here.
+    // The lists arrive flattened because purego cannot pass arrays of strings
+    // here: ref_images and ref_audios are newline-separated paths, ref_videos
+    // is one "frames_dir\x1ffps\x1faudio" record per line.
+    std::vector<uint8_t*> ref_bufs;                  // owned pixel buffers
+    std::vector<sd_image_t> ref_imgs;
+    std::vector<std::vector<sd_image_t>> ref_vid_frames;
+    std::vector<sd_ref_video_t> ref_vids;
+    std::vector<sd_audio_t> ref_auds;                // standalone clips, then video audio via ref_vids
+    std::vector<float*> ref_audio_bufs;              // owned audio buffers
+    auto free_inputs = [&]() {
+        if (init_buf) free(init_buf);
+        if (end_buf) free(end_buf);
+        for (auto* b : ref_bufs) free(b);
+        for (auto* b : ref_audio_bufs) free(b);
+    };
+    auto fail = [&]() { free_inputs(); std::free(p); return 1; };
+    auto split = [](const char* list, char sep) {
+        std::vector<std::string> out;
+        if (!list) return out;
+        std::string cur;
+        for (const char* c = list; *c; c++) {
+            if (*c == sep) { if (!cur.empty()) out.push_back(cur); cur.clear(); }
+            else cur += *c;
+        }
+        if (!cur.empty()) out.push_back(cur);
+        return out;
+    };
+    auto load_ref_image = [&](const std::string& path, sd_image_t* out) {
+        // Keep the native size: upstream keeps the aspect ratio of a reference
+        // image and only downscales it when it exceeds the output canvas.
+        int c = 0, w = 0, h = 0;
+        uint8_t* buf = stbi_load(path.c_str(), &w, &h, &c, 3);
+        if (!buf) { fprintf(stderr, "Failed to load reference image from '%s'\n", path.c_str()); return false; }
+        ref_bufs.push_back(buf);
+        *out = {(uint32_t)w, (uint32_t)h, 3, buf};
+        return true;
+    };
+    auto load_ref_audio = [&](const std::string& path, sd_audio_t* out) {
+        if (!load_wav_audio(path.c_str(), out)) return false;
+        ref_audio_bufs.push_back(out->data);
+        return true;
+    };
+
+    for (const auto& path : split(ref_images, '\n')) {
+        sd_image_t img;
+        if (!load_ref_image(path, &img)) return fail();
+        ref_imgs.push_back(img);
+    }
+    for (const auto& path : split(ref_audios, '\n')) {
+        sd_audio_t aud;
+        if (!load_ref_audio(path, &aud)) return fail();
+        ref_auds.push_back(aud);
+    }
+    auto video_records = split(ref_videos, '\n');
+    ref_vid_frames.resize(video_records.size());  // fixed size: frame pointers must stay valid
+    for (size_t v = 0; v < video_records.size(); v++) {
+        const std::string& rec = video_records[v];
+        size_t sep1 = rec.find('\x1f');
+        size_t sep2 = sep1 == std::string::npos ? std::string::npos : rec.find('\x1f', sep1 + 1);
+        if (sep2 == std::string::npos) { fprintf(stderr, "Malformed reference video record\n"); return fail(); }
+        std::string dir = rec.substr(0, sep1);
+        int vid_fps = atoi(rec.substr(sep1 + 1, sep2 - sep1 - 1).c_str());
+        std::string vid_audio = rec.substr(sep2 + 1);
+
+        std::vector<std::string> files;
+        std::error_code ec;
+        for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+            if (entry.is_regular_file()) files.push_back(entry.path().string());
+        }
+        if (ec || files.empty()) {
+            fprintf(stderr, "Reference video directory '%s' is missing or has no frames\n", dir.c_str());
+            return fail();
+        }
+        std::sort(files.begin(), files.end());
+        ref_vid_frames[v].reserve(files.size());
+        for (const auto& file : files) {
+            sd_image_t frame;
+            if (!load_ref_image(file, &frame)) return fail();
+            ref_vid_frames[v].push_back(frame);
+        }
+        sd_audio_t vid_aud = {0, 0, 0, nullptr};
+        if (!vid_audio.empty() && !load_ref_audio(vid_audio, &vid_aud)) return fail();
+        ref_vids.push_back({ref_vid_frames[v].data(), (int)ref_vid_frames[v].size(), vid_fps, vid_aud});
+    }
+    if (!ref_imgs.empty()) { p->ref_images = ref_imgs.data(); p->ref_images_count = (int)ref_imgs.size(); }
+    if (!ref_vids.empty()) { p->ref_videos = ref_vids.data(); p->ref_videos_count = (int)ref_vids.size(); }
+    if (!ref_auds.empty()) { p->ref_audios = ref_auds.data(); p->ref_audios_count = (int)ref_auds.size(); }
+
     // Generate
     int num_frames_out = 0;
+    int effective_fps = fps;
     sd_image_t* frames = nullptr;
     sd_audio_t* audio = nullptr;
-    bool ok = generate_video(sd_c, p, &frames, &num_frames_out, &audio);
+    bool ok = generate_video(sd_c, p, &frames, &num_frames_out, &audio, &effective_fps);
     std::free(p);
 
     if (!ok || !frames || num_frames_out == 0) {
         fprintf(stderr, "generate_video produced no frames\n");
         if (audio) free_sd_audio(audio);
-        if (init_buf) free(init_buf);
-        if (end_buf) free(end_buf);
+        free_inputs();
         return 1;
     }
 
     fprintf(stderr, "Generated %d frames, muxing to %s via ffmpeg\n", num_frames_out, dst);
 
-    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, fps, audio, dst);
+    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, effective_fps, audio, dst);
 
     for (int i = 0; i < num_frames_out; i++) {
         if (frames[i].data) free(frames[i].data);
     }
     free(frames);
     if (audio) free_sd_audio(audio);
-    if (init_buf) free(init_buf);
-    if (end_buf) free(end_buf);
+    free_inputs();
 
     if (rc == 0) {
         fprintf(stderr, "gen_video done: %s\n", dst);
@@ -1445,4 +1622,67 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 int unload() {
     free_sd_ctx(sd_c);
     return 0;
+}
+
+
+// Own copies even if upstream retains constructor arguments: never retain a Go
+// string pointer across the ABI call.
+struct gosd_upscaler {
+    std::string path, backend, params_backend;
+    upscaler_ctx_t* ctx = nullptr;
+    ~gosd_upscaler() { if (ctx) free_upscaler_ctx(ctx); }
+};
+
+void* gosd_upscaler_create(const char* path, bool direct, int threads, int tile_size,
+                          const char* backend, const char* params_backend) {
+    if (!path || !*path || tile_size < 0) return nullptr;
+    try {
+        auto h = std::make_unique<gosd_upscaler>();
+        h->path = path;
+        h->backend = backend ? backend : "";
+        h->params_backend = params_backend ? params_backend : "";
+        h->ctx = new_upscaler_ctx(h->path.c_str(), direct, threads, tile_size,
+                                 h->backend.c_str(), h->params_backend.c_str());
+        if (!h->ctx) return nullptr;
+        return h.release();
+    } catch (...) { return nullptr; }
+}
+
+int gosd_upscaler_scale(void* handle) {
+    if (!handle) return 0;
+    try { return get_upscale_factor(static_cast<gosd_upscaler*>(handle)->ctx); }
+    catch (...) { return 0; }
+}
+
+void gosd_upscaler_destroy(void* handle) {
+    delete static_cast<gosd_upscaler*>(handle);
+}
+
+int gosd_upscaler_run(void* handle, const char* src, const char* dst, int scale) {
+    if (!handle || !src || !*src || !dst || !*dst || scale <= 0) return 1;
+    // RAII also covers exceptions from native inference.
+    struct images {
+        sd_image_t* data = nullptr;
+        int count = 0;
+        ~images() { if (data) free_sd_images(data, count); }
+    } output;
+    int width = 0, height = 0, channels = 0;
+    std::unique_ptr<unsigned char, decltype(&stbi_image_free)> input(
+        stbi_load(src, &width, &height, &channels, 3), stbi_image_free);
+    if (!input || width <= 0 || height <= 0) return 2;
+    const uint64_t out_width = uint64_t(width) * scale;
+    const uint64_t out_height = uint64_t(height) * scale;
+    if (out_width > INT_MAX / 3 || out_height > INT_MAX ||
+        out_width * out_height > SIZE_MAX / 3) return 4;
+    sd_image_t image = {uint32_t(width), uint32_t(height), 3, input.get()};
+    try {
+        if (!upscale(static_cast<gosd_upscaler*>(handle)->ctx, image, scale,
+                     &output.data, &output.count)) return 3;
+        if (!output.data || output.count != 1 || !output.data[0].data ||
+            output.data[0].width != out_width || output.data[0].height != out_height ||
+            output.data[0].channel != 3) return 4;
+        if (!stbi_write_png(dst, int(out_width), int(out_height), 3,
+                            output.data[0].data, int(out_width) * 3)) return 5;
+        return 0;
+    } catch (...) { return 3; }
 }

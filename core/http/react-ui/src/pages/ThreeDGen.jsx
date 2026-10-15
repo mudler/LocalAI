@@ -1,20 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+// eslint-disable-next-line no-unused-vars
 import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import ModelSelector from '../components/ModelSelector'
-import PageHeader from '../components/PageHeader'
-import { CAP_3D } from '../utils/capabilities'
+import { CAP_3D, CAP_3D_ANIMATION } from '../utils/capabilities'
+import { useModels } from '../hooks/useModels'
+// eslint-disable-next-line no-unused-vars
+import AnimationOptions from '../components/AnimationOptions'
+// eslint-disable-next-line no-unused-vars
+import AnimationViewer from '../components/AnimationViewer'
+// eslint-disable-next-line no-unused-vars
 import LoadingSpinner from '../components/LoadingSpinner'
-import GenerationProgress from '../components/GenerationProgress'
-import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
-import ThreeDHistory from '../components/ThreeDHistory'
+// eslint-disable-next-line no-unused-vars
 import GlbViewer from '../components/GlbViewer'
+// eslint-disable-next-line no-unused-vars
 import MediaInput from '../components/biometrics/MediaInput'
 import { threeDApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { use3DHistory } from '../hooks/use3DHistory'
+import { useStudioHandoff, useHandoffSource, blobToImageInput } from '../hooks/useStudioHandoff'
+// eslint-disable-next-line no-unused-vars
+import HandoffNote from '../components/studio/HandoffNote'
+import {
+  // eslint-disable-next-line no-unused-vars
+  Workspace, ComposeCard, ChipSelect, ModelChip, Field, Fold, RunArea, JobCard, FailedCard, ResultCard, ResultsStrip, EmptyRun,
+} from '../components/studio/Workspace'
+import { foldSummary, useWorkspace } from '../hooks/useWorkspace'
 import useObjectUrl from '../hooks/useObjectUrl'
+import Icon from '../components/Icon'
 
 const QUALITIES = ['auto', 'coarse', '512', '1024']
 const BACKGROUNDS = ['auto', 'keep', 'black', 'white']
@@ -52,11 +65,22 @@ async function makeThumb(dataUrl, size = 96) {
   }
 }
 
+
 export default function ThreeDGen() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const { t } = useTranslation('media')
-  const [model, setModel] = useState(urlModel || '')
+  // Opened from the Studio front page, a picture it was made from becomes the
+  // conditioning image and the model it chose is selected.
+  const handoff = useStudioHandoff()
+  const [model, setModel] = useState(urlModel || handoff.model || '')
+  const { models, loading: modelsLoading } = useModels()
+  const modelNames = useMemo(() => models.filter(item => item.capabilities?.some(cap => cap === CAP_3D || cap === CAP_3D_ANIMATION)).map(item => item.id), [models])
+  const selectedModel = models.find(item => item.id === model)
+  const animation = selectedModel?.three_d_operations?.find(operation => operation.id === 'animate')
+  const [animationInputs, setAnimationInputs] = useState({})
+  const [animationParams, setAnimationParams] = useState({})
+  const [requestEndpoint, setRequestEndpoint] = useState('/3d/generations')
   const [image, setImage] = useState(null)
   const [quality, setQuality] = useState('auto')
   const [background, setBackground] = useState('auto')
@@ -70,42 +94,84 @@ export default function ThreeDGen() {
   // What was actually sent, so the panel records rather than predicts.
   const [lastRequest, setLastRequest] = useState(null)
   const [result, setResult] = useState(null) // { blob, name, model }
+  const [lastId, setLastId] = useState(null)
   const [remeshSlider, setRemeshSlider] = useState(82)
   const [remeshState, setRemeshState] = useState(null) // { sourceBlob, blob?, name?, error? }
   const [remeshLoading, setRemeshLoading] = useState(false)
   const { entries, addEntry, deleteEntry, clearAll, selectEntry, selectedId, selectedEntry } = use3DHistory()
+  const ws = useWorkspace({ type: 'threed', entries })
+  const wantsSource = handoff.edge === 'to-3d'
+  const handoffSource = useHandoffSource(handoff, wantsSource)
+  useEffect(() => {
+    if (handoffSource.status !== 'ready') return
+    blobToImageInput(handoffSource.blob).then(setImage).catch(() => {})
+  }, [handoffSource])
 
   const source = selectedEntry
-    ? { blob: selectedEntry.glb, name: selectedEntry.name, model: selectedEntry.model }
+    ? { ...selectedEntry, blob: selectedEntry.glb }
     : result
   const showingRemesh = !!source && remeshState?.sourceBlob === source.blob && !!remeshState.blob
   const active = showingRemesh ? { blob: remeshState.blob, name: remeshState.name } : source
   const remeshError = source && remeshState?.sourceBlob === source.blob ? remeshState.error : null
   const detail = remeshDetail(remeshSlider)
   const downloadUrl = useObjectUrl(active?.blob)
+  const sourceModel = models.find(item => item.id === source?.model)
+  const canRemesh = source?.outputType !== 'skeleton_animation' && (sourceModel?.three_d_operations?.some(operation => operation.id === 'remesh') ||
+    (!sourceModel?.three_d_operations && sourceModel?.capabilities?.includes(CAP_3D)))
+  const activeEntry = selectedEntry || (lastId ? entries.find(e => e.id === lastId) : null) || null
+  const item = ws.itemById(activeEntry?.id)
 
-  const handleGenerate = async (e) => {
-    e.preventDefault()
-    if (!image?.base64) { addToast(t('threed.toasts.noImage'), 'warning'); return }
+  const changeModel = (next) => {
+    setModel(next)
+    setAnimationInputs({})
+    setAnimationParams({})
+    setImage(null)
+    setQuality('auto')
+    setBackground('auto')
+    setSteps('')
+    setTextureSteps('')
+    setGuidance('')
+    setSeed('')
+  }
+
+  const restoreHistory = (id) => {
+    selectEntry(id)
+    const entry = entries.find(item => item.id === id)
+    if (entry?.operation === 'animate') {
+      setModel(entry.model)
+      setAnimationInputs(entry.inputs || {})
+      setAnimationParams(entry.params || {})
+    }
+  }
+
+  const run = async () => {
+    if (!animation && !image?.base64) { addToast(t('threed.toasts.noImage'), 'warning'); return }
     if (!model) { addToast(t('threed.toasts.noModel'), 'warning'); return }
 
     setLoading(true)
     setResult(null)
     setRemeshState(null)
     setError(null)
+    setLastId(null)
 
-    const body = { model, image: image.base64, quality, background, response_format: 'url' }
-    if (steps) body.step = parseInt(steps)
-    if (textureSteps) body.texture_steps = parseInt(textureSteps)
-    if (guidance) body.cfg_scale = parseFloat(guidance)
-    if (seed) body.seed = parseInt(seed)
+    const params = Object.fromEntries(Object.entries(animationParams).filter(([key, value]) => value !== '' && animation?.parameters.some(parameter => parameter.name === key)))
+    const body = animation
+      ? { model, inputs: animationInputs, params, response_format: 'url' }
+      : { model, image: image.base64, quality, background, response_format: 'url' }
+    if (!animation) {
+      if (steps) body.step = parseInt(steps)
+      if (textureSteps) body.texture_steps = parseInt(textureSteps)
+      if (guidance) body.cfg_scale = parseFloat(guidance)
+      if (seed) body.seed = parseInt(seed)
+    }
 
     // RequestPanel renders and copies its body. Keeping a multi-megabyte image
     // there duplicates the upload in React and can starve the result render.
-    setLastRequest({ ...body, image: `<base64 ${image.mime || 'image'} omitted>` })
+    setLastRequest(animation ? body : { ...body, image: `<base64 ${image.mime || 'image'} omitted>` })
+    setRequestEndpoint(animation ? '/3d/animate' : '/3d/generations')
 
     try {
-      const data = await threeDApi.generate(body)
+      const data = await (animation ? threeDApi.animate(body) : threeDApi.generate(body))
       const url = data?.data?.[0]?.url
       if (!url) {
         addToast(t('threed.toasts.noResults'), 'warning')
@@ -115,16 +181,24 @@ export default function ThreeDGen() {
       if (!glbResp.ok) throw new Error(`fetching the generated GLB failed: HTTP ${glbResp.status}`)
       const glb = await glbResp.blob()
       const name = url.split('/').pop()
-      setResult({ blob: glb, name, model })
+      const outputType = animation?.output || 'mesh'
+      setResult({ blob: glb, name, model, outputType })
       selectEntry(null)
-      const inputThumb = image.dataUrl ? await makeThumb(image.dataUrl) : null
-      await addEntry({
+      const inputThumb = !animation && image?.dataUrl ? await makeThumb(image.dataUrl) : null
+      const saved = await addEntry({
         model,
-        params: { quality, background, steps, textureSteps, guidance, seed },
+        params: animation ? params : { quality, background, steps, textureSteps, guidance, seed },
+        inputs: animation ? animationInputs : undefined,
+        operation: animation ? 'animate' : 'generate',
+        outputType,
         inputThumb,
         glb,
         name,
+        parentId: handoff.from || undefined,
+        edge: handoff.edge || undefined,
+        label: handoffSource.item?.title || undefined,
       })
+      setLastId(saved?.id || null)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -157,84 +231,87 @@ export default function ThreeDGen() {
     if (source && remeshState?.sourceBlob === source.blob) setRemeshState(null)
   }
 
+  const installed = ws.installed.byType.threed
+  const noModel = !ws.installed.loading && !ws.installed.error && installed.length === 0
+  const why = noModel ? t('studio.composer.whyModel', { type: t('studio.tabs.threed') })
+    : (!animation && !image?.base64) ? t('studio.workspace.threed.whyImage') : ''
+  const f = (key) => t(`studio.workspace.fields.${key}`)
+  const advancedSet = [steps && `${t('threed.labels.steps')} ${steps}`, textureSteps && `${t('threed.labels.textureSteps')} ${textureSteps}`, guidance && `${f('cfg')} ${guidance}`, seed && `${f('seed')} ${seed}`].filter(Boolean)
+  const qualityOptions = QUALITIES.map(q => ({ value: q, label: t(`threed.labels.quality_${q}`) }))
+  const backgroundOptions = BACKGROUNDS.map(b => ({ value: b, label: t(`threed.labels.background_${b}`) }))
+
   return (
-    <div className="media-layout">
-      <div className="media-controls">
-        <PageHeader title={<><i className="fas fa-cube" /> {t('threed.title')}</>} />
-
-        <form onSubmit={handleGenerate}>
-          <div className="form-group">
-            <label className="form-label">{t('threed.labels.model')}</label>
-            <ModelSelector value={model} onChange={setModel} capability={CAP_3D} />
-          </div>
-
-          <MediaInput
-            mode="image"
-            label={t('threed.labels.image')}
-            value={image}
-            onChange={setImage}
-            onError={(err) => addToast(err.message, 'error')}
-            maxBytes={MAX_3D_INPUT_BYTES}
-            idPrefix="threed"
-          />
-
-          <div className="form-grid-2col">
-            <div className="form-group">
-              <label className="form-label">{t('threed.labels.quality')}</label>
-              <select className="input btn-full" value={quality} onChange={(e) => setQuality(e.target.value)}>
-                {QUALITIES.map(q => <option key={q} value={q}>{t(`threed.labels.quality_${q}`)}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('threed.labels.background')}</label>
-              <select className="input btn-full" value={background} onChange={(e) => setBackground(e.target.value)}>
-                {BACKGROUNDS.map(b => <option key={b} value={b}>{t(`threed.labels.background_${b}`)}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className={`collapsible-header ${showAdvanced ? 'open' : ''}`}
-            aria-expanded={showAdvanced}
-            aria-controls="threed-advanced-options"
-            onClick={() => setShowAdvanced(!showAdvanced)}
+    <Workspace type="threed">
+      <ComposeCard
+        ws={ws}
+        icon="cube"
+        title={t('threed.title')}
+        lede={t('studio.workspace.lede.threed')}
+        onSubmit={(e) => { e.preventDefault(); run() }}
+        handoff={<HandoffNote source={handoffSource} handoff={handoff} wanted={wantsSource} onClear={() => setImage(null)} />}
+        model={model}
+        noModel={noModel ? { type: 'threed', label: t('studio.tabs.threed'), onChanged: ws.installed.refetch } : null}
+        options={<>
+          <ModelChip value={model} onChange={changeModel} options={modelNames} loading={modelsLoading} disabled={loading} capability={CAP_3D} />
+          {!animation && <>
+            <ChipSelect label={t('threed.labels.quality')} value={quality} onChange={setQuality} options={qualityOptions} mono={false} testId="ws-quality" />
+            <ChipSelect label={t('threed.labels.background')} value={background} onChange={setBackground} options={backgroundOptions} mono={false} testId="ws-background" />
+          </>}
+        </>}
+        fold={animation ? null : (
+          <Fold
+            label={t('threed.labels.advanced')}
+            summary={foldSummary(advancedSet, [t('threed.labels.steps'), t('threed.labels.textureSteps'), t('threed.labels.guidance'), t('threed.labels.seed')])}
+            open={showAdvanced}
+            onToggle={() => setShowAdvanced(v => !v)}
+            id="threed-advanced-options"
           >
-            <i className="fas fa-chevron-right" aria-hidden="true" /> {t('threed.labels.advanced')}
-          </button>
-          {showAdvanced && (
-            <div id="threed-advanced-options" className="form-grid-2col">
-              <div className="form-group"><label className="form-label">{t('threed.labels.steps')}</label><input className="input" type="number" min="1" value={steps} onChange={(e) => setSteps(e.target.value)} placeholder="12" /></div>
-              <div className="form-group"><label className="form-label">{t('threed.labels.textureSteps')}</label><input className="input" type="number" min="1" value={textureSteps} onChange={(e) => setTextureSteps(e.target.value)} placeholder="12" /></div>
-              <div className="form-group"><label className="form-label">{t('threed.labels.guidance')}</label><input className="input" type="number" step="0.1" value={guidance} onChange={(e) => setGuidance(e.target.value)} placeholder="7.5" /></div>
-              <div className="form-group"><label className="form-label">{t('threed.labels.seed')}</label><input className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder={t('threed.labels.seedPlaceholder')} /></div>
+            <div className="ws-grid">
+              <Field label={t('threed.labels.steps')} htmlFor="threed-steps"><input id="threed-steps" className="dk-input" type="number" min="1" value={steps} onChange={(e) => setSteps(e.target.value)} placeholder="12" /></Field>
+              <Field label={t('threed.labels.textureSteps')} htmlFor="threed-texture-steps"><input id="threed-texture-steps" className="dk-input" type="number" min="1" value={textureSteps} onChange={(e) => setTextureSteps(e.target.value)} placeholder="12" /></Field>
+              <Field label={t('threed.labels.guidance')} htmlFor="threed-guidance"><input id="threed-guidance" className="dk-input" type="number" step="0.1" value={guidance} onChange={(e) => setGuidance(e.target.value)} placeholder="7.5" /></Field>
+              <Field label={t('threed.labels.seed')} htmlFor="threed-seed"><input id="threed-seed" className="dk-input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder={t('threed.labels.seedPlaceholder')} /></Field>
             </div>
-          )}
+          </Fold>
+        )}
+        submit={{ label: t('threed.actions.generate'), busyLabel: t('threed.actions.generating'), busy: loading, disabled: !model || noModel || (!animation && !image?.base64), why, icon: 'cube' }}
+      >
+        {animation ? (
+          <div className="ws-inputs ws-inputs--one">
+            <AnimationOptions key={model} operation={animation} inputs={animationInputs} onInputsChange={setAnimationInputs} params={animationParams} onParamsChange={setAnimationParams} />
+          </div>
+        ) : (
+          <div className="ws-inputs ws-inputs--one">
+            <MediaInput
+              mode="image"
+              label={t('threed.labels.image')}
+              value={image}
+              onChange={setImage}
+              onError={(err) => addToast(err.message, 'error')}
+              maxBytes={MAX_3D_INPUT_BYTES}
+              idPrefix="threed"
+            />
+          </div>
+        )}
+      </ComposeCard>
 
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> {t('threed.actions.generating')}</> : <><i className="fas fa-cube" /> {t('threed.actions.generate')}</>}
-          </button>
-        </form>
-        <ThreeDHistory
-          entries={entries}
-          selectedId={selectedId}
-          onSelect={selectEntry}
-          onDelete={deleteEntry}
-          onClearAll={clearAll}
-        />
-      </div>
-
-      <div className="media-preview">
-        <RequestPanel endpoint="/3d/generations" body={lastRequest} />
-        <div className="media-result">
-          {loading ? (
-            <GenerationProgress label={t('threed.actions.generating')} />
-          ) : error ? (
-            <ErrorWithTraceLink message={error} />
-          ) : active?.blob ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', width: '100%' }}>
-              <GlbViewer blob={active.blob} />
-              <div className="threed-remesh-controls">
+      <RunArea>
+        {loading ? (
+          <JobCard label={t('threed.actions.generating')} detail={[model, !animation && quality !== 'auto' ? quality : ''].filter(Boolean).join(' · ')} />
+        ) : error ? (
+          <FailedCard message={error} onRetry={run} />
+        ) : active?.blob ? (
+          <ResultCard
+            ws={ws}
+            item={item}
+            title={item?.title || active.name || t('studio.work.untitled.threed')}
+            meta={[source?.model, source?.params?.quality ? t(`threed.labels.quality_${source.params.quality}`, { defaultValue: source.params.quality }) : '']}
+            download={{ href: downloadUrl, name: active.name || `3d-${model || 'model'}.glb`, testId: 'glb-download' }}
+            onRerun={() => {}}
+          >
+            <div className="ws-viewer">
+              {active.outputType === 'skeleton_animation' ? <AnimationViewer blob={active.blob} /> : <GlbViewer blob={active.blob} />}
+              {canRemesh && <div className="threed-remesh-controls">
                 <div className="threed-remesh-heading">
                   <span>{t('threed.remesh.title')}</span>
                   <output htmlFor="threed-remesh-detail">{detail.toFixed(2)}%</output>
@@ -257,7 +334,7 @@ export default function ThreeDGen() {
                 <p className="form-hint">{t('threed.remesh.hint')}</p>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-full"
+                  className="dk-btn dk-btn--secondary dk-btn--sm"
                   onClick={handleRemesh}
                   disabled={remeshLoading}
                   data-testid="glb-remesh"
@@ -265,29 +342,28 @@ export default function ThreeDGen() {
                   {remeshLoading
                     ? <><LoadingSpinner size="sm" /> {t('threed.actions.remeshing')}</>
                     : showingRemesh
-                      ? <><i className="fas fa-rotate-left" /> {t('threed.actions.showOriginal')}</>
-                      : <><i className="fas fa-cubes-stacked" /> {t('threed.actions.remesh')}</>}
+                      ? <><Icon name="undo" /> {t('threed.actions.showOriginal')}</>
+                      : <><Icon name="boxes" /> {t('threed.actions.remesh')}</>}
                 </button>
                 {remeshError && <p className="form-error" role="alert">{remeshError}</p>}
                 {showingRemesh && <p className="threed-remesh-ready">{t('threed.remesh.ready')}</p>}
-              </div>
-              <a
-                className="btn btn-secondary"
-                href={downloadUrl}
-                download={active.name || `3d-${model || 'model'}.glb`}
-                data-testid="glb-download"
-              >
-                <i className="fas fa-download" /> {t('threed.actions.download')}
-              </a>
+              </div>}
             </div>
-          ) : (
-            <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
-              <i className="fas fa-cube" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
-              <p>{t('threed.empty')}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+          </ResultCard>
+        ) : (
+          <EmptyRun icon="cube" text={t('threed.empty')} />
+        )}
+        <RequestPanel endpoint={requestEndpoint} body={lastRequest} />
+      </RunArea>
+
+      <ResultsStrip
+        ws={ws}
+        selectedId={selectedId}
+        activeId={activeEntry?.id}
+        onSelect={restoreHistory}
+        onDelete={deleteEntry}
+        onClear={clearAll}
+      />
+    </Workspace>
   )
 }

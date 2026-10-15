@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -45,12 +46,15 @@ import (
 // distributed-aware, ModelConfigLoader manages on-disk YAML, etc.), so this
 // layer just translates between MCP DTOs and service signatures.
 type Client struct {
-	AppConfig     *config.ApplicationConfig
-	SystemState   *system.SystemState
-	ConfigLoader  *config.ModelConfigLoader
-	ModelLoader   *model.ModelLoader
-	Gallery       *galleryop.GalleryService
-	NodeRegistry  *nodes.NodeRegistry
+	AppConfig    *config.ApplicationConfig
+	SystemState  *system.SystemState
+	ConfigLoader *config.ModelConfigLoader
+	ModelLoader  *model.ModelLoader
+	Gallery      *galleryop.GalleryService
+	NodeRegistry *nodes.NodeRegistry
+	// LoadStopper stops the remote work of a cancelled load. It is the same
+	// stopper the HTTP endpoint uses, so both paths stop work the same way.
+	LoadStopper   nodes.LoadAttemptStopper
 	VoiceProfiles *voiceprofile.Store
 
 	// StatsRecorder and FallbackUser are optional — they back the
@@ -82,6 +86,12 @@ type Client struct {
 	RouterEmbedder            func(modelName string) backend.Embedder
 	RouterEmbedderFingerprint func(modelName string) (string, error)
 	RouterVectorStore         func(storeName string) backend.VectorStore
+
+	// Failover backs list_failover_chains / pin_failover_target /
+	// unpin_failover_target. nil makes the tools report "failover is not
+	// running" — the same as a deployment with no failover chains
+	// configured.
+	Failover *failover.Manager
 
 	modelAdmin *modeladmin.ConfigService
 }
@@ -1001,7 +1011,7 @@ func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.Middlew
 		EnabledGlobally: c.PIIEvents != nil,
 		Models:          []localaitools.MiddlewarePIIModel{},
 	}
-	piiSection.DefaultEnabledForBackends = []string{"cloud-proxy"}
+	piiSection.DefaultEnabledForBackends = []string{model.CloudProxyBackend}
 	if c.ConfigLoader != nil {
 		for _, cfg := range c.ConfigLoader.GetAllModelsConfigs() {
 			cfg := cfg
@@ -1010,7 +1020,7 @@ func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.Middlew
 				Backend:           cfg.Backend,
 				Enabled:           cfg.PIIIsEnabled(),
 				Explicit:          cfg.PII.Enabled != nil,
-				DefaultForBackend: cfg.Backend == "cloud-proxy",
+				DefaultForBackend: cfg.Backend == model.CloudProxyBackend,
 				Detectors:         cfg.PIIDetectors(),
 			})
 		}
@@ -1102,4 +1112,63 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 		return nil, err
 	}
 	return &localaitools.RouterCorpusClearResult{Router: cfg.Name, Cleared: cleared}, nil
+}
+
+// ---- Failover chains ----
+
+func (c *Client) ListFailoverChains(_ context.Context) ([]localaitools.FailoverChainInfo, error) {
+	out := []localaitools.FailoverChainInfo{}
+	if c.Failover == nil {
+		return out, nil
+	}
+	for _, ch := range c.Failover.Status() {
+		info := localaitools.FailoverChainInfo{Name: ch.Name, State: string(ch.State), Active: ch.Active}
+		if ch.Pinned != nil {
+			info.Pinned = *ch.Pinned
+		}
+		for _, t := range ch.Targets {
+			info.Targets = append(info.Targets, localaitools.FailoverTargetInfo{
+				Model: t.Model, Kind: string(t.Kind), Warm: t.Warm, State: string(t.State), LastError: t.LastError,
+			})
+		}
+		out = append(out, info)
+	}
+	return out, nil
+}
+
+func (c *Client) PinFailoverTarget(_ context.Context, chain, target string) error {
+	if c.Failover == nil {
+		return errors.New("failover is not running")
+	}
+	return c.Failover.Pin(chain, target)
+}
+
+func (c *Client) UnpinFailoverTarget(_ context.Context, chain string) error {
+	if c.Failover == nil {
+		return errors.New("failover is not running")
+	}
+	return c.Failover.Unpin(chain)
+}
+
+// CancelModelLoad cancels one distributed load attempt through the same service
+// the load-cancel endpoint uses, with the same stopper.
+func (c *Client) CancelModelLoad(ctx context.Context, model, jobID string) (localaitools.LoadCancelResult, error) {
+	result := localaitools.LoadCancelResult{Model: model, JobID: jobID}
+	if model == "" || jobID == "" {
+		return result, errors.New("model and job_id are required")
+	}
+	if c.NodeRegistry == nil {
+		return result, errors.New("load cancellation is only available in distributed mode")
+	}
+	svc := &nodes.LoadCancelService{Registry: c.NodeRegistry, Stopper: c.LoadStopper}
+	out, err := svc.Cancel(ctx, nodes.LoadJobRef{TrackingKey: model, Generation: jobID})
+	if errors.Is(err, nodes.ErrLoadCancelConflict) {
+		return result, fmt.Errorf("a different load attempt is current (job_id %s); read load-status again", out.CurrentJobID)
+	}
+	if err != nil {
+		return result, err
+	}
+	result.State = string(out.State)
+	result.RetryAfter = int(out.RetryAfter.Seconds())
+	return result, nil
 }

@@ -16,6 +16,12 @@ const PAGES = [
   ['/app/talk', 'Talk'],
   ['/app/3d', '3D Generation'],
   ['/app/usage', 'Usage'],
+  ['/app/traffic', 'Traffic overview'],
+  ['/app/traffic/models', 'Traffic models'],
+  ['/app/traffic/host', 'GPU and host'],
+  ['/app/traffic/prometheus', 'Prometheus'],
+  ['/app/traces', 'Traces'],
+  ['/app/middleware', 'Middleware'],
   ['/app/account', 'Account'],
   ['/app/studio', 'Studio'],
   ['/app/models', 'Models'],
@@ -24,7 +30,10 @@ const PAGES = [
   ['/app/activity', 'Activity'],
   ['/app/settings', 'Settings'],
   ['/app/nodes', 'Nodes'],
-  ['/app/scheduling', 'Scheduling'],
+  ['/app/scheduling', 'Placement rules'],
+  ['/app/failover', 'Failover'],
+  ['/app/nodes/add', 'Add a node'],
+  ['/app/p2p', 'P2P'],
   ['/app/face', 'Face recognition'],
   ['/app/voice', 'Voice recognition'],
   ['/app/fine-tune', 'Fine-tuning'],
@@ -38,8 +47,9 @@ test.describe('Page render smoke', () => {
     test(`renders ${label} (${path})`, async ({ page }) => {
       await page.goto(path)
       // .page-title for the normal header; .empty-state-title for pages that
-      // render a gated/empty state (e.g. Account when auth is disabled).
-      await expect(page.locator('.page-title, .view-bar__title, .empty-state-title').first()).toBeVisible({ timeout: 15_000 })
+      // render a gated/empty state (e.g. Account when auth is disabled); Talk
+      // carries its own header.
+      await expect(page.locator('.page-title, .view-bar__title, .empty-state-title, .dk-empty-title, .talk-hd h1, .op-status__title, .op-runtime h1, .sw-page h1, .tf-title, .st-title').first()).toBeVisible({ timeout: 15_000 })
       await expect(page).toHaveURL(new RegExp(path.replace(/\//g, '\\/') + '$'))
     })
   }

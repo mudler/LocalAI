@@ -3559,6 +3559,120 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # kimodo.cpp: CPU and Vulkan, with native runners for each architecture.
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-kimodocpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "kimodocpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-kimodocpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "kimodocpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-kimodocpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "kimodocpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-kimodocpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "kimodocpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # gem-x.cpp: CPU and Vulkan, with native runners for each architecture.
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-gemxcpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "gemxcpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-gemxcpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "gemxcpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-gemxcpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "gemxcpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-gemxcpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "gemxcpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   # trellis2cpp
   - build-type: ''
     cuda-major-version: ""
@@ -5891,6 +6005,35 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # localai-proxy
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-localai-proxy'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "localai-proxy"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-localai-proxy'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "localai-proxy"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   # valkey-store
   - build-type: ''
     cuda-major-version: ""
@@ -5917,6 +6060,35 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "valkey-store"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # qdrant-store
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-qdrant-store'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "qdrant-store"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-qdrant-store'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "qdrant-store"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -6461,6 +6633,14 @@ include:
 
 # Darwin matrix (consumed by backend-jobs-darwin).
 includeDarwin:
+  - backend: "kimodocpp"
+    tag-suffix: "-cpu-darwin-arm64-kimodocpp"
+    build-type: "cpu"
+    lang: "go"
+  - backend: "gemxcpp"
+    tag-suffix: "-cpu-darwin-arm64-gemxcpp"
+    build-type: "cpu"
+    lang: "go"
   - backend: "diffusers"
     tag-suffix: "-metal-darwin-arm64-diffusers"
     build-type: "mps"
@@ -6692,8 +6872,16 @@ includeDarwin:
     tag-suffix: "-metal-darwin-arm64-cloud-proxy"
     build-type: "metal"
     lang: "go"
+  - backend: "localai-proxy"
+    tag-suffix: "-metal-darwin-arm64-localai-proxy"
+    build-type: "metal"
+    lang: "go"
   - backend: "valkey-store"
     tag-suffix: "-metal-darwin-arm64-valkey-store"
+    build-type: "metal"
+    lang: "go"
+  - backend: "qdrant-store"
+    tag-suffix: "-metal-darwin-arm64-qdrant-store"
     build-type: "metal"
     lang: "go"
   - backend: "llama-cpp-quantization"

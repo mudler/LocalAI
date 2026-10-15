@@ -1,3 +1,4 @@
+import Icon from '../Icon'
 // EnrollmentList — grid of enrolled subjects (face or voice).
 // entries: [{ id, name, labels?, thumbnail?, registeredAt?, sampleUrl? }]
 // mode: 'image' | 'audio' — controls the card visual.
@@ -5,7 +6,7 @@ export default function EnrollmentList({ entries, onDelete, mode = 'image', high
   if (!entries || entries.length === 0) {
     return (
       <div className="biometrics-enroll__empty">
-        <i className={`fas ${mode === 'image' ? 'fa-user-plus' : 'fa-microphone-lines'}`} aria-hidden="true" />
+        <Icon name={mode === 'image' ? 'user-plus' : 'mic'} />
         <p>No one enrolled yet. Add a sample using the form on the left to start building your identification store.</p>
       </div>
     )
@@ -35,13 +36,13 @@ export default function EnrollmentList({ entries, onDelete, mode = 'image', high
               )}
               {e.registeredAt && (
                 <div className="biometrics-enroll__meta">
-                  <i className="fas fa-clock" aria-hidden="true" /> {formatTime(e.registeredAt)}
+                  <Icon name="clock" /> {formatTime(e.registeredAt)}
                 </div>
               )}
             </div>
             <button type="button" className="biometrics-enroll__delete" onClick={() => onDelete(e)}
               aria-label={`Forget ${e.name}`} title="Forget this enrollment">
-              <i className="fas fa-trash" aria-hidden="true" />
+              <Icon name="trash" />
             </button>
           </li>
         )

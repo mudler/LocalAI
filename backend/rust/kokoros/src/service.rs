@@ -132,6 +132,7 @@ impl Backend for KokorosService {
         Ok(Response::new(backend::Result {
             success: true,
             message: "Kokoros TTS model loaded".into(),
+            ..Default::default()
         }))
     }
 
@@ -180,11 +181,13 @@ impl Backend for KokorosService {
                     return Ok(Response::new(backend::Result {
                         success: false,
                         message: format!("Failed to write WAV: {}", e),
+                        ..Default::default()
                     }));
                 }
                 Ok(Response::new(backend::Result {
                     success: true,
                     message: String::new(),
+                    ..Default::default()
                 }))
             }
             Err(e) => {
@@ -192,6 +195,7 @@ impl Backend for KokorosService {
                 Ok(Response::new(backend::Result {
                     success: false,
                     message: format!("TTS error: {}", e),
+                    ..Default::default()
                 }))
             }
         }
@@ -280,7 +284,7 @@ impl Backend for KokorosService {
         };
         Ok(Response::new(backend::StatusResponse {
             state,
-            memory: None,
+            ..Default::default()
         }))
     }
 
@@ -292,6 +296,7 @@ impl Backend for KokorosService {
         Ok(Response::new(backend::Result {
             success: true,
             message: "Model freed".into(),
+            ..Default::default()
         }))
     }
 
@@ -344,6 +349,13 @@ impl Backend for KokorosService {
     async fn generate3_d(
         &self,
         _: Request<backend::Generate3DRequest>,
+    ) -> Result<Response<backend::Result>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn animate3_d(
+        &self,
+        _: Request<backend::Animate3DRequest>,
     ) -> Result<Response<backend::Result>, Status> {
         Err(Status::unimplemented("Not supported"))
     }

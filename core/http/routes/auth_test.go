@@ -5,6 +5,7 @@ package routes_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -217,9 +218,11 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		result := make([]map[string]any, 0, len(keys))
 		for _, k := range keys {
 			result = append(result, map[string]any{
-				"id":        k.ID,
-				"name":      k.Name,
-				"keyPrefix": k.KeyPrefix,
+				"id":          k.ID,
+				"name":        k.Name,
+				"keyPrefix":   k.KeyPrefix,
+				"disabled":    k.Disabled,
+				"pausedUntil": k.PausedUntil,
 			})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"keys": result})
@@ -236,6 +239,40 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "API key not found"})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "API key revoked"})
+	})
+
+	// PATCH /api/auth/api-keys/:id - pause or resume an API key
+	e.PATCH("/api/auth/api-keys/:id", func(c echo.Context) error {
+		user := auth.GetUser(c)
+		if user == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+		}
+
+		var body struct {
+			Disabled    bool    `json:"disabled"`
+			PausedUntil *string `json:"paused_until"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		}
+
+		var pausedUntil *time.Time
+		if body.PausedUntil != nil && *body.PausedUntil != "" {
+			t, err := time.Parse(time.RFC3339, *body.PausedUntil)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid paused_until format, use RFC3339"})
+			}
+			pausedUntil = &t
+		}
+
+		if err := auth.SetAPIKeyPause(db, c.Param("id"), user.ID, body.Disabled, pausedUntil); err != nil {
+			if errors.Is(err, auth.ErrPauseInPast) {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "API key not found"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "API key updated"})
 	})
 
 	// Admin: GET /api/auth/admin/users
@@ -616,6 +653,97 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 
 			rec := doAuthRequest(app, "DELETE", "/api/auth/api-keys/"+record.ID, nil, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusNotFound))
+		})
+	})
+
+	Context("PATCH /api/auth/api-keys/:id", func() {
+		patchKey := func(app *echo.Echo, id, sessionID string, body map[string]any) *httptest.ResponseRecorder {
+			b, _ := json.Marshal(body)
+			return doAuthRequest(app, "PATCH", "/api/auth/api-keys/"+id, b, withSession(sessionID))
+		}
+
+		It("pauses a key indefinitely and resumes it", func() {
+			user := createRouteTestUser(db, "pause@test.com", auth.RoleUser)
+			plaintext, record, err := auth.CreateAPIKey(db, user.ID, "pausable", auth.RoleUser, "", nil)
+			Expect(err).ToNot(HaveOccurred())
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			rec := patchKey(app, record.ID, sessionID, map[string]any{"disabled": true, "paused_until": nil})
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			rec = doAuthRequest(app, "GET", "/v1/models", nil, withBearer(plaintext))
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+
+			rec = doAuthRequest(app, "GET", "/api/auth/api-keys", nil, withSession(sessionID))
+			var resp map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			entry := resp["keys"].([]any)[0].(map[string]any)
+			Expect(entry["disabled"]).To(BeTrue())
+
+			rec = patchKey(app, record.ID, sessionID, map[string]any{"disabled": false, "paused_until": nil})
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			rec = doAuthRequest(app, "GET", "/v1/models", nil, withBearer(plaintext))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+
+		It("pauses a key until a future time and lists the resume time", func() {
+			user := createRouteTestUser(db, "pause-until@test.com", auth.RoleUser)
+			plaintext, record, _ := auth.CreateAPIKey(db, user.ID, "timed", auth.RoleUser, "", nil)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			until := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+			rec := patchKey(app, record.ID, sessionID, map[string]any{"disabled": false, "paused_until": until})
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			rec = doAuthRequest(app, "GET", "/v1/models", nil, withBearer(plaintext))
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+
+			rec = doAuthRequest(app, "GET", "/api/auth/api-keys", nil, withSession(sessionID))
+			var resp map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			entry := resp["keys"].([]any)[0].(map[string]any)
+			Expect(entry["pausedUntil"]).ToNot(BeNil())
+		})
+
+		It("rejects a pause time in the past", func() {
+			user := createRouteTestUser(db, "pause-past@test.com", auth.RoleUser)
+			_, record, _ := auth.CreateAPIKey(db, user.ID, "k", auth.RoleUser, "", nil)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			past := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+			rec := patchKey(app, record.ID, sessionID, map[string]any{"paused_until": past})
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("rejects a malformed pause time", func() {
+			user := createRouteTestUser(db, "pause-bad@test.com", auth.RoleUser)
+			_, record, _ := auth.CreateAPIKey(db, user.ID, "k", auth.RoleUser, "", nil)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			rec := patchKey(app, record.ID, sessionID, map[string]any{"paused_until": "tomorrow"})
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("returns 404 for another user's key", func() {
+			owner := createRouteTestUser(db, "pause-owner@test.com", auth.RoleUser)
+			other := createRouteTestUser(db, "pause-other@test.com", auth.RoleAdmin)
+			_, record, _ := auth.CreateAPIKey(db, owner.ID, "k", auth.RoleUser, "", nil)
+			sessionID, _ := auth.CreateSession(db, other.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			rec := patchKey(app, record.ID, sessionID, map[string]any{"disabled": true})
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("returns 401 when not authenticated", func() {
+			app := newTestAuthApp(db, appConfig)
+			rec := doAuthRequest(app, "PATCH", "/api/auth/api-keys/x", []byte(`{"disabled":true}`))
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 		})
 	})
 

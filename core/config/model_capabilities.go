@@ -143,6 +143,8 @@ func (c *ModelConfig) Capabilities() []string {
 		}
 	}
 
+	add(c.NativeDecisionsEligible(), UsecaseDecisions)
+	add(c.HasUsecases(FLAG_SCORE), UsecaseScore)
 	add(chat, UsecaseChat)
 	add(completion, UsecaseCompletion)
 	add(c.HasUsecases(FLAG_EDIT), UsecaseEdit)
@@ -160,8 +162,10 @@ func (c *ModelConfig) Capabilities() []string {
 	add(c.HasUsecases(FLAG_TTS), UsecaseTTS)
 	add(c.HasUsecases(FLAG_SOUND_GENERATION), UsecaseSoundGeneration)
 	add(c.HasUsecases(FLAG_IMAGE), UsecaseImage)
+	add(c.HasUsecases(FLAG_UPSCALE), UsecaseUpscale)
 	add(c.HasUsecases(FLAG_VIDEO), UsecaseVideo)
 	add(c.HasUsecases(FLAG_3D), Usecase3D)
+	add(c.HasUsecases(FLAG_3D_ANIMATION), Usecase3DAnimation)
 	add(c.HasUsecases(FLAG_VAD), UsecaseVAD)
 	add(c.HasUsecases(FLAG_DETECTION), UsecaseDetection)
 	add(c.HasUsecases(FLAG_DEPTH), UsecaseDepth)
@@ -180,6 +184,18 @@ func (c *ModelConfig) Capabilities() []string {
 // handed to the active model directly.
 func (c *ModelConfig) InputModalities() []string {
 	modalities := declaredModalities(c.KnownInputModalities)
+	for _, operation := range c.ThreeDOperations() {
+		if operation.ID != "animate" {
+			continue
+		}
+		for _, input := range operation.Inputs {
+			modality := input.Type
+			if modality == "mesh" {
+				modality = Modality3D
+			}
+			modalities[modality] = true
+		}
+	}
 	imageGen := c.HasUsecases(FLAG_IMAGE)
 	videoGen := c.HasUsecases(FLAG_VIDEO)
 	chatish := c.HasUsecases(FLAG_CHAT) || c.HasUsecases(FLAG_COMPLETION)
@@ -192,7 +208,7 @@ func (c *ModelConfig) InputModalities() []string {
 	// Ollama surface); detection/depth/face/3D models consume images directly.
 	imageIn := (chatish && c.VisionSupported()) || c.LimitMMPerPrompt.LimitImagePerPrompt > 0 ||
 		c.HasUsecases(FLAG_DETECTION) || c.HasUsecases(FLAG_DEPTH) || c.HasUsecases(FLAG_FACE_RECOGNITION) ||
-		c.HasUsecases(FLAG_3D)
+		c.HasUsecases(FLAG_3D) || c.HasUsecases(FLAG_UPSCALE)
 
 	audioIn := c.AudioInputSupported() || c.HasUsecases(FLAG_TRANSCRIPT) || c.HasUsecases(FLAG_AUDIO_TRANSFORM) ||
 		c.HasUsecases(FLAG_REALTIME_AUDIO) || c.HasUsecases(FLAG_VAD) || c.HasUsecases(FLAG_DIARIZATION) ||
@@ -213,11 +229,11 @@ func (c *ModelConfig) OutputModalities() []string {
 	modalities := declaredModalities(c.KnownOutputModalities)
 	textOut := c.HasUsecases(FLAG_CHAT) || c.HasUsecases(FLAG_COMPLETION) || c.HasUsecases(FLAG_EDIT) ||
 		c.HasUsecases(FLAG_TRANSCRIPT)
-	imageOut := c.HasUsecases(FLAG_IMAGE)
+	imageOut := c.HasUsecases(FLAG_IMAGE) || c.HasUsecases(FLAG_UPSCALE)
 	audioOut := c.HasUsecases(FLAG_TTS) || c.HasUsecases(FLAG_SOUND_GENERATION) ||
 		c.HasUsecases(FLAG_AUDIO_TRANSFORM) || c.HasUsecases(FLAG_REALTIME_AUDIO)
 	videoOut := c.HasUsecases(FLAG_VIDEO)
-	threeDOut := c.HasUsecases(FLAG_3D)
+	threeDOut := c.HasUsecases(FLAG_3D) || c.HasUsecases(FLAG_3D_ANIMATION)
 
 	modalities[ModalityText] = modalities[ModalityText] || textOut
 	modalities[ModalityImage] = modalities[ModalityImage] || imageOut
@@ -225,4 +241,21 @@ func (c *ModelConfig) OutputModalities() []string {
 	modalities[ModalityVideo] = modalities[ModalityVideo] || videoOut
 	modalities[Modality3D] = modalities[Modality3D] || threeDOut
 	return orderedModalities(modalities)
+}
+
+// NativeDecisionsEligible excludes generation/NER heuristics and dispatchers.
+func (c *ModelConfig) NativeDecisionsEligible() bool {
+	if c.IsDisabled() || c.HasRouter() || c.Router.Classifier != "" || c.IsAlias() || c.KnownUsecases == nil || (*c.KnownUsecases&FLAG_DECISIONS) == 0 {
+		return false
+	}
+	backend := GetBackendCapability(c.Backend)
+	if backend == nil {
+		return false
+	}
+	for _, method := range backend.GRPCMethods {
+		if method == MethodScore {
+			return true
+		}
+	}
+	return false
 }

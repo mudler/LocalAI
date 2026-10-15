@@ -83,6 +83,7 @@ export async function streamChat(body, signal) {
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
+  listNativeCapabilities: () => fetchJSON('/v1/models/capabilities'),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
   listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
   // variant is optional. Omitting it lets the server auto-select the best
@@ -117,6 +118,7 @@ export const modelsApi = {
     return handleResponse(response)
   },
   getJobStatus: (uid) => fetchJSON(API_CONFIG.endpoints.modelsJobStatus(uid)),
+  getStorage: () => fetchJSON(API_CONFIG.endpoints.modelsStorage),
   getEditConfig: (name) => fetchJSON(API_CONFIG.endpoints.modelEditGet(name)),
   editConfig: (name, body) => postJSON(API_CONFIG.endpoints.modelEdit(name), body),
   toggleState: (name, action) => fetchJSON(API_CONFIG.endpoints.modelToggleState(name, action), { method: 'PUT' }),
@@ -233,12 +235,27 @@ async function fetchTracePage(endpoint, { limit = DEFAULT_TRACE_PAGE_SIZE, offse
 export const tracesApi = {
   get: (opts) => fetchTracePage(API_CONFIG.endpoints.traces, opts),
   // Counted totals, so a dashboard does not fetch the whole list to size it.
-  summary: () => fetchJSON(API_CONFIG.endpoints.tracesSummary),
+  // `hours` picks the window the server counts over (1 to 168).
+  summary: (hours) => fetchJSON(hours ? `${API_CONFIG.endpoints.tracesSummary}?hours=${hours}` : API_CONFIG.endpoints.tracesSummary),
   getOne: (id) => fetchJSON(API_CONFIG.endpoints.trace(id)),
   clear: () => postJSON(API_CONFIG.endpoints.clearTraces, {}),
   getBackend: (opts) => fetchTracePage(API_CONFIG.endpoints.backendTraces, opts),
   getBackendOne: (id) => fetchJSON(API_CONFIG.endpoints.backendTrace(id)),
   clearBackend: () => postJSON(API_CONFIG.endpoints.clearBackendTraces, {}),
+}
+
+// Prometheus exposition text from /metrics (admin only). Returns the status and
+// the text, so a page can tell a route that is off (404) from one that refused
+// the caller (401, 403) and from a network failure (status 0).
+export const metricsApi = {
+  scrape: async () => {
+    try {
+      const response = await fetch(apiUrl('/metrics'))
+      return { status: response.status, text: response.ok ? await response.text() : '' }
+    } catch {
+      return { status: 0, text: '' }
+    }
+  },
 }
 
 // P2P API
@@ -265,10 +282,27 @@ export const agentJobsApi = {
   getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
   cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
   executeJob: (body) => postJSON(API_CONFIG.endpoints.executeAgentJob, body),
+  // Run a finished job's task again with the parameters and media it had. There
+  // is no retry call, so this is a new job.
+  rerunJob: (job) => postJSON(API_CONFIG.endpoints.executeAgentJob, {
+    task_id: job.task_id,
+    parameters: job.parameters || {},
+    ...(job.images?.length ? { images: job.images } : {}),
+    ...(job.videos?.length ? { videos: job.videos } : {}),
+    ...(job.audios?.length ? { audios: job.audios } : {}),
+    ...(job.files?.length ? { files: job.files } : {}),
+  }),
 }
 
 // Image generation
 export const imageApi = {
+  upscale: async ({ model, image, scale }) => {
+    const form = new FormData()
+    form.append('model', model)
+    form.append('image', image)
+    form.append('scale', String(scale))
+    return handleResponse(await fetch(apiUrl('/v1/images/upscale'), { method: 'POST', body: form }))
+  },
   generate: (body) => postJSON(API_CONFIG.endpoints.imageGenerations, body),
 }
 
@@ -278,6 +312,7 @@ export const videoApi = {
 }
 
 export const threeDApi = {
+  animate: (body) => postJSON(API_CONFIG.endpoints.threeDAnimate, body),
   generate: (body) => postJSON(API_CONFIG.endpoints.threeDGenerations, body),
   remesh: async (mesh, model, detail) => {
     const form = new FormData()
@@ -440,7 +475,7 @@ export const agentsApi = {
   status: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/status${userQ(userId)}`),
   observables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`),
   clearObservables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`, { method: 'DELETE' }),
-  chat: (name, message, userId) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message }),
+  chat: (name, message, userId, history = []) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message, history }),
   export: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/export${userQ(userId)}`),
   import: (formData) => fetch(apiUrl('/api/agents/import'), { method: 'POST', body: formData }).then(handleResponse),
   configMeta: () => fetchJSON('/api/agents/config/metadata'),
@@ -563,8 +598,15 @@ export const adminInvitesApi = {
 // API Keys
 export const apiKeysApi = {
   list: () => fetchJSON('/api/auth/api-keys'),
-  create: (name) => postJSON('/api/auth/api-keys', { name }),
+  // expiresIn is "30d", "90d" or "1y"; without it the server applies its own default.
+  create: (name, expiresIn) => postJSON('/api/auth/api-keys', expiresIn ? { name, expiresIn } : { name }),
   revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // pausedUntil is an RFC3339 string or null; disabled pauses until resumed.
+  setPause: (id, disabled, pausedUntil = null) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ disabled, paused_until: pausedUntil }),
+  }),
 }
 
 // Fine-tuning API
@@ -597,6 +639,16 @@ export const quantizationApi = {
   importModel: (id, data) => postJSON(`/api/quantization/jobs/${enc(id)}/import`, data),
   progressUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/progress`),
   downloadUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/download`),
+}
+
+// Failover chains API. Health is pushed over /api/failover/events (SSE);
+// list() seeds the view and backs the periodic resync.
+export const failoverApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.failoverChains),
+  get: (name) => fetchJSON(API_CONFIG.endpoints.failoverChain(name)),
+  pin: (name, target) => postJSON(API_CONFIG.endpoints.failoverPin(name), { target }),
+  unpin: (name) => fetchJSON(API_CONFIG.endpoints.failoverPin(name), { method: 'DELETE' }),
+  eventsUrl: () => API_CONFIG.endpoints.failoverEvents,
 }
 
 // Nodes API (distributed)
@@ -671,4 +723,19 @@ export function fileToBase64(file) {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+// Multipart requests must let the browser set the boundary.
+export const diarizationApi = {
+  run: async ({ file, model, profiles = false }) => {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('model', model)
+    if (profiles) {
+      body.append('include_speaker_profiles', 'true')
+      body.append('include_text', 'true')
+      body.append('response_format', 'verbose_json')
+    }
+    return handleResponse(await fetch(apiUrl('/v1/audio/diarization'), { method: 'POST', body }))
+  },
 }

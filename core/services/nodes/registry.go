@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,23 +22,29 @@ import (
 // Workers are generic — they don't have a fixed backend type.
 // The SmartRouter dynamically installs backends via NATS backend.install events.
 type BackendNode struct {
-	ID            string `gorm:"primaryKey;size:36" json:"id"`
-	Name          string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType      string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address       string `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress   string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status        string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash     string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	// WorkerIncarnation identifies the worker process that last reported. A new
+	// value is proof that every load operation of the previous process ended.
+	WorkerIncarnation string `gorm:"size:36" json:"worker_incarnation,omitempty"`
+	ID                string `gorm:"primaryKey;size:36" json:"id"`
+	Name              string `gorm:"uniqueIndex;size:255" json:"name"`
+	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
+	Address           string `gorm:"size:255" json:"address"`                     // host:port for gRPC
+	HTTPAddress       string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
+	Status            string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
+	TokenHash         string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
+	TotalVRAM         uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM     uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
 	// reservation is only here to keep two scheduling decisions within the
 	// same heartbeat window from over-committing the same node.
-	ReservedVRAM uint64 `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
-	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
-	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
+	ReservedVRAM    uint64  `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
+	TotalRAM        uint64  `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
+	AvailableRAM    uint64  `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
+	CPULogicalCores uint64  `gorm:"column:cpu_logical_cores;default:0" json:"cpu_logical_cores"`
+	CPUUsagePercent float64 `gorm:"column:cpu_usage_percent;default:0" json:"cpu_usage_percent"`
+	CPULoad1        float64 `gorm:"column:cpu_load_1;default:0" json:"cpu_load_1"`
 	// TotalDisk / AvailableDisk describe the filesystem that BACKS THE WORKER'S
 	// MODELS DIRECTORY, not the root filesystem: staged weights are written
 	// there, so that is the only mount whose free space decides whether a
@@ -84,12 +91,17 @@ type BackendNode struct {
 	// VRAMBudgetManuallySet marks the budget as a UI-set admin override so the
 	// worker's re-registration value does not clobber it (mirrors
 	// MaxReplicasPerModelManuallySet).
-	VRAMBudgetManuallySet bool      `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
-	APIKeyID              string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
-	AuthUserID            string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
-	LastHeartbeat         time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	VRAMBudgetManuallySet bool `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
+	// Version is the LocalAI build version reported by the worker at
+	// registration. Empty for workers registered before this field existed.
+	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
+	// Commit is the git commit hash the worker binary was built from.
+	Commit        string    `gorm:"column:commit;size:64" json:"commit,omitempty"`
+	APIKeyID      string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID    string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 const (
@@ -107,6 +119,9 @@ const (
 	ColTotalVRAM           = "total_vram"
 	ColReservedVRAM        = "reserved_vram"
 	ColAvailableRAM        = "available_ram"
+	ColCPULogicalCores     = "cpu_logical_cores"
+	ColCPUUsagePercent     = "cpu_usage_percent"
+	ColCPULoad1            = "cpu_load_1"
 	ColTotalDisk           = "total_disk"
 	ColAvailableDisk       = "available_disk"
 	ColGPUVendor           = "gpu_vendor"
@@ -115,6 +130,14 @@ const (
 	ColMaxReplicasPerModel = "max_replicas_per_model"
 	ColVRAMBudget          = "vram_budget"
 	ColVRAMBudgetBytes     = "vram_budget_bytes"
+)
+
+var (
+	// ErrNodeNotFound reports that a lifecycle transition targeted a missing node.
+	ErrNodeNotFound = gorm.ErrRecordNotFound
+	// ErrNodeStatusConflict reports that a node exists but no longer has the
+	// status required by a conditional lifecycle transition.
+	ErrNodeStatusConflict = errors.New("node status conflict")
 )
 
 // NodeModel tracks which models are loaded on which nodes.
@@ -140,8 +163,11 @@ type NodeModel struct {
 	CleanupError         string     `gorm:"column:cleanup_error;type:text" json:"cleanup_error,omitempty"`
 	CleanupAttempts      int        `gorm:"column:cleanup_attempts;default:0" json:"cleanup_attempts,omitempty"`
 	CleanupNextRetryAt   *time.Time `gorm:"column:cleanup_next_retry_at" json:"cleanup_next_retry_at,omitempty"`
-	CreatedAt            time.Time  `json:"created_at"`
-	UpdatedAt            time.Time  `json:"updated_at"`
+	// LoadGeneration names the load attempt that created this replica row. A row
+	// still staging or loading whose attempt no longer has a job is abandoned.
+	LoadGeneration string    `gorm:"column:load_generation;size:36;not null;default:''" json:"-"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // ModelLoadInfo is per-model load metadata kept independently of NodeModel rows
@@ -309,7 +335,12 @@ type PendingBackendOp struct {
 // record of what is loaded, and keeping finished jobs would create a second
 // source of truth about it.
 type ModelLoadJob struct {
-	TrackingKey  string `gorm:"primaryKey;size:255" json:"tracking_key"`
+	TrackingKey string `gorm:"primaryKey;size:255" json:"tracking_key"`
+	// Generation names one attempt to load the model. It is immutable for the
+	// life of the row, and every write of the row is conditional on it, so an
+	// owner that lost the job cannot change its successor. The empty string
+	// marks a row an older binary wrote; see backfillLoadJobGenerations.
+	Generation   string `gorm:"size:36;not null;default:''" json:"-"`
 	State        string `gorm:"size:16;not null;index" json:"state"`
 	OwnerReplica string `gorm:"size:64" json:"owner_replica"`
 	NodeID       string `gorm:"size:36" json:"node_id"`
@@ -333,6 +364,23 @@ type ModelLoadJob struct {
 	// minutes, so a reaper keyed on byte movement would reclaim a healthy job
 	// mid-load. Byte progress is measured separately, by load_deadline.go.
 	LastProgress time.Time `gorm:"index" json:"last_progress_at"`
+	// LeaseUntil is the owner's lease, in database time. The owner pushes it
+	// forward with every heartbeat. A running job whose lease is missing or in
+	// the past has no live owner.
+	LeaseUntil *time.Time `json:"-"`
+	// LegacyWorker is true when the load runs on a worker that cannot name
+	// operations. Its stop is by exact address, and its hold is the load
+	// deadline.
+	LegacyWorker bool `gorm:"not null;default:false" json:"-"`
+	// OpConfirmed is true once the remote work of a failed job is known to have
+	// ended: the owner saw the backend answer, the worker acknowledged a stop, or
+	// the worker restarted. It shortens the stop window.
+	OpConfirmed bool `gorm:"not null;default:false" json:"-"`
+	// CancelRequested marks a job an administrator cancelled.
+	CancelRequested bool `gorm:"not null;default:false" json:"-"`
+	// StopDeadline is set when the job fails: the earliest moment the model may
+	// be loaded again. It is database time too.
+	StopDeadline *time.Time `json:"-"`
 }
 
 // Op constants mirror the operation names used by DistributedBackendManager
@@ -346,6 +394,13 @@ const (
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
+	// clock stamps display fields of load jobs. Tests replace it to prove that
+	// the lease never depends on it. nil means time.Now.
+	clock func() time.Time
+	// leaseTTL overrides loadJobLeaseTTL when set (tests).
+	leaseTTL time.Duration
+	// incarnations caches the last worker incarnation seen per node.
+	incarnations sync.Map
 	// replicaRemovedHooks are invoked after a replica row for (modelName, nodeID)
 	// is removed. This is the single chokepoint that lets dependent state be
 	// invalidated no matter which removal path (router eviction, reconciler
@@ -477,6 +532,14 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
 
+	// Rows written before the generation column existed get one, so they follow
+	// the same reclaim rules as any other job.
+	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
+		return backfillLoadJobGenerations(context.Background(), db)
+	}); err != nil {
+		return nil, fmt.Errorf("backfilling load job generations: %w", err)
+	}
+
 	// Rules written before scheduling rules could be keyed by an alias have no
 	// stored target. They are all direct rules, so their target is their own
 	// name, and the eviction guard needs the column filled in to match them.
@@ -554,6 +617,8 @@ func capAvailable(reported, ceilingBytes uint64) uint64 {
 // nodes that were never approved stay in "pending".
 func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoApprove bool) error {
 	node.LastHeartbeat = time.Now()
+	hasCPUTelemetry := node.CPULogicalCores > 0 || node.CPUUsagePercent != 0 || node.CPULoad1 != 0
+	node.CPUUsagePercent = clampCPUUsage(node.CPUUsagePercent)
 
 	// Try to find existing node by name
 	var existing BackendNode
@@ -622,6 +687,20 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 				ColAvailableDisk: node.AvailableDisk,
 			}).Error; err != nil {
 			return fmt.Errorf("recording disk capacity for node %s: %w", node.Name, err)
+		}
+		// A successful CPU sample always reports logical cores. Use that as the
+		// presence signal so an omitted sample from an older or temporarily
+		// failing worker preserves the last reading, while a real 0% reading is
+		// still force-written despite GORM's struct zero-value suppression.
+		if hasCPUTelemetry {
+			if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+				Updates(map[string]any{
+					ColCPULogicalCores: node.CPULogicalCores,
+					ColCPUUsagePercent: node.CPUUsagePercent,
+					ColCPULoad1:        node.CPULoad1,
+				}).Error; err != nil {
+				return fmt.Errorf("recording CPU telemetry for node %s: %w", node.Name, err)
+			}
 		}
 		// Preserve auth references from existing record.
 		// GORM Updates(struct) skips zero-value fields, so the DB retains
@@ -722,6 +801,27 @@ func (r *NodeRegistry) setStatus(ctx context.Context, nodeID, status string) err
 		return fmt.Errorf("node %s not found", nodeID)
 	}
 	return nil
+}
+
+func transitionStatus(db *gorm.DB, nodeID, expectedStatus, nextStatus string) error {
+	result := db.Model(&BackendNode{}).
+		Where("id = ? AND status = ?", nodeID, expectedStatus).
+		Update("status", nextStatus)
+	if result.Error != nil {
+		return fmt.Errorf("transitioning node %s from %s to %s: %w", nodeID, expectedStatus, nextStatus, result.Error)
+	}
+	if result.RowsAffected > 0 {
+		return nil
+	}
+
+	var node BackendNode
+	if err := db.Select("id", "status").First(&node, "id = ?", nodeID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("node %s: %w", nodeID, ErrNodeNotFound)
+		}
+		return fmt.Errorf("checking node %s after conditional transition: %w", nodeID, err)
+	}
+	return fmt.Errorf("node %s has status %s, expected %s: %w", nodeID, node.Status, expectedStatus, ErrNodeStatusConflict)
 }
 
 // MarkOffline sets a node to offline status and clears its model records.
@@ -1032,9 +1132,23 @@ type HeartbeatUpdate struct {
 	// AvailableDisk / TotalDisk describe the worker's models filesystem.
 	// Pointers so a worker that cannot read them omits the fields rather than
 	// reporting a zero the scheduler would act on.
-	AvailableDisk *uint64 `json:"available_disk,omitempty"`
-	TotalDisk     *uint64 `json:"total_disk,omitempty"`
-	GPUVendor     string  `json:"gpu_vendor,omitempty"`
+	AvailableDisk   *uint64  `json:"available_disk,omitempty"`
+	TotalDisk       *uint64  `json:"total_disk,omitempty"`
+	GPUVendor       string   `json:"gpu_vendor,omitempty"`
+	CPUUsagePercent *float64 `json:"cpu_usage_percent,omitempty"`
+	CPULoad1        *float64 `json:"cpu_load_1,omitempty"`
+	// WorkerIncarnation is the worker process identity. See BackendNode.
+	WorkerIncarnation string `json:"worker_incarnation,omitempty"`
+}
+
+func clampCPUUsage(usage float64) float64 {
+	if math.IsNaN(usage) || usage < 0 {
+		return 0
+	}
+	if usage > 100 {
+		return 100
+	}
+	return usage
 }
 
 // Heartbeat updates the heartbeat timestamp and status for a node.
@@ -1089,6 +1203,12 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 		}
 		if update.GPUVendor != "" {
 			updates[ColGPUVendor] = update.GPUVendor
+		}
+		if update.CPUUsagePercent != nil {
+			updates[ColCPUUsagePercent] = clampCPUUsage(*update.CPUUsagePercent)
+		}
+		if update.CPULoad1 != nil {
+			updates[ColCPULoad1] = *update.CPULoad1
 		}
 	}
 
@@ -1223,7 +1343,7 @@ func (r *NodeRegistry) GetByName(ctx context.Context, name string) (*BackendNode
 }
 
 // MarkUnhealthy sets a node status to unhealthy. Deliberately status-only:
-// callers fire this on transient triggers (a single nats.ErrNoResponders from
+// callers fire this on transient triggers (a single ErrNoRoute from
 // managers_distributed / reconciler) where the next heartbeat is expected to
 // flip the node back to healthy, and cascade-deleting node_models here would
 // force a full model reload on every brief NATS hiccup. Stale rows are reaped
@@ -1248,28 +1368,26 @@ func (r *NodeRegistry) MarkHealthy(ctx context.Context, nodeID string) error {
 // observable effect is that the per-call IncrementInFlight bookkeeping logs a
 // non-fatal warning, which is acceptable for a drain.
 func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
-	if err := r.setStatus(ctx, nodeID, StatusDraining); err != nil {
-		return err
-	}
-	// Capture the distinct models and run the bulk delete inside a single
-	// transaction so the set of fired hooks equals exactly the set of rows
-	// deleted: a SetNodeModel landing between the capture and the delete can no
-	// longer be deleted without its hook firing (no interleaving gap). The
-	// status flip above is a separate, pre-existing operation and stays outside
-	// this transaction. Fire hooks only after commit so a rollback does not
-	// invalidate the index for a removal that did not persist.
 	var removedModels []string
 	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := transitionStatus(tx, nodeID, StatusHealthy, StatusDraining); err != nil {
+			return err
+		}
 		removedModels = r.nodeModelNames(ctx, tx, nodeID)
 		return tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
 	}); err != nil {
-		xlog.Warn("Failed to clear model records on draining", "node", nodeID, "error", err)
-	} else {
-		for _, m := range removedModels {
-			r.fireReplicaRemoved(m, nodeID, -1)
-		}
+		return err
+	}
+	for _, m := range removedModels {
+		r.fireReplicaRemoved(m, nodeID, -1)
 	}
 	return nil
+}
+
+// ResumeNode transitions a draining node back to healthy without allowing
+// pending approval or a concurrent health-state change to be overwritten.
+func (r *NodeRegistry) ResumeNode(ctx context.Context, nodeID string) error {
+	return transitionStatus(r.db.WithContext(ctx), nodeID, StatusDraining, StatusHealthy)
 }
 
 // FindStaleNodes returns nodes that haven't sent a heartbeat within the given threshold.
@@ -1309,14 +1427,23 @@ func (r *NodeRegistry) setNodeModelRevision(ctx context.Context, nodeID, modelNa
 	// both create and update. This prevents overwriting the primary key on
 	// subsequent calls for the same (node, model, replica_index).
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
+		}
+		assign := map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight,
+			"config_revision": revision, "effective_options_hash": effectiveOptionsHash}
+		// A row written by a load owner names its attempt, so the reconciler can
+		// tell when that attempt is gone.
+		if ref, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef); owned {
+			assign["load_generation"] = ref.Generation
 		}
 		var nm NodeModel
 		return tx.Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
 			Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}).
-			Assign(map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight,
-				"config_revision": revision, "effective_options_hash": effectiveOptionsHash}).
+			Assign(assign).
 			FirstOrCreate(&nm).Error
 	})
 }
@@ -1338,6 +1465,9 @@ func (r *NodeRegistry) setNodeModelLoadInfoRevision(ctx context.Context, nodeID,
 		return err
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
@@ -1380,6 +1510,9 @@ func (r *NodeRegistry) upsertModelLoadInfoRevision(ctx context.Context, modelNam
 		UpdatedAt:      now,
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
@@ -1628,8 +1761,15 @@ func (r *NodeRegistry) RemoveClaimedModelCleanup(ctx context.Context, replica No
 // to keep the contract explicit (probeLoadedModels and scaleDownIdle iterate
 // per-row and must not orphan healthy siblings).
 func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error {
-	if err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
-		Delete(&NodeModel{}).Error; err != nil {
+	// A load owner removes its own replica row inside the fence, so a stale
+	// owner cannot delete the row of the attempt that replaced it.
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnershipFor(ctx, tx, true); err != nil {
+			return err
+		}
+		return tx.Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+			Delete(&NodeModel{}).Error
+	}); err != nil {
 		return err
 	}
 	r.fireReplicaRemoved(modelName, nodeID, replicaIndex)
@@ -2270,11 +2410,14 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 }
 
 // ListAutoScalingConfigs returns scheduling configs where auto-scaling is enabled.
+// The replica reconciler acts on these, so a rule whose alias this frontend
+// resolves from an outdated config keeps the stored target instead (see
+// applyCurrentTarget).
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
 	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
 	for i := range configs {
-		r.applyTarget(&configs[i])
+		r.applyCurrentTarget(ctx, &configs[i])
 	}
 	return configs, err
 }
@@ -2694,8 +2837,8 @@ func (r *NodeRegistry) DeleteStalePendingBackendOps(ctx context.Context, grace t
 	cutoff := time.Now().Add(-grace)
 	// Draining nodes are cleared immediately (admin action; model rows already
 	// purged). Offline AND unhealthy nodes are cleared only once their heartbeat
-	// is older than the grace window: a node marked unhealthy on a NATS
-	// ErrNoResponders never transitions to offline (health.go skips re-marking
+	// is older than the grace window: a node marked unhealthy on an
+	// ErrNoRoute never transitions to offline (health.go skips re-marking
 	// it), so without including unhealthy here its ops would leak exactly like
 	// the offline case. A node with a fresh heartbeat (last_heartbeat > cutoff)
 	// is recovering and keeps its op for retry.

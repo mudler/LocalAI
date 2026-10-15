@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import Popover from './Popover'
+import Icon from './Icon'
 
 // NodeDistributionChip shows where something is installed/loaded across a
 // cluster. Used by both Manage → Backends (per-row Nodes column, data =
@@ -53,7 +54,7 @@ export default function NodeDistributionChip({
             : `${getName(n)} — ${status}${getVersion(n) ? ` · v${getVersion(n)}` : ''}`
           return (
             <span key={n.node_id ?? n.NodeID ?? getName(n)} className={`badge ${variant}`} title={title}>
-              <i className="fas fa-server" /> {getName(n)}
+              <Icon name="server" /> {getName(n)}
             </span>
           )
         })}
@@ -82,7 +83,7 @@ export default function NodeDistributionChip({
         aria-haspopup="dialog"
         onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
       >
-        <i className="fas fa-server" />
+        <Icon name="server" />
         {' '}on {total} node{total === 1 ? '' : 's'}
         {offline > 0 ? ` · ${offline} offline` : ''}
         {drift > 0 ? ` · ${drift} drift` : ''}

@@ -74,9 +74,9 @@ availability may lag upstream releases.
 
 ### Chat Bots
 
-- [Discord bot](https://github.com/mudler/LocalAGI/tree/main/examples/discord)
-- [Slack bot](https://github.com/mudler/LocalAGI/tree/main/examples/slack)
-- [Telegram bot](https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot)
+- [Discord bot](https://github.com/mudler/LocalAI-examples/tree/main/discord-bot)
+- [Slack bot](https://github.com/mudler/LocalAI-examples/tree/main/slack-bot)
+- [Telegram bot](https://github.com/mudler/LocalAI-examples/tree/main/telegram-bot)
 - [Hellper (Telegram)](https://github.com/JackBekket/Hellper)
 
 ### Home Automation
@@ -98,7 +98,7 @@ availability may lag upstream releases.
 - [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)
 - [Logseq GPT3 OpenAI plugin](https://github.com/briansunter/logseq-plugin-gpt3-openai)
 - [CodeGPT (JetBrains)](https://plugins.jetbrains.com/plugin/21056-codegpt) - Custom OpenAI-compatible endpoints
-- [Wave Terminal](https://docs.waveterm.dev/features/supportedLLMs/localai) - Native LocalAI support
+- [Wave Terminal](https://docs.waveterm.dev/ai-presets) - Native LocalAI support
 - [Obsidian BMO Chatbot](https://github.com/longy2k/obsidian-bmo-chatbot)
 - [spark](https://github.com/cedriking/spark)
 - [openops (Mattermost)](https://github.com/mattermost/openops)

@@ -365,6 +365,68 @@ var _ = Describe("Model aliases", func() {
 	})
 })
 
+var _ = Describe("Failover chains", func() {
+	Describe("ListFailoverChains", func() {
+		It("issues GET /api/failover and unwraps the chains array", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodGet))
+				Expect(r.URL.Path).To(Equal("/api/failover"))
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"chains": []map[string]any{
+						{
+							"name":   "chain",
+							"state":  "primary",
+							"active": "a",
+							"pinned": nil,
+							"targets": []map[string]any{
+								{"model": "a", "kind": "local", "warm": false, "state": "healthy"},
+							},
+						},
+					},
+				})
+			}))
+			DeferCleanup(srv.Close)
+
+			out, err := New(srv.URL, "").ListFailoverChains(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].Name).To(Equal("chain"))
+			Expect(out[0].Active).To(Equal("a"))
+			Expect(out[0].Pinned).To(BeEmpty())
+			Expect(out[0].Targets).To(ConsistOf(localaitools.FailoverTargetInfo{Model: "a", Kind: "local", State: "healthy"}))
+		})
+	})
+
+	Describe("PinFailoverTarget", func() {
+		It("issues POST /api/failover/:chain/pin with the target in the body", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodPost))
+				Expect(r.URL.Path).To(Equal("/api/failover/chain/pin"))
+				var body map[string]string
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				Expect(body).To(HaveKeyWithValue("target", "b"))
+				w.WriteHeader(http.StatusOK)
+			}))
+			DeferCleanup(srv.Close)
+
+			Expect(New(srv.URL, "").PinFailoverTarget(context.Background(), "chain", "b")).To(Succeed())
+		})
+	})
+
+	Describe("UnpinFailoverTarget", func() {
+		It("issues DELETE /api/failover/:chain/pin", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodDelete))
+				Expect(r.URL.Path).To(Equal("/api/failover/chain/pin"))
+				w.WriteHeader(http.StatusOK)
+			}))
+			DeferCleanup(srv.Close)
+
+			Expect(New(srv.URL, "").UnpinFailoverTarget(context.Background(), "chain")).To(Succeed())
+		})
+	})
+})
+
 var _ = Describe("ErrHTTPNotFound", func() {
 	Context("on a clean 404 status", func() {
 		var (

@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
@@ -16,16 +18,26 @@ import (
 
 type SDGGML struct {
 	base.SingleThread
+	upscaleMu    sync.Mutex
+	upscaler     uintptr
+	upscale      upscaleSettings
 	threads      int
 	sampleMethod string
 	cfgScale     float32
+	customSigmas []float32
 	vaeTiling    vaeTiling
+	// videoPartition is "fl2va", "ref2va" or "" (unknown) for MiniMax-H3.
+	videoPartition string
 }
 
 var (
-	LoadModel func(model, model_apth string, options []uintptr, threads int32, diff int) int
-	GenImage  func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []uintptr, refImagesCount int) int
-	GenVideo  func(params uintptr, steps int, dst string, cfgScale float32, fps int, initImage string, endImage string) int
+	UpscalerCreate  func(string, bool, int32, int32, string, string) uintptr
+	UpscalerScale   func(uintptr) int32
+	UpscalerRun     func(uintptr, string, string, int32) int32
+	UpscalerDestroy func(uintptr)
+	LoadModel       func(model, model_apth string, options []uintptr, threads int32, diff int) int
+	GenImage        func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []uintptr, refImagesCount int) int
+	GenVideo        func(params uintptr, steps int, dst string, cfgScale float32, fps int, initImage string, endImage string, refImages string, refVideos string, refAudios string) int
 
 	TilingParamsSetEnabled       func(params uintptr, enabled bool)
 	TilingParamsSetTileSizes     func(params uintptr, tileSizeX int, tileSizeY int)
@@ -36,6 +48,7 @@ var (
 	ImgGenParamsSetPrompts         func(params uintptr, prompt string, negativePrompt string)
 	ImgGenParamsSetDimensions      func(params uintptr, width int, height int)
 	ImgGenParamsSetSeed            func(params uintptr, seed int64)
+	ImgGenParamsSetCustomSigmas    func(params uintptr, sigmas uintptr, count int)
 	ImgGenParamsGetVaeTilingParams func(params uintptr) uintptr
 
 	VidGenParamsNew            func() uintptr
@@ -52,6 +65,40 @@ type vaeTiling struct {
 	hasTileSize   bool
 	targetOverlap float32
 	hasOverlap    bool
+}
+
+func parseCustomSigmas(options []string) ([]float32, error) {
+	for _, op := range options {
+		name, value, found := strings.Cut(op, ":")
+		if name != "custom_sigmas" {
+			continue
+		}
+		if !found {
+			return nil, fmt.Errorf("custom_sigmas requires a comma-separated value")
+		}
+
+		values := strings.Split(value, ",")
+		if len(values) < 2 {
+			return nil, fmt.Errorf("custom_sigmas requires at least 2 values")
+		}
+		sigmas := make([]float32, len(values))
+		for i, value := range values {
+			value = strings.TrimSpace(value)
+			if value == "" {
+				return nil, fmt.Errorf("custom_sigmas value %d is empty", i+1)
+			}
+			parsed, err := strconv.ParseFloat(value, 32)
+			if err != nil {
+				return nil, fmt.Errorf("custom_sigmas value %d %q is not a number", i+1, value)
+			}
+			if math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+				return nil, fmt.Errorf("custom_sigmas value %d must be finite", i+1)
+			}
+			sigmas[i] = float32(parsed)
+		}
+		return sigmas, nil
+	}
+	return nil, nil
 }
 
 func parseVAETiling(options []string) vaeTiling {
@@ -101,6 +148,167 @@ func parseTileSize(value string) (int, int, bool) {
 	return x, y, true
 }
 
+// Video partitions of MiniMax-H3. The FL2VA DiT serves t2va and keyframe
+// conditioning; the REF2VA DiT serves reference conditioning.
+const (
+	partitionFL2VA  = "fl2va"
+	partitionRef2VA = "ref2va"
+)
+
+// detectVideoPartition tells the two MiniMax-H3 DiTs apart. stable-diffusion.cpp
+// has no key in the weights for it, so the loaded model cannot be asked.
+// Choice made here: the explicit backend option "video_partition:fl2va|ref2va"
+// wins; otherwise the model file name is matched for "fl2va" or "ref2va"
+// (the upstream file names are minimax_h3_fl2va-*.gguf and minimax_h3_ref2va-*.gguf).
+// An unrecognised name returns "" and the guard is then not applied.
+func detectVideoPartition(modelFile string, options []string) string {
+	for _, op := range options {
+		if name, value, ok := strings.Cut(op, ":"); ok && name == "video_partition" {
+			switch v := strings.ToLower(strings.TrimSpace(value)); v {
+			case partitionFL2VA, partitionRef2VA:
+				return v
+			}
+		}
+	}
+	// The DiT may also be given as an option path (diffusion_model_path:...).
+	candidates := []string{modelFile}
+	for _, op := range options {
+		if name, value, ok := strings.Cut(op, ":"); ok && name == "diffusion_model_path" {
+			candidates = append(candidates, value)
+		}
+	}
+	for _, c := range candidates {
+		base := strings.ToLower(filepath.Base(c))
+		switch {
+		case strings.Contains(base, partitionRef2VA):
+			return partitionRef2VA
+		case strings.Contains(base, partitionFL2VA):
+			return partitionFL2VA
+		}
+	}
+	return ""
+}
+
+// videoExtraParams holds the per-request knobs that have no proto field.
+type videoExtraParams struct {
+	refImage string
+	// refVideo is a directory of frames; it is read at the backend default fps.
+	refVideo string
+}
+
+// videoReferences is every reference input of a request, from the proto fields
+// and from the legacy params/audio spellings, in the order they are passed to
+// stable-diffusion.cpp.
+type videoReferences struct {
+	images []string
+	videos []*pb.VideoReference
+	audios []string
+}
+
+func (r videoReferences) any() bool {
+	return len(r.images) > 0 || len(r.videos) > 0 || len(r.audios) > 0
+}
+
+// parseVideoRequestParams reads GenerateVideoRequest.Params. Unknown keys are
+// ignored, as before.
+func parseVideoRequestParams(params map[string]string) (videoExtraParams, error) {
+	var extra videoExtraParams
+	extra.refImage = strings.TrimSpace(params["ref_image"])
+	extra.refVideo = strings.TrimSpace(params["ref_video"])
+	return extra, nil
+}
+
+// gatherVideoReferences merges the repeated proto fields with params.ref_image,
+// params.ref_video and the single `audio` field, which stay valid. It rejects
+// entries the flattened hand-off to C++ cannot carry.
+func gatherVideoReferences(opts *pb.GenerateVideoRequest, extra videoExtraParams) (videoReferences, error) {
+	var refs videoReferences
+	clean := func(what, v string) (string, error) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return "", fmt.Errorf("stablediffusion-ggml: %s is empty", what)
+		}
+		if strings.ContainsAny(v, "\n\x1f") {
+			return "", fmt.Errorf("stablediffusion-ggml: %s contains a control character", what)
+		}
+		return v, nil
+	}
+	if extra.refImage != "" {
+		refs.images = append(refs.images, extra.refImage)
+	}
+	for i, v := range opts.GetRefImages() {
+		path, err := clean(fmt.Sprintf("ref_images[%d]", i), v)
+		if err != nil {
+			return refs, err
+		}
+		refs.images = append(refs.images, path)
+	}
+	if extra.refVideo != "" {
+		refs.videos = append(refs.videos, &pb.VideoReference{FramesDir: extra.refVideo})
+	}
+	for i, v := range opts.GetRefVideos() {
+		what := fmt.Sprintf("ref_videos[%d]", i)
+		dir, err := clean(what+".frames_dir", v.GetFramesDir())
+		if err != nil {
+			return refs, err
+		}
+		if v.GetFps() < 0 {
+			return refs, fmt.Errorf("stablediffusion-ggml: %s.fps must not be negative", what)
+		}
+		entry := &pb.VideoReference{FramesDir: dir, Fps: v.GetFps()}
+		if strings.TrimSpace(v.GetAudio()) != "" {
+			if entry.Audio, err = clean(what+".audio", v.GetAudio()); err != nil {
+				return refs, err
+			}
+		}
+		refs.videos = append(refs.videos, entry)
+	}
+	if opts.GetAudio() != "" {
+		path, err := clean("audio", opts.GetAudio())
+		if err != nil {
+			return refs, err
+		}
+		refs.audios = append(refs.audios, path)
+	}
+	for i, v := range opts.GetRefAudios() {
+		path, err := clean(fmt.Sprintf("ref_audios[%d]", i), v)
+		if err != nil {
+			return refs, err
+		}
+		refs.audios = append(refs.audios, path)
+	}
+	return refs, nil
+}
+
+// encodeVideoReferences flattens the references for the C++ side: paths are
+// newline-separated and each video is "frames_dir\x1ffps\x1faudio".
+func encodeVideoReferences(refs videoReferences) (images, videos, audios string) {
+	vids := make([]string, 0, len(refs.videos))
+	for _, v := range refs.videos {
+		vids = append(vids, fmt.Sprintf("%s\x1f%d\x1f%s", v.GetFramesDir(), v.GetFps(), v.GetAudio()))
+	}
+	return strings.Join(refs.images, "\n"), strings.Join(vids, "\n"), strings.Join(refs.audios, "\n")
+}
+
+// checkPartitionConditioning refuses conditioning the loaded MiniMax-H3 DiT
+// cannot serve. A reference input on the FL2VA checkpoint does not fail in
+// stable-diffusion.cpp; it renders a wrong video, so fail before generating.
+func checkPartitionConditioning(partition string, opts *pb.GenerateVideoRequest, refs videoReferences) error {
+	hasKeyframe := opts.GetStartImage() != "" || opts.GetEndImage() != ""
+	hasReference := refs.any()
+
+	if hasKeyframe && hasReference {
+		return fmt.Errorf("stablediffusion-ggml: keyframes (start_image/end_image) and reference " +
+			"conditioning (ref_images/ref_videos/ref_audios/audio/params.ref_image/params.ref_video) cannot be used together")
+	}
+	if partition == partitionFL2VA && hasReference {
+		return fmt.Errorf("stablediffusion-ggml: the FL2VA checkpoint serves t2va and keyframes only; " +
+			"reference conditioning (ref_images/ref_videos/ref_audios/audio) needs the REF2VA checkpoint. " +
+			"Use start_image for first-frame conditioning instead")
+	}
+	return nil
+}
+
 // Copied from Purego internal/strings
 // TODO: We should upstream sending []string
 func hasSuffix(s, suffix string) bool {
@@ -117,6 +325,22 @@ func CString(name string) *byte {
 }
 
 func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
+	sd.upscaleMu.Lock()
+	defer sd.upscaleMu.Unlock()
+	if opts == nil {
+		return fmt.Errorf("missing model options")
+	}
+	settings, err := parseUpscaleSettings(opts)
+	if err != nil {
+		return err
+	}
+	if sd.upscaler != 0 {
+		return fmt.Errorf("free the existing upscaler before loading another model")
+	}
+	sd.upscale = settings
+	if settings.enabled {
+		return nil
+	}
 
 	sd.threads = int(opts.Threads)
 
@@ -137,8 +361,8 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 		// If it's an option path, we resolve absolute path from the model path
 		if strings.Contains(op, ":") && strings.Contains(op, "path") {
 			data := strings.Split(op, ":")
-			data[1] = filepath.Join(opts.ModelPath, data[1])
 			if err := utils.VerifyPath(data[1], opts.ModelPath); err == nil {
+				data[1] = filepath.Join(opts.ModelPath, data[1])
 				oo = append(oo, strings.Join(data, ":"))
 			}
 		} else {
@@ -158,9 +382,15 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 	}
 
 	sd.cfgScale = opts.CFGScale
+	sigmas, err := parseCustomSigmas(opts.Options)
+	if err != nil {
+		return fmt.Errorf("invalid model option: %w", err)
+	}
+	sd.customSigmas = sigmas
 	// Read from the unfiltered list: none of the tiling options name a path, so
 	// the resolution pass above neither rewrites nor drops them.
 	sd.vaeTiling = parseVAETiling(opts.Options)
+	sd.videoPartition = detectVideoPartition(modelFile, opts.Options)
 
 	ret := LoadModel(modelFile, modelPathC, options, opts.Threads, diffusionModel)
 	runtime.KeepAlive(keepAlive)
@@ -209,6 +439,9 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 	ImgGenParamsSetPrompts(p, t, negative)
 	ImgGenParamsSetDimensions(p, int(opts.Width), int(opts.Height))
 	ImgGenParamsSetSeed(p, int64(opts.Seed))
+	if len(sd.customSigmas) > 0 {
+		ImgGenParamsSetCustomSigmas(p, uintptr(unsafe.Pointer(&sd.customSigmas[0])), len(sd.customSigmas))
+	}
 	// Tiling decodes the latent in overlapping tiles, so the VAE compute buffer
 	// scales with the tile rather than with the image. That is the difference
 	// between working and failing on any device that caps a single allocation
@@ -227,6 +460,7 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 	}
 
 	ret := GenImage(p, int(opts.Step), dst, sd.cfgScale, srcImage, strength, maskImage, refImages, refImagesCount)
+	runtime.KeepAlive(sd.customSigmas)
 	runtime.KeepAlive(keepAlive)
 	fmt.Fprintf(os.Stderr, "GenImage: %d\n", ret)
 	if ret != 0 {
@@ -274,6 +508,19 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 		cfg = 5.0
 	}
 
+	extra, err := parseVideoRequestParams(opts.Params)
+	if err != nil {
+		return err
+	}
+	refs, err := gatherVideoReferences(opts, extra)
+	if err != nil {
+		return err
+	}
+	if err := checkPartitionConditioning(sd.videoPartition, opts, refs); err != nil {
+		return err
+	}
+	refImages, refVideos, refAudios := encodeVideoReferences(refs)
+
 	// sd_vid_gen_params_new allocates; gen_video frees it after the generation call.
 	p := VidGenParamsNew()
 	VidGenParamsSetPrompts(p, opts.Prompt, opts.NegativePrompt)
@@ -284,9 +531,181 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 	fmt.Fprintf(os.Stderr, "GenerateVideo: dst=%s size=%dx%d frames=%d fps=%d steps=%d cfg=%.2f\n",
 		dst, width, height, numFrames, fps, steps, cfg)
 
-	ret := GenVideo(p, steps, dst, cfg, fps, opts.StartImage, opts.EndImage)
+	ret := GenVideo(p, steps, dst, cfg, fps, opts.StartImage, opts.EndImage, refImages, refVideos, refAudios)
 	if ret != 0 {
 		return fmt.Errorf("video inference failed (code %d)", ret)
 	}
+	return nil
+}
+
+// Presence of the backend option upscale_scale selects upscale mode.
+type upscaleSettings struct {
+	enabled                bool
+	path                   string
+	scale, tile, threads   int32
+	direct                 bool
+	backend, paramsBackend string
+}
+
+func parseUpscaleSettings(opts *pb.ModelOptions) (upscaleSettings, error) {
+	s := upscaleSettings{threads: opts.Threads}
+	image := false
+	for _, op := range opts.Options {
+		k, _, _ := strings.Cut(op, ":")
+		if k == "upscale_scale" {
+			s.enabled = true
+		}
+		if k == "diffusion_model" {
+			image = true
+		}
+	}
+	if !s.enabled {
+		return s, nil
+	}
+	if image {
+		return s, fmt.Errorf("upscale_scale cannot be combined with diffusion_model")
+	}
+	seen := make(map[string]bool)
+	for _, op := range opts.Options {
+		k, v, _ := strings.Cut(op, ":")
+		switch k {
+		case "upscale_scale", "upscale_tile_size", "upscale_direct", "backend", "params_backend":
+			if seen[k] {
+				return s, fmt.Errorf("duplicate upscale setting %q", k)
+			}
+			seen[k] = true
+		}
+		switch k {
+		case "upscale_scale", "upscale_tile_size":
+			n, err := strconv.ParseInt(v, 10, 32)
+			if err != nil || (k == "upscale_scale" && n <= 0) || (k == "upscale_tile_size" && n < 0) {
+				if k == "upscale_tile_size" {
+					return s, fmt.Errorf("%s must be a non-negative integer", k)
+				}
+				return s, fmt.Errorf("%s must be a positive integer", k)
+			}
+			if k == "upscale_scale" {
+				s.scale = int32(n)
+			} else {
+				s.tile = int32(n)
+			}
+		case "upscale_direct":
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return s, fmt.Errorf("invalid upscale_direct: %w", err)
+			}
+			s.direct = b
+		case "backend":
+			s.backend = v
+		case "params_backend":
+			s.paramsBackend = v
+		}
+	}
+	if s.scale <= 0 {
+		return s, fmt.Errorf("upscale_scale must be configured and positive")
+	}
+	modelFile := opts.ModelFile
+	if modelFile == "" {
+		return s, fmt.Errorf("upscale model path is empty")
+	}
+	if filepath.IsAbs(modelFile) {
+		s.path = filepath.Clean(modelFile)
+	} else {
+		// Verify the untrusted relative name before joining, then verify the
+		// resolved result as well. VerifyPath intentionally treats absolute
+		// inputs as relative, so absolute model files use VerifyResolvedPath.
+		if err := utils.VerifyPath(modelFile, opts.ModelPath); err != nil {
+			return s, fmt.Errorf("upscale model path is outside model path: %w", err)
+		}
+		s.path = filepath.Join(opts.ModelPath, modelFile)
+	}
+	if err := utils.VerifyResolvedPath(s.path, opts.ModelPath); err != nil {
+		return s, fmt.Errorf("upscale model path is outside model path: %w", err)
+	}
+	// Lexical containment alone does not prevent a model symlink (or a
+	// symlinked parent directory) from escaping the trusted root. Resolve
+	// both, requiring an existing target, and cache only the real model path.
+	realRoot, err := filepath.EvalSymlinks(opts.ModelPath)
+	if err != nil {
+		return s, fmt.Errorf("resolve upscale model root: %w", err)
+	}
+	realPath, err := filepath.EvalSymlinks(s.path)
+	if err != nil {
+		return s, fmt.Errorf("resolve upscale model file: %w", err)
+	}
+	if err := utils.VerifyResolvedPath(realPath, realRoot); err != nil {
+		return s, fmt.Errorf("upscale model path is outside real model path: %w", err)
+	}
+	info, err := os.Stat(realPath)
+	if err != nil {
+		return s, fmt.Errorf("stat upscale model file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return s, fmt.Errorf("upscale model path must be a regular file")
+	}
+	s.path = realPath
+	for _, v := range []string{s.path, s.backend, s.paramsBackend} {
+		if strings.ContainsRune(v, 0) {
+			return s, fmt.Errorf("upscale settings contain NUL")
+		}
+	}
+	return s, nil
+}
+
+func (sd *SDGGML) UpscaleImage(opts *pb.UpscaleImageRequest) error {
+	sd.upscaleMu.Lock()
+	defer sd.upscaleMu.Unlock()
+	s := sd.upscale
+	if !s.enabled {
+		return fmt.Errorf("no upscale-only model loaded (configure upscale_scale)")
+	}
+	if opts == nil || opts.Scale <= 0 || opts.Src == "" || opts.Dst == "" || strings.ContainsRune(opts.Src, 0) || strings.ContainsRune(opts.Dst, 0) {
+		return fmt.Errorf("upscale requires source, destination and positive requested scale")
+	}
+	if sd.upscaler == 0 {
+		h := UpscalerCreate(s.path, s.direct, s.threads, s.tile, s.backend, s.paramsBackend)
+		runtime.KeepAlive(s)
+		if h == 0 {
+			return fmt.Errorf("could not initialize ESRGAN upscaler")
+		}
+		detected := UpscalerScale(h)
+		if detected <= 0 || detected != s.scale {
+			UpscalerDestroy(h)
+			return fmt.Errorf("configured upscale scale %d differs from detected native scale %d", s.scale, detected)
+		}
+		sd.upscaler = h
+	}
+	if opts.Scale != s.scale {
+		return fmt.Errorf("requested upscale scale %d differs from native scale %d", opts.Scale, s.scale)
+	}
+	code := UpscalerRun(sd.upscaler, opts.Src, opts.Dst, opts.Scale)
+	runtime.KeepAlive(opts)
+	switch code {
+	case 0:
+		return nil
+	case 1:
+		return fmt.Errorf("invalid native upscale arguments")
+	case 2:
+		return fmt.Errorf("upscale source decode failed")
+	case 3:
+		return fmt.Errorf("upscale inference failed")
+	case 4:
+		return fmt.Errorf("upscale output validation failed")
+	case 5:
+		return fmt.Errorf("upscale PNG write failed")
+	default:
+		return fmt.Errorf("upscale failed (native code %d)", code)
+	}
+}
+
+func (sd *SDGGML) Free() error {
+	sd.upscaleMu.Lock()
+	defer sd.upscaleMu.Unlock()
+	if sd.upscaler != 0 {
+		UpscalerDestroy(sd.upscaler)
+		sd.upscaler = 0
+	}
+	sd.upscale = upscaleSettings{}
+	// Deliberately leave the existing diffusion sd_c lifecycle unchanged.
 	return nil
 }

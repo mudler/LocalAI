@@ -90,6 +90,19 @@ except Exception:
     _SEED_KEY = "sampling_seed"
 
 
+# Engine.async_generate() only grew a require_reasoning keyword in sglang
+# 0.5.13. The CPU build compiles v0.5.11 from source and the other profiles
+# only set a >=0.5.11 floor, and async_generate() takes no **kwargs, so
+# passing the keyword unconditionally fails every request with TypeError.
+try:
+    import inspect as _inspect
+    _ASYNC_GENERATE_HAS_REQUIRE_REASONING = (
+        "require_reasoning" in _inspect.signature(Engine.async_generate).parameters
+    )
+except Exception:
+    _ASYNC_GENERATE_HAS_REQUIRE_REASONING = False
+
+
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 # proto3 has no field presence, so an explicit 0 is indistinguishable from
@@ -105,6 +118,12 @@ MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 class BackendServicer(backend_pb2_grpc.BackendServicer):
     """gRPC servicer implementing the Backend service for sglang."""
 
+    # Class-level default so a servicer used before LoadModel (e.g. in unit
+    # tests that construct it directly) doesn't AttributeError in
+    # _build_sampling_params.
+    thinking_budget: Optional[int] = None
+    reasoning_default: Optional[str] = None
+
     def _parse_options(self, options_list) -> Dict[str, str]:
         opts: Dict[str, str] = {}
         for opt in options_list:
@@ -113,6 +132,49 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             key, value = opt.split(":", 1)
             opts[key.strip()] = value.strip()
         return opts
+
+    @staticmethod
+    def _parse_thinking_budget(value) -> Optional[int]:
+        """Turn the `thinking_budget` model option into a positive int, or None.
+
+        Options arrive as strings from the YAML `options:` list, but a value
+        like "5000.0" is a plausible thing to write, and a crash here would
+        take down LoadModel for the whole model. So: integral numbers are
+        accepted in any spelling ("512", "512.0"), anything else is ignored
+        with a warning instead of raising. Zero and negative budgets are
+        ignored too: sglang gives them no defined meaning, and turning
+        reasoning off is what `reasoning_default: off` is for.
+        """
+        if value is None or str(value).strip() == "":
+            return None
+        raw = str(value).strip()
+        try:
+            number = float(raw)
+        except ValueError:
+            print(f"thinking_budget {raw!r} is not a number, ignoring it", file=sys.stderr)
+            return None
+        if not number.is_integer():
+            print(f"thinking_budget {raw!r} is not a whole number of tokens, ignoring it", file=sys.stderr)
+            return None
+        if number <= 0:
+            print(
+                f"thinking_budget {raw!r} must be positive, ignoring it "
+                "(use reasoning_default:off to disable reasoning)",
+                file=sys.stderr,
+            )
+            return None
+        return int(number)
+
+    @staticmethod
+    def _strict_thinking_warning(thinking_budget: Optional[int], engine_kwargs: dict) -> Optional[str]:
+        """sglang only enforces the budget with enable_strict_thinking on; without
+        it the budget is silently ignored, so say so at load time."""
+        if thinking_budget is not None and not engine_kwargs.get("enable_strict_thinking"):
+            return (
+                f"thinking_budget={thinking_budget} is set but enable_strict_thinking is not "
+                "in engine_args; sglang will ignore the budget"
+            )
+        return None
 
     def _apply_engine_args(self, engine_kwargs: dict, engine_args_json: str) -> dict:
         """Merge user-supplied engine_args (JSON object) into the kwargs dict
@@ -136,7 +198,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             raise ValueError(
                 f"engine_args must be a JSON object, got {type(extra).__name__}"
             )
-        valid = {f.name for f in dataclasses.fields(ServerArgs)}
+        if dataclasses.is_dataclass(ServerArgs):
+            valid = {f.name for f in dataclasses.fields(ServerArgs)}
+        else:
+            # sglang >= 0.5.20 moved the config tier from dataclasses to
+            # msgspec.Struct (sgl-project/sglang#38753); msgspec keeps the
+            # field names in __struct_fields__.
+            valid = set(getattr(ServerArgs, "__struct_fields__", ()))
+            if not valid:
+                raise ValueError(
+                    "cannot introspect ServerArgs fields: it is neither a "
+                    "dataclass nor a msgspec.Struct, so engine_args cannot "
+                    "be validated"
+                )
         for key in extra:
             if key not in valid:
                 suggestion = difflib.get_close_matches(key, valid, n=1)
@@ -218,6 +292,35 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.tool_parser_name: Optional[str] = opts.get("tool_parser") or None
         self.reasoning_parser_name: Optional[str] = opts.get("reasoning_parser") or None
 
+        # Fixed reasoning-length budget for every request on this model, in
+        # tokens. There is no protobuf field to carry a per-request
+        # custom_params blob, so this rides the same model-level `options:`
+        # mechanism as tool_parser/reasoning_parser above — mirroring how
+        # sglang's own `--preferred-sampling-params` is a server-wide
+        # default, not a per-request choice. Requires `enable_strict_thinking`
+        # in `engine_args:` (sglang >=0.5.12); without it sglang has no
+        # tokenizer-derived budget mechanism to enforce this against.
+        self.thinking_budget: Optional[int] = self._parse_thinking_budget(
+            opts.get("thinking_budget")
+        )
+
+        # Model-level default for whether the chat template opens a reasoning
+        # block, as "off" or "on". Rides the same `options:` mechanism as
+        # thinking_budget above.
+        #
+        # Why this is needed even though `reasoning_effort` exists: that one
+        # only reaches this backend when a *caller* sets it per request (the
+        # Go side turns it into Metadata["enable_thinking"]). As a model-level
+        # `parameters:` default it is silently dropped, so a config reading
+        # `reasoning_effort: none` still produces full reasoning on every
+        # request - the config says one thing and the model does another.
+        #
+        # A per-request value always wins; this only fills in the gap when the
+        # request says nothing.
+        self.reasoning_default: Optional[str] = (
+            opts.get("reasoning_default") or ""
+        ).lower() or None
+
         # Also hand the parser names to sglang's engine so its HTTP/OAI
         # paths work identically if someone hits the engine directly.
         if self.tool_parser_name:
@@ -234,6 +337,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         except ValueError as err:
             print(f"engine_args error: {err}", file=sys.stderr)
             return backend_pb2.Result(success=False, message=str(err))
+
+        warning = self._strict_thinking_warning(self.thinking_budget, engine_kwargs)
+        if warning:
+            print(warning, file=sys.stderr)
 
         try:
             self.llm = Engine(**engine_kwargs)
@@ -350,7 +457,27 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             except json.JSONDecodeError:
                 sampling_params["ebnf"] = grammar
 
+        if self.thinking_budget is not None:
+            sampling_params["custom_params"] = {"thinking_budget": self.thinking_budget}
+
         return sampling_params
+
+    def _thinking_default(self, request) -> Optional[bool]:
+        """Whether this request should render with reasoning on, off, or unset.
+
+        Per-request ``Metadata["enable_thinking"]`` wins; the model-level
+        ``reasoning_default`` option fills in when the request is silent.
+        Returns None when neither says anything, leaving template behaviour
+        untouched.
+        """
+        wanted = request.Metadata.get("enable_thinking", "").lower()
+        if wanted in ("true", "false"):
+            return wanted == "true"
+        if self.reasoning_default == "off":
+            return False
+        if self.reasoning_default == "on":
+            return True
+        return None
 
     def _build_prompt(self, request) -> str:
         prompt = request.Prompt
@@ -372,9 +499,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 template_kwargs["tools"] = json.loads(request.Tools)
             except json.JSONDecodeError:
                 pass
-        _thinking = request.Metadata.get("enable_thinking", "").lower()
-        if _thinking in ("true", "false"):
-            template_kwargs["enable_thinking"] = (_thinking == "true")
+        _thinking = self._thinking_default(request)
+        if _thinking is not None:
+            template_kwargs["enable_thinking"] = _thinking
 
         # sglang locates the attached images/videos by scanning the rendered
         # prompt for the model's own media token, so the template has to be
@@ -426,12 +553,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         there files the answer as reasoning and leaves content empty. sglang's
         own server keeps the two apart for the same reason — its grammar
         backend owns the reasoning prefix when a reasoning parser is set.
+
+        Returns a ``(parser, forced)`` pair. ``forced`` is also the signal
+        ``_predict`` passes as ``Engine.async_generate(require_reasoning=...)``:
+        sglang's own OpenAI server derives that flag from per-template
+        config (``ChatServing._get_reasoning_from_request``); this backend
+        has no template manager, so the same prompt-suffix heuristic that
+        already decides parser forcing doubles as that signal.
         """
         if grammar_constrained:
             prompt = ""
 
         if not (HAS_REASONING_PARSERS and self.reasoning_parser_name):
-            return None
+            return None, False
 
         kwargs = {
             "model_type": self.reasoning_parser_name,
@@ -441,10 +575,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             parser = ReasoningParser(**kwargs)
         except Exception as e:
             print(f"ReasoningParser init failed: {e!r}", file=sys.stderr)
-            return None
+            return None, False
 
+        forced = False
         start = getattr(getattr(parser, "detector", None), "think_start_token", None)
         if start and prompt and prompt.rstrip().endswith(start):
+            forced = True
             try:
                 parser = ReasoningParser(force_reasoning=True, **kwargs)
             except TypeError:
@@ -457,10 +593,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     file=sys.stderr,
                 )
 
-        return parser
+        return parser, forced
 
     def _make_parsers(self, request, prompt: str = ""):
-        """Construct fresh per-request parser instances (stateful)."""
+        """Construct fresh per-request parser instances (stateful).
+
+        Also returns ``require_reasoning`` (see ``_new_reasoning_parser``),
+        which ``_predict`` forwards to ``Engine.async_generate()`` so
+        sglang's ``--enable-strict-thinking`` grammar backend knows this
+        request is in a reasoning block.
+        """
         tool_parser = None
 
         if HAS_TOOL_PARSERS and self.tool_parser_name and request.Tools:
@@ -473,23 +615,27 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             except Exception as e:
                 print(f"FunctionCallParser init failed: {e!r}", file=sys.stderr)
 
-        reasoning_parser = self._new_reasoning_parser(
+        reasoning_parser, require_reasoning = self._new_reasoning_parser(
             True, prompt, bool(getattr(request, "Grammar", "")),
         )
 
-        return tool_parser, reasoning_parser
+        return tool_parser, reasoning_parser, require_reasoning
 
     async def _predict(self, request, context, streaming: bool = False):
         sampling_params = self._build_sampling_params(request)
         prompt = self._build_prompt(request)
 
-        tool_parser, reasoning_parser = self._make_parsers(request, prompt)
+        tool_parser, reasoning_parser, require_reasoning = self._make_parsers(request, prompt)
 
         image_data = list(request.Images) if request.Images else None
         video_data = list(request.Videos) if request.Videos else None
 
         # Kick off streaming generation. We always use stream=True so the
         # non-stream path still gets parser coverage on the final text.
+        generate_kwargs = {}
+        if _ASYNC_GENERATE_HAS_REQUIRE_REASONING:
+            generate_kwargs["require_reasoning"] = require_reasoning
+
         try:
             iterator = await self.llm.async_generate(
                 prompt=prompt,
@@ -497,6 +643,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 image_data=image_data,
                 video_data=video_data,
                 stream=True,
+                **generate_kwargs,
             )
         except Exception as e:
             print(f"sglang async_generate failed: {e!r}", file=sys.stderr)
@@ -579,7 +726,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         final_tool_calls: List[backend_pb2.ToolCallDelta] = []
 
         if not streaming:
-            final_reasoning_parser = self._new_reasoning_parser(
+            final_reasoning_parser, _ = self._new_reasoning_parser(
                 False, prompt, bool(getattr(request, "Grammar", "")),
             )
 

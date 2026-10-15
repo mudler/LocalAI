@@ -88,7 +88,7 @@ func ModelTTS(
 	// a FS path
 	mp := filepath.Join(loader.ModelPath, modelConfig.Model)
 	if _, err := os.Stat(mp); err == nil {
-		if err := utils.VerifyPath(mp, appConfig.SystemState.Model.ModelsPath); err != nil {
+		if err := utils.VerifyResolvedPath(mp, appConfig.SystemState.Model.ModelsPath); err != nil {
 			return "", nil, err
 		}
 		modelPath = mp
@@ -189,7 +189,7 @@ func ModelTTSStream(
 	// a FS path
 	mp := filepath.Join(loader.ModelPath, modelConfig.Model)
 	if _, err := os.Stat(mp); err == nil {
-		if err := utils.VerifyPath(mp, appConfig.SystemState.Model.ModelsPath); err != nil {
+		if err := utils.VerifyResolvedPath(mp, appConfig.SystemState.Model.ModelsPath); err != nil {
 			return err
 		}
 		modelPath = mp

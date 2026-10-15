@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
@@ -139,21 +140,21 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			// Subscribe to model.delete on both node subjects, track receipt
 			var deleteCount atomic.Int32
 			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeModelDelete(node1.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.ModelDeleteRequest
+				var req workerctl.ModelDeleteRequest
 				json.Unmarshal(data, &req)
 				Expect(req.ModelName).To(Equal("big-model"))
 				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.ModelDeleteReply{Success: true})
+				resp, _ := json.Marshal(workerctl.ModelDeleteReply{Success: true})
 				reply(resp)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub1.Unsubscribe()
 
 			sub2, err := infra.NC.SubscribeReply(messaging.SubjectNodeModelDelete(node2.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.ModelDeleteRequest
+				var req workerctl.ModelDeleteRequest
 				json.Unmarshal(data, &req)
 				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.ModelDeleteReply{Success: true})
+				resp, _ := json.Marshal(workerctl.ModelDeleteReply{Success: true})
 				reply(resp)
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -205,21 +206,21 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			// Subscribe to backend.delete on all 3 nodes
 			var deleteCount atomic.Int32
 			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node1.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.BackendDeleteRequest
+				var req workerctl.BackendDeleteRequest
 				json.Unmarshal(data, &req)
 				Expect(req.Backend).To(Equal("my-backend"))
 				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.BackendDeleteReply{Success: true})
+				resp, _ := json.Marshal(workerctl.BackendDeleteReply{Success: true})
 				reply(resp)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub1.Unsubscribe()
 
 			sub2, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node2.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.BackendDeleteRequest
+				var req workerctl.BackendDeleteRequest
 				json.Unmarshal(data, &req)
 				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.BackendDeleteReply{Success: true})
+				resp, _ := json.Marshal(workerctl.BackendDeleteReply{Success: true})
 				reply(resp)
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -228,7 +229,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			var unhealthyReceived atomic.Int32
 			sub3, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node3.ID), func(data []byte, reply func([]byte)) {
 				unhealthyReceived.Add(1)
-				resp, _ := json.Marshal(messaging.BackendDeleteReply{Success: true})
+				resp, _ := json.Marshal(workerctl.BackendDeleteReply{Success: true})
 				reply(resp)
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -276,11 +277,11 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 
 			var deleteCount atomic.Int32
 			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node1.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.BackendDeleteRequest
+				var req workerctl.BackendDeleteRequest
 				json.Unmarshal(data, &req)
 				Expect(req.Backend).To(Equal("remote-only-backend"))
 				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.BackendDeleteReply{Success: true})
+				resp, _ := json.Marshal(workerctl.BackendDeleteReply{Success: true})
 				reply(resp)
 			})
 			Expect(err).ToNot(HaveOccurred())

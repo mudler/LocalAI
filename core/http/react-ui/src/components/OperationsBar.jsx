@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useOperations } from '../hooks/useOperations'
 import { formatBytes } from '../utils/format'
+import Icon from './Icon'
 
 const artifactPhaseKeys = {
   resolving: 'activity.phase.resolving',
@@ -88,7 +89,7 @@ export default function OperationsBar() {
   let verb = ''
   if (isFinished) {
     modifier = 'operations-strip--done'
-    icon = <i className="fas fa-check operations-strip__icon" aria-hidden="true" />
+    icon = <Icon name="check" className="operations-strip__icon" />
     // The completion phrase has to match the work that just ended: a removal
     // that reports "Installed" reads as the opposite of what happened.
     if (shown.isDeletion) verb = t('activity.verb.removed', { kind })
@@ -96,7 +97,7 @@ export default function OperationsBar() {
     else verb = t('activity.verb.installed', { kind })
   } else if (shown.error) {
     modifier = 'operations-strip--error'
-    icon = <i className="fas fa-circle-exclamation operations-strip__icon" aria-hidden="true" />
+    icon = <Icon name="alert-circle" className="operations-strip__icon" />
     // Same split as the card, so the two surfaces never describe one failed
     // job differently: a removal reported as a failed install is the opposite
     // of what happened.
@@ -105,15 +106,15 @@ export default function OperationsBar() {
     else verb = t('activity.verb.failed', { kind })
   } else if (shown.isQueued) {
     modifier = 'operations-strip--queued'
-    icon = <i className="fas fa-clock operations-strip__icon" aria-hidden="true" />
+    icon = <Icon name="clock" className="operations-strip__icon" />
     verb = t('activity.verb.queued')
   } else if (shown.taskType === 'staging') {
     modifier = 'operations-strip--staging'
-    icon = <i className="fas fa-cloud-arrow-up operations-strip__icon" aria-hidden="true" />
+    icon = <Icon name="cloud-upload" className="operations-strip__icon" />
     verb = t('activity.verb.staging')
   } else if (shown.isDeletion) {
     modifier = 'operations-strip--removing'
-    icon = <i className="fas fa-trash operations-strip__icon" aria-hidden="true" />
+    icon = <Icon name="trash" className="operations-strip__icon" />
     verb = t('activity.verb.removing', { kind })
   } else {
     icon = <span className="operations-strip__spinner" aria-hidden="true" />
@@ -201,7 +202,7 @@ export default function OperationsBar() {
         title={shown.error ? t('activity.moveToHistory') : t('activity.hide')}
         aria-label={shown.error ? t('activity.moveToHistory') : t('activity.hide')}
       >
-        <i className="fas fa-xmark" aria-hidden="true" />
+        <Icon name="close" />
       </button>
     </div>
   )

@@ -19,6 +19,33 @@
     },
     "basePath": "/",
     "paths": {
+        "/3d/animate": {
+            "post": {
+                "tags": [
+                    "3d"
+                ],
+                "summary": "Creates a 3D animation (binary glTF / GLB).",
+                "parameters": [
+                    {
+                        "description": "Named conditioning inputs and model-specific parameters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Model3DAnimationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/3d/generations": {
             "post": {
                 "tags": [
@@ -851,6 +878,160 @@
                 }
             }
         },
+        "/api/failover": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "List failover chains and the health of their targets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.FailoverChainsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/failover/events": {
+            "get": {
+                "description": "The first event is \"snapshot\" with the full state, then \"chain.switched\" and \"target.state\" events.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Stream failover events (server-sent events)",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/failover/{chain}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Get one failover chain",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/failover/{chain}/pin": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Pin a failover chain to one target",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Target to pin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FailoverPinRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Remove the pin from a failover chain",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/instructions": {
             "get": {
                 "description": "Returns a compact list of instruction areas with descriptions and URLs for detailed guides",
@@ -1009,6 +1190,26 @@
                 }
             }
         },
+        "/api/models/storage": {
+            "get": {
+                "description": "Per-model disk usage, shared-file relations and missing references under the models path",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Report model storage usage on disk",
+                "responses": {
+                    "200": {
+                        "description": "storage report",
+                        "schema": {
+                            "$ref": "#/definitions/gallery.StorageIndex"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/toggle-pinned/{name}/{action}": {
             "put": {
                 "description": "Pin or unpin a model. Pinned models stay loaded and are excluded from automatic eviction.",
@@ -1094,9 +1295,86 @@
                 }
             }
         },
+        "/api/models/{id}/load-cancel": {
+            "post": {
+                "description": "Cancels the load attempt named by `job_id` and stops its remote work. 200 means the attempt is gone or the worker confirmed the stop. 202 means the cancel is recorded and the stop is pending; the model is released after `retry_after` seconds regardless. 409 means a different attempt is current and carries its `current_job_id`. Repeating the call is safe and does not extend the hold.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Cancel one distributed model load.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The exact attempt to cancel",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stopped, or no such load any more",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "Cancel recorded; stop pending",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown model",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A different attempt is current",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/{id}/load-status": {
             "get": {
-                "description": "Returns the live state of a distributed cold load — phase, node, byte progress and ETA — or 404 when no load is running for the model. This is the same `loading` object the 503 response carries while a model is still staging.",
+                "description": "Returns the live state of a distributed cold load: job id, phase, node, byte progress, ETA, lease freshness, and for a failed attempt the cause, whether the stop is pending and when the model is released. 404 means no load exists for the model. A database error is 503, never an empty answer. This is the same `loading` object the 503 response carries while a model is still staging.",
                 "produces": [
                     "application/json"
                 ],
@@ -1122,6 +1400,12 @@
                     },
                     "404": {
                         "description": "No load is running for this model",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The job table could not be read",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -1175,6 +1459,146 @@
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Create a motion capture session",
+                "parameters": [
+                    {
+                        "description": "Model, output profile and source clock origin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionSessionInfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions/{id}": {
+            "get": {
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Get motion session status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionSessionInfo"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Close a motion session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions/{id}/poses": {
+            "get": {
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Stream motion frames and poses over a duplex WebSocket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols"
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions/{id}/tickets": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Issue a motion WebSocket ticket (30 seconds, single use)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Browser origin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionTicketRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/auth.WebSocketTicketResponse"
                         }
                     }
                 }
@@ -2570,6 +2994,46 @@
                 }
             }
         },
+        "/models/import": {
+            "post": {
+                "description": "Writes the posted model configuration. A config referencing\nremote assets (download_files entries, URI-valued model/mmproj)\nis enqueued on the gallery job queue and answered with a job id\nplus status URL to poll, like a gallery install; a config with\nno downloads is written synchronously and answered with a\nplain success response. A queued import runs the gallery\ninstaller, which also adds recommended inference defaults the\nconfig leaves unset and installs the backend when automatic\nbackend installation is enabled; the synchronous path stores\nthe body as posted.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Import a model from a raw YAML or JSON configuration",
+                "parameters": [
+                    {
+                        "description": "model configuration (YAML or JSON body)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "remote assets present: job id and status URL",
+                        "schema": {
+                            "$ref": "#/definitions/schema.GalleryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid or incomplete configuration",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/models/jobs": {
             "get": {
                 "tags": [
@@ -2725,8 +3189,10 @@
         },
         "/v1/audio/diarization": {
             "post": {
+                "description": "JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles, include_sounds and response_format. Profiles require voice-recognition permission and json or verbose_json; unsupported backends return 501.",
                 "consumes": [
-                    "multipart/form-data"
+                    "multipart/form-data",
+                    "application/json"
                 ],
                 "tags": [
                     "audio"
@@ -2791,8 +3257,20 @@
                     },
                     {
                         "type": "boolean",
+                        "description": "export portable biometric profiles (voice-recognition permission; JSON formats only)",
+                        "name": "include_speaker_profiles",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
                         "description": "include per-segment transcript when the backend supports it",
                         "name": "include_text",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "include closed sound events (start, end, label, confidence) when the model has a sound_model companion; otherwise 501 include_sounds_unsupported (JSON formats only)",
+                        "name": "include_sounds",
                         "in": "formData"
                     },
                     {
@@ -2988,6 +3466,40 @@
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/decisions": {
+            "post": {
+                "description": "Uses the same local decision and NER execution as SystemOne. Supports inline images on capable backends; confidence is not OpenAI calibrated.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Answer ordered predicate, choice and score questions.",
+                "parameters": [
+                    {
+                        "description": "input + questions + model",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.DecisionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DecisionsResponse"
                         }
                     }
                 }
@@ -3421,9 +3933,10 @@
                     },
                     {
                         "type": "integer",
-                        "description": "Upscale factor: 2 or 4 (default 2)",
+                        "description": "Upscale factor: integer from 1 to 16; must match the model native scale",
                         "name": "scale",
-                        "in": "formData"
+                        "in": "formData",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -3740,6 +4253,90 @@
                 }
             }
         },
+        "/v1/systemone": {
+            "post": {
+                "description": "Runs zero-shot NER over the supplied state and answers each question. Question types: noul (binary entity presence), choice (pick one option), score (pick one level).",
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Answer structured-extraction questions over state text.",
+                "parameters": [
+                    {
+                        "description": "state + questions",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/systemone/permute": {
+            "post": {
+                "description": "Re-runs one choice question under n_perm option orders. Reports per-order probabilities, argmax stability, and spread.",
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Re-run a choice question under multiple option orders.",
+                "parameters": [
+                    {
+                        "description": "request + question + n_perm + seed",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOnePermuteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOnePermuteResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/systemone/separate": {
+            "post": {
+                "description": "Runs N independent NER passes, one per question, against the same state. Response shape matches /v1/systemone.",
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Answer each question in a separate NER pass.",
+                "parameters": [
+                    {
+                        "description": "state + questions",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/text-to-speech/{voice-id}": {
             "post": {
                 "tags": [
@@ -3930,6 +4527,7 @@
         },
         "/v1/voice/register": {
             "post": {
+                "description": "Supply either audio or speaker_profiles plus an explicit numeric speaker_slot. The selected model must expose matching trusted encoder metadata for portable enrollment. Registrations are global and ephemeral, with a fresh ID for each request.",
                 "tags": [
                     "voice-recognition"
                 ],
@@ -4060,11 +4658,30 @@
         }
     },
     "definitions": {
+        "auth.WebSocketTicketResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "ticket": {
+                    "type": "string"
+                }
+            }
+        },
         "config.Gallery": {
             "type": "object",
             "properties": {
+                "artifact_verification": {
+                    "description": "ArtifactVerification overrides Verification only for the gallery OCI artifact.\nBackend images keep their separate Verification policy.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.GalleryVerification"
+                        }
+                    ]
+                },
                 "mirrors": {
-                    "description": "Mirrors are tried in order when URL cannot be fetched. They are a\nfallback for availability, not a load-balancing pool: the primary is\nalways preferred, and a mirror is only consulted after the one before\nit fails. Any URI the gallery loader understands works here\n(https://, github:, file://).",
+                    "description": "Mirrors are tried in order when URL cannot be fetched. They are a\nfallback for availability, not a load-balancing pool: the primary is\nalways preferred, and a mirror is only consulted after the one before\nit fails. Any URI the gallery loader understands works here\n(https://, github:, file://, oci://).",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -4099,6 +4716,10 @@
                 "not_before": {
                     "description": "NotBefore is an RFC3339 timestamp. Empty disables the time check.",
                     "type": "string"
+                },
+                "source_repository": {
+                    "description": "SourceRepository is an https URL compared exactly against the\ncertificate's source-repository extension. Empty skips the check.",
+                    "type": "string"
                 }
             }
         },
@@ -4113,6 +4734,97 @@
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "failover.ChainState": {
+            "type": "string",
+            "enum": [
+                "primary",
+                "fallback",
+                "degraded"
+            ],
+            "x-enum-varnames": [
+                "ChainPrimary",
+                "ChainFallback",
+                "ChainDegraded"
+            ]
+        },
+        "failover.ChainStatus": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "active_since": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pinned": {
+                    "type": "string"
+                },
+                "state": {
+                    "$ref": "#/definitions/failover.ChainState"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/failover.TargetStatus"
+                    }
+                }
+            }
+        },
+        "failover.Kind": {
+            "type": "string",
+            "enum": [
+                "local",
+                "remote"
+            ],
+            "x-enum-varnames": [
+                "KindLocal",
+                "KindRemote"
+            ]
+        },
+        "failover.TargetState": {
+            "type": "string",
+            "enum": [
+                "healthy",
+                "down",
+                "recovering",
+                "missing"
+            ],
+            "x-enum-varnames": [
+                "StateHealthy",
+                "StateDown",
+                "StateRecovering",
+                "StateMissing"
+            ]
+        },
+        "failover.TargetStatus": {
+            "type": "object",
+            "properties": {
+                "consecutive_ok": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "$ref": "#/definitions/failover.Kind"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "last_probe": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "state": {
+                    "$ref": "#/definitions/failover.TargetState"
+                },
+                "warm": {
+                    "type": "boolean"
                 }
             }
         },
@@ -4335,6 +5047,32 @@
                 }
             }
         },
+        "gallery.ModelStorage": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "missing": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "shared_bytes": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
         "gallery.NodeDriftInfo": {
             "type": "object",
             "properties": {
@@ -4349,6 +5087,54 @@
                 },
                 "version": {
                     "type": "string"
+                }
+            }
+        },
+        "gallery.StorageFile": {
+            "type": "object",
+            "properties": {
+                "missing": {
+                    "type": "boolean"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "path": {
+                    "description": "Path is relative to the models directory.",
+                    "type": "string"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "gallery.StorageIndex": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "description": "Errors carries per-config failures (malformed YAML, path escapes),\nreported rather than fatal so one broken config cannot blank the\nwhole report.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.StorageFile"
+                    }
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.ModelStorage"
+                    }
+                },
+                "total_bytes": {
+                    "type": "integer"
                 }
             }
         },
@@ -4526,6 +5312,25 @@
                 }
             }
         },
+        "localai.FailoverChainsResponse": {
+            "type": "object",
+            "properties": {
+                "chains": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/failover.ChainStatus"
+                    }
+                }
+            }
+        },
+        "localai.FailoverPinRequest": {
+            "type": "object",
+            "properties": {
+                "target": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.GalleryBackend": {
             "type": "object",
             "properties": {
@@ -4648,6 +5453,57 @@
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "localai.MotionSessionInfo": {
+            "type": "object",
+            "properties": {
+                "frames": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "poses": {
+                    "type": "integer"
+                },
+                "profile": {
+                    "type": "string"
+                },
+                "time_origin": {
+                    "type": "string"
+                },
+                "upload_accepted": {
+                    "type": "integer"
+                },
+                "upload_dropped": {
+                    "type": "integer"
+                }
+            }
+        },
+        "localai.MotionSessionRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "profile": {
+                    "type": "string"
+                },
+                "time_origin": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.MotionTicketRequest": {
+            "type": "object",
+            "properties": {
+                "origin": {
+                    "type": "string"
                 }
             }
         },
@@ -4876,11 +5732,35 @@
                 }
             }
         },
+        "proto.SpeakerEncoder": {
+            "type": "object",
+            "properties": {
+                "dimension": {
+                    "type": "integer"
+                },
+                "family": {
+                    "description": "embedding space of the encoder; empty when the backend cannot tell",
+                    "type": "string"
+                },
+                "identity": {
+                    "description": "sha256 of loaded GGUF bytes",
+                    "type": "string"
+                }
+            }
+        },
         "proto.StatusResponse": {
             "type": "object",
             "properties": {
                 "memory": {
                     "$ref": "#/definitions/proto.MemoryUsageData"
+                },
+                "speaker_encoder": {
+                    "description": "trusted metadata from the loaded server encoder, never request data",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/proto.SpeakerEncoder"
+                        }
+                    ]
                 },
                 "state": {
                     "$ref": "#/definitions/proto.StatusResponse_State"
@@ -4933,6 +5813,17 @@
                     "type": "string"
                 },
                 "param": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.AnimationInput": {
+            "type": "object",
+            "properties": {
+                "data": {
                     "type": "string"
                 },
                 "type": {
@@ -5194,6 +6085,164 @@
                 }
             }
         },
+        "schema.DecisionAnswer": {
+            "type": "object",
+            "properties": {
+                "choice": {
+                    "description": "Choice preserves the selected string or boolean value. Swagger 2 uses a loose object placeholder for this union.",
+                    "type": "object"
+                },
+                "confidence": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "probabilities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionProbability"
+                    }
+                },
+                "probability": {
+                    "type": "number"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DecisionChoice": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Value is a string or boolean choice. Swagger 2 uses a loose object placeholder for this union.",
+                    "type": "object"
+                }
+            }
+        },
+        "schema.DecisionLevel": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DecisionProbability": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "probability": {
+                    "type": "number"
+                },
+                "value": {
+                    "description": "Value is a string or boolean for choices, or a zero-based integer for score levels. Swagger 2 uses a loose object placeholder for this union.",
+                    "type": "object"
+                }
+            }
+        },
+        "schema.DecisionQuestion": {
+            "type": "object",
+            "properties": {
+                "choices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionChoice"
+                    }
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "levels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionLevel"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DecisionUsage": {
+            "type": "object",
+            "properties": {
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "input_tokens_details": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens_details": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.DecisionsRequest": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "description": "Input is a text string or an array of user messages. Swagger 2 uses a loose object placeholder for this union.",
+                    "type": "object"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionQuestion"
+                    }
+                },
+                "safety_identifier": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DecisionsResponse": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionAnswer"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "usage": {
+                    "$ref": "#/definitions/schema.DecisionUsage"
+                }
+            }
+        },
         "schema.DepthRequest": {
             "type": "object",
             "properties": {
@@ -5427,6 +6476,16 @@
                         "$ref": "#/definitions/schema.DiarizationSegment"
                     }
                 },
+                "sounds": {
+                    "description": "Sounds is present only when the request set include_sounds. An empty\nlist then means the model ran and heard no event; omitzero keeps a nil\nlist (not requested) out of the payload while an empty one stays.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DiarizationSound"
+                    }
+                },
+                "speaker_profiles": {
+                    "$ref": "#/definitions/schema.SpeakerProfiles"
+                },
                 "speakers": {
                     "type": "array",
                     "items": {
@@ -5450,6 +6509,13 @@
                 "label": {
                     "type": "string"
                 },
+                "name": {
+                    "description": "Name is the registered speaker this segment was matched to, and NameScore\nthe cosine similarity of the match. Both are omitted when the backend did\nnot identify the speaker. Speaker stays the normalized SPEAKER_NN label.",
+                    "type": "string"
+                },
+                "name_score": {
+                    "type": "number"
+                },
                 "speaker": {
                     "type": "string"
                 },
@@ -5461,6 +6527,23 @@
                 }
             }
         },
+        "schema.DiarizationSound": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "end": {
+                    "type": "number"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "number"
+                }
+            }
+        },
         "schema.DiarizationSpeaker": {
             "type": "object",
             "properties": {
@@ -5468,6 +6551,9 @@
                     "type": "string"
                 },
                 "label": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "segment_count": {
@@ -5508,6 +6594,12 @@
                 },
                 "model_id": {
                     "type": "string"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "prompt_influence": {
                     "type": "number"
@@ -6280,6 +7372,29 @@
                 }
             }
         },
+        "schema.Model3DAnimationRequest": {
+            "type": "object",
+            "properties": {
+                "inputs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/schema.AnimationInput"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "response_format": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.Model3DRequest": {
             "description": "3D asset generation request body. Generation is image-conditioned",
             "type": "object",
@@ -6338,6 +7453,10 @@
                         "type": "string"
                     }
                 },
+                "context_size": {
+                    "description": "ContextSize is the effective context window in tokens the backend will\nrun with: the configured context_size, or the default when unset. 0 means\nthe value is unknown (e.g. a loose file with no config). Clients can use\nthis to size their context budget for auto-compaction and pruning.",
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -6357,6 +7476,15 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "three_d_operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ThreeDOperation"
+                    }
+                },
+                "upscale_scale": {
+                    "type": "integer"
                 }
             }
         },
@@ -6370,6 +7498,34 @@
                     }
                 },
                 "object": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelLoadCancelRequest": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelLoadCancelResponse": {
+            "type": "object",
+            "properties": {
+                "current_job_id": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "retry_after": {
+                    "type": "integer"
+                },
+                "state": {
                     "type": "string"
                 }
             }
@@ -6404,11 +7560,27 @@
                 "bytes_sent": {
                     "type": "integer"
                 },
+                "cancel_requested": {
+                    "description": "CancelRequested is true when an administrator cancelled the attempt.",
+                    "type": "boolean"
+                },
                 "eta_seconds": {
                     "description": "ETASeconds is omitted rather than guessed until enough bytes have moved\nfor the observed rate to mean anything. A confidently wrong ETA on a\ntwenty-minute wait is worse than none.",
                     "type": "integer"
                 },
                 "file_index": {
+                    "type": "integer"
+                },
+                "job_id": {
+                    "description": "JobID names the load attempt. A cancel must quote it: it is the\nprecondition that keeps a cancel from hitting a replacement attempt.",
+                    "type": "string"
+                },
+                "last_error": {
+                    "description": "LastError is the cause of a failed attempt.",
+                    "type": "string"
+                },
+                "lease_expires_in": {
+                    "description": "LeaseExpiresIn is the seconds left on the owner's lease. It is negative\nwhen the lease already ran out, which means the owner is gone.",
                     "type": "integer"
                 },
                 "model": {
@@ -6420,8 +7592,19 @@
                 "progress": {
                     "type": "number"
                 },
+                "retry_after": {
+                    "description": "RetryAfter is the seconds until a new load may start, for a failed attempt.",
+                    "type": "integer"
+                },
                 "state": {
                     "type": "string"
+                },
+                "stop_deadline": {
+                    "type": "string"
+                },
+                "stopping": {
+                    "description": "Stopping is true while the remote work of a failed attempt is not yet\nconfirmed ended. StopDeadline is when the model is released regardless.",
+                    "type": "boolean"
                 },
                 "total_bytes": {
                     "type": "integer"
@@ -6649,7 +7832,6 @@
                     "type": "boolean"
                 },
                 "type": {
-                    "description": "always \"function\"",
                     "type": "string"
                 }
             }
@@ -7049,6 +8231,15 @@
                 "ignore_eos": {
                     "type": "boolean"
                 },
+                "include_sounds": {
+                    "type": "boolean"
+                },
+                "include_speaker_profiles": {
+                    "type": "boolean"
+                },
+                "include_text": {
+                    "type": "boolean"
+                },
                 "input": {},
                 "instruction": {
                     "description": "Edit endpoint",
@@ -7111,6 +8302,7 @@
                     "type": "integer"
                 },
                 "negative_prompt": {
+                    "description": "NegativePrompt for image generation (matches Stable Diffusion WebUI /\nvLLM-Omni conventions). Combined, comma-separated, with any \"|\"-suffixed\nnegative tags in Prompt.",
                     "type": "string"
                 },
                 "negative_prompt_scale": {
@@ -7238,6 +8430,9 @@
                 },
                 "id": {
                     "type": "string"
+                },
+                "metadata": {
+                    "type": "object"
                 },
                 "model": {
                     "type": "string"
@@ -7716,6 +8911,75 @@
                 }
             }
         },
+        "schema.SpeakerEncoder": {
+            "type": "object",
+            "properties": {
+                "dimension": {
+                    "type": "integer"
+                },
+                "family": {
+                    "description": "Family is the embedding space of the encoder. The server fills it from the\nloaded encoder; exported profiles do not carry it and it is not matched.",
+                    "type": "string"
+                },
+                "identity": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SpeakerProfile": {
+            "type": "object",
+            "properties": {
+                "clean_duration": {
+                    "type": "number"
+                },
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "intervals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SpeakerProfileInterval"
+                    }
+                },
+                "speaker": {
+                    "type": "integer"
+                },
+                "unavailable_reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SpeakerProfileInterval": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "number"
+                },
+                "start": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.SpeakerProfiles": {
+            "type": "object",
+            "properties": {
+                "encoder": {
+                    "$ref": "#/definitions/schema.SpeakerEncoder"
+                },
+                "speakers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SpeakerProfile"
+                    }
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.StreamOptions": {
             "type": "object",
             "properties": {
@@ -7732,6 +8996,40 @@
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "process": {
+                    "description": "Process is the backend process serving the model on this host. Absent\nwhen the model has no local process (a distributed worker holds it) or\nthe process could not be read.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.SysInfoProcess"
+                        }
+                    ]
+                },
+                "size_vram": {
+                    "description": "SizeVRAM is DRM-accounted resident device memory in bytes. Nil means\nthe backend process tree has no complete supported reading.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SysInfoProcess": {
+            "type": "object",
+            "properties": {
+                "cpu_percent": {
+                    "description": "CPUPercent is the share of the whole host's CPU used since the previous\nreading, 0-100. Absent on the first reading of a process.",
+                    "type": "number"
+                },
+                "memory_percent": {
+                    "type": "number"
+                },
+                "pid": {
+                    "type": "integer"
+                },
+                "rss_bytes": {
+                    "description": "RSSBytes is resident host memory. Weights offloaded to a GPU are not\nin it.",
+                    "type": "integer"
+                },
+                "started_at": {
                     "type": "string"
                 }
             }
@@ -7752,6 +9050,158 @@
                     "items": {
                         "$ref": "#/definitions/schema.SysInfoModel"
                     }
+                }
+            }
+        },
+        "schema.SystemOneAnswer": {
+            "type": "object",
+            "properties": {
+                "choice": {
+                    "type": "string"
+                },
+                "confidence": {
+                    "type": "number"
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SystemOneEntity"
+                    }
+                },
+                "legend": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "noul": {
+                    "type": "number"
+                },
+                "probabilities": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "score": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SystemOneEntity": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "end": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SystemOnePermuteRequest": {
+            "type": "object",
+            "properties": {
+                "n_perm": {
+                    "type": "integer"
+                },
+                "question": {
+                    "type": "string"
+                },
+                "request": {
+                    "$ref": "#/definitions/schema.SystemOneRequest"
+                },
+                "seed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SystemOnePermuteResponse": {
+            "type": "object",
+            "properties": {
+                "argmax_stable": {
+                    "type": "boolean"
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SystemOnePermuteRun"
+                    }
+                },
+                "spread": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                }
+            }
+        },
+        "schema.SystemOnePermuteRun": {
+            "type": "object",
+            "properties": {
+                "choice": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "number"
+                },
+                "order": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "probabilities": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                }
+            }
+        },
+        "schema.SystemOneRequest": {
+            "type": "object"
+        },
+        "schema.SystemOneResponse": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/schema.SystemOneAnswer"
+                    }
+                },
+                "latency_ms": {
+                    "type": "number"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "usage": {
+                    "$ref": "#/definitions/schema.SystemOneUsage"
+                }
+            }
+        },
+        "schema.SystemOneUsage": {
+            "type": "object",
+            "properties": {
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens": {
+                    "type": "integer"
                 }
             }
         },
@@ -7867,6 +9317,87 @@
                 }
             }
         },
+        "schema.ThreeDInput": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "max_bytes": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ThreeDOperation": {
+            "type": "object",
+            "properties": {
+                "endpoint": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "inputs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ThreeDInput"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "output": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ThreeDParameter"
+                    }
+                }
+            }
+        },
+        "schema.ThreeDParameter": {
+            "type": "object",
+            "properties": {
+                "advanced": {
+                    "type": "boolean"
+                },
+                "default": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.TokenizeRequest": {
             "type": "object",
             "properties": {
@@ -7924,6 +9455,26 @@
                 }
             }
         },
+        "schema.VideoReference": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "description": "optional audio paired with this video",
+                    "type": "string"
+                },
+                "fps": {
+                    "description": "frame rate of the source frames; 0 means the backend default",
+                    "type": "integer"
+                },
+                "frames": {
+                    "description": "ordered frame images: URL, base64 or data URI",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.VideoRequest": {
             "type": "object",
             "properties": {
@@ -7972,6 +9523,27 @@
                 "prompt": {
                     "description": "text description of the video to generate",
                     "type": "string"
+                },
+                "ref_audios": {
+                    "description": "reference audio clips (WAV); exclusive with start_image/end_image",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ref_images": {
+                    "description": "reference images (URL, base64 or data URI); exclusive with start_image/end_image",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ref_videos": {
+                    "description": "reference videos as frame lists; exclusive with start_image/end_image",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.VideoReference"
+                    }
                 },
                 "response_format": {
                     "description": "output format (url or b64_json)",
@@ -8182,6 +9754,12 @@
                 },
                 "name": {
                     "type": "string"
+                },
+                "speaker_profiles": {
+                    "$ref": "#/definitions/schema.SpeakerProfiles"
+                },
+                "speaker_slot": {
+                    "type": "integer"
                 },
                 "store": {
                     "type": "string"

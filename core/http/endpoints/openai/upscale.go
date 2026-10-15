@@ -21,6 +21,10 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
+// maxUpscaleScale limits output area amplification to 256x and fits the int32
+// protobuf field. The backend still enforces the model's exact native scale.
+const maxUpscaleScale = 16
+
 // UpscaleEndpoint handles POST /v1/images/upscale
 //
 // @Summary      Image upscaling
@@ -30,7 +34,7 @@ import (
 // @Produce      application/json
 // @Param        model   formData  string  true   "Upscaler model identifier (e.g. stable-diffusion-x4-upscaler)"
 // @Param        image   formData  file    true   "Input image file"
-// @Param        scale   formData  int     false  "Upscale factor: 2 or 4 (default 2)"
+// @Param        scale   formData  int     true   "Upscale factor: integer from 1 to 16; must match the model native scale"
 // @Success      200 {object} schema.OpenAIResponse
 // @Failure      400 {object} map[string]string
 // @Failure      500 {object} map[string]string
@@ -45,13 +49,12 @@ func UpscaleEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 			return echo.NewHTTPError(http.StatusBadRequest, "missing model")
 		}
 
-		scale := 2
-		if scaleStr != "" {
-			v, err := strconv.Atoi(scaleStr)
-			if err != nil || (v != 2 && v != 4) {
-				return echo.NewHTTPError(http.StatusBadRequest, "scale must be 2 or 4")
-			}
-			scale = v
+		if scaleStr == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "missing scale")
+		}
+		scale, err := strconv.Atoi(scaleStr)
+		if err != nil || scale < 1 || scale > maxUpscaleScale {
+			return echo.NewHTTPError(http.StatusBadRequest, "scale must be an integer from 1 to 16")
 		}
 
 		// Read uploaded image
@@ -103,19 +106,26 @@ func UpscaleEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 		id := uuid.New().String()
 		dstPath := filepath.Join(tmpDir, fmt.Sprintf("upscale_%s.png", id))
 
+		// Only this endpoint owns the generated destination; the generic backend
+		// must not delete arbitrary caller-supplied paths on failure.
+		completed := false
+		defer func() {
+			if !completed {
+				_ = os.Remove(dstPath)
+			}
+		}()
+
 		fn, err := backend.ImageUpscaleFunc(c.Request().Context(), srcPath, dstPath, scale, ml, *cfg, appConfig)
 		if err != nil {
 			return err
 		}
 		if err := fn(); err != nil {
-			_ = os.Remove(dstPath)
 			return err
 		}
 
 		baseURL := middleware.BaseURL(c)
 		imgURL, err := url.JoinPath(baseURL, "generated-images", filepath.Base(dstPath))
 		if err != nil {
-			_ = os.Remove(dstPath)
 			return err
 		}
 
@@ -129,6 +139,10 @@ func UpscaleEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 			},
 		}
 
-		return c.JSON(http.StatusOK, resp)
+		if err := c.JSON(http.StatusOK, resp); err != nil {
+			return err
+		}
+		completed = true
+		return nil
 	}
 }

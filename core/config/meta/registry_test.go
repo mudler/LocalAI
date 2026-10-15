@@ -28,6 +28,18 @@ var _ = Describe("alias field metadata", func() {
 		}
 		Expect(found).To(BeTrue(), "DefaultSections should include an alias section")
 	})
+
+	It("registers the failover section", func() {
+		reg := meta.DefaultRegistry()
+		Expect(reg).To(HaveKey("failover.targets"))
+		Expect(reg["failover.targets"].Section).To(Equal("failover"))
+		Expect(reg["failover.targets"].Component).To(Equal("failover-targets"))
+		var ids []string
+		for _, s := range meta.DefaultSections() {
+			ids = append(ids, s.ID)
+		}
+		Expect(ids).To(ContainElement("failover"))
+	})
 })
 
 var _ = Describe("MCP field metadata", func() {
@@ -55,4 +67,33 @@ var _ = Describe("MCP field metadata", func() {
 		Entry("remote servers", "mcp.remote", "Remote MCP Servers", "Streamable HTTP"),
 		Entry("stdio servers", "mcp.stdio", "MCP STDIO Servers", "local commands"),
 	)
+})
+
+var _ = Describe("Decisions router metadata", func() {
+	It("offers decisions alongside existing classifiers", func() {
+		f := meta.DefaultRegistry()["router.classifier"]
+		Expect(f.Options).To(ContainElement(meta.FieldOption{Value: "decisions", Label: "Decisions (native probabilities)"}))
+		md := meta.BuildForTest(reflect.TypeOf(config.ModelConfig{}), meta.DefaultRegistry())
+		for _, field := range md.Fields {
+			if field.Path == "router.classifier_model" {
+				Expect(field.AutocompleteBy).NotTo(BeNil())
+				Expect(field.AutocompleteBy.Field).To(Equal("router.classifier"))
+				Expect(field.AutocompleteBy.Providers).To(HaveKeyWithValue("decisions", "models:decisions"))
+				Expect(field.AutocompleteBy.Providers).To(HaveKeyWithValue("colbert", "models:rerank"))
+				Expect(field.AutocompleteProvider).To(Equal(meta.ProviderModelsScore))
+			}
+		}
+	})
+})
+
+var _ = Describe("backend-only upscale options", func() {
+	It("does not expose scale or tile size as generic root configuration", func() {
+		reg := meta.DefaultRegistry()
+		Expect(reg).NotTo(HaveKey("upscale_scale"))
+		Expect(reg).NotTo(HaveKey("upscale_tile_size"))
+		md := meta.BuildForTest(reflect.TypeOf(config.ModelConfig{}), reg)
+		for _, field := range md.Fields {
+			Expect(field.Path).NotTo(BeElementOf("upscale_scale", "upscale_tile_size"))
+		}
+	})
 })

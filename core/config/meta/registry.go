@@ -419,6 +419,39 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       0,
 		},
 
+		// --- Failover ---
+		"failover.targets": {
+			Section:     "failover",
+			Label:       "Failover targets",
+			Description: "Ordered list of models that serve this chain. The first healthy target serves each request; later targets take over when it fails. Mark a local target warm to keep it loaded.",
+			Component:   "failover-targets",
+			Order:       0,
+		},
+		"failover.probe.interval": {
+			Section: "failover", Label: "Probe interval", Component: "input", Order: 1, Advanced: true,
+			Description: "How often an idle target is checked, as a duration (default 15s).", Placeholder: "15s",
+		},
+		"failover.probe.timeout": {
+			Section: "failover", Label: "Probe timeout", Component: "input", Order: 2, Advanced: true,
+			Description: "How long one probe may take (default 5s).", Placeholder: "5s",
+		},
+		"failover.trip.errors": {
+			Section: "failover", Label: "Errors to trip", Component: "number", Order: 3, Advanced: true,
+			Description: "Failures within the trip window that mark a target down (default 1).",
+		},
+		"failover.trip.window": {
+			Section: "failover", Label: "Trip window", Component: "input", Order: 4, Advanced: true,
+			Description: "Window in which failures are counted (default 30s).", Placeholder: "30s",
+		},
+		"failover.recovery.probes": {
+			Section: "failover", Label: "Recovery probes", Component: "number", Order: 5, Advanced: true,
+			Description: "Consecutive real test requests a target must pass before it is used again (default 3).",
+		},
+		"failover.recovery.min_dwell": {
+			Section: "failover", Label: "Minimum time on fallback", Component: "input", Order: 6, Advanced: true,
+			Description: "Minimum time on a lower target before traffic moves back to a recovered higher one (default 60s).", Placeholder: "60s",
+		},
+
 		// --- Pipeline ---
 		"pipeline.llm": {
 			Section:              "pipeline",
@@ -475,6 +508,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "number",
 			Min:         f64(0),
 			Order:       66,
+		},
+		"pipeline.diarization": {
+			Section:     "pipeline",
+			Label:       "Speaker Diarization",
+			Description: "Label speakers on each committed utterance and emit every labelled segment as a conversation.item.input_audio_transcription.segment event. Needs a transcription model that diarizes (e.g. parakeet-cpp with a diarization_model companion). Speaker labels are per turn.",
+			Component:   "toggle",
+			Order:       67,
 		},
 		"pipeline.reasoning_effort": {
 			Section:     "pipeline",
@@ -1015,6 +1055,34 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "pii-pattern-list",
 			Order:       214,
 		},
+		"pii_detection.extend_to_next_word": {
+			Section:     "pii",
+			Label:       "Extend To Next Word",
+			Description: "Entity groups (e.g. ZIPCODE) whose detections also cover the word right after them on the same line, with the same action. Use it when the model tags one part of an identifying pair reliably but misses its neighbour, such as the town after a postal code.",
+			Component:   "string-list",
+			Order:       215,
+		},
+		"pii_detection.extend_to_previous_word": {
+			Section:     "pii",
+			Label:       "Extend To Previous Word",
+			Description: "Entity groups (e.g. LASTNAME) whose detections also cover the word right before them on the same line, with the same action, when that word consists of letters only. Use it when the model tags a surname reliably but scores the first name before it below the threshold.",
+			Component:   "string-list",
+			Order:       216,
+		},
+		"pii_detection.protected_terms": {
+			Section:     "pii",
+			Label:       "Protected Terms",
+			Description: "Values that must pass the filter unchanged even when the model tags them, e.g. known business names a name model reads as surnames. Hidden from the detector behind a placeholder and restored afterwards; matched whole-word and case-insensitively, minimum three characters.",
+			Component:   "string-list",
+			Order:       217,
+		},
+		"pii_detection.protected_terms_files": {
+			Section:     "pii",
+			Label:       "Protected Terms Files",
+			Description: "Files inside the models path with one protected term per line ('#' starts a comment). Re-read when they change, so an external process can keep the list current without a restart. A missing file is skipped with a warning.",
+			Component:   "string-list",
+			Order:       218,
+		},
 
 		// --- Cloud passthrough proxy ---
 		// These only have an effect when Backend is set to
@@ -1106,10 +1174,11 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"router.classifier": {
 			Section:     "router",
 			Label:       "Classifier",
-			Description: "How the router picks labels for a prompt. \"score\" asks the classifier_model to rank each policy label and reads off the softmax; \"colbert\" reranks policy descriptions against the prompt via a reranker model; \"knn\" votes over a curated corpus of labelled example prompts (seeded via the corpus API) and routes to the fallback when the prompt is unlike all corpus entries. Empty defaults to \"score\".",
+			Description: "How the router picks labels for a prompt. Decisions returns independent label probabilities, not an exclusive choice. \"score\" asks the classifier_model to rank each policy label and reads off the softmax; \"colbert\" reranks policy descriptions against the prompt via a reranker model; \"knn\" votes over a curated corpus of labelled example prompts (seeded via the corpus API) and routes to the fallback when the prompt is unlike all corpus entries. Empty defaults to \"score\".",
 			Component:   "select",
 			Options: []FieldOption{
 				{Value: "score", Label: "Score (Arch-Router-style)"},
+				{Value: "decisions", Label: "Decisions (native probabilities)"},
 				{Value: "colbert", Label: "Colbert (reranker)"},
 				{Value: "knn", Label: "KNN (labelled corpus)"},
 			},
@@ -1118,9 +1187,10 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"router.classifier_model": {
 			Section:              "router",
 			Label:                "Classifier Model",
-			Description:          "Loaded LocalAI model the score classifier asks to rank each policy label as a continuation (for colbert: the reranker model). Must support the Score gRPC primitive (today: llama-cpp, vLLM) and use the ChatML template. Arch-Router-1.5B Q4_K_M is the canonical choice; any small ChatML instruct model also works at a higher activation_threshold. Not used by the knn classifier.",
+			Description:          "Installed classifier model. Score uses a ChatML continuation model; Colbert uses a reranker. Decisions uses a native decision model explicitly declaring known_usecases: [decisions] on a Score-capable backend, with no ChatML template required. Not used by KNN.",
 			Component:            "model-select",
 			AutocompleteProvider: ProviderModelsScore,
+			AutocompleteBy:       &ConditionalProvider{Field: "router.classifier", Providers: map[string]string{"decisions": "models:decisions", "colbert": "models:rerank", "knn": ""}},
 			Order:                231,
 		},
 		"router.fallback": {
@@ -1134,7 +1204,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"router.activation_threshold": {
 			Section:     "router",
 			Label:       "Activation Threshold",
-			Description: "Softmax-probability floor a policy must clear to join the active label set for a request. Higher → single-label dominant routes; lower → more multi-label activations. 0 picks the package default (0.15). On Arch-Router-1.5B a value around 0.40 keeps the dominant label clean without losing genuine compound activations.",
+			Description: "For Decisions, use 0.5 as a starting threshold for independent label probabilities (0 selects its default of 0.5). Switching classifiers preserves your threshold. For Score: softmax-probability floor a policy must clear to join the active label set for a request. Higher → single-label dominant routes; lower → more multi-label activations. 0 picks the package default (0.15). On Arch-Router-1.5B a value around 0.40 keeps the dominant label clean without losing genuine compound activations.",
 			Component:   "slider",
 			Min:         f64(0),
 			Max:         f64(1),

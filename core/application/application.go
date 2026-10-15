@@ -13,9 +13,12 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
+	"github.com/mudler/LocalAI/core/services/failover"
+	"github.com/mudler/LocalAI/core/services/failover/distsync"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -53,26 +56,28 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
-	backendLoader      *config.ModelConfigLoader
-	modelLoader        *model.ModelLoader
-	applicationConfig  *config.ApplicationConfig
-	startupConfig      *config.ApplicationConfig // Stores original config from env vars (before file loading)
-	templatesEvaluator *templates.Evaluator
-	galleryService     *galleryop.GalleryService
-	agentJobService    *agentpool.AgentJobService
-	agentPoolService   atomic.Pointer[agentpool.AgentPoolService]
-	faceRegistry       facerecognition.Registry
-	voiceRegistry      voicerecognition.Registry
-	voiceProfileStore  *voiceprofile.Store
-	authDB             *gorm.DB
-	metricsService     *monitoring.LocalAIMetricsService
-	statsRecorder      *billing.Recorder
-	fallbackUser       *auth.User
-	piiRedactor        *pii.Redactor
-	piiEvents          pii.EventStore
-	mitmCA             atomic.Pointer[mitm.CA]
-	mitmServer         atomic.Pointer[mitm.Server]
-	mitmMutex          sync.Mutex // serializes Stop+Start; readers use atomic loads
+	webSocketTicketsOnce sync.Once
+	webSocketTickets     *auth.WebSocketTickets
+	backendLoader        *config.ModelConfigLoader
+	modelLoader          *model.ModelLoader
+	applicationConfig    *config.ApplicationConfig
+	startupConfig        *config.ApplicationConfig // Stores original config from env vars (before file loading)
+	templatesEvaluator   *templates.Evaluator
+	galleryService       *galleryop.GalleryService
+	agentJobService      *agentpool.AgentJobService
+	agentPoolService     atomic.Pointer[agentpool.AgentPoolService]
+	faceRegistry         facerecognition.Registry
+	voiceRegistry        voicerecognition.Registry
+	voiceProfileStore    *voiceprofile.Store
+	authDB               *gorm.DB
+	metricsService       *monitoring.LocalAIMetricsService
+	statsRecorder        *billing.Recorder
+	fallbackUser         *auth.User
+	piiRedactor          *pii.Redactor
+	piiEvents            pii.EventStore
+	mitmCA               atomic.Pointer[mitm.CA]
+	mitmServer           atomic.Pointer[mitm.Server]
+	mitmMutex            sync.Mutex // serializes Stop+Start; readers use atomic loads
 	// mitmHostConflicts records duplicate-host claims across model configs.
 	// Non-empty disables the MITM listener until resolved — the strict
 	// 1-to-1 host↔model invariant the dispatcher relies on. Read by
@@ -82,6 +87,7 @@ type Application struct {
 	routerRegistry    *router.Registry
 	routerCorpus      *corpus.Manager
 	admissionLimiter  *admission.Limiter
+	failoverManager   *failover.Manager
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
 	p2pMutex          sync.Mutex
@@ -92,12 +98,26 @@ type Application struct {
 	// Distributed mode services (nil when not in distributed mode)
 	distributed *DistributedServices
 
+	// failoverSync shares failover state between frontends; nil in
+	// standalone mode or when it could not start.
+	failoverSync *distsync.Sync
+	// failoverLock is the probe-leader lock this frontend holds or tries
+	// for; nil when failoverSync is nil.
+	failoverLock *advisorylock.HeldLock
+
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
 
 	// LocalAI Assistant in-process MCP server. nil when DisableLocalAIAssistant
 	// is set; otherwise initialised in start() after galleryService.
 	localAIAssistant *mcpTools.LocalAIAssistantHolder
+
+	// assistantClient is the concrete inproc client backing localAIAssistant.
+	// start() constructs it before failoverManager exists (see New() in
+	// startup.go), so New() sets assistantClient.Failover once the manager
+	// is built, using this field to reach back into the already-registered
+	// MCP tool set. nil when DisableLocalAIAssistant is set.
+	assistantClient *localaiInproc.Client
 
 	// startupComplete flips to true once New() has finished its whole startup
 	// sequence. It backs the /readyz probe.
@@ -111,6 +131,12 @@ type Application struct {
 	startupComplete atomic.Bool
 
 	shutdownOnce sync.Once
+}
+
+// WebSocketTickets returns this frontend's short-lived upgrade ticket store.
+func (a *Application) WebSocketTickets() *auth.WebSocketTickets {
+	a.webSocketTicketsOnce.Do(func() { a.webSocketTickets = auth.NewWebSocketTickets() })
+	return a.webSocketTickets
 }
 
 // Ready reports whether the application has finished starting up and can serve
@@ -147,6 +173,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		backendLoader: config.NewModelConfigLoader(
 			appConfig.SystemState.Model.ModelsPath,
 			config.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer),
+			config.WithReloadDiagnostics(appConfig.DiagnosticsRecorder),
 			config.WithPreloadDisplay(appConfig.ModelPreloadRenderMode, appConfig.DisableModelPreloadColor),
 		),
 		modelLoader:        ml,
@@ -183,6 +210,8 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	// Voice (speaker) recognition registry — same plumbing, separate
 	// namespace so embedding spaces stay isolated (a face vector and a
 	// speaker vector are not comparable and differ in dimensionality).
+	// The registry also splits its store per embedding dimension, so speaker
+	// encoders of different sizes can coexist.
 	voiceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
 		return corebackend.StoreBackend(ml, appConfig, app.backendLoader, storeName, "")
 	}
@@ -346,13 +375,18 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 		}
 
 		det := piidetector.New(a.ModelLoader(), cfg, a.ApplicationConfig())
-		return pii.NERConfigFromRaw(
+		nc := pii.NERConfigFromRaw(
 			det,
 			cfg.PIIDetectionMinScore(),
 			cfg.PIIDetectionDefaultAction(),
 			cfg.PIIDetectionEntityActions(),
 			pii.SourceNER,
-		), true
+		)
+		nc.ExtendToNextWord = cfg.PIIDetectionExtendToNextWord()
+		nc.ExtendToPreviousWord = cfg.PIIDetectionExtendToPreviousWord()
+		terms, files := cfg.PIIDetectionProtectedTerms()
+		nc.ProtectedTerms = pii.LoadProtectedTerms(terms, files, a.ApplicationConfig().SystemState.Model.ModelsPath)
+		return nc, true
 	}
 }
 
@@ -456,8 +490,8 @@ func (a *Application) MITMHostOwners() map[string]string {
 }
 
 // RouterDecisions returns the routing decision store. nil when stats
-// are disabled (--disable-stats); the RouteModel middleware skips the
-// log write in that case but still rewrites requests.
+// are disabled (--disable-stats), unless WithRouterDecisionLog explicitly
+// retains the log. A nil store skips logging but still rewrites requests.
 func (a *Application) RouterDecisions() router.DecisionStore {
 	return a.routerDecisions
 }
@@ -477,6 +511,9 @@ func (a *Application) RouterClassifierRegistry() *router.Registry {
 func (a *Application) AdmissionLimiter() *admission.Limiter {
 	return a.admissionLimiter
 }
+
+// FailoverManager serves failover chains. Never nil after New.
+func (a *Application) FailoverManager() *failover.Manager { return a.failoverManager }
 
 // StartupConfig returns the original startup configuration (from env vars, before file loading)
 func (a *Application) StartupConfig() *config.ApplicationConfig {
@@ -503,6 +540,9 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		// Before distributed shutdown: the sync's subscriptions live on the
+		// NATS connection that closes there.
+		a.stopFailoverDistributed()
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {
 			err = a.modelLoader.StopAllGRPC()
@@ -582,6 +622,9 @@ func (a *Application) start() error {
 		assistantClient.StatsRecorder = a.statsRecorder
 		assistantClient.FallbackUser = a.fallbackUser
 		assistantClient.VoiceProfiles = a.voiceProfileStore
+		if a.distributed != nil && a.distributed.Unloader != nil {
+			assistantClient.LoadStopper = a.distributed.Unloader
+		}
 		// PII filter — same nil-or-real wiring.
 		assistantClient.PIIRedactor = a.piiRedactor
 		assistantClient.PIIEvents = a.piiEvents
@@ -593,6 +636,12 @@ func (a *Application) start() error {
 		assistantClient.RouterEmbedder = a.Embedder
 		assistantClient.RouterEmbedderFingerprint = a.EmbedderFingerprint
 		assistantClient.RouterVectorStore = a.VectorStore
+		// Failover chains: failoverManager does not exist yet at this point
+		// in startup (New() in startup.go builds it after start() returns),
+		// so it can't be wired here like the fields above. New() sets
+		// assistantClient.Failover directly once the manager is built;
+		// stash the client so it can reach back into it.
+		a.assistantClient = assistantClient
 		if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
 			// Why log+continue instead of fail: the assistant is an optional
 			// feature; a failure here must not take down the whole server.
@@ -621,14 +670,10 @@ func (a *Application) start() error {
 	return nil
 }
 
-// StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
-// This must be called after the HTTP server is listening, because backends like
-// PostgreSQL need to call the embeddings API during collection initialization.
-func (a *Application) StartAgentPool() {
-	if !a.applicationConfig.AgentPool.Enabled {
-		return
-	}
-	// Build options struct from available dependencies
+// agentPoolOptions builds the agent pool's dependencies. WorkQueue stays a nil
+// interface without distributed services, because the pool reads a non-nil
+// WorkQueue as distributed mode.
+func (a *Application) agentPoolOptions() agentpool.AgentPoolOptions {
 	opts := agentpool.AgentPoolOptions{
 		AuthDB: a.authDB,
 	}
@@ -636,12 +681,24 @@ func (a *Application) StartAgentPool() {
 		if d.DistStores != nil && d.DistStores.Skills != nil {
 			opts.SkillStore = d.DistStores.Skills
 		}
-		opts.NATSClient = d.Nats
+		opts.WorkQueue = d.WorkQueue
 		opts.EventBridge = d.AgentBridge
 		opts.AgentStore = d.AgentStore
+		if d.Nats != nil {
+			opts.Bus = d.Nats
+		}
 	}
+	return opts
+}
 
-	aps, err := agentpool.NewAgentPoolService(a.applicationConfig, opts)
+// StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
+// This must be called after the HTTP server is listening, because backends like
+// PostgreSQL need to call the embeddings API during collection initialization.
+func (a *Application) StartAgentPool() {
+	if !a.applicationConfig.AgentPool.Enabled {
+		return
+	}
+	aps, err := agentpool.NewAgentPoolService(a.applicationConfig, a.agentPoolOptions())
 	if err != nil {
 		xlog.Error("Failed to create agent pool service", "error", err)
 		return

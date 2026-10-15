@@ -170,7 +170,9 @@ func (b *distributedAgentConfigBackend) ListAvailableActions() []string {
 	return []string{}
 }
 
-func (b *distributedAgentConfigBackend) Chat(userID, name, message string) (string, error) {
+// Chat dispatches over NATS. The distributed path does not carry web chat
+// history yet; each message runs as a fresh job there, as before.
+func (b *distributedAgentConfigBackend) Chat(userID, name, message string, _ []ChatHistoryMessage) (string, error) {
 	return b.svc.dispatchChat(userID, name, message)
 }
 

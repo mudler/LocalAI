@@ -47,4 +47,13 @@ const (
 	// router nor the body-parse path has produced one. Distinct from
 	// ContextKeyServedModel, which is the router's resolved choice.
 	ContextKeyResponseModel = "routing.response_model"
+
+	// ContextKeyFailoverAttempt holds the *failoverState of a request whose
+	// model is a failover chain.
+	ContextKeyFailoverAttempt = "failover.attempt"
+
+	// ContextKeyAdmissionRejected is set to true by AdmissionControl when it
+	// turns a request away because the model is at capacity. The failover
+	// retry sends such a request to the next target without tripping this one.
+	ContextKeyAdmissionRejected = "admission.rejected"
 )

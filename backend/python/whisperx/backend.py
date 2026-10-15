@@ -16,7 +16,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
-from transcript_utils import require_diarization_token, seconds_to_nanoseconds
+from transcript_utils import diarize_or_keep, require_diarization_token, seconds_to_nanoseconds
 
 
 
@@ -112,13 +112,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             # Diarize if requested and HF token is available
             if request.diarize and self.hf_token:
-                if self.diarize_pipeline is None:
-                    self.diarize_pipeline = DiarizationPipeline(
-                        token=self.hf_token,
-                        device=self.device,
-                    )
-                diarize_segments = self.diarize_pipeline(audio)
-                transcript = whisperx.assign_word_speakers(diarize_segments, transcript)
+                def _diarize(t):
+                    if self.diarize_pipeline is None:
+                        self.diarize_pipeline = DiarizationPipeline(
+                            token=self.hf_token,
+                            device=self.device,
+                        )
+                    return whisperx.assign_word_speakers(self.diarize_pipeline(audio), t)
+
+                transcript = diarize_or_keep(transcript, _diarize, lambda m: print(m, file=sys.stderr))
 
             # Build result segments
             for idx, seg in enumerate(transcript["segments"]):
@@ -137,8 +139,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 text += seg_text
 
         except Exception as err:
+            # Report the failure instead of an empty, successful-looking result.
             print(f"Unexpected {err=}, {type(err)=}", file=sys.stderr)
-            return backend_pb2.TranscriptResult(segments=[], text="")
+            context.abort(grpc.StatusCode.INTERNAL, f"transcription failed: {err}")
 
         return backend_pb2.TranscriptResult(segments=resultSegments, text=text)
 

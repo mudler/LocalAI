@@ -1,7 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
+	"unsafe"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,6 +16,27 @@ func TestStableDiffusionGGML(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "stablediffusion-ggml backend test suite")
 }
+
+var _ = DescribeTable("parseCustomSigmas",
+	func(options []string, want []float32, wantErr string) {
+		got, err := parseCustomSigmas(options)
+		if wantErr != "" {
+			Expect(err).To(MatchError(ContainSubstring(wantErr)))
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal(want))
+	},
+	Entry("valid schedule", []string{"custom_sigmas:1.0,0.5,0.0"}, []float32{1, 0.5, 0}, ""),
+	Entry("trims whitespace", []string{"custom_sigmas: 1.0, 0.5 , 0.0 "}, []float32{1, 0.5, 0}, ""),
+	Entry("absent", []string{"sampler:euler"}, nil, ""),
+	Entry("empty element", []string{"custom_sigmas:1.0,,0.0"}, nil, "value 2 is empty"),
+	Entry("non-numeric value", []string{"custom_sigmas:1.0,nope"}, nil, `value 2 "nope" is not a number`),
+	Entry("NaN", []string{"custom_sigmas:1.0,NaN"}, nil, "value 2 must be finite"),
+	Entry("positive infinity", []string{"custom_sigmas:1.0,+Inf"}, nil, "value 2 must be finite"),
+	Entry("negative infinity", []string{"custom_sigmas:1.0,-Inf"}, nil, "value 2 must be finite"),
+	Entry("one value", []string{"custom_sigmas:1.0"}, nil, "at least 2 values"),
+)
 
 var _ = DescribeTable("parseVAETiling enablement",
 	func(options []string, want bool) {
@@ -76,12 +101,14 @@ var _ = DescribeTable("parseVAETiling target overlap",
 // available here; every one the code under test touches must be set or the
 // call panics on a nil func.
 type fakeSDLib struct {
-	tilingEnabled bool
-	tileSizeCalls int
-	tileSizeX     int
-	tileSizeY     int
-	overlapCalls  int
-	targetOverlap float32
+	tilingEnabled     bool
+	tileSizeCalls     int
+	tileSizeX         int
+	tileSizeY         int
+	overlapCalls      int
+	targetOverlap     float32
+	customSigmasCalls int
+	customSigmas      []float32
 }
 
 // install points the bindings at the recorder and restores them afterwards, so
@@ -91,6 +118,7 @@ func (f *fakeSDLib) install() {
 	savedImgGenParamsSetPrompts := ImgGenParamsSetPrompts
 	savedImgGenParamsSetDimensions := ImgGenParamsSetDimensions
 	savedImgGenParamsSetSeed := ImgGenParamsSetSeed
+	savedImgGenParamsSetCustomSigmas := ImgGenParamsSetCustomSigmas
 	savedImgGenParamsGetVaeTilingParams := ImgGenParamsGetVaeTilingParams
 	savedTilingParamsSetEnabled := TilingParamsSetEnabled
 	savedTilingParamsSetTileSizes := TilingParamsSetTileSizes
@@ -103,6 +131,7 @@ func (f *fakeSDLib) install() {
 		ImgGenParamsSetPrompts = savedImgGenParamsSetPrompts
 		ImgGenParamsSetDimensions = savedImgGenParamsSetDimensions
 		ImgGenParamsSetSeed = savedImgGenParamsSetSeed
+		ImgGenParamsSetCustomSigmas = savedImgGenParamsSetCustomSigmas
 		ImgGenParamsGetVaeTilingParams = savedImgGenParamsGetVaeTilingParams
 		TilingParamsSetEnabled = savedTilingParamsSetEnabled
 		TilingParamsSetTileSizes = savedTilingParamsSetTileSizes
@@ -115,6 +144,10 @@ func (f *fakeSDLib) install() {
 	ImgGenParamsSetPrompts = func(uintptr, string, string) {}
 	ImgGenParamsSetDimensions = func(uintptr, int, int) {}
 	ImgGenParamsSetSeed = func(uintptr, int64) {}
+	ImgGenParamsSetCustomSigmas = func(_ uintptr, sigmas uintptr, count int) {
+		f.customSigmasCalls++
+		f.customSigmas = append([]float32(nil), unsafe.Slice((*float32)(unsafe.Pointer(sigmas)), count)...)
+	}
 	ImgGenParamsGetVaeTilingParams = func(uintptr) uintptr { return 2 }
 	TilingParamsSetEnabled = func(_ uintptr, enabled bool) { f.tilingEnabled = enabled }
 	TilingParamsSetTileSizes = func(_ uintptr, x, y int) {
@@ -144,6 +177,20 @@ var _ = Describe("GenerateImage VAE tiling", func() {
 		Expect(sd.Load(&pb.ModelOptions{Options: options})).To(Succeed())
 		Expect(sd.GenerateImage(&pb.GenerateImageRequest{Width: 1024, Height: 1024})).To(Succeed())
 	}
+
+	It("forwards custom sigmas to image generation", func() {
+		generate([]string{"custom_sigmas:1.0,0.5,0.0"})
+
+		Expect(fake.customSigmasCalls).To(Equal(1))
+		Expect(fake.customSigmas).To(Equal([]float32{1, 0.5, 0}))
+	})
+
+	It("does not set custom sigmas when the option is absent", func() {
+		generate([]string{"sampler:euler"})
+
+		Expect(fake.customSigmasCalls).To(BeZero())
+		Expect(fake.customSigmas).To(BeNil())
+	})
 
 	It("enables tiling when the model asks for it", func() {
 		generate([]string{"vae_tiling:true"})
@@ -177,4 +224,389 @@ var _ = Describe("GenerateImage VAE tiling", func() {
 		Expect(fake.tileSizeCalls).To(BeZero())
 		Expect(fake.overlapCalls).To(BeZero())
 	})
+})
+
+var _ = Describe("ESRGAN lifecycle", func() {
+	var sd *SDGGML
+	var root, modelPath string
+	var creates, destroys, runs, loads int
+	var scale, code int32
+	var fail bool
+	var entered, release chan struct{}
+	BeforeEach(func() {
+		sd = &SDGGML{}
+		root = GinkgoT().TempDir()
+		var err error
+		root, err = filepath.EvalSymlinks(root)
+		Expect(err).NotTo(HaveOccurred())
+		modelPath = filepath.Join(root, "esrgan.gguf")
+		Expect(os.WriteFile(modelPath, []byte("model"), 0600)).To(Succeed())
+		creates, destroys, runs, loads = 0, 0, 0, 0
+		scale, code, fail = 4, 0, false
+		entered, release = nil, nil
+		oldCreate, oldScale, oldRun, oldDestroy, oldLoad := UpscalerCreate, UpscalerScale, UpscalerRun, UpscalerDestroy, LoadModel
+		DeferCleanup(func() {
+			UpscalerCreate, UpscalerScale, UpscalerRun, UpscalerDestroy, LoadModel = oldCreate, oldScale, oldRun, oldDestroy, oldLoad
+		})
+		UpscalerCreate = func(path string, direct bool, threads, tile int32, backend, params string) uintptr {
+			creates++
+			Expect(path).To(Equal(modelPath))
+			Expect(tile).To(Equal(int32(128)))
+			if fail {
+				return 0
+			}
+			return 42
+		}
+		UpscalerScale = func(uintptr) int32 { return scale }
+		UpscalerRun = func(uintptr, string, string, int32) int32 {
+			runs++
+			if entered != nil {
+				close(entered)
+				<-release
+			}
+			return code
+		}
+		UpscalerDestroy = func(h uintptr) { Expect(h).To(Equal(uintptr(42))); destroys++ }
+		LoadModel = func(string, string, []uintptr, int32, int) int { loads++; return 0 }
+	})
+	load := func(extra ...string) error {
+		return sd.Load(&pb.ModelOptions{ModelPath: root, ModelFile: "esrgan.gguf", Options: append([]string{"upscale_scale:4", "upscale_tile_size:128"}, extra...)})
+	}
+	run := func(s int32) error {
+		return sd.UpscaleImage(&pb.UpscaleImageRequest{Src: "in.png", Dst: "out.png", Scale: s})
+	}
+	It("skips diffusion, creates lazily, reuses and frees once", func() {
+		Expect(load()).To(Succeed())
+		Expect(loads).To(BeZero())
+		Expect(creates).To(BeZero())
+		Expect(run(4)).To(Succeed())
+		Expect(run(4)).To(Succeed())
+		Expect(creates).To(Equal(1))
+		Expect(runs).To(Equal(2))
+		Expect(sd.Free()).To(Succeed())
+		Expect(sd.Free()).To(Succeed())
+		Expect(destroys).To(Equal(1))
+		Expect(run(4)).NotTo(Succeed())
+	})
+	It("rejects invalid configuration", func() {
+		Expect(load("upscale_scale:0")).NotTo(Succeed())
+		Expect(load("upscale_tile_size:-1")).NotTo(Succeed())
+	})
+	It("rejects detected scale mismatch without caching", func() {
+		Expect(load()).To(Succeed())
+		scale = 2
+		Expect(run(4)).To(MatchError(ContainSubstring("configured")))
+		Expect(destroys).To(Equal(1))
+		scale = 4
+		Expect(run(4)).To(Succeed())
+		Expect(creates).To(Equal(2))
+	})
+	It("rejects requested scale mismatch", func() {
+		Expect(load()).To(Succeed())
+		Expect(run(2)).To(MatchError(ContainSubstring("requested")))
+		Expect(runs).To(BeZero())
+	})
+	It("does not cache failed initialization", func() {
+		Expect(load()).To(Succeed())
+		fail = true
+		Expect(run(4)).NotTo(Succeed())
+		fail = false
+		Expect(run(4)).To(Succeed())
+		Expect(creates).To(Equal(2))
+	})
+	It("rejects undetected scales", func() {
+		Expect(load()).To(Succeed())
+		scale = 0
+		Expect(run(4)).NotTo(Succeed())
+		Expect(destroys).To(Equal(1))
+	})
+	It("reports native failures", func() {
+		Expect(load()).To(Succeed())
+		for _, c := range []int32{1, 2, 3, 4, 5} {
+			code = c
+			Expect(run(4)).NotTo(Succeed())
+		}
+	})
+	It("waits for inference before Free", func() {
+		Expect(load()).To(Succeed())
+		Expect(run(4)).To(Succeed())
+		entered, release = make(chan struct{}), make(chan struct{})
+		done := make(chan error, 1)
+		freed := make(chan error, 1)
+		go func() { done <- run(4) }()
+		<-entered
+		go func() { freed <- sd.Free() }()
+		Consistently(freed, "50ms").ShouldNot(Receive())
+		close(release)
+		Eventually(done).Should(Receive(BeNil()))
+		Eventually(freed).Should(Receive(BeNil()))
+		Expect(destroys).To(Equal(1))
+	})
+})
+
+var _ = Describe("upscale settings", func() {
+	It("parses settings and rejects invalid options", func() {
+		root := upscaleTestRoot()
+		opts := &pb.ModelOptions{ModelPath: root, ModelFile: filepath.Join(root, "model.gguf"), Threads: 7, Options: []string{
+			"upscale_scale:4", "upscale_tile_size:256",
+			"upscale_direct:true", "backend:Vulkan0", "params_backend:CPU",
+		}}
+		got, err := parseUpscaleSettings(opts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.enabled).To(BeTrue())
+		Expect(got.path).To(Equal(opts.ModelFile))
+		Expect(got.scale).To(Equal(int32(4)))
+		Expect(got.tile).To(Equal(int32(256)))
+		Expect(got.threads).To(Equal(int32(7)))
+		Expect(got.direct).To(BeTrue())
+		Expect(got.backend).To(Equal("Vulkan0"))
+		Expect(got.paramsBackend).To(Equal("CPU"))
+		for _, options := range [][]string{
+			{"upscale_scale:banana"}, {"upscale_scale:2147483648"},
+			{"upscale_scale:4", "upscale_tile_size:-1"},
+			{"upscale_scale:4", "diffusion_model"}, {"upscale_scale:4", "upscale_direct:maybe"},
+		} {
+			opts.Options = options
+			_, err := parseUpscaleSettings(opts)
+			Expect(err).To(HaveOccurred(), "options %v", options)
+		}
+	})
+
+	It("selects upscale mode only for upscale_scale", func() {
+		root := upscaleTestRoot()
+		upscale, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"upscale_scale:4"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(upscale.enabled).To(BeTrue())
+
+		knownUsecases, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"known_usecases:upscale"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(knownUsecases.enabled).To(BeFalse())
+
+		_, err = parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"upscale_scale:4", "diffusion_model"}})
+		Expect(err).To(HaveOccurred())
+
+		savedLoadModel := LoadModel
+		defer func() { LoadModel = savedLoadModel }()
+		loads, diffusion := 0, -1
+		LoadModel = func(_ string, _ string, _ []uintptr, _ int32, diffusionModel int) int {
+			loads++
+			diffusion = diffusionModel
+			return 0
+		}
+		err = (&SDGGML{}).Load(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"diffusion_model"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(loads).To(Equal(1))
+		Expect(diffusion).To(Equal(1))
+	})
+
+	DescribeTable("uses full-frame tiles when omitted or zero", func(options []string) {
+		root := upscaleTestRoot()
+		got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: options})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.tile).To(Equal(int32(0)))
+	},
+		Entry("omitted", []string{"upscale_scale:4"}),
+		Entry("explicit zero", []string{"upscale_scale:4", "upscale_tile_size:0"}),
+	)
+
+	DescribeTable("contains configured model paths", func(modelFile, want string, wantErr bool) {
+		root := upscaleTestRoot()
+		Expect(os.Mkdir(filepath.Join(root, "nested"), 0700)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(root, "nested/model.gguf"), []byte("model"), 0600)).To(Succeed())
+		if modelFile == "" {
+			modelFile = filepath.Join(root, "model.gguf")
+			want = modelFile
+		}
+		if want == "nested/model.gguf" {
+			want = filepath.Join(root, want)
+		}
+		got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: modelFile, Options: []string{"upscale_scale:4"}})
+		if wantErr {
+			Expect(err).To(HaveOccurred())
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.path).To(Equal(want))
+	},
+		Entry("safe nested relative path", "nested/model.gguf", "nested/model.gguf", false),
+		Entry("relative traversal", "../outside.gguf", "", true),
+		Entry("allowed in-root absolute path", "", "", false),
+		Entry("outside absolute path", "/other/model.gguf", "", true),
+	)
+
+	It("allows the expected in-root paths", func() {
+		root := upscaleTestRoot()
+		got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: filepath.Join(root, "model.gguf"), Options: []string{"upscale_scale:4"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.path).To(Equal(filepath.Join(root, "model.gguf")))
+	})
+
+	DescribeTable("rejects duplicate settings", func(setting string) {
+		root := upscaleTestRoot()
+		_, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"upscale_scale:4", setting, setting}})
+		Expect(err).To(HaveOccurred())
+	},
+		Entry("scale", "upscale_scale:4"), Entry("tile size", "upscale_tile_size:128"),
+		Entry("direct", "upscale_direct:true"), Entry("backend", "backend:Vulkan"), Entry("parameters backend", "params_backend:CPU"),
+	)
+
+	Describe("real path containment", func() {
+		It("handles symlink targets", func() {
+			root, outside := upscaleTestRoot(), upscaleTestRoot()
+			for _, tc := range []struct {
+				name, target string
+				wantErr      bool
+			}{
+				{"in-root symlink", filepath.Join(root, "model.gguf"), false}, {"outside symlink", filepath.Join(outside, "model.gguf"), true},
+				{"dangling symlink", filepath.Join(root, "missing.gguf"), true}, {"outside directory symlink", outside, true},
+			} {
+				link := filepath.Join(root, tc.name)
+				if err := os.Symlink(tc.target, link); err != nil {
+					Skip(fmt.Sprintf("symlink creation unsupported: %v", err))
+				}
+				file := link
+				if tc.name == "outside directory symlink" {
+					file = filepath.Join(link, "model.gguf")
+				}
+				got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: file, Options: []string{"upscale_scale:4"}})
+				if tc.wantErr {
+					Expect(err).To(HaveOccurred())
+					continue
+				}
+				Expect(err).NotTo(HaveOccurred())
+				Expect(got.path).To(Equal(tc.target))
+			}
+		})
+		It("resolves a symlinked trusted root", func() {
+			root := upscaleTestRoot()
+			link := filepath.Join(GinkgoT().TempDir(), "root")
+			if err := os.Symlink(root, link); err != nil {
+				Skip(fmt.Sprintf("symlink creation unsupported: %v", err))
+			}
+			got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: link, ModelFile: "model.gguf", Options: []string{"upscale_scale:4"}})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.path).To(Equal(filepath.Join(root, "model.gguf")))
+		})
+		DescribeTable("rejects missing and non-file models", func(file string) {
+			root := upscaleTestRoot()
+			_, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: file, Options: []string{"upscale_scale:4"}})
+			Expect(err).To(HaveOccurred())
+		}, Entry("missing", "missing.gguf"), Entry("directory", "."))
+	})
+})
+
+func upscaleTestRoot() string {
+	root, err := filepath.EvalSymlinks(GinkgoT().TempDir())
+	Expect(err).NotTo(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(root, "model.gguf"), []byte("model"), 0600)).To(Succeed())
+	return root
+}
+
+var _ = DescribeTable("detectVideoPartition",
+	func(modelFile string, options []string, want string) {
+		Expect(detectVideoPartition(modelFile, options)).To(Equal(want))
+	},
+	Entry("fl2va from the file name", "minimax_h3_fl2va-Q4_K_M.gguf", nil, partitionFL2VA),
+	Entry("ref2va from the file name", "minimax_h3_ref2va-Q4_K_M.gguf", nil, partitionRef2VA),
+	Entry("name match ignores case and directories", "/m/MiniMax_H3_REF2VA-Q4.gguf", nil, partitionRef2VA),
+	Entry("diffusion_model_path option", "x.gguf", []string{"diffusion_model_path:minimax_h3_fl2va-Q4_K_M.gguf"}, partitionFL2VA),
+	Entry("explicit option beats the name", "minimax_h3_fl2va-Q4_K_M.gguf", []string{"video_partition:ref2va"}, partitionRef2VA),
+	Entry("bad option value falls back to the name", "minimax_h3_ref2va.gguf", []string{"video_partition:nope"}, partitionRef2VA),
+	Entry("unknown model", "wan2.2.gguf", nil, ""),
+)
+
+var _ = Describe("MiniMax-H3 video conditioning", func() {
+	gather := func(opts *pb.GenerateVideoRequest, params map[string]string) videoReferences {
+		extra, err := parseVideoRequestParams(params)
+		Expect(err).ToNot(HaveOccurred())
+		refs, err := gatherVideoReferences(opts, extra)
+		Expect(err).ToNot(HaveOccurred())
+		return refs
+	}
+
+	It("maps ref_image and ref_video params and ignores unknown keys", func() {
+		extra, err := parseVideoRequestParams(map[string]string{"ref_image": " /tmp/a.png ", "ref_video": "/tmp/frames", "other": "1"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(extra.refImage).To(Equal("/tmp/a.png"))
+		Expect(extra.refVideo).To(Equal("/tmp/frames"))
+	})
+
+	It("keeps the phase 1 spellings: params.ref_image and audio", func() {
+		refs := gather(&pb.GenerateVideoRequest{Audio: "a.wav"}, map[string]string{"ref_image": "a.png"})
+		Expect(refs.images).To(Equal([]string{"a.png"}))
+		Expect(refs.audios).To(Equal([]string{"a.wav"}))
+		Expect(refs.videos).To(BeEmpty())
+	})
+
+	It("appends the repeated proto fields after the legacy ones", func() {
+		refs := gather(&pb.GenerateVideoRequest{
+			Audio:     "a.wav",
+			RefImages: []string{"b.png", "c.png"},
+			RefAudios: []string{"d.wav"},
+			RefVideos: []*pb.VideoReference{{FramesDir: "/f1", Fps: 12, Audio: "v.wav"}, {FramesDir: "/f2"}},
+		}, map[string]string{"ref_image": "a.png"})
+		Expect(refs.images).To(Equal([]string{"a.png", "b.png", "c.png"}))
+		Expect(refs.audios).To(Equal([]string{"a.wav", "d.wav"}))
+		Expect(refs.videos).To(HaveLen(2))
+		Expect(refs.videos[0].GetFps()).To(Equal(int32(12)))
+	})
+
+	It("encodes the references for the C++ side", func() {
+		images, videos, audios := encodeVideoReferences(videoReferences{
+			images: []string{"a.png", "b.png"},
+			videos: []*pb.VideoReference{{FramesDir: "/f1", Fps: 12, Audio: "v.wav"}, {FramesDir: "/f2"}},
+			audios: []string{"a.wav"},
+		})
+		Expect(images).To(Equal("a.png\nb.png"))
+		Expect(videos).To(Equal("/f1\x1f12\x1fv.wav\n/f2\x1f0\x1f"))
+		Expect(audios).To(Equal("a.wav"))
+	})
+
+	DescribeTable("rejects references the hand-off cannot carry",
+		func(opts *pb.GenerateVideoRequest) {
+			_, err := gatherVideoReferences(opts, videoExtraParams{})
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("empty image", &pb.GenerateVideoRequest{RefImages: []string{" "}}),
+		Entry("newline in an image path", &pb.GenerateVideoRequest{RefImages: []string{"a\nb.png"}}),
+		Entry("empty frames dir", &pb.GenerateVideoRequest{RefVideos: []*pb.VideoReference{{}}}),
+		Entry("negative fps", &pb.GenerateVideoRequest{RefVideos: []*pb.VideoReference{{FramesDir: "/f", Fps: -1}}}),
+		Entry("separator in the paired audio", &pb.GenerateVideoRequest{RefVideos: []*pb.VideoReference{{FramesDir: "/f", Audio: "a\x1fb"}}}),
+		Entry("empty reference audio", &pb.GenerateVideoRequest{RefAudios: []string{""}}),
+	)
+
+	It("accepts t2va and keyframes on FL2VA", func() {
+		Expect(checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{}, videoReferences{})).To(Succeed())
+		Expect(checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{StartImage: "a.png"}, videoReferences{})).To(Succeed())
+	})
+
+	DescribeTable("refuses every kind of reference on FL2VA",
+		func(refs videoReferences) {
+			err := checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{}, refs)
+			Expect(err).To(MatchError(ContainSubstring("REF2VA")))
+		},
+		Entry("image", videoReferences{images: []string{"a.png"}}),
+		Entry("video", videoReferences{videos: []*pb.VideoReference{{FramesDir: "/f"}}}),
+		Entry("audio", videoReferences{audios: []string{"a.wav"}}),
+	)
+
+	It("accepts every kind of reference on REF2VA and on an unknown partition", func() {
+		refs := videoReferences{
+			images: []string{"a.png", "b.png"},
+			videos: []*pb.VideoReference{{FramesDir: "/f", Fps: 24}},
+			audios: []string{"a.wav", "b.wav"},
+		}
+		Expect(checkPartitionConditioning(partitionRef2VA, &pb.GenerateVideoRequest{}, refs)).To(Succeed())
+		Expect(checkPartitionConditioning("", &pb.GenerateVideoRequest{}, refs)).To(Succeed())
+	})
+
+	DescribeTable("refuses keyframes mixed with references",
+		func(opts *pb.GenerateVideoRequest, refs videoReferences) {
+			err := checkPartitionConditioning(partitionRef2VA, opts, refs)
+			Expect(err).To(MatchError(ContainSubstring("cannot be used together")))
+		},
+		Entry("end image and a reference image", &pb.GenerateVideoRequest{EndImage: "e.png"}, videoReferences{images: []string{"a.png"}}),
+		Entry("start image and a reference video", &pb.GenerateVideoRequest{StartImage: "s.png"}, videoReferences{videos: []*pb.VideoReference{{FramesDir: "/f"}}}),
+		Entry("start image and reference audio", &pb.GenerateVideoRequest{StartImage: "s.png"}, videoReferences{audios: []string{"a.wav"}}),
+	)
 })

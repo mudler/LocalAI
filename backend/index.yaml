@@ -520,6 +520,44 @@
     nvidia-cuda-12: "cuda12-stablediffusion-ggml"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-stablediffusion-ggml"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml"
+- &kimodocpp
+  name: "kimodocpp"
+  alias: "kimodocpp"
+  license: apache-2.0
+  description: |
+    kimodo.cpp text-to-motion: animated skeleton GLB on CPU and Vulkan.
+    Apple Silicon uses the CPU runtime.
+  urls:
+    - https://github.com/localai-org/kimodo.cpp
+  tags: [3d-animation, text-to-motion, CPU, Vulkan]
+  capabilities:
+    default: "cpu-kimodocpp"
+    vulkan: "vulkan-kimodocpp"
+    nvidia: "vulkan-kimodocpp"
+    nvidia-cuda-12: "vulkan-kimodocpp"
+    nvidia-cuda-13: "vulkan-kimodocpp"
+    amd: "vulkan-kimodocpp"
+    intel: "vulkan-kimodocpp"
+    metal: "cpu-darwin-arm64-kimodocpp"
+- &gemxcpp
+  name: "gemxcpp"
+  alias: "gemxcpp"
+  license: apache-2.0
+  description: |
+    gem-x.cpp live human motion: SOMA and SMPL pose streams on CPU and Vulkan.
+    Apple Silicon uses the CPU runtime.
+  urls:
+    - https://github.com/localai-org/gem-x.cpp
+  tags: [motion, pose-estimation, CPU, Vulkan]
+  capabilities:
+    default: "cpu-gemxcpp"
+    vulkan: "vulkan-gemxcpp"
+    nvidia: "vulkan-gemxcpp"
+    nvidia-cuda-12: "vulkan-gemxcpp"
+    nvidia-cuda-13: "vulkan-gemxcpp"
+    amd: "vulkan-gemxcpp"
+    intel: "vulkan-gemxcpp"
+    metal: "cpu-darwin-arm64-gemxcpp"
 - &trellis2cpp
   name: "trellis2cpp"
   alias: "trellis2cpp"
@@ -2019,6 +2057,21 @@
   capabilities:
     default: "cpu-cloud-proxy"
     metal: "metal-cloud-proxy"
+- &localai-proxy
+  name: "localai-proxy"
+  alias: "localai-proxy"
+  urls:
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/localai-proxy
+  description: |
+    Serve a model from another LocalAI instance: text, embeddings, rerank, audio, image and video requests are forwarded to its REST API.
+  tags:
+    - text-to-text
+    - proxy
+    - CPU
+  license: MIT
+  capabilities:
+    default: "cpu-localai-proxy"
+    metal: "metal-localai-proxy"
 - &valkey-store
   name: "valkey-store"
   urls:
@@ -2036,6 +2089,25 @@
   capabilities:
     default: "cpu-valkey-store"
     metal: "metal-valkey-store"
+- &qdrant-store
+  name: "qdrant-store"
+  urls:
+    - https://github.com/mudler/LocalAI
+    - https://github.com/qdrant/qdrant
+  description: |
+    Qdrant Store is a Qdrant-backed vector store for LocalAI. It persists
+    vectors across restarts in HNSW-indexed collections and works with
+    self-hosted Qdrant (single node or cluster) and Qdrant Cloud. Requires a
+    reachable Qdrant server (gRPC port, 6334 by default).
+  tags:
+    - vector-database
+    - qdrant
+    - open-source
+    - CPU
+  license: MIT
+  capabilities:
+    default: "cpu-qdrant-store"
+    metal: "metal-qdrant-store"
 - &kitten-tts
   name: "kitten-tts"
   urls:
@@ -2604,6 +2676,31 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-cloud-proxy"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-cloud-proxy
+- !!merge <<: *localai-proxy
+  name: "cpu-localai-proxy"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-localai-proxy"
+  mirrors:
+    - localai/localai-backends:latest-cpu-localai-proxy
+- !!merge <<: *localai-proxy
+  name: "cpu-localai-proxy-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-localai-proxy"
+  mirrors:
+    - localai/localai-backends:master-cpu-localai-proxy
+- !!merge <<: *localai-proxy
+  name: "localai-proxy-development"
+  capabilities:
+    default: "cpu-localai-proxy-development"
+    metal: "metal-localai-proxy-development"
+- !!merge <<: *localai-proxy
+  name: "metal-localai-proxy"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-localai-proxy"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-localai-proxy
+- !!merge <<: *localai-proxy
+  name: "metal-localai-proxy-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-localai-proxy"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-localai-proxy
 - !!merge <<: *valkey-store
   name: "cpu-valkey-store"
   alias: "valkey-store"
@@ -2633,6 +2730,35 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-valkey-store"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-valkey-store
+- !!merge <<: *qdrant-store
+  name: "cpu-qdrant-store"
+  alias: "qdrant-store"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-qdrant-store"
+  mirrors:
+    - localai/localai-backends:latest-cpu-qdrant-store
+- !!merge <<: *qdrant-store
+  name: "cpu-qdrant-store-development"
+  alias: "qdrant-store"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-qdrant-store"
+  mirrors:
+    - localai/localai-backends:master-cpu-qdrant-store
+- !!merge <<: *qdrant-store
+  name: "qdrant-store-development"
+  alias: "qdrant-store"
+  capabilities:
+    default: "cpu-qdrant-store-development"
+    metal: "metal-qdrant-store-development"
+- !!merge <<: *qdrant-store
+  name: "metal-qdrant-store"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-qdrant-store"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-qdrant-store
+- !!merge <<: *qdrant-store
+  name: "metal-qdrant-store-development"
+  alias: "qdrant-store"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-qdrant-store"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-qdrant-store
 - !!merge <<: *opus
   name: "cpu-opus"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-opus"
@@ -4045,6 +4171,92 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml
+## kimodo.cpp
+- !!merge <<: *kimodocpp
+  name: "kimodocpp-development"
+  capabilities:
+    default: "cpu-kimodocpp-development"
+    vulkan: "vulkan-kimodocpp-development"
+    nvidia: "vulkan-kimodocpp-development"
+    nvidia-cuda-12: "vulkan-kimodocpp-development"
+    nvidia-cuda-13: "vulkan-kimodocpp-development"
+    amd: "vulkan-kimodocpp-development"
+    intel: "vulkan-kimodocpp-development"
+    metal: "cpu-darwin-arm64-kimodocpp-development"
+- !!merge <<: *kimodocpp
+  name: "cpu-kimodocpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-kimodocpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "cpu-kimodocpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-kimodocpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "vulkan-kimodocpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-kimodocpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "vulkan-kimodocpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-kimodocpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "cpu-darwin-arm64-kimodocpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-darwin-arm64-kimodocpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-darwin-arm64-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "cpu-darwin-arm64-kimodocpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-darwin-arm64-kimodocpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-darwin-arm64-kimodocpp
+
+## gem-x.cpp
+- !!merge <<: *gemxcpp
+  name: "gemxcpp-development"
+  capabilities:
+    default: "cpu-gemxcpp-development"
+    vulkan: "vulkan-gemxcpp-development"
+    nvidia: "vulkan-gemxcpp-development"
+    nvidia-cuda-12: "vulkan-gemxcpp-development"
+    nvidia-cuda-13: "vulkan-gemxcpp-development"
+    amd: "vulkan-gemxcpp-development"
+    intel: "vulkan-gemxcpp-development"
+    metal: "cpu-darwin-arm64-gemxcpp-development"
+- !!merge <<: *gemxcpp
+  name: "cpu-gemxcpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-gemxcpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-gemxcpp
+- !!merge <<: *gemxcpp
+  name: "cpu-gemxcpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-gemxcpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-gemxcpp
+- !!merge <<: *gemxcpp
+  name: "vulkan-gemxcpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-gemxcpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-gemxcpp
+- !!merge <<: *gemxcpp
+  name: "vulkan-gemxcpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-gemxcpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-gemxcpp
+- !!merge <<: *gemxcpp
+  name: "cpu-darwin-arm64-gemxcpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-darwin-arm64-gemxcpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-darwin-arm64-gemxcpp
+- !!merge <<: *gemxcpp
+  name: "cpu-darwin-arm64-gemxcpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-darwin-arm64-gemxcpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-darwin-arm64-gemxcpp
+
 ## trellis2cpp
 - !!merge <<: *trellis2cpp
   name: "cpu-trellis2cpp"

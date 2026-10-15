@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -28,8 +29,8 @@ type ModelUnloadHook func(modelName string)
 
 // RemoteModelUnloader handles unloading models from remote backend nodes.
 // In distributed mode, this is implemented by the SmartRouter.
-// When ShutdownModel is called for a model with no local process,
-// RemoteModelUnloader.UnloadRemoteModel is called to tell the remote node to free it.
+// ShutdownModel calls the remote unloader even when a local process exists so
+// one request stops every placement in a mixed local and distributed fleet.
 type RemoteModelUnloader interface {
 	UnloadRemoteModel(modelName string) error
 }
@@ -390,14 +391,40 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".bak",
 	".partial",
 	".tar.gz",
+	".tar.bz2",
+	".sha256",
 }
 
 func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
-	files, err := os.ReadDir(ml.ModelPath)
+	return ml.ListFilesInModelPathContext(context.Background())
+}
+
+// ListFilesInModelPathContext preserves discovery behavior while observing the caller's phases.
+func (ml *ModelLoader) ListFilesInModelPathContext(ctx context.Context) ([]string, error) {
+	return ml.listFilesInModelPathContext(ctx, os.ReadDir)
+}
+
+// The operation seam is call-local: no request or filesystem hooks live on shared state.
+func (ml *ModelLoader) listFilesInModelPathContext(ctx context.Context, readDir func(string) ([]os.DirEntry, error)) ([]string, error) {
+	observed := diagnostics.Enabled(ctx)
+	var start time.Time
+	if observed {
+		start = time.Now()
+	}
+	files, err := readDir(ml.ModelPath)
+	if observed {
+		elapsed := time.Since(start)
+		outcome := diagnostics.OutcomeOK
+		if err != nil {
+			outcome = diagnostics.OutcomeError
+		}
+		diagnostics.Record(ctx, diagnostics.PhaseFSEnumeration, elapsed, outcome, 1)
+	}
 	if err != nil {
 		return []string{}, err
 	}
 
+	end := diagnostics.Begin(ctx, diagnostics.PhaseLooseFilter)
 	models := []string{}
 FILE:
 	for _, file := range files {
@@ -429,6 +456,7 @@ FILE:
 		models = append(models, file.Name())
 	}
 
+	end(diagnostics.OutcomeOK, len(files))
 	return models, nil
 }
 
@@ -610,6 +638,32 @@ func (ml *ModelLoader) ShutdownModelForce(modelName string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), forcedShutdownTimeout)
 	defer cancel()
 	return ml.shutdownModel(ctx, modelName, true)
+}
+
+// ShutdownModelAtAddress ignores stale watchdog evictions after a reload.
+// Address validation and teardown share the same lifecycle lock as loading.
+func (ml *ModelLoader) ShutdownModelAtAddress(modelName, address string, force bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+	defer cancel()
+	release, err := ml.operations.acquireContext(ctx, modelName, true)
+	if err != nil {
+		return fmt.Errorf("waiting to shut down model %q: %w", modelName, err)
+	}
+	defer release()
+	ml.mu.Lock()
+	store := ml.store
+	ml.mu.Unlock()
+	m, ok := store.Get(modelName)
+	if !ok || m.address != address {
+		return nil
+	}
+	err = ml.deleteProcess(ctx, modelName, force)
+	if errors.Is(err, ErrModelBusy) && !force && forceBackendShutdown {
+		forceCtx, forceCancel := context.WithTimeout(context.Background(), forcedShutdownTimeout)
+		defer forceCancel()
+		return ml.deleteProcess(forceCtx, modelName, true)
+	}
+	return err
 }
 
 // ShutdownModelContext is the cancellation-aware lifecycle primitive used by

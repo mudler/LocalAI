@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures'
+import YAML from 'yaml'
 
 // Router template + structured editor regression tests.
 //
@@ -8,7 +9,7 @@ import { test, expect } from '@playwright/test'
 // of a string ("(intermediate value).split is not a function").
 //
 // The current schema is also covered:
-//   - classifier=score is the only shipped classifier
+//   - classifier choices preserve the existing router creation flow
 //   - router.policies surfaces in its own structured editor (label +
 //     description rows with duplicate detection)
 //   - router.candidates is the structured {model, labels[]} editor;
@@ -29,13 +30,14 @@ const ROUTER_METADATA = {
     {
       path: 'router.classifier', yaml_key: 'classifier', go_type: 'string', ui_type: 'string',
       section: 'other', label: 'Classifier', component: 'select',
-      options: [{ value: 'score', label: 'Score (Arch-Router-style)' }],
+      options: [{ value: 'score', label: 'Score (Arch-Router-style)' }, { value: 'decisions', label: 'Decisions (native probabilities)' }, { value: 'colbert', label: 'Colbert (reranker)' }, { value: 'knn', label: 'KNN (labelled corpus)' }],
       description: 'Picks a candidate by scoring every policy label against the prompt. Only "score" is shipped today.',
       order: 230,
     },
     {
       path: 'router.classifier_model', yaml_key: 'classifier_model', go_type: 'string', ui_type: 'string',
-      section: 'other', label: 'Classifier Model', component: 'model-select', autocomplete_provider: 'models:chat',
+      section: 'other', label: 'Classifier Model', component: 'model-select', autocomplete_provider: 'models:score',
+      autocomplete_by: { field: 'router.classifier', providers: { decisions: 'models:decisions', colbert: 'models:rerank', knn: '' } },
       description: 'Loaded LocalAI model the score classifier asks to rank each policy label.',
       order: 231,
     },
@@ -151,11 +153,11 @@ test.describe('Router template — create flow', () => {
     await expect(page.getByText('Activation Threshold').first()).toBeVisible()
   })
 
-  test('Classifier select offers only the score option', async ({ page }) => {
+  test('Classifier defaults to score', async ({ page }) => {
     await page.goto('/app/model-editor?template=router')
 
     // SearchableSelect renders the current option's *label* inside the
-    // trigger button. After the schema cleanup the only option is
+    // trigger button. The initial option is
     // "Score (Arch-Router-style)", pre-selected by the template.
     await expect(page.getByText('Score (Arch-Router-style)').first()).toBeVisible({ timeout: 10_000 })
   })
@@ -216,4 +218,60 @@ test.describe('Router template — create flow', () => {
       page.locator('input[title="Duplicate label — candidates won\'t be able to distinguish them"]').first()
     ).toBeVisible()
   })
+  test('Decisions picker creates, saves and reopens exact model and tuned threshold', async ({ page }) => {
+    const models = [
+      { id: 'openjev-llama', capabilities: ['decisions'] },
+      { id: 'LayaGLiNERDecide-vllm', capabilities: ['decisions'] },
+      { id: 'TevKev-vllm', capabilities: ['decisions'] },
+      { id: 'NimbleCLM-vllm', capabilities: ['decisions'] },
+      { id: 'generic-ner', capabilities: ['token_classify'] },
+      { id: 'chat-target', capabilities: ['chat'] },
+    ]
+    await page.route('**/v1/models/capabilities', route => route.fulfill({ json: { data: models } }))
+    await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [{ id: 'arch-score', capabilities: ['FLAG_SCORE'] }] } }))
+    let saved
+    await page.route('**/models/import', async route => {
+      saved = route.request().postDataJSON()
+      await route.fulfill({ json: { success: true } })
+    })
+    await page.route('**/api/models/edit/smart-router', route => route.fulfill({ json: { config: YAML.stringify(saved) } }))
+    await page.goto('/app/model-editor?template=router')
+    const modelRow = page.locator('.form-row').filter({ has: page.locator('.form-row__label-text', { hasText: /^Classifier Model$/ }) })
+    const threshold = page.locator('.form-row').filter({ hasText: 'Activation Threshold' }).locator('input[type="range"]')
+    await modelRow.locator('input').fill('arch-score')
+    await threshold.focus()
+    for (let i = 0; i < 5; i++) await threshold.press('ArrowRight')
+    await page.getByText('Score (Arch-Router-style)', { exact: true }).click()
+    await page.getByRole('option', { name: 'Decisions (native probabilities)' }).click()
+    await expect(modelRow.locator('input')).toHaveValue('')
+    await expect(threshold).toHaveValue('0.65')
+    await modelRow.locator('input').click()
+    for (const id of ['openjev-llama', 'LayaGLiNERDecide-vllm', 'TevKev-vllm', 'NimbleCLM-vllm']) {
+      await expect(page.getByRole('option', { name: id })).toBeVisible()
+    }
+    await expect(page.getByRole('option', { name: 'generic-ner' })).toHaveCount(0)
+    await expect(page.getByRole('option', { name: 'chat-target' })).toHaveCount(0)
+    await page.getByRole('option', { name: 'NimbleCLM-vllm' }).click()
+    await page.getByRole('button', { name: /Create Model$/ }).click()
+    await expect(page).toHaveURL(/model-editor\/smart-router/)
+    expect(saved.router).toMatchObject({ classifier: 'decisions', classifier_model: 'NimbleCLM-vllm', activation_threshold: 0.65 })
+    await page.reload()
+    await expect(page.getByText('Decisions (native probabilities)', { exact: true })).toBeVisible()
+    await expect(modelRow.locator('input')).toHaveValue('NimbleCLM-vllm')
+    await expect(threshold).toHaveValue('0.65')
+    await page.getByText('Decisions (native probabilities)', { exact: true }).click()
+    await page.getByRole('option', { name: 'Colbert (reranker)' }).click()
+    await expect(modelRow.locator('input')).toHaveValue('')
+    await expect(threshold).toHaveValue('0.65')
+    await page.getByText('Colbert (reranker)', { exact: true }).click()
+    await page.getByRole('option', { name: 'KNN (labelled corpus)' }).click()
+    await expect(modelRow).toHaveCount(0)
+    await expect(threshold).toHaveValue('0.65')
+    await page.getByText('KNN (labelled corpus)', { exact: true }).click()
+    await page.getByRole('option', { name: 'Decisions (native probabilities)' }).click()
+    await modelRow.locator('input').fill('generic-ner')
+    await page.getByRole('button', { name: /Save Changes$/ }).click()
+    await expect(page.getByText('Save failed: Select an eligible native Decisions classifier model')).toBeVisible()
+  })
+
 })

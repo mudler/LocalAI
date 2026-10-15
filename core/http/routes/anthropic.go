@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/xlog"
 )
@@ -25,9 +26,9 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 	application *application.Application,
 ) {
 	// Anthropic Messages API endpoint
-	var natsClient mcpTools.MCPNATSClient
+	var agentControl mcpTools.AgentControl
 	if d := application.Distributed(); d != nil {
-		natsClient = d.Nats
+		agentControl = d.AgentControl
 	}
 
 	messagesHandler := anthropic.MessagesEndpoint(
@@ -35,7 +36,7 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 		application.ModelLoader(),
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
-		natsClient,
+		agentControl,
 	)
 
 	messagesMiddleware := []echo.MiddlewareFunc{
@@ -104,6 +105,7 @@ func setAnthropicRequestContext(appConfig *config.ApplicationConfig) echo.Middle
 			// Add the correlation ID to the new context
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
 			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
+			ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
 
 			input.Context = ctxWithCorrelationID
 			input.Cancel = cancel

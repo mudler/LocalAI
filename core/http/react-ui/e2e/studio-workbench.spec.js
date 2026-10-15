@@ -4,21 +4,20 @@ import { test, expect } from './coverage-fixtures.js'
 // what the form actually sent.
 
 test.describe('Studio workbench', () => {
-  test('the control column is a hairline field stack, not a shadowed card', async ({ page }) => {
+  test('the compose card is a flat hairline card, not a shadowed one', async ({ page }) => {
     await page.goto('/app/studio/images')
-    const controls = page.locator('.media-controls')
-    await expect(controls).toBeVisible()
-    const style = await controls.evaluate(el => {
-      const cs = getComputedStyle(el)
-      return { shadow: cs.boxShadow, radius: cs.borderTopLeftRadius }
-    })
-    expect(style.shadow).toBe('none')
-    expect(style.radius).toBe('0px')
+    const card = page.locator('[data-testid="ws-compose"]')
+    await expect(card).toBeVisible()
+    const shadow = await card.evaluate(el => getComputedStyle(el).boxShadow)
+    // Only the one-pixel inset edge: no drop shadow.
+    expect(shadow).toMatch(/inset/)
+    expect(shadow.replace(/\([^)]*\)/g, '')).not.toContain(',')
   })
 
-  test('fields are separated by a rule and labelled in caps', async ({ page }) => {
+  test('fields are labelled in caps', async ({ page }) => {
     await page.goto('/app/studio/images')
-    const label = page.locator('.media-controls .form-label').first()
+    await page.getByRole('button', { name: /Advanced Settings/ }).click()
+    const label = page.locator('[data-testid="ws-compose"] .ws-label').first()
     await expect(label).toBeVisible()
     const cs = await label.evaluate(el => getComputedStyle(el).textTransform)
     expect(cs).toBe('uppercase')
@@ -37,7 +36,7 @@ test.describe('Studio workbench', () => {
       route.fulfill({ json: { data: [{ url: 'https://example.invalid/a.png' }] } }))
 
     await page.goto('/app/studio/images')
-    await page.locator('.media-controls textarea').first().fill('a brass orrery')
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('a brass orrery')
     await page.getByRole('button', { name: /generate/i }).click()
 
     const panel = page.locator('.request-panel')

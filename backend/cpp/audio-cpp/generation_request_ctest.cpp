@@ -375,6 +375,40 @@ static void test_tts_language_and_params() {
           "tts params: an explicit param overrides the derived caption");
 }
 
+static void test_tts_reference_transcript() {
+    backend::TTSRequest request;
+    request.set_text("New speech to generate.");
+    request.set_voice("reference.wav");
+    (*request.mutable_params())["ref_text"] = "The saved voice transcript.";
+
+    const auto task = build_tts_request(request, clip(24000, 1));
+    check(option_or(task.options, "reference_text", "") ==
+              "The saved voice transcript.",
+          "tts reference: saved transcript reaches Fish Audio's option");
+    check(option_or(task.options, "ref_text", "") ==
+              "The saved voice transcript.",
+          "tts reference: original transcript parameter is preserved");
+    check(task.text_input->text == "New speech to generate.",
+          "tts reference: transcript does not replace synthesis text");
+
+    (*request.mutable_params())["reference_text"] = "Explicit transcript.";
+    const auto explicit_task = build_tts_request(request, clip(24000, 1));
+    check(option_or(explicit_task.options, "reference_text", "") ==
+              "Explicit transcript.",
+          "tts reference: explicit canonical parameter wins over alias");
+
+    (*request.mutable_params())["reference_text"] = "";
+    const auto empty_task = build_tts_request(request, clip(24000, 1));
+    check(has_key(empty_task.options, "reference_text") &&
+              empty_task.options.at("reference_text").empty(),
+          "tts reference: explicit empty canonical parameter is preserved");
+
+    request.mutable_params()->clear();
+    const auto missing_task = build_tts_request(request, clip(24000, 1));
+    check(!has_key(missing_task.options, "reference_text"),
+          "tts reference: no transcript is invented when none was supplied");
+}
+
 static void test_sound_generation_minimal() {
     backend::SoundGenerationRequest request;
     request.set_text("a distant thunderstorm");
@@ -407,6 +441,14 @@ static void test_sound_generation_full() {
     request.set_language("en");
     request.set_timesignature("4/4");
     request.set_instrumental(true);
+    (*request.mutable_params())["style"] = "cinematic";
+    (*request.mutable_params())["cot"] = "true";
+    (*request.mutable_params())["src"] = "/attacker-controlled/input.wav";
+    // Generic values lose collisions to typed fields, and src is transported as
+    // audio_input rather than leaking its filesystem path into engine options.
+    (*request.mutable_params())["lyrics"] = "generic lyrics";
+    (*request.mutable_params())["duration_seconds"] = "999";
+    request.set_src("/private/input.wav");
 
     const auto task = build_sound_generation_request(request, clip(48000, 2));
 
@@ -443,6 +485,16 @@ static void test_sound_generation_full() {
           "sound: instrumental forwarded");
     check(option_or(task.options, "language", "") == "en",
           "sound: language forwarded as an option alias");
+    check(option_or(task.options, "style", "") == "cinematic",
+          "sound: generic style parameter forwarded");
+    check(option_or(task.options, "cot", "") == "true",
+          "sound: generic cot parameter forwarded");
+    check(option_or(task.options, "lyrics", "") == "first line\nsecond line",
+          "sound: typed lyrics overrides a colliding generic parameter");
+    check(option_or(task.options, "duration_seconds", "").rfind("30.", 0) == 0,
+          "sound: typed duration overrides a colliding generic parameter");
+    check(!has_key(task.options, "src"),
+          "sound: generic params cannot cross the reserved source-input boundary");
     check(task.text_input->language == "en",
           "sound: language reaches the transcript, which is what ace_step reads");
     check(task.audio_input.has_value() &&
@@ -562,6 +614,7 @@ int main() {
     test_tts_empty_language_is_not_a_language();
     test_tts_clip_and_instructions();
     test_tts_language_and_params();
+    test_tts_reference_transcript();
     test_sound_generation_minimal();
     test_sound_generation_full();
     test_transform_text_absent();

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import Icon from './Icon'
 
 const LOADING_PHRASES = [
-  { text: 'Loading models...', icon: 'fa-brain' },
-  { text: 'Fetching gallery...', icon: 'fa-download' },
-  { text: 'Checking availability...', icon: 'fa-circle-check' },
-  { text: 'Almost ready...', icon: 'fa-hourglass-half' },
-  { text: 'Preparing gallery...', icon: 'fa-store' },
+  { text: 'Loading models...', icon: 'brain' },
+  { text: 'Fetching gallery...', icon: 'download' },
+  { text: 'Checking availability...', icon: 'check-circle' },
+  { text: 'Almost ready...', icon: 'hourglass' },
+  { text: 'Preparing gallery...', icon: 'store' },
 ]
 
 // GalleryLoader is the animated skeleton used while the gallery list loads.
@@ -48,7 +49,7 @@ export default function GalleryLoader() {
         fontSize: '0.9375rem',
         fontWeight: 500,
       }}>
-        <i className={`fas ${phrase.icon}`} style={{ color: 'var(--color-accent)', fontSize: '1.125rem' }} />
+        <Icon name={phrase.icon} style={{ color: 'var(--color-accent)', fontSize: '1.125rem' }} />
         {phrase.text}
       </div>
       <div style={{ width: '100%', maxWidth: '700px', display: 'flex', flexDirection: 'column', gap: '12px' }}>

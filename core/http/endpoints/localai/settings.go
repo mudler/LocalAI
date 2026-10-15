@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
@@ -186,7 +187,9 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 
 		// Apply settings using centralized method
+		prevGalleries, prevBackendGalleries := appConfig.Galleries, appConfig.BackendGalleries
 		watchdogChanged := appConfig.ApplyRuntimeSettings(&settings)
+		gallery.ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries, appConfig)
 		if settings.VRAMPersistentCache != nil || settings.AutoloadGalleries != nil {
 			if appConfig.VRAMPersistentCache && appConfig.AutoloadGalleries {
 				vram.ConfigurePersistentCache(filepath.Join(appConfig.SystemState.Model.ModelsPath, "..", "cache", "vram"), 24*time.Hour)
