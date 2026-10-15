@@ -59,6 +59,7 @@ type Acquirer struct {
 // trust roots and the protocol fetch deadline.
 type acquirerConfig struct {
 	resolve      func(ctx context.Context, host string) ([]netip.Addr, error)
+	lookup       func(ctx context.Context, network, host string) ([]netip.Addr, error)
 	dial         func(ctx context.Context, network string, addr netip.AddrPort) (net.Conn, error)
 	rootCAs      *x509.CertPool
 	fetchTimeout time.Duration
@@ -70,9 +71,11 @@ func NewAcquirer() *Acquirer { return newAcquirer(acquirerConfig{}) }
 func newAcquirer(cfg acquirerConfig) *Acquirer {
 	a := &Acquirer{resolve: cfg.resolve, dial: cfg.dial, timeout: cfg.fetchTimeout}
 	if a.resolve == nil {
-		a.resolve = func(ctx context.Context, host string) ([]netip.Addr, error) {
-			return net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+		lookup := cfg.lookup
+		if lookup == nil {
+			lookup = net.DefaultResolver.LookupNetIP
 		}
+		a.resolve = resolveByFamily(lookup)
 	}
 	if a.dial == nil {
 		dialer := &net.Dialer{Timeout: 10 * time.Second}
@@ -147,6 +150,39 @@ func (a *Acquirer) approve(ctx context.Context, host string) ([]netip.Addr, erro
 	return addrs, nil
 }
 
+// resolveByFamily asks for IPv4 and IPv6 answers separately. The standard
+// resolver returns IPv4 answers in 4-in-6 form even for "ip4", so IPv4 answers
+// are unmapped by the family they were requested as. An AAAA answer keeps its
+// form and is then denied by the 4-in-6 check in isApprovedAddress.
+func resolveByFamily(lookup func(ctx context.Context, network, host string) ([]netip.Addr, error)) func(ctx context.Context, host string) ([]netip.Addr, error) {
+	return func(ctx context.Context, host string) ([]netip.Addr, error) {
+		var out []netip.Addr
+		var firstErr error
+		for _, network := range []string{"ip4", "ip6"} {
+			addrs, err := lookup(ctx, network, host)
+			if err != nil {
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
+			}
+			for _, a := range addrs {
+				if network == "ip4" {
+					a = a.Unmap()
+				}
+				out = append(out, a)
+			}
+		}
+		if len(out) == 0 {
+			if firstErr == nil {
+				firstErr = fetchFailed()
+			}
+			return nil, firstErr
+		}
+		return out, nil
+	}
+}
+
 func deniedName(host string) bool {
 	h := strings.ToLower(strings.TrimSuffix(host, "."))
 	return h == "" || h == "localhost" || h == "instance-data" ||
@@ -163,6 +199,10 @@ var deniedPrefixes = func() []netip.Prefix {
 		// IPv6 transition, documentation, discard and deprecated blocks.
 		"::/96", "64:ff9b::/96", "64:ff9b:1::/48", "100::/64", "2001::/32", "2001:2::/48",
 		"2001:db8::/32", "2002::/16", "3fff::/20", "5f00::/16", "fec0::/10",
+		// SIIT translation, the whole 2001::/23 block, and the 2620:4f:8000::/48
+		// and 192.x special-purpose blocks that the first table missed.
+		"::ffff:0:0:0/96", "2001::/23", "2620:4f:8000::/48",
+		"192.31.196.0/24", "192.52.193.0/24", "192.175.48.0/24",
 	} {
 		out = append(out, netip.MustParsePrefix(p))
 	}
@@ -371,9 +411,11 @@ func (a *Acquirer) classify(parent, fetch context.Context) error {
 // allocation exactly.
 func readBounded(r io.Reader, limit uint64, hint int64) ([]byte, error) {
 	maximum := limit + 1
-	first := uint64(32 << 10)
+	// The declared length is only a claim until the bytes arrive, so the first
+	// allocation is capped and the buffer grows with what is actually read.
+	first := uint64(64 << 10)
 	if hint >= 0 {
-		first = uint64(hint) + 1
+		first = min(first, uint64(hint)+1)
 	}
 	first = min(first, maximum)
 	buf := make([]byte, 0, first)
@@ -422,13 +464,20 @@ func sniff(kind string, b []byte) string {
 		}
 	case KindVideo:
 		switch {
-		case len(b) >= 12 && string(b[4:8]) == "ftyp":
+		case len(b) >= 12 && string(b[4:8]) == "ftyp" && mp4Brands[string(b[8:12])]:
 			return "mp4"
 		case bytes.HasPrefix(b, []byte{0x1a, 0x45, 0xdf, 0xa3}) && bytes.Contains(b[:min(len(b), 64)], []byte("webm")):
 			return "webm"
 		}
 	}
 	return ""
+}
+
+// mp4Brands lists the ISO-BMFF major brands accepted as MP4 video. Other
+// brands (AVIF, HEIC, 3GP, M4A) share the same box layout but are not MP4.
+var mp4Brands = map[string]bool{
+	"isom": true, "iso2": true, "iso4": true, "iso5": true, "iso6": true,
+	"mp41": true, "mp42": true, "avc1": true, "M4V ": true, "dash": true,
 }
 
 // isMP3Frame checks an MPEG audio Layer III frame header.

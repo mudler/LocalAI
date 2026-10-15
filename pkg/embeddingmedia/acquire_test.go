@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"net/url"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -124,6 +125,41 @@ func fetch(h *harness, kind, path string, budget *embeddingmedia.Budget) ([]byte
 
 func fresh() *embeddingmedia.Budget { b := embeddingmedia.NewBudget(); return &b }
 
+// stdLookup answers like net.Resolver.LookupNetIP: IPv4 answers come back in
+// 4-in-6 form for every network, and the caller's family selects the answers.
+func stdLookup(v4, v6 []netip.Addr) func(context.Context, string, string) ([]netip.Addr, error) {
+	return func(_ context.Context, network, _ string) ([]netip.Addr, error) {
+		var out []netip.Addr
+		if network == "ip" || network == "ip4" {
+			out = append(out, v4...)
+		}
+		if network == "ip" || network == "ip6" {
+			out = append(out, v6...)
+		}
+		if len(out) == 0 {
+			return nil, &net.DNSError{Err: "no such host", Name: "media.example", IsNotFound: true}
+		}
+		return out, nil
+	}
+}
+
+// mapped returns s in the 16-byte form the standard resolver produces.
+func mapped(s string) netip.Addr { return netip.AddrFrom16(netip.MustParseAddr(s).As16()) }
+
+// useLookup routes the harness through the production resolver closure, with
+// only the stdlib boundary replaced.
+func useLookup(h *harness, lookup func(context.Context, string, string) ([]netip.Addr, error)) {
+	h.acq = embeddingmedia.NewTestAcquirer(embeddingmedia.TestHooks{
+		Lookup: lookup,
+		Dial: func(ctx context.Context, network string, addr netip.AddrPort) (net.Conn, error) {
+			h.mu.Lock()
+			h.dialed = append(h.dialed, addr)
+			h.mu.Unlock()
+			return (&net.Dialer{}).DialContext(ctx, "tcp", h.server.Listener.Addr().String())
+		},
+	})
+}
+
 var _ = Describe(securityGroup, func() {
 	Describe("network destinations", func() {
 		It("refuses redirects without following them or forwarding credentials", func() {
@@ -194,6 +230,35 @@ var _ = Describe(securityGroup, func() {
 			Expect(h.dials()).To(BeEmpty())
 		})
 
+		It("approves public IPv4 answers returned in 4-in-6 form by the production resolver", func() {
+			h := newHarness(bodyHandler(pngBytes(8)), false, 0)
+			useLookup(h, stdLookup([]netip.Addr{mapped("93.184.216.34")}, nil))
+			data, err := fetch(h, "image", "/", fresh())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(data).To(Equal(pngBytes(8)))
+			Expect(h.dials()).To(HaveLen(1))
+			Expect(h.dials()[0].Addr()).To(Equal(publicV4))
+			Expect(h.dials()[0].Addr().Is4()).To(BeTrue())
+		})
+
+		It("denies private and loopback IPv4 answers in 4-in-6 form from the production resolver", func() {
+			for _, s := range []string{"127.0.0.1", "10.0.0.1"} {
+				h := newHarness(bodyHandler(pngBytes(8)), false, 0)
+				useLookup(h, stdLookup([]netip.Addr{mapped(s)}, nil))
+				_, err := fetch(h, "image", "/", fresh())
+				expectError(err, 502, codeFetch)
+				Expect(h.dials()).To(BeEmpty(), s)
+			}
+		})
+
+		It("denies an IPv4-mapped AAAA answer from the production resolver", func() {
+			h := newHarness(bodyHandler(pngBytes(8)), false, 0)
+			useLookup(h, stdLookup(nil, []netip.Addr{mapped("93.184.216.34")}))
+			_, err := fetch(h, "image", "/", fresh())
+			expectError(err, 502, codeFetch)
+			Expect(h.dials()).To(BeEmpty())
+		})
+
 		It("denies IP literal and internal-name URLs without dialing", func() {
 			h := newHarness(bodyHandler(pngBytes(8)), false, 0)
 			for _, u := range []string{
@@ -209,6 +274,15 @@ var _ = Describe(securityGroup, func() {
 			}
 			Expect(h.dials()).To(BeEmpty())
 			Expect(atomic.LoadInt32(&h.resolved)).To(BeZero())
+		})
+
+		It("denies the reserved ranges missing from the first table", func() {
+			for _, s := range []string{
+				"::ffff:0:7f00:1", "2001:1::1", "2001:3::1", "2001:4:112::1", "2001:10::1",
+				"2001:20::1", "2001:30::1", "2620:4f:8000::1", "192.31.196.1", "192.52.193.1", "192.175.48.1",
+			} {
+				Expect(embeddingmedia.IsApprovedAddress(netip.MustParseAddr(s))).To(BeFalse(), s)
+			}
 		})
 
 		It("pins the dial to the validated address, never the hostname", func() {
@@ -422,6 +496,33 @@ var _ = Describe(securityGroup, func() {
 			Expect(b.MediaBytes).To(BeEquivalentTo(embeddingmedia.MaxMediaBytes - uint64(len(body))))
 		})
 
+		It("does not allocate the declared length before the body arrives", func() {
+			h := newHarness(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Length", strconv.FormatUint(embeddingmedia.MaxMediaBytes, 10))
+				w.WriteHeader(http.StatusOK)
+				w.(http.Flusher).Flush()
+				<-r.Context().Done()
+			}), false, 2*time.Second)
+			var before, after runtime.MemStats
+			runtime.GC()
+			runtime.ReadMemStats(&before)
+			_, err := fetch(h, "image", "/", fresh())
+			runtime.ReadMemStats(&after)
+			expectError(err, 504, codeTimeout)
+			Expect(after.TotalAlloc - before.TotalAlloc).To(BeNumerically("<", 1<<20))
+		})
+
+		It("reads a full-size declared body exactly at the limit", func() {
+			body := pngBytes(3<<20 - 8)
+			h := newHarness(bodyHandler(body), false, 0)
+			b := fresh()
+			b.MediaBytes = uint64(len(body))
+			data, err := fetch(h, "image", "/", b)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(data).To(Equal(body))
+			Expect(b.MediaBytes).To(BeZero())
+		})
+
 		It("rejects a body shorter than its declared length as fetch failure", func() {
 			h := newHarness(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Length", "500")
@@ -589,6 +690,26 @@ var _ = Describe(securityGroup, func() {
 				}
 				_, err := fetch(h, kind, "/x-"+name, fresh())
 				expectError(err, 415, codeFormat)
+			}
+		})
+
+		It("accepts only allow-listed ISO-BMFF major brands for video", func() {
+			brands := map[string]bool{
+				"isom": true, "mp42": true, "iso2": true, "iso4": true, "iso5": true, "iso6": true,
+				"mp41": true, "avc1": true, "M4V ": true, "dash": true,
+				"avif": false, "heic": false, "M4A ": false, "3gp4": false,
+			}
+			h := newHarness(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				brand := strings.TrimPrefix(r.URL.Path, "/")
+				_, _ = w.Write(append([]byte("\x00\x00\x00\x18ftyp"+brand), bytes.Repeat([]byte{5}, 16)...))
+			}), false, 0)
+			for brand, ok := range brands {
+				_, err := fetch(h, "video", "/"+url.PathEscape(brand), fresh())
+				if ok {
+					Expect(err).NotTo(HaveOccurred(), brand)
+				} else {
+					expectError(err, 415, codeFormat)
+				}
 			}
 		})
 

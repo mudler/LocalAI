@@ -13,13 +13,14 @@ import (
 // in test builds, so production code has no way to relax the address policy.
 type TestHooks struct {
 	Resolve      func(ctx context.Context, host string) ([]netip.Addr, error)
+	Lookup       func(ctx context.Context, network, host string) ([]netip.Addr, error)
 	Dial         func(ctx context.Context, network string, addr netip.AddrPort) (net.Conn, error)
 	RootCAs      *x509.CertPool
 	FetchTimeout time.Duration
 }
 
 func NewTestAcquirer(h TestHooks) *Acquirer {
-	return newAcquirer(acquirerConfig{resolve: h.Resolve, dial: h.Dial, rootCAs: h.RootCAs, fetchTimeout: h.FetchTimeout})
+	return newAcquirer(acquirerConfig{resolve: h.Resolve, lookup: h.Lookup, dial: h.Dial, rootCAs: h.RootCAs, fetchTimeout: h.FetchTimeout})
 }
 
 func IsApprovedAddress(a netip.Addr) bool { return isApprovedAddress(a) }
