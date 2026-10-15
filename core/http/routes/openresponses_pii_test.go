@@ -105,6 +105,8 @@ pii:
 			`{"model":"guarded","input":[{"type":"message","role":"user","content":[{"type":"input_text","text":"key sk-test-ABC123"}]}]}`,
 			`{"model":"guarded","instructions":"use sk-test-ABC123","input":"hi"}`,
 			`{"model":"guarded","input":[{"type":"function_call_output","call_id":"c1","output":"sk-test-ABC123"}]}`,
+			`{"model":"guarded","input":[{"type":"function_call_output","call_id":"c1","output":["sk-test-ABC123"]}]}`,
+			`{"model":"guarded","input":[{"type":"function_call_output","call_id":"c1","output":[{"token":"sk-test-ABC123"}]}]}`,
 		} {
 			reached = false
 			rec := post(body)

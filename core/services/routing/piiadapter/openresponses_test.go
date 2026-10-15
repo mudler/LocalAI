@@ -111,6 +111,32 @@ var _ = Describe("OpenResponses adapter", func() {
 		Expect(orItems(req)[0].(map[string]any)["output"]).To(Equal(`{"token":"[REDACTED]"}`))
 	})
 
+	DescribeTable("scans and redacts the complete JSON of array tool output", func(output, redacted string) {
+		req := parseOR(`{"model":"m","input":[{"type":"function_call_output","call_id":"c1","output":` + output + `}]}`)
+		got := a.Scan(req)
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].Text).To(Equal(output))
+		applyAll(a, req, redactSecret)
+		Expect(orItems(req)[0].(map[string]any)["output"]).To(Equal(redacted))
+	},
+		Entry("string elements", `["sk-secret"]`, `["[REDACTED]"]`),
+		Entry("object elements", `[{"token":"sk-secret"}]`, `[{"token":"[REDACTED]"}]`),
+		Entry("text parts with additional fields", `[{"extra":"sk-secret","text":"clean","type":"input_text"}]`, `[{"extra":"[REDACTED]","text":"clean","type":"input_text"}]`),
+	)
+
+	It("preserves clean array tool output when there are no updates", func() {
+		req := parseOR(`{"model":"m","input":[{"type":"function_call_output","call_id":"c1","output":["clean",{"ok":true}]}]}`)
+		before, err := json.Marshal(req)
+		Expect(err).ToNot(HaveOccurred())
+		got := a.Scan(req)
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].Text).To(Equal(`["clean",{"ok":true}]`))
+		a.Apply(req, nil)
+		after, err := json.Marshal(req)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(after).To(Equal(before))
+	})
+
 	It("leaves structured tool output unchanged when nothing is redacted", func() {
 		req := parseOR(`{"model":"m","input":[{"type":"function_call_output","call_id":"c1","output":{"ok":true}}]}`)
 		Expect(a.Scan(req)).To(HaveLen(1))

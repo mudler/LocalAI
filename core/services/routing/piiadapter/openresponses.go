@@ -26,9 +26,9 @@ func decOR(p int) (item, part int) { return (p >> 24) - 2, (p & 0xFFFFFF) - 1 }
 
 // orItemTextField names the field of an input item that carries the text
 // the Responses handler forwards to the model, or "" for items whose text
-// is not part of the prompt (item_reference: the referenced item was
-// scanned when it was first submitted). Scan and Apply both resolve the
-// field through here so they can never disagree on where a span lives.
+// is resolved later by the handler (item_reference is not scanned here).
+// Scan and Apply both resolve the field through here so they can never
+// disagree on where a span lives.
 func orItemTextField(item map[string]any) string {
 	itemType, _ := item["type"].(string)
 	if itemType == "" {
@@ -64,7 +64,7 @@ func isORTextPart(part map[string]any) bool {
 // output. Without it the same content that is blocked on
 // /v1/chat/completions could be sent unfiltered through /v1/responses.
 //
-// A function_call_output whose output is neither a string nor a part array
+// A function_call_output whose output is not a string (including arrays)
 // is forwarded by the handler as its JSON encoding, so that encoding is
 // scanned as one span; a redaction replaces the value with the redacted
 // JSON string, which the handler then forwards verbatim.
@@ -94,6 +94,17 @@ func OpenResponses() pii.Adapter {
 					if field == "" {
 						continue
 					}
+					// The handler serializes all non-string tool output, including
+					// arrays. Scan that whole JSON, not just typed text parts.
+					if _, isString := item[field].(string); field == "output" && !isString {
+						b, err := json.Marshal(item[field])
+						if err != nil {
+							xlog.Warn("pii: cannot encode function_call_output for scanning", "error", err)
+							continue
+						}
+						out = append(out, pii.ScannedText{Index: encOR(i, -1), Text: string(b)})
+						continue
+					}
 					switch v := item[field].(type) {
 					case nil:
 						// Missing field: nothing reaches the model.
@@ -111,16 +122,6 @@ func OpenResponses() pii.Adapter {
 								out = append(out, pii.ScannedText{Index: encOR(i, j), Text: text})
 							}
 						}
-					default:
-						if field != "output" {
-							continue
-						}
-						b, err := json.Marshal(v)
-						if err != nil {
-							xlog.Warn("pii: cannot encode function_call_output for scanning", "error", err)
-							continue
-						}
-						out = append(out, pii.ScannedText{Index: encOR(i, -1), Text: string(b)})
 					}
 				}
 			}
