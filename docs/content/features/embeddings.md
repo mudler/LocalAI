@@ -349,6 +349,41 @@ preparation work, excludes inference, and is not reset between items. Frame and
 context limits are independent: fitting 120 frames does not guarantee that a
 model's context can fit them. Context overflow must reject, not drop content.
 
+### Media acquisition and admission (protocol groundwork)
+
+The `pkg/embeddingmedia` acquirer turns a parsed media source into validated
+compressed bytes. It is not yet connected to the HTTP route, so this section
+describes the rules the route will use, not a request you can send today.
+
+- **Sources.** Raw base64 `data`, a base64 data URI, or an HTTP(S) URL. File
+  paths, `file://`, other schemes, shell strings and URLs with embedded
+  credentials are rejected. Nothing is fetched while the request is parsed.
+- **Destinations.** Go resolves the host and connects only to public addresses.
+  Private, loopback, link-local, multicast, unspecified, documentation,
+  transition and other reserved ranges are refused, including IPv4-mapped IPv6
+  forms. Every new connection is resolved and approved again, and the
+  connection is pinned to the approved address. TLS still verifies the original
+  hostname and sends it as SNI.
+- **Requests.** Redirects, proxy environment variables, credentials and
+  forwarded client authentication are never used. The response must have
+  status 200 and an identity encoding.
+- **Bounds.** The declared length is checked before the body is read, and the
+  read stops at the remaining media budget plus one byte. Base64 output size is
+  computed from the text and checked before any allocation. The fetch deadline
+  is 30 seconds.
+- **Formats.** PNG and JPEG images, WAV, MP3 and FLAC audio, MP4 and WebM
+  video. The acquirer checks leading signatures only; it does not decode.
+  A `format` value or data URI media type that disagrees with the detected
+  signature is rejected.
+- **Errors.** Source fetch failures (including denied destinations) return
+  502, unsupported or mismatched formats 415, exceeded limits 413, fetch
+  timeouts 504 and exhausted preparation capacity 429. Messages never contain
+  the URL, query string, credentials or upstream text.
+- **Admission.** At most 2 media preparations run at once per frontend process.
+  The limit is fixed and not configurable. With several frontends behind one
+  load balancer the effective capacity is multiplied; backend scheduling still
+  controls inference concurrency.
+
 The embedding body limit is a lazy reader installed before authentication, so
 nothing is buffered before a request is authenticated. No reader (authentication
 model extraction, tracing, binding) can read past the limit, including requests
