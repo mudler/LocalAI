@@ -372,6 +372,26 @@ This option applies to the main model's expert weights.
 To keep experts from only the first 12 layers on CPU, replace `cpu_moe:true` with `n_cpu_moe:12`.
 Use one of these options at a time.
 
+To speed up decoding when experts stay in host memory, you can add a GPU cache for them with `moe_cache_mib`:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+  - moe_cache_mib:4096
+```
+
+The value is a size in MiB.
+It is off by default (`0`).
+It helps only when expert weights are in host memory, that is with `cpu_moe`, `n_cpu_moe` or a spill from [GPU auto-fit](#gpu-auto-fit-mode).
+The cache uses GPU memory, so lower `gpu_layers` or the auto-fit result may change when you turn it on.
+The feature is experimental upstream.
+A cache that is too small can thrash, because every token evicts its own experts.
+A rough starting point is about 10% of the total expert size.
+LocalAI sets no value on its own.
+
 CPU execution and data transfers can reduce generation speed compared with a model that fits entirely on GPU.
 RAM and VRAM do not form one interchangeable allocation pool.
 Leave memory for the KV cache, compute buffers, the operating system, and other processes.
