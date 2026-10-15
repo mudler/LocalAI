@@ -91,8 +91,8 @@ func newUpdateRig(withUpdates bool) *updateRig {
 	lib.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		lib.mu.Lock()
 		defer lib.mu.Unlock()
-		if r.URL.Path == "/library.json" {
-			_ = json.NewEncoder(w).Encode(lib.releases)
+		if r.URL.Path == "/library.yaml" {
+			_ = catalog.WriteIndex(w, lib.releases)
 			return
 		}
 		if data, ok := lib.archives[r.URL.Path]; ok {
@@ -105,7 +105,7 @@ func newUpdateRig(withUpdates bool) *updateRig {
 	sources, e := catalog.NewSources(filepath.Join(root, "sources.json"), admin, catalog.CredentialResolver{})
 	Expect(e).NotTo(HaveOccurred())
 	lib.sources = sources
-	Expect(sources.Save(ctx, actor, catalog.Source{ID: "test", Name: "Test", URL: lib.server.URL + "/library.json", Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+	Expect(sources.Save(ctx, actor, catalog.Source{ID: "test", Name: "Test", URL: lib.server.URL + "/library.yaml", Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
 	c := catalog.Catalog{Sources: sources, TargetOS: "linux", TargetArch: "amd64"}
 	cfg := OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk-one", Root: filepath.Join(root, "owner")}
 	i := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}

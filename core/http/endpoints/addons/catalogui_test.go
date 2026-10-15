@@ -151,7 +151,7 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 		Expect(err).To(MatchError(managerpkg.ErrForbidden))
 		_, err = s.manager.Sources(ctx, carol)
 		Expect(err).To(MatchError(managerpkg.ErrForbidden))
-		_, err = s.manager.SaveSource(ctx, carol, catalog.Source{ID: "mine", Name: "Mine", URL: "https://library.example/releases.json"})
+		_, err = s.manager.SaveSource(ctx, carol, catalog.Source{ID: "mine", Name: "Mine", URL: "https://library.example/releases.yaml"})
 		Expect(err).To(MatchError(managerpkg.ErrForbidden))
 		_, err = s.manager.RefreshSource(ctx, carol, "test")
 		Expect(err).To(MatchError(managerpkg.ErrForbidden))
@@ -171,13 +171,13 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 
 			// A secret is never accepted where a reference belongs.
 			for label, source := range map[string]string{
-				"credentials in the URL": `{"id":"cred","name":"Cred","url":"https://user:hunter2@library.example/releases.json","enabled":false}`,
-				"a token in the query":   `{"id":"query","name":"Query","url":"https://library.example/releases.json?token=hunter2","enabled":false}`,
-				"a pasted token":         `{"id":"paste","name":"Paste","url":"https://library.example/releases.json","enabled":false,"authReference":"ghp_Hunter2Hunter2Hunter2Hunter2"}`,
-				"an unknown reference":   `{"id":"unknown","name":"Unknown","url":"https://library.example/releases.json","enabled":false,"authReference":"not-configured"}`,
-				"an unknown field":       `{"id":"extra","name":"Extra","url":"https://library.example/releases.json","enabled":false,"password":"hunter2"}`,
-				"a new loopback opt-in":  `{"id":"dev","name":"Dev","url":"http://127.0.0.1:9/releases.json","enabled":false,"allowLoopbackHTTP":true}`,
-				"a bad identifier":       `{"id":"../x","name":"Bad","url":"https://library.example/releases.json","enabled":false}`,
+				"credentials in the URL": `{"id":"cred","name":"Cred","url":"https://user:hunter2@library.example/releases.yaml","enabled":false}`,
+				"a token in the query":   `{"id":"query","name":"Query","url":"https://library.example/releases.yaml?token=hunter2","enabled":false}`,
+				"a pasted token":         `{"id":"paste","name":"Paste","url":"https://library.example/releases.yaml","enabled":false,"authReference":"ghp_Hunter2Hunter2Hunter2Hunter2"}`,
+				"an unknown reference":   `{"id":"unknown","name":"Unknown","url":"https://library.example/releases.yaml","enabled":false,"authReference":"not-configured"}`,
+				"an unknown field":       `{"id":"extra","name":"Extra","url":"https://library.example/releases.yaml","enabled":false,"password":"hunter2"}`,
+				"a new loopback opt-in":  `{"id":"dev","name":"Dev","url":"http://127.0.0.1:9/releases.yaml","enabled":false,"allowLoopbackHTTP":true}`,
+				"a bad identifier":       `{"id":"../x","name":"Bad","url":"https://library.example/releases.yaml","enabled":false}`,
 			} {
 				r := send(e, "POST", "/api/addons/dispatch", dispatchBody("save-bad-"+name+label, "", "catalog-source-save", 0, source), admin)
 				Expect(r.code).To(Equal(403), name+": "+label)
@@ -188,7 +188,7 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 			// A reference the owner configured is accepted and echoed as a name.
 			id := "private-" + strings.ReplaceAll(name, "front-", "")
 			save := send(e, "POST", "/api/addons/dispatch", dispatchBody("save-"+name, "", "catalog-source-save", 0,
-				fmt.Sprintf(`{"id":%q,"name":"Private","url":"https://library.example/releases.json","enabled":false,"authReference":"library-token"}`, id)), admin)
+				fmt.Sprintf(`{"id":%q,"name":"Private","url":"https://library.example/releases.yaml","enabled":false,"authReference":"library-token"}`, id)), admin)
 			Expect(save.code).To(Equal(200), name)
 			Expect(payloadOf(save)).To(HaveKeyWithValue("authReference", "library-token"))
 			after := listOf(payloadOf(send(e, "POST", "/api/addons/dispatch", dispatchBody("sources-after-"+name, "", "catalog-sources", 0, `{}`), admin)), "sources")
@@ -211,7 +211,7 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 
 			// Everyone else is denied, and nothing was saved for them.
 			for _, who := range []string{"carol", "dave"} {
-				r := send(e, "POST", "/api/addons/dispatch", dispatchBody("deny-save-"+who+name, "", "catalog-source-save", 0, `{"id":"mine","name":"Mine","url":"https://library.example/releases.json","enabled":false}`), bearerOf(s.tokens[who]))
+				r := send(e, "POST", "/api/addons/dispatch", dispatchBody("deny-save-"+who+name, "", "catalog-source-save", 0, `{"id":"mine","name":"Mine","url":"https://library.example/releases.yaml","enabled":false}`), bearerOf(s.tokens[who]))
 				Expect(r.code).To(Equal(403), name+" "+who)
 				r = send(e, "POST", "/api/addons/dispatch", dispatchBody("deny-refresh-"+who+name, "", "catalog-source-refresh", 0, `{"sourceId":"test"}`), bearerOf(s.tokens[who]))
 				Expect(r.code).To(Equal(403), name+" "+who)
@@ -225,7 +225,7 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 
 		// Removing the library that installed the addons leaves them installed.
 		before := listOf(payloadOf(send(s.frontends["front-a"], "POST", "/api/addons/dispatch", dispatchBody("installed-before", "", "addons-installed", 0, `{}`), bearerOf(s.tokens["alice"]))), "addons")
-		remove := send(s.frontends["front-b"], "POST", "/api/addons/dispatch", dispatchBody("remove-test", "", "catalog-source-save", 0, `{"id":"test","name":"Test","url":"https://library.example/releases.json","enabled":true,"removed":true}`), bearerOf(s.tokens["alice"]))
+		remove := send(s.frontends["front-b"], "POST", "/api/addons/dispatch", dispatchBody("remove-test", "", "catalog-source-save", 0, `{"id":"test","name":"Test","url":"https://library.example/releases.yaml","enabled":true,"removed":true}`), bearerOf(s.tokens["alice"]))
 		Expect(remove.code).To(Equal(200))
 		sources := listOf(payloadOf(send(s.frontends["owner"], "POST", "/api/addons/dispatch", dispatchBody("sources-removed", "", "catalog-sources", 0, `{}`), bearerOf(s.tokens["alice"]))), "sources")
 		Expect(byID(sources, "id", "test")).To(BeNil())
@@ -299,7 +299,7 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 			Expect(r.errOperation()).To(BeEmpty(), action)
 		}
 		for _, call := range []struct{ action, arguments string }{
-			{"catalog-source-save", `{"id":"lost","name":"Lost","url":"https://library.example/releases.json","enabled":false}`},
+			{"catalog-source-save", `{"id":"lost","name":"Lost","url":"https://library.example/releases.yaml","enabled":false}`},
 			{"catalog-source-refresh", `{"sourceId":"test"}`},
 			{"upgrade", `{"sourceId":"test","version":"1.0.0"}`},
 		} {

@@ -91,8 +91,8 @@ func newUpdatesStack() *updatesStack {
 	s.library = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if r.URL.Path == "/library.json" {
-			_ = json.NewEncoder(w).Encode(s.releases)
+		if r.URL.Path == "/library.yaml" {
+			_ = catalog.WriteIndex(w, s.releases)
 			return
 		}
 		if d, ok := s.archives[r.URL.Path]; ok {
@@ -108,7 +108,7 @@ func newUpdatesStack() *updatesStack {
 	var err error
 	s.sources, err = catalog.NewSources(filepath.Join(root, "sources.json"), admin, appsResolver)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(s.sources.Save(ctx, s.owner, catalog.Source{ID: "test", Name: "Test", URL: s.library.URL + "/library.json", Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+	Expect(s.sources.Save(ctx, s.owner, catalog.Source{ID: "test", Name: "Test", URL: s.library.URL + "/library.yaml", Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
 	s.publish("build-1", catalog.Requirements{})
 	_, err = s.sources.Refresh(ctx, "test")
 	Expect(err).NotTo(HaveOccurred())

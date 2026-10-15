@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -73,7 +72,7 @@ var _ = Describe("addon bootstrap", func() {
 				_, _ = w.Write(b.Bytes())
 				return
 			}
-			_ = json.NewEncoder(w).Encode([]catalog.Release{{AddonID: "sample", Name: "Sample", Version: "1.2.3", OS: "linux", Arch: "amd64", Artifact: url + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes()))}})
+			_ = catalog.WriteIndex(w, []catalog.Release{{AddonID: "sample", Name: "Sample", Version: "1.2.3", OS: "linux", Arch: "amd64", Artifact: url + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes()))}})
 		}))
 		defer server.Close()
 		url = server.URL

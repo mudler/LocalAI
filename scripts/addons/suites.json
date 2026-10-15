@@ -165,7 +165,14 @@
       "lists only releases the configured target platform can install",
       "keeps the compatibility hint of an entry and refuses a malformed range",
       "lists the releases of one add-on for every platform, from the cache, and refuses a failed library",
-      "names an unavailable credential reference as a credential failure inside the refresh failure"
+      "names an unavailable credential reference as a credential failure inside the refresh failure",
+      "reads a YAML list of releases with the documented fields",
+      "accepts an empty library written as an empty list",
+      "refuses a JSON index",
+      "refuses an unknown field, at the top and inside ui",
+      "refuses a second document, a mapping, an empty body and a duplicate key",
+      "refuses duplicate identities",
+      "enforces the release count and the size limit"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },

@@ -294,12 +294,12 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 	if response.StatusCode != http.StatusOK {
 		return nil, ErrRefresh
 	}
-	data, e := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
-	if e != nil || len(data) > 1<<20 {
+	data, e := io.ReadAll(io.LimitReader(response.Body, MaxIndexBytes+1))
+	if e != nil || len(data) > MaxIndexBytes {
 		return nil, ErrRefresh
 	}
-	var releases []Release
-	if e = decode(data, &releases); e != nil || releases == nil || len(releases) > 1000 {
+	releases, e := DecodeIndex(data)
+	if e != nil || releases == nil {
 		return nil, ErrRefresh
 	}
 	seen := map[string]bool{}

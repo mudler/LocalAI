@@ -204,9 +204,9 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 	for i := range f.moving {
 		f.moving[i].Artifact = base + f.moving[i].Artifact
 	}
-	f.library = base + "/library.json"
+	f.library = base + "/library.yaml"
 	mux := http.NewServeMux()
-	mux.HandleFunc("/library.json", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/library.yaml", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		offline, listed := f.offline, f.listed()
 		f.mu.Unlock()
@@ -214,7 +214,7 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 			http.Error(w, "library offline", http.StatusServiceUnavailable)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(listed)
+		_ = catalog.WriteIndex(w, listed)
 	})
 	// The control routes of a spec: move the channels on and take the library
 	// away. They exist only in this test server.

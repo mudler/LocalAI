@@ -69,10 +69,10 @@ func NewLibrary(exePath string) (*Library, error) {
 	}
 	lib := &Library{listener: l, exe: exe, archives: map[string][]byte{}}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/library.json", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/library.yaml", func(w http.ResponseWriter, r *http.Request) {
 		lib.mu.Lock()
 		defer lib.mu.Unlock()
-		_ = json.NewEncoder(w).Encode(lib.releases)
+		_ = catalog.WriteIndex(w, lib.releases)
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		lib.mu.Lock()
@@ -90,7 +90,7 @@ func NewLibrary(exePath string) (*Library, error) {
 }
 
 // URL is the library document address.
-func (l *Library) URL() string { return "http://" + l.listener.Addr().String() + "/library.json" }
+func (l *Library) URL() string { return "http://" + l.listener.Addr().String() + "/library.yaml" }
 
 // Close stops the server.
 func (l *Library) Close() { _ = l.server.Close() }

@@ -76,7 +76,7 @@ func fixture(data []byte, edits ...func(*catalog.Release, *catalog.Source)) (*In
 			w.WriteHeader(403)
 			return
 		}
-		json.NewEncoder(w).Encode([]catalog.Release{r})
+		catalog.WriteIndex(w, []catalog.Release{r})
 	}))
 	DeferCleanup(server.Close)
 	store, e := credentials.Parse([]byte("- match: "+server.URL+"\n  allow_insecure: true\n  bearer: catalog-only"), nil)

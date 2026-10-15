@@ -41,7 +41,7 @@ var _ = Describe("source configuration", func() {
 		Expect(string(b)).To(Equal("pinned-source"))
 	})
 	It("invalidates cached releases on explicit source changes", func() {
-		server := library(func(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode([]Release{release()}) })
+		server := library(func(w http.ResponseWriter, r *http.Request) { WriteIndex(w, []Release{release()}) })
 		s := setup()
 		save(s, "one", server.URL)
 		_, e := s.Refresh(ctx, "one")
@@ -60,7 +60,7 @@ var _ = Describe("source configuration", func() {
 			Expect(e).To(MatchError(ErrRefresh))
 		}
 		server := library(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode([]Release{release(), release()})
+			WriteIndex(w, []Release{release(), release()})
 		})
 		save(s, "one", server.URL)
 		_, e := s.Refresh(ctx, "one")
@@ -74,7 +74,7 @@ var _ = Describe("reserved add-on IDs", func() {
 		for _, id := range contract.ReservedAddonIDs() {
 			r := release()
 			r.AddonID = id
-			server := library(func(w http.ResponseWriter, _ *http.Request) { json.NewEncoder(w).Encode([]Release{r}) })
+			server := library(func(w http.ResponseWriter, _ *http.Request) { WriteIndex(w, []Release{r}) })
 			save(s, "one", server.URL)
 			_, e := s.Refresh(ctx, "one")
 			Expect(e).To(MatchError(ErrRefresh), id)
@@ -171,7 +171,7 @@ var _ = Describe("source reads", func() {
 
 var _ = Describe("what the update check reads", func() {
 	serve := func(rs ...Release) *Sources {
-		server := library(func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(rs) })
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, rs) })
 		s := setup()
 		Expect(s.Save(ctx, admin, Source{ID: "lib", Name: "lib", URL: server.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
 		_, e := s.Refresh(ctx, "lib")
@@ -192,7 +192,7 @@ var _ = Describe("what the update check reads", func() {
 		} {
 			b := release()
 			b.Requires = bad
-			server := library(func(w http.ResponseWriter, _ *http.Request) { _ = json.NewEncoder(w).Encode([]Release{b}) })
+			server := library(func(w http.ResponseWriter, _ *http.Request) { _ = WriteIndex(w, []Release{b}) })
 			s := setup()
 			Expect(s.Save(ctx, admin, Source{ID: "lib", Name: "lib", URL: server.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
 			_, e := s.Refresh(ctx, "lib")
@@ -229,7 +229,7 @@ var _ = Describe("what the update check reads", func() {
 		Expect(state.Failed).To(BeTrue())
 	})
 	It("names an unavailable credential reference as a credential failure inside the refresh failure", func() {
-		server := library(func(w http.ResponseWriter, _ *http.Request) { _ = json.NewEncoder(w).Encode([]Release{release()}) })
+		server := library(func(w http.ResponseWriter, _ *http.Request) { _ = WriteIndex(w, []Release{release()}) })
 		s := setup()
 		s.credentials = CredentialResolver{References: map[string]CredentialBinding{"gone": {Origin: server.URL}}}
 		Expect(s.Save(ctx, admin, Source{ID: "lib", Name: "lib", URL: server.URL, Enabled: true, AllowLoopbackHTTP: true, AuthReference: "gone"})).To(Succeed())

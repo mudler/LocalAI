@@ -93,7 +93,7 @@ func newAppsStack() *appsStack {
 	for _, id := range []string{"notes", "headless"} {
 		releases = append(releases, catalog.Release{AddonID: id, Name: id, Version: "1.0.0", Artifact: artifact.URL + "/" + id + ".tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(archives[id])), OS: "linux", Arch: "amd64"})
 	}
-	library := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(releases) }))
+	library := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _ = catalog.WriteIndex(w, releases) }))
 	DeferCleanup(library.Close)
 	root := GinkgoT().TempDir()
 	s.root = root
