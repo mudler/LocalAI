@@ -238,13 +238,16 @@ func redactSensitiveHeaders(h http.Header) http.Header {
 }
 
 // isLegacyEmbeddingBody reports whether an embedding request body is a valid
-// legacy (string, token or messages) request. Anything else, including
+// legacy (string, token or messages) request. Only a JSON object qualifies:
+// the binder's structured check ignores non-object top-level JSON, so an array
+// or scalar could still carry structured input. Anything else, including
 // malformed JSON, is treated as private and is not captured.
 func isLegacyEmbeddingBody(body []byte) bool {
-	if !json.Valid(body) {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 || trimmed[0] != '{' || !json.Valid(trimmed) {
 		return false
 	}
-	_, structured, err := schema.ParseEmbeddingRequest(body)
+	_, structured, err := schema.ParseEmbeddingRequest(trimmed)
 	return err == nil && !structured
 }
 
