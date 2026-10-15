@@ -380,7 +380,7 @@ See also: [Object Detection]({{%relref "features/object-detection" %}})
 | 400    | `slot_save_path` is not set for the model | `slot save and restore is disabled for this model: set the slot_save_path option` |
 | 403    | Caller is not an admin (authentication on) | `Forbidden` |
 | 412    | Backend has save and restore turned off | `slot save/restore is disabled` |
-| 501    | Backend does not support the call | `unknown method SlotCache` |
+| 501    | Backend does not support the call | `slot save and restore is not supported by this model's backend` |
 
 ### Models - `GET /v1/models`, `GET /models`
 

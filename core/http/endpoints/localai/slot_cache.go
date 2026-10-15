@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -63,8 +64,17 @@ func slotCacheEndpoint(action pb.SlotCacheAction, ml *model.ModelLoader, appConf
 
 		resp, err := backend.ModelSlotCache(action, input.Slot, input.Filename, ml, *cfg, appConfig)
 		if err != nil {
-			return mapBackendError(err)
+			return slotCacheError(err)
 		}
 		return c.JSON(http.StatusOK, resp)
 	}
+}
+
+// slotCacheError turns a backend error into an HTTP error. A backend without
+// slot cache support gets 501; everything else follows mapBackendError.
+func slotCacheError(err error) error {
+	if errors.Is(err, backend.ErrSlotCacheUnsupported) {
+		return echo.NewHTTPError(http.StatusNotImplemented, backend.ErrSlotCacheUnsupported.Error())
+	}
+	return mapBackendError(err)
 }

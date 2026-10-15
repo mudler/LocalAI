@@ -1,6 +1,8 @@
 package backend
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,7 +11,43 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+// ErrSlotCacheUnsupported is returned when the model's backend does not
+// implement the SlotCache rpc (gRPC UNIMPLEMENTED).
+var ErrSlotCacheUnsupported = errors.New("slot save and restore is not supported by this model's backend")
+
+// slotCacheCaller is the part of a loaded backend that slot cache needs.
+type slotCacheCaller interface {
+	SlotCache(ctx context.Context, in *pb.SlotCacheRequest, opts ...grpc.CallOption) (*pb.SlotCacheResponse, error)
+}
+
+// callSlotCache sends the request and maps an UNIMPLEMENTED status to
+// ErrSlotCacheUnsupported. Every other error is returned unchanged.
+func callSlotCache(ctx context.Context, c slotCacheCaller, req *pb.SlotCacheRequest) (*pb.SlotCacheResponse, error) {
+	resp, err := c.SlotCache(ctx, req)
+	if err != nil {
+		if st, ok := status.FromError(err); ok && st.Code() == codes.Unimplemented {
+			return nil, ErrSlotCacheUnsupported
+		}
+		return nil, err
+	}
+	return resp, nil
+}
+
+// newSlotCacheRequest always sends the configured model as ModelIdentity, so a
+// backend that checks it can refuse a request meant for another model.
+func newSlotCacheRequest(action pb.SlotCacheAction, slot int32, filename string, modelConfig config.ModelConfig) *pb.SlotCacheRequest {
+	return &pb.SlotCacheRequest{
+		ModelIdentity: modelConfig.Model,
+		Action:        action,
+		Slot:          slot,
+		Filename:      filename,
+	}
+}
 
 // ModelSlotCache saves or restores the prompt cache of one slot of a loaded
 // model. The caller must have validated filename (see pkg/slotcache); the
@@ -41,12 +79,7 @@ func ModelSlotCache(action pb.SlotCacheAction, slot int32, filename string, load
 	}
 	defer trace.CancelBackendTrace(traceID)
 
-	resp, err := inferenceModel.SlotCache(appConfig.Context, &pb.SlotCacheRequest{
-		ModelIdentity: modelConfig.Model,
-		Action:        action,
-		Slot:          slot,
-		Filename:      filename,
-	})
+	resp, err := callSlotCache(appConfig.Context, inferenceModel, newSlotCacheRequest(action, slot, filename, modelConfig))
 
 	if appConfig.EnableTracing {
 		errStr := ""

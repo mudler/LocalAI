@@ -76,9 +76,9 @@ service Backend {
 
   rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
 
-  // SlotCache saves the prompt cache (KV state) of one server slot to a file
-  // in the backend's slot save directory, or loads it back. Only the llama.cpp
-  // backend implements it, and only when the model sets slot_save_path.
+  // SlotCache saves or restores the backend's per-slot prompt state (KV or
+  // session state) to or from a file in the backend's configured save
+  // directory. A backend that does not support it returns gRPC UNIMPLEMENTED.
   rpc SlotCache(SlotCacheRequest) returns (SlotCacheResponse) {}
 
   rpc VAD(VADRequest) returns (VADResponse) {}
@@ -941,10 +941,16 @@ enum SlotCacheAction {
 }
 
 message SlotCacheRequest {
+  // Ties a save file to the model it came from. Empty means the backend does
+  // not check it.
   string model_identity = 1;
   SlotCacheAction action = 2;
-  int32 slot = 3;        // slot id, 0 is the first slot
-  string filename = 4;   // one path component, resolved inside the save directory
+  // The backend's state slot id, 0 is the first slot. For llama.cpp it is the
+  // server slot. Other backends may map it to a session id.
+  int32 slot = 3;
+  // A single path component. The backend must refuse anything that resolves
+  // outside the save directory.
+  string filename = 4;
 }
 
 message SlotCacheResponse {

@@ -5,7 +5,11 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"errors"
+	"fmt"
+
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -34,6 +38,19 @@ var _ = Describe("slot cache endpoints", func() {
 		}
 		return http.StatusInternalServerError
 	}
+
+	It("answers 501 when the backend does not support slot cache", func() {
+		err := SlotCacheErrorForTest(fmt.Errorf("wrapped: %w", backend.ErrSlotCacheUnsupported))
+		var he *echo.HTTPError
+		Expect(errors.As(err, &he)).To(BeTrue())
+		Expect(he.Code).To(Equal(http.StatusNotImplemented))
+		Expect(he.Message).To(Equal("slot save and restore is not supported by this model's backend"))
+	})
+
+	It("keeps other backend errors on the existing mapping", func() {
+		plain := errors.New("boom")
+		Expect(SlotCacheErrorForTest(plain)).To(Equal(plain))
+	})
 
 	handlers := map[string]func() echo.HandlerFunc{
 		"save":    func() echo.HandlerFunc { return SlotCacheSaveEndpoint(nil, nil) },
