@@ -62,6 +62,7 @@
 #include "model_load_error.h"
 #include "thread_params.h"
 #include "parallel_params.h"
+#include "slot_cache.h"
 #include "message_content.h"
 #include "passthrough_options.h"
 #include "stream_peer.h"
@@ -77,6 +78,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <list>
@@ -675,6 +677,24 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     params.cache_ram_mib = std::stoi(optval_str);
                 } catch (const std::exception& e) {
                     // If conversion fails, keep the default value
+                }
+            }
+        } else if (!strcmp(optname, "slot_save_path")) {
+            // Directory for SlotCache save/restore files. Take everything after
+            // the first ':' so a path that contains one is kept whole. Without
+            // this option the RPC stays disabled, as in llama-server.
+            const size_t sep = opt.find(':');
+            const std::string dir = (sep == std::string::npos) ? "" : opt.substr(sep + 1);
+            if (!dir.empty()) {
+                std::error_code ec;
+                std::filesystem::create_directories(std::filesystem::u8path(dir), ec);
+                if (ec || !std::filesystem::is_directory(std::filesystem::u8path(dir))) {
+                    fprintf(stderr, "slot_save_path %s is not a usable directory, slot save/restore stays disabled\n", dir.c_str());
+                } else {
+                    params.slot_save_path = dir;
+                    if (params.slot_save_path.back() != '/' && params.slot_save_path.back() != '\\') {
+                        params.slot_save_path += DIRECTORY_SEPARATOR;
+                    }
                 }
             }
         } else if (!strcmp(optname, "parallel") || !strcmp(optname, "n_parallel")) {
@@ -3723,6 +3743,72 @@ public:
             }
         }
 
+        return grpc::Status::OK;
+    }
+
+    // SlotCache saves or restores the prompt cache of one slot. It reuses the
+    // task the llama-server /slots endpoint posts, so the file format is the
+    // same. The file name comes from the caller and is never trusted: it must
+    // be a single path component and must resolve inside slot_save_path.
+    grpc::Status SlotCache(ServerContext* context, const backend::SlotCacheRequest* request, backend::SlotCacheResponse* response) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
+        if (params_base.model.path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        if (params_base.slot_save_path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+                "slot save/restore is disabled: set the slot_save_path option for this model");
+        }
+
+        server_task_type type;
+        switch (request->action()) {
+            case backend::SLOT_CACHE_ACTION_SAVE:    type = SERVER_TASK_TYPE_SLOT_SAVE;    break;
+            case backend::SLOT_CACHE_ACTION_RESTORE: type = SERVER_TASK_TYPE_SLOT_RESTORE; break;
+            default:
+                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "action must be save or restore");
+        }
+        if (request->slot() < 0) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "slot must not be negative");
+        }
+
+        // llama.cpp's own check first, then ours, which also checks containment.
+        if (!fs_validate_filename(request->filename())) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "invalid filename");
+        }
+        std::string filepath, path_err;
+        if (!llama_grpc::resolve_slot_file(params_base.slot_save_path, request->filename(), filepath, path_err)) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, path_err);
+        }
+
+        server_task task(type);
+        auto rd = ctx_server.get_response_reader();
+        task.id = rd.get_new_id();
+        task.slot_action.id_slot  = request->slot();
+        task.slot_action.filename = request->filename();
+        task.slot_action.filepath = filepath;
+        rd.post_task(std::move(task));
+
+        auto res = rd.next([context]() { return context->IsCancelled(); });
+        if (!res) {
+            return grpc::Status(grpc::StatusCode::CANCELLED, "slot cache request cancelled");
+        }
+        if (res->is_error()) {
+            return grpc::Status(grpc::StatusCode::INTERNAL, res->to_json().dump());
+        }
+        auto * slot_res = dynamic_cast<server_task_result_slot_save_load *>(res.get());
+        if (slot_res == nullptr) {
+            return grpc::Status(grpc::StatusCode::INTERNAL, "unexpected result type for a slot cache task");
+        }
+
+        response->set_success(true);
+        response->set_slot(slot_res->id_slot);
+        response->set_filename(slot_res->filename);
+        response->set_n_tokens(slot_res->n_tokens);
+        response->set_n_bytes(slot_res->n_bytes);
+        response->set_duration_ms(slot_res->t_ms);
         return grpc::Status::OK;
     }
 

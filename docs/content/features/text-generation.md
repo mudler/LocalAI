@@ -592,6 +592,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `use_jinja` or `jinja` | boolean | Enable Jinja2 template processing for chat templates. When enabled, the backend uses Jinja2-based chat templates from the model for formatting messages. | `use_jinja:true` |
 | `context_shift` | boolean | Enable context shifting, which allows the model to dynamically adjust context window usage. | `context_shift:true` |
 | `cache_ram` | integer | Size budget in MiB for the **server-side prompt cache** (a host-RAM store of idle slot KV states that's reloaded on a prompt-prefix hit, see [upstream PR #16391](https://github.com/ggml-org/llama.cpp/pull/16391)). Default: `8192` MiB (llama.cpp default). `-1` removes the limit. `0` disables the prompt cache entirely. Together with `kv_unified` and `cache_idle_slots` this is what makes a repeated system prompt skip prefill on subsequent calls. | `cache_ram:4096` |
+| `slot_save_path` | string | Directory where the slot save and restore API writes and reads prompt-cache files. Save and restore are off unless this is set. LocalAI creates the directory if it is missing. See [Saving and restoring a prompt cache](#saving-and-restoring-a-prompt-cache). | `slot_save_path:/var/lib/localai/slots` |
 | `parallel` or `n_parallel` | integer | Enable parallel request processing. When set to a value greater than 1, enables continuous batching for handling multiple requests concurrently. | `parallel:4` |
 | `grpc_servers` or `rpc_servers` | string | Comma-separated list of gRPC server addresses for distributed inference. Allows distributing workload across multiple llama.cpp workers. | `grpc_servers:localhost:50051,localhost:50052` |
 | `fit_params` or `fit` | boolean | Enable auto-adjustment of model/context parameters to fit available device memory. Default: `true`. | `fit_params:true` |
@@ -665,6 +666,44 @@ options:
 Set `cache_ram:0` to opt out of the prompt cache entirely (saves host RAM at the cost of re-prefilling repeated prompts).
 
 `cache_ram:-1` removes the limit. With idle-slot saving on, every distinct prompt then leaves its slot state in host RAM, so a workload with many different prompts (classification, ingestion) grows the backend by roughly the KV size of each prompt until the host runs out of memory.
+
+##### Saving and restoring a prompt cache
+
+The server-side prompt cache lives in RAM and is lost when the model unloads. To keep the prompt state of one slot on disk, set `slot_save_path` and use the slot API. A typical use is a voice assistant with a long system prompt: save the state once, then restore it when the wake word fires, so the first request does not wait for prefill.
+
+```yaml
+options:
+  - slot_save_path:/var/lib/localai/slots
+```
+
+Both calls need an admin API key when authentication is on. Without `slot_save_path` they return `400`.
+
+```bash
+# Save slot 0 of the model to a file in the save directory
+curl http://localhost:8080/v1/slots/save \
+  -H "Content-Type: application/json" \
+  -d '{"model": "my-model", "slot": 0, "filename": "assistant.bin"}'
+
+# Load that file back into slot 0
+curl http://localhost:8080/v1/slots/restore \
+  -H "Content-Type: application/json" \
+  -d '{"model": "my-model", "slot": 0, "filename": "assistant.bin"}'
+```
+
+| Field | Description |
+|---|---|
+| `model` | Name of a `llama-cpp` model. |
+| `filename` | One file name. It must not contain `/`, `\`, `..` or a NUL byte, and it cannot be an absolute path. The file is always inside `slot_save_path`. |
+| `slot` | Slot id. Default `0`. With `parallel:N` the ids are `0` to `N-1`. |
+
+The reply gives the slot, the file name, the number of tokens and bytes, and the time taken in `duration_ms`.
+
+Keep these points in mind:
+
+- A file is only as fresh as the last save. To change the cached prompt, save again.
+- A file holds the prompt state for the model and quantisation it came from. Do not restore it into a different model, quantisation or context size. The restore call fails if the file does not fit, but a file from another model is not always detected.
+- A slot that is busy with a request is served after that request ends.
+- The API is for `llama-cpp` only. Other backends return `501`.
 
 #### Reference
 

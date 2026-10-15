@@ -182,6 +182,9 @@ func (f *fakeGRPCBackend) Rerank(_ context.Context, _ *pb.RerankRequest, _ ...gg
 	return &pb.RerankResult{}, nil
 }
 
+func (f *fakeGRPCBackend) SlotCache(_ context.Context, _ *pb.SlotCacheRequest, _ ...ggrpc.CallOption) (*pb.SlotCacheResponse, error) {
+	return &pb.SlotCacheResponse{}, nil
+}
 func (f *fakeGRPCBackend) GetTokenMetrics(_ context.Context, _ *pb.MetricsRequest, _ ...ggrpc.CallOption) (*pb.MetricsResponse, error) {
 	return &pb.MetricsResponse{}, nil
 }

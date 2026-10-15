@@ -215,6 +215,10 @@ func (e *embedBackend) GetTokenMetrics(ctx context.Context, in *pb.MetricsReques
 	return e.s.GetMetrics(ctx, in)
 }
 
+func (e *embedBackend) SlotCache(ctx context.Context, in *pb.SlotCacheRequest, opts ...grpc.CallOption) (*pb.SlotCacheResponse, error) {
+	return e.s.SlotCache(ctx, in)
+}
+
 func (e *embedBackend) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts ...grpc.CallOption) (*pb.FineTuneJobResult, error) {
 	return e.s.StartFineTune(ctx, in)
 }

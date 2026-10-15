@@ -4229,6 +4229,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/slots/restore": {
+            "post": {
+                "description": "Reads a file written by the save call from the directory set by the model's slot_save_path option into one slot of a llama-cpp model. The file must come from the same model and quantisation. Admin only.",
+                "tags": [
+                    "inference"
+                ],
+                "summary": "Restore a slot's prompt cache from a file.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/slots/save": {
+            "post": {
+                "description": "Writes the prompt cache (KV state) of one slot of a llama-cpp model to a file in the directory set by the model's slot_save_path option. The file name must be a single file name. Admin only.",
+                "tags": [
+                    "inference"
+                ],
+                "summary": "Save a slot's prompt cache to a file.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/sound-generation": {
             "post": {
                 "tags": [
@@ -8883,6 +8939,52 @@ const docTemplate = `{
                 "score": {
                     "description": "Score is the top label's softmax probability (the\nclassifier-side confidence signal).",
                     "type": "number"
+                }
+            }
+        },
+        "schema.SlotCacheRequest": {
+            "type": "object",
+            "properties": {
+                "filename": {
+                    "description": "one file name, no directories",
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "slot": {
+                    "description": "slot id, 0 is the first slot",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SlotCacheResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "\"save\" or \"restore\"",
+                    "type": "string"
+                },
+                "duration_ms": {
+                    "description": "time the backend spent",
+                    "type": "number"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "n_bytes": {
+                    "description": "bytes written or read",
+                    "type": "integer"
+                },
+                "n_tokens": {
+                    "description": "tokens saved or restored",
+                    "type": "integer"
+                },
+                "slot": {
+                    "type": "integer"
                 }
             }
         },

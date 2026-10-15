@@ -76,6 +76,11 @@ service Backend {
 
   rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
 
+  // SlotCache saves the prompt cache (KV state) of one server slot to a file
+  // in the backend's slot save directory, or loads it back. Only the llama.cpp
+  // backend implements it, and only when the model sets slot_save_path.
+  rpc SlotCache(SlotCacheRequest) returns (SlotCacheResponse) {}
+
   rpc VAD(VADRequest) returns (VADResponse) {}
 
   rpc Diarize(DiarizeRequest) returns (DiarizeResponse) {}
@@ -927,6 +932,29 @@ message SoundGenerationRequest {
 message TokenizationResponse {
   int32 length = 1;
   repeated int32 tokens = 2;
+}
+
+enum SlotCacheAction {
+  SLOT_CACHE_ACTION_UNSPECIFIED = 0;
+  SLOT_CACHE_ACTION_SAVE = 1;
+  SLOT_CACHE_ACTION_RESTORE = 2;
+}
+
+message SlotCacheRequest {
+  string model_identity = 1;
+  SlotCacheAction action = 2;
+  int32 slot = 3;        // slot id, 0 is the first slot
+  string filename = 4;   // one path component, resolved inside the save directory
+}
+
+message SlotCacheResponse {
+  bool success = 1;
+  string message = 2;    // error detail when success is false
+  int32 slot = 3;
+  string filename = 4;
+  uint64 n_tokens = 5;   // tokens saved or restored
+  uint64 n_bytes = 6;    // bytes written or read
+  double duration_ms = 7;
 }
 
 message DetokenizeRequest {

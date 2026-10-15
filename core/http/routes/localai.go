@@ -417,6 +417,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"detection":      "/v1/detection",
 					"tokenize":       "/v1/tokenize",
 					"detokenize":     "/v1/detokenize",
+					"slots_save":     "/v1/slots/save",
+					"slots_restore":  "/v1/slots/restore",
 				},
 				"monitoring": monitoringRoutes,
 				"mcp": map[string]string{
@@ -493,6 +495,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		detokenizeHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetokenizeRequest) }))
+
+	// Slot prompt-cache save and restore (llama-cpp). Admin only: it writes
+	// files on the host that runs the backend.
+	router.POST("/v1/slots/save",
+		localai.SlotCacheSaveEndpoint(ml, appConfig),
+		adminMiddleware,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.SlotCacheRequest) }))
+	router.POST("/v1/slots/restore",
+		localai.SlotCacheRestoreEndpoint(ml, appConfig),
+		adminMiddleware,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.SlotCacheRequest) }))
 
 	// MCP endpoint - supports both streaming and non-streaming modes
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.

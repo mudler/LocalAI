@@ -3013,6 +3013,38 @@ definitions:
           classifier-side confidence signal).
         type: number
     type: object
+  schema.SlotCacheRequest:
+    properties:
+      filename:
+        description: one file name, no directories
+        type: string
+      model:
+        type: string
+      slot:
+        description: slot id, 0 is the first slot
+        type: integer
+    type: object
+  schema.SlotCacheResponse:
+    properties:
+      action:
+        description: '"save" or "restore"'
+        type: string
+      duration_ms:
+        description: time the backend spent
+        type: number
+      filename:
+        type: string
+      model:
+        type: string
+      n_bytes:
+        description: bytes written or read
+        type: integer
+      n_tokens:
+        description: tokens saved or restored
+        type: integer
+      slot:
+        type: integer
+    type: object
   schema.SoundClassification:
     properties:
       index:
@@ -6594,6 +6626,46 @@ paths:
             additionalProperties: true
             type: object
       summary: Cancel a response
+      tags:
+      - inference
+  /v1/slots/restore:
+    post:
+      description: Reads a file written by the save call from the directory set by
+        the model's slot_save_path option into one slot of a llama-cpp model. The
+        file must come from the same model and quantisation. Admin only.
+      parameters:
+      - description: Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SlotCacheRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.SlotCacheResponse'
+      summary: Restore a slot's prompt cache from a file.
+      tags:
+      - inference
+  /v1/slots/save:
+    post:
+      description: Writes the prompt cache (KV state) of one slot of a llama-cpp model
+        to a file in the directory set by the model's slot_save_path option. The file
+        name must be a single file name. Admin only.
+      parameters:
+      - description: Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SlotCacheRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.SlotCacheResponse'
+      summary: Save a slot's prompt cache to a file.
       tags:
       - inference
   /v1/sound-generation:

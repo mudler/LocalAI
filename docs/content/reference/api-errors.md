@@ -372,6 +372,16 @@ See also: [Object Detection]({{%relref "features/object-detection" %}})
 | 400    | Invalid or malformed request body | `Bad Request`                       |
 | 400    | Model not found in configuration | `Bad Request`                       |
 
+### Slot cache - `POST /v1/slots/save`, `POST /v1/slots/restore`
+
+| Status | Cause                          | Example Message                       |
+|--------|--------------------------------|---------------------------------------|
+| 400    | Invalid file name, negative slot, or model not found | `invalid filename: use a single file name without directories` |
+| 400    | `slot_save_path` is not set for the model | `slot save and restore is disabled for this model: set the slot_save_path option` |
+| 403    | Caller is not an admin (authentication on) | `Forbidden` |
+| 412    | Backend has save and restore turned off | `slot save/restore is disabled` |
+| 501    | Backend does not support the call | `unknown method SlotCache` |
+
 ### Models - `GET /v1/models`, `GET /models`
 
 | Status | Cause                          | Example Message                       |
