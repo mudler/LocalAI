@@ -95,7 +95,7 @@ func directory(path string) (*os.File, error) {
 	}
 	f := os.NewFile(uintptr(fd), "worker status directory")
 	var st unix.Stat_t
-	if unix.Fstat(fd, &st) != nil || st.Uid != uint32(os.Geteuid()) || st.Mode&07777 != 0700 {
+	if unix.Fstat(fd, &st) != nil || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&07777 != 0700 {
 		f.Close()
 		return nil, ErrUnavailable
 	}
@@ -108,7 +108,7 @@ func openSnapshot(dir *os.File) (*os.File, error) {
 	}
 	f := os.NewFile(uintptr(fd), "worker status")
 	var st unix.Stat_t
-	if unix.Fstat(fd, &st) != nil || st.Uid != uint32(os.Geteuid()) || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Mode&07777 != 0600 || st.Nlink != 1 || st.Size > MaxSize {
+	if unix.Fstat(fd, &st) != nil || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Mode&07777 != 0600 || st.Nlink != 1 || st.Size > MaxSize {
 		f.Close()
 		return nil, ErrUnavailable
 	}
@@ -255,6 +255,22 @@ func (t *Tracker) Classify(s Snapshot, now time.Time) string {
 		return "heartbeat"
 	}
 	return "ready"
+}
+
+// requireNoSnapshot succeeds only when the validated session directory holds no
+// entry named status.json. The lookup goes through the pinned directory
+// descriptor and does not follow a symbolic link.
+func requireNoSnapshot(path string) error {
+	dir, err := directory(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = dir.Close() }()
+	var st unix.Stat_t
+	if err := unix.Fstatat(int(dir.Fd()), "status.json", &st, unix.AT_SYMLINK_NOFOLLOW); !errors.Is(err, unix.ENOENT) {
+		return ErrUnavailable
+	}
+	return nil
 }
 
 func removeSnapshot(dir *os.File) error { return unix.Unlinkat(int(dir.Fd()), "status.json", 0) }

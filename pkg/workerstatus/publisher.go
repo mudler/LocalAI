@@ -42,8 +42,8 @@ func (p *Publisher) Generation() string {
 func NewPublisher(ctx context.Context, path, generation string, cancel context.CancelFunc) (*Publisher, error) {
 	p := &Publisher{path: path, cancel: cancel, state: Snapshot{PID: os.Getpid(), Schema: Schema, Generation: generation, Registration: "starting", HeartbeatInterval: 10 * time.Second}}
 	// A fresh launch must never adopt a previous session's file.
-	if _, err := os.Lstat(path); !os.IsNotExist(err) {
-		return nil, ErrUnavailable
+	if err := requireNoSnapshot(path); err != nil {
+		return nil, err
 	}
 	if err := p.publishLocked(); err != nil {
 		return nil, err

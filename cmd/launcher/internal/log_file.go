@@ -24,7 +24,7 @@ func secureLogFile(dataPath string) (*os.File, error) {
 	}
 	defer unix.Close(fd)
 	var st unix.Stat_t
-	if unix.Fstat(fd, &st) != nil || st.Uid != uint32(os.Geteuid()) || st.Mode&0022 != 0 {
+	if unix.Fstat(fd, &st) != nil || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&0022 != 0 {
 		return fail()
 	}
 	if unix.Fchmod(fd, 0700) != nil {

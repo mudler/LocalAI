@@ -113,6 +113,21 @@ var _ = Describe("Worker status security", func() {
 		p.Update(nil)
 		Expect(os.IsNotExist(func() error { _, e := os.Stat(path); return e }())).To(BeTrue())
 	})
+	It("refuses a new publisher over a dangling symlink or an untrusted directory", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		path, generation, err := NewSession(GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.Symlink(filepath.Join(filepath.Dir(path), "missing-target"), path)).To(Succeed())
+		_, err = NewPublisher(ctx, path, generation, cancel)
+		Expect(err).To(HaveOccurred())
+		Expect(os.Remove(path)).To(Succeed())
+		Expect(os.Chmod(filepath.Dir(path), 0755)).To(Succeed())
+		_, err = NewPublisher(ctx, path, generation, cancel)
+		Expect(err).To(HaveOccurred())
+		_, err = NewPublisher(ctx, "status.json", generation, cancel)
+		Expect(err).To(HaveOccurred())
+	})
 	It("preserves explicit approval independently of credentials and expires pending evidence", func() {
 		now := time.Now()
 		s := Snapshot{PID: os.Getpid(), Schema: 1, Generation: "test", Sequence: 1, Time: now, Registration: "unknown", Credentials: true, Authenticated: true, Connected: true, Subscriptions: true, Armed: true, LocalReady: true, Heartbeat: now, HeartbeatInterval: 10 * time.Second}

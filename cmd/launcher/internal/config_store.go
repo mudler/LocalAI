@@ -35,7 +35,7 @@ func configDirectory() (*os.File, error) {
 	}
 	dir := os.NewFile(uintptr(fd), "launcher settings directory")
 	var st unix.Stat_t
-	if err := unix.Fstat(fd, &st); err != nil || st.Uid != uint32(os.Geteuid()) || st.Mode&0022 != 0 {
+	if err := unix.Fstat(fd, &st); err != nil || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&0022 != 0 {
 		dir.Close()
 		return nil, settingsIOError("trust directory for")
 	}
@@ -52,7 +52,7 @@ func openConfig(dir *os.File) (*os.File, error) {
 	}
 	f := os.NewFile(uintptr(fd), "launcher.json")
 	var st unix.Stat_t
-	if err = unix.Fstat(fd, &st); err != nil || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Nlink != 1 {
+	if err = unix.Fstat(fd, &st); err != nil || st.Mode&unix.S_IFMT != unix.S_IFREG || int64(st.Uid) != int64(os.Geteuid()) || st.Nlink != 1 {
 		f.Close()
 		return nil, settingsIOError("trust")
 	}
