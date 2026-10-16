@@ -67,6 +67,9 @@ var (
 	// ErrProposalStale means the addon generation or revisions moved since the
 	// preview, so what the human saw is no longer what would run.
 	ErrProposalStale = fmt.Errorf("addon proposal is stale: %w", gateway.ErrForbidden)
+	// ErrProposalConflict means the add-on refused the apply as a conflict with
+	// a record it holds. It is a definite answer: nothing was applied.
+	ErrProposalConflict = fmt.Errorf("addon proposal conflicts with the add-on state: %w", gateway.ErrForbidden)
 	// ErrProposalChanged means the confirmation does not name the stored
 	// operation exactly.
 	ErrProposalChanged = fmt.Errorf("addon proposal digest does not match: %w", gateway.ErrForbidden)
@@ -1326,7 +1329,30 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		b.settle(id, gateway.ProposalRejected, nil, "refused by the addon as invalid")
 		return contract.Receipt{}, gateway.Refused(err)
 	}
+	if errors.Is(err, addonruntime.ErrConflict) {
+		// R38: a conflict is the add-on's definite answer. Nothing was applied.
+		b.settle(id, gateway.ProposalRejected, nil, "refused by the addon as a conflict")
+		return contract.Receipt{}, ErrProposalConflict
+	}
+	if errors.Is(err, addonruntime.ErrNotSent) {
+		// The request never reached the wire, so the add-on cannot have seen it
+		// and no outcome is unknown. A hold or lowered authority that cancelled
+		// the dispatch ends the proposal (R35); any other cause (no slot, a
+		// withdrawn client, an envelope that failed validation) returns it to
+		// pending so the same confirmation can run again (R34, R29).
+		state, reason, answer := gateway.ProposalPending, "", err
+		if ctx.Err() != nil {
+			state, reason, answer = gateway.ProposalCancelled, "authority lowered before dispatch", ErrForbidden
+		}
+		_, _ = b.store.transition(id, []ProposalState{gateway.ProposalExecuting}, func(x *proposalRecord) {
+			x.State = state
+			x.Reason = reason
+			x.UnknownSince = time.Time{}
+		})
+		return contract.Receipt{}, answer
+	}
 	if err != nil {
+		// R39: the request may have reached the add-on and nothing answers for it.
 		b.settle(id, gateway.ProposalOutcomeUnknown, nil, "apply did not report")
 		return contract.Receipt{}, unknown
 	}

@@ -143,17 +143,17 @@ the rule says.
 | R26 | Cancel of non-pending | `proposals.go:1160` -> `ErrProposalClosed` | matches | duplicate-confirm-after-applied |
 | R27 | Cancel of Cancelled | `proposals.go:1157` | matches | cancel-pending |
 | R28 | Tick past expiry | `Broker.sweep`, `proposals.go:900` | matches | expiry |
-| R29 | admission refused -> Pending | `Admit` errors leave the record pending, `proposals.go:1239` | matches | retry-after-admission-refused |
+| R29 | admission refused -> Pending | `Admit` errors leave the record pending; a refused runtime slot returns it through R34 | matches | retry-after-admission-refused |
 | R30 | admission after expiry | `execute` -> `expire`, `proposals.go:1271` | matches | expiry-seen-at-admission |
 | R31 | admission for another generation | `execute`, `proposals.go:1281` (stored as `rejected`) | matches | generation-seen-at-admission |
 | R32 | persist executing, then dispatch | `execute`, `proposals.go:1291` | matches | happy-path |
-| R33 | SendStarted | none | gap (a): the client does not report it | happy-path |
-| R34 | NotSent retryable -> Pending | none | gap (a) | retry-after-not-sent |
-| R35 | NotSent by hold or authority -> Cancelled | `execute`, `proposals.go:1305` (checks the context once) | partial (e) | hold-during-prepared-dispatch |
+| R33 | SendStarted | `runtime.Client.send` (`WroteHeaders`): a failure after it is not `ErrNotSent` | matches | happy-path |
+| R34 | NotSent retryable -> Pending | `execute`, `runtime.ErrNotSent` branch; `TestBrokerFollowsModel` | matches | retry-after-not-sent |
+| R35 | NotSent by hold or authority -> Cancelled | `execute`: context checked before the call, and a not-sent answer with a done context | partial (e): a hold that lands after the client began the send is still unknown | hold-during-prepared-dispatch |
 | R36 | NotSent superseded -> Stale | none | gap (e) | generation-change-while-prepared |
 | R37 | apply committed -> Applied | `execute`, `proposals.go:1335` | matches | happy-path |
-| R38 | apply rejected, refused, conflict -> Rejected | `execute`, `proposals.go:1322`, `:1337` | partial: conflict is unknown today (d) | addon-conflict-is-rejected |
-| R39 | no evidence after send -> OutcomeUnknown | `execute`, `proposals.go:1329`, `:1341` | gap (a): also fires before the send | timeout-unknown-then-receipt-committed |
+| R38 | apply rejected, refused, conflict -> Rejected | `execute`: `ErrRefused`, `ErrConflict` (`ErrProposalConflict`), rejected receipt | matches | addon-conflict-is-rejected |
+| R39 | no evidence after send -> OutcomeUnknown | `execute`, last error branch; a not-sent error never reaches it | matches | timeout-unknown-then-receipt-committed |
 | R40 | receipt committed -> Applied | `Reconcile`, `recovery.go:72` | matches | timeout-unknown-then-receipt-committed |
 | R41 | receipt rejected -> Rejected | `Reconcile`, `recovery.go:74` | matches | authority-lowered-after-send |
 | R42 | receipt not-committed -> NotApplied | none | gap (c): no such answer in the contract | hold-during-sent-request |

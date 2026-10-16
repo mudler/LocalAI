@@ -1013,7 +1013,7 @@ proposal, and every frontend reports the same answer for the same owner state:
 | Response | Meaning | What to do |
 |---|---|---|
 | `503` `proposal_unavailable` with `operationId` | The owner could not serve this call, and this call sent nothing to the addon. The proposal is in the state the owner recorded, which can be any state: pending, or already settled by an earlier call. | Read the proposal with `GET`, then repeat the same call with the same ID. |
-| `503` `outcome_unknown` with `operationId` | The proposal reached the addon on the owner (`executing` or `outcome-unknown`). | Do not confirm again as a new operation. Reconcile, wait for the automatic lookups, or resolve. |
+| `503` `outcome_unknown` with `operationId` | The request to the addon may have reached it (`executing` or `outcome-unknown`). A request that never left the owner (no free slot, a withdrawn add-on, an invalid envelope, a connection that was never written to) returns the proposal to `pending` and is `proposal_unavailable`. An add-on's 409 conflict ends the proposal as `rejected`. | Do not confirm again as a new operation. Reconcile, wait for the automatic lookups, or resolve. |
 
 Which type a route can emit does not depend on who proposed the operation. A proposal,
 a confirmation and a cancellation by the proposer can be either type. A resolution is

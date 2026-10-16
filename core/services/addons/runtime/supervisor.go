@@ -32,6 +32,14 @@ var ErrRuntime = errors.New("addon runtime unavailable or invalid protocol")
 // caller that does not tell refusals apart.
 var ErrConflict = fmt.Errorf("addon refused the request as a conflict: %w", ErrRuntime)
 
+// ErrNotSent says the request never reached the wire: no admission slot, a
+// withdrawn client, an envelope that failed validation, or a connection that
+// was never written to. The add-on cannot have seen the request, so a caller
+// may try again and must not record an unknown outcome. It is an ErrRuntime
+// for every caller that does not tell the two apart. A failure after the
+// first request byte may have been written is never an ErrNotSent.
+var ErrNotSent = fmt.Errorf("addon request was not sent: %w", ErrRuntime)
+
 // ErrRefused is the add-on's own refusal (HTTP 400 or 422) of a request it
 // judged invalid. It is deterministic: the add-on changed nothing and the same
 // request is refused again, so it is neither an outage nor an unknown outcome.

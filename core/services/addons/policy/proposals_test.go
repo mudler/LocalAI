@@ -37,6 +37,9 @@ type fixtureRuntime struct {
 	seenArgs    map[string]string
 	commitFirst bool // commit, then fail the reply
 	failFirst   bool // fail without committing
+	// applyErr, when set, is returned by the next Apply before the request is
+	// recorded, as a client that answers without the add-on seeing it.
+	applyErr    error
 	holdReply   func(ctx context.Context)
 	receiptMode string // "", "pending", "unavailable", "block"
 	lookups     int
@@ -75,6 +78,11 @@ func (r *fixtureRuntime) Preview(_ context.Context, e contract.Envelope) (contra
 func (r *fixtureRuntime) Apply(ctx context.Context, e contract.Envelope, rev contract.Revision) (contract.Receipt, error) {
 	r.mu.Lock()
 	id := e.Request.OperationID
+	if err := r.applyErr; err != nil {
+		r.applyErr = nil
+		r.mu.Unlock()
+		return contract.Receipt{}, err
+	}
 	r.applied = append(r.applied, id)
 	r.seenArgs[id] = string(e.Request.Arguments)
 	if prior, ok := r.receipts[id]; ok {

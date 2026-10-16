@@ -191,3 +191,80 @@ var _ = Describe("Transport limits", func() {
 		Expect(e).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("Requests that never reach the wire", func() {
+	// Model rules R34 (not sent, retryable) and R39 (only a send that may have
+	// happened is unknown).
+	client := func(url string, tune ...func(*contract.Limits)) *Client {
+		l := contract.DefaultLimits()
+		for _, t := range tune {
+			t(&l)
+		}
+		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: url}, strings.Repeat("a", 64), l)
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		return c
+	}
+	serving := func(h http.HandlerFunc) string {
+		srv := httptest.NewServer(h)
+		DeferCleanup(srv.Close)
+		return srv.URL
+	}
+	apply := func(c *Client) error {
+		_, e := c.Apply(context.Background(), envelope("apply"), contract.Revision{Schema: 1})
+		return e
+	}
+	ok := func(w http.ResponseWriter, r *http.Request) { http.Error(w, "unreachable", http.StatusTeapot) }
+
+	It("types a withdrawn client, a full slot table, a bad envelope and a missing schema as not sent", func() {
+		c := client(serving(ok))
+		c.withdraw()
+		Expect(apply(c)).To(MatchError(ErrNotSent))
+
+		c = client(serving(ok), func(l *contract.Limits) { l.Concurrency = 1 })
+		done, e := c.admit()
+		Expect(e).NotTo(HaveOccurred())
+		defer done()
+		Expect(apply(c)).To(MatchError(ErrNotSent))
+
+		c = client(serving(ok))
+		_, e = c.Apply(context.Background(), envelope("read"), contract.Revision{Schema: 1})
+		Expect(e).To(MatchError(ErrNotSent))
+		_, e = c.Apply(context.Background(), envelope("apply"), contract.Revision{})
+		Expect(e).To(MatchError(ErrNotSent))
+	})
+	It("keeps a not-sent error an ErrRuntime for callers that do not tell them apart", func() {
+		c := client(serving(ok))
+		c.withdraw()
+		Expect(errors.Is(apply(c), ErrRuntime)).To(BeTrue())
+	})
+	It("types a refused connection as not sent", func() {
+		srv := httptest.NewServer(http.HandlerFunc(ok))
+		url := srv.URL
+		srv.Close()
+		Expect(apply(client(url))).To(MatchError(ErrNotSent))
+	})
+	It("never types a possibly-sent request as not sent", func() {
+		// The server reads the request and drops the connection without an answer.
+		lost := client(serving(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.Copy(io.Discard, r.Body)
+			conn, _, e := w.(http.Hijacker).Hijack()
+			Expect(e).NotTo(HaveOccurred())
+			_ = conn.Close()
+		}))
+		e := apply(lost)
+		Expect(e).To(MatchError(ErrRuntime))
+		Expect(errors.Is(e, ErrNotSent)).To(BeFalse())
+		// An answer is never not-sent, whatever its status.
+		for _, status := range []int{http.StatusServiceUnavailable, http.StatusInternalServerError} {
+			answering := client(serving(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "no", status) }))
+			e = apply(answering)
+			Expect(e).To(MatchError(ErrRuntime))
+			Expect(errors.Is(e, ErrNotSent)).To(BeFalse())
+		}
+		conflicting := client(serving(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "x", http.StatusConflict) }))
+		e = apply(conflicting)
+		Expect(errors.Is(e, ErrConflict)).To(BeTrue())
+		Expect(errors.Is(e, ErrNotSent)).To(BeFalse())
+	})
+})

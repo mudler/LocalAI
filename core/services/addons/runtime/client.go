@@ -10,10 +10,12 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -64,7 +66,7 @@ func (c *Client) admit() (func(), error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if !c.accept || int64(c.active) >= c.limits.Concurrency {
-		return nil, ErrRuntime
+		return nil, ErrNotSent
 	}
 	c.active++
 	var once sync.Once
@@ -72,24 +74,31 @@ func (c *Client) admit() (func(), error) {
 }
 func (c *Client) valid(e contract.Envelope, scope string) error {
 	if e.Validate(time.Now(), c.limits) != nil || e.Authority.Scope != scope || e.Request.AddonID != c.registration.AddonID || e.Request.Generation != c.registration.Generation {
-		return ErrRuntime
+		return ErrNotSent
 	}
 	return nil
 }
 func (c *Client) send(ctx context.Context, path string, in any) (*http.Response, error) {
 	b, e := json.Marshal(in)
 	if e != nil || int64(len(b)) > c.limits.EnvelopeBytes {
-		return nil, ErrRuntime
+		return nil, ErrNotSent
 	}
+	// wrote is set once the request headers are on the connection. Until then
+	// the add-on cannot have seen the request, so a failure is ErrNotSent.
+	var wrote atomic.Bool
+	ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{WroteHeaders: func() { wrote.Store(true) }})
 	req, e := http.NewRequestWithContext(ctx, "POST", c.endpoint+path, bytes.NewReader(b))
 	if e != nil {
-		return nil, ErrRuntime
+		return nil, ErrNotSent
 	}
 	req.Header.Set("Authorization", "Bearer "+c.credential)
 	req.Header.Set("X-LocalAI-Incarnation", c.registration.Incarnation)
 	req.Header.Set("Content-Type", "application/json")
 	resp, e := c.http.Do(req)
 	if e != nil {
+		if !wrote.Load() {
+			return nil, ErrNotSent
+		}
 		return nil, ErrRuntime
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -216,7 +225,7 @@ func (c *Client) Apply(ctx context.Context, v contract.Envelope, revision contra
 		return r, e
 	}
 	if revision.Schema == 0 {
-		return r, ErrRuntime
+		return r, ErrNotSent
 	}
 	e := c.call(ctx, "/apply", ApplyRequest{v, revision}, &r, c.limits.ApplyTimeout)
 	if e == nil {
