@@ -9,6 +9,8 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/xlog"
 )
 
@@ -41,16 +43,7 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 		agentControl,
 	)
 
-	responsesMiddleware := []echo.MiddlewareFunc{
-		// Intercept requests where the model name matches an agent — route directly
-		// to the agent pool without going through the model config resolution pipeline.
-		localai.AgentResponsesInterceptor(application),
-		middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser()),
-		middleware.TraceMiddleware(application),
-		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
-		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenResponsesRequest) }),
-		setOpenResponsesRequestContext(re),
-	}
+	responsesMiddleware := openResponsesMiddleware(re, application)
 
 	// Main Open Responses endpoint
 	app.POST("/v1/responses", responsesHandler, responsesMiddleware...)
@@ -72,6 +65,28 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 	cancelResponseHandler := openresponses.CancelResponseEndpoint()
 	app.POST("/v1/responses/:id/cancel", cancelResponseHandler, middleware.TraceMiddleware(application))
 	app.POST("/responses/:id/cancel", cancelResponseHandler, middleware.TraceMiddleware(application))
+}
+
+// openResponsesMiddleware is the middleware chain of POST /v1/responses and
+// POST /responses. It is a separate function so tests can drive the real
+// chain in front of a stub handler.
+func openResponsesMiddleware(re *middleware.RequestExtractor, application *application.Application) []echo.MiddlewareFunc {
+	return []echo.MiddlewareFunc{
+		// Intercept requests where the model name matches an agent — route directly
+		// to the agent pool without going through the model config resolution pipeline.
+		localai.AgentResponsesInterceptor(application),
+		middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser()),
+		middleware.TraceMiddleware(application),
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenResponsesRequest) }),
+		setOpenResponsesRequestContext(re),
+		// PII filtering runs once the model config is resolved and merged
+		// (it gates on the served model's pii block), and before the handler
+		// turns the input items into prompt messages. Without it, content
+		// that a model's PII policy blocks or masks on /v1/chat/completions
+		// would reach the same model unfiltered through this endpoint.
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenResponses(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
+	}
 }
 
 // setOpenResponsesRequestContext sets up the context and cancel function for Open Responses requests
