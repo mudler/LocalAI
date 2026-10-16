@@ -31,6 +31,14 @@ VLLM_CPP_VERSION?=bf7b654ae2d0cf49028291192a78bd92f2843106
 # good half. So if this pin is ever moved BACKWARDS, this default must go with it.
 VLLM_CPP_MLX?=on
 MLX_VERSION?=0.32.0
+# The macOS runners' pip index offers only the newest MLX (0.32.4), which lacks
+# the array::set_data overload the engine calls, so the pinned wheel is fetched
+# by URL and verified by sha256. This is the mlx-metal distribution: it holds
+# mlx/include, mlx/lib/libmlx.dylib and mlx/lib/mlx.metallib, the only parts the
+# build uses, and unlike the `mlx` wheel it is not tied to one CPython version.
+# Bumping MLX_VERSION means bumping both values (PyPI JSON: /pypi/mlx-metal/<v>/json).
+MLX_WHEEL_URL?=https://files.pythonhosted.org/packages/d6/ef/d74ae99cfe9ddb59fd08abd14f47754c3d199291a93756903fa595b31b8a/mlx_metal-0.32.0-py3-none-macosx_14_0_arm64.whl
+MLX_WHEEL_SHA256?=5b64b20ac24b0c401f489de01e8209edc4d372125201f19314e6f39e385322aa
 MLX_VENV?=$(abspath ./mlx-venv)
 # Resolved lazily (recursive `=`, not `:=`): the glob only matches once the venv
 # target has run, and the interpreter version in the path varies per runner.
@@ -153,14 +161,14 @@ $(MLX_STAMP):
 	@if [ ! -x "$(MLX_VENV)/bin/pip" ]; then \
 		python3 -m venv "$(MLX_VENV)" || { echo "vllm-cpp: python3 with venv is required to build the MLX provider; pass VLLM_CPP_MLX=off to build Metal without it" >&2; exit 1; }; \
 	fi
-	"$(MLX_VENV)"/bin/pip install --quiet --disable-pip-version-check "mlx==$(MLX_VERSION)"
+	"$(MLX_VENV)"/bin/pip install --quiet --disable-pip-version-check "mlx-metal @ $(MLX_WHEEL_URL)#sha256=$(MLX_WHEEL_SHA256)"
 	@# Resolved in the SHELL, not by $(MLX_ROOT): make expands a whole recipe
 	@# before running its first line, so the glob would still be unmatched here.
 	@# Every later use (the cmake args, package.sh) expands after this target has
 	@# completed, where $(MLX_ROOT) does resolve.
 	@root=$$(echo "$(MLX_VENV)"/lib/python*/site-packages/mlx); \
 	test -f "$$root/lib/libmlx.dylib" -a -f "$$root/include/mlx/array.h" || \
-		{ echo "vllm-cpp: mlx==$(MLX_VERSION) did not provide lib/libmlx.dylib + include/mlx/array.h under $$root" >&2; exit 1; }
+		{ echo "vllm-cpp: mlx-metal $(MLX_VERSION) did not provide lib/libmlx.dylib + include/mlx/array.h under $$root" >&2; exit 1; }
 	touch $@
 else
 MLX_STAMP=

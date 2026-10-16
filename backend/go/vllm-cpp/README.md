@@ -181,9 +181,12 @@ Build knobs:
 
 - `VLLM_CPP_MLX=off` builds Metal without the provider: ~124 MB smaller, and
   96.4% of MLX-LM instead of 99.1%.
-- `MLX_VERSION` pins the wheel (default `0.32.0`). MLX is consumed as the
-  prebuilt pip wheel because building it from source needs `xcrun metal`, i.e. a
-  full Xcode the macOS runners do not have.
+- `MLX_VERSION` names the wheel (default `0.32.0`). MLX is consumed as the
+  prebuilt `mlx-metal` wheel because building it from source needs `xcrun metal`,
+  i.e. a full Xcode the macOS runners do not have. The default wheel is installed
+  by URL and sha256 (`MLX_WHEEL_URL`, `MLX_WHEEL_SHA256`), because the runners'
+  pip index offers only 0.32.4, whose headers lack the `array::set_data` overload
+  the engine calls. Change all three together when you bump MLX.
 
 Packaging vendors `libmlx.dylib`, `mlx.metallib` and MLX's MIT license into
 `package/lib/`, and rewrites `libvllm.dylib`'s rpath to `@loader_path/lib`
