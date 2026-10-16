@@ -22,7 +22,16 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestLifecycle(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "Addon lifecycle") }
+func TestLifecycle(t *testing.T) {
+	// The owner pins every component of its root and refuses a symbolic link on
+	// the path. A temporary directory on macOS lies behind one, so the specs use
+	// its resolved path.
+	if dir, err := filepath.EvalSymlinks(os.TempDir()); err == nil {
+		t.Setenv("TMPDIR", dir)
+	}
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Addon lifecycle")
+}
 
 var ctx = context.Background()
 var actor = contract.Actor{UserID: "admin", CredentialID: "key", Mode: "named-user"}

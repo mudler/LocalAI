@@ -14,12 +14,23 @@ import (
 	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
-func TestGateway(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "Addon gateway") }
+func TestGateway(t *testing.T) {
+	// The owner pins every component of its root and refuses a symbolic link on
+	// the path. A temporary directory on macOS lies behind one, so the specs use
+	// its resolved path.
+	if dir, err := filepath.EvalSymlinks(os.TempDir()); err == nil {
+		t.Setenv("TMPDIR", dir)
+	}
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Addon gateway")
+}
 
 var _ = Describe("Forward verifier", func() {
 	It("rejects untrusted peers wrong audience body expiry replay and revoked credentials", func() {

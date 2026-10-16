@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -196,6 +197,9 @@ var _ = Describe("immutable app assets", Label("assets"), func() {
 
 var _ = Describe("apps observation", func() {
 	It("reports the supervisor state of an app through a crash and a restart", func() {
+		if goruntime.GOOS != "linux" {
+			Skip("the add-on runtime exists on Linux only")
+		}
 		cfg, c, installer := fixture()
 		dir := GinkgoT().TempDir()
 		out, e := exec.Command("go", "build", "-o", filepath.Join(dir, "fixture"), "../../../tests/addons/fixture/cmd").CombinedOutput()

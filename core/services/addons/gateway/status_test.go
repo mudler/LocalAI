@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"sync/atomic"
 	"time"
 
@@ -117,6 +118,9 @@ var _ = Describe("typed owner failure status", func() {
 		ExpectWithOffset(1, unknown.OperationID).To(Equal(id))
 	}
 	It("keeps a mutation unknown when the runtime fails after the owner applied it", func() {
+		if goruntime.GOOS != "linux" {
+			Skip("the add-on runtime exists on Linux only")
+		}
 		actor := frontActor
 		m := ownerManager(actor, true)
 		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: GinkgoT().TempDir(), Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second})
@@ -171,6 +175,9 @@ var _ = Describe("typed owner failure status", func() {
 		Expect(dispatches.Load()).To(Equal(int32(1)))
 	})
 	It("keeps a mutation unknown on the owner's own frontend and leaves reads and denials alone", func() {
+		if goruntime.GOOS != "linux" {
+			Skip("the add-on runtime exists on Linux only")
+		}
 		actor := frontActor
 		m := ownerManager(actor, true)
 		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: GinkgoT().TempDir(), Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second})
