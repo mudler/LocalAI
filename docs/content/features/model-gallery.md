@@ -44,6 +44,25 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Diplodocus preview
+
+[Diplodocus preview 4](https://huggingface.co/OsaurusAI/Diplodocus-preview-GGUF)
+is a K2 Horizon 7B fine-tune for documents, spreadsheets, and tool-assisted tasks.
+The gallery provides Q4_K_M, Q6_K, and Q8_0 builds for llama.cpp:
+
+```bash
+local-ai models install --variant diplodocus-preview-q6 diplodocus-preview-q4
+```
+
+Use `diplodocus-preview-q4` or `diplodocus-preview-q8` as the variant to select
+another size. These builds use the embedded chat template, a 32,768-token
+context, temperature 1.0, and top-p 0.95.
+
+Reasoning defaults to `high`. Set `reasoning_effort` to `low` in a chat request
+to disable reasoning. The publisher recommends `high` or `low` and advises against `medium`.
+Your application must define and execute tools such as `calculate`; installing
+the model does not install the publisher's document or spreadsheet tools.
+
 ### Repairing an existing model configuration
 
 Gallery template updates do not rewrite YAML files for already installed models.
