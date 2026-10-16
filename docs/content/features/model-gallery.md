@@ -44,6 +44,17 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Underdog Saluki with multi-token prediction
+
+The `underdog-saluki-27b-1.0` entry offers `underdog-saluki-27b-1.0-mtp` as a
+variant. It preserves the mixed IQ2 main weights and adds an MTP head for
+llama.cpp, with up to two draft tokens. Both entries include the F16 vision
+projector. To install the MTP build explicitly:
+
+```bash
+local-ai models install --variant underdog-saluki-27b-1.0-mtp underdog-saluki-27b-1.0
+```
+
 ### Repairing an existing model configuration
 
 Gallery template updates do not rewrite YAML files for already installed models.
