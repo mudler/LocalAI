@@ -59,6 +59,10 @@ var publicRouteRegistry = []publicRouteRule{
 	{Method: http.MethodGet, Path: "/locales/", Prefix: true},
 	{Method: http.MethodGet, Path: "/static/", Prefix: true},
 
+	// Canvas preview frames. The random id is the capability; a frame
+	// navigation cannot send API key headers.
+	{Method: http.MethodGet, Path: "/api/canvas/preview/", Prefix: true},
+
 	// Branding.
 	{Method: http.MethodGet, Path: "/api/branding"},
 	{Method: http.MethodGet, Path: "/branding/asset/", Prefix: true},
