@@ -52,6 +52,18 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install the host UI build tools
+        # The package checks build the add-on UI with the bundler the host UI
+        # already installs.
+        run: npm ci --prefix core/http/react-ui
+      - name: Fill the module cache the packaging checks read
+        # package_test.sh runs offline (GOPROXY=off) against its own cache.
+        run: |
+          GOPATH="$PWD/.cache/addons/go" GOMODCACHE="$PWD/.cache/addons/go/pkg/mod" \
+          GOCACHE="$PWD/.cache/addons/go-build" go mod download
       - name: Run the packaging checks
         run: sh scripts/addons/package_test.sh
 
