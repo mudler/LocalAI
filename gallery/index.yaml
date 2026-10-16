@@ -16168,6 +16168,170 @@
         - stripe_key
         - jwt
         - private_key_block
+- name: lfm2.5-24b-a2b
+  variants:
+    - model: lfm2.5-24b-a2b-q5
+    - model: lfm2.5-24b-a2b-q6
+    - model: lfm2.5-24b-a2b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses the official Q4_K_M GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q4_K_M.gguf
+      temperature: 0.1
+      top_k: 50
+      repeat_penalty: 1.05
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q4_K_M.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF/resolve/f97fc8a443da86c71818adf91baecde5b7ef4c50/LFM2.5-24B-A2B-Q4_K_M.gguf
+      sha256: d3334405b96228eb9908cdebb5c6194908f2da64282bda852afc3a3910c64e7d
+- name: lfm2.5-24b-a2b-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses the official Q5_K_M GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q5_K_M.gguf
+      temperature: 0.1
+      top_k: 50
+      repeat_penalty: 1.05
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q5_K_M.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF/resolve/f97fc8a443da86c71818adf91baecde5b7ef4c50/LFM2.5-24B-A2B-Q5_K_M.gguf
+      sha256: 7f3029ea2a8e40175496e5022cf7defdcc587df9703d3ed613e64daa51427ecb
+- name: lfm2.5-24b-a2b-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses the official Q6_K GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q6_K.gguf
+      temperature: 0.1
+      top_k: 50
+      repeat_penalty: 1.05
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q6_K.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF/resolve/f97fc8a443da86c71818adf91baecde5b7ef4c50/LFM2.5-24B-A2B-Q6_K.gguf
+      sha256: 4c5f34cb94d4a29f0360d04eaa274bb1361ceae163f40f6361cb75d1bee139c2
+- name: lfm2.5-24b-a2b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses the official Q8_0 GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q8_0.gguf
+      temperature: 0.1
+      top_k: 50
+      repeat_penalty: 1.05
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q8_0.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF/resolve/f97fc8a443da86c71818adf91baecde5b7ef4c50/LFM2.5-24B-A2B-Q8_0.gguf
+      sha256: f09bf094a8a138c5b645598ca1abb6696a0fde26662d7af649b0713fdef330b6
 - name: lfm2.5-8b-a1b
   variants:
     - model: lfm2.5-8b-a1b-apex-i-quality
