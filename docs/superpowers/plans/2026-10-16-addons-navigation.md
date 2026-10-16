@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the long sidebar with four top-level items (Chat, Models, Add-ons, Settings) and a per-user Pinned section, and move Studio, Talk, fine-tuning, quantization, the Voice add-on and the Face add-on behind the Add-ons drawer without breaking any old URL or weakening any permission.
+**Goal:** Replace the long sidebar with four top-level items (Chat, Models, Add-ons, Settings) and a per-user Pinned section, and move Studio, Talk, fine-tuning, quantization, the Voice add-on and the Face add-on behind the Add-ons drawer without breaking any old URL or weakening any permission. Voice, Face, fine-tuning and quantization are add-on packages that do not ship with LocalAI: users find them in Browse add-ons and, once installed, in the drawer.
 
-**Architecture:** A server-side built-in catalog lists the page add-ons (Studio, Talk, later fine-tuning and quantization) and applies their own gates. Pins live in a new per-user table (a JSON file when authentication is off) behind two user-scoped routes that filter by what the caller may see. The React shell merges the built-in catalog and the Apps list into tiles, draws the drawer and the Pinned section from them, and keeps every old route as a redirect. Voice and Face ship as ordinary add-on packages (idle executable, packaged UI module) that use SDK version 2 primitives and call core routes with the signed-in user's session through `sdk.core.fetch`.
+**Architecture:** A server-side built-in catalog lists the page add-ons (Studio and Talk) and applies their own gates. Pins live in a new per-user table (a JSON file when authentication is off) behind two user-scoped routes that filter by what the caller may see; the routes are registered by their own function, `RegisterAddonNavigationRoutes`, so the existing add-on route tests stay unchanged. The React shell merges the built-in catalog and the Apps list into tiles, draws the drawer and the Pinned section from them, and keeps every old route as a redirect. Voice, Face, fine-tuning and quantization are ordinary add-on packages that use SDK version 2 primitives and call core routes with the signed-in user's session through `sdk.core.fetch`. Voice and Face run an idle executable. Fine-tuning and quantization keep their job managers and API routes in core and reach them from their tools through new host operations. Every package is built and checked natively for each supported platform, and a platform is enabled only after its native check passes.
 
 **Tech Stack:** Go 1.2x (Echo, GORM, Ginkgo and `testing`), React 19 with React Router, node `node:test` unit tests, Playwright e2e specs, rolldown for add-on UI bundles.
 
@@ -25,17 +25,25 @@ Copied verbatim from the spec. Every task includes them.
 - The layout works at phone width.
 - The docs under `docs/content/` are updated in the same change.
 
+Added by the rulings of 2026-10-16 (spec, "Open questions and decisions"):
+
+- Voice, Face, fine-tuning and quantization do not ship with LocalAI. They are add-on packages, discovered in Browse add-ons and, once installed, in the drawer. Voice and Face have no hub tab.
+- The packages build for every supported platform (`linux/amd64`, `linux/arm64`, `darwin/arm64`, `darwin/amd64`). A platform is enabled only after its native check passes on a runner of that platform.
+- Fine-tuning and quantization move in this plan. Their API routes and job managers stay in core. Every host operation they need is new contract surface and is marked as such.
+- Existing accounts get Studio and Talk pinned once, at upgrade. New accounts start with no pins.
+
 Repository rules that also bind every commit (from `AGENTS.md`, not from the spec): add an `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]` trailer; never add `Co-Authored-By` for an AI; never add `Signed-off-by` for an AI. The UI is the React app in `core/http/react-ui/`. Use `github.com/mudler/xlog` for logging. Update `docs/content/` in the same change as a user-facing change.
 
 ## Review Focus
 
-The five inputs most likely to bite a user that the spec implies but does not spell out. Each has a pinning test in the task named.
+The six inputs most likely to bite a user that the spec implies but does not spell out. Each has a pinning test in the task named.
 
 1. **A hidden or removed pinned add-on must survive a save.** A user pins four add-ons, one is hidden from them (removed, or access changed), they reorder the other three and save. Expected: the hidden pin is still stored and returns later. Pinned by Task 3 (`Put keeps pins the caller cannot see`).
 2. **A user without the `addons` feature who uses Studio today.** Expected: the Add-ons item and the Studio tile are there, no packaged tile, no error banner, and `GET /api/addons/apps` still answers 403. Pinned by Task 1 (`Studio and Talk are visible without any feature`), Task 5 (`addons entry shows for a built-in tile`) and Task 6 (e2e `member without the add-ons feature`).
 3. **An old bookmark with a model, a query and a hash.** Expected: `/app/image/stable%2Fdiffusion?x=1#top` lands on `/app/studio/images/stable%2Fdiffusion?x=1#top`, and a user without the `3d` feature still goes to `/app`. Pinned by Task 7 (`studioRedirect keeps the model, the query and the hash`).
 4. **A stopped, starting or failed tile.** Expected: a click opens the detail view and never the main page, and a pinned one is muted. Pinned by Task 5 (`tileFromApp never targets the main page of a stopped add-on`).
-5. **Authentication off.** Expected: the local owner's pins persist across a restart, Studio and Talk are seeded once, and an unpin sticks. Pinned by Task 2 (`file store keeps pins across a reopen`) and Task 3 (`the seed runs once`).
+5. **Authentication off.** Expected: the local owner's pins persist across a restart, Studio and Talk are seeded once at upgrade, and an unpin sticks. Pinned by Task 2 (`file store keeps pins across a reopen`) and Task 3 (`the upgrade seed runs once`).
+6. **An account created after the upgrade.** Expected: no pins at all; Studio and Talk are in the drawer. An account that existed at the upgrade has both pinned, once, and an unpin sticks. Pinned by Task 2 (`the upgrade seed pins existing accounts once and skips later ones`) and Task 3 (`a new account starts with no pins`).
 
 Two further failure modes have their own tests in the SDK task group: an add-on built for SDK 1 only is refused by the version 2 host with a message that names both ranges (Task 9), and `sdk.core.fetch` refuses absolute URLs, `/api/addons/` and `/api/auth/` (Task 11).
 
@@ -47,13 +55,17 @@ New Go packages and files:
 
 - `core/services/addons/builtin/builtin.go`, `builtin_test.go`: the built-in (page add-on) catalog and its gates.
 - `core/http/endpoints/addons/builtin.go`, `builtin_test.go`: `GET /api/addons/builtin`.
+- `core/http/routes/addon_navigation.go`, `addon_navigation_test.go`: `RegisterAddonNavigationRoutes`, the one place that registers the built-in and pin routes.
 - `core/services/addons/pins/pins.go`, `store_gorm.go`, `store_file.go`, `service.go`, `sweep.go` and their tests: the pin model, two stores, the service and the retention sweep.
 - `core/http/endpoints/addons/pins.go`, `pins_test.go`: `GET` and `PUT /api/addons/pins`.
 - `addons/internal/protocol/protocol.go`: the add-on protocol server, moved out of `addons/tables/internal/server`.
 - `addons/internal/idle/idle.go`, `idle_test.go`: a runtime with no tools, for UI add-ons.
 - `addons/internal/uibuild/uibuild.mjs`: the shared UI bundle builder.
 - `addons/internal/identity-ui/src/`: views shared by the Voice and Face add-ons.
-- `addons/voice/` and `addons/face/`: the two add-on packages.
+- `addons/voice/`, `addons/face/`, `addons/fine-tuning/`, `addons/quantization/`: the four add-on packages.
+- `addons/internal/tools-ui/src/`: views shared by the fine-tuning and quantization add-ons.
+- `pkg/addons/contract/hostops.go`, `core/services/addons/hostops/`: the host operations an add-on process can call (new contract surface, task group F).
+- `addons/<id>/package/platforms.yaml` and `gallery/addons/<id>.yaml.tmpl` for each of the four packages (task group G).
 
 New React files:
 
@@ -77,7 +89,10 @@ New React files:
 - Create: `core/services/addons/builtin/builtin_test.go`
 - Create: `core/http/endpoints/addons/builtin.go`
 - Create: `core/http/endpoints/addons/builtin_test.go`
-- Modify: `core/http/routes/addons.go:13-15` (register the route in `RegisterAddonRoutes`, outside the feature group)
+- Create: `core/http/routes/addon_navigation.go`, `core/http/routes/addon_navigation_test.go` (`//go:build auth`): `RegisterAddonNavigationRoutes(e *echo.Echo, a *application.Application)`. `RegisterAddonRoutes` and `RegisterAddonRoutesFor` are not touched.
+- Modify: `core/http/app.go:483` (call `routes.RegisterAddonNavigationRoutes(e, application)` right after `routes.RegisterAddonRoutes(e, application)`)
+- Modify: `core/http/endpoints/localai/api_instructions.go` (a new `addon-navigation` entry with the tag `AddonNavigation`), then regenerate `swagger/` with `make swagger`
+- Modify: `scripts/addons/suites.json` (the `cases` of the `contracts` suite gain the new `It` text)
 - Modify: `pkg/addons/contract/manifest.go:243` (reserve the new path segments)
 - Modify: `pkg/addons/contract/manifest_test.go` (reserved test)
 - Modify: `docs/content/features/addons.md` (document the route)
@@ -90,7 +105,7 @@ New React files:
   - `builtin.Viewer{Admin bool; Has func(feature string) bool}`.
   - `builtin.Catalog() []Entry`, `builtin.IDs() []string`, `builtin.Visible(v Viewer) []Entry`.
   - `endpoints.ListBuiltin(db *gorm.DB) echo.HandlerFunc`. Response body `{"builtin":[Entry...]}`. With `db == nil` (authentication off) the viewer is an administrator.
-  - Route `GET /api/addons/builtin`, authenticated, no `addons` feature required.
+  - Route `GET /api/addons/builtin`, authenticated, no `addons` feature required. It is registered by `routes.RegisterAddonNavigationRoutes`, not by `RegisterAddonRoutes`: the tests of the existing add-on routes (`core/http/endpoints/addons/routes_test.go`, `core/http/routes/addons_discovery_test.go`) require every `/api/addons*` route that function registers to hold the `addons` feature, to be in `RouteFeatureRegistry` and to be documented in the `addons` guide. The navigation routes are user-scoped by design and gate themselves, so they live apart and those tests pass without edits.
 
 Decision recorded here (spec, "Decision: the gate rule for Studio and Talk"): Studio and Talk have no gate, so every authenticated viewer sees them.
 
@@ -163,7 +178,8 @@ Expected: FAIL with `no non-test Go files` or `undefined: Visible`.
 // SPDX-License-Identifier: MIT
 
 // Package builtin lists the page add-ons that ship inside the LocalAI web
-// bundle: Studio and Talk now, fine-tuning and quantization later. They have
+// bundle: Studio and Talk. Voice, Face, fine-tuning and quantization are
+// packaged add-ons and are not listed here. Page add-ons have
 // no process and no lifecycle of their own. The catalog is the one place that
 // says who may see each of them, so the pin routes and the drawer agree.
 package builtin
@@ -321,8 +337,8 @@ func builtinViewer(c echo.Context, db *gorm.DB) (builtin.Viewer, bool) {
 
 // ListBuiltin lists the built-in page add-ons the caller may open.
 // @Summary List the built-in add-ons the caller may open
-// @Description Returns the page add-ons that ship with LocalAI (Studio and Talk, later fine-tuning and quantization). Each entry carries only its own gate: the route needs an authenticated caller and no `addons` feature, so a user who reaches Studio today still reaches it from the Add-ons drawer.
-// @Tags Addons
+// @Description Returns the page add-ons that ship with LocalAI (Studio and Talk). Each entry carries only its own gate: the route needs an authenticated caller and no `addons` feature, so a user who reaches Studio today still reaches it from the Add-ons drawer.
+// @Tags AddonNavigation
 // @Produce json
 // @Success 200 {object} map[string][]builtin.Entry "Entries the caller may open"
 // @Failure 401 {object} AddonErrorResponse "Authentication required"
@@ -355,28 +371,54 @@ Append to `pkg/addons/contract/manifest_test.go` inside the `Manifest` Describe:
 	})
 ```
 
-In `core/http/routes/addons.go`, change `RegisterAddonRoutes` to:
+Add the case name to the `cases` list of the `contracts` suite in `scripts/addons/suites.json` (`scripts/addons/verify.sh` requires the `It` names of each Ginkgo suite to equal that list): `reserves the segments of the navigation routes`. Do this in the same commit.
+
+Create `core/http/routes/addon_navigation.go`:
 
 ```go
-func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
-	RegisterAddonRoutesFor(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode())
-	// Outside the feature group on purpose: the built-in tiles must stay
-	// reachable for a user who does not hold the addons feature.
+// SPDX-License-Identifier: MIT
+package routes
+
+import (
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
+	endpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
+)
+
+// RegisterAddonNavigationRoutes registers the user-scoped routes of the
+// Add-ons drawer: the built-in tiles and, in a later task, the pins. They sit
+// outside the addons feature group on purpose, so a user who reaches Studio
+// today still reaches it from the drawer. The existing add-on route tests
+// describe the routes of RegisterAddonRoutesFor only; these routes have their
+// own test and their own API guide (tag AddonNavigation).
+func RegisterAddonNavigationRoutes(e *echo.Echo, a *application.Application) {
 	e.GET("/api/addons/builtin", endpoints.ListBuiltin(a.AuthDB()))
 }
 ```
 
+In `core/http/app.go`, add `routes.RegisterAddonNavigationRoutes(e, application)` on the line after `routes.RegisterAddonRoutes(e, application)` (line 483).
+
+Write `core/http/routes/addon_navigation_test.go` (`//go:build auth`). It builds an echo app that registers the real group of `RegisterAddonRoutesFor` and then the navigation route, with a member who holds no `addons` feature, and asserts: `GET /api/addons/builtin` answers 200 and lists `studio` and `talk`; `GET /api/addons/apps` answers 403 for the same member (so the static route is not shadowed by the group's catch-all, and the group is not widened); and every first path segment under `/api/addons/` that `RegisterAddonNavigationRoutes` registers is reserved (`contract.ReservedAddonID(first)` is true). Use the helpers of `core/http/endpoints/addons/routes_test.go` as the model for the session and the user.
+
+Document the new guide: in `core/http/endpoints/localai/api_instructions.go` add
+
+```go
+	{Name: "addon-navigation", Description: "The built-in tiles and the per-user pins of the Add-ons drawer", Tags: []string{"AddonNavigation"}, Intro: "GET /api/addons/builtin lists the page add-ons the caller may open. GET and PUT /api/addons/pins read and replace the caller's ordered pins. All of them need an authenticated caller; none needs the addons feature or the administrator role."},
+```
+
+and run `make swagger`. The `addons` guide still lists only the routes of `RegisterAddonRoutesFor`, so `addons_discovery_test.go` passes unchanged.
+
 - [ ] **Step 9: Run the tests**
 
-Run: `go test ./core/http/endpoints/addons/ ./pkg/addons/contract/ ./core/http/routes/ -count=1`
-Expected: PASS. If `core/http/routes/addons_discovery_test.go` fails because it derives the registered segments from `RegisterAddonRoutesFor` only, it still passes: the new segments are reserved by hand and checked by the contract test above.
+Run: `go test ./core/http/endpoints/addons/ ./pkg/addons/contract/ ./core/http/routes/ -count=1 && go test -tags auth ./core/http/endpoints/addons/ ./core/http/routes/ ./pkg/addons/contract/ -count=1 && sh scripts/addons/verify.sh contracts`
+Expected: PASS in all three. The `-tags auth` run is the one that holds `routes_test.go` and `addons_discovery_test.go`; they pass without edits because the navigation route is not part of `RegisterAddonRoutesFor`.
 
 - [ ] **Step 10: Document the route and commit**
 
 Add a short "Built-in add-ons" subsection to the Apps section of `docs/content/features/addons.md` stating: the route, that it needs no `addons` feature, that Studio and Talk have no gate, and that `builtin` and `pins` are reserved add-on IDs.
 
 ```bash
-git add core/services/addons/builtin core/http/endpoints/addons/builtin.go core/http/endpoints/addons/builtin_test.go core/http/routes/addons.go pkg/addons/contract/manifest.go pkg/addons/contract/manifest_test.go docs/content/features/addons.md
+git add core/services/addons/builtin core/http/endpoints/addons/builtin.go core/http/endpoints/addons/builtin_test.go core/http/routes/addon_navigation.go core/http/routes/addon_navigation_test.go core/http/app.go core/http/endpoints/localai/api_instructions.go swagger pkg/addons/contract/manifest.go pkg/addons/contract/manifest_test.go scripts/addons/suites.json docs/content/features/addons.md
 git commit -m "feat(addons): list the built-in page add-ons
 
 Studio and Talk get a server-side catalog with their own gates, so the
@@ -396,17 +438,17 @@ Assisted-by: Claude:claude-sonnet-5-5 go"
 - Create: `core/services/addons/pins/store_file.go`
 - Create: `core/services/addons/pins/store_contract_test.go` (untagged shared contract)
 - Create: `core/services/addons/pins/store_file_test.go`
-- Create: `core/services/addons/pins/store_gorm_test.go` (`//go:build auth`)
+- Create: `core/services/addons/pins/store_gorm_test.go` (`//go:build auth`; the contract only, the two-frontends test is in Task 3)
 
 **Interfaces:**
 - Consumes: `gorm.io/gorm`, `gorm.io/gorm/clause`, `auth.InitDB(databaseURL string) (*gorm.DB, error)` (tests only, `core/http/auth/db.go:16`).
 - Produces:
-  - `pins.HardLimit = 32` (the server rejects a longer list), `pins.SeedIDs = []string{"studio", "talk"}`, `pins.Retention = 30 * 24 * time.Hour`.
-  - `pins.Pin{UserID, AddonID string; Position int; MissingSince *time.Time}` (table `addon_pins`), `pins.Seeded{UserID string; At time.Time}` (table `addon_pin_seeds`).
+  - `pins.HardLimit = 32` (the server rejects a longer list), `pins.SeedIDs = []string{"studio", "talk"}`, `pins.Retention = 30 * 24 * time.Hour`, `pins.UpgradeSeedName = "studio-talk-v1"`.
+  - `pins.Pin{UserID, AddonID string; Position int; MissingSince *time.Time}` (table `addon_pins`). Every field is serialised, `UserID` and `MissingSince` included, because the file store writes whole `Pin` values and the 30-day window must survive a restart. `pins.SeedRun{Name string; At time.Time}` (table `addon_pin_seed_runs`): one row says the upgrade seed ran for the whole deployment.
   - `pins.Store` interface:
     - `List(ctx context.Context, userID string) ([]Pin, error)` ordered by position.
     - `Replace(ctx context.Context, userID string, ids []string) error` writes the list in the given order, keeps `MissingSince` of ids that stay.
-    - `Seed(ctx context.Context, userID string, ids []string) (bool, error)` runs once per user: returns true only the first time, appending ids that are not yet pinned.
+    - `SeedExisting(ctx context.Context, userIDs []string, ids []string) (bool, error)` is the upgrade seed. It runs once per deployment, not once per user: it returns true only the first time it is called, and in that call it appends `ids` that are not yet pinned to each account in `userIDs`. Every later call returns false and changes nothing, so an account created after the first run is never seeded and an unpin sticks. With several frontends on one database exactly one call returns true.
     - `Distinct(ctx context.Context) ([]string, error)`.
     - `MarkMissing(ctx context.Context, ids []string, now time.Time) error` sets `MissingSince` where it is empty.
     - `ClearMissing(ctx context.Context, ids []string) error`.
@@ -466,20 +508,46 @@ func runStoreContract(t *testing.T, open func(t *testing.T) Store) {
 			t.Fatalf("leak: %v", idsOf(got))
 		}
 	})
-	t.Run("the seed runs once per user and an unpin sticks", func(t *testing.T) {
+	t.Run("the upgrade seed pins existing accounts once and skips later ones", func(t *testing.T) {
 		s := open(t)
-		first, err := s.Seed(ctx, "u1", SeedIDs)
-		if err != nil || !first {
-			t.Fatalf("first seed: %v %v", first, err)
+		ran, err := s.SeedExisting(ctx, []string{"u1", "u2"}, SeedIDs)
+		if err != nil || !ran {
+			t.Fatalf("first run: %v %v", ran, err)
 		}
-		_ = s.Replace(ctx, "u1", []string{"talk"}) // the user unpins studio
-		again, err := s.Seed(ctx, "u1", SeedIDs)
+		for _, u := range []string{"u1", "u2"} {
+			got, _ := s.List(ctx, u)
+			if !slices.Equal(idsOf(got), []string{"studio", "talk"}) {
+				t.Fatalf("account %s that existed at the upgrade must have both pins: %v", u, idsOf(got))
+			}
+		}
+		// An account created after the upgrade has no pins.
+		if got, _ := s.List(ctx, "u3"); len(got) != 0 {
+			t.Fatalf("a later account must start empty: %v", idsOf(got))
+		}
+		_ = s.Replace(ctx, "u1", []string{"talk"}) // u1 unpins studio
+		again, err := s.SeedExisting(ctx, []string{"u1", "u2", "u3"}, SeedIDs)
 		if err != nil || again {
 			t.Fatalf("the seed ran twice: %v %v", again, err)
 		}
-		got, _ := s.List(ctx, "u1")
-		if !slices.Equal(idsOf(got), []string{"talk"}) {
+		if got, _ := s.List(ctx, "u1"); !slices.Equal(idsOf(got), []string{"talk"}) {
 			t.Fatalf("an unpin must stick: %v", idsOf(got))
+		}
+		if got, _ := s.List(ctx, "u3"); len(got) != 0 {
+			t.Fatalf("a second run must not seed a later account: %v", idsOf(got))
+		}
+	})
+	t.Run("a deployment with no account still records the seed, so a later account starts empty", func(t *testing.T) {
+		s := open(t)
+		ran, err := s.SeedExisting(ctx, nil, SeedIDs)
+		if err != nil || !ran {
+			t.Fatalf("an empty first run must count: %v %v", ran, err)
+		}
+		again, _ := s.SeedExisting(ctx, []string{"late"}, SeedIDs)
+		if again {
+			t.Fatal("the seed must not run after the first call")
+		}
+		if got, _ := s.List(ctx, "late"); len(got) != 0 {
+			t.Fatalf("a new account must start with no pins: %v", idsOf(got))
 		}
 	})
 	t.Run("missing pins are marked, cleared and deleted after the window", func(t *testing.T) {
@@ -551,6 +619,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 )
 
 func TestFileStoreContract(t *testing.T) {
@@ -577,7 +646,7 @@ func TestFileStoreKeepsPinsAcrossAReopen(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "pins.json")
 	a, _ := NewFileStore(path)
-	if first, _ := a.Seed(ctx, "local-owner", SeedIDs); !first {
+	if ran, _ := a.SeedExisting(ctx, []string{"local-owner"}, SeedIDs); !ran {
 		t.Fatal("first seed must run")
 	}
 	_ = a.Replace(ctx, "local-owner", []string{"talk"})
@@ -589,8 +658,31 @@ func TestFileStoreKeepsPinsAcrossAReopen(t *testing.T) {
 	if !slices.Equal(idsOf(got), []string{"talk"}) {
 		t.Fatalf("pins lost across a restart: %v", idsOf(got))
 	}
-	if again, _ := b.Seed(ctx, "local-owner", SeedIDs); again {
+	if again, _ := b.SeedExisting(ctx, []string{"local-owner"}, SeedIDs); again {
 		t.Fatal("the seed marker must survive a restart")
+	}
+}
+
+// The retention window of a removed add-on must not restart at each reopen.
+func TestFileStoreKeepsTheMissingMarkAndTheOwnerAcrossAReopen(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "pins.json")
+	a, _ := NewFileStore(path)
+	_ = a.Replace(ctx, "local-owner", []string{"notes", "studio"})
+	mark := time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)
+	if err := a.MarkMissing(ctx, []string{"notes"}, mark); err != nil {
+		t.Fatal(err)
+	}
+	b, err := NewFileStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := b.List(ctx, "local-owner")
+	if len(got) != 2 || got[0].UserID != "local-owner" {
+		t.Fatalf("the owner of a pin was lost: %+v", got)
+	}
+	if got[0].MissingSince == nil || !got[0].MissingSince.Equal(mark) {
+		t.Fatalf("the start of the retention window was lost across a restart: %v", got[0].MissingSince)
 	}
 }
 ```
@@ -604,32 +696,13 @@ func TestFileStoreKeepsPinsAcrossAReopen(t *testing.T) {
 package pins
 
 import (
-	"context"
-	"slices"
 	"testing"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 )
 
-func TestTwoServicesOverOneDatabaseAgree(t *testing.T) {
-	db, err := auth.InitDB(":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	a, _ := NewGormStore(db)
-	b, _ := NewGormStore(db)
-	ctx := context.Background()
-	sa, sb := &Service{Store: a}, &Service{Store: b}
-	vis := map[string]bool{"studio": true, "talk": true, "x": true}
-	if _, err := sa.Put(ctx, "u1", []string{"x", "talk"}, vis); err != nil {
-		t.Fatal(err)
-	}
-	got, _ := sb.List(ctx, "u1", vis)
-	if !slices.Equal(got, []string{"x", "talk"}) {
-		t.Fatalf("the second frontend sees %v", got)
-	}
-}
-
+// The test of two frontends over one database uses Service, which Task 3 adds;
+// it lives in Task 3 (service_gorm_test.go).
 func TestGormStoreContract(t *testing.T) {
 	runStoreContract(t, func(t *testing.T) Store {
 		db, err := auth.InitDB(":memory:")
@@ -676,33 +749,40 @@ const HardLimit = 32
 // shorter than the time an administrator needs to reinstall after a mistake.
 const Retention = 30 * 24 * time.Hour
 
-// SeedIDs are pinned once for every user so the layout does not change under
-// users who had Studio and Talk in the sidebar.
+// SeedIDs are pinned once, at upgrade, for every account that already exists,
+// so the layout does not change under users who had Studio and Talk in the
+// sidebar. An account created after the upgrade is never seeded.
 var SeedIDs = []string{"studio", "talk"}
 
-// Pin is one row: one user, one add-on, one position.
+// UpgradeSeedName names the one seed run of this release. A later release that
+// seeds something else uses another name.
+const UpgradeSeedName = "studio-talk-v1"
+
+// Pin is one row: one user, one add-on, one position. Every field is
+// serialised: the file store writes whole Pin values, and a pin without its
+// owner or its missing mark would restart the retention window at each reopen.
 type Pin struct {
-	UserID       string     `gorm:"primaryKey;size:64" json:"-"`
+	UserID       string     `gorm:"primaryKey;size:64" json:"userId"`
 	AddonID      string     `gorm:"primaryKey;size:64" json:"id"`
 	Position     int        `gorm:"index" json:"position"`
-	MissingSince *time.Time `json:"-"`
+	MissingSince *time.Time `json:"missingSince,omitempty"`
 }
 
 func (Pin) TableName() string { return "addon_pins" }
 
-// Seeded records that the one-time seed ran for a user.
-type Seeded struct {
-	UserID string `gorm:"primaryKey;size:64"`
-	At     time.Time
+// SeedRun records that a seed ran for the whole deployment.
+type SeedRun struct {
+	Name string `gorm:"primaryKey;size:64"`
+	At   time.Time
 }
 
-func (Seeded) TableName() string { return "addon_pin_seeds" }
+func (SeedRun) TableName() string { return "addon_pin_seed_runs" }
 
 // Store keeps the pins. Every method is safe for concurrent use.
 type Store interface {
 	List(ctx context.Context, userID string) ([]Pin, error)
 	Replace(ctx context.Context, userID string, ids []string) error
-	Seed(ctx context.Context, userID string, ids []string) (bool, error)
+	SeedExisting(ctx context.Context, userIDs []string, ids []string) (bool, error)
 	Distinct(ctx context.Context) ([]string, error)
 	MarkMissing(ctx context.Context, ids []string, now time.Time) error
 	ClearMissing(ctx context.Context, ids []string) error
@@ -739,12 +819,12 @@ type FileStore struct {
 }
 
 type fileState struct {
-	Pins   map[string][]Pin     `json:"pins"`
-	Seeded map[string]time.Time `json:"seeded"`
+	Pins     map[string][]Pin     `json:"pins"`
+	SeedRuns map[string]time.Time `json:"seedRuns"`
 }
 
 func NewFileStore(path string) (*FileStore, error) {
-	s := &FileStore{path: path, st: fileState{Pins: map[string][]Pin{}, Seeded: map[string]time.Time{}}}
+	s := &FileStore{path: path, st: fileState{Pins: map[string][]Pin{}, SeedRuns: map[string]time.Time{}}}
 	if path == "" {
 		return s, nil
 	}
@@ -761,8 +841,8 @@ func NewFileStore(path string) (*FileStore, error) {
 	if s.st.Pins == nil {
 		s.st.Pins = map[string][]Pin{}
 	}
-	if s.st.Seeded == nil {
-		s.st.Seeded = map[string]time.Time{}
+	if s.st.SeedRuns == nil {
+		s.st.SeedRuns = map[string]time.Time{}
 	}
 	return s, nil
 }
@@ -813,24 +893,26 @@ func rebuild(old []Pin, userID string, ids []string) []Pin {
 	return out
 }
 
-func (s *FileStore) Seed(_ context.Context, userID string, ids []string) (bool, error) {
+func (s *FileStore) SeedExisting(_ context.Context, userIDs []string, ids []string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, done := s.st.Seeded[userID]; done {
+	if _, done := s.st.SeedRuns[UpgradeSeedName]; done {
 		return false, nil
 	}
-	have := map[string]bool{}
-	list := s.st.Pins[userID]
-	for _, p := range list {
-		have[p.AddonID] = true
-	}
-	for _, id := range ids {
-		if !have[id] {
-			list = append(list, Pin{UserID: userID, AddonID: id, Position: len(list)})
+	for _, userID := range userIDs {
+		have := map[string]bool{}
+		list := s.st.Pins[userID]
+		for _, p := range list {
+			have[p.AddonID] = true
 		}
+		for _, id := range ids {
+			if !have[id] {
+				list = append(list, Pin{UserID: userID, AddonID: id, Position: len(list)})
+			}
+		}
+		s.st.Pins[userID] = list
 	}
-	s.st.Pins[userID] = list
-	s.st.Seeded[userID] = time.Now().UTC()
+	s.st.SeedRuns[UpgradeSeedName] = time.Now().UTC()
 	return true, s.save()
 }
 
@@ -922,7 +1004,7 @@ import (
 type GormStore struct{ db *gorm.DB }
 
 func NewGormStore(db *gorm.DB) (*GormStore, error) {
-	if err := db.AutoMigrate(&Pin{}, &Seeded{}); err != nil {
+	if err := db.AutoMigrate(&Pin{}, &SeedRun{}); err != nil {
 		return nil, err
 	}
 	return &GormStore{db: db}, nil
@@ -951,38 +1033,42 @@ func (s *GormStore) Replace(ctx context.Context, userID string, ids []string) er
 	})
 }
 
-func (s *GormStore) Seed(ctx context.Context, userID string, ids []string) (bool, error) {
-	seeded := false
+// SeedExisting inserts the marker row first. Only the call that inserts it
+// seeds, so several frontends that start together seed once between them.
+func (s *GormStore) SeedExisting(ctx context.Context, userIDs []string, ids []string) (bool, error) {
+	ran := false
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&Seeded{UserID: userID, At: time.Now().UTC()})
+		res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&SeedRun{Name: UpgradeSeedName, At: time.Now().UTC()})
 		if res.Error != nil {
 			return res.Error
 		}
 		if res.RowsAffected == 0 {
 			return nil
 		}
-		seeded = true
-		var have []Pin
-		if err := tx.Where("user_id = ?", userID).Find(&have).Error; err != nil {
-			return err
-		}
-		held := map[string]bool{}
-		for _, p := range have {
-			held[p.AddonID] = true
-		}
-		next := len(have)
-		for _, id := range ids {
-			if held[id] {
-				continue
-			}
-			if err := tx.Create(&Pin{UserID: userID, AddonID: id, Position: next}).Error; err != nil {
+		ran = true
+		for _, userID := range userIDs {
+			var have []Pin
+			if err := tx.Where("user_id = ?", userID).Find(&have).Error; err != nil {
 				return err
 			}
-			next++
+			held := map[string]bool{}
+			for _, p := range have {
+				held[p.AddonID] = true
+			}
+			next := len(have)
+			for _, id := range ids {
+				if held[id] {
+					continue
+				}
+				if err := tx.Create(&Pin{UserID: userID, AddonID: id, Position: next}).Error; err != nil {
+					return err
+				}
+				next++
+			}
 		}
 		return nil
 	})
-	return seeded, err
+	return ran, err
 }
 
 func (s *GormStore) Distinct(ctx context.Context) ([]string, error) {
@@ -1014,7 +1100,7 @@ func (s *GormStore) DeleteMissingBefore(ctx context.Context, cutoff time.Time) (
 - [ ] **Step 6: Run the tests**
 
 Run: `go test ./core/services/addons/pins/ -count=1` then `go test -tags auth ./core/services/addons/pins/ -count=1`
-Expected: PASS in both. The second run needs CGO for SQLite, as the other `auth`-tagged tests do.
+Expected: PASS in both. Neither run needs `Service`, which Task 3 adds. The second run needs CGO for SQLite, as the other `auth`-tagged tests do.
 
 - [ ] **Step 7: Commit**
 
@@ -1024,8 +1110,8 @@ git commit -m "feat(addons): store the sidebar pins per user
 
 A GORM store for deployments with an account database and a JSON file
 store for the single local owner when authentication is off. Both keep
-the order, seed once per user and track when a pinned add-on went
-missing.
+the order, run the upgrade seed once for the whole deployment and track
+when a pinned add-on went missing, across restarts.
 
 Assisted-by: Claude:claude-sonnet-5-5 go"
 ```
@@ -1037,18 +1123,20 @@ Assisted-by: Claude:claude-sonnet-5-5 go"
 **Files:**
 - Create: `core/services/addons/pins/service.go`, `service_test.go`
 - Create: `core/http/endpoints/addons/pins.go`, `pins_test.go`
-- Modify: `core/http/routes/addons.go` (new `RegisterAddonPinRoutes`, called from `RegisterAddonRoutes`)
+- Create: `core/services/addons/pins/service_gorm_test.go` (`//go:build auth`): the two-frontends test, moved here from Task 2 because it needs `Service`
+- Modify: `core/http/routes/addon_navigation.go` (new `RegisterAddonPinRoutes`, called from `RegisterAddonNavigationRoutes`; `RegisterAddonRoutes` is not touched)
+- Modify: `swagger/` (run `make swagger` again for the two new handlers; the `addon-navigation` guide entry was added in Task 1)
 - Modify: `docs/content/features/addons.md` (route and the distributed-state mode)
 
 **Interfaces:**
 - Consumes: `pins.Store` (Task 2), `builtin.Visible`, `builtin.Viewer` (Task 1), `builtinViewer(c, db)` (Task 1), `auth.CSRFMiddleware()` (`core/http/auth/csrf.go:12`), `endpoints.BrowserProtection()` (`core/http/endpoints/addons/gateway.go:248`), `actor(c, db, s)` and `resolve(opts)` (`gateway.go`), `(*gateway.Gateway).Apps(ctx, contract.Actor) (apps.List, error)` (`core/services/addons/gateway/apps.go:28`), `auth.AddonLocalOwnerID`, `auth.FeatureAddons`.
 - Produces:
   - `pins.Service{Store Store}` with
-    - `List(ctx context.Context, userID string, visible map[string]bool) ([]string, error)`: seeds once, returns the caller's visible pins in order.
+    - `List(ctx context.Context, userID string, visible map[string]bool) ([]string, error)`: returns the caller's visible pins in order. It never seeds: the upgrade seed runs at start (Task 4), so a read cannot pin anything for an account that was created after the upgrade.
     - `Put(ctx context.Context, userID string, ids []string, visible map[string]bool) ([]string, error)`: dedupes, drops ids the caller cannot see, keeps stored pins the caller cannot see, returns the visible list.
   - `pins.ErrTooMany`.
   - `endpoints.GetPins(gw *gateway.Gateway, db *gorm.DB, svc *pins.Service, opts ...Option) echo.HandlerFunc`, `endpoints.PutPins(...)` with the same arguments.
-  - Routes: `GET /api/addons/pins` returns a JSON array of add-on IDs; `PUT /api/addons/pins` takes a JSON array and returns the saved visible array. Both need an authenticated caller, no admin role and no `addons` feature.
+  - Routes (registered by `RegisterAddonNavigationRoutes`, outside `RegisterAddonRoutesFor`, for the reason given in Task 1): `GET /api/addons/pins` returns a JSON array of add-on IDs; `PUT /api/addons/pins` takes a JSON array and returns the saved visible array. Both need an authenticated caller, no admin role and no `addons` feature.
   - `routes.RegisterAddonPinRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, svc *pins.Service)`.
 
 - [ ] **Step 1: Write the failing service tests**
@@ -1082,19 +1170,44 @@ func newService(t *testing.T) *Service {
 	return &Service{Store: s}
 }
 
-func TestListSeedsStudioAndTalkOnce(t *testing.T) {
+func TestANewAccountStartsWithNoPins(t *testing.T) {
 	ctx := context.Background()
 	svc := newService(t)
+	// The upgrade ran earlier for the accounts that existed then.
+	if ran, err := svc.Store.SeedExisting(ctx, []string{"old"}, SeedIDs); err != nil || !ran {
+		t.Fatalf("upgrade seed: %v %v", ran, err)
+	}
+	got, err := svc.List(ctx, "created-after-the-upgrade", vis("studio", "talk"))
+	if err != nil || len(got) != 0 {
+		t.Fatalf("a new account must start with no pins, got %v %v", got, err)
+	}
+	if _, err := svc.Put(ctx, "created-after-the-upgrade", []string{"talk"}, vis("studio", "talk")); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := svc.List(ctx, "created-after-the-upgrade", vis("studio", "talk")); !slices.Equal(got, []string{"talk"}) {
+		t.Fatalf("a read or a save must never add a pin of its own: %v", got)
+	}
+}
+
+func TestUpgradeSeedPinsStudioAndTalkOnce(t *testing.T) {
+	ctx := context.Background()
+	svc := newService(t)
+	if ran, err := svc.Store.SeedExisting(ctx, []string{"u1"}, SeedIDs); err != nil || !ran {
+		t.Fatalf("upgrade seed: %v %v", ran, err)
+	}
 	got, err := svc.List(ctx, "u1", vis("studio", "talk"))
 	if err != nil || !slices.Equal(got, []string{"studio", "talk"}) {
-		t.Fatalf("seed: %v %v", got, err)
+		t.Fatalf("an account that existed at the upgrade keeps Studio and Talk: %v %v", got, err)
 	}
 	if _, err := svc.Put(ctx, "u1", []string{"talk"}, vis("studio", "talk")); err != nil {
 		t.Fatal(err)
 	}
+	if ran, _ := svc.Store.SeedExisting(ctx, []string{"u1"}, SeedIDs); ran {
+		t.Fatal("the seed ran a second time")
+	}
 	got, _ = svc.List(ctx, "u1", vis("studio", "talk"))
 	if !slices.Equal(got, []string{"talk"}) {
-		t.Fatalf("the seed ran twice, an unpin did not stick: %v", got)
+		t.Fatalf("an unpin did not stick: %v", got)
 	}
 }
 
@@ -1102,7 +1215,6 @@ func TestPutKeepsPinsTheCallerCannotSee(t *testing.T) {
 	ctx := context.Background()
 	svc := newService(t)
 	_ = svc.Store.Replace(ctx, "u1", []string{"a", "hidden", "b", "c"})
-	_, _ = svc.Store.Seed(ctx, "u1", nil) // mark the seed as done
 	got, err := svc.Put(ctx, "u1", []string{"c", "a", "b"}, vis("a", "b", "c"))
 	if err != nil || !slices.Equal(got, []string{"c", "a", "b"}) {
 		t.Fatalf("visible result: %v %v", got, err)
@@ -1116,7 +1228,6 @@ func TestPutKeepsPinsTheCallerCannotSee(t *testing.T) {
 func TestPutDropsUnknownAndDuplicateIDs(t *testing.T) {
 	ctx := context.Background()
 	svc := newService(t)
-	_, _ = svc.Store.Seed(ctx, "u1", nil)
 	got, err := svc.Put(ctx, "u1", []string{"a", "nope", "a", "b"}, vis("a", "b"))
 	if err != nil || !slices.Equal(got, []string{"a", "b"}) {
 		t.Fatalf("got %v %v", got, err)
@@ -1139,7 +1250,6 @@ func TestListNeverRevealsAHiddenID(t *testing.T) {
 	ctx := context.Background()
 	svc := newService(t)
 	_ = svc.Store.Replace(ctx, "u1", []string{"secret", "studio"})
-	_, _ = svc.Store.Seed(ctx, "u1", nil)
 	got, _ := svc.List(ctx, "u1", vis("studio"))
 	if !slices.Equal(got, []string{"studio"}) {
 		t.Fatalf("a hidden id leaked: %v", got)
@@ -1149,7 +1259,7 @@ func TestListNeverRevealsAHiddenID(t *testing.T) {
 
 - [ ] **Step 2: Run to see it fail**
 
-Run: `go test ./core/services/addons/pins/ -run 'Seeds|Keeps|Drops|Rejects|Reveals' -v`
+Run: `go test ./core/services/addons/pins/ -run 'NewAccount|UpgradeSeed|Keeps|Drops|Rejects|Reveals' -v`
 Expected: FAIL with `undefined: Service`.
 
 - [ ] **Step 3: Write the service**
@@ -1173,12 +1283,10 @@ var ErrTooMany = errors.New("too many pins")
 // built-in catalog and the Apps list, so a pin is filtered exactly like a tile.
 type Service struct{ Store Store }
 
-// List returns the caller's visible pins in order. The first call for a user
-// also runs the one-time seed.
+// List returns the caller's visible pins in order. It never seeds: the upgrade
+// seed runs once at start (Store.SeedExisting), for the accounts that exist
+// then, so an account created later starts with no pins.
 func (s *Service) List(ctx context.Context, userID string, visible map[string]bool) ([]string, error) {
-	if _, err := s.Store.Seed(ctx, userID, SeedIDs); err != nil {
-		return nil, err
-	}
 	stored, err := s.Store.List(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -1198,9 +1306,6 @@ func (s *Service) List(ctx context.Context, userID string, visible map[string]bo
 func (s *Service) Put(ctx context.Context, userID string, ids []string, visible map[string]bool) ([]string, error) {
 	if len(ids) > HardLimit {
 		return nil, ErrTooMany
-	}
-	if _, err := s.Store.Seed(ctx, userID, SeedIDs); err != nil {
-		return nil, err
 	}
 	seen := map[string]bool{}
 	shown := []string{}
@@ -1233,6 +1338,67 @@ func (s *Service) Put(ctx context.Context, userID string, ids []string, visible 
 Run: `go test ./core/services/addons/pins/ -count=1`
 Expected: PASS.
 
+Create `core/services/addons/pins/service_gorm_test.go`. It holds the test that Task 2 listed first and that needs `Service`:
+
+```go
+//go:build auth
+
+// SPDX-License-Identifier: MIT
+package pins
+
+import (
+	"context"
+	"slices"
+	"testing"
+
+	"github.com/mudler/LocalAI/core/http/auth"
+)
+
+// Two frontends of one deployment share the database, so a save through one is
+// read through the other. No process holds the only copy.
+func TestTwoServicesOverOneDatabaseAgree(t *testing.T) {
+	db, err := auth.InitDB(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _ := NewGormStore(db)
+	b, _ := NewGormStore(db)
+	ctx := context.Background()
+	sa, sb := &Service{Store: a}, &Service{Store: b}
+	vis := map[string]bool{"studio": true, "talk": true, "x": true}
+	if _, err := sa.Put(ctx, "u1", []string{"x", "talk"}, vis); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := sb.List(ctx, "u1", vis)
+	if !slices.Equal(got, []string{"x", "talk"}) {
+		t.Fatalf("the second frontend sees %v", got)
+	}
+}
+
+// Two frontends that start together run the upgrade seed once between them.
+func TestTwoFrontendsStartingTogetherSeedOnce(t *testing.T) {
+	db, err := auth.InitDB(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _ := NewGormStore(db)
+	b, _ := NewGormStore(db)
+	ctx := context.Background()
+	ranA, errA := a.SeedExisting(ctx, []string{"u1"}, SeedIDs)
+	ranB, errB := b.SeedExisting(ctx, []string{"u1"}, SeedIDs)
+	if errA != nil || errB != nil || ranA == ranB {
+		t.Fatalf("exactly one frontend must seed: a=%v,%v b=%v,%v", ranA, errA, ranB, errB)
+	}
+	got, _ := a.List(ctx, "u1")
+	if !slices.Equal(idsOf(got), []string{"studio", "talk"}) {
+		t.Fatalf("seeded twice or not at all: %v", idsOf(got))
+	}
+}
+```
+
+Run: `go test -tags auth ./core/services/addons/pins/ -count=1`
+Expected: PASS (the contract of Task 2 and the two tests above).
+
 - [ ] **Step 5: Write the failing handler tests**
 
 `core/http/endpoints/addons/pins_test.go` (no account database, so every request is the local owner):
@@ -1242,6 +1408,7 @@ Expected: PASS.
 package addons
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -1249,13 +1416,22 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons/pins"
 )
 
-func pinsApp(t *testing.T) *echo.Echo {
+// pinsApp builds the two routes over a store. With seeded set, the upgrade seed
+// has run for the local owner, as it does at start in a deployment that
+// existed before this release.
+func pinsApp(t *testing.T, seeded bool) *echo.Echo {
 	store, err := pins.NewFileStore("")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if seeded {
+		if _, err := store.SeedExisting(context.Background(), []string{auth.AddonLocalOwnerID}, pins.SeedIDs); err != nil {
+			t.Fatal(err)
+		}
 	}
 	svc := &pins.Service{Store: store}
 	e := echo.New()
@@ -1274,8 +1450,16 @@ func call(e *echo.Echo, method, body string) (int, []string) {
 	return rec.Code, out
 }
 
+func TestAnAccountCreatedAfterTheUpgradeGetsNoPins(t *testing.T) {
+	e := pinsApp(t, false)
+	code, got := call(e, http.MethodGet, "")
+	if code != 200 || len(got) != 0 {
+		t.Fatalf("no seed has run for this account, so it has no pins: %d %v", code, got)
+	}
+}
+
 func TestPinsRoundTripForTheLocalOwner(t *testing.T) {
-	e := pinsApp(t)
+	e := pinsApp(t, true)
 	code, got := call(e, http.MethodGet, "")
 	if code != 200 || len(got) != 2 || got[0] != "studio" || got[1] != "talk" {
 		t.Fatalf("seed: %d %v", code, got)
@@ -1291,7 +1475,7 @@ func TestPinsRoundTripForTheLocalOwner(t *testing.T) {
 }
 
 func TestPutDropsIDsTheCallerCannotSee(t *testing.T) {
-	e := pinsApp(t)
+	e := pinsApp(t, false)
 	_, got := call(e, http.MethodPut, `["studio","not-installed"]`)
 	if len(got) != 1 || got[0] != "studio" {
 		t.Fatalf("an unknown id must be dropped without a hint: %v", got)
@@ -1299,7 +1483,7 @@ func TestPutDropsIDsTheCallerCannotSee(t *testing.T) {
 }
 
 func TestPutRejectsABodyThatIsNotAListOfStrings(t *testing.T) {
-	e := pinsApp(t)
+	e := pinsApp(t, false)
 	for _, body := range []string{`{"a":1}`, `[1,2]`, `not json`, ``} {
 		if code, _ := call(e, http.MethodPut, body); code != 400 {
 			t.Fatalf("body %q: want 400, got %d", body, code)
@@ -1308,7 +1492,7 @@ func TestPutRejectsABodyThatIsNotAListOfStrings(t *testing.T) {
 }
 
 func TestPutRejectsAListOverTheHardLimit(t *testing.T) {
-	e := pinsApp(t)
+	e := pinsApp(t, false)
 	items := make([]string, pins.HardLimit+1)
 	for i := range items {
 		items[i] = `"studio"`
@@ -1346,11 +1530,13 @@ import (
 // pinUser is the key of the caller's rows. Without an account database the
 // caller is the one local owner.
 func pinUser(c echo.Context, db *gorm.DB) (string, bool) {
-	if u := auth.GetUser(c); u != nil {
-		return u.ID, true
-	}
+	// Without an account database there is one local owner, whichever legacy
+	// API key the request carries.
 	if db == nil {
 		return auth.AddonLocalOwnerID, true
+	}
+	if u := auth.GetUser(c); u != nil {
+		return u.ID, true
 	}
 	return "", false
 }
@@ -1390,8 +1576,8 @@ func visibleIDs(c echo.Context, gw *gateway.Gateway, db *gorm.DB, s settings) (s
 
 // GetPins returns the caller's pinned add-on IDs.
 // @Summary List the add-ons the caller pinned
-// @Description Returns the ordered add-on IDs the caller pinned to the sidebar. The first call of a user also pins Studio and Talk, once. The list holds only IDs the caller may see right now: a hidden or removed add-on is left out and the route does not reveal whether it exists. Needs an authenticated caller and no administrator role.
-// @Tags Addons
+// @Description Returns the ordered add-on IDs the caller pinned to the sidebar. The route never pins anything by itself; Studio and Talk are pinned once, at upgrade, for the accounts that existed then. The list holds only IDs the caller may see right now: a hidden or removed add-on is left out and the route does not reveal whether it exists. Needs an authenticated caller and no administrator role.
+// @Tags AddonNavigation
 // @Produce json
 // @Success 200 {array} string "Ordered add-on IDs"
 // @Failure 401 {object} AddonErrorResponse "Authentication required"
@@ -1417,7 +1603,7 @@ func GetPins(gw *gateway.Gateway, db *gorm.DB, svc *pins.Service, opts ...Option
 // PutPins replaces the caller's pinned add-on IDs.
 // @Summary Replace the add-ons the caller pinned
 // @Description Replaces the caller's pins with the ordered list in the body. IDs the caller may not see are dropped without any hint, and pins that are only hidden for now are kept. At most 32 IDs are accepted. Needs an authenticated caller from a same-origin browser request or a credential header, and no administrator role.
-// @Tags Addons
+// @Tags AddonNavigation
 // @Accept json
 // @Produce json
 // @Param pins body []string true "Ordered add-on IDs"
@@ -1464,18 +1650,39 @@ Expected: PASS (4 tests).
 
 - [ ] **Step 9: Register the routes and wire the store**
 
-In `core/http/routes/addons.go` add imports `"path/filepath"` and `"github.com/mudler/LocalAI/core/services/addons/pins"` and replace `RegisterAddonRoutes` with:
+Replace `core/http/routes/addon_navigation.go` (created in Task 1) with:
 
 ```go
-func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
-	RegisterAddonRoutesFor(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode())
+// SPDX-License-Identifier: MIT
+package routes
+
+import (
+	"path/filepath"
+
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/http/auth"
+	endpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/pins"
+	"github.com/mudler/xlog"
+	"gorm.io/gorm"
+)
+
+// RegisterAddonNavigationRoutes registers the user-scoped routes of the
+// Add-ons drawer: the built-in tiles and the pins. They sit outside the addons
+// feature group on purpose, so a user who sees built-in tiles can open and pin
+// them. RegisterAddonRoutes and RegisterAddonRoutesFor are not touched, so the
+// tests of the existing add-on routes pass without edits.
+func RegisterAddonNavigationRoutes(e *echo.Echo, a *application.Application) {
 	e.GET("/api/addons/builtin", endpoints.ListBuiltin(a.AuthDB()))
-	store := newPinStore(a)
-	RegisterAddonPinRoutes(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), &pins.Service{Store: store})
+	RegisterAddonPinRoutes(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), &pins.Service{Store: newPinStore(a)})
 }
 
 // newPinStore picks the store: the shared account database when there is one,
 // otherwise a file next to the other add-on data (one local owner, one host).
+// Task 4 moves this function into the application, so the routes and the
+// retention sweep share one store.
 func newPinStore(a *application.Application) pins.Store {
 	if db := a.AuthDB(); db != nil {
 		if s, err := pins.NewGormStore(db); err == nil {
@@ -1486,13 +1693,16 @@ func newPinStore(a *application.Application) pins.Store {
 	if dir := a.ApplicationConfig().DataPath; dir != "" {
 		path = filepath.Join(dir, "addon-pins.json")
 	}
-	s, _ := pins.NewFileStore(path)
+	s, err := pins.NewFileStore(path)
+	if err != nil {
+		xlog.Error("addon pins file unreadable, pins are kept in memory only", "error", err)
+		s, _ = pins.NewFileStore("")
+	}
 	return s
 }
 
-// RegisterAddonPinRoutes registers the two user-scoped pin routes. They sit
-// outside the addons feature group on purpose: a user who sees built-in tiles
-// can pin them. The caller is filtered like the Apps list.
+// RegisterAddonPinRoutes registers the two user-scoped pin routes. The caller
+// is filtered like the Apps list.
 func RegisterAddonPinRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, svc *pins.Service) {
 	mode := endpoints.WithOwnership(ownership)
 	e.GET("/api/addons/pins", endpoints.GetPins(gw, db, svc, mode))
@@ -1500,36 +1710,25 @@ func RegisterAddonPinRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 }
 ```
 
-`pins.NewFileStore` returns an error only when the file exists and is unreadable; on that error `s` is nil and the line above would panic, so replace the last two lines of `newPinStore` with:
-
-```go
-	s, err := pins.NewFileStore(path)
-	if err != nil {
-		xlog.Error("addon pins file unreadable, pins are kept in memory only", "error", err)
-		s, _ = pins.NewFileStore("")
-	}
-	return s
-```
-
-and import `"github.com/mudler/xlog"`.
+Extend `core/http/routes/addon_navigation_test.go` (Task 1): a member without the `addons` feature can `GET /api/addons/pins` (200, a JSON array) and `PUT` it from a same-origin request; the same `PUT` without the fetch-metadata header is refused; and `GET /api/addons/apps` still answers 403 for that member. Run `make swagger` so `swagger/` holds the two new operations under the tag `AddonNavigation`.
 
 - [ ] **Step 10: Run the route and MCP-map tests, then document**
 
-Run: `go test ./core/http/routes/ ./core/http/endpoints/addons/ ./pkg/mcp/localaitools/ -count=1`
-Expected: PASS. If `TestToolHTTPRouteMappingComplete` in `pkg/mcp/localaitools` lists `/api/addons/pins` as an unmapped route, add the two routes to the list of non-admin routes that need no tool in that test (`.agents/localai-assistant-mcp.md` says why): pins are a per-user UI preference, not an admin action.
+Run: `go test ./core/http/routes/ ./core/http/endpoints/addons/ ./pkg/mcp/localaitools/ -count=1 && go test -tags auth ./core/http/routes/ ./core/http/endpoints/addons/ -count=1`
+Expected: PASS in both. The `-tags auth` run holds the unchanged tests of the existing add-on routes. `pkg/mcp/localaitools/coverage_test.go` is keyed on the `Tool*` constants, not on routes, so the pin routes need no entry there; pins are a per-user UI preference, not an admin action, and get no MCP tool (`.agents/localai-assistant-mcp.md` says why). If the route-mapping test does list `/api/addons/pins` as unmapped, document the exemption where that test documents the others.
 
-In `docs/content/features/addons.md` document: both routes, the filtering rule, the 32 ID limit, the retention window (Task 4), and the distributed-state mode: "Shared. With an account database the table `addon_pins` is shared by every frontend. With authentication off there is one local owner and the pins are kept in `addon-pins.json` in the data path, per instance."
+In `docs/content/features/addons.md` document: both routes, the filtering rule, the 32 ID limit, the retention window (Task 4), the upgrade seed (existing accounts get Studio and Talk pinned once; a new account starts with no pins), and the distributed-state mode: "Shared. With an account database the table `addon_pins` is shared by every frontend. With authentication off there is one local owner and the pins are kept in `addon-pins.json` in the data path, per instance."
 
 - [ ] **Step 11: Commit**
 
 ```bash
-git add core/services/addons/pins core/http/endpoints/addons/pins.go core/http/endpoints/addons/pins_test.go core/http/routes/addons.go docs/content/features/addons.md pkg/mcp/localaitools
+git add core/services/addons/pins core/http/endpoints/addons/pins.go core/http/endpoints/addons/pins_test.go core/http/routes/addon_navigation.go core/http/routes/addon_navigation_test.go swagger docs/content/features/addons.md pkg/mcp/localaitools
 git commit -m "feat(addons): add the user-scoped pin routes
 
 GET and PUT /api/addons/pins read and replace the caller's ordered pins.
 IDs the caller cannot see are dropped without a hint, and pins that are
-only hidden for now survive a save. The first read seeds Studio and Talk
-once.
+only hidden for now survive a save. Reads never pin anything: the
+upgrade seed of Studio and Talk comes in the next change.
 
 Assisted-by: Claude:claude-sonnet-5-5 go"
 ```
@@ -1543,7 +1742,10 @@ Assisted-by: Claude:claude-sonnet-5-5 go"
 - Modify: `core/services/addons/manager.go` (add `InstalledIDs` after `Apps`, near line 790-820)
 - Modify: `core/services/addons/apps_test.go` (one `It` in the Describe that holds `lists apps by visibility`)
 - Modify: `core/services/advisorylock/keys.go` (new key `KeyAddonPinSweep int64 = 109`)
-- Modify: `core/application/addon_gateway.go` (start the sweep)
+- Modify: `core/application/addon_gateway.go` (start the sweep; own the pin store and run the upgrade seed once)
+- Modify: `core/http/routes/addon_navigation.go` (use `a.AddonPinStore()`; drop the imports the moved function leaves unused)
+- Create: `core/application/addon_pins_test.go` (`//go:build auth`): the upgrade seed at start
+- Modify: `scripts/addons/suites.json` (the `cases` of the `lifecycle` and `apps` suites gain the new `It` text)
 
 **Interfaces:**
 - Consumes: `pins.Store`, `pins.Retention`, `builtin.IDs()`, `(*addons.Manager)` fields `mu`, `journal.Addons`, method `check(ctx)` as used in `Apps` (`core/services/addons/manager.go:790-799`), `advisorylock.RunLeaderLoop(ctx context.Context, db *gorm.DB, lockKey int64, interval time.Duration, fn func())` (`core/services/advisorylock/leader_loop.go:16`), `(*Application).AuthDB()`, `(*Application).AddonGateway()` whose `Manager` field is a `*addons.Manager` (`core/services/addons/gateway/gateway.go:21`).
@@ -1688,6 +1890,8 @@ Add to `core/services/addons/apps_test.go`, in the same Describe as the case `li
 	})
 ```
 
+Add the case name `lists the identifiers of installed addons, disabled ones included` to the `cases` of the `lifecycle` suite and of the `apps` suite in `scripts/addons/suites.json` (the `It` runs in the package of both; `scripts/addons/verify.sh` compares the `It` names of each suite with that list, so the count of each suite goes up by one). Check the counts with `sh scripts/addons/verify.sh lifecycle apps` once the code below exists.
+
 Run: `go test ./core/services/addons/ -run Apps -count=1` (the Ginkgo suite: add `-ginkgo.focus "installed addons, disabled"` to focus).
 Expected: FAIL with `m.InstalledIDs undefined`.
 
@@ -1764,20 +1968,62 @@ func (a *Application) startAddonPinSweep(ctx context.Context, store pins.Store) 
 }
 ```
 
-Import `builtin`, `pins`, `advisorylock` (`github.com/mudler/LocalAI/core/services/advisorylock`). The store must be the same one the routes use. Move the store creation out of `routes.newPinStore` into `(*Application).AddonPinStore() pins.Store` (create it once, cache it in a field `addonPinStore`) and have `RegisterAddonRoutes` call `a.AddonPinStore()`; call `startAddonPinSweep(ctx, a.AddonPinStore())` right after the gateway is built.
+Import `builtin`, `pins`, `advisorylock` (`github.com/mudler/LocalAI/core/services/advisorylock`). The store must be the same one the routes use. Move the store creation out of `routes.newPinStore` into `(*Application).AddonPinStore() pins.Store` (create it once with a `sync.Once`, cache it in a field `addonPinStore`) and have `RegisterAddonNavigationRoutes` call `a.AddonPinStore()`; delete `newPinStore` and the imports it leaves unused in `core/http/routes/addon_navigation.go` (`path/filepath`, `github.com/mudler/xlog`; keep `pins`, which the `Service` literal still names), or the package stops compiling. Call `startAddonPinSweep(ctx, a.AddonPinStore())` right after the gateway is built.
+
+**The upgrade seed runs here, once, when the store is created.** In plain words: when LocalAI starts the first version that has pins, every account that already exists gets Studio and Talk pinned, once; an account created later gets nothing; an unpin sticks. The store marks that the seed ran, so a restart, a second frontend and a later release of the same code do not run it again.
+
+```go
+// AddonPinStore returns the pin store, creating it once. Creating it also runs
+// the one-time upgrade seed for the accounts that exist now.
+func (a *Application) AddonPinStore() pins.Store {
+	a.addonPinStoreOnce.Do(func() {
+		a.addonPinStore = a.newAddonPinStore()
+		if _, err := a.addonPinStore.SeedExisting(context.Background(), a.existingPinAccounts(), pins.SeedIDs); err != nil {
+			xlog.Warn("addon pin upgrade seed failed; it will run again at the next start", "error", err)
+		}
+	})
+	return a.addonPinStore
+}
+
+// existingPinAccounts are the keys pins are stored under for the accounts that
+// exist at this moment: every user of the account database, or the one local
+// owner when authentication is off. The local owner counts as an existing
+// account, so a deployment with authentication off keeps its Studio and Talk
+// entries too.
+func (a *Application) existingPinAccounts() []string {
+	if a.authDB == nil {
+		return []string{auth.AddonLocalOwnerID}
+	}
+	var ids []string
+	if err := a.authDB.Model(&auth.User{}).Pluck("id", &ids).Error; err != nil {
+		xlog.Warn("could not list accounts for the pin seed", "error", err)
+		return nil
+	}
+	return ids
+}
+```
+
+`newAddonPinStore` is the body of the old `newPinStore` (GORM store when `a.authDB` is set, else the file `addon-pins.json` in the data path, else memory). Add `addonPinStoreOnce sync.Once` and `addonPinStore pins.Store` to the `Application` struct. A failed seed is not marked as run (the marker row is written in the same transaction as the pins), so it is retried at the next start.
+
+Write `core/application/addon_pins_test.go` (`//go:build auth`, like `addons_auth_test.go`) with two cases:
+
+- **Both cases of the owner ruling, with an account database.** Create two users, build the store through `AddonPinStore()`, and assert that both have `studio` and `talk` pinned. Then create a third user after the call and assert that its list is empty and that a second `AddonPinStore().SeedExisting(...)` returns false. Then unpin Studio for the first user, build a second `Application` over the same database (a second frontend or a restart), and assert the first user still has only `talk`.
+- **Authentication off.** With no database and a data path in `t.TempDir()`, assert that `AddonPinStore()` pins `studio` and `talk` for `auth.AddonLocalOwnerID`, that a new `Application` over the same path does not pin them again after an unpin, and that the file holds the seed marker.
 
 - [ ] **Step 7: Build, test, commit**
 
-Run: `go build ./... && go test ./core/services/addons/... ./core/application/... ./core/http/routes/ -count=1`
+Run: `go build ./... && go test ./core/services/addons/... ./core/application/... ./core/http/routes/ -count=1 && go test -tags auth ./core/application/ ./core/http/routes/ ./core/http/endpoints/addons/ -count=1 && sh scripts/addons/verify.sh lifecycle apps`
 Expected: PASS.
 
 ```bash
-git add core/services/addons core/services/advisorylock/keys.go core/application core/http/routes/addons.go
+git add core/services/addons core/services/advisorylock/keys.go core/application core/http/routes/addon_navigation.go scripts/addons/suites.json
 git commit -m "feat(addons): expire the pins of removed add-ons after 30 days
 
 A pin of an uninstalled add-on is hidden at once and kept for 30 days,
 so a reinstall inside the window brings it back. One frontend sweeps
 every six hours. A sweep that cannot read the owner changes nothing.
+The store also runs the one-time upgrade seed at start: accounts that
+exist then get Studio and Talk pinned, accounts created later do not.
 
 Assisted-by: Claude:claude-sonnet-5-5 go"
 ```
@@ -2780,7 +3026,7 @@ Assisted-by: Claude:claude-sonnet-5-5 node playwright"
   - `MIGRATION_ROUTES`: the old-route table of the spec as data, `[{ from, to, kind }]`, used by the coverage test.
 - Router: `StudioTabRedirect({ legacy })`, new route `studio/:tab/:model`.
 
-The face, voice and fine-tuning redirects are added by Tasks 17, 19 and the fine-tuning group, where their add-ons exist.
+The face, voice, fine-tuning and quantization redirects are added by Tasks 16 to 18 and 27, where their add-ons exist.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2922,7 +3168,9 @@ The `Feature` wrappers stay, so a user without `3d`, `audio_diarization` or `aud
 
 The generator pages read the model with `useParams().model` (for example `core/http/react-ui/src/pages/ImageGen.jsx:25`), so they pick it up inside Studio. The `?tab=` redirect of `Studio.jsx:78-81` is untouched.
 
-The seven standalone page imports (`ImageGen`, `VideoGen`, `ThreeDGen`, `TTS`, `Sound`, `Diarization`, `AudioTransform`) are still used by `Studio.jsx`, not by the router: delete the seven `const X = page(...)` lines from `router.jsx` that nothing references any more (`npm run lint` lists them as unused), but keep `page('image', ...)`-style preload keys that the sidebar or Studio call through `preloadRoute` (`grep -rn "preloadRoute(" core/http/react-ui/src`).
+The seven generator page components (`ImageGen`, `VideoGen`, `ThreeDGen`, `TTS`, `Sound`, `Diarization`, `AudioTransform`) stay in the bundle: `Studio.jsx` imports them itself, so do not delete or edit the page files. In `router.jsx` the router no longer renders them, but the seven lines `const ImageGen = page('image', () => import('./pages/ImageGen'))` and their siblings do a second job: `page(key, loader)` registers the loader that `preloadRoute('/app/image')` calls (`Sidebar.jsx:40`, `HubLayout.jsx:43` and `BuildOverview.jsx:213` call it). Keep the registration and drop only the unused binding: change each of the seven lines to the bare call, for example `page('image', () => import('./pages/ImageGen'))`, so `npm run lint` has no unused variable and the preload keys still exist. Do not delete the seven lines.
+
+Rollback (spec, "Risks and rollback"): these redirects do not depend on the legacy switch. Setting `LOCALAI_LEGACY_NAVIGATION` brings the old sidebar and the old Add-ons hub tab back; the old generator URLs still land in Studio, where the same pages draw. That is the decided behaviour, and the docs say so (Step 7).
 
 - [ ] **Step 5: Run the unit test**
 
@@ -2959,7 +3207,7 @@ Expected: PASS. If `sessionFor` takes permissions in another shape, mirror how `
 
 - [ ] **Step 7: Document and commit**
 
-List the redirects in `docs/content/features/addons.md` ("Old links").
+List the redirects in `docs/content/features/addons.md` ("Old links"), and state there that the legacy switch restores the old sidebar only and that the generator redirects do not depend on it.
 
 ```bash
 git add core/http/react-ui docs/content/features/addons.md
@@ -3037,8 +3285,8 @@ Expected: all pass. Then run the repository's coverage ratchet as `.agents/build
 
 - [ ] **Step 3: Run the Go suites that this group touched**
 
-Run: `go build ./... && go test ./core/services/addons/... ./core/http/... ./pkg/addons/... -count=1 && go test -tags auth ./core/services/addons/pins/ ./core/http/auth/ -count=1`
-Expected: PASS. API route tests pass without edits (except the reserved-ID and `/api/features` additions made in Tasks 1 and 6).
+Run: `go build ./... && go test ./core/services/addons/... ./core/http/... ./pkg/addons/... -count=1 && go test -tags auth ./core/services/addons/pins/ ./core/http/auth/ ./core/http/endpoints/addons/ ./core/http/routes/ ./core/application/ -count=1 && sh scripts/addons/verify.sh contracts lifecycle apps`
+Expected: PASS. The `-tags auth` run includes the unchanged tests of the existing add-on routes (`routes_test.go`, `addons_discovery_test.go`), which pass without edits because the navigation routes are registered by `RegisterAddonNavigationRoutes`. The only test edits of group A are the reserved-ID and `/api/features` additions made in Tasks 1 and 6.
 
 - [ ] **Step 4: Commit**
 
@@ -3059,6 +3307,9 @@ Assisted-by: Claude:claude-sonnet-5-5 playwright"
 - Modify: `pkg/addons/contract/manifest.go:327-330` (separate SDK message), add `HostSDKVersion` near line 17
 - Modify: `core/application/application.go:836`, `core/services/addons/runtime/supervisor.go:251`, `pkg/addons/packaging/build.go:34` (use the constant)
 - Modify: `addons/tables/manifest.json:584-587` (`max` 2)
+- Modify: `core/http/react-ui/tests/unit/esm.test.mjs:66-73`, `slots.test.mjs`, `addons.test.mjs` (SDK 2 expectations)
+- Modify: `core/http/react-ui/e2e/addons-shell.spec.js:19,71`, `e2e/addons-gallery.spec.js:259` (fixture ranges)
+- Modify: `scripts/addons/suites.json` (the four new `It` texts in the `contracts` suite)
 - Modify: `tests/addons/fixture/ui/*/manifest.json` (the five fixture manifests: `uifixture`, `uifixture-2`, `slots`, `cssb`, `bare`; `max` 2)
 - Modify: `core/http/react-ui/src/addons/sdk.js:13` (`SDK_VERSION = 2`)
 - Test: `pkg/addons/contract/manifest_test.go`
@@ -3152,14 +3403,20 @@ Set `export const SDK_VERSION = 2` in `core/http/react-ui/src/addons/sdk.js:13`.
 - [ ] **Step 4: Run the tests**
 
 Run: `go build ./... && go test ./pkg/addons/... ./core/services/addons/... ./core/application/... -count=1 && cd core/http/react-ui && npm run test:unit`
-Expected: PASS. In `tests/unit/slots.test.mjs`, `addons.test.mjs` and `esm.test.mjs` the ranges `{ min: 1, max: 1 }` now fail `sdkAccepts` against version 2: change each fixture range that is not meant to be incompatible to `{ min: 1, max: 2 }`, and add one assertion `assert.equal(sdkAccepts({ min: 1, max: 1 }), false)` in `addons.test.mjs`.
+Expected: PASS for Go. For the UI the existing tests that pin SDK 1 now fail; update them in this task, not later:
+
+- `tests/unit/esm.test.mjs:66-73` is the one place that imports `sdkAccepts` (`addons.test.mjs` does not). Change `SDK_VERSION === 1` to `2`; `sdkAccepts({ min: 1, max: 1 })` to `false` (an SDK-1-only add-on is refused); keep a `{ min: 1, max: 2 }` assertion `true`; change `sdkAccepts({ min: 2, max: 3 })` from `false` to `true`; and add `sdkAccepts({ min: 3, max: 3 })` `false`. The new refusal assertion goes here.
+- `tests/unit/slots.test.mjs` and `addons.test.mjs`: change each fixture range that is not meant to be incompatible from `{ min: 1, max: 1 }` to `{ min: 1, max: 2 }`.
+- `e2e/addons-shell.spec.js:19` and `e2e/addons-gallery.spec.js:259`: fixtures with `{ min: 1, max: 1 }` become `{ min: 1, max: 2 }`. In `e2e/addons-shell.spec.js:71` the app expected to be incompatible (`{ min: 2, max: 2 }`) becomes `{ min: 3, max: 3 }`.
+
+Add the four new case names to the `cases` of the `contracts` suite in `scripts/addons/suites.json`, in this commit (`scripts/addons/verify.sh` compares the `It` names of each Ginkgo suite with that list): `refuses an add-on that needs a newer SDK than the host provides, and says so`, `accepts a range that contains the host SDK`, `refuses an add-on built for SDK 1 only on a version 2 host`, `keeps the generic message for a range that is malformed`. Run `sh scripts/addons/verify.sh contracts` and `cd core/http/react-ui && npx playwright test e2e/addons-shell.spec.js e2e/addons-gallery.spec.js`.
 
 - [ ] **Step 5: Document and commit**
 
 In `docs/content/features/addons.md` add "SDK versions": host SDK 2, the `ui.sdk` range, the refusal message, and that a manifest declaring only SDK 1 must raise `max` to 2 after checking it against the new surface.
 
 ```bash
-git add pkg core addons tests docs/content/features/addons.md
+git add pkg core addons tests scripts/addons/suites.json docs/content/features/addons.md
 git commit -m "feat(addons): raise the host SDK to version 2
 
 The host provides SDK 2, an add-on that needs another range is refused
@@ -3407,7 +3664,7 @@ Assisted-by: Claude:claude-sonnet-5-5 node playwright"
 **Interfaces:**
 - Consumes: `host.basePath` (Task 10), `host.fetch` (optional, for tests), `anySignal(a, b)` and `alive()` inside `createHostSDK` (`sdk.js:98-108,128-130`), `AddonSdkError`.
 - Produces:
-  - `coreRequestUrl(path: string, basePath = ''): string | null`: the same-origin URL for a core path, or `null` for an absolute URL, a path with `..`, `//`, a backslash, `/api/addons` or `/api/auth`.
+  - `coreRequestUrl(path: string, basePath = ''): string | null`: the same-origin URL for a core path, or `null` for an absolute URL, a path with `..`, `//`, a backslash, `/api/addons` or `/api/auth`. The two denied prefixes are compared on the decoded path, so `/api/%61ddons/apps` is refused too, and an encoded `/` or `\` in the first two segments is refused because it can hide a segment boundary (`/api/addons%2Fapps`). An encoded `/` in a later segment is a legitimate identifier (`/api/voice-profiles/a%2Fb`) and is kept.
   - `sdk.core.fetch(path: string, init?: { method?, headers?, body?, signal? }): Promise<Response>`. It sets `credentials: 'same-origin'`, `mode: 'same-origin'`, `redirect: 'error'`, `cache: 'no-store'`; it removes `authorization` and `cookie` headers; it refuses after the add-on is withdrawn.
 
 - [ ] **Step 1: Write the failing tests**
@@ -3421,12 +3678,15 @@ test('coreRequestUrl accepts same-origin core paths and keeps the base path and 
   assert.equal(coreRequestUrl('/v1/face/verify'), '/v1/face/verify')
   assert.equal(coreRequestUrl('/api/voice-profiles?x=1', '/localai'), '/localai/api/voice-profiles?x=1')
   assert.equal(coreRequestUrl('/v1/audio/speech#frag'), '/v1/audio/speech')
+  assert.equal(coreRequestUrl('/api/voice-profiles/a%2Fb'), '/api/voice-profiles/a%2Fb')
 })
 
 test('coreRequestUrl refuses what is not a plain core API path', () => {
   for (const bad of [
     'https://evil.example/v1/x', '//evil.example/x', 'v1/x', '', '/v1/../api/addons/apps', '/v1/%2e%2e/x',
     '/api/addons/apps', '/api/addons', '/API/ADDONS/apps', '/api/auth/status', '/api/auth', '/v1\\x', 7, null, undefined,
+    // The denied prefixes written with percent-encoding.
+    '/api/%61ddons/apps', '/api/addons%2Fapps', '/api/auth%2Fstatus', '/api%2Faddons/apps', '/%61pi/auth/status', '/api/addons%5Capps',
   ]) {
     assert.equal(coreRequestUrl(bad), null, String(bad))
   }
@@ -3498,12 +3758,20 @@ export function coreRequestUrl(path, basePath = '') {
   let url
   try { url = new URL(path, 'https://host.invalid') } catch { return null }
   if (url.origin !== 'https://host.invalid') return null
-  for (const segment of url.pathname.split('/')) {
+  // Decode every segment. The denied prefixes are compared on the decoded path,
+  // so /api/%61ddons/apps is refused. An encoded slash or backslash in the
+  // first two segments (the namespace) can hide a boundary from that check, so
+  // it is refused there; later it is a legitimate identifier (a%2Fb).
+  const segments = url.pathname.split('/')
+  const decodedSegments = []
+  for (let i = 0; i < segments.length; i++) {
     let decoded
-    try { decoded = decodeURIComponent(segment) } catch { return null }
+    try { decoded = decodeURIComponent(segments[i]) } catch { return null }
     if (decoded === '.' || decoded === '..') return null
+    if (i <= 2 && (decoded.includes('/') || decoded.includes('\\'))) return null
+    decodedSegments.push(decoded)
   }
-  const lower = url.pathname.toLowerCase()
+  const lower = decodedSegments.join('/').toLowerCase()
   if (CORE_DENIED.some(p => lower === p || lower.startsWith(`${p}/`))) return null
   return `${basePath}${url.pathname}${url.search}`
 }
@@ -4027,13 +4295,13 @@ A ported page must keep its `data-testid` values so the parity checks compare th
 - Create: `addons/voice/ui/package.json`, `ui/build.mjs`
 - Create: `addons/voice/ui/src/index.jsx`, `ctx.jsx`, `style.css`, `i18n/en.js`
 - Test: `addons/voice/ui/test/render.test.mjs`, `addons/voice/ui/test/run.mjs`
-- Modify: `.github/workflows/addons-package.yml` (add the `voice` package next to `tables`, same shape; read the file first)
+- Create: `addons/voice/ui/src/lib/model.js`, Test: `addons/voice/ui/test/model.test.mjs`
 
 **Interfaces:**
 - Consumes: `idle.Run(args []string) int` (Task 12), `buildAddonUI` (Task 13), the module contract of `addons/tables/ui/src/index.jsx`: the module exports `createAddon(sdk, options?)` returning `{ Component, components, chatActions, dispose }`, where `Component({ page, path })` draws a page; `sdk.*` from Tasks 10 and 11.
 - Produces:
   - Manifest: `id: "voice"`, `ui.sdk = {min: 2, max: 2}`, `ui.pages = ["recognition", "library", "create", "speech"]`, `ui.mainPage = "recognition"`, `ui.navigation = ["speech", "library"]`, title `Voice`.
-  - `createContext(sdk) -> ctx` with `ctx = { sdk, React, h, Fragment, t(key, vars), Icon, ui, hooks, viewer, core, Link, useSearch(), toast(msg, kind), openPanel(title, render), markDirty(flag), UndoBar, json(path, init) }`.
+  - `createContext(sdk) -> ctx` with `ctx = { sdk, React, h, Fragment, t(key, vars), Icon, ui, hooks, viewer, core, Link, useSearch(), modelFrom(path), toast(msg, kind), openPanel(title, render), markDirty(flag), UndoBar, json(path, init) }`. `modelFrom(path)` returns the model a page works on: `?model=<id>` when present, otherwise the first path segment.
   - `createAddon(sdk)` routing `page` to the page factories of Tasks 15-17.
 
 - [ ] **Step 1: Write the failing render test**
@@ -4104,6 +4372,30 @@ test('render: the manifest declares the four pages, the main page and SDK 2', as
 })
 ```
 
+`addons/voice/ui/test/model.test.mjs` pins how a page finds its model. `lib/model.js` is plain JavaScript, so node imports it directly:
+
+```js
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { modelFrom } from '../src/lib/model.js'
+
+test('the model comes from ?model first and keeps slashes, colons and percent signs', () => {
+  assert.equal(modelFrom('model=org%2Fname%3Av1', 'ignored'), 'org/name:v1')
+})
+
+test('without ?model the model is the first path segment', () => {
+  assert.equal(modelFrom('', 'speechbrain/extra'), 'speechbrain')
+  assert.equal(modelFrom('x=1', 'speechbrain'), 'speechbrain')
+})
+
+test('no model gives an empty string', () => {
+  assert.equal(modelFrom('', ''), '')
+  assert.equal(modelFrom(undefined, undefined), '')
+})
+```
+
+Add `test/model.test.mjs` to the list of test files in `addons/voice/ui/test/run.mjs` if that runner names its files.
+
 - [ ] **Step 2: Run to see it fail**
 
 Run: `node addons/voice/ui/test/run.mjs`
@@ -4111,7 +4403,7 @@ Expected: a `failed` line: `Cannot find module '../build.mjs'`.
 
 - [ ] **Step 3: Write the package files**
 
-`addons/voice/manifest.json` (copy the shape of `addons/tables/manifest.json`; the `host`, `api`, `protocol` and `dataFormat` ranges are `{ "min": 1, "max": 1 }` as there):
+`addons/voice/manifest.json` (copy the shape of `addons/tables/manifest.json`; the `host`, `api`, `protocol` and `dataFormat` ranges are `{ "min": 1, "max": 1 }` as there; `os` and `arch` are the template values that the packager stamps for each platform, as for Tables):
 
 ```json
 {
@@ -4161,7 +4453,7 @@ func main() {
 }
 ```
 
-`addons/voice/package/platforms.yaml`: copy `addons/tables/package/platforms.yaml` and change `addon: tables` to `addon: voice`, `executable: tables` to `executable: voice`, `manifest: addons/tables/manifest.json` to `manifest: addons/voice/manifest.json` and `ui: addons/tables/ui/dist` to `ui: addons/voice/ui/dist`. Keep every platform `enabled: false`: the file says a platform ships only in the change that shows its native check passing.
+`addons/voice/package/platforms.yaml` is created in Task 30 (group G), with the other three packages, because all four files hold the same platform list. Until then the package builds only through the unit tests of this task.
 
 `addons/voice/ui/package.json`:
 
@@ -4214,6 +4506,7 @@ Array values (for example `voice.why`, which the Workbench reads with `returnObj
 
 ```jsx
 import en from './i18n/en.js'
+import { modelFrom as pickModel } from './lib/model.js'
 
 // The one object every page factory of the Voice add-on receives. It binds the
 // SDK once: React, the shared components, the session-bound core fetch, the
@@ -4240,6 +4533,10 @@ export function createContext(sdk) {
   }
 
   const useSearch = () => new URLSearchParams(sdk.navigation.current().search)
+  // The model a page works on: ?model=<id> first (a moved link carries it
+  // there, because a model id may hold "/" or ":" that a path segment cannot),
+  // then the first path segment of a link typed by hand.
+  const modelFrom = (path) => pickModel(sdk.navigation.current().search, path)
 
   const toast = (message, kind = 'info') => (sdk.notify[kind] || sdk.notify.info)(message)
 
@@ -4260,7 +4557,7 @@ export function createContext(sdk) {
 
   return {
     sdk, React, h, Fragment, t, list, Icon: sdk.Icon, ui: sdk.ui, hooks: sdk.hooks, viewer: sdk.viewer, core: sdk.core,
-    Link, useSearch, toast, json, UndoBar,
+    Link, useSearch, modelFrom, toast, json, UndoBar,
     openPanel: (title, render) => sdk.layers.openPanel({ title, render }),
     markDirty: (flag) => sdk.markDirty(flag),
   }
@@ -4284,19 +4581,32 @@ export function createAddon(sdk, options = {}) {
 }
 ```
 
+`addons/voice/ui/src/lib/model.js`:
+
+```js
+// The model a page works on. A moved link carries it as ?model=<id>, because
+// a model id may hold "/" or ":" that an add-on path segment refuses; a link
+// typed by hand may still carry it as the first path segment.
+export function modelFrom(search, path) {
+  const fromQuery = new URLSearchParams(search || '').get('model')
+  if (fromQuery) return fromQuery
+  return String(path || '').split('/')[0]
+}
+```
+
 `addons/voice/ui/src/style.css`: start with `.vc-undo { display: flex; gap: var(--dk-space-2, 8px); align-items: center; }`; later tasks append the page rules.
 
 - [ ] **Step 4: Run to see it pass**
 
 Run: `node addons/voice/ui/test/run.mjs && go build ./addons/voice/...`
-Expected: 3 `passed` lines and a clean build.
+Expected: 6 `passed` lines (3 render, 3 model) and a clean build.
 
-- [ ] **Step 5: Wire the release workflow and commit**
+- [ ] **Step 5: Commit**
 
-Read `.github/workflows/addons-package.yml` and add `voice` wherever `tables` is listed (build, package and check steps), with the same structure and the same `enabled: false` platforms. Run `go test ./pkg/addons/packaging/... -count=1` to check the platform file parses.
+The release workflow, the platform matrix and the catalog entry of this package are task group G (Tasks 29 and 30), not this task.
 
 ```bash
-git add addons/voice .github/workflows/addons-package.yml
+git add addons/voice
 git commit -m "feat(addons): add the Voice add-on package and module skeleton
 
 An add-on package with an idle executable and a UI module on SDK 2.
@@ -4316,7 +4626,7 @@ Assisted-by: Claude:claude-sonnet-5-5 go node"
 
 **Interfaces:**
 - Consumes: `ctx` (Task 14); core routes `GET /api/models/capabilities` (the capability list `modelsApi.listCapabilities` reads; confirm the URL with `grep -n "listCapabilities" core/http/react-ui/src/utils/api.js`), `GET /api/voice-profiles` (`core/http/routes/localai.go:205`, response `{ data: [{ id, name, voice, ... }] }`), `POST /v1/audio/speech` (`core/http/routes/openai.go:239`, JSON `{ model, input, voice?, instructions? }`, audio body), the capability flag `FLAG_TTS` (`core/http/react-ui/src/utils/capabilities.js:15`) and the model field `voice_cloning`.
-- Produces: `createSpeech(ctx) -> { Speech }` where `Speech({ path })` is the `speech` page; the first path segment is an optional model id.
+- Produces: `createSpeech(ctx) -> { Speech }` where `Speech({ path })` is the `speech` page; the model is `ctx.modelFrom(path)`, the optional model id.
 
 Studio keeps its own audio generation; this page is separate and uses the same core route.
 
@@ -4525,13 +4835,14 @@ Assisted-by: Claude:claude-sonnet-5-5 node"
 
 **Files:**
 - Create: `addons/voice/ui/src/api.js`, `lib/` (copies), `VoiceLibrary.jsx`, `VoiceProfileCreate.jsx`
+- Create: `addons/internal/identity-ui/src/ClipInput.jsx`, `identity.js`, `referenceAudio.js` (the shared pieces `VoiceProfileCreate` needs now; Task 17 builds the rest of the shared directory on them)
 - Modify: `addons/voice/ui/src/index.jsx`, `style.css`, `i18n/en.js`
 - Test: `addons/voice/ui/test/library.test.mjs`
 - Modify: `core/http/react-ui/src/router.jsx` and `core/http/react-ui/src/utils/legacyRoutes.js` (the conditional redirect, Step 6)
 
 **Interfaces:**
 - Consumes: the source pages `core/http/react-ui/src/pages/VoiceLibrary.jsx` and `VoiceProfileCreate.jsx`; `utils/referenceAudio` (`MAX_AUDIO_BYTES`, `normalizeAudioSample`); `voiceProfilesApi.list/create/delete/audioUrl` (`core/http/react-ui/src/utils/api.js:378-388`); the port table above.
-- Produces: `createApi(ctx) -> { voiceProfiles: { list(), create(formData), remove(id), audioUrl(id) }, models: { list(params), listCapabilities() } }` in `src/api.js`; `createVoiceLibrary(ctx, api) -> { VoiceLibrary }`; `createVoiceProfileCreate(ctx, api) -> { VoiceProfileCreate }`; pages `library` and `create` of the add-on. The route redirects `/app/voice-library` and `/app/voice-library/new` to them while the add-on is usable.
+- Produces: `createClipInput(ctx) -> { ClipInput }` in the shared directory (spec, "Classification": two add-ons use it, so it lives in one shared source directory); `createApi(ctx) -> { voiceProfiles: { list(), create(formData), remove(id), audioUrl(id) }, models: { list(params), listCapabilities() } }` in `src/api.js`; `createVoiceLibrary(ctx, api) -> { VoiceLibrary }`; `createVoiceProfileCreate(ctx, api) -> { VoiceProfileCreate }`; pages `library` and `create` of the add-on. The route redirects `/app/voice-library` and `/app/voice-library/new` to them while the add-on is usable.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -4631,14 +4942,15 @@ export function createApi(ctx) {
 
 `audioUrl` is used as an `<audio src>`, so the browser sends the session cookie itself and `sdk.core.fetch` is not involved. When LocalAI is served under a path prefix the path needs that prefix: add `basePath` to `ctx` in `ctx.jsx` as `const basePath = typeof document === 'undefined' ? '' : new URL(document.baseURI).pathname.replace(/\/$/, '')`, and make `audioUrl` return `` `${ctx.basePath}/api/voice-profiles/${enc(id)}/audio` ``. The test in this task builds the context without a document, where the prefix is empty.
 
-Copy `core/http/react-ui/src/utils/referenceAudio.js` to `addons/voice/ui/src/lib/referenceAudio.js`. It imports `audioBufferToWavBlob` from the host hook module (`core/http/react-ui/src/hooks/useMediaCapture.js:8`); in the copy, take it from `ctx.hooks.audioBufferToWavBlob` (exported by SDK 2 in Task 10) by turning the module into `createReferenceAudio(ctx)` that returns `{ MAX_AUDIO_BYTES, normalizeAudioSample }`. Check what else it imports with `grep -n "^import" core/http/react-ui/src/utils/referenceAudio.js`; any other import must be a pure helper that you copy next to it.
+Copy `core/http/react-ui/src/utils/referenceAudio.js` to `addons/internal/identity-ui/src/referenceAudio.js` (shared, because `ClipInput` uses it and the Face add-on builds `ClipInput` too). It imports `audioBufferToWavBlob` from the host hook module (`core/http/react-ui/src/hooks/useMediaCapture.js:8`); in the copy, take it from `ctx.hooks.audioBufferToWavBlob` (exported by SDK 2 in Task 10) by turning the module into `createReferenceAudio(ctx)` that returns `{ MAX_AUDIO_BYTES, normalizeAudioSample }`. Check what else it imports with `grep -n "^import" core/http/react-ui/src/utils/referenceAudio.js`; any other import must be a pure helper that you copy next to it.
 
 - [ ] **Step 4: Port the two pages**
 
 Create `src/VoiceLibrary.jsx` and `src/VoiceProfileCreate.jsx` from `core/http/react-ui/src/pages/VoiceLibrary.jsx` and `VoiceProfileCreate.jsx` using the port table. Specific mappings for these two files:
 
 - `VoiceLibrary.jsx`: `ConfirmDialog` to `ctx.ui.ConfirmDialog`; `EmptyState` to `ctx.ui.EmptyState`; `LoadingSpinner` to `ctx.ui.Spinner`; `SideSheet` to `ctx.openPanel`; `WaveformPlayer` to `ctx.ui.WaveformPlayer`; `useModels`, `useOperations`, `useVoiceCloningGallery` to local hooks in the factory built on `api.models.*`; `modelsApi`, `voiceProfilesApi` to `api.*`; `copyToClipboard` and `renderMarkdown` copied from `utils/clipboard` and `utils/markdown` into `src/lib/` (both are pure; `renderMarkdown` uses `marked` and `dompurify`, which the add-on bundle must not import from the host, so render the gallery description as plain text with `whiteSpace: 'pre-wrap'` and say so in the file header).
-- `VoiceProfileCreate.jsx`: `UnsavedChangesGuard` to `ctx.markDirty`; `ClipInput` from the shared identity source of Task 17 (`addons/internal/identity-ui/src/ClipInput.jsx`); `WaveformPlayer` to `ctx.ui.WaveformPlayer`; `MAX_AUDIO_BYTES`, `normalizeAudioSample` from `src/lib/referenceAudio.js`.
+- `VoiceProfileCreate.jsx`: `UnsavedChangesGuard` to `ctx.markDirty`; `ClipInput` from the shared identity source, created in this task (below); `WaveformPlayer` to `ctx.ui.WaveformPlayer`; `MAX_AUDIO_BYTES`, `normalizeAudioSample` from `addons/internal/identity-ui/src/referenceAudio.js`.
+- **Shared `ClipInput` (created here, not in Task 17).** Create `addons/internal/identity-ui/src/identity.js` as a copy of `core/http/react-ui/src/utils/identity.js` unchanged (pure functions, no host import), and `addons/internal/identity-ui/src/ClipInput.jsx` from `components/identity/ClipInput.jsx` with the port table: `createClipInput(ctx)` returns `{ ClipInput }`; `useMediaCapture` and `useObjectUrl` come from `ctx.hooks`; `WaveformPlayer` from `ctx.ui`; the reference-audio helper from `./referenceAudio.js`. `VoiceProfileCreate` builds it with `createClipInput(ctx)`. Task 17 adds the other shared views and does not recreate these three files.
 - The root element of each page keeps `data-testid="voice-library"` and `data-testid="voice-profile-create"`. The "new profile" button of the library keeps `data-testid="voice-library-new"` and is drawn only when `ctx.viewer.isAdmin()`: the server already refuses the create call for everyone else (`core/http/routes/localai.go:207`, admin middleware), so this is a convenience and the 403 is the control.
 - Routes to other pages: `/app/voice-library/new` becomes `<ctx.Link page="create">`; `/app/voice` becomes `<ctx.Link page="recognition">`; `/app/tts?voice=<id>` (the "speak with this voice" link) becomes `<ctx.Link page="speech" query={`voice=${id}`}>`, and `Speech.jsx` reads `ctx.useSearch().get('voice')` to preselect the voice (add this to Task 15's page when you reach this step: `const [voiceId, setVoiceId] = useState(ctx.useSearch().get('voice') || '')`).
 
@@ -4659,20 +4971,26 @@ import { appStatus } from './addons/registryState'
 
 // A moved biometric page opens in its add-on while the add-on is usable and in
 // the core page otherwise, so a user who has not installed the add-on loses
-// nothing.
-function MovedPage({ addon, page, children }) {
+// nothing. withModel carries the :model segment of the old route to the
+// add-on as ?model=<id>: an add-on path segment refuses "/", ":" and "%" and
+// long ids (resolveSubpath), so a model id cannot travel in the path.
+function MovedPage({ addon, page, withModel, children }) {
   const { apps, acquire } = useAddonRegistry()
   const { search, hash } = useLocation()
+  const { model } = useParams()
   useEffect(() => acquire(), [acquire])
   const app = apps.find(a => a.id === addon)
   if (appStatus(app) === 'ready' && app.ui.pages.includes(page)) {
-    return <Navigate to={`/app/addons/${addon}/${page}${search}${hash}`} replace />
+    const params = new URLSearchParams(search)
+    if (withModel && model) params.set('model', model)
+    const query = params.toString()
+    return <Navigate to={`/app/addons/${addon}/${page}${query ? `?${query}` : ''}${hash}`} replace />
   }
   return children
 }
 ```
 
-(import `useEffect` from `react`.) Wrap the two core routes: `voice-library` (line 239) as `<Admin><MovedPage addon="voice" page="library"><VoiceRecognition tab="speech" /></MovedPage></Admin>` and `voice-library/new` (line 298) as `<Admin><MovedPage addon="voice" page="create"><VoiceProfileCreate /></MovedPage></Admin>`.
+(import `useEffect` from `react` and `useParams` from `react-router-dom`.) Wrap the two core routes: `voice-library` (line 239) as `<Admin><MovedPage addon="voice" page="library"><VoiceRecognition tab="speech" /></MovedPage></Admin>` and `voice-library/new` (line 298) as `<Admin><MovedPage addon="voice" page="create"><VoiceProfileCreate /></MovedPage></Admin>`.
 
 Add to `legacyRoutes.js` `MIGRATION_ROUTES`: `{ from: '/app/voice-library', to: '/app/addons/voice/library', kind: 'addon-page' }` and `{ from: '/app/voice-library/new', to: '/app/addons/voice/create', kind: 'addon-page' }`, and to `legacyroutes.test.mjs`:
 
@@ -4680,8 +4998,13 @@ Add to `legacyRoutes.js` `MIGRATION_ROUTES`: `{ from: '/app/voice-library', to: 
 test('moved biometric routes are wrapped in MovedPage in the router', () => {
   for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'addon-page')) {
     const [, , , addon, page] = r.to.split('/')
-    assert.ok(router.includes(`<MovedPage addon="${addon}" page="${page}">`), `router.jsx does not wrap ${r.from}`)
+    assert.ok(router.includes(`<MovedPage addon="${addon}" page="${page}">`) || router.includes(`<MovedPage addon="${addon}" page="${page}" withModel>`), `router.jsx does not wrap ${r.from}`)
   }
+})
+
+test('a moved route with a :model segment carries the model as ?model=, not in the path', () => {
+  assert.ok(router.includes('withModel'), 'the model routes must use withModel')
+  assert.ok(!/\/app\/addons\/\$\{addon\}\/\$\{page\}\/\$\{model\}/.test(router), 'the model must not be appended to the path')
 })
 ```
 
@@ -4690,7 +5013,7 @@ Run: `cd core/http/react-ui && npm run test:unit && npm run lint`. Expected: PAS
 - [ ] **Step 7: Commit**
 
 ```bash
-git add addons/voice core/http/react-ui
+git add addons/voice addons/internal core/http/react-ui
 git commit -m "feat(addons): move voice library management into the Voice add-on
 
 Voice Library and Voice Profile Create become pages of the Voice add-on
@@ -4705,17 +5028,18 @@ Assisted-by: Claude:claude-sonnet-5-5 node"
 ### Task 17: Shared identity views and the Voice Recognition page
 
 **Files:**
-- Create: `addons/internal/identity-ui/src/` (`Workbench.jsx`, `ClipInput.jsx`, `KnownList.jsx`, `EnrolSheet.jsx`, `Verdict.jsx`, `DistanceScale.jsx`, `ErrorNote.jsx`, `ModelNeeded.jsx`, `registry.js`)
+- Create: `addons/internal/identity-ui/src/` (`Workbench.jsx`, `KnownList.jsx`, `EnrolSheet.jsx`, `Verdict.jsx`, `DistanceScale.jsx`, `ErrorNote.jsx`, `ModelNeeded.jsx`, `registry.js`)
 - Create: `addons/voice/ui/src/VoiceRecognition.jsx`, `MoreVoiceTools.jsx`, `WaveformStrip.jsx`
 - Modify: `addons/voice/ui/build.mjs`, `index.jsx`, `style.css`, `i18n/en.js`
 - Test: `addons/voice/ui/test/recognition.test.mjs`, `addons/internal/identity-ui/test/identity.test.mjs`
 - Modify: `core/http/react-ui/src/router.jsx`, `legacyRoutes.js`, `legacyroutes.test.mjs`
+- Modify: `core/http/react-ui/src/components/hub/hubConfig.js` (delete the `voices` tab), `core/http/react-ui/e2e/addon-navigation.spec.js`
 - Modify: `docs/content/features/addons.md`, `docs/content/` pages that describe the Voices page (`grep -rln "voice" docs/content/features`)
 
 **Interfaces:**
 - Consumes: the source `core/http/react-ui/src/components/identity/*` and `components/biometrics/WaveformStrip.jsx`, `pages/VoiceRecognition.jsx`; the port table; `ctx` of Task 14 plus `api` of Task 16; SDK `ui.MediaInput`, `ui.DistributionBars`, `ui.EmbeddingInspector`, `ui.TabSwitch`, `ui.ModelSelector`, `ui.ErrorWithTraceLink`, `hooks.useMediaCapture`, `hooks.useObjectUrl`, `hooks.useDelayedAction`.
 - Produces:
-  - Shared source (built into each add-on that imports it; the SDK never carries it): `createWorkbench(ctx, deps) -> { Workbench }` where `Workbench({ kind: 'voice'|'face', model, canSpeech, more, needed, onCount })` has the props of the core `Workbench` (`core/http/react-ui/src/components/identity/Workbench.jsx:100`); `createClipInput(ctx)`, `createModelNeeded(ctx, api)`, `createIdentityRegistry(ctx)`.
+  - Shared source (built into each add-on that imports it; the SDK never carries it): `createWorkbench(ctx, deps) -> { Workbench }` where `Workbench({ kind: 'voice'|'face', model, canSpeech, more, needed, onCount })` has the props of the core `Workbench` (`core/http/react-ui/src/components/identity/Workbench.jsx:100`); `createModelNeeded(ctx, api)`, `createIdentityRegistry(ctx)`. `ClipInput`, `identity.js` and `referenceAudio.js` already exist in the shared directory (Task 16).
   - `createVoiceRecognition(ctx, api, identity) -> { VoiceRecognition }`; page `recognition` of the Voice add-on.
   - The build of an add-on resolves `../../internal/identity-ui/src/*` through relative imports (rolldown follows them); no alias is needed.
 
@@ -4795,9 +5119,9 @@ For each file of the left column, create the file of the right column with the p
 
 | Core source | Shared source |
 |---|---|
-| `utils/identity.js` (pure) | `addons/internal/identity-ui/src/identity.js`, copied unchanged |
+| `utils/identity.js` (pure) | `addons/internal/identity-ui/src/identity.js`, created in Task 16, copied unchanged |
 | `components/identity/useRegistry.js` | `registry.js`: `createIdentityRegistry(ctx)` returning the hook; `useDelayedAction` from `ctx.hooks`; `utils/api` calls from `ctx.json` against `/v1/<kind>/register`, `/v1/<kind>/identify`, `/v1/<kind>/forget` (the routes at `core/http/routes/localai.go:138-167`) |
-| `components/identity/ClipInput.jsx` | `ClipInput.jsx`: `createClipInput(ctx)`; `useMediaCapture`, `useObjectUrl` from `ctx.hooks`; `WaveformPlayer` from `ctx.ui` |
+| `components/identity/ClipInput.jsx` | `ClipInput.jsx`, created in Task 16 (`VoiceProfileCreate` needs it first); `Workbench` receives it through `deps` |
 | `components/identity/Workbench.jsx` | `Workbench.jsx`: `createWorkbench(ctx, deps)` where `deps = { ClipInput, KnownList, EnrolSheet, Verdict, DistanceScale, ErrorNote, useRegistry, BoundingBoxCanvas, api }` |
 | `components/identity/KnownList.jsx`, `Verdict.jsx`, `DistanceScale.jsx`, `ErrorNote.jsx` | same names, each a `createX(ctx)` |
 | `components/identity/EnrolSheet.jsx` | `EnrolSheet.jsx`: the side sheet becomes `ctx.openPanel` |
@@ -4808,7 +5132,7 @@ For each file of the left column, create the file of the right column with the p
 
 Create from the core sources with the port table: `VoiceRecognition.jsx` (from `pages/VoiceRecognition.jsx`: the `Link` tabs become `ctx.Link` to `recognition`, `library` and `recognition?tab=recording`; the Speech voices tab embeds the library page of Task 16 as `<VoiceLibrary />`, kept as today), `MoreVoiceTools.jsx` (from `components/identity/MoreVoiceTools.jsx`: `TabSwitch`, `MediaInput`, `DistributionBars`, `EmbeddingInspector`, `ErrorWithTraceLink` from `ctx.ui`), `WaveformStrip.jsx` (from `components/biometrics/WaveformStrip.jsx`; one add-on uses it, so it stays here).
 
-Gating, as the core route has it (`router.jsx:237`): `if (!ctx.viewer.hasFeature('voice_recognition')) return <div data-testid="voice-off">…{ctx.t('voice.off')}</div>` (the core `FeatureOff` component, `components/identity/FeatureOff.jsx`, is ported as a local `createFeatureOff(ctx)`; keep its text keys). Model: the first segment of `path` when present (`/app/voice/:model`).
+Gating, as the core route has it (`router.jsx:237`): `if (!ctx.viewer.hasFeature('voice_recognition')) return <div data-testid="voice-off">…{ctx.t('voice.off')}</div>` (the core `FeatureOff` component, `components/identity/FeatureOff.jsx`, is ported as a local `createFeatureOff(ctx)`; keep its text keys). Model: `ctx.modelFrom(path)`, that is `?model=` first and the first segment of `path` second (`/app/voice/:model` reaches the add-on as `?model=<id>`).
 
 Register `pages.recognition = createVoiceRecognition(ctx, api, identity).VoiceRecognition` in `index.jsx`. Append the used `idn-*` and `dk-*` rules of `pages/identity.css` to `style.css`.
 
@@ -4821,9 +5145,9 @@ Expected: all `passed`.
 
 Add to `core/http/react-ui/e2e/addon-navigation.spec.js` a case that serves the built Voice module the way `e2e/addons-shell.spec.js` serves the `uifixture` module (`page.route` on `/api/addons/voice/assets/<digest>/…` from `addons/voice/ui/dist`), opens `/app/addons/voice/recognition` and asserts the same `data-testid` values and tab labels as the core `/app/voice` page (`voices-page`, the tab names `Speakers` and `Speech voices`). Run the same assertions on the core page with the add-on absent.
 
-In `router.jsx` wrap the `voice` and `voice/:model` routes (lines 237-238) in `MovedPage` (Task 16): `<MovedPage addon="voice" page="recognition"><Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature></MovedPage>`. `/app/voice/:model` redirects to `/app/addons/voice/recognition` plus the model: extend `MovedPage` with an optional `withModel` prop that appends `/${useParams().model}` to the page path (import `useParams`; the add-on reads the first `path` segment). Add to `MIGRATION_ROUTES` `{ from: '/app/voice', to: '/app/addons/voice/recognition', kind: 'addon-page' }`. Update `legacyroutes.test.mjs` only if its pattern needs the `withModel` attribute.
+In `router.jsx` wrap the `voice` and `voice/:model` routes (lines 237-238) in `MovedPage` (Task 16): `<MovedPage addon="voice" page="recognition"><Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature></MovedPage>`. Wrap the model route as `<MovedPage addon="voice" page="recognition" withModel>`. `MovedPage` (Task 16) already has `withModel`: `/app/voice/stable%2Fvoice` redirects to `/app/addons/voice/recognition?model=stable%2Fvoice`, because an add-on path segment would refuse the `/`. Add to `MIGRATION_ROUTES` `{ from: '/app/voice', to: '/app/addons/voice/recognition', kind: 'addon-page' }`. No new case in `recognition.test.mjs` is needed: `modelFrom` is tested in Task 14. In `e2e/addon-navigation.spec.js` add a case that opens `/app/voice/org%2Fname` with the built Voice module served and asserts the URL ends in `/app/addons/voice/recognition?model=org%2Fname`.
 
-In `hubConfig.js` the `voices` tab (lines 105-114) stays: it still serves users without the add-on. Document the Voice add-on in `docs/content/features/addons.md` (pages, the core routes it uses, install and enable) and update the Voices page description under `docs/content/features`.
+In `hubConfig.js` delete the `voices` tab (lines 105-114) and any import only it used. Voice has no hub tab and no other fixed sidebar entry (spec, decision (d)): the add-on is not shipped with LocalAI, so a user finds it in Browse add-ons and, once installed, in the drawer. The old URLs keep working without it: `/app/voice`, `/app/voice/:model`, `/app/voice-library` and `/app/voice-library/new` open the core page until the add-on is installed (`MovedPage`), so no one loses a page they can open today. Search for other users of the tab (`grep -rn "'voices'" core/http/react-ui/src core/http/react-ui/e2e`) and update them; add an e2e assertion that the Build hub shows no Voices tab. Document the Voice add-on in `docs/content/features/addons.md` (pages, the core routes it uses, install and enable) and update the Voices page description under `docs/content/features`.
 
 Run: `cd core/http/react-ui && npm run lint && npm run test:unit && npx playwright test e2e/addon-navigation.spec.js` and `node addons/voice/ui/test/run.mjs`. Expected: PASS.
 
@@ -4852,7 +5176,7 @@ The Face add-on is one package, `addons/face`, id `face`. Its page: `recognition
 - Create: `addons/face/manifest.json`, `cmd/face/main.go`, `package/platforms.yaml`, `ui/package.json`, `ui/build.mjs`
 - Create: `addons/face/ui/src/index.jsx`, `ctx.jsx`, `api.js`, `FaceRecognition.jsx`, `MoreFaceTools.jsx`, `style.css`, `i18n/en.js`
 - Test: `addons/face/ui/test/render.test.mjs`, `addons/face/ui/test/run.mjs`, `addons/face/ui/test/recognition.test.mjs`
-- Modify: `.github/workflows/addons-package.yml`, `core/http/react-ui/src/router.jsx:235-236`, `core/http/react-ui/src/utils/legacyRoutes.js`, `core/http/react-ui/tests/unit/legacyroutes.test.mjs`
+- Modify: `core/http/react-ui/src/router.jsx:235-236`, `core/http/react-ui/src/utils/legacyRoutes.js`, `core/http/react-ui/tests/unit/legacyroutes.test.mjs`, `core/http/react-ui/src/components/hub/hubConfig.js` (delete the `faces` tab), `core/http/react-ui/e2e/addon-navigation.spec.js`
 - Modify: `docs/content/features/addons.md`
 
 **Interfaces:**
@@ -4910,7 +5234,7 @@ Expected: `failed`: `Cannot find module '../build.mjs'`.
 
 - [ ] **Step 3: Write the package**
 
-`addons/face/manifest.json`: the manifest of Task 14 with `"id": "face"`, `"executable": "face"`, `"entry": "ui/face.js"`, `"css": ["ui/face.css"]`, `"pages": ["recognition"]`, `"navigation": []`, `"mainPage": "recognition"`, `"title": "Face"`, `"description": "Find out whose face is in a photo, or whether two photos show the same person."`. `addons/face/cmd/face/main.go`: the file of Task 14 with the package comment `Command face is the executable of the Face add-on`. `package/platforms.yaml`, `ui/package.json` (name `localai-face-ui`) and `ui/build.mjs` (name `face`, `rgb: [20, 100, 90]`) follow Task 14. Add `face` to `.github/workflows/addons-package.yml` like `voice`.
+`addons/face/manifest.json`: the manifest of Task 14 with `"id": "face"`, `"executable": "face"`, `"entry": "ui/face.js"`, `"css": ["ui/face.css"]`, `"pages": ["recognition"]`, `"navigation": []`, `"mainPage": "recognition"`, `"title": "Face"`, `"description": "Find out whose face is in a photo, or whether two photos show the same person."`. `addons/face/cmd/face/main.go`: the file of Task 14 with the package comment `Command face is the executable of the Face add-on`. `ui/package.json` (name `localai-face-ui`) and `ui/build.mjs` (name `face`, `rgb: [20, 100, 90]`) follow Task 14. `package/platforms.yaml`, the release workflow and the catalog entry come in group G (Tasks 29 and 30).
 
 `addons/face/ui/src/api.js`:
 
@@ -4943,7 +5267,7 @@ The test above pins the paths and the method. The page sends the field names `fa
 
 - [ ] **Step 4: Port the page**
 
-Create `FaceRecognition.jsx` from `pages/FaceRecognition.jsx` and `MoreFaceTools.jsx` from `components/identity/MoreFaceTools.jsx` with the port table, importing the shared views from `../../../internal/identity-ui/src/` (relative path from `addons/face/ui/src`). The page root keeps `data-testid="faces-page"`; the off notice keeps `data-testid="face-off"` and shows when `!ctx.viewer.hasFeature('face_recognition')` (as the core route does, `router.jsx:235`). The model is the first segment of `path`. The face library management (known-faces list and enrol sheet) is the shared `KnownList` and `EnrolSheet` inside the shared `Workbench`, unchanged.
+Create `FaceRecognition.jsx` from `pages/FaceRecognition.jsx` and `MoreFaceTools.jsx` from `components/identity/MoreFaceTools.jsx` with the port table, importing the shared views from `../../../internal/identity-ui/src/` (relative path from `addons/face/ui/src`). The page root keeps `data-testid="faces-page"`; the off notice keeps `data-testid="face-off"` and shows when `!ctx.viewer.hasFeature('face_recognition')` (as the core route does, `router.jsx:235`). The model is `ctx.modelFrom(path)` (`?model=` first, the first segment of `path` second). The face library management (known-faces list and enrol sheet) is the shared `KnownList` and `EnrolSheet` inside the shared `Workbench`, unchanged.
 
 `index.jsx` (same structure as Task 14) sets `pages.recognition = createFaceRecognition(ctx, api, identity).FaceRecognition`.
 
@@ -4954,13 +5278,13 @@ Expected: all `passed`, clean build.
 
 - [ ] **Step 6: Redirects, parity, docs and commit**
 
-In `router.jsx` wrap the `face` and `face/:model` routes (lines 235-236) in `MovedPage addon="face" page="recognition"` as in Task 17. Add `{ from: '/app/face', to: '/app/addons/face/recognition', kind: 'addon-page' }` to `MIGRATION_ROUTES`. Add the parity e2e case for the Face page (same method as Task 17: serve the built module, assert `faces-page` and the page title against the core `/app/face` page). Document the Face add-on in `docs/content/features/addons.md` and the face recognition docs page (`grep -rln "face" docs/content/features`).
+In `router.jsx` wrap the `face` route (line 235) as `<MovedPage addon="face" page="recognition">` and the `face/:model` route (line 236) as `<MovedPage addon="face" page="recognition" withModel>`, as in Task 17. In `hubConfig.js` delete the `faces` tab and any import only it used: Face has no hub tab and no other fixed sidebar entry (spec, decision (d)); a user finds it in Browse add-ons and, once installed, in the drawer; the old `/app/face` URLs open the core page until then. Search for other users of the tab and update them, and add an e2e assertion that the Build hub shows no Faces tab. Add `{ from: '/app/face', to: '/app/addons/face/recognition', kind: 'addon-page' }` to `MIGRATION_ROUTES`. Add the parity e2e case for the Face page (same method as Task 17: serve the built module, assert `faces-page` and the page title against the core `/app/face` page). Document the Face add-on in `docs/content/features/addons.md` and the face recognition docs page (`grep -rln "face" docs/content/features`).
 
 Run: `cd core/http/react-ui && npm run lint && npm run test:unit && npx playwright test e2e/addon-navigation.spec.js`
 Expected: PASS.
 
 ```bash
-git add addons core/http/react-ui docs/content .github/workflows/addons-package.yml
+git add addons core/http/react-ui docs/content
 git commit -m "feat(addons): add the Face add-on
 
 Face Recognition and its library management become one add-on page
@@ -4972,25 +5296,1272 @@ Assisted-by: Claude:claude-sonnet-5-5 node playwright"
 
 ---
 
-## Task group F: fine-tuning and quantization move (later; steps only)
+## Task group F: fine-tuning and quantization (ruling of 2026-10-16: in this plan)
 
-These steps are not tasks. Start them only after group A is merged. They follow Task 1 for the catalog and Task 7 for the redirects.
+Two packaged add-ons: `fine-tuning` and `quantization`. Each is an ordinary add-on package under the existing contract. They are not shipped with LocalAI: group G builds them for every platform and a user finds them in Browse add-ons and, once installed, in the drawer. Each tile is one add-on, so a user who lacks `fine_tuning` or `quantization` sees the tile and gets the add-on's off notice, and every core call answers 403 as today (spec, gate table).
 
-1. Add two entries to `catalog` in `core/services/addons/builtin/builtin.go`: `{ID: "fine-tune", Kind: KindPage, TitleKey: "items.fineTune", Icon: "graduation-cap", MainPath: "/app/fine-tune", Feature: "fine_tuning"}` and `{ID: "quantize", Kind: KindPage, TitleKey: "items.quantize", Icon: "minimize", MainPath: "/app/quantize", Feature: "quantization"}`. Add a test case to `builtin_test.go`: a viewer without `fine_tuning` does not see `fine-tune`.
-2. The built-in catalog already applies `fine_tuning` and `quantization`. The spec's gate table says the tile needs the feature plus `addons`: for these two entries the drawer shows them to a viewer who holds the `addons` feature. Add `RequiresAddons bool` to `Entry` (JSON `requiresAddons`), set it on both, make `Viewer.allows` require `Has("addons")` when it is set, and test both sides.
-3. Keep the core routes `fine-tune` and `quantize` (`router.jsx:233-234`) unchanged for one release. The API routes stay in core.
-4. Remove the `fine-tune` and `quantize` tabs from the Build hub (`hubConfig.js:84-97`) in the same change that adds the entries. Users without the `addons` feature keep a way in: leave the two core routes reachable by URL, and keep a link on the Build overview page (`core/http/react-ui/src/pages/BuildOverview.jsx`) when the viewer lacks the `addons` feature.
-5. Add `fine-tune` and `quantize` to `MIGRATION_ROUTES` as `same` (the paths do not change, the page is opened from the drawer) and extend `legacyroutes.test.mjs` for them.
-6. Add an e2e case to `addon-navigation.spec.js`: a member without `fine_tuning` does not see the fine-tuning tile; with it, the tile opens `/app/fine-tune`.
-7. Update `docs/content/features/addons.md` and the fine-tuning and quantization docs pages.
-8. Commit as `feat(addons): open fine-tuning and quantization from the Add-ons drawer`.
+**The API stays in core** (the existing decision, spec decision 5). `/api/fine-tuning/*`, `/api/quantization/*`, `core/services/finetune`, `core/services/quantization`, the distributed stores, the NATS subjects, the gRPC surface and the backends are not moved and not edited, except for the host operations below. The add-ons get the UI and a tool surface.
 
-## Task group G: cleanup after one release (later; steps only)
+What an add-on can do today and what it cannot, from the code (`pkg/addons/contract`, `core/services/addons/runtime`, `core/services/finetune`, `core/services/quantization`):
+
+| Need | Today | In this plan |
+|---|---|---|
+| Pages that call core routes as the signed-in user | Possible. `sdk.core.fetch` (Task 11) reaches `/api/fine-tuning/*` and `/api/quantization/*` with the user's session and the existing middleware. That includes the SSE progress stream, the multipart dataset upload and the download link. | Tasks 24 to 26. No host operation. |
+| A model-facing tool that starts, stops, reads or exports a job | **Not possible.** The add-on process is a server the host calls. It has no path to `ModelLoader`, a backend, the models folder or the job stores, and it gets no credential for core routes. | Host operations H0 to H4 below, Tasks 19 to 23. |
+| A long job with progress and cancel | **Not in the contract.** Operations have 30 s and 60 s timeouts; a receipt can be `pending` but is no progress channel. | H2 (Task 21). |
+| Register a model from an export or an import | **Not possible.** The only path an add-on has is its own data directory. | H3 (Task 22). |
+| Send bytes in (a dataset) | **Not possible** for a tool: a payload is capped at 1 MiB. The UI path is the multipart route of core. | H4 (Task 23): an inline dataset up to the payload limit. Larger datasets use the UI upload. |
+
+**Every host operation below is new contract surface.** Each is marked `NEW CONTRACT SURFACE` in its task, has its own tests, and is documented in the spec section "Host operations for the engine". They follow these rules, which Task 19 builds and tests once for all of them:
+
+- An add-on process calls a host operation on a loopback endpoint of its own incarnation with a credential of its own. Both arrive in the startup object as two optional fields. The protocol version stays 1 and an add-on that ignores the fields works as before.
+- A call names the `operationId` of a request the host is serving for that add-on right now. The host looks up the envelope it issued. No live envelope, an expired authority or a scope below the operation's scope is refused. The operation runs as the actor of that envelope, never as a user named in the arguments.
+- The host checks the feature of the operation (`fine_tuning` or `quantization`) for that actor, as the route middleware does for the same request today.
+- Only add-ons that the host setting `addonHostOps` names get the endpoint. It is a host setting, not a manifest field and not a model argument.
+- Job state stays in the core stores, which every frontend shares. A frontend that does not run the add-on process offers no endpoint, so the operation fails closed.
+
+### Task 19: The host operation channel (H0, NEW CONTRACT SURFACE)
+
+**Files:**
+- Create: `pkg/addons/contract/hostops.go`, `pkg/addons/contract/hostops_test.go`
+- Create: `core/services/addons/hostops/broker.go`, `inflight.go`, `broker_test.go`
+- Modify: `core/services/addons/runtime/supervisor.go` (two optional `Startup` fields and one loopback listener per incarnation, started only for an add-on the host setting names), `core/services/addons/runtime/client.go` (record the envelope of each call while it runs)
+- Modify: `core/application/addon_gateway.go` (build the broker, read the `addonHostOps` setting)
+- Modify: `core/config/application_config.go`, `core/cli/run.go` (the setting `LOCALAI_ADDON_HOST_OPS`, a comma list `addon-id=op-prefix`, default `fine-tuning=finetune.,quantization=quantize.`)
+- Modify: `addons/internal/protocol/protocol.go` (the same two `Startup` fields)
+- Create: `addons/internal/hostclient/client.go`, `client_test.go`
+- Modify: `scripts/addons/suites.json` (case names of any new Ginkgo `It`), `docs/content/features/addons.md`
+
+**Interfaces:**
+- Consumes: `contract.Envelope`, `contract.Authority`, `contract.Actor`, `contract.Limits` (`PayloadBytes`, `ReadTimeout`, `ApplyTimeout`), `contract.ForbiddenToolProperty`, `Supervisor.launch` (the loopback listener at `supervisor.go:273` is the model), `Client.call` and `Client.valid` (`client.go`), `auth.HasFeatureAccess(db, user, feature)`.
+- Produces:
+  - `contract.HostRequest{OperationID, Op string; Arguments json.RawMessage}`, `contract.HostResponse{Result json.RawMessage; Error *HostError}`, `contract.HostError{Code, Message string}`. Codes: `no_live_operation`, `scope`, `feature`, `unknown_op`, `bad_request`, `too_large`, `not_found`, `conflict`, `unavailable`.
+  - `hostops.Spec{Op, Scope, Feature string; Idempotent bool; Handler}` with `Scope` one of `read` or `apply`, and `type Handler func(ctx context.Context, call Call) (json.RawMessage, error)`, `Call{AddonID, OperationID string; Actor contract.Actor; Arguments json.RawMessage}`.
+  - `hostops.Broker`: `Register(Spec) error` (refuses a duplicate or a malformed op name), `Handler(addonID, credential string, allowed []string) http.Handler`.
+  - `hostops.InFlight`: `Begin(env contract.Envelope) (end func())`, `Lookup(addonID, operationID string) (contract.Envelope, bool)`.
+  - `Startup.HostEndpoint string` (`json:"hostEndpoint,omitempty"`) and `Startup.HostCredential string` (`json:"hostCredential,omitempty"`), in the host and in `addons/internal/protocol`.
+  - `hostclient.New(startup protocol.Startup) *Client` (nil when the startup holds no endpoint or an endpoint that is not `http://127.0.0.1:<port>`), `(*Client).Do(ctx, operationID, op string, args, out any) error`. `Do` on a nil client returns `ErrNoHostOps`.
+
+- [ ] **Step 1: Write the failing broker tests**
+
+`core/services/addons/hostops/broker_test.go`:
+
+```go
+// SPDX-License-Identifier: MIT
+package hostops
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+func env(addon, op, scope string, exp time.Time) contract.Envelope {
+	return contract.Envelope{
+		Request:   contract.Request{AddonID: addon, OperationID: op, Generation: 1, Action: "start", Arguments: json.RawMessage(`{}`)},
+		Authority: contract.Authority{Actor: contract.Actor{UserID: "u1", CredentialID: "c1", Mode: "named-user"}, Scope: scope, ExpiresAt: exp},
+	}
+}
+
+type fixture struct {
+	b        *Broker
+	inflight *InFlight
+	h        http.Handler
+	seen     *Call
+}
+
+func newFixture(t *testing.T, has func(user, feature string) bool) *fixture {
+	t.Helper()
+	f := &fixture{inflight: NewInFlight(), seen: &Call{}}
+	f.b = New(f.inflight, has, contract.DefaultLimits())
+	err := f.b.Register(Spec{Op: "finetune.get", Scope: "read", Feature: "fine_tuning", Handler: func(_ context.Context, c Call) (json.RawMessage, error) {
+		*f.seen = c
+		return json.RawMessage(`{"ok":true}`), nil
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.b.Register(Spec{Op: "finetune.start", Scope: "apply", Feature: "fine_tuning", Handler: func(context.Context, Call) (json.RawMessage, error) {
+		return json.RawMessage(`{"id":"j1"}`), nil
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	f.h = f.b.Handler("fine-tuning", "secret", []string{"finetune."})
+	return f
+}
+
+func (f *fixture) call(credential, operationID, op, body string) (int, contract.HostResponse) {
+	b, _ := json.Marshal(contract.HostRequest{OperationID: operationID, Op: op, Arguments: json.RawMessage(body)})
+	req := httptest.NewRequest(http.MethodPost, "/host", bytes.NewReader(b))
+	req.Header.Set("X-Addon-Host-Credential", credential)
+	rec := httptest.NewRecorder()
+	f.h.ServeHTTP(rec, req)
+	var out contract.HostResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	return rec.Code, out
+}
+
+func always(string, string) bool { return true }
+
+func TestAWrongCredentialIsRefused(t *testing.T) {
+	f := newFixture(t, always)
+	if code, _ := f.call("nope", "op1", "finetune.get", `{}`); code != http.StatusUnauthorized {
+		t.Fatalf("got %d", code)
+	}
+}
+
+func TestACallWithoutALiveEnvelopeIsRefused(t *testing.T) {
+	f := newFixture(t, always)
+	code, out := f.call("secret", "op1", "finetune.get", `{}`)
+	if code != http.StatusForbidden || out.Error == nil || out.Error.Code != "no_live_operation" {
+		t.Fatalf("%d %+v", code, out.Error)
+	}
+}
+
+func TestAnExpiredAuthorityIsRefused(t *testing.T) {
+	f := newFixture(t, always)
+	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(-time.Second)))
+	defer end()
+	code, out := f.call("secret", "op1", "finetune.get", `{}`)
+	if code != http.StatusForbidden || out.Error.Code != "no_live_operation" {
+		t.Fatalf("%d %+v", code, out.Error)
+	}
+}
+
+func TestAReadScopeCannotRunAnApplyOperation(t *testing.T) {
+	f := newFixture(t, always)
+	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
+	defer end()
+	code, out := f.call("secret", "op1", "finetune.start", `{}`)
+	if code != http.StatusForbidden || out.Error.Code != "scope" {
+		t.Fatalf("%d %+v", code, out.Error)
+	}
+}
+
+func TestTheFeatureOfTheActorIsChecked(t *testing.T) {
+	f := newFixture(t, func(user, feature string) bool { return feature != "fine_tuning" })
+	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
+	defer end()
+	code, out := f.call("secret", "op1", "finetune.get", `{}`)
+	if code != http.StatusForbidden || out.Error.Code != "feature" {
+		t.Fatalf("%d %+v", code, out.Error)
+	}
+}
+
+func TestTheOperationRunsAsTheActorOfTheEnvelope(t *testing.T) {
+	f := newFixture(t, always)
+	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
+	defer end()
+	// An argument that names a user is refused, whatever the schema says.
+	code, out := f.call("secret", "op1", "finetune.get", `{"userId":"admin"}`)
+	if code != http.StatusBadRequest || out.Error.Code != "bad_request" {
+		t.Fatalf("%d %+v", code, out.Error)
+	}
+	if code, _ := f.call("secret", "op1", "finetune.get", `{"jobId":"j1"}`); code != http.StatusOK {
+		t.Fatalf("got %d", code)
+	}
+	if f.seen.Actor.UserID != "u1" || f.seen.AddonID != "fine-tuning" {
+		t.Fatalf("the operation did not run as the envelope's actor: %+v", f.seen)
+	}
+}
+
+func TestAnOperationOutsideTheAllowedPrefixIsRefused(t *testing.T) {
+	f := newFixture(t, always)
+	_ = f.b.Register(Spec{Op: "quantize.get", Scope: "read", Feature: "quantization", Handler: func(context.Context, Call) (json.RawMessage, error) { return nil, nil }})
+	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
+	defer end()
+	if code, out := f.call("secret", "op1", "quantize.get", `{}`); code != http.StatusForbidden || out.Error.Code != "unknown_op" {
+		t.Fatalf("%d %+v", code, out.Error)
+	}
+}
+
+func TestAnOversizedBodyIsRefused(t *testing.T) {
+	f := newFixture(t, always)
+	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
+	defer end()
+	big := `{"x":"` + string(bytes.Repeat([]byte("a"), int(contract.DefaultLimits().PayloadBytes)+1)) + `"}`
+	if code, out := f.call("secret", "op1", "finetune.get", big); code != http.StatusRequestEntityTooLarge || out.Error.Code != "too_large" {
+		t.Fatalf("%d %+v", code, out.Error)
+	}
+}
+
+func TestAnIdempotentOperationRunsOncePerOperationID(t *testing.T) {
+	f := newFixture(t, always)
+	runs := 0
+	_ = f.b.Register(Spec{Op: "finetune.once", Scope: "apply", Feature: "fine_tuning", Idempotent: true, Handler: func(context.Context, Call) (json.RawMessage, error) {
+		runs++
+		return json.RawMessage(`{"id":"j9"}`), nil
+	}})
+	end := f.inflight.Begin(env("fine-tuning", "op1", "apply", time.Now().Add(time.Minute)))
+	defer end()
+	for i := 0; i < 2; i++ {
+		if code, _ := f.call("secret", "op1", "finetune.once", `{}`); code != http.StatusOK {
+			t.Fatalf("call %d: %d", i, code)
+		}
+	}
+	if runs != 1 {
+		t.Fatalf("a repeated operationId must not run the operation twice, ran %d", runs)
+	}
+}
+```
+
+Also write `contract/hostops_test.go` (a table test that `HostRequest` and `HostResponse` round-trip, that an unknown field is refused by the strict decoder `strictJSON`, and that `Op` must match `^[a-z]+\.[a-z.]+$`), and `addons/internal/hostclient/client_test.go` (a test server that checks the credential header and the body, a test that a startup without `HostEndpoint` gives a nil client whose `Do` returns `ErrNoHostOps`, and a test that a non-loopback endpoint gives a nil client).
+
+- [ ] **Step 2: Run to see them fail**
+
+Run: `go test ./core/services/addons/hostops/ ./pkg/addons/contract/ ./addons/internal/hostclient/ -count=1`
+Expected: FAIL with `undefined: New`, `undefined: Spec` and `undefined: NewInFlight`.
+
+- [ ] **Step 3: Write the types and the broker**
+
+`pkg/addons/contract/hostops.go` holds the three wire types and `ValidHostOp(op string) bool`. `core/services/addons/hostops/inflight.go`: a mutex-guarded `map[addonID+"/"+operationID]contract.Envelope`; `Begin` stores and returns the remover; `Lookup` returns false when absent or when `Authority.ExpiresAt` is not after `time.Now()`. `broker.go`: `New(inflight, has func(userID, feature string) bool, limits)`; `Handler` reads one JSON object with `http.MaxBytesReader(PayloadBytes)` (413 `too_large`), compares the credential with `subtle.ConstantTimeCompare` (401), checks the op against the `allowed` prefixes (403 `unknown_op`), looks the envelope up (403 `no_live_operation`), checks the scope (`apply` needs an `apply` envelope; `read` needs `read`, `preview` or `apply`; 403 `scope`), refuses an argument object that holds a key for which `contract.ForbiddenToolProperty` is true (400 `bad_request`), checks `has(actor.UserID, spec.Feature)` unless the actor mode is `local-owner` (403 `feature`), then runs the handler under a context with `ReadTimeout` or `ApplyTimeout`. An idempotent spec caches the result per `addonID+operationID` in a bounded map (256 entries, one hour) and returns the cached result on a repeat. A handler error maps to a code with `errors.Is` on `ErrNotFound`, `ErrConflict`, `ErrBadRequest` (defined in the package); any other error is 503 `unavailable`.
+
+`Client.call` in `core/services/addons/runtime/client.go`: before `c.send`, call `end := c.inflight.Begin(envelope)` when `c.inflight != nil` and `defer end()`. Read, Preview, Apply and OpenOutput pass their envelope to `call` through one new parameter. The field is set by the supervisor from the broker.
+
+`Supervisor.launch`: when the add-on ID has an entry in the `addonHostOps` setting, open a second `net.ListenTCP("tcp4", 127.0.0.1)`, serve `broker.Handler(id, credential, prefixes)` on it for the life of the incarnation, close it when the process ends, and put `HostEndpoint` and `HostCredential` (a second 32-byte random value, hex, never equal to the host-to-add-on credential) in the startup object. An add-on that is not named gets neither field.
+
+`addons/internal/hostclient/client.go`: `New(startup)` returns a nil client when `startup.HostEndpoint` is empty or is not `http://127.0.0.1:<port>`. `Do` posts a `HostRequest` with the header `X-Addon-Host-Credential`, decodes a `HostResponse` bounded to `startup.Limits.PayloadBytes`, and turns an `Error` into `*HostError`.
+
+- [ ] **Step 4: Run the tests**
+
+Run: `go build ./... && go test ./core/services/addons/... ./pkg/addons/contract/ ./addons/... -count=1`
+Expected: PASS, including every existing supervisor and Tables test unchanged.
+
+- [ ] **Step 5: Test the supervisor wiring and the fail-closed rule**
+
+In `core/services/addons/runtime` add `TestAnAddonNamedInTheSettingGetsAHostEndpoint` and `TestAnAddonNotNamedGetsNoHostEndpoint` using the existing fixture executable of `runtime_integration_test.go` (read the startup object it receives and assert the two fields). In `core/application` add `TestAFrontendWithoutTheAddonProcessOffersNoHostOperations` (a gateway with a nil `Manager` builds no broker). Add the Ginkgo `It` texts, if any, to `scripts/addons/suites.json`.
+
+- [ ] **Step 6: Document and commit**
+
+In `docs/content/features/addons.md` add "Host operations": the rules above, the setting, and the statement that this is contract surface that third-party add-ons cannot use unless the host setting names them.
+
+```bash
+git add pkg/addons/contract core/services/addons core/application core/config core/cli addons/internal scripts/addons/suites.json docs/content/features/addons.md
+git commit -m "feat(addons): add a host operation channel for add-on tools
+
+An add-on process can call named host operations on a loopback endpoint
+of its own, with a credential of its own. Each call must name a request
+the host is serving for that add-on, runs as that request's actor, and
+passes the feature check of the operation. Only add-ons that the host
+setting names get the endpoint. No operation exists yet.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 20: Backend job operation (H1, NEW CONTRACT SURFACE)
+
+**Files:**
+- Create: `core/services/addons/hostops/engine_jobs.go`, `engine_jobs_test.go`
+- Modify: `core/application/addon_gateway.go` (register the operations with the real services)
+
+**Interfaces:**
+- Consumes: Task 19 (`Broker.Register`, `Spec`, `Call`); `finetune.FineTuneService`: `StartJob(ctx, userID string, schema.FineTuneJobRequest) (*schema.FineTuneJobResponse, error)`, `GetJob(userID, jobID string) (*schema.FineTuneJob, error)`, `ListJobs(userID string) []*schema.FineTuneJob`, `ListCheckpoints(ctx, userID, jobID string) ([]*pb.CheckpointInfo, error)`; `quantization.QuantizationService`: `StartJob`, `GetJob`, `ListJobs` with the same shapes over `schema.QuantizationJobRequest`; the backend lists that `ListFineTuneBackendsEndpoint` and `ListQuantizationBackendsEndpoint` build from the gallery (tag `fine-tuning` at `finetune.go:301`, tag `quantization` at `quantization.go:220`).
+- Produces: narrow interfaces so tests use fakes: `FineTuner{Start, Get, List, Checkpoints}`, `Quantizer{Start, Get, List}`, `BackendLister{FineTune() []string; Quantization() []string}`; `RegisterEngineJobs(b *Broker, ft FineTuner, q Quantizer, backends BackendLister) error` (a nil `Quantizer` registers no `quantize.*` operation, a nil `FineTuner` no `finetune.*` operation) registering `finetune.start` (apply, idempotent), `finetune.get`, `finetune.list`, `finetune.checkpoints` (read), `quantize.start` (apply, idempotent), `quantize.get`, `quantize.list` (read).
+
+Rules of these operations:
+- **The user key is the one the route would use.** The routes pass `getUserID(c)`, which is `""` when authentication is off. So the handler passes `""` when `Actor.Mode == "local-owner"` and `Actor.UserID` otherwise. A job started by a tool then appears in the UI list of the same user, and the other way round.
+- **The host validates the model reference.** `backend` must be one of `BackendLister` for that feature (for a fine-tuning start, the default is `trl`, as the service has it). `model` must be a gallery or Hugging Face id: it must not start with `/` or `.`, must not hold `..` or `\`, and must be at most 256 bytes. A local path is refused (`bad_request`); a person who needs one uses the UI. `datasetSource` follows the same rule, or is a reference returned by H4 (Task 23).
+- **The request is a closed struct.** The handler decodes the arguments into a struct with the fields the tool schema allows (`model`, `backend`, `trainingType`, `trainingMethod`, `datasetSource`, `datasetSplit`, `learningRate`, `numEpochs`, `batchSize`, `maxSteps`, `adapterRank`, `adapterAlpha`; `quantizationType`) and rejects unknown fields; everything else of `schema.FineTuneJobRequest` stays at the service default. `extra_options` and `reward_functions` are not reachable from a tool.
+
+- [ ] **Step 1: Write the failing tests**
+
+`core/services/addons/hostops/engine_jobs_test.go`:
+
+```go
+// SPDX-License-Identifier: MIT
+package hostops
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+type fakeFT struct {
+	startUser string
+	started   []schema.FineTuneJobRequest
+	jobs      map[string]*schema.FineTuneJob
+}
+
+func (f *fakeFT) Start(_ context.Context, user string, r schema.FineTuneJobRequest) (*schema.FineTuneJobResponse, error) {
+	f.startUser = user
+	f.started = append(f.started, r)
+	return &schema.FineTuneJobResponse{ID: "j1", Status: "queued"}, nil
+}
+func (f *fakeFT) Get(user, id string) (*schema.FineTuneJob, error) {
+	j, ok := f.jobs[id]
+	if !ok || (user != "" && j.UserID != user) {
+		return nil, ErrNotFound
+	}
+	return j, nil
+}
+func (f *fakeFT) List(user string) []*schema.FineTuneJob {
+	var out []*schema.FineTuneJob
+	for _, j := range f.jobs {
+		if user == "" || j.UserID == user {
+			out = append(out, j)
+		}
+	}
+	return out
+}
+func (f *fakeFT) Checkpoints(context.Context, string, string) ([]Checkpoint, error) { return nil, nil }
+
+type backends struct{}
+
+func (backends) FineTune() []string     { return []string{"trl"} }
+func (backends) Quantization() []string { return []string{"llama-cpp-quantization"} }
+
+func call(t *testing.T, spec Spec, mode, user, args string) (json.RawMessage, error) {
+	t.Helper()
+	return spec.Handler(context.Background(), Call{AddonID: "fine-tuning", OperationID: "op1", Actor: contract.Actor{UserID: user, Mode: mode}, Arguments: json.RawMessage(args)})
+}
+
+func specs(t *testing.T, ft FineTuner) map[string]Spec {
+	t.Helper()
+	b := New(NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
+	if err := RegisterEngineJobs(b, ft, nil, backends{}); err != nil {
+		t.Fatal(err)
+	}
+	return b.specs
+}
+
+func TestStartPassesTheSameUserKeyAsTheRoute(t *testing.T) {
+	ft := &fakeFT{}
+	s := specs(t, ft)
+	if _, err := call(t, s["finetune.start"], "named-user", "u1", `{"model":"org/base","datasetSource":"org/data"}`); err != nil || ft.startUser != "u1" {
+		t.Fatalf("named user: %v %q", err, ft.startUser)
+	}
+	// Authentication off: the route passes "" so the job shows in the UI list.
+	if _, err := call(t, s["finetune.start"], "local-owner", "local-owner", `{"model":"org/base","datasetSource":"org/data"}`); err != nil || ft.startUser != "" {
+		t.Fatalf("local owner: %v %q", err, ft.startUser)
+	}
+}
+
+func TestStartRefusesALocalPathAsModelOrDataset(t *testing.T) {
+	s := specs(t, &fakeFT{})
+	for _, args := range []string{
+		`{"model":"/etc/passwd","datasetSource":"org/data"}`,
+		`{"model":"../x","datasetSource":"org/data"}`,
+		`{"model":"org/base","datasetSource":"/var/data.jsonl"}`,
+		`{"model":"org\\base","datasetSource":"org/data"}`,
+	} {
+		if _, err := call(t, s["finetune.start"], "named-user", "u1", args); !errors.Is(err, ErrBadRequest) {
+			t.Fatalf("%s: want ErrBadRequest, got %v", args, err)
+		}
+	}
+}
+
+func TestStartRefusesABackendThatIsNotAFineTuningBackend(t *testing.T) {
+	s := specs(t, &fakeFT{})
+	if _, err := call(t, s["finetune.start"], "named-user", "u1", `{"model":"org/base","datasetSource":"org/data","backend":"llama-cpp"}`); !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestStartRefusesAFieldThatIsNotInTheToolSchema(t *testing.T) {
+	s := specs(t, &fakeFT{})
+	if _, err := call(t, s["finetune.start"], "named-user", "u1", `{"model":"org/base","datasetSource":"org/data","extraOptions":{"x":"y"}}`); !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGetOfAnotherUsersJobIsNotFound(t *testing.T) {
+	ft := &fakeFT{jobs: map[string]*schema.FineTuneJob{"j1": {ID: "j1", UserID: "other"}}}
+	s := specs(t, ft)
+	if _, err := call(t, s["finetune.get"], "named-user", "u1", `{"jobId":"j1"}`); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestListReturnsOnlyTheCallersJobs(t *testing.T) {
+	ft := &fakeFT{jobs: map[string]*schema.FineTuneJob{"a": {ID: "a", UserID: "u1"}, "b": {ID: "b", UserID: "u2"}}}
+	s := specs(t, ft)
+	out, err := call(t, s["finetune.list"], "named-user", "u1", `{}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Jobs []struct{ ID string } `json:"jobs"`
+	}
+	_ = json.Unmarshal(out, &got)
+	if len(got.Jobs) != 1 || got.Jobs[0].ID != "a" {
+		t.Fatalf("a caller must see only its own jobs: %s", out)
+	}
+}
+
+func TestAJobResultNeverCarriesAFilesystemPath(t *testing.T) {
+	ft := &fakeFT{jobs: map[string]*schema.FineTuneJob{"j1": {ID: "j1", UserID: "u1", OutputDir: "/data/fine-tune/j1", ExportPath: "/models/x"}}}
+	s := specs(t, ft)
+	out, _ := call(t, s["finetune.get"], "named-user", "u1", `{"jobId":"j1"}`)
+	if strings.Contains(string(out), "/data/") || strings.Contains(string(out), "/models/") {
+		t.Fatalf("a result must not leak a server path: %s", out)
+	}
+}
+```
+
+Write the same set for `quantize.*` against a `fakeQ`: the user key, the backend check (`llama-cpp-quantization` only), the closed struct (`model`, `backend`, `quantizationType`), a local path refused, and another user's job not found. Check the real field names of `schema.FineTuneJob` (`OutputDir`, the export path field) with `sed -n 53,76p core/schema/finetune.go` and fix the fake to match.
+
+- [ ] **Step 2: Run to see them fail**
+
+Run: `go test ./core/services/addons/hostops/ -run 'Start|Get|List|AJob' -v`
+Expected: FAIL with `undefined: RegisterEngineJobs` and `undefined: FineTuner`.
+
+- [ ] **Step 3: Write the operations**
+
+`engine_jobs.go`: the narrow interfaces; `Checkpoint{Step int32; Path string}` is dropped on the way out (return `step` and `createdAt` only); `ErrNotFound` and `ErrBadRequest` come from Task 19. Each handler decodes with `json.NewDecoder` and `DisallowUnknownFields`, validates, calls the service with the user key rule above, and returns a **projection** of the job: `id, status, message, progressPercent, model, backend, trainingType, trainingMethod, createdAt, exported (bool), exportedModelName`. It never returns `OutputDir`, `ExportPath` or any other path (the test above pins this). `list` returns `{ "jobs": [...] }` newest first (the service already sorts) and at most 50 entries. The wrapper in `core/application/addon_gateway.go` adapts the real services to the narrow interfaces (a wrapper type per service, no change to the services) and builds `BackendLister` from the same gallery code the two list endpoints use (extract nothing: call the same helper, or the same filter, in a small function in `core/http/endpoints/localai` that both the endpoint and the wrapper call, only if the endpoint code is not already a function; otherwise call it).
+
+- [ ] **Step 4: Run the tests**
+
+Run: `go test ./core/services/addons/hostops/ ./core/application/ -count=1`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/services/addons/hostops core/application
+git commit -m "feat(addons): let add-on tools start and read engine jobs
+
+Host operations start, get and list fine-tuning and quantization jobs
+and list fine-tuning checkpoints, as the calling user, through the
+services that already back the API routes. The host validates the model
+and dataset reference, the backend and the argument fields, and a
+result never carries a server path.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 21: Progress and cancel for long jobs (H2, NEW CONTRACT SURFACE)
+
+**Files:**
+- Create: `core/services/addons/hostops/engine_progress.go`, `engine_progress_test.go`
+- Modify: `core/application/addon_gateway.go` (register)
+
+**Interfaces:**
+- Consumes: Task 19; `FineTuneService.StreamProgress(ctx, userID, jobID string, cb func(*schema.FineTuneProgressEvent)) error` and `StopJob(ctx, userID, jobID string, saveCheckpoint bool) error`; `QuantizationService.StreamProgress(...)` and `StopJob(ctx, userID, jobID string) error`.
+- Produces: `RegisterEngineProgress(b *Broker, ft Progresser, q Progresser) error` registering `finetune.progress`, `quantize.progress` (read) and `finetune.stop`, `quantize.stop` (apply). `Progresser` is `{ Next(ctx, user, jobID string, wait time.Duration) (Progress, error); Stop(ctx, user, jobID string, saveCheckpoint bool) error }` with `Progress{JobID, Status, Message string; Percent float32; Done bool}`.
+
+The contract has no progress stream: operations are request and response with a 30 s and a 60 s bound. So progress is a bounded wait. `progress` waits at most `min(wait, 25 s)` (the argument `waitSeconds`, default 0, maximum 25; 25 s keeps a margin under the 30 s read timeout) for the next event of the job and returns the last event seen, `done: true` once the job reached a final status (`completed`, `failed`, `stopped`). A caller loops. `stop` is the cancel: it runs the service stop and is idempotent per `operationId`.
+
+- [ ] **Step 1: Write the failing tests**
+
+`engine_progress_test.go` with a `fakeProgresser` that feeds events from a channel:
+
+- `TestProgressReturnsTheNextEventWithinTheWait`: feed one event with 40 %, call with `waitSeconds: 2`, expect `percent 40` and `done false`.
+- `TestProgressWithNoEventReturnsTheSnapshotWhenTheWaitEnds`: no event, `waitSeconds: 1`; the call returns after about one second (assert it took at least 900 ms and less than 3 s) with the job's current status from `Get`.
+- `TestProgressWaitIsCapped`: `waitSeconds: 600` is clamped to 25 (assert on the value the fake receives).
+- `TestProgressReportsDoneForAFinalStatus`: a `completed` event gives `done: true`.
+- `TestProgressOfAnotherUsersJobIsNotFound`.
+- `TestStopIsIdempotentPerOperation`: two `finetune.stop` calls with one `operationId` call the service once (this uses the idempotent cache of Task 19).
+- `TestStopKeepsTheCheckpointOnlyWhenAsked`: `saveCheckpoint: true` reaches `StopJob`.
+- `TestACancelledContextEndsTheWait`: cancel the context, the call returns `context.Canceled` mapped to `unavailable` quickly.
+
+- [ ] **Step 2: Run to see them fail**
+
+Run: `go test ./core/services/addons/hostops/ -run 'Progress|Stop' -v`
+Expected: FAIL with `undefined: RegisterEngineProgress`.
+
+- [ ] **Step 3: Write the operations**
+
+`Next` is implemented over `StreamProgress` with a context of `wait` duration: the callback stores the last event and signals; the function returns when an event arrives, the wait ends or the job is final. It never holds the service lock while it waits (the services lock inside `StreamProgress` themselves; do not take their lock). The tool in Task 25 loops over `progress` and the add-on journal records only the last percent.
+
+- [ ] **Step 4: Run, then commit**
+
+Run: `go test ./core/services/addons/hostops/ -count=1`
+Expected: PASS.
+
+```bash
+git add core/services/addons/hostops core/application
+git commit -m "feat(addons): add bounded progress and cancel for engine jobs
+
+An add-on tool reads the progress of a job with a bounded wait of at
+most 25 seconds and cancels a job. Both run as the calling user. Stop is
+idempotent for one operation ID.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 22: Model registration (H3, NEW CONTRACT SURFACE)
+
+**Files:**
+- Create: `core/services/addons/hostops/engine_models.go`, `engine_models_test.go`
+- Modify: `core/application/addon_gateway.go` (register)
+
+**Interfaces:**
+- Consumes: Task 19; `FineTuneService.ExportModel(ctx, userID, jobID string, req schema.ExportRequest) (string, error)`; `QuantizationService.ImportModel(ctx, userID, jobID string, req schema.QuantizationImportRequest) (string, error)`. Both write the model YAML into the models folder and reload the config loader, today. The add-on does not touch the folder.
+- Produces: `RegisterEngineModels(b *Broker, ft Exporter, q Importer) error` registering `finetune.export` and `quantize.import` (apply, idempotent). Each takes a `jobId` and an optional `name`, and returns `{ "model": "<registered name>" }` only.
+
+Rules: the host writes the model config, from the job's own output, through the service. The operation takes no path. The name is optional and passes `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`; anything else is `bad_request`. An export format other than the services' default is not reachable from a tool (the argument `exportFormat` is limited to `lora`, `merged_16bit`, `merged_4bit` and `gguf`, the values `ExportRequest` documents in `docs/content/features/fine-tuning.md` "Export Formats"; read that section and use its exact list).
+
+- [ ] **Step 1: Write the failing tests**
+
+- `TestExportRegistersAModelAndReturnsOnlyItsName`: the fake returns `/models/my-model`; the result is `{"model":"my-model"}` and holds no slash.
+- `TestExportRefusesABadName` with `../x`, `a/b`, an empty string after trim, 65 characters.
+- `TestExportRefusesAnExportFormatThatIsNotListed`.
+- `TestExportOfAnotherUsersJobIsNotFound`.
+- `TestExportRunsOncePerOperationID`.
+- `TestImportRegistersTheQuantizedModelAndReturnsOnlyItsName`, `TestImportOfAJobThatIsNotCompletedIsAConflict` (the fake returns the service error for a job not yet `completed`; map it to `conflict`).
+
+- [ ] **Step 2: Run, implement, run**
+
+Run: `go test ./core/services/addons/hostops/ -run 'Export|Import' -v` (expect FAIL with `undefined: RegisterEngineModels`), write `engine_models.go` with the projection rule (only the base name of the returned path, `filepath.Base`, and only when it passes the name pattern), then run `go test ./core/services/addons/hostops/ ./core/application/ -count=1`. Expected: PASS.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add core/services/addons/hostops core/application
+git commit -m "feat(addons): let add-on tools register an exported or imported model
+
+The host registers the model through the existing export and import
+services, as the calling user, and returns only the model name. The
+operation takes no path and limits the export format and the name.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 23: Inline dataset (H4, NEW CONTRACT SURFACE)
+
+**Files:**
+- Create: `core/services/addons/hostops/engine_datasets.go`, `engine_datasets_test.go`
+- Modify: `core/application/addon_gateway.go` (register)
+
+**Interfaces:**
+- Consumes: Task 19; `FineTuneService.UploadDataset(filename string, data []byte) (string, error)` (it strips directory parts and writes `<8 hex>-<name>` under the fine-tune data directory).
+- Produces: `RegisterEngineDatasets(b *Broker, ft DatasetStore) error` registering `finetune.dataset` (apply, idempotent): arguments `{ "name": string, "content": string }` (UTF-8 text, JSON lines or CSV), result `{ "datasetRef": "<ref>" }`. `DatasetStore.Put(name string, data []byte) (ref string, err error)` and `DatasetStore.Resolve(ref string) (path string, ok bool)`; `Resolve` is what Task 20 uses to turn a `datasetSource` that is a reference into the service's local path.
+
+A tool call carries at most `PayloadBytes` (1 MiB), so a dataset from a tool is small by construction. Larger datasets use the UI upload through the core route, which today reads the whole body without a size bound (`UploadDatasetEndpoint`, `finetune.go:329-364`). That route is not changed here; **it is recorded as a finding** for the maintainers (an unbounded upload). The host operation bounds itself.
+
+- [ ] **Step 1: Write the failing tests**
+
+- `TestDatasetStoresTheContentAndReturnsARefNotAPath`: `ref` has no `/`.
+- `TestDatasetRefusesAnEmptyOrOversizedContent` (empty, and one byte over the payload limit already stops at the broker with `too_large`; here test the handler's own bound of 900 KiB of content).
+- `TestDatasetRefusesANameWithADirectory` (`../x.jsonl`, `a/b.jsonl`, absolute path) and a name that is not `.jsonl`, `.json`, `.csv` or `.txt`.
+- `TestDatasetRefusesContentThatIsNotUTF8`.
+- `TestResolveOnlyReturnsAReferenceTheHostIssuedToThatUser`: user B cannot resolve user A's ref (the store keeps `ref -> user`).
+- `TestStartAcceptsADatasetRefAsDatasetSource` (in `engine_jobs_test.go`: `finetune.start` with a ref resolves it through `Resolve` and passes the path to the service; an unknown ref is `bad_request`).
+
+- [ ] **Step 2: Run, implement, run, commit**
+
+Run: `go test ./core/services/addons/hostops/ -run 'Dataset|Resolve|StartAccepts' -v` (expect FAIL with `undefined: RegisterEngineDatasets`). Write `engine_datasets.go` (the `ref` is the file's base name; the `ref -> user` map is in memory and bounded to 256 entries; a restart loses the map and the dataset must be sent again, which the tool description says). Then `go test ./core/services/addons/hostops/ -count=1`. Expected: PASS.
+
+```bash
+git add core/services/addons/hostops core/application
+git commit -m "feat(addons): let a tool send a small dataset to the fine-tuning engine
+
+A host operation stores an inline text dataset of up to 900 KiB through
+the existing dataset service and returns a reference. A start operation
+resolves a reference only for the user it was issued to.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 24: Shared tools UI source
+
+**Files:**
+- Create: `addons/internal/tools-ui/src/` (`tools.js`, `sse.js`, `ToolSteps.jsx`, `Checks.jsx`, `StageLine.jsx`, `JobLog.jsx`, `ToolOff.jsx`, `tools.css`)
+- Test: `addons/internal/tools-ui/test/tools.test.mjs`, `sse.test.mjs`
+
+**Interfaces:**
+- Consumes: `core/http/react-ui/src/utils/tools.js` (`FT_STAGES`, `QZ_STAGES`, `toolStatus`, the check builders), `components/tools/{ToolSteps,Checks,StageLine,JobLog,ToolOff}.jsx`, `components/tools/tools.css`; the port table of group D.
+- Produces: `tools.js` with the pure functions copied unchanged; `readSse(response, onEvent, signal)`; `createToolSteps(ctx)`, `createChecks(ctx)`, `createStageLine(ctx)`, `createJobLog(ctx)`, `createToolOff(ctx)`, each returning the component. `LossChart` is used by the fine-tuning add-on only, so it stays in that add-on (Task 25), as the spec's rule for one-add-on widgets says.
+
+- [ ] **Step 1: Write the failing tests**
+
+`tools.test.mjs`: copy the cases of `core/http/react-ui/src/utils/tools.test.js` that cover the functions you copy (17 references to the fine-tune and quantize stages) and run them against `../src/tools.js`, so the copy is pinned to the behaviour of the original. `sse.test.mjs`:
+
+```js
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readSse } from '../src/sse.js'
+
+function stream(chunks) {
+  const enc = new TextEncoder()
+  return { body: new ReadableStream({ start(c) { for (const x of chunks) c.enqueue(enc.encode(x)); c.close() } }) }
+}
+
+test('readSse yields one event per data block, across chunk boundaries', async () => {
+  const got = []
+  await readSse(stream(['data: {"a":1}\n\nda', 'ta: {"a":2}\n\n']), (e) => got.push(e))
+  assert.deepEqual(got, [{ a: 1 }, { a: 2 }])
+})
+
+test('readSse ignores comments and events that are not JSON', async () => {
+  const got = []
+  await readSse(stream([': keep-alive\n\ndata: not json\n\ndata: {"ok":true}\n\n']), (e) => got.push(e))
+  assert.deepEqual(got, [{ ok: true }])
+})
+
+test('readSse stops when the signal aborts', async () => {
+  const ctl = new AbortController()
+  const got = []
+  const p = readSse(stream(['data: {"a":1}\n\n']), (e) => { got.push(e); ctl.abort() }, ctl.signal)
+  await p
+  assert.equal(got.length, 1)
+})
+```
+
+- [ ] **Step 2: Run to see them fail**
+
+Run: `node --test addons/internal/tools-ui/test/`
+Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `../src/tools.js` and `../src/sse.js`.
+
+- [ ] **Step 3: Create the source**
+
+`tools.js` is `utils/tools.js` copied unchanged (pure; remove only an import of a host module if one exists, and say so in a header comment). `sse.js` reads `response.body` with a `TextDecoder`, splits on blank lines, parses each `data:` line as JSON and calls `onEvent`; it is the replacement for `EventSource`, which the SDK does not wrap and which cannot carry the fetch options of `sdk.core.fetch`. The five components follow the port table of group D (`ctx.ui`, `ctx.t`, `ctx.Icon`, `ctx.Link`); keep every class name and `data-testid`. `ToolOff` shows the off notice and reads the feature from `ctx.viewer.hasFeature`.
+
+- [ ] **Step 4: Run, then commit**
+
+Run: `node --test addons/internal/tools-ui/test/`
+Expected: PASS.
+
+```bash
+git add addons/internal/tools-ui
+git commit -m "feat(addons): share the job views of the fine-tuning and quantization add-ons
+
+One source directory holds the stage and status helpers, an SSE reader
+and the step, check, stage and log views. Each add-on bundles what it
+imports. The SDK does not carry them.
+
+Assisted-by: Claude:claude-sonnet-5-5 node"
+```
+
+---
+
+### Task 25: The fine-tuning add-on
+
+**Files:**
+- Create: `addons/fine-tuning/manifest.json`, `cmd/fine-tuning/main.go`
+- Modify: `addons/internal/protocol/protocol.go` and `addons/internal/idle/idle.go` (`protocol.Run`, below)
+- Create: `addons/fine-tuning/internal/tools/tools.go`, `tools_test.go`, `journal.go`
+- Create: `addons/fine-tuning/ui/package.json`, `build.mjs`, `.gitignore` (`/dist/`)
+- Create: `addons/fine-tuning/ui/src/index.jsx`, `ctx.jsx`, `api.js`, `FineTune.jsx`, `LossChart.jsx`, `style.css`, `i18n/en.js`, `lib/model.js`
+- Test: `addons/fine-tuning/internal/tools/tools_test.go`, `addons/fine-tuning/ui/test/{run.mjs,render.test.mjs,page.test.mjs,model.test.mjs}`
+
+**Interfaces:**
+- Consumes: Tasks 12, 13, 14 (copy `ctx.jsx`, `build.mjs`, `lib/model.js`), 19 to 23 (the host operations and `hostclient`), 24 (the shared views); the sources `core/http/react-ui/src/pages/FineTune.jsx` and `components/tools/LossChart.jsx`; `fineTuneApi` (`core/http/react-ui/src/utils/api.js:612-629`) for the paths and bodies; `useResources` (`hooks/useResources`): read it and copy the one request it makes.
+- Produces:
+  - Manifest: `id: "fine-tuning"`, `ui.sdk = {min: 2, max: 2}`, `ui.pages = ["jobs"]`, `ui.mainPage = "jobs"`, title `Fine-tuning`; `capabilities.tools`: `fine-tune-list`, `fine-tune-status`, `fine-tune-checkpoints` (kind `read`), `fine-tune-start` (kind `create`), `fine-tune-stop`, `fine-tune-export` (kind `write`), `resource-exists`; `resources: { noun: "fine-tuning job", create: "fine-tune-start", inspect: "fine-tune-status" }`.
+  - `tools.New(client *hostclient.Client, dataDir string) contract.Runtime`: the runtime of the executable. A job started by a tool is a resource: the host reserves the resource ID, `Apply` of `fine-tune-start` calls `finetune.start` with the `operationId` and stores `resourceId -> engineJobId` in `journal.go` (a JSON file in the data directory, written through a temporary file). `fine-tune-status`, `-stop` and `-export` take the bound `resourceId` and call the engine with the stored job ID. A tool can therefore only control a job that a tool started; `fine-tune-list` and `fine-tune-checkpoints` also read jobs started in the UI.
+  - Page `jobs`: `createFineTune(ctx, api, shared) -> { FineTune }`.
+
+**Decision gate (Step 0).** The host models a tool-made job as a resource of kind `create`. Before writing the runtime, read `core/services/addons/policy/proposals.go`, `core/services/addons/resources/` and `docs/content/features/addons.md` ("Resources"), and confirm that a `create` tool whose resource has no database behind it (only the journal map) is accepted: the host settles an interrupted creation through `resource-exists`, and `Preview` and `Apply` carry a nonzero `Revision{Schema: 1, Data: n}`. If the host cannot model a job this way, stop and report; do not change the contract to fit.
+
+- [ ] **Step 1: Write the failing tool tests**
+
+`tools_test.go` uses a fake `hostclient` (an interface `Engine` with `Do(ctx, opID, op string, args, out any) error` that records calls and returns canned results):
+
+```go
+func TestStartCallsTheEngineOnceAndRemembersTheJob(t *testing.T) {
+	eng := &fakeEngine{result: map[string]any{"id": "job-1", "status": "queued"}}
+	rt := New(eng, t.TempDir())
+	rec, err := rt.Apply(ctx, envelope("fine-tune-start", "op1", "res1", `{"model":"org/base","datasetSource":"org/data"}`), contract.Revision{Schema: 1, Data: 0})
+	if err != nil || rec.State != contract.ReceiptCommitted {
+		t.Fatalf("%v %+v", err, rec)
+	}
+	if got := eng.ops(); !reflect.DeepEqual(got, []string{"finetune.start"}) {
+		t.Fatalf("ops %v", got)
+	}
+	// The same operation again does not start a second job.
+	_, _ = rt.Apply(ctx, envelope("fine-tune-start", "op1", "res1", `...`), contract.Revision{Schema: 1, Data: 1})
+	if n := eng.count("finetune.start"); n != 1 { t.Fatalf("started %d jobs", n) }
+}
+func TestStatusReadsTheJobOfTheResource(t *testing.T) { /* resource res1 -> job-1; asserts finetune.get gets jobId job-1 */ }
+func TestAToolCannotControlAJobItDidNotStart(t *testing.T) { /* fine-tune-stop on a resource with no journal entry -> ErrNotFound, no engine call */ }
+func TestResourceExistsAnswersFromTheJournalAndTheEngine(t *testing.T) { /* true when mapped and finetune.get succeeds; false when unmapped; "unknown" error when the engine is unavailable, never false */ }
+func TestJournalSurvivesARestart(t *testing.T) { /* New twice over one data dir */ }
+func TestWithoutAHostEndpointEveryToolRefuses(t *testing.T) { /* nil client -> hostclient.ErrNoHostOps mapped to a clear error */ }
+func TestNoToolArgumentNamesAUserOrAPath(t *testing.T) { /* every inputSchema property passes !contract.ForbiddenToolProperty and none is named path or dir */ }
+```
+
+`ui/test/page.test.mjs` renders page `jobs` and asserts the core `data-testid` values of `FineTune.jsx` (read the file for the list; keep each), the off notice for a viewer without `fine_tuning`, and that the API helper uses the paths `/api/fine-tuning/jobs`, `/api/fine-tuning/datasets` and `/api/fine-tuning/backends`.
+
+- [ ] **Step 2: Run to see them fail**
+
+Run: `go test ./addons/fine-tuning/... -count=1 && node addons/fine-tuning/ui/test/run.mjs`
+Expected: FAIL: the package does not exist yet.
+
+- [ ] **Step 3: Write the package**
+
+`manifest.json` as in the Interfaces, with `toolDefinitions` for the seven tools: each `inputSchema` is an object schema with explicit properties and `additionalProperties: false`; the start tool's properties are the fields of Task 20 and nothing else; `fine-tune-export` has `exportFormat` (enum of the list in Task 22) and `name`; descriptions are plain text under 400 characters and say that a model can only control jobs it started. `cmd/fine-tuning/main.go` builds the host client from the startup object and runs the protocol server:
+
+```go
+// Command fine-tuning is the executable of the fine-tuning add-on. It serves
+// the typed tools of the add-on and reaches the job engine through the host
+// operations; the add-on UI works in the browser through the SDK.
+package main
+
+import (
+	"os"
+
+	"github.com/mudler/LocalAI/addons/fine-tuning/internal/tools"
+	"github.com/mudler/LocalAI/addons/internal/hostclient"
+	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+func main() {
+	os.Exit(protocol.Run(os.Args, func(s protocol.Startup) contract.Runtime {
+		return tools.New(hostclient.New(s), s.DataDir)
+	}))
+}
+```
+
+(`protocol.Run(args, factory)` is the generalisation of `idle.Run` that this task adds to `addons/internal/protocol`: the same descriptors and exit codes, a runtime built from the startup object. `idle.Run` becomes a call to it with `idle.Runtime{}`; its tests stay as they are.)
+
+The UI port follows the port table of group D, with these specifics: `fineTuneApi` becomes `api.fineTune.*` over `ctx.core.fetch` with the same paths and bodies; the progress stream is `readSse` (Task 24) over `ctx.core.fetch('/api/fine-tuning/jobs/<id>/progress')`, closed on unmount; the dataset upload is a `FormData` body through `ctx.core.fetch` with no `Content-Type` header, so the browser sets the boundary; the export download is an `<a href>` to `/api/fine-tuning/jobs/<id>/download` with the base path; `UnsavedChangesGuard` becomes `ctx.markDirty`; `useResources` becomes a local poll; the model of a deep link is `ctx.modelFrom(path)`. Keep every `data-testid`, class name and i18n key. `i18n/en.js` is built from the `tools.json` keys that `FineTune.jsx` and the shared views read: run the one-time script of Task 14 over `core/http/react-ui/public/locales/en/tools.json`, then add a test that every `ctx.t('...')` literal in `src/` exists in `en.js` (read the sources with a regexp).
+
+- [ ] **Step 4: Run to see them pass**
+
+Run: `go build ./addons/... && go test ./addons/... -count=1 && node addons/fine-tuning/ui/test/run.mjs`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add addons/fine-tuning addons/internal
+git commit -m "feat(addons): add the fine-tuning add-on
+
+The fine-tuning page becomes an add-on page that calls the core routes
+with the user's session. The add-on also offers tools to list, start,
+stop and export jobs through the host operations. A model controls only
+a job that a tool started.
+
+Assisted-by: Claude:claude-sonnet-5-5 go node"
+```
+
+---
+
+### Task 26: The quantization add-on
+
+**Files:**
+- Create: `addons/quantization/manifest.json`, `cmd/quantization/main.go`, `internal/tools/tools.go`, `tools_test.go`, `journal.go`
+- Create: `addons/quantization/ui/` (`package.json`, `build.mjs`, `.gitignore`, `src/index.jsx`, `ctx.jsx`, `api.js`, `Quantize.jsx`, `style.css`, `i18n/en.js`, `lib/model.js`)
+- Test: `addons/quantization/internal/tools/tools_test.go`, `addons/quantization/ui/test/*`
+
+**Interfaces:**
+- Consumes: Tasks 19 to 24 and 25 (copy its structure), `core/http/react-ui/src/pages/Quantize.jsx` (558 lines), `quantizationApi` (`utils/api.js:631-641`).
+- Produces: manifest `id: "quantization"`, `ui.sdk = {min: 2, max: 2}`, `ui.pages = ["jobs"]`, `ui.mainPage = "jobs"`, title `Quantization`; tools `quantize-list`, `quantize-status` (read), `quantize-start` (create), `quantize-stop`, `quantize-import` (write), `resource-exists`; resource noun `quantization job`; `createQuantize(ctx, api, shared) -> { Quantize }`.
+
+The steps are those of Task 25 with the names changed: a failing tool test for each rule (start once and remember, status by resource, a tool cannot control a job it did not start, resource-exists, journal survives a restart, no host endpoint means a clear refusal, no forbidden argument name), then the package, then the page port with the same specifics (`quantizationApi` over `ctx.core.fetch`, `readSse` for `/api/quantization/jobs/<id>/progress`, import through `POST /api/quantization/jobs/<id>/import`, download link). Keep every `data-testid` of `Quantize.jsx`.
+
+- [ ] **Step 1: Write the failing tests** (as in Task 25 Step 1, for the quantization tools and the page).
+- [ ] **Step 2: Run to see them fail**: `go test ./addons/quantization/... -count=1 && node addons/quantization/ui/test/run.mjs`. Expected: FAIL, the package does not exist yet.
+- [ ] **Step 3: Write the package** as described above.
+- [ ] **Step 4: Run to see them pass**: `go build ./addons/... && go test ./addons/... -count=1 && node addons/quantization/ui/test/run.mjs`. Expected: PASS.
+- [ ] **Step 5: Commit**
+
+```bash
+git add addons/quantization addons/internal
+git commit -m "feat(addons): add the quantization add-on
+
+The quantization page becomes an add-on page that calls the core routes
+with the user's session, and the add-on offers tools to list, start,
+stop and import jobs through the host operations.
+
+Assisted-by: Claude:claude-sonnet-5-5 go node"
+```
+
+---
+
+### Task 27: Open the moved pages from the old routes
+
+**Files:**
+- Modify: `core/http/react-ui/src/router.jsx` (`:233-234` the `fine-tune` and `quantize` routes)
+- Modify: `core/http/react-ui/src/utils/legacyRoutes.js`, `tests/unit/legacyroutes.test.mjs`
+- Modify: `core/http/react-ui/src/components/hub/hubConfig.js` (`:84-97`, delete the `fine-tune` and `quantize` tabs)
+- Modify: `core/http/react-ui/e2e/addon-navigation.spec.js`, `e2e/build-tools.spec.js`, `e2e/build-landing.spec.js`, `e2e/hub-tabs.spec.js`, `e2e/navigation.spec.js` (only the assertions that name the removed tabs)
+
+**Interfaces:**
+- Consumes: `MovedPage` (Task 16), `MIGRATION_ROUTES` (Tasks 7, 16).
+- Produces: the routes `fine-tune` and `quantize` wrapped as `<MovedPage addon="fine-tuning" page="jobs">` and `<MovedPage addon="quantization" page="jobs">`, around the existing `Feature` and `ToolOff` elements; two rows `{ from: '/app/fine-tune', to: '/app/addons/fine-tuning/jobs', kind: 'addon-page' }` and `{ from: '/app/quantize', to: '/app/addons/quantization/jobs', kind: 'addon-page' }`.
+
+- [ ] **Step 1: Write the failing tests**
+
+In `legacyroutes.test.mjs` the generic `addon-page` test of Task 16 now covers the two new rows (it fails until the router wraps them). In `e2e/addon-navigation.spec.js`:
+
+```js
+  test('a member without fine_tuning sees the off notice inside the add-on, and the core call answers 403', async ({ page }) => {
+    await setup(page, { apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', mainPage: 'jobs', pages: ['jobs'] })] })
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, fine_tuning: false }) }))
+    await page.route('**/api/fine-tuning/jobs', route => route.fulfill({ status: 403, json: { error: 'forbidden' } }))
+    await page.goto('/app/addons/fine-tuning/jobs')
+    await expect(page.getByTestId('tool-off')).toBeVisible()
+  })
+
+  test('an old fine-tuning link opens the core page when the add-on is not installed', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await page.goto('/app/fine-tune')
+    await expect(page).toHaveURL(/\/app\/fine-tune$/)
+  })
+
+  test('an old fine-tuning link opens the add-on when it is installed and running', async ({ page }) => {
+    await setup(page, { apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', mainPage: 'jobs', pages: ['jobs'] })] })
+    await page.goto('/app/fine-tune')
+    await expect(page).toHaveURL(/\/app\/addons\/fine-tuning\/jobs$/)
+  })
+
+  test('the Build hub has no fine-tuning or quantization tab', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/build')
+    await expect(page.getByRole('tab', { name: /Fine-tun/ })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: /Quantiz/ })).toHaveCount(0)
+  })
+```
+
+(Use the `data-testid` the shared `ToolOff` view really has; read `components/tools/ToolOff.jsx` and keep it. The `app()` fixture needs the fields `mainPage` and `pages`; read `e2e/addons-fixtures.js` and pass what its `ui` object expects.)
+
+- [ ] **Step 2: Run to see them fail**
+
+Run: `cd core/http/react-ui && node tests/unit/run.mjs legacyroutes.test.mjs && npx playwright test e2e/addon-navigation.spec.js -g "fine-tun"`
+Expected: FAIL: the router does not wrap the routes, the hub still has the tabs.
+
+- [ ] **Step 3: Change the router, the table and the hub**
+
+Wrap the two routes. Delete the two tabs in `hubConfig.js` and any import only they used. **Keep** the cards of `BuildOverview.jsx` (`:20-25`, `:46`, `:139`): they link to the old routes, which open the add-on while it is usable and the core page otherwise, so a user without the add-on still reaches the tool from the Build overview (no one loses a page they can open today). Update the e2e assertions in the five specs that name the removed tabs (`grep -n -i "fine-tun\|quantiz" core/http/react-ui/e2e/*.spec.js`): change the assertion to the new behaviour; never delete the permission assertions.
+
+- [ ] **Step 4: Run to see them pass**
+
+Run: `cd core/http/react-ui && npm run lint && npm run test:unit && npx playwright test e2e/addon-navigation.spec.js e2e/build-tools.spec.js e2e/build-landing.spec.js e2e/hub-tabs.spec.js e2e/navigation.spec.js`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/http/react-ui
+git commit -m "feat(ui): open fine-tuning and quantization from the add-ons
+
+The old routes open the add-on while it is installed and running and the
+core page otherwise. The two Build hub tabs go; the Build overview keeps
+its cards. Users find the add-ons in Browse add-ons and, once installed,
+in the Add-ons drawer.
+
+Assisted-by: Claude:claude-sonnet-5-5 node playwright"
+```
+
+---
+
+### Task 28: Gates, docs and acceptance of group F
+
+**Files:**
+- Modify: `core/http/auth/core_calls_test.go` (two more specs)
+- Modify: `docs/content/features/fine-tuning.md`, `docs/content/features/quantization.md`, `docs/content/features/addons.md`
+- Modify: `core/http/react-ui/e2e/addon-navigation.spec.js`
+
+**Interfaces:**
+- Consumes: Task 11's `call` helper, Tasks 19 to 27.
+- Produces: the group F definition-of-done checks.
+
+- [ ] **Step 1: Write the failing Go specs**
+
+Append to the `Describe` of `core/http/auth/core_calls_test.go` (it already builds an app with `RequireRouteFeature`; add the two routes to its setup, `e.POST("/api/fine-tuning/jobs", ok)` and `e.POST("/api/quantization/jobs", ok)`):
+
+```go
+	It("answers 403 for a user whose fine_tuning feature is off", func() {
+		Expect(auth.UpdateUserPermissions(db, member.ID, auth.PermissionMap{auth.FeatureFineTuning: false})).To(Succeed())
+		Expect(call(http.MethodPost, "/api/fine-tuning/jobs", member)).To(Equal(http.StatusForbidden))
+	})
+
+	It("answers 403 for a user whose quantization feature is off", func() {
+		Expect(auth.UpdateUserPermissions(db, member.ID, auth.PermissionMap{auth.FeatureQuantization: false})).To(Succeed())
+		Expect(call(http.MethodPost, "/api/quantization/jobs", member)).To(Equal(http.StatusForbidden))
+	})
+```
+
+- [ ] **Step 2: Run, document, run the gates**
+
+Run: `go test -tags auth ./core/http/auth/ -count=1 -ginkgo.focus "core routes called from an add-on page"` (expect the new specs to pass once the routes are in the setup; they fail before). Update the two feature pages: the "Web UI" sections say that the page is an add-on, how to install it from Browse add-ons, that the old URL keeps working, that the API is unchanged, and that the add-on offers the tools of Task 25 and 26 and what they can and cannot control. In `addons.md` add the two add-ons to the list of first-party packages and link "Host operations". Then run: `go build ./... && go test ./core/services/addons/... ./addons/... ./pkg/addons/... -count=1 && go test -tags auth ./core/http/auth/ ./core/http/endpoints/addons/ ./core/http/routes/ ./core/application/ -count=1 && sh scripts/addons/verify.sh contracts lifecycle apps` and `cd core/http/react-ui && npm run lint && npm run lint:inline-styles && npm run test:unit && npx playwright test`. Expected: all pass; the coverage ratchet does not drop (add tests, never lower the baseline).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add core/http/auth/core_calls_test.go docs/content core/http/react-ui
+git commit -m "test(addons): cover the gates of the fine-tuning and quantization add-ons
+
+Assisted-by: Claude:claude-sonnet-5-5 go playwright"
+```
+
+---
+
+## Task group G: release platforms of the packaged add-ons (ruling of 2026-10-16)
+
+Voice, Face, fine-tuning and quantization are add-on packages that do not ship with LocalAI. Each package is built for every supported operating system and architecture. The supported set is the one the packaging code accepts (`platformRE` in `pkg/addons/packaging/config.go`: `linux` and `darwin`, on `amd64` and `arm64`) and the one the Tables matrix lists. Windows is not supported: the package format has no `windows` platform, and LocalAI's own release builds do not target it (`.goreleaser.yaml`, `windows` is commented out).
+
+| Platform | Runner | Native check | Note |
+|---|---|---|---|
+| `linux/amd64` | `ubuntu-24.04` | `executable-start` | The runner of the existing Tables matrix. |
+| `linux/arm64` | `ubuntu-24.04-arm` | `executable-start` | The arm runner the image workflows already use. |
+| `darwin/arm64` | `macos-14` | `executable-start` | Apple Silicon, as the Tables matrix and the `includeDarwin` backend matrix. |
+| `darwin/amd64` | `macos-15-intel` | `executable-start` | Intel macOS. The packaging code accepts it; LocalAI's own release builds ignore it (`.goreleaser.yaml`, `ignore: darwin amd64`). The row exists, disabled; Task 34 enables it only when the maintainers confirm they want Intel macOS packages and the runner label is available. |
+
+The rule stays: **a platform is enabled only in the change that shows its native check passing on a runner of that platform.** Until then it is listed and disabled, the release workflow never builds it, and the workflow fails closed when no platform is enabled. Tables keeps its own matrix; this group does not enable or change it.
+
+### Task 29: Package any first-party add-on, not only Tables
+
+**Files:**
+- Modify: `scripts/addons/package.sh` (read `addon`, `executable` and `ui` from the platforms file; build `./addons/<addon>/cmd/<executable>`; build the UI with `addons/<addon>/ui/build.mjs`)
+- Modify: `.github/workflows/addons-package.yml` (a matrix over the add-ons for `validate`, `plan`, `package`, `publish` and `promote`; every `addons/tables/...` path becomes `addons/${{ matrix.addon }}/...`)
+- Modify: `pkg/addons/packaging/policy.go`, `pkg/addons/packaging/packaging_test.go` (the policy checks and the mutation tests name exact workflow lines; update both together)
+- Modify: `scripts/addons/package_test.sh`
+- Modify: `docs/content/features/addons.md` ("Release workflow")
+
+**Interfaces:**
+- Consumes: `addonpkg build|verify|merge|publish|native-check|matrix|catalog` (unchanged; each takes `--config`), `loadPlatforms` (`config.go:73`).
+- Produces: `package.sh --config addons/<id>/package/platforms.yaml ...` builds that add-on; the default config stays `addons/tables/package/platforms.yaml`, so every existing call works. The workflow runs one leg per add-on and platform. `plan` computes the matrix per add-on from its platforms file; an add-on with no enabled platform gets no legs and fails nothing on a pull request (`has_platforms=false`), and fails closed on a publishing event.
+
+Decisions this task makes (state them in the PR):
+- **The executable is built with `CGO_ENABLED=1` for Tables and `CGO_ENABLED=0` for the others**: Voice and Face are pure Go, and the fine-tuning and quantization executables are pure Go clients. A pure Go executable builds on every platform without a C toolchain, which keeps the native legs small.
+- **Where the packages are published.** The publish and promote jobs use one repository per add-on. Tables keeps `ADDON_OCI_REPOSITORY` as it is. The other add-ons publish to `<namespace>/<id>`, where the namespace is `ADDON_OCI_REPOSITORY` with its last path element removed. **This is the plan's assumption and needs the maintainers' confirmation before Task 31.**
+
+- [ ] **Step 1: Write the failing tests**
+
+In `scripts/addons/package_test.sh` add cases (read the file and follow its style): `package.sh --config <voice platforms file> --local-check` builds `voice` for the host platform and the layout verifies; `package.sh` with a platform other than the host and no `--executable` is refused for every add-on; the build of a non-Tables add-on runs with `CGO_ENABLED=0` (assert on the `go env` seen through a stub `go` in `PATH`, the way the file stubs tools today). In `pkg/addons/packaging/packaging_test.go` add plain `testing` functions (so `suites.json` needs no change; if you write Ginkgo specs, add their names to the `packages` suite):
+
+- `TestTheWorkflowHasNoHardCodedAddonPath`: read `.github/workflows/addons-package.yml` and fail on the text `addons/tables/` outside the matrix definition.
+- `TestTheWorkflowRunsEveryFirstPartyAddon`: the matrix lists exactly `tables`, `voice`, `face`, `fine-tuning`, `quantization`, and each has a `package/platforms.yaml`.
+- Update the existing mutation tests that rewrite the old exact lines so they target the new lines.
+
+- [ ] **Step 2: Run to see them fail**
+
+Run: `sh scripts/addons/package_test.sh && go test ./pkg/addons/packaging/ -count=1`
+Expected: FAIL: `package.sh` builds only Tables and the workflow names `addons/tables/` directly.
+
+- [ ] **Step 3: Generalise the script and the workflow**
+
+In `package.sh` read the three values from the platforms file with `sed -n 's/^addon: //p'`, `sed -n 's/^executable: //p'` and `sed -n 's/^ui: //p'` (the script is shell and stays shell). Replace the three hard-coded lines (`go build ... ./addons/tables/cmd/tables`, `addons/tables/ui/dist/ui/tables.js`, `node addons/tables/ui/build.mjs`) with the values. In the workflow, add `strategy.matrix.addon` to `validate`, `package`, `publish` and `promote`, and to `plan` an output `matrix` that is the product of add-ons and their enabled platforms (build it with a small step that loops over the add-ons and calls `addonpkg matrix --config addons/$id/package/platforms.yaml`, adding the key `addon`). Keep the event policy of `channel.sh` and the fail-closed rule: a publishing event with an add-on that has no enabled platform fails for that add-on.
+
+- [ ] **Step 4: Run to see them pass**
+
+Run: `sh scripts/addons/package_test.sh && go test ./pkg/addons/packaging/ -count=1 && sh scripts/addons/verify.sh packages`
+Expected: PASS, and the Tables legs build exactly as before.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/addons .github/workflows/addons-package.yml pkg/addons/packaging docs/content/features/addons.md
+git commit -m "build(addons): package any first-party add-on
+
+package.sh and the release workflow read the add-on from its platform
+file instead of naming Tables. The workflow runs one set of legs for
+each add-on. Tables builds as before.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 30: Platform matrices and catalog entries for the four packages
+
+**Files:**
+- Create: `addons/voice/package/platforms.yaml`, `addons/face/package/platforms.yaml`, `addons/fine-tuning/package/platforms.yaml`, `addons/quantization/package/platforms.yaml`
+- Create: `gallery/addons/voice.yaml.tmpl`, `face.yaml.tmpl`, `fine-tuning.yaml.tmpl`, `quantization.yaml.tmpl`
+- Create: `pkg/addons/packaging/platforms_test.go`
+- Modify: `gallery/addons/README.md`, `docs/content/features/addons.md`
+
+**Interfaces:**
+- Consumes: `loadPlatforms`, `PlatformEntry`, `addonpkg catalog --template`.
+- Produces: one platforms file per package with the four platforms of the table above, all `enabled: false`; one catalog template per package (the template of Tables with only `name:` changed), so a user finds each add-on in Browse add-ons once a maintainer renders and publishes the entries.
+
+`addons/voice/package/platforms.yaml`:
+
+```yaml
+# Release platform matrix of the Voice add-on package.
+#
+# A platform ships only while "enabled" is true. Enable a platform in the same
+# change that shows its native check passing on a runner of that platform;
+# until then it stays listed and disabled. The release workflow fails closed
+# when no platform is enabled, and it never builds a platform that is not
+# enabled here.
+schema: 1
+addon: voice
+executable: voice
+manifest: addons/voice/manifest.json
+ui: addons/voice/ui/dist
+platforms:
+  - platform: linux/amd64
+    enabled: false
+    runner: ubuntu-24.04
+    native_check: executable-start
+  - platform: linux/arm64
+    enabled: false
+    runner: ubuntu-24.04-arm
+    native_check: executable-start
+  - platform: darwin/arm64
+    enabled: false
+    runner: macos-14
+    native_check: executable-start
+  - platform: darwin/amd64
+    enabled: false
+    runner: macos-15-intel
+    native_check: executable-start
+```
+
+The other three files differ in `addon`, `executable`, `manifest` and `ui` only (`face`, `fine-tuning`, `quantization`).
+
+- [ ] **Step 1: Write the failing test**
+
+`pkg/addons/packaging/platforms_test.go` (package `packaging`, plain `testing`):
+
+```go
+// SPDX-License-Identifier: MIT
+package packaging
+
+import (
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+)
+
+// The release platforms of the packaged first-party add-ons, with the runner
+// that builds and checks each one natively.
+var releasePlatforms = map[string]string{
+	"linux/amd64":  "ubuntu-24.04",
+	"linux/arm64":  "ubuntu-24.04-arm",
+	"darwin/arm64": "macos-14",
+	"darwin/amd64": "macos-15-intel",
+}
+
+// nativeChecked records the platforms whose native check has passed on a runner
+// of that platform. A task of group G adds a platform here in the same change
+// that enables it in the five files and shows the passing legs in its pull
+// request. Enabling without this record, or recording without enabling, fails.
+var nativeChecked = map[string]bool{}
+
+var packagedAddons = []string{"voice", "face", "fine-tuning", "quantization"}
+
+func TestEveryPackagedAddonListsEveryReleasePlatformWithItsRunner(t *testing.T) {
+	for _, id := range packagedAddons {
+		p, err := loadPlatforms(filepath.Join("..", "..", "..", "addons", id, "package", "platforms.yaml"))
+		if err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+		if p.Addon != id || p.Executable != id {
+			t.Fatalf("%s: addon %q executable %q", id, p.Addon, p.Executable)
+		}
+		got := map[string]string{}
+		for _, e := range p.Platforms {
+			got[e.Platform] = e.Runner
+			if e.NativeCheck != NativeCheckKind {
+				t.Fatalf("%s %s: native check %q", id, e.Platform, e.NativeCheck)
+			}
+		}
+		if len(got) != len(releasePlatforms) {
+			t.Fatalf("%s lists %d platforms, want %d", id, len(got), len(releasePlatforms))
+		}
+		for platform, runner := range releasePlatforms {
+			if got[platform] != runner {
+				t.Fatalf("%s: platform %s has runner %q, want %q", id, platform, got[platform], runner)
+			}
+		}
+	}
+}
+
+func TestAPlatformIsEnabledExactlyWhenItsNativeCheckIsRecorded(t *testing.T) {
+	for _, id := range packagedAddons {
+		p, err := loadPlatforms(filepath.Join("..", "..", "..", "addons", id, "package", "platforms.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var enabled []string
+		for _, e := range p.Platforms {
+			if e.Enabled {
+				enabled = append(enabled, e.Platform)
+			}
+		}
+		var recorded []string
+		for platform := range nativeChecked {
+			recorded = append(recorded, platform)
+		}
+		sort.Strings(enabled)
+		sort.Strings(recorded)
+		if len(enabled) != len(recorded) {
+			t.Fatalf("%s: enabled %v, native check recorded for %v", id, enabled, recorded)
+		}
+		for i := range enabled {
+			if enabled[i] != recorded[i] {
+				t.Fatalf("%s: enabled %v, native check recorded for %v", id, enabled, recorded)
+			}
+		}
+	}
+}
+
+func TestEveryPackagedAddonHasACatalogTemplate(t *testing.T) {
+	for _, id := range packagedAddons {
+		b, err := os.ReadFile(filepath.Join("..", "..", "..", "gallery", "addons", id+".yaml.tmpl"))
+		if err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+		for _, want := range []string{`addonId: "{{addon}}"`, "requireSignature: true"} {
+			if !strings.Contains(string(b), want) {
+				t.Fatalf("%s template lacks %q", id, want)
+			}
+		}
+	}
+}
+```
+
+Extend the catalog test at `packaging_test.go:835` to loop over the five templates with the matching platform file.
+
+- [ ] **Step 2: Run to see it fail**
+
+Run: `go test ./pkg/addons/packaging/ -run 'Packaged' -v`
+Expected: FAIL: the four platform files and templates do not exist.
+
+- [ ] **Step 3: Create the files**
+
+Create the four platform files from the listing above, and the four templates by copying `gallery/addons/tables.yaml.tmpl` and changing only `name:` (`Voice`, `Face`, `Fine-tuning`, `Quantization`). In `gallery/addons/README.md` add the commands that render the entries of each package. Run `go test ./pkg/addons/packaging/ -count=1`.
+Expected: PASS: all four platforms are listed and disabled, and the record is empty.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add addons/*/package gallery/addons pkg/addons/packaging docs/content/features/addons.md
+git commit -m "build(addons): list the release platforms of the packaged add-ons
+
+Voice, Face, fine-tuning and quantization each list linux and darwin on
+amd64 and arm64 with the runner that checks them natively. Every
+platform stays disabled until its native check passes. A test fails
+when a platform is enabled without a recorded check. Each package gets a
+catalog template so Browse add-ons can list it.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 31: Enable `linux/amd64` after its native check
+
+**Runner:** `ubuntu-24.04`. **Native check:** `executable-start`.
+
+**Files:**
+- Modify: `addons/voice/package/platforms.yaml`, `addons/face/package/platforms.yaml`, `addons/fine-tuning/package/platforms.yaml`, `addons/quantization/package/platforms.yaml` (`enabled: true` on the `linux/amd64` row)
+- Modify: `pkg/addons/packaging/platforms_test.go` (`nativeChecked["linux/amd64"] = true`)
+
+- [ ] **Step 1: Run the native check locally on a `linux/amd64` host**
+
+Run, for each of the four add-ons `A`:
+```bash
+sh scripts/addons/package.sh --config addons/A/package/platforms.yaml --layout layout-A --version 0.0.0-dev.local --platform linux/amd64 --local-check
+go run ./scripts/addons/cmd/addonpkg native-check --config addons/A/package/platforms.yaml --layout layout-A --platform linux/amd64 --version 0.0.0-dev.local
+```
+Expected: `native-check=passed platform=linux/amd64` for every add-on. If one fails, fix it before going on; do not enable.
+
+- [ ] **Step 2: Enable the platform and record the check**
+
+Set `enabled: true` on the `linux/amd64` row of the four files and add `"linux/amd64": true` to `nativeChecked`. Run `go test ./pkg/addons/packaging/ -count=1`. Expected: PASS (the second test now expects `linux/amd64` enabled, and only that).
+
+- [ ] **Step 3: Show the check passing on the runner, then commit**
+
+Push the branch. The `package linux/amd64` legs of the four add-ons run on `ubuntu-24.04` and end with the native check step. The change is complete only when all four legs are green; paste their run links in the pull request. If a leg is red, set `enabled: false` again and fix the cause in a separate commit.
+
+```bash
+git add addons/*/package/platforms.yaml pkg/addons/packaging/platforms_test.go
+git commit -m "build(addons): ship the packaged add-ons for linux/amd64
+
+The native check passes on ubuntu-24.04 for Voice, Face, fine-tuning and
+quantization, so the platform is enabled for the four packages.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 32: Enable `linux/arm64` after its native check
+
+**Runner:** `ubuntu-24.04-arm`. **Native check:** `executable-start`.
+
+**Files:** the four `platforms.yaml` files (`linux/arm64` row) and `pkg/addons/packaging/platforms_test.go` (`nativeChecked["linux/arm64"] = true`).
+
+- [ ] **Step 1: Run the native check on a `linux/arm64` host.** The commands of Task 31 Step 1 with `--platform linux/arm64`. Expected: `native-check=passed platform=linux/arm64` for the four add-ons. A package is never made from a binary of another platform (`package.sh` refuses it), so this runs on an arm64 host or only in the CI leg.
+- [ ] **Step 2: Enable and record.** Set `enabled: true` on the `linux/arm64` rows, add the platform to `nativeChecked`, run `go test ./pkg/addons/packaging/ -count=1`. Expected: PASS.
+- [ ] **Step 3: Show the legs green on `ubuntu-24.04-arm`, then commit.** Same rule as Task 31 Step 3 (four green legs, links in the pull request).
+
+```bash
+git add addons/*/package/platforms.yaml pkg/addons/packaging/platforms_test.go
+git commit -m "build(addons): ship the packaged add-ons for linux/arm64
+
+The native check passes on ubuntu-24.04-arm for Voice, Face, fine-tuning
+and quantization, so the platform is enabled for the four packages.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 33: Enable `darwin/arm64` after its native check
+
+**Runner:** `macos-14` (Apple Silicon). **Native check:** `executable-start`.
+
+**Files:** the four `platforms.yaml` files (`darwin/arm64` row) and `pkg/addons/packaging/platforms_test.go` (`nativeChecked["darwin/arm64"] = true`).
+
+- [ ] **Step 1: Run the native check on an Apple Silicon host.** The commands of Task 31 Step 1 with `--platform darwin/arm64`. The executables are pure Go and built on the same host, so macOS gives them the ad-hoc signature the linker writes and no quarantine mark; the check starts them as they are. Expected: `native-check=passed platform=darwin/arm64` for the four add-ons.
+- [ ] **Step 2: Enable and record.** As in Task 32 Step 2.
+- [ ] **Step 3: Show the legs green on `macos-14`, then commit.** Four green legs, links in the pull request.
+
+```bash
+git add addons/*/package/platforms.yaml pkg/addons/packaging/platforms_test.go
+git commit -m "build(addons): ship the packaged add-ons for darwin/arm64
+
+The native check passes on macos-14 for Voice, Face, fine-tuning and
+quantization, so the platform is enabled for the four packages.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+### Task 34: Enable `darwin/amd64` after its native check, if the maintainers want Intel macOS packages
+
+**Runner:** `macos-15-intel` (Intel macOS). **Native check:** `executable-start`.
+
+LocalAI's own release builds ignore `darwin/amd64`, and the `includeDarwin` backend matrix is Apple Silicon only. The package format accepts the platform, so the row is listed and disabled by Task 30. **Do this task only when the maintainers confirm they want Intel macOS packages and the runner label exists when the task starts** (check the hosted runner images of GitHub Actions). Otherwise leave the row disabled, or delete the row from the four files and from `releasePlatforms` in the same change; nothing else depends on it.
+
+**Files:** the four `platforms.yaml` files (`darwin/amd64` row) and `pkg/addons/packaging/platforms_test.go` (`nativeChecked["darwin/amd64"] = true`).
+
+- [ ] **Step 1: Run the native check on an Intel macOS host.** The commands of Task 31 Step 1 with `--platform darwin/amd64`. Expected: `native-check=passed platform=darwin/amd64` for the four add-ons.
+- [ ] **Step 2: Enable and record.** As in Task 32 Step 2.
+- [ ] **Step 3: Show the legs green on `macos-15-intel`, then commit.**
+
+```bash
+git add addons/*/package/platforms.yaml pkg/addons/packaging/platforms_test.go
+git commit -m "build(addons): ship the packaged add-ons for darwin/amd64
+
+The native check passes on macos-15-intel for Voice, Face, fine-tuning
+and quantization, so the platform is enabled for the four packages.
+
+Assisted-by: Claude:claude-sonnet-5-5 go"
+```
+
+---
+
+## Task group H: cleanup after one release (later; steps only)
+
 
 1. Remove the legacy switch: delete `LegacyNavigation` from `core/config/application_config.go`, the flag in `core/cli/run.go`, the `addon_navigation` key in `core/http/routes/localai.go`, and the `legacy` branches in `Sidebar.jsx` and `NotFound.jsx`.
-2. Delete the core copies of the moved pages (`pages/FaceRecognition.jsx`, `VoiceRecognition.jsx`, `VoiceLibrary.jsx`, `VoiceProfileCreate.jsx`, `components/identity/*`) only after the add-ons are installed by default or a separate decision removes the core fallback. Keep every redirect: the spec says redirects stay until a separate decision removes them.
+2. Delete the core copies of the moved pages (`pages/FaceRecognition.jsx`, `VoiceRecognition.jsx`, `VoiceLibrary.jsx`, `VoiceProfileCreate.jsx`, `components/identity/*`, `pages/FineTune.jsx`, `pages/Quantize.jsx`, `components/tools/*`) only when a separate decision removes the core fallback. The four add-ons do not ship with LocalAI, so a user who has not installed one still reaches the core page through the old route; that fallback is what the decision would remove. Keep every redirect: the spec says redirects stay until a separate decision removes them.
 
-## Task group H: blocked on owner decision (this plan does not start it)
+## Task group I: blocked on owner decision (this plan does not start it)
 
 - **Question (c): the drawer entry of Voice Library.** The Voice add-on contains the Voice Library page (`/app/addons/voice/library`, Task 16). Open: whether it also has a drawer tile of its own, or is reached only from inside the Voice add-on (a tab, and `ui.navigation`, which already lists it in the detail view and the pinned group). Do not add a second manifest, a second tile or a catalog entry for it until the owner answers. When the owner decides, the work is a manifest or catalog change plus one test of the tile list.
 
@@ -5006,8 +6577,10 @@ These steps are not tasks. Start them only after group A is merged. They follow 
 | Decision 2: drawer page, tiles, search, Browse, Add | Task 6 (`AppsView`, `AddonTile`); the Add entry opens the Browse tab, which hosts the install action (`BrowseView.jsx:48-55`); Browse and Add show to administrators because the Browse tab is an administrator tab (`addonState.js:7`) |
 | Decision 3: per-user pins, sidebar short list, drawer all | Tasks 2, 3, 5, 6 |
 | Decision 4: Studio (Images, Audio, Video) and Talk as add-ons | Task 1 (catalog), Task 7 (redirects into Studio tabs), Task 6 (tiles and pins) |
-| Decision 5: fine-tuning and quantization | Group F (steps only) |
+| Decision 5: fine-tuning and quantization (two add-ons, API stays in core) | Group F (Tasks 19 to 28) |
 | Decision 6: Voice and Face add-ons, core keeps API and stores | Groups C, D, E (Tasks 12-18); the routes and stores are not touched |
+| Decisions 10 and 11: not shipped with LocalAI; every platform; no hub tab for Voice or Face | Group G (Tasks 29-34), Task 17 and Task 18 (hub tab removal), Task 30 (catalog templates for Browse) |
+| Host operations for the engine (new contract surface) | Tasks 19 to 23 |
 | Decision 7: Agents, Memory, Skills out of scope | no task, by design |
 | Decision 8: core routes with the user's session | Task 11, plus the Go 403 test |
 | Decision 9: SDK primitives and per-component decisions | Task 9 (version), Task 10 (exports), classification followed in Tasks 16, 17, 18 |
@@ -5025,12 +6598,12 @@ These steps are not tasks. Start them only after group A is merged. They follow 
 | Decision: gate rule for Studio and Talk | Task 1, Task 5, Task 6 |
 | Core routes from add-ons | Task 11 |
 | Shared UI in the SDK and classification table | Tasks 9, 10; ports in Tasks 16-18 |
-| Migration: mapping and `?tab=` | Task 7 (Studio routes), Tasks 16-18 (Voice, Face), Group F (fine-tuning, quantization) |
+| Migration: mapping and `?tab=` | Task 7 (Studio routes), Tasks 16-18 (Voice, Face), Task 27 (fine-tuning, quantization) |
 | Redirects (keep model, query, hash; permanent; no leak) | Task 7 |
-| Sidebar after migration, one-time seed | Task 6 (Create group removed), Tasks 2 and 3 (seed) |
+| Sidebar after migration, one-time seed at upgrade | Task 6 (Create group removed), Tasks 2, 3 and 4 (seed at upgrade, new accounts start empty) |
 | Documentation | `docs/content/features/addons.md` is updated in Tasks 1, 3, 6, 7, 9, 10, 11, 17, 18 |
 | Open question (a), (b) | decided; Tasks 11 and 9-10 |
-| Open question (c) | Group H, not started |
+| Open question (c) | Group I, not started |
 | Test plan: route mapping | Task 7 |
 | Test plan: pin storage | Tasks 2, 3 (two frontends: both frontends share the table by construction; see the gap below) |
 | Test plan: permission filtering | Tasks 1, 3, 5, 6, 8, 11 |
@@ -5038,9 +6611,14 @@ These steps are not tasks. Start them only after group A is merged. They follow 
 | Test plan: redirects | Task 7 |
 | Test plan: quality gates | Task 8 |
 | Definition of done | Task 8 and the groups above |
-| Risks and rollback: flag, kept routes, additive table | Task 6 (flag), Tasks 16-18 (`MovedPage` keeps the core pages), Task 2 (additive table), Group G |
+| Risks and rollback: flag, kept routes, additive table | Task 6 (flag), Task 7 (the redirects do not depend on the flag), Tasks 16-18 and 27 (`MovedPage` keeps the core pages), Task 2 (additive table), Group H |
 
 Gaps found and how they are closed:
+
+- **Registry tests of the existing add-on routes** (pre-flight finding): closed in Task 1 by `RegisterAddonNavigationRoutes`; the tests run with `-tags auth` in Tasks 1, 3, 4 and 8.
+- **`scripts/addons/suites.json` inventory**: closed in Tasks 1, 4 and 9, which add their `It` names in the same commits.
+- **Old UI tests for SDK 1**: closed in Task 9 step 4 (`esm.test.mjs`, two e2e specs).
+- **A hub tab for an add-on that is not installed**: Voice and Face have none (Tasks 17, 18); the old URLs keep opening the core page through `MovedPage`.
 
 - **Two frontends on one database** (test plan): closed in Task 2 (`TestTwoServicesOverOneDatabaseAgree`, `auth` tag). No message bus carries pin state, so the fake-bus pattern is not needed: the store reads and writes the shared table on every call.
 - **Pin reorder control**: closed in Task 6 (`pin-earlier` and `pin-later` buttons on a pinned tile, with an e2e case that pins the saved order).
@@ -5055,7 +6633,7 @@ The page-body ports (Tasks 16, 17, 18) are specified by an exact substitution ta
 
 ### 3. Type and name consistency
 
-Checked across tasks: `builtin.Entry`, `Viewer`, `Visible`, `IDs` (Tasks 1, 3, 4); `pins.Store` methods `List`, `Replace`, `Seed`, `Distinct`, `MarkMissing`, `ClearMissing`, `DeleteMissingBefore` (Tasks 2, 3, 4); `Service.List` and `Service.Put` (Task 3); `GetPins` and `PutPins` signatures (Task 3); `RegisterAddonPinRoutes` (Task 3); `InstalledIDs` (Task 4); JS `tileFromApp`, `tileFromBuiltin`, `buildTiles`, `filterTiles`, `resolvePins`, `togglePin`, `movePin`, `PIN_CAP`, `primaryDestinations`, `visiblePrimary`, `createPinsApi` and its three methods (Tasks 5, 6); `useNavigation` fields `builtin`, `pinIds`, `pin`, `unpin`, `move` (Task 6); `studioRedirect`, `STUDIO_TABS`, `MIGRATION_ROUTES` kinds `same`, `studio-tab`, `addon-page` (Tasks 7, 16-18); `MovedPage` props `addon`, `page` (Tasks 16-18); `HostSDKVersion` (Task 9); `sdk.ui`, `sdk.hooks`, `sdk.viewer`, `sdk.core` (Tasks 10, 11, 14-18); `idle.Run`, `idle.Runtime`, `ErrNoTools` (Tasks 12, 14, 18); `buildAddonUI({ root, name, rgb })` (Tasks 13, 14, 18); `ctx` members (Task 14, used in 15-18).
+Checked across tasks: `builtin.Entry`, `Viewer`, `Visible`, `IDs` (Tasks 1, 3, 4); `pins.Store` methods `List`, `Replace`, `SeedExisting`, `Distinct`, `MarkMissing`, `ClearMissing`, `DeleteMissingBefore` (Tasks 2, 3, 4); `RegisterAddonNavigationRoutes`, `RegisterAddonPinRoutes` and `(*Application).AddonPinStore` (Tasks 1, 3, 4); `Service.List` and `Service.Put` (Task 3); `GetPins` and `PutPins` signatures (Task 3); `RegisterAddonPinRoutes` (Task 3); `InstalledIDs` (Task 4); JS `tileFromApp`, `tileFromBuiltin`, `buildTiles`, `filterTiles`, `resolvePins`, `togglePin`, `movePin`, `PIN_CAP`, `primaryDestinations`, `visiblePrimary`, `createPinsApi` and its three methods (Tasks 5, 6); `useNavigation` fields `builtin`, `pinIds`, `pin`, `unpin`, `move` (Task 6); `studioRedirect`, `STUDIO_TABS`, `MIGRATION_ROUTES` kinds `same`, `studio-tab`, `addon-page` (Tasks 7, 16-18); `MovedPage` props `addon`, `page` (Tasks 16-18); `HostSDKVersion` (Task 9); `sdk.ui`, `sdk.hooks`, `sdk.viewer`, `sdk.core` (Tasks 10, 11, 14-18); `idle.Run`, `idle.Runtime`, `ErrNoTools` (Tasks 12, 14, 18); `protocol.Run`, `hostclient.New`, `hostops.Spec`, `Broker.Register`, `RegisterEngineJobs`, `RegisterEngineProgress`, `RegisterEngineModels`, `RegisterEngineDatasets` (Tasks 19 to 26); `releasePlatforms`, `nativeChecked` (Tasks 30 to 34); `buildAddonUI({ root, name, rgb })` (Tasks 13, 14, 18); `ctx` members (Task 14, used in 15-18).
 
 Fixes made during the review: Task 4 first called the sweep input `apps`; it is `present` everywhere now. Task 6 first named the e2e id `drawer`; it is `addon-detail` everywhere. Task 10 exports `audioBufferToWavBlob` in `sdk.hooks` because Task 16's reference-audio helper needs it, so the SDK test asserts four hooks.
 
@@ -5065,6 +6643,7 @@ Fixes made during the review: Task 4 first called the sweep input `apps`; it is 
 2. User without the `addons` feature who uses Studio: Task 1 `TestStudioAndTalkAreVisibleWithoutAnyFeature`, Task 5 `addons entry shows for a built-in tile`, Task 6 e2e `member without the add-ons feature`.
 3. Old link with a model, a query and a hash: Task 7 `studioRedirect keeps the model, the query and the hash` and the e2e case `an old generator link keeps its model, query and hash`.
 4. Stopped, starting or failed tile: Task 5 `tileFromApp never targets the main page of a stopped add-on`, Task 6 e2e `a stopped tile opens the detail view`, Task 8 `a stopped pinned add-on is muted`.
-5. Authentication off: Task 2 `TestFileStoreKeepsPinsAcrossAReopen`, Task 3 `TestListSeedsStudioAndTalkOnce` and `TestPinsRoundTripForTheLocalOwner`.
+5. Authentication off: Task 2 `TestFileStoreKeepsPinsAcrossAReopen`, Task 3 `TestUpgradeSeedPinsStudioAndTalkOnce` and `TestPinsRoundTripForTheLocalOwner`.
+6. An account created after the upgrade: Task 2 `the upgrade seed pins existing accounts once and skips later ones`, Task 3 `TestANewAccountStartsWithNoPins`.
 
-Each of the five has a test in the task that owns the code.
+Each of the six has a test in the task that owns the code.
