@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -308,25 +309,81 @@ func (i *Installer) download(ctx context.Context, r io.Reader, digest, root stri
 	return f, err
 }
 
-// go-containerregistry creates its own client. Reject redirect responses at the
-// transport boundary so registry credentials cannot follow to another origin.
+// go-containerregistry creates its own client, so redirects are decided here.
+// Registries such as quay.io answer a blob GET with a redirect to a CDN. That
+// one case is followed: the request must be a GET of a digest-pinned blob, the
+// target must pass the same scheme and host rules as a direct request, and the
+// registry credential is never sent to the target. Any other redirect is
+// refused, so credentials cannot follow to another origin. The caller still
+// verifies the digest of the bytes it receives.
 type boundTransport struct {
 	ctx               context.Context
 	base              http.RoundTripper
 	allowLoopbackHTTP bool
 }
 
-func (t boundTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.URL.Scheme == "http" {
-		ip := net.ParseIP(req.URL.Hostname())
-		if !t.allowLoopbackHTTP || ip == nil || !ip.IsLoopback() {
-			return nil, ErrPackage
+// maxBlobRedirects bounds a CDN redirect chain.
+const maxBlobRedirects = 3
+
+// allowed applies the scheme rule: https always, plaintext http only to a
+// loopback address and only when the source opted in.
+func (t boundTransport) allowed(u *url.URL) bool {
+	if u.Host == "" || u.User != nil {
+		return false
+	}
+	switch u.Scheme {
+	case "https":
+		return true
+	case "http":
+		ip := net.ParseIP(u.Hostname())
+		return t.allowLoopbackHTTP && ip != nil && ip.IsLoopback()
+	}
+	return false
+}
+
+// pinnedBlob reports whether the request is a GET of /v2/<name>/blobs/sha256:<hex>.
+func pinnedBlob(req *http.Request) bool {
+	if req.Method != http.MethodGet {
+		return false
+	}
+	p := req.URL.Path
+	i := strings.LastIndex(p, "/blobs/sha256:")
+	if !strings.HasPrefix(p, "/v2/") || i < 0 {
+		return false
+	}
+	hex := p[i+len("/blobs/sha256:"):]
+	if len(hex) != 64 {
+		return false
+	}
+	for _, c := range hex {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
 		}
 	}
-	resp, e := t.base.RoundTrip(req.Clone(t.ctx))
-	if e == nil && resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		_ = resp.Body.Close()
+	return true
+}
+
+func (t boundTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if !t.allowed(req.URL) {
 		return nil, ErrPackage
 	}
-	return resp, e
+	follow := pinnedBlob(req)
+	cur := req.Clone(t.ctx)
+	for hops := 0; ; hops++ {
+		resp, e := t.base.RoundTrip(cur)
+		if e != nil || resp.StatusCode < 300 || resp.StatusCode >= 400 {
+			return resp, e
+		}
+		loc, le := resp.Location()
+		_ = resp.Body.Close()
+		if !follow || hops >= maxBlobRedirects || le != nil || !t.allowed(loc) {
+			return nil, ErrPackage
+		}
+		next, ne := http.NewRequestWithContext(t.ctx, http.MethodGet, loc.String(), nil)
+		if ne != nil {
+			return nil, ErrPackage
+		}
+		next.Header.Set("User-Agent", req.Header.Get("User-Agent"))
+		cur = next
+	}
 }

@@ -330,7 +330,11 @@ checks image platform and compressed layer hashes, and uses the existing
 Sigstore verifier when the configured source requires signatures. The original
 reference and selected channel are retained alongside the actual digest. OCI
 credentials remain in the registry credential store; catalog HTTP credentials
-are never passed to a registry or package URL. Registry redirects are refused.
+are never passed to a registry or package URL. A registry may redirect a
+digest-pinned blob download to a storage host, as quay.io does. The installer
+follows that redirect only, at most three times, without the registry
+credential, and checks the blob digest on the bytes it receives. Every other
+registry redirect is refused.
 
 When the manifest declares `ui.icon`, staging opens it inside the package without
 following links and requires a regular file of 1 byte to 256 KiB whose first bytes
@@ -373,7 +377,9 @@ immutable publication. No external container images are published or downloaded.
 Package transport applies the source's `allowLoopbackHTTP` development opt-in
 at the OCI transport boundary, including registry authentication and signature
 requests. Without it, implicit loopback HTTP fallback is rejected before any
-plaintext request. Non-loopback HTTP and registry redirects are always denied.
+plaintext request. Non-loopback HTTP is always denied, and a blob redirect
+target must use HTTPS or, with the opt-in, a literal loopback IP. Other registry
+redirects are denied.
 The expanded package byte limit counts the entire decompressed stream before
 TAR parsing: PAX/GNU metadata, file headers, payload, padding, and trailing bytes,
 cumulatively across OCI layers. Downloaded compressed bytes have a separate
