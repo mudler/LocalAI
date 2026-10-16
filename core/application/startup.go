@@ -56,10 +56,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 	loadRuntimeSettingsFromFile(options)
 
 	// WithThreads no longer eagerly resolves 0 (so the settings merge can
-	// tell "unset" from "env-set"); resolve the physical-core default now
-	// that env, CLI, and file have all had their say.
+	// tell "unset" from "env-set"); resolve the default (physical cores,
+	// capped by the container CPU limit) now that env, CLI, and file have all
+	// had their say.
 	if options.Threads == 0 {
-		options.Threads = xsysinfo.CPUPhysicalCores()
+		options.Threads = xsysinfo.DefaultThreads()
 	}
 
 	trace.ConfigureBackendTracePersistence(options.DataPath)
