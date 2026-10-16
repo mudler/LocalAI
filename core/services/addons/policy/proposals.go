@@ -668,6 +668,65 @@ func (b *Broker) authorizeTool(ctx context.Context, addonID string, generation u
 	return nil
 }
 
+// toolKind returns the kind of the tool the arguments name, from the
+// definitions in the manifest of the installed generation. named is false when
+// the arguments name no tool. A tool the source cannot give a kind to is
+// denied, so a missing definition never grants anything.
+func (b *Broker) toolKind(ctx context.Context, addonID string, generation uint64, args json.RawMessage) (kind string, named bool, err error) {
+	tool, named := gateway.NamedTool(args)
+	if !named {
+		return "", false, nil
+	}
+	var src gateway.CapabilitySource
+	if s, ok := b.opts.Tools.(gateway.CapabilitySource); ok {
+		src = s
+	} else if s, ok := b.opts.Runtime.(gateway.CapabilitySource); ok && b.opts.Tools == nil {
+		src = s
+	}
+	if src == nil {
+		return "", true, ErrForbidden
+	}
+	caps, err := src.DeclaredCapabilities(ctx, addonID, generation)
+	if err != nil {
+		if errors.Is(err, gateway.ErrUnavailable) || gateway.StatusFor(err) != 403 {
+			return "", true, fmt.Errorf("%w: %w", ErrUnavailable, err)
+		}
+		return "", true, ErrForbidden
+	}
+	for _, d := range caps.ToolDefinitions {
+		if d.Name == tool {
+			return d.Kind, true, nil
+		}
+	}
+	return "", true, ErrForbidden
+}
+
+// proposalAction is the action a proposal runs under. It comes from the kind of
+// the tool the arguments name, never from the caller (model rules R3, R4): a
+// write tool is a data write, a schema tool a schema change, and a read or
+// create tool is no proposal of this kind. A claim that disagrees with the
+// derived action is refused. Arguments that name no tool keep the claim, which
+// the role check of Admit still holds to the schema rule.
+func (b *Broker) proposalAction(ctx context.Context, addonID string, generation uint64, args json.RawMessage, claimed Action) (Action, error) {
+	kind, named, err := b.toolKind(ctx, addonID, generation, args)
+	if err != nil || !named {
+		return claimed, err
+	}
+	var derived Action
+	switch kind {
+	case contract.ToolKindWrite:
+		derived = ActionWrite
+	case contract.ToolKindSchema:
+		derived = ActionSchema
+	default:
+		return "", ErrForbidden
+	}
+	if claimed != derived {
+		return "", ErrForbidden
+	}
+	return derived, nil
+}
+
 // runtime resolves the addon's current instance, which must have a client.
 func (b *Broker) runtime(ctx context.Context, addonID string) (addonruntime.Instance, error) {
 	instance, err := b.opts.Runtime.Runtime(ctx, addonID)
@@ -695,8 +754,8 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 	if request.Action == createAction {
 		return b.proposeCreate(ctx, p, actor, request)
 	}
-	action := ParseAction(request.Action)
-	if action != ActionWrite && action != ActionSchema {
+	claimed := ParseAction(request.Action)
+	if claimed != ActionWrite && claimed != ActionSchema {
 		return Proposal{}, ErrForbidden
 	}
 	args, err := b.canonicalArguments(request.Arguments)
@@ -707,6 +766,11 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 	// A tool the add-on did not declare is denied before anything is previewed
 	// or stored.
 	if err = b.authorizeTool(ctx, request.AddonID, request.Generation, args); err != nil {
+		return Proposal{}, err
+	}
+	// The action comes from the tool kind, and Admit holds the role to it.
+	action, err := b.proposalAction(ctx, request.AddonID, request.Generation, args, claimed)
+	if err != nil {
 		return Proposal{}, err
 	}
 	now := b.opts.Now()
@@ -799,6 +863,13 @@ func (b *Broker) proposeCreate(ctx context.Context, p *Policy, actor contract.Ac
 	request.Arguments = args
 	if err = b.authorizeTool(ctx, request.AddonID, request.Generation, args); err != nil {
 		return Proposal{}, err
+	}
+	// A creation runs a create tool. A data or schema tool named here would
+	// run under the creator's authority on a resource nobody owns yet.
+	if kind, named, e := b.toolKind(ctx, request.AddonID, request.Generation, args); e != nil {
+		return Proposal{}, e
+	} else if named && kind != contract.ToolKindCreate {
+		return Proposal{}, ErrForbidden
 	}
 	now := b.opts.Now()
 	probe := contract.Envelope{Request: request, Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: now.Add(b.opts.Limits.PreviewTimeout)}}

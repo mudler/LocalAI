@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // ToolSource reports the tools an installed add-on declares in its manifest.
@@ -20,6 +22,29 @@ import (
 // error or any unclassified failure as an error that is unavailable.
 type ToolSource interface {
 	DeclaredTools(ctx context.Context, addonID string, generation uint64) ([]string, error)
+}
+
+// CapabilitySource reports the declared capabilities of the installed
+// generation, which carry the kind of every tool the model may call. It
+// answers like ToolSource: a stale or unknown generation is a denial, an
+// uncertain journal is unavailable.
+type CapabilitySource interface {
+	DeclaredCapabilities(ctx context.Context, addonID string, generation uint64) (contract.Capabilities, error)
+}
+
+// NamedTool returns the tool the arguments name. AuthorizeTool has already
+// refused ambiguous arguments, so the answer here is exact: ok is false when
+// the arguments name no tool or the name is not a string.
+func NamedTool(arguments json.RawMessage) (tool string, ok bool) {
+	var args map[string]json.RawMessage
+	if json.Unmarshal(arguments, &args) != nil {
+		return "", false
+	}
+	raw, named := args[ToolKey]
+	if !named || json.Unmarshal(raw, &tool) != nil || tool == "" {
+		return "", false
+	}
+	return tool, true
 }
 
 // ToolKey is the argument key that names the add-on tool a request invokes.

@@ -327,6 +327,25 @@ var _ = Describe("Tables authority and approval cannot be forged", Ordered, func
 		Expect(d.rowCount(cluster.Owner, "member", res)).To(Equal(1))
 	})
 
+	It("derives the action of a proposal from the tool kind, so an editor cannot confirm a schema change as a write", func() {
+		rename := map[string]any{"tool": "databases-rename", "name": "Stolen"}
+		for _, n := range nodes {
+			// Model rules R4 and S4: the editor claims the data action for the
+			// rename tool, and the schema action; both are refused.
+			for _, action := range []string{"write", "schema"} {
+				r := d.propose(n, "editor", res, action, opID("kind-e"), rename)
+				Expect(r.Status).To(Equal(403), n+" editor "+action+": "+r.String())
+			}
+			// The owner role may not claim the data action for it either.
+			r := d.propose(n, "member", res, "write", opID("kind-m"), rename)
+			Expect(r.Status).To(Equal(403), n+" owner write: "+r.String())
+		}
+		Expect(d.pending(cluster.Owner, "editor")).To(BeEmpty())
+		// The owner role proposes the rename under the schema action.
+		r := d.propose(cluster.FrontA, "member", res, "schema", opID("kind-ok"), rename)
+		Expect(r.Status).To(Equal(200), r.String())
+	})
+
 	It("denies authority, role and approval fields in the arguments of every consumer and creates nothing", func() {
 		before := len(d.pending(cluster.Owner, "editor"))
 		for _, field := range []map[string]any{

@@ -96,6 +96,8 @@ reachability over the search graph). `UnknownManual` has an exit.
 
 ## Findings the model makes checkable
 
+Status: (a), (b) and (d) are fixed in code. (e) is partly fixed: a hold that cancels the dispatch before the first request byte now ends the proposal as cancelled (R35, R52). The eager generation checks (R57, R58) are not done.
+
 | Finding | Model | Code today |
 |---|---|---|
 | (a) refusal before send must not be unknown | `ExecPrepared` + `NotSent{slots, invalid, withdrawn}` -> `Pending` (R34); `AdmitRefused` -> `Pending` (R29); S8. | `Broker.execute` maps every error that is not `ErrRefused` to `OutcomeUnknown` (`core/services/addons/policy/proposals.go:1329`). `Client.admit` (no slot, withdrawn), `Client.valid` and the pre-wire failures of `Client.send` all return the same `ErrRuntime` as a lost reply (`core/services/addons/runtime/client.go:63`, `:73`, `:82`, `:86`). The store has no `executing` -> `pending` transition. |
@@ -116,19 +118,19 @@ the rule says.
 | Rule | Meaning (short) | Implementation location | Status | Model trace |
 |---|---|---|---|---|
 | R1 | Propose while held: nothing stored | `Policy.Admit` -> `errHeld`, `admission.go:198` | matches | propose-while-held-then-retry |
-| R2 | undeclared tool refused | `Broker.authorizeTool`, `proposals.go:654` | partial: only when the arguments name a tool | propose-undeclared-tool |
-| R3 | read tool is not a proposal | `proposals.go:695` | gap: decided by `request.Action`, not tool kind | propose-read-tool |
-| R4 | role below derived action refused | `proposals.go:720` (`Admit` with caller action) | gap (b) | editor-schema-propose-refused |
+| R2 | undeclared tool refused | `Broker.authorizeTool`, then `toolKind` | partial: only when the arguments name a tool | propose-undeclared-tool |
+| R3 | read tool is not a proposal | `Broker.proposalAction`: a read, create or undefined tool is refused | matches for a named tool; arguments without a tool keep the claimed action | propose-read-tool |
+| R4 | role below derived action refused | `Broker.Propose`: `Admit` with the action from `proposalAction`; a disagreeing claim is refused | matches | editor-schema-propose-refused |
 | R5 | stale generation at Propose | `proposals.go:738` | matches | propose-stale-generation |
 | R6 | Propose blocked by unresolved outcome | `proposals.go:731` | matches | propose-while-held-then-retry |
 | R7 | no usable expiry | `proposals.go:763` | matches | propose-while-held-then-retry |
-| R8 | stored as Pending | `proposals.go:766`, `insert` | gap (b): action from caller | happy-path |
+| R8 | stored as Pending | `Broker.Propose`, `insert`, with the derived action | matches | happy-path |
 | R9 | repeat returns stored proposal | `proposals.go:723`, `sameRequest` | matches | duplicate-confirm-after-applied |
 | R10 | Confirm by non-proposer | `Broker.own`, `proposals.go:1061` | matches | two-actors-racing-confirm |
 | R11 | non-human credential | `confirmCredential`, `proposals.go:1188` | matches | confirm-guards |
 | R12 | digest mismatch | `proposals.go:1197` | matches | confirm-guards |
 | R13 | Confirm after expiry | `expire`, `proposals.go:1218` | matches | confirm-guards |
-| R14 | live role below derived action | `Policy.Admit` -> `check`, `admission.go:200` | gap (b) | editor-confirm-of-schema-after-demotion |
+| R14 | live role below derived action | `Policy.Admit` -> `check`, with the stored (derived) action | matches | editor-confirm-of-schema-after-demotion |
 | R15 | Confirm accepted -> Admitting | `Confirm` calling `Admit`, `proposals.go:1237` | matches | happy-path |
 | R16 | Confirm while in admission | writer slot, `admission.go:220`; second call then finds state not pending, `proposals.go:1260` | matches (answer is `ErrProposalClosed`, model says busy) | two-actors-racing-confirm |
 | R17 | repeat Confirm of unresolved: lookup | `resolveForConfirm`, `proposals.go:1247` | matches | duplicate-confirm-while-unknown |

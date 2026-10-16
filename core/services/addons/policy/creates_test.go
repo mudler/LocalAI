@@ -122,7 +122,7 @@ type createRig struct {
 func newCreateRig(pending int) *createRig {
 	rt := newCreateRuntime()
 	c := &createRig{dir: GinkgoT().TempDir(), rt: rt, instances: &fixtureInstances{gen: 1, rt: rt}, clock: &clock{t: time.Now()},
-		accounts: &account{blocked: map[string]bool{}}, tools: &mutableTools{tools: []string{"databases-create"}}, pending: pending}
+		accounts: &account{blocked: map[string]bool{}}, tools: &mutableTools{tools: []string{"databases-create"}, kinds: map[string]string{"databases-create": contract.ToolKindCreate}}, pending: pending}
 	c.open()
 	DeferCleanup(func() { c.close() })
 	return c

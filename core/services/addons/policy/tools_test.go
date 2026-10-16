@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -17,7 +18,29 @@ import (
 type mutableTools struct {
 	mu    sync.Mutex
 	tools []string
+	// kinds maps a tool to its kind. With nil every declared tool is a write
+	// tool; with a map, a tool missing from it has no definition.
+	kinds map[string]string
 	err   error
+}
+
+// DeclaredCapabilities reports the tool definitions of the installed manifest.
+func (m *mutableTools) DeclaredCapabilities(ctx context.Context, id string, gen uint64) (contract.Capabilities, error) {
+	names, err := m.DeclaredTools(ctx, id, gen)
+	if err != nil {
+		return contract.Capabilities{}, err
+	}
+	c := contract.Capabilities{Tools: names}
+	for _, n := range names {
+		kind, ok := m.kinds[n]
+		if m.kinds == nil {
+			kind, ok = contract.ToolKindWrite, true
+		}
+		if ok {
+			c.ToolDefinitions = append(c.ToolDefinitions, contract.ToolDefinition{Name: n, Kind: kind})
+		}
+	}
+	return c, nil
 }
 
 func (m *mutableTools) DeclaredTools(context.Context, string, uint64) ([]string, error) {

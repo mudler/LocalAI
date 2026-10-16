@@ -893,7 +893,11 @@ lists the caller's own pending proposals (newest first, at most 32). See
 [Tables](../tables/#model-tools-and-approval-cards) for the tool names, the
 approval card and the inventory of tool consumers.
 
-`POST /api/addons/proposals` takes a typed `write` or `schema` request. The owner
+`POST /api/addons/proposals` takes a typed `write` or `schema` request. When the
+arguments name a tool, the owner derives the action from the kind the manifest gives
+that tool (`write` tools are data writes, `schema` tools are schema changes) and
+refuses a request whose `action` disagrees, a `read` or `create` tool, and a tool the
+manifest does not define. The owner
 resolves the resource, requires write authority (`schema` needs the owner role), asks the
 addon for a preview and stores a proposal with:
 

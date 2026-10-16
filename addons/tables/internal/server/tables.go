@@ -197,6 +197,9 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 		out.Revision = contract.Revision{Schema: 1, Data: 0}
 		out.Summary = payload(map[string]any{"count": 1, "sample": map[string]string{"action": "create database", "name": a.Name}})
 	case ToolDatabaseRename:
+		if err := schemaAuthority(env, "preview"); err != nil {
+			return out, err
+		}
 		s, err := t.Store.Inspect(ctx, id)
 		if err != nil {
 			return out, mapErr(err)
@@ -337,6 +340,9 @@ func (t *Tables) Apply(ctx context.Context, env contract.Envelope, rev contract.
 			return rejected()
 		}
 	case ToolDatabaseRename:
+		if err := schemaAuthority(env, "apply"); err != nil {
+			return contract.Receipt{}, err
+		}
 		s, err := t.Store.Inspect(ctx, id)
 		if err != nil {
 			if mapErr(err) == err {
