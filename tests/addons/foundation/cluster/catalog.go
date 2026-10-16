@@ -57,7 +57,7 @@ type Library struct {
 func NewLibrary(exePath string) (*Library, error) {
 	var exe []byte
 	if exePath != "" {
-		b, err := os.ReadFile(exePath)
+		b, err := os.ReadFile(exePath) // #nosec G304 -- test harness reads files it created in its own work directory
 		if err != nil {
 			return nil, err
 		}

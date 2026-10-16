@@ -42,7 +42,7 @@ func run(root string, rec Recorder, env []string, name string, args ...string) e
 	if rec != nil {
 		rec(append([]string{name}, args...)...)
 	}
-	cmd := exec.Command(name, args...)
+	cmd := exec.Command(name, args...) // #nosec G204 -- test harness starts the binaries it built
 	cmd.Dir = root
 	cmd.Env = append(cmd.Environ(), env...)
 	out, err := cmd.CombinedOutput()
@@ -91,7 +91,7 @@ func Build(root, scratch, executable string, rec Recorder, versions ...string) (
 // mergeLayers turns the layers of an OCI layout into one plain tar, in the
 // order the receipt of package.sh lists them.
 func mergeLayers(layout string) ([]byte, string, error) {
-	raw, err := os.ReadFile(filepath.Join(layout, "receipt.json"))
+	raw, err := os.ReadFile(filepath.Join(layout, "receipt.json")) // #nosec G304 -- test harness reads files it created in its own work directory
 	if err != nil {
 		return nil, "", err
 	}
@@ -113,7 +113,7 @@ func mergeLayers(layout string) ([]byte, string, error) {
 	seen := map[string]bool{}
 	for _, l := range receipt.Layers {
 		hexDigest := strings.TrimPrefix(l.Digest, "sha256:")
-		blob, err := os.ReadFile(filepath.Join(layout, "blobs", "sha256", hexDigest))
+		blob, err := os.ReadFile(filepath.Join(layout, "blobs", "sha256", hexDigest)) // #nosec G304 -- test harness reads files it created in its own work directory
 		if err != nil {
 			return nil, "", err
 		}
@@ -141,7 +141,7 @@ func mergeLayers(layout string) ([]byte, string, error) {
 			if err := tw.WriteHeader(&tar.Header{Name: h.Name, Mode: h.Mode, Size: h.Size, Typeflag: h.Typeflag}); err != nil {
 				return nil, "", err
 			}
-			if _, err := io.Copy(tw, tr); err != nil {
+			if _, err := io.CopyN(tw, tr, h.Size); err != nil {
 				return nil, "", err
 			}
 		}

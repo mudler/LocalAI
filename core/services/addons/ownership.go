@@ -67,7 +67,7 @@ func (g OwnerGuard) Acquire(ctx context.Context) (func() error, error) {
 	identity := struct{ OwnerID, Address, StorageID string }{c.OwnerID, c.OwnerAddress, c.StorageID}
 	expected, _ := json.Marshal(identity)
 	p := filepath.Join(c.Root, "identity.json")
-	b, e := os.ReadFile(p)
+	b, e := os.ReadFile(p) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if os.IsNotExist(e) {
 		e = durableWrite(p, expected)
 	} else if e == nil && string(b) != string(expected) {

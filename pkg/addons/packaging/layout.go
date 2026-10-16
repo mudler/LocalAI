@@ -82,7 +82,7 @@ func readBlob(dir string, d v1.Hash, size int64) ([]byte, error) {
 	if d.Algorithm != "sha256" || len(d.Hex) != 64 {
 		return nil, fail("E_DIGEST", "unsupported digest %q", d.String())
 	}
-	b, err := os.ReadFile(filepath.Join(dir, "blobs", d.Algorithm, d.Hex))
+	b, err := os.ReadFile(filepath.Join(dir, "blobs", d.Algorithm, d.Hex)) // #nosec G304 -- the packaging tool reads paths the operator passes on its command line
 	if err != nil {
 		return nil, fail("E_DIGEST", "blob %s is missing", d)
 	}
@@ -97,7 +97,7 @@ func readBlob(dir string, d v1.Hash, size int64) ([]byte, error) {
 }
 
 func readRootIndex(dir string) (*v1.IndexManifest, error) {
-	marker, err := os.ReadFile(filepath.Join(dir, "oci-layout"))
+	marker, err := os.ReadFile(filepath.Join(dir, "oci-layout")) // #nosec G304 -- the packaging tool reads paths the operator passes on its command line
 	if err != nil {
 		return nil, fail("E_LAYOUT", "oci-layout file is missing")
 	}
@@ -107,7 +107,7 @@ func readRootIndex(dir string) (*v1.IndexManifest, error) {
 	if err := strictJSON(marker, &m); err != nil || m.Version != "1.0.0" {
 		return nil, fail("E_LAYOUT", "unsupported oci-layout marker")
 	}
-	b, err := os.ReadFile(filepath.Join(dir, "index.json"))
+	b, err := os.ReadFile(filepath.Join(dir, "index.json")) // #nosec G304 -- the packaging tool reads paths the operator passes on its command line
 	if err != nil {
 		return nil, fail("E_LAYOUT", "index.json is missing")
 	}
@@ -162,7 +162,7 @@ func loadLeg(dir string) (*leg, *Receipt, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	b, err := os.ReadFile(filepath.Join(dir, receiptFile))
+	b, err := os.ReadFile(filepath.Join(dir, receiptFile)) // #nosec G304 -- the packaging tool reads paths the operator passes on its command line
 	if err != nil {
 		return nil, nil, fail("E_DIGEST", "digest receipt is missing")
 	}

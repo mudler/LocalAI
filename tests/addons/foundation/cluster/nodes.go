@@ -54,7 +54,7 @@ func (n *Node) Start() error {
 		return err
 	}
 	node := n.Config.Nodes[n.Name]
-	cmd := exec.Command(n.ServerPath,
+	cmd := exec.Command(n.ServerPath, // #nosec G204 -- test harness starts the binaries it built
 		"--mock-backend="+n.MockPath,
 		"--port="+strconv.Itoa(node.HTTPPort),
 		"--foundation="+n.Config.Path(),
@@ -275,7 +275,7 @@ type User struct {
 
 // LoadCredentials reads the file the owner wrote.
 func LoadCredentials(path string) (*Credentials, error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) // #nosec G304 -- test harness reads files it created in its own work directory
 	if err != nil {
 		return nil, err
 	}

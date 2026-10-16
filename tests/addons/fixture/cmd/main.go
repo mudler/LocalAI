@@ -210,7 +210,7 @@ func noteLine(path, line string) {
 	if path == "" || path == ".applies" {
 		return
 	}
-	f, e := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600) // #nosec G304 -- test harness reads files it created in its own work directory
 	if e != nil {
 		return
 	}
@@ -228,7 +228,7 @@ func lookup(path string, memory map[string]contract.Receipt, id string) (contrac
 	if path == "" {
 		return contract.Receipt{}, false
 	}
-	b, e := os.ReadFile(path)
+	b, e := os.ReadFile(path) // #nosec G304 -- test harness reads files it created in its own work directory
 	if e != nil {
 		return contract.Receipt{}, false
 	}

@@ -378,7 +378,7 @@ func (r *Recovery) swapIn(addonID, staged, prev string) error {
 	if err := os.Rename(staged, data); err != nil {
 		return err
 	}
-	if err := os.Chmod(data, 0o700); err != nil {
+	if err := os.Chmod(data, 0o700); err != nil { // #nosec G302 -- directory mode: the owner needs the search bit
 		return err
 	}
 	return syncPath(filepath.Dir(data))
@@ -425,11 +425,11 @@ func (r *Recovery) abortRestore(addonID string, j journalRecord, cause error) er
 
 // finishRestore applies the policy part of a restore and records the end.
 func (r *Recovery) finishRestore(ctx context.Context, addonID, backupDir string, m Manifest, j journalRecord) (RestoreReceipt, error) {
-	pol, err := os.ReadFile(filepath.Join(backupDir, "state", "policy.json"))
+	pol, err := os.ReadFile(filepath.Join(backupDir, "state", "policy.json")) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return RestoreReceipt{}, err
 	}
-	props, err := os.ReadFile(filepath.Join(backupDir, "state", "proposals.json"))
+	props, err := os.ReadFile(filepath.Join(backupDir, "state", "proposals.json")) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return RestoreReceipt{}, err
 	}

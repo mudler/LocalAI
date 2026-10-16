@@ -220,7 +220,7 @@ func lockDir(dir string) (*os.File, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(filepath.Join(dir, lockName), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	f, err := os.OpenFile(filepath.Join(dir, lockName), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func lockDir(dir string) (*os.File, error) {
 }
 
 func load(dir string) (*document, error) {
-	b, err := os.ReadFile(filepath.Join(dir, fileName))
+	b, err := os.ReadFile(filepath.Join(dir, fileName)) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if errors.Is(err, os.ErrNotExist) {
 		return &document{Version: 1, Resources: map[string]*record{}}, nil
 	}
@@ -421,7 +421,7 @@ func writeNew(dst string, d *document) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return err
 	}

@@ -94,7 +94,7 @@ func (i *Installer) Commit(ctx context.Context, s StagedPackage) (PackageReceipt
 		if info.IsDir() || info.Mode()&0111 != 0 {
 			mode = 0500
 		}
-		return os.Chmod(p, mode)
+		return os.Chmod(p, mode) // #nosec G122 -- the tree is owned by this process and locked; the walk only normalises its own files
 	})
 	if e != nil {
 		return PackageReceipt{}, e

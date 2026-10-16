@@ -297,7 +297,7 @@ func cmdVerify(args []string) error {
 func writeExtracted(v *Verified, dest string) error {
 	for _, f := range v.Files {
 		p := filepath.Join(dest, filepath.FromSlash(f.name))
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
 			return err
 		}
 		mode := os.FileMode(0o644)

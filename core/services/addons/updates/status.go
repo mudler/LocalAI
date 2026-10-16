@@ -49,7 +49,7 @@ const (
 const (
 	ClassSource     = "source-unavailable"
 	ClassRefresh    = "refresh-failed"
-	ClassCredential = "credential-unavailable"
+	ClassCredential = "credential-unavailable" // #nosec G101 -- a name of an error class or a fixture value, not a credential
 	ClassNotListed  = "not-listed"
 	ClassAmbiguous  = "ambiguous-release"
 	ClassCanceled   = "canceled"

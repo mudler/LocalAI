@@ -74,7 +74,7 @@ func loadPlatforms(file string) (*PlatformsFile, error) {
 	if file == "" {
 		return nil, errors.New("platform matrix file is required")
 	}
-	b, err := os.ReadFile(file)
+	b, err := os.ReadFile(file) // #nosec G304 -- the packaging tool reads paths the operator passes on its command line
 	if err != nil {
 		return nil, fmt.Errorf("platform matrix: %w", err)
 	}

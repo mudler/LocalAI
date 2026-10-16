@@ -186,14 +186,14 @@ func privateDir(path string) error {
 	if fi, err = os.Lstat(path); err != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
 		return ErrUnsafePath
 	}
-	return os.Chmod(path, 0o700)
+	return os.Chmod(path, 0o700) // #nosec G302 -- directory mode: the owner needs the search bit
 }
 
 // privateFile creates path when absent (mode 0600) and refuses links.
 func privateFile(path string) error {
 	fi, err := os.Lstat(path)
 	if os.IsNotExist(err) {
-		f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) // #nosec G304 -- path is under the add-on data directory and is built from a validated identifier
 		if e != nil {
 			return e
 		}
@@ -423,7 +423,7 @@ func (s *Store) build(ctx context.Context, id, name, opID string) error {
 		return err
 	}
 	tmp := filepath.Join(s.dbDir, tmpPrefix+id+"-"+hex.EncodeToString(salt[:]))
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) // #nosec G304 -- path is under the add-on data directory and is built from a validated identifier
 	if err != nil {
 		return err
 	}
@@ -460,7 +460,7 @@ func (s *Store) build(ctx context.Context, id, name, opID string) error {
 	if err != nil {
 		return capacityError(err)
 	}
-	if f, e := os.Open(tmp); e == nil {
+	if f, e := os.Open(tmp); e == nil { // #nosec G304 -- path is under the add-on data directory and is built from a validated identifier
 		_ = f.Sync()
 		_ = f.Close()
 	}

@@ -133,7 +133,7 @@ func (t *Tables) exportRows(ctx context.Context, env contract.Envelope, a rowArg
 	release := func() { x.mu.Lock(); x.tickets--; x.mu.Unlock() }
 	defer release()
 
-	if err := os.MkdirAll(t.ExportDir, 0o700); err != nil {
+	if err := os.MkdirAll(t.ExportDir, 0o700); err != nil { // #nosec G703 -- the export directory is host configuration and file names are generated, never taken from a request
 		return contract.Result{}, err
 	}
 	f, err := os.CreateTemp(t.ExportDir, "export-*.csv")
@@ -144,7 +144,7 @@ func (t *Tables) exportRows(ctx context.Context, env contract.Envelope, a rowArg
 	keep := false
 	defer func() {
 		if !keep {
-			_ = os.Remove(path)
+			_ = os.Remove(path) // #nosec G703 -- the export directory is host configuration and file names are generated, never taken from a request
 		}
 	}()
 	stats, err := t.Store.ExportCSV(ctx, id, store.Query{Table: a.Table, Columns: a.Columns, Filter: a.Filter, Sort: a.Sort, Limit: a.MaxRows}, f)
@@ -162,7 +162,7 @@ func (t *Tables) exportRows(ctx context.Context, env contract.Envelope, a rowArg
 		return contract.Result{}, err
 	}
 	handle := "x" + hex.EncodeToString(raw[:])
-	fi, err := os.Stat(path)
+	fi, err := os.Stat(path) // #nosec G703 -- the export directory is host configuration and file names are generated, never taken from a request
 	if err != nil || fi.Size() != stats.Bytes {
 		return contract.Result{}, errors.New("staged export is incomplete")
 	}
@@ -187,7 +187,7 @@ func (t *Tables) openExport(env contract.Envelope, handle string) (io.ReadCloser
 	if s == nil || s.user != env.Authority.Actor.UserID || s.operation != env.Request.OperationID || s.resource != env.Request.ResourceID || env.Authority.Scope != "output" {
 		return nil, ErrNotFound
 	}
-	f, err := os.Open(s.path)
+	f, err := os.Open(s.path) // #nosec G703 -- the export directory is host configuration and file names are generated, never taken from a request
 	if err != nil {
 		return nil, ErrNotFound
 	}

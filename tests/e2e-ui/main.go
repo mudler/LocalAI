@@ -78,7 +78,7 @@ func main() {
 			os.Exit(1)
 		}
 		tmpDir = found.StateDir(*foundationRole)
-		if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+		if err := os.MkdirAll(tmpDir, 0o750); err != nil {
 			fmt.Fprintf(os.Stderr, "error creating the foundation state dir: %v\n", err)
 			os.Exit(1)
 		}

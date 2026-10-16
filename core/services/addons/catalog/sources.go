@@ -96,7 +96,7 @@ func NewSources(path string, admin AdminCheck, credentials CredentialResolver) (
 	if e != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
 		return nil, ErrInvalid
 	}
-	data, e := os.ReadFile(path)
+	data, e := os.ReadFile(path) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if e != nil || len(data) > 1<<20 {
 		return nil, ErrInvalid
 	}

@@ -99,7 +99,7 @@ func OpenSelections(dir string, o SelectionOptions) (*SelectionStore, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	lock, err := os.OpenFile(filepath.Join(dir, selectionLock), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	lock, err := os.OpenFile(filepath.Join(dir, selectionLock), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return nil, err
 	}

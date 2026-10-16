@@ -352,7 +352,7 @@ func isAncestor(ctx context.Context, gitDir, candidate, named string) (bool, err
 		return false, errors.New("commits must be 40 hex characters")
 	}
 	var stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, "git", "--git-dir", gitDir, "merge-base", "--is-ancestor", candidate, named)
+	cmd := exec.CommandContext(ctx, "git", "--git-dir", gitDir, "merge-base", "--is-ancestor", candidate, named) // #nosec G204 -- fixed git arguments; the revisions are 40-hex commit identifiers checked by the caller
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	var ee *exec.ExitError
@@ -372,7 +372,7 @@ func isAncestor(ctx context.Context, gitDir, candidate, named string) (bool, err
 }
 
 func commitExists(ctx context.Context, gitDir, sha string) bool {
-	return exec.CommandContext(ctx, "git", "--git-dir", gitDir, "cat-file", "-e", sha+"^{commit}").Run() == nil
+	return exec.CommandContext(ctx, "git", "--git-dir", gitDir, "cat-file", "-e", sha+"^{commit}").Run() == nil // #nosec G204 -- fixed git arguments; the revisions are 40-hex commit identifiers checked by the caller
 }
 
 // promotionSource says which event asks for the promotion.

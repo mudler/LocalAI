@@ -161,7 +161,7 @@ func validState(s ProposalState) bool {
 
 func loadProposals(dir string) (*proposalDocument, error) {
 	corrupt := errors.New("addon proposal store is corrupt")
-	b, err := os.ReadFile(filepath.Join(dir, proposalFileName))
+	b, err := os.ReadFile(filepath.Join(dir, proposalFileName)) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if errors.Is(err, os.ErrNotExist) {
 		return &proposalDocument{Version: 1, Proposals: map[string]*proposalRecord{}}, nil
 	}

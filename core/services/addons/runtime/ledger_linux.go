@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -72,7 +73,7 @@ func openLedger(root string, timeout time.Duration) (*processLedger, error) {
 	if e != nil || info.Mode().Perm()&0077 != 0 {
 		return nil, ErrRuntime
 	}
-	f, e := os.OpenFile(filepath.Join(root, "process.lock"), os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600)
+	f, e := os.OpenFile(filepath.Join(root, "process.lock"), os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if e != nil {
 		return nil, e
 	}
@@ -95,7 +96,7 @@ func openLedger(root string, timeout time.Duration) (*processLedger, error) {
 	if e != nil {
 		return fail(e)
 	}
-	b, e := os.ReadFile(filepath.Join(root, "processes.json"))
+	b, e := os.ReadFile(filepath.Join(root, "processes.json")) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if os.IsNotExist(e) && marker.Size() != 0 {
 		return fail(ErrRuntime)
 	}
@@ -151,6 +152,9 @@ func recoverProcess(ctx context.Context, p processIdentity) error {
 	}
 	if e = unix.PidfdSendSignal(fd, unix.SIGKILL, nil, 0); e != nil && !errors.Is(e, unix.ESRCH) {
 		return e
+	}
+	if fd < 0 || fd > math.MaxInt32 {
+		return ErrRuntime
 	}
 	for {
 		fds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}

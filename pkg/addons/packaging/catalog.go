@@ -180,10 +180,10 @@ func cmdCatalog(args []string) error {
 	if _, err := readCatalogIndex(doc.Bytes()); err != nil {
 		return fmt.Errorf("rendered index: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(*out), 0o750); err != nil {
 		return err
 	}
-	if err := os.WriteFile(*out, doc.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(*out, doc.Bytes(), 0o600); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintf(stdout, "entries=%d\nchannel=%s\n", len(releases), *channel)

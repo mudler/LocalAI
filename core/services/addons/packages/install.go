@@ -200,7 +200,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if e != nil || !manifestInfo.Mode().IsRegular() || manifestInfo.Size() > contract.DefaultLimits().ManifestBytes {
 		return out, ErrPackage
 	}
-	b, e := os.ReadFile(manifestPath)
+	b, e := os.ReadFile(manifestPath) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if e != nil {
 		return out, e
 	}

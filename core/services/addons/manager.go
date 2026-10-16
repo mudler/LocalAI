@@ -493,7 +493,7 @@ func syncPackage(root string) error {
 			dirs = append(dirs, path)
 			return nil
 		}
-		f, e := os.Open(path)
+		f, e := os.Open(path) // #nosec G122,G304 -- the tree is owned by this process and locked; the walk only normalises its own files
 		if e != nil {
 			return e
 		}
@@ -549,7 +549,7 @@ func (m *Manager) cleanStages() error {
 			if err != nil {
 				return err
 			}
-			return errors.Join(f.Chmod(0700), f.Close())
+			return errors.Join(f.Chmod(0700), f.Close()) // #nosec G122 -- the tree is owned by this process and locked; the walk only normalises its own files
 		}); e != nil {
 			return e
 		}

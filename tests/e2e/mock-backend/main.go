@@ -490,7 +490,7 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		toStream = "This is a mocked streaming response."
 	}
 	if wholeChunk {
-		return stream.Send(&pb.Reply{Message: []byte(toStream), Tokens: int32(len(toStream))})
+		return stream.Send(&pb.Reply{Message: []byte(toStream), Tokens: int32(len(toStream))}) // #nosec G115 -- the length of a short fixed string
 	}
 	for i, r := range toStream {
 		if err := stream.Send(&pb.Reply{

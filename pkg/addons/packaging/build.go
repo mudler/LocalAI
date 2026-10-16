@@ -104,7 +104,7 @@ func readRegular(p string) ([]byte, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("%s is not a regular file", p)
 	}
-	return os.ReadFile(p)
+	return os.ReadFile(p) // #nosec G304 -- the packaging tool reads paths the operator passes on its command line
 }
 
 func cmdBuild(args []string) error {
@@ -252,7 +252,7 @@ func cmdBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(*out, 0o755); err != nil {
+	if err := os.MkdirAll(*out, 0o750); err != nil {
 		return err
 	}
 	lp, err := layout.Write(*out, empty.Index)
@@ -270,7 +270,7 @@ func cmdBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(*out, receiptFile), append(rb, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(*out, receiptFile), append(rb, '\n'), 0o600); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintf(stdout, "digest=%s\nplatform=%s\nversion=%s\npublishable=%t\n", digest, *platform, *version, r.Publishable)
@@ -297,7 +297,7 @@ func collectUI(dir, prefix string) ([]fileEntry, error) {
 		if err != nil {
 			return err
 		}
-		b, err := os.ReadFile(p)
+		b, err := os.ReadFile(p) // #nosec G122,G304 -- the tree is owned by this process and locked; the walk only normalises its own files
 		if err != nil {
 			return err
 		}

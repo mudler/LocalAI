@@ -91,7 +91,7 @@ func cmdMatrix(args []string) error {
 // publishable and valid.
 func verifyMerged(dir string, cfg *PlatformsFile) (*merged, v1.Hash, error) {
 	var zero v1.Hash
-	b, err := os.ReadFile(filepath.Join(dir, mergedFile))
+	b, err := os.ReadFile(filepath.Join(dir, mergedFile)) // #nosec G304 -- the packaging tool reads paths the operator passes on its command line
 	if err != nil {
 		return nil, zero, fail("E_MERGE", "%s is missing", mergedFile)
 	}
@@ -274,7 +274,7 @@ func cmdMerge(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(*out, 0o755); err != nil {
+	if err := os.MkdirAll(*out, 0o750); err != nil {
 		return err
 	}
 	lp, err := layout.Write(*out, empty.Index)
@@ -288,7 +288,7 @@ func cmdMerge(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(*out, mergedFile), append(mb, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(*out, mergedFile), append(mb, '\n'), 0o600); err != nil {
 		return err
 	}
 	if _, _, err := verifyMerged(*out, cfg); err != nil {
@@ -334,7 +334,7 @@ func cmdNativeCheck(args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, filepath.Join(tmp, v.Manifest.Executable))
+	cmd := exec.CommandContext(ctx, filepath.Join(tmp, v.Manifest.Executable)) // #nosec G204 -- runs the add-on executable of the package under verification, from a private temporary directory
 	cmd.Dir = tmp
 	cmd.Stdin = nil
 	var buf bytes.Buffer

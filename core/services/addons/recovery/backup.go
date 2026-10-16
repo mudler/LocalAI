@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -196,6 +197,9 @@ func freeBytes(path string) (uint64, error) {
 	if err := syscall.Statfs(path, &st); err != nil {
 		return 0, err
 	}
+	if st.Bsize <= 0 {
+		return 0, errors.New("the file system reports no block size")
+	}
 	return uint64(st.Bavail) * uint64(st.Bsize), nil
 }
 
@@ -211,7 +215,7 @@ func writeJSONFile(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return err
 	}
@@ -360,7 +364,7 @@ func (r *Recovery) writeBackup(ctx context.Context, addonID string, info Info, r
 	if err != nil {
 		return BackupReceipt{}, err
 	}
-	if int64(free) < est+margin {
+	if free <= math.MaxInt64 && int64(free) < est+margin {
 		return BackupReceipt{}, ErrInsufficientStorage
 	}
 	tmp := filepath.Join(root, backupTmpPrefix+id)
@@ -470,7 +474,7 @@ func (r *Recovery) writeBackup(ctx context.Context, addonID string, info Info, r
 }
 
 func writeBytes(path string, b []byte) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return err
 	}
@@ -553,14 +557,14 @@ func (r *Recovery) readManifest(addonID, backupID string) (Manifest, string, str
 		return Manifest{}, "", "", ErrBackupNotFound
 	}
 	dir := filepath.Join(r.backupsDir(addonID), backupID)
-	b, err := os.ReadFile(filepath.Join(dir, manifestName))
+	b, err := os.ReadFile(filepath.Join(dir, manifestName)) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return Manifest{}, dir, "", ErrBackupNotFound
 		}
 		return Manifest{}, dir, "", err
 	}
-	sumBytes, err := os.ReadFile(filepath.Join(dir, manifestSumName))
+	sumBytes, err := os.ReadFile(filepath.Join(dir, manifestSumName)) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return Manifest{}, dir, "", ErrBackupCorrupt
 	}
@@ -642,7 +646,7 @@ func (r *Recovery) List(ctx context.Context, addonID string) ([]BackupInfo, erro
 			continue
 		}
 		state := "unverified"
-		if b, err := os.ReadFile(filepath.Join(dir, verifiedName)); err == nil {
+		if b, err := os.ReadFile(filepath.Join(dir, verifiedName)); err == nil { // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 			var v struct {
 				OK bool `json:"ok"`
 			}

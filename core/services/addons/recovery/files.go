@@ -39,7 +39,7 @@ var sqliteMagic = []byte("SQLite format 3\x00")
 func scratchDir(name string) bool { return name == "exports" || name == "tmp" }
 
 func isSQLite(path string) bool {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return false
 	}
@@ -112,7 +112,7 @@ func checkSQLite(ctx context.Context, path string) (int64, error) {
 }
 
 func hashFile(path string) (string, int64, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return "", 0, err
 	}
@@ -126,7 +126,7 @@ func hashFile(path string) (string, int64, error) {
 }
 
 func syncPath(path string) error {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return err
 	}
@@ -159,12 +159,12 @@ func syncTree(root string) error {
 }
 
 func copyPlain(src, dst string) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return err
 	}
 	defer func() { _ = in.Close() }()
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return err
 	}
@@ -298,7 +298,7 @@ func describe(ctx context.Context, base string, entries []FileEntry) error {
 func removeAll(path string) error {
 	_ = filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
 		if err == nil && d.IsDir() {
-			_ = os.Chmod(p, 0o700)
+			_ = os.Chmod(p, 0o700) // #nosec G122,G302 -- the tree is owned by this process and locked; the walk only normalises its own files
 		}
 		return nil
 	})

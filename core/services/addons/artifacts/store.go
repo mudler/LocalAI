@@ -167,10 +167,10 @@ func lockDir(dir string) (*os.File, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	if err := os.Chmod(dir, 0o700); err != nil {
+	if err := os.Chmod(dir, 0o700); err != nil { // #nosec G302 -- directory mode: the owner needs the search bit
 		return nil, err
 	}
-	f, err := os.OpenFile(filepath.Join(dir, lockName), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	f, err := os.OpenFile(filepath.Join(dir, lockName), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func lockDir(dir string) (*os.File, error) {
 }
 
 func loadMeta(dir string) (*document, error) {
-	b, err := os.ReadFile(filepath.Join(dir, metaFileName))
+	b, err := os.ReadFile(filepath.Join(dir, metaFileName)) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if errors.Is(err, os.ErrNotExist) {
 		return &document{Version: 1, Artifacts: map[string]*record{}}, nil
 	}
@@ -335,7 +335,7 @@ func openStaged(root string) (*stagedStore, error) {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return nil, err
 		}
-		if err := os.Chmod(d, 0o700); err != nil {
+		if err := os.Chmod(d, 0o700); err != nil { // #nosec G302 -- directory mode: the owner needs the search bit
 			return nil, err
 		}
 	}
@@ -363,7 +363,7 @@ func (s *stagedStore) Put(ctx context.Context, key string, r io.Reader) (err err
 		return err
 	}
 	part := s.part(key)
-	f, err := os.OpenFile(part, os.O_CREATE|os.O_EXCL|os.O_WRONLY|syscall.O_NOFOLLOW, 0o600)
+	f, err := os.OpenFile(part, os.O_CREATE|os.O_EXCL|os.O_WRONLY|syscall.O_NOFOLLOW, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return err
 	}
@@ -416,7 +416,7 @@ func (s *stagedStore) Get(_ context.Context, key string) (io.ReadCloser, error) 
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(p, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	f, err := os.OpenFile(p, os.O_RDONLY|syscall.O_NOFOLLOW, 0) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if err != nil {
 		return nil, err
 	}

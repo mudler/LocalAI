@@ -235,7 +235,7 @@ func (c *Config) Save() error {
 
 // Load reads a cluster.json.
 func Load(path string) (*Config, error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) // #nosec G304 -- test harness reads files it created in its own work directory
 	if err != nil {
 		return nil, err
 	}

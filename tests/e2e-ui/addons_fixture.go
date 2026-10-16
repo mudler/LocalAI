@@ -44,7 +44,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-const fixtureSecret = "addons-ui-fixture-secret"
+const fixtureSecret = "addons-ui-fixture-secret" // #nosec G101 -- a fixed secret of the local test fixture, not a credential
 
 type addonsFixture struct {
 	dataDir  string
@@ -97,7 +97,7 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 	if err != nil {
 		return nil, err
 	}
-	exe, err := os.ReadFile(executable)
+	exe, err := os.ReadFile(executable) // #nosec G304 -- test harness reads files it created in its own work directory
 	if err != nil {
 		return nil, fmt.Errorf("fixture executable: %w", err)
 	}
@@ -106,7 +106,7 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 			continue
 		}
 		pkg := filepath.Join(dir, entry.Name())
-		raw, err := os.ReadFile(filepath.Join(pkg, "manifest.json"))
+		raw, err := os.ReadFile(filepath.Join(pkg, "manifest.json")) // #nosec G304 -- test harness reads files it created in its own work directory
 		if err != nil {
 			continue
 		}
@@ -153,7 +153,7 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 		})
 		sort.Strings(files)
 		for _, rel := range files {
-			data, err := os.ReadFile(filepath.Join(pkg, rel))
+			data, err := os.ReadFile(filepath.Join(pkg, rel)) // #nosec G304 -- test harness reads files it created in its own work directory
 			if err != nil {
 				return nil, err
 			}
@@ -171,15 +171,15 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 			AddonID: id, Name: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH,
 			Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(buf.Bytes())), Artifact: "/" + entry.Name() + ".tar",
 		}
-		if channel, err := os.ReadFile(filepath.Join(pkg, ".fixture-channel")); err == nil {
+		if channel, err := os.ReadFile(filepath.Join(pkg, ".fixture-channel")); err == nil { // #nosec G304 -- test harness reads files it created in its own work directory
 			release.Channel = strings.TrimSpace(string(channel))
 		}
-		if raw, err := os.ReadFile(filepath.Join(pkg, ".fixture-requires")); err == nil {
+		if raw, err := os.ReadFile(filepath.Join(pkg, ".fixture-requires")); err == nil { // #nosec G304 -- test harness reads files it created in its own work directory
 			if err := json.Unmarshal(raw, &release.Requires); err != nil {
 				return nil, fmt.Errorf("%s: .fixture-requires: %w", entry.Name(), err)
 			}
 		}
-		if raw, err := os.ReadFile(filepath.Join(pkg, ".fixture-generation")); err == nil {
+		if raw, err := os.ReadFile(filepath.Join(pkg, ".fixture-generation")); err == nil { // #nosec G304 -- test harness reads files it created in its own work directory
 			n, err := strconv.Atoi(strings.TrimSpace(string(raw)))
 			if err != nil || n < 1 {
 				return nil, fmt.Errorf("%s: .fixture-generation must be a positive number", entry.Name())

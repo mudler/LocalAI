@@ -128,7 +128,7 @@ func (s *storageScanner) walk(ctx context.Context, root string) (apps.Storage, b
 	}
 	open := s.open
 	if open == nil {
-		open = func(p string) (dirFile, error) { return os.Open(p) }
+		open = func(p string) (dirFile, error) { return os.Open(p) } // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	}
 	deadline := s.clock().Add(budget)
 	var out apps.Storage

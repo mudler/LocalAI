@@ -180,7 +180,8 @@ func (s *Supervisor) Start(ctx context.Context, pkg packages.PackageReceipt, gen
 	go func() {
 		i, e := s.start(wait, pkg, generation)
 		if e == nil && wait.Err() != nil {
-			_ = s.Stop(context.Background(), i)
+			// The caller is gone, but the launched process must still be stopped.
+			_ = s.Stop(context.WithoutCancel(ctx), i)
 			i, e = Instance{}, wait.Err()
 		}
 		done <- result{i, e}
@@ -302,7 +303,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	}
 	// No shell, no inherited environment, no ambient host credentials. The argv
 	// contract is fixed; package manifests cannot smuggle interpreter switches.
-	cmd := exec.Command(path, "--localai-addon-v1")
+	cmd := exec.Command(path, "--localai-addon-v1") // #nosec G204 -- launches the verified add-on executable from the installed package directory, never from a request
 	cmd.Dir = pkg.Directory
 	cmd.Env = []string{"LANG=C", "TZ=UTC"}
 	cmd.ExtraFiles = []*os.File{socket, child}

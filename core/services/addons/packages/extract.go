@@ -34,7 +34,7 @@ func (i *Installer) create(p string, mode os.FileMode) (fileWriter, error) {
 	if i.writeFile != nil {
 		return i.writeFile(p, mode)
 	}
-	return os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode)
+	return os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 }
 
 type extraction struct {
