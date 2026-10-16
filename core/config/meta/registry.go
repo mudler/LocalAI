@@ -414,9 +414,62 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"alias": {
 			Section:     "alias",
 			Label:       "Alias target",
-			Description: "Redirect all traffic for this model to another configured model. When set, every other field on this config is ignored and requests are served by the target model.",
+			Description: "Redirect all traffic for this model to another configured model. When set, every other field on this config is ignored, except the optional profile block, and requests are served by the target model.",
 			Component:   "model-select",
 			Order:       0,
+		},
+
+		"profile.system_prompt": {
+			Section:     "alias",
+			Label:       "Profile system prompt",
+			Description: "Alias only. Replaces the target's system prompt for requests to this alias; the target's backend process is reused.",
+			Component:   "textarea",
+			Order:       1,
+		},
+		"profile.mcp.remote": {
+			Section:     "alias",
+			Label:       "Profile remote MCP servers",
+			Description: "Alias only. Replaces the target's remote MCP servers (same mcpServers format as mcp.remote).",
+			Component:   "code-editor",
+			Language:    "yaml",
+			Order:       2,
+		},
+		"profile.mcp.stdio": {
+			Section:     "alias",
+			Label:       "Profile MCP STDIO servers",
+			Description: "Alias only. Replaces the target's MCP STDIO servers (same mcpServers format as mcp.stdio).",
+			Component:   "code-editor",
+			Language:    "yaml",
+			Order:       3,
+		},
+		"profile.mcp.auto": {
+			Section:     "alias",
+			Label:       "Profile: enable MCP servers automatically",
+			Description: "Alias only. Same as mcp.auto, for requests to this alias.",
+			Component:   "toggle",
+			Order:       4,
+		},
+		"profile.client_tools": {
+			Section:     "alias",
+			Label:       "Profile client tools",
+			Description: "Alias only. Same as client_tools, for requests to this alias.",
+			Component:   "select",
+			Options:     []FieldOption{{Value: "", Label: "Keep"}, {Value: "drop", Label: "Drop"}},
+			Order:       5,
+		},
+		"profile.evidence_check.numbers": {
+			Section:     "alias",
+			Label:       "Profile: mark unverified numbers",
+			Description: "Alias only. When no MCP tool ran in the request and the answer contains a number found in no input message, append a note marking it as not verified.",
+			Component:   "toggle",
+			Order:       6,
+		},
+		"profile.evidence_check.note": {
+			Section:     "alias",
+			Label:       "Profile: unverified-number note",
+			Description: "Alias only. Text appended by profile.evidence_check.numbers. Empty uses the built-in English note.",
+			Component:   "input",
+			Order:       7,
 		},
 
 		// --- Failover ---
@@ -908,6 +961,21 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "code-editor",
 			Language:    "yaml",
 			Order:       131,
+		},
+		"mcp.auto": {
+			Section:     "mcp",
+			Label:       "Enable MCP servers automatically",
+			Description: "Enable every configured MCP server on /v1/chat/completions when the request does not select servers via metadata.mcp_servers, so plain OpenAI clients get the server-side tools.",
+			Component:   "toggle",
+			Order:       132,
+		},
+		"client_tools": {
+			Section:     "mcp",
+			Label:       "Client tools",
+			Description: "What to do with tools sent by the client. Empty keeps them; \"drop\" discards them (and tool_choice) so only the model's own MCP tools are offered.",
+			Component:   "select",
+			Options:     []FieldOption{{Value: "", Label: "Keep"}, {Value: "drop", Label: "Drop"}},
+			Order:       133,
 		},
 
 		// --- TTS ---

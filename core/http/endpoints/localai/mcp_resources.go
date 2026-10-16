@@ -17,9 +17,12 @@ func MCPResourcesEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applic
 			return echo.ErrBadRequest
 		}
 
-		cfg, exists := cl.GetModelConfig(modelName)
+		cfg, exists, err := mcpModelConfig(cl, modelName)
 		if !exists {
 			return fmt.Errorf("model %q not found", modelName)
+		}
+		if err != nil {
+			return err
 		}
 
 		if cfg.MCP.Servers == "" && cfg.MCP.Stdio == "" {
@@ -31,7 +34,7 @@ func MCPResourcesEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applic
 			return fmt.Errorf("failed to parse MCP config: %w", err)
 		}
 
-		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)
+		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.MCPSessionKey(), remote, stdio, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get MCP sessions: %w", err)
 		}
@@ -73,9 +76,12 @@ func MCPReadResourceEndpoint(cl *config.ModelConfigLoader, appConfig *config.App
 			return echo.ErrBadRequest
 		}
 
-		cfg, exists := cl.GetModelConfig(modelName)
+		cfg, exists, err := mcpModelConfig(cl, modelName)
 		if !exists {
 			return fmt.Errorf("model %q not found", modelName)
+		}
+		if err != nil {
+			return err
 		}
 
 		if cfg.MCP.Servers == "" && cfg.MCP.Stdio == "" {
@@ -94,7 +100,7 @@ func MCPReadResourceEndpoint(cl *config.ModelConfigLoader, appConfig *config.App
 			return fmt.Errorf("failed to parse MCP config: %w", err)
 		}
 
-		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)
+		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.MCPSessionKey(), remote, stdio, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get MCP sessions: %w", err)
 		}

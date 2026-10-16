@@ -108,11 +108,11 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				if !hasMCPRequest {
 					enabledServers = nil // backward compat: auto-activate all servers
 				}
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, cfg.Name, remote, stdio, enabledServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, cfg.MCPSessionKey(), remote, stdio, enabledServers)
 
 				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
 				if hasMCPRequest {
-					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
+					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.MCPSessionKey(), remote, stdio, mcpServers)
 					if sessErr == nil && len(namedSessions) > 0 {
 						mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
 						if mcpCtx != nil {

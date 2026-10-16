@@ -572,7 +572,9 @@ func (bcl *ModelConfigLoader) UpdateModelConfig(m string, updater func(*ModelCon
 // ResolveAlias follows a one-hop alias to its target config. Returns
 // (resolved, wasAlias, err). Non-alias configs return (cfg, false, nil)
 // unchanged. Strict: the target must exist and must not itself be an alias
-// (chains are rejected). The returned config is a copy of the target.
+// (chains are rejected). The returned config is a copy of the target with the
+// alias's opt-in profile block applied on top; an alias without a profile
+// block yields a plain copy of the target.
 func (bcl *ModelConfigLoader) ResolveAlias(cfg *ModelConfig) (*ModelConfig, bool, error) {
 	if cfg == nil || !cfg.IsAlias() {
 		return cfg, false, nil
@@ -584,6 +586,7 @@ func (bcl *ModelConfigLoader) ResolveAlias(cfg *ModelConfig) (*ModelConfig, bool
 	if target.IsAlias() {
 		return nil, true, fmt.Errorf("alias %q points to another alias %q (chains are not allowed)", cfg.Name, cfg.Alias)
 	}
+	target.applyProfileOverlay(cfg)
 	return &target, true, nil
 }
 
