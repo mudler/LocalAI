@@ -17,9 +17,18 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"sync/atomic"
 	"time"
 )
+
+// requireAddonRuntime skips a spec that starts an owner. The add-on runtime
+// exists on Linux only; other platforms fail closed (see addons_other_test.go).
+func requireAddonRuntime() {
+	if goruntime.GOOS != "linux" {
+		Skip("the add-on runtime exists on Linux only")
+	}
+}
 
 // realTempDir returns a new temporary directory whose path has no symbolic
 // link. The owner pins every component of its root and refuses a link, and a
@@ -38,6 +47,7 @@ var _ = Describe("addon bootstrap", func() {
 		return config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: filepath.Join(realTempDir(), "addons"), AdminCheck: func(context.Context, contract.Actor) error { return nil }}
 	}
 	It("installs from a persisted source through application bootstrap", func() {
+		requireAddonRuntime()
 		c := cfg()
 		DeferCleanup(func() {
 			_ = filepath.Walk(c.Root, func(p string, i os.FileInfo, e error) error {
@@ -81,6 +91,7 @@ var _ = Describe("addon bootstrap", func() {
 	})
 
 	It("bounds offline refresh and ignores disabled sources and forwarders", func() {
+		requireAddonRuntime()
 		var calls atomic.Int32
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1); <-r.Context().Done() }))
 		defer server.Close()
@@ -164,6 +175,7 @@ var _ = Describe("addon bootstrap", func() {
 		Expect(a.startAddons()).NotTo(Succeed())
 	})
 	It("locks explicit owner storage and releases it on application shutdown", func() {
+		requireAddonRuntime()
 		c := cfg()
 		a := setup()
 		a.applicationConfig.Addons = c
@@ -180,6 +192,7 @@ var _ = Describe("addon bootstrap", func() {
 		Expect(a.startAddons()).NotTo(Succeed())
 	})
 	It("reconciles interrupted intent before exposing the manager and cleans failed bootstrap", func() {
+		requireAddonRuntime()
 		c := cfg()
 		a := setup()
 		a.applicationConfig.Addons = c

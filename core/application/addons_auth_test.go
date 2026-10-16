@@ -100,6 +100,7 @@ var _ = Describe("addon policy bootstrap", func() {
 	policyDir := func(c config.AddonConfig) string { return filepath.Join(c.Root, "policy") }
 
 	It("opens the policy on the owner and keeps frontends and hosts without it denying", func() {
+		requireAddonRuntime()
 		c := base()
 		a := setup()
 		a.authDB = authDB()
@@ -146,6 +147,7 @@ var _ = Describe("addon policy bootstrap", func() {
 	})
 
 	It("requires the addon to be installed and enabled before a resource can be registered", func() {
+		requireAddonRuntime()
 		c := base()
 		a := setup()
 		a.authDB = authDB()
@@ -183,6 +185,7 @@ var _ = Describe("addon policy bootstrap", func() {
 	})
 
 	It("reconciles registrations left pending before the owner starts serving", func() {
+		requireAddonRuntime()
 		c := base()
 		Expect(os.MkdirAll(c.Root, 0o700)).To(Succeed())
 		store, e := policy.OpenStore(policyDir(c), policy.ModeNamedUser)
@@ -210,6 +213,7 @@ var _ = Describe("addon policy bootstrap", func() {
 	})
 
 	It("starts with a pending registration whose addon cannot answer and settles it when the addon is ready", func() {
+		requireAddonRuntime()
 		c := base()
 		Expect(os.MkdirAll(c.Root, 0o700)).To(Succeed())
 		store, e := policy.OpenStore(policyDir(c), policy.ModeNamedUser)
@@ -255,6 +259,7 @@ var _ = Describe("addon policy bootstrap", func() {
 	})
 
 	It("keeps named-user mode by default and selects local-owner only explicitly with a warning", func() {
+		requireAddonRuntime()
 		logs := &logCapture{}
 		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
 		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
@@ -300,6 +305,7 @@ func (f *statusFixture) Status(context.Context, string) (addons.Status, error) {
 
 var _ = Describe("addon owner in a full application start", func() {
 	It("starts the named-user gateway when authentication is enabled", func() {
+		requireAddonRuntime()
 		dir := realTempDir()
 		models, backends := filepath.Join(dir, "models"), filepath.Join(dir, "backends")
 		Expect(os.Mkdir(models, 0o750)).To(Succeed())
