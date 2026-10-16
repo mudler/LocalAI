@@ -21,12 +21,21 @@ import (
 	"time"
 )
 
+// realTempDir returns a new temporary directory whose path has no symbolic
+// link. The owner pins every component of its root and refuses a link, and a
+// temporary directory on macOS lies behind one.
+func realTempDir() string {
+	dir, err := filepath.EvalSymlinks(GinkgoT().TempDir())
+	Expect(err).NotTo(HaveOccurred())
+	return dir
+}
+
 var _ = Describe("addon bootstrap", func() {
 	setup := func() *Application {
 		return &Application{applicationConfig: &config.ApplicationConfig{Context: context.Background()}}
 	}
 	cfg := func() config.AddonConfig {
-		return config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: filepath.Join(GinkgoT().TempDir(), "addons"), AdminCheck: func(context.Context, contract.Actor) error { return nil }}
+		return config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: filepath.Join(realTempDir(), "addons"), AdminCheck: func(context.Context, contract.Actor) error { return nil }}
 	}
 	It("installs from a persisted source through application bootstrap", func() {
 		c := cfg()

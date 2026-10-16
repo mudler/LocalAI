@@ -79,7 +79,7 @@ var _ = Describe("addon policy bootstrap", func() {
 		return &Application{applicationConfig: &config.ApplicationConfig{Context: context.Background()}}
 	}
 	base := func() config.AddonConfig {
-		c := config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: filepath.Join(GinkgoT().TempDir(), "addons"), ListenAddress: "127.0.0.1:0", Transport: ownerTransport()}
+		c := config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: filepath.Join(realTempDir(), "addons"), ListenAddress: "127.0.0.1:0", Transport: ownerTransport()}
 		return c
 	}
 	authDB := func() *gorm.DB {
@@ -121,7 +121,7 @@ var _ = Describe("addon policy bootstrap", func() {
 		f.InstanceID = "frontend"
 		f.Transport.InstanceID = "frontend"
 		f.Transport.Pins["frontend"] = f.Transport.Pins["owner"]
-		f.Root = filepath.Join(GinkgoT().TempDir(), "frontend")
+		f.Root = filepath.Join(realTempDir(), "frontend")
 		b := setup()
 		b.authDB = authDB()
 		Expect(start(b, f)).To(Succeed())
@@ -136,7 +136,7 @@ var _ = Describe("addon policy bootstrap", func() {
 		n := base()
 		n.Transport = nil
 		n.AdminCheck = func(context.Context, contract.Actor) error { return nil }
-		n.Root = filepath.Join(GinkgoT().TempDir(), "plain")
+		n.Root = filepath.Join(realTempDir(), "plain")
 		h := setup()
 		Expect(start(h, n)).To(Succeed())
 		DeferCleanup(h.Shutdown)
@@ -300,7 +300,7 @@ func (f *statusFixture) Status(context.Context, string) (addons.Status, error) {
 
 var _ = Describe("addon owner in a full application start", func() {
 	It("starts the named-user gateway when authentication is enabled", func() {
-		dir := GinkgoT().TempDir()
+		dir := realTempDir()
 		models, backends := filepath.Join(dir, "models"), filepath.Join(dir, "backends")
 		Expect(os.Mkdir(models, 0o750)).To(Succeed())
 		Expect(os.Mkdir(backends, 0o750)).To(Succeed())
