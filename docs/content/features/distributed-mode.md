@@ -1496,3 +1496,66 @@ Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, R
 - **Prefill/decode disaggregation routing** ([#10068](https://github.com/mudler/LocalAI/issues/10068)): route prefill and decode to separate pools with KV transfer.
 - **Per-user fairness (VTC)** ([#10069](https://github.com/mudler/LocalAI/issues/10069)): balance per-user token usage against pod load.
 - **Minor tuning + MCP parity** ([#10070](https://github.com/mudler/LocalAI/issues/10070)): per-model TTL override, probabilistic LRU updates, and MCP scheduling-config tool parity.
+
+### Desktop launcher preparation
+
+The desktop launcher now validates a separate generic-worker launch profile, but
+**worker startup remains disabled** until runtime status and process-ownership
+integration is available. Use the existing CLI workflow above for deployments;
+changing the launcher's saved mode does not enable joining. See
+[launcher configuration](/features/launcher-configuration/) for the profile,
+authentication/TLS validation and log-security boundaries. This preparation does
+not add NATS discovery, P2P, another transport, or worker-side TLS termination.
+
+### Optional launcher-local worker evidence
+
+Generic workers support the opt-in, owner-only schema-1 status snapshot described
+in [Launcher configuration](/features/launcher-configuration/#private-worker-status-contract-runtime-support).
+It is disabled unless both launcher status environment values are supplied and
+adds no network endpoint. Existing unmanaged invocation remains unchanged.
+Heartbeat acknowledgements now require HTTP 2xx; a rejected heartbeat is no longer
+counted as success. Registration alone, static NATS credentials alone, and an
+unarmed `/readyz` response are not launcher readiness evidence.
+
+Launcher-managed workers now observe approval through the read-only,
+registration-token-protected `GET /api/node/:id/status` endpoint every ten seconds,
+even with non-expiring or static NATS credentials. A successful heartbeat alone
+does not prove approval. Managed credential refresh uses the `renew_node_id`
+registration request field to avoid restoring offline nodes or changing telemetry.
+Controllers lacking this support cannot provide launcher-ready evidence. See the
+[approval and process freshness contract](/features/launcher-configuration/#approval-and-process-freshness).
+
+Renewal failures downgrade launcher status even if approval, NATS, and heartbeat
+remain healthy. The snapshot records `renewal_failure` separately from retained
+credentials and current approval: `request_failed`, `pending`, or
+`missing_credentials`. Only a successful credential renewal clears this evidence;
+a successful approval query or heartbeat cannot clear it. A retained JWT can still
+work on the current connection while renewal needs attention.
+
+For dynamic credential-provider connections, repeated authentication errors after
+JWT expiry do not terminate NATS reconnect attempts. A successful renewal can
+restore the connection to a continuously running broker. Authentication and
+subscription permissions remain enforced, and readiness still requires fresh
+approval, renewal, NATS, readiness checks, and heartbeat evidence. Static and
+unauthenticated connection retry semantics are unchanged; the credential manager's
+existing bounded renewal retry policy still applies.
+
+#### Backend process ownership
+
+A worker records every backend process group it starts in
+`worker-processes.json` in its data directory (owner-only file, atomic replace).
+Each record holds the group leader's process ID, its start time and, for
+launcher-managed workers, the launch generation. The start time comes from
+`/proc` where it exists and from `ps` elsewhere, such as macOS, so a recycled
+process ID is not mistaken for a backend.
+
+- The worker does not run a backend whose record it cannot write. The start
+  fails and the new process is stopped.
+- A record is released only when the whole process group is gone. A group whose
+  leader exited but still has members is killed, and stays recorded if it
+  cannot be emptied within five seconds.
+- At startup the worker kills the groups an earlier worker left behind. If a
+  record cannot be resolved (the identity of a live group cannot be verified,
+  a group survives the kill, or the file is unreadable) the worker refuses to
+  start, kills nothing unverified, and keeps the record. Remove the file only
+  after you confirm that no backend process of the earlier worker is running.

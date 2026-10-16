@@ -4,11 +4,13 @@ import (
 	"github.com/mudler/LocalAI/core/cli/benchmark"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/cli/worker"
+	"github.com/mudler/LocalAI/pkg/workerstatus"
 )
 
 var CLI struct {
-	cliContext.Context `embed:""`
-	Benchmark          benchmark.Command `cmd:"" help:"Benchmark configured text models against a running LocalAI server"`
+	WorkerStatusCapability workerstatus.CapabilityCommand `cmd:"" name:"worker-status-capability" help:"Print the supported private worker status contract and exit"`
+	cliContext.Context     `embed:""`
+	Benchmark              benchmark.Command `cmd:"" help:"Benchmark configured text models against a running LocalAI server"`
 
 	Run             RunCMD             `cmd:"" help:"Run LocalAI, this the default command if no other command is specified. Run 'local-ai run --help' for more information" default:"withargs"`
 	Chat            ChatCMD            `cmd:"" help:"Run the built-in terminal agent against a LocalAI server"`
