@@ -2,7 +2,7 @@
 
 ## Status
 
-- Status: approved for implementation planning. Three questions stay open (see "Open questions").
+- Status: approved for implementation planning. One question stays open (see "Open questions"). Questions (a) and (b) were decided on 2026-10-16.
 - Date: 2026-10-16.
 - Owners: Ettore Di Giacinto (maintainer) and the AI agent that drafted this spec.
 - Branch: `feat/addons-tables` (PR 12702).
@@ -15,8 +15,10 @@
 3. Each tile has a pin control. Pinned add-ons appear in the sidebar under a Pinned section. Pinning is per user. The sidebar shows a short pinned list. The drawer shows all installed add-ons.
 4. Studio is an add-on. It contains Images, Audio and Video. Talk is an add-on. Both open from the drawer and can be pinned. Neither is a top-level item.
 5. Fine-tuning and quantization move out of core into an add-on. The API routes stay in core unless a later spec moves them.
-6. Four UI pages become UI-only add-ons: Face Recognition, Voice Recognition, Voice Library and Voice Profile Create. The `/v1/face` and `/v1/voice` APIs and the enrolled registries stay in core. The placement is approved. The shared-component and API-access questions are open.
+6. Faces and voices become two add-ons with their own lifecycle. The Voice add-on holds the voice library management (Voice Library, Voice Profile Create), voice recognition (Voice Recognition) and a new text-to-speech generation page. The Face add-on holds Face Recognition and its library management (the known-faces list and the enrol sheet). Core keeps only the API and the stores behind it: `/v1/face/*`, `/v1/voice/*`, `/api/voice-profiles`, the face and voice registries and the voice profile store. Studio keeps its own audio generation. The Voice text-to-speech page is a separate page that calls the same core text-to-speech route.
 7. Agents, Memory and Skills are candidates for later add-ons. They are out of scope here.
+8. Add-ons call core routes directly, with the signed-in user's own session (question (a), decided).
+9. Shared UI comes from the SDK, as primitives and per-component decisions (question (b), decided). Views and pages stay in the add-on that owns them.
 
 ## Background
 
@@ -110,9 +112,12 @@ This spec adds no manifest field. If implementation shows that a field is needed
 
 ### Built-in add-ons
 
-Studio, Talk, the fine-tuning and quantization tools and the four voice and face pages are shipped with LocalAI. They appear in the drawer like any installed add-on. Whether each one is a packaged add-on with a process or a UI-only add-on is part of the implementation plan. The navigation contract is the same either way: a title, an icon, a main page and a state.
+Studio, Talk, the fine-tuning and quantization tools, the Voice add-on and the Face add-on are shipped with LocalAI. They appear in the drawer like any installed add-on. The navigation contract is the same for all of them: a title, an icon, a main page and a state. There are two kinds.
 
-A UI-only add-on has no process. Its tile state is "running" while the feature is enabled and "stopped" when an administrator disables it.
+- **Page add-ons** (Studio, Talk, fine-tuning, quantization). Their pages are core React pages that stay in the core bundle. A server-side built-in catalog lists them and applies the gates in "Permissions". They have no process and no lifecycle of their own. Their tile state is "running" while the feature is enabled.
+- **Packaged add-ons** (Voice, Face). They are ordinary add-on packages under the existing contract: a manifest, a packaged UI module and an executable. The documented rule "every add-on requires an executable" stays. The executable of these two is a small protocol server that declares no tools and serves nothing. They have their own version, their own signature, and install, enable, disable, update and removal through the existing add-on flow. Their tile state is the process state, as for any add-on.
+
+This choice adds no manifest field and no contract change.
 
 ### The Pinned section
 
@@ -186,12 +191,66 @@ Built-in add-ons keep their current feature gates. Their pages move behind the d
 |---|---|---|
 | Fine-tuning | `fine_tuning` (`permissions.go:38`) | `fine_tuning`, plus `addons` to see the tile |
 | Quantization | `quantization` (`permissions.go:39`) | `quantization`, plus `addons` to see the tile |
-| Face Recognition | `face_recognition` (`permissions.go:61`) | same, plus `addons` |
-| Voice Recognition | `voice_recognition` (`permissions.go:62`) | same, plus `addons` |
-| Voice Library, Voice Profile Create | administrator (`router.jsx:239`, `router.jsx:298`) | administrator, plus `addons` |
-| Studio, Talk | none in the router (`router.jsx:212-216`); each tab inside Studio has its own gate (`Studio.jsx:26-32`) | `addons` to see the tile; inner gates unchanged |
+| Face Recognition | `face_recognition` (`permissions.go:61`) | same, plus `addons` (Face add-on) |
+| Voice Recognition | `voice_recognition` (`permissions.go:62`) | same, plus `addons` (Voice add-on) |
+| Voice Library, Voice Profile Create | administrator (`router.jsx:239`, `router.jsx:298`) | administrator, plus `addons` (Voice add-on) |
+| Voice text-to-speech page (new) | `audio_speech` on `/v1/audio/speech` (`features.go`) | same, plus `addons` (Voice add-on) |
+| Studio, Talk | none in the router (`router.jsx:212-216`); each tab inside Studio has its own gate (`Studio.jsx:26-32`) | no `addons` gate; inner gates unchanged |
 
-A built-in add-on tile is shown only when the viewer passes both its own gate and the `addons` gate. This keeps a user who today reaches Studio without the `addons` feature from losing access. The implementation plan must decide how: either Studio and Talk tiles ignore the `addons` gate, or the `addons` feature is granted by default for these built-ins. This is a detail to settle in the plan. The rule is that no user loses access to a page they can open today.
+The two packaged add-ons (Voice, Face) are listed by the Apps view, so the `addons` gate applies to them as to any packaged add-on. Their pages are gated again inside the add-on by the feature of each page, and the server checks every core call (see "Core routes from add-ons").
+
+**Decision: the gate rule for Studio and Talk.** The Studio and Talk tiles ignore the `addons` gate. They are page add-ons, listed by the server-side built-in catalog, which applies only their own gates (none for Studio and Talk, the inner Studio gates unchanged). The Add-ons item and the drawer show for a viewer who holds the `addons` feature or who sees at least one built-in tile. A viewer without the `addons` feature sees the built-in tiles only: no packaged add-on tile, no Browse, no Add entry, and the Apps routes still answer 403. The rule that no user loses access to a page they can open today holds. This replaces the line "A user without the `addons` feature sees no Add-ons item" for the built-in tiles only.
+
+### Core routes from add-ons
+
+**Decision (question (a)).** An add-on UI may call core routes directly: `/v1/face/*`, `/v1/voice/*`, `/api/voice-profiles`, `/v1/audio/speech` and any other core route the add-on page needs.
+
+- The call is made with the signed-in user's own session. It goes through the same middleware as any browser request: `auth.Middleware` resolves the session cookie (`core/http/auth/middleware.go:41`), `auth.RequireRouteFeature` applies `RouteFeatureRegistry` (`core/http/auth/features.go:109-135`, middleware at `middleware.go:248`), `auth.RequireAdmin` guards admin routes (`middleware.go:122`) and `auth.CSRFMiddleware` applies the fetch-metadata check (`core/http/auth/csrf.go:12`).
+- The add-on gets no extra or elevated credential. It never sees a token, a cookie value or an `Authorization` header, and it cannot widen what the user may do. An admin-only route stays admin-only for that user: a non-administrator gets 403.
+- The mechanism is an SDK helper, `sdk.core.fetch(path, init)`. It wraps the browser `fetch` with `credentials: 'same-origin'`, `mode: 'same-origin'` and `redirect: 'error'`. The browser, not the add-on, sets the `Sec-Fetch-Site` header that the existing checks read (`csrf.go:19-22`, `core/http/endpoints/addons/gateway.go:248-258`). The helper refuses an absolute URL, a path with `..`, the prefix `/api/addons/` (typed add-on calls have their own bound identity) and the prefix `/api/auth/` (account credentials). It refuses every call after the add-on is withdrawn.
+- No new permission model and no new contract field.
+
+## Shared UI in the SDK
+
+**Decision (question (b)).** The SDK holds shared primitives. Views and pages always live in the add-on that owns them, never in the SDK. For a domain widget, the rule is: used by one add-on, it stays in that add-on; used by more than one add-on, it moves to the SDK. Core keeps a single copy: the host component files stay where they are and the SDK re-exports them, so core pages render what they rendered before.
+
+The SDK surface is versioned with the add-on contract. This change raises the host SDK version from 1 to 2. An add-on declares the SDK range it needs in `ui.sdk`, which exists today (`manifest.go:180`). An add-on that needs SDK 2 and runs on a host that provides SDK 1 is refused at install with the error "the add-on needs SDK 2 to 2 and this host provides SDK 1". An add-on built for SDK 1 only (`max: 1`) is refused by a version 2 host, so the manifests that ship in this repository declare `min: 1, max: 2`.
+
+### Classification of the components the four pages import
+
+Counted from the code: `grep` for each import under `core/http/react-ui/src`. "Add-ons" are the add-ons that use the component after the move: Studio (page add-on), Voice and Face.
+
+| Component | Importers | Add-ons that use it | Decision | Reason |
+|---|---|---|---|---|
+| `Icon` | 200 files | all | SDK, already exported (`sdk.Icon`) | Primitive. |
+| `LoadingSpinner` | 46 | all | SDK, already exported (`Spinner`) | Primitive. |
+| `EmptyState` | `VoiceLibrary.jsx`, `hostServices.js` | Voice | SDK, already exported (`EmptyState`) | Primitive. |
+| `StatusPill` | 3 | all | SDK, already exported (`Badge`) | Primitive. |
+| `SideSheet` | 9 | Voice | SDK, already available as `sdk.layers.openPanel` | Primitive; the host owns layers. |
+| `PageHeader` | 17 | Voice, Face | SDK, new (`ui.PageHeader`) | Primitive used by two add-ons and 15 core pages. |
+| `ConfirmDialog` | 25 | Voice | SDK, new (`ui.ConfirmDialog`) | Dialog primitive; focus and Escape handling must be one copy. |
+| `ErrorWithTraceLink` | `MoreFaceTools`, `MoreVoiceTools` | Voice, Face | SDK, new (`ui.ErrorWithTraceLink`) | Primitive used by two add-ons. |
+| `UnsavedChangesGuard` | 5 | Voice | not exported | The SDK already has `sdk.markDirty`. |
+| `HomeUndoToast` | 13 | Face, Voice | not exported | The SDK already has `sdk.notify`. |
+| `ModelSelector` | `VoiceRecognition`, `FaceRecognition`, `AgentTaskDetails`, `studio/Workspace` | Studio, Voice, Face | SDK, new (`ui.ModelSelector`) | Form control used by three add-ons. |
+| `biometrics/MediaInput` | `ThreeDGen`, `VideoGen`, `MoreFaceTools`, `MoreVoiceTools` | Studio, Face, Voice | SDK, new (`ui.MediaInput`) | More than one add-on. |
+| `audio/WaveformPlayer` | `TTS`, `Sound`, `AudioTransform`, `VoiceLibrary`, `VoiceProfileCreate`, `ClipInput`, `BackendTraceDetail` | Studio, Voice | SDK, new (`ui.WaveformPlayer`) | More than one add-on, and core uses it. |
+| `hooks/useMediaCapture` | `AudioTransform`, `MediaInput`, `ClipInput` | Studio, Voice, Face (through `MediaInput`) | SDK, new (`hooks.useMediaCapture`) | More than one add-on. |
+| `hooks/useObjectUrl` | `ThreeDGen`, `Diarization`, `AudioTransform`, `ClipInput` | Studio, Voice | SDK, new (`hooks.useObjectUrl`) | More than one add-on. |
+| `hooks/useDelayedAction` | `identity/useRegistry`, `users/ApiKeysPanel` | Voice, Face (through `useRegistry`) | SDK, new (`hooks.useDelayedAction`) | More than one add-on. |
+| `biometrics/DistributionBars` | `MoreFaceTools`, `MoreVoiceTools` | Face, Voice | SDK, new (`ui.DistributionBars`) | More than one add-on. |
+| `biometrics/EmbeddingInspector` | `MoreFaceTools`, `MoreVoiceTools` | Face, Voice | SDK, new (`ui.EmbeddingInspector`) | More than one add-on. |
+| `biometrics/TabSwitch` | `MoreFaceTools`, `MoreVoiceTools` | Face, Voice | SDK, new (`ui.TabSwitch`) | More than one add-on. |
+| `biometrics/BoundingBoxCanvas` | `MoreFaceTools`, `Workbench` | Face | stays in the Face add-on | One add-on: the voice side of `Workbench` never draws a box (`Workbench.jsx:310`). |
+| `biometrics/WaveformStrip` | `MoreVoiceTools` | Voice | stays in the Voice add-on | One add-on. |
+| `biometrics/MatchGauge` | none | none | stays in core, not exported | No importer. Not part of this change. |
+| `audio/Spectrogram` | `AudioTransform` | Studio | stays in core | One add-on, and Studio is a page add-on in the core bundle. |
+| `identity/ClipInput` | `Workbench`, `EnrolSheet`, `VoiceProfileCreate` | Face, Voice | stays in the add-ons, in one shared source directory | Two add-ons use it, but it depends on the identity helpers (`utils/identity`, `utils/referenceAudio`), which are not generic. It is built from `MediaInput`, `WaveformPlayer` and `useMediaCapture` from the SDK. |
+| `identity/Workbench`, `KnownList`, `EnrolSheet`, `Verdict`, `DistanceScale`, `ErrorNote`, `useRegistry` | `Workbench` and its children | Face, Voice | stay in the add-ons, in the same shared source directory | These are views. A view never goes in the SDK. Both add-ons build from one source copy, not two. |
+| `identity/MoreFaceTools`, `FeatureOff`, `ModelNeeded` | pages | Face (`MoreFaceTools`), both (`ModelNeeded`) | stay in the add-ons | Views. |
+| `identity/MoreVoiceTools` | `VoiceRecognition` | Voice | stays in the Voice add-on | View. |
+
+The shared source directory is `addons/internal/identity-ui/src`. Each add-on bundles what it imports from it. The SDK never contains it.
 
 ## Migration
 
@@ -217,10 +276,11 @@ Routes below come from `core/http/react-ui/src/utils/destinations.js`, `core/htt
 | `/app/talk` | Create group | Talk add-on, main page. Same path. |
 | `/app/fine-tune` | Build hub | Fine-tuning and quantization add-on. |
 | `/app/quantize` | Build hub | Fine-tuning and quantization add-on. |
-| `/app/face`, `/app/face/:model` | Build hub | Face Recognition add-on. |
-| `/app/voice`, `/app/voice/:model` | Build hub | Voice Recognition add-on. |
-| `/app/voice-library` | Build hub (match) | Voice Library add-on (placement open, see question c). |
-| `/app/voice-library/new` | page | Voice Profile Create add-on. |
+| `/app/face`, `/app/face/:model` | Build hub | Face add-on, page `recognition` (`/app/addons/face/recognition`). |
+| `/app/voice`, `/app/voice/:model` | Build hub | Voice add-on, page `recognition` (`/app/addons/voice/recognition`). |
+| `/app/voice-library` | Build hub (match) | Voice add-on, page `library` (`/app/addons/voice/library`). Whether it also has a drawer tile of its own is open, see question (c). |
+| `/app/voice-library/new` | page | Voice add-on, page `create` (`/app/addons/voice/create`). |
+| (new) | none | Voice add-on, page `speech`: text-to-speech generation. No old route. |
 | `/app/addons` | Build hub tab | Add-ons (top level), drawer page. |
 | `/app/addons/:addonId/*` | add-on pages | unchanged |
 | `/app/build`, `/app/agents`, `/app/skills`, `/app/collections`, `/app/agent-jobs`, `/app/import-model` | Build hub | unchanged; out of scope |
@@ -244,7 +304,7 @@ Rules for redirects:
 
 ### Sidebar after migration
 
-- The Create group is removed. Chat moves to the top level. Studio and Talk leave the sidebar unless the user pins them.
+- The Create group is removed. Chat moves to the top level. Studio and Talk leave the sidebar unless the user pins them. Home and the Build and Operate hub entries stay where they are today.
 - The Build and Operate hubs keep their tabs, except for the tabs that moved to add-ons. The fine-tuning, quantization, Face, Voices and Add-ons tabs leave the Build hub. The hub's `addonNavigation` second row (`hubConfig.js:74`) goes away: its job moves to the drawer and to the pinned group.
 - Users who had Studio or Talk in the sidebar see them in the drawer. On first load after the upgrade, the server pins Studio and Talk for existing users so the layout does not change under them. This one-time seed runs once per user and never again, so a later unpin sticks.
 
@@ -254,21 +314,19 @@ The change that implements this spec must update the pages under `docs/content/`
 
 ## Open questions
 
-These are not decided. Each one needs an answer before the add-on that depends on it is built.
+Question (c) is not decided and needs an answer before the work that depends on it is built. Questions (a) and (b) are decided.
 
 ### (a) Direct API calls from the face and voice add-ons
 
-The Face Recognition and Voice Recognition pages call `/v1/face/*` and `/v1/voice/*`. The Voice Library page uses `/api/voice-profiles`. These routes stay in core and are gated by the user's feature permissions (`core/http/auth/features.go:109-135`).
-
-Open: may a UI-only add-on call these core routes directly from the browser? If yes, how does the call authenticate? Two options exist: the add-on page uses the user's session, as core pages do today; or the call goes through the add-on gateway with a declared scope. The first is simple but gives the add-on code the full API reach of the user. The second needs a new contract concept. No decision yet.
+Decided on 2026-10-16. See "Core routes from add-ons".
 
 ### (b) Shared UI components
 
-The moved pages use shared components: the media input, the waveform player, the media capture hook and the page header. Open: does the add-on SDK (`core/http/react-ui/src/addons/sdk.js`, `hostComponents.jsx`) export them, or does each add-on copy them? Export keeps one copy and a consistent look, but it widens the SDK surface and its version contract. Copying avoids the contract change but forks the code. No decision yet.
+Decided on 2026-10-16. See "Shared UI in the SDK".
 
 ### (c) Where the Voice Library entry lives
 
-Voice Library lists the enrolled speech voices. It can be a tile of its own, a tab of the Voice Recognition add-on, or a page of the Studio Audio area. The approved placement says it is a UI-only add-on. Open: whether its drawer entry is a separate tile or is reached from another add-on. No decision yet.
+Voice Library lists the enrolled speech voices. The approved placement puts it in the Voice add-on, as the page `library`. Open: whether it also has a drawer tile of its own, or is reached only from inside the Voice add-on. No decision yet. The implementation plan does not start this work.
 
 ## Test plan
 
@@ -294,7 +352,8 @@ Permission filtering:
 
 - A non-administrator does not see disabled add-ons, in the drawer or in the Pinned section.
 - An administrator sees disabled add-ons as stopped, with a Start action.
-- A user without the `addons` feature sees no Add-ons item and gets the no-access page on `/app/addons`.
+- A user without the `addons` feature sees the built-in tiles (Studio and Talk) and no packaged add-on tile, no Browse and no Add entry. `GET /api/addons/apps` answers 403 for that user.
+- A non-administrator who calls an admin-only core route from an add-on gets 403. A user without the feature of a core route gets 403 from it.
 - A user without `face_recognition` does not see the Face tile. A user without `fine_tuning` does not see the fine-tuning tile.
 - No user loses access to a page they can open before the change.
 - The pins route never returns an ID the caller cannot see.
@@ -319,7 +378,7 @@ Quality gates:
 
 - The sidebar shows Chat, Models, Add-ons, Settings and the Pinned section.
 - The drawer lists installed add-ons with the states above, search, Browse and Add.
-- Studio, Talk, fine-tuning and quantization open from the drawer. The four voice and face pages open from the drawer once questions (a) to (c) are answered.
+- Studio, Talk, fine-tuning and quantization open from the drawer. The Voice and Face add-ons open from the drawer. The only open item is whether Voice Library has a tile of its own (question (c)).
 - Every old route in the table opens the same content.
 - Pins are stored per user on the server and survive a browser change.
 - No permission check is weaker than before.
@@ -335,7 +394,8 @@ Quality gates:
 | Old bookmarks break | Dead links | Keep all redirects. Test all of them. |
 | Pin table adds state to every frontend | Divergence between frontends | Store in the shared database. Test with two frontends. |
 | The drawer hides tools that users used to reach in one click | Slower daily use | Seed Studio and Talk as pins. Allow eight pins. |
-| Open questions (a) to (c) delay the voice and face pages | Those pages stay in core longer | Ship the navigation first. Move those four pages in a later change. |
+| The SDK version rises from 1 to 2 | An add-on built for SDK 1 only is refused | The manifests in this repository declare `min: 1, max: 2`. The refusal message names both ranges. |
+| An add-on calls a core route with the user's session | The add-on code has the full API reach of the user | Gates stay on the server. The helper refuses `/api/addons/` and `/api/auth/`. Test the 403 paths. |
 | Third-party add-ons expect `ui.navigation` to appear in the Build hub | Their links move | Keep the paths. Show the links in the add-on detail view and in the pinned group. |
 
 ### Rollback
