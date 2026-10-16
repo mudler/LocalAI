@@ -60,7 +60,7 @@ var _ = Describe("private catalogs", func() {
 					Expect(u).To(Equal("user"))
 					Expect(p).To(Equal("secret"))
 				}
-				WriteIndex(w, []Release{release()})
+				_ = WriteIndex(w, []Release{release()})
 			})
 			auth := "bearer: secret"
 			if kind == "basic" {
@@ -93,7 +93,7 @@ var _ = Describe("private catalogs", func() {
 		onlyOther.AddonID, onlyOther.Name = "notes", "Notes"
 		onlyOther.OS, onlyOther.Arch = "windows", "arm64"
 		server := library(func(w http.ResponseWriter, r *http.Request) {
-			WriteIndex(w, []Release{release(), other, onlyOther})
+			_ = WriteIndex(w, []Release{release(), other, onlyOther})
 		})
 		s := setup()
 		save(s, "main", server.URL)
@@ -136,7 +136,7 @@ var _ = Describe("private catalogs", func() {
 		Expect(e.Error()).NotTo(ContainSubstring("hidden"))
 	})
 	It("keeps duplicate names source scoped and excludes disabled sources", func() {
-		server := library(func(w http.ResponseWriter, r *http.Request) { WriteIndex(w, []Release{release()}) })
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, []Release{release()}) })
 		s := setup()
 		c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
 		for _, id := range []string{"one", "two"} {
@@ -163,7 +163,7 @@ var _ = Describe("private catalogs", func() {
 				http.Error(w, "secret", 401)
 				return
 			}
-			WriteIndex(w, []Release{release()})
+			_ = WriteIndex(w, []Release{release()})
 		})
 		s := setup()
 		save(s, "one", server.URL)
@@ -187,7 +187,7 @@ var _ = Describe("target platform resolution", func() {
 		if host.Arch == other.Arch {
 			other.Arch = "amd64"
 		}
-		server := library(func(w http.ResponseWriter, r *http.Request) { WriteIndex(w, []Release{host, other}) })
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, []Release{host, other}) })
 		s := setup()
 		save(s, "one", server.URL)
 		_, e := s.Refresh(ctx, "one")
@@ -205,7 +205,7 @@ var _ = Describe("owner target override", func() {
 		arm := amd
 		arm.Arch = "arm64"
 		arm.Digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-		server := library(func(w http.ResponseWriter, r *http.Request) { WriteIndex(w, []Release{amd, arm}) })
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, []Release{amd, arm}) })
 		s := setup()
 		save(s, "one", server.URL)
 		_, e := s.Refresh(ctx, "one")
@@ -241,7 +241,7 @@ var _ = Describe("package references", func() {
 			r := release()
 			r.Artifact = tc.artifact
 			r.Channel = "development"
-			server := library(func(w http.ResponseWriter, _ *http.Request) { WriteIndex(w, []Release{r}) })
+			server := library(func(w http.ResponseWriter, _ *http.Request) { _ = WriteIndex(w, []Release{r}) })
 			s := setup()
 			Expect(s.Save(ctx, admin, Source{ID: "test", Name: "Test", URL: server.URL, Enabled: true, AllowLoopbackHTTP: tc.allow})).To(Succeed())
 			_, e := s.Refresh(ctx, "test")
@@ -273,7 +273,7 @@ var _ = Describe("catalog display metadata", func() {
 		return []Release{plain, app}
 	}
 	refresh := func(releases []Release) (Catalog, error) {
-		server := library(func(w http.ResponseWriter, r *http.Request) { WriteIndex(w, releases) })
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, releases) })
 		s := setup()
 		save(s, "main", server.URL)
 		_, e := s.Refresh(ctx, "main")

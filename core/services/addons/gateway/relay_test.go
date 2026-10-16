@@ -89,13 +89,13 @@ func (f *fakeArtifacts) Serve(ctx context.Context, _ contract.Actor, id string, 
 	f.active.Store(true)
 	defer f.active.Store(false)
 	r := f.open(ctx)
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	stop := make(chan struct{})
 	defer close(stop)
 	go func() {
 		select {
 		case <-ctx.Done():
-			r.Close()
+			_ = r.Close()
 		case <-stop:
 		}
 	}()
@@ -177,7 +177,7 @@ var _ = Describe("bounded private relays", func() {
 	})
 	It("closes interrupted output and releases admission on disconnect", func() {
 		reader, writer := io.Pipe()
-		defer writer.Close()
+		defer func() { _ = writer.Close() }()
 		started := make(chan struct{})
 		files := &fakeArtifacts{art: Artifact{ID: fakeArtifactID, Name: "r.csv", MediaType: "text/csv", Size: 4}, open: func(context.Context) io.ReadCloser { close(started); return reader }}
 		g := &Gateway{Artifacts: files, Revalidate: func(context.Context, contract.Actor) error { return nil }}
@@ -219,12 +219,12 @@ var _ = Describe("relay lifecycle cancellation", func() {
 		_, cs := carrierFixture(func(c *Carrier) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/addons/audience" {
-					w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+					_, _ = w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
 					return
 				}
-				io.Copy(io.Discard, r.Body)
+				_, _ = io.Copy(io.Discard, r.Body)
 				w.Header().Set("Content-Type", "text/event-stream")
-				w.Write([]byte("event: lifecycle\ndata: {}\n\n"))
+				_, _ = w.Write([]byte("event: lifecycle\ndata: {}\n\n"))
 				w.(http.Flusher).Flush()
 				<-r.Context().Done()
 				close(canceled)
@@ -245,7 +245,7 @@ var _ = Describe("immutable asset containment", func() {
 		p := packages.PackageReceipt{Directory: root, Manifest: contract.Manifest{Capabilities: contract.Capabilities{UI: &contract.UI{Entry: "ui.js"}}}}
 		f, e := openAsset(p, "ui.js")
 		Expect(e).NotTo(HaveOccurred())
-		f.Close()
+		_ = f.Close()
 		_, e = openAsset(p, "../secret")
 		Expect(e).To(HaveOccurred())
 		Expect(os.Symlink(filepath.Join(GinkgoT().TempDir(), "secret"), filepath.Join(root, "outside.js"))).To(Succeed())

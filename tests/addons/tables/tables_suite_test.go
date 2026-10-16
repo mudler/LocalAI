@@ -46,7 +46,6 @@ type rig struct {
 	store     *policy.Store
 	policyDir string
 	installed bool
-	accounts  map[string]bool
 }
 
 func (r *rig) Runtime(ctx context.Context, id string) (addonruntime.Instance, error) {

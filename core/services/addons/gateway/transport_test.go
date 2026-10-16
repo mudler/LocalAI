@@ -120,13 +120,13 @@ var _ = Describe("real owner transport", func() {
 		_, cs := carrierFixture(func(c *Carrier) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/addons/audience" {
-					w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+					_, _ = w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
 					return
 				}
 				dispatches.Add(1)
 				conn, _, e := w.(http.Hijacker).Hijack()
 				Expect(e).NotTo(HaveOccurred())
-				conn.Close()
+				_ = conn.Close()
 			})
 		})
 		_, e := cs["front-a"].Dispatch(context.Background(), contract.Actor{UserID: "u", CredentialID: "k", Mode: "named-user"}, contract.Request{OperationID: "same-id", Action: "enable"})
@@ -137,7 +137,7 @@ var _ = Describe("real owner transport", func() {
 		_, cs := carrierFixture(func(c *Carrier) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/addons/audience" {
-					w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+					_, _ = w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
 					return
 				}
 				w.Header().Set("Content-Type", "application/octet-stream")

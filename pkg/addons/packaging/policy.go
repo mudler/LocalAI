@@ -316,6 +316,6 @@ func cmdPolicy(args []string) error {
 	if len(problems) > 0 {
 		return errors.New(strings.Join(problems, "\n"))
 	}
-	fmt.Fprintf(stdout, "workflow-policy=passed\n")
+	_, _ = fmt.Fprintf(stdout, "workflow-policy=passed\n")
 	return nil
 }

@@ -213,10 +213,10 @@ var _ = Describe("typed owner failure status", func() {
 		env := carrierFixtureWith(RelayLimits{}, func(*Carrier) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/addons/audience" {
-					w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+					_, _ = w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
 					return
 				}
-				io.Copy(io.Discard, r.Body)
+				_, _ = io.Copy(io.Discard, r.Body)
 				w.Header().Set("Content-Type", "application/octet-stream")
 				w.Header().Set("Content-Disposition", `attachment; filename="r.bin"`)
 				w.Header().Set("Cache-Control", "no-store")

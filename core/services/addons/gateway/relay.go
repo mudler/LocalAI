@@ -268,7 +268,7 @@ func (g *Gateway) copy(ctx context.Context, a contract.Actor, w io.Writer, r io.
 	go func() {
 		select {
 		case <-ctx.Done():
-			r.Close()
+			_ = r.Close()
 		case <-stop:
 		}
 	}()
@@ -329,7 +329,7 @@ func (g *Gateway) asset(ctx context.Context, a contract.Actor, r RelayRequest, w
 	if e != nil {
 		return e
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	info, e := f.Stat()
 	if e != nil || !info.Mode().IsRegular() || info.Size() > limits.AssetBytes {
 		return ErrForbidden
@@ -362,6 +362,6 @@ func openAsset(p packages.PackageReceipt, name string) (*os.File, error) {
 	if e != nil {
 		return nil, e
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	return root.Open(name)
 }

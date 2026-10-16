@@ -57,7 +57,7 @@ func (c *Carrier) apps(ctx context.Context, a contract.Actor) (apps.List, error)
 	if e != nil {
 		return apps.List{}, e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var list apps.List
 	if e = decode(io.LimitReader(resp.Body, 2<<20), &list); e != nil {
 		return apps.List{}, ErrUnavailable
@@ -81,12 +81,12 @@ func (g *Gateway) icon(ctx context.Context, a contract.Actor, r RelayRequest, w 
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	f, e := root.Open(icon.Path)
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	b, e := io.ReadAll(io.LimitReader(f, contract.MaxIconBytes+1))
 	if e != nil || int64(len(b)) != icon.Size || icon.Size > contract.MaxIconBytes || fmt.Sprintf("sha256:%x", sha256.Sum256(b)) != icon.Digest {
 		// The package changed after it was verified. Never serve it.

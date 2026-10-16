@@ -322,10 +322,10 @@ var _ = Describe("Addon recovery state of the policy: revocation history", func(
 		Expect(rep.GrantsRestored).To(BeZero())
 		Expect(rep.GrantsDropped).To(Equal(len(users)))
 		// A backup made after the floor is not affected.
-		exp2, err := port.Export(bg, "fixture")
+		_, err = port.Export(bg, "fixture")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(f.policy.SetGrant(bg, owner, key, "bob", RoleEditor)).To(Succeed())
-		exp2, err = port.Export(bg, "fixture")
+		exp2, err := port.Export(bg, "fixture")
 		Expect(err).NotTo(HaveOccurred())
 		rep, err = port.Restore(bg, "fixture", exp2, recovery.RestoreOptions{Since: time.Now().UTC().Add(time.Hour), Account: accountsAll})
 		Expect(err).NotTo(HaveOccurred())

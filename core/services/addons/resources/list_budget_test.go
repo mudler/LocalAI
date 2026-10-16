@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/gomega"
 )
 
 // readCounter is an add-on client that answers every read with a name after a
@@ -42,10 +43,9 @@ func (c *readCounter) Read(_ context.Context, e contract.Envelope) (contract.Res
 // a call over the budget, so a listing that takes all of it makes a page that
 // reads while it lists fail.
 func TestListingLeavesPartOfTheAddonBudgetToOtherReads(t *testing.T) {
+	g := NewWithT(t)
 	store, err := policy.OpenStore(t.TempDir(), policy.ModeNamedUser)
-	if err != nil {
-		t.Fatal(err)
-	}
+	g.Expect(err).NotTo(HaveOccurred())
 	t.Cleanup(func() { _ = store.Close() })
 	p := policy.New(store, policy.Options{
 		Revalidate:      func(context.Context, contract.Actor) error { return nil },
@@ -55,9 +55,8 @@ func TestListingLeavesPartOfTheAddonBudgetToOtherReads(t *testing.T) {
 	ctx := context.Background()
 	for i := 0; i < 12; i++ {
 		id := fmt.Sprintf("r%031x", i)
-		if _, err = p.CreateWithID(ctx, bob, "tables", id, fmt.Sprintf("ref-%d", i), func(context.Context, policy.ResourceKey) error { return nil }); err != nil {
-			t.Fatal("create:", err)
-		}
+		_, err = p.CreateWithID(ctx, bob, "tables", id, fmt.Sprintf("ref-%d", i), func(context.Context, policy.ResourceKey) error { return nil })
+		g.Expect(err).NotTo(HaveOccurred(), "create")
 	}
 	client := &readCounter{}
 	limits := contract.DefaultLimits()
@@ -67,18 +66,12 @@ func TestListingLeavesPartOfTheAddonBudgetToOtherReads(t *testing.T) {
 	}
 	s := New(Options{Policy: p, Runtime: fixedRuntime{addonruntime.Instance{Generation: 1, Client: client}}, Capabilities: fixedCaps{caps}, Limits: limits})
 	list, err := s.List(ctx, bob, "tables")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(list.Resources) != 12 {
-		t.Fatalf("listed %d resources", len(list.Resources))
-	}
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(list.Resources).To(HaveLen(12))
 	for _, r := range list.Resources {
-		if r.Name == "" {
-			t.Fatalf("a name did not arrive: %+v", r)
-		}
+		g.Expect(r.Name).NotTo(BeEmpty(), "a name did not arrive: %+v", r)
 	}
-	if want := int(limits.Concurrency / 2); client.max > want || client.max < 1 {
-		t.Fatalf("a listing used %d reads at once, the add-on allows %d and the listing may take %d", client.max, limits.Concurrency, want)
-	}
+	want := int(limits.Concurrency / 2)
+	g.Expect(client.max).To(BeNumerically("<=", want), "the add-on allows %d reads at once", limits.Concurrency)
+	g.Expect(client.max).To(BeNumerically(">=", 1))
 }

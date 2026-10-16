@@ -351,7 +351,7 @@ func hasCatalog(ctx context.Context, q queryer) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	ok := rows.Next()
 	return ok, rows.Err()
 }
@@ -370,17 +370,17 @@ func readCatalog(ctx context.Context, q queryer) ([]catalogTable, error) {
 	for rows.Next() {
 		var t catalogTable
 		if err = rows.Scan(&t.ID, &t.Name, &t.key); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		t.Columns = []ColumnSchema{}
 		out = append(out, t)
 	}
 	if err = rows.Err(); err != nil {
-		rows.Close()
+		_ = rows.Close()
 		return nil, err
 	}
-	rows.Close()
+	_ = rows.Close()
 	for i := range out {
 		cr, err := q.QueryContext(ctx, "SELECT column_id,name,name_key,type,required,uniq,default_json FROM tables_catalog_columns WHERE table_id=? ORDER BY position", out[i].ID)
 		if err != nil {
@@ -391,7 +391,7 @@ func readCatalog(ctx context.Context, q queryer) ([]catalogTable, error) {
 			var def sql.NullString
 			var req, uniq int
 			if err = cr.Scan(&c.ID, &c.Name, &c.key, &c.Type, &req, &uniq, &def); err != nil {
-				cr.Close()
+				_ = cr.Close()
 				return nil, err
 			}
 			c.Required, c.Unique = req == 1, uniq == 1
@@ -402,7 +402,7 @@ func readCatalog(ctx context.Context, q queryer) ([]catalogTable, error) {
 			out[i].Columns = append(out[i].Columns, c.ColumnSchema)
 		}
 		err = cr.Err()
-		cr.Close()
+		_ = cr.Close()
 		if err != nil {
 			return nil, err
 		}
@@ -703,12 +703,12 @@ func (s *Store) rebuild(ctx context.Context, tx *sql.Tx, id string, keep []catal
 	for rows.Next() {
 		var n string
 		if err = rows.Scan(&n); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
 		old[n] = true
 	}
-	rows.Close()
+	_ = rows.Close()
 	var copyCols []string
 	for _, n := range names {
 		if old[n] {
@@ -801,12 +801,12 @@ func (s *Store) PreviewSchema(ctx context.Context, request SchemaChange) (contra
 	if err != nil {
 		return contract.Preview{}, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return contract.Preview{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	m, err := readMeta(ctx, tx)
 	if err != nil {
 		return contract.Preview{}, err
@@ -858,7 +858,7 @@ func (s *Store) ApplySchema(ctx context.Context, request SchemaChange, expected 
 	if err != nil {
 		return contract.Receipt{}, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if !found {
 		if err = s.begin(ctx, opRow{ID: operationID, Kind: "schema", Resource: request.ResourceID, Name: hash}); err != nil {
 			return contract.Receipt{}, err
@@ -876,7 +876,7 @@ func (s *Store) ApplySchema(ctx context.Context, request SchemaChange, expected 
 		forget()
 		return contract.Receipt{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err = tx.ExecContext(ctx, catalogSchema); err != nil {
 		forget()
 		return contract.Receipt{}, capacityError(err)

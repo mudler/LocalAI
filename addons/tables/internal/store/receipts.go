@@ -72,7 +72,7 @@ func (s *Store) LookupReceipt(ctx context.Context, operationID string) (contract
 		}
 		return contract.Receipt{}, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if ok, e := hasReceipts(ctx, db); e != nil {
 		return contract.Receipt{}, e
 	} else if !ok {

@@ -22,14 +22,6 @@ import (
 
 var frontActor = contract.Actor{UserID: "u", CredentialID: "k", Mode: "named-user"}
 
-// denyResolver always resolves the request to the same host-recorded binding but
-// can be told to refuse, which models a resource that was removed or never bound.
-type denyResolver struct{ resolved }
-
-func (denyResolver) Resolve(context.Context, contract.Actor, contract.Request) (ResourceKey, error) {
-	return ResourceKey{}, ErrForbidden
-}
-
 var _ = Describe("owner denial before the first byte", func() {
 	owner := func(g *Gateway) *fixtureEnv {
 		return carrierFixtureWith(RelayLimits{}, func(c *Carrier) http.Handler {
@@ -107,11 +99,11 @@ var _ = Describe("per kind frontend budgets", func() {
 		env := carrierFixtureWith(limits, func(*Carrier) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/addons/audience" {
-					w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+					_, _ = w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
 					return
 				}
-				io.Copy(io.Discard, r.Body)
-				w.Write(make([]byte, size.Load()))
+				_, _ = io.Copy(io.Discard, r.Body)
+				_, _ = w.Write(make([]byte, size.Load()))
 			})
 		})
 		relay := func(kind string) error {
@@ -143,7 +135,7 @@ var _ = Describe("certificate pins", func() {
 			DeferCleanup(client.CloseIdleConnections)
 			resp, e := client.Get("https://" + env.server.Listener.Addr().String() + "/addons/audience")
 			Expect(e).NotTo(HaveOccurred())
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return resp.StatusCode
 		}
 		Expect(get("front-a")).To(Equal(200))
@@ -161,7 +153,7 @@ var _ = Describe("certificate pins", func() {
 		})
 		impostor := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hits.Add(1)
-			w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+			_, _ = w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
 		}))
 		impostor.TLS = &tls.Config{Certificates: []tls.Certificate{env.certs["stranger"]}, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: env.roots, MinVersion: tls.VersionTLS13}
 		impostor.StartTLS()

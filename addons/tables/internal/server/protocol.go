@@ -90,7 +90,7 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 			return
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, startup.Limits.EnvelopeBytes)
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 		decoder := json.NewDecoder(r.Body)
 		decoder.DisallowUnknownFields()
 		read := func(v any) bool {
@@ -162,7 +162,7 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 				reply(nil, err)
 				return
 			}
-			defer body.Close()
+			defer func() { _ = body.Close() }()
 			w.Header().Set("Content-Type", "application/octet-stream")
 			_, _ = io.Copy(w, io.LimitReader(body, startup.Limits.ArtifactBytes+1))
 		default:

@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -216,17 +215,6 @@ func (d *deployment) rowCount(node, user, res string) int {
 	return len(rows)
 }
 
-func esc(s string) string { return url.PathEscape(s) }
-
-func contains(s string, parts ...string) bool {
-	for _, p := range parts {
-		if !strings.Contains(s, p) {
-			return false
-		}
-	}
-	return true
-}
-
 // chatTool sends one scripted tool call through the chat completions route as
 // the API key of a user. The scripted model answers its first turn with the
 // call, so the broker, the executor and the owner see a real call.
@@ -287,10 +275,10 @@ func (d *deployment) receipts(res string) []string {
 	GinkgoHelper()
 	db, err := sql.Open("sqlite3", "file:"+d.databaseFile(res)+"?mode=ro&_busy_timeout=5000")
 	Expect(err).NotTo(HaveOccurred())
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	rows, err := db.Query("SELECT operation_id FROM tables_schema_receipts ORDER BY applied_at, operation_id")
 	Expect(err).NotTo(HaveOccurred())
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []string
 	for rows.Next() {
 		var id string

@@ -49,7 +49,7 @@ func ledgerExec(dir, query string, args ...any) {
 	GinkgoHelper()
 	db, e := sql.Open("sqlite3", filepath.Join(dir, "ledger.sqlite"))
 	Expect(e).NotTo(HaveOccurred())
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	_, e = db.Exec(query, args...)
 	Expect(e).NotTo(HaveOccurred())
 }
@@ -80,7 +80,7 @@ var _ = Describe("Tables databases", func() {
 		Expect(root.Mode().Perm()).To(Equal(os.FileMode(0o700)))
 		db, e := sql.Open("sqlite3", "file:"+path+"?mode=ro")
 		Expect(e).NotTo(HaveOccurred())
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 		var mode string
 		Expect(db.QueryRow("PRAGMA journal_mode").Scan(&mode)).To(Succeed())
 		Expect(strings.ToLower(mode)).To(Equal("wal"))
@@ -274,7 +274,7 @@ var _ = Describe("Tables databases", func() {
 		short := open(dir, store.Options{BusyTimeout: 100 * time.Millisecond, OpTimeout: 400 * time.Millisecond})
 		lock, e := sql.Open("sqlite3", "file:"+filepath.Join(dir, "databases", idA+".db")+"?_txlock=exclusive")
 		Expect(e).NotTo(HaveOccurred())
-		defer lock.Close()
+		defer func() { _ = lock.Close() }()
 		tx, e := lock.Begin()
 		Expect(e).NotTo(HaveOccurred())
 		start := time.Now()

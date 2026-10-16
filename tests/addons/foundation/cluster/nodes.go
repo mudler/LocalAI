@@ -16,6 +16,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // Node is one UI test server process of the cluster.
@@ -58,7 +60,7 @@ func (n *Node) Start() error {
 		"--foundation="+n.Config.Path(),
 		"--foundation-role="+n.Name)
 	cmd.Stdout, cmd.Stderr = logFile, logFile
-	cmd.Env = append(os.Environ(), "TMPDIR="+node.Dir)
+	cmd.Env = append(cmd.Environ(), "TMPDIR="+node.Dir)
 	// Own process group, so teardown reaches every descendant. The server
 	// dies with the harness (Linux), so a killed test run leaves no server.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
@@ -125,7 +127,7 @@ func (n *Node) Ready(timeout time.Duration) error {
 		if n.Exited() {
 			return fmt.Errorf("%s exited before it was ready: %s", n.Name, n.Tail(15))
 		}
-		resp, err := http.Get(n.URL() + "/readyz")
+		resp, err := httpclient.NewWithTimeout(5 * time.Second).Get(n.URL() + "/readyz")
 		if err == nil {
 			_ = resp.Body.Close()
 			if resp.StatusCode == 200 {
@@ -342,11 +344,11 @@ func (c Client) Do(method, path string, body any, extra map[string]string) (*Res
 	for k, v := range extra {
 		req.Header.Set(k, v)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpclient.New().Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 	return &Response{Status: resp.StatusCode, Header: resp.Header, Body: data}, err
 }

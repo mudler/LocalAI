@@ -102,7 +102,7 @@ func freePort() int {
 	GinkgoHelper()
 	l, e := net.Listen("tcp", "127.0.0.1:0")
 	Expect(e).NotTo(HaveOccurred())
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	return l.Addr().(*net.TCPAddr).Port
 }
 
@@ -319,12 +319,6 @@ func (r reply) errType() string {
 	return s
 }
 
-func (r reply) errOperation() string {
-	e, _ := r.body["error"].(map[string]any)
-	s, _ := e["operationId"].(string)
-	return s
-}
-
 func serve(e *echo.Echo, method, path, body string, headers ...func(*http.Request)) reply {
 	GinkgoHelper()
 	r := httptest.NewRequest(method, path, bytes.NewBufferString(body))
@@ -427,21 +421,10 @@ func (h *host) grants(user, res string) reply {
 	return h.send("GET", "/api/addons/resources/"+res+"/grants", "", h.tab(user, res))
 }
 
-func (h *host) users(user, res, q string) reply {
-	GinkgoHelper()
-	return h.send("GET", "/api/addons/resources/"+res+"/users?q="+q, "", h.tab(user, res))
-}
-
 func (h *host) rename(user, res, op, name string, rev map[string]any) reply {
 	GinkgoHelper()
 	b, _ := json.Marshal(map[string]any{"operationId": op, "generation": 1, "revision": rev, "name": name})
 	return h.send("POST", "/api/addons/resources/"+res+"/rename", string(b), h.tab(user, res))
-}
-
-func (h *host) remove(user, res, op, confirm string, rev map[string]any) reply {
-	GinkgoHelper()
-	b, _ := json.Marshal(map[string]any{"operationId": op, "generation": 1, "revision": rev, "confirm": confirm})
-	return h.send("POST", "/api/addons/resources/"+res+"/delete", string(b), h.tab(user, res))
 }
 
 // revision reads the revision the owner role is shown for a resource.
@@ -479,10 +462,6 @@ func (h *host) database(user, op, name string) string {
 	id, _ := got.body["id"].(string)
 	Expect(id).NotTo(BeEmpty())
 	return id
-}
-
-func (h *host) key(res string) policy.ResourceKey {
-	return policy.ResourceKey{AddonID: "tables", ResourceID: res}
 }
 
 func (h *host) dbFile(res string) string {

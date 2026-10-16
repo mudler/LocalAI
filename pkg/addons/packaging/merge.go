@@ -82,7 +82,7 @@ func cmdMatrix(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "%s\n", b)
+	_, _ = fmt.Fprintf(stdout, "%s\n", b)
 	return nil
 }
 
@@ -294,7 +294,7 @@ func cmdMerge(args []string) error {
 	if _, _, err := verifyMerged(*out, cfg); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "index=%s\nplatforms=%d\nversion=%s\n", digest, len(items), *version)
+	_, _ = fmt.Fprintf(stdout, "index=%s\nplatforms=%d\nversion=%s\n", digest, len(items), *version)
 	return nil
 }
 
@@ -328,7 +328,7 @@ func cmdNativeCheck(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 	if err := writeExtracted(v, tmp); err != nil {
 		return err
 	}
@@ -342,7 +342,7 @@ func cmdNativeCheck(args []string) error {
 	err = cmd.Run()
 	var ee *exec.ExitError
 	if errors.As(err, &ee) && ee.ExitCode() == 2 {
-		fmt.Fprintf(stdout, "native-check=passed platform=%s\n", *platform)
+		_, _ = fmt.Fprintf(stdout, "native-check=passed platform=%s\n", *platform)
 		return nil
 	}
 	return fmt.Errorf("native check failed: executable did not start and reject its arguments (%v): %s", err, strings.TrimSpace(buf.String()))

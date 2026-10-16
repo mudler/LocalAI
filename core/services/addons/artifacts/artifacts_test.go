@@ -1582,7 +1582,7 @@ var _ = Describe("artifact safety helpers", func() {
 		r, err := s.Get(ctx, id)
 		Expect(err).NotTo(HaveOccurred())
 		b, _ := io.ReadAll(r)
-		r.Close()
+		_ = r.Close()
 		Expect(string(b)).To(Equal("abcd"))
 		keys, err := s.List(ctx, "a")
 		Expect(err).NotTo(HaveOccurred())

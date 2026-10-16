@@ -212,7 +212,7 @@ func (s *Store) migrateDatabase(ctx context.Context, id string, v int) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -272,7 +272,7 @@ func writeStatus(path string, st MigrationStatus) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }()
 	if _, err = f.Write(b); err == nil {
 		err = f.Sync()
 	}

@@ -369,7 +369,7 @@ func readMeta(ctx context.Context, q interface {
 	if err != nil {
 		return meta{}, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var m meta
 	for rows.Next() {
 		var k, v string
@@ -384,9 +384,13 @@ func readMeta(ctx context.Context, q interface {
 		case "created_by":
 			m.CreatedBy = v
 		case "schema_revision":
-			fmt.Sscan(v, &m.Revision.Schema)
+			if _, err = fmt.Sscan(v, &m.Revision.Schema); err != nil {
+				return m, fmt.Errorf("read the schema revision: %w", err)
+			}
 		case "data_revision":
-			fmt.Sscan(v, &m.Revision.Data)
+			if _, err = fmt.Sscan(v, &m.Revision.Data); err != nil {
+				return m, fmt.Errorf("read the data revision: %w", err)
+			}
 		}
 	}
 	return m, rows.Err()
@@ -399,7 +403,7 @@ func (s *Store) inspect(ctx context.Context, id string) (meta, []catalogTable, e
 	if err != nil {
 		return meta{}, nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	m, err := readMeta(ctx, db)
 	if err != nil {
 		return m, nil, err
@@ -424,10 +428,10 @@ func (s *Store) build(ctx context.Context, id, name, opID string) error {
 		return err
 	}
 	_ = f.Close()
-	defer os.Remove(tmp)
-	defer os.Remove(tmp + "-wal")
-	defer os.Remove(tmp + "-shm")
-	defer os.Remove(tmp + "-journal")
+	defer func() { _ = os.Remove(tmp) }()
+	defer func() { _ = os.Remove(tmp + "-wal") }()
+	defer func() { _ = os.Remove(tmp + "-shm") }()
+	defer func() { _ = os.Remove(tmp + "-journal") }()
 	db, err := openSQLite(tmp, s.opts.BusyTimeout, "FULL", "DELETE", s.opts.MaxPages)
 	if err != nil {
 		return err
@@ -564,7 +568,7 @@ func (s *Store) Rename(ctx context.Context, resourceID, name, operationID string
 	if err != nil {
 		return contract.Receipt{}, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if !found {
 		if err = s.begin(ctx, want); err != nil {
 			return contract.Receipt{}, err

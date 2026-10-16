@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/gomega"
 )
 
 // deleteClient records what the owner sent. Its delete tool commits.
@@ -52,10 +53,9 @@ func (f fixedCaps) DeclaredCapabilities(context.Context, string, uint64) (contra
 // and not settled yet.
 func confirmedDeletion(t *testing.T, confirmed func(context.Context, policy.ResourceKey) (bool, error)) (*Service, *policy.Policy, *deleteClient, policy.ResourceKey) {
 	t.Helper()
+	g := NewWithT(t)
 	store, err := policy.OpenStore(t.TempDir(), policy.ModeNamedUser)
-	if err != nil {
-		t.Fatal(err)
-	}
+	g.Expect(err).NotTo(HaveOccurred())
 	t.Cleanup(func() { _ = store.Close() })
 	p := policy.New(store, policy.Options{
 		Revalidate:      func(context.Context, contract.Actor) error { return nil },
@@ -64,15 +64,9 @@ func confirmedDeletion(t *testing.T, confirmed func(context.Context, policy.Reso
 	bob := contract.Actor{UserID: "bob", CredentialID: "key:bob", Mode: "named-user"}
 	ctx := context.Background()
 	key, err := p.CreateWithID(ctx, bob, "tables", "r0123456789abcdef0123456789abcde", "ref", func(context.Context, policy.ResourceKey) error { return nil })
-	if err != nil {
-		t.Fatal("create:", err)
-	}
-	if err = p.BeginDelete(ctx, bob, key, "op-1"); err != nil {
-		t.Fatal("begin:", err)
-	}
-	if err = p.ConfirmDelete(key); err != nil {
-		t.Fatal("confirm:", err)
-	}
+	g.Expect(err).NotTo(HaveOccurred(), "create")
+	g.Expect(p.BeginDelete(ctx, bob, key, "op-1")).To(Succeed(), "begin")
+	g.Expect(p.ConfirmDelete(key)).To(Succeed(), "confirm")
 	client := &deleteClient{}
 	caps := contract.Capabilities{
 		Tools:      []string{"databases-inspect"},
@@ -90,18 +84,16 @@ func TestDeletionKeepsTheRecordWhenTheAddonCannotAnswer(t *testing.T) {
 		return false, policy.ErrBackingUnanswered
 	})
 	s.Resume(context.Background())
-	if d := p.Deleting(); len(d) != 1 || d[0].Key != key || !d[0].Confirmed {
-		t.Fatalf("the deletion must stay confirmed and be retried, got %+v", d)
-	}
-	if _, known := p.Key(key.ResourceID); !known {
-		t.Fatal("the record was removed without an existence answer")
-	}
-	if done, _ := p.DeletedBy(context.Background(), contract.Actor{UserID: "bob", CredentialID: "key:bob", Mode: "named-user"}, key.ResourceID, "op-1"); done {
-		t.Fatal("a tombstone was written without an existence answer")
-	}
-	if client.applies != 0 {
-		t.Fatalf("the delete tool must not run without a check, ran %d times", client.applies)
-	}
+	g := NewWithT(t)
+	d := p.Deleting()
+	g.Expect(d).To(HaveLen(1), "the deletion must stay confirmed and be retried")
+	g.Expect(d[0].Key).To(Equal(key))
+	g.Expect(d[0].Confirmed).To(BeTrue())
+	_, known := p.Key(key.ResourceID)
+	g.Expect(known).To(BeTrue(), "the record was removed without an existence answer")
+	done, _ := p.DeletedBy(context.Background(), contract.Actor{UserID: "bob", CredentialID: "key:bob", Mode: "named-user"}, key.ResourceID, "op-1")
+	g.Expect(done).To(BeFalse(), "a tombstone was written without an existence answer")
+	g.Expect(client.applies).To(BeZero(), "the delete tool must not run without a check")
 }
 
 // An explicit "gone" still finishes the deletion, and an explicit "exists"
@@ -109,16 +101,15 @@ func TestDeletionKeepsTheRecordWhenTheAddonCannotAnswer(t *testing.T) {
 func TestDeletionFinishesOnExplicitAnswers(t *testing.T) {
 	s, p, client, key := confirmedDeletion(t, func(context.Context, policy.ResourceKey) (bool, error) { return false, nil })
 	s.Resume(context.Background())
-	if len(p.Deleting()) != 0 || client.applies != 0 {
-		t.Fatalf("an explicit absence finishes the deletion: deleting=%d applies=%d", len(p.Deleting()), client.applies)
-	}
+	g := NewWithT(t)
+	g.Expect(p.Deleting()).To(BeEmpty(), "an explicit absence finishes the deletion")
+	g.Expect(client.applies).To(BeZero(), "an explicit absence runs no delete tool")
 	_ = key
 
 	s, p, client, _ = confirmedDeletion(t, func(context.Context, policy.ResourceKey) (bool, error) { return true, nil })
 	s.Resume(context.Background())
-	if len(p.Deleting()) != 0 || client.applies != 1 {
-		t.Fatalf("an existing backing is deleted by the tool: deleting=%d applies=%d", len(p.Deleting()), client.applies)
-	}
+	g.Expect(p.Deleting()).To(BeEmpty(), "an existing backing is deleted by the tool")
+	g.Expect(client.applies).To(Equal(1))
 }
 
 // The owner's own repeat of the delete reports the unknown outcome with its
@@ -130,11 +121,9 @@ func TestDeleteRepeatIsOutcomeUnknownWhenTheAddonCannotAnswer(t *testing.T) {
 	bob := contract.Actor{UserID: "bob", CredentialID: "key:bob", Mode: "named-user"}
 	_, err := s.finishDelete(context.Background(), bob, key, "op-1")
 	var unknown interface{ Error() string }
-	if err == nil || !errors.As(err, &unknown) {
-		t.Fatalf("expected an unknown outcome, got %v", err)
-	}
+	g := NewWithT(t)
+	g.Expect(err).To(HaveOccurred(), "expected an unknown outcome")
+	g.Expect(errors.As(err, &unknown)).To(BeTrue(), "expected an unknown outcome, got %v", err)
 	b, _ := json.Marshal(err.Error())
-	if len(p.Deleting()) != 1 {
-		t.Fatalf("deletion left deleting state: %s", b)
-	}
+	g.Expect(p.Deleting()).To(HaveLen(1), "deletion left deleting state: %s", b)
 }

@@ -32,7 +32,7 @@ var _ = Describe("Authenticated runtime client", func() {
 		resp, e := httpclient.New().Do(req)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(401))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		r, e := i.Client.Read(context.Background(), envelope("read"))
 		Expect(e).NotTo(HaveOccurred())
 		Expect(string(r.Payload)).To(ContainSubstring("alice"))
@@ -79,7 +79,7 @@ var _ = Describe("Authenticated runtime client", func() {
 		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 		_, e = i.Client.Read(context.Background(), envelope("read"))
 		Expect(e).To(HaveOccurred())
-		stream.Close()
+		_ = stream.Close()
 	})
 })
 
@@ -172,7 +172,7 @@ var _ = Describe("Transport limits", func() {
 			b, readErr := io.ReadAll(stream)
 			Expect(readErr).To(HaveOccurred())
 			Expect(len(b)).To(BeNumerically("<=", 16))
-			stream.Close()
+			_ = stream.Close()
 		}
 		streams := []io.ReadCloser{}
 		for n := int64(0); n < s.config.Limits.Concurrency; n++ {

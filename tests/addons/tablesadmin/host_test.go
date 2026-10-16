@@ -102,7 +102,7 @@ func freePort() int {
 	GinkgoHelper()
 	l, e := net.Listen("tcp", "127.0.0.1:0")
 	Expect(e).NotTo(HaveOccurred())
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	return l.Addr().(*net.TCPAddr).Port
 }
 

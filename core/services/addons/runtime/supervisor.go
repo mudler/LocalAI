@@ -265,25 +265,25 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	if e != nil {
 		return nil, ErrRuntime
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 	socket, e := listener.File()
 	if e != nil {
 		return nil, ErrRuntime
 	}
-	defer socket.Close()
+	defer func() { _ = socket.Close() }()
 	child, parent, e := os.Pipe()
 	if e != nil {
 		return nil, ErrRuntime
 	}
-	defer child.Close()
+	defer func() { _ = child.Close() }()
 	credential := make([]byte, 32)
 	if _, e = rand.Read(credential); e != nil {
-		parent.Close()
+		_ = parent.Close()
 		return nil, ErrRuntime
 	}
 	inc := make([]byte, 16)
 	if _, e = rand.Read(inc); e != nil {
-		parent.Close()
+		_ = parent.Close()
 		return nil, ErrRuntime
 	}
 	r := Registration{AddonID: pkg.Manifest.ID, Generation: generation, Incarnation: hex.EncodeToString(inc), Protocol: 1, Endpoint: "http://" + listener.Addr().String(), Capabilities: pkg.Manifest.Capabilities}
@@ -309,12 +309,12 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	if e = s.ledger.put(pkg.Manifest.ID, processIdentity{Incarnation: r.Incarnation, Pending: true}); e != nil {
-		parent.Close()
+		_ = parent.Close()
 		return nil, ErrRuntime
 	}
 	if e = cmd.Start(); e != nil {
 		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
-		parent.Close()
+		_ = parent.Close()
 		return nil, ErrRuntime
 	}
 	p := &process{cmd: cmd, parent: parent, done: make(chan struct{}), registration: r}
@@ -322,7 +322,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	if e != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
-		parent.Close()
+		_ = parent.Close()
 		return nil, e
 	}
 	p.client = c

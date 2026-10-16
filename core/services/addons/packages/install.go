@@ -89,7 +89,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	}
 	defer func() {
 		if err != nil {
-			os.RemoveAll(dir)
+			_ = os.RemoveAll(dir)
 		}
 	}()
 	if progress != nil {
@@ -149,18 +149,18 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 				return out, ErrPackage
 			}
 			f, e := i.download(ctx, rc, h.String(), root)
-			rc.Close()
+			_ = rc.Close()
 			if e != nil {
 				return out, e
 			}
 			e = func() error {
-				defer os.Remove(f.Name())
-				defer f.Close()
+				defer func() { _ = os.Remove(f.Name()) }()
+				defer func() { _ = f.Close() }()
 				gz, e := gzip.NewReader(f)
 				if e != nil {
 					return e
 				}
-				defer gz.Close()
+				defer func() { _ = gz.Close() }()
 				return i.extract(ctx, gz, dir, x)
 			}()
 			if e != nil {
@@ -181,7 +181,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if e != nil {
 			return out, ErrPackage
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != 200 {
 			return out, ErrPackage
 		}
@@ -189,8 +189,8 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if e != nil {
 			return out, e
 		}
-		defer os.Remove(f.Name())
-		defer f.Close()
+		defer func() { _ = os.Remove(f.Name()) }()
+		defer func() { _ = f.Close() }()
 		if e = i.extract(ctx, f, dir, x); e != nil {
 			return out, e
 		}
@@ -256,7 +256,7 @@ func verifyIcon(dir, name string) (*PackageIcon, error) {
 	if e != nil {
 		return nil, ErrPackage
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	info, e := root.Lstat(name)
 	if e != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > contract.MaxIconBytes {
 		return nil, ErrPackage
@@ -265,7 +265,7 @@ func verifyIcon(dir, name string) (*PackageIcon, error) {
 	if e != nil {
 		return nil, ErrPackage
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	b, e := io.ReadAll(io.LimitReader(f, contract.MaxIconBytes+1))
 	if e != nil || int64(len(b)) != info.Size() {
 		return nil, ErrPackage
@@ -292,8 +292,8 @@ func (i *Installer) download(ctx context.Context, r io.Reader, digest, root stri
 	}
 	defer func() {
 		if err != nil {
-			f.Close()
-			os.Remove(f.Name())
+			_ = f.Close()
+			_ = os.Remove(f.Name())
 		}
 	}()
 	h := sha256.New()
@@ -325,7 +325,7 @@ func (t boundTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	resp, e := t.base.RoundTrip(req.Clone(t.ctx))
 	if e == nil && resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, ErrPackage
 	}
 	return resp, e

@@ -305,7 +305,7 @@ func durableWrite(path string, b []byte, syncDir func(*os.File) error) (renamed 
 	if err != nil {
 		return false, err
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }()
 	if _, err = f.Write(b); err == nil {
 		err = f.Sync()
 	}
@@ -322,6 +322,6 @@ func durableWrite(path string, b []byte, syncDir func(*os.File) error) (renamed 
 	if err != nil {
 		return true, err
 	}
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	return true, syncDir(d)
 }

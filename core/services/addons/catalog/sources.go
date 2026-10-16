@@ -220,7 +220,7 @@ func (s *Sources) Save(ctx context.Context, actor contract.Actor, src Source) er
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }()
 	if _, e = f.Write(data); e == nil {
 		e = f.Sync()
 	}
@@ -290,7 +290,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 	if e != nil {
 		return nil, ErrRefresh
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
 		return nil, ErrRefresh
 	}

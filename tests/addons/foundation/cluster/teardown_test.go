@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	. "github.com/onsi/gomega"
 )
 
 // fakeServer is a server stand-in: it starts two helpers that ignore SIGTERM,
@@ -33,16 +35,12 @@ func helperPIDs(t *testing.T, dir string) []int {
 		time.Sleep(20 * time.Millisecond)
 	}
 	b, err := os.ReadFile(filepath.Join(dir, "helpers"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	NewWithT(t).Expect(err).NotTo(HaveOccurred())
 	for _, f := range strings.Fields(string(b)) {
 		n, _ := strconv.Atoi(f)
 		pids = append(pids, n)
 	}
-	if len(pids) != 2 {
-		t.Fatalf("want two helpers, got %v", pids)
-	}
+	NewWithT(t).Expect(pids).To(HaveLen(2), "want two helpers")
 	return pids
 }
 
@@ -50,9 +48,7 @@ func newFakeNode(t *testing.T) (*Node, string) {
 	t.Helper()
 	dir := t.TempDir()
 	script := filepath.Join(dir, "server.sh")
-	if err := os.WriteFile(script, []byte(fakeServer), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	NewWithT(t).Expect(os.WriteFile(script, []byte(fakeServer), 0o700)).To(Succeed())
 	cfg := &Config{Dir: dir, Nodes: map[string]Instance{Owner: {}}}
 	return &Node{Name: Owner, Config: cfg, ServerPath: script}, dir
 }
@@ -70,15 +66,13 @@ func assertGone(t *testing.T, pids ...int) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("processes survived the teardown: %v", pids)
+	NewWithT(t).Expect(false).To(BeTrue(), "processes survived the teardown: %v", pids)
 }
 
 // A failing scenario ends in Stop: the helpers that ignore SIGTERM must go.
 func TestStopReapsDescendantsThatIgnoreSIGTERM(t *testing.T) {
 	n, dir := newFakeNode(t)
-	if err := n.Start(); err != nil {
-		t.Fatal(err)
-	}
+	NewWithT(t).Expect(n.Start()).To(Succeed())
 	helpers := helperPIDs(t, dir)
 	n.Stop()
 	assertGone(t, append(helpers, n.PID())...)
@@ -89,21 +83,15 @@ func TestStopReapsDescendantsThatIgnoreSIGTERM(t *testing.T) {
 // still reach them, across a restart of the same node.
 func TestStopReapsOrphansLeftByKill(t *testing.T) {
 	n, dir := newFakeNode(t)
-	if err := n.Start(); err != nil {
-		t.Fatal(err)
-	}
+	NewWithT(t).Expect(n.Start()).To(Succeed())
 	first := helperPIDs(t, dir)
 	n.Kill()
 	for _, p := range first {
-		if !Alive(p) {
-			t.Fatalf("Kill must leave the descendants running, %d is gone", p)
-		}
+		NewWithT(t).Expect(Alive(p)).To(BeTrue(), "Kill must leave the descendants running, %d is gone", p)
 	}
 	_ = os.Remove(filepath.Join(dir, "ready"))
 	_ = os.Remove(filepath.Join(dir, "helpers"))
-	if err := n.Start(); err != nil {
-		t.Fatal(err)
-	}
+	NewWithT(t).Expect(n.Start()).To(Succeed())
 	second := helperPIDs(t, dir)
 	n.Stop()
 	assertGone(t, append(first, second...)...)

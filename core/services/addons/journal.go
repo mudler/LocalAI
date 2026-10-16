@@ -28,7 +28,7 @@ func durableWrite(path string, b []byte) error {
 	if e != nil {
 		return e
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }()
 	if _, e = f.Write(b); e == nil {
 		e = f.Sync()
 	}
@@ -46,7 +46,7 @@ func durableWrite(path string, b []byte) error {
 	if e != nil {
 		return e
 	}
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	return d.Sync()
 }
 func (m *Manager) persist(phase string) error {

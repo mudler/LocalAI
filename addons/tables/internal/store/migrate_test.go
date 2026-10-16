@@ -19,7 +19,7 @@ func metaOf(dir, id, key string) (string, bool) {
 	GinkgoHelper()
 	db, e := sql.Open("sqlite3", filepath.Join(dir, "databases", id+".db"))
 	Expect(e).NotTo(HaveOccurred())
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	var v string
 	e = db.QueryRow("SELECT value FROM tables_meta WHERE key=?", key).Scan(&v)
 	if errors.Is(e, sql.ErrNoRows) {

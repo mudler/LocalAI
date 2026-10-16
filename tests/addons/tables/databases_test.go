@@ -55,7 +55,7 @@ var _ = Describe("Tables databases under the real owner", func() {
 				resp, e := http.DefaultClient.Do(req)
 				Expect(e).NotTo(HaveOccurred())
 				_, _ = io.Copy(io.Discard, resp.Body)
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized), path)
 			}
 		}

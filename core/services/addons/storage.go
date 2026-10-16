@@ -153,7 +153,7 @@ func (s *storageScanner) walk(ctx context.Context, root string) (apps.Storage, b
 		}
 		for {
 			if stop() {
-				f.Close()
+				_ = f.Close()
 				return out, ctx.Err() == nil
 			}
 			entries, e := f.ReadDir(batch)
@@ -161,7 +161,7 @@ func (s *storageScanner) walk(ctx context.Context, root string) (apps.Storage, b
 				seen++
 				if seen > limit {
 					out.Truncated = true
-					f.Close()
+					_ = f.Close()
 					return out, true
 				}
 				switch {
@@ -179,7 +179,7 @@ func (s *storageScanner) walk(ctx context.Context, root string) (apps.Storage, b
 				break
 			}
 		}
-		f.Close()
+		_ = f.Close()
 	}
 	return out, ctx.Err() == nil
 }

@@ -74,13 +74,13 @@ var _ = Describe("owner dispatch", func() {
 		lost := func(*Carrier) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/addons/audience" {
-					w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+					_, _ = w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
 					return
 				}
 				forwarded.Add(1)
 				conn, _, e := w.(http.Hijacker).Hijack()
 				Expect(e).NotTo(HaveOccurred())
-				conn.Close()
+				_ = conn.Close()
 			})
 		}
 		env := carrierFixtureWith(RelayLimits{}, lost)

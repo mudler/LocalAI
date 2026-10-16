@@ -181,7 +181,7 @@ func hashTree(path string) string {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(h, "%s\x00%s\x00", rel, sha(b))
+		_, _ = fmt.Fprintf(h, "%s\x00%s\x00", rel, sha(b))
 		return nil
 	})).To(Succeed())
 	return hex.EncodeToString(h.Sum(nil))

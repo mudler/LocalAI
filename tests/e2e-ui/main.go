@@ -88,7 +88,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error creating temp dir: %v\n", err)
 			os.Exit(1)
 		}
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 	}
 
 	modelsPath := filepath.Join(tmpDir, "models")
@@ -212,7 +212,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error starting the foundation control server: %v\n", err)
 			os.Exit(1)
 		}
-		defer control.Close()
+		defer func() { _ = control.Close() }()
 	}
 
 	// Register mock backend

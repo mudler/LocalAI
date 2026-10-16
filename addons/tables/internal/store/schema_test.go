@@ -151,7 +151,7 @@ var _ = Describe("Tables typed schema operations", func() {
 		var sqlText string
 		rows, e := r.raw().Query("SELECT COALESCE(sql,'') FROM sqlite_master WHERE name LIKE 't\\_%' ESCAPE '\\'")
 		Expect(e).NotTo(HaveOccurred())
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			Expect(rows.Scan(&sqlText)).To(Succeed())
 			Expect(sqlText).NotTo(ContainSubstring("DROP"))
@@ -365,7 +365,7 @@ var _ = Describe("Tables typed schema operations", func() {
 			Expect(rows.Scan(&n)).To(Succeed())
 			cols = append(cols, n)
 		}
-		rows.Close()
+		_ = rows.Close()
 		Expect(cols).To(Equal([]string{"row_id", keep, tag}))
 		var n int
 		Expect(r.raw().QueryRow("SELECT COUNT(*) FROM " + id).Scan(&n)).To(Succeed())

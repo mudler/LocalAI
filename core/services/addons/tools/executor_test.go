@@ -109,10 +109,10 @@ var _ = Describe("Add-on tools in the chat executors", func() {
 		t1, t2 := mcp.NewInMemoryTransports()
 		ss, e := server.Connect(ctx, t1, nil)
 		Expect(e).NotTo(HaveOccurred())
-		defer ss.Close()
+		defer func() { _ = ss.Close() }()
 		cs, e := mcp.NewClient(&mcp.Implementation{Name: "c", Version: "v1"}, nil).Connect(ctx, t2, nil)
 		Expect(e).NotTo(HaveOccurred())
-		defer cs.Close()
+		defer func() { _ = cs.Close() }()
 		found, e := mcpTools.DiscoverMCPTools(ctx, []mcpTools.NamedSession{{Name: "rogue", Type: "remote", Session: cs}})
 		Expect(e).NotTo(HaveOccurred())
 		names := []string{}

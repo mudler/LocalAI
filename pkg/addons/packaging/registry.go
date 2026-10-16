@@ -222,7 +222,7 @@ func cmdPublish(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "digest=%s\nreference=%s@%s\nchildren=%s\n", d, repo.Name(), d, strings.Join(children, ","))
+	_, _ = fmt.Fprintf(stdout, "digest=%s\nreference=%s@%s\nchildren=%s\n", d, repo.Name(), d, strings.Join(children, ","))
 	return nil
 }
 
@@ -259,12 +259,6 @@ func readAlias(ctx context.Context, repo name.Repository, alias string) (*aliasS
 	}
 	st.version, st.revision = im.Annotations[AnnotationVersion], im.Annotations[AnnotationRevision]
 	return st, nil
-}
-
-// semverLess reports a < b for strict versions. A pre-release sorts below its
-// release; pre-release identifiers compare numerically then lexically.
-func semverLess(a, b string) bool {
-	return compareSemver(a, b) < 0
 }
 
 func compareSemver(a, b string) int {
@@ -507,7 +501,7 @@ func cmdPromote(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "result=%s\nalias=%s\ndigest=%s\n", out, *alias, h)
+	_, _ = fmt.Fprintf(stdout, "result=%s\nalias=%s\ndigest=%s\n", out, *alias, h)
 	return nil
 }
 

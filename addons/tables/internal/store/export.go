@@ -196,7 +196,7 @@ func (s *Store) ExportCSV(ctx context.Context, resourceID string, q Query, dst i
 		}
 		return stats, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	finish := func(err error) (ExportStats, error) {
 		if ce := ctx.Err(); ce != nil && err != nil {

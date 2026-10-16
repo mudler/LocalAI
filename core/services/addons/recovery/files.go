@@ -43,7 +43,7 @@ func isSQLite(path string) bool {
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	b := make([]byte, len(sqliteMagic))
 	if _, err = io.ReadFull(f, b); err != nil {
 		return false
@@ -64,7 +64,7 @@ func vacuumInto(ctx context.Context, src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	db.SetMaxOpenConns(1)
 	if _, err = db.ExecContext(ctx, "VACUUM INTO ?", dst); err != nil {
 		_ = os.Remove(dst)
@@ -80,13 +80,13 @@ func checkSQLite(ctx context.Context, path string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	db.SetMaxOpenConns(1)
 	rows, err := db.QueryContext(ctx, "PRAGMA integrity_check")
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	ok := false
 	for rows.Next() {
 		var s string
@@ -116,7 +116,7 @@ func hashFile(path string) (string, int64, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	h := sha256.New()
 	n, err := io.Copy(h, f)
 	if err != nil {
@@ -163,7 +163,7 @@ func copyPlain(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err

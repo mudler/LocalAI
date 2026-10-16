@@ -55,11 +55,11 @@ var _ = Describe("mTLS carrier", func() {
 			}
 			return CarrierConfig{InstanceID: "front-a", OwnerID: "owner", OwnerAddress: "https://127.0.0.1:9443", Certificate: certs["front-a"], Roots: roots, Pins: p, SigningKey: key}
 		}
-		c, err := NewCarrier(valid())
+		_, err = NewCarrier(valid())
 		Expect(err).NotTo(HaveOccurred())
 		// A later change to the caller's map must not change the pinned identities.
 		cfg := valid()
-		c, err = NewCarrier(cfg)
+		c, err := NewCarrier(cfg)
 		Expect(err).NotTo(HaveOccurred())
 		delete(cfg.Pins, "owner")
 		Expect(c.config.Pins).To(HaveKey("owner"))

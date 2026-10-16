@@ -605,7 +605,7 @@ func (c *Carrier) resource(ctx context.Context, a contract.Actor, r contract.Req
 	if e != nil {
 		return nil, e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, e := io.ReadAll(io.LimitReader(resp.Body, 2<<20+1))
 	if e != nil || len(raw) > 2<<20 {
 		return nil, ErrUnavailable

@@ -41,7 +41,7 @@ var _ = Describe("source configuration", func() {
 		Expect(string(b)).To(Equal("pinned-source"))
 	})
 	It("invalidates cached releases on explicit source changes", func() {
-		server := library(func(w http.ResponseWriter, r *http.Request) { WriteIndex(w, []Release{release()}) })
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, []Release{release()}) })
 		s := setup()
 		save(s, "one", server.URL)
 		_, e := s.Refresh(ctx, "one")
@@ -54,13 +54,13 @@ var _ = Describe("source configuration", func() {
 		s := setup()
 		Expect(s.Save(ctx, admin, Source{ID: "one", Name: "one", URL: "https://user:secret@example.org"})).To(HaveOccurred())
 		for _, body := range []string{`[{"addonId":"tables"}]`, `[] trailing`, `{"secret":"value"}`} {
-			server := library(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(body)) })
+			server := library(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(body)) })
 			save(s, "one", server.URL)
 			_, e := s.Refresh(ctx, "one")
 			Expect(e).To(MatchError(ErrRefresh))
 		}
 		server := library(func(w http.ResponseWriter, r *http.Request) {
-			WriteIndex(w, []Release{release(), release()})
+			_ = WriteIndex(w, []Release{release(), release()})
 		})
 		save(s, "one", server.URL)
 		_, e := s.Refresh(ctx, "one")
@@ -74,7 +74,7 @@ var _ = Describe("reserved add-on IDs", func() {
 		for _, id := range contract.ReservedAddonIDs() {
 			r := release()
 			r.AddonID = id
-			server := library(func(w http.ResponseWriter, _ *http.Request) { WriteIndex(w, []Release{r}) })
+			server := library(func(w http.ResponseWriter, _ *http.Request) { _ = WriteIndex(w, []Release{r}) })
 			save(s, "one", server.URL)
 			_, e := s.Refresh(ctx, "one")
 			Expect(e).To(MatchError(ErrRefresh), id)
@@ -85,7 +85,7 @@ var _ = Describe("reserved add-on IDs", func() {
 var _ = Describe("source reads", func() {
 	It("lists and gets protected source copies including disabled and empty sources after reload", func() {
 		s := setup()
-		empty := library(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("[]")) })
+		empty := library(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("[]")) })
 		store, err := credentials.Parse([]byte("- match: https://example.org\n  bearer: never-expose-this-secret"), nil)
 		Expect(err).NotTo(HaveOccurred())
 		s.credentials = CredentialResolver{References: map[string]CredentialBinding{"private-ref": {Origin: "https://example.org", Store: store}}}

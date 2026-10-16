@@ -528,7 +528,7 @@ func (m *Manager) cleanStages() error {
 	if e != nil {
 		return e
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	entries, e := fs.ReadDir(root.FS(), ".")
 	if e != nil {
 		return e
@@ -570,21 +570,21 @@ func openPackageRoot(path string) (*os.Root, error) {
 	for _, part := range strings.Split(strings.TrimPrefix(filepath.Clean(path), string(filepath.Separator)), string(filepath.Separator)) {
 		info, e := root.Lstat(part)
 		if e != nil {
-			root.Close()
+			_ = root.Close()
 			return nil, e
 		}
 		if !info.IsDir() {
-			root.Close()
+			_ = root.Close()
 			return nil, ErrConfiguration
 		}
 		next, e := root.OpenRoot(part)
-		root.Close()
+		_ = root.Close()
 		if e != nil {
 			return nil, e
 		}
 		pinned, e := next.Stat(".")
 		if e != nil || !os.SameFile(info, pinned) {
-			next.Close()
+			_ = next.Close()
 			return nil, ErrConfiguration
 		}
 		root = next

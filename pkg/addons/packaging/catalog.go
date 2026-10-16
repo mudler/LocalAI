@@ -186,7 +186,7 @@ func cmdCatalog(args []string) error {
 	if err := os.WriteFile(*out, doc.Bytes(), 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "entries=%d\nchannel=%s\n", len(releases), *channel)
+	_, _ = fmt.Fprintf(stdout, "entries=%d\nchannel=%s\n", len(releases), *channel)
 	return nil
 }
 

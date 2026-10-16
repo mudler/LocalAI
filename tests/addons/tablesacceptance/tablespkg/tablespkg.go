@@ -44,7 +44,7 @@ func run(root string, rec Recorder, env []string, name string, args ...string) e
 	}
 	cmd := exec.Command(name, args...)
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), env...)
+	cmd.Env = append(cmd.Environ(), env...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s %s: %w\n%s", name, strings.Join(args, " "), err, out)

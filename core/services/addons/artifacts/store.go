@@ -58,7 +58,6 @@ var (
 
 	errSizeMismatch = errors.New("output size differs from its declaration")
 	errExpired      = fmt.Errorf("addon artifact expired: %w", gateway.ErrForbidden)
-	errCancelled    = errors.New("addon artifact transfer cancelled")
 )
 
 const (
@@ -218,7 +217,7 @@ func durableWrite(path string, b []byte) (renamed bool, err error) {
 	if err != nil {
 		return false, err
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }()
 	if _, err = f.Write(b); err == nil {
 		err = f.Sync()
 	}
@@ -235,7 +234,7 @@ func durableWrite(path string, b []byte) (renamed bool, err error) {
 	if err != nil {
 		return true, err
 	}
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	return true, syncDirectory(d)
 }
 
@@ -407,7 +406,7 @@ func (s *stagedStore) Put(ctx context.Context, key string, r io.Reader) (err err
 	if derr != nil {
 		return derr
 	}
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	return d.Sync()
 }
 
@@ -483,16 +482,4 @@ func (s *stagedStore) List(_ context.Context, prefix string) ([]string, error) {
 		}
 	}
 	return keys, nil
-}
-
-// partials lists the identifiers that have a partial file.
-func (s *stagedStore) partials() []string {
-	entries, _ := os.ReadDir(s.staging)
-	var ids []string
-	for _, e := range entries {
-		if id, ok := strings.CutSuffix(e.Name(), ".part"); ok && idPattern.MatchString(id) {
-			ids = append(ids, id)
-		}
-	}
-	return ids
 }

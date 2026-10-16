@@ -47,7 +47,7 @@ func Run(args []string, hooks Hooks) int {
 	if err != nil {
 		return 7
 	}
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 	// The owner stopped every other process on this data before it started
 	// this one, so the migration runs with exclusive ownership. Its progress is
 	// in migration.json for the host; data in a format this build cannot read

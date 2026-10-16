@@ -305,7 +305,7 @@ func (r *rig) rowsIn(path string) int {
 	GinkgoHelper()
 	db, e := sql.Open("sqlite3", "file:"+path+"?mode=ro")
 	Expect(e).NotTo(HaveOccurred())
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	var n int
 	Expect(db.QueryRow("SELECT COUNT(*) FROM t").Scan(&n)).To(Succeed())
 	return n
@@ -321,7 +321,7 @@ func (r *rig) addRow(v string) {
 	GinkgoHelper()
 	db, e := sql.Open("sqlite3", "file:"+r.dbPath())
 	Expect(e).NotTo(HaveOccurred())
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	_, e = db.Exec("INSERT INTO t(v) VALUES(?)", v)
 	Expect(e).NotTo(HaveOccurred())
 }

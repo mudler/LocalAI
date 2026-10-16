@@ -235,7 +235,7 @@ func replaceJSON(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }()
 	_, err = f.Write(b)
 	if err == nil {
 		err = f.Sync()

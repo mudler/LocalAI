@@ -94,7 +94,7 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 	}
 	if resp.StatusCode != http.StatusOK {
 		reason := refusalReason(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusConflict {
 			return nil, ErrConflict
 		}
@@ -150,7 +150,7 @@ func (c *Client) health(ctx context.Context, r Registration) error {
 	if e != nil {
 		return e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var got Registration
 	if decode(resp.Body, c.limits.ManifestBytes, &got) != nil || !reflect.DeepEqual(got, r) {
 		return ErrRuntime
@@ -169,7 +169,7 @@ func (c *Client) call(ctx context.Context, path string, in, out any, timeout tim
 	if e != nil {
 		return e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	return decode(resp.Body, c.limits.EnvelopeBytes, out)
 }
 func (c *Client) Read(ctx context.Context, v contract.Envelope) (contract.Result, error) {
@@ -260,7 +260,7 @@ func (c *Client) OpenOutput(ctx context.Context, v contract.Envelope, handle str
 		return nil, e
 	}
 	if resp.ContentLength > c.limits.ArtifactBytes {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		cancel()
 		done()
 		return nil, ErrRuntime

@@ -155,7 +155,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		w.Header().Set("Cache-Control", "no-store")
 		if r.Method == "GET" && r.URL.Path == "/addons/audience" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(struct {
+			_ = json.NewEncoder(w).Encode(struct {
 				Audience string `json:"audience"`
 			}{v.Audience()})
 			return
@@ -206,7 +206,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(list)
+			_ = json.NewEncoder(w).Encode(list)
 			return
 		}
 		if wire.Artifact != nil {
@@ -222,7 +222,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(info)
+			_ = json.NewEncoder(w).Encode(info)
 			return
 		}
 		if wire.Proposal != nil {
@@ -240,7 +240,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(list)
+				_ = json.NewEncoder(w).Encode(list)
 				return
 			}
 			if call.Op == proposalList {
@@ -250,7 +250,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(list)
+				_ = json.NewEncoder(w).Encode(list)
 				return
 			}
 			p, e := g.proposalLocal(r.Context(), actor, wire.Request, call)
@@ -259,7 +259,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(p)
+			_ = json.NewEncoder(w).Encode(p)
 			return
 		}
 		if wire.Relay != nil {
@@ -286,7 +286,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result)
+		_ = json.NewEncoder(w).Encode(result)
 	}), nil
 }
 
@@ -379,7 +379,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		Audience string `json:"audience"`
 	}
 	e = decode(io.LimitReader(resp.Body, 4096), &bootstrap)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if e != nil || resp.StatusCode != 200 || len(bootstrap.Audience) != 64 {
 		return nil, ErrUnavailable
 	}
@@ -410,7 +410,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, ErrUnavailable
 	}
 	if resp.StatusCode != 200 {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode == 403 {
 			if wire.Proposal != nil {
 				// A denial of a proposal call may name the blocking operation.
@@ -481,7 +481,7 @@ func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Req
 	if e != nil {
 		return contract.Result{}, e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var result contract.Result
 	e = decode(io.LimitReader(resp.Body, 2<<20), &result)
 	if e != nil {
@@ -501,7 +501,7 @@ func (c *Carrier) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 	if e != nil {
 		return e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	// Owner headers are copied only once the first byte is about to be committed
 	// or the stream ended cleanly, so a failed first read leaves no attachment
 	// headers on the error response.
@@ -560,7 +560,7 @@ func (c *Carrier) artifactStatus(ctx context.Context, a contract.Actor, id strin
 	if e != nil {
 		return Artifact{}, e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var art Artifact
 	if e = decode(io.LimitReader(resp.Body, 1<<20), &art); e != nil {
 		return Artifact{}, ErrUnavailable

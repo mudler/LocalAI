@@ -75,7 +75,7 @@ var _ = Describe("Tables schema under the real owner", func() {
 		// Rows exist: dropping the column reports the data it would destroy.
 		raw, e := sql.Open("sqlite3", r.dbFile(id))
 		Expect(e).NotTo(HaveOccurred())
-		defer raw.Close()
+		defer func() { _ = raw.Close() }()
 		var tableID, colID string
 		Expect(raw.QueryRow("SELECT table_id FROM tables_catalog_tables").Scan(&tableID)).To(Succeed())
 		Expect(raw.QueryRow("SELECT column_id FROM tables_catalog_columns").Scan(&colID)).To(Succeed())

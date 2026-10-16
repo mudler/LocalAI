@@ -88,7 +88,7 @@ func (n httpHost) get(path string, header func(*http.Request)) (*http.Response, 
 	}
 	resp, e := http.DefaultClient.Do(r)
 	Expect(e).NotTo(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	return resp, b
 }

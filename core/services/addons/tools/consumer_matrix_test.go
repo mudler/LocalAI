@@ -144,7 +144,7 @@ var _ = Describe("Tool consumer matrix", func() {
 	It("keeps the table of the Tables documentation in step with the matrix", func() {
 		f, err := os.Open(filepath.Join(root, "docs/content/features/tables.md"))
 		Expect(err).NotTo(HaveOccurred())
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		row := regexp.MustCompile("^\\| `([a-z0-9-]+)` \\| (route|reject) \\|")
 		docs := map[string]string{}
 		s := bufio.NewScanner(f)

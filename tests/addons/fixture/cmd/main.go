@@ -54,7 +54,7 @@ func main() {
 	if config.Mode == "exit-start" {
 		os.Exit(4)
 	}
-	if config.Mode == "env-check" && (os.Getenv("LOCALAI_RUNTIME_TEST_SECRET") != "" || os.Getenv("HTTP_PROXY") != "" || len(os.Environ()) != 2) {
+	if config.Mode == "env-check" && (os.Getenv("LOCALAI_RUNTIME_TEST_SECRET") != "" || os.Getenv("HTTP_PROXY") != "" || len(os.Environ()) != 2) { //nolint:forbidigo // the fixture checks the exact environment the host gives a child
 		os.Exit(5)
 	}
 	listener, e := net.FileListener(os.NewFile(3, "listener"))
@@ -73,7 +73,7 @@ func main() {
 			return
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, startup.Limits.EnvelopeBytes)
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 		decoder := json.NewDecoder(r.Body)
 		decoder.DisallowUnknownFields()
 		read := func(v any) bool {

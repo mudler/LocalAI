@@ -137,7 +137,7 @@ func run(dir, root string, p cluster.Paths, tables, ready string) error {
 	}
 	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = srv.Serve(l) }()
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	out := map[string]any{"urls": map[string]string{}, "users": c.Creds.Users, "dir": c.Config.Dir,
 		"control": map[string]string{"url": "http://" + l.Addr().String(), "token": secret}}

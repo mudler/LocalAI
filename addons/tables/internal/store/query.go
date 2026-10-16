@@ -153,8 +153,6 @@ type AggregateResult struct {
 
 // ---- typed values ----
 
-var errNull = errors.New("null")
-
 // isNull reports a JSON null or an absent value.
 func isNull(raw json.RawMessage) bool {
 	t := bytes.TrimSpace(raw)
@@ -497,12 +495,12 @@ func (s *Store) readTx(ctx context.Context, resourceID string, fn func(ctx conte
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	m, err := readMeta(ctx, tx)
 	if err != nil {
 		return err
@@ -659,7 +657,7 @@ func (s *Store) Query(ctx context.Context, resourceID string, q Query) (RowPage,
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		out = RowPage{Table: tbl.Name, Columns: make([]string, len(sel)), Rows: []Row{}, Revision: m.Revision}
 		for i, c := range sel {
 			out.Columns[i] = c.label
@@ -805,7 +803,7 @@ func (s *Store) Aggregate(ctx context.Context, resourceID string, q AggregateQue
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		out = AggregateResult{Table: tbl.Name, Aggregates: names, Groups: []AggregateGroup{}, Revision: m.Revision}
 		width := len(exprs)
 		if group != nil {

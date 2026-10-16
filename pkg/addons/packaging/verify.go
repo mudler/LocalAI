@@ -288,7 +288,7 @@ func cmdVerify(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "verified=%s %s %s digest=%s files=%d\n", cfg.Addon, *version, *platform, v.Receipt.ManifestDigest, len(v.Files))
+	_, _ = fmt.Fprintf(stdout, "verified=%s %s %s digest=%s files=%d\n", cfg.Addon, *version, *platform, v.Receipt.ManifestDigest, len(v.Files))
 	return nil
 }
 

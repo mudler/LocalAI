@@ -3,6 +3,7 @@ package tablesacceptance_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -10,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 // TestEvidenceManifest checks the evidence manifest the acceptance run wrote.
@@ -23,33 +26,30 @@ import (
 // case passed, and a case that did not has a retained trace that exists.
 func TestEvidenceManifest(t *testing.T) {
 	if os.Getenv("TABLES_ACCEPTANCE_CHECK_EVIDENCE") != "1" {
-		t.Skip("runs after the suite, from scripts/addons/tables_acceptance.sh")
+		// Ginkgo's Skip works only inside a spec; this is a plain Go test.
+		t.Skip("runs after the suite, from scripts/addons/tables_acceptance.sh") //nolint:forbidigo
 	}
+	g := NewWithT(t)
+	// Every broken rule is reported, not only the first one.
+	var problems []string
+	problem := func(format string, args ...any) { problems = append(problems, fmt.Sprintf(format, args...)) }
+	defer func() { g.Expect(problems).To(BeEmpty()) }()
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
 	path, err := evidenceLocation(os.Getenv("TABLES_ACCEPTANCE_EVIDENCE"), root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	g.Expect(err).NotTo(HaveOccurred())
 	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("the evidence manifest is missing: %v", err)
-	}
+	g.Expect(err).NotTo(HaveOccurred(), "the evidence manifest is missing")
 	var ev evidence
 	dec := json.NewDecoder(strings.NewReader(string(raw)))
 	dec.DisallowUnknownFields()
-	if err := dec.Decode(&ev); err != nil {
-		t.Fatalf("the evidence manifest does not parse: %v", err)
-	}
-	if ev.Schema != 1 || ev.Suite != "tables-acceptance" {
-		t.Fatalf("unexpected schema or suite: %d %q", ev.Schema, ev.Suite)
-	}
-	if ev.Platform.OS != runtime.GOOS || ev.Platform.Arch != runtime.GOARCH || !ev.Platform.Native {
-		t.Fatalf("the evidence is not of this native platform: %+v", ev.Platform)
-	}
-	if !strings.HasPrefix(ev.Publication, "none") {
-		t.Fatalf("the manifest must say nothing was published: %q", ev.Publication)
-	}
+	g.Expect(dec.Decode(&ev)).To(Succeed(), "the evidence manifest does not parse")
+	g.Expect(ev.Schema).To(Equal(1), "unexpected schema")
+	g.Expect(ev.Suite).To(Equal("tables-acceptance"))
+	g.Expect(ev.Platform.OS).To(Equal(runtime.GOOS), "the evidence is not of this native platform: %+v", ev.Platform)
+	g.Expect(ev.Platform.Arch).To(Equal(runtime.GOARCH), "the evidence is not of this native platform: %+v", ev.Platform)
+	g.Expect(ev.Platform.Native).To(BeTrue(), "the evidence is not of this native platform: %+v", ev.Platform)
+	g.Expect(ev.Publication).To(HavePrefix("none"), "the manifest must say nothing was published")
 	joined := make([]string, 0, len(ev.Commands))
 	for _, c := range ev.Commands {
 		joined = append(joined, strings.Join(c, " "))
@@ -62,40 +62,34 @@ func TestEvidenceManifest(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("no recorded command contains %q: %v", want, joined)
+			problem("no recorded command contains %q: %v", want, joined)
 		}
 	}
 	digest := regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	seen := map[string]string{}
 	for _, v := range []string{"0.1.0", "0.2.0"} {
 		d, ok := ev.Artifact.Versions[v]
-		if !ok {
-			t.Fatalf("no digest of version %s", v)
-		}
+		g.Expect(ok).To(BeTrue(), "no digest of version %s", v)
 		for what, value := range map[string]string{"archive": d.Archive, "image": d.Image} {
 			if !digest.MatchString(value) {
-				t.Errorf("%s digest of %s is malformed: %q", what, v, value)
+				problem("%s digest of %s is malformed: %q", what, v, value)
 			}
 			if other, dup := seen[value]; dup {
-				t.Errorf("%s digest of %s equals %s", what, v, other)
+				problem("%s digest of %s equals %s", what, v, other)
 			}
 			seen[value] = v + " " + what
 		}
 	}
 	if ev.Artifact.Addon != "tables" {
-		t.Errorf("the artifact is %q", ev.Artifact.Addon)
+		problem("the artifact is %q", ev.Artifact.Addon)
 	}
 
 	inventory, err := os.ReadFile(filepath.Join(root, "scripts/addons/suites.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	g.Expect(err).NotTo(HaveOccurred())
 	var suites map[string]struct {
 		Cases []string `json:"cases"`
 	}
-	if err := json.Unmarshal(inventory, &suites); err != nil {
-		t.Fatal(err)
-	}
+	g.Expect(json.Unmarshal(inventory, &suites)).To(Succeed())
 	var want, wantBrowser []string
 	for _, c := range suites["tables-acceptance"].Cases {
 		if name, ok := strings.CutPrefix(c, "go: "); ok {
@@ -109,11 +103,11 @@ func TestEvidenceManifest(t *testing.T) {
 	for _, c := range ev.Cases {
 		got = append(got, c.Name)
 		if c.State != "passed" {
-			t.Errorf("case %q is %s", c.Name, c.State)
+			problem("case %q is %s", c.Name, c.State)
 			if c.Trace == "" {
-				t.Errorf("case %q failed and no trace was retained", c.Name)
+				problem("case %q failed and no trace was retained", c.Name)
 			} else if _, err := os.Stat(c.Trace); err != nil {
-				t.Errorf("the trace of %q is missing: %v", c.Name, err)
+				problem("the trace of %q is missing: %v", c.Name, err)
 			}
 		}
 	}
@@ -121,29 +115,29 @@ func TestEvidenceManifest(t *testing.T) {
 	for _, c := range ev.Browser {
 		gotBrowser = append(gotBrowser, c.Name)
 		if c.State != "passed" {
-			t.Errorf("browser case %q is %s", c.Name, c.State)
+			problem("browser case %q is %s", c.Name, c.State)
 			if c.Trace == "" {
-				t.Errorf("browser case %q failed and no trace was retained", c.Name)
+				problem("browser case %q failed and no trace was retained", c.Name)
 			} else if _, err := os.Stat(c.Trace); err != nil {
-				t.Errorf("the trace of %q is missing: %v", c.Name, err)
+				problem("the trace of %q is missing: %v", c.Name, err)
 			}
 		}
 	}
 	sort.Strings(wantBrowser)
 	sort.Strings(gotBrowser)
 	if strings.Join(wantBrowser, "\n") != strings.Join(gotBrowser, "\n") {
-		t.Errorf("the browser cases of the manifest differ from suites.json:\nmanifest: %q\ninventory: %q", gotBrowser, wantBrowser)
+		problem("the browser cases of the manifest differ from suites.json:\nmanifest: %q\ninventory: %q", gotBrowser, wantBrowser)
 	}
 	if len(wantBrowser) == 0 {
-		t.Error("the inventory has no browser case")
+		problem("the inventory has no browser case")
 	}
 	sort.Strings(want)
 	sort.Strings(got)
 	if strings.Join(want, "\n") != strings.Join(got, "\n") {
-		t.Errorf("the case inventory of the manifest differs from suites.json:\nmanifest: %q\ninventory: %q", got, want)
+		problem("the case inventory of the manifest differs from suites.json:\nmanifest: %q\ninventory: %q", got, want)
 	}
 	if len(want) == 0 {
-		t.Error("the inventory has no Go case")
+		problem("the inventory has no Go case")
 	}
 }
 
@@ -151,16 +145,15 @@ func TestEvidenceManifest(t *testing.T) {
 // binary runs in, which once left a stale manifest inside the tree. The suite
 // refuses it, whatever the writer or the checker.
 func TestEvidencePathMustBeAbsolute(t *testing.T) {
-	if _, err := evidenceLocation(".cache/addons/tables-acceptance-evidence.json", "/repo"); err == nil {
-		t.Fatal("a relative evidence path must be refused")
-	}
-	if _, err := evidenceLocation("../evidence.json", "/repo"); err == nil {
-		t.Fatal("a parent-relative evidence path must be refused")
-	}
-	if p, err := evidenceLocation("", "/repo"); err != nil || p != "/repo/.cache/addons/tables-acceptance-evidence.json" {
-		t.Fatalf("the default is under the repository cache: %q %v", p, err)
-	}
-	if p, err := evidenceLocation("/work/evidence.json", "/repo"); err != nil || p != "/work/evidence.json" {
-		t.Fatalf("an absolute path is used as given: %q %v", p, err)
-	}
+	g := NewWithT(t)
+	_, err := evidenceLocation(".cache/addons/tables-acceptance-evidence.json", "/repo")
+	g.Expect(err).To(HaveOccurred(), "a relative evidence path must be refused")
+	_, err = evidenceLocation("../evidence.json", "/repo")
+	g.Expect(err).To(HaveOccurred(), "a parent-relative evidence path must be refused")
+	p, err := evidenceLocation("", "/repo")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(p).To(Equal("/repo/.cache/addons/tables-acceptance-evidence.json"), "the default is under the repository cache")
+	p, err = evidenceLocation("/work/evidence.json", "/repo")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(p).To(Equal("/work/evidence.json"), "an absolute path is used as given")
 }

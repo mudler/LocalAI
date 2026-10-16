@@ -77,11 +77,11 @@ func openLedger(root string, timeout time.Duration) (*processLedger, error) {
 		return nil, e
 	}
 	if e = unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB); e != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, e
 	}
 	l := &processLedger{root: root, lock: f, entries: map[string]processIdentity{}}
-	fail := func(e error) (*processLedger, error) { f.Close(); return nil, e }
+	fail := func(e error) (*processLedger, error) { _ = f.Close(); return nil, e }
 	// Require exact OS identity and pidfd support even when the ledger is empty.
 	if _, e = identity(os.Getpid()); e != nil {
 		return fail(e)
@@ -90,7 +90,7 @@ func openLedger(root string, timeout time.Duration) (*processLedger, error) {
 	if e != nil {
 		return fail(e)
 	}
-	unix.Close(fd)
+	_ = unix.Close(fd)
 	marker, e := f.Stat()
 	if e != nil {
 		return fail(e)
@@ -138,7 +138,7 @@ func recoverProcess(ctx context.Context, p processIdentity) error {
 	if e != nil {
 		return e
 	}
-	defer unix.Close(fd)
+	defer func() { _ = unix.Close(fd) }()
 	now, e := identity(p.PID)
 	if os.IsNotExist(e) {
 		return nil
@@ -190,7 +190,7 @@ func (l *processLedger) flush() error {
 	if e != nil {
 		return e
 	}
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	return d.Sync()
 }
 func (l *processLedger) put(id string, p processIdentity) error {

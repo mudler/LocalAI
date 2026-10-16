@@ -514,7 +514,7 @@ func (c *Carrier) Proposal(ctx context.Context, a contract.Actor, r contract.Req
 	if e != nil {
 		return Proposal{}, e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var p Proposal
 	if e = decode(io.LimitReader(resp.Body, 2<<20), &p); e != nil {
 		return Proposal{}, uncertainProposal(call, r.OperationID)
@@ -528,7 +528,7 @@ func (c *Carrier) pendingList(ctx context.Context, a contract.Actor, r contract.
 	if e != nil {
 		return PendingList{}, e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var l PendingList
 	if e = decode(io.LimitReader(resp.Body, 2<<20), &l); e != nil {
 		return PendingList{}, ErrUnavailable
@@ -542,7 +542,7 @@ func (c *Carrier) proposalList(ctx context.Context, a contract.Actor, r contract
 	if e != nil {
 		return ProposalList{}, e
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var l ProposalList
 	if e = decode(io.LimitReader(resp.Body, 2<<20), &l); e != nil {
 		return ProposalList{}, ErrUnavailable

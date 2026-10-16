@@ -224,7 +224,7 @@ func affected(ctx context.Context, tx *sql.Tx, tbl *catalogTable, c RowChange) (
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var ids []int64
 	for rows.Next() {
 		var id int64
@@ -265,7 +265,7 @@ func snapshot(ctx context.Context, tx *sql.Tx, tbl *catalogTable, ids []int64, c
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := []map[string]any{}
 	for rows.Next() {
 		raw := make([]any, len(cols)+1)
@@ -492,12 +492,12 @@ func (s *Store) PreviewRows(ctx context.Context, change RowChange) (contract.Pre
 	if err != nil {
 		return out, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return out, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	m, err := readMeta(ctx, tx)
 	if err != nil {
 		return out, err
@@ -545,7 +545,7 @@ func (s *Store) ApplyRows(ctx context.Context, change RowChange, expected contra
 	if err != nil {
 		return contract.Receipt{}, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if !found {
 		if err = s.begin(ctx, opRow{ID: operationID, Kind: "rows", Resource: change.ResourceID, Name: hash}); err != nil {
 			return contract.Receipt{}, err
@@ -561,7 +561,7 @@ func (s *Store) ApplyRows(ctx context.Context, change RowChange, expected contra
 		forget()
 		return contract.Receipt{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err = tx.ExecContext(ctx, catalogSchema); err != nil {
 		forget()
 		return contract.Receipt{}, capacityError(err)

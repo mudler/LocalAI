@@ -313,7 +313,7 @@ func (a *Artifacts) transfer(ctx context.Context, actor contract.Actor, request 
 		}
 		return fmt.Errorf("open output: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	// A reader blocked in a read is unblocked by closing it when the context
 	// ends; the sized reader then reports the context error.
 	stop := make(chan struct{})
@@ -437,7 +437,7 @@ func (a *Artifacts) download(ctx context.Context, actor contract.Actor, id strin
 		if err != nil {
 			return a.unreadable(ctx, actor, id, err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		r = cur
 		return a.stream(ctx, actor, cur, keys, file, dst)
 	})

@@ -273,7 +273,7 @@ func cmdBuild(args []string) error {
 	if err := os.WriteFile(filepath.Join(*out, receiptFile), append(rb, '\n'), 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "digest=%s\nplatform=%s\nversion=%s\npublishable=%t\n", digest, *platform, *version, r.Publishable)
+	_, _ = fmt.Fprintf(stdout, "digest=%s\nplatform=%s\nversion=%s\npublishable=%t\n", digest, *platform, *version, r.Publishable)
 	return nil
 }
 

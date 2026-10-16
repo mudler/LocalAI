@@ -169,7 +169,7 @@ func cmdChannel(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "publish=%t\nreason=%s\nimmutable=%s\naliases=%s\nchannel=%s\nsigner_ref=%s\nversion=%s\n",
+	_, _ = fmt.Fprintf(stdout, "publish=%t\nreason=%s\nimmutable=%s\naliases=%s\nchannel=%s\nsigner_ref=%s\nversion=%s\n",
 		d.Publish, d.Reason, d.Immutable, strings.Join(d.Aliases, ","), d.Channel, d.SignerRef, d.Version)
 	return nil
 }

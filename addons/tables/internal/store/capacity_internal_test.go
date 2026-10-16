@@ -21,7 +21,7 @@ func fill(s *Store, id, tag string) error {
 	if err != nil {
 		Expect(err).NotTo(HaveOccurred())
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	blob := strings.Repeat("x", 3000)
 	for i := 0; i < 500; i++ {
 		if _, err = db.Exec("INSERT INTO tables_operations(operation_id,kind,schema_revision,data_revision,applied_at) VALUES(?,?,?,?,?)", fmt.Sprintf("fill-%s-%d", tag, i), blob, 1, 0, "now"); err != nil {

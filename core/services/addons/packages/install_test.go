@@ -63,7 +63,7 @@ func fixture(data []byte, edits ...func(*catalog.Release, *catalog.Source)) (*In
 			w.WriteHeader(403)
 			return
 		}
-		w.Write(data)
+		_, _ = w.Write(data)
 	}))
 	DeferCleanup(artifact.Close)
 	r := catalog.Release{AddonID: "sample", Name: "Sample", Version: "1.2.3", Channel: "latest", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(data)), OS: "linux", Arch: "amd64"}
@@ -76,7 +76,7 @@ func fixture(data []byte, edits ...func(*catalog.Release, *catalog.Source)) (*In
 			w.WriteHeader(403)
 			return
 		}
-		catalog.WriteIndex(w, []catalog.Release{r})
+		_ = catalog.WriteIndex(w, []catalog.Release{r})
 	}))
 	DeferCleanup(server.Close)
 	store, e := credentials.Parse([]byte("- match: "+server.URL+"\n  allow_insecure: true\n  bearer: catalog-only"), nil)
@@ -93,9 +93,9 @@ func fixture(data []byte, edits ...func(*catalog.Release, *catalog.Source)) (*In
 	Expect(e).NotTo(HaveOccurred())
 	root := GinkgoT().TempDir()
 	DeferCleanup(func() {
-		filepath.Walk(root, func(p string, info os.FileInfo, e error) error {
+		_ = filepath.Walk(root, func(p string, info os.FileInfo, e error) error {
 			if e == nil && info.IsDir() {
-				os.Chmod(p, 0700)
+				_ = os.Chmod(p, 0700)
 			}
 			return nil
 		})

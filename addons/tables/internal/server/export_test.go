@@ -82,7 +82,7 @@ func (r *exportRig) open(user, op, handle string) ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	return io.ReadAll(rc)
 }
 
@@ -246,7 +246,7 @@ var _ = Describe("rows-export outputs", func() {
 			req.Header.Set("X-LocalAI-Incarnation", "inc")
 			resp, e := http.DefaultClient.Do(req)
 			Expect(e).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			body, _ := io.ReadAll(resp.Body)
 			return resp, body
 		}

@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/gomega"
 )
 
 // refusingClient refuses the preview or the apply as invalid, the way the
@@ -45,9 +46,11 @@ func (c *refusingClient) Apply(_ context.Context, e contract.Envelope, _ contrac
 func isInvalid(t *testing.T, err error) {
 	t.Helper()
 	var unknown *gateway.OutcomeUnknown
-	if !errors.Is(err, gateway.ErrInvalidRequest) || errors.As(err, &unknown) || errors.Is(err, gateway.ErrUnavailable) || gateway.StatusFor(err) == 503 {
-		t.Fatalf("want the typed invalid request, got %v", err)
-	}
+	g := NewWithT(t)
+	g.Expect(errors.Is(err, gateway.ErrInvalidRequest)).To(BeTrue(), "want the typed invalid request, got %v", err)
+	g.Expect(errors.As(err, &unknown)).To(BeFalse(), "want the typed invalid request, got %v", err)
+	g.Expect(errors.Is(err, gateway.ErrUnavailable)).To(BeFalse(), "want the typed invalid request, got %v", err)
+	g.Expect(gateway.StatusFor(err)).NotTo(Equal(503), "want the typed invalid request, got %v", err)
 }
 
 // A request the add-on refuses as invalid is a 400 from the typed apply and
@@ -68,16 +71,13 @@ func TestAddonRefusalIsTheInvalidRequestAnswer(t *testing.T) {
 	isInvalid(t, err)
 	err = s.typedChange(ctx, actor, key, inst, "schema", "wire-2", body, contract.Revision{Schema: 1}, "op-2")
 	isInvalid(t, err)
-	if client.applies != 0 {
-		t.Fatalf("a refused preview must not reach apply, %d applies", client.applies)
-	}
+	NewWithT(t).Expect(client.applies).To(BeZero(), "a refused preview must not reach apply")
 
 	client.preview, client.apply = false, true
 	_, err = s.typedApply(ctx, actor, key, inst, "write", "wire-1", body, contract.Revision{Schema: 1}, "op-1", want)
 	isInvalid(t, err)
 	err = s.typedChange(ctx, actor, key, inst, "schema", "wire-2", body, contract.Revision{Schema: 1}, "op-2")
 	isInvalid(t, err)
-	if _, held := s.bound("wire-1"); held {
-		t.Fatal("a refused apply must not keep the operation ID bound")
-	}
+	_, held := s.bound("wire-1")
+	NewWithT(t).Expect(held).To(BeFalse(), "a refused apply must not keep the operation ID bound")
 }
