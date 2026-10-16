@@ -197,6 +197,9 @@ func setModelLoadingRetryAfter(loadErr *nodes.ModelLoadingError, c echo.Context)
 func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
 
+	// Bound embedding bodies before auth model extraction or route tracing.
+	e.Use(httpMiddleware.EmbeddingBodyLimit(application.ApplicationConfig().UploadLimitMB))
+
 	// Set body limit
 	if application.ApplicationConfig().UploadLimitMB > 0 {
 		e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{

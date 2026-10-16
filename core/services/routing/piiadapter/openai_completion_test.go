@@ -52,6 +52,84 @@ var _ = Describe("OpenAICompletion adapter", func() {
 		Expect(req.Instruction).To(Equal("*"))
 	})
 
+	Context("structured content objects", func() {
+		image := map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://media.example.invalid/a.png"}}
+		newReq := func() *schema.OpenAIRequest {
+			req := &schema.OpenAIRequest{}
+			req.Input = []any{
+				"plain secret",
+				map[string]any{"content": []any{
+					map[string]any{"type": "text", "text": "object secret"},
+					image,
+					map[string]any{"type": "text", "text": "second secret"},
+				}},
+			}
+			return req
+		}
+
+		It("scans text parts exactly like strings and leaves media alone", func() {
+			req := newReq()
+			got := a.Scan(req)
+			texts := []string{}
+			for _, g := range got {
+				texts = append(texts, g.Text)
+			}
+			Expect(texts).To(ConsistOf("plain secret", "object secret", "second secret"))
+			applyAll(a, req, func(string) string { return "[X]" })
+			arr := req.Input.([]any)
+			Expect(arr[0]).To(Equal("[X]"))
+			parts := arr[1].(map[string]any)["content"].([]any)
+			Expect(parts[0].(map[string]any)["text"]).To(Equal("[X]"))
+			Expect(parts[1]).To(Equal(image))
+			Expect(parts[2].(map[string]any)["text"]).To(Equal("[X]"))
+		})
+
+		It("scans a single content object given without an array", func() {
+			req := &schema.OpenAIRequest{}
+			req.Input = map[string]any{"content": []any{map[string]any{"type": "text", "text": "solo secret"}}}
+			Expect(a.Scan(req)).To(HaveLen(1))
+			applyAll(a, req, func(string) string { return "[X]" })
+			parts := req.Input.(map[string]any)["content"].([]any)
+			Expect(parts[0].(map[string]any)["text"]).To(Equal("[X]"))
+		})
+	})
+
+	It("round-trips a text to its slot when the element index is large", func() {
+		req := &schema.OpenAIRequest{}
+		arr := make([]any, 300)
+		for i := range arr {
+			arr[i] = "plain"
+		}
+		arr[299] = map[string]any{"content": []any{
+			map[string]any{"type": "text", "text": "tail secret"},
+		}}
+		req.Input = arr
+		got := a.Scan(req)
+		Expect(got).To(HaveLen(300))
+		applyAll(a, req, func(s string) string {
+			if s == "tail secret" {
+				return "[X]"
+			}
+			return s
+		})
+		out := req.Input.([]any)
+		Expect(out[0]).To(Equal("plain"))
+		Expect(out[298]).To(Equal("plain"))
+		parts := out[299].(map[string]any)["content"].([]any)
+		Expect(parts[0].(map[string]any)["text"]).To(Equal("[X]"))
+	})
+
+	It("drops an update whose index names no scanned slot", func() {
+		req := &schema.OpenAIRequest{}
+		req.Prompt = []any{"a"}
+		// Index 1<<24 is outside the scanned slots. The old packing decoded it as
+		// element 0 of Prompt and wrote the update there.
+		a.Apply(req, []pii.ScannedText{{Index: 1 << 24, Text: "X"}})
+		Expect(req.Prompt).To(Equal([]any{"a"}))
+		Expect(req.Input).To(BeNil())
+		Expect(req.Instruction).To(BeEmpty())
+	})
+
 	It("returns nothing for an empty / non-matching request", func() {
 		Expect(a.Scan(&schema.OpenAIRequest{})).To(BeEmpty())
 		Expect(a.Scan(nil)).To(BeNil())

@@ -60,6 +60,12 @@ func (c *ConnectionEvictingClient) Embeddings(ctx context.Context, in *pb.Predic
 	return result, err
 }
 
+func (c *ConnectionEvictingClient) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...ggrpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
+	result, err := c.Backend.MultimodalEmbedding(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}
+
 func (c *ConnectionEvictingClient) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	result, err := c.Backend.GenerateImage(ctx, in, opts...)
 	c.checkErr(err)
@@ -140,6 +146,13 @@ func (c *ConnectionEvictingClient) TokenClassify(ctx context.Context, in *pb.Tok
 
 func (c *ConnectionEvictingClient) Score(ctx context.Context, in *pb.ScoreRequest, opts ...ggrpc.CallOption) (*pb.ScoreResponse, error) {
 	result, err := c.Backend.Score(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}
+
+// Metadata is part of structured inference admission, not an optional probe.
+func (c *ConnectionEvictingClient) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
+	result, err := c.Backend.ModelMetadata(ctx, in, opts...)
 	c.checkErr(err)
 	return result, err
 }

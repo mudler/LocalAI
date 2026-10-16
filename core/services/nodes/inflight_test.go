@@ -510,3 +510,7 @@ var _ = Describe("InFlightTrackingClient", func() {
 		})
 	})
 })
+
+func (c *fakeGRPCBackend) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...ggrpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "multimodal embedding unavailable")
+}
