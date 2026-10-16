@@ -362,6 +362,12 @@ definitions:
         items:
           $ref: '#/definitions/gallery.NodeDriftInfo'
         type: array
+      reason:
+        description: |-
+          Reason says why the backend is flagged when version and digest alone
+          would not flag it: the backend failed a request in a way that shows it
+          is older than the server. Empty for ordinary version or digest upgrades.
+        type: string
     type: object
   gallery.Variant:
     properties:

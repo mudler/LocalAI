@@ -5165,6 +5165,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/gallery.NodeDriftInfo"
                     }
+                },
+                "reason": {
+                    "description": "Reason says why the backend is flagged when version and digest alone\nwould not flag it: the backend failed a request in a way that shows it\nis older than the server. Empty for ordinary version or digest upgrades.",
+                    "type": "string"
                 }
             }
         },
