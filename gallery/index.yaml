@@ -33574,6 +33574,150 @@
     - filename: minicpm-v-4_6-mmproj-f16.gguf
       sha256: ca931d861d0801d9003e50697cd764721a334107c0e0415a51168ee1938462de
       uri: huggingface://openbmb/MiniCPM-V-4.6-gguf/mmproj-model-f16.gguf
+- name: minicpm-v-4_7-1b-q4
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-1B
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf
+  description: |
+    MiniCPM-V 4.7 1B is OpenBMB's compact vision-language model for
+    text chat and image understanding. This entry uses the official
+    Q4_K_M GGUF weights and F16 vision projector through llama.cpp,
+    with an 8,192-token default context.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - multimodal
+    - vision
+    - gguf
+    - cpu
+    - gpu
+  variants:
+    - model: minicpm-v-4_7-1b-q5
+    - model: minicpm-v-4_7-1b-q6
+    - model: minicpm-v-4_7-1b-q8
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
+    parameters:
+      model: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q4_K_M.gguf
+  files:
+    - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q4_K_M.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q4_K_M.gguf
+      sha256: 588c6c94c82f756b86dba35c42ed9ba9ec187d65824eb52f039c347df563e63d
+    - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
+      sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
+- name: minicpm-v-4_7-1b-q5
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-1B
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf
+  description: |
+    MiniCPM-V 4.7 1B is OpenBMB's compact vision-language model for
+    text chat and image understanding. This entry uses the official
+    Q5_K_M GGUF weights and F16 vision projector through llama.cpp,
+    with an 8,192-token default context.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - multimodal
+    - vision
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
+    parameters:
+      model: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q5_K_M.gguf
+  files:
+    - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q5_K_M.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q5_K_M.gguf
+      sha256: ff7cf8926c8565b8d9e2ebfef8a5dd4cc8a2f34dc8b3c5b3eaa55fdc9e8b0a01
+    - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
+      sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
+- name: minicpm-v-4_7-1b-q6
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-1B
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf
+  description: |
+    MiniCPM-V 4.7 1B is OpenBMB's compact vision-language model for
+    text chat and image understanding. This entry uses the official
+    Q6_K GGUF weights and F16 vision projector through llama.cpp,
+    with an 8,192-token default context.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - multimodal
+    - vision
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
+    parameters:
+      model: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q6_K.gguf
+  files:
+    - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q6_K.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q6_K.gguf
+      sha256: ec9b0f9e041e7ca52a93cb2b7d98a439ac8bc70d0247cd33c03a9ae755e6a593
+    - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
+      sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
+- name: minicpm-v-4_7-1b-q8
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-1B
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf
+  description: |
+    MiniCPM-V 4.7 1B is OpenBMB's compact vision-language model for
+    text chat and image understanding. This entry uses the official
+    Q8_0 GGUF weights and F16 vision projector through llama.cpp,
+    with an 8,192-token default context.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - multimodal
+    - vision
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
+    parameters:
+      model: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q8_0.gguf
+  files:
+    - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q8_0.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q8_0.gguf
+      sha256: 2b83d8dfcd664c4dd9b9cfbe8dbd160782f2c6c362ca773758edc2dbc31420d7
+    - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
+      sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
 - &minicpm5-2b
   name: minicpm5-2b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
