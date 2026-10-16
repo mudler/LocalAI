@@ -92,8 +92,8 @@ out=$(channel --event push --ref refs/heads/master --sha "$sha")
 printf '%s\n' "$out" | grep -x 'aliases=development' >/dev/null && printf '%s\n' "$out" | grep -x 'immutable=sha-0123456789ab' >/dev/null
 case_ok 'channel.sh: master publishes development'
 out=$(channel --event push --ref refs/heads/latest --sha "$sha")
-printf '%s\n' "$out" | grep -E '^aliases=branch-latest-[0-9a-f]{12}$' >/dev/null
-case_ok 'channel.sh: a branch named latest gets a hashed branch channel'
+printf '%s\n' "$out" | grep -x 'publish=false' >/dev/null && printf '%s\n' "$out" | grep -x 'aliases=' >/dev/null && printf '%s\n' "$out" | grep -x 'channel=' >/dev/null
+case_ok 'channel.sh: a branch push never publishes, even a branch named latest'
 out=$(channel --event push --ref refs/tags/v1.2.3 --sha "$sha")
 printf '%s\n' "$out" | grep -x 'aliases=' >/dev/null && printf '%s\n' "$out" | grep -x 'immutable=1.2.3' >/dev/null
 case_ok 'channel.sh: a tag push prepares the version and moves no alias'

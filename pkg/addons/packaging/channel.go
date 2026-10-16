@@ -92,8 +92,8 @@ func validRef(ref string) error {
 	return nil
 }
 
-// decide applies the event policy. Pull requests never publish. A trusted
-// branch push publishes a branch channel, and the default branch alone
+// decide applies the event policy. Pull requests and branch pushes never
+// publish, so a branch name cannot reach a registry. The default branch alone
 // publishes development. A tag push prepares the immutable version and never
 // moves an alias. Only a published, non-draft, stable release moves latest.
 func decide(event, ref, sha string, draft, prerelease bool) (Decision, error) {
@@ -112,8 +112,7 @@ func decide(event, ref, sha string, draft, prerelease bool) (Decision, error) {
 		case ref == developmentRef:
 			return Decision{Publish: true, Reason: "default branch publishes development", Immutable: commit, Aliases: []string{aliasDevelopment}, Channel: aliasDevelopment, SignerRef: ref, Version: devVersion(sha)}, nil
 		case strings.HasPrefix(ref, "refs/heads/") && len(ref) > len("refs/heads/"):
-			tag := branchTag(ref)
-			return Decision{Publish: true, Reason: "trusted branch push publishes its branch channel", Immutable: commit, Aliases: []string{tag}, Channel: tag, SignerRef: ref, Version: devVersion(sha)}, nil
+			return Decision{Reason: "branch push never publishes; only master publishes development"}, nil
 		case strings.HasPrefix(ref, "refs/tags/"):
 			v, err := tagVersion(ref)
 			if err != nil {

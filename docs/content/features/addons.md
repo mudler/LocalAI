@@ -2188,7 +2188,7 @@ place that decides what an event may publish. Its output is what the workflow us
 |---|---|---|
 | Pull request | none | none: nothing is pushed, no secret or OIDC token is available |
 | Push to `master` | `sha-<12 hex of the commit>` | `development` |
-| Push to another branch | `sha-<12 hex>` | `branch-<label>-<hash>` |
+| Push to another branch | none | none: a branch push never publishes, whatever its name |
 | Push of a `v<semver>` tag | `<semver>` | none: a tag alone never advances `latest` |
 | Published, stable, non-draft release | `<semver>` | `latest`, after complete publication |
 | Published pre-release | `<semver>` | none |
@@ -2199,9 +2199,9 @@ branch channel is `branch-` + a label + `-` + the first 12 hex characters of the
 of the full original ref (`refs/heads/...`). The label is the branch name in lower case,
 every run of characters outside `a-z0-9` replaced by one dash, cut to 40 characters
 (`x` when nothing is left). The hash makes `Feature/X`, `feature-x` and `feature/x`
-three channels. A branch called `latest`, `development`, `1.2.3` or `master2` gets a
-`branch-...` name. Only the exact ref `refs/heads/master` is `development`. Packages
-built from a branch carry the version `0.0.0-dev.<12 hex of the commit>`.
+three channels. Only the exact ref `refs/heads/master` is `development`. Nothing built
+from another branch is published, and no new branch channel is created. Channels that
+an earlier run published stay where they are.
 
 Immutable tags are never overwritten. A second publication of a version with other
 content is refused. The one exception is a rebuild of the same version and commit after

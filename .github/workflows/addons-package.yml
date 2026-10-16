@@ -8,7 +8,7 @@ name: 'add-on packages'
 # Event policy (the rules live in scripts/addons/channel.sh):
 #   pull_request          validate and build legs, publish nothing, no secrets
 #   push to master        publish the development channel
-#   push to other branch  publish that branch's own channel (branch-<label>-<hash>)
+#   push to other branch  publish nothing
 #   push of a v<semver> tag  prepare the immutable version, move no alias
 #   release published     promote latest, for a stable non-draft release only
 #

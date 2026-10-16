@@ -6,9 +6,9 @@
 #   sh scripts/addons/channel.sh --event <name> --ref <full ref> --sha <40 hex>
 #       [--draft] [--prerelease]
 #
-# Pull requests never publish. A branch push publishes its branch channel,
-# and master alone publishes development. A tag push prepares the immutable
-# version and moves no alias. A published stable release moves latest.
+# Pull requests and branch pushes never publish, and master alone publishes
+# development. A tag push prepares the immutable version and moves no alias.
+# A published stable release moves latest.
 # Anything the rules do not name fails.
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)

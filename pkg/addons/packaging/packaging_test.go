@@ -359,18 +359,19 @@ var _ = Describe("event policy and channels", func() {
 		Expect(d.Aliases).To(Equal([]string{"development"}))
 		Expect(d.Immutable).To(Equal("sha-0123456789ab"))
 		Expect(d.Version).To(Equal("0.0.0-dev.0123456789ab"))
-		for _, ref := range []string{"refs/heads/Master", "refs/heads/master2", "refs/heads/feature/master", "refs/heads/development", "refs/heads/MASTER"} {
-			b := decision("push", ref)
-			Expect(b.Aliases).To(HaveLen(1))
-			Expect(b.Aliases[0]).To(HavePrefix("branch-"))
-			Expect(b.Aliases[0]).NotTo(Equal("development"))
+	})
+	It("never publishes from a branch push, whatever the branch is named", func() {
+		for _, ref := range []string{"refs/heads/Master", "refs/heads/master2", "refs/heads/feature/master", "refs/heads/development", "refs/heads/MASTER", "refs/heads/latest", "refs/heads/feature/x"} {
+			d := decision("push", ref)
+			Expect(d.Publish).To(BeFalse(), ref)
+			Expect(d.Aliases).To(BeEmpty(), ref)
+			Expect(d.Immutable).To(BeEmpty(), ref)
+			Expect(d.Channel).To(BeEmpty(), ref)
 		}
 	})
 	It("keeps reserved names out of the branch namespace", func() {
 		for _, br := range []string{"latest", "development", "Latest", "1.2.3", "v1.2.3", "sha-0123456789ab", "branch-x-000000000000", "0.0.0-dev.0123456789ab"} {
-			d := decision("push", "refs/heads/"+br)
-			Expect(d.Aliases).To(HaveLen(1))
-			tag := d.Aliases[0]
+			tag := branchTag("refs/heads/" + br)
 			Expect(tag).To(MatchRegexp(`^branch-[a-z0-9]+(-[a-z0-9]+)*-[0-9a-f]{12}$`), br)
 			Expect(tag).NotTo(Equal("latest"))
 			Expect(tag).NotTo(Equal("development"))
@@ -379,10 +380,10 @@ var _ = Describe("event policy and channels", func() {
 		}
 	})
 	It("separates refs that normalize to the same label", func() {
-		a := decision("push", "refs/heads/Feature/X").Aliases[0]
-		b := decision("push", "refs/heads/feature-x").Aliases[0]
-		c := decision("push", "refs/heads/feature/x").Aliases[0]
-		d := decision("push", "refs/heads/feature_x").Aliases[0]
+		a := branchTag("refs/heads/Feature/X")
+		b := branchTag("refs/heads/feature-x")
+		c := branchTag("refs/heads/feature/x")
+		d := branchTag("refs/heads/feature_x")
 		Expect(branchLabel("Feature/X")).To(Equal(branchLabel("feature-x")))
 		Expect([]string{a, b, c, d}).To(HaveLen(4))
 		seen := map[string]bool{}
@@ -390,15 +391,15 @@ var _ = Describe("event policy and channels", func() {
 			Expect(seen).NotTo(HaveKey(t))
 			seen[t] = true
 		}
-		Expect(decision("push", "refs/heads/feature/x").Aliases[0]).To(Equal(c))
+		Expect(branchTag("refs/heads/feature/x")).To(Equal(c))
 	})
 	It("bounds empty, Unicode and very long branch names", func() {
 		for _, br := range []string{"日本語", "ünïcode/Ö", "!!!", "-", "a b c", long} {
-			d := decision("push", "refs/heads/"+br)
-			Expect(len(d.Aliases[0])).To(BeNumerically("<=", 7+maxLabel+1+12), br)
-			Expect(d.Aliases[0]).To(MatchRegexp(`^branch-[a-z0-9-]+-[0-9a-f]{12}$`))
+			tag := branchTag("refs/heads/" + br)
+			Expect(len(tag)).To(BeNumerically("<=", 7+maxLabel+1+12), br)
+			Expect(tag).To(MatchRegexp(`^branch-[a-z0-9-]+-[0-9a-f]{12}$`))
 		}
-		Expect(decision("push", "refs/heads/日本語").Aliases[0]).NotTo(Equal(decision("push", "refs/heads/中文").Aliases[0]))
+		Expect(branchTag("refs/heads/日本語")).NotTo(Equal(branchTag("refs/heads/中文")))
 		_, err := decide("push", "", sha40, false, false)
 		Expect(err).To(HaveOccurred())
 		_, err = decide("push", "refs/heads/", sha40, false, false)
