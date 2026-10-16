@@ -7152,6 +7152,93 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-gsq-rco/mmproj-Qwen3.8-27B-BF16.gguf
       uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/resolve/d562806dbafae37109975e970aae91b43e73b440/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 13cb7bebccbd04afc8f4090cb949ecf8937cdf7377c5799b1a0c594e7c0d3e16
+- name: underdog-saluki-27b-1.0-abliterated
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ConwayResearch/Underdog-Saluki-27B-1.0
+    - https://huggingface.co/Kujira/Underdog-Saluki-27B-1.0-MTP-Abliterated-GGUF
+  description: |
+    Kujira's abliterated adaptation of Underdog Saluki 27B 1.0 uses mixed
+    IQ2 weights with an embedded MTP head. This text-only llama.cpp build
+    uses ordinary decoding; the MTP variant enables speculative decoding.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - function-calling
+    - uncensored
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/underdog-saluki-27b-1.0-abliterated/Underdog-Saluki-27B-1.0-IQ2-mix-MTP-abliterated.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      presence_penalty: 1.1
+  variants:
+    - model: underdog-saluki-27b-1.0-abliterated-mtp
+  files:
+    - filename: llama-cpp/models/underdog-saluki-27b-1.0-abliterated/Underdog-Saluki-27B-1.0-IQ2-mix-MTP-abliterated.gguf
+      uri: https://huggingface.co/Kujira/Underdog-Saluki-27B-1.0-MTP-Abliterated-GGUF/resolve/c1d826d73831efcb819d9d64c625f0fab56ae8fc/Underdog-Saluki-27B-1.0-IQ2-mix-MTP-abliterated.gguf
+      sha256: b9b231748c94e13ecc0f841942798eb36b27eaea60014fea896218bc86742bbc
+- name: underdog-saluki-27b-1.0-abliterated-mtp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ConwayResearch/Underdog-Saluki-27B-1.0
+    - https://huggingface.co/Kujira/Underdog-Saluki-27B-1.0-MTP-Abliterated-GGUF
+  description: |
+    Kujira's abliterated adaptation of Underdog Saluki 27B 1.0 uses mixed
+    IQ2 weights with an embedded MTP head. This text-only llama.cpp build
+    enables multi-token prediction with up to two draft tokens.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - function-calling
+    - uncensored
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:2
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/underdog-saluki-27b-1.0-abliterated/Underdog-Saluki-27B-1.0-IQ2-mix-MTP-abliterated.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      presence_penalty: 1.1
+  files:
+    - filename: llama-cpp/models/underdog-saluki-27b-1.0-abliterated/Underdog-Saluki-27B-1.0-IQ2-mix-MTP-abliterated.gguf
+      uri: https://huggingface.co/Kujira/Underdog-Saluki-27B-1.0-MTP-Abliterated-GGUF/resolve/c1d826d73831efcb819d9d64c625f0fab56ae8fc/Underdog-Saluki-27B-1.0-IQ2-mix-MTP-abliterated.gguf
+      sha256: b9b231748c94e13ecc0f841942798eb36b27eaea60014fea896218bc86742bbc
 - name: underdog-saluki-27b-1.0
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
