@@ -72,7 +72,7 @@ func ModelSystemOne(requestJSON string, loader *model.ModelLoader, modelConfig c
 			})
 		}
 		if err != nil {
-			return "", err
+			return "", handleStaleDecisionBackend(modelConfig.Backend, err)
 		}
 		return resp.GetResponseJson(), nil
 	}, nil

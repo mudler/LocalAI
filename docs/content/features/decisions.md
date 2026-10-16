@@ -290,6 +290,15 @@ accept 2–10 levels; this backend-specific limit does not constrain vllm-cpp.
 Older forks without native decision support return 501. Missing decision metadata
 also returns 501, while backend invalid requests return 400.
 
+A `llama-cpp` backend image built before native decisions cannot answer these
+requests, even when the gallery reports it as up to date. LocalAI detects this
+from the failed request: it returns 501 with a message that the backend is older
+than the server, and `GET /backends/upgrades` lists the backend with a `reason`
+field. Upgrade the backend, or install a current build such as the
+`-development` variant. Adding `score` to `known_usecases` does not help. The
+flag clears when the backend is reinstalled; if the reinstalled image is still
+old, the next decision request flags it again.
+
 ### Bounded image input
 
 The public routes and internal decision validator share an image contract. Supply

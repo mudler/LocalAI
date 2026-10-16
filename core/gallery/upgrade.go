@@ -23,6 +23,10 @@ type UpgradeInfo struct {
 	AvailableVersion string `json:"available_version"`
 	InstalledDigest  string `json:"installed_digest,omitempty"`
 	AvailableDigest  string `json:"available_digest,omitempty"`
+	// Reason says why the backend is flagged when version and digest alone
+	// would not flag it: the backend failed a request in a way that shows it
+	// is older than the server. Empty for ordinary version or digest upgrades.
+	Reason string `json:"reason,omitempty"`
 	// NodeDrift lists nodes whose installed version or digest differs from
 	// the cluster majority. Non-empty means the cluster has diverged and an
 	// upgrade will realign it. Empty in single-node mode.
@@ -128,6 +132,19 @@ func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, syste
 		installedVersion := installed.Metadata.Version
 		installedDigest := installed.Metadata.Digest
 		galleryVersion := galleryEntry.Version
+
+		// A request showed this backend is older than the server, even though
+		// its tag, version or digest matches the gallery. See stale_backend.go.
+		if reason, stale := staleReason(installed.Metadata); stale {
+			result[installed.Metadata.Name] = UpgradeInfo{
+				BackendName:      installed.Metadata.Name,
+				InstalledVersion: installedVersion,
+				AvailableVersion: galleryVersion,
+				InstalledDigest:  installedDigest,
+				Reason:           reason,
+			}
+			continue
+		}
 
 		// Detect cluster drift: does every node report the same version+digest?
 		// In single-node mode this stays empty (Nodes is nil).

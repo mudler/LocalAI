@@ -421,6 +421,11 @@ Use `params` to pass backend-specific string options that do not have fixed requ
 fields. Every value in `params` must be a string. Existing fixed fields remain
 authoritative when a fixed field and `params` contain the same option.
 
+The `audio-cpp` backend uses a nonempty `caption` as the default `style` option.
+An explicit `params.style` takes precedence, including an empty string. In
+Studio → Sound, select Advanced mode and enter the musical style in Caption
+and the song text in Lyrics to use YuE2.
+
 Install the YuE2 gallery model and generate a song:
 
 ```bash

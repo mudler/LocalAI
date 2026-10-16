@@ -64,6 +64,7 @@
 #include "parallel_params.h"
 #include "slot_cache.h"
 #include "message_content.h"
+#include "moe_cache_option.h"
 #include "passthrough_options.h"
 #include "stream_peer.h"
 #include "tts_request_options.h"
@@ -1195,6 +1196,21 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 optval_str == "on" || optval_str == "enabled";
             if (enable) {
                 params.tensor_buft_overrides.push_back(llm_ffn_exps_cpu_override());
+            }
+        } else if (!strcmp(optname, "moe_cache_mib")) {
+            // GPU cache for MoE experts kept in host memory (upstream --moe-cache-mib).
+            // Whole MiB, off (0) by default; invalid values keep the default.
+            if (optval != NULL) {
+                const auto bytes = llama_grpc::parse_moe_cache_bytes(optval_str);
+                if (!bytes) {
+                    SRV_WRN("moe_cache_mib: ignoring invalid value '%s' (expected a non-negative integer in MiB)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_MOE_CACHE
+                    params.moe_cache_size = *bytes;
+#else
+                    SRV_WRN("%s", "moe_cache_mib: this llama.cpp build has no MoE cache, ignoring\n");
+#endif
+                }
             }
         } else if (!strcmp(optname, "n_cpu_moe")) {
             if (optval != NULL) {

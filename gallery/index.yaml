@@ -564,7 +564,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: b6421349947075bd6845a0d576b6829c175ef317d2ed2149be837af40ce4eee2
+      sha256: a4563e2f0bcfe43375a36043b57feb424066a13a40e6f9137ea6d3c68c086eaa
 - name: qwopus3.8-27b-flash-v2
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -16168,6 +16168,170 @@
         - stripe_key
         - jwt
         - private_key_block
+- name: lfm2.5-24b-a2b
+  variants:
+    - model: lfm2.5-24b-a2b-q5
+    - model: lfm2.5-24b-a2b-q6
+    - model: lfm2.5-24b-a2b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses the official Q4_K_M GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q4_K_M.gguf
+      temperature: 0.1
+      top_k: 50
+      repeat_penalty: 1.05
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q4_K_M.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF/resolve/f97fc8a443da86c71818adf91baecde5b7ef4c50/LFM2.5-24B-A2B-Q4_K_M.gguf
+      sha256: d3334405b96228eb9908cdebb5c6194908f2da64282bda852afc3a3910c64e7d
+- name: lfm2.5-24b-a2b-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses the official Q5_K_M GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q5_K_M.gguf
+      temperature: 0.1
+      top_k: 50
+      repeat_penalty: 1.05
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q5_K_M.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF/resolve/f97fc8a443da86c71818adf91baecde5b7ef4c50/LFM2.5-24B-A2B-Q5_K_M.gguf
+      sha256: 7f3029ea2a8e40175496e5022cf7defdcc587df9703d3ed613e64daa51427ecb
+- name: lfm2.5-24b-a2b-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses the official Q6_K GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q6_K.gguf
+      temperature: 0.1
+      top_k: 50
+      repeat_penalty: 1.05
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q6_K.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF/resolve/f97fc8a443da86c71818adf91baecde5b7ef4c50/LFM2.5-24B-A2B-Q6_K.gguf
+      sha256: 4c5f34cb94d4a29f0360d04eaa274bb1361ceae163f40f6361cb75d1bee139c2
+- name: lfm2.5-24b-a2b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses the official Q8_0 GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q8_0.gguf
+      temperature: 0.1
+      top_k: 50
+      repeat_penalty: 1.05
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-Q8_0.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF/resolve/f97fc8a443da86c71818adf91baecde5b7ef4c50/LFM2.5-24B-A2B-Q8_0.gguf
+      sha256: f09bf094a8a138c5b645598ca1abb6696a0fde26662d7af649b0713fdef330b6
 - name: lfm2.5-8b-a1b
   variants:
     - model: lfm2.5-8b-a1b-apex-i-quality
@@ -51503,6 +51667,196 @@
     - filename: stablediffusion-cpp/models/Qwen3-8B-Q4_K_M.gguf
       sha256: 120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4
       uri: https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf
+- name: flux.3-image-klein
+  url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
+  urls:
+    - https://huggingface.co/black-forest-labs/flux-3-image-klein
+    - https://huggingface.co/realrebelai/FLUX-3-Image-Klein_GGUFs
+  description: |
+    FLUX.3 Image Klein is a compact FLUX.3 rectified flow transformer from Black Forest Labs that unifies text-to-image generation and image editing, with support for reference images. It uses Qwen3-VL 4B as the text encoder and the FLUX.2 VAE.
+
+    FLUX.3 Image Klein is the step-distilled variant, tuned for fast inference (default: 16 steps, CFG 1.0).
+
+    This entry uses a community Q4_K_M GGUF quantization of the diffusion model.
+  license: flux-kommunity-license-v1.0
+  icon: https://avatars.githubusercontent.com/u/164064024
+  tags:
+    - flux
+    - flux.3
+    - klein
+    - text-to-image
+    - image-generation
+    - image-editing
+    - gguf
+    - quantized
+    - diffusion
+    - black-forest-labs
+    - distilled
+  last_checked: "2026-10-16"
+  overrides:
+    cfg_scale: 1
+    options:
+      - diffusion_model
+      - vae_path:stablediffusion-cpp/models/flux2-vae.safetensors
+      - sampler:euler
+      - llm_path:stablediffusion-cpp/models/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      - offload_params_to_cpu:true
+      - vae_decode_only:false
+    parameters:
+      model: stablediffusion-cpp/models/flux3_image_klein_sd-Q4_K_M.gguf
+    step: 16
+  files:
+    - filename: stablediffusion-cpp/models/flux3_image_klein_sd-Q4_K_M.gguf
+      sha256: 2e429f54f9b2f2161b3123a615167ee6137aa21f1287f426dc895bb7647af5ec
+      uri: https://huggingface.co/realrebelai/FLUX-3-Image-Klein_GGUFs/resolve/main/DISTILLED/flux3_image_klein_sd-Q4_K_M.gguf
+    - filename: stablediffusion-cpp/models/flux2-vae.safetensors
+      sha256: d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5
+      uri: https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors
+    - filename: stablediffusion-cpp/models/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      sha256: 66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a
+      uri: https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF/resolve/main/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+- name: flux.3-image-klein-q8_0
+  url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
+  urls:
+    - https://huggingface.co/black-forest-labs/flux-3-image-klein
+    - https://huggingface.co/realrebelai/FLUX-3-Image-Klein_GGUFs
+  description: |
+    FLUX.3 Image Klein is a compact FLUX.3 rectified flow transformer from Black Forest Labs that unifies text-to-image generation and image editing, with support for reference images. It uses Qwen3-VL 4B as the text encoder and the FLUX.2 VAE.
+
+    FLUX.3 Image Klein is the step-distilled variant, tuned for fast inference (default: 16 steps, CFG 1.0).
+
+    This entry uses a community Q8_0 GGUF quantization of the diffusion model.
+  license: flux-kommunity-license-v1.0
+  icon: https://avatars.githubusercontent.com/u/164064024
+  tags:
+    - flux
+    - flux.3
+    - klein
+    - text-to-image
+    - image-generation
+    - image-editing
+    - gguf
+    - quantized
+    - diffusion
+    - black-forest-labs
+    - distilled
+  last_checked: "2026-10-16"
+  overrides:
+    cfg_scale: 1
+    options:
+      - diffusion_model
+      - vae_path:stablediffusion-cpp/models/flux2-vae.safetensors
+      - sampler:euler
+      - llm_path:stablediffusion-cpp/models/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      - offload_params_to_cpu:true
+      - vae_decode_only:false
+    parameters:
+      model: stablediffusion-cpp/models/flux3_image_klein_sd-Q8_0.gguf
+    step: 16
+  files:
+    - filename: stablediffusion-cpp/models/flux3_image_klein_sd-Q8_0.gguf
+      sha256: 216b01a2f8a6fcce947f70c2924e2e6a737da601c42e5a6e52a744e4a481b1ea
+      uri: https://huggingface.co/realrebelai/FLUX-3-Image-Klein_GGUFs/resolve/main/DISTILLED/flux3_image_klein_sd-Q8_0.gguf
+    - filename: stablediffusion-cpp/models/flux2-vae.safetensors
+      sha256: d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5
+      uri: https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors
+    - filename: stablediffusion-cpp/models/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      sha256: 66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a
+      uri: https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF/resolve/main/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+- name: flux.3-image-klein-base
+  url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
+  urls:
+    - https://huggingface.co/black-forest-labs/flux-3-image-klein-base
+    - https://huggingface.co/realrebelai/FLUX-3-Image-Klein_GGUFs
+  description: |
+    FLUX.3 Image Klein is a compact FLUX.3 rectified flow transformer from Black Forest Labs that unifies text-to-image generation and image editing, with support for reference images. It uses Qwen3-VL 4B as the text encoder and the FLUX.2 VAE.
+
+    FLUX.3 Image Klein Base is the undistilled variant. It runs with classifier-free guidance (default: 20 steps, CFG 3.5).
+
+    This entry uses a community Q4_K_M GGUF quantization of the diffusion model.
+  license: flux-kommunity-license-v1.0
+  icon: https://avatars.githubusercontent.com/u/164064024
+  tags:
+    - flux
+    - flux.3
+    - klein
+    - text-to-image
+    - image-generation
+    - image-editing
+    - gguf
+    - quantized
+    - diffusion
+    - black-forest-labs
+  last_checked: "2026-10-16"
+  overrides:
+    cfg_scale: 3.5
+    options:
+      - diffusion_model
+      - vae_path:stablediffusion-cpp/models/flux2-vae.safetensors
+      - sampler:euler
+      - llm_path:stablediffusion-cpp/models/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      - offload_params_to_cpu:true
+      - vae_decode_only:false
+    parameters:
+      model: stablediffusion-cpp/models/flux3_image_klein-Q4_K_M.gguf
+    step: 20
+  files:
+    - filename: stablediffusion-cpp/models/flux3_image_klein-Q4_K_M.gguf
+      sha256: b360892ffaee56ee4a4c76897d3b56977ca0183d233d57edccd9a1080200821b
+      uri: https://huggingface.co/realrebelai/FLUX-3-Image-Klein_GGUFs/resolve/main/BASE/flux3_image_klein-Q4_K_M.gguf
+    - filename: stablediffusion-cpp/models/flux2-vae.safetensors
+      sha256: d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5
+      uri: https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors
+    - filename: stablediffusion-cpp/models/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      sha256: 66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a
+      uri: https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF/resolve/main/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+- name: flux.3-image-klein-base-q8_0
+  url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
+  urls:
+    - https://huggingface.co/black-forest-labs/flux-3-image-klein-base
+    - https://huggingface.co/realrebelai/FLUX-3-Image-Klein_GGUFs
+  description: |
+    FLUX.3 Image Klein is a compact FLUX.3 rectified flow transformer from Black Forest Labs that unifies text-to-image generation and image editing, with support for reference images. It uses Qwen3-VL 4B as the text encoder and the FLUX.2 VAE.
+
+    FLUX.3 Image Klein Base is the undistilled variant. It runs with classifier-free guidance (default: 20 steps, CFG 3.5).
+
+    This entry uses a community Q8_0 GGUF quantization of the diffusion model.
+  license: flux-kommunity-license-v1.0
+  icon: https://avatars.githubusercontent.com/u/164064024
+  tags:
+    - flux
+    - flux.3
+    - klein
+    - text-to-image
+    - image-generation
+    - image-editing
+    - gguf
+    - quantized
+    - diffusion
+    - black-forest-labs
+  last_checked: "2026-10-16"
+  overrides:
+    cfg_scale: 3.5
+    options:
+      - diffusion_model
+      - vae_path:stablediffusion-cpp/models/flux2-vae.safetensors
+      - sampler:euler
+      - llm_path:stablediffusion-cpp/models/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      - offload_params_to_cpu:true
+      - vae_decode_only:false
+    parameters:
+      model: stablediffusion-cpp/models/flux3_image_klein-Q8_0.gguf
+    step: 20
+  files:
+    - filename: stablediffusion-cpp/models/flux3_image_klein-Q8_0.gguf
+      sha256: af0a5f00436c4e6911b7673b00803df0f7176c68b6ff4931a9629a51d5a3515d
+      uri: https://huggingface.co/realrebelai/FLUX-3-Image-Klein_GGUFs/resolve/main/BASE/flux3_image_klein-Q8_0.gguf
+    - filename: stablediffusion-cpp/models/flux2-vae.safetensors
+      sha256: d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5
+      uri: https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors
+    - filename: stablediffusion-cpp/models/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      sha256: 66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a
+      uri: https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF/resolve/main/Qwen3VL-4B-Instruct-Q4_K_M.gguf
 - name: Z-Image-Turbo
   url: github:mudler/LocalAI/gallery/z-image-ggml.yaml@master
   urls:

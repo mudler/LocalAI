@@ -598,6 +598,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `fit_params` or `fit` | boolean | Enable auto-adjustment of model/context parameters to fit available device memory. Default: `true`. | `fit_params:true` |
 | `fit_params_target` or `fit_target` | integer | Target margin per device in MiB when using fit_params. Default: `1024` (1GB). | `fit_target:2048` |
 | `fit_params_min_ctx` or `fit_ctx` | integer | Minimum context size that can be set by fit_params. Default: `4096`. | `fit_ctx:2048` |
+| `moe_cache_mib` | integer | Size in MiB of a GPU cache for MoE expert weights that stay in host memory (upstream `--moe-cache-mib`). Off by default (`0`). It helps only when experts are in host memory, with `cpu_moe`, `n_cpu_moe` or a `fit_params` spill. The cache uses GPU memory, so lower `gpu_layers` or the fit result may change. Experimental upstream. A cache that is too small can thrash, because every token evicts its own experts. A rough starting point is about 10% of the total expert size. | `moe_cache_mib:4096` |
 | `n_cache_reuse` or `cache_reuse` | integer | Minimum chunk size to attempt reusing from the cache via KV shifting. Default: `0` (disabled). | `cache_reuse:256` |
 | `slot_prompt_similarity` or `sps` | float | How much the prompt of a request must match the prompt of a slot to use that slot. Default: `0.1`. Set to `0` to disable. | `sps:0.5` |
 | `swa_full` | boolean | Use full-size SWA (Sliding Window Attention) cache. Default: `false`. | `swa_full:true` |
