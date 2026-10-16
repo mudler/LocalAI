@@ -564,7 +564,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: a4563e2f0bcfe43375a36043b57feb424066a13a40e6f9137ea6d3c68c086eaa
+      sha256: 8b6734c09f93ac69e429ecd82ec2d6216549cc08bc5ccbf4f78c1d57a0f50acf
 - name: qwopus3.8-27b-flash-v2
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
