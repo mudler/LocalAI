@@ -252,7 +252,7 @@ func SessionsFromMCPConfig(
 
 	for _, server := range stdio.Servers {
 		xlog.Debug("[MCP stdio server] Configuration", "server", server)
-		command := exec.Command(server.Command, server.Args...)
+		command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
 		command.Env = os.Environ()
 		for key, value := range server.Env {
 			command.Env = append(command.Env, key+"="+value)
@@ -379,7 +379,7 @@ func NamedSessionsFromMCPConfig(
 
 		for serverName, server := range stdio.Servers {
 			xlog.Debug("[MCP stdio server] Configuration", "name", serverName, "server", server)
-			command := exec.Command(server.Command, server.Args...)
+			command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
 			command.Env = os.Environ()
 			for key, value := range server.Env {
 				command.Env = append(command.Env, key+"="+value)
@@ -803,7 +803,7 @@ func MCPPromptFromMetadata(metadata map[string]string) (string, map[string]strin
 
 	var args map[string]string
 	if raw, ok := metadata["mcp_prompt_args"]; ok && raw != "" {
-		json.Unmarshal([]byte(raw), &args)
+		_ = json.Unmarshal([]byte(raw), &args)
 		delete(metadata, "mcp_prompt_args")
 	}
 	return name, args
@@ -841,7 +841,7 @@ func CloseMCPSessions(modelName string) {
 	cache.mu.Lock()
 	if sessions, ok := cache.cache[modelName]; ok {
 		for _, s := range sessions {
-			s.Close()
+			_ = s.Close()
 		}
 		delete(cache.cache, modelName)
 	}
@@ -879,7 +879,7 @@ func CloseAllMCPSessions() {
 	cache.mu.Lock()
 	for name, sessions := range cache.cache {
 		for _, s := range sessions {
-			s.Close()
+			_ = s.Close()
 		}
 		if cancel, ok := cache.cancels[name]; ok {
 			cancel()

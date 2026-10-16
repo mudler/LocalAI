@@ -96,7 +96,7 @@ func main() {
 	generatedDir := filepath.Join(tmpDir, "generated")
 	dataDir := filepath.Join(tmpDir, "data")
 	for _, d := range []string{modelsPath, backendsPath, generatedDir, dataDir} {
-		if err := os.MkdirAll(d, 0755); err != nil {
+		if err := os.MkdirAll(d, 0750); err != nil {
 			fmt.Fprintf(os.Stderr, "error creating dir %s: %v\n", d, err)
 			os.Exit(1)
 		}
@@ -122,7 +122,7 @@ func main() {
 	if *routerYAML != "" {
 		body = append(body, []byte("router:\n  "+*routerYAML+"\n")...)
 	}
-	if err := os.WriteFile(filepath.Join(modelsPath, "mock-model.yaml"), body, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(modelsPath, "mock-model.yaml"), body, 0600); err != nil {
 		fmt.Fprintf(os.Stderr, "error writing config: %v\n", err)
 		os.Exit(1)
 	}
@@ -135,7 +135,7 @@ func main() {
 		parts := strings.SplitN(*extraModelFlag, "|", 2)
 		if len(parts) == 2 {
 			extraPath := filepath.Join(modelsPath, parts[0]+".yaml")
-			if err := os.WriteFile(extraPath, []byte(parts[1]), 0644); err != nil {
+			if err := os.WriteFile(extraPath, []byte(parts[1]), 0600); err != nil {
 				fmt.Fprintf(os.Stderr, "error writing extra model: %v\n", err)
 				os.Exit(1)
 			}
@@ -243,5 +243,5 @@ func main() {
 
 	fmt.Println("\nShutting down...")
 	cancel()
-	e.Close()
+	_ = e.Close()
 }
