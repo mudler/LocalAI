@@ -172,28 +172,31 @@ mcp:
 		Expect(base.EvidenceCheck().Numbers).To(BeFalse())
 	})
 
-	It("carries evidence_check.sources into the resolved config and nowhere else", func() {
+	It("carries evidence_check.sources and require_tool into the resolved config and nowhere else", func() {
 		dir := GinkgoT().TempDir()
-		Expect(os.WriteFile(filepath.Join(dir, "base-llm.yaml"), []byte(target), 0644)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(dir, "cited.yaml"), []byte("name: cited\nalias: base-llm\nprofile:\n  evidence_check:\n    sources: true\n    sources_label: Quellen\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "base-llm.yaml"), []byte(target+"require_tool: true\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "cited.yaml"), []byte("name: cited\nalias: base-llm\nprofile:\n  require_tool: true\n  evidence_check:\n    sources: true\n    sources_label: Quellen\n"), 0644)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(dir, "default-label.yaml"), []byte("name: default-label\nalias: base-llm\nprofile:\n  evidence_check:\n    sources: true\n"), 0644)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(dir, "gpt-4.yaml"), []byte(plain), 0644)).To(Succeed())
 		cl = config.NewModelConfigLoader(dir)
 		Expect(cl.LoadModelConfigsFromPath(dir)).To(Succeed())
 
 		cited := resolve("cited")
+		Expect(cited.RequiresTool()).To(BeTrue())
 		Expect(cited.EvidenceCheck().Sources).To(BeTrue())
 		Expect(cited.EvidenceCheck().SourcesHeading()).To(Equal("Quellen"))
 		Expect(cited.EvidenceCheck().Numbers).To(BeFalse())
 
 		defaultLabel := resolve("default-label")
 		Expect(defaultLabel.EvidenceCheck().SourcesHeading()).To(Equal(config.DefaultSourcesLabel))
+		Expect(defaultLabel.RequiresTool()).To(BeFalse())
 
-		// A plain alias and the target itself stay off.
+		// A plain alias and the target itself, even with a top-level key, stay off.
+		Expect(resolve("gpt-4").RequiresTool()).To(BeFalse())
 		Expect(resolve("gpt-4").EvidenceCheck().Sources).To(BeFalse())
 		base, ok := cl.GetModelConfig("base-llm")
 		Expect(ok).To(BeTrue())
-		Expect(base.EvidenceCheck().Sources).To(BeFalse())
+		Expect(base.RequiresTool()).To(BeFalse())
 	})
 
 	It("ignores a top-level evidence_check on a model, which only a profile can set", func() {
@@ -248,6 +251,20 @@ mcp:
 			ok, err = cfg.Validate()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ok).To(BeTrue())
+		})
+
+		It("accepts require_tool on a profile alias only", func() {
+			cfg := config.ModelConfig{Name: "p", Alias: "base-llm"}
+			cfg.Profile.RequireTool = true
+			ok, err := cfg.Validate()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+
+			model := config.ModelConfig{Name: "m", Backend: "llama-cpp"}
+			model.Profile.RequireTool = true
+			ok, err = model.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(MatchError(ContainSubstring("only valid on an alias")))
 		})
 
 		It("rejects a profile block on a model that is not an alias", func() {

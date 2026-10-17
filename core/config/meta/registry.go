@@ -485,6 +485,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "input",
 			Order:       9,
 		},
+		"profile.require_tool": {
+			Section:     "alias",
+			Label:       "Profile: require a tool call first",
+			Description: "Alias only. The first model call of a request with server-side MCP tools is made with tool_choice \"required\"; the follow-up calls of the tool loop use the client's tool_choice again.",
+			Component:   "toggle",
+			Order:       10,
+		},
 
 		// --- Failover ---
 		"failover.targets": {
