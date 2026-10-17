@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from './Icon'
+import { pushLayer } from '../utils/modalLayers'
 
 export default function ConfirmDialog({
   open,
@@ -11,6 +12,7 @@ export default function ConfirmDialog({
   cancelLabel,
   danger = false,
   pending = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }) {
@@ -20,6 +22,23 @@ export default function ConfirmDialog({
   const cancelText = cancelLabel ?? t('actions.cancel')
   const dialogRef = useRef(null)
   const confirmRef = useRef(null)
+  const layerRef = useRef(null)
+  const cancelRef = useRef(onCancel)
+  cancelRef.current = onCancel
+
+  // The dialog is a modal layer for as long as it is open: only the topmost
+  // layer handles Escape, and focus goes back to the control that opened it.
+  useEffect(() => {
+    if (!open) return
+    const opener = document.activeElement
+    const layer = pushLayer()
+    layerRef.current = layer
+    return () => {
+      layer.pop()
+      layerRef.current = null
+      if (opener && opener !== document.body && document.contains(opener)) opener.focus?.()
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -33,8 +52,11 @@ export default function ConfirmDialog({
     const getFocusable = () => dialog.querySelectorAll(focusableSelector)
 
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !pending) {
-        onCancel?.()
+      if (layerRef.current && !layerRef.current.isTop()) return
+      if (e.key === 'Escape') {
+        if (pending) return
+        e.preventDefault()
+        cancelRef.current?.()
         return
       }
       if (e.key !== 'Tab') return
@@ -57,7 +79,7 @@ export default function ConfirmDialog({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [open, onCancel, pending])
+  }, [open, pending])
 
   if (!open) return null
 
@@ -87,7 +109,7 @@ export default function ConfirmDialog({
           <button
             ref={confirmRef}
             className={`btn btn-sm ${danger ? 'btn-danger' : 'btn-primary'}`}
-            disabled={pending}
+            disabled={pending || confirmDisabled}
             onClick={onConfirm}
           >
             {pending ? (pendingLabel ?? confirmText) : confirmText}

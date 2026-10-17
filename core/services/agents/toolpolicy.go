@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/cogito"
 	"github.com/mudler/xlog"
 )
@@ -122,12 +123,15 @@ func (f *toolFilter) filterTools(tools []cogito.ToolDefinitionInterface) []cogit
 
 // mcpToolFilter is needed on top of filterTools because cogito discovers MCP
 // tools straight from the live sessions.
+//
+// The add-on namespace is never offered here: an agent run has no per-request
+// principal for the host broker, and an MCP session cannot be the broker.
 func (f *toolFilter) mcpToolFilter() cogito.MCPToolFilter {
-	if f == nil {
-		return nil
-	}
 	return func(_ *gomcp.ClientSession, toolName string) bool {
-		return f.allows(toolName)
+		if addontools.IsToolName(toolName) {
+			return false
+		}
+		return f == nil || f.allows(toolName)
 	}
 }
 

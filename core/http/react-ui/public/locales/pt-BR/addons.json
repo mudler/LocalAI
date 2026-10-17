@@ -1,0 +1,507 @@
+{
+  "actions": {
+    "blocked": "Uma ação anterior neste complemento ainda não foi confirmada. Verifique o estado dela ou descarte-a primeiro.",
+    "checkStatus": "Verificar estado",
+    "dismiss": "Descartar",
+    "failed": "O proprietário não concluiu a ação. Nada foi alterado. Tente de novo para iniciar uma nova tentativa.",
+    "notApplied": "O proprietário informou a ação como concluída, mas o complemento não mudou. Tente novamente.",
+    "unknown": "O proprietário ainda não confirmou a ação. Ela ainda pode ser aplicada. Verifique o estado ou descarte-a antes de iniciar outra ação."
+  },
+  "approval": {
+    "title": "Aprovação necessária",
+    "from": "De {{addon}}",
+    "loading": "Carregando a solicitação",
+    "failed": "Esta solicitação não está disponível.",
+    "rejected": "Não foi possível concluir a solicitação. Verifique o estado e tente de novo.",
+    "changes": "Alterações",
+    "expires": "Expira",
+    "state": "Estado",
+    "expired": "Esta solicitação expirou. Peça de novo.",
+    "confirm": "Confirmar",
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "states": {
+      "pending": "Aguardando sua decisão",
+      "applied": "Aplicada",
+      "cancelled": "Cancelada",
+      "expired": "Expirada",
+      "executing": "Aplicando",
+      "rejected": "Rejeitada",
+      "outcome-unknown": "Resultado desconhecido",
+      "abandoned-unknown": "Resultado desconhecido",
+      "unknown": "Desconhecido"
+    }
+  },
+  "apps": {
+    "emptyBody": "Quando um administrador instala e habilita um complemento, ele aparece aqui.",
+    "emptyTitle": "Ainda não há apps",
+    "headless": "Roda em segundo plano e não tem página própria.",
+    "listLabel": "Apps",
+    "loading": "Carregando apps",
+    "manage": "Gerenciar",
+    "open": "Abrir",
+    "stale": "Não foi possível atualizar a lista. O que você vê pode estar desatualizado.",
+    "start": "Iniciar",
+    "stop": "Parar",
+    "toolsMore_one": "e mais {{count}}",
+    "toolsMore_other": "e mais {{count}}",
+    "tools_one": "{{count}} ferramenta",
+    "tools_other": "{{count}} ferramentas",
+    "version": "Versão {{version}}",
+    "working": "Aguardando a confirmação do proprietário."
+  },
+  "browse": {
+    "confirmBody": "A versão {{version}} da biblioteca {{library}} será baixada e verificada antes de ser instalada.",
+    "confirmNotEnabled": "Instalar não inicia o complemento. Você o habilita em uma etapa separada.",
+    "confirmTitle": "Instalar {{name}}?",
+    "details": "Detalhes",
+    "detailsLead": "Entrada de biblioteca de {{id}}",
+    "emptyBody": "Adicione uma biblioteca na aba Bibliotecas e depois atualize-a.",
+    "emptyTitle": "Nenhum complemento encontrado",
+    "fromLibrary": "de {{library}}",
+    "install": "Instalar",
+    "installedDetail": "Versão {{version}}, geração {{generation}}",
+    "installedNotEnabled": "Instalado. Não está habilitado: habilite-o na aba Instalados quando estiver pronto.",
+    "installedOther": "Instalado {{version}} (outra versão)",
+    "installedSame": "Instalado {{version}}",
+    "installedState": "Instalado",
+    "installing": "Instalando",
+    "search": "Pesquisar nas bibliotecas"
+  },
+  "catalog": {
+    "allLibraries": "Todas as bibliotecas",
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "count_one": "{{count}} resultado",
+    "count_other": "{{count}} resultados",
+    "emptyBody": "Esta lista está vazia.",
+    "emptyFiltered": "Nada corresponde à pesquisa. Mude as palavras ou a biblioteca.",
+    "emptyTitle": "Nada para mostrar",
+    "libraries": "Bibliotecas",
+    "loading": "Carregando resultados",
+    "next": "Próxima página",
+    "previous": "Página anterior",
+    "retry": "Tentar de novo",
+    "search": "Pesquisar"
+  },
+  "errors": {
+    "auth": "Você saiu da conta. Entre novamente.",
+    "denied": "O servidor recusou. Você pode não ter permissão, ou o complemento mudou. A lista foi atualizada.",
+    "invalid": "O servidor não pôde aceitar esta solicitação.",
+    "network": "Não foi possível alcançar o servidor. Verifique sua conexão.",
+    "unavailable": "O proprietário do complemento não está disponível agora. Tente de novo em instantes.",
+    "unknownOutcome": "Não foi possível confirmar o resultado. Verifique o estado antes de tentar de novo."
+  },
+  "installed": {
+    "disable": "Desabilitar",
+    "disabled": "Desabilitado",
+    "emptyBody": "Instale um complemento pela aba Explorar.",
+    "emptyTitle": "Nada está instalado",
+    "enable": "Habilitar",
+    "enabled": "Habilitado",
+    "generation": "Geração {{generation}}",
+    "listLabel": "Complementos instalados",
+    "loading": "Carregando complementos instalados",
+    "manage": "Detalhes",
+    "manageLead": "Visão de gerenciamento de {{id}}",
+    "missing": "{{id}} não está instalado.",
+    "uninstall": "Desinstalar",
+    "uninstallBody": "O complemento para e seu pacote deixa de ser usado. Seus dados, identidade e permissões são mantidos, então instalá-lo de novo os recupera. Nada é excluído.",
+    "uninstallTitle": "Desinstalar {{name}}?"
+  },
+  "libraries": {
+    "add": "Adicionar uma biblioteca",
+    "addTitle": "Adicionar uma biblioteca",
+    "disabled": "Desabilitada",
+    "edit": "Editar",
+    "editTitle": "Editar {{name}}",
+    "emptyBody": "Adicione uma biblioteca para explorar e instalar complementos.",
+    "emptyTitle": "Nenhuma biblioteca",
+    "enabled": "Habilitada",
+    "errors": {
+      "id": "Use letras minúsculas, dígitos e hifens, começando com uma letra.",
+      "name": "Informe um nome de até 256 caracteres.",
+      "reference": "Isto não parece um nome de referência. Use o nome de uma credencial configurada, não o segredo.",
+      "required": "Obrigatório quando uma assinatura é exigida.",
+      "url": "Informe um endereço http ou https.",
+      "urlCredentials": "O endereço não deve conter nome de usuário nem senha.",
+      "urlQuery": "O endereço não deve conter string de consulta nem fragmento."
+    },
+    "fields": {
+      "enabled": "Habilitada",
+      "id": "Identificador",
+      "identity": "Identidade da assinatura",
+      "issuer": "Emissor da assinatura",
+      "name": "Nome",
+      "reference": "Referência de credencial (opcional)",
+      "requireSignature": "Exigir assinatura",
+      "url": "URL do catálogo"
+    },
+    "hints": {
+      "id": "Letras minúsculas, dígitos e hifens. Não pode mudar depois.",
+      "reference": "O nome de uma credencial que o proprietário configurou. Nunca cole um token ou senha aqui.",
+      "url": "Um endereço https sem credenciais nem string de consulta."
+    },
+    "lastRefresh": "Atualizada {{when}}, {{count}} entradas",
+    "lead": "Uma biblioteca é um documento de catálogo que lista complementos. Credenciais nunca são digitadas aqui: uma biblioteca privada indica uma credencial que o proprietário configurou.",
+    "listLabel": "Bibliotecas",
+    "loading": "Carregando bibliotecas",
+    "notRefreshed": "Ainda não atualizada",
+    "reference": "Referência de credencial: {{name}}",
+    "refresh": "Atualizar",
+    "refreshFailed": "A última atualização falhou",
+    "refreshed": "{{name}} atualizada.",
+    "remove": "Remover",
+    "removeBody": "A biblioteca é removida desta lista. Os complementos instalados a partir dela continuam instalados e em execução.",
+    "removeTitle": "Remover {{name}}?",
+    "removed": "{{name}} removida.",
+    "save": "Salvar",
+    "saved": "{{name}} salva."
+  },
+  "manage": {
+    "api": "API do complemento",
+    "atLeast": "ou mais",
+    "compatibility": "Compatibilidade",
+    "data": "Dados mantidos",
+    "dataFormat": "Formato de dados",
+    "desired": "Estado desejado",
+    "failedNote_one": "O processo não está respondendo após {{count}} tentativa de reinício.",
+    "failedNote_other": "O processo não está respondendo após {{count}} tentativas de reinício.",
+    "generations": "Gerações mantidas",
+    "hasUI": "Tem páginas",
+    "headless": "Sem interface, sem páginas",
+    "health": "Saúde",
+    "host": "API do host",
+    "interface": "Interface",
+    "logs": "Logs",
+    "logsNone": "A saída dos processos dos complementos não é coletada nesta versão. A saúde e as tentativas de reinício acima são o que o proprietário pode informar.",
+    "observed": "Estado observado",
+    "protocol": "Protocolo",
+    "restarts": "Tentativas de reinício",
+    "storage": "Armazenamento",
+    "tools": "Ferramentas",
+    "trust": "Confiança"
+  },
+  "page": {
+    "back": "Voltar aos complementos",
+    "body": "Esta versão ainda não consegue abrir páginas de complementos. O complemento continua em execução.",
+    "title": "Esta página ainda não está disponível"
+  },
+  "shell": {
+    "loading": "Carregando {{title}}",
+    "unavailable": {
+      "title": "Este complemento não está disponível"
+    },
+    "reasons": {
+      "disabled": "O complemento foi parado. Inicie-o novamente na página de complementos.",
+      "removed": "O complemento não está instalado ou você não pode mais usá-lo.",
+      "failed": "O complemento parou de responder. Ele é reiniciado automaticamente; recarregue para tentar de novo.",
+      "updated": "O complemento foi atualizado. Recarregue para usar a nova versão.",
+      "no-ui": "Esta versão do complemento não tem páginas.",
+      "incompatible_sdk": "Este complemento precisa de outra versão da interface do LocalAI que a oferecida por esta página.",
+      "untrusted_asset": "O complemento apontou para um arquivo fora do próprio pacote, por isso não foi carregado.",
+      "invalid_module": "O complemento não segue o contrato da interface, por isso não foi carregado.",
+      "import_failed": "Não foi possível carregar o complemento.",
+      "create_failed": "O complemento falhou ao iniciar.",
+      "timeout": "O complemento demorou demais para carregar.",
+      "css_failed": "Não foi possível carregar a folha de estilos do complemento.",
+      "aborted": "O carregamento foi cancelado."
+    },
+    "reload": "Recarregar",
+    "reloading": "Recarregando",
+    "stale": "{{title}} mudou enquanto você editava. Suas edições continuam na tela, mas não podem ser salvas. Copie o que precisar e recarregue.",
+    "discard": {
+      "title": "Descartar as alterações não salvas?",
+      "body": "Recarregar substitui esta página e as edições não salvas são perdidas.",
+      "confirm": "Descartar e recarregar",
+      "cancel": "Continuar editando"
+    },
+    "leave": {
+      "title": "Sair desta página?",
+      "body": "Você tem edições não salvas. Elas são perdidas se você sair.",
+      "leave": "Sair",
+      "stay": "Ficar"
+    },
+    "pageMissing": {
+      "title": "Esta página não existe",
+      "body": "{{title}} não tem uma página chamada \"{{page}}\"."
+    },
+    "noComponent": {
+      "title": "Nada para mostrar aqui",
+      "body": "Este complemento adiciona ações a outras páginas e não tem página própria."
+    },
+    "error": {
+      "title": "Este complemento teve um problema",
+      "text": "Ele falhou ao desenhar esta página. O restante do LocalAI não é afetado.",
+      "retry": "Tentar novamente"
+    },
+    "layer": {
+      "close": "Fechar"
+    }
+  },
+  "slots": {
+    "unavailable": "Indisponível",
+    "composerMore": "Ações de complementos",
+    "actionFailed": "Não foi possível concluir {{label}}."
+  },
+  "state": {
+    "failed": "Com falha",
+    "label": "Estado: {{state}}",
+    "running": "Em execução",
+    "starting": "Iniciando",
+    "stopped": "Parado",
+    "update-pending": "Atualização pendente"
+  },
+  "supporting": "Apps que o proprietário executa para você e as bibliotecas de onde vêm.",
+  "tabs": {
+    "apps": "Apps",
+    "browse": "Explorar",
+    "installed": "Instalados",
+    "label": "Seções de complementos",
+    "libraries": "Bibliotecas"
+  },
+  "title": "Complementos",
+  "trust": {
+    "channel": "Canal",
+    "digest": "Digest",
+    "digestOnly": "Somente digest",
+    "identity": "Identidade da assinatura",
+    "issuer": "Emissor da assinatura",
+    "library": "Biblioteca",
+    "mode": {
+      "digest": "Digest verificado",
+      "signed": "Assinado e digest verificado"
+    },
+    "platform": "Plataforma",
+    "selection": "Selecionado como",
+    "signatureRequired": "Assinatura obrigatória",
+    "verification": "Verificação",
+    "version": "Versão"
+  },
+  "proposal": {
+    "title": "Alteração de um complemento",
+    "loading": "Carregando a solicitação",
+    "withdrawn": "Esta solicitação não está mais disponível para você.",
+    "unavailable": "Esta solicitação não está disponível.",
+    "addon": "Complemento",
+    "database": "Banco de dados",
+    "operation": "Operação",
+    "effects": "Alterações",
+    "sample": "Prévia do host",
+    "blocked": "Outra alteração neste banco de dados ainda não foi concluída. Conclua-a primeiro.",
+    "expired": "Esta solicitação expirou. Peça novamente.",
+    "rejectedState": "Os dados mudaram ou a solicitação foi recusada. Nada foi aplicado. Peça uma nova prévia.",
+    "unknown": "O resultado ainda não é conhecido. Pode ter sido aplicado. Verifique o estado antes de pedir de novo.",
+    "refresh": "Verificar estado"
+  },
+  "artifact": {
+    "title": "Arquivo pronto",
+    "loading": "Carregando o arquivo",
+    "withdrawn": "Este arquivo não está mais disponível para você.",
+    "unavailable": "Este arquivo não está disponível.",
+    "name": "Arquivo",
+    "size": "Tamanho",
+    "expires": "Disponível até",
+    "state": "Estado",
+    "preparing": "O arquivo está sendo preparado.",
+    "failed": "Não foi possível concluir o arquivo. Nada pode ser baixado. Exporte novamente.",
+    "expired": "Este arquivo expirou e foi removido. Os dados de origem não mudaram. Exporte novamente.",
+    "download": "Baixar",
+    "states": {
+      "loading": "Carregando",
+      "withdrawn": "Indisponível",
+      "unavailable": "Indisponível",
+      "transferring": "Preparando",
+      "complete": "Pronto",
+      "failed": "Falhou",
+      "cancelled": "Cancelado",
+      "expired": "Expirado",
+      "unknown": "Desconhecido"
+    },
+    "downloadDenied": "Este arquivo não pode mais ser baixado. Seu acesso à origem mudou ou o arquivo expirou.",
+    "downloadFailed": "O download não foi concluído. Tente novamente."
+  },
+  "recovery": {
+    "title": "Recuperação de dados",
+    "loading": "Lendo o estado de recuperação",
+    "done": "Pronto.",
+    "backup": "Fazer backup agora",
+    "backingUp": "Fazendo backup…",
+    "backedUp": "O backup {{id}} foi feito e verificado.",
+    "retention": "Mantém os {{count}} backups mais recentes. O backup verificado mais recente e a cópia de recuperação de uma atualização nunca são removidos.",
+    "none": "Ainda não há backup dos dados deste complemento.",
+    "listLabel": "Backups deste complemento",
+    "verify": "Verificar",
+    "verified": "O backup {{id}} foi lido por completo e passou.",
+    "restore": "Restaurar",
+    "restored": "O backup foi restaurado.",
+    "delete": "Excluir",
+    "deleted": "O backup {{id}} foi excluído.",
+    "pinned": "Cópia de recuperação",
+    "pinnedWhy": "É a cópia de recuperação da última atualização e fica até existir um backup verificado mais recente.",
+    "lastRestore": "Última restauração, {{when}}",
+    "purge": "Limpar…",
+    "purged": "Os dados retidos foram limpos.",
+    "purgeLead": "Limpar remove para sempre os dados retidos deste complemento. Não é excluir um banco de dados nem desinstalar.",
+    "purgeTitle": "Limpar dados retidos",
+    "purgeBody": "Isto remove o que você selecionar abaixo e não pode ser desfeito. O complemento deve estar desinstalado ou desativado.",
+    "scope": "O que remover",
+    "scopeData": "Os dados e todos os compartilhamentos deste complemento",
+    "scopeBackups": "Todos os backups ({{count}})",
+    "scopeCopies": "Cópias de dados que as restaurações separaram ({{count}})",
+    "scopeNone": "Selecione o que remover.",
+    "restoreTitle": "Restaurar um backup",
+    "restoreBody": "Os dados voltam ao estado de {{when}}.",
+    "warnLost": "As alterações feitas depois do backup são perdidas. Os dados do complemento são substituídos.",
+    "warnAccess": "Os compartilhamentos são verificados de novo: ninguém recupera um acesso retirado depois do backup ou cuja conta não existe mais.",
+    "warnProposals": "As propostas em espera são canceladas. Operações de resultado desconhecido são consultadas e nunca aplicadas de novo.",
+    "warnCopy": "Os dados substituídos ficam como cópia de recuperação até você limpá-los.",
+    "stopFirst": "Pare o complemento primeiro: desative e depois restaure.",
+    "mapping": "Este backup foi feito no modo proprietário local. ID da conta que recebe os dados",
+    "typeToConfirm": "Digite {{id}} para confirmar",
+    "typeToConfirmLabel": "Digite o ID do complemento para confirmar",
+    "phase": "Etapa {{index}} de {{total}}: {{step}}",
+    "steps": {
+      "begin": "iniciando",
+      "backed-up": "backup feito",
+      "staged": "pacote publicado",
+      "migrating": "migrando os dados",
+      "healthy": "verificado",
+      "publishing": "publicando"
+    },
+    "state": {
+      "ready": "Pronto",
+      "upgrading": "Atualizando",
+      "restoring": "Restaurando",
+      "needs-recovery": "Precisa de recuperação",
+      "purging": "Limpando"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "Os dados deste complemento precisam de recuperação",
+        "body": "O complemento não é iniciado. O pacote anterior foi mantido, mas não consegue ler os dados que uma migração com falha começou a alterar.",
+        "hint": "Restaure a cópia de recuperação verificada abaixo ou limpe os dados.",
+        "hintNone": "Não há backup verificado. Limpe os dados para recomeçar."
+      },
+      "upgrading": {
+        "title": "Uma atualização está em andamento",
+        "body": "O complemento fica parado enquanto seus dados são copiados e migrados."
+      },
+      "restoring": {
+        "title": "Uma restauração está em andamento",
+        "body": "O complemento continua parado até a restauração terminar."
+      },
+      "purging": {
+        "title": "Uma limpeza está em andamento",
+        "body": "Os dados retidos estão sendo removidos."
+      }
+    },
+    "verification": {
+      "verified": "Verificado",
+      "failed": "Falha na verificação",
+      "unverified": "Ainda não verificado"
+    },
+    "reason": {
+      "manual": "Feito por você",
+      "upgrade": "Antes de uma atualização",
+      "restore": "Antes de uma restauração"
+    },
+    "errors": {
+      "needs_recovery": "Os dados precisam de recuperação primeiro: restaure um backup verificado ou limpe-os.",
+      "addon_running": "Pare o complemento primeiro.",
+      "busy": "Outra operação de recuperação está em andamento para este complemento.",
+      "backup_not_found": "Esse backup não existe mais.",
+      "not_installed": "O complemento não está instalado.",
+      "backup_corrupt": "O backup falhou na verificação e não foi usado.",
+      "incompatible_format": "O formato dos dados não combina com o pacote instalado.",
+      "identity_changed": "O pacote instalado vem de outra fonte confiável que não a dos dados.",
+      "mapping_required": "Informe a conta que recebe os dados deste backup.",
+      "mapping_invalid": "Essa conta não é válida.",
+      "downgrade_unsupported": "Dados de usuários nomeados não podem ser restaurados no modo proprietário local.",
+      "sole_recovery_copy": "Esta é a única cópia de recuperação verificada e é mantida.",
+      "confirmation_mismatch": "O ID digitado não confere.",
+      "operation_conflict": "Este ID de operação foi usado para outra solicitação. Nada foi feito.",
+      "invalid_request": "A solicitação não pode ser executada como está.",
+      "insufficient_storage": "Não há espaço livre suficiente para um backup. Nada foi alterado.",
+      "unknownOutcome": "O resultado não é conhecido. Leia o estado de novo: a mesma ação não é enviada duas vezes.",
+      "auth": "Entre novamente.",
+      "denied": "Somente administradores podem fazer isto, na própria sessão do navegador.",
+      "network": "Não foi possível alcançar o proprietário.",
+      "unavailable": "O proprietário não está disponível."
+    }
+  },
+  "updates": {
+    "title": "Atualizações",
+    "checkNow": "Verificar atualizações",
+    "checking": "Verificando...",
+    "checkedAt": "Verificado {{when}}",
+    "neverChecked": "Ainda não verificado",
+    "lastSuccess": "Biblioteca lida pela última vez {{when}}",
+    "stale": "Esta resposta pode estar desatualizada. Verifique novamente.",
+    "throttled": "Uma verificação foi feita há pouco. Este é o resultado dela.",
+    "badge": {
+      "available": "Atualização {{version}}",
+      "incompatible": "Atualização {{version}} não compatível",
+      "failed": "Falha na verificação",
+      "integrity": "Erro de integridade"
+    },
+    "state": {
+      "unknown": "O estado das atualizações é desconhecido. Verifique atualizações para consultar a biblioteca.",
+      "up-to-date": "Este complemento está atualizado.",
+      "update-available": "A versão {{version}} está disponível.",
+      "incompatible": "A versão {{version}} não pode rodar neste host. Ela não é oferecida.",
+      "check-failed": "A verificação falhou, então não se sabe se existe uma atualização.",
+      "integrity-error": "A biblioteca lista a versão instalada com outro conteúdo. Nada foi alterado e nenhuma atualização é oferecida."
+    },
+    "reason": {
+      "platform": "A plataforma não é oferecida",
+      "host-version": "A versão do host não se encaixa",
+      "api-version": "A API do complemento não se encaixa",
+      "protocol-version": "A versão do protocolo não se encaixa",
+      "sdk-version": "A versão do SDK da interface não se encaixa",
+      "data-format": "O formato dos dados não se encaixa",
+      "digest-changed": "O digest desta versão mudou"
+    },
+    "class": {
+      "source-unavailable": "A biblioteca não pode ser acessada.",
+      "refresh-failed": "Não foi possível ler a biblioteca.",
+      "credential-unavailable": "A credencial da biblioteca não está disponível.",
+      "not-listed": "A biblioteca não lista mais este complemento.",
+      "ambiguous-release": "A biblioteca lista esta versão mais de uma vez.",
+      "canceled": "A verificação foi cancelada.",
+      "internal": "A verificação falhou."
+    },
+    "installed": "Instalada",
+    "candidate": "Disponível",
+    "reasons": "Por que não se encaixa",
+    "upgrade": "Atualizar",
+    "confirm": {
+      "title": "Atualizar {{name}} para a versão {{version}}?",
+      "body": "O complemento para enquanto seus dados são copiados e migrados, e depois a nova versão inicia. Se a nova versão não iniciar, a atual continua em execução.",
+      "data": "Seus dados são copiados antes de qualquer mudança.",
+      "action": "Atualizar",
+      "library": "Biblioteca",
+      "channel": "Canal",
+      "from": "De",
+      "to": "Para"
+    },
+    "progress": "Atualizando {{name}}. Seus dados são copiados primeiro.",
+    "done": "Atualizado para a versão {{version}}.",
+    "browseUpdate": "A atualização {{version}} está disponível. Gerencie em Instalados.",
+    "errors": {
+      "stale_installed": "A versão instalada mudou desde a verificação. Verifique as atualizações novamente.",
+      "candidate_changed": "A biblioteca não oferece mais a versão verificada. Verifique as atualizações novamente.",
+      "upgrade_conflict": "Esta atualização já está registrada em outra operação. Ela não foi aplicada duas vezes.",
+      "incompatible": "A nova versão não é compatível com este host. Nada foi alterado.",
+      "integrity_error": "A biblioteca lista a versão instalada com outro conteúdo. Nada foi alterado.",
+      "upgrade_failed": "A atualização não foi concluída e a versão instalada foi mantida. Você pode tentar de novo.",
+      "operation_conflict": "A operação não se encaixa no estado atual. Nada foi aplicado.",
+      "check_failed": "Não foi possível ler a biblioteca, então a atualização não foi iniciada. Nada foi alterado.",
+      "unknownOutcome": "O resultado da atualização é desconhecido. Leia o estado dela de novo; não inicie outra.",
+      "auth": "Entre novamente para continuar.",
+      "denied": "Somente um administrador pode fazer isso na própria sessão do navegador.",
+      "network": "A rede não está acessível.",
+      "unavailable": "O proprietário do complemento não está disponível. Tente novamente."
+    }
+  }
+}

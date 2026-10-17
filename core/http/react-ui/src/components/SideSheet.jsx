@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from './Icon'
+import { pushLayer } from '../utils/modalLayers'
 
 // The kit's side sheet (a bottom sheet on a phone) as one component: portal,
 // dialog roles, focus moved in and returned, Tab kept inside, Escape and a
@@ -17,10 +18,13 @@ export default function SideSheet({ title, description, footer, onClose, wide = 
 
   useEffect(() => {
     const opener = document.activeElement
+    const layer = pushLayer()
     const sheet = sheetRef.current
     const first = sheet?.querySelector('.dk-sheet-body input:not([disabled]), .dk-sheet-body button:not([disabled]), .dk-sheet-body select')
     ;(first || sheet?.querySelector('button'))?.focus()
     const onKey = (e) => {
+      // A dialog opened over this sheet is the topmost layer and owns the keys.
+      if (!layer.isTop()) return
       if (e.key === 'Escape') {
         if (e.target?.closest?.('[role="listbox"]') || e.target?.getAttribute?.('aria-expanded') === 'true') return
         e.preventDefault(); e.stopPropagation(); closeRef.current(); return
@@ -36,6 +40,7 @@ export default function SideSheet({ title, description, footer, onClose, wide = 
     document.addEventListener('keydown', onKey, true)
     return () => {
       document.removeEventListener('keydown', onKey, true)
+      layer.pop()
       if (opener && document.contains(opener)) opener.focus?.()
     }
   }, [])

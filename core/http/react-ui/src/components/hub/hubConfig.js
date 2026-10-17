@@ -27,6 +27,8 @@
 //                 (kind `count`) or an attention badge (kind `attention`,
 //                 or `error` for failures)
 
+import { FEATURE_ADDONS } from '../../utils/capabilities.js'
+
 export const buildHub = {
   id: 'build',
   titleKey: 'sections.build',
@@ -59,6 +61,17 @@ export const buildHub = {
       descriptionKey: 'hub.descriptions.memory',
       icon: 'database',
       items: [{ path: '/app/collections', labelKey: 'items.memory', feature: 'collections', requiresAgentPool: true }],
+    },
+    {
+      id: 'addons',
+      labelKey: 'items.addons',
+      descriptionKey: 'hub.descriptions.addons',
+      icon: 'puzzle',
+      // The page serves everyone with the feature (the Apps tab); its other
+      // tabs are administrator-only and checked by the server on every call.
+      items: [{ path: '/app/addons', labelKey: 'items.addons', feature: FEATURE_ADDONS, exact: true }],
+      // Add-on pages that declare navigation are listed in the second row.
+      addonNavigation: true,
     },
     {
       id: 'jobs',
@@ -213,7 +226,14 @@ export function isHubItemVisible(item, { isAdmin, authEnabled, hasFeature, featu
 }
 
 export function visibleItems(tab, auth) {
-  return tab.items.filter(item => isHubItemVisible(item, auth))
+  const own = tab.items.filter(item => isHubItemVisible(item, auth))
+  // Pages that add-ons contribute to navigation join the tab that owns them.
+  // They come from the registry's usable add-ons only, so a disabled, failed
+  // or incompatible add-on has no link. The server checks every call.
+  if (tab.addonNavigation && own.length > 0 && Array.isArray(auth.addonNavigation)) {
+    return [...own, ...auth.addonNavigation.map(item => ({ path: item.path, label: item.label, addonId: item.addonId }))]
+  }
+  return own
 }
 
 // A tab with a `showWhen` flag stays hidden until /api/features says it is on.

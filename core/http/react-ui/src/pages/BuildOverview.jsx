@@ -19,7 +19,7 @@ import '../components/tools/tools.css'
 const GROUPS = [
   { id: 'make', tools: ['import', 'quantize', 'fine-tune'] },
   { id: 'recognise', tools: ['voices', 'faces'] },
-  { id: 'automate', tools: ['agents', 'skills', 'memory', 'jobs'] },
+  { id: 'automate', tools: ['agents', 'skills', 'memory', 'jobs', 'addons'] },
 ]
 const EXPERIMENTAL = new Set(['quantize', 'fine-tune'])
 const CHECKED = new Set(['import', 'quantize', 'fine-tune'])

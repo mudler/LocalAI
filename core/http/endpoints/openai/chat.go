@@ -218,7 +218,7 @@ func applyAutoparserOverride(
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, agentControl mcpTools.AgentControl, assistantHolder *mcpTools.LocalAIAssistantHolder, compressor middleware.ChatCompressor) echo.HandlerFunc {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, agentControl mcpTools.AgentControl, assistantHolder *mcpTools.LocalAIAssistantHolder, addonTools *mcpTools.AddonToolProvider, compressor middleware.ChatCompressor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var textContentToReturn string
 		id := uuid.New().String()
@@ -348,6 +348,31 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				}
 			} else {
 				xlog.Error("Failed to parse MCP config", "error", mcpErr)
+			}
+		}
+
+		// Add-on tools: bound to the authenticated principal of this request
+		// and served by the host broker. They are added next to the tools
+		// above; a surface that is not wired for them answers with a typed
+		// error rather than ignoring the opt-in.
+		if mcpTools.AddonToolsFromMetadata(input.Metadata) {
+			if addonTools == nil {
+				return mcpTools.RejectAddonTools(c)
+			}
+			addonExec, addonErr := addonTools.ExecutorFor(c)
+			if addonErr != nil {
+				xlog.Warn("Add-on tools refused", "error", addonErr)
+				return mcpTools.AddonToolsHTTPError(addonErr)
+			}
+			if addonExec.HasTools() {
+				addonFuncs, _ := addonExec.DiscoverTools(c.Request().Context())
+				for _, fn := range addonFuncs {
+					funcs = append(funcs, fn)
+					input.Tools = append(input.Tools, functions.Tool{Type: "function", Function: fn})
+				}
+				shouldUseFn = len(funcs) > 0 && config.ShouldUseFunctions()
+				mcpExecutor = mcpTools.CombineExecutors(mcpExecutor, addonExec)
+				xlog.Debug("Add-on tools injected", "count", len(addonFuncs))
 			}
 		}
 		if err := middleware.CompressChatRequest(c, compressor); err != nil {

@@ -150,7 +150,8 @@ func (p Policy) certificateIdentity() (verify.CertificateIdentity, error) {
 // the process — installing N backends from the same gallery does one TUF
 // fetch, not N.
 type Verifier struct {
-	policy Policy
+	policy  Policy
+	trusted root.TrustedMaterial
 
 	// Registry plumbing — reused from the existing pkg/oci surface so we
 	// honor the same auth / transport conventions.
@@ -169,6 +170,21 @@ func NewVerifier(p Policy, auth *registrytypes.AuthConfig, t http.RoundTripper) 
 	return &Verifier{policy: p, auth: auth, transport: t}, nil
 }
 
+// NewVerifierWithTrustedMaterial uses explicitly provisioned host trust instead of
+// public TUF. Never pass roots supplied by a catalog, bundle, or registry. All
+// identity, SCT and transparency-log requirements remain unchanged.
+func NewVerifierWithTrustedMaterial(p Policy, auth *registrytypes.AuthConfig, t http.RoundTripper, trusted root.TrustedMaterial) (*Verifier, error) {
+	if trusted == nil {
+		return nil, fmt.Errorf("%w: missing host trust", ErrPolicyRejected)
+	}
+	v, err := NewVerifier(p, auth, t)
+	if err != nil {
+		return nil, err
+	}
+	v.trusted = trusted
+	return v, nil
+}
+
 // trustedMaterialCacheKey identifies which TUF mirror + on-disk cache a
 // Verifier wants. Two Verifiers with identical keys share trusted material.
 type trustedMaterialCacheKey struct {
@@ -185,6 +201,9 @@ type trustedMaterialEntry struct {
 var trustedMaterialCache sync.Map // map[trustedMaterialCacheKey]*trustedMaterialEntry
 
 func (v *Verifier) loadTrustedMaterial() (root.TrustedMaterialCollection, error) {
+	if v.trusted != nil {
+		return root.TrustedMaterialCollection{v.trusted}, nil
+	}
 	key := trustedMaterialCacheKey{URL: v.policy.TUFRootURL, Path: v.policy.TUFCachePath}
 	val, _ := trustedMaterialCache.LoadOrStore(key, &trustedMaterialEntry{})
 	entry := val.(*trustedMaterialEntry)
@@ -228,11 +247,6 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 		return err
 	}
 
-	trusted, err := v.loadTrustedMaterial()
-	if err != nil {
-		return err
-	}
-
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return fmt.Errorf("cosignverify: parse image ref %q: %w", imageRef, err)
@@ -262,6 +276,13 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 	}
 
 	bun, err := bundleFromOCISignature(ref, digest, opts)
+	if err != nil {
+		return err
+	}
+
+	// Fetch trust only after discovering a bundle. Unsigned images need no
+	// external trust service to be rejected. Signature verification is unchanged.
+	trusted, err := v.loadTrustedMaterial()
 	if err != nil {
 		return err
 	}

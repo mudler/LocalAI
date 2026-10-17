@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	httpapi "github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/tests/addons/foundation/cluster"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
@@ -37,6 +38,17 @@ func main() {
 	// the routing E2E to turn mock-model into a smart-router that
 	// dispatches to extra-models.
 	routerYAML := flag.String("router-yaml", "", "optional router: block to merge into mock-model.yaml")
+	// addonsFixture turns on authentication and a real add-on owner and
+	// installs the packages of that directory (see addons_fixture.go).
+	addonsFixtureDir := flag.String("addons-fixture", "", "directory of add-on UI fixture packages; enables auth and a real add-on owner")
+	addonExecutable := flag.String("addon-executable", "", "protocol fixture executable placed in every fixture package")
+	fixtureOut := flag.String("fixture-out", "", "file the seeded credentials are written to as JSON")
+	localOwner := flag.Bool("addons-local-owner", false, "run the add-ons fixture without authentication, in local-owner mode (no named users, no sharing)")
+	fixtureEnable := flag.String("fixture-enable", "", "comma separated id@version packages to install and enable at startup")
+	// foundation runs this server as one instance of the foundation
+	// acceptance cluster (see tests/addons/foundation/cluster).
+	foundationPath := flag.String("foundation", "", "cluster.json of the add-ons foundation fixture; enables authentication and the add-on carrier")
+	foundationRole := flag.String("foundation-role", "", "instance of the foundation cluster: owner, front-a or front-b")
 	flag.Parse()
 
 	if *mockBackend == "" {
@@ -55,20 +67,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create temp dirs
-	tmpDir, err := os.MkdirTemp("", "ui-e2e-*")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error creating temp dir: %v\n", err)
-		os.Exit(1)
+	// Create temp dirs. A foundation instance keeps its state in the cluster
+	// directory, which survives a restart of the process.
+	var found *cluster.Config
+	var tmpDir string
+	if *foundationPath != "" {
+		found, err = cluster.Load(*foundationPath)
+		if err != nil || found.Nodes[*foundationRole].Dir == "" {
+			fmt.Fprintf(os.Stderr, "error loading the foundation cluster for %q: %v\n", *foundationRole, err)
+			os.Exit(1)
+		}
+		tmpDir = found.StateDir(*foundationRole)
+		if err := os.MkdirAll(tmpDir, 0o750); err != nil {
+			fmt.Fprintf(os.Stderr, "error creating the foundation state dir: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		tmpDir, err = os.MkdirTemp("", "ui-e2e-*")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error creating temp dir: %v\n", err)
+			os.Exit(1)
+		}
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 	}
-	defer os.RemoveAll(tmpDir)
 
 	modelsPath := filepath.Join(tmpDir, "models")
 	backendsPath := filepath.Join(tmpDir, "backends")
 	generatedDir := filepath.Join(tmpDir, "generated")
 	dataDir := filepath.Join(tmpDir, "data")
 	for _, d := range []string{modelsPath, backendsPath, generatedDir, dataDir} {
-		if err := os.MkdirAll(d, 0755); err != nil {
+		if err := os.MkdirAll(d, 0750); err != nil {
 			fmt.Fprintf(os.Stderr, "error creating dir %s: %v\n", d, err)
 			os.Exit(1)
 		}
@@ -94,7 +122,7 @@ func main() {
 	if *routerYAML != "" {
 		body = append(body, []byte("router:\n  "+*routerYAML+"\n")...)
 	}
-	if err := os.WriteFile(filepath.Join(modelsPath, "mock-model.yaml"), body, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(modelsPath, "mock-model.yaml"), body, 0600); err != nil {
 		fmt.Fprintf(os.Stderr, "error writing config: %v\n", err)
 		os.Exit(1)
 	}
@@ -107,7 +135,7 @@ func main() {
 		parts := strings.SplitN(*extraModelFlag, "|", 2)
 		if len(parts) == 2 {
 			extraPath := filepath.Join(modelsPath, parts[0]+".yaml")
-			if err := os.WriteFile(extraPath, []byte(parts[1]), 0644); err != nil {
+			if err := os.WriteFile(extraPath, []byte(parts[1]), 0600); err != nil {
 				fmt.Fprintf(os.Stderr, "error writing extra model: %v\n", err)
 				os.Exit(1)
 			}
@@ -128,7 +156,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	app, err := application.New(
+	appOptions := []config.AppOption{
 		config.WithContext(ctx),
 		config.WithSystemState(systemState),
 		config.WithDebug(true),
@@ -137,10 +165,54 @@ func main() {
 		config.WithGeneratedContentDir(generatedDir),
 		config.EnableTracing,
 		config.EnableBackendLogging,
-	)
+	}
+	var fixture *addonsFixture
+	if *addonsFixtureDir != "" {
+		fixture, err = newAddonsFixture(*addonsFixtureDir, *addonExecutable, dataDir, *localOwner)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error preparing the add-ons fixture: %v\n", err)
+			os.Exit(1)
+		}
+		defer fixture.close()
+		appOptions = append(appOptions, fixture.options(dataDir)...)
+	}
+	if found != nil {
+		opts, err := found.AppOptions(*foundationRole)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error preparing the foundation cluster: %v\n", err)
+			os.Exit(1)
+		}
+		appOptions = append(appOptions, opts...)
+	}
+	app, err := application.New(appOptions...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating application: %v\n", err)
 		os.Exit(1)
+	}
+	if fixture != nil {
+		var enable []string
+		for _, spec := range strings.Split(*fixtureEnable, ",") {
+			if spec = strings.TrimSpace(spec); spec != "" {
+				enable = append(enable, spec)
+			}
+		}
+		if err := fixture.seed(ctx, app, *fixtureOut, enable); err != nil {
+			fmt.Fprintf(os.Stderr, "error seeding the add-ons fixture: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	if found != nil && *foundationRole == cluster.Owner {
+		if err := found.Seed(ctx, app); err != nil {
+			fmt.Fprintf(os.Stderr, "error seeding the foundation cluster: %v\n", err)
+			os.Exit(1)
+		}
+		control, err := found.ControlServer(app)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error starting the foundation control server: %v\n", err)
+			os.Exit(1)
+		}
+		defer func() { _ = control.Close() }()
 	}
 
 	// Register mock backend
@@ -171,5 +243,5 @@ func main() {
 
 	fmt.Println("\nShutting down...")
 	cancel()
-	e.Close()
+	_ = e.Close()
 }

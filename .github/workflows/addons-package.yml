@@ -1,0 +1,310 @@
+---
+name: 'add-on packages'
+
+# Builds, checks, signs and publishes the first-party add-on OCI packages
+# (Tables). This workflow is independent of the backend image workflows: it has
+# its own registry input, its own signer identity and its own jobs.
+#
+# Event policy (the rules live in scripts/addons/channel.sh):
+#   pull_request          validate and build legs, publish nothing, no secrets
+#   push to master        publish the development channel
+#   push to other branch  publish nothing
+#   push of a v<semver> tag  prepare the immutable version, move no alias
+#   release published     promote latest, for a stable non-draft release only
+#
+# Aliases move only in the promote job, after every platform leg passed, the
+# index was pushed by digest, signed and verified.
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths:
+      - 'addons/**'
+      - 'pkg/addons/**'
+      - 'scripts/addons/**'
+      - 'gallery/addons/**'
+      - '.github/workflows/addons-package.yml'
+  pull_request:
+    paths:
+      - 'addons/**'
+      - 'pkg/addons/**'
+      - 'scripts/addons/**'
+      - 'gallery/addons/**'
+      - '.github/workflows/addons-package.yml'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate package rules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install the host UI build tools
+        # The package checks build the add-on UI with the bundler the host UI
+        # already installs.
+        run: npm ci --prefix core/http/react-ui
+      - name: Fill the module cache the packaging checks read
+        # package_test.sh runs offline (GOPROXY=off) against its own cache.
+        run: |
+          GOPATH="$PWD/.cache/addons/go" GOMODCACHE="$PWD/.cache/addons/go/pkg/mod" \
+          GOCACHE="$PWD/.cache/addons/go-build" go mod download
+      - name: Run the packaging checks
+        run: sh scripts/addons/package_test.sh
+
+  plan:
+    name: plan the event
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+      immutable: ${{ steps.plan.outputs.immutable }}
+      aliases: ${{ steps.plan.outputs.aliases }}
+      channel: ${{ steps.plan.outputs.channel }}
+      version: ${{ steps.plan.outputs.version }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_platforms: ${{ steps.plan.outputs.has_platforms }}
+      registry: ${{ steps.plan.outputs.registry }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Decide what this event may publish
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          DRAFT: ${{ github.event.release.draft || false }}
+          PRERELEASE: ${{ github.event.release.prerelease || false }}
+        run: |
+          set -eu
+          flags=""
+          [ "$DRAFT" = "true" ] && flags="$flags --draft"
+          [ "$PRERELEASE" = "true" ] && flags="$flags --prerelease"
+          # shellcheck disable=SC2086
+          sh scripts/addons/channel.sh --event "$EVENT" --ref "$REF" --sha "$SHA" $flags > decision.txt
+          cat decision.txt
+          version=$(sed -n 's/^version=//p' decision.txt)
+          publish=$(sed -n 's/^publish=//p' decision.txt)
+          [ -n "$version" ] || version="0.0.0-dev.${SHA%"${SHA#????????????}"}"
+          if [ "$publish" = "true" ]; then
+            # Fail closed: a publishing event needs the namespace input and a
+            # non-empty release platform matrix. There is no default registry.
+            if [ -z "$ADDON_OCI_REPOSITORY" ]; then
+              echo "ADDON_OCI_REPOSITORY is not configured; refusing to publish" >&2
+              exit 1
+            fi
+            matrix=$(go run ./scripts/addons/cmd/addonpkg matrix --config addons/tables/package/platforms.yaml)
+            has=true
+          elif matrix=$(go run ./scripts/addons/cmd/addonpkg matrix --config addons/tables/package/platforms.yaml 2>/dev/null); then
+            has=true
+          else
+            matrix='{"include":[]}'
+            has=false
+          fi
+          {
+            cat decision.txt
+            echo "version=$version"
+            echo "matrix=$matrix"
+            echo "has_platforms=$has"
+            echo "registry=${ADDON_OCI_REPOSITORY%%/*}"
+          } >> "$GITHUB_OUTPUT"
+
+  package:
+    name: package ${{ matrix.platform }}
+    needs: [plan, validate]
+    if: needs.plan.outputs.has_platforms == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Build the UI
+        run: |
+          npm ci --prefix core/http/react-ui
+          node addons/tables/ui/build.mjs
+      - name: Package this platform
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+          SHA: ${{ github.sha }}
+        run: |
+          sh scripts/addons/package.sh --layout "layout" --version "$VERSION" --platform "$PLATFORM" --revision "$SHA"
+      - name: Native runtime check
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          go run ./scripts/addons/cmd/addonpkg native-check --config addons/tables/package/platforms.yaml --layout layout --platform "$PLATFORM" --version "$VERSION"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: layout-${{ matrix.slug }}
+          path: layout
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: publish and sign
+    needs: [plan, validate, package]
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: addons-release
+    concurrency:
+      group: addons-publish-${{ needs.plan.outputs.immutable }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}
+      # cosign gates --registry-referrers-mode=oci-1-1 behind this flag.
+      COSIGN_EXPERIMENTAL: '1'
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: layout-*
+          path: legs
+      - name: Join the platform legs into one index
+        id: merge
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          go run ./scripts/addons/cmd/addonpkg merge --config addons/tables/package/platforms.yaml \
+            --out merged --version "$VERSION" --revision "$SHA" legs/*
+      - name: Registry login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.plan.outputs.registry }}
+          username: ${{ secrets.ADDON_OCI_USERNAME }}
+          password: ${{ secrets.ADDON_OCI_PASSWORD }}
+      - name: Push the platform digests and the index
+        id: push
+        env:
+          IMMUTABLE: ${{ needs.plan.outputs.immutable }}
+        run: |
+          set -eu
+          go run ./scripts/addons/cmd/addonpkg publish --config addons/tables/package/platforms.yaml \
+            --layout merged --repository "$ADDON_OCI_REPOSITORY" --tag "$IMMUTABLE" --adopt-existing | tee push.txt
+          echo "digest=$(sed -n 's/^digest=//p' push.txt)" >> "$GITHUB_OUTPUT"
+          echo "children=$(sed -n 's/^children=//p' push.txt)" >> "$GITHUB_OUTPUT"
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.6.5'
+      - name: Sign by digest
+        id: sign
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -eu
+          cosign sign --yes --recursive \
+            --new-bundle-format \
+            --registry-referrers-mode=oci-1-1 \
+            "${ADDON_OCI_REPOSITORY}@${DIGEST}"
+      - name: Verify the signature with the exact add-on workflow identity
+        id: verify
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          CHILDREN: ${{ steps.push.outputs.children }}
+          IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/addons-package.yml@${{ github.ref }}
+          ISSUER: https://token.actions.githubusercontent.com
+        run: |
+          set -eu
+          for d in "$DIGEST" $(echo "$CHILDREN" | tr ',' ' '); do
+            cosign verify --new-bundle-format \
+              --certificate-identity "$IDENTITY" \
+              --certificate-oidc-issuer "$ISSUER" \
+              "${ADDON_OCI_REPOSITORY}@${d}" > /dev/null
+          done
+
+  promote:
+    name: promote channel aliases
+    needs: [plan, validate, publish]
+    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: addons-release
+    # One promotion at a time per channel, and a queued run never cancels a
+    # running one. The freshness check below makes a slow, older run a no-op.
+    concurrency:
+      group: addons-promote-${{ needs.plan.outputs.channel }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Registry login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.plan.outputs.registry }}
+          username: ${{ secrets.ADDON_OCI_USERNAME }}
+          password: ${{ secrets.ADDON_OCI_PASSWORD }}
+      - name: Move the aliases
+        env:
+          ALIASES: ${{ needs.plan.outputs.aliases }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -eu
+          for alias in $(echo "$ALIASES" | tr ',' ' '); do
+            go run ./scripts/addons/cmd/addonpkg promote \
+              --repository "$ADDON_OCI_REPOSITORY" --alias "$alias" \
+              --digest "$DIGEST" --version "$VERSION" --revision "$SHA" \
+              --ref "$REF" --event "$EVENT" --git-dir .git
+          done

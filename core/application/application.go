@@ -3,8 +3,11 @@ package application
 import (
 	"cmp"
 	"context"
+	"errors"
 	"math/rand/v2"
+	"net/http"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,6 +16,14 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/addons/policy"
+	"github.com/mudler/LocalAI/core/services/addons/recovery"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
+	"github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
@@ -32,6 +43,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/core/trace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	localaiInproc "github.com/mudler/LocalAI/pkg/mcp/localaitools/inproc"
@@ -56,6 +68,17 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
+	addonPolicy         *policy.Policy
+	addonStore          *policy.Store
+	addonResourceExists func(context.Context, policy.ResourceKey) (bool, error)
+	// addonReconcileTick drives the pending-registration retry; nil is a real
+	// 30 second ticker. addonReconcile is that loop once the owner started it.
+	addonReconcileTick   <-chan time.Time
+	addonReconcile       *policy.ReconcileLoop
+	addonGateway         *gateway.Gateway
+	addonServer          *http.Server
+	addonSources         *catalog.Sources
+	addonManager         *addons.Manager
 	webSocketTicketsOnce sync.Once
 	webSocketTickets     *auth.WebSocketTickets
 	backendLoader        *config.ModelConfigLoader
@@ -540,12 +563,21 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		if a.addonServer != nil {
+			_ = a.addonServer.Close()
+		}
+		if a.addonStore != nil {
+			_ = a.addonStore.Close()
+		}
+		if a.addonManager != nil {
+			err = a.addonManager.Close()
+		}
 		// Before distributed shutdown: the sync's subscriptions live on the
 		// NATS connection that closes there.
 		a.stopFailoverDistributed()
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {
-			err = a.modelLoader.StopAllGRPC()
+			err = errors.Join(err, a.modelLoader.StopAllGRPC())
 		}
 		if a.voiceProfileStore != nil {
 			if closeErr := a.voiceProfileStore.Close(); err == nil {
@@ -591,7 +623,16 @@ func (a *Application) InstanceID() string {
 	return a.applicationConfig.Distributed.InstanceID
 }
 
-func (a *Application) start() error {
+func (a *Application) start() (startErr error) {
+	if err := a.startAddons(); err != nil {
+		return err
+	}
+	defer func() {
+		if startErr != nil && a.addonManager != nil {
+			_ = a.addonManager.Close()
+		}
+	}()
+
 	galleryService := galleryop.NewGalleryService(a.ApplicationConfig(), a.ModelLoader())
 	err := galleryService.Start(a.ApplicationConfig().Context, a.ModelConfigLoader(), a.ApplicationConfig().SystemState)
 	if err != nil {
@@ -742,4 +783,116 @@ func (a *Application) StartAgentPool() {
 	aps.SetUserServicesManager(usm)
 
 	a.agentPoolService.Store(aps)
+}
+
+// AddonManager is nil unless the deployment explicitly enables addons.
+func (a *Application) AddonManager() *addons.Manager { return a.addonManager }
+
+// AddonSources exposes owner-only source administration and explicit live refresh.
+// Forwarders never load source configuration or perform catalog I/O.
+func (a *Application) AddonSources() *catalog.Sources { return a.addonSources }
+
+func (a *Application) startAddons() error {
+	c := a.applicationConfig.Addons
+	if !c.Enabled {
+		return nil
+	}
+	if a.addonManager != nil {
+		return addons.ErrConflict
+	}
+	mode := a.AddonOwnershipMode()
+	if mode != auth.AddonModeNamedUser && mode != auth.AddonModeLocalOwner {
+		return addons.ErrConfiguration
+	}
+	if c.Transport != nil {
+		switch mode {
+		case auth.AddonModeLocalOwner:
+			// The HTTP layer checked the caller's role when an account database
+			// exists; here the only principal is the local owner.
+			c.AdminCheck = func(_ context.Context, actor contract.Actor) error { return auth.ValidateLocalOwnerActor(actor) }
+		default:
+			if a.authDB == nil {
+				return addons.ErrForbidden
+			}
+			c.AdminCheck = func(ctx context.Context, actor contract.Actor) error {
+				return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
+			}
+		}
+	}
+	owner := addons.OwnerConfig{InstanceID: c.InstanceID, OwnerID: c.OwnerID, OwnerAddress: c.OwnerAddress, StorageID: c.StorageID, Root: c.Root, SharedStorage: c.SharedStorage}
+	var cat catalog.Catalog
+	var installer *packages.Installer
+	// Replicas must not load even source metadata from the owner's volume.
+	if c.InstanceID == c.OwnerID && c.OwnerID != "" {
+		if c.AdminCheck == nil {
+			return addons.ErrForbidden
+		}
+		sources, err := catalog.NewSources(filepath.Join(c.Root, "sources.json"), c.AdminCheck, catalog.CredentialResolver{})
+		if err != nil {
+			return err
+		}
+		host := c.Host
+		if host == (contract.HostCompatibility{}) {
+			host = contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
+		}
+		cat = catalog.Catalog{Sources: sources, TargetOS: host.OS, TargetArch: host.Arch}
+		installer = &packages.Installer{Root: filepath.Join(c.Root, "packages"), Catalog: cat, Host: host}
+	}
+	m, err := addons.NewManager(a.applicationConfig.Context, owner, cat, installer, c.AdminCheck)
+	if err != nil {
+		return err
+	}
+	if c.InstanceID == c.OwnerID {
+		// Data recovery sits beside the manager: an upgrade of an add-on that
+		// has data goes through it, and its journals are settled before any
+		// process starts. It gets the owner's policy once that exists.
+		account := func(context.Context, string) error { return gateway.ErrForbidden }
+		if a.AddonOwnershipMode() != auth.AddonModeLocalOwner && a.authDB != nil {
+			users := auth.NewAddonUsers(a.authDB)
+			account = users.Active
+		}
+		rec, rerr := recovery.New(recovery.Config{
+			Root: c.Root, Host: m.RecoveryHost(), Admin: c.AdminCheck, Account: account,
+			SelectionsDir: filepath.Join(c.Root, "selections"),
+			Retention:     recovery.Retention{Keep: c.BackupKeep, MaxAge: c.BackupMaxAge},
+		})
+		if rerr != nil {
+			_ = m.Close()
+			return rerr
+		}
+		m.SetRecovery(rec)
+		// The update check reads the libraries and the journal the owner
+		// holds; it applies nothing, and its cache is bounded.
+		m.EnableUpdates(updates.Config{TTL: c.UpdateCacheTTL, MinRefresh: c.UpdateRefreshInterval})
+		if err = m.Reconcile(a.applicationConfig.Context); err != nil {
+			_ = m.Close()
+			return err
+		}
+	}
+	if cat.Sources != nil {
+		if err = cat.Sources.RefreshEnabled(a.applicationConfig.Context); err != nil {
+			_ = m.Close()
+			return err
+		}
+	}
+	if c.InstanceID == c.OwnerID {
+		limits := contract.DefaultLimits()
+		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax})
+		if err != nil {
+			_ = m.Close()
+			return err
+		}
+		if err = m.AttachRuntime(a.applicationConfig.Context, supervisor); err != nil {
+			_ = supervisor.Close(context.Background())
+			_ = m.Close()
+			return err
+		}
+	}
+	a.addonSources = cat.Sources
+	a.addonManager = m
+	if err := a.startAddonGateway(); err != nil {
+		_ = m.Close()
+		return err
+	}
+	return nil
 }

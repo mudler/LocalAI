@@ -63,7 +63,8 @@
     "overview": "개요",
     "thisMachine": "이 머신",
     "failover": "페일오버",
-    "p2p": "P2P"
+    "p2p": "P2P",
+    "addons": "애드온"
   },
   "footer": {
     "github": "GitHub",
@@ -93,7 +94,8 @@
       "quantize": "더 작은 하드웨어에서 돌아가도록 모델을 줄입니다.",
       "import": "파일, URL 또는 Hugging Face 저장소에서 모델을 추가합니다.",
       "voices": "화자를 식별하고 음성 프로필 라이브러리를 관리합니다.",
-      "faces": "얼굴을 감지, 비교, 매칭합니다."
+      "faces": "얼굴을 감지, 비교, 매칭합니다.",
+      "addons": "애드온을 설치하고 그것이 제공하는 앱을 엽니다."
     }
   }
 }

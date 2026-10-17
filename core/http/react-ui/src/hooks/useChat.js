@@ -3,6 +3,8 @@ import { API_CONFIG } from '../utils/config'
 import { apiUrl } from '../utils/basePath'
 import { effectiveSystemPrompt } from '../utils/systemPrompt'
 import { useDebouncedEffect } from './useDebounce'
+import { storedResult } from '../addons/proposalResult'
+import { chatHeaders } from '../addons/resourceCalls'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
 const openThinkTagRegex = /<thinking>|<think>|<\|channel>thought/
@@ -415,6 +417,13 @@ export function useChat(initialModel = '') {
       requestBody.metadata.localai_assistant = 'true'
     }
 
+    // Add-on tools: the server binds them to the signed-in person. The chat
+    // only opts in; the host decides which tools this person may use.
+    if (activeChat.addonTools) {
+      if (!requestBody.metadata) requestBody.metadata = {}
+      requestBody.metadata.addon_tools = 'true'
+    }
+
     // Client-side MCP: inject tools into request body
     if (options.clientMCPTools && options.clientMCPTools.length > 0) {
       requestBody.tools = [...(requestBody.tools || []), ...options.clientMCPTools]
@@ -448,7 +457,7 @@ export function useChat(initialModel = '') {
         const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 min timeout
         const response = await fetchWithModelLoadWait(apiUrl(endpoint), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...chatHeaders(activeChat) },
           body: JSON.stringify(requestBody),
           signal: controller.signal,
         }, requestBody.model, setModelLoading, controller.signal)
@@ -594,7 +603,7 @@ export function useChat(initialModel = '') {
         try {
           const response = await fetchWithModelLoadWait(apiUrl(endpoint), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...chatHeaders(activeChat) },
             body: JSON.stringify(loopBody),
             signal: controller.signal,
           }, loopBody.model, setModelLoading, controller.signal)
@@ -641,6 +650,17 @@ export function useChat(initialModel = '') {
                     name: parsed.name || 'tool',
                     result: parsed.result || '',
                   })
+                  // An add-on proposal is kept in the history as its
+                  // reference only. The card loads the record from the host,
+                  // and a stored chat never holds rows or previews.
+                  const kept = storedResult(parsed.name, parsed.result)
+                  if (kept) {
+                    newMessages.push({
+                      role: 'tool_result',
+                      content: JSON.stringify({ type: 'tool_result', name: parsed.name, result: kept }, null, 2),
+                      expanded: false,
+                    })
+                  }
                   setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
                   continue
                 }

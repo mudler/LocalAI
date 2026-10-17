@@ -32,13 +32,14 @@ function Marked({ text, upto }) {
 //   streaming    swaps Send for a Stop button that calls onStop
 //   onPaste, onKeyDownExtra (return true to take the key), fileAccept, rows,
 //   testIds and class names for the pieces tests and the thread reach for
+//   extras       a node drawn after the attach buttons (the add-on slot)
 export default function HomeComposer({
   message, onMessage, onSubmit, canSend, sending, sendTitle, textareaRef,
   picker, mcp, chips, files, onRemoveFile, onAttach,
   placeholder, slashContext, onRunAction, slash,
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
   fileAccept = '.txt,.md,.pdf', rows = 3, strictEnter = false, testId = 'home-composer',
-  textareaTestId, textareaClass = '', sendId, sendTestId, hint,
+  textareaTestId, textareaClass = '', sendId, sendTestId, hint, extras,
 }) {
   const { t } = useTranslation('home')
   const imageRef = useRef(null)
@@ -209,6 +210,7 @@ export default function HomeComposer({
           <button type="button" className="home-attach-btn" onClick={() => fileRef.current?.click()} title={t('input.attachFile')} aria-label={t('input.attachFile')}>
             <Icon name="file" />
           </button>
+          {extras}
         </div>
         <span className="home-input-hint">{hint || t('input.enterHint')}</span>
         {streaming ? (

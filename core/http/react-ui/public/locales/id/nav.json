@@ -64,7 +64,8 @@
     "overview": "Ikhtisar",
     "thisMachine": "Mesin ini",
     "failover": "Failover",
-    "p2p": "P2P"
+    "p2p": "P2P",
+    "addons": "Add-on"
   },
   "footer": {
     "github": "GitHub",
@@ -94,7 +95,8 @@
       "quantize": "Perkecil model agar berjalan di perangkat keras yang lebih kecil.",
       "import": "Tambahkan model dari berkas, URL, atau repositori Hugging Face.",
       "voices": "Kenali pembicara dan simpan pustaka profil suara.",
-      "faces": "Deteksi, bandingkan, dan cocokkan wajah."
+      "faces": "Deteksi, bandingkan, dan cocokkan wajah.",
+      "addons": "Pasang add-on dan buka aplikasi yang disediakannya."
     }
   }
 }

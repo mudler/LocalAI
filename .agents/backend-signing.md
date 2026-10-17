@@ -150,3 +150,10 @@ compromised and we've shipped malicious signed images:
   page if/when added.
 - **Tarball/HTTP backend signing.** Cosign can sign arbitrary blobs, but
   for now non-OCI backends keep using the `sha256:` field in YAML.
+
+Embedded consumers with host-provisioned private Sigstore trust can use
+`cosignverify.NewVerifierWithTrustedMaterial`. It bypasses public TUF fetching,
+not signature, identity, SCT, or Rekor checks. Never construct this input from a
+registry attachment or catalog response. `NewVerifier` retains its public TUF
+default. Hermetic cryptographic regressions live in `offline_internal_test.go`;
+the optional live registry tests remain separate and are not acceptance evidence.

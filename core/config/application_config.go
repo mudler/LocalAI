@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -14,7 +16,47 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// AddonConfig is startup-only deployment configuration. Authority is injected
+// by the embedding host and cannot be loaded from runtime settings.
+type AddonConfig struct {
+	Transport     *gateway.CarrierConfig `json:"-" yaml:"-"`
+	ListenAddress string
+
+	Enabled                                            bool
+	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
+	SharedStorage                                      bool
+	// OwnershipMode is "named-user" (the default when empty) or "local-owner".
+	// Local-owner mode is explicit opt-in and never inferred: every caller that
+	// reaches the addon routes shares one authority and sharing is disabled.
+	// Every frontend of a deployment must use the same value.
+	OwnershipMode string
+	Host          contract.HostCompatibility
+	AdminCheck    func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
+	// BackupKeep is how many backups of one add-on the owner keeps; zero is
+	// three. BackupMaxAge removes older ones; zero keeps them by count only.
+	// The newest verified backup and the recovery copy of an upgrade are
+	// never removed by either.
+	BackupKeep   int
+	BackupMaxAge time.Duration
+	// UpdateCacheTTL is how long an answer of the update check, and the
+	// library data under it, counts as fresh; zero is 15 minutes.
+	// UpdateRefreshInterval is the least time between two explicit refreshes
+	// of one add-on and of one library; zero is 15 seconds.
+	UpdateCacheTTL        time.Duration
+	UpdateRefreshInterval time.Duration
+	// ArtifactExpiry is how long a private file result stays downloadable;
+	// zero is the contract default of one hour. It is a programmatic option
+	// that no flag sets: the acceptance fixture shortens it to test expiry.
+	ArtifactExpiry time.Duration
+}
+
+func WithAddons(c AddonConfig) AppOption {
+	return func(o *ApplicationConfig) { o.Addons = c }
+}
+
 type ApplicationConfig struct {
+	Addons AddonConfig `json:"-" yaml:"-"`
+
 	// DiagnosticsRecorder is startup-only and local to this frontend process.
 	DiagnosticsRecorder *diagnostics.Recorder `json:"-" yaml:"-"`
 
