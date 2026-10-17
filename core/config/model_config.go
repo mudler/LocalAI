@@ -60,9 +60,10 @@ type TTSVoice struct {
 type ModelConfig struct {
 	modelConfigFile string `yaml:"-" json:"-"`
 	modelTemplate   string `yaml:"-" json:"-"`
-	// evidenceCheck is set only from a profile alias's block, so a plain
-	// model config cannot switch it on by a top-level key.
+	// evidenceCheck and requireTool are set only from a profile alias's
+	// block, so a plain model config cannot switch them on by a top-level key.
 	evidenceCheck EvidenceCheckConfig `yaml:"-" json:"-"`
+	requireTool   bool                `yaml:"-" json:"-"`
 	// persistedConfigRevision is the revision of this model's persisted
 	// configuration, stamped when the loader materializes it and therefore
 	// before any per-request override is merged in. The request pipeline
@@ -648,6 +649,10 @@ type ProfileConfig struct {
 	// EvidenceCheck marks answers whose numbers have no evidence in the request
 	// and can cite the URLs the tools returned.
 	EvidenceCheck EvidenceCheckConfig `yaml:"evidence_check,omitempty" json:"evidence_check,omitempty"`
+	// RequireTool makes the first model call of a request with server-side
+	// MCP tools call a tool (tool_choice "required"). Follow-up calls of the
+	// tool loop are made with the client's tool_choice again.
+	RequireTool bool `yaml:"require_tool,omitempty" json:"require_tool,omitempty"`
 }
 
 // DefaultEvidenceNote is appended when evidence_check.note is empty.
@@ -691,6 +696,10 @@ func (e EvidenceCheckConfig) SourcesHeading() string {
 	return DefaultSourcesLabel
 }
 
+// RequiresTool reports whether a profile alias asked for a forced tool call on
+// the first model call of a request; it is false for every other config.
+func (c ModelConfig) RequiresTool() bool { return c.requireTool }
+
 // IsZero reports whether the block sets nothing.
 func (p ProfileConfig) IsZero() bool { return p == ProfileConfig{} }
 
@@ -716,6 +725,7 @@ func (c *ModelConfig) applyProfileOverlay(alias *ModelConfig) {
 		c.ClientTools = p.ClientTools
 	}
 	c.evidenceCheck = p.EvidenceCheck
+	c.requireTool = p.RequireTool
 }
 
 // @Description PII filtering configuration. PII redaction is per-model so

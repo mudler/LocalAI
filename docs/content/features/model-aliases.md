@@ -58,6 +58,7 @@ top of the target's config for requests to the alias:
 | `profile.evidence_check.note` | Text appended by the evidence check. Defaults to an English note. |
 | `profile.evidence_check.sources` | Appends the URLs the request's MCP tools returned to an answer that names no URL. See [Source line](#source-line). |
 | `profile.evidence_check.sources_label` | Label of the source line. Defaults to `Sources`. |
+| `profile.require_tool` | Makes the first model call of a request call one of the profile's MCP tools. See [Requiring a tool call](#requiring-a-tool-call). |
 
 ```yaml
 name: researcher
@@ -167,6 +168,55 @@ In a streamed response the line arrives as one additional content chunk before
 the final chunk, like the number note. Both checks can be enabled together; the
 number note follows the source line. `sources_label` without `sources: true` is
 rejected.
+
+### Requiring a tool call
+
+A system prompt that says "always search first" does not stop a model from
+answering a question from its own knowledge, for example when the question comes
+with a picture. `require_tool: true` enforces the first step in the request
+instead:
+
+```yaml
+name: researcher
+alias: my-llama-3
+profile:
+  require_tool: true
+  mcp:
+    auto: true
+    remote: |
+      {"mcpServers": {"search": {"url": "http://search.internal/mcp"}}}
+```
+
+When the switch is set and a `/v1/chat/completions` request offers the
+profile's server-side MCP tools, the **first** model call of the request is made with
+`tool_choice: "required"`. Every follow-up call of the server-side tool loop is
+made with the `tool_choice` the client sent (or none), so after the tool results
+the model is free to answer. A `required` that stayed in place would make the
+model call a tool again after every result and never answer until the loop's
+iteration limit.
+
+How `required` is enforced depends on the model:
+
+- With `template.use_tokenizer_template` (llama.cpp with the model's own chat
+  template), LocalAI passes `tool_choice: "required"` to the backend, which
+  constrains the output to a tool call with a grammar built from the chat
+  template's tool-call format.
+- When LocalAI builds the tool-call grammar itself, the first call's grammar
+  leaves out the no-action function (`answer`) the model would otherwise reply
+  with directly.
+
+The first call is not forced when:
+
+- no server-side MCP tool was offered (MCP disabled, the caller lacks the `mcp`
+  permission, or the profile has no servers),
+- the client set `tool_choice` (other than `auto`) or `function_call` itself,
+  which keeps precedence,
+- the request does not end with a user message. A request that ends with a
+  `tool` message returns the result of a tool the client ran itself; forcing
+  another call there could bounce tool calls between client and server.
+
+The switch applies per request, so every new user turn starts with a tool call.
+It enforces that a tool is called, not which one or with which arguments.
 
 ## Managing aliases
 
