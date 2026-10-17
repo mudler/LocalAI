@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/functions"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
@@ -99,6 +100,20 @@ func ComputeChoices(
 		logitBias = req.LogitBias
 	}
 
+	// With reasoning disabled, reasoning the autoparser still classified is the
+	// answer: report it as content, as ExtractReasoningWithConfig does for raw
+	// text. Done here rather than in backend.ModelInference because realtime
+	// sets DisableReasoning only as a backend hint and must keep stripping
+	// reasoning out of spoken output.
+	reasoningAsContent := config.ReasoningConfig.DisableReasoning != nil && *config.ReasoningConfig.DisableReasoning
+	if reasoningAsContent && tokenCallback != nil {
+		userTokenCallback := tokenCallback
+		tokenCallback = func(s string, usage backend.TokenUsage) bool {
+			usage.ChatDeltas = functions.ReasoningAsContent(usage.ChatDeltas)
+			return userTokenCallback(s, usage)
+		}
+	}
+
 	// get the model function to call for the result
 	predFunc, err := backend.ModelInferenceFunc(
 		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, req.Metadata)
@@ -118,6 +133,9 @@ func ComputeChoices(
 			p, err := predFunc()
 			if err != nil {
 				return result, backend.TokenUsage{}, nil, err
+			}
+			if reasoningAsContent {
+				p.ChatDeltas = functions.ReasoningAsContent(p.ChatDeltas)
 			}
 			prediction = p
 
