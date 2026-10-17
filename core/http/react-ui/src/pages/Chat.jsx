@@ -97,7 +97,16 @@ function formatLoadEta(seconds) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
 }
 
+// One chat state per account: useChat binds its browser cache and its server
+// sync to the signed-in account, so a different account gets a fresh mount
+// instead of the previous account's chats.
 export default function Chat() {
+  const { user } = useAuth()
+  return <ChatPage key={user?.id || ''} />
+}
+
+// eslint-disable-next-line no-unused-vars -- used as JSX above
+function ChatPage() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const navigate = useNavigate()

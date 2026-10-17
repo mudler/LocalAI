@@ -8,7 +8,7 @@ url = "/features/chat-history/"
 Chat history keeps the conversations of the web UI [Chat]({{%relref "features/chat" %}}) page on the server, per user, so they survive a browser reset and follow you to another device. It is built on the [user authentication system]({{%relref "features/authentication" %}}): conversations live in the same database as users, sessions and API keys (SQLite by default, PostgreSQL when `LOCALAI_AUTH_DATABASE_URL` points at one).
 
 {{% notice note %}}
-Chat history is only active when user authentication is enabled (`LOCALAI_AUTH=true`). Without it, or with only legacy API keys, the endpoints below are not registered and the web UI keeps conversations in the browser (`localai_chats_data` in `localStorage`), as before. Disabling the web UI (`LOCALAI_DISABLE_WEBUI=true`) also disables chat history.
+Chat history is only active when user authentication is enabled (`LOCALAI_AUTH=true`). Without it, or with only legacy API keys, the endpoints below are not registered and the web UI keeps conversations in the browser (`localai_chats_data` in `localStorage`), as before. With it, the browser copy is kept per account (see [One browser cache per account](#one-browser-cache-per-account)). Disabling the web UI (`LOCALAI_DISABLE_WEBUI=true`) also disables chat history.
 {{% /notice %}}
 
 ## Permission
@@ -39,6 +39,16 @@ On load the Chat page asks the server for the list and reconciles it with what t
 - A conversation you delete while the list is still loading is deleted on the server once the list arrives.
 
 After that, every change is saved on its own (debounced, only conversations that changed). When a save returns `410`, the UI removes that conversation locally. On any other error it keeps the browser copy and tries again with the next change. `localStorage` stays a cache of the last state either way. The web UI does not use the bulk endpoint: every upload goes through the per-conversation save, so the tombstone check applies to each one.
+
+### Deletes wait for the server
+
+A delete (one conversation, **Clear all**, or a delete on the Home page) is removed from the screen at once, and kept in the browser as a pending delete until the server confirms it. If the server cannot be reached, the delete is sent again with the next change, when the browser comes back online, and on the next load; until then the list from the server cannot bring the conversation back. While a **Clear all** is pending, no conversation is uploaded, so a chat started after it is not caught by it.
+
+### One browser cache per account
+
+The browser cache belongs to the signed-in account: it is stored under `localai_chats_data:<user id>`, together with that account's pending deletes. When one account signs out and another signs in on the same browser, the second account starts from its own cache and its own server list. A conversation the first account could not upload yet (for example because its first save failed) stays in the first account's cache and is uploaded when that account signs in again; it is never uploaded into another account. Signing out does not delete the cache.
+
+Conversations stored in the browser before chat history was enabled live under the shared key `localai_chats_data`. When you are signed in, the Chat page does not read that key and does not upload it, because the browser cannot tell which account it belongs to. Without user authentication the web UI keeps using it, as before.
 
 ## API
 

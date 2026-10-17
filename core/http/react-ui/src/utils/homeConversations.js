@@ -1,32 +1,14 @@
 // Conversations on the Home page: read from the same browser storage the Chat
-// page writes (see useChat), grouped by day for the "Jump back in" list.
+// page writes (see useChat and chatStore), grouped by day for the "Jump back
+// in" list. Every function takes the storage key of the signed-in account
+// (chatsStorageKey); without one it reads the browser-only key.
 //
 // Home only reads, resumes and deletes. It never writes a chat's content, so a
 // stored conversation keeps the exact shape Chat expects.
 
-export const CHATS_STORAGE_KEY = 'localai_chats_data'
+import { CHATS_STORAGE_KEY, readChatStore, writeChatStore } from './chatStore'
 
 const DAY_MS = 24 * 60 * 60 * 1000
-
-function readStore() {
-  try {
-    const raw = localStorage.getItem(CHATS_STORAGE_KEY)
-    if (!raw) return null
-    const data = JSON.parse(raw)
-    return data && Array.isArray(data.chats) ? data : null
-  } catch {
-    return null
-  }
-}
-
-function writeStore(data) {
-  try {
-    localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify({ ...data, lastSaved: Date.now() }))
-    return true
-  } catch {
-    return false
-  }
-}
 
 // A message body is a string, or a list of blocks ({type:'text'|'image_url'|...}).
 function messageText(message) {
@@ -94,8 +76,8 @@ export function conversationsFromChats(chats) {
 }
 
 // Chats that hold at least one message, newest first.
-export function listConversations() {
-  const data = readStore()
+export function listConversations(key = CHATS_STORAGE_KEY) {
+  const data = readChatStore(key)
   return data ? conversationsFromChats(data.chats) : []
 }
 
@@ -130,19 +112,23 @@ export function groupConversations(items, now = Date.now()) {
 }
 
 // Make a stored chat the one Chat opens on.
-export function setActiveConversation(id) {
-  const data = readStore()
+export function setActiveConversation(id, key = CHATS_STORAGE_KEY) {
+  const data = readChatStore(key)
   if (!data || !data.chats.some(c => c.id === id)) return false
-  return writeStore({ ...data, activeChatId: id })
+  return writeChatStore(key, { ...data, activeChatId: id })
 }
 
 // Remove a chat from storage. Home keeps the chat until its undo time ends
-// and calls this only then, so there is nothing to put back afterwards.
-export function removeConversation(id) {
-  const data = readStore()
+// and calls this only then, so there is nothing to put back afterwards. The
+// id is queued as a pending delete: Home does not talk to the server, so the
+// Chat page sends the delete the next time it syncs. Without that a synced
+// chat removed here would come straight back from the server.
+export function removeConversation(id, key = CHATS_STORAGE_KEY) {
+  const data = readChatStore(key)
   if (!data || !data.chats.some(c => c.id === id)) return false
   const chats = data.chats.filter(c => c.id !== id)
   let activeChatId = data.activeChatId
   if (activeChatId === id) activeChatId = chats[0]?.id
-  return writeStore({ ...data, chats, activeChatId })
+  const pendingDeletes = data.pendingDeletes.includes(id) ? data.pendingDeletes : [...data.pendingDeletes, id]
+  return writeChatStore(key, { ...data, chats, activeChatId, pendingDeletes })
 }

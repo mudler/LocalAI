@@ -4,6 +4,8 @@ import { apiUrl } from '../utils/basePath'
 import { effectiveSystemPrompt } from '../utils/systemPrompt'
 import { useDebouncedEffect } from './useDebounce'
 import { chatHistoryApi } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
+import { chatsStorageKey, readChatStore, writeChatStore } from '../utils/chatStore'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
 const openThinkTagRegex = /<thinking>|<think>|<\|channel>thought/
@@ -97,23 +99,6 @@ function extractThinking(text) {
 
 import { generateId } from '../utils/format'
 
-const CHATS_STORAGE_KEY = 'localai_chats_data'
-
-function loadChats() {
-  try {
-    const stored = localStorage.getItem(CHATS_STORAGE_KEY)
-    if (stored) {
-      const data = JSON.parse(stored)
-      if (data && Array.isArray(data.chats)) {
-        return data
-      }
-    }
-  } catch (_e) {
-    localStorage.removeItem(CHATS_STORAGE_KEY)
-  }
-  return null
-}
-
 // serializeChat strips React-only state (streaming flags, transient UI bits)
 // before persistence. This is what goes to the server; `version` is the
 // server's and is never sent back.
@@ -139,21 +124,14 @@ function serializeChat(chat) {
   }
 }
 
-function saveChats(chats, activeChatId) {
-  try {
-    const data = {
-      // The local cache keeps the server version: it is how the next load
-      // tells a chat the server has seen from a never-synced draft.
-      chats: chats.map(chat => ({ ...serializeChat(chat), version: chat.version })),
-      activeChatId,
-      lastSaved: Date.now(),
-    }
-    localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify(data))
-  } catch (err) {
-    if (err.name === 'QuotaExceededError' || err.code === 22) {
-      console.warn('localStorage quota exceeded')
-    }
-  }
+function saveChats(key, chats, activeChatId, pendingDeletes) {
+  writeChatStore(key, {
+    // The local cache keeps the server version: it is how the next load
+    // tells a chat the server has seen from a never-synced draft.
+    chats: chats.map(chat => ({ ...serializeChat(chat), version: chat.version })),
+    activeChatId,
+    pendingDeletes: [...pendingDeletes],
+  })
 }
 
 // The server omits empty fields; the UI expects a history array.
@@ -216,17 +194,33 @@ function createNewChat(model = '', systemPrompt = '', mcpMode = false) {
 }
 
 export function useChat(initialModel = '') {
+  // The cache and the server sync belong to the signed-in account. Chat
+  // remounts this hook when the account changes, so the key is fixed for the
+  // hook's lifetime. Without an account there is no server history and the
+  // chats stay in the browser only.
+  const { user } = useAuth()
+  const accountId = user?.id || ''
+  const storageKey = chatsStorageKey(accountId)
+  const storedRef = useRef(undefined)
+  if (storedRef.current === undefined) storedRef.current = readChatStore(storageKey)
+
+  // Deletes the server has not confirmed yet ('*' = delete all). They are
+  // persisted with the cache and sent again until the server answers, so a
+  // delete made while the server is unreachable is not undone by the next
+  // list.
+  const pendingDeletesRef = useRef(null)
+  if (pendingDeletesRef.current === null) {
+    pendingDeletesRef.current = new Set(accountId ? (storedRef.current?.pendingDeletes || []) : [])
+  }
+
   const [chats, setChats] = useState(() => {
-    const stored = loadChats()
-    if (stored && stored.chats.length > 0) return stored.chats
+    const pending = pendingDeletesRef.current
+    const stored = (storedRef.current?.chats || []).filter(c => !pending.has(c.id))
+    if (stored.length > 0) return stored
     return [createNewChat(initialModel)]
   })
 
-  const [activeChatId, setActiveChatId] = useState(() => {
-    const stored = loadChats()
-    if (stored && stored.activeChatId) return stored.activeChatId
-    return chats[0]?.id
-  })
+  const [activeChatId, setActiveChatId] = useState(() => storedRef.current?.activeChatId || chats[0]?.id)
 
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingChatId, setStreamingChatId] = useState(null)
@@ -248,13 +242,52 @@ export function useChat(initialModel = '') {
 
   // Server-side persistence. serverEnabledRef is null while we are still
   // probing, true once a successful list arrives, false on any error
-  // (feature disabled, auth off, denied, network down). serializedSentRef
-  // caches the JSON last pushed (or received) per chat so unchanged chats
-  // are not written again. Deletes made while probing wait in
-  // pendingDeletesRef ('*' = delete all) and are sent once the server answers.
+  // (feature disabled, auth off, denied, network down) and when nobody is
+  // signed in. serializedSentRef caches the JSON last pushed (or received)
+  // per chat so unchanged chats are not written again. deletesInFlightRef
+  // holds the pending deletes with a request on the way; deleteAllSeqRef
+  // counts "delete all" requests, so the answer to an older one does not
+  // clear a newer one.
   const serverEnabledRef = useRef(null)
   const serializedSentRef = useRef(new Map())
-  const pendingDeletesRef = useRef(new Set())
+  const deletesInFlightRef = useRef(new Set())
+  const deleteAllSeqRef = useRef(0)
+  // Bumped when a confirmed "delete all" lets the held-back saves go out.
+  const [syncTick, setSyncTick] = useState(0)
+
+  const persistPending = useCallback(() => {
+    const data = readChatStore(storageKey) || { chats: [], activeChatId: null }
+    writeChatStore(storageKey, { ...data, pendingDeletes: [...pendingDeletesRef.current] })
+  }, [storageKey])
+
+  // flushPendingDeletes sends every pending delete that has no request on the
+  // way. A delete leaves the queue only when the server confirms it (DELETE
+  // is idempotent server-side); on any other outcome it stays and is sent
+  // again with the next change, when the browser comes back online, or on
+  // the next load.
+  const flushPendingDeletes = useCallback(() => {
+    if (serverEnabledRef.current !== true) return
+    const inFlight = deletesInFlightRef.current
+    for (const id of pendingDeletesRef.current) {
+      if (inFlight.has(id)) continue
+      inFlight.add(id)
+      const seq = deleteAllSeqRef.current
+      const request = id === '*' ? chatHistoryApi.deleteAll() : chatHistoryApi.delete(id)
+      request
+        .then(() => true, err => err?.status === 400) // 400: an id the server never accepts
+        .then(done => {
+          inFlight.delete(id)
+          if (!done) return
+          if (id === '*' && seq !== deleteAllSeqRef.current) {
+            flushPendingDeletes()
+            return
+          }
+          pendingDeletesRef.current.delete(id)
+          persistPending()
+          if (id === '*') setSyncTick(t => t + 1)
+        })
+    }
+  }, [persistPending])
 
   // Every path that empties the list must leave one chat to show.
   const nonEmpty = useCallback((list) => (list.length > 0 ? list : [createNewChat(initialModel)]), [initialModel])
@@ -265,22 +298,24 @@ export function useChat(initialModel = '') {
   }, [nonEmpty])
 
   useEffect(() => {
+    if (!accountId) {
+      serverEnabledRef.current = false
+      return
+    }
     let cancelled = false
     chatHistoryApi.list()
       .then(resp => {
         if (cancelled) return
         const remote = Array.isArray(resp?.conversations) ? resp.conversations : []
         const deleted = Array.isArray(resp?.deleted) ? [...resp.deleted] : []
+        // A pending delete wins over the list: the server may still have the
+        // chat because the delete has not reached it yet.
         const pending = pendingDeletesRef.current
-        pendingDeletesRef.current = new Set()
         if (pending.has('*')) {
-          chatHistoryApi.deleteAll().catch(() => {})
           for (const c of remote) deleted.push({ id: c.id })
         }
         for (const id of pending) {
-          if (id === '*') continue
-          chatHistoryApi.delete(id).catch(() => {})
-          deleted.push({ id })
+          if (id !== '*') deleted.push({ id })
         }
         // What the server holds counts as sent, so adopting a server copy
         // does not echo it straight back.
@@ -289,6 +324,7 @@ export function useChat(initialModel = '') {
         }
         serverEnabledRef.current = true
         setChats(prev => nonEmpty(reconcileWithServer(remote, deleted, prev)))
+        flushPendingDeletes()
       })
       .catch(() => {
         if (!cancelled) serverEnabledRef.current = false
@@ -296,6 +332,11 @@ export function useChat(initialModel = '') {
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    window.addEventListener('online', flushPendingDeletes)
+    return () => window.removeEventListener('online', flushPendingDeletes)
+  }, [flushPendingDeletes])
 
   // The reconcile can remove the open chat.
   useEffect(() => {
@@ -305,9 +346,14 @@ export function useChat(initialModel = '') {
   }, [chats, activeChatId])
 
   useDebouncedEffect(() => {
-    saveChats(chats, activeChatId)
+    saveChats(storageKey, chats, activeChatId, pendingDeletesRef.current)
     if (serverEnabledRef.current !== true) return
+    flushPendingDeletes()
+    // Until a "delete all" is confirmed, a chat saved now would be caught by
+    // it when it lands. The confirmation bumps syncTick and the saves follow.
+    if (pendingDeletesRef.current.has('*')) return
     for (const chat of chats) {
+      if (pendingDeletesRef.current.has(chat.id)) continue
       const serialized = serializeChat(chat)
       const json = JSON.stringify(serialized)
       if (serializedSentRef.current.get(chat.id) === json) continue
@@ -332,7 +378,7 @@ export function useChat(initialModel = '') {
           serializedSentRef.current.delete(chat.id)
         })
     }
-  }, [chats, activeChatId])
+  }, [chats, activeChatId, syncTick])
 
   const addChat = useCallback((model = '', systemPrompt = '', mcpMode = false) => {
     const chat = createNewChat(model, systemPrompt, mcpMode)
@@ -378,12 +424,11 @@ export function useChat(initialModel = '') {
       return filtered
     })
     serializedSentRef.current.delete(chatId)
-    if (serverEnabledRef.current === true) {
-      chatHistoryApi.delete(chatId).catch(() => {})
-    } else if (serverEnabledRef.current === null) {
-      pendingDeletesRef.current.add(chatId)
-    }
-  }, [activeChatId])
+    if (!accountId) return
+    pendingDeletesRef.current.add(chatId)
+    persistPending()
+    flushPendingDeletes()
+  }, [activeChatId, accountId, persistPending, flushPendingDeletes])
 
   const deleteAllChats = useCallback(() => {
     const chat = createNewChat(activeChat?.model || '')
@@ -395,12 +440,13 @@ export function useChat(initialModel = '') {
     setTokensPerSecond(null)
     setMaxTokensPerSecond(null)
     serializedSentRef.current.clear()
-    if (serverEnabledRef.current === true) {
-      chatHistoryApi.deleteAll().catch(() => {})
-    } else if (serverEnabledRef.current === null) {
-      pendingDeletesRef.current = new Set(['*'])
-    }
-  }, [activeChat?.model])
+    if (!accountId) return
+    // Covers every delete still pending before it.
+    pendingDeletesRef.current = new Set(['*'])
+    deleteAllSeqRef.current += 1
+    persistPending()
+    flushPendingDeletes()
+  }, [activeChat?.model, accountId, persistPending, flushPendingDeletes])
 
   const renameChat = useCallback((chatId, name) => {
     setChats(prev => prev.map(c =>
