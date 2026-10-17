@@ -1,4 +1,56 @@
 ---
+- name: "lfm2.5-24b-a2b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF
+  description: |
+    Try LFM •
+    Docs •
+    Discord
+
+    # LFM2.5-24B-A2B
+
+    LFM2.5-24B-A2B is a 24B-parameter reasoning model with only 2B active parameters, built for **fast, private agents on-device**. It is the largest and final model in the LFM2.5 family, which now spans two orders of magnitude: from LFM2.5-230M to LFM2.5-24B-A2B.
+
+      - **Best-in-class agent**: Competitive with Qwen3.6-35B-A3B, a model with ~50% more total and active parameters, on agentic and tool-use tasks, scoring 48.09 on LiveClaw versus 38.19.
+      - **Reasoning at MoE speed**: Always thinks before it answers. With only 2B active parameters per token, each reasoning token is cheap.
+      - **Efficient inference**: Runs up to 1.7× faster than comparable MoEs on-device, with 184 tok/s on an Apple M5 Max and up to 21K output tok/s on a single NVIDIA B300 GPU.
+
+    Find more information about LFM2.5-24B-A2B in our blog post.
+
+    ## 🗒️ Model Details
+
+    LFM2.5-24B-A2B is a general-purpose text-only reasoning model with the following features:
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B/resolve/main/figures/LFM2.5-24B-A2B-benchmark.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.15
+      model: llama-cpp/models/LFM2.5-24B-A2B-Q4_K_M/LFM2.5-24B-A2B-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+      top_p: 0.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-24B-A2B-Q4_K_M/LFM2.5-24B-A2B-Q4_K_M.gguf
+      sha256: d3334405b96228eb9908cdebb5c6194908f2da64282bda852afc3a3910c64e7d
+      uri: https://huggingface.co/LiquidAI/LFM2.5-24B-A2B-GGUF/resolve/main/LFM2.5-24B-A2B-Q4_K_M.gguf
 - name: adavar-3b-q4
   variants:
     - model: adavar-3b-q8
