@@ -748,7 +748,7 @@ func convertORMessageItem(itemMap map[string]any, cfg *config.ModelConfig) (sche
 
 			partType, _ := partMap["type"].(string)
 			switch partType {
-			case "input_text":
+			case "input_text", "output_text":
 				if text, ok := partMap["text"].(string); ok {
 					textContent += text
 				}
