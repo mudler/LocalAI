@@ -398,6 +398,26 @@ Leave memory for the KV cache, compute buffers, the operating system, and other 
 Reduce `context_size` if the KV cache consumes too much memory.
 The [GPU auto-fit settings](#gpu-auto-fit-mode) provide a separate way to let llama.cpp choose the allocation.
 
+#### Lazy tensor loading
+
+Some models have very large tensors that are used sparsely, such as per-layer embeddings.
+The `lazy_mode` option (also `lazy-mode`) sets upstream `--lazy-mode`: it controls whether llama.cpp reads those tensors on demand instead of loading them all at startup.
+
+```yaml
+backend: llama-cpp
+options:
+  - lazy_mode:on
+```
+
+| Value | Behavior |
+|---|---|
+| `auto` | Default. Read on demand only the marked tensors larger than 4 GiB. |
+| `on` | Read on demand every marked tensor. Requires `mmap` (enabled by default). |
+| `off` | Load everything at startup. |
+
+An invalid value logs a warning and keeps the default.
+The option needs a llama.cpp build that has `--lazy-mode`.
+
 ### Sampling and Generation
 
 | Field | Type | Default | Description |

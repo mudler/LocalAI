@@ -118,6 +118,12 @@ if grep -q "moe_cache_size" llama.cpp/common/common.h; then
 else
     HAS_MOE_CACHE=0
 fi
+# On-demand tensor reading (--lazy-mode). Forks that branched earlier lack the field.
+if grep -q "llama_lazy_mode lazy_mode" llama.cpp/common/common.h; then
+    HAS_LAZY_MODE=1
+else
+    HAS_LAZY_MODE=0
+fi
 # Newer servers return template state separately from the request JSON.
 if grep -q "common_chat_session & out_session" llama.cpp/tools/server/server-common.h; then
     HAS_CHAT_SESSION=1
@@ -133,6 +139,7 @@ cat > llama.cpp/tools/grpc-server/llama_compat.h <<EOF
 #define LOCALAI_HAS_MTMD_INIT_OPT ${HAS_MTMD_INIT_OPT}
 #define LOCALAI_HAS_N_CPU_FFN_HELPER ${HAS_N_CPU_FFN_HELPER}
 #define LOCALAI_HAS_MOE_CACHE ${HAS_MOE_CACHE}
+#define LOCALAI_HAS_LAZY_MODE ${HAS_LAZY_MODE}
 EOF
 
 set +e
