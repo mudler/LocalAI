@@ -18552,6 +18552,76 @@
     - filename: llama-cpp/mmproj/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.mmproj-f16.gguf
       sha256: 4068f60ebe62c4e191ce0a2bc184c608c4ab5f8ff0fcbf3978179aa1d74725cf
       uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.mmproj-f16.gguf
+- name: qwen3.5-0.8b-artemis-q5
+  variants:
+    - model: qwen3.5-0.8b-artemis-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-0.8B
+    - https://huggingface.co/turintech/Qwen3.5-0.8B-Artemis-GGUF
+  description: |
+    TurinTech Artemis Q5_K_M quantization of Qwen3.5 0.8B for text chat,
+    reasoning, and tool use. This text-only build omits the vision encoder
+    and MTP layer. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Qwen3.5-0.8B-Artemis-Q5_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Qwen3.5-0.8B-Artemis-Q5_K_M.gguf
+      sha256: 3b782856b66f61b4494b346ad8ff3e91a0d4c294ecedd1797f1855a078abbd05
+      uri: https://huggingface.co/turintech/Qwen3.5-0.8B-Artemis-GGUF/resolve/98eb257fe3b2b165e5b4f0ecfa9f127a17823e06/Qwen3.5-0.8B-Artemis-Q5_K_M.gguf
+- name: qwen3.5-0.8b-artemis-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-0.8B
+    - https://huggingface.co/turintech/Qwen3.5-0.8B-Artemis-GGUF
+  description: |
+    TurinTech Artemis Q4_K_M quantization of Qwen3.5 0.8B for text chat,
+    reasoning, and tool use. This text-only build omits the vision encoder
+    and MTP layer. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Qwen3.5-0.8B-Artemis-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Qwen3.5-0.8B-Artemis-Q4_K_M.gguf
+      sha256: 01e0651f0fc5d0f9a3d1a68166fbdf12ab4d3bb135b3d725d694f42becfaa5a4
+      uri: https://huggingface.co/turintech/Qwen3.5-0.8B-Artemis-GGUF/resolve/98eb257fe3b2b165e5b4f0ecfa9f127a17823e06/Qwen3.5-0.8B-Artemis-Q4_K_M.gguf
 - name: qwen_qwen3.5-0.8b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

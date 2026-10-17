@@ -1057,3 +1057,17 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+## Qwen3.5 0.8B Artemis
+
+Install `qwen3.5-0.8b-artemis-q5` for TurinTech’s Q5_K_M build. The smaller
+Q4_K_M build is available as `qwen3.5-0.8b-artemis-q4` through variant selection.
+Both use llama.cpp, the embedded chat template, and an 8192-token context.
+These text-only builds support chat, reasoning, and tool use; they omit the
+vision encoder and MTP layer. Applications must execute any requested tools.
+
+```sh
+local-ai models install qwen3.5-0.8b-artemis-q5
+```
+
+See the [publisher’s model card](https://huggingface.co/turintech/Qwen3.5-0.8B-Artemis-GGUF) for quantization details.
