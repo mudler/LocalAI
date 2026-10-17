@@ -372,6 +372,18 @@ See also: [Object Detection]({{%relref "features/object-detection" %}})
 | 400    | Invalid or malformed request body | `Bad Request`                       |
 | 400    | Model not found in configuration | `Bad Request`                       |
 
+### Slot cache - `POST /v1/slots/save`, `POST /v1/slots/restore`
+
+| Status | Cause                          | Example Message                       |
+|--------|--------------------------------|---------------------------------------|
+| 400    | Invalid `id` on restore, an `id` sent on save, negative slot, or model not found | `invalid id: expected 32 lowercase hex characters` |
+| 404    | The `id` is unknown, or was issued for another model | `no saved state with this id for this model` |
+| 400    | `slot_save_path` is not set for the model | `slot save and restore is disabled for this model: set the slot_save_path option` |
+| 403    | Caller is not an admin (authentication on) | `Forbidden` |
+| 412    | Backend has save and restore turned off, or the saved file no longer matches its record | `slot save/restore is disabled` |
+| 507    | The saved state is larger than the 8 GiB limit and was deleted | `the saved state is larger than the 8589934592 byte limit and was deleted` |
+| 501    | Backend does not support the call | `slot save and restore is not supported by this model's backend` |
+
 ### Models - `GET /v1/models`, `GET /models`
 
 | Status | Cause                          | Example Message                       |

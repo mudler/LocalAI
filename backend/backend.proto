@@ -76,6 +76,11 @@ service Backend {
 
   rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
 
+  // SlotCache saves or restores the backend's per-slot prompt state (KV or
+  // session state). On save the backend issues an ID; on restore the client
+  // sends an ID the backend issued. The client never names a file. A backend that does not support it returns gRPC UNIMPLEMENTED.
+  rpc SlotCache(SlotCacheRequest) returns (SlotCacheResponse) {}
+
   rpc VAD(VADRequest) returns (VADResponse) {}
 
   rpc Diarize(DiarizeRequest) returns (DiarizeResponse) {}
@@ -927,6 +932,36 @@ message SoundGenerationRequest {
 message TokenizationResponse {
   int32 length = 1;
   repeated int32 tokens = 2;
+}
+
+enum SlotCacheAction {
+  SLOT_CACHE_ACTION_UNSPECIFIED = 0;
+  SLOT_CACHE_ACTION_SAVE = 1;
+  SLOT_CACHE_ACTION_RESTORE = 2;
+}
+
+message SlotCacheRequest {
+  // Ties a save file to the model it came from. Empty means the backend does
+  // not check it.
+  string model_identity = 1;
+  SlotCacheAction action = 2;
+  // The backend's state slot id, 0 is the first slot. For llama.cpp it is the
+  // server slot. Other backends may map it to a session id.
+  int32 slot = 3;
+  // Save: leave empty, the backend issues the ID. Restore: an ID that the
+  // backend issued for this model. The client never chooses a file name or a
+  // path; the backend must refuse any ID it did not issue for this model.
+  string id = 4;
+}
+
+message SlotCacheResponse {
+  bool success = 1;
+  string message = 2;    // error detail when success is false
+  int32 slot = 3;
+  string id = 4;         // save: the ID the backend issued. restore: the ID restored
+  uint64 n_tokens = 5;   // tokens saved or restored
+  uint64 n_bytes = 6;    // bytes written or read
+  double duration_ms = 7;
 }
 
 message DetokenizeRequest {

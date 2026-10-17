@@ -118,6 +118,9 @@ type ControlBackend interface {
 
 	GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error)
 
+	// SlotCache saves or restores one slot's prompt cache (llama.cpp only).
+	SlotCache(ctx context.Context, in *pb.SlotCacheRequest, opts ...grpc.CallOption) (*pb.SlotCacheResponse, error)
+
 	// Streaming constructors: these return a stream client immediately; the
 	// actual inference spans the stream's lifetime, not this call, so they are
 	// NOT tracked as a single in-flight unit.

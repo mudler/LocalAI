@@ -80,6 +80,10 @@ cp -r parent_watch_test.cpp llama.cpp/tools/grpc-server/
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
 cp -r stream_peer.h llama.cpp/tools/grpc-server/
 cp -r stream_peer_test.cpp llama.cpp/tools/grpc-server/
+# Slot cache save/restore helpers (included by grpc-server.cpp) and their
+# unit test (compiled only when -DLLAMA_GRPC_BUILD_TESTS=ON).
+cp -r slot_cache.h llama.cpp/tools/grpc-server/
+cp -r slot_cache_test.cpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/nlohmann/json.hpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/cpp-httplib/httplib.h llama.cpp/tools/grpc-server/
 

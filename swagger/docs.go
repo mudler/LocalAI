@@ -4229,6 +4229,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/slots/restore": {
+            "post": {
+                "description": "Loads the prompt cache that a save call returned an ID for into one slot of a llama-cpp model. The ID must have been issued for this model. The state is only as fresh as the save. Admin only.",
+                "tags": [
+                    "inference"
+                ],
+                "summary": "Restore a slot's prompt cache by ID.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/slots/save": {
+            "post": {
+                "description": "Writes the prompt cache (KV state) of one slot of a llama-cpp model under the directory set by the model's slot_save_path option, and returns an ID for it. The server issues the ID; the client cannot choose a name or a path. The server keeps at most 32 saves per model and deletes the oldest one beyond that. Admin only.",
+                "tags": [
+                    "inference"
+                ],
+                "summary": "Save a slot's prompt cache.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/sound-generation": {
             "post": {
                 "tags": [
@@ -8887,6 +8943,57 @@ const docTemplate = `{
                 "score": {
                     "description": "Score is the top label's softmax probability (the\nclassifier-side confidence signal).",
                     "type": "number"
+                }
+            }
+        },
+        "schema.SlotCacheRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "restore only: an ID issued by a save for this model",
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "slot": {
+                    "description": "slot id, 0 is the first slot",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SlotCacheResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "\"save\" or \"restore\"",
+                    "type": "string"
+                },
+                "duration_ms": {
+                    "description": "time the backend spent",
+                    "type": "number"
+                },
+                "id": {
+                    "description": "issued by the save, sent back to restore",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "for example the IDs a save pruned",
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "n_bytes": {
+                    "description": "bytes written or read",
+                    "type": "integer"
+                },
+                "n_tokens": {
+                    "description": "tokens saved or restored",
+                    "type": "integer"
+                },
+                "slot": {
+                    "type": "integer"
                 }
             }
         },

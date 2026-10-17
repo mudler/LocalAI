@@ -261,6 +261,7 @@ When authentication is enabled, the following endpoints require admin role:
 - `GET /api/backend-logs/*`, `POST /api/backend-logs/*/clear`
 - `GET /api/resources`, `GET /api/settings`, `POST /api/settings`
 - `GET /system`, `GET /backend/monitor`, `POST /backend/shutdown`, `POST /backend/load`
+- `POST /v1/slots/save`, `POST /v1/slots/restore` (write and read prompt-cache files on the host)
 
 **P2P:**
 - `GET /api/p2p/*`

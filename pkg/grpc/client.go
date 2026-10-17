@@ -633,6 +633,23 @@ func (c *Client) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opt
 	return client.GetMetrics(ctx, in, opts...)
 }
 
+func (c *Client) SlotCache(ctx context.Context, in *pb.SlotCacheRequest, opts ...grpc.CallOption) (*pb.SlotCacheResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.SlotCache(ctx, in, opts...)
+}
+
 func (c *Client) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOption) (*pb.VADResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
