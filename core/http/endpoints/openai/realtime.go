@@ -2066,7 +2066,13 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	defer os.Remove(f.Name())
 	xlog.Debug("Writing to file", "file", f.Name())
 
-	hdr := laudio.NewWAVHeader(uint32(len(utt)))
+	// The input buffer holds audio at the session's input sample rate
+	// (e.g. 24 kHz for OpenAI-Realtime clients; WebRTC is resampled to
+	// 16 kHz). A fixed 16 kHz header makes the backend decode the stream
+	// at the wrong rate (1.5x speed/pitch for 24 kHz), degrading
+	// transcription to garbage or empty output — which then fails the
+	// follow-up response with input_not_committed (client-commit path).
+	hdr := laudio.NewWAVHeaderWithRate(uint32(len(utt)), uint32(session.InputSampleRate))
 	if err := hdr.Write(f); err != nil {
 		xlog.Error("Failed to write WAV header", "error", err)
 		return
@@ -2361,9 +2367,10 @@ func writeWindowWAV(pcm []byte, sampleRate int) (string, error) {
 	return f.Name(), nil
 }
 
-// writeUtteranceWAV persists raw 16 kHz mono PCM to a temp WAV for the
-// file-based transcription paths. The caller must invoke cleanup.
-func writeUtteranceWAV(utt []byte) (string, func(), error) {
+// writeUtteranceWAV persists raw mono PCM (at the given sample rate) to a
+// temp WAV for the file-based transcription paths. The caller must invoke
+// cleanup.
+func writeUtteranceWAV(utt []byte, sampleRate int) (string, func(), error) {
 	f, err := os.CreateTemp("", "realtime-audio-chunk-*.wav")
 	if err != nil {
 		return "", nil, err
@@ -2374,7 +2381,7 @@ func writeUtteranceWAV(utt []byte) (string, func(), error) {
 	}
 	xlog.Debug("Writing to file", "file", f.Name())
 
-	hdr := laudio.NewWAVHeader(uint32(len(utt)))
+	hdr := laudio.NewWAVHeaderWithRate(uint32(len(utt)), uint32(sampleRate))
 	if err := hdr.Write(f); err != nil {
 		cleanup()
 		return "", nil, err
@@ -2391,7 +2398,7 @@ func writeUtteranceWAV(utt []byte) (string, func(), error) {
 // the semantic_vad retranscribe gate. The result's Eou flag reports whether
 // the batch decode also ended on the end-of-utterance token.
 func transcribeUtterance(ctx context.Context, utt []byte, session *Session) (*schema.TranscriptionResult, error) {
-	path, cleanup, err := writeUtteranceWAV(utt)
+	path, cleanup, err := writeUtteranceWAV(utt, session.InputSampleRate)
 	if err != nil {
 		return nil, err
 	}
