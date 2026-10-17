@@ -12,6 +12,7 @@ import (
 	"maps"
 	"math"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -2017,6 +2018,19 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, t, slot)
 }
 
+// eouLangTagRe matches the end-of-utterance language tags that Nemotron-3.5
+// ASR appends to transcripts (BCP-47 style: "<de-DE>", "<en-US>", ...).
+var eouLangTagRe = regexp.MustCompile(`\s*<[a-z]{2,3}(?:-[A-Za-z]{2,3})?>\s*`)
+
+// stripEOULanguageTags removes the STT EOU language tags from a transcript
+// (see the call site in commitUtteranceWithTranscript).
+func stripEOULanguageTags(s string) string {
+	if !strings.Contains(s, "<") {
+		return s
+	}
+	return strings.Join(strings.Fields(eouLangTagRe.ReplaceAllString(s, " ")), " ")
+}
+
 // commitUtteranceWithTranscript commits one user turn. live carries the
 // transcript semantic_vad's live stream already produced (its caption deltas
 // were streamed to the client during the turn, so only the completed event
@@ -2183,6 +2197,15 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		sendNotImplemented(t, "any-to-any models")
 		return
 	}
+
+	// EOU language tags (e.g. "<de-DE>") are STT metadata: they stay in the
+	// transcription event emitted above (debugging, client display), but are
+	// stripped from the LLM context — the per-utterance tag is unreliable for
+	// short/ambiguous utterances (a German "Hallo." tagged <en-US>), and the
+	// LLM treats it as a language signal (the agent's language rule then
+	// switches the reply language; see CallcenterAiAgent agent.py,
+	// 17.10.2026).
+	transcript = stripEOULanguageTags(transcript)
 
 	// Sound-event detection is additive to transcription: classify the same
 	// committed window and emit its scored AudioSet tags as a separate event.
