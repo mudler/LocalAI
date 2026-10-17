@@ -331,6 +331,24 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, each row shows whether the estimated memory at the chosen context length fits, using a 95% headroom rule. A model that is too big for the GPU but would run from system RAM is marked as spilling to the CPU, with how much; a model too big for both is marked as over by the shortfall.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 
+## EmbeddingGemma 2
+
+The `embeddinggemma-2` family serves text embeddings through `llama-cpp`.
+It offers Q8_0 and BF16 weights, plus smaller Unsloth UD-Q4_K_XL,
+UD-Q5_K_XL, and UD-Q6_K_XL variants. These entries use the 270M-parameter
+text backbone with an 8192-token context and 768-dimensional output.
+
+To select a smaller build explicitly:
+
+```sh
+local-ai models install embeddinggemma-2 --variant embeddinggemma-2-ud-q4-k-xl
+```
+
+Send text to `/v1/embeddings`. For retrieval, prefix queries with
+`task: search result | query: ` and documents with `title: {title} | text: `.
+See the [model card](https://huggingface.co/google/embeddinggemma-2)
+for other task prefixes. These gallery entries support text input only.
+
 ## Useful Links and resources
 
 - [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.

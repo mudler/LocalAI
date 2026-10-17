@@ -38545,6 +38545,9 @@
 - name: embeddinggemma-2
   variants:
     - model: embeddinggemma-2-bf16
+    - model: embeddinggemma-2-ud-q4-k-xl
+    - model: embeddinggemma-2-ud-q5-k-xl
+    - model: embeddinggemma-2-ud-q6-k-xl
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/google/embeddinggemma-2
@@ -38602,6 +38605,93 @@
     - filename: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-BF16.gguf
       sha256: 68bae29d62fb8c7d23e98d21fd4662753ddd636e6b62b8a70dfe059a9844f216
       uri: https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/bfcd298762cc34d0357ece5ebdd31791a3a374d8/embeddinggemma-2-BF16.gguf
+- name: embeddinggemma-2-ud-q4-k-xl
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/google/embeddinggemma-2
+    - https://huggingface.co/unsloth/embeddinggemma-2-GGUF
+  description: |
+    EmbeddingGemma 2 is Google's multilingual embedding model.
+    This Unsloth UD-Q4_K_XL GGUF serves the 270M-parameter text backbone through llama.cpp
+    and produces 768-dimensional embeddings for retrieval and semantic similarity.
+    This entry supports text input with an 8192-token context.
+    Use the model's task prefixes for queries and documents.
+  license: apache-2.0
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    context_size: 8192
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-UD-Q4_K_XL.gguf
+  files:
+    - filename: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-UD-Q4_K_XL.gguf
+      sha256: ea905fd08e8061db77a0031cbb5096d459d7cfd2bdd0ad2ba66e483f16719493
+      uri: https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/031f0d4b35536f69ab3509d4893c923264fcf253/embeddinggemma-2-UD-Q4_K_XL.gguf
+- name: embeddinggemma-2-ud-q5-k-xl
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/google/embeddinggemma-2
+    - https://huggingface.co/unsloth/embeddinggemma-2-GGUF
+  description: |
+    EmbeddingGemma 2 is Google's multilingual embedding model.
+    This Unsloth UD-Q5_K_XL GGUF serves the 270M-parameter text backbone through llama.cpp
+    and produces 768-dimensional embeddings for retrieval and semantic similarity.
+    This entry supports text input with an 8192-token context.
+    Use the model's task prefixes for queries and documents.
+  license: apache-2.0
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    context_size: 8192
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-UD-Q5_K_XL.gguf
+  files:
+    - filename: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-UD-Q5_K_XL.gguf
+      sha256: a9d7a3b7eb421113f05e964e10882676f10fff83811b7876d5bb983db7c7ac41
+      uri: https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/031f0d4b35536f69ab3509d4893c923264fcf253/embeddinggemma-2-UD-Q5_K_XL.gguf
+- name: embeddinggemma-2-ud-q6-k-xl
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/google/embeddinggemma-2
+    - https://huggingface.co/unsloth/embeddinggemma-2-GGUF
+  description: |
+    EmbeddingGemma 2 is Google's multilingual embedding model.
+    This Unsloth UD-Q6_K_XL GGUF serves the 270M-parameter text backbone through llama.cpp
+    and produces 768-dimensional embeddings for retrieval and semantic similarity.
+    This entry supports text input with an 8192-token context.
+    Use the model's task prefixes for queries and documents.
+  license: apache-2.0
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    context_size: 8192
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-UD-Q6_K_XL.gguf
+  files:
+    - filename: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-UD-Q6_K_XL.gguf
+      sha256: dc84f042bc3ffbe6122b3b38b2fb299d66f5f37b276c9d458db85d4a4f1e6ba3
+      uri: https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/031f0d4b35536f69ab3509d4893c923264fcf253/embeddinggemma-2-UD-Q6_K_XL.gguf
 - name: embeddinggemma-300m
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
