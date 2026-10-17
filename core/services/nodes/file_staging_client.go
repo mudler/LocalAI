@@ -349,6 +349,16 @@ func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DReq
 	lifecycle := f.newStagedInputLifecycle()
 	defer lifecycle.release()
 	in = proto.Clone(in).(*pb.Generate3DRequest)
+	for i, path := range in.Images {
+		if path == "" || !isFilePath(path) {
+			return nil, fmt.Errorf("3D view %d must be a staged file", i)
+		}
+		backendPath, err := f.stageInputFile(ctx, lifecycle, path, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging 3D view %d: %w", i, err)
+		}
+		in.Images[i] = backendPath
+	}
 
 	// Stage the conditioning image or existing GLB used by 3D post-processing.
 	if in.Src != "" && isFilePath(in.Src) {
