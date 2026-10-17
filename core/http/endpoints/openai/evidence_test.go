@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
@@ -270,6 +271,70 @@ var _ = Describe("ChatEndpoint evidence check", func() {
 		})
 	})
 
+	Context("sources", func() {
+		const withSources = "profile:\n  evidence_check:\n    sources: true\n    sources_label: Quellen\n"
+		const toolResult = `{"results":[{"title":"A","url":"https://a.example/oil"},{"title":"B","url":"https://b.example/test."}],"see":"https://a.example/oil"}`
+
+		toolThenAnswer := func(answer string) {
+			stubBackend(
+				backend.LLMResponse{ChatDeltas: []*pb.ChatDelta{{ToolCalls: []*pb.ToolCallDelta{{Id: "call-1", Name: "lookup", Arguments: "{}"}}}}},
+				backend.LLMResponse{Response: answer, ChatDeltas: []*pb.ChatDelta{{Content: answer}}},
+			)
+		}
+
+		for _, stream := range []bool{false, true} {
+			answer := func(rec *httptest.ResponseRecorder) string {
+				if stream {
+					return streamedAnswer(rec)
+				}
+				return answerOf(rec)
+			}
+
+			Context(map[bool]string{false: "non-streaming", true: "streaming"}[stream], func() {
+				It("appends the URLs the tools returned when the answer names none", func() {
+					fx := newMCPResultFixture(toolResult)
+					toolThenAnswer("A good oil, according to two tests.")
+					Expect(answer(run(resolve(withSources, fx.url), stream, "Is this a good olive oil?"))).
+						To(HaveSuffix("A good oil, according to two tests.\n\nQuellen: https://a.example/oil, https://b.example/test"))
+				})
+
+				It("leaves an answer that names a URL unchanged", func() {
+					fx := newMCPResultFixture(toolResult)
+					toolThenAnswer("A good oil, see https://a.example/oil.")
+					Expect(answer(run(resolve(withSources, fx.url), stream, "Is this a good olive oil?"))).
+						To(HaveSuffix("A good oil, see https://a.example/oil."))
+				})
+
+				It("adds nothing when no tool result holds a URL", func() {
+					fx := newMCPResultFixture("no links here")
+					toolThenAnswer("A good oil.")
+					Expect(answer(run(resolve(withSources, fx.url), stream, "Is this a good olive oil?"))).
+						To(HaveSuffix("A good oil."))
+				})
+
+				It("adds nothing without the switch", func() {
+					fx := newMCPResultFixture(toolResult)
+					toolThenAnswer("A good oil.")
+					Expect(answer(run(resolve(withoutCheck, fx.url), stream, "Is this a good olive oil?"))).
+						To(HaveSuffix("A good oil."))
+				})
+			})
+		}
+
+		It("takes no URL from the request, only from tool results", func() {
+			stubBackend(backend.LLMResponse{Response: "A good oil."})
+			Expect(answerOf(run(resolve(withSources, ""), false, "Is https://shop.example/oil a good olive oil?"))).
+				To(Equal("A good oil."))
+		})
+
+		It("uses the English label by default", func() {
+			fx := newMCPResultFixture(toolResult)
+			toolThenAnswer("A good oil.")
+			Expect(answerOf(run(resolve("profile:\n  evidence_check:\n    sources: true\n", fx.url), false, "Is this a good olive oil?"))).
+				To(Equal("A good oil.\n\nSources: https://a.example/oil, https://b.example/test"))
+		})
+	})
+
 	Context("streaming", func() {
 		It("sends the note as a last content delta", func() {
 			stubBackend(backend.LLMResponse{Response: "There are 0 open invoices."})
@@ -313,3 +378,22 @@ var _ = Describe("ChatEndpoint evidence check", func() {
 		})
 	})
 })
+
+// newMCPResultFixture is a remote MCP server whose one tool, lookup, returns
+// result as text.
+func newMCPResultFixture(result string) *mcpAutoFixture {
+	fx := &mcpAutoFixture{}
+	srv := mcp.NewServer(&mcp.Implementation{Name: "fixture", Version: "v0.0.1"}, nil)
+	srv.AddTool(&mcp.Tool{
+		Name:        "lookup",
+		Description: "fixture tool",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
+	}, func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: result}}}, nil
+	})
+	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, nil)
+	server := httptest.NewServer(handler)
+	DeferCleanup(server.Close)
+	fx.url = server.URL
+	return fx
+}
