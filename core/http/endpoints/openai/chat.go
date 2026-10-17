@@ -368,6 +368,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				break
 			}
 		}
+		for _, t := range input.Tools {
+			if t.Function.Strict {
+				strictMode = true
+				break
+			}
+		}
 
 		// Allow the user to set custom actions via config file
 		// to be "embedded" in each model
@@ -426,7 +432,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		switch {
 		// Generates grammar with internal's LocalAI engine
-		case (!config.FunctionsConfig.GrammarConfig.NoGrammar || strictMode) && shouldUseFn:
+		case !config.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn:
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
 				Description: noActionDescription,
