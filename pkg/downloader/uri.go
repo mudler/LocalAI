@@ -592,6 +592,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	dopts := applyDownloadOptions(opts)
 	url := uri.ResolveURL()
 	if uri.LooksLikeOCI() {
+		requestedPath := filePath
 
 		// Only Ollama wants to download to the file, for the rest, we want to download to the directory
 		// so we check if filepath has any extension, otherwise we assume it's a directory.
@@ -641,21 +642,39 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			return fmt.Errorf("failed to get image %q: %v", url, err)
 		}
 
+		// A CNCF ModelPack artifact carries model files directly rather than a
+		// runnable container filesystem, so it cannot be extracted as an image
+		// tar. Acquiring it is delegated to a running `llmman serve`, which
+		// already implements the ModelPack media types and keeps a
+		// content-addressed store.
+		isModelPack, err := oci.IsModelPackImage(img)
+		if err != nil {
+			return fmt.Errorf("inspecting manifest of %q: %v", url, err)
+		}
+
 		// Verify before extract so tampered bytes never reach disk. We
 		// re-pin the ref to the manifest digest we just fetched: the
 		// verifier would otherwise resolve the tag again, opening a tiny
 		// TOCTOU window in which a registry could swap the underlying
-		// manifest between the two HEADs.
-		if dopts.verifier != nil {
+		// manifest between the two HEADs. llmman is handed the same pinned
+		// ref, so it pulls exactly what was verified.
+		var pinned string
+		if dopts.verifier != nil || isModelPack {
 			digest, derr := img.Digest()
 			if derr != nil {
-				return fmt.Errorf("resolving digest for verification of %q: %v", url, derr)
+				return fmt.Errorf("resolving digest of %q: %v", url, derr)
 			}
-			pinned := pinnedImageRef(url, digest.String())
+			pinned = pinnedImageRef(url, digest.String())
+		}
+		if dopts.verifier != nil {
 			if verr := dopts.verifier.VerifyImage(ctx, pinned); verr != nil {
 				return fmt.Errorf("image verification failed for %q: %w", url, verr)
 			}
 			xlog.Info("Image signature verified", "ref", pinned)
+		}
+
+		if isModelPack {
+			return fetchModelPackViaLlmman(ctx, pinned, filePath, requestedPath, downloadStatus)
 		}
 
 		return oci.ExtractOCIImage(ctx, img, url, filePath, dopts.stagingDir, downloadStatus)
