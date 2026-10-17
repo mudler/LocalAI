@@ -1212,6 +1212,24 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 #endif
                 }
             }
+        } else if (!strcmp(optname, "lazy_mode") || !strcmp(optname, "lazy-mode") || !strcmp(optname, "lzm")) {
+            // On-demand reading of large tensors such as per-layer embeddings
+            // (upstream -lzm / --lazy-mode). Accepts on, auto or off; "on" needs mmap.
+#if LOCALAI_HAS_LAZY_MODE
+            if (optval != NULL) {
+                if (optval_str == "on") {
+                    params.lazy_mode = LLAMA_LAZY_MODE_ON;
+                } else if (optval_str == "auto") {
+                    params.lazy_mode = LLAMA_LAZY_MODE_AUTO;
+                } else if (optval_str == "off") {
+                    params.lazy_mode = LLAMA_LAZY_MODE_OFF;
+                } else {
+                    SRV_WRN("lazy_mode: ignoring invalid value '%s' (expected on, auto or off)\n", optval_str.c_str());
+                }
+            }
+#else
+            SRV_WRN("%s", "lazy_mode: this llama.cpp build has no lazy mode, ignoring\n");
+#endif
         } else if (!strcmp(optname, "n_cpu_moe")) {
             if (optval != NULL) {
                 try {
