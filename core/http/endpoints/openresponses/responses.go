@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -947,9 +948,11 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 		var textContent string
 
 		if shouldUseFn {
+			fromDeltas := false
 			if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 				funcCallResults = deltaToolCalls
 				textContent = functions.ContentFromChatDeltas(chatDeltas)
+				fromDeltas = true
 			} else {
 				cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
 				funcCallResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
@@ -960,6 +963,10 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 			if cfg.FunctionsConfig.NoActionFunctionName != "" {
 				noActionName = cfg.FunctionsConfig.NoActionFunctionName
 			}
+
+			// Drop the calls that do not fit the request's tools; with none
+			// left, textContent becomes the model's text.
+			funcCallResults, textContent, _ = checkToolCalls(funcCallResults, fromDeltas, textContent, result, cfg, funcs, noActionName)
 
 			var toolCalls []schema.ToolCall
 			for i, fc := range funcCallResults {
@@ -1214,8 +1221,10 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 		// Check for MCP tool calls in the streamed result
 		if shouldUseFn && hasMCPTools {
 			var funcCallResults []functions.FuncCallResults
+			fromDeltas := false
 			if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 				funcCallResults = deltaToolCalls
+				fromDeltas = true
 			} else {
 				cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
 				funcCallResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
@@ -1225,6 +1234,9 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 			if cfg.FunctionsConfig.NoActionFunctionName != "" {
 				noActionName = cfg.FunctionsConfig.NoActionFunctionName
 			}
+
+			// A call that does not fit the request's tools is not executed.
+			funcCallResults, _, _ = checkToolCalls(funcCallResults, fromDeltas, "", result, cfg, funcs, noActionName)
 
 			var toolCalls []schema.ToolCall
 			for i, fc := range funcCallResults {
@@ -1467,11 +1479,14 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		var funcCallResults []functions.FuncCallResults
 		var textContent string
 
+		fromDeltas := false
+
 		// Try pre-parsed tool calls from C++ autoparser first
 		if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 			xlog.Debug("[ChatDeltas] OpenResponses: using pre-parsed tool calls", "count", len(deltaToolCalls))
 			funcCallResults = deltaToolCalls
 			textContent = functions.ContentFromChatDeltas(chatDeltas)
+			fromDeltas = true
 		} else {
 			xlog.Debug("[ChatDeltas] OpenResponses: no pre-parsed tool calls, falling back to Go-side text parsing")
 			// Clean up the result (already extracted reasoning above)
@@ -1486,6 +1501,10 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		if cfg.FunctionsConfig.NoActionFunctionName != "" {
 			noActionName = cfg.FunctionsConfig.NoActionFunctionName
 		}
+
+		// Drop the calls that do not fit the request's tools; with none left,
+		// textContent becomes the model's text and goes out as a message.
+		funcCallResults, textContent, _ = checkToolCalls(funcCallResults, fromDeltas, textContent, cleanedResult, cfg, funcs, noActionName)
 
 		// Filter out noAction calls and extract the message
 		for i, fc := range funcCallResults {
@@ -1758,6 +1777,13 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		var lastStreamTokenUsage backend.TokenUsage
 		var lastStreamLogprobs *schema.Logprobs
 
+		// Unless LocalAI sent its own grammar, tool calls are checked against
+		// the request's tools, from either source (see
+		// functions.ValidatesToolCalls). Calls the Go-side parsers find while
+		// streaming are then held back rather than emitted, since a partial
+		// call cannot be checked, and are emitted or dropped at the end.
+		validateCalls := functions.ValidatesToolCalls(cfg.Grammar, cfg.FunctionsConfig, funcs)
+
 		for mcpStreamIter := 0; mcpStreamIter <= mcpStreamMaxIterations; mcpStreamIter++ {
 			if mcpStreamIter > 0 {
 				// Reset reasoning and tool-call state for re-inference so reasoning
@@ -1770,6 +1796,46 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 				predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
 				xlog.Debug("Open Responses stream MCP re-templating", "iteration", mcpStreamIter)
+			}
+
+			// holdingCalls: a Go-side parser found a call while validateCalls
+			// held it back; text stops streaming from then on, as it does when
+			// a call is emitted. streamedText is the message text sent so far.
+			holdingCalls := false
+			var streamedText strings.Builder
+
+			// openMessage emits output_item.added and content_part.added for a
+			// new message item, which the text deltas then fill.
+			openMessage := func() {
+				outputIndex++
+				currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
+				messageItem := &schema.ORItemField{
+					Type:    "message",
+					ID:      currentMessageID,
+					Status:  "in_progress",
+					Role:    "assistant",
+					Content: []schema.ORContentPart{},
+				}
+				sendSSEEvent(c, &schema.ORStreamEvent{
+					Type:           "response.output_item.added",
+					SequenceNumber: sequenceNumber,
+					OutputIndex:    &outputIndex,
+					Item:           messageItem,
+				})
+				sequenceNumber++
+
+				// Emit content_part.added
+				currentContentIndex = 0
+				emptyPart := makeOutputTextPart("")
+				sendSSEEvent(c, &schema.ORStreamEvent{
+					Type:           "response.content_part.added",
+					SequenceNumber: sequenceNumber,
+					ItemID:         currentMessageID,
+					OutputIndex:    &outputIndex,
+					ContentIndex:   &currentContentIndex,
+					Part:           &emptyPart,
+				})
+				sequenceNumber++
 			}
 
 			// For tool calls, we need to track accumulated result and parse incrementally
@@ -1792,6 +1858,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 				// Try XML parsing first
 				partialResults, parseErr := functions.ParseXMLIterative(cleanedResult, xmlFormat, true)
+				if validateCalls && (parseErr == nil && len(partialResults) > 0 || len(parseStreamingJSONToolCalls(cleanedResult)) > 0) {
+					holdingCalls = true
+					return true
+				}
 				if parseErr == nil && len(partialResults) > lastEmittedToolCallCount {
 					// New tool calls detected
 					if !inToolCallMode && currentMessageID != "" {
@@ -1976,36 +2046,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					// Only emit message content if there's actual content (not just reasoning)
 					if contentDelta != "" {
 						if currentMessageID == "" {
-							// Emit output_item.added for message
-							outputIndex++
-							currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
-							messageItem := &schema.ORItemField{
-								Type:    "message",
-								ID:      currentMessageID,
-								Status:  "in_progress",
-								Role:    "assistant",
-								Content: []schema.ORContentPart{},
-							}
-							sendSSEEvent(c, &schema.ORStreamEvent{
-								Type:           "response.output_item.added",
-								SequenceNumber: sequenceNumber,
-								OutputIndex:    &outputIndex,
-								Item:           messageItem,
-							})
-							sequenceNumber++
-
-							// Emit content_part.added
-							currentContentIndex = 0
-							emptyPart := makeOutputTextPart("")
-							sendSSEEvent(c, &schema.ORStreamEvent{
-								Type:           "response.content_part.added",
-								SequenceNumber: sequenceNumber,
-								ItemID:         currentMessageID,
-								OutputIndex:    &outputIndex,
-								ContentIndex:   &currentContentIndex,
-								Part:           &emptyPart,
-							})
-							sequenceNumber++
+							openMessage()
 						}
 
 						// Emit text delta
@@ -2019,6 +2060,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							Logprobs:       emptyLogprobs(),
 						})
 						sequenceNumber++
+						streamedText.WriteString(contentDelta)
 						c.Response().Flush()
 					}
 				}
@@ -2132,12 +2174,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 			parsedToolCalls = nil
 			textContent = ""
+			fromDeltas := false
 
 			// Try pre-parsed tool calls from C++ autoparser first
 			if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 				xlog.Debug("[ChatDeltas] OpenResponses Stream: using pre-parsed tool calls", "count", len(deltaToolCalls))
 				parsedToolCalls = deltaToolCalls
 				textContent = functions.ContentFromChatDeltas(chatDeltas)
+				fromDeltas = true
 			} else {
 				xlog.Debug("[ChatDeltas] OpenResponses Stream: no pre-parsed tool calls, falling back to Go-side text parsing")
 				cleanedResult := functions.CleanupLLMResult(finalCleanedResult, cfg.FunctionsConfig)
@@ -2149,6 +2193,47 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			noActionName := "answer"
 			if cfg.FunctionsConfig.NoActionFunctionName != "" {
 				noActionName = cfg.FunctionsConfig.NoActionFunctionName
+			}
+
+			// Drop the calls that do not fit the request's tools. With none
+			// left, textContent becomes the model's text: open the message
+			// if no text was streamed yet, and stream what was not.
+			var droppedAll bool
+			parsedToolCalls, textContent, droppedAll = checkToolCalls(parsedToolCalls, fromDeltas, textContent, finalCleanedResult, cfg, funcs, noActionName)
+			if droppedAll && textContent != "" && !inToolCallMode {
+				if currentMessageID == "" {
+					openMessage()
+				}
+				rest := textContent
+				if sent := streamedText.String(); strings.HasPrefix(rest, sent) {
+					rest = rest[len(sent):]
+				}
+				if rest != "" {
+					sendSSEEvent(c, &schema.ORStreamEvent{
+						Type:           "response.output_text.delta",
+						SequenceNumber: sequenceNumber,
+						ItemID:         currentMessageID,
+						OutputIndex:    &outputIndex,
+						ContentIndex:   &currentContentIndex,
+						Delta:          strPtr(rest),
+						Logprobs:       emptyLogprobs(),
+					})
+					sequenceNumber++
+				}
+			} else if holdingCalls && !inToolCallMode && currentMessageID != "" {
+				// The calls fit: close the text part, as detecting a call
+				// while streaming does, before they are emitted below.
+				textPart := makeOutputTextPart(textContent)
+				sendSSEEvent(c, &schema.ORStreamEvent{
+					Type:           "response.content_part.done",
+					SequenceNumber: sequenceNumber,
+					ItemID:         currentMessageID,
+					OutputIndex:    &outputIndex,
+					ContentIndex:   &currentContentIndex,
+					Part:           &textPart,
+				})
+				sequenceNumber++
+				inToolCallMode = true
 			}
 
 			// Filter out noAction calls and extract the message
