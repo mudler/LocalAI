@@ -209,6 +209,55 @@ the repository, so upgrade every node, workers included, before you rely on it:
 }
 ```
 
+### Disabling backend installation
+
+Some deployments must not acquire executable code at runtime: production
+systems that run only the backend set they were tested with, locked-down or
+air-gapped hosts, images that are built once and then promoted unchanged, and
+hosts where backends come from a package manager (placed under
+`--backends-system-path`, `LOCALAI_BACKENDS_SYSTEM_PATH`). For all of these,
+`--disable-backend-install` (`LOCALAI_DISABLE_BACKEND_INSTALL=1`) tells
+LocalAI never to install or upgrade a backend itself:
+
+```bash
+export LOCALAI_DISABLE_BACKEND_INSTALL=1
+local-ai run
+```
+
+What is refused:
+
+- installs from the backend gallery, from OCI images, URLs or local paths —
+  from the Backends page, `POST /backends/apply`, the `/api/backends/...`
+  install routes, the LocalAI Assistant's `install_backend` tool and the
+  `LOCALAI_EXTERNAL_BACKENDS` boot-time list;
+- upgrades — manual, "update all", the Assistant's `upgrade_backend` tool and
+  the background auto-upgrader, which is not started at all (upgrade checks
+  stop too, so no registry is polled for versions nobody can apply);
+- installing a model whose backend is not present: refused before anything
+  is downloaded, naming the backend, on every install path (gallery, import,
+  preload, the Assistant's tools).
+
+What still works: backends already installed, backends provided under the
+system path, listing and browsing the backend galleries, and deleting a
+backend. In distributed mode a model counts as installable when a healthy
+worker has its backend, under its own name or an alias — availability is
+judged where inference runs, not on the frontend, which keeps no backends of
+its own.
+
+How clients can tell: install and upgrade endpoints answer `403` with
+`"code": "backend_install_disabled"`; installing a gallery model whose
+backend is not present answers `409` with `"code": "backend_not_installed"`
+and the backend's name. `GET /api/features` and the capabilities object in
+`GET /.well-known/localai.json` report `"backend_install": false`, and the
+Backends page shows a notice and offers no install or upgrade actions.
+
+The switch is read at start-up only; it is not a runtime setting. In
+[distributed mode]({{% relref "features/distributed-mode#disabling-backend-installation-on-workers" %}})
+each worker enforces it for its own backends, so set it on every frontend
+and every worker. The standalone `local-ai worker ...` subcommands honour
+the same variable: they start with the backend already present under their
+backends or system path and exit with an error instead of installing one.
+
 ## Pre-installing Backends
 
 You can pre-install backends when starting LocalAI using the `LOCALAI_EXTERNAL_BACKENDS` environment variable:

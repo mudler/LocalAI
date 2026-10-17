@@ -285,6 +285,9 @@ func (stubLocalBackendManager) CheckUpgrades(_ context.Context) (map[string]gall
 	return nil, nil
 }
 func (stubLocalBackendManager) IsDistributed() bool { return false }
+func (stubLocalBackendManager) BackendAvailable(_ string) (bool, error) {
+	return false, nil
+}
 
 var _ = Describe("DistributedBackendManager", func() {
 	var (

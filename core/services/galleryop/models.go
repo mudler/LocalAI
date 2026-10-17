@@ -142,6 +142,9 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 		deleteStarted = true
 		err = g.modelManager.DeleteModel(op.GalleryElementName)
 	} else {
+		if op.BackendAvailability == nil {
+			op.BackendAvailability = g.backendManager.BackendAvailable
+		}
 		err = g.modelManager.InstallModel(operationCtx, op, progressCallback)
 	}
 	if err != nil {

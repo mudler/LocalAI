@@ -43,6 +43,8 @@ func (blockingBackendManager) CheckUpgrades(_ context.Context) (map[string]galle
 
 func (blockingBackendManager) IsDistributed() bool { return false }
 
+func (blockingBackendManager) BackendAvailable(_ string) (bool, error) { return false, nil }
+
 // What the backend channel persists about a removal. The row is all a replica
 // that restarts mid-operation has to go on, so a removal recorded as an install
 // is a removal that renders as "Installing backend X" and offers a Cancel

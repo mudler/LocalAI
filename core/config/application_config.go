@@ -147,6 +147,10 @@ type ApplicationConfig struct {
 	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY.
 	RequireBackendIntegrity bool
 
+	// DisableBackendInstall mirrors SystemState.DisableBackendInstall for the
+	// HTTP layer: admission guards and the capability surfaces read it here.
+	DisableBackendInstall bool
+
 	SingleBackend     bool // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
 	WatchDogIdle      bool
@@ -619,6 +623,10 @@ func WithVRAMPersistentCache(v bool) AppOption {
 
 func WithRequireBackendIntegrity(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.RequireBackendIntegrity = v }
+}
+
+func WithDisableBackendInstall(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.DisableBackendInstall = v }
 }
 
 func WithPreferDevelopmentBackends(v bool) AppOption {

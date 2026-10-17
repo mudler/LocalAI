@@ -3,6 +3,7 @@ package localai
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -16,11 +17,33 @@ import (
 )
 
 type ModelGalleryEndpointService struct {
+	appConfig        *config.ApplicationConfig
 	galleries        []config.Gallery
 	backendGalleries []config.Gallery
 	modelPath        string
 	galleryApplier   *galleryop.GalleryService
 	configLoader     *config.ModelConfigLoader
+}
+
+// RefuseModelWithoutBackend answers 409 when backend installation is disabled
+// and the model's backend is not already present: with no way to acquire it,
+// the install is certain to produce an unusable model. It reports whether it
+// wrote the refusal (the handler must then return its error and stop), so a
+// nil write error is never mistaken for "not refused". Resolution errors are
+// not refusals — the install path reports them in its own words.
+func RefuseModelWithoutBackend(c echo.Context, appConfig *config.ApplicationConfig, galleries []config.Gallery, name, pin string, available gallery.BackendAvailability) (bool, error) {
+	if !appConfig.DisableBackendInstall {
+		return false, nil
+	}
+	backend, installed, err := gallery.RequiredBackendInstalled(c.Request().Context(), galleries, appConfig.SystemState, name, pin, available)
+	if err != nil || installed {
+		return false, nil
+	}
+	return true, c.JSON(http.StatusConflict, map[string]any{
+		"error":   fmt.Sprintf("Model %q needs backend %q, which is not installed, and backend installation is disabled on this server.", name, backend),
+		"code":    "backend_not_installed",
+		"backend": backend,
+	})
 }
 
 type GalleryModel struct {
@@ -33,11 +56,12 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGalleries []config.Gallery, systemState *system.SystemState, galleryApplier *galleryop.GalleryService, configLoader *config.ModelConfigLoader) ModelGalleryEndpointService {
+func CreateModelGalleryEndpointService(appConfig *config.ApplicationConfig, galleryApplier *galleryop.GalleryService, configLoader *config.ModelConfigLoader) ModelGalleryEndpointService {
 	return ModelGalleryEndpointService{
-		galleries:        galleries,
-		backendGalleries: backendGalleries,
-		modelPath:        systemState.Model.ModelsPath,
+		appConfig:        appConfig,
+		galleries:        appConfig.Galleries,
+		backendGalleries: appConfig.BackendGalleries,
+		modelPath:        appConfig.SystemState.Model.ModelsPath,
 		galleryApplier:   galleryApplier,
 		configLoader:     configLoader,
 	}
@@ -74,12 +98,17 @@ func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() echo.HandlerFunc 
 // @Tags models
 // @Param request body GalleryModel true "query params"
 // @Success 200 {object} schema.GalleryResponse "Response"
+// @Failure 409 {object} map[string]interface{} "The model's backend is not installed and backend installation is disabled (code backend_not_installed)"
 // @Router /models/apply [post]
 func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input := new(GalleryModel)
 		// Get input data from the request body
 		if err := c.Bind(input); err != nil {
+			return err
+		}
+
+		if refused, err := RefuseModelWithoutBackend(c, mgs.appConfig, mgs.galleries, input.ID, input.Variant, mgs.galleryApplier.BackendManager().BackendAvailable); refused {
 			return err
 		}
 

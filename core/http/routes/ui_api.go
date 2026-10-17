@@ -5,6 +5,7 @@ import "os"
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -22,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -1062,6 +1064,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		variant := c.QueryParam("variant")
 		xlog.Debug("API job submitted to install", "galleryID", galleryID, "variant", variant)
 
+		if refused, err := localai.RefuseModelWithoutBackend(c, appConfig, appConfig.Galleries, galleryID, variant, galleryService.BackendManager().BackendAvailable); refused {
+			return err
+		}
+
 		id, err := uuid.NewUUID()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
@@ -1175,8 +1181,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false,
-			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer))
+			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer),
+			gallery.WithBackendAvailability(galleryService.BackendManager().BackendAvailable))
 		if err != nil {
+			if errors.Is(err, gallery.ErrBackendInstallDisabled) {
+				return c.JSON(http.StatusConflict, map[string]any{
+					"error": err.Error(),
+					"code":  "backend_not_installed",
+				})
+			}
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
@@ -1550,7 +1563,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"jobID":   uid,
 			"message": "Backend installation started",
 		})
-	}, adminMiddleware)
+	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 
 	// Install backend from external source (OCI image, URL, or path)
 	app.POST("/api/backends/install-external", func(c echo.Context) error {
@@ -1613,7 +1626,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"jobID":   uid,
 			"message": "External backend installation started",
 		})
-	}, adminMiddleware)
+	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 
 	app.POST("/api/backends/delete/:id", func(c echo.Context) error {
 		backendID := c.Param("id")
@@ -1782,7 +1795,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"statusUrl": fmt.Sprintf("/api/backends/job/%s", uid),
 			"message":   "Backend upgrade started",
 		})
-	}, adminMiddleware)
+	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 
 	// P2P APIs
 	app.GET("/api/p2p/workers", func(c echo.Context) error {

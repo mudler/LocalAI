@@ -384,6 +384,7 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 					IsMeta:   b.IsMeta,
 					Metadata: &gallery.BackendMetadata{
 						Name:        b.Name,
+						Alias:       b.Alias,
 						InstalledAt: b.InstalledAt,
 						GalleryURL:  b.GalleryURL,
 						Version:     b.Version,
@@ -460,6 +461,9 @@ func (d *DistributedBackendManager) clearSatisfiedInstallRows(ctx context.Contex
 // behavior so the periodic reconciler and /api/backends/install/:id keep
 // working unchanged.
 func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *galleryop.ManagementOp[gallery.GalleryBackend, any], progressCb galleryop.ProgressCallback) error {
+	if d.systemState.DisableBackendInstall {
+		return fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, op.GalleryElementName)
+	}
 	galleriesJSON, _ := json.Marshal(op.Galleries)
 	backendName := op.GalleryElementName
 
@@ -542,6 +546,9 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 // new master + old worker still converges. Drop the fallback once every
 // worker in the fleet is on 2026-05-08 or newer.
 func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *galleryop.ManagementOp[gallery.GalleryBackend, any], progressCb galleryop.ProgressCallback) error {
+	if d.systemState.DisableBackendInstall {
+		return fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, op.GalleryElementName)
+	}
 	opID := op.ID
 	name := op.GalleryElementName
 	galleriesJSON, _ := json.Marshal(d.backendGalleries)
@@ -638,6 +645,14 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 // cluster. The HTTP layer reads this to gate hardware-specific installs on
 // /api/backends/apply (which would otherwise silently land on every node).
 func (d *DistributedBackendManager) IsDistributed() bool { return true }
+
+func (d *DistributedBackendManager) BackendAvailable(name string) (bool, error) {
+	backends, err := d.ListBackends()
+	if err != nil {
+		return false, err
+	}
+	return gallery.AvailableOnCluster(backends, name), nil
+}
 
 // CheckUpgrades checks for available backend upgrades across the cluster.
 //

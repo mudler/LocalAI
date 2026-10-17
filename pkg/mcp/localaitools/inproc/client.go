@@ -459,6 +459,9 @@ func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBac
 	if req.BackendName == "" {
 		return "", errors.New("backend_name is required")
 	}
+	if c.AppConfig.DisableBackendInstall {
+		return "", fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, req.BackendName)
+	}
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return "", fmt.Errorf("generate job id: %w", err)
@@ -481,6 +484,9 @@ func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBac
 func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error) {
 	if name == "" {
 		return "", errors.New("name is required")
+	}
+	if c.AppConfig.DisableBackendInstall {
+		return "", fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, name)
 	}
 	id, err := uuid.NewUUID()
 	if err != nil {

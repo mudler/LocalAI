@@ -11,7 +11,7 @@
 // Gating is per item and decides the tab: a tab shows when at least one of its
 // items is visible to the viewer, so a tab nobody can use is never drawn.
 // `/api/features` only emits: agents, mcp, fine_tuning, quantization,
-// distributed, localai_assistant. Capability-style flags (face_recognition,
+// distributed, backend_install, localai_assistant. Capability-style flags (face_recognition,
 // skills, ...) come from hasFeature(), not the features map.
 //
 // Item and tab fields:

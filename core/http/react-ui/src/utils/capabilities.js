@@ -2,6 +2,7 @@
 // Server feature keys (returned by GET /api/features), kept as constants so
 // callers don't sprinkle string literals across the UI.
 export const FEATURE_LOCALAI_ASSISTANT = 'localai_assistant'
+export const FEATURE_BACKEND_INSTALL = 'backend_install'
 
 export const CAP_CHAT = 'FLAG_CHAT'
 export const CAP_COMPLETION = 'FLAG_COMPLETION'
