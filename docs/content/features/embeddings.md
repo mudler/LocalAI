@@ -33,6 +33,15 @@ Example gallery models:
 - `qwen3-embedding-8b` - Qwen3 Embedding 8B model  
 - `qwen3-embedding-0.6b` - Qwen3 Embedding 0.6B model
 
+### BGE-base-en-v1.5
+
+Install `bge-base-en-v1.5-f16` for English retrieval with llama.cpp. The gallery
+also offers `bge-base-en-v1.5-q8-0` and `bge-base-en-v1.5-q4-k-m` variants.
+These builds produce 768-dimensional embeddings with a 512-token context.
+For retrieval, prefix search queries with
+`Represent this sentence for searching relevant passages: `, including the trailing
+space. Embed documents without this prefix.
+
 ### Example: Using Qwen3-Embedding-4B from Gallery
 
 ```bash
