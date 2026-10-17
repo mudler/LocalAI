@@ -736,7 +736,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 								toolResult = fmt.Sprintf("Error: %v", toolErr)
 							} else {
 								// A failed call delivers no evidence for the answer.
-								evidence.markToolExecuted()
+								evidence.markToolExecuted(toolResult)
 							}
 							input.Messages = append(input.Messages, schema.Message{
 								Role:          "tool",
@@ -1186,7 +1186,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 								toolResult = fmt.Sprintf("Error: %v", toolErr)
 							} else {
 								// A failed call delivers no evidence for the answer.
-								evidence.markToolExecuted()
+								evidence.markToolExecuted(toolResult)
 							}
 							input.Messages = append(input.Messages, schema.Message{
 								Role:          "tool",

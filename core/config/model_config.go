@@ -645,12 +645,17 @@ type ProfileConfig struct {
 	MCP MCPConfig `yaml:"mcp,omitempty" json:"mcp,omitempty"`
 	// ClientTools overrides the target's client_tools policy.
 	ClientTools string `yaml:"client_tools,omitempty" json:"client_tools,omitempty"`
-	// EvidenceCheck marks answers whose numbers have no evidence in the request.
+	// EvidenceCheck marks answers whose numbers have no evidence in the request
+	// and can cite the URLs the tools returned.
 	EvidenceCheck EvidenceCheckConfig `yaml:"evidence_check,omitempty" json:"evidence_check,omitempty"`
 }
 
 // DefaultEvidenceNote is appended when evidence_check.note is empty.
 const DefaultEvidenceNote = "_Note: this answer contains numbers that no tool returned in this turn — not verified._"
+
+// DefaultSourcesLabel heads the appended source line when
+// evidence_check.sources_label is empty.
+const DefaultSourcesLabel = "Sources"
 
 // @Description Output check of a profile alias
 type EvidenceCheckConfig struct {
@@ -658,6 +663,11 @@ type EvidenceCheckConfig struct {
 	Numbers bool `yaml:"numbers,omitempty" json:"numbers,omitempty"`
 	// Note replaces DefaultEvidenceNote.
 	Note string `yaml:"note,omitempty" json:"note,omitempty"`
+	// Sources appends the URLs returned by the request's tool calls to an
+	// answer that names no URL itself.
+	Sources bool `yaml:"sources,omitempty" json:"sources,omitempty"`
+	// SourcesLabel replaces DefaultSourcesLabel.
+	SourcesLabel string `yaml:"sources_label,omitempty" json:"sources_label,omitempty"`
 }
 
 // EvidenceCheck returns the evidence check a profile alias applied to this
@@ -670,6 +680,15 @@ func (e EvidenceCheckConfig) EvidenceNote() string {
 		return e.Note
 	}
 	return DefaultEvidenceNote
+}
+
+// SourcesHeading returns the configured label of the source line or the
+// default one.
+func (e EvidenceCheckConfig) SourcesHeading() string {
+	if e.SourcesLabel != "" {
+		return e.SourcesLabel
+	}
+	return DefaultSourcesLabel
 }
 
 // IsZero reports whether the block sets nothing.
@@ -2272,6 +2291,9 @@ func (c *ModelConfig) validateProfileFields() error {
 	}
 	if ec := c.Profile.EvidenceCheck; ec.Note != "" && !ec.Numbers {
 		return fmt.Errorf("profile.evidence_check.note has no effect without numbers: true")
+	}
+	if ec := c.Profile.EvidenceCheck; ec.SourcesLabel != "" && !ec.Sources {
+		return fmt.Errorf("profile.evidence_check.sources_label has no effect without sources: true")
 	}
 	return nil
 }

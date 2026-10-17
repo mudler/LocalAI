@@ -56,6 +56,8 @@ top of the target's config for requests to the alias:
 | `profile.client_tools: drop` | Discards tools and `tool_choice` sent by the client. |
 | `profile.evidence_check.numbers` | Marks answers that contain numbers without evidence in the request. See [Evidence check](#evidence-check). |
 | `profile.evidence_check.note` | Text appended by the evidence check. Defaults to an English note. |
+| `profile.evidence_check.sources` | Appends the URLs the request's MCP tools returned to an answer that names no URL. See [Source line](#source-line). |
+| `profile.evidence_check.sources_label` | Label of the source line. Defaults to `Sources`. |
 
 ```yaml
 name: researcher
@@ -125,6 +127,46 @@ Answers that hand tool calls to the client are not checked. The check is off
 unless `numbers: true` is set, and `note` without `numbers: true` is rejected.
 It flags, it does not prove: a number the client happened to mention is
 accepted even if the answer uses it wrongly.
+
+### Source line
+
+A research profile usually asks the model in its system prompt to cite its
+sources. A model can still answer from a search result without naming a single
+link, and the client never sees the tool results that held them. With
+`sources: true` LocalAI adds the links at the output:
+
+```yaml
+name: researcher
+alias: my-llama-3
+profile:
+  mcp:
+    auto: true
+    remote: |
+      {"mcpServers": {"search": {"url": "http://search.internal/mcp"}}}
+  evidence_check:
+    sources: true
+    # optional, defaults to "Sources"
+    sources_label: Quellen
+```
+
+Like the number check it acts on `/v1/chat/completions`. The rule is
+deterministic and applies to each request on its own:
+
+1. Only the results of MCP tool calls that succeeded on the server during this
+   request are read. The client's messages and failed calls are not a source.
+2. If the final answer already contains an `http://` or `https://` URL, it is
+   left unchanged.
+3. Otherwise the distinct URLs of those tool results are collected in the order
+   they first appear, at most five, and appended after a blank line as one line:
+   `Quellen: https://a.example/test, https://b.example/oil`. Punctuation that
+   ends a sentence is not taken as part of a URL.
+4. If no tool result contains a URL, nothing is appended. No URL is ever made
+   up: every link on the line was returned by a tool.
+
+In a streamed response the line arrives as one additional content chunk before
+the final chunk, like the number note. Both checks can be enabled together; the
+number note follows the source line. `sources_label` without `sources: true` is
+rejected.
 
 ## Managing aliases
 

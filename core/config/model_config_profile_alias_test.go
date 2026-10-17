@@ -172,6 +172,30 @@ mcp:
 		Expect(base.EvidenceCheck().Numbers).To(BeFalse())
 	})
 
+	It("carries evidence_check.sources into the resolved config and nowhere else", func() {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "base-llm.yaml"), []byte(target), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "cited.yaml"), []byte("name: cited\nalias: base-llm\nprofile:\n  evidence_check:\n    sources: true\n    sources_label: Quellen\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "default-label.yaml"), []byte("name: default-label\nalias: base-llm\nprofile:\n  evidence_check:\n    sources: true\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "gpt-4.yaml"), []byte(plain), 0644)).To(Succeed())
+		cl = config.NewModelConfigLoader(dir)
+		Expect(cl.LoadModelConfigsFromPath(dir)).To(Succeed())
+
+		cited := resolve("cited")
+		Expect(cited.EvidenceCheck().Sources).To(BeTrue())
+		Expect(cited.EvidenceCheck().SourcesHeading()).To(Equal("Quellen"))
+		Expect(cited.EvidenceCheck().Numbers).To(BeFalse())
+
+		defaultLabel := resolve("default-label")
+		Expect(defaultLabel.EvidenceCheck().SourcesHeading()).To(Equal(config.DefaultSourcesLabel))
+
+		// A plain alias and the target itself stay off.
+		Expect(resolve("gpt-4").EvidenceCheck().Sources).To(BeFalse())
+		base, ok := cl.GetModelConfig("base-llm")
+		Expect(ok).To(BeTrue())
+		Expect(base.EvidenceCheck().Sources).To(BeFalse())
+	})
+
 	It("ignores a top-level evidence_check on a model, which only a profile can set", func() {
 		dir := GinkgoT().TempDir()
 		Expect(os.WriteFile(filepath.Join(dir, "base-llm.yaml"), []byte(target+"evidence_check:\n  numbers: true\n"), 0644)).To(Succeed())
@@ -208,6 +232,19 @@ mcp:
 			Expect(err).To(MatchError(ContainSubstring("profile.evidence_check.note")))
 
 			cfg.Profile.EvidenceCheck.Numbers = true
+			ok, err = cfg.Validate()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		})
+
+		It("rejects an evidence_check sources_label without sources: true", func() {
+			cfg := config.ModelConfig{Name: "p", Alias: "base-llm"}
+			cfg.Profile.EvidenceCheck.SourcesLabel = "Quellen"
+			ok, err := cfg.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(MatchError(ContainSubstring("profile.evidence_check.sources_label")))
+
+			cfg.Profile.EvidenceCheck.Sources = true
 			ok, err = cfg.Validate()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ok).To(BeTrue())
