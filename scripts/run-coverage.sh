@@ -29,6 +29,7 @@ shift 3
 unit_roots="$*"
 
 fail=0
+mkdir -p "$out_dir"
 
 # Build flags shared by every ginkgo invocation.  We store them as a
 # newline-delimited list in $build_flags_list so we can iterate without
