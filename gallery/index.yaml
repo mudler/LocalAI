@@ -52091,6 +52091,97 @@
     - filename: stablediffusion-cpp/models/Qwen3VL-4B-Instruct-Q4_K_M.gguf
       sha256: 66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a
       uri: https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF/resolve/main/Qwen3VL-4B-Instruct-Q4_K_M.gguf
+- name: moss-image-base
+  url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
+  urls:
+    - https://huggingface.co/Comfy-Org/MOSS-Image
+    - https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base
+  description: |
+    MOSS-Image-Base is a 5B diffusion transformer image generation model from OpenMOSS-Team. It uses Qwen3.5 9B as the LLM text encoder, the FLUX.2 VAE, and an external tokenizer. The Base variant supports text-to-image generation with classifier-free guidance (default: CFG 3.0, 1024x1024).
+
+    This entry uses the int8_convrot quantization of the diffusion model (~5.4 GB).
+  license: apache-2.0
+  icon: https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base/resolve/main/assets/teaser.webp
+  tags:
+    - moss-image
+    - text-to-image
+    - image-generation
+    - diffusion
+    - 5b
+    - quantized
+    - safetensors
+  last_checked: "2026-10-18"
+  overrides:
+    cfg_scale: 3
+    options:
+      - diffusion_model
+      - vae_path:stablediffusion-cpp/models/flux2-vae.safetensors
+      - sampler:euler
+      - llm_path:stablediffusion-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+      - tokenizer:stablediffusion-cpp/models/moss-image-tokenizer.json
+      - offload_params_to_cpu:true
+      - vae_decode_only:false
+    parameters:
+      model: stablediffusion-cpp/models/moss_image_base_int8_convrot.safetensors
+    step: 20
+  files:
+    - filename: stablediffusion-cpp/models/moss_image_base_int8_convrot.safetensors
+      uri: https://huggingface.co/Comfy-Org/MOSS-Image/resolve/main/diffusion_models/moss_image_base_int8_convrot.safetensors
+    - filename: stablediffusion-cpp/models/flux2-vae.safetensors
+      sha256: d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5
+      uri: https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors
+    - filename: stablediffusion-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+      sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
+      uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+    - filename: stablediffusion-cpp/models/moss-image-tokenizer.json
+      sha256: 06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523
+      uri: https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base/resolve/main/tokenizer/tokenizer.json
+- name: moss-image-sft
+  url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
+  urls:
+    - https://huggingface.co/Comfy-Org/MOSS-Image
+    - https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT
+  description: |
+    MOSS-Image-SFT is the supervised fine-tuned variant of MOSS-Image, a 5B diffusion transformer image generation model from OpenMOSS-Team. It uses Qwen3.5 9B as the LLM text encoder, the FLUX.2 VAE, and an external tokenizer. The SFT variant produces higher-quality outputs with classifier-free guidance (default: CFG 3.0, 1024x1024).
+
+    This entry uses the int8_convrot quantization of the diffusion model (~5.4 GB).
+  license: apache-2.0
+  icon: https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base/resolve/main/assets/teaser.webp
+  tags:
+    - moss-image
+    - moss-image-sft
+    - text-to-image
+    - image-generation
+    - diffusion
+    - 5b
+    - quantized
+    - safetensors
+  last_checked: "2026-10-18"
+  overrides:
+    cfg_scale: 3
+    options:
+      - diffusion_model
+      - vae_path:stablediffusion-cpp/models/flux2-vae.safetensors
+      - sampler:euler
+      - llm_path:stablediffusion-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+      - tokenizer:stablediffusion-cpp/models/moss-image-tokenizer.json
+      - offload_params_to_cpu:true
+      - vae_decode_only:false
+    parameters:
+      model: stablediffusion-cpp/models/moss_image_sft_int8_convrot.safetensors
+    step: 20
+  files:
+    - filename: stablediffusion-cpp/models/moss_image_sft_int8_convrot.safetensors
+      uri: https://huggingface.co/Comfy-Org/MOSS-Image/resolve/main/diffusion_models/moss_image_sft_int8_convrot.safetensors
+    - filename: stablediffusion-cpp/models/flux2-vae.safetensors
+      sha256: d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5
+      uri: https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors
+    - filename: stablediffusion-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+      sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
+      uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+    - filename: stablediffusion-cpp/models/moss-image-tokenizer.json
+      sha256: 06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523
+      uri: https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base/resolve/main/tokenizer/tokenizer.json
 - name: Z-Image-Turbo
   url: github:mudler/LocalAI/gallery/z-image-ggml.yaml@master
   urls:

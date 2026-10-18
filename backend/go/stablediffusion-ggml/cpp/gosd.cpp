@@ -395,6 +395,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *photo_maker_path = "";
     const char *pulid_weights_path = "";
     const char *tensor_type_rules = "";
+    const char *tokenizer_path = "";
     char *lora_dir = model_path;
 
     // Upstream backend/parameter placement specs (see docs/.../stablediffusion).
@@ -503,6 +504,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "photo_maker_path")) photo_maker_path = strdup(optval);
         if (!strcmp(optname, "pulid_weights_path")) pulid_weights_path = strdup(optval);
         if (!strcmp(optname, "tensor_type_rules")) tensor_type_rules = strdup(optval);
+        if (!strcmp(optname, "tokenizer")) tokenizer_path = strdup(optval);
 
         // Backend / parameter placement specs (see prepare_backend_assignments
         // in the upstream CLI). These compose with the legacy keep_*_on_cpu /
@@ -619,6 +621,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.photo_maker_path = photo_maker_path;
     if (strlen(pulid_weights_path) > 0) ctx_params.pulid_weights_path = pulid_weights_path;
     ctx_params.tensor_type_rules = tensor_type_rules;
+    if (strlen(tokenizer_path) > 0) ctx_params.tokenizer = tokenizer_path;
     ctx_params.n_threads = n_threads;
     ctx_params.rng_type = rng_type;
     if (wtype != SD_TYPE_COUNT) ctx_params.wtype = wtype;
