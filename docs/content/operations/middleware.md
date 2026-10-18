@@ -293,8 +293,9 @@ they reach the backend unchecked. With the option set, a request that carries
 any such content is rejected with HTTP 400 (`error.type=pii_blocked`, audit
 event pattern `__unscanned_media__`) before a detector runs. Use it for egress
 policies where "cannot be inspected" must mean "not sent", e.g. on
-`cloud-proxy` models. It applies to the OpenAI chat, Anthropic messages and
-Ollama chat routes, and only while PII is enabled for the model.
+`cloud-proxy` models. It applies to the OpenAI chat, Open Responses,
+Anthropic messages and Ollama chat routes, and only while PII is enabled for
+the model.
 
 Multiple detectors **union** their detections; overlapping spans resolve to
 the strongest action (`block` > `mask` > `allow`). A configured detector

@@ -51,6 +51,12 @@ func orItemTextField(item map[string]any) string {
 
 // isORTextPart reports whether a content part carries plain text. Image,
 // file, audio and video parts are left alone, as in the other adapters.
+// orTextParts are the content part types that carry only text.
+var orTextParts = map[string]bool{"input_text": true, "output_text": true, "refusal": true, "summary_text": true}
+
+// orMediaItems are input item types that are media on their own.
+var orMediaItems = map[string]bool{"input_image": true, "input_file": true, "input_audio": true}
+
 func isORTextPart(part map[string]any) bool {
 	t, _ := part["type"].(string)
 	return t == "input_text" || t == "output_text"
@@ -123,6 +129,37 @@ func OpenResponses() pii.Adapter {
 							}
 						}
 					}
+				}
+			}
+			return out
+		},
+		Unscanned: func(parsed any) []string {
+			req, ok := parsed.(*schema.OpenResponsesRequest)
+			if !ok || req == nil {
+				return nil
+			}
+			items, ok := req.Input.([]any)
+			if !ok {
+				return nil
+			}
+			var out []string
+			seen := map[string]bool{}
+			for _, raw := range items {
+				item, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				if t, _ := item["type"].(string); orMediaItems[t] && !seen[t] {
+					// A bare media item outside a message.
+					seen[t] = true
+					out = append(out, t)
+					continue
+				}
+				if orItemTextField(item) != "content" {
+					continue
+				}
+				if parts, ok := item["content"].([]any); ok {
+					out = blockKinds(parts, orTextParts, seen, out)
 				}
 			}
 			return out
