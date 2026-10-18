@@ -1008,6 +1008,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Description: "Suffix for reversible redaction tokens. Defaults to ].",
 			Order:       204,
 		},
+		"pii.block_unscanned_media": {
+			Section:     "pii",
+			Label:       "Block Unscanned Media",
+			Description: "Reject requests that carry content the detectors cannot inspect (images, audio, video, files) instead of forwarding it unchecked. Only applies while PII is enabled for this model.",
+			Component:   "toggle",
+			Order:       205,
+		},
 
 		// --- PII detection policy (on a token_classify detector model) ---
 		"pii_detection.min_score": {

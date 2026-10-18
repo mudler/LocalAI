@@ -25,6 +25,9 @@ import (
 // System / developer / tool messages are scanned as well: an API key
 // pasted into a system prompt is just as leak-prone as one in a user
 // message.
+// openAITextBlocks are the chat content block types that carry only text.
+var openAITextBlocks = map[string]bool{"text": true, "refusal": true}
+
 func OpenAI() pii.Adapter {
 	return pii.Adapter{
 		Scan: func(parsed any) []pii.ScannedText {
@@ -60,6 +63,20 @@ func OpenAI() pii.Adapter {
 							}
 						}
 					}
+				}
+			}
+			return out
+		},
+		Unscanned: func(parsed any) []string {
+			req, ok := parsed.(*schema.OpenAIRequest)
+			if !ok || req == nil {
+				return nil
+			}
+			var out []string
+			seen := map[string]bool{}
+			for i := range req.Messages {
+				if blocks, ok := req.Messages[i].Content.([]any); ok {
+					out = blockKinds(blocks, openAITextBlocks, seen, out)
 				}
 			}
 			return out

@@ -622,11 +622,19 @@ type PIIConfig struct {
 	ReversibleRedactions  bool   `yaml:"reversible_redactions,omitempty" json:"reversible_redactions,omitempty"`
 	ReversibleTokenPrefix string `yaml:"reversible_token_prefix,omitempty" json:"reversible_token_prefix,omitempty"`
 	ReversibleTokenSuffix string `yaml:"reversible_token_suffix,omitempty" json:"reversible_token_suffix,omitempty"`
+
+	// BlockUnscannedMedia rejects requests that carry content the text
+	// detectors cannot inspect (images, audio, video, files) instead of
+	// forwarding it unchecked. Only applies while PII is enabled for the
+	// model. Meant for egress policies where "not inspectable" must mean
+	// "not sent", e.g. cloud-proxy models.
+	BlockUnscannedMedia bool `yaml:"block_unscanned_media,omitempty" json:"block_unscanned_media,omitempty"`
 }
 
 func (c ModelConfig) PIIReversibleRedactions() bool    { return c.PII.ReversibleRedactions }
 func (c ModelConfig) PIIReversibleTokenPrefix() string { return c.PII.ReversibleTokenPrefix }
 func (c ModelConfig) PIIReversibleTokenSuffix() string { return c.PII.ReversibleTokenSuffix }
+func (c ModelConfig) PIIBlockUnscannedMedia() bool     { return c.PII.BlockUnscannedMedia }
 
 // @Description Detection policy for a token-classification (NER) model
 // used as a PII detector. Lives on the detector model's own config so the

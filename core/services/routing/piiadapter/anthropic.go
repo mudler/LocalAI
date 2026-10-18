@@ -18,6 +18,11 @@ import (
 // System field, not in Messages — they're skipped here for now (chat
 // messages are the high-traffic surface). System-prompt scanning is a
 // follow-up if a deployment proves it needs it.
+// anthropicTextBlocks are the message block types that carry no media of their
+// own (tool calls and results are structured text).
+var anthropicTextBlocks = map[string]bool{"text": true, "tool_use": true, "tool_result": true,
+	"thinking": true, "redacted_thinking": true}
+
 func Anthropic() pii.Adapter {
 	return pii.Adapter{
 		Scan: func(parsed any) []pii.ScannedText {
@@ -49,6 +54,20 @@ func Anthropic() pii.Adapter {
 							}
 						}
 					}
+				}
+			}
+			return out
+		},
+		Unscanned: func(parsed any) []string {
+			req, ok := parsed.(*schema.AnthropicRequest)
+			if !ok || req == nil {
+				return nil
+			}
+			var out []string
+			seen := map[string]bool{}
+			for i := range req.Messages {
+				if blocks, ok := req.Messages[i].Content.([]any); ok {
+					out = blockKinds(blocks, anthropicTextBlocks, seen, out)
 				}
 			}
 			return out
