@@ -27,7 +27,7 @@ import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
-import { readAttachmentText } from '../utils/pdf'
+import { readAttachmentText, renderPdfPages, PdfNoTextError } from '../utils/pdf'
 import { greetingKey } from '../utils/greeting'
 import {
   listConversations, setActiveConversation, removeConversation,
@@ -221,7 +221,18 @@ export default function Home() {
       if (!file.type.startsWith('image/') && !file.type.startsWith('audio/')) {
         try {
           entry.textContent = await readAttachmentText(file)
-        } catch {
+        } catch (err) {
+          // A scan has no text layer: send its pages as images for a vision model.
+          if (err instanceof PdfNoTextError) {
+            try {
+              const { pages, total } = await renderPdfPages(file)
+              setImageFiles(prev => [...prev, ...pages])
+              addToast(t('input.pdfScannedAsImages', { name: file.name, count: pages.length, total }), 'info')
+              continue
+            } catch {
+              // fall through to the read error below
+            }
+          }
           addToast(t('input.pdfReadFailed', { name: file.name }), 'error')
           continue
         }
@@ -551,6 +562,7 @@ export default function Home() {
 
         <div style={staggerStyle(1)}>
           <HomeComposer
+          onDictateError={(m) => addToast(m, 'error')}
             message={message}
             onMessage={setMessage}
             onSubmit={doSubmit}

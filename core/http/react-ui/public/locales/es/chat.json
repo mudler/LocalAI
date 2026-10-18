@@ -103,7 +103,8 @@
   "toasts": {
     "selectModel": "Por favor selecciona un modelo",
     "copied": "Copiado al portapapeles",
-    "copyFailed": "No se pudo copiar al portapapeles"
+    "copyFailed": "No se pudo copiar al portapapeles",
+    "pdfScannedAsImages": "{{name}} no tiene capa de texto (escaneo). Se adjuntaron {{count}} de {{total}} páginas como imágenes para un modelo de visión."
   },
   "menu": {
     "trigger": "Chats",

@@ -35,7 +35,14 @@
     "enterToSend": "Enter로 전송",
     "selectModelFirst": "먼저 모델을 선택하세요",
     "sendMessage": "메시지 보내기",
-    "selectModelToast": "먼저 모델을 선택해 주세요"
+    "selectModelToast": "먼저 모델을 선택해 주세요",
+    "dictate": "받아쓰기 (음성을 텍스트로)",
+    "dictateStop": "녹음 중지",
+    "dictateBusy": "변환 중…",
+    "dictateEmpty": "인식된 음성이 없습니다.",
+    "dictateFailed": "변환 실패: {{error}}",
+    "dictateNoMic": "마이크를 사용할 수 없습니다: {{error}}",
+    "pdfScannedAsImages": "{{name}}에 텍스트 레이어가 없습니다(스캔). 비전 모델용으로 {{total}}페이지 중 {{count}}페이지를 이미지로 첨부했습니다."
   },
   "quickLinks": {
     "manageByChat": "채팅으로 관리",

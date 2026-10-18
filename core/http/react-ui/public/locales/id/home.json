@@ -35,7 +35,14 @@
     "enterToSend": "Enter untuk mengirim",
     "selectModelFirst": "Pilih model terlebih dahulu",
     "sendMessage": "Kirim pesan",
-    "selectModelToast": "Silahkan pilih model terlebih dahulu"
+    "selectModelToast": "Silahkan pilih model terlebih dahulu",
+    "dictate": "Dikte (suara ke teks)",
+    "dictateStop": "Hentikan rekaman",
+    "dictateBusy": "Mentranskripsi…",
+    "dictateEmpty": "Tidak ada ucapan yang dikenali.",
+    "dictateFailed": "Transkripsi gagal: {{error}}",
+    "dictateNoMic": "Mikrofon tidak tersedia: {{error}}",
+    "pdfScannedAsImages": "{{name}} tidak memiliki lapisan teks (pindaian). {{count}} dari {{total}} halaman dilampirkan sebagai gambar untuk model visi."
   },
   "quickLinks": {
     "manageByChat": "Kelola melalui obrolan",

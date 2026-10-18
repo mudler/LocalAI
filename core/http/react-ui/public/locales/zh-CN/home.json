@@ -35,7 +35,14 @@
     "enterToSend": "按回车发送",
     "selectModelFirst": "请先选择一个模型",
     "sendMessage": "发送消息",
-    "selectModelToast": "请先选择一个模型"
+    "selectModelToast": "请先选择一个模型",
+    "dictate": "听写（语音转文字）",
+    "dictateStop": "停止录音",
+    "dictateBusy": "正在转写…",
+    "dictateEmpty": "未识别到语音。",
+    "dictateFailed": "转写失败：{{error}}",
+    "dictateNoMic": "麦克风不可用：{{error}}",
+    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。"
   },
   "quickLinks": {
     "manageByChat": "通过聊天管理",
