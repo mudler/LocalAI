@@ -11,7 +11,6 @@ import (
 // registrations in core/http/routes/localai.go — the Tool↔REST drift detector
 // in coverage_test.go documents the mapping.
 const (
-	routeWelcome         = "/"
 	routeModelsApply     = "/models/apply"
 	routeModelsAvail     = "/models/available"
 	routeModelsGall      = "/models/galleries"
@@ -35,6 +34,9 @@ const (
 	routeRouterDecisions = "/api/router/decisions"
 	routeVoiceProfiles   = "/api/voice-profiles"
 	routeFailover        = "/api/failover"
+	routeModelsCapabilities = "/api/models/capabilities"
+	routeVersion            = "/version"
+	routeSystem             = "/system"
 )
 
 func routeJobStatus(jobID string) string {

@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -163,24 +164,35 @@ func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearch
 }
 
 func (c *Client) ListInstalledModels(ctx context.Context, capability localaitools.Capability) ([]localaitools.InstalledModel, error) {
-	_ = capability // Capability filtering is unavailable over the welcome HTTP shape today; see TODO below.
-	// /v1/models is the OpenAI-compat shape; we use the LocalAI welcome JSON
-	// for richer info.
-	var welcome struct {
-		ModelsConfig []struct {
-			Name    string `json:"name"`
-			Backend string `json:"backend"`
-		} `json:"ModelsConfig"`
+	// /api/models/capabilities lists every installed model (config-backed and
+	// loose) with its backend and capability flags — the same data the old
+	// GET / welcome JSON used to carry, on a route that does not redirect.
+	// (The welcome endpoint was unregistered when the React UI moved to /app,
+	// so GET / now 301s to the SPA and the no-redirect httpclient rejects it.)
+	var resp struct {
+		Data []struct {
+			ID           string   `json:"id"`
+			Backend      string   `json:"backend"`
+			Capabilities []string `json:"capabilities"`
+			Disabled     bool     `json:"disabled"`
+			Pinned       bool     `json:"pinned"`
+		} `json:"data"`
 	}
-	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeModelsCapabilities, nil, &resp); err != nil {
 		return nil, err
 	}
-	// Capability filtering is unavailable over HTTP without a dedicated endpoint
-	// — for now we return everything and let the LLM filter from the names. A
-	// follow-up should add a /api/models?capability=chat endpoint.
-	out := make([]localaitools.InstalledModel, 0, len(welcome.ModelsConfig))
-	for _, m := range welcome.ModelsConfig {
-		out = append(out, localaitools.InstalledModel{Name: m.Name, Backend: m.Backend})
+	out := make([]localaitools.InstalledModel, 0, len(resp.Data))
+	for _, m := range resp.Data {
+		if capability != localaitools.CapabilityAny && !hasCapability(m.Capabilities, capability) {
+			continue
+		}
+		out = append(out, localaitools.InstalledModel{
+			Name:         m.ID,
+			Backend:      m.Backend,
+			Capabilities: capabilityLabels(m.Capabilities),
+			Disabled:     m.Disabled,
+			Pinned:       m.Pinned,
+		})
 	}
 	return out, nil
 }
@@ -441,20 +453,59 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 // ---- System ----
 
 func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, error) {
-	var welcome struct {
-		Version           string          `json:"Version"`
-		LoadedModels      []any           `json:"LoadedModels"`
-		InstalledBackends map[string]bool `json:"InstalledBackends"`
+	// Composed from live, non-redirecting routes — the old GET / welcome JSON
+	// is gone (the React UI owns / now), so pull the pieces separately.
+	var ver struct {
+		Version string `json:"version"`
 	}
-	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeVersion, nil, &ver); err != nil {
 		return nil, err
 	}
-	info := &localaitools.SystemInfo{Version: welcome.Version}
-	for name := range welcome.InstalledBackends {
-		info.InstalledBackends = append(info.InstalledBackends, name)
+	info := &localaitools.SystemInfo{Version: ver.Version}
+
+	var backends []struct {
+		Name string `json:"name"`
 	}
-	// LoadedModels shape varies; we don't attempt to decode it client-side.
+	if err := c.do(ctx, http.MethodGet, routeBackends, nil, &backends); err == nil {
+		for _, b := range backends {
+			info.InstalledBackends = append(info.InstalledBackends, b.Name)
+		}
+	}
+	slices.Sort(info.InstalledBackends)
+
+	var sys struct {
+		LoadedModels []struct {
+			ID string `json:"id"`
+		} `json:"loaded_models"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeSystem, nil, &sys); err == nil {
+		for _, m := range sys.LoadedModels {
+			info.LoadedModels = append(info.LoadedModels, m.ID)
+		}
+	}
 	return info, nil
+}
+
+// hasCapability reports whether any of the model's FLAG_* capability labels
+// equals the requested capability (case-insensitive, whole-word).
+func hasCapability(flags []string, want localaitools.Capability) bool {
+	wantStr := strings.TrimPrefix(strings.ToUpper(string(want)), "FLAG_")
+	for _, f := range flags {
+		if strings.TrimPrefix(strings.ToUpper(f), "FLAG_") == wantStr {
+			return true
+		}
+	}
+	return false
+}
+
+// capabilityLabels trims the "FLAG_" prefix so the LLM sees "CHAT", "TTS", …
+// matching the in-process client's output.
+func capabilityLabels(flags []string) []string {
+	out := make([]string, 0, len(flags))
+	for _, f := range flags {
+		out = append(out, strings.TrimPrefix(f, "FLAG_"))
+	}
+	return out
 }
 
 func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
