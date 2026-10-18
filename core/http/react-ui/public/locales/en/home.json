@@ -44,7 +44,14 @@
     "enterHint": "Enter to send, Shift+Enter for a new line",
     "send": "Send",
     "removeFile": "Remove {{name}}",
-    "stop": "Stop"
+    "stop": "Stop",
+    "dictate": "Dictate (speech to text)",
+    "dictateStop": "Stop recording",
+    "dictateBusy": "Transcribing…",
+    "dictateEmpty": "No speech recognised.",
+    "dictateFailed": "Transcription failed: {{error}}",
+    "dictateNoMic": "Microphone not available: {{error}}",
+    "pdfScannedAsImages": "{{name}} has no text layer (scan). Attached {{count}} of {{total}} pages as images for a vision model."
   },
   "quickLinks": {
     "manageByChat": "Manage by chat",

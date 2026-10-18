@@ -9,7 +9,7 @@ import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/arti
 import CanvasPanel from '../components/CanvasPanel'
 // eslint-disable-next-line no-unused-vars
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
-import { readAttachmentText } from '../utils/pdf'
+import { readAttachmentText, renderPdfPages, PdfNoTextError } from '../utils/pdf'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
 // eslint-disable-next-line no-unused-vars
@@ -715,7 +715,18 @@ export default function Chat() {
       if (!file.type.startsWith('image/') && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
         try {
           entry.textContent = await readAttachmentText(file)
-        } catch {
+        } catch (err) {
+          // A scan has no text layer: send its pages as images for a vision model.
+          if (err instanceof PdfNoTextError) {
+            try {
+              const { pages, total } = await renderPdfPages(file)
+              newFiles.push(...pages)
+              addToast(t('toasts.pdfScannedAsImages', { name: file.name, count: pages.length, total }), 'info')
+              continue
+            } catch {
+              // fall through to the read error below
+            }
+          }
           addToast(t('toasts.pdfReadFailed', { name: file.name }), 'error')
           continue
         }
@@ -1217,6 +1228,7 @@ export default function Chat() {
         <div className="cx-dock">
           <div className="cx-dock__in">
             <HomeComposer
+              onDictateError={(m) => addToast(m, 'error')}
               message={input}
               onMessage={setInput}
               onSubmit={handleSend}

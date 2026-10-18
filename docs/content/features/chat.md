@@ -46,6 +46,10 @@ The **MCP** chip opens the server and client tool lists. **Canvas** turns code b
 
 Enter sends, Shift+Enter adds a line. Paste an image to attach it. Under the box, the line shows the speed while a reply streams and the token count of the chat.
 
+The buttons under the box attach an image, an audio file or a document. A PDF is sent as its text layer. A scanned PDF has none, so its first ten pages are attached as images instead, for a model that reads images; a toast says how many pages went along.
+
+The microphone button dictates: click it to record, click again to stop, and the recording goes to `/v1/audio/transcriptions` with the first installed transcription model ([audio to text]({{< relref "audio-to-text.md" >}})). The text lands in the box, so you can read and correct it before sending. Without a transcription model the button is not shown. Recording needs microphone access in the browser, which browsers only grant on `https://` or `localhost`.
+
 ## Conversations
 
 Press `Ctrl+K` (`Cmd+K`) or **Chats** to open the list of conversations, grouped by day like **Jump back in** on Home. Type to search names and message text. Arrow keys move, `Enter` opens, `F2` renames and `Delete` removes. Each row also offers rename, duplicate, copy and export. Removing a chat hides it and shows an **Undo** toast; the chat is deleted for good when the toast goes away. The name in the header can be renamed with a click.
