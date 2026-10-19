@@ -164,7 +164,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	streamer := newTranscriptStreamer(ctx, t, responseID, itemID, thinkingStartToken, reasoningCfg)
 	streamer.announce = announce
 
-	// Clause chunking (opt-in): synthesize each clause as soon as it completes
+	// Clause chunking: synthesize each clause as soon as it completes
 	// instead of buffering the whole reply. Synthesis runs on a worker goroutine
 	// (ttsPipeline) rather than inline in the token callback: emitSpeech blocks
 	// until the whole clause is synthesized (and, for WebRTC, played back at
@@ -177,6 +177,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	var livePipe *liveSpeechPipeline
 	liveModel, liveCapable := session.ModelInterface.(liveSpeechModel)
 	useLive := liveCapable && liveModel.SupportsTTSLive() && session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTTS()
+	automaticClauses := !useLive && session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamLLM() && session.ModelConfig.Pipeline.StreamTTS() && session.ModelConfig.Pipeline.Streaming.ClauseChunking == nil
 	defer func() {
 		if livePipe != nil {
 			livePipe.abort()
@@ -187,6 +188,27 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		ttsPipe = newTTSPipeline(func(clause string) ([]byte, error) {
 			return emitSpeech(ctx, t, session, responseID, itemID, clause)
 		})
+	}
+	if automaticClauses {
+		chunker = newClauseChunker(defaultClauseMinRunes, defaultClauseMaxRunes)
+	}
+	// The automatic path starts on the first speakable clause, uses a bounded
+	// queue and cancels prediction on audio failure. Explicit legacy chunking
+	// keeps its existing worker and configuration semantics.
+	enqueueClause := func(clause string) bool {
+		if !automaticClauses {
+			return ttsPipe.enqueue(clause)
+		}
+		if livePipe == nil {
+			livePipe = newLiveSpeechPipeline(ctx, func(workerCtx context.Context, input <-chan string) ([]byte, error) {
+				audio, err := emitBufferedSpeech(workerCtx, input, t, session, responseID, itemID)
+				if err != nil {
+					cancelWork()
+				}
+				return audio, err
+			})
+		}
+		return livePipe.push(clause)
 	}
 	var streamedAudio []byte
 	var ttsErr error
@@ -240,11 +262,10 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		}
 		if chunker != nil && delta != "" {
 			for _, clause := range chunker.push(delta) {
-				// Hand the clause to the worker and keep going — never block the
-				// recv loop on synthesis. A false return means a prior clause
-				// already failed; stop the prediction (the error is collected
-				// from the pipeline after predFunc returns).
-				if !ttsPipe.enqueue(clause) {
+				// The automatic queue applies backpressure when audio falls behind.
+				// A false return means cancellation or a prior synthesis failure;
+				// collect the worker error after prediction stops.
+				if !enqueueClause(clause) {
 					return false
 				}
 			}
@@ -264,15 +285,17 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	// chunker was still holding; on an error or barge-in, stop synthesizing.
 	// wait() runs on every path so the worker goroutine never leaks, and it
 	// returns the audio streamed so far plus the first synthesis failure.
-	if ttsPipe != nil {
+	if chunker != nil {
 		if err == nil && ctx.Err() == nil {
 			for _, clause := range chunker.flush() {
-				if !ttsPipe.enqueue(clause) {
+				if !enqueueClause(clause) {
 					break
 				}
 			}
 		}
-		streamedAudio, ttsErr = ttsPipe.wait()
+		if ttsPipe != nil {
+			streamedAudio, ttsErr = ttsPipe.wait()
+		}
 	}
 
 	if livePipe != nil {

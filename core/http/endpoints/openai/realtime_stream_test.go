@@ -83,8 +83,9 @@ var _ = Describe("transcriptStreamer", func() {
 // streamLLMResponse drives a full streamed realtime turn: live transcript
 // deltas while the LLM generates, then the whole message is synthesized once.
 var _ = Describe("streamLLMResponse", func() {
-	It("streams transcript deltas then synthesizes the whole message once", func() {
+	It("buffers the whole reply when clause chunking is explicitly disabled", func() {
 		on := true
+		off := false
 		m := &fakeModel{
 			predictTokens:   []string{"Hello", " world.", " How are you?"},
 			predictResp:     backend.LLMResponse{Response: "Hello world. How are you?"},
@@ -95,7 +96,7 @@ var _ = Describe("streamLLMResponse", func() {
 			OutputSampleRate: 24000,
 			ModelInterface:   m,
 			ModelConfig: &config.ModelConfig{
-				Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on}},
+				Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on, ClauseChunking: &off}},
 			},
 		}
 		conv := &Conversation{}

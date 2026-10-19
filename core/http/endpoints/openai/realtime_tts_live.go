@@ -77,3 +77,30 @@ func emitLiveSpeech(ctx context.Context, model liveSpeechModel, text <-chan stri
 	})
 	return audio, err
 }
+
+// emitBufferedSpeech synthesizes independent complete clauses in order. Each
+// clause can stream its own backend audio; this is not a native live session.
+func emitBufferedSpeech(ctx context.Context, input <-chan string, t Transport, session *Session, responseID, itemID string) ([]byte, error) {
+	var audio []byte
+	for {
+		if err := ctx.Err(); err != nil {
+			return audio, err
+		}
+		select {
+		case <-ctx.Done():
+			return audio, ctx.Err()
+		case clause, ok := <-input:
+			if !ok {
+				return audio, nil
+			}
+			if err := ctx.Err(); err != nil {
+				return audio, err
+			}
+			chunk, err := emitSpeech(ctx, t, session, responseID, itemID, clause)
+			audio = append(audio, chunk...)
+			if err != nil {
+				return audio, err
+			}
+		}
+	}
+}

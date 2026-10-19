@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +29,8 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -534,6 +537,9 @@ func (m *wrappedModel) setTTSParams(params map[string]string) {
 
 func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
 	return m.stageCall(ctx, config.PipelineStageTTS, m.TTSConfig, func(cfg *config.ModelConfig, commit func()) error {
+		if !ttsBackendSupportsStreaming(cfg.Backend) {
+			return status.Error(codes.Unimplemented, "TTS backend does not support streaming audio")
+		}
 		// Audio that reached the client cannot be taken back, so the first
 		// chunk ends the retries.
 		return ttsStream(ctx, m.modelLoader, m.appConfig, *cfg, text, voice, language, maps.Clone(m.ttsParams), func(pcm []byte, sr int) error {
@@ -1263,4 +1269,18 @@ func (m *wrappedModel) TTSLive(ctx context.Context, text <-chan string, voice, l
 			return nil
 		})
 	})
+}
+
+// SupportsTTSStream avoids probing unary-only engines through the legacy
+// streaming RPC. Unknown backends retain their existing streaming probe.
+func (m *wrappedModel) SupportsTTSStream() bool {
+	if m.isChainStage(config.PipelineStageTTS) || m.TTSConfig == nil {
+		return true
+	}
+	return ttsBackendSupportsStreaming(m.TTSConfig.Backend)
+}
+
+func ttsBackendSupportsStreaming(backend string) bool {
+	capability := config.GetBackendCapability(backend)
+	return capability == nil || slices.Contains(capability.GRPCMethods, config.MethodTTSStream)
 }
