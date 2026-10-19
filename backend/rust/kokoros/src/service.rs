@@ -311,6 +311,22 @@ impl Backend for KokorosService {
 
     // --- Unimplemented RPCs ---
 
+    type MotionStreamStream = ReceiverStream<Result<backend::MotionResponse, Status>>;
+
+    async fn motion_stream(
+        &self,
+        _: Request<tonic::Streaming<backend::MotionRequest>>,
+    ) -> Result<Response<Self::MotionStreamStream>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn slot_cache(
+        &self,
+        _: Request<backend::SlotCacheRequest>,
+    ) -> Result<Response<backend::SlotCacheResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn predict(
         &self,
         _: Request<backend::PredictOptions>,
