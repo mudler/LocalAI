@@ -4,6 +4,86 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm2.5-24b-a2b-ud-q4
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses Unsloth's dynamic UD-Q4_K_XL GGUF quantization.
+  license: other
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/unsloth/LFM2.5-24B-A2B-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  files:
+    - filename: llama-cpp/models/unsloth/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-UD-Q4_K_XL.gguf
+      sha256: a235d23638cc5549cb1ff61da7522c8a7e97f056f27093462a1e56f35aba91d8
+      uri: https://huggingface.co/unsloth/LFM2.5-24B-A2B-GGUF/resolve/faa77113e93335b63423e9e8d33395f86eaf8946/LFM2.5-24B-A2B-UD-Q4_K_XL.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/unsloth/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-UD-Q4_K_XL.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm2.5-24b-a2b-ud-q6
+  description: |
+    LiquidAI LFM2.5-24B-A2B is a text-only reasoning model with 24B total
+    parameters and 2.45B active parameters for multilingual chat and tool use.
+    This entry uses Unsloth's dynamic UD-Q6_K_XL GGUF quantization.
+  license: other
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/unsloth/LFM2.5-24B-A2B-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  files:
+    - filename: llama-cpp/models/unsloth/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-UD-Q6_K_XL.gguf
+      sha256: abcb7e21e006eb4c826a2b75fb91c0804db7b20f908a61beeebdbdd07c88f41d
+      uri: https://huggingface.co/unsloth/LFM2.5-24B-A2B-GGUF/resolve/faa77113e93335b63423e9e8d33395f86eaf8946/LFM2.5-24B-A2B-UD-Q6_K_XL.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/unsloth/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-UD-Q6_K_XL.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
@@ -17836,6 +17916,8 @@
     template:
       use_tokenizer_template: true
   variants:
+    - model: lfm2.5-24b-a2b-ud-q4
+    - model: lfm2.5-24b-a2b-ud-q6
     - model: lfm2.5-24b-a2b-q5
     - model: lfm2.5-24b-a2b-q6
     - model: lfm2.5-24b-a2b-q8

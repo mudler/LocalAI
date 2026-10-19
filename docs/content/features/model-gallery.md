@@ -181,6 +181,9 @@ nothing is deleted.
 is a text-only reasoning model with 24B total parameters and 2.45B active
 parameters. The gallery provides the official Q4_K_M, Q5_K_M, Q6_K, and Q8_0
 GGUF builds through the `llama-cpp` backend.
+[Unsloth dynamic quantizations](https://huggingface.co/unsloth/LFM2.5-24B-A2B-GGUF)
+are also available as `lfm2.5-24b-a2b-ud-q4` (UD-Q4_K_XL) and
+`lfm2.5-24b-a2b-ud-q6` (UD-Q6_K_XL) in the same variant group.
 
 Install the model with automatic variant selection:
 
