@@ -94,6 +94,6 @@ var _ = Describe("TTSLiveNative", func() {
 				Fail(err.Error())
 			}
 		}
-		fmt.Fprintf(GinkgoWriter, "PCM bytes=%d callbacks=%d; late text and EOS sent after first PCM", bytes, chunks)
+		_, _ = fmt.Fprintf(GinkgoWriter, "PCM bytes=%d callbacks=%d; late text and EOS sent after first PCM", bytes, chunks)
 	})
 })

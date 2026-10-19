@@ -46,7 +46,7 @@ var _ = Describe("TTSLiveEarlyAudioAndTail", func() {
 		}
 		s := ggrpc.NewServer(serverOpts()...)
 		pb.RegisterBackendServer(s, &server{llm: &liveTTSFixture{}})
-		go s.Serve(listener)
+		go func() { _ = s.Serve(listener) }()
 		defer s.Stop()
 		c := NewClient(listener.Addr().String(), true, nil, false).(TTSLiveBackend)
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -93,7 +93,7 @@ var _ = Describe("TTSLiveCancellationAndSinkError", func() {
 				}
 				s := ggrpc.NewServer(serverOpts()...)
 				pb.RegisterBackendServer(s, &server{llm: &liveTTSFixture{}})
-				go s.Serve(listener)
+				go func() { _ = s.Serve(listener) }()
 				defer s.Stop()
 				c := NewClient(listener.Addr().String(), false, nil, false).(TTSLiveBackend)
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -131,7 +131,7 @@ var _ = Describe("TTSLiveRejectsInvalidUnicode", func() {
 		}
 		s := ggrpc.NewServer(serverOpts()...)
 		pb.RegisterBackendServer(s, &server{llm: &liveTTSFixture{}})
-		go s.Serve(listener)
+		go func() { _ = s.Serve(listener) }()
 		defer s.Stop()
 		c := NewClient(listener.Addr().String(), true, nil, false).(TTSLiveBackend)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)

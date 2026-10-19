@@ -73,7 +73,7 @@ func (c *Client) TTSLive(ctx context.Context, config *pb.TTSRequest, text <-chan
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	stream, err := pb.NewBackendClient(conn).TTSLive(ctx)
