@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <stdexcept>
 #include <unordered_map>
 
 static int failures = 0;
@@ -639,7 +640,74 @@ static void test_transform_text_preserves_other_inputs() {
           "transform text: the source audio is untouched");
 }
 
+static void test_expanded_families() {
+    backend::SoundGenerationRequest request;
+    request.set_expanded(true);
+    request.set_caption("warm jazz");
+    request.set_lyrics("sing this");
+    request.set_bpm(123);
+    request.set_language("en");
+    request.set_text("raw description");
+    (*request.mutable_params())["tags"] = "old tags";
+    auto task = build_sound_generation_request(request, std::nullopt, "heartmula");
+    check(!task.text_input && task.options.at("tags") == "warm jazz" &&
+              task.options.at("lyrics") == "sing this", "expanded heartmula: tags and lyrics, no transcript");
+    task = build_sound_generation_request(request, std::nullopt, "ace_step");
+    check(task.text_input && task.text_input->text == "warm jazz" &&
+              task.text_input->language == "en" && task.options.at("bpm") == "123" &&
+              task.options.at("lyrics") == "sing this", "expanded ace_step: caption transcript and metadata");
+    request.set_text("");
+    task = build_sound_generation_request(request, std::nullopt, "stable_audio");
+    check(task.text_input && task.text_input->text == "warm jazz", "expanded stable_audio: caption fills empty transcript");
+    request.set_text("explicit transcript");
+    task = build_sound_generation_request(request, std::nullopt, "stable_audio");
+    check(task.text_input && task.text_input->text == "explicit transcript", "expanded stable_audio: preserve nonempty transcript");
+    for (const auto &family : {"unknown", "", "heartmula"}) {
+        if (std::string(family) == "heartmula") request.set_lyrics("");
+        bool rejected = false;
+        try { build_sound_generation_request(request, std::nullopt, family); }
+        catch (const std::invalid_argument &) { rejected = true; }
+        check(rejected, std::string("expanded rejects unsupported or empty lyrics: ") + family);
+    }
+    request.set_lyrics("sing this");
+    request.set_instrumental(true);
+    bool rejected = false;
+    try { build_sound_generation_request(request, std::nullopt, "heartmula"); }
+    catch (const std::invalid_argument &) { rejected = true; }
+    check(rejected, "expanded heartmula: instrumental rejected even with lyrics");
+    request.set_expanded(false);
+    (*request.mutable_params())["style"] = "";
+    task = build_sound_generation_request(request, std::nullopt, "unknown");
+    check(task.text_input && task.text_input->text == "explicit transcript" &&
+              task.options.at("style").empty(), "unmarked: unknown family and empty explicit style unchanged");
+    request.mutable_params()->erase("style");
+    task = build_sound_generation_request(request, std::nullopt, "unknown");
+    check(task.options.at("style") == "warm jazz", "unmarked: legacy caption style fallback unchanged");
+}
+
+static void test_expanded_yue2() {
+    backend::SoundGenerationRequest request;
+    request.set_expanded(true);
+    request.set_text("raw description");
+    request.set_caption("soft piano");
+    request.set_lyrics("");
+    (*request.mutable_params())["style"] = "conflicting style";
+    (*request.mutable_params())["lyrics"] = "conflicting lyrics";
+    const auto task = build_sound_generation_request(request, std::nullopt, "yue2");
+    check(!task.text_input.has_value(), "expanded yue2: raw text cannot become lyrics");
+    check(option_or(task.options, "style", "") == "soft piano",
+          "expanded yue2: caption overrides conflicting style");
+    check(option_or(task.options, "lyrics", "missing").empty(),
+          "expanded yue2: empty lyrics override params");
+    request.set_caption("");
+    const auto empty = build_sound_generation_request(request, std::nullopt, "yue2");
+    check(empty.options.at("style").empty() && !empty.text_input,
+          "expanded yue2: empty caption clears params style without raw fallback");
+}
+
 int main() {
+    test_expanded_families();
+    test_expanded_yue2();
     test_voice_is_reference_file();
     test_tts_shape();
     test_tts_plain();

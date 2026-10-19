@@ -1,6 +1,7 @@
 #include "generation_request.h"
 
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -153,7 +154,8 @@ build_tts_request(const backend::TTSRequest &request,
 
 engine::runtime::TaskRequest
 build_sound_generation_request(const backend::SoundGenerationRequest &request,
-                               std::optional<engine::runtime::AudioBuffer> source_audio) {
+                               std::optional<engine::runtime::AudioBuffer> source_audio,
+                               const std::string &family) {
     engine::runtime::TaskRequest task;
 
     engine::runtime::Transcript transcript;
@@ -265,6 +267,27 @@ build_sound_generation_request(const backend::SoundGenerationRequest &request,
         // Alias again: the Transcript above is what ace_step reads as
         // vocal_language. No AudioGeneration family reads a "language" option.
         task.options["language"] = request.language();
+    }
+    if (request.expanded()) {
+        if (family != "yue2" && family != "heartmula" &&
+            family != "ace_step" && family != "stable_audio") {
+            throw std::invalid_argument(
+                "audio-cpp: prompt expansion is unsupported for family '" + family + "'");
+        }
+        if (family == "heartmula" &&
+            (request.instrumental() || request.lyrics().empty())) {
+            throw std::invalid_argument(
+                "audio-cpp: heartmula prompt expansion requires non-empty lyrics and does not support instrumental requests");
+        }
+        // Expanded fields are authoritative even when empty. In particular,
+        // YuE2 falls back from empty lyrics to transcript text upstream.
+        task.options["lyrics"] = request.lyrics();
+        if (family == "yue2" || family == "heartmula") {
+            task.options[family == "yue2" ? "style" : "tags"] = request.caption();
+            task.text_input.reset();
+        } else if (family == "ace_step" || task.text_input->text.empty()) {
+            task.text_input->text = request.caption();
+        }
     }
     return task;
 }
