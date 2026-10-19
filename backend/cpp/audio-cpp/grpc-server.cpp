@@ -46,6 +46,7 @@
 #include <mutex>
 #include <optional>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -1316,7 +1317,7 @@ public:
                     request->src(), kVoiceReferenceSampleRate);
             }
             const auto task = audiocpp_backend::build_sound_generation_request(
-                *request, std::move(source));
+                *request, std::move(source), model->family());
 
             audiocpp_backend::LaneEntry lane = model->acquire(0);
             const auto session = model->session_for(
@@ -1334,6 +1335,10 @@ public:
             result->set_success(true);
             result->set_message(request->dst());
             return GStatus::OK;
+        } catch (const std::invalid_argument &err) {
+            result->set_success(false);
+            result->set_message(err.what());
+            return GStatus(grpc::StatusCode::INVALID_ARGUMENT, err.what());
         } catch (const std::exception &err) {
             result->set_success(false);
             result->set_message(err.what());

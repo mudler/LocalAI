@@ -737,6 +737,16 @@
       "noPrompt": "Please enter a prompt",
       "noModel": "Please select a model",
       "generateFailed": "Generation failed"
+    },
+    "expansion": {
+      "label": "Prompt expansion model",
+      "placeholder": "Choose a model or backend default",
+      "backendDefault": "Backend default",
+      "choose": "Choose a chat model or Backend default to continue.",
+      "loading": "Loading installed chat models…",
+      "error": "Cannot load chat models. Choose Backend default or return to this tab to retry.",
+      "noChat": "No installed chat models. Choose Backend default to use the audio backend.",
+      "help": "A chat model expands your description into style and lyrics. Backend default uses the audio backend’s existing prompt behavior."
     }
   },
   "audioTransform": {
