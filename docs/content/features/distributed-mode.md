@@ -672,6 +672,14 @@ Two limits apply:
 - Models loaded with `--config-file` exist only on the frontend that loaded them. A reload of the models directory keeps them, and a config-file model wins over a directory file with the same name, as it does at startup.
 - The reload is strict: if any config file in the directory does not parse, the frontend keeps its current configs and logs the error once. It retries on each pass until the file is fixed. This keeps a half-written file from looking like a deleted model.
 
+### GGUF header cache shared by file
+
+Frontends that mount the same data volume share one [GGUF header cache]({{% relref "advanced/model-configuration" %}}#gguf-header-cache) file, `header-cache.json`, in the data path. A header that one frontend has read is used by the others. This is the shared-by-file mode, and it requires that every frontend mounts the same data volume.
+
+A frontend that sets `--instance-id` keeps its own file, `header-cache-<id>.json`, and does not share it. Use this when a frontend should start warm after a restart without sharing its entries.
+
+With a ReadWriteOnce volume, all frontends that share the cache must run on one node. Sharing across nodes needs a ReadWriteMany volume or a shared store, and this mode does not support it.
+
 ### Model configuration revisions
 
 Distributed mode assigns a `config_revision` to each validated model configuration. It hashes the persisted semantic configuration, including fields such as `context_size` and parallel settings. YAML formatting, comments, and map order do not change it.

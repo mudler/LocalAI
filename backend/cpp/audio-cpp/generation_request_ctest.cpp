@@ -426,6 +426,42 @@ static void test_sound_generation_minimal() {
     check(!task.voice.has_value(), "sound: no voice condition");
 }
 
+static void test_sound_generation_caption_style() {
+    backend::SoundGenerationRequest request;
+    request.set_caption("slow acoustic folk");
+    request.set_lyrics("first line\nsecond line");
+
+    auto task = build_sound_generation_request(request, std::nullopt);
+    check(option_or(task.options, "style", "") == "slow acoustic folk",
+          "sound: caption supplies the default YuE2 style");
+    check(option_or(task.options, "caption", "") == "slow acoustic folk",
+          "sound: caption remains available under its own name");
+    check(option_or(task.options, "lyrics", "") == "first line\nsecond line",
+          "sound: style fallback preserves lyrics");
+    check(request.params().empty(), "sound: style fallback does not mutate params");
+
+    (*request.mutable_params())["style"] = "fast jazz";
+    task = build_sound_generation_request(request, std::nullopt);
+    check(option_or(task.options, "style", "") == "fast jazz",
+          "sound: explicit style overrides caption");
+
+    (*request.mutable_params())["style"] = "";
+    task = build_sound_generation_request(request, std::nullopt);
+    check(has_key(task.options, "style") && task.options.at("style").empty(),
+          "sound: explicit empty style overrides caption");
+
+    request.mutable_params()->clear();
+    request.set_caption("");
+    task = build_sound_generation_request(request, std::nullopt);
+    check(!has_key(task.options, "style"), "sound: empty caption supplies no style");
+
+    request.clear_caption();
+    (*request.mutable_params())["style"] = "instrumental jazz";
+    task = build_sound_generation_request(request, std::nullopt);
+    check(option_or(task.options, "style", "") == "instrumental jazz",
+          "sound: explicit style works without a caption");
+}
+
 static void test_sound_generation_full() {
     backend::SoundGenerationRequest request;
     request.set_text("a slow blues in E");
@@ -616,6 +652,7 @@ int main() {
     test_tts_language_and_params();
     test_tts_reference_transcript();
     test_sound_generation_minimal();
+    test_sound_generation_caption_style();
     test_sound_generation_full();
     test_transform_text_absent();
     test_transform_text_canonical_key();

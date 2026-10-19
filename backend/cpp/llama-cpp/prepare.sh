@@ -69,6 +69,9 @@ cp -r thread_params_test.cpp llama.cpp/tools/grpc-server/
 # regression test.
 cp -r parallel_params.h llama.cpp/tools/grpc-server/
 cp -r parallel_params_test.cpp llama.cpp/tools/grpc-server/
+# moe_cache_mib option parsing and its standalone regression test.
+cp -r moe_cache_option.h llama.cpp/tools/grpc-server/
+cp -r moe_cache_option_test.cpp llama.cpp/tools/grpc-server/
 # Parent-death watcher (included by grpc-server.cpp) and its standalone unit
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
 cp -r parent_watch.h llama.cpp/tools/grpc-server/
@@ -77,6 +80,10 @@ cp -r parent_watch_test.cpp llama.cpp/tools/grpc-server/
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
 cp -r stream_peer.h llama.cpp/tools/grpc-server/
 cp -r stream_peer_test.cpp llama.cpp/tools/grpc-server/
+# Slot cache save/restore helpers (included by grpc-server.cpp) and their
+# unit test (compiled only when -DLLAMA_GRPC_BUILD_TESTS=ON).
+cp -r slot_cache.h llama.cpp/tools/grpc-server/
+cp -r slot_cache_test.cpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/nlohmann/json.hpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/cpp-httplib/httplib.h llama.cpp/tools/grpc-server/
 
@@ -109,6 +116,18 @@ if grep -q "llm_add_n_cpu_ffn_overrides" llama.cpp/common/common.h; then
 else
     HAS_N_CPU_FFN_HELPER=0
 fi
+# MoE expert GPU cache (--moe-cache-mib). Forks that branched earlier lack the field.
+if grep -q "moe_cache_size" llama.cpp/common/common.h; then
+    HAS_MOE_CACHE=1
+else
+    HAS_MOE_CACHE=0
+fi
+# On-demand tensor reading (--lazy-mode). Forks that branched earlier lack the field.
+if grep -q "llama_lazy_mode lazy_mode" llama.cpp/common/common.h; then
+    HAS_LAZY_MODE=1
+else
+    HAS_LAZY_MODE=0
+fi
 # Newer servers return template state separately from the request JSON.
 if grep -q "common_chat_session & out_session" llama.cpp/tools/server/server-common.h; then
     HAS_CHAT_SESSION=1
@@ -123,6 +142,8 @@ cat > llama.cpp/tools/grpc-server/llama_compat.h <<EOF
 #define LOCALAI_HAS_SERVER_METRICS ${HAS_SERVER_METRICS}
 #define LOCALAI_HAS_MTMD_INIT_OPT ${HAS_MTMD_INIT_OPT}
 #define LOCALAI_HAS_N_CPU_FFN_HELPER ${HAS_N_CPU_FFN_HELPER}
+#define LOCALAI_HAS_MOE_CACHE ${HAS_MOE_CACHE}
+#define LOCALAI_HAS_LAZY_MODE ${HAS_LAZY_MODE}
 EOF
 
 set +e

@@ -123,6 +123,69 @@ A word is a run of letters, digits, combining marks, `-`, `'` and inner dots
 line break, and it does nothing when no word follows. Only one word is added,
 so a multi-word town ("Frankfurt am Main") keeps its tail.
 
+The extension is deliberately blunt: the next word can also be a number or a
+date (`ZIPCODE` followed by `12 Mar 2026` takes `12`), so it trades some
+over-masking for fewer leaks. Use it only for groups whose neighbour is
+identifying.
+
+`extend_to_previous_word` is the mirror for the word *before* a detection. A
+name model often tags the surname with high confidence and scores the first
+name in front of it below `min_score` (`Gast Greta [REDACTED:ner:LASTNAME]`):
+
+```yaml
+pii_detection:
+  extend_to_previous_word:
+    - LASTNAME                # "Gast Greta Waldmeister" -> "Gast [REDACTED:ner:LASTNAME]"
+```
+
+Here the preceding word must consist of letters (plus `-` and `'`): a word
+with digits - an amount, a date, a room number - is never taken, nor a
+protected term. The search skips spaces and tabs but never a line break.
+
+The word before a hit is not always a first name: a title (`Herr`), a
+preposition or any other plain word in front of the surname is taken too
+(`Gast Greta Waldmeister` loses `Greta`, `Herrn Waldmeister` loses `Herrn`).
+Like the next-word option it trades over-masking for fewer leaks. Do not
+combine both directions on the same name group: each hit then also takes the
+word after it, so a name followed by a number swallows that number.
+
+#### Protected terms
+
+The opposite failure is a value the model tags although it must reach the
+upstream model: a business name read as a surname (`Hotel Seeblick` ->
+`Hotel [REDACTED:ner:LASTNAME]`) turns an invoice into one the model cannot
+categorise. `protected_terms` lists such values; `protected_terms_files`
+adds files inside the models path with one term per line (`#` starts a
+comment), re-read whenever they change, so an external process can keep the
+list current without a restart:
+
+```yaml
+pii_detection:
+  protected_terms:
+    - Hotel Seeblick
+  protected_terms_files:
+    - privacy-filter/known-suppliers.txt
+```
+
+Each whole-word, case-insensitive occurrence (whitespace inside a term
+matches any whitespace run) is replaced by a neutral placeholder before the
+detector runs and restored afterwards. The detector never sees the value,
+so it cannot tag it or let it colour the context around it, and the parts
+of a detection that fall on the placeholder are cut out. Event offsets
+still address the original text. Terms shorter than three characters are
+ignored, and a missing or unreadable file is skipped with a warning (fewer
+protected terms means more masking, never less).
+
+A term that is only part of a longer word is not protected: with the term
+`Anna`, `Anna-Lena` and `O'Anna` are still passed to the detector. Protected
+terms apply to the NER tier only. A pattern detector
+(`backend: pattern`) always scans the original text and may still mask a
+match inside a protected term.
+
+A protected term passes **everywhere** in the text: if the same string is
+also a person's name, that occurrence passes too. Keep the list to values
+that are safe to send.
+
 ### Pattern detector tier
 
 NER is the wrong tool for high-entropy, highly-regular **secrets** - API keys,
@@ -207,6 +270,15 @@ customized with `reversible_token_prefix` and `reversible_token_suffix`.
 Reversible redactions provide less confidentiality than irreversible masking:
 any third party that can observe both the redacted request and restored response
 may be able to infer the original values.
+
+`block_unscanned_media: true` closes the gap the text detectors leave open:
+images, audio, video and files in a request are never scanned, so by default
+they reach the backend unchecked. With the option set, a request that carries
+any such content is rejected with HTTP 400 (`error.type=pii_blocked`, audit
+event pattern `__unscanned_media__`) before a detector runs. Use it for egress
+policies where "cannot be inspected" must mean "not sent", e.g. on
+`cloud-proxy` models. It applies to the OpenAI chat, Anthropic messages and
+Ollama chat routes, and only while PII is enabled for the model.
 
 Multiple detectors **union** their detections; overlapping spans resolve to
 the strongest action (`block` > `mask` > `allow`). A configured detector

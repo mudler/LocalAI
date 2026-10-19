@@ -161,6 +161,49 @@ The initially migrated backend families are `transformers` and its aliases,
 artifact declarations only for this set. Compatible external backends may opt
 in by declaring the artifact explicitly.
 
+## GGUF header cache
+
+When a model config does not set a value itself, LocalAI reads the header of its GGUF file to choose defaults. The header gives the layer count, the trained context length, the chat template, the token IDs, and whether the file has an embedded multi-token-prediction head. Reading a large header takes seconds, so LocalAI keeps the result in a cache.
+
+**Mode: shared by file.** Every frontend that uses the same data path reads and writes one cache file, `header-cache.json`. A frontend can therefore use the headers another frontend has already read. This mode is valid only while all frontends mount the same data volume.
+
+Set an instance ID (`--instance-id` or `LOCALAI_INSTANCE_ID`) to give a frontend its own file, `header-cache-<id>.json`, instead of the shared one. It then keeps its own entries across restarts and does not share them with other frontends. An instance ID that is not a plain token (letters, digits, `-` and `_`, up to 64 characters) is hashed into the file name. In distributed mode, an ID that LocalAI generates at startup does not select a file of its own, because it changes on every start; such a frontend uses the shared file.
+
+{{% notice warning %}}
+All frontends that share this cache must mount the same data volume. With a ReadWriteOnce volume, the volume attaches to one node at a time, so all frontends that share the cache must run on that one node. A frontend on another node cannot mount the volume and will not start. Sharing this cache across nodes needs a ReadWriteMany volume or a shared store, and this mode does not support it.
+{{% /notice %}}
+
+### What is stored
+
+Each entry is keyed by the absolute path of the file, its size and its modification time. If any of the three changes, the entry is not used and the header is read again.
+
+The file keeps the values that come from the file: the architecture and name, the trained context length, the chat template, the token IDs, the multi-token-prediction head, and the estimates that depend only on the file and on LocalAI's fixed defaults. The file also records the gguf-parser version and those defaults, so a LocalAI upgrade that changes them ignores the old file.
+
+The file does not store anything about the machine: GPU and memory sizes, and your settings. Those are read again when a model loads, so the same file gives the same defaults on a different host.
+
+The cache holds at most 256 entries. The least recently used entry is dropped first. Changes are written in the background after a short pause, never while a request waits.
+
+### How frontends share the file
+
+- **Merge on save.** Before writing, a frontend reads the file and merges its entries into its own. When both hold an entry for the same model file, the one that matches the model file on disk is kept. Entries that match no current file are dropped. The 256-entry bound applies to the merged set.
+- **Atomic write.** The new file is written to a temporary file in the same directory and renamed into place. A reader sees either the old file or the new one, never a partial file.
+- **Reload on miss.** A frontend reads the file when it starts. Later, it checks the file only when a header lookup misses, and only when the file's modification time differs from the one it last read. It reads the file at most once per miss. A lookup that hits the cache never reads the file.
+- **Concurrent saves.** Two frontends can save at the same moment. The later rename wins, so an entry that the other frontend saved in that moment can be lost. A lost entry costs one header parse the next time that model file is used. It never gives a wrong value, because every entry is checked against its model file before it is used.
+
+### Where the file lives
+
+The file is in the data path (`--data-path`, default `data/` under the LocalAI base path):
+
+- `header-cache.json`, in standalone mode and for every frontend that does not set an instance ID. Frontends that mount the same data path share it.
+- `header-cache-<id>.json`, for a frontend that sets an instance ID (`--instance-id` or `LOCALAI_INSTANCE_ID`).
+- No data path: the cache is kept in memory only. Each start parses the headers again.
+
+Files named `gguf-header-cache*.json` come from earlier versions. LocalAI does not read them, so you can delete them.
+
+### Clearing the cache
+
+Stop the frontends that share the file and delete `header-cache.json`. It is rebuilt as models are used, one parse per model file. Deleting the file while a frontend runs is not reliable: that frontend writes its in-memory entries back after the next change.
+
 ## Parameters Section
 
 The `parameters` section contains all OpenAI-compatible request parameters and model-specific options.
@@ -329,11 +372,51 @@ This option applies to the main model's expert weights.
 To keep experts from only the first 12 layers on CPU, replace `cpu_moe:true` with `n_cpu_moe:12`.
 Use one of these options at a time.
 
+To speed up decoding when experts stay in host memory, you can add a GPU cache for them with `moe_cache_mib`:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+  - moe_cache_mib:4096
+```
+
+The value is a size in MiB.
+It is off by default (`0`).
+It helps only when expert weights are in host memory, that is with `cpu_moe`, `n_cpu_moe` or a spill from [GPU auto-fit](#gpu-auto-fit-mode).
+The cache uses GPU memory, so lower `gpu_layers` or the auto-fit result may change when you turn it on.
+The feature is experimental upstream.
+A cache that is too small can thrash, because every token evicts its own experts.
+A rough starting point is about 10% of the total expert size.
+LocalAI sets no value on its own.
+
 CPU execution and data transfers can reduce generation speed compared with a model that fits entirely on GPU.
 RAM and VRAM do not form one interchangeable allocation pool.
 Leave memory for the KV cache, compute buffers, the operating system, and other processes.
 Reduce `context_size` if the KV cache consumes too much memory.
 The [GPU auto-fit settings](#gpu-auto-fit-mode) provide a separate way to let llama.cpp choose the allocation.
+
+#### Lazy tensor loading
+
+Some models have very large tensors that are used sparsely, such as per-layer embeddings.
+The `lazy_mode` option (also `lazy-mode`) sets upstream `--lazy-mode`: it controls whether llama.cpp reads those tensors on demand instead of loading them all at startup.
+
+```yaml
+backend: llama-cpp
+options:
+  - lazy_mode:on
+```
+
+| Value | Behavior |
+|---|---|
+| `auto` | Default. Read on demand only the marked tensors larger than 4 GiB. |
+| `on` | Read on demand every marked tensor. Requires `mmap` (enabled by default). |
+| `off` | Load everything at startup. |
+
+An invalid value logs a warning and keeps the default.
+The option needs a llama.cpp build that has `--lazy-mode`.
 
 ### Sampling and Generation
 
@@ -1153,6 +1236,10 @@ PII redaction is NER-based and runs on the **request** (input) side. It has two 
       EMAIL: mask
     extend_to_next_word:      # optional: also mask the word right after these
       - ZIPCODE               # groups on the same line (e.g. the town after a postal code)
+    extend_to_previous_word:  # optional: also mask the letters-only word right before these
+      - LASTNAME              # groups on the same line (e.g. the first name before a surname)
+    protected_terms:          # optional: values that must pass unchanged even if tagged
+      - Hotel Seeblick        # (plus protected_terms_files: one term per line, in the models path)
   ```
 
 - **Consuming models** opt in and reference one or more detectors by name - no per-consumer policy:

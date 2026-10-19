@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useOutletContext, useSearchParams, useLocation } from 'react-router-dom'
 import YAML from 'yaml'
 import { modelsApi } from '../utils/api'
+import { waitForImportJob as waitForJob } from '../utils/importJob'
 import { apiUrl } from '../utils/basePath'
 import { useConfigMetadata } from '../hooks/useConfigMetadata'
 import { useVramEstimate } from '../hooks/useVramEstimate'
@@ -118,6 +119,14 @@ export default function ModelEditor() {
   const [clearedPaths, setClearedPaths] = useState(new Set())
 
   const sectionRefs = useRef({})
+
+  // Stops the wait for a queued import when the editor unmounts. Created in
+  // the effect as well so a StrictMode remount gets a live controller.
+  const importAbortRef = useRef(new AbortController())
+  useEffect(() => {
+    importAbortRef.current = new AbortController()
+    return () => importAbortRef.current.abort()
+  }, [])
 
   const vramEstimate = useVramEstimate({
     model: name,
@@ -288,6 +297,22 @@ export default function ModelEditor() {
     return null
   }, [isCreateMode, vramEstimate.loading, vramEstimate.vramDisplay])
 
+  // A queued import (config with remote assets) answers with a job id;
+  // the config file exists only once the job finishes, so creation must
+  // not navigate to the editor before that — and a download failure has
+  // to surface here instead of after a premature success toast. A
+  // response without a job id is a synchronous import: config written.
+  const waitForImportJob = async (result) => {
+    const jobId = result?.uuid || result?.ID
+    if (!jobId) return false
+    addToast('Import queued — downloading model assets…', 'info')
+    await waitForJob(jobId, {
+      getStatus: modelsApi.getJobStatus,
+      signal: importAbortRef.current.signal,
+    })
+    return true
+  }
+
   // Interactive save — uses PATCH (edit mode) or importConfig (create mode)
   const handleInteractiveSave = async () => {
     setSaving(true)
@@ -312,7 +337,8 @@ export default function ModelEditor() {
         const modelName = values['name']
         if (!modelName?.trim()) { addToast('Model name is required', 'error'); setSaving(false); return }
         if (!/^[a-zA-Z0-9_.-]+$/.test(modelName.trim())) { addToast('Invalid model name — use only letters, numbers, hyphens, underscores, and dots', 'error'); setSaving(false); return }
-        await modelsApi.importConfig(JSON.stringify(config), 'application/json')
+        const result = await modelsApi.importConfig(JSON.stringify(config), 'application/json')
+        await waitForImportJob(result)
         addToast('Model created successfully', 'success')
         // replace: the transient create URL shouldn't sit in history, so
         // Back (browser or in-page) skips it and returns to the linking page.
@@ -331,6 +357,7 @@ export default function ModelEditor() {
         addToast('Configuration saved', 'success')
       }
     } catch (err) {
+      if (err?.name === 'AbortError') return
       addToast(`Save failed: ${err.message}`, 'error')
     } finally {
       setSaving(false)
@@ -343,7 +370,8 @@ export default function ModelEditor() {
     try {
       if (isCreateMode) {
         // In create mode, import the YAML as a new config
-        await modelsApi.importConfig(yamlText, 'application/x-yaml')
+        const result = await modelsApi.importConfig(yamlText, 'application/x-yaml')
+        await waitForImportJob(result)
         addToast('Model created successfully', 'success')
         try {
           const parsed = YAML.parse(yamlText)
@@ -381,6 +409,7 @@ export default function ModelEditor() {
         }
       }
     } catch (err) {
+      if (err?.name === 'AbortError') return
       addToast(`Save failed: ${err.message}`, 'error')
     } finally {
       setSaving(false)

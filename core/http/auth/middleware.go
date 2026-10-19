@@ -79,6 +79,17 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 					c.Set(contextKeyUser, syntheticUser)
 					c.Set(contextKeyRole, RoleAdmin)
 					c.Set(contextKeySource, UsageSourceLegacy)
+					for _, name := range []string{"Authorization", "X-Api-Key", "Xi-Api-Key"} {
+						if value := c.Request().Header.Get(name); value != "" {
+							c.Set(contextKeyTicketCredential, ticketCredential{name, value})
+							break
+						}
+					}
+					if c.Get(contextKeyTicketCredential) == nil {
+						if cookie, err := c.Cookie("token"); err == nil {
+							c.Set(contextKeyTicketCredential, ticketCredential{"Cookie", cookie.String()})
+						}
+					}
 					c.Set(contextKeyHeaderAuthenticated, extractHeaderKey(c) != "")
 					authenticated = true
 				}
@@ -459,6 +470,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 		if user, session := ValidateSession(db, cookie.Value, hmacSecret); user != nil {
 			// Store session for rotation check in middleware
 			c.Set("_auth_session", session)
+			c.Set(contextKeyTicketCredential, ticketCredential{"Cookie", cookie.String()})
 			c.Set(contextKeySource, UsageSourceWeb)
 			return user
 		}
@@ -472,6 +484,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 		// b1. Session token via Bearer -> still web UI
 		if user, _ := ValidateSession(db, token, hmacSecret); user != nil {
 			c.Set(contextKeyHeaderAuthenticated, true)
+			c.Set(contextKeyTicketCredential, ticketCredential{"Authorization", authHeader})
 			c.Set(contextKeySource, UsageSourceWeb)
 			return user
 		}
@@ -479,6 +492,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 		// b2. Named API key
 		if key, err := ValidateAPIKey(db, token, hmacSecret); err == nil {
 			c.Set(contextKeyHeaderAuthenticated, true)
+			c.Set(contextKeyTicketCredential, ticketCredential{"Authorization", authHeader})
 			c.Set(contextKeySource, UsageSourceAPIKey)
 			c.Set(contextKeyAPIKey, key)
 			return &key.User
@@ -490,6 +504,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 		if k := c.Request().Header.Get(header); k != "" {
 			if apiKey, err := ValidateAPIKey(db, k, hmacSecret); err == nil {
 				c.Set(contextKeyHeaderAuthenticated, true)
+				c.Set(contextKeyTicketCredential, ticketCredential{header, k})
 				c.Set(contextKeySource, UsageSourceAPIKey)
 				c.Set(contextKeyAPIKey, apiKey)
 				return &apiKey.User
@@ -501,6 +516,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" {
 		if key, err := ValidateAPIKey(db, cookie.Value, hmacSecret); err == nil {
 			c.Set(contextKeySource, UsageSourceAPIKey)
+			c.Set(contextKeyTicketCredential, ticketCredential{"Cookie", cookie.String()})
 			c.Set(contextKeyAPIKey, key)
 			return &key.User
 		}
@@ -582,4 +598,10 @@ func authError(c echo.Context, appConfig *config.ApplicationConfig) error {
 			Type:    "invalid_request_error",
 		},
 	})
+}
+
+// HeaderAuthenticated reports validation of an explicitly supplied credential.
+func HeaderAuthenticated(c echo.Context) bool {
+	validated, _ := c.Get(contextKeyHeaderAuthenticated).(bool)
+	return validated && GetUser(c) != nil
 }

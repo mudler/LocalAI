@@ -109,6 +109,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Generate instance ID if not set
 	if cfg.Distributed.InstanceID == "" {
 		cfg.Distributed.InstanceID = uuid.New().String()
+		cfg.Distributed.InstanceIDGenerated = true
 	}
 	xlog.Info("Distributed instance", "id", cfg.Distributed.InstanceID)
 

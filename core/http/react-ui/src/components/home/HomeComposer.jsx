@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import { availableActions, filterActions, SLASH_GROUPS } from './homeActions'
 import Icon from '../Icon'
+import DictateButton from './DictateButton'
 
 // The Enter glyph is not in the kit sprite. A return arrow in a darker cell
 // teaches the shortcut next to the label.
@@ -31,6 +32,7 @@ function Marked({ text, upto }) {
 //   slash        { actions, groups, label, desc, groupLabel } for its own menu
 //   streaming    swaps Send for a Stop button that calls onStop
 //   onPaste, onKeyDownExtra (return true to take the key), fileAccept, rows,
+//   onDictateError (message for a failed dictation, e.g. a toast),
 //   testIds and class names for the pieces tests and the thread reach for
 export default function HomeComposer({
   message, onMessage, onSubmit, canSend, sending, sendTitle, textareaRef,
@@ -38,7 +40,7 @@ export default function HomeComposer({
   placeholder, slashContext, onRunAction, slash,
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
   fileAccept = '.txt,.md,.pdf', rows = 3, strictEnter = false, testId = 'home-composer',
-  textareaTestId, textareaClass = '', sendId, sendTestId, hint,
+  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError,
 }) {
   const { t } = useTranslation('home')
   const imageRef = useRef(null)
@@ -204,11 +206,15 @@ export default function HomeComposer({
             <Icon name="image" />
           </button>
           <button type="button" className="home-attach-btn" onClick={() => audioRef.current?.click()} title={t('input.attachAudio')} aria-label={t('input.attachAudio')}>
-            <Icon name="mic" />
+            <Icon name="music" />
           </button>
           <button type="button" className="home-attach-btn" onClick={() => fileRef.current?.click()} title={t('input.attachFile')} aria-label={t('input.attachFile')}>
             <Icon name="file" />
           </button>
+          <DictateButton
+            onText={(text) => onMessage(message.trim() ? `${message.trimEnd()} ${text}` : text)}
+            onError={onDictateError}
+          />
         </div>
         <span className="home-input-hint">{hint || t('input.enterHint')}</span>
         {streaming ? (

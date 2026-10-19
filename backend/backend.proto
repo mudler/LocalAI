@@ -18,6 +18,7 @@ service Backend {
   rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc Generate3D(Generate3DRequest) returns (Result) {}
+  rpc MotionStream(stream MotionRequest) returns (stream MotionResponse) {}
   rpc Animate3D(Animate3DRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
@@ -74,6 +75,11 @@ service Backend {
   rpc Score(ScoreRequest) returns (ScoreResponse) {}
 
   rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
+
+  // SlotCache saves or restores the backend's per-slot prompt state (KV or
+  // session state). On save the backend issues an ID; on restore the client
+  // sends an ID the backend issued. The client never names a file. A backend that does not support it returns gRPC UNIMPLEMENTED.
+  rpc SlotCache(SlotCacheRequest) returns (SlotCacheResponse) {}
 
   rpc VAD(VADRequest) returns (VADResponse) {}
 
@@ -727,6 +733,19 @@ message GenerateVideoRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 15;
+  // Reference conditioning (MiniMax-H3 Ref2VA). Additive: `audio` and
+  // params["ref_image"] keep working and count as one more reference each.
+  // Keyframes (start_image/end_image) and references are mutually exclusive.
+  repeated string ref_images = 16;          // Staged paths of reference images
+  repeated VideoReference ref_videos = 17;  // Reference videos given as frame directories
+  repeated string ref_audios = 18;          // Staged paths of reference audio clips (WAV)
+}
+
+// VideoReference is one reference video for GenerateVideoRequest.
+message VideoReference {
+  string frames_dir = 1;  // Staged directory of frame images, read in lexicographic file-name order
+  int32 fps = 2;          // Frame rate of the source frames; 0 means the backend default
+  string audio = 3;       // Optional staged WAV path paired with this video
 }
 
 // A named conditioning input. Media references are staged local paths by the
@@ -913,6 +932,36 @@ message SoundGenerationRequest {
 message TokenizationResponse {
   int32 length = 1;
   repeated int32 tokens = 2;
+}
+
+enum SlotCacheAction {
+  SLOT_CACHE_ACTION_UNSPECIFIED = 0;
+  SLOT_CACHE_ACTION_SAVE = 1;
+  SLOT_CACHE_ACTION_RESTORE = 2;
+}
+
+message SlotCacheRequest {
+  // Ties a save file to the model it came from. Empty means the backend does
+  // not check it.
+  string model_identity = 1;
+  SlotCacheAction action = 2;
+  // The backend's state slot id, 0 is the first slot. For llama.cpp it is the
+  // server slot. Other backends may map it to a session id.
+  int32 slot = 3;
+  // Save: leave empty, the backend issues the ID. Restore: an ID that the
+  // backend issued for this model. The client never chooses a file name or a
+  // path; the backend must refuse any ID it did not issue for this model.
+  string id = 4;
+}
+
+message SlotCacheResponse {
+  bool success = 1;
+  string message = 2;    // error detail when success is false
+  int32 slot = 3;
+  string id = 4;         // save: the ID the backend issued. restore: the ID restored
+  uint64 n_tokens = 5;   // tokens saved or restored
+  uint64 n_bytes = 6;    // bytes written or read
+  double duration_ms = 7;
 }
 
 message DetokenizeRequest {
@@ -1574,4 +1623,16 @@ message ForwardReply {
   int32 status = 1;
   repeated ForwardHeader headers = 2;
   bytes body_chunk = 3;
+}
+
+// Configuration is first; later messages contain input only.
+message MotionRequest {
+  string model_identity = 1;
+  string profile = 2;
+  bytes input = 3; // Serialized public localai.motion.v1.Input.
+}
+message MotionResponse {
+  bytes output = 1; // Serialized public localai.motion.v1.Output.
+  // Backend-only bounded stage timings; not part of the public wire protocol.
+  map<string, double> stage_ms = 2;
 }

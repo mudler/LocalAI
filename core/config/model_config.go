@@ -622,11 +622,19 @@ type PIIConfig struct {
 	ReversibleRedactions  bool   `yaml:"reversible_redactions,omitempty" json:"reversible_redactions,omitempty"`
 	ReversibleTokenPrefix string `yaml:"reversible_token_prefix,omitempty" json:"reversible_token_prefix,omitempty"`
 	ReversibleTokenSuffix string `yaml:"reversible_token_suffix,omitempty" json:"reversible_token_suffix,omitempty"`
+
+	// BlockUnscannedMedia rejects requests that carry content the text
+	// detectors cannot inspect (images, audio, video, files) instead of
+	// forwarding it unchecked. Only applies while PII is enabled for the
+	// model. Meant for egress policies where "not inspectable" must mean
+	// "not sent", e.g. cloud-proxy models.
+	BlockUnscannedMedia bool `yaml:"block_unscanned_media,omitempty" json:"block_unscanned_media,omitempty"`
 }
 
 func (c ModelConfig) PIIReversibleRedactions() bool    { return c.PII.ReversibleRedactions }
 func (c ModelConfig) PIIReversibleTokenPrefix() string { return c.PII.ReversibleTokenPrefix }
 func (c ModelConfig) PIIReversibleTokenSuffix() string { return c.PII.ReversibleTokenSuffix }
+func (c ModelConfig) PIIBlockUnscannedMedia() bool     { return c.PII.BlockUnscannedMedia }
 
 // @Description Detection policy for a token-classification (NER) model
 // used as a PII detector. Lives on the detector model's own config so the
@@ -661,6 +669,20 @@ type PIIDetectionConfig struct {
 	// with the same action - for a neighbour the model scores unreliably,
 	// such as the town after a postal code.
 	ExtendToNextWord []string `yaml:"extend_to_next_word,omitempty" json:"extend_to_next_word,omitempty"`
+	// ExtendToPreviousWord lists entity groups (e.g. "LASTNAME") whose accepted
+	// detections also cover the word right before them on the same line, when
+	// that word consists of letters only - for a neighbour the model scores
+	// unreliably, such as the first name before a recognised surname.
+	ExtendToPreviousWord []string `yaml:"extend_to_previous_word,omitempty" json:"extend_to_previous_word,omitempty"`
+	// ProtectedTerms are values that must pass the filter unchanged even
+	// when the model tags them (e.g. known business names read as
+	// surnames). They are hidden from the detector behind a placeholder and
+	// restored afterwards. Matched whole-word and case-insensitively.
+	ProtectedTerms []string `yaml:"protected_terms,omitempty" json:"protected_terms,omitempty"`
+	// ProtectedTermsFiles adds terms from files (one per line, '#' comments),
+	// resolved inside the models path and re-read when they change, so an
+	// external process can keep the list current without a restart.
+	ProtectedTermsFiles []string `yaml:"protected_terms_files,omitempty" json:"protected_terms_files,omitempty"`
 }
 
 // PIIPattern is one operator-defined pattern on a pattern detector model. Name
@@ -747,6 +769,22 @@ func (c *ModelConfig) PIIDetectionExtendToNextWord() []string {
 		return nil
 	}
 	return append([]string(nil), c.PIIDetection.ExtendToNextWord...)
+}
+
+// PIIDetectionExtendToPreviousWord returns the entity groups whose detections
+// are stretched over the preceding word (a fresh copy).
+func (c *ModelConfig) PIIDetectionExtendToPreviousWord() []string {
+	if len(c.PIIDetection.ExtendToPreviousWord) == 0 {
+		return nil
+	}
+	return append([]string(nil), c.PIIDetection.ExtendToPreviousWord...)
+}
+
+// PIIDetectionProtectedTerms returns the inline protected terms and the
+// configured term files (fresh copies). The files are read by the pii
+// package (pii.LoadProtectedTerms), relative to the models path.
+func (c *ModelConfig) PIIDetectionProtectedTerms() (terms, files []string) {
+	return slices.Clone(c.PIIDetection.ProtectedTerms), slices.Clone(c.PIIDetection.ProtectedTermsFiles)
 }
 
 // IsPatternDetector reports whether this detector model matches secrets with
@@ -2204,6 +2242,11 @@ const (
 	// Marks a model as an image upscaler served by the UpscaleImage RPC.
 	FLAG_UPSCALE ModelConfigUsecase = 1 << 26
 
+	// Marks a model as a motion-capture backend (GEM-X pose streaming).
+	// Keep every usecase flag a distinct bit: the "Usecase flags" spec
+	// guards against two flags silently sharing one.
+	FLAG_MOTION ModelConfigUsecase = 1 << 27
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -2213,7 +2256,7 @@ const (
 // both text/language). A model is multimodal when its usecases span 2+ groups.
 var ModalityGroups = []ModelConfigUsecase{
 	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                           // text/language
-	FLAG_VISION | FLAG_DETECTION,                                      // visual understanding
+	FLAG_VISION | FLAG_DETECTION | FLAG_MOTION,                        // visual understanding
 	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
 	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
 	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
@@ -2268,6 +2311,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
 		"FLAG_DECISIONS":            FLAG_DECISIONS,
 		"FLAG_UPSCALE":              FLAG_UPSCALE,
+		"FLAG_MOTION":               FLAG_MOTION,
 	}
 }
 
@@ -2322,6 +2366,12 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	// Upscaling requires a dedicated model declaration, not just an image backend.
 	if u&FLAG_UPSCALE != 0 {
 		return false
+	}
+	if u&FLAG_MOTION != 0 {
+		// Motion is declared by the backend registry, never inferred from templates.
+		if cap := GetBackendCapability(c.Backend); cap == nil || !slices.Contains(cap.PossibleUsecases, UsecaseMotion) {
+			return false
+		}
 	}
 	// Backends that are clearly not text-generation
 	nonTextGenBackends := []string{

@@ -117,6 +117,7 @@ function serializeChat(chat) {
     temperature: chat.temperature,
     topP: chat.topP,
     topK: chat.topK,
+    reasoningEffort: chat.reasoningEffort,
     tokenUsage: chat.tokenUsage,
     contextSize: chat.contextSize,
     createdAt: chat.createdAt,
@@ -186,6 +187,9 @@ function createNewChat(model = '', systemPrompt = '', mcpMode = false) {
     temperature: null,
     topP: null,
     topK: null,
+    // '' leaves reasoning_effort to the model config. 'none' also hides
+    // reasoning traces in the thread.
+    reasoningEffort: '',
     tokenUsage: { prompt: 0, completion: 0, total: 0 },
     contextSize: null,
     createdAt: Date.now(),
@@ -475,6 +479,8 @@ export function useChat(initialModel = '') {
     const temperature = activeChat.temperature
     const topP = activeChat.topP
     const topK = activeChat.topK
+    const hideReasoning = activeChat.reasoningEffort === 'none'
+    const showReasoning = (text) => { if (!hideReasoning) setStreamingReasoning(text) }
 
     // Build user message content
     let messageContent
@@ -567,6 +573,9 @@ export function useChat(initialModel = '') {
     if (temperature !== null && temperature !== undefined) requestBody.temperature = temperature
     if (topP !== null && topP !== undefined) requestBody.top_p = topP
     if (topK !== null && topK !== undefined) requestBody.top_k = topK
+    // reasoning_effort is honoured per request. 'none' also turns thinking off.
+    const reasoningEffort = activeChat.reasoningEffort
+    if (reasoningEffort) requestBody.reasoning_effort = reasoningEffort
     // contextSize is the model's input+output window, not an
     // output cap. Backends bound generation at remaining context
     // automatically; Anthropic translate mode supplies its own
@@ -666,7 +675,7 @@ export function useChat(initialModel = '') {
                   if (eventData.content) {
                     reasoningContent += eventData.content
                     tokenCountRef.current += Math.ceil(eventData.content.length / 4)
-                    setStreamingReasoning(reasoningContent)
+                    showReasoning(reasoningContent)
                     updateTps()
                   }
                   break
@@ -711,7 +720,7 @@ export function useChat(initialModel = '') {
                       const { regularContent, thinkingContent } = extractThinking(assistantContent)
                       if (thinkingContent) {
                         reasoningContent = thinkingContent
-                        setStreamingReasoning(reasoningContent)
+                        showReasoning(reasoningContent)
                       }
                       setStreamingContent(regularContent)
                     } else {
@@ -739,7 +748,7 @@ export function useChat(initialModel = '') {
           if (thinkingContent && !reasoningContent) reasoningContent = thinkingContent
         }
 
-        if (reasoningContent) {
+        if (reasoningContent && !hideReasoning) {
           newMessages.unshift({ role: 'thinking', content: reasoningContent, expanded: true })
         }
         if (finalContent) {
@@ -837,7 +846,7 @@ export function useChat(initialModel = '') {
                   hasReasoningFromAPI = true
                   reasoningContent += delta.reasoning
                   tokenCountRef.current++
-                  setStreamingReasoning(reasoningContent)
+                  showReasoning(reasoningContent)
                   updateTps()
                 }
 
@@ -892,7 +901,7 @@ export function useChat(initialModel = '') {
                       const lastOpen = Math.max(rawContent.lastIndexOf('<thinking>'), rawContent.lastIndexOf('<think>'), rawContent.lastIndexOf('<|channel>thought'))
                       if (lastOpen >= 0) {
                         const partial = rawContent.slice(lastOpen).replace(/<thinking>|<think>|<\|channel>thought/, '')
-                        setStreamingReasoning(partial)
+                        showReasoning(partial)
                         const beforeThink = rawContent.slice(0, lastOpen)
                         const { regularContent: contentBeforeThink } = extractThinking(beforeThink)
                         setStreamingContent(contentBeforeThink)
@@ -900,7 +909,7 @@ export function useChat(initialModel = '') {
                         setStreamingContent(regularContent)
                       }
                     } else {
-                      setStreamingReasoning(reasoningContent)
+                      showReasoning(reasoningContent)
                       setStreamingContent(regularContent)
                     }
                   } else {
@@ -999,7 +1008,7 @@ export function useChat(initialModel = '') {
           if (thinkingContent && !reasoningContent) reasoningContent = thinkingContent
         }
 
-        if (reasoningContent) {
+        if (reasoningContent && !hideReasoning) {
           newMessages.push({ role: 'thinking', content: reasoningContent, expanded: true })
         }
         if (finalContent) {

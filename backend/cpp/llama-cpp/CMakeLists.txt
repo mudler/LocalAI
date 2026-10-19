@@ -133,10 +133,21 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_compile_features(thread_params_test PRIVATE cxx_std_17)
     add_test(NAME thread_params_test COMMAND thread_params_test)
 
+    add_executable(moe_cache_option_test moe_cache_option_test.cpp moe_cache_option.h)
+    target_include_directories(moe_cache_option_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(moe_cache_option_test PRIVATE cxx_std_17)
+    add_test(NAME moe_cache_option_test COMMAND moe_cache_option_test)
+
     add_executable(parallel_params_test parallel_params_test.cpp parallel_params.h)
     target_include_directories(parallel_params_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(parallel_params_test PRIVATE cxx_std_17)
     add_test(NAME parallel_params_test COMMAND parallel_params_test)
+
+    add_executable(slot_cache_test slot_cache_test.cpp slot_cache.h)
+    target_include_directories(slot_cache_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(slot_cache_test PRIVATE ${_LLAMA_COMMON_TARGET}) # vendored nlohmann/json
+    target_compile_features(slot_cache_test PRIVATE cxx_std_17)
+    add_test(NAME slot_cache_test COMMAND slot_cache_test)
 
     add_executable(model_load_error_test model_load_error_test.cpp model_load_error.h)
     target_include_directories(model_load_error_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

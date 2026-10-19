@@ -314,7 +314,7 @@ LocalAI supports various types of backends:
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
 - **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "features/audio-cpp" %}}))
-- **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store)
+- **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store, qdrant-store)
 
 See the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}) for the full catalog.
 
@@ -349,3 +349,7 @@ has actually gone away; a client that waits receives the full context worth of
 tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
 `1` so a repetition loop terminates on its own.
 {{% /notice %}}
+
+### Motion capture
+
+- [gem-x.cpp](https://github.com/localai-org/gem-x.cpp): live SOMA-77 and SMPL-24 human poses on CPU/Vulkan. See [Motion Capture](/features/motion/).

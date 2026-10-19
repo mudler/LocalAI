@@ -64,8 +64,10 @@ func llamaCppDefaultsWithParser(cfg *ModelConfig, modelPath string, parse func(s
 	//     -> 8 for a 256k-token vocab), the dominant cost on slow filesystems.
 	//
 	// The mapping is released when ParseGGUFFile returns.
-	f, err := parse(guessPath, gguf.UseMMap(), gguf.SkipLargeMetadata())
+	// The header snapshot comes from the cache when the file identity matches;
+	// otherwise the parser runs once and its result is cached.
+	header, err := loadGGUFHeader(guessPath, parse)
 	if err == nil {
-		guessGGUFFromFile(cfg, f, 0)
+		guessGGUFFromFile(cfg, header, 0)
 	}
 }

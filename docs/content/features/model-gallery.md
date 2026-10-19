@@ -44,6 +44,23 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### MiniCPM-V 4.7 1B
+
+[MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
+supports text chat and image understanding through the llama.cpp backend.
+The gallery includes official Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds.
+Each build includes the F16 vision projector and uses an 8,192-token default context.
+
+Install the family with automatic variant selection:
+
+```bash
+local-ai models install minicpm-v-4_7-1b-q4
+```
+
+Select a specific build with `--variant minicpm-v-4_7-1b-q4`,
+`--variant minicpm-v-4_7-1b-q5`, `--variant minicpm-v-4_7-1b-q6`,
+or `--variant minicpm-v-4_7-1b-q8`.
+
 ### Repairing an existing model configuration
 
 Gallery template updates do not rewrite YAML files for already installed models.
@@ -157,6 +174,25 @@ confirm, the review checks again and lists what will go, why, and how much it
 frees. Removal then waits 30 seconds, during which you can undo it; the delete
 request is sent only when that time ends. If you leave the page during the wait,
 nothing is deleted.
+
+## LFM2.5-24B-A2B
+
+[LiquidAI LFM2.5-24B-A2B](https://huggingface.co/LiquidAI/LFM2.5-24B-A2B)
+is a text-only reasoning model with 24B total parameters and 2.45B active
+parameters. The gallery provides the official Q4_K_M, Q5_K_M, Q6_K, and Q8_0
+GGUF builds through the `llama-cpp` backend.
+
+Install the model with automatic variant selection:
+
+```bash
+local-ai models install lfm2.5-24b-a2b
+```
+
+To select a specific quantization, use `--variant` with `lfm2.5-24b-a2b`
+(Q4_K_M), `lfm2.5-24b-a2b-q5`, `lfm2.5-24b-a2b-q6`, or
+`lfm2.5-24b-a2b-q8`. The entries use the embedded tokenizer template, a
+131,072-token context, and LiquidAI's recommended sampling settings.
+The weights use the [Liquid AI LFM Open License](https://huggingface.co/LiquidAI/LFM2.5-24B-A2B/blob/main/LICENSE).
 
 ## Cyber-Ornith 1.5 9B
 
@@ -294,6 +330,24 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 - **How they are computed**: GGUF models use file size (HTTP HEAD or local stat) and optional GGUF metadata (HTTP Range) for KV cache and overhead; other formats use Hugging Face file sizes and optional config when available. If metadata is unavailable, a size-only heuristic is used. GGUF metadata lengths that exceed the file size are rejected before allocation; these files also use the size-only estimate.
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, each row shows whether the estimated memory at the chosen context length fits, using a 95% headroom rule. A model that is too big for the GPU but would run from system RAM is marked as spilling to the CPU, with how much; a model too big for both is marked as over by the shortfall.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
+
+## EmbeddingGemma 2
+
+The `embeddinggemma-2` family serves text embeddings through `llama-cpp`.
+It offers Q8_0 and BF16 weights, plus smaller Unsloth UD-Q4_K_XL,
+UD-Q5_K_XL, and UD-Q6_K_XL variants. These entries use the 270M-parameter
+text backbone with an 8192-token context and 768-dimensional output.
+
+To select a smaller build explicitly:
+
+```sh
+local-ai models install embeddinggemma-2 --variant embeddinggemma-2-ud-q4-k-xl
+```
+
+Send text to `/v1/embeddings`. For retrieval, prefix queries with
+`task: search result | query: ` and documents with `title: {title} | text: `.
+See the [model card](https://huggingface.co/google/embeddinggemma-2)
+for other task prefixes. These gallery entries support text input only.
 
 ## Useful Links and resources
 

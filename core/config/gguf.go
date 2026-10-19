@@ -47,22 +47,22 @@ func HasGenAudioProjector(f *gguf.GGUFFile) bool {
 	return kv.ValueBool()
 }
 
-func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
+func guessGGUFFromFile(cfg *ModelConfig, f ggufHeader, defaultCtx int) {
 	// Explicit opt-in: a negative context_size (canonically -1) means "use the
 	// model's full trained context (n_ctx_train) from GGUF metadata". Unlike the
 	// silent unset path below, this overrides an already-present value and warns
 	// when the resolved window will not fit detected VRAM.
 	if cfg.ContextSize != nil && *cfg.ContextSize < 0 {
-		if maxCtx := int(f.Architecture().MaximumContextLength); maxCtx > 0 {
+		if maxCtx := f.MaxContextLength; maxCtx > 0 {
 			cfg.ContextSize = &maxCtx
-			warnIfContextExceedsVRAM(f, maxCtx, f.Metadata().Name)
+			warnIfContextExceedsVRAM(f.maxCtxFootprint, maxCtx, f.Name)
 		} else {
 			// No usable trained max in metadata: degrade to the safe default
 			// rather than leak a negative n_ctx downstream.
 			d := DefaultContextSize
 			cfg.ContextSize = &d
 			xlog.Warn("[gguf] context_size=-1 requested but GGUF exposes no trained max; using default",
-				"default", d, "model", f.Metadata().Name)
+				"default", d, "model", f.Name)
 		}
 	}
 
@@ -72,9 +72,13 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		// load: a 128k / 256k / 1M KV cache cannot fit a consumer GPU and the
 		// backend aborts (exitCode=-1). autoContextSize instead caps to a modest
 		// default and only steps below it when detected per-device VRAM demands.
-		trainedMax := int(f.EstimateLLaMACppRun().ContextSize)
+		if f.trainedPanic != nil {
+			// Replay the estimator panic where the defaults path used to hit it.
+			panic(f.trainedPanic)
+		}
+		trainedMax := f.TrainedContext
 		if trainedMax > 0 {
-			cSize := autoContextSize(f, trainedMax)
+			cSize := autoContextSize(f.footprintAt, trainedMax)
 			cfg.ContextSize = &cSize
 		} else {
 			defaultCtx = DefaultContextSize
@@ -95,20 +99,19 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		cfg.NGPULayers = &defaultHigh
 	}
 
-	xlog.Debug("[gguf] guessDefaultsFromFile: NGPULayers set", "NGPULayers", cfg.NGPULayers, "modelName", f.Metadata().Name)
+	xlog.Debug("[gguf] guessDefaultsFromFile: NGPULayers set", "NGPULayers", cfg.NGPULayers, "modelName", f.Name)
 
 	// identify from well known templates first, otherwise use the raw jinja template
-	chatTemplate, found := f.Header.MetadataKV.Get("tokenizer.chat_template")
-	if found {
+	if f.HasChatTemplate {
 		// fill jinja template
-		cfg.modelTemplate = chatTemplate.ValueString()
+		cfg.modelTemplate = f.ChatTemplate
 	}
 
 	// Auto-enable Multi-Token Prediction (ggml-org/llama.cpp#22673) when the
 	// GGUF carries an embedded MTP head. Skipped silently for non-MTP models
 	// and when the user already configured a spec_type.
-	if n, ok := HasEmbeddedMTPHead(f); ok {
-		ApplyMTPDefaults(cfg, n)
+	if f.HasMTP {
+		ApplyMTPDefaults(cfg, f.MTPLayers)
 	}
 
 	// Thinking support detection is done after model load via DetectThinkingSupportFromBackend
@@ -116,15 +119,15 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	// template estimations
 	if cfg.HasTemplate() {
 		// nothing to guess here
-		xlog.Debug("[gguf] guessDefaultsFromFile: template already set", "name", cfg.Name, "modelName", f.Metadata().Name)
+		xlog.Debug("[gguf] guessDefaultsFromFile: template already set", "name", cfg.Name, "modelName", f.Name)
 		return
 	}
 
-	xlog.Debug("[gguf] Model file loaded", "file", cfg.ModelFileName(), "eosTokenID", f.Tokenizer().EOSTokenID, "bosTokenID", f.Tokenizer().BOSTokenID, "modelName", f.Metadata().Name, "architecture", f.Architecture().Architecture)
+	xlog.Debug("[gguf] Model file loaded", "file", cfg.ModelFileName(), "eosTokenID", f.EOSTokenID, "bosTokenID", f.BOSTokenID, "modelName", f.Name, "architecture", f.Architecture)
 
 	// guess the name
 	if cfg.Name == "" {
-		cfg.Name = f.Metadata().Name
+		cfg.Name = f.Name
 	}
 
 	// A model the operator reserved for an internal primitive (the router
@@ -142,7 +145,7 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	}
 
 	// Apply per-model-family inference parameter defaults (temperature, top_p, etc.)
-	ApplyInferenceDefaults(cfg, f.Metadata().Name)
+	ApplyInferenceDefaults(cfg, f.Name)
 }
 
 // DetectThinkingSupportFromBackend calls the ModelMetadata gRPC method to detect
@@ -273,8 +276,8 @@ func applyDetectedThinkingConfig(cfg *ModelConfig, metadata *pb.ModelMetadataRes
 // detection or estimation gap (no GPU, unknown VRAM, estimate failure) silently
 // skips the warning. Used by the context_size=-1 auto-max path, where the raw
 // trained max can be far larger than a consumer card holds.
-func warnIfContextExceedsVRAM(f *gguf.GGUFFile, ctx int, name string) {
-	defer func() { _ = recover() }() // the run estimate can panic on unusual headers
+func warnIfContextExceedsVRAM(used uint64, ctx int, name string) {
+	defer func() { _ = recover() }()
 
 	if !xsysinfo.HasGPU("nvidia") && !xsysinfo.HasGPU("amd") {
 		return // no VRAM to compare against
@@ -284,14 +287,6 @@ func warnIfContextExceedsVRAM(f *gguf.GGUFFile, ctx int, name string) {
 		return
 	}
 
-	sum := f.EstimateLLaMACppRun(gguf.WithLLaMACppContextSize(int32(ctx))).Summarize(true, 0, 0)
-	if len(sum.Items) == 0 {
-		return
-	}
-	var used uint64
-	for _, v := range sum.Items[0].VRAMs {
-		used += uint64(v.NonUMA)
-	}
 	if used == 0 || used <= vram {
 		return
 	}

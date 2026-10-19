@@ -376,7 +376,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Build auth middleware: use the new auth.Middleware when auth is enabled or
 	// as a unified replacement for the legacy key-auth middleware.
-	authMiddleware := auth.Middleware(application.AuthDB(), application.ApplicationConfig())
+	authMiddleware := auth.WithWebSocketTickets(application.WebSocketTickets(),
+		auth.Middleware(application.AuthDB(), application.ApplicationConfig()))
 
 	// Favicon handler
 	e.GET("/favicon.svg", func(c echo.Context) error {

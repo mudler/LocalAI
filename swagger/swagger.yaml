@@ -1,5 +1,12 @@
 basePath: /
 definitions:
+  auth.WebSocketTicketResponse:
+    properties:
+      expires_at:
+        type: string
+      ticket:
+        type: string
+    type: object
   config.Gallery:
     properties:
       artifact_verification:
@@ -355,6 +362,12 @@ definitions:
         items:
           $ref: '#/definitions/gallery.NodeDriftInfo'
         type: array
+      reason:
+        description: |-
+          Reason says why the backend is flagged when version and digest alone
+          would not flag it: the backend failed a request in a way that shows it
+          is older than the server. Empty for ordinary version or digest upgrades.
+        type: string
     type: object
   gallery.Variant:
     properties:
@@ -578,6 +591,39 @@ definitions:
         type: integer
       success:
         type: boolean
+    type: object
+  localai.MotionSessionInfo:
+    properties:
+      frames:
+        type: integer
+      id:
+        type: string
+      model:
+        type: string
+      poses:
+        type: integer
+      profile:
+        type: string
+      time_origin:
+        type: string
+      upload_accepted:
+        type: integer
+      upload_dropped:
+        type: integer
+    type: object
+  localai.MotionSessionRequest:
+    properties:
+      model:
+        type: string
+      profile:
+        type: string
+      time_origin:
+        type: string
+    type: object
+  localai.MotionTicketRequest:
+    properties:
+      origin:
+        type: string
     type: object
   localai.TTSModelVoices:
     properties:
@@ -3080,6 +3126,42 @@ definitions:
           classifier-side confidence signal).
         type: number
     type: object
+  schema.SlotCacheRequest:
+    properties:
+      id:
+        description: 'restore only: an ID issued by a save for this model'
+        type: string
+      model:
+        type: string
+      slot:
+        description: slot id, 0 is the first slot
+        type: integer
+    type: object
+  schema.SlotCacheResponse:
+    properties:
+      action:
+        description: '"save" or "restore"'
+        type: string
+      duration_ms:
+        description: time the backend spent
+        type: number
+      id:
+        description: issued by the save, sent back to restore
+        type: string
+      message:
+        description: for example the IDs a save pruned
+        type: string
+      model:
+        type: string
+      n_bytes:
+        description: bytes written or read
+        type: integer
+      n_tokens:
+        description: tokens saved or restored
+        type: integer
+      slot:
+        type: integer
+    type: object
   schema.SoundClassification:
     properties:
       index:
@@ -3496,6 +3578,20 @@ definitions:
       model:
         type: string
     type: object
+  schema.VideoReference:
+    properties:
+      audio:
+        description: optional audio paired with this video
+        type: string
+      fps:
+        description: frame rate of the source frames; 0 means the backend default
+        type: integer
+      frames:
+        description: 'ordered frame images: URL, base64 or data URI'
+        items:
+          type: string
+        type: array
+    type: object
   schema.VideoRequest:
     properties:
       audio:
@@ -3532,6 +3628,21 @@ definitions:
       prompt:
         description: text description of the video to generate
         type: string
+      ref_audios:
+        description: reference audio clips (WAV); exclusive with start_image/end_image
+        items:
+          type: string
+        type: array
+      ref_images:
+        description: reference images (URL, base64 or data URI); exclusive with start_image/end_image
+        items:
+          type: string
+        type: array
+      ref_videos:
+        description: reference videos as frame lists; exclusive with start_image/end_image
+        items:
+          $ref: '#/definitions/schema.VideoReference'
+        type: array
       response_format:
         description: output format (url or b64_json)
         type: string
@@ -4959,6 +5070,96 @@ paths:
       summary: Estimate VRAM usage for a model
       tags:
       - config
+  /api/motion/sessions:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Model, output profile and source clock origin
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.MotionSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/localai.MotionSessionInfo'
+      summary: Create a motion capture session
+      tags:
+      - motion
+  /api/motion/sessions/{id}:
+    delete:
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Close a motion session
+      tags:
+      - motion
+    get:
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.MotionSessionInfo'
+      summary: Get motion session status
+      tags:
+      - motion
+  /api/motion/sessions/{id}/poses:
+    get:
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "101":
+          description: Switching Protocols
+      summary: Stream motion frames and poses over a duplex WebSocket
+      tags:
+      - motion
+  /api/motion/sessions/{id}/tickets:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Browser origin
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.MotionTicketRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.WebSocketTicketResponse'
+      summary: Issue a motion WebSocket ticket (30 seconds, single use)
+      tags:
+      - motion
   /api/nodes/{id}/max-replicas-per-model:
     delete:
       parameters:
@@ -5912,6 +6113,42 @@ paths:
       summary: List all Galleries
       tags:
       - models
+  /models/import:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Writes the posted model configuration. A config referencing
+        remote assets (download_files entries, URI-valued model/mmproj)
+        is enqueued on the gallery job queue and answered with a job id
+        plus status URL to poll, like a gallery install; a config with
+        no downloads is written synchronously and answered with a
+        plain success response. A queued import runs the gallery
+        installer, which also adds recommended inference defaults the
+        config leaves unset and installs the backend when automatic
+        backend installation is enabled; the synchronous path stores
+        the body as posted.
+      parameters:
+      - description: model configuration (YAML or JSON body)
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'remote assets present: job id and status URL'
+          schema:
+            $ref: '#/definitions/schema.GalleryResponse'
+        "400":
+          description: invalid or incomplete configuration
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+      summary: Import a model from a raw YAML or JSON configuration
+      tags:
+      - models
   /models/jobs:
     get:
       responses:
@@ -6693,6 +6930,48 @@ paths:
             additionalProperties: true
             type: object
       summary: Cancel a response
+      tags:
+      - inference
+  /v1/slots/restore:
+    post:
+      description: Loads the prompt cache that a save call returned an ID for into
+        one slot of a llama-cpp model. The ID must have been issued for this model.
+        The state is only as fresh as the save. Admin only.
+      parameters:
+      - description: Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SlotCacheRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.SlotCacheResponse'
+      summary: Restore a slot's prompt cache by ID.
+      tags:
+      - inference
+  /v1/slots/save:
+    post:
+      description: Writes the prompt cache (KV state) of one slot of a llama-cpp model
+        under the directory set by the model's slot_save_path option, and returns
+        an ID for it. The server issues the ID; the client cannot choose a name or
+        a path. The server keeps at most 32 saves per model and deletes the oldest
+        one beyond that. Admin only.
+      parameters:
+      - description: Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SlotCacheRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.SlotCacheResponse'
+      summary: Save a slot's prompt cache.
       tags:
       - inference
   /v1/sound-generation:

@@ -26,7 +26,12 @@ export function readChatStore(key) {
     if (!raw) return null
     const data = JSON.parse(raw)
     if (!data || !Array.isArray(data.chats)) return null
-    return { ...data, pendingDeletes: Array.isArray(data.pendingDeletes) ? data.pendingDeletes : [] }
+    // Older chats stored a separate reasoningOff flag. It now means
+    // reasoning_effort 'none'.
+    const chats = data.chats.map(({ reasoningOff, ...chat }) => (
+      reasoningOff ? { ...chat, reasoningEffort: 'none' } : chat
+    ))
+    return { ...data, chats, pendingDeletes: Array.isArray(data.pendingDeletes) ? data.pendingDeletes : [] }
   } catch {
     return null
   }

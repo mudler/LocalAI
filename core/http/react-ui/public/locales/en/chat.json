@@ -132,6 +132,18 @@
     "selectModelFirst": "Select a model first",
     "placeholderPick": "Pick a model to start"
   },
+  "reasoning": {
+    "effortLabel": "Effort",
+    "effortTitle": "Reasoning effort for this chat",
+    "default": "Model default",
+    "level": {
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    }
+  },
   "deleteAllDialog": {
     "title": "Delete All Chats",
     "message": "Delete all chats? This cannot be undone.",
@@ -143,7 +155,8 @@
     "copyFailed": "Could not copy to clipboard",
     "chatCopied": "Chat copied to clipboard",
     "forked": "Created a new chat",
-    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged."
+    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged.",
+    "pdfScannedAsImages": "{{name}} has no text layer (scan). Attached {{count}} of {{total}} pages as images for a vision model."
   },
   "menu": {
     "trigger": "Chats",
@@ -212,6 +225,10 @@
     "chats": {
       "label": "Conversations",
       "desc": "Open the list of your chats"
+    },
+    "effort": {
+      "label": "Reasoning effort",
+      "desc": "Choose how hard the model thinks"
     },
     "assistant": {
       "label": "Manage mode",

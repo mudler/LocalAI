@@ -1738,6 +1738,146 @@
                 }
             }
         },
+        "/api/motion/sessions": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Create a motion capture session",
+                "parameters": [
+                    {
+                        "description": "Model, output profile and source clock origin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionSessionInfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions/{id}": {
+            "get": {
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Get motion session status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionSessionInfo"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Close a motion session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions/{id}/poses": {
+            "get": {
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Stream motion frames and poses over a duplex WebSocket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols"
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions/{id}/tickets": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Issue a motion WebSocket ticket (30 seconds, single use)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Browser origin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionTicketRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/auth.WebSocketTicketResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/models": {
             "get": {
                 "tags": [
@@ -3128,6 +3268,46 @@
                 }
             }
         },
+        "/models/import": {
+            "post": {
+                "description": "Writes the posted model configuration. A config referencing\nremote assets (download_files entries, URI-valued model/mmproj)\nis enqueued on the gallery job queue and answered with a job id\nplus status URL to poll, like a gallery install; a config with\nno downloads is written synchronously and answered with a\nplain success response. A queued import runs the gallery\ninstaller, which also adds recommended inference defaults the\nconfig leaves unset and installs the backend when automatic\nbackend installation is enabled; the synchronous path stores\nthe body as posted.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Import a model from a raw YAML or JSON configuration",
+                "parameters": [
+                    {
+                        "description": "model configuration (YAML or JSON body)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "remote assets present: job id and status URL",
+                        "schema": {
+                            "$ref": "#/definitions/schema.GalleryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid or incomplete configuration",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/models/jobs": {
             "get": {
                 "tags": [
@@ -4320,6 +4500,62 @@
                 }
             }
         },
+        "/v1/slots/restore": {
+            "post": {
+                "description": "Loads the prompt cache that a save call returned an ID for into one slot of a llama-cpp model. The ID must have been issued for this model. The state is only as fresh as the save. Admin only.",
+                "tags": [
+                    "inference"
+                ],
+                "summary": "Restore a slot's prompt cache by ID.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/slots/save": {
+            "post": {
+                "description": "Writes the prompt cache (KV state) of one slot of a llama-cpp model under the directory set by the model's slot_save_path option, and returns an ID for it. The server issues the ID; the client cannot choose a name or a path. The server keeps at most 32 saves per model and deletes the oldest one beyond that. Admin only.",
+                "tags": [
+                    "inference"
+                ],
+                "summary": "Save a slot's prompt cache.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SlotCacheResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/sound-generation": {
             "post": {
                 "tags": [
@@ -4752,6 +4988,17 @@
         }
     },
     "definitions": {
+        "auth.WebSocketTicketResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "ticket": {
+                    "type": "string"
+                }
+            }
+        },
         "config.Gallery": {
             "type": "object",
             "properties": {
@@ -5245,6 +5492,10 @@
                     "items": {
                         "$ref": "#/definitions/gallery.NodeDriftInfo"
                     }
+                },
+                "reason": {
+                    "description": "Reason says why the backend is flagged when version and digest alone\nwould not flag it: the backend failed a request in a way that shows it\nis older than the server. Empty for ordinary version or digest upgrades.",
+                    "type": "string"
                 }
             }
         },
@@ -5536,6 +5787,57 @@
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "localai.MotionSessionInfo": {
+            "type": "object",
+            "properties": {
+                "frames": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "poses": {
+                    "type": "integer"
+                },
+                "profile": {
+                    "type": "string"
+                },
+                "time_origin": {
+                    "type": "string"
+                },
+                "upload_accepted": {
+                    "type": "integer"
+                },
+                "upload_dropped": {
+                    "type": "integer"
+                }
+            }
+        },
+        "localai.MotionSessionRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "profile": {
+                    "type": "string"
+                },
+                "time_origin": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.MotionTicketRequest": {
+            "type": "object",
+            "properties": {
+                "origin": {
+                    "type": "string"
                 }
             }
         },
@@ -9068,6 +9370,57 @@
                 }
             }
         },
+        "schema.SlotCacheRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "restore only: an ID issued by a save for this model",
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "slot": {
+                    "description": "slot id, 0 is the first slot",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SlotCacheResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "\"save\" or \"restore\"",
+                    "type": "string"
+                },
+                "duration_ms": {
+                    "description": "time the backend spent",
+                    "type": "number"
+                },
+                "id": {
+                    "description": "issued by the save, sent back to restore",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "for example the IDs a save pruned",
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "n_bytes": {
+                    "description": "bytes written or read",
+                    "type": "integer"
+                },
+                "n_tokens": {
+                    "description": "tokens saved or restored",
+                    "type": "integer"
+                },
+                "slot": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.SoundClassification": {
             "type": "object",
             "properties": {
@@ -9640,6 +9993,26 @@
                 }
             }
         },
+        "schema.VideoReference": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "description": "optional audio paired with this video",
+                    "type": "string"
+                },
+                "fps": {
+                    "description": "frame rate of the source frames; 0 means the backend default",
+                    "type": "integer"
+                },
+                "frames": {
+                    "description": "ordered frame images: URL, base64 or data URI",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.VideoRequest": {
             "type": "object",
             "properties": {
@@ -9688,6 +10061,27 @@
                 "prompt": {
                     "description": "text description of the video to generate",
                     "type": "string"
+                },
+                "ref_audios": {
+                    "description": "reference audio clips (WAV); exclusive with start_image/end_image",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ref_images": {
+                    "description": "reference images (URL, base64 or data URI); exclusive with start_image/end_image",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ref_videos": {
+                    "description": "reference videos as frame lists; exclusive with start_image/end_image",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.VideoReference"
+                    }
                 },
                 "response_format": {
                     "description": "output format (url or b64_json)",

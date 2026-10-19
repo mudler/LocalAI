@@ -57,27 +57,29 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
-	backendLoader      *config.ModelConfigLoader
-	modelLoader        *model.ModelLoader
-	applicationConfig  *config.ApplicationConfig
-	startupConfig      *config.ApplicationConfig // Stores original config from env vars (before file loading)
-	templatesEvaluator *templates.Evaluator
-	galleryService     *galleryop.GalleryService
-	agentJobService    *agentpool.AgentJobService
-	agentPoolService   atomic.Pointer[agentpool.AgentPoolService]
-	faceRegistry       facerecognition.Registry
-	voiceRegistry      voicerecognition.Registry
-	voiceProfileStore  *voiceprofile.Store
-	chatHistoryStore   *chathistory.Store
-	authDB             *gorm.DB
-	metricsService     *monitoring.LocalAIMetricsService
-	statsRecorder      *billing.Recorder
-	fallbackUser       *auth.User
-	piiRedactor        *pii.Redactor
-	piiEvents          pii.EventStore
-	mitmCA             atomic.Pointer[mitm.CA]
-	mitmServer         atomic.Pointer[mitm.Server]
-	mitmMutex          sync.Mutex // serializes Stop+Start; readers use atomic loads
+	webSocketTicketsOnce sync.Once
+	webSocketTickets     *auth.WebSocketTickets
+	backendLoader        *config.ModelConfigLoader
+	modelLoader          *model.ModelLoader
+	applicationConfig    *config.ApplicationConfig
+	startupConfig        *config.ApplicationConfig // Stores original config from env vars (before file loading)
+	templatesEvaluator   *templates.Evaluator
+	galleryService       *galleryop.GalleryService
+	agentJobService      *agentpool.AgentJobService
+	agentPoolService     atomic.Pointer[agentpool.AgentPoolService]
+	faceRegistry         facerecognition.Registry
+	voiceRegistry        voicerecognition.Registry
+	voiceProfileStore    *voiceprofile.Store
+	chatHistoryStore     *chathistory.Store
+	authDB               *gorm.DB
+	metricsService       *monitoring.LocalAIMetricsService
+	statsRecorder        *billing.Recorder
+	fallbackUser         *auth.User
+	piiRedactor          *pii.Redactor
+	piiEvents            pii.EventStore
+	mitmCA               atomic.Pointer[mitm.CA]
+	mitmServer           atomic.Pointer[mitm.Server]
+	mitmMutex            sync.Mutex // serializes Stop+Start; readers use atomic loads
 	// mitmHostConflicts records duplicate-host claims across model configs.
 	// Non-empty disables the MITM listener until resolved — the strict
 	// 1-to-1 host↔model invariant the dispatcher relies on. Read by
@@ -131,6 +133,12 @@ type Application struct {
 	startupComplete atomic.Bool
 
 	shutdownOnce sync.Once
+}
+
+// WebSocketTickets returns this frontend's short-lived upgrade ticket store.
+func (a *Application) WebSocketTickets() *auth.WebSocketTickets {
+	a.webSocketTicketsOnce.Do(func() { a.webSocketTickets = auth.NewWebSocketTickets() })
+	return a.webSocketTickets
 }
 
 // Ready reports whether the application has finished starting up and can serve
@@ -384,6 +392,9 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 			pii.SourceNER,
 		)
 		nc.ExtendToNextWord = cfg.PIIDetectionExtendToNextWord()
+		nc.ExtendToPreviousWord = cfg.PIIDetectionExtendToPreviousWord()
+		terms, files := cfg.PIIDetectionProtectedTerms()
+		nc.ProtectedTerms = pii.LoadProtectedTerms(terms, files, a.ApplicationConfig().SystemState.Model.ModelsPath)
 		return nc, true
 	}
 }

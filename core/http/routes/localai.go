@@ -43,6 +43,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		c.URLs = []string{"doc.json"}
 	}))
 
+	motion := localai.NewMotionEndpoints(app)
+	router.POST("/api/motion/sessions", motion.Create)
+	router.GET("/api/motion/sessions/:id", motion.Get)
+	router.DELETE("/api/motion/sessions/:id", motion.Delete)
+	router.GET("/api/motion/sessions/:id/poses", motion.Poses)
+	router.POST("/api/motion/sessions/:id/tickets", motion.Ticket)
+
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
 		// Import model page
@@ -82,7 +89,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/backends/upgrades/check", backendGalleryEndpointService.CheckUpgradesEndpoint(), adminMiddleware)
 		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware)
 		// Custom model import endpoint
-		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig), adminMiddleware)
+		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig, opcache), adminMiddleware)
 
 		// URI model import endpoint
 		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache), adminMiddleware)
@@ -412,6 +419,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"detection":      "/v1/detection",
 					"tokenize":       "/v1/tokenize",
 					"detokenize":     "/v1/detokenize",
+					"slots_save":     "/v1/slots/save",
+					"slots_restore":  "/v1/slots/restore",
 				},
 				"monitoring": monitoringRoutes,
 				"mcp": map[string]string{
@@ -488,6 +497,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		detokenizeHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetokenizeRequest) }))
+
+	// Slot prompt-cache save and restore (llama-cpp). Admin only: it writes
+	// files on the host that runs the backend.
+	router.POST("/v1/slots/save",
+		localai.SlotCacheSaveEndpoint(ml, appConfig),
+		adminMiddleware,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.SlotCacheRequest) }))
+	router.POST("/v1/slots/restore",
+		localai.SlotCacheRestoreEndpoint(ml, appConfig),
+		adminMiddleware,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.SlotCacheRequest) }))
 
 	// MCP endpoint - supports both streaming and non-streaming modes
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.

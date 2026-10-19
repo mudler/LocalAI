@@ -9,7 +9,7 @@ import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/arti
 import CanvasPanel from '../components/CanvasPanel'
 // eslint-disable-next-line no-unused-vars
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
-import { readAttachmentText } from '../utils/pdf'
+import { readAttachmentText, renderPdfPages, PdfNoTextError } from '../utils/pdf'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
 // eslint-disable-next-line no-unused-vars
@@ -29,6 +29,7 @@ import ChatHeader from '../components/chat/ChatHeader'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsDialog from '../components/chat/ShortcutsDialog'
 // eslint-disable-next-line no-unused-vars
+import ReasoningChips from '../components/chat/ReasoningChips'
 import ChatSettingsSheet from '../components/chat/ChatSettingsSheet'
 // eslint-disable-next-line no-unused-vars
 import FindBar from '../components/chat/FindBar'
@@ -199,6 +200,7 @@ function ChatPage() {
   const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
   const pickerRef = useRef(null)
+  const effortRef = useRef(null)
   const { models: chatModels, loading: chatModelsLoading } = useModels(CAP_CHAT)
   const [fitOpenCount, setFitOpenCount] = useState(0)
   const modelNames = useMemo(() => chatModels.map(m => m.id), [chatModels])
@@ -722,7 +724,18 @@ function ChatPage() {
       if (!file.type.startsWith('image/') && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
         try {
           entry.textContent = await readAttachmentText(file)
-        } catch {
+        } catch (err) {
+          // A scan has no text layer: send its pages as images for a vision model.
+          if (err instanceof PdfNoTextError) {
+            try {
+              const { pages, total } = await renderPdfPages(file)
+              newFiles.push(...pages)
+              addToast(t('toasts.pdfScannedAsImages', { name: file.name, count: pages.length, total }), 'info')
+              continue
+            } catch {
+              // fall through to the read error below
+            }
+          }
           addToast(t('toasts.pdfReadFailed', { name: file.name }), 'error')
           continue
         }
@@ -1048,7 +1061,13 @@ function ChatPage() {
     />
   )
 
-  const canvasChip = (
+  const composerChips = (
+    <>
+    <ReasoningChips
+      ref={effortRef}
+      effort={activeChat.reasoningEffort}
+      onEffort={(reasoningEffort) => updateChatSettings(activeChat.id, { reasoningEffort })}
+    />
     <span className="cx-chipset">
       <button
         type="button"
@@ -1073,6 +1092,7 @@ function ChatPage() {
         </button>
       )}
     </span>
+    </>
   )
 
   const moreItems = [
@@ -1091,6 +1111,10 @@ function ChatPage() {
       case 'model': pickerRef.current?.open(); break
       case 'new': addChat(activeChat.model); break
       case 'chats': chatsMenuRef.current?.open(); break
+      case 'effort': {
+        effortRef.current?.open()
+        break
+      }
       case 'assistant': updateChatSettings(activeChat.id, { localaiAssistant: !activeChat.localaiAssistant }); break
       case 'canvas': toggleCanvasMode(); break
       case 'settings': setShowSettings(true); break
@@ -1213,6 +1237,7 @@ function ChatPage() {
         <div className="cx-dock">
           <div className="cx-dock__in">
             <HomeComposer
+              onDictateError={(m) => addToast(m, 'error')}
               message={input}
               onMessage={setInput}
               onSubmit={handleSend}
@@ -1221,7 +1246,7 @@ function ChatPage() {
               textareaRef={textareaRef}
               picker={picker}
               mcp={mcp}
-              chips={canvasChip}
+              chips={composerChips}
               files={files}
               onRemoveFile={(f) => setFiles(prev => prev.filter(x => x !== f))}
               onAttach={attachFiles}

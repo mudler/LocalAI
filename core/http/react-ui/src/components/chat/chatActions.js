@@ -4,11 +4,15 @@
 
 export const CHAT_SLASH_GROUPS = ['chat', 'view']
 
+// The reasoning_effort values the API accepts. An empty choice sends none.
+export const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high']
+
 export const CHAT_SLASH_ACTIONS = [
   { id: 'model', cmd: '/model', icon: 'cube', group: 'chat', needs: 'models' },
   { id: 'new', cmd: '/new', icon: 'plus', group: 'chat' },
   { id: 'chats', cmd: '/chats', icon: 'history', group: 'chat' },
   { id: 'assistant', cmd: '/assistant', icon: 'user-shield', group: 'chat', needs: 'admin' },
+  { id: 'effort', cmd: '/effort', icon: 'brain', group: 'chat' },
   { id: 'canvas', cmd: '/canvas', icon: 'columns', group: 'view' },
   { id: 'find', cmd: '/find', icon: 'search', group: 'view', needs: 'thread' },
   { id: 'settings', cmd: '/settings', icon: 'sliders', group: 'view' },
