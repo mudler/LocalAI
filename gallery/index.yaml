@@ -564,7 +564,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: eab7978ddf95eb59fb8a6fcdc8203c459c0f9e1b817ce89a5bc369aa0d9d416b
+      sha256: 35e16f0598b16888b43ad36215ee9811b377cdaf579220856d89e71ef8e8e8d9
 - name: qwopus3.8-27b-flash-v2
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -70413,7 +70413,7 @@
   files:
     - filename: lev-Q4_K_M.gguf
       uri: https://huggingface.co/ggml-org/lev-GGUF/resolve/3e9286a79ae857b4e1de051c92fab6dc574581ce/lev-Q4_K_M.gguf
-      sha256: 3f61b27c00a098dbc79ed099cca3985cbe0b63d17ac7fedebf2dca1d84f7f3a8
+      sha256: bff94af408cc9ea616dd2543abf77afacefeec27d32d635ebe0ed0eb7ccd7efe
 - name: clef-flash
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   variants:
