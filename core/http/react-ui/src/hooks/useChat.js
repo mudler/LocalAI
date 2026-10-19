@@ -444,9 +444,11 @@ export function useChat(initialModel = '') {
     // Covers every delete still pending before it.
     pendingDeletesRef.current = new Set(['*'])
     deleteAllSeqRef.current += 1
-    persistPending()
+    // Navigation cancels the debounced save; persist the cleared list with
+    // its delete intent so an unsynced draft cannot return on the next load.
+    saveChats(storageKey, [chat], chat.id, pendingDeletesRef.current)
     flushPendingDeletes()
-  }, [activeChat?.model, accountId, persistPending, flushPendingDeletes])
+  }, [activeChat?.model, accountId, storageKey, flushPendingDeletes])
 
   const renameChat = useCallback((chatId, name) => {
     setChats(prev => prev.map(c =>

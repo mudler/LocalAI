@@ -406,6 +406,29 @@ test.describe('Deletes stay pending until the server confirms them', () => {
     await expect(page.getByTestId('chats-row').filter({ hasText: 'Delete me' })).toHaveCount(0)
   })
 
+  test('clear all persists before navigation can cancel the debounced save', async ({ page }) => {
+    const server = await fakeHistoryServer(page)
+    server.setDown(true)
+    await openChat(page, [chatOf('draft', 'Unsynced draft', 'qwen3-8b', pair('private draft', 'answer'), {}, T0)])
+    await openMenu(page)
+    // Freeze the debounce: assert the cache produced by the delete itself.
+    await page.clock.install()
+    await page.clock.pauseAt(new Date())
+    await page.getByRole('button', { name: 'Clear all' }).click()
+    await page.getByRole('button', { name: 'Delete all' }).click()
+    const stored = await storedChats(page)
+    expect(stored.chats.map(c => c.id)).not.toContain('draft')
+    expect(stored.pendingDeletes).toEqual(['*'])
+
+    await page.clock.resume()
+    server.setDown(false)
+    await reopen(page)
+    await expect.poll(() => server.deleteAlls().length).toBe(1)
+    await page.waitForTimeout(1_000)
+    expect(server.saves('draft')).toHaveLength(0)
+    await expect(page.getByTestId('chats-row').filter({ hasText: 'Unsynced draft' })).toHaveCount(0)
+  })
+
   test('a delete the server confirmed is not sent again and does not come back', async ({ page }) => {
     const server = await fakeHistoryServer(page, { conversations: remote() })
     await openSynced(page, server)

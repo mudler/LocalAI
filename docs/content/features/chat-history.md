@@ -44,6 +44,8 @@ After that, every change is saved on its own (debounced, only conversations that
 
 A delete (one conversation, **Clear all**, or a delete on the Home page) is removed from the screen at once, and kept in the browser as a pending delete until the server confirms it. If the server cannot be reached, the delete is sent again with the next change, when the browser comes back online, and on the next load; until then the list from the server cannot bring the conversation back. While a **Clear all** is pending, no conversation is uploaded, so a chat started after it is not caught by it.
 
+Clearing all chats immediately updates the browser cache, including unsynced drafts. You can leave the page without waiting for the server to confirm deletion.
+
 ### One browser cache per account
 
 The browser cache belongs to the signed-in account: it is stored under `localai_chats_data:<user id>`, together with that account's pending deletes. When one account signs out and another signs in on the same browser, the second account starts from its own cache and its own server list. A conversation the first account could not upload yet (for example because its first save failed) stays in the first account's cache and is uploaded when that account signs in again; it is never uploaded into another account. Signing out does not delete the cache.
