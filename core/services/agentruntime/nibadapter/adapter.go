@@ -94,6 +94,11 @@ func RestoreConfig(cfg types.Config, cp Checkpoint) (types.Config, error) {
 			return types.Config{}, fmt.Errorf("invalid %s: %w", s.name, err)
 		}
 	}
+	// nib falls back to display history and skips pruning restoration when
+	// InitialContext is empty. Reject states it cannot restore faithfully.
+	if len(cfg.InitialContext) == 0 && (len(cfg.InitialHistory) > 0 || len(cfg.InitialPruning.Pruned) > 0 || len(cfg.InitialPruning.Compressed) > 0 || cfg.InitialPruning.CompressBand != 0) {
+		return types.Config{}, errors.New("unsupported checkpoint state: empty context with history or pruning")
+	}
 	return cfg, nil
 }
 
@@ -124,6 +129,9 @@ func ExportCheckpoint(s *chat.Session, quiescent bool) (Checkpoint, error) {
 			data = []byte("[]")
 		}
 		*part.dest = data
+	}
+	if _, err := RestoreConfig(types.Config{}, cp); err != nil {
+		return Checkpoint{}, err
 	}
 	return cp, nil
 }

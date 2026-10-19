@@ -104,6 +104,91 @@ var _ = Describe("v0.12.1 contract", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(secondExport).To(Equal(again))
 	})
+	It("rejects empty context with display history before construction or encoding", func() {
+		cp.Context = []byte(`[]`)
+		cp.Pruning = []byte(`{}`)
+		_, err := RestoreConfig(types.Config{}, cp)
+		Expect(err).To(MatchError(ContainSubstring("unsupported checkpoint state")))
+		_, err = EncodeCheckpoint(cp)
+		Expect(err).To(HaveOccurred())
+		wire, err := json.Marshal(cp)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = DecodeCheckpoint(wire)
+		Expect(err).To(HaveOccurred())
+	})
+	DescribeTable("rejects pruning that nib discards with empty context",
+		func(pruning string) {
+			cp.Context, cp.History, cp.Pruning = []byte(`[]`), []byte(`[]`), []byte(pruning)
+			_, err := RestoreConfig(types.Config{}, cp)
+			Expect(err).To(MatchError(ContainSubstring("unsupported checkpoint state")))
+			_, err = EncodeCheckpoint(cp)
+			Expect(err).To(HaveOccurred())
+			wire, err := json.Marshal(cp)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = DecodeCheckpoint(wire)
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("pruned map even with an empty value", `{"pruned":{"c1":""}}`),
+		Entry("compressed map even with a zero entry", `{"compressed":{"c1":{"level":0,"content":""}}}`),
+		Entry("positive compression band", `{"compress_band":1}`),
+		Entry("negative nonzero compression band", `{"compress_band":-1}`),
+	)
+	DescribeTable("round trips genuinely empty checkpoints through real isolated sessions",
+		func(pruning string) {
+			cp.Context, cp.History, cp.Artifacts, cp.Pruning = []byte(`[]`), []byte(`[]`), []byte(`[]`), []byte(pruning)
+			wire, err := EncodeCheckpoint(cp)
+			Expect(err).NotTo(HaveOccurred())
+			decoded, err := DecodeCheckpoint(wire)
+			Expect(err).NotTo(HaveOccurred())
+			cfg, err := RestoreConfig(isolatedConfig(), decoded)
+			Expect(err).NotTo(HaveOccurred())
+			session, err := chat.NewSession(context.Background(), cfg, chat.Callbacks{})
+			Expect(err).NotTo(HaveOccurred())
+			defer session.Close()
+			exported, err := ExportCheckpoint(session, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(exported.Context)).To(Equal(`[]`))
+			Expect(string(exported.History)).To(Equal(`[]`))
+			Expect(string(exported.Artifacts)).To(Equal(`[]`))
+			Expect(string(exported.Pruning)).To(Equal(`{}`))
+			secondCfg, err := RestoreConfig(isolatedConfig(), exported)
+			Expect(err).NotTo(HaveOccurred())
+			second, err := chat.NewSession(context.Background(), secondCfg, chat.Callbacks{})
+			Expect(err).NotTo(HaveOccurred())
+			defer second.Close()
+			again, err := ExportCheckpoint(second, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(again).To(Equal(exported))
+		},
+		Entry("zero pruning", `{}`),
+		Entry("empty pruning maps and zero band", `{"pruned":{},"compressed":{},"compress_band":0}`),
+	)
+	It("rejects a real export whose system-only context leaves nonempty history", func() {
+		// nib excludes system messages from ExportContext, but not display history.
+		cfg := isolatedConfig()
+		cfg.InitialContext = []openai.ChatCompletionMessage{{Role: "system", Content: "regenerated"}}
+		cfg.InitialHistory = []openai.ChatCompletionMessage{{Role: "user", Content: "visible"}}
+		session, err := chat.NewSession(context.Background(), cfg, chat.Callbacks{})
+		Expect(err).NotTo(HaveOccurred())
+		defer session.Close()
+		Expect(session.ExportContext()).To(BeEmpty())
+		Expect(session.ExportHistory()).NotTo(BeEmpty())
+		_, err = ExportCheckpoint(session, true)
+		Expect(err).To(MatchError(ContainSubstring("unsupported checkpoint state")))
+	})
+	It("rejects a real export after ClearHistory leaves pruning without context", func() {
+		cfg, err := RestoreConfig(isolatedConfig(), cp)
+		Expect(err).NotTo(HaveOccurred())
+		session, err := chat.NewSession(context.Background(), cfg, chat.Callbacks{})
+		Expect(err).NotTo(HaveOccurred())
+		defer session.Close()
+		session.ClearHistory()
+		Expect(session.ExportContext()).To(BeEmpty())
+		Expect(session.ExportHistory()).To(BeEmpty())
+		Expect(session.ExportPruning()).To(Equal(cfg.InitialPruning))
+		_, err = ExportCheckpoint(session, true)
+		Expect(err).To(MatchError(ContainSubstring("unsupported checkpoint state")))
+	})
 	It("captures immutable identities even for concurrent late callbacks", func() {
 		var mu sync.Mutex
 		var events []Event
@@ -203,3 +288,13 @@ var _ = Describe("v0.12.1 contract", func() {
 		Expect(messages[1].ToolCalls[0].Function.Arguments).To(Equal("{}"))
 	})
 })
+
+// No turns, transports, providers, or tools are invoked by these session tests.
+func isolatedConfig() types.Config {
+	home := GinkgoT().TempDir()
+	GinkgoT().Setenv("HOME", home)
+	GinkgoT().Setenv("XDG_CONFIG_HOME", home)
+	GinkgoT().Setenv("XDG_STATE_HOME", home)
+	off := false
+	return types.Config{Model: "fake", APIKey: "fake", BaseURL: "http://127.0.0.1:1/v1", BaseDir: home, WorkingDir: home, LSPAutoDetect: &off, BuiltinTools: []string{"no-tools"}}
+}
