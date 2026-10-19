@@ -266,12 +266,14 @@ func (c *classifier) stdio(field string, value any) {
 		root, ok := parsed.(map[string]any)
 		if !ok {
 			c.find(field, field, "invalid")
+			c.unknownChildren(field, field, parsed)
 			return
 		}
 		c.find(field, field, "unsupported")
 		servers, ok := root["mcpServers"].(map[string]any)
 		if !ok {
 			c.find(field+".mcpServers", field+".mcpServers", "invalid")
+			c.unknownChildren(field+".mcpServers", field+".mcpServers", root["mcpServers"])
 		}
 		unknown := 0
 		for _, k := range keys(root) {

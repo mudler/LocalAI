@@ -168,6 +168,56 @@ var _ = ginkgo.Describe("Offline migration", func() {
 			invalid(source(LocalAIDefinition, `{"name":"k","mcp_stdio_servers":`+v+`}`))
 		}
 	})
+	for _, format := range []SourceFormat{LocalAIDefinition, LocalAGIDefinition} {
+		for _, wrapper := range []bool{false, true} {
+			ginkgo.It(fmt.Sprintf("accounts nested children of wrong-shaped encoded MCP in %s wrapper=%t", format, wrapper), func() {
+				text := `[{"SECRET":{"SECRET":[false,null,0]}}]`
+				prefix := "mcp_stdio_servers"
+				if wrapper {
+					text = `{"mcpServers":` + text + `}`
+					prefix += ".mcpServers"
+				}
+				value, err := json.Marshal(text)
+				Expect(err).NotTo(HaveOccurred())
+				s := source(format, `{"name":"k","mcp_stdio_servers":`+string(value)+`}`)
+				p, r := analyze(s)
+				Expect(r.Invalid).To(Equal(1))
+				Expect(r.Findings).To(ContainElement(And(HaveField("Path", prefix), HaveField("Disposition", "invalid"))))
+				public := prefix + "[0].unknown[1].unknown[1]"
+				exact := prefix + "[0].SECRET.SECRET"
+				publicChildren := []string{prefix + "[0]", prefix + "[0].unknown[1]", public, public + "[0]", public + "[1]", public + "[2]"}
+				exactPaths := []string{"mcp_stdio_servers"}
+				if wrapper {
+					exactPaths = append(exactPaths, prefix)
+				}
+				exactPaths = append(exactPaths, prefix+"[0]", prefix+"[0].SECRET", exact, exact+"[0]", exact+"[1]", exact+"[2]")
+				var children []string
+				for _, finding := range r.Findings {
+					if strings.HasPrefix(finding.Path, prefix+"[") {
+						Expect(finding.Disposition).To(Equal("unsupported"))
+						children = append(children, finding.Path)
+					}
+				}
+				Expect(children).To(Equal(publicChildren))
+				Expect(p.wire.Definitions[0].Unsupported).To(ConsistOf(exactPaths))
+				Expect(p.wire.Definitions[0].Presence["mcp_stdio_servers"]).To(Equal(json.RawMessage(value)))
+				Expect(p.wire.Source.Data).To(Equal(s.Data))
+				_, err = Backup(context.Background(), p, &memorySink{})
+				Expect(err).NotTo(HaveOccurred())
+				_, err = Convert(p)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
+				for _, safe := range []any{p, *p, r} {
+					data, err := json.Marshal(safe)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(string(data)).NotTo(ContainSubstring("SECRET"))
+					for _, verb := range []string{"%v", "%+v", "%#v"} {
+						Expect(fmt.Sprintf(verb, safe)).NotTo(ContainSubstring("SECRET"))
+					}
+				}
+			})
+		}
+	}
 	ginkgo.It("validates tool arrays CSV newline and null without preapproval", func() {
 		for _, v := range []string{`["search"," stop "]`, `"search,stop\nupdate_state"`, `null`} {
 			p, r := analyze(source(LocalAIDefinition, `{"name":"k","allowed_tools":`+v+`,"excluded_tools":`+v+`}`))
