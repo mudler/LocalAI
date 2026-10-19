@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/diagnostics"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -766,4 +767,28 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 
 	m.MarkHealthy()
 	return m
+}
+
+// BindLoadedInstance returns a request-local liveness guard. Distributed routes
+// are independently owned by their worker and must not be compared to the last
+// replica stored under a shared model name on this frontend.
+func (ml *ModelLoader) BindLoadedInstance(id string, client grpc.Backend) func() bool {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	if ml.modelRouter != nil {
+		return func() bool { return true }
+	}
+	selected, ok := ml.store.Get(id)
+	if wrapped, yes := client.(*ConnectionEvictingClient); yes {
+		client = wrapped.Backend
+	}
+	if ok {
+		ok = selected.GRPC(false, ml.wd) == client
+	}
+	return func() bool {
+		ml.mu.Lock()
+		defer ml.mu.Unlock()
+		current, present := ml.store.Get(id)
+		return ok && present && current == selected
+	}
 }

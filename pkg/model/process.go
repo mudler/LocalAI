@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hpcloud/tail"
@@ -336,32 +337,37 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		}
 	})
 
-	go func() {
-		t, err := tail.TailFile(grpcControlProcess.StderrPath(), tail.Config{Follow: true})
-		if err != nil {
-			xlog.Error("Could not tail stderr", "process", grpcProcess)
-			return
-		}
-		for line := range t.Lines {
-			xlog.Debug("GRPC stderr", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
-			if ml.backendLogs != nil && ml.backendLoggingEnabled.Load() {
-				ml.backendLogs.AppendLine(id, "stderr", line.Text)
+	// Tail readers outlive process.Done unless explicitly stopped. Join them
+	// before publishing diagnostics completion or removing their state files.
+	var readers sync.WaitGroup
+	readers.Add(2)
+	for _, stream := range []struct{ name, path string }{
+		{"stderr", grpcControlProcess.StderrPath()},
+		{"stdout", grpcControlProcess.StdoutPath()},
+	} {
+		go func(name, path string) {
+			defer readers.Done()
+			t, err := tail.TailFile(path, tail.Config{Follow: true})
+			if err != nil {
+				xlog.Error("Could not tail backend output", "stream", name, "process", grpcProcess)
+				return
 			}
-		}
-	}()
-	go func() {
-		t, err := tail.TailFile(grpcControlProcess.StdoutPath(), tail.Config{Follow: true})
-		if err != nil {
-			xlog.Error("Could not tail stdout", "process", grpcProcess)
-			return
-		}
-		for line := range t.Lines {
-			xlog.Debug("GRPC stdout", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
-			if ml.backendLogs != nil && ml.backendLoggingEnabled.Load() {
-				ml.backendLogs.AppendLine(id, "stdout", line.Text)
+			stopped := make(chan struct{})
+			go func() {
+				<-grpcControlProcess.Done()
+				_ = t.Stop()
+				close(stopped)
+			}()
+			for line := range t.Lines {
+				xlog.Debug("GRPC "+name, "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
+				if ml.backendLogs != nil && ml.backendLoggingEnabled.Load() {
+					ml.backendLogs.AppendLine(id, name, line.Text)
+				}
 			}
-		}
-	}()
+			<-stopped
+			t.Cleanup()
+		}(stream.name, stream.path)
+	}
 
 	// Surface backend exits in the log. Without this, a crash (SIGSEGV
 	// from a missing shared library, a Python ImportError, etc.) is
@@ -398,6 +404,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 			xlog.Warn("Backend process exited unexpectedly", fields...)
 		}
 		runtime.cleanupScratch()
+		readers.Wait()
 		close(runtime.diagnosticsDone)
 		if !intentional {
 			ml.forgetExitedProcess(id, grpcControlProcess)
