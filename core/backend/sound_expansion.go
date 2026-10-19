@@ -123,6 +123,12 @@ func ExpandSoundRequest(ctx context.Context, input schema.ElevenLabsSoundGenerat
 	if !slices.Contains(cfg.Capabilities(), config.UsecaseChat) {
 		return input, fmt.Errorf("expansion_model %q does not support chat; select a chat model", name)
 	}
+	// Other chat backends may silently ignore Grammar. Only use a backend whose
+	// rendered-prompt and tokenizer-template paths both enforce JSON decoding.
+	if model.CanonicalBackend(cfg.Backend) != model.LLamaCPP {
+		return input, fmt.Errorf("expansion_model %q requires JSON-constrained decoding; select a llama-cpp chat model", name)
+	}
+	cfg.Grammar = functions.JSONBNF
 	// GetModelConfig returns a value copy. Replace pointers instead of changing
 	// the installed model's output limit or sampling configuration in place.
 	tokens := 2048

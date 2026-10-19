@@ -82,7 +82,7 @@ var _ = Describe("Sound Expansion HTTP", func() {
 		audioCfg = config.ModelConfig{Name: "audio", Backend: "stub"}
 		audioCfg.SetDefaults()
 		audioCfg.Model = "audio-weights"
-		chatCfg = config.ModelConfig{Name: "chat", Backend: "stub"}
+		chatCfg = config.ModelConfig{Name: "chat", Backend: model.LLamaCPP}
 		chatCfg.SetDefaults()
 		chatCfg.Model = "chat-weights"
 		flags := config.FLAG_CHAT
@@ -119,6 +119,25 @@ var _ = Describe("Sound Expansion HTTP", func() {
 		c.Set(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG, &audioCfg)
 		return elevenlabs.SoundGenerationEndpoint(cl, ml, app, nil)(c)
 	}
+	It("enforces JSON decoding for rendered and tokenizer templates", func() {
+		for _, tokenizer := range []bool{false, true} {
+			chatCfg.Backend = "llama"
+			chatCfg.TemplateConfig.UseTokenizerTemplate = tokenizer
+			chatCfg.Grammar = "unrelated installed grammar"
+			cl.ReplaceModelConfigs([]config.ModelConfig{audioCfg, chatCfg})
+			Expect(request()).To(Succeed())
+			Expect(fake.prediction.Grammar).To(HavePrefix("root   ::= object"))
+			stored, _ := cl.GetModelConfig("chat")
+			Expect(stored.Grammar).To(Equal("unrelated installed grammar"))
+		}
+	})
+	It("rejects backends without verified JSON decoding before inference or audio", func() {
+		chatCfg.Backend = "transformers"
+		cl.ReplaceModelConfigs([]config.ModelConfig{audioCfg, chatCfg})
+		Expect(request()).To(MatchError(ContainSubstring("requires JSON-constrained decoding")))
+		Expect(fake.prediction).To(BeNil())
+		Expect(fake.audio).To(BeNil())
+	})
 	It("renders the selected chat model's prompt template", func() {
 		chatCfg.TemplateConfig.Chat = "BEGIN {{.Input}} END"
 		chatCfg.TemplateConfig.ChatMessage = "{{.RoleName}}:{{.Content}}"

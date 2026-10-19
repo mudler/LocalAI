@@ -41,7 +41,7 @@ var _ = Describe("Sound model authorization", func() {
 		audioCfg.Model = "audio-weights"
 		flags := config.FLAG_SOUND_GENERATION
 		audioCfg.KnownUsecases = &flags
-		chatCfg := config.ModelConfig{Name: "chat", Backend: "stub"}
+		chatCfg := config.ModelConfig{Name: "chat", Backend: model.LLamaCPP}
 		chatCfg.SetDefaults()
 		chatCfg.Model = "chat-weights"
 		chatFlags := config.FLAG_CHAT

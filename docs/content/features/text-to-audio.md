@@ -1115,6 +1115,12 @@ curl http://localhost:8080/v1/sound-generation \
 
 Replace `music` and `chat` with your installed audio and chat model names.
 The server requires non-empty `text` when you select `expansion_model`.
+Select an installed `llama-cpp` chat model. Expansion enforces JSON decoding
+with a grammar for both tokenizer templates and configured prompt templates.
+Other backends are rejected before inference because they may ignore the grammar.
+The server also validates the generated fields and stops before audio generation
+if the response is invalid.
+
 If your account has a model allowlist, it must allow both the resolved audio
 model and the selected expansion model. Sound permission covers this internal
 expansion; separate Chat permission is not required.
