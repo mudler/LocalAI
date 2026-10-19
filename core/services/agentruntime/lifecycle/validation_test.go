@@ -102,3 +102,98 @@ var _ = Describe("restored snapshot invariants", func() {
 		Expect(validate(s)).NotTo(Succeed())
 	})
 })
+
+var _ = Describe("unresolved journal snapshot coherence", func() {
+	unknown := func(id string, attempt uint64) ToolAttempt {
+		return ToolAttempt{Turn: id, Request: "mutation", Attempt: attempt, Status: Unknown}
+	}
+	reject := func(s State) {
+		before := snapshot(s)
+		Expect(validate(s)).NotTo(Succeed())
+		for _, kind := range []string{"Complete", "CheckpointOK"} {
+			tr, err := Reduce(s, testEvent(s, kind, "", nil))
+			Expect(err).To(HaveOccurred(), kind)
+			Expect(tr).To(Equal(Transition{}))
+			Expect(snapshot(s)).To(Equal(before))
+		}
+	}
+	It("rejects the exported checkpoint-ready repro before R25 releases FIFO", func() {
+		s := NewState("owner")
+		s.Attempt = 1
+		s.Accepted = []string{"a", "b"}
+		s.Queue = []string{"b"}
+		s.Phase = Parked{Turn: "a", Reason: Checkpoint}
+		s.Journal = []ToolAttempt{unknown("a", 1)}
+		reject(s)
+	})
+	for _, p := range []Phase{Idle{}, Running{"a", NoTool}, WaitingApproval{"a", "approval"},
+		WaitingAnswer{"a", "question"}, Compacting{"a"}, Parked{"a", Checkpoint}, Parked{"a", CompactionFailed}} {
+		It("rejects unknown outcomes outside recovery in "+p.tag(), func() {
+			s := witnessState(p)
+			id := turn(p)
+			if id == "" {
+				id = "settled"
+			}
+			s.Journal = append(s.Journal, unknown(id, 1))
+			reject(s)
+		})
+	}
+	for _, p := range []Phase{Interrupted{"a", "Restart", Unknown}, Interrupted{"a", "RestoreFailed", NoTool},
+		Stopping{"a"}, Restoring{"a"}, WaitingReconciliation{"a"}, Parked{"a", StoppedReason}} {
+		It("holds only the same unsettled turn's unknown outcomes in "+p.tag(), func() {
+			s := witnessState(p)
+			s.Attempt = 2
+			// Restore increments the worker attempt, not the dispatched call's identity.
+			s.Journal = []ToolAttempt{unknown("a", 1)}
+			Expect(validate(s)).To(Succeed())
+			for _, kind := range []string{"Complete", "CheckpointOK"} {
+				tr := step(s, kind, "", nil)
+				Expect(tr.Rule).To(Equal("R00"))
+				Expect(tr.State).To(Equal(s))
+				Expect(tr.Effects).To(BeEmpty())
+			}
+			for _, id := range []string{"b", "settled", "unaccepted"} {
+				s.Journal = []ToolAttempt{unknown(id, 1)}
+				reject(s)
+			}
+			for _, attempt := range []uint64{0, 3} {
+				s.Journal = []ToolAttempt{unknown("a", attempt)}
+				reject(s)
+			}
+		})
+	}
+	It("preserves normal stopped uncertainty through restart, restore and reconciliation", func() {
+		s := witnessState(Running{"a", InFlight})
+		s.Journal = append(s.Journal, ToolAttempt{Turn: "a", Request: "mutation", Attempt: 1, Status: InFlight})
+		s = step(s, "Stop", "", nil).State
+		s = step(s, "Stopped", "", nil).State
+		Expect(s.Phase).To(Equal(Parked{"a", StoppedReason}))
+		Expect(s.Journal[1].Status).To(Equal(Unknown))
+		s = step(s, "Restart", "", nil).State
+		s = step(s, "Resume", "", nil).State
+		Expect(s.Attempt).To(Equal(uint64(2)))
+		Expect(s.Journal[1].Attempt).To(Equal(uint64(1)))
+		s = step(s, "RestoreOK", "", nil).State
+		Expect(s.Phase).To(Equal(WaitingReconciliation{"a"}))
+		result := "verified"
+		s = step(s, "ReconcileOK", "", map[string]any{"request": "mutation", "result": result}).State
+		Expect(s.Phase).To(Equal(Running{"a", NoTool}))
+		Expect(s.Queue).To(Equal([]string{"b"}))
+		s = step(s, "Complete", "", nil).State
+		s = step(s, "CheckpointOK", "", nil).State
+		Expect(s.Settled).To(ContainElement("a"))
+		Expect(s.Phase).To(Equal(Running{"b", NoTool}))
+	})
+	It("retains historical unknown outcomes in absorbing deletion tombstones", func() {
+		s := witnessState(Deleted{})
+		s.Attempt = 2
+		s.Journal = append(s.Journal, unknown("a", 1), unknown("settled", 1))
+		Expect(validate(s)).To(Succeed())
+		for _, kind := range []string{"Complete", "CheckpointOK", "Restart"} {
+			tr := step(s, kind, "", nil)
+			Expect(tr.Rule).To(Equal("R02"))
+			Expect(tr.State).To(Equal(s))
+			Expect(tr.Effects).To(BeEmpty())
+		}
+	})
+})

@@ -535,8 +535,27 @@ func validate(s State) error {
 			}
 			inFlight++
 		}
-		if _, ok := s.Phase.(Running); ok && j.Turn == turn(s.Phase) && j.Status == Unknown {
-			return bad()
+		if j.Status == Unknown {
+			// Only recovery may retain an unresolved dispatch. In particular,
+			// checkpoint-ready and settled turns must never release the FIFO
+			// while a mutation's outcome is still unknown. A tombstone cannot
+			// resume work and deliberately retains historical uncertainty.
+			switch p := s.Phase.(type) {
+			case Deleted:
+				continue
+			case Interrupted, Stopping, Restoring, WaitingReconciliation:
+			case Parked:
+				if p.Reason != StoppedReason {
+					return bad()
+				}
+			default:
+				return bad()
+			}
+			if j.Turn != turn(s.Phase) || slices.Contains(s.Settled, j.Turn) {
+				return bad()
+			}
+			// Resume advances the worker attempt; the original dispatch must
+			// keep its older attempt until host-verified reconciliation.
 		}
 	}
 	if p, running := s.Phase.(Running); running && p.Tool == InFlight {

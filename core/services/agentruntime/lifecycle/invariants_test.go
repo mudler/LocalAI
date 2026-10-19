@@ -78,6 +78,16 @@ func assertSafety(before State, tr Transition) {
 			Expect(s.Phase).To(Equal(Running{j.Turn, InFlight}))
 			Expect(j.Attempt).To(Equal(s.Attempt))
 		}
+		if j.Status == Unknown && s.Phase.tag() != "Deleted" {
+			Expect(j.Turn).To(Equal(turn(s.Phase)))
+			Expect(s.Settled).NotTo(ContainElement(j.Turn))
+			Expect(j.Attempt).To(BeNumerically(">", 0))
+			Expect(j.Attempt).To(BeNumerically("<=", s.Attempt))
+			Expect(s.Phase.tag()).To(BeElementOf("Interrupted", "Stopping", "Restoring", "WaitingReconciliation", "Parked"))
+			if p, parked := s.Phase.(Parked); parked {
+				Expect(p.Reason).To(Equal(StoppedReason))
+			}
+		}
 	}
 	if p, ok := s.Phase.(Running); ok && p.Tool == InFlight {
 		Expect(inFlight).To(Equal(1))
