@@ -1579,3 +1579,87 @@ var _ = Describe("Gallery Backends", func() {
 		})
 	})
 })
+
+var _ = Describe("installed development backend preference", func() {
+	BeforeEach(func() { GinkgoT().Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "default") })
+	DescribeTable("selects eligible installed aliases without redirecting concrete entries",
+		func(enabled bool, capability, suffix string, names []string, missing string, want string) {
+			GinkgoT().Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", capability)
+			root := GinkgoT().TempDir()
+			for _, name := range names {
+				dir := filepath.Join(root, name)
+				Expect(os.MkdirAll(dir, 0755)).To(Succeed())
+				data, err := json.Marshal(BackendMetadata{Name: name, Alias: "example-engine"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0644)).To(Succeed())
+				if name != missing {
+					Expect(os.WriteFile(filepath.Join(dir, "run.sh"), nil, 0644)).To(Succeed())
+				}
+			}
+			st, err := system.GetSystemState(system.WithBackendPath(root), system.WithBackendSystemPath(GinkgoT().TempDir()), system.WithPreferDevelopmentBackends(enabled), system.WithBackendDevSuffix(suffix))
+			Expect(err).NotTo(HaveOccurred())
+			for range 3 {
+				found, err := ListSystemBackends(st)
+				Expect(err).NotTo(HaveOccurred())
+				if want == "" {
+					Expect(found).NotTo(HaveKey("example-engine"))
+				} else {
+					Expect(found["example-engine"].RunFile).To(Equal(filepath.Join(root, want, "run.sh")))
+				}
+				for _, name := range names {
+					if name != missing {
+						Expect(found[name].RunFile).To(Equal(filepath.Join(root, name, "run.sh")))
+					}
+				}
+			}
+		},
+		Entry("enabled coexistence", true, "default", "", []string{"cpu-example-engine", "cpu-example-engine-development"}, "", "cpu-example-engine-development"),
+		Entry("disabled coexistence", false, "default", "", []string{"cpu-example-engine-development", "cpu-example-engine"}, "", "cpu-example-engine"),
+		Entry("disabled development only", false, "default", "", []string{"cpu-example-engine-development"}, "", "cpu-example-engine-development"),
+		Entry("incompatible development", true, "nvidia-cuda-12", "", []string{"rocm-example-engine-development", "cuda12-example-engine"}, "", "cuda12-example-engine"),
+		Entry("development before hardware rank", true, "nvidia-cuda-12", "", []string{"cuda12-example-engine", "cpu-example-engine-development"}, "", "cpu-example-engine-development"),
+		Entry("hardware rank within development", true, "nvidia-cuda-12", "", []string{"cpu-example-engine-development", "cuda12-example-engine-development"}, "", "cuda12-example-engine-development"),
+		Entry("missing run file", true, "default", "", []string{"cpu-example-engine-development", "cpu-example-engine"}, "cpu-example-engine-development", "cpu-example-engine"),
+		Entry("no eligible candidate", true, "default", "", []string{"rocm-example-engine-development"}, "", ""),
+		Entry("custom exact suffix", true, "default", "preview", []string{"cpu-example-engine-preview-extra", "cpu-example-engine-preview", "cpu-example-engine-development"}, "", "cpu-example-engine-preview"),
+		Entry("reversed creation", true, "default", "", []string{"cpu-example-engine-development", "cpu-example-engine"}, "", "cpu-example-engine-development"),
+		Entry("disabled compatibility filter", true, "disable", "", []string{"rocm-example-engine-development", "cpu-example-engine"}, "", "rocm-example-engine-development"),
+	)
+})
+
+var _ = Describe("installed development backend preference root guards", func() {
+	It("keeps managed family shadowing even when only the system development build is eligible", func() {
+		GinkgoT().Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "default")
+		managed, sys := GinkgoT().TempDir(), GinkgoT().TempDir()
+		for _, fixture := range []struct{ root, name string }{{managed, "rocm-example-engine"}, {sys, "cpu-example-engine-development"}} {
+			dir := filepath.Join(fixture.root, fixture.name)
+			Expect(os.MkdirAll(dir, 0755)).To(Succeed())
+			data, err := json.Marshal(BackendMetadata{Name: fixture.name, Alias: "example-engine"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0644)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "run.sh"), nil, 0644)).To(Succeed())
+		}
+		st, err := system.GetSystemState(system.WithBackendPath(managed), system.WithBackendSystemPath(sys), system.WithPreferDevelopmentBackends(true))
+		Expect(err).NotTo(HaveOccurred())
+		found, err := ListSystemBackends(st)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(found).NotTo(HaveKey("example-engine"))
+		Expect(found).NotTo(HaveKey("cpu-example-engine-development"))
+		Expect(found["rocm-example-engine"].IsSystem).To(BeFalse())
+	})
+	It("rejects a directory run file without filtering the explicit concrete listing", func() {
+		GinkgoT().Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "default")
+		root := GinkgoT().TempDir()
+		dir := filepath.Join(root, "cpu-example-engine-development")
+		Expect(os.MkdirAll(filepath.Join(dir, "run.sh"), 0755)).To(Succeed())
+		data, err := json.Marshal(BackendMetadata{Name: "cpu-example-engine-development", Alias: "example-engine"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0644)).To(Succeed())
+		st, err := system.GetSystemState(system.WithBackendPath(root), system.WithBackendSystemPath(GinkgoT().TempDir()), system.WithPreferDevelopmentBackends(true))
+		Expect(err).NotTo(HaveOccurred())
+		found, err := ListSystemBackends(st)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(found).NotTo(HaveKey("example-engine"))
+		Expect(found).To(HaveKey("cpu-example-engine-development"))
+	})
+})

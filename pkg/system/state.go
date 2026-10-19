@@ -29,9 +29,11 @@ type SystemState struct {
 	BackendImagesReleaseTag string
 	BackendImagesBranchTag  string
 	BackendDevSuffix        string
-	// PreferDevelopmentBackends installs the development image as the primary
+	// PreferDevelopmentBackends prefers compatible runnable installed development
+	// builds for generic aliases and installs the development image as the primary
 	// backend URI (the released image becomes a fallback) rather than only using
 	// development as a download fallback when the released image is missing.
+	// This resolver preference is fixed at startup, not hot-switched by settings.
 	PreferDevelopmentBackends bool
 
 	// RequireBackendIntegrity is the strict-integrity switch bound to

@@ -14,6 +14,49 @@ LocalAI ships **60+ backends** covering text generation, speech-to-text, text-to
 
 For the complete list of backends, the model families they support, and their acceleration targets, see the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}). The authoritative source is [`backend/index.yaml`](https://github.com/mudler/LocalAI/blob/master/backend/index.yaml), and the same catalog is browsable in the web UI under the **Backends** section.
 
+## Prefer installed development backends
+
+Set `LOCALAI_PREFER_DEV_BACKENDS=true` (legacy alias: `PREFER_DEV_BACKENDS`)
+or pass `--prefer-development-backends` to prefer development builds for generic
+backend aliases. The default is `false`, which preserves existing selection,
+including installations that contain only development builds.
+
+When enabled, LocalAI selects compatible installed builds with an existing,
+non-directory run file. It prefers names ending in `-development` (or the
+configured `LOCALAI_BACKEND_DEV_SUFFIX`). Within that group, existing hardware
+ranking and lexical-name ordering still apply. If no eligible development build
+exists, LocalAI selects an eligible non-development build. If neither group has
+an eligible build, it does not register the alias.
+
+For example, generic `example-engine` selects `cpu-example-engine-development`
+over `cpu-example-engine` when both are installed and compatible. A compatible
+CPU development build also takes priority over a stable CUDA build.
+An incompatible development build cannot take priority over a compatible stable
+build. Compatibility uses LocalAI's existing hardware heuristics, including the
+`LOCALAI_FORCE_META_BACKEND_CAPABILITY=disable` override; it does not guarantee
+that native libraries can load.
+
+Explicit concrete names keep their original paths. Selecting
+`cpu-example-engine` does not redirect to its development counterpart.
+Installing a development image under a stable name does not rename that entry.
+The preference also retains its existing development-first download behavior.
+
+The **Settings** value `prefer_development_backends` supplies the frontend's
+preference at its next startup. POST `/api/settings` returns `restart_required: true` when this value changes,
+while retaining the existing `success` and `message` response fields. Unchanged
+values return `restart_required: false`. This notification does not reconfigure
+the watchdog; genuine watchdog setting updates still apply live. Neither API
+updates nor edits to `runtime_settings.json` change
+registered paths or restart running models. The displayed preference can change
+before the resolver adopts it. Startup uses the existing settings merge:
+explicit default-valued CLI or environment values, including `false`, can be
+indistinguishable from unset and do not necessarily override a saved `true`.
+
+For distributed `local-ai worker`, set the flag or environment variable on each
+worker, then restart it. Frontend flags and Settings changes do not configure
+remote workers. Legacy specialized worker subcommands do not expose this
+worker-local option.
+
 ## Managing Backends in the UI
 
 The **Operate → Runtime → Backends** page is the canonical home for the

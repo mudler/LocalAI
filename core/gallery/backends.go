@@ -781,6 +781,27 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 		slices.SortFunc(cands, func(a, b backendCandidate) int {
 			return strings.Compare(a.name, b.name)
 		})
+		if systemState.PreferDevelopmentBackends {
+			_, _, suffix := getFallbackTagValues(systemState)
+			var development, stable []backendCandidate
+			for _, c := range cands {
+				if !isBackendRunnable(SystemBackend{RunFile: c.runFile}) ||
+					!systemState.IsBackendCompatible(c.name, c.metadata.URI) {
+					continue
+				}
+				if strings.HasSuffix(c.name, "-"+suffix) {
+					development = append(development, c)
+				} else {
+					stable = append(stable, c)
+				}
+			}
+			// Filter only the enabled path. Partitioning preserves lexical order
+			// and lets development preference precede hardware token ranking.
+			cands = stable
+			if len(development) > 0 {
+				cands = development
+			}
+		}
 		chosen := backendCandidate{}
 		// Try preference tokens
 		for _, t := range tokens {

@@ -18,8 +18,9 @@ type fieldSpec struct {
 	// jsonNames this spec owns; a single entry except for composite rows
 	// (max_active_backends + its deprecated alias single_backend).
 	jsonNames []string
-	// requiresRestart marks fields whose live change makes
-	// ApplyRuntimeSettings report a restart to the settings endpoint.
+	// requiresRestart is the legacy service-reconfiguration marker consumed
+	// by the settings endpoint as a watchdog restart signal. Server-only
+	// restart notifications must not use this marker.
 	requiresRestart bool
 	// fileAuthoritative: at startup/watch time the persisted value applies
 	// unconditionally - either no env/CLI source exists (branding) or the

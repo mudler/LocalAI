@@ -188,7 +188,12 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 
 		// Apply settings using centralized method
 		prevGalleries, prevBackendGalleries := appConfig.Galleries, appConfig.BackendGalleries
+		// The legacy ApplyRuntimeSettings result drives live watchdog
+		// reconfiguration, not a server restart. Resolver preference changes
+		// take effect only at startup and must not cycle that unrelated service.
+		prevDevelopmentPreference := appConfig.PreferDevelopmentBackends
 		watchdogChanged := appConfig.ApplyRuntimeSettings(&settings)
+		restartRequired := prevDevelopmentPreference != appConfig.PreferDevelopmentBackends
 		gallery.ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries, appConfig)
 		if settings.VRAMPersistentCache != nil || settings.AutoloadGalleries != nil {
 			if appConfig.VRAMPersistentCache && appConfig.AutoloadGalleries {
@@ -334,8 +339,9 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 
 		return c.JSON(http.StatusOK, schema.SettingsResponse{
-			Success: true,
-			Message: "Settings updated successfully",
+			Success:         true,
+			Message:         "Settings updated successfully",
+			RestartRequired: restartRequired,
 		})
 	}
 }

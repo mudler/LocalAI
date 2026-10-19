@@ -53,7 +53,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// were read) meant boot-loaded models saw pre-file defaults for one
 	// full restart. Env/CLI values win over the file (see
 	// ApplyRuntimeSettingsAtStartup).
-	loadRuntimeSettingsFromFile(options)
+	loadStartupSettings(options)
 
 	// WithThreads no longer eagerly resolves 0 (so the settings merge can
 	// tell "unset" from "env-set"); resolve the physical-core default now
@@ -782,4 +782,12 @@ func (a *Application) registerFailoverMetrics() {
 		return
 	}
 	failover.RegisterMetrics(a.failoverManager, a.metricsService.Meter)
+}
+
+// loadStartupSettings freezes the resolver preference after the persisted
+// settings merge, before installation and registration consume system state.
+// Runtime API and file-watcher updates deliberately do not repeat this step.
+func loadStartupSettings(options *config.ApplicationConfig) {
+	loadRuntimeSettingsFromFile(options)
+	options.SystemState.PreferDevelopmentBackends = options.PreferDevelopmentBackends || options.SystemState.PreferDevelopmentBackends
 }

@@ -180,6 +180,67 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(app.ModelLoader().GetWatchDog()).ToNot(BeNil(),
 			"watchdog should be running after a cold enable, without waiting for a restart")
 	})
+	It("signals a development preference restart without cycling the watchdog or resolver", func() {
+		Expect(post(`{"watchdog_idle_enabled":true}`).Code).To(Equal(http.StatusOK))
+		watchdog := app.ModelLoader().GetWatchDog()
+		Expect(watchdog).ToNot(BeNil())
+		cfg := app.ApplicationConfig()
+		cfg.PreferDevelopmentBackends = false
+		cfg.SystemState.PreferDevelopmentBackends = false
+		app.ModelLoader().SetExternalBackend("example-engine", filepath.Join(tmp, "stable", "run.sh"))
+		paths := app.ModelLoader().GetAllExternalBackends(nil)
+
+		rec := post(`{"prefer_development_backends":true}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		// Check lifecycle isolation before the response so the regression also
+		// catches the old handler's unrelated watchdog restart.
+		Expect(app.ModelLoader().GetWatchDog()).To(BeIdenticalTo(watchdog))
+		Expect(cfg.PreferDevelopmentBackends).To(BeTrue())
+		Expect(cfg.SystemState.PreferDevelopmentBackends).To(BeFalse())
+		Expect(app.ModelLoader().GetAllExternalBackends(nil)).To(Equal(paths))
+		persisted, err := cfg.ReadPersistedSettings()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(persisted.PreferDevelopmentBackends).ToNot(BeNil())
+		Expect(*persisted.PreferDevelopmentBackends).To(BeTrue())
+		var response map[string]any
+		Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+		Expect(response).To(HaveKeyWithValue("success", true))
+		Expect(response).To(HaveKeyWithValue("message", "Settings updated successfully"))
+		Expect(response).To(HaveKeyWithValue("restart_required", true))
+
+		// Re-saving the same value is not a new resolver change.
+		rec = post(`{"prefer_development_backends":true}`)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+		Expect(response).To(HaveKeyWithValue("restart_required", false))
+		Expect(app.ModelLoader().GetWatchDog()).To(BeIdenticalTo(watchdog))
+
+		// A genuine watchdog update still replaces the live instance and does
+		// not request a server restart.
+		rec = post(`{"watchdog_interval":"3s"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(app.ModelLoader().GetWatchDog()).ToNot(BeIdenticalTo(watchdog))
+		Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+		Expect(response).To(HaveKeyWithValue("restart_required", false))
+
+		watchdog = app.ModelLoader().GetWatchDog()
+		rec = post(`{"prefer_development_backends":false}`)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+		Expect(response).To(HaveKeyWithValue("restart_required", true))
+		Expect(cfg.PreferDevelopmentBackends).To(BeFalse())
+		Expect(app.ModelLoader().GetWatchDog()).To(BeIdenticalTo(watchdog))
+
+		// A mixed save must independently perform both actions.
+		rec = post(`{"prefer_development_backends":true,"watchdog_interval":"4s"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+		Expect(response).To(HaveKeyWithValue("restart_required", true))
+		Expect(app.ModelLoader().GetWatchDog()).ToNot(BeIdenticalTo(watchdog))
+		Expect(cfg.PreferDevelopmentBackends).To(BeTrue())
+		Expect(cfg.SystemState.PreferDevelopmentBackends).To(BeFalse())
+		Expect(app.ModelLoader().GetAllExternalBackends(nil)).To(Equal(paths))
+	})
 	// The UI lists from the cached model listing, which is keyed by nothing.
 	// A gallery change through this endpoint (for example a tightened
 	// verification policy) must drop it, or the UI keeps showing what the old

@@ -39,12 +39,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return fmt.Errorf("registration auth is required (LOCALAI_REGISTRATION_REQUIRE_AUTH or LOCALAI_DISTRIBUTED_REQUIRE_AUTH) but LOCALAI_REGISTRATION_TOKEN is empty — refusing to start an unauthenticated file-transfer server")
 	}
 
-	systemState, err := system.GetSystemState(
-		system.WithModelPath(cfg.ModelsPath),
-		system.WithBackendPath(cfg.BackendsPath),
-		system.WithBackendSystemPath(cfg.BackendsSystemPath),
-		system.WithRequireBackendIntegrity(cfg.RequireBackendIntegrity),
-	)
+	systemState, err := cfg.systemState()
 	if err != nil {
 		return fmt.Errorf("getting system state: %w", err)
 	}
@@ -299,4 +294,14 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
 	return runErr
+}
+
+func (cfg *Config) systemState() (*system.SystemState, error) {
+	return system.GetSystemState(
+		system.WithModelPath(cfg.ModelsPath),
+		system.WithBackendPath(cfg.BackendsPath),
+		system.WithBackendSystemPath(cfg.BackendsSystemPath),
+		system.WithRequireBackendIntegrity(cfg.RequireBackendIntegrity),
+		system.WithPreferDevelopmentBackends(cfg.PreferDevelopmentBackends),
+	)
 }

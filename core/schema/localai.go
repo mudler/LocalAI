@@ -555,9 +555,10 @@ type KnownBackend struct {
 
 // SettingsResponse is the response type for settings API operations
 type SettingsResponse struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
-	Message string `json:"message,omitempty"`
+	Success         bool   `json:"success"`
+	Error           string `json:"error,omitempty"`
+	Message         string `json:"message,omitempty"`
+	RestartRequired bool   `json:"restart_required"`
 }
 
 // RouterDecideRequest is the input for POST /api/router/decide — the
