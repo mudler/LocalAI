@@ -171,15 +171,17 @@ var _ = Describe("Chat history endpoints", func() {
 		body["systemPrompt"] = "be brief"
 		body["temperature"] = 0.2
 		body["contextSize"] = 8192
+		body["reasoningEffort"] = "low"
 		Expect(s.do("alice", http.MethodPut, "/api/conversations/c1", body).Code).To(Equal(http.StatusOK))
 
 		rec := s.do("alice", http.MethodGet, "/api/conversations/c1", nil)
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		got := decodeJSON(rec)
-		for _, key := range []string{"localaiAssistant", "mcpMode", "mcpServers", "mcpResources", "clientMCPServers", "systemPrompt", "temperature", "contextSize"} {
+		for _, key := range []string{"localaiAssistant", "mcpMode", "mcpServers", "mcpResources", "clientMCPServers", "systemPrompt", "temperature", "contextSize", "reasoningEffort"} {
 			Expect(got).To(HaveKey(key), "field %q was dropped", key)
 		}
 		Expect(got["localaiAssistant"]).To(BeTrue())
+		Expect(got["reasoningEffort"]).To(Equal("low"))
 	})
 
 	It("takes the id from the path over the body", func() {

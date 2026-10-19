@@ -23,15 +23,18 @@ type Conversation struct {
 	ClientMCPServers json.RawMessage `json:"clientMCPServers,omitempty" swaggertype:"array,object"`
 	// LocalAIAssistant wires the chat to the in-process admin MCP server
 	// (the LocalAI Assistant mode of the Chat page).
-	LocalAIAssistant bool              `json:"localaiAssistant,omitempty"`
-	Temperature      *float64          `json:"temperature,omitempty"`
-	TopP             *float64          `json:"topP,omitempty"`
-	TopK             *float64          `json:"topK,omitempty"`
-	TokenUsage       *ConvTokenUsage   `json:"tokenUsage,omitempty"`
-	ContextSize      *int              `json:"contextSize,omitempty"`
-	Metadata         map[string]string `json:"metadata,omitempty"`
-	CreatedAt        int64             `json:"createdAt"`
-	UpdatedAt        int64             `json:"updatedAt"`
+	LocalAIAssistant bool     `json:"localaiAssistant,omitempty"`
+	Temperature      *float64 `json:"temperature,omitempty"`
+	TopP             *float64 `json:"topP,omitempty"`
+	TopK             *float64 `json:"topK,omitempty"`
+	// ReasoningEffort is the chat's reasoning_effort choice ('' = model config,
+	// 'none' also hides reasoning traces).
+	ReasoningEffort string            `json:"reasoningEffort,omitempty"`
+	TokenUsage      *ConvTokenUsage   `json:"tokenUsage,omitempty"`
+	ContextSize     *int              `json:"contextSize,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
+	CreatedAt       int64             `json:"createdAt"`
+	UpdatedAt       int64             `json:"updatedAt"`
 	// Version is assigned by the server: 1 on the first save, +1 on every
 	// later write including the delete. Clients use a non-zero version to
 	// tell a conversation the server has seen from a never-synced draft.

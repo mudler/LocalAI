@@ -6491,6 +6491,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "reasoningEffort": {
+                    "description": "ReasoningEffort is the chat's reasoning_effort choice ('' = model config,\n'none' also hides reasoning traces).",
+                    "type": "string"
+                },
                 "systemPrompt": {
                     "type": "string"
                 },

@@ -68,7 +68,7 @@ All endpoints act on the conversations of the calling user and need a session or
 
 Status codes: `400` for a malformed id or body, `401` without credentials, `403` without the `chat_history` permission, `409` when concurrent writers kept racing on the same id (retry), `410` for a deleted conversation.
 
-Conversation ids are 1 to 128 characters from `A-Z a-z 0-9 . _ -`. A conversation carries what the Chat page keeps per chat: name, model, system prompt, sampling settings, MCP and LocalAI Assistant settings, token usage and context size (`schema.Conversation` in `/swagger`). The message list (`history`) is stored as sent, so every message shape the UI uses (text, images, audio, files, tool calls, thinking) survives the round trip.
+Conversation ids are 1 to 128 characters from `A-Z a-z 0-9 . _ -`. A conversation carries what the Chat page keeps per chat: name, model, system prompt, sampling and reasoning-effort settings, MCP and LocalAI Assistant settings, token usage and context size (`schema.Conversation` in `/swagger`). The message list (`history`) is stored as sent, so every message shape the UI uses (text, images, audio, files, tool calls, thinking) survives the round trip.
 
 ### Example
 
