@@ -7,7 +7,7 @@ GO_TAGS?=
 JOBS?=$(shell nproc --ignore=1)
 
 # Incremental text input uses the persistent-session ABI in this fork.
-QWEN3TTS_REPO?=https://github.com/mudler-agent/qwentts.cpp
+QWEN3TTS_REPO?=https://github.com/localai-org/qwentts.cpp
 QWEN3TTS_CPP_VERSION?=7cdb17cdaf6ef88961365e9b5177a0284501beb9
 SO_TARGET?=libgoqwen3ttscpp.so
 
