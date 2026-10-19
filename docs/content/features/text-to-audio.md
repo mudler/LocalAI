@@ -1115,6 +1115,9 @@ curl http://localhost:8080/v1/sound-generation \
 
 Replace `music` and `chat` with your installed audio and chat model names.
 The server requires non-empty `text` when you select `expansion_model`.
+If your account has a model allowlist, it must allow both the resolved audio
+model and the selected expansion model. Sound permission covers this internal
+expansion; separate Chat permission is not required.
 Omit `expansion_model` to preserve the backend's existing prompt behavior.
 Python ACE-Step then keeps its native Simple-mode expansion.
 Advanced requests can continue to send caption, lyrics, and metadata directly.

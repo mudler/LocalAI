@@ -117,7 +117,7 @@ var _ = Describe("Sound Expansion HTTP", func() {
 		Expect(json.Unmarshal(data, &decoded)).To(Succeed())
 		c.Set(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, &decoded)
 		c.Set(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG, &audioCfg)
-		return elevenlabs.SoundGenerationEndpoint(cl, ml, app)(c)
+		return elevenlabs.SoundGenerationEndpoint(cl, ml, app, nil)(c)
 	}
 	It("renders the selected chat model's prompt template", func() {
 		chatCfg.TemplateConfig.Chat = "BEGIN {{.Input}} END"
