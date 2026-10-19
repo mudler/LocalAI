@@ -21,7 +21,10 @@ var _ = Describe("ElevenLabs sound generation request", func() {
 	It("rejects non-string parameter values", func() {
 		var request schema.ElevenLabsSoundGenerationRequest
 		err := json.Unmarshal([]byte(`{"text":"song","params":{"cot":true}}`), &request)
-		Expect(err).To(MatchError(ContainSubstring("cannot unmarshal bool into Go struct field ElevenLabsSoundGenerationRequest.params of type string")))
+		Expect(err).To(MatchError(And(
+			ContainSubstring("cannot unmarshal bool into Go struct field ElevenLabsSoundGenerationRequest.params"),
+			ContainSubstring("of type string"),
+		)))
 	})
 
 	It("does not expose source audio", func() {

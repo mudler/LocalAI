@@ -35,15 +35,22 @@ func SoundGeneration(
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
+	expanded ...bool,
 ) (string, *proto.Result, error) {
 
-	opts := ModelOptions(modelConfig, appConfig)
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	soundGenModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return "", nil, err
 	}
 
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
 	if soundGenModel == nil {
 		return "", nil, fmt.Errorf("could not load sound generation model")
 	}
@@ -80,6 +87,12 @@ func SoundGeneration(
 		Src:           sourceFile,
 		SrcDivisor:    sourceDivisor,
 		Params:        params,
+	}
+	if len(expanded) > 0 && expanded[0] {
+		req.Expanded = &expanded[0]
+		req.Text = ""
+		req.Caption = &caption
+		req.Lyrics = &lyrics
 	}
 	if think != nil {
 		req.Think = think
@@ -124,6 +137,9 @@ func SoundGeneration(
 	}
 	defer trace.CancelBackendTrace(traceID)
 
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
 	res, err := soundGenModel.SoundGeneration(ctx, req)
 
 	if appConfig.EnableTracing {

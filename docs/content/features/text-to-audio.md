@@ -1096,3 +1096,49 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 ```
 
 If a `response_format` is added in the query (other than `wav`) and ffmpeg is not available, the call will fail.
+
+## Sound prompt expansion
+
+`POST /v1/sound-generation` accepts optional `expansion_model` to expand a sound
+description with an installed chat model before audio generation:
+
+```bash
+curl http://localhost:8080/v1/sound-generation \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model_id": "music",
+    "text": "A gentle piano instrumental with warm strings",
+    "expansion_model": "chat",
+    "instrumental": true
+  }' --output music.wav
+```
+
+Replace `music` and `chat` with your installed audio and chat model names.
+The server requires non-empty `text` when you select `expansion_model`.
+Omit `expansion_model` to preserve the backend's existing prompt behavior.
+Python ACE-Step then keeps its native Simple-mode expansion.
+Advanced requests can continue to send caption, lyrics, and metadata directly.
+
+The chat model returns a JSON object with required `caption` and `lyrics` strings.
+The server caps output at 2,048 tokens and accepts only these fields:
+
+| Field | Accepted value |
+| --- | --- |
+| `caption` | 1–500 characters |
+| `lyrics` | 0–4000 characters |
+| `bpm` | Integer from 1 through 400 |
+| `keyscale` | Musical key and optional mode, such as `C minor`, at most 32 characters |
+| `timesignature` | `N/D`, with each integer from 1 through 32 |
+| `language` | String of at most 32 characters |
+| `duration_seconds` | Number from 1 through 600 |
+
+Explicit `instrumental: true` clears generated lyrics. Your selected `language`
+(or `vocal_language`) takes precedence over generated language.
+An explicit duration takes precedence over generated duration.
+Conflicting caption, style, lyrics, and music metadata in `params` cannot replace
+expanded fields. The audio backend receives structured fields and an expansion
+marker, with the original text cleared. Backend support for expanded requests varies.
+
+An unavailable model, a model without chat support, or invalid generated JSON
+returns a request error. Expansion failures stop the request before audio generation.
+Cancellation propagates to model loading, text inference, and audio generation.

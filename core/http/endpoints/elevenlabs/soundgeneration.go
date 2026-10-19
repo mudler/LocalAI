@@ -32,6 +32,12 @@ func SoundGenerationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader
 			return echo.ErrBadRequest
 		}
 
+		expandedInput, err := backend.ExpandSoundRequest(c.Request().Context(), *input, cl, ml, appConfig)
+		if err != nil {
+			return echo.NewHTTPError(400, err.Error()).SetInternal(err)
+		}
+		input = &expandedInput
+
 		xlog.Debug("Sound Generation Request about to be sent to backend", "modelFile", "modelFile", "backend", cfg.Backend)
 
 		language := input.Language
@@ -50,7 +56,7 @@ func SoundGenerationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader
 			input.Think, input.Caption, input.Lyrics, bpm, input.Keyscale,
 			language, input.Timesignature,
 			input.Instrumental, input.Params,
-			ml, appConfig, *cfg)
+			ml, appConfig, *cfg, input.ExpansionModel != nil)
 		if err != nil {
 			return err
 		}
