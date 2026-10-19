@@ -701,6 +701,19 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
+#### Languages
+
+Pocket TTS has a separate model for each language and loads the English one by default. Set the `language` option to load another:
+
+```yaml
+name: pocket-tts-french
+backend: pocket-tts
+options:
+  - "language:french"
+```
+
+Supported values depend on the installed `pocket-tts` version; current releases accept `english`, `french`, `german`, `italian`, `spanish`, `portuguese` and `dutch`, plus variants such as `french_24l` and `english_2026-04`. The built-in voice names are resolved against the selected language model.
+
 ### Qwen3-TTS
 
 [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) is a high-quality text-to-speech model that supports three modes: custom voice (predefined speakers), voice design (natural language instructions), and voice cloning (from reference audio).
