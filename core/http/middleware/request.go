@@ -392,6 +392,14 @@ func extractToolChoiceFunctionName(m map[string]any) string {
 }
 
 func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.OpenAIRequest) error {
+	// Discard client tools before anything below derives functions or a forced
+	// tool_choice from them; the model's own MCP tools are injected later.
+	if config.DropsClientTools() {
+		input.Tools = nil
+		input.Functions = nil
+		input.ToolsChoice = nil
+		input.FunctionCall = nil
+	}
 	if input.Echo {
 		config.Echo = input.Echo
 	}
@@ -835,6 +843,10 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) (err error) 
 
 // MergeOpenResponsesConfig merges request parameters into the model configuration.
 func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResponsesRequest) error {
+	if config.DropsClientTools() {
+		input.Tools = nil
+		input.ToolChoice = nil
+	}
 	// Temperature
 	if input.Temperature != nil {
 		config.Temperature = input.Temperature

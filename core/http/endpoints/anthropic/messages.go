@@ -49,6 +49,11 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 
 		xlog.Debug("Anthropic Messages endpoint configuration read", "config", cfg)
 
+		if cfg.DropsClientTools() {
+			input.Tools = nil
+			input.ToolChoice = nil
+		}
+
 		// Cloud-proxy bail. Same shape as the OpenAI chat endpoint —
 		// forwards via the cloud-proxy gRPC backend.
 		if cfg.IsCloudProxyBackendPassthrough() {
@@ -70,10 +75,10 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (cfg.MCP.Servers != "" || cfg.MCP.Stdio != "") {
 			remote, stdio, mcpErr := cfg.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, cfg.Name, remote, stdio, mcpServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, cfg.MCPSessionKey(), remote, stdio, mcpServers)
 
 				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
-				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
+				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.MCPSessionKey(), remote, stdio, mcpServers)
 				if sessErr == nil && len(namedSessions) > 0 {
 					mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
 					if mcpCtx != nil {
