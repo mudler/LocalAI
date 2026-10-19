@@ -1,5 +1,5 @@
 GEMX_REPO?=https://github.com/localai-org/gem-x.cpp
-GEMX_VERSION?=576cab62d18829ae00df5959b8ccf0a1032e0c87
+GEMX_VERSION?=756f6b30d1e39a0e2ddb3eb13262ba0316fee8df
 BUILD_TYPE?=
 GOCMD?=go
 GO_TAGS?=
