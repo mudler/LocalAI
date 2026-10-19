@@ -42,7 +42,10 @@ Installing a development image under a stable name does not rename that entry.
 The preference also retains its existing development-first download behavior.
 
 The **Settings** value `prefer_development_backends` supplies the frontend's
-preference at its next startup. The API reports a restart requirement when you save this value. Neither API
+preference at its next startup. POST `/api/settings` returns `restart_required: true` when this value changes,
+while retaining the existing `success` and `message` response fields. Unchanged
+values return `restart_required: false`. This notification does not reconfigure
+the watchdog; genuine watchdog setting updates still apply live. Neither API
 updates nor edits to `runtime_settings.json` change
 registered paths or restart running models. The displayed preference can change
 before the resolver adopts it. Startup uses the existing settings merge:

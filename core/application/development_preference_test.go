@@ -53,7 +53,7 @@ var _ = Describe("development backend preference", func() {
 		loadStartupSettings(cfg)
 		Expect(st.PreferDevelopmentBackends).To(BeTrue())
 	})
-	It("reports restart without hot-switching API or file-watcher state", func() {
+	It("does not request watchdog reconfiguration or hot-switch API or file-watcher state", func() {
 		st := installedState()
 		cfg := config.NewApplicationConfig(config.WithSystemState(st))
 		ml := model.NewModelLoader(st)
@@ -61,7 +61,7 @@ var _ = Describe("development backend preference", func() {
 		original := ml.GetExternalBackend("example-engine")
 		Expect(original).To(HaveSuffix("cpu-example-engine/run.sh"))
 		yes := true
-		Expect(cfg.ApplyRuntimeSettings(&config.RuntimeSettings{PreferDevelopmentBackends: &yes})).To(BeTrue())
+		Expect(cfg.ApplyRuntimeSettings(&config.RuntimeSettings{PreferDevelopmentBackends: &yes})).To(BeFalse())
 		Expect(cfg.PreferDevelopmentBackends).To(BeTrue())
 		Expect(st.PreferDevelopmentBackends).To(BeFalse())
 		cfg.PreferDevelopmentBackends = false

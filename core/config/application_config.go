@@ -1181,8 +1181,9 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 
 // ApplyRuntimeSettings applies RuntimeSettings to ApplicationConfig (the
 // live POST /api/settings path). Only non-nil fields are applied. Returns
-// true if restart-requiring settings changed (see each row's
-// restartRequired flag in runtimeSettingsFields).
+// true when legacy service-reconfiguration fields were accepted (see each
+// row's restartRequired flag in runtimeSettingsFields). The settings endpoint
+// consumes this as a watchdog reconfiguration signal, not a server restart.
 func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (requireRestart bool) {
 	if settings == nil {
 		return false

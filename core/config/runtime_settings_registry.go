@@ -18,8 +18,9 @@ type fieldSpec struct {
 	// jsonNames this spec owns; a single entry except for composite rows
 	// (max_active_backends + its deprecated alias single_backend).
 	jsonNames []string
-	// requiresRestart marks fields whose live change makes
-	// ApplyRuntimeSettings report a restart to the settings endpoint.
+	// requiresRestart is the legacy service-reconfiguration marker consumed
+	// by the settings endpoint as a watchdog restart signal. Server-only
+	// restart notifications must not use this marker.
 	requiresRestart bool
 	// fileAuthoritative: at startup/watch time the persisted value applies
 	// unconditionally - either no env/CLI source exists (branding) or the
@@ -169,8 +170,7 @@ var runtimeSettingsFields = []fieldSpec{
 	field("prefer_development_backends",
 		func(s *RuntimeSettings) **bool { return &s.PreferDevelopmentBackends },
 		func(o *ApplicationConfig) bool { return o.PreferDevelopmentBackends },
-		func(o *ApplicationConfig, v bool) { o.PreferDevelopmentBackends = v },
-		restartRequired()),
+		func(o *ApplicationConfig, v bool) { o.PreferDevelopmentBackends = v }),
 
 	// Memory reclaimer. Enabling it forces the watchdog master flag - that
 	// cross-field invariant lives in the apply loops, not here.
