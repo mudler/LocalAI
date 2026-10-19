@@ -434,6 +434,7 @@
       "managed": "Verified user-managed installation",
       "retry": "Retry inventory for {{node}}",
       "failed": "Could not remove {{name}} from {{node}}: {{message}}",
+      "refreshFailed": "Backend data could not be refreshed. Displayed data may be stale. Retry refresh.",
       "stale": "Deletion succeeded, but backend data could not be refreshed. Displayed data may be stale. Retry refresh; do not repeat deletion.",
       "refresh": "Retry backend refresh"
     }

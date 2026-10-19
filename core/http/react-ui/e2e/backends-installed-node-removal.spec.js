@@ -7,7 +7,7 @@ const ids = ['worker-alpha', 'worker-beta']
 const remove = (page, id) => page.getByRole('button', { name: `Remove from ${id}…`, exact: true })
 
 async function setup(page, options = {}) {
-  const state = { deletes: [], inventoryCalls: {}, installedCalls: 0, failRefresh: false, ...options }
+  const state = { deletes: [], installs: [], inventoryCalls: {}, installedCalls: 0, failRefresh: false, ...options }
   const nodes = ids.map(id => ({ id, name: id, node_type: 'backend', status: 'healthy', address: `${id}.example:50051` }))
   const inventories = Object.fromEntries(ids.map(id => [id, [{ name: BUILD, is_system: false, is_meta: false }, { name: SIBLING, is_system: false, is_meta: false }]]))
   state.nodes = nodes
@@ -17,11 +17,17 @@ async function setup(page, options = {}) {
     ? route.fulfill({ status: 500, json: { error: 'catalog unavailable' } })
     : route.fulfill({ json: { backends: [BUILD, SIBLING].map(name => ({ id: name, name, installed: true, isAlias: true, isDevelopment: name === BUILD, nodes: ids.map(id => ({ node_id: id, node_name: id })) })) } }))
   await page.route('**/api/backends/upgrades', route => route.fulfill({ json: {} }))
-  await page.route('**/backends', route => {
+  await page.route('**/backends', async route => {
     state.installedCalls++
-    return state.failRefresh ? route.fulfill({ status: 500, json: { error: 'installed unavailable' } }) : route.fulfill({ json: [BUILD, SIBLING].map(Name => ({ Name, IsSystem: !!state.aggregateSystem, Nodes: ids.filter(id => inventories[id].some(b => b.name === Name)).map(id => ({ node_id: id, node_name: id, node_status: 'healthy' })) })) })
+    if (state.refreshWait && state.deletes.length) await state.refreshWait
+    return state.failRefresh ? route.fulfill({ status: 500, json: { error: 'installed unavailable' } }) : route.fulfill({ json: [BUILD, SIBLING].filter(Name => ids.some(id => inventories[id].some(b => b.name === Name))).map(Name => ({ Name, IsSystem: !!state.aggregateSystem, Nodes: ids.filter(id => inventories[id].some(b => b.name === Name)).map(id => ({ node_id: id, node_name: id, node_status: 'healthy' })) })) })
   })
   for (const id of ids) {
+    await page.route(`**/api/nodes/${id}/backends/install`, async route => {
+      state.installs.push({ id, method: route.request().method(), body: route.request().postDataJSON() })
+      if (state.installWait) await state.installWait
+      return route.fulfill({ json: { message: 'queued' } })
+    })
     await page.route(`**/api/nodes/${id}/backends`, async route => {
       state.inventoryCalls[id] = (state.inventoryCalls[id] || 0) + 1
       if (state.inventoryWait) await state.inventoryWait
@@ -152,6 +158,11 @@ test('successful deletion with refresh failure retains stale rows and offers ref
   await expect(page.getByRole('button', { name: 'Retry backend refresh' })).toBeVisible()
   await expect(page.locator(`[data-entity="${BUILD}"]`)).toBeVisible()
   await expect(page.locator(`[data-entity="${SIBLING}"]`)).toBeVisible()
+  await expect(page.getByText(/Deletion succeeded/i)).toBeVisible()
+  const before = s.installedCalls
+  await page.getByRole('button', { name: 'Retry backend refresh' }).click()
+  await expect.poll(() => s.installedCalls).toBeGreaterThan(before)
+  await expect(page.getByText(/Deletion succeeded/i)).toBeVisible()
   s.failRefresh = false
   await page.getByRole('button', { name: 'Retry backend refresh' }).click()
   await expect(remove(page, ids[1])).toBeEnabled()
@@ -206,4 +217,101 @@ test('standalone system protection has no scoped removal', async ({ page }) => {
   await expect(remove(page, ids[0])).toHaveCount(0)
   await expect(page.locator(`[data-entity="${BUILD}"]`)).toContainText('Protected')
   expect(s.deletes).toHaveLength(0)
+})
+
+for (const initial of [true, false]) test(`unsuccessful ${initial ? 'initial' : 'background'} refresh retry never claims deletion`, async ({ page }) => {
+  const s = await setup(page, { failRefresh: initial })
+  if (initial) await page.goto('/app/backends?view=installed&show_all=1&development=1')
+  else {
+    await open(page)
+    s.failRefresh = true
+    await page.route('**/api/operations', route => route.fulfill({ json: { operations: [{ name: SIBLING, jobID: 'synthetic-job', isQueued: true }] } }))
+  }
+  const retry = page.getByRole('button', { name: 'Retry backend refresh' })
+  await expect(retry).toBeVisible({ timeout: 15000 })
+  const before = s.installedCalls
+  await retry.click()
+  await expect.poll(() => s.installedCalls).toBeGreaterThan(before)
+  await expect(page.getByRole('alert').filter({ hasText: /refresh failed|could not|unable|failed to/i }).first()).toBeVisible()
+  await expect(page.getByText(/Deletion succeeded/i)).toHaveCount(0)
+  expect(s.deletes).toEqual([])
+})
+
+const catalogTarget = page => page.goto(`/app/backends?view=catalog&show_all=1&development=1&target=${ids[0]}&backend=${BUILD}`)
+const reinstall = page => page.getByRole('button', { name: 'Reinstall', exact: true })
+
+test('deferred target reinstall synchronously blocks duplicate installs and removal', async ({ page }) => {
+  let release; const wait = new Promise(resolve => { release = resolve })
+  const s = await setup(page, { installWait: wait }); await catalogTarget(page)
+  await expect(remove(page, ids[0])).toBeEnabled()
+  await reinstall(page).evaluate(el => { el.click(); el.click() })
+  await expect.poll(() => s.installs.length).toBeGreaterThan(0)
+  await expect(reinstall(page)).toBeDisabled()
+  await expect(remove(page, ids[0])).toBeDisabled()
+  // Programmatic clicks still honor disabled state; no confirmation/mutation.
+  await remove(page, ids[0]).evaluate(el => el.click())
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  expect(s.deletes).toEqual([])
+  expect(s.installs).toEqual([{ id: ids[0], method: 'POST', body: { backend: BUILD } }])
+  release()
+  await expect(reinstall(page)).toBeEnabled()
+})
+
+test('target reinstall stays blocked throughout deletion and deferred postdelete refresh', async ({ page }) => {
+  let releaseDelete, releaseRefresh
+  const s = await setup(page, {
+    deleteWait: new Promise(resolve => { releaseDelete = resolve }),
+    refreshWait: new Promise(resolve => { releaseRefresh = resolve }),
+  })
+  await catalogTarget(page); await remove(page, ids[0]).click(); await confirm(page).click()
+  await expect.poll(() => s.deletes.length).toBe(1)
+  await expect(reinstall(page)).toBeDisabled()
+  releaseDelete()
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  await expect(reinstall(page)).toBeDisabled()
+  await expect(remove(page, ids[0])).toBeDisabled()
+  await reinstall(page).evaluate(el => el.click())
+  expect(s.installs).toEqual([])
+  expect(s.deletes).toHaveLength(1)
+  releaseRefresh()
+  await expect(reinstall(page)).toBeEnabled()
+})
+
+test('out-of-order inventory from previous row cannot overwrite current inventory', async ({ page }) => {
+  const s = await setup(page)
+  let release; const wait = new Promise(resolve => { release = resolve })
+  let first = true
+  await page.route(`**/api/nodes/${ids[0]}/backends`, async route => {
+    if (first) {
+      first = false
+      await wait
+      return route.fulfill({ json: [{ name: SIBLING, is_system: false, is_meta: false }] })
+    }
+    return route.fulfill({ json: [{ name: SIBLING, is_system: true, is_meta: false }] })
+  })
+  await open(page, `&target=${ids[0]}`)
+  await expect(remove(page, ids[0])).toBeDisabled()
+  await expect.poll(() => first).toBe(false)
+  await page.locator(`[data-entity="${SIBLING}"]`).click()
+  await expect(remove(page, ids[0])).toBeDisabled()
+  // Wait for the new protected response before releasing the obsolete managed one.
+  await expect(page.locator('.text-note').filter({ hasText: /protected|system/i })).toBeVisible()
+  const obsoleteResponse = page.waitForResponse(response => response.url().endsWith(`/api/nodes/${ids[0]}/backends`))
+  release()
+  await obsoleteResponse
+  await expect(remove(page, ids[0])).toBeDisabled()
+  expect(s.deletes).toEqual([])
+})
+
+test('last installation disappearance clears only selection and preserves URL refinements', async ({ page }) => {
+  const s = await setup(page)
+  s.inventories[ids[1]] = s.inventories[ids[1]].filter(b => b.name !== BUILD)
+  await open(page, `&target=${ids[0]}&q=example`)
+  await remove(page, ids[0]).click(); await confirm(page).click()
+  await expect(page.locator(`[data-entity="${BUILD}"]`)).toHaveCount(0)
+  await expect.poll(() => new URL(page.url()).searchParams.has('backend')).toBe(false)
+  const params = new URL(page.url()).searchParams
+  expect(Object.fromEntries(params)).toEqual({ view: 'installed', show_all: '1', development: '1', target: ids[0], q: 'example' })
+  await expect(page.locator(`[data-entity="${SIBLING}"]`)).toBeVisible()
+  expect(s.deletes).toEqual([{ id: ids[0], method: 'POST', body: { backend: BUILD } }])
 })

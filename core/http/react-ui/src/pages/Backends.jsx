@@ -73,6 +73,14 @@ export default function Backends() {
   const [removalPending, setRemovalPending] = useState(false)
   const [refreshError, setRefreshError] = useState(false)
   const removalLock = useRef(null)
+  // Ref guards same-tick callbacks; state also rerenders the exact target controls.
+  const targetInstallLocks = useRef(new Set())
+  const [targetInstalls, setTargetInstalls] = useState(() => new Set())
+  const targetKey = (nodeID, name) => JSON.stringify([nodeID, name])
+  const targetInstalling = (nodeID, name) => targetInstallLocks.current.has(targetKey(nodeID, name))
+  const targetBusy = (nodeID, name) => rowConflict(name)
+    || targetInstalls.has(targetKey(nodeID, name))
+    || removalLock.current === targetKey(nodeID, name)
   const inventoryRequests = useRef({})
   const mounted = useRef(true)
   useEffect(() => {
@@ -253,13 +261,21 @@ export default function Backends() {
 
   const handleInstallOnTarget = async (id) => {
     if (!targetNode) return
+    const node = { id: targetNode.id, name: targetNode.name }
+    const key = targetKey(node.id, id)
+    if (targetBusy(node.id, id) || targetInstalling(node.id, id)) return
+    targetInstallLocks.current.add(key)
+    setTargetInstalls(new Set(targetInstallLocks.current))
     setError(id, '')
     try {
-      await nodesApi.installBackend(targetNode.id, id)
-      addToast(t('backends.installingOn', { name: id, node: targetNode.name }), 'info')
-      setTimeout(() => { fetchBackends(); fetchInstalled(); refetchNodes() }, 1200)
+      await nodesApi.installBackend(node.id, id)
+      addToast(t('backends.installingOn', { name: id, node: node.name }), 'info')
+      await Promise.all([loadInventory(node.id), refreshBackendData()])
     } catch (err) {
-      setError(id, t('backends.dispatchFailed', { node: targetNode.name, message: err.message }))
+      setError(id, t('backends.dispatchFailed', { node: node.name, message: err.message }))
+    } finally {
+      targetInstallLocks.current.delete(key)
+      if (mounted.current) setTargetInstalls(new Set(targetInstallLocks.current))
     }
   }
 
@@ -315,15 +331,15 @@ export default function Backends() {
   const currentRowConflict = useRef(rowConflict)
   currentRowConflict.current = rowConflict
 
-  const refreshBackendData = async () => {
+  const refreshBackendData = async (afterDeletion = false) => {
     const results = await Promise.all([fetchBackends(), fetchInstalled(), refetchNodes()])
     const failed = results.some(result => result === false)
-    setRefreshError(failed)
+    setRefreshError(previous => failed ? (afterDeletion || previous === 'deletion' ? 'deletion' : 'refresh') : false)
     return !failed
   }
 
   const confirmNodeRemoval = async (snapshot) => {
-    if (removalLock.current) return
+    if (removalLock.current || targetInstalling(snapshot.nodeID, snapshot.backendName)) return
     const key = JSON.stringify([snapshot.nodeID, snapshot.backendName])
     removalLock.current = key
     setRemovalPending(true)
@@ -334,7 +350,7 @@ export default function Backends() {
       const node = nodes.find(n => n.id === snapshot.nodeID)
       const data = await loadInventory(snapshot.nodeID)
       const reason = nodeReason(node, data, snapshot.backendName)
-      if (!data || reason || currentRowConflict.current(snapshot.backendName)) {
+      if (!data || reason || currentRowConflict.current(snapshot.backendName) || targetInstalling(snapshot.nodeID, snapshot.backendName)) {
         throw new Error(reason || t('backends.nodeRemoval.inventoryUnknown'))
       }
       if (!mounted.current) return
@@ -343,8 +359,8 @@ export default function Backends() {
       setConfirmDialog(null)
       addToast(t('backends.removedFrom', { name: snapshot.backendName, node: snapshot.nodeName }), 'success')
       const inventory = await loadInventory(snapshot.nodeID)
-      const refreshed = await refreshBackendData()
-      if (!inventory || !refreshed) setRefreshError(true)
+      const refreshed = await refreshBackendData(true)
+      if (!inventory || !refreshed) setRefreshError('deletion')
     } catch (err) {
       if (!mounted.current) return
       setConfirmDialog(null)
@@ -357,7 +373,7 @@ export default function Backends() {
   }
 
   const handleRemoveFromTarget = (snapshot) => {
-    if (removalLock.current || rowConflict(snapshot.backendName)) return
+    if (removalLock.current || rowConflict(snapshot.backendName) || targetInstalling(snapshot.nodeID, snapshot.backendName)) return
     setConfirmDialog({
       title: t('backends.nodeRemoval.title', { name: snapshot.backendName, node: snapshot.nodeName }),
       message: <>{t('backends.nodeRemoval.message')}{usedBy(snapshot.backendName)}</>,
@@ -383,7 +399,7 @@ export default function Backends() {
               <span className="dk-mono">{nodeName}</span>
               <span className="text-note">{reason || t('backends.nodeRemoval.managed')}</span>
               <button type="button" className="dk-btn dk-btn--danger dk-btn--sm"
-                disabled={!!reason || rowConflict(name) || removalPending}
+                disabled={!!reason || rowConflict(name) || targetInstalling(nodeID, name) || removalPending}
                 onClick={() => handleRemoveFromTarget({ nodeID, nodeName, backendName: name })}>
                 <Icon name="trash" /> {t('backends.nodeRemoval.action', { node: nodeName })}
               </button>
@@ -641,11 +657,11 @@ export default function Backends() {
     } else if (state.kind === 'removing') {
       action = null
     } else if (state.kind === 'failed') {
-      action = <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => handleInstall(name)} aria-label={t('backends.retryLabel', { name })}>{t('backends.retry')}</button>
+      action = <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={isNodeScoped ? targetBusy(targetNode.id, name) : busy} onClick={() => isNodeScoped ? handleInstallOnTarget(name) : handleInstall(name)} aria-label={t('backends.retryLabel', { name })}>{t('backends.retry')}</button>
     } else if (isNodeScoped) {
       action = onTarget
         ? null
-        : <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="backends-install" onClick={() => handleInstallOnTarget(name)}><Icon name="download" /> {t('backends.installOnNode', { node: targetNode.name })}</button>
+        : <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="backends-install" disabled={targetBusy(targetNode.id, name)} onClick={() => handleInstallOnTarget(name)}><Icon name="download" /> {t('backends.installOnNode', { node: targetNode.name })}</button>
     } else if (b.installed) {
       action = upgrade
         ? <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={busy} onClick={() => handleUpgrade(name)} aria-label={t('backends.updateLabel', { name })}>{t('backends.update')}</button>
@@ -697,7 +713,7 @@ export default function Backends() {
         <div className="bk-detail__acts">
           {isNodeScoped && onTarget && (
             <>
-              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => handleInstallOnTarget(name)} title={t('backends.reinstallOn', { node: targetNode.name })}>
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={targetBusy(targetNode.id, name)} onClick={() => handleInstallOnTarget(name)} title={t('backends.reinstallOn', { node: targetNode.name })}>
                 <Icon name="refresh" /> {t('backends.reinstall')}
               </button>
               {nodeControls(name, b.nodes || [])}
@@ -972,8 +988,8 @@ export default function Backends() {
 
       {(refreshError || globalError) && (
         <div className="op-error" role="alert">
-          <span>{refreshError ? t('backends.nodeRemoval.stale') : globalError}</span>
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" aria-label={t('backends.nodeRemoval.refresh')} onClick={refreshBackendData}>{t('backends.retry')}</button>
+          <span>{refreshError ? t(refreshError === 'deletion' ? 'backends.nodeRemoval.stale' : 'backends.nodeRemoval.refreshFailed') : globalError}</span>
+          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" aria-label={t('backends.nodeRemoval.refresh')} onClick={() => refreshBackendData()}>{t('backends.retry')}</button>
         </div>
       )}
       {showManualInstall && (
