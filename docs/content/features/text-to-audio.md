@@ -1115,11 +1115,14 @@ curl http://localhost:8080/v1/sound-generation \
 
 Replace `music` and `chat` with your installed audio and chat model names.
 The server requires non-empty `text` when you select `expansion_model`.
-Select an installed `llama-cpp` chat model. Expansion enforces JSON decoding
-with a grammar for both tokenizer templates and configured prompt templates.
-Other backends are rejected before inference because they may ignore the grammar.
-The server also validates the generated fields and stops before audio generation
-if the response is invalid.
+Select an installed `llama-cpp` chat model with `use_tokenizer_template: true`
+and a tokenizer template that supports native tool calls. Expansion sends one
+strict, schema-backed `expand_sound` function tool with `tool_choice: required`.
+Other backends and configurations without tokenizer templates are rejected before
+inference. An explicit grammar is cleared for this request only; the installed
+model configuration is unchanged. The configuration flag alone does not guarantee
+that the selected model and template support native tools.
+The server validates the arguments and stops before audio generation if invalid.
 
 If your account has a model allowlist, it must allow both the resolved audio
 model and the selected expansion model. Sound permission covers this internal
@@ -1128,7 +1131,9 @@ Omit `expansion_model` to preserve the backend's existing prompt behavior.
 Python ACE-Step then keeps its native Simple-mode expansion.
 Advanced requests can continue to send caption, lyrics, and metadata directly.
 
-The chat model returns a JSON object with required `caption` and `lyrics` strings.
+The chat model must return exactly one `expand_sound` tool call with required
+`caption` and `lyrics` strings in its arguments. Assistant prose and reasoning
+are never used as fallback arguments.
 The server caps output at 2,048 tokens and accepts only these fields:
 
 | Field | Accepted value |
@@ -1148,8 +1153,8 @@ Conflicting caption, style, lyrics, and music metadata in `params` cannot replac
 expanded fields. The audio backend receives structured fields and an expansion
 marker, with the original text cleared. Backend support for expanded requests varies.
 
-An unavailable model, a model without chat support, or invalid generated JSON
-returns a request error. Expansion failures stop the request before audio generation.
+An unavailable model, a model without native tool support, a missing or wrong
+tool call, multiple calls, or invalid arguments returns a request error. Expansion failures stop the request before audio generation.
 Cancellation propagates to model loading, text inference, and audio generation.
 
 In **Studio → Sound → Simple**, choose a **Prompt expansion model** before

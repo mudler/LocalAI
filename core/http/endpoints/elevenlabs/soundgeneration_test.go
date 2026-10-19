@@ -30,6 +30,8 @@ func TestSoundExpansion(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "
 type soundBackend struct {
 	grpcpkg.Backend
 	output     string
+	deltas     []*pb.ChatDelta
+	prose      bool
 	failure    error
 	cancel     context.CancelFunc
 	prediction *pb.PredictOptions
@@ -49,7 +51,11 @@ func (b *soundBackend) Predict(ctx context.Context, in *pb.PredictOptions, _ ...
 		b.cancel()
 		return nil, ctx.Err()
 	}
-	return &pb.Reply{Message: []byte(b.output)}, b.failure
+	deltas := b.deltas
+	if deltas == nil && !b.prose {
+		deltas = []*pb.ChatDelta{{ToolCalls: []*pb.ToolCallDelta{{Name: "expand_sound", Arguments: b.output}}}}
+	}
+	return &pb.Reply{ChatDeltas: deltas}, b.failure
 }
 func (b *soundBackend) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	b.audio = in
@@ -84,6 +90,7 @@ var _ = Describe("Sound Expansion HTTP", func() {
 		audioCfg.Model = "audio-weights"
 		chatCfg = config.ModelConfig{Name: "chat", Backend: model.LLamaCPP}
 		chatCfg.SetDefaults()
+		chatCfg.TemplateConfig.UseTokenizerTemplate = true
 		chatCfg.Model = "chat-weights"
 		flags := config.FLAG_CHAT
 		chatCfg.KnownUsecases = &flags
@@ -119,33 +126,70 @@ var _ = Describe("Sound Expansion HTTP", func() {
 		c.Set(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG, &audioCfg)
 		return elevenlabs.SoundGenerationEndpoint(cl, ml, app, nil)(c)
 	}
-	It("enforces JSON decoding for rendered and tokenizer templates", func() {
-		for _, tokenizer := range []bool{false, true} {
-			chatCfg.Backend = "llama"
-			chatCfg.TemplateConfig.UseTokenizerTemplate = tokenizer
-			chatCfg.Grammar = "unrelated installed grammar"
-			cl.ReplaceModelConfigs([]config.ModelConfig{audioCfg, chatCfg})
-			Expect(request()).To(Succeed())
-			Expect(fake.prediction.Grammar).To(HavePrefix("root   ::= object"))
-			stored, _ := cl.GetModelConfig("chat")
-			Expect(stored.Grammar).To(Equal("unrelated installed grammar"))
-		}
-	})
-	It("rejects backends without verified JSON decoding before inference or audio", func() {
-		chatCfg.Backend = "transformers"
-		cl.ReplaceModelConfigs([]config.ModelConfig{audioCfg, chatCfg})
-		Expect(request()).To(MatchError(ContainSubstring("requires JSON-constrained decoding")))
-		Expect(fake.prediction).To(BeNil())
-		Expect(fake.audio).To(BeNil())
-	})
-	It("renders the selected chat model's prompt template", func() {
-		chatCfg.TemplateConfig.Chat = "BEGIN {{.Input}} END"
-		chatCfg.TemplateConfig.ChatMessage = "{{.RoleName}}:{{.Content}}"
+	It("forwards one strict schema-backed required tool without installed grammar", func() {
+		chatCfg.Backend = "llama"
+		chatCfg.Grammar = "installed grammar"
 		cl.ReplaceModelConfigs([]config.ModelConfig{audioCfg, chatCfg})
 		Expect(request()).To(Succeed())
-		Expect(fake.prediction.Prompt).To(HavePrefix("BEGIN user:"))
-		Expect(fake.prediction.Prompt).To(ContainSubstring(input.Text))
+		Expect(fake.prediction.Grammar).To(BeEmpty())
+		Expect(fake.prediction.UseTokenizerTemplate).To(BeTrue())
+		Expect(fake.prediction.ToolChoice).To(Equal("required"))
+		Expect(fake.prediction.Prompt).To(BeEmpty())
+		Expect(fake.prediction.Messages).To(HaveLen(1))
+		var tools []map[string]any
+		Expect(json.Unmarshal([]byte(fake.prediction.Tools), &tools)).To(Succeed())
+		Expect(tools).To(HaveLen(1))
+		Expect(tools[0]["type"]).To(Equal("function"))
+		function := tools[0]["function"].(map[string]any)
+		Expect(function["name"]).To(Equal("expand_sound"))
+		Expect(function["strict"]).To(BeTrue())
+		parameters := function["parameters"].(map[string]any)
+		Expect(parameters["type"]).To(Equal("object"))
+		Expect(parameters["additionalProperties"]).To(BeFalse())
+		Expect(parameters["required"]).To(Equal([]any{"caption", "lyrics"}))
+		properties := parameters["properties"].(map[string]any)
+		Expect(properties).To(HaveLen(7))
+		Expect(properties["caption"]).To(Equal(map[string]any{"type": "string", "minLength": float64(1), "maxLength": float64(500)}))
+		Expect(properties["lyrics"]).To(Equal(map[string]any{"type": "string", "maxLength": float64(4000)}))
+		Expect(properties["bpm"]).To(Equal(map[string]any{"type": "integer", "minimum": float64(1), "maximum": float64(400)}))
+		Expect(properties["duration_seconds"]).To(Equal(map[string]any{"type": "number", "minimum": float64(1), "maximum": float64(600)}))
+		Expect(properties["language"]).To(Equal(map[string]any{"type": "string", "maxLength": float64(32)}))
+		Expect(properties["keyscale"]).To(HaveKeyWithValue("maxLength", float64(32)))
+		Expect(properties["timesignature"]).To(HaveKey("pattern"))
+		stored, _ := cl.GetModelConfig("chat")
+		Expect(stored.Grammar).To(Equal("installed grammar"))
 	})
+	It("rejects unsupported backend and template before inference or audio", func() {
+		for _, backendName := range []string{"transformers", model.LLamaCPP} {
+			chatCfg.Backend = backendName
+			chatCfg.TemplateConfig.UseTokenizerTemplate = false
+			cl.ReplaceModelConfigs([]config.ModelConfig{audioCfg, chatCfg})
+			Expect(request()).To(MatchError(ContainSubstring("tool")))
+			Expect(fake.prediction).To(BeNil())
+			Expect(fake.audio).To(BeNil())
+			Expect(loadedContext).To(BeNil())
+		}
+	})
+	It("collects fragmented arguments with empty assistant text", func() {
+		fake.deltas = []*pb.ChatDelta{
+			{ToolCalls: []*pb.ToolCallDelta{{Name: "expand_sound", Arguments: `{"caption":"warm `}}},
+			{ToolCalls: []*pb.ToolCallDelta{{Arguments: `piano","lyrics":""}`}}},
+		}
+		Expect(request()).To(Succeed())
+		Expect(fake.audio.GetCaption()).To(Equal("warm piano"))
+	})
+	DescribeTable("rejects missing, wrong, multiple and prose-only calls", func(deltas []*pb.ChatDelta) {
+		fake.prose = true
+		fake.deltas = deltas
+		Expect(request()).To(MatchError(ContainSubstring("tool call")))
+		Expect(fake.audio).To(BeNil())
+	},
+		Entry("missing", []*pb.ChatDelta{}),
+		Entry("prose JSON", []*pb.ChatDelta{{Content: `{"caption":"piano","lyrics":""}`}}),
+		Entry("reasoning only", []*pb.ChatDelta{{ReasoningContent: `{"caption":"piano","lyrics":""}`}}),
+		Entry("wrong name", []*pb.ChatDelta{{ToolCalls: []*pb.ToolCallDelta{{Name: "wrong", Arguments: `{"caption":"piano","lyrics":""}`}}}}),
+		Entry("multiple", []*pb.ChatDelta{{ToolCalls: []*pb.ToolCallDelta{{Name: "expand_sound", Index: 0}, {Name: "expand_sound", Index: 1}}}}),
+	)
 	It("passes generated neutral fields and marker to audio without mutating chat limits", func() {
 		before, _ := cl.GetModelConfig("chat")
 		originalTokens := *before.Maxtokens
@@ -234,13 +278,13 @@ var _ = Describe("Sound Expansion HTTP", func() {
 	})
 	It("stops on inference failures", func() {
 		fake.failure = errors.New("generation failed")
-		Expect(request()).To(MatchError(ContainSubstring("failed to generate JSON")))
+		Expect(request()).To(MatchError(ContainSubstring("failed to return the required tool call")))
 		Expect(fake.audio).To(BeNil())
 	})
 	It("stops on invalid JSON or schema", func() {
-		for _, output := range []string{"not JSON", `{"caption":"piano","lyrics":"","unexpected":true}`} {
+		for _, output := range []string{"", "{", "not JSON", "null", `{}`, `{"caption":"piano","lyrics":null}`, `{"caption":123,"lyrics":""}`, `{"caption":"piano","lyrics":"","bpm":401}`, `{"caption":"piano","lyrics":"","duration_seconds":0}`, `{"caption":"piano","lyrics":"","unexpected":true}`} {
 			fake.output = output
-			Expect(request()).To(MatchError(ContainSubstring("invalid sound JSON")))
+			Expect(request()).To(MatchError(ContainSubstring("invalid expand_sound arguments")))
 			Expect(fake.audio).To(BeNil())
 		}
 	})
