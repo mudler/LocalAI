@@ -1228,3 +1228,39 @@ func liveVoiceOptions(ctx context.Context, registry voicerecognition.Registry, c
 	}
 	return []backend.LiveOption{backend.WithKnownVoices(voices)}
 }
+
+// SupportsTTSLive selects the native persistent-input path explicitly. Other
+// engines retain their existing whole-text or clause synthesis behaviour.
+func (m *wrappedModel) SupportsTTSLive() bool {
+	return m.TTSConfig != nil && m.TTSConfig.Backend == "qwen3-tts-cpp"
+}
+func (m *wrappedModel) TTSLive(ctx context.Context, text <-chan string, voice, language string, onAudio func([]byte, int) error) error {
+	return m.stageCall(ctx, config.PipelineStageTTS, m.TTSConfig, func(cfg *config.ModelConfig, commit func()) error {
+		// Text is consumed once. Retrying a session would omit consumed input or
+		// duplicate speech already heard, so fallback ends before consuming it.
+		commit()
+		var header []byte
+		rate := 0
+		return backend.ModelTTSLive(ctx, text, voice, language, maps.Clone(m.ttsParams), m.modelLoader, m.appConfig, *cfg, func(b []byte) error {
+			if rate != 0 {
+				return onAudio(b, rate)
+			}
+			header = append(header, b...)
+			if len(header) < wavStreamHeaderBytes {
+				return nil
+			}
+			if string(header[:4]) != "RIFF" || string(header[8:12]) != "WAVE" {
+				return fmt.Errorf("invalid live TTS WAV header")
+			}
+			rate = int(binary.LittleEndian.Uint32(header[24:28]))
+			if rate == 0 {
+				return fmt.Errorf("invalid live TTS sample rate")
+			}
+			if len(header) > wavStreamHeaderBytes {
+				return onAudio(header[wavStreamHeaderBytes:], rate)
+			}
+			header = nil
+			return nil
+		})
+	})
+}

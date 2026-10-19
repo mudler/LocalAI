@@ -16,10 +16,8 @@ import (
 // transcriptStreamer turns streamed LLM tokens into the assistant's spoken
 // transcript: it strips reasoning incrementally and sends one
 // response.output_audio_transcript.delta per content fragment. It does NOT
-// synthesize audio — the caller buffers the full message and synthesizes it
-// once (streaming the audio chunks when the TTS backend supports TTSStream),
-// which works uniformly for streaming and non-streaming TTS and for languages
-// without sentence or word boundaries.
+// synthesize audio. The caller sends cleaned content to a persistent live TTS
+// session when supported, or uses the existing whole-text or clause path.
 type transcriptStreamer struct {
 	ctx        context.Context
 	t          Transport
@@ -78,15 +76,18 @@ func (s *transcriptStreamer) content() string {
 }
 
 // streamLLMResponse drives a streamed realtime reply. It streams the assistant
-// transcript as the LLM generates, then synthesizes the whole buffered message
-// once (streaming the audio chunks when the TTS backend supports it, otherwise a
-// single unary delta). Tool calls parsed from the autoparser ChatDeltas are
+// transcript as the LLM generates and feeds a persistent live TTS session when
+// available. Other engines keep whole-text or clause synthesis. Tool calls
+// parsed from the autoparser ChatDeltas are
 // emitted after the spoken content. The assistant content item is created lazily
 // on the first content delta, so a content-less tool-call turn emits only the
 // tool calls. It returns true when it has fully handled the response so the
 // caller can return; callers must only invoke it for an audio modality, and with
 // tools only when the model uses its tokenizer template (see triggerResponseAtTurn).
 func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, r *liveResponse, history schema.Messages, images []string, llmCfg *config.ModelConfig, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, toolTurn int) bool {
+	callerCtx := ctx
+	ctx, cancelWork := context.WithCancel(ctx)
+	defer cancelWork()
 	responseID := r.id
 	itemID := generateItemID()
 	item := types.MessageItemUnion{
@@ -173,7 +174,15 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	// and the transcript stream keep flowing while audio is produced behind them.
 	var chunker *clauseChunker
 	var ttsPipe *ttsPipeline
-	if session.ModelConfig != nil && session.ModelConfig.Pipeline.ChunkClauses() {
+	var livePipe *liveSpeechPipeline
+	liveModel, liveCapable := session.ModelInterface.(liveSpeechModel)
+	useLive := liveCapable && liveModel.SupportsTTSLive() && session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTTS()
+	defer func() {
+		if livePipe != nil {
+			livePipe.abort()
+		}
+	}()
+	if !useLive && session.ModelConfig != nil && session.ModelConfig.Pipeline.ChunkClauses() {
 		chunker = newClauseChunker(defaultClauseMinRunes, defaultClauseMaxRunes)
 		ttsPipe = newTTSPipeline(func(clause string) ([]byte, error) {
 			return emitSpeech(ctx, t, session, responseID, itemID, clause)
@@ -193,7 +202,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	// fail reports a mid-stream failure. A cancelled context means the client
 	// interrupted (barge-in), so roll the turn back instead of erroring.
 	fail := func(code, msg string, err error) bool {
-		if ctx.Err() != nil {
+		if callerCtx.Err() != nil {
 			cancel()
 		} else {
 			sendError(t, code, fmt.Sprintf("%s: %v", msg, err), "", itemID)
@@ -215,6 +224,20 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			text = functions.ContentFromChatDeltas(usage.ChatDeltas)
 		}
 		delta := streamer.onToken(text)
+		if useLive && delta != "" {
+			if livePipe == nil {
+				livePipe = newLiveSpeechPipeline(ctx, func(liveCtx context.Context, input <-chan string) ([]byte, error) {
+					audio, err := emitLiveSpeech(liveCtx, liveModel, input, t, session, responseID, itemID)
+					if err != nil {
+						cancelWork()
+					}
+					return audio, err
+				})
+			}
+			if !livePipe.push(delta) {
+				return false
+			}
+		}
 		if chunker != nil && delta != "" {
 			for _, clause := range chunker.push(delta) {
 				// Hand the clause to the worker and keep going — never block the
@@ -252,6 +275,13 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		streamedAudio, ttsErr = ttsPipe.wait()
 	}
 
+	if livePipe != nil {
+		if err != nil || ctx.Err() != nil {
+			livePipe.cancel()
+		}
+		streamedAudio, ttsErr = livePipe.finish()
+	}
+
 	// A clause synthesis failed mid-stream (the callback stopped the prediction);
 	// report it as a TTS error rather than a prediction error.
 	if ttsErr != nil {
@@ -282,7 +312,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		// synthesize it once now — emitSpeech streams the audio chunks when the
 		// TTS backend supports TTSStream, otherwise it sends a single unary delta.
 		var audio []byte
-		if chunker != nil {
+		if chunker != nil || livePipe != nil {
 			audio = streamedAudio
 		} else {
 			audio, ttsErr = emitSpeech(ctx, t, session, responseID, itemID, content)

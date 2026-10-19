@@ -83,3 +83,33 @@ QWEN3TTS_CODEC=/path/to/qwen-tokenizer-12hz-Q8_0.gguf \
 QWEN3TTS_LIBRARY=backend/go/qwen3-tts-cpp/libgoqwen3ttscpp-fallback.so \
   go test ./backend/go/qwen3-tts-cpp -ginkgo.label-filter=e2e
 ```
+
+### Incremental text and audio
+
+The `TTSLive` backend RPC accepts text fragments while emitting audio from one
+persistent utterance. The first `TTSRequest` carries voice, language and sampling
+options; subsequent requests carry only `text`. Each fragment must contain valid UTF-8;
+the protobuf string boundary does not accept incomplete Unicode characters. Closing the request stream commits
+end of input. Continue reading responses until EOF to receive the codec tail.
+Responses contain one streaming WAV header followed by mono PCM16 chunks at 24 kHz.
+
+Realtime audio pipelines select this path when their TTS model uses
+`qwen3-tts-cpp` and `pipeline.streaming.llm` and `pipeline.streaming.tts` are
+`true`. Cleaned LLM content feeds the same synthesis session; clause splitting is
+bypassed. WebSocket and WebRTC transports receive audio as it becomes available.
+The text queue is bounded, so slow audio consumers apply backpressure to text
+generation. Audio emits before the full response is available; WebSocket
+conversation history still retains the final audio, as in the existing path. Cancellation stops input and audio. A failed live session is not
+retried because consumed text and emitted speech cannot be replayed safely.
+
+This requires the incremental-input native fork. Its initial implementation uses
+one native batch slot and commits whitespace-delimited words or individual CJK, Kana and
+Hangul characters. Incomplete words remain buffered until a stable boundary. Reference audio without `ref_text` is supported; transcript-based ICL
+cloning is rejected for incremental sessions. Other TTS backends retain their
+existing whole-text or clause synthesis paths. The standard speech HTTP request
+continues to accept a complete JSON input.
+
+To run the real native streaming check, provide `QWEN3TTS_LIBRARY`,
+`QWEN3TTS_MODEL`, `QWEN3TTS_CODEC`, and `QWEN3TTS_LIVE_TEST=1`, then run
+`go test ./backend/go/qwen3-tts-cpp -ginkgo.focus TTSLiveNative -v` from the
+repository root. It withholds late text and end of input until real PCM arrives.

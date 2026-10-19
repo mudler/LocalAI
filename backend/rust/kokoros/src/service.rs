@@ -201,6 +201,15 @@ impl Backend for KokorosService {
         }
     }
 
+    type TTSLiveStream = ReceiverStream<Result<backend::Reply, Status>>;
+
+    async fn tts_live(
+        &self,
+        _req: Request<tonic::Streaming<backend::TtsRequest>>,
+    ) -> Result<Response<Self::TTSLiveStream>, Status> {
+        Err(Status::unimplemented("incremental text TTS is not supported"))
+    }
+
     type TTSStreamStream = ReceiverStream<Result<backend::Reply, Status>>;
 
     async fn tts_stream(

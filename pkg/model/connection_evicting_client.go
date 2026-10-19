@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -142,4 +143,14 @@ func (c *ConnectionEvictingClient) Score(ctx context.Context, in *pb.ScoreReques
 	result, err := c.Backend.Score(ctx, in, opts...)
 	c.checkErr(err)
 	return result, err
+}
+
+func (c *ConnectionEvictingClient) TTSLive(ctx context.Context, in *pb.TTSRequest, text <-chan string, send func([]byte) error) error {
+	live, ok := c.Backend.(grpc.TTSLiveBackend)
+	if !ok {
+		return fmt.Errorf("backend does not support incremental text TTS")
+	}
+	err := live.TTSLive(ctx, in, text, send)
+	c.checkErr(err)
+	return err
 }

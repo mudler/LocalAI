@@ -36,6 +36,9 @@ service Backend {
   rpc AudioTranscriptionLive(stream TranscriptLiveRequest) returns (stream TranscriptLiveResponse) {}
   rpc TTS(TTSRequest) returns (Result) {}
   rpc TTSStream(TTSRequest) returns (stream Reply) {}
+  // First frame configures a persistent utterance; later frames carry only text.
+  // Half-close commits end of text, while audio continues until EOF.
+  rpc TTSLive(stream TTSRequest) returns (stream Reply) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Detokenize(DetokenizeRequest) returns (DetokenizeResponse) {}

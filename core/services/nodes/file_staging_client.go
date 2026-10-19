@@ -726,3 +726,30 @@ func copyFile(src, dst string) error {
 	}
 	return closeErr
 }
+
+func (f *FileStagingClient) TTSLive(ctx context.Context, in *pb.TTSRequest, text <-chan string, fn func([]byte) error) error {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.TTSRequest)
+
+	// Translate model path from frontend to remote worker path (same as TTS above)
+	if in.Model != "" && isFilePath(in.Model) {
+		in.Model = f.translateModelPath(in.Model)
+	}
+	if in.Voice != "" && isFilePath(in.Voice) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Voice, "inputs")
+		if err != nil {
+			return fmt.Errorf("staging streaming TTS voice reference: %w", err)
+		}
+		in.Voice = backendPath
+	}
+	if err := f.stageTTSReferences(ctx, lifecycle, in); err != nil {
+		return err
+	}
+
+	live, ok := f.Backend.(grpc.TTSLiveBackend)
+	if !ok {
+		return fmt.Errorf("backend does not support incremental text TTS")
+	}
+	return live.TTSLive(ctx, in, text, fn)
+}
