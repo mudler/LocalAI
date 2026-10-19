@@ -18,6 +18,11 @@
 //     types. Pruning is restored only when InitialContext is nonempty.
 //   - types/artifact.go:9 and types/pruning.go:8: artifact IDs are int64;
 //     pruning maps are keyed by tool_call_id and include compression state.
+//     mcp/artifacts.go:72-101 sorts snapshots by ID, skips nonpositive IDs
+//     on restore, and overwrites duplicates. Admission rejects nonpositive
+//     and duplicate IDs; artifact ordering is not identity.
+//     Admission also rejects system messages in context and history: native
+//     exports omit regenerated context systems and promise system-free history.
 //   - chat/callbacks.go:43-57,163-247: StreamEvent and Callbacks expose
 //     streaming, text/reasoning/status/errors, optional approval/questions,
 //     tool lifecycle, helper lifecycle/title, compaction/pruning, park/resume.

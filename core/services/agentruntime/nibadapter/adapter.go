@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/nib/chat"
 	"github.com/mudler/nib/types"
+	openai "github.com/sashabaranov/go-openai"
 )
 
 // Capabilities describes this adapter's tested surface, not all nib features.
@@ -93,6 +94,30 @@ func RestoreConfig(cfg types.Config, cp Checkpoint) (types.Config, error) {
 		if err := json.Unmarshal(data, s.target); err != nil {
 			return types.Config{}, fmt.Errorf("invalid %s: %w", s.name, err)
 		}
+	}
+	// Native context exports exclude regenerated system prompts. Display
+	// history also contains no system prompt; neither section may restore one.
+	for _, section := range []struct {
+		name     string
+		messages []openai.ChatCompletionMessage
+	}{{"context", cfg.InitialContext}, {"history", cfg.InitialHistory}} {
+		for _, message := range section.messages {
+			if message.Role == openai.ChatMessageRoleSystem {
+				return types.Config{}, fmt.Errorf("unsupported %s section: system messages are regenerated", section.name)
+			}
+		}
+	}
+	// ArtifactStore.Restore silently skips nonpositive IDs and overwrites
+	// duplicates. Reject both before a session can lose checkpoint data.
+	artifactIDs := make(map[int64]struct{}, len(cfg.InitialArtifacts))
+	for _, artifact := range cfg.InitialArtifacts {
+		if artifact.ID <= 0 {
+			return types.Config{}, fmt.Errorf("invalid artifact ID %d: must be positive", artifact.ID)
+		}
+		if _, exists := artifactIDs[artifact.ID]; exists {
+			return types.Config{}, fmt.Errorf("duplicate artifact ID %d", artifact.ID)
+		}
+		artifactIDs[artifact.ID] = struct{}{}
 	}
 	// nib falls back to display history and skips pruning restoration when
 	// InitialContext is empty. Reject states it cannot restore faithfully.

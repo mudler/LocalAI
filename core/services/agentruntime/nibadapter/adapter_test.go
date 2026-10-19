@@ -189,6 +189,65 @@ var _ = Describe("v0.12.1 contract", func() {
 		_, err = ExportCheckpoint(session, true)
 		Expect(err).To(MatchError(ContainSubstring("unsupported checkpoint state")))
 	})
+	DescribeTable("rejects artifact IDs that native restore drops or overwrites before construction",
+		func(artifacts string) {
+			cp.Artifacts = []byte(artifacts)
+			expectRejectedCheckpoint(cp, "artifact")
+		},
+		Entry("zero ID", `[{"id":0,"content":"lost"}]`),
+		Entry("negative ID among valid artifacts", `[{"id":3,"content":"keep"},{"id":-1,"content":"lost"}]`),
+		Entry("duplicate IDs with different data", `[{"id":3,"content":"first"},{"id":3,"content":"second"}]`),
+		Entry("duplicate IDs even with identical data", `[{"id":3,"content":"same"},{"id":3,"content":"same"}]`),
+	)
+	DescribeTable("rejects regenerated system messages before construction",
+		func(section, messages string) {
+			if section == "context" {
+				cp.Context = []byte(messages)
+			} else {
+				cp.History = []byte(messages)
+			}
+			expectRejectedCheckpoint(cp, section)
+		},
+		Entry("mixed context", "context", `[{"role":"user","content":"keep"},{"role":"system","content":"stale"}]`),
+		Entry("system-only context with history and pruning", "context", `[{"role":"system","content":"stale"}]`),
+		Entry("mixed history", "history", `[{"role":"user","content":"keep"},{"role":"system","content":"stale"}]`),
+		Entry("system-only history", "history", `[{"role":"system","content":"stale"}]`),
+	)
+	It("rejects system-only context with pruning even without display history", func() {
+		cp.Context, cp.History = []byte(`[{"role":"system","content":"stale"}]`), []byte(`[]`)
+		expectRejectedCheckpoint(cp, "context")
+	})
+	DescribeTable("preserves distinct positive artifact IDs and native message data in real offline sessions",
+		func(artifacts string) {
+			cp.Artifacts = []byte(artifacts)
+			wire, err := EncodeCheckpoint(cp)
+			Expect(err).NotTo(HaveOccurred())
+			decoded, err := DecodeCheckpoint(wire)
+			Expect(err).NotTo(HaveOccurred())
+			cfg, err := RestoreConfig(isolatedConfig(), decoded)
+			Expect(err).NotTo(HaveOccurred())
+			session, err := chat.NewSession(context.Background(), cfg, chat.Callbacks{})
+			Expect(err).NotTo(HaveOccurred())
+			defer session.Close()
+			exported, err := ExportCheckpoint(session, true)
+			Expect(err).NotTo(HaveOccurred())
+			restored, err := RestoreConfig(isolatedConfig(), exported)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(restored.InitialContext).To(Equal(cfg.InitialContext))
+			Expect(restored.InitialHistory).To(Equal(cfg.InitialHistory))
+			Expect(restored.InitialPruning).To(Equal(cfg.InitialPruning))
+			// Native snapshots sort artifacts by ID; their order is not identity.
+			Expect(restored.InitialArtifacts).To(ConsistOf(cfg.InitialArtifacts))
+			second, err := chat.NewSession(context.Background(), restored, chat.Callbacks{})
+			Expect(err).NotTo(HaveOccurred())
+			defer second.Close()
+			again, err := ExportCheckpoint(second, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(again).To(Equal(exported))
+		},
+		Entry("sparse unordered IDs", `[{"id":9,"tool":"read","created":"1970-01-01T00:00:02Z","content":"nine"},{"id":1,"tool":"compaction","content":"one"},{"id":3,"content":"three"}]`),
+		Entry("empty artifacts", `[]`),
+	)
 	It("captures immutable identities even for concurrent late callbacks", func() {
 		var mu sync.Mutex
 		var events []Event
@@ -297,4 +356,18 @@ func isolatedConfig() types.Config {
 	GinkgoT().Setenv("XDG_STATE_HOME", home)
 	off := false
 	return types.Config{Model: "fake", APIKey: "fake", BaseURL: "http://127.0.0.1:1/v1", BaseDir: home, WorkingDir: home, LSPAutoDetect: &off, BuiltinTools: []string{"no-tools"}}
+}
+
+// Only validated configs may reach chat.NewSession. Exercise every checkpoint
+// admission path without constructing any session for a rejected payload.
+func expectRejectedCheckpoint(cp Checkpoint, section string) {
+	cfg, err := RestoreConfig(types.Config{}, cp)
+	Expect(err).To(MatchError(ContainSubstring(section)))
+	Expect(cfg).To(Equal(types.Config{}))
+	_, err = EncodeCheckpoint(cp)
+	Expect(err).To(HaveOccurred())
+	wire, err := json.Marshal(cp)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = DecodeCheckpoint(wire)
+	Expect(err).To(HaveOccurred())
 }
