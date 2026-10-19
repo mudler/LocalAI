@@ -10,6 +10,8 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/sound"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // emitSpeech synthesizes text and sends the audio to the client. When the
@@ -31,6 +33,7 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 
 	_, isWebRTC := t.(*WebRTCTransport)
 
+	audioCommitted := false
 	var wsAudio []byte // PCM at the session output rate, accumulated for the item record
 
 	// sendChunk hands one PCM buffer to the transport: WebRTC consumes the raw
@@ -40,6 +43,10 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 		if len(pcm) == 0 {
 			return nil
 		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		audioCommitted = true
 		if err := t.SendAudio(ctx, pcm, sampleRate); err != nil {
 			return err
 		}
@@ -68,11 +75,23 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 		language = session.InputAudioTranscription.Language
 	}
 
-	if session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTTS() {
-		if err := session.ModelInterface.TTSStream(ctx, text, session.Voice, language, sendChunk); err != nil {
+	streamingAvailable := true
+	if capability, ok := session.ModelInterface.(interface{ SupportsTTSStream() bool }); ok {
+		streamingAvailable = capability.SupportsTTSStream()
+	}
+	if session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTTS() && streamingAvailable {
+		err := session.ModelInterface.TTSStream(ctx, text, session.Voice, language, sendChunk)
+		if err == nil {
+			return wsAudio, nil
+		}
+		// Only an unsupported RPC before audio may safely fall back. Once a
+		// transport sees PCM, replaying this clause could repeat heard speech.
+		if status.Code(err) != codes.Unimplemented || audioCommitted || ctx.Err() != nil {
 			return nil, err
 		}
-		return wsAudio, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	// Unary fallback: synthesize the whole utterance to a file, then emit once.

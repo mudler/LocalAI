@@ -16,10 +16,8 @@ import (
 // transcriptStreamer turns streamed LLM tokens into the assistant's spoken
 // transcript: it strips reasoning incrementally and sends one
 // response.output_audio_transcript.delta per content fragment. It does NOT
-// synthesize audio — the caller buffers the full message and synthesizes it
-// once (streaming the audio chunks when the TTS backend supports TTSStream),
-// which works uniformly for streaming and non-streaming TTS and for languages
-// without sentence or word boundaries.
+// synthesize audio. The caller sends cleaned content to a persistent live TTS
+// session when supported, or uses the existing whole-text or clause path.
 type transcriptStreamer struct {
 	ctx        context.Context
 	t          Transport
@@ -78,15 +76,18 @@ func (s *transcriptStreamer) content() string {
 }
 
 // streamLLMResponse drives a streamed realtime reply. It streams the assistant
-// transcript as the LLM generates, then synthesizes the whole buffered message
-// once (streaming the audio chunks when the TTS backend supports it, otherwise a
-// single unary delta). Tool calls parsed from the autoparser ChatDeltas are
+// transcript as the LLM generates and feeds a persistent live TTS session when
+// available. Other engines keep whole-text or clause synthesis. Tool calls
+// parsed from the autoparser ChatDeltas are
 // emitted after the spoken content. The assistant content item is created lazily
 // on the first content delta, so a content-less tool-call turn emits only the
 // tool calls. It returns true when it has fully handled the response so the
 // caller can return; callers must only invoke it for an audio modality, and with
 // tools only when the model uses its tokenizer template (see triggerResponseAtTurn).
 func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation, t Transport, r *liveResponse, history schema.Messages, images []string, llmCfg *config.ModelConfig, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, toolTurn int) bool {
+	callerCtx := ctx
+	ctx, cancelWork := context.WithCancel(ctx)
+	defer cancelWork()
 	responseID := r.id
 	itemID := generateItemID()
 	item := types.MessageItemUnion{
@@ -163,37 +164,40 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	streamer := newTranscriptStreamer(ctx, t, responseID, itemID, thinkingStartToken, reasoningCfg)
 	streamer.announce = announce
 
-	// Clause chunking (opt-in): synthesize each clause as soon as it completes
-	// instead of buffering the whole reply. Synthesis runs on a worker goroutine
-	// (ttsPipeline) rather than inline in the token callback: emitSpeech blocks
-	// until the whole clause is synthesized (and, for WebRTC, played back at
-	// real time), and the callback runs on the goroutine that drains the LLM
-	// gRPC stream — so speaking inline stalls generation and freezes the
-	// assistant transcript at every clause boundary. The worker lets generation
-	// and the transcript stream keep flowing while audio is produced behind them.
+	// Synthesize completed clauses on a bounded worker so audio playback can
+	// apply backpressure without running synthesis inside the token callback.
 	var chunker *clauseChunker
-	var ttsPipe *ttsPipeline
-	if session.ModelConfig != nil && session.ModelConfig.Pipeline.ChunkClauses() {
+	var livePipe *liveSpeechPipeline
+	liveModel, liveCapable := session.ModelInterface.(liveSpeechModel)
+	useLive := liveCapable && liveModel.SupportsTTSLive() && session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTTS()
+	defer func() {
+		if livePipe != nil {
+			livePipe.abort()
+		}
+	}()
+	if !useLive && session.ModelConfig != nil && session.ModelConfig.Pipeline.ChunkClauses() {
 		chunker = newClauseChunker(defaultClauseMinRunes, defaultClauseMaxRunes)
-		ttsPipe = newTTSPipeline(func(clause string) ([]byte, error) {
-			return emitSpeech(ctx, t, session, responseID, itemID, clause)
-		})
+	}
+	// Start synthesis only when the first speakable clause is available.
+	enqueueClause := func(clause string) bool {
+		if livePipe == nil {
+			livePipe = newLiveSpeechPipeline(ctx, func(workerCtx context.Context, input <-chan string) ([]byte, error) {
+				audio, err := emitBufferedSpeech(workerCtx, input, t, session, responseID, itemID)
+				if err != nil {
+					cancelWork()
+				}
+				return audio, err
+			})
+		}
+		return livePipe.push(clause)
 	}
 	var streamedAudio []byte
 	var ttsErr error
 
-	// Backstop: always join the TTS worker, even on an unexpected early return.
-	// wait() is idempotent, so the explicit drain below (which captures the
-	// streamed audio and first error) stays authoritative; this only guarantees
-	// the goroutine can never leak if a new return path is added.
-	if ttsPipe != nil {
-		defer func() { _, _ = ttsPipe.wait() }()
-	}
-
 	// fail reports a mid-stream failure. A cancelled context means the client
 	// interrupted (barge-in), so roll the turn back instead of erroring.
 	fail := func(code, msg string, err error) bool {
-		if ctx.Err() != nil {
+		if callerCtx.Err() != nil {
 			cancel()
 		} else {
 			sendError(t, code, fmt.Sprintf("%s: %v", msg, err), "", itemID)
@@ -215,13 +219,26 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			text = functions.ContentFromChatDeltas(usage.ChatDeltas)
 		}
 		delta := streamer.onToken(text)
+		if useLive && delta != "" {
+			if livePipe == nil {
+				livePipe = newLiveSpeechPipeline(ctx, func(liveCtx context.Context, input <-chan string) ([]byte, error) {
+					audio, err := emitLiveSpeech(liveCtx, liveModel, input, t, session, responseID, itemID)
+					if err != nil {
+						cancelWork()
+					}
+					return audio, err
+				})
+			}
+			if !livePipe.push(delta) {
+				return false
+			}
+		}
 		if chunker != nil && delta != "" {
 			for _, clause := range chunker.push(delta) {
-				// Hand the clause to the worker and keep going — never block the
-				// recv loop on synthesis. A false return means a prior clause
-				// already failed; stop the prediction (the error is collected
-				// from the pipeline after predFunc returns).
-				if !ttsPipe.enqueue(clause) {
+				// The clause queue applies backpressure when audio falls behind.
+				// A false return means cancellation or a prior synthesis failure;
+				// collect the worker error after prediction stops.
+				if !enqueueClause(clause) {
 					return false
 				}
 			}
@@ -239,17 +256,22 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 
 	// Drain the TTS worker. On a clean finish, enqueue the trailing clause(s) the
 	// chunker was still holding; on an error or barge-in, stop synthesizing.
-	// wait() runs on every path so the worker goroutine never leaks, and it
-	// returns the audio streamed so far plus the first synthesis failure.
-	if ttsPipe != nil {
+	// The pipeline is joined below to collect audio and the first failure.
+	if chunker != nil {
 		if err == nil && ctx.Err() == nil {
 			for _, clause := range chunker.flush() {
-				if !ttsPipe.enqueue(clause) {
+				if !enqueueClause(clause) {
 					break
 				}
 			}
 		}
-		streamedAudio, ttsErr = ttsPipe.wait()
+	}
+
+	if livePipe != nil {
+		if err != nil || ctx.Err() != nil {
+			livePipe.cancel()
+		}
+		streamedAudio, ttsErr = livePipe.finish()
 	}
 
 	// A clause synthesis failed mid-stream (the callback stopped the prediction);
@@ -282,7 +304,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		// synthesize it once now — emitSpeech streams the audio chunks when the
 		// TTS backend supports TTSStream, otherwise it sends a single unary delta.
 		var audio []byte
-		if chunker != nil {
+		if chunker != nil || livePipe != nil {
 			audio = streamedAudio
 		} else {
 			audio, ttsErr = emitSpeech(ctx, t, session, responseID, itemID, content)

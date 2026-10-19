@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -83,37 +84,39 @@ var _ = Describe("transcriptStreamer", func() {
 // streamLLMResponse drives a full streamed realtime turn: live transcript
 // deltas while the LLM generates, then the whole message is synthesized once.
 var _ = Describe("streamLLMResponse", func() {
-	It("streams transcript deltas then synthesizes the whole message once", func() {
-		on := true
-		m := &fakeModel{
-			predictTokens:   []string{"Hello", " world.", " How are you?"},
-			predictResp:     backend.LLMResponse{Response: "Hello world. How are you?"},
-			ttsStreamChunks: [][]byte{{9}},
-			ttsStreamRate:   24000,
-		}
-		session := &Session{
-			OutputSampleRate: 24000,
-			ModelInterface:   m,
-			ModelConfig: &config.ModelConfig{
-				Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on}},
-			},
-		}
-		conv := &Conversation{}
-		t := &fakeTransport{}
-		llmCfg := &config.ModelConfig{}
+	for _, clauseFlag := range []*bool{nil, new(false)} {
+		It(fmt.Sprintf("buffers the whole reply with clause chunking %v", clauseFlag), func() {
+			on := true
+			m := &fakeModel{
+				predictTokens:   []string{"Hello", " world.", " How are you?"},
+				predictResp:     backend.LLMResponse{Response: "Hello world. How are you?"},
+				ttsStreamChunks: [][]byte{{9}},
+				ttsStreamRate:   24000,
+			}
+			session := &Session{
+				OutputSampleRate: 24000,
+				ModelInterface:   m,
+				ModelConfig: &config.ModelConfig{
+					Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on, ClauseChunking: clauseFlag}},
+				},
+			}
+			conv := &Conversation{}
+			t := &fakeTransport{}
+			llmCfg := &config.ModelConfig{}
 
-		r := &liveResponse{id: "resp1"}
-		handled := streamLLMResponse(context.Background(), session, conv, t, r, nil, nil, llmCfg, nil, nil, 0)
+			r := &liveResponse{id: "resp1"}
+			handled := streamLLMResponse(context.Background(), session, conv, t, r, nil, nil, llmCfg, nil, nil, 0)
 
-		Expect(handled).To(BeTrue())
-		// One live transcript delta per streamed token.
-		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioTranscriptDelta)).To(Equal(3))
-		// The whole message is synthesized ONCE (not per sentence): a single
-		// emitSpeech replays the one TTS stream chunk.
-		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(1))
-		Expect(t.transcriptDeltaText()).To(Equal("Hello world. How are you?"))
-	})
+			Expect(handled).To(BeTrue())
+			// One live transcript delta per streamed token.
+			Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioTranscriptDelta)).To(Equal(3))
+			// The whole message is synthesized ONCE (not per sentence): a single
+			// emitSpeech replays the one TTS stream chunk.
+			Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(1))
+			Expect(t.transcriptDeltaText()).To(Equal("Hello world. How are you?"))
+		})
 
+	}
 	It("synthesizes each clause as it completes when clause chunking is enabled", func() {
 		on := true
 		m := &fakeModel{

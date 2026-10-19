@@ -33,6 +33,68 @@ Make sure all referenced models (`silero-vad-ggml`, `whisper-large-turbo`, `qwen
 
 A pipeline stage can name a [failover chain]({{%relref "features/model-failover" %}}); the stage then switches targets without closing the session.
 
+### Install the Qwen streaming assistant preset
+
+The gallery entry `qwen3-streaming-assistant` configures an English voice
+assistant with Silero VAD, Parakeet TDT 0.6B v3, Qwen3 0.6B, and Qwen3-TTS
+0.6B CustomVoice using Ryan's voice. It streams LLM output text into one persistent TTS session while audio
+is emitted.
+
+The preset installs only its pipeline configuration. Install all four component
+models first, keeping their default names so the pipeline can resolve them:
+
+```bash
+local-ai models install silero-vad-ggml
+local-ai models install parakeet-cpp-tdt-0.6b-v3
+local-ai models install qwen3-0.6b
+local-ai models install qwen3-tts-cpp-customvoice --variant qwen3-tts-cpp-customvoice
+local-ai models install qwen3-streaming-assistant
+```
+
+The TTS command pins the Q8 CustomVoice entry. These are separate installs;
+installing the preset does not install missing components. Use a LocalAI build
+with incremental Qwen3-TTS input support, then select `qwen3-streaming-assistant`
+on the Talk page or as the Realtime API model. WebRTC also requires the `opus`
+backend, available from the Backends page.
+
+This preset targets English speech. It uses a named voice and does not require
+reference audio or `ref_text`. CPU synthesis can be slower than playback; this
+preset does not establish GPU or browser latency or throughput.
+
+### Install a clause-buffered assistant preset
+
+Two English presets use the same Silero VAD, Parakeet TDT 0.6B v3, and Qwen3
+0.6B components. `vits-streaming-assistant` uses VITS-LJS through Sherpa;
+`piper-streaming-assistant` uses Piper's Amy voice.
+
+Install the shared components once, keeping their default names:
+
+```bash
+local-ai models install silero-vad-ggml
+local-ai models install parakeet-cpp-tdt-0.6b-v3
+local-ai models install qwen3-0.6b
+```
+
+Then install either TTS component and its matching preset, or install both:
+
+```bash
+local-ai models install vits-ljs-sherpa
+local-ai models install vits-streaming-assistant
+local-ai models install voice-en-us-amy-low
+local-ai models install piper-streaming-assistant
+```
+
+These presets install pipeline configurations only. They do not install missing
+components. Both enable LLM streaming, TTS streaming, and `clause_chunking: true`.
+Sherpa streams audio within each clause. Piper emits one audio result per clause.
+Each clause starts a separate synthesis, which can introduce pauses between clauses.
+The single-speaker models need no voice override or reference audio.
+
+Select the installed preset on the Talk page or use its name as the Realtime API
+model. WebSocket and WebRTC share the pipeline; WebRTC also needs the `opus`
+backend from the Backends page. Config installation and discovery checks do not
+establish speech quality, browser latency, or hardware throughput.
+
 ### Streaming the pipeline
 
 By default each stage runs to completion before the next begins: the whole utterance is transcribed, the full LLM reply is generated, then it is synthesized. Each stage can instead be streamed incrementally, which lowers the time-to-first-audio of a turn:
@@ -53,10 +115,11 @@ pipeline:
 
 - **streaming.tts**: emit a `response.output_audio.delta` per audio chunk the TTS backend produces (requires a backend that supports streaming synthesis), instead of one delta for the whole utterance. Falls back to a single unary delta otherwise.
 - **streaming.transcription**: stream `conversation.item.input_audio_transcription.delta` events as the transcript is produced (requires a transcription backend that supports streaming).
-- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. The full reply is buffered and synthesized once it is complete - streamed as audio chunks when `streaming.tts` is enabled (and the TTS backend supports it), otherwise as a single unary delta. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
-- **streaming.clause_chunking**: instead of buffering the whole reply before TTS, split it into speakable clauses and synthesize each as soon as it completes, lowering the time-to-first-audio. The splitter is script-aware: it uses Unicode sentence segmentation (so it handles CJK `。！？` with no whitespace), CJK clause punctuation (`，、；：`), and Thai/Lao spaces - it does **not** rely on whitespace sentence boundaries, so it works for languages such as Chinese, Japanese and Thai where the old per-sentence approach degraded to whole-message buffering. Requires `streaming.llm`; scripts that genuinely need a dictionary (e.g. Khmer, Burmese) simply stay buffered until a space or end-of-message. Off by default.
+- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. When TTS streaming is disabled, the full reply is synthesized once it is complete unless explicit clause chunking is enabled. Native incremental input or explicitly enabled clause buffering can produce audio before the reply finishes, as described below. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
+- **Incremental Qwen3-TTS input**: with a `qwen3-tts-cpp` TTS model, enabling both `streaming.llm` and `streaming.tts` forwards cleaned LLM text fragments into one persistent synthesis session. Audio can arrive before the LLM finishes. WebSocket and WebRTC use this path. It takes precedence over `clause_chunking`; other backends can opt into clause buffering as described below. Pending text is bounded and slow audio playback applies backpressure. Cancellation stops the session. A failed live utterance is not replayed through a fallback model. The initial native implementation supports a single batch slot and reference audio without `ref_text`; transcript-based ICL cloning is unavailable for live input. Incomplete words are buffered until a stable boundary; CJK, Kana and Hangul characters can commit without whitespace.
+- **streaming.clause_chunking**: instead of buffering the whole reply before TTS, split it into speakable clauses and synthesize each as soon as it completes, lowering the time-to-first-audio. The splitter is script-aware: it uses Unicode sentence segmentation (so it handles CJK `。！？` with no whitespace), CJK clause punctuation (`，、；：`), and Thai/Lao spaces - it does **not** rely on whitespace sentence boundaries, so it works for languages such as Chinese, Japanese and Thai where the old per-sentence approach degraded to whole-message buffering. Requires `streaming.llm`; scripts that genuinely need a dictionary (e.g. Khmer, Burmese) simply stay buffered until a space or end-of-message. Set `clause_chunking: true` to enable a bounded clause queue. Unset and false retain whole-reply synthesis for backends without native incremental text input. With `streaming.tts` enabled, Sherpa/VITS can stream audio within each clause; unary engines such as Piper produce one audio result per clause. With `streaming.tts` disabled, each clause uses unary synthesis. These engines start a separate synthesis for each clause, so they may pause at clause boundaries. Cancellation stops queued work; a streaming failure after audio has been emitted never replays that clause through unary synthesis.
 
-All streaming flags are off by default, so existing pipelines are unaffected.
+All streaming flags are off by default. Pipelines with streaming disabled remain unaffected.
 
 ### Model warm-up (cold start)
 

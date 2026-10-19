@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +29,8 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -534,6 +537,9 @@ func (m *wrappedModel) setTTSParams(params map[string]string) {
 
 func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
 	return m.stageCall(ctx, config.PipelineStageTTS, m.TTSConfig, func(cfg *config.ModelConfig, commit func()) error {
+		if !ttsBackendSupportsStreaming(cfg.Backend) {
+			return status.Error(codes.Unimplemented, "TTS backend does not support streaming audio")
+		}
 		// Audio that reached the client cannot be taken back, so the first
 		// chunk ends the retries.
 		return ttsStream(ctx, m.modelLoader, m.appConfig, *cfg, text, voice, language, maps.Clone(m.ttsParams), func(pcm []byte, sr int) error {
@@ -1227,4 +1233,54 @@ func liveVoiceOptions(ctx context.Context, registry voicerecognition.Registry, c
 		return nil
 	}
 	return []backend.LiveOption{backend.WithKnownVoices(voices)}
+}
+
+// SupportsTTSLive selects the native persistent-input path explicitly. Other
+// engines retain their existing whole-text or clause synthesis behaviour.
+func (m *wrappedModel) SupportsTTSLive() bool {
+	return m.TTSConfig != nil && m.TTSConfig.Backend == "qwen3-tts-cpp"
+}
+func (m *wrappedModel) TTSLive(ctx context.Context, text <-chan string, voice, language string, onAudio func([]byte, int) error) error {
+	return m.stageCall(ctx, config.PipelineStageTTS, m.TTSConfig, func(cfg *config.ModelConfig, commit func()) error {
+		// Text is consumed once. Retrying a session would omit consumed input or
+		// duplicate speech already heard, so fallback ends before consuming it.
+		commit()
+		var header []byte
+		rate := 0
+		return backend.ModelTTSLive(ctx, text, voice, language, maps.Clone(m.ttsParams), m.modelLoader, m.appConfig, *cfg, func(b []byte) error {
+			if rate != 0 {
+				return onAudio(b, rate)
+			}
+			header = append(header, b...)
+			if len(header) < wavStreamHeaderBytes {
+				return nil
+			}
+			if string(header[:4]) != "RIFF" || string(header[8:12]) != "WAVE" {
+				return fmt.Errorf("invalid live TTS WAV header")
+			}
+			rate = int(binary.LittleEndian.Uint32(header[24:28]))
+			if rate == 0 {
+				return fmt.Errorf("invalid live TTS sample rate")
+			}
+			if len(header) > wavStreamHeaderBytes {
+				return onAudio(header[wavStreamHeaderBytes:], rate)
+			}
+			header = nil
+			return nil
+		})
+	})
+}
+
+// SupportsTTSStream avoids probing unary-only engines through the legacy
+// streaming RPC. Unknown backends retain their existing streaming probe.
+func (m *wrappedModel) SupportsTTSStream() bool {
+	if m.isChainStage(config.PipelineStageTTS) || m.TTSConfig == nil {
+		return true
+	}
+	return ttsBackendSupportsStreaming(m.TTSConfig.Backend)
+}
+
+func ttsBackendSupportsStreaming(backend string) bool {
+	capability := config.GetBackendCapability(backend)
+	return capability == nil || slices.Contains(capability.GRPCMethods, config.MethodTTSStream)
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include <stddef.h>
 
 extern "C" {
 
@@ -33,6 +34,13 @@ int qt3_tts_stream(const char *text, const char *lang, const char *instruct,
                    const char *ref_text, long long seed, float temperature,
                    int top_k, float top_p, float repetition_penalty,
                    int max_new_tokens, qt3_chunk_cb cb, void *user_data);
+
+typedef int (*qt3_text_cb)(void *user_data, const char **text, size_t *n_bytes);
+int qt3_tts_live(const char *lang, const char *instruct, const char *speaker,
+                 const float *ref_samples, int ref_n, const char *ref_text,
+                 long long seed, float temperature, int top_k, float top_p,
+                 float repetition_penalty, int max_new_tokens,
+                 qt3_text_cb next_text, qt3_chunk_cb cb, void *user_data);
 
 // Free a buffer returned by qt3_tts.
 void qt3_pcm_free(float *p);
