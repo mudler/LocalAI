@@ -33,6 +33,34 @@ Make sure all referenced models (`silero-vad-ggml`, `whisper-large-turbo`, `qwen
 
 A pipeline stage can name a [failover chain]({{%relref "features/model-failover" %}}); the stage then switches targets without closing the session.
 
+### Install the Qwen streaming assistant preset
+
+The gallery entry `qwen3-streaming-assistant` configures an English voice
+assistant with Silero VAD, Whisper Small English, Qwen3 0.6B, and Qwen3-TTS
+0.6B CustomVoice using Ryan's voice. It streams LLM output text into one persistent TTS session while audio
+is emitted.
+
+The preset installs only its pipeline configuration. Install all four component
+models first, keeping their default names so the pipeline can resolve them:
+
+```bash
+local-ai models install silero-vad-ggml
+local-ai models install whisper-small-en
+local-ai models install qwen3-0.6b
+local-ai models install qwen3-tts-cpp-customvoice --variant qwen3-tts-cpp-customvoice
+local-ai models install qwen3-streaming-assistant
+```
+
+The TTS command pins the Q8 CustomVoice entry. These are separate installs;
+installing the preset does not install missing components. Use a LocalAI build
+with incremental Qwen3-TTS input support, then select `qwen3-streaming-assistant`
+on the Talk page or as the Realtime API model. WebRTC also requires the `opus`
+backend, available from the Backends page.
+
+This preset targets English speech. It uses a named voice and does not require
+reference audio or `ref_text`. CPU synthesis can be slower than playback; this
+preset does not establish GPU or browser latency or throughput.
+
 ### Streaming the pipeline
 
 By default each stage runs to completion before the next begins: the whole utterance is transcribed, the full LLM reply is generated, then it is synthesized. Each stage can instead be streamed incrementally, which lowers the time-to-first-audio of a turn:
