@@ -87,7 +87,12 @@ var _ = Describe("qwen3-tts-cpp e2e", Label("e2e"), func() {
 		dst := GinkgoT().TempDir() + "/clone.wav"
 		lang := "english"
 		// Empty Voice -> the config audio_path is used as the clone reference.
-		Expect(b.TTS(ttsReq("Cloned voice test.", "", &lang, dst))).To(Succeed())
+		// The sine reference exercises speaker conditioning, not speech quality.
+		// It has no meaningful EOS guarantee; bound this smoke independently
+		// of the production generation limit.
+		req := ttsReq("Cloned voice test.", "", &lang, dst)
+		req.Params = map[string]string{"max_new_tokens": "128"}
+		Expect(b.TTS(req)).To(Succeed())
 		fi, err := os.Stat(dst)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fi.Size()).To(BeNumerically(">", int64(44)))
