@@ -169,7 +169,8 @@ var runtimeSettingsFields = []fieldSpec{
 	field("prefer_development_backends",
 		func(s *RuntimeSettings) **bool { return &s.PreferDevelopmentBackends },
 		func(o *ApplicationConfig) bool { return o.PreferDevelopmentBackends },
-		func(o *ApplicationConfig, v bool) { o.PreferDevelopmentBackends = v }),
+		func(o *ApplicationConfig, v bool) { o.PreferDevelopmentBackends = v },
+		restartRequired()),
 
 	// Memory reclaimer. Enabling it forces the watchdog master flag - that
 	// cross-field invariant lives in the apply loops, not here.
