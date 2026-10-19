@@ -136,6 +136,10 @@ var _ = Describe("Route auth coverage", func() {
 			{method: http.MethodGet, path: "/locales/*"}:   {},
 			{method: http.MethodGet, path: "/static/*"}:    {},
 
+			// Canvas preview frames: the random id is the capability
+			// (an <iframe> cannot send API key headers).
+			{method: http.MethodGet, path: "/api/canvas/preview/:id"}: {},
+
 			// Branding reads used by the login screen. Branding mutations are
 			// intentionally absent and must receive 401.
 			{method: http.MethodGet, path: "/api/branding"}:         {},
