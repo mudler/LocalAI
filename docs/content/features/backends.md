@@ -380,4 +380,8 @@ removal succeeds but refresh fails, the page keeps the last successful installed
 list and warns that it may be stale. **Retry** refreshes data without repeating
 the deletion. Ordinary refresh failures do not report deletion success. Targeted
 installation and removal controls block conflicting requests for the same node
-and build, including while the post-removal refresh is pending. Standalone deletion and its system-backend protection are unchanged.
+and build, including while the post-removal refresh is pending. Generic catalog
+removal also stays blocked during targeted installation, scoped removal, and
+refresh, even if the URL
+target is cleared. Its confirmation rechecks current row conflicts before
+deleting. Standalone deletion and its system-backend protection are unchanged.

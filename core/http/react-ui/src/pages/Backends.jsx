@@ -495,7 +495,12 @@ export default function Backends() {
   // the backend they ask for and an installed meta backend names the concrete
   // one it points at, so both are read before asking, and the dialog says what
   // would stop working.
+  // Generic deletion can affect every node, so any targeted install of this
+  // build conflicts, even after navigation clears the selected node.
+  const deletionBlocked = (name) => removalLock.current || currentRowConflict.current(name)
+    || [...targetInstallLocks.current].some(key => JSON.parse(key)[1] === name)
   const handleDelete = async (name, how) => {
+    if (deletionBlocked(name)) return
     let dependents = { models: [], metas: [] }
     try {
       const data = await modelsApi.listCapabilities()
@@ -505,6 +510,7 @@ export default function Backends() {
     } catch {
       dependents = backendDependents(name, { models, installed })
     }
+    if (!mounted.current || deletionBlocked(name)) return
     setConfirmDialog({
       title: t('backends.deleteTitle'),
       message: (
@@ -528,6 +534,7 @@ export default function Backends() {
       confirmLabel: t('backends.delete'),
       onConfirm: async () => {
         setConfirmDialog(null)
+        if (deletionBlocked(name)) return
         setError(name, '')
         try {
           if (how === 'installed') await backendsApi.deleteInstalled(name)
@@ -729,7 +736,7 @@ export default function Backends() {
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={busy} onClick={() => handleInstall(name)} title={t('backends.reinstall')}>
                 <Icon name="refresh" /> {t('backends.reinstall')}
               </button>
-              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm bk-remove" onClick={() => handleDelete(name, 'catalog')} title={t('backends.delete')}>
+              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm bk-remove" disabled={busy || !!deletionBlocked(name)} onClick={() => handleDelete(name, 'catalog')} title={t('backends.delete')}>
                 <Icon name="trash" /> {t('backends.remove')}
               </button>
             </>

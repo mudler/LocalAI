@@ -315,3 +315,117 @@ test('last installation disappearance clears only selection and preserves URL re
   await expect(page.locator(`[data-entity="${SIBLING}"]`)).toBeVisible()
   expect(s.deletes).toEqual([{ id: ids[0], method: 'POST', body: { backend: BUILD } }])
 })
+
+const clearTarget = page => page.evaluate(() => {
+  const url = new URL(location.href)
+  url.searchParams.delete('target')
+  history.pushState({}, '', url)
+  dispatchEvent(new PopStateEvent('popstate'))
+})
+const genericRemove = page => page.locator('.bk-remove')
+
+// A synthetic click must not bypass the disabled control.
+const dispatchClick = locator => locator.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+
+test('generic removal stays blocked during scoped postdelete refresh after target clears', async ({ page }) => {
+  let releaseRefresh
+  const s = await setup(page, { refreshWait: new Promise(resolve => { releaseRefresh = resolve }) })
+  const globalDeletes = []
+  await page.route('**/backends/delete/**', route => {
+    globalDeletes.push(route.request().url())
+    return route.fulfill({ json: { message: 'removed' } })
+  })
+  await catalogTarget(page); await remove(page, ids[0]).click(); await confirm(page).click()
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  await expect.poll(() => s.installedCalls).toBeGreaterThan(1)
+  await clearTarget(page)
+  await expect(genericRemove(page)).toBeDisabled()
+  await dispatchClick(genericRemove(page))
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  expect(globalDeletes).toEqual([])
+  expect(s.deletes).toEqual([{ id: ids[0], method: 'POST', body: { backend: BUILD } }])
+  releaseRefresh()
+  await expect(genericRemove(page)).toHaveCount(0)
+})
+
+test('generic removal rechecks scoped conflict after dependency lookup', async ({ page }) => {
+  let releaseCapabilities, releaseRefresh
+  const s = await setup(page, { refreshWait: new Promise(resolve => { releaseRefresh = resolve }) })
+  const capabilitiesWait = new Promise(resolve => { releaseCapabilities = resolve })
+  let capabilitiesStarted = false
+  await page.route('**/models/capabilities', async route => {
+    capabilitiesStarted = true
+    await capabilitiesWait
+    return route.fulfill({ json: { data: [] } })
+  })
+  await catalogTarget(page)
+  await clearTarget(page)
+  await genericRemove(page).click()
+  await expect.poll(() => capabilitiesStarted).toBe(true)
+  // The generic lookup is pending, so a scoped confirmation can start first.
+  await page.evaluate(id => {
+    const url = new URL(location.href); url.searchParams.set('target', id)
+    history.pushState({}, '', url); dispatchEvent(new PopStateEvent('popstate'))
+  }, ids[0])
+  await expect(remove(page, ids[0])).toBeEnabled()
+  await remove(page, ids[0]).click(); await confirm(page).click()
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  const capabilitiesResponse = page.waitForResponse(response => response.url().endsWith('/models/capabilities'))
+  releaseCapabilities(); await capabilitiesResponse
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  expect(s.deletes).toHaveLength(1)
+  releaseRefresh()
+  await expect(reinstall(page)).toBeEnabled()
+})
+
+test('generic confirmation rechecks current row conflict', async ({ page }) => {
+  const s = await setup(page)
+  const globalDeletes = []
+  await page.route('**/backends/delete/**', route => {
+    globalDeletes.push(route.request().url())
+    return route.fulfill({ json: { message: 'removed' } })
+  })
+  await catalogTarget(page); await clearTarget(page); await genericRemove(page).click()
+  await expect(page.getByRole('alertdialog')).toBeVisible()
+  await page.route('**/api/operations', route => route.fulfill({ json: { operations: [{ name: BUILD, jobID: 'synthetic-job', isQueued: true }] } }))
+  await expect(page.locator(`[data-entity="${BUILD}"]`)).toContainText('Queued', { timeout: 15000 })
+  await confirm(page).click()
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  expect(globalDeletes).toEqual([])
+  expect(s.deletes).toEqual([])
+})
+
+for (const beforeConfirm of [false, true]) test(`generic deletion blocks targeted install ${beforeConfirm ? 'at confirmation' : 'after target clears'}`, async ({ page }) => {
+  let releaseInstall
+  const s = await setup(page, { installWait: new Promise(resolve => { releaseInstall = resolve }) })
+  const globalDeletes = []
+  await page.route('**/backends/delete/**', route => {
+    globalDeletes.push(route.request().url())
+    return route.fulfill({ json: { message: 'removed' } })
+  })
+  await catalogTarget(page)
+  if (beforeConfirm) {
+    await clearTarget(page); await genericRemove(page).click()
+    await expect(page.getByRole('alertdialog')).toBeVisible()
+    // Start the targeted request through its captured React handler while the
+    // existing generic confirmation remains open.
+    await page.evaluate(id => {
+      const url = new URL(location.href); url.searchParams.set('target', id)
+      history.pushState({}, '', url); dispatchEvent(new PopStateEvent('popstate'))
+    }, ids[0])
+  }
+  await reinstall(page).evaluate(el => el.click())
+  await expect.poll(() => s.installs.length).toBe(1)
+  if (beforeConfirm) {
+    await confirm(page).click()
+    await expect(page.getByRole('alertdialog')).toBeHidden()
+  } else {
+    await clearTarget(page)
+    await expect(genericRemove(page)).toBeDisabled()
+    await dispatchClick(genericRemove(page))
+    await expect(page.getByRole('alertdialog')).toBeHidden()
+  }
+  expect(globalDeletes).toEqual([])
+  expect(s.deletes).toEqual([])
+  releaseInstall()
+})
