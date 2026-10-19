@@ -56,3 +56,25 @@ var _ = Describe("Unscanned content", func() {
 		Expect(OllamaChat().Unscanned(textOnly)).To(BeEmpty())
 	})
 })
+
+var _ = Describe("Unscanned content (Open Responses)", func() {
+	It("lists media parts inside messages and bare media items", func() {
+		req := &schema.OpenResponsesRequest{Input: []any{
+			map[string]any{"role": "user", "content": []any{
+				map[string]any{"type": "input_text", "text": "what is this?"},
+				map[string]any{"type": "input_image", "image_url": "data:image/png;base64,xyz"},
+			}},
+			map[string]any{"type": "input_file", "file_data": "JVBERi0="},
+		}}
+		Expect(OpenResponses().Unscanned(req)).To(Equal([]string{"input_image", "input_file"}))
+	})
+
+	It("reports nothing for text input, tool output or a plain string", func() {
+		req := &schema.OpenResponsesRequest{Instructions: "be brief", Input: []any{
+			map[string]any{"type": "message", "role": "user", "content": []any{map[string]any{"type": "input_text", "text": "hi"}}},
+			map[string]any{"type": "function_call_output", "call_id": "1", "output": []any{map[string]any{"type": "input_image"}}},
+		}}
+		Expect(OpenResponses().Unscanned(req)).To(BeEmpty())
+		Expect(OpenResponses().Unscanned(&schema.OpenResponsesRequest{Input: "hi"})).To(BeEmpty())
+	})
+})

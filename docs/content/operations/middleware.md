@@ -53,11 +53,27 @@ backend default.
 
 Filtering runs on every text-accepting endpoint that has an adapter wired:
 `/v1/chat/completions` and `/v1/messages` (chat), `/v1/completions`,
-`/v1/embeddings`, `/v1/edits`, and the Ollama `/api/chat`, `/api/generate`
-and `/api/embed` endpoints, plus the [MITM proxy]({{< relref "mitm-proxy.md" >}})
-request body. Image, audio (TTS/STT), video, rerank, and the realtime
-WebSocket are not filtered yet (different prompt-PII semantics; realtime is
-not HTTP middleware).
+`/v1/embeddings`, `/v1/edits`, the Open Responses `POST /v1/responses`
+(`instructions`, string `input`, and in input items the message and
+reasoning text, `function_call` arguments and `function_call_output` output),
+and the Ollama `/api/chat`, `/api/generate` and `/api/embed` endpoints, plus
+the [MITM proxy]({{< relref "mitm-proxy.md" >}}) request body. Image, audio
+(TTS/STT), video, rerank, and the realtime WebSocket are not filtered yet
+(different prompt-PII semantics; realtime is not HTTP middleware).
+
+The Responses WebSocket mode (`GET /v1/responses`) is not HTTP middleware
+either, so it cannot filter: a `response.create` for a model with PII
+filtering enabled is refused with the error type `pii_unsupported_transport`
+instead of being served unfiltered. Use `POST /v1/responses` for those models.
+Requests whose `model` names an agent are handed to the agent pool before
+model resolution and are not filtered by the per-model policy.
+
+Stored history loaded through `previous_response_id` or `item_reference`
+is resolved after filtering and is not scanned against the current model's
+policy. That history can contain unfiltered text from another model or
+model-generated output. Tool output supplied directly in the request is
+scanned as text, or as its complete JSON encoding for non-string values,
+including arrays.
 
 A request's messages are scanned **as one document** (joined in order), so
 the NER detector keeps conversational context: whether `4421` is a PIN or
@@ -277,8 +293,9 @@ they reach the backend unchecked. With the option set, a request that carries
 any such content is rejected with HTTP 400 (`error.type=pii_blocked`, audit
 event pattern `__unscanned_media__`) before a detector runs. Use it for egress
 policies where "cannot be inspected" must mean "not sent", e.g. on
-`cloud-proxy` models. It applies to the OpenAI chat, Anthropic messages and
-Ollama chat routes, and only while PII is enabled for the model.
+`cloud-proxy` models. It applies to the OpenAI chat, Open Responses,
+Anthropic messages and Ollama chat routes, and only while PII is enabled for
+the model.
 
 Multiple detectors **union** their detections; overlapping spans resolve to
 the strongest action (`block` > `mask` > `allow`). A configured detector
