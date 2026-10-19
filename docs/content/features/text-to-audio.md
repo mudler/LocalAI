@@ -1142,3 +1142,30 @@ marker, with the original text cleared. Backend support for expanded requests va
 An unavailable model, a model without chat support, or invalid generated JSON
 returns a request error. Expansion failures stop the request before audio generation.
 Cancellation propagates to model loading, text inference, and audio generation.
+
+In **Studio → Sound → Simple**, choose a **Prompt expansion model** before
+submitting. The list contains installed, enabled chat models. **Backend default**
+omits `expansion_model` and uses the audio backend's existing prompt behavior.
+Sound remembers either choice in this browser, separately from your chat model.
+If a remembered model disappears or loses chat support, choose again.
+Sound refreshes the list when you return to the browser tab.
+Without an installed chat model, choose **Backend default** to continue.
+**Re-run with edits** restores the expansion choice from that result.
+Older results without a saved expansion choice use **Backend default**.
+**Advanced** keeps its caption, lyrics, metadata, and thinking controls;
+it never sends `expansion_model`.
+
+Expanded requests support these audio families:
+
+| Backend family | Expanded input |
+| --- | --- |
+| audio-cpp YuE2 | Caption as style, generated lyrics |
+| audio-cpp HeartMuLa | Caption as tags, generated lyrics; instrumental requests are rejected because lyrics are required |
+| audio-cpp ACE-Step | Caption as prompt, generated lyrics and supported metadata |
+| audio-cpp Stable Audio | Caption as prompt |
+| Python ACE-Step | Structured caption and lyrics, bypassing its native Simple expansion |
+
+Other audio-cpp families reject expanded requests before audio inference.
+The chat expansion may already have run when the backend reports this error.
+Choose **Backend default** to use that backend's existing behavior.
+The UI does not detect backend families or silently retry without expansion.

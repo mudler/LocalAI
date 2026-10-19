@@ -14,6 +14,7 @@ import {
   Workspace, ComposeCard, ChipInput, ToggleChip, ModelChip, Field, Fold, Starters, RunArea, JobCard, FailedCard, ResultCard, ResultsStrip, EmptyRun,
 } from '../components/studio/Workspace'
 import { foldSummary, useWorkspace } from '../hooks/useWorkspace'
+import { BACKEND_DEFAULT, useSoundExpansionModel } from '../hooks/useSoundExpansionModel'
 
 export default function Sound() {
   const { t } = useTranslation('media')
@@ -23,6 +24,7 @@ export default function Sound() {
   const handoff = useStudioHandoff()
   const [model, setModel] = useState(urlModel || handoff.model || '')
   const [mode, setMode] = useState('simple')
+  const expansion = useSoundExpansionModel()
   const [text, setText] = useState(handoff.prompt)
   const [instrumental, setInstrumental] = useState(false)
   const [vocalLanguage, setVocalLanguage] = useState('')
@@ -54,6 +56,8 @@ export default function Sound() {
 
     if (mode === 'simple') {
       if (!text.trim()) { addToast(t('sound.toasts.noPrompt'), 'warning'); return }
+      if (!expansion.value) { addToast(t('sound.expansion.choose'), 'warning'); return }
+      if (expansion.value !== BACKEND_DEFAULT) body.expansion_model = expansion.value
       body.text = text.trim()
       body.instrumental = instrumental
       if (vocalLanguage.trim()) body.vocal_language = vocalLanguage.trim()
@@ -85,7 +89,7 @@ export default function Sound() {
       if (serverUrl) {
         // Every field of the form is kept, so Re-run with edits can put it back.
         const params = mode === 'simple'
-          ? { mode, instrumental, vocalLanguage: vocalLanguage.trim() || undefined }
+          ? { mode, expansionModel: expansion.value, instrumental, vocalLanguage: vocalLanguage.trim() || undefined }
           : { mode, caption: caption.trim() || undefined, lyrics: lyrics.trim() || undefined, think, bpm, duration, keyscale, language, timesignature }
         setLastId(addEntry({ prompt: promptText, model, params, results: [{ url: serverUrl }], parentId: handoff.from || undefined, edge: handoff.edge || undefined }))
       }
@@ -105,6 +109,7 @@ export default function Sound() {
     const advanced = p.mode === 'advanced'
     const next = {
       model: entry.model || model, mode: advanced ? 'advanced' : 'simple',
+      expansionModel: advanced ? '' : (p.expansionModel || BACKEND_DEFAULT),
       prompt: advanced ? (p.caption || '') : (entry.prompt || ''), lyrics: p.lyrics || '',
       instrumental: p.instrumental ? 'on' : '', vocal: p.vocalLanguage || '', think: p.think ? 'on' : '',
       bpm: p.bpm ? String(p.bpm) : '', duration: p.duration ? String(p.duration) : '', key: p.keyscale || '',
@@ -112,18 +117,23 @@ export default function Sound() {
     }
     setModel(next.model); setMode(next.mode); setInstrumental(!!next.instrumental); setVocalLanguage(next.vocal); setThink(!!next.think)
     setBpm(next.bpm); setDuration(next.duration); setKeyscale(next.key); setLanguage(next.language); setTimesignature(next.timesignature)
-    if (advanced) { setCaption(next.prompt); setLyrics(next.lyrics) } else setText(next.prompt)
+    if (advanced) { setCaption(next.prompt); setLyrics(next.lyrics) } else {
+      setText(next.prompt)
+      expansion.choose(next.expansionModel)
+    }
     if (next.vocal || next.bpm || next.key || next.language || next.timesignature || next.think) setShowMore(true)
     selectEntry(null)
-    ws.begin(next)
+    ws.begin({ ...next, expansionModel: next.expansionModel === BACKEND_DEFAULT ? t('sound.expansion.backendDefault') : next.expansionModel })
   }
 
   const f = (key) => t(`studio.workspace.fields.${key}`)
   const labels = {
+    expansionModel: t('sound.expansion.label'),
     prompt: f('prompt'), model: f('model'), mode: f('mode'), lyrics: f('lyrics'), instrumental: f('instrumental'), vocal: f('language'),
     think: f('think'), bpm: f('bpm'), duration: f('duration'), key: f('key'), language: f('language'), timesignature: f('timesignature'),
   }
   const current = {
+    expansionModel: mode === 'simple' ? (expansion.value === BACKEND_DEFAULT ? t('sound.expansion.backendDefault') : expansion.value) : '',
     model, mode, prompt: mode === 'simple' ? text : caption, lyrics: mode === 'simple' ? '' : lyrics,
     instrumental: mode === 'simple' && instrumental ? 'on' : '', vocal: mode === 'simple' ? vocalLanguage : '',
     think: mode === 'advanced' && think ? 'on' : '', bpm: mode === 'advanced' ? bpm : '', duration: mode === 'advanced' ? duration : '',
@@ -136,7 +146,8 @@ export default function Sound() {
   const noModel = !ws.installed.loading && !ws.installed.error && installed.length === 0
   const hasWords = mode === 'simple' ? !!text.trim() : !!(caption.trim() || lyrics.trim())
   const why = noModel ? t('studio.composer.whyModel', { type: t('studio.tabs.sound') })
-    : !hasWords ? t('studio.composer.whyPrompt') : ''
+    : !hasWords ? t('studio.composer.whyPrompt')
+      : mode === 'simple' && !expansion.value ? t('sound.expansion.choose') : ''
 
   const moreSet = mode === 'simple'
     ? [vocalLanguage && `${labels.vocal} ${vocalLanguage}`]
@@ -192,7 +203,7 @@ export default function Sound() {
           </Fold>
         }
         changes={changes}
-        submit={{ label: t('sound.actions.generate'), busyLabel: t('sound.actions.generating'), busy: loading, disabled: !model || !hasWords || noModel, why, icon: 'music' }}
+        submit={{ label: t('sound.actions.generate'), busyLabel: t('sound.actions.generating'), busy: loading, disabled: !model || !hasWords || noModel || (mode === 'simple' && !expansion.value), why, icon: 'music' }}
       >
         {mode === 'simple' ? (
           <>
@@ -206,6 +217,18 @@ export default function Sound() {
               data-changed={changed.has('prompt') || undefined}
             />
             {!text && <Starters type="sound" onPick={setText} />}
+            <Field label={t('sound.expansion.label')} htmlFor="sound-expansion-model" changed={changed.has('expansionModel')}>
+              <select id="sound-expansion-model" className="dk-input" value={expansion.value} onChange={e => expansion.choose(e.target.value)} disabled={expansion.loading} aria-describedby="sound-expansion-help">
+                <option value="" disabled>{t('sound.expansion.placeholder')}</option>
+                <option value={BACKEND_DEFAULT}>{t('sound.expansion.backendDefault')}</option>
+                {expansion.models.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
+              </select>
+              <p id="sound-expansion-help" className="text-note" role="status">{expansion.loading
+                ? t('sound.expansion.loading')
+                : expansion.error ? t('sound.expansion.error')
+                  : expansion.models.length === 0 ? t('sound.expansion.noChat')
+                    : t('sound.expansion.help')}</p>
+            </Field>
           </>
         ) : (
           <>

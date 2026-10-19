@@ -6642,6 +6642,9 @@ const docTemplate = `{
                 "duration_seconds": {
                     "type": "number"
                 },
+                "expansion_model": {
+                    "type": "string"
+                },
                 "instrumental": {
                     "description": "Simple mode: use text as description; optional instrumental / vocal_language",
                     "type": "boolean"
