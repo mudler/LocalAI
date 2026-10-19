@@ -108,6 +108,12 @@ func Reduce(input State, e Event) (Transition, error) {
 		return ignore("R10", "no owner lease; admission closed")
 	}
 	if kind == "Delete" {
+		// Cancellation cannot certify that an already dispatched mutation ended.
+		for n := range s.Journal {
+			if s.Journal[n].Status == InFlight {
+				s.Journal[n].Status = Unknown
+			}
+		}
 		s.Phase = Deleted{}
 		s.Queue = nil
 		s.Epoch++

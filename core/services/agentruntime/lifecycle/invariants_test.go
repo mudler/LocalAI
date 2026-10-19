@@ -27,6 +27,8 @@ func witnessState(p Phase) State {
 	s.Settled = []string{"settled"}
 	if turn(p) != "" {
 		s.Queue = []string{"b"}
+	} else if p.tag() == "Idle" {
+		s.Accepted = []string{"settled"}
 	}
 	s.Journal = []ToolAttempt{{"settled", "old", 1, Completed, "old-result"}}
 	if p.tag() == "Interrupted" || p.tag() == "Restoring" || p.tag() == "WaitingReconciliation" {
@@ -60,6 +62,27 @@ func assertSafety(before State, tr Transition) {
 	if id := turn(s.Phase); id != "" {
 		Expect(s.Accepted).To(ContainElement(id))
 		Expect(s.Settled).NotTo(ContainElement(id))
+	}
+	if s.Phase.tag() != "Deleted" {
+		partition := append([]string{}, s.Queue...)
+		partition = append(partition, s.Settled...)
+		if id := turn(s.Phase); id != "" {
+			partition = append(partition, id)
+		}
+		Expect(partition).To(ConsistOf(s.Accepted), "accepted IDs must partition into current, queued and settled work")
+	}
+	inFlight := 0
+	for _, j := range s.Journal {
+		if j.Status == InFlight {
+			inFlight++
+			Expect(s.Phase).To(Equal(Running{j.Turn, InFlight}))
+			Expect(j.Attempt).To(Equal(s.Attempt))
+		}
+	}
+	if p, ok := s.Phase.(Running); ok && p.Tool == InFlight {
+		Expect(inFlight).To(Equal(1))
+	} else {
+		Expect(inFlight).To(BeZero())
 	}
 	if s.Lease == Lost {
 		Expect(active(s.Phase)).To(BeFalse())

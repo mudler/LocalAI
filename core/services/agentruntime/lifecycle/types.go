@@ -503,6 +503,21 @@ func validate(s State) error {
 	if turn(s.Phase) != "" && (slices.Contains(s.Settled, turn(s.Phase)) || !slices.Contains(s.Accepted, turn(s.Phase))) {
 		return bad()
 	}
+	for _, id := range s.Settled {
+		if !slices.Contains(s.Accepted, id) {
+			return bad()
+		}
+	}
+	// A tombstone discards queued and current work but retains admission history
+	// for deduplication. Every other snapshot must account for every accepted ID.
+	if _, deleted := s.Phase.(Deleted); !deleted {
+		for _, id := range s.Accepted {
+			if id != turn(s.Phase) && !slices.Contains(s.Queue, id) && !slices.Contains(s.Settled, id) {
+				return bad()
+			}
+		}
+	}
+	inFlight := 0
 	seen := map[[2]string]bool{}
 	for _, j := range s.Journal {
 		key := [2]string{j.Turn, j.Request}
@@ -513,7 +528,19 @@ func validate(s State) error {
 		if j.Status != InFlight && j.Status != Unknown && j.Status != Completed {
 			return bad()
 		}
+		if j.Status == InFlight {
+			p, running := s.Phase.(Running)
+			if !running || p.Tool != InFlight || j.Turn != p.Turn || j.Attempt != s.Attempt {
+				return bad()
+			}
+			inFlight++
+		}
 		if _, ok := s.Phase.(Running); ok && j.Turn == turn(s.Phase) && j.Status == Unknown {
+			return bad()
+		}
+	}
+	if p, running := s.Phase.(Running); running && p.Tool == InFlight {
+		if inFlight != 1 {
 			return bad()
 		}
 	}
