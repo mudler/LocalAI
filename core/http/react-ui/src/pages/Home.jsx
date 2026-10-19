@@ -32,6 +32,7 @@ import { greetingKey } from '../utils/greeting'
 import {
   listConversations, setActiveConversation, removeConversation,
 } from '../utils/homeConversations'
+import { chatsStorageKey } from '../utils/chatStore'
 // eslint-disable-next-line no-unused-vars
 import Skeleton from '../components/Skeleton'
 import { staggerStyle } from '../hooks/useStagger'
@@ -56,7 +57,9 @@ export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { t, i18n } = useTranslation('home')
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
+  // The signed-in account's own chat cache (see chatStore).
+  const chatsKey = chatsStorageKey(user?.id)
   const branding = useBranding()
   const { resources } = useResources()
   const { operations } = useOperations()
@@ -92,7 +95,7 @@ export default function Home() {
   const [distributedMode, setDistributedMode] = useState(false)
   const [clusterData, setClusterData] = useState(null)
   const [stripOpen, setStripOpen] = useState(false)
-  const [conversations, setConversations] = useState(() => listConversations())
+  const [conversations, setConversations] = useState(() => listConversations(chatsKey))
   const [leavingId, setLeavingId] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
   const textareaRef = useRef(null)
@@ -366,19 +369,19 @@ export default function Home() {
 
   // ----- Conversations -----------------------------------------------------
 
-  const refreshConversations = useCallback(() => setConversations(listConversations()), [])
+  const refreshConversations = useCallback(() => setConversations(listConversations(chatsKey)), [chatsKey])
 
   // Another tab can write chats, and Chat writes them after a short delay. Read
   // again when the tab changes or comes back into focus.
   useEffect(() => {
-    const onStorage = (e) => { if (!e.key || e.key === 'localai_chats_data') refreshConversations() }
+    const onStorage = (e) => { if (!e.key || e.key === chatsKey) refreshConversations() }
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', refreshConversations)
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('focus', refreshConversations)
     }
-  }, [refreshConversations])
+  }, [chatsKey, refreshConversations])
 
   // A delete is final when its undo time ends. Until then the chat stays in
   // storage and only the row is hidden.
@@ -386,10 +389,10 @@ export default function Home() {
     const id = pendingRef.current
     if (!id) return
     pendingRef.current = null
-    removeConversation(id)
+    removeConversation(id, chatsKey)
     setPendingDelete(null)
     refreshConversations()
-  }, [refreshConversations])
+  }, [chatsKey, refreshConversations])
 
   const commitRef = useRef(commitDelete)
   commitRef.current = commitDelete
@@ -421,9 +424,9 @@ export default function Home() {
 
   const resumeConversation = useCallback((conv) => {
     commitDelete()
-    if (setActiveConversation(conv.id)) navigate('/app/chat')
+    if (setActiveConversation(conv.id, chatsKey)) navigate('/app/chat')
     else refreshConversations()
-  }, [commitDelete, navigate, refreshConversations])
+  }, [chatsKey, commitDelete, navigate, refreshConversations])
 
   const visibleConversations = useMemo(
     () => conversations.filter(c => c.id !== pendingDelete?.id),

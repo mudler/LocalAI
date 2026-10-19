@@ -1013,6 +1013,118 @@ definitions:
       summary_tokens:
         type: integer
     type: object
+  schema.ConvTokenUsage:
+    properties:
+      completion:
+        type: integer
+      prompt:
+        type: integer
+      total:
+        type: integer
+    type: object
+  schema.Conversation:
+    properties:
+      clientMCPServers:
+        items:
+          type: object
+        type: array
+      contextSize:
+        type: integer
+      createdAt:
+        type: integer
+      history:
+        items:
+          type: object
+        type: array
+      id:
+        type: string
+      localaiAssistant:
+        description: |-
+          LocalAIAssistant wires the chat to the in-process admin MCP server
+          (the LocalAI Assistant mode of the Chat page).
+        type: boolean
+      mcpMode:
+        type: boolean
+      mcpResources:
+        items:
+          type: string
+        type: array
+      mcpServers:
+        items:
+          type: string
+        type: array
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      model:
+        type: string
+      name:
+        type: string
+      reasoningEffort:
+        description: |-
+          ReasoningEffort is the chat's reasoning_effort choice ('' = model config,
+          'none' also hides reasoning traces).
+        type: string
+      systemPrompt:
+        type: string
+      temperature:
+        type: number
+      tokenUsage:
+        $ref: '#/definitions/schema.ConvTokenUsage'
+      topK:
+        type: number
+      topP:
+        type: number
+      updatedAt:
+        type: integer
+      version:
+        description: |-
+          Version is assigned by the server: 1 on the first save, +1 on every
+          later write including the delete. Clients use a non-zero version to
+          tell a conversation the server has seen from a never-synced draft.
+          Ignored on input.
+        type: integer
+    type: object
+  schema.ConversationBulkRequest:
+    properties:
+      conversations:
+        items:
+          $ref: '#/definitions/schema.Conversation'
+        type: array
+    type: object
+  schema.ConversationBulkResponse:
+    properties:
+      count:
+        type: integer
+      skipped:
+        items:
+          type: string
+        type: array
+      status:
+        type: string
+    type: object
+  schema.ConversationList:
+    properties:
+      conversations:
+        items:
+          $ref: '#/definitions/schema.Conversation'
+        type: array
+      deleted:
+        items:
+          $ref: '#/definitions/schema.ConversationTombstone'
+        type: array
+    type: object
+  schema.ConversationTombstone:
+    properties:
+      deletedAt:
+        description: Unix milliseconds
+        type: integer
+      id:
+        type: string
+      version:
+        type: integer
+    type: object
   schema.DecisionAnswer:
     properties:
       choice:
@@ -4371,6 +4483,193 @@ paths:
       summary: Upload a branding asset
       tags:
       - branding
+  /api/conversations:
+    delete:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete all chat conversations for the current user
+      tags:
+      - chat-history
+    get:
+      description: Returns the live conversations, newest first, and in `deleted`
+        the conversations the user deleted. A client must drop any local copy whose
+        id appears in `deleted` instead of uploading it again.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.ConversationList'
+      summary: List chat conversations
+      tags:
+      - chat-history
+    post:
+      consumes:
+      - application/json
+      description: Stores the conversation and returns it with its new server-assigned
+        `version`. `createdAt`/`updatedAt` are kept as sent (Unix ms). Writing a conversation
+        the user deleted returns 410 and does not bring it back.
+      parameters:
+      - description: Conversation payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Conversation'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.Conversation'
+        "400":
+          description: Invalid id or body
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "410":
+          description: Deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Save a chat conversation (upsert)
+      tags:
+      - chat-history
+  /api/conversations/{id}:
+    delete:
+      description: Deletes the conversation and keeps a tombstone so no client can
+        write it back. Deleting an unknown or already deleted id succeeds.
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid id
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a chat conversation
+      tags:
+      - chat-history
+    get:
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.Conversation'
+        "404":
+          description: Never existed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "410":
+          description: Deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a chat conversation
+      tags:
+      - chat-history
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Conversation ID (overrides the body id)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Conversation payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Conversation'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.Conversation'
+        "400":
+          description: Invalid id or body
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "410":
+          description: Deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Save a chat conversation by id (upsert)
+      tags:
+      - chat-history
+  /api/conversations/bulk:
+    put:
+      consumes:
+      - application/json
+      description: Upserts every conversation in the payload and deletes the user's
+        other live conversations. Ids the user deleted earlier are not written and
+        are listed in `skipped`.
+      parameters:
+      - description: Conversations
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ConversationBulkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.ConversationBulkResponse'
+        "400":
+          description: Invalid id or body
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Replace all chat conversations
+      tags:
+      - chat-history
   /api/failover:
     get:
       produces:
