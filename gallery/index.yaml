@@ -23954,11 +23954,11 @@
     - https://github.com/localai-org/qwentts.cpp
     - https://localai.io/features/openai-realtime/
   description: |
-    English voice assistant preset: Silero VAD, Whisper Small English, Qwen3
+    English voice assistant preset: Silero VAD, Parakeet TDT 0.6B v3, Qwen3
     0.6B chat, and Qwen3-TTS 0.6B CustomVoice with Ryan's voice. Streams LLM
     text into one persistent TTS session while audio is emitted.
     This installs only the pipeline configuration. First install the separate
-    gallery models silero-vad-ggml, whisper-small-en, qwen3-0.6b, and
+    gallery models silero-vad-ggml, parakeet-cpp-tdt-0.6b-v3, qwen3-0.6b, and
     qwen3-tts-cpp-customvoice. Pin its variant to qwen3-tts-cpp-customvoice
     for Q8. WebRTC also needs the opus backend.
     Requires a LocalAI build with incremental Qwen3-TTS input support.
@@ -23976,7 +23976,7 @@
   config_file:
     pipeline:
       vad: silero-vad-ggml
-      transcription: whisper-small-en
+      transcription: parakeet-cpp-tdt-0.6b-v3
       llm: qwen3-0.6b
       tts: qwen3-tts-cpp-customvoice
       disable_thinking: true

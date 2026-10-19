@@ -36,7 +36,7 @@ A pipeline stage can name a [failover chain]({{%relref "features/model-failover"
 ### Install the Qwen streaming assistant preset
 
 The gallery entry `qwen3-streaming-assistant` configures an English voice
-assistant with Silero VAD, Whisper Small English, Qwen3 0.6B, and Qwen3-TTS
+assistant with Silero VAD, Parakeet TDT 0.6B v3, Qwen3 0.6B, and Qwen3-TTS
 0.6B CustomVoice using Ryan's voice. It streams LLM output text into one persistent TTS session while audio
 is emitted.
 
@@ -45,7 +45,7 @@ models first, keeping their default names so the pipeline can resolve them:
 
 ```bash
 local-ai models install silero-vad-ggml
-local-ai models install whisper-small-en
+local-ai models install parakeet-cpp-tdt-0.6b-v3
 local-ai models install qwen3-0.6b
 local-ai models install qwen3-tts-cpp-customvoice --variant qwen3-tts-cpp-customvoice
 local-ai models install qwen3-streaming-assistant
