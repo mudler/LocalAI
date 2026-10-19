@@ -421,6 +421,22 @@
       "license": "License",
       "tags": "Tags",
       "links": "Links"
+    },
+    "nodeRemoval": {
+      "action": "Remove from {{node}}…",
+      "title": "Remove {{name}} from {{node}}?",
+      "message": "This affects only this node and can stop models using this backend.",
+      "inventoryUnknown": "Inventory not verified.",
+      "inventoryError": "Inventory unavailable. Retry to verify protection.",
+      "unreachable": "Node is unavailable or not a healthy backend node.",
+      "absent": "Exact backend is not installed on this node.",
+      "protected": "System, meta, or unknown protection: removal is unavailable.",
+      "managed": "Verified user-managed installation",
+      "retry": "Retry inventory for {{node}}",
+      "failed": "Could not remove {{name}} from {{node}}: {{message}}",
+      "refreshFailed": "Backend data could not be refreshed. Displayed data may be stale. Retry refresh.",
+      "stale": "Deletion succeeded, but backend data could not be refreshed. Displayed data may be stale. Retry refresh; do not repeat deletion.",
+      "refresh": "Retry backend refresh"
     }
   },
   "logs": {
