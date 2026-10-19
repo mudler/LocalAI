@@ -1,0 +1,205 @@
+// SPDX-License-Identifier: MIT
+package nibadapter
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"sync"
+	"testing"
+
+	"github.com/mudler/nib/chat"
+	"github.com/mudler/nib/types"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	openai "github.com/sashabaranov/go-openai"
+)
+
+func TestNibAdapter(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "Pinned nib adapter") }
+
+var _ = Describe("v0.12.1 contract", func() {
+	var cp Checkpoint
+	BeforeEach(func() {
+		cp = Checkpoint{Version: CheckpointVersion,
+			Context:   []byte(`[{"role":"user","content":"summary artifact://3"},{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"read","arguments":"{}"}}]},{"role":"tool","tool_call_id":"c1","content":"source"}]`),
+			History:   []byte(`[{"role":"user","content":"visible history, not summary"}]`),
+			Artifacts: []byte(`[{"id":3,"tool":"compaction","created":"1970-01-01T00:00:01Z","content":"full head"}]`),
+			Pruning:   []byte(`{"pruned":{"c1":"old"},"compressed":{"c1":{"level":1,"content":"short"}},"compress_band":1}`)}
+	})
+	It("advertises only the executable bounded contract", func() {
+		Expect(PinnedCapabilities()).To(Equal(Capabilities{Version: "v0.12.1", CheckpointRestore: true, HistoryRestore: true, ArtifactRestore: true, PruningRestore: true, Streaming: true, EventProjection: true, Approvals: true, Questions: true, CompactionEvents: true, HelperEvents: true}))
+		Expect(RequireSecureTools(nil)).To(MatchError(ErrPolicyRequired))
+		Expect(RequireSecureTools(func(Identity, chat.ToolCallRequest) error { return nil })).To(MatchError(ErrMandatoryPolicyUnsupported))
+	})
+	It("round trips independent owned buffers and rejects malformed versions and sections", func() {
+		encoded, err := EncodeCheckpoint(cp)
+		Expect(err).NotTo(HaveOccurred())
+		decoded, err := DecodeCheckpoint(encoded)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(decoded).To(Equal(cp))
+		encoded[0] = '!'
+		Expect(decoded).To(Equal(cp))
+		for _, section := range []string{"context", "history", "artifacts", "pruning"} {
+			broken := cp
+			switch section {
+			case "context":
+				broken.Context = []byte(`{}`)
+			case "history":
+				broken.History = []byte(`null`)
+			case "artifacts":
+				broken.Artifacts = []byte(`[{}] trailing`)
+			case "pruning":
+				broken.Pruning = []byte(`[]`)
+			}
+			_, err = RestoreConfig(types.Config{}, broken)
+			Expect(err).To(HaveOccurred())
+		}
+		cp.Version = "other"
+		_, err = EncodeCheckpoint(cp)
+		Expect(err).To(HaveOccurred())
+		_, err = DecodeCheckpoint([]byte(`{"version":"other"}`))
+		Expect(err).To(HaveOccurred())
+		_, err = DecodeCheckpoint([]byte(`{} garbage`))
+		Expect(err).To(HaveOccurred())
+	})
+	It("restores and exports a real isolated offline nib session without collapsing history", func() {
+		home := GinkgoT().TempDir()
+		GinkgoT().Setenv("HOME", home)
+		GinkgoT().Setenv("XDG_CONFIG_HOME", home)
+		GinkgoT().Setenv("XDG_STATE_HOME", home)
+		off := false
+		cfg, err := RestoreConfig(types.Config{Model: "fake", APIKey: "fake", BaseURL: "http://127.0.0.1:1/v1", BaseDir: home, WorkingDir: home, LSPAutoDetect: &off, BuiltinTools: []string{"no-tools"}}, cp)
+		Expect(err).NotTo(HaveOccurred())
+		cp.Context[0] = '!'
+		cp.History[0] = '!'
+		cp.Artifacts[0] = '!'
+		cp.Pruning[0] = '!'
+		session, err := chat.NewSession(context.Background(), cfg, chat.Callbacks{})
+		Expect(err).NotTo(HaveOccurred())
+		defer session.Close()
+		_, err = ExportCheckpoint(session, false)
+		Expect(err).To(MatchError(ErrNotQuiescent))
+		exported, err := ExportCheckpoint(session, true)
+		Expect(err).NotTo(HaveOccurred())
+		restored, err := RestoreConfig(types.Config{}, exported)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(restored.InitialContext).To(Equal(cfg.InitialContext))
+		Expect(restored.InitialHistory).To(Equal(cfg.InitialHistory))
+		Expect(restored.InitialArtifacts).To(Equal(cfg.InitialArtifacts))
+		Expect(restored.InitialPruning).To(Equal(cfg.InitialPruning))
+		Expect(restored.InitialContext[1].ToolCalls[0].ID).To(Equal("c1"))
+		Expect(restored.InitialContext[2].ToolCallID).To(Equal("c1"))
+		Expect(restored.InitialArtifacts[0].ID).To(Equal(int64(3)))
+		restored.InitialContext[1].ToolCalls[0].ID = "changed"
+		restored.InitialPruning.Pruned["c1"] = "changed"
+		again, err := ExportCheckpoint(session, true)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(again).To(Equal(exported))
+		secondCfg, err := RestoreConfig(types.Config{Model: "fake", APIKey: "fake", BaseURL: "http://127.0.0.1:1/v1", BaseDir: GinkgoT().TempDir(), LSPAutoDetect: &off}, again)
+		Expect(err).NotTo(HaveOccurred())
+		second, err := chat.NewSession(context.Background(), secondCfg, chat.Callbacks{})
+		Expect(err).NotTo(HaveOccurred())
+		defer second.Close()
+		secondExport, err := ExportCheckpoint(second, true)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(secondExport).To(Equal(again))
+	})
+	It("captures immutable identities even for concurrent late callbacks", func() {
+		var mu sync.Mutex
+		var events []Event
+		sink := func(e Event) { mu.Lock(); defer mu.Unlock(); events = append(events, e) }
+		id := Identity{Principal: "p", Conversation: "c", Turn: "t", Attempt: 1, Epoch: 2}
+		a, err := NewCallbacks(id, func(Identity, chat.ToolCallRequest) error { return nil }, sink, nil)
+		Expect(err).NotTo(HaveOccurred())
+		id.Turn = "next"
+		id.Attempt = 2
+		id.Epoch = 3
+		b, err := NewCallbacks(id, func(Identity, chat.ToolCallRequest) error { return nil }, sink, nil)
+		Expect(err).NotTo(HaveOccurred())
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() { defer wg.Done(); a.OnResponse("late") }()
+		go func() { defer wg.Done(); b.OnResponse("new") }()
+		wg.Wait()
+		Expect(events).To(ConsistOf(Event{Identity: Identity{Principal: "p", Conversation: "c", Turn: "t", Attempt: 1, Epoch: 2}, Kind: Text, Text: "late"}, Event{Identity: id, Kind: Text, Text: "new"}))
+	})
+	It("projects actual callback types including stream tools helpers compaction and failures", func() {
+		var events []Event
+		cb, err := NewCallbacks(Identity{"p", "c", "t", 1, 1}, func(Identity, chat.ToolCallRequest) error { return nil }, func(e Event) { events = append(events, e) }, nil)
+		Expect(err).NotTo(HaveOccurred())
+		cb.OnStatus("working")
+		cb.OnReasoning("think")
+		cb.OnStepContent("step")
+		cb.OnResponse("reply")
+		cb.OnError(errors.New("failed"))
+		cb.OnStream(chat.StreamEvent{Kind: "content", Content: "delta", AgentID: "helper"})
+		cb.OnToolStart(chat.ToolStart{Name: "read", Arguments: "{}"})
+		cb.OnToolResult(chat.ToolResult{Name: "read", Result: "data", AgentID: "h"})
+		cb.OnAgentEvent(chat.AgentEvent{ID: "h", Status: chat.AgentStatusCompleted, Result: "done"})
+		cb.OnAgentTitle("h", "title")
+		cb.OnCompactDone(10, 5)
+		cb.OnCompactFailed(errors.New("compact"))
+		cb.OnPruneDone(2, 4)
+		cb.OnParked("park")
+		cb.OnResumed()
+		Expect(events).To(HaveLen(15))
+		Expect(events[0].Kind).To(Equal(Status))
+		Expect(events[1].Kind).To(Equal(Reasoning))
+		Expect(events[4].Err).To(MatchError("failed"))
+		Expect(events[5].Stream).To(Equal(chat.StreamEvent{Kind: "content", Content: "delta", AgentID: "helper"}))
+		Expect(events[6].ToolName).To(Equal("read"))
+		Expect(events[7].Text).To(Equal("data"))
+		Expect(events[8].Helper.ID).To(Equal("h"))
+		Expect(events[10].Before).To(Equal(10))
+		Expect(events[11].Err).To(MatchError("compact"))
+		Expect(events[12].After).To(Equal(4))
+	})
+	It("fails closed on missing policy, validates identity, and never mints broad grants", func() {
+		id := Identity{"p", "c", "t", 1, 1}
+		_, err := NewCallbacks(id, nil, func(Event) {}, nil)
+		Expect(err).To(MatchError(ErrPolicyRequired))
+		_, err = NewCallbacks(Identity{}, func(Identity, chat.ToolCallRequest) error { return nil }, func(Event) {}, nil)
+		Expect(err).To(HaveOccurred())
+		denied, err := NewCallbacks(id, func(got Identity, req chat.ToolCallRequest) error {
+			Expect(got).To(Equal(id))
+			Expect(req.Name).To(Equal("read"))
+			return errors.New("ACL denied")
+		}, func(Event) {}, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(denied.OnToolCall(chat.ToolCallRequest{Name: "read"})).To(Equal(chat.ToolCallResponse{Adjustment: "ACL denied"}))
+		allowed, err := NewCallbacks(id, func(Identity, chat.ToolCallRequest) error { return nil }, func(Event) {}, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(allowed.OnToolCall(chat.ToolCallRequest{})).To(Equal(chat.ToolCallResponse{Approved: true}))
+		Expect(allowed.OnAskUser(chat.AskRequest{})).To(Equal("Question handler unavailable"))
+	})
+	It("passes questions with stable host identity and separately owned options", func() {
+		id := Identity{"p", "c", "t", 1, 1}
+		options := []string{"one"}
+		cb, err := NewCallbacks(id, func(Identity, chat.ToolCallRequest) error { return nil }, func(Event) {}, func(got Identity, req chat.AskRequest) string {
+			Expect(got).To(Equal(id))
+			req.Options[0] = "changed"
+			return "answer"
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cb.OnAskUser(chat.AskRequest{Question: "which", Options: options})).To(Equal("answer"))
+		Expect(options).To(Equal([]string{"one"}))
+	})
+	It("does not reuse or mutate caller config buffers while restoring", func() {
+		base := types.Config{InitialHistory: []openai.ChatCompletionMessage{{Role: "user", Content: "original"}}, InitialPruning: types.PruningState{Pruned: map[string]string{"unrelated": "keep"}}}
+		restored, err := RestoreConfig(base, cp)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(base.InitialHistory[0].Content).To(Equal("original"))
+		Expect(base.InitialPruning.Pruned).To(Equal(map[string]string{"unrelated": "keep"}))
+		Expect(restored.InitialPruning.Pruned).NotTo(HaveKey("unrelated"))
+	})
+
+	It("uses the actual nib config JSON protocol rather than a display-only substitute", func() {
+		cfg, err := RestoreConfig(types.Config{}, cp)
+		Expect(err).NotTo(HaveOccurred())
+		wire, err := json.Marshal(cfg.InitialContext)
+		Expect(err).NotTo(HaveOccurred())
+		var messages []openai.ChatCompletionMessage
+		Expect(json.Unmarshal(wire, &messages)).To(Succeed())
+		Expect(messages[1].ToolCalls[0].Function.Arguments).To(Equal("{}"))
+	})
+})
