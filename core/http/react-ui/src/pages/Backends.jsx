@@ -68,6 +68,17 @@ export default function Backends() {
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [allBackends, setAllBackends] = useState([])
   const [installed, setInstalled] = useState([])
+  const [inventories, setInventories] = useState({})
+  const [nodeErrors, setNodeErrors] = useState({})
+  const [removalPending, setRemovalPending] = useState(false)
+  const [refreshError, setRefreshError] = useState(false)
+  const removalLock = useRef(null)
+  const inventoryRequests = useRef({})
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false; inventoryRequests.current = {} }
+  }, [])
   const [models, setModels] = useState([])
   const [upgrades, setUpgrades] = useState({})
   const [upgradingAll, setUpgradingAll] = useState(false)
@@ -149,8 +160,10 @@ export default function Backends() {
         setPreferDev(true)
         setPreferDevLoaded(true)
       }
+      return true
     } catch (err) {
       addToast(t('backends.loadFailed', { message: err.message }), 'error')
+      return false
     } finally {
       loadedOnce.current = true
       setCatalogReady(true)
@@ -166,15 +179,23 @@ export default function Backends() {
       setInstalledLoading(true)
       const data = await backendsApi.listInstalled()
       setInstalled(Array.isArray(data) ? data : [])
-      setGlobalError('')
-    } catch (err) {
-      setInstalled([])
-      setGlobalError(t('backends.installedLoadFailed', { message: err.message }))
-    } finally {
       installedOnce.current = true
+      setGlobalError('')
+      setSearchParams(prev => {
+        const selected = prev.get('backend')
+        if (prev.get('view') !== 'installed' || !selected || data.some(b => b.Name === selected)) return prev
+        const next = new URLSearchParams(prev)
+        next.delete('backend')
+        return next
+      }, { replace: true })
+      return true
+    } catch (err) {
+      setGlobalError(t('backends.installedLoadFailed', { message: err.message }))
+      return false
+    } finally {
       setInstalledLoading(false)
     }
-  }, [t])
+  }, [t, setSearchParams])
 
   // Install and delete change what is installed, so the lists are read again
   // whenever the set of operations changes.
@@ -242,16 +263,140 @@ export default function Backends() {
     }
   }
 
-  const handleRemoveFromTarget = async (name) => {
-    setError(name, '')
+  // Inventory is page-local and fetched only for the expanded row's scoped nodes.
+  const loadInventory = useCallback(async (nodeID) => {
+    const request = Symbol(nodeID)
+    inventoryRequests.current[nodeID] = request
+    setInventories(prev => ({ ...prev, [nodeID]: { status: 'loading' } }))
     try {
-      await nodesApi.deleteBackend(targetNode.id, name)
-      addToast(t('backends.removedFrom', { name, node: targetNode.name }), 'success')
-      setTimeout(() => { fetchBackends(); fetchInstalled(); refetchNodes() }, 600)
+      const data = await nodesApi.getBackends(nodeID)
+      if (!Array.isArray(data)) throw new Error(t('backends.nodeRemoval.inventoryUnknown'))
+      if (mounted.current && inventoryRequests.current[nodeID] === request) {
+        setInventories(prev => ({ ...prev, [nodeID]: { status: 'success', data } }))
+      }
+      return data
     } catch (err) {
-      setError(name, t('backends.removeFailed', { message: err.message }))
+      if (mounted.current && inventoryRequests.current[nodeID] === request) {
+        setInventories(prev => ({ ...prev, [nodeID]: { status: 'error', error: err.message } }))
+      }
+      return null
+    }
+  }, [t])
+
+  const visibleRefs = activeView === 'installed'
+    ? (installed.find(b => b.Name === selectedName)?.Nodes || installed.find(b => b.Name === selectedName)?.nodes || [])
+    : (allBackends.find(b => (b.name || b.id) === selectedName)?.nodes || [])
+  const visibleNodeIDs = distributedEnabled ? [...new Set(visibleRefs.map(n => n.node_id ?? n.NodeID))]
+    .filter(id => !targetNodeId || id === targetNodeId) : []
+  const inventoryScope = JSON.stringify([selectedName, activeView, visibleNodeIDs, clusterNodes])
+  useEffect(() => {
+    const ids = JSON.parse(inventoryScope)[2]
+    ids.forEach(id => {
+      const node = clusterNodes.find(n => n.id === id)
+      if (node?.node_type === 'backend' && node.status === 'healthy') loadInventory(id)
+    })
+    return () => { inventoryRequests.current = {} }
+    // Responses from a previous expanded row or node status are ignored.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inventoryScope, loadInventory])
+
+  const nodeReason = (node, data, name) => {
+    if (!node || node.node_type !== 'backend' || node.status !== 'healthy') return t('backends.nodeRemoval.unreachable')
+    const entry = data?.find(b => b.name === name)
+    if (!entry) return t('backends.nodeRemoval.absent')
+    if (entry.is_system !== false || entry.is_meta !== false) return t('backends.nodeRemoval.protected')
+    return ''
+  }
+  const rowConflict = (name) => {
+    const state = backendState({ installed: true, op: opForBackend(operations, name) })
+    return pending.has(name) || upgradingAll || ['installing', 'queued', 'removing'].includes(state.kind)
+  }
+  // Async confirmation must use current operation state, not the dialog's closure.
+  const currentRowConflict = useRef(rowConflict)
+  currentRowConflict.current = rowConflict
+
+  const refreshBackendData = async () => {
+    const results = await Promise.all([fetchBackends(), fetchInstalled(), refetchNodes()])
+    const failed = results.some(result => result === false)
+    setRefreshError(failed)
+    return !failed
+  }
+
+  const confirmNodeRemoval = async (snapshot) => {
+    if (removalLock.current) return
+    const key = JSON.stringify([snapshot.nodeID, snapshot.backendName])
+    removalLock.current = key
+    setRemovalPending(true)
+    setNodeErrors(prev => ({ ...prev, [key]: '' }))
+    try {
+      // Refresh status too: a node can drain or disappear while the dialog is open.
+      const nodes = await nodesApi.list()
+      const node = nodes.find(n => n.id === snapshot.nodeID)
+      const data = await loadInventory(snapshot.nodeID)
+      const reason = nodeReason(node, data, snapshot.backendName)
+      if (!data || reason || currentRowConflict.current(snapshot.backendName)) {
+        throw new Error(reason || t('backends.nodeRemoval.inventoryUnknown'))
+      }
+      if (!mounted.current) return
+      await nodesApi.deleteBackend(snapshot.nodeID, snapshot.backendName)
+      if (!mounted.current) return
+      setConfirmDialog(null)
+      addToast(t('backends.removedFrom', { name: snapshot.backendName, node: snapshot.nodeName }), 'success')
+      const inventory = await loadInventory(snapshot.nodeID)
+      const refreshed = await refreshBackendData()
+      if (!inventory || !refreshed) setRefreshError(true)
+    } catch (err) {
+      if (!mounted.current) return
+      setConfirmDialog(null)
+      setNodeErrors(prev => ({ ...prev, [key]: t('backends.nodeRemoval.failed', { name: snapshot.backendName, node: snapshot.nodeName, message: err.message }) }))
+      await loadInventory(snapshot.nodeID)
+    } finally {
+      removalLock.current = null
+      if (mounted.current) setRemovalPending(false)
     }
   }
+
+  const handleRemoveFromTarget = (snapshot) => {
+    if (removalLock.current || rowConflict(snapshot.backendName)) return
+    setConfirmDialog({
+      title: t('backends.nodeRemoval.title', { name: snapshot.backendName, node: snapshot.nodeName }),
+      message: <>{t('backends.nodeRemoval.message')}{usedBy(snapshot.backendName)}</>,
+      confirmLabel: t('backends.remove'),
+      onConfirm: () => confirmNodeRemoval(snapshot),
+    })
+  }
+
+  const nodeControls = (name, refs) => (
+    <div className="stack">
+      {refs.filter(ref => !targetNodeId || (ref.node_id ?? ref.NodeID) === targetNodeId).map(ref => {
+        const nodeID = ref.node_id ?? ref.NodeID
+        const node = clusterNodes.find(n => n.id === nodeID)
+        const nodeName = node?.name || ref.node_name || ref.NodeName || nodeID
+        const inventory = inventories[nodeID]
+        const key = JSON.stringify([nodeID, name])
+        const reason = inventory?.status === 'success'
+          ? nodeReason(node, inventory.data, name)
+          : t(inventory?.status === 'error' ? 'backends.nodeRemoval.inventoryError' : 'backends.nodeRemoval.inventoryUnknown')
+        return (
+          <div className="stack" key={nodeID}>
+            <div className="hstack">
+              <span className="dk-mono">{nodeName}</span>
+              <span className="text-note">{reason || t('backends.nodeRemoval.managed')}</span>
+              <button type="button" className="dk-btn dk-btn--danger dk-btn--sm"
+                disabled={!!reason || rowConflict(name) || removalPending}
+                onClick={() => handleRemoveFromTarget({ nodeID, nodeName, backendName: name })}>
+                <Icon name="trash" /> {t('backends.nodeRemoval.action', { node: nodeName })}
+              </button>
+              {inventory?.status === 'error' && <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm"
+                aria-label={t('backends.nodeRemoval.retry', { node: nodeName })}
+                onClick={() => loadInventory(nodeID)}>{t('backends.retry')}</button>}
+            </div>
+            {nodeErrors[key] && <div className="op-error" role="alert">{nodeErrors[key]}</div>}
+          </div>
+        )
+      })}
+    </div>
+  )
 
   const openPicker = (b, initialSelection = []) => {
     setPickerBackend(b)
@@ -484,7 +629,7 @@ export default function Backends() {
     const op = opForBackend(operations, name, b.id)
     const upgrade = upgrades[name]
     const state = backendState({ installed: b.installed, upgrade, op })
-    const busy = pending.has(name)
+    const busy = pending.has(name) || removalPending
     const isNodeScoped = Boolean(targetNode)
     const onTarget = isNodeScoped && (b.nodes || []).some(n => (n.node_id ?? n.NodeID) === targetNode.id)
 
@@ -555,9 +700,7 @@ export default function Backends() {
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => handleInstallOnTarget(name)} title={t('backends.reinstallOn', { node: targetNode.name })}>
                 <Icon name="refresh" /> {t('backends.reinstall')}
               </button>
-              <button type="button" className="dk-btn dk-btn--danger dk-btn--sm" onClick={() => handleRemoveFromTarget(name)} title={t('backends.removeFrom', { node: targetNode.name })}>
-                <Icon name="trash" /> {t('backends.remove')}
-              </button>
+              {nodeControls(name, b.nodes || [])}
             </>
           )}
           {!isNodeScoped && b.installed && state.kind !== 'installing' && state.kind !== 'removing' && (
@@ -631,7 +774,7 @@ export default function Backends() {
     const upgrade = upgrades[name]
     const op = opForBackend(operations, name)
     const state = backendState({ installed: true, upgrade, op })
-    const busy = pending.has(name) || state.kind === 'installing' || state.kind === 'queued' || state.kind === 'removing'
+    const busy = pending.has(name) || removalPending || state.kind === 'installing' || state.kind === 'queued' || state.kind === 'removing'
     const nodes = b.Nodes || b.nodes || []
 
     let action = null
@@ -656,7 +799,7 @@ export default function Backends() {
             items={[
               { key: 'reinstall', icon: 'refresh', label: t('backends.reinstallBackend'), onClick: () => handleReinstall(name), disabled: busy },
               { divider: true },
-              { key: 'delete', icon: 'trash', label: t('backends.deleteBackend'), danger: true, onClick: () => handleDelete(name, 'installed') },
+              { key: 'delete', icon: 'trash', label: t('backends.deleteBackend'), danger: true, disabled: busy, onClick: () => handleDelete(name, 'installed') },
             ]}
           />
         </>
@@ -679,6 +822,7 @@ export default function Backends() {
           <div className="bk-onnodes">
             <span className="dk-eyebrow">{t('backends.installedOn')}</span>
             <NodeDistributionChip nodes={nodes} context="backends" compactThreshold={20} />
+            {nodeControls(name, nodes)}
           </div>
         )}
         {usedBy(name)}
@@ -826,13 +970,12 @@ export default function Backends() {
         </div>
       )}
 
-      {globalError && (
+      {(refreshError || globalError) && (
         <div className="op-error" role="alert">
-          <Icon name="alert-circle" />
-          <span>{globalError}</span>
+          <span>{refreshError ? t('backends.nodeRemoval.stale') : globalError}</span>
+          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" aria-label={t('backends.nodeRemoval.refresh')} onClick={refreshBackendData}>{t('backends.retry')}</button>
         </div>
       )}
-
       {showManualInstall && (
         <form onSubmit={handleManualInstall} className="bk-manual dk-card">
           <h2 className="bk-manual__title">{t('backends.manualTitle')}</h2>
@@ -870,7 +1013,7 @@ export default function Backends() {
       {showCatalogCold || showInstalledCold ? (
         <div className="op-loading"><LoadingSpinner size="lg" /></div>
       ) : activeView === 'installed' ? (
-        installed.length === 0 && !globalError ? (
+        installed.length === 0 && globalError ? null : installed.length === 0 ? (
           <div className="dk-empty">
             <div className="dk-empty-icon"><Icon name="server" /></div>
             <h2 className="dk-empty-title">{t('backends.emptyTitle')}</h2>
@@ -943,8 +1086,9 @@ export default function Backends() {
         message={confirmDialog?.message}
         confirmLabel={confirmDialog?.confirmLabel}
         danger
+        pending={removalPending}
         onConfirm={confirmDialog?.onConfirm}
-        onCancel={() => setConfirmDialog(null)}
+        onCancel={() => { if (!removalLock.current) setConfirmDialog(null) }}
       />
 
       <NodeInstallPicker

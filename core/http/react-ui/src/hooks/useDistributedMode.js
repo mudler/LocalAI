@@ -26,9 +26,11 @@ export function useDistributedMode() {
       const data = await nodesApi.list()
       setNodes(Array.isArray(data) ? data : [])
       setEnabled(true)
+      return true
     } catch {
       setEnabled(false)
       setNodes([])
+      return false
     } finally {
       setLoading(false)
     }

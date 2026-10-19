@@ -353,3 +353,29 @@ tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
 ### Motion capture
 
 - [gem-x.cpp](https://github.com/localai-org/gem-x.cpp): live SOMA-77 and SMPL-24 human poses on CPU/Vulkan. See [Motion Capture](/features/motion/).
+
+### Remove an installed backend from one node
+
+In distributed mode, expand a row in **Backends → Installed** to see its node
+installations. Use **Show variants** and **Development builds** when needed to
+reveal concrete builds such as `cpu-example-engine-development`. Removal uses
+that exact row name, not a generic alias or the recommended build.
+
+**Remove from worker-alpha…** asks for confirmation naming both the backend and
+node. Only that installation is affected; other nodes and sibling builds remain.
+Removal can stop models using the backend on that node. Cancel, Escape, or clicking
+outside the dialog sends no removal request. A target-node URL restricts the
+available actions to that node; it never falls back to a different worker.
+
+The page checks each expanded node's actual inventory. System and meta backends,
+unknown protection metadata, absent builds, and unavailable or draining nodes
+cannot be removed through these controls. A system installation on one node does
+not prevent removal of a user-managed installation on another. Inventory and
+node status are checked again when you confirm; server-side protection still
+applies. Retry inventory explicitly if it could not be loaded.
+
+A removal error is scoped to the node and backend. Refresh and confirm again
+before retrying; an API failure does not guarantee that nothing changed. If
+removal succeeds but refresh fails, the page keeps the last successful installed
+list and warns that it may be stale. **Retry** refreshes data without repeating
+the deletion. Standalone deletion and its system-backend protection are unchanged.
