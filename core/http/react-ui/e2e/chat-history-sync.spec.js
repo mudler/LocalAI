@@ -409,7 +409,11 @@ test.describe('Deletes stay pending until the server confirms them', () => {
   test('clear all persists before navigation can cancel the debounced save', async ({ page }) => {
     const server = await fakeHistoryServer(page)
     server.setDown(true)
-    await openChat(page, [chatOf('draft', 'Unsynced draft', 'qwen3-8b', pair('private draft', 'answer'), {}, T0)])
+    // Two chats: with a single chat the menu offers no Clear all.
+    await openChat(page, [
+      chatOf('draft', 'Unsynced draft', 'qwen3-8b', pair('private draft', 'answer'), {}, T0),
+      chatOf('other', 'Other draft', 'qwen3-8b', pair('second draft', 'answer'), {}, T0 - 1000),
+    ])
     await openMenu(page)
     // Freeze the debounce: assert the cache produced by the delete itself.
     await page.clock.install()
@@ -418,6 +422,7 @@ test.describe('Deletes stay pending until the server confirms them', () => {
     await page.getByRole('button', { name: 'Delete all' }).click()
     const stored = await storedChats(page)
     expect(stored.chats.map(c => c.id)).not.toContain('draft')
+    expect(stored.chats.map(c => c.id)).not.toContain('other')
     expect(stored.pendingDeletes).toEqual(['*'])
 
     await page.clock.resume()
@@ -426,6 +431,7 @@ test.describe('Deletes stay pending until the server confirms them', () => {
     await expect.poll(() => server.deleteAlls().length).toBe(1)
     await page.waitForTimeout(1_000)
     expect(server.saves('draft')).toHaveLength(0)
+    expect(server.saves('other')).toHaveLength(0)
     await expect(page.getByTestId('chats-row').filter({ hasText: 'Unsynced draft' })).toHaveCount(0)
   })
 
@@ -436,6 +442,9 @@ test.describe('Deletes stay pending until the server confirms them', () => {
     await deleteRow(page, 'Delete me')
     await expect.poll(() => server.deletes('b').length).toBe(1)
     expect(server.liveIds()).not.toContain('b')
+    // The server has the request; wait until the page has its answer too.
+    // Reopening earlier leaves the delete unconfirmed, and it is rightly sent again.
+    await expect.poll(async () => (await storedChats(page)).pendingDeletes).toEqual([])
 
     await reopen(page)
     await expect(page.getByTestId('chats-row').filter({ hasText: 'Keep me' })).toHaveCount(1)
