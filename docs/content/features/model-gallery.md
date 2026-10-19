@@ -1112,3 +1112,20 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+## Qwen3.8-27B iMatrix NVFP4
+
+The `qwen3.8-27b-imatrix-nvfp4-mtp` variant uses cdiamond's mixed-precision
+NVFP4 GGUF with llama.cpp. It includes the F16 vision projector and enables
+MTP with one draft token per step. The default context is 32,768 tokens.
+
+Select this build explicitly with:
+
+```sh
+local-ai models install qwen3.8-27b-q4 --variant qwen3.8-27b-imatrix-nvfp4-mtp
+```
+
+The model and projector total about 18.1 GB; inference requires additional
+memory for context and working buffers. See the
+[publisher's model card](https://huggingface.co/cdiamond/Qwen3.8-27B-iMatrix-NVFP4-MTP-GGUF)
+for the quantization recipe and hardware-specific measurements.
