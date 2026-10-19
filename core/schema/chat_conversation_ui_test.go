@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 package schema_test
 
 import (
@@ -5,39 +6,33 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"testing"
 
 	"github.com/mudler/LocalAI/core/schema"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// TestConversationKeepsEveryFieldTheUISends guards against the server
-// silently dropping a chat setting: every key serializeChat in the React
-// UI sends must have a JSON field on schema.Conversation. reasoningEffort
-// and localaiAssistant were each lost this way once.
-func TestConversationKeepsEveryFieldTheUISends(t *testing.T) {
-	src, err := os.ReadFile("../http/react-ui/src/hooks/useChat.js")
-	if err != nil {
-		t.Fatalf("read useChat.js: %v", err)
-	}
-	body := regexp.MustCompile(`(?s)function serializeChat\(chat\) \{\s*return \{(.*?)\n  \}`).FindSubmatch(src)
-	if body == nil {
-		t.Fatal("serializeChat not found in useChat.js")
-	}
-	sent := regexp.MustCompile(`(?m)^\s*(\w+):`).FindAllSubmatch(body[1], -1)
-	if len(sent) < 10 {
-		t.Fatalf("only %d keys found in serializeChat; the pattern no longer matches", len(sent))
-	}
+// Every key serializeChat sends needs a JSON field so persistence cannot
+// silently discard a chat setting.
+var _ = Describe("Conversation UI schema", func() {
+	It("keeps every field the UI sends", func() {
+		src, err := os.ReadFile("../http/react-ui/src/hooks/useChat.js")
+		Expect(err).NotTo(HaveOccurred(), "read useChat.js")
+		body := regexp.MustCompile(`(?s)function serializeChat\(chat\) \{\s*return \{(.*?)\n  \}`).FindSubmatch(src)
+		Expect(body).NotTo(BeNil(), "serializeChat not found in useChat.js")
+		sent := regexp.MustCompile(`(?m)^\s*(\w+):`).FindAllSubmatch(body[1], -1)
+		Expect(len(sent)).To(BeNumerically(">=", 10), "the serializeChat pattern no longer matches")
 
-	known := map[string]bool{}
-	ty := reflect.TypeOf(schema.Conversation{})
-	for i := 0; i < ty.NumField(); i++ {
-		if name := strings.Split(ty.Field(i).Tag.Get("json"), ",")[0]; name != "" {
-			known[name] = true
+		known := map[string]bool{}
+		ty := reflect.TypeOf(schema.Conversation{})
+		for i := 0; i < ty.NumField(); i++ {
+			if name := strings.Split(ty.Field(i).Tag.Get("json"), ",")[0]; name != "" {
+				known[name] = true
+			}
 		}
-	}
-	for _, m := range sent {
-		if key := string(m[1]); !known[key] {
-			t.Errorf("serializeChat sends %q but schema.Conversation has no field for it; the server drops it", key)
+		for _, m := range sent {
+			key := string(m[1])
+			Expect(known).To(HaveKey(key), "serializeChat sends %q but schema.Conversation has no field for it; the server drops it", key)
 		}
-	}
-}
+	})
+})
