@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -103,19 +104,23 @@ func (t *bufferedAudioTransport) SendAudio(ctx context.Context, pcm []byte, rate
 }
 
 var _ = Describe("Buffered progressive TTS", func() {
-	for _, engine := range []string{"sherpa-onnx", "piper"} {
-		It("emits ordered clauses before LLM EOF with "+engine, func() {
+	for _, tc := range []struct {
+		engine string
+		stream bool
+	}{{"sherpa-onnx", true}, {"piper", true}, {"sherpa-onnx", false}} {
+		engine := tc.engine
+		It(fmt.Sprintf("emits ordered clauses before LLM EOF with %s (stream=%t)", engine, tc.stream), func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			on := true
 			m := &bufferedSpeechModel{engine: engine, dir: GinkgoT().TempDir(), early: make(chan struct{})}
-			session := &Session{OutputSampleRate: 24000, ModelInterface: m, ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on}}}}
+			session := &Session{OutputSampleRate: 24000, ModelInterface: m, ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &tc.stream, ClauseChunking: &on}}}}
 			transport := &bufferedAudioTransport{ready: m.early}
 			r := &liveResponse{id: "buffered"}
 			streamLLMResponse(ctx, session, &Conversation{}, transport, r, nil, nil, &config.ModelConfig{}, nil, nil, 0)
 			Expect(ctx.Err()).NotTo(HaveOccurred(), "audio must reach the transport before the predictor can finish")
 			Expect(m.clauses).To(Equal([]string{"First complete sentence.", "Next complete sentence.", "Final tail."}))
-			if engine == "piper" {
+			if engine == "piper" || !tc.stream {
 				Expect(m.streamCalls).To(BeZero())
 				Expect(m.unaryCalls).To(Equal(3))
 				Expect(transport.audio).To(HaveLen(3))
@@ -127,7 +132,7 @@ var _ = Describe("Buffered progressive TTS", func() {
 			for _, chunk := range transport.audio {
 				sequence = append(sequence, chunk.pcm[0])
 			}
-			if engine == "piper" {
+			if engine == "piper" || !tc.stream {
 				Expect(sequence).To(Equal([]byte{1, 2, 3}))
 			} else {
 				Expect(sequence).To(Equal([]byte{1, 1, 2, 2, 3, 3}))
@@ -139,7 +144,7 @@ var _ = Describe("Buffered progressive TTS", func() {
 		defer cancel()
 		on := true
 		m := &bufferedSpeechModel{engine: "sherpa-onnx", early: make(chan struct{}), fail: errors.New("synthesis failed")}
-		session := &Session{OutputSampleRate: 24000, ModelInterface: m, ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on}}}}
+		session := &Session{OutputSampleRate: 24000, ModelInterface: m, ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on, ClauseChunking: &on}}}}
 		r := &liveResponse{id: "error"}
 		streamLLMResponse(ctx, session, &Conversation{}, &fakeTransport{}, r, nil, nil, &config.ModelConfig{}, nil, nil, 0)
 		Expect(ctx.Err()).NotTo(HaveOccurred())
@@ -151,7 +156,7 @@ var _ = Describe("Buffered progressive TTS", func() {
 		defer cancel()
 		on := true
 		m := &bufferedSpeechModel{engine: "sherpa-onnx", early: make(chan struct{}), cancel: cancel}
-		session := &Session{OutputSampleRate: 24000, ModelInterface: m, ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on}}}}
+		session := &Session{OutputSampleRate: 24000, ModelInterface: m, ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on, ClauseChunking: &on}}}}
 		r := &liveResponse{id: "cancel"}
 		streamLLMResponse(ctx, session, &Conversation{}, &fakeTransport{}, r, nil, nil, &config.ModelConfig{}, nil, nil, 0)
 		Expect(r.outcome).To(Equal(outcomeCancelled))

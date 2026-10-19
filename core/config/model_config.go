@@ -1204,9 +1204,8 @@ type PipelineStreaming struct {
 	// ClauseChunking splits the streamed LLM reply into speakable clauses and
 	// synthesizes each as soon as it completes, instead of buffering the whole
 	// message before TTS. Script-aware (CJK/Thai), so it does not rely on
-	// whitespace sentence boundaries. With both LLM and TTS streaming enabled,
-	// unset selects automatic clause buffering for engines without live text
-	// input. Explicit false retains whole-reply synthesis for those engines.
+	// whitespace sentence boundaries. Requires explicit true; unset and false
+	// retain whole-reply synthesis for engines without native live text input.
 	ClauseChunking *bool `yaml:"clause_chunking,omitempty" json:"clause_chunking,omitempty"`
 }
 

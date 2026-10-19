@@ -69,26 +69,28 @@ func (m *liveRouteModel) Predict(ctx context.Context, _ schema.Messages, _, _, _
 }
 
 var _ = Describe("TTSLiveRealtimeRoute", func() {
-	It("preserves the live synthesis contract", func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		on := true
-		m := &liveRouteModel{early: make(chan struct{})}
-		session := &Session{OutputSampleRate: 24000, ModelInterface: m, ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on, ClauseChunking: &on}}}}
-		transport := &fakeTransport{}
-		if !streamLLMResponse(ctx, session, &Conversation{}, transport, &liveResponse{id: "live"}, nil, nil, &config.ModelConfig{}, nil, nil, 0) {
-			Fail(fmt.Sprint("route unhandled"))
-		}
-		if ctx.Err() != nil {
-			Fail(fmt.Sprint("no audio before LLM finished", ctx.Err()))
-		}
-		if !reflect.DeepEqual(m.received, []string{"First ", "late text."}) || m.calls != 1 {
-			Fail(fmt.Sprintf("received %v in %d sessions", m.received, m.calls))
-		}
-		if len(transport.audio) != 2 {
-			Fail(fmt.Sprintf("audio chunks %d", len(transport.audio)))
-		}
-	})
+	for _, clauseFlag := range []*bool{nil, new(false), new(true)} {
+		It(fmt.Sprintf("preserves native synthesis with clause chunking %v", clauseFlag), func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			on := true
+			m := &liveRouteModel{early: make(chan struct{})}
+			session := &Session{OutputSampleRate: 24000, ModelInterface: m, ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{LLM: &on, TTS: &on, ClauseChunking: clauseFlag}}}}
+			transport := &fakeTransport{}
+			if !streamLLMResponse(ctx, session, &Conversation{}, transport, &liveResponse{id: "live"}, nil, nil, &config.ModelConfig{}, nil, nil, 0) {
+				Fail(fmt.Sprint("route unhandled"))
+			}
+			if ctx.Err() != nil {
+				Fail(fmt.Sprint("no audio before LLM finished", ctx.Err()))
+			}
+			if !reflect.DeepEqual(m.received, []string{"First ", "late text."}) || m.calls != 1 {
+				Fail(fmt.Sprintf("received %v in %d sessions", m.received, m.calls))
+			}
+			if len(transport.audio) != 2 {
+				Fail(fmt.Sprintf("audio chunks %d", len(transport.audio)))
+			}
+		})
+	}
 })
 var _ = Describe("TTSLivePipelineCancellation", func() {
 	It("preserves the live synthesis contract", func() {
