@@ -4,12 +4,13 @@ package store
 import (
 	"context"
 	"errors"
+	"math"
 
 	"gorm.io/gorm"
 )
 
 func (s *Store) Commit(ctx context.Context, p, c string, expectedRevision uint64, turnID string, checkpoint Checkpoint, events []Event) (Settlement, error) {
-	if !validIDs(p, c, turnID) {
+	if !validIDs(p, c, turnID) || checkpoint.Version > math.MaxInt64 {
 		return Settlement{}, ErrInvalidInput
 	}
 	for _, e := range events {
@@ -24,6 +25,11 @@ func (s *Store) Commit(ctx context.Context, p, c string, expectedRevision uint64
 			return err
 		}
 		if r.Revision != expectedRevision || r.RunningTurn != turnID {
+			return ErrConflict
+		}
+		// Check capacity before arithmetic or SQL: both supported dialects use
+		// signed 64-bit integer storage. Exhaustion is a state conflict.
+		if r.Revision >= math.MaxInt64 || r.LastSequence > math.MaxInt64 || uint64(len(events)) > math.MaxInt64-r.LastSequence {
 			return ErrConflict
 		}
 		var next inputRow

@@ -6,6 +6,14 @@
 // Callers must supply an authenticated principal and already-sanitized events.
 // State mode is stateless per request: database transactions are the authority,
 // with no process-local cache or coordination mutex.
+// Persisted unsigned counters and checkpoint versions have domain [0, MaxInt64],
+// the common signed INTEGER/BIGINT range of SQLite and PostgreSQL. Go uint64
+// fields do not imply unsigned database storage. Counter exhaustion rejects the
+// mutation with ErrConflict (no wrapping); read-only dedup remains available.
+// Commit compares expectedRevision in Go after scoped lookup, so values outside
+// that domain conflict without being bound to SQL. Caller Event.Sequence is
+// ignored. Events cursors >= MaxInt64 yield empty pages only after validation
+// and scoped live-conversation lookup.
 // SQLite is tested; PostgreSQL/distributed acceptance remains a separate gate.
 package store
 
@@ -41,6 +49,7 @@ type Input struct {
 
 // Checkpoint fields are opaque and independent of the public UI transcript.
 // Version describes the caller's context codec, not the conversation revision.
+// Values above MaxInt64 are ErrInvalidInput before SQL; MaxInt64 is valid.
 type Checkpoint struct {
 	Version          uint64
 	Context          []byte

@@ -4,6 +4,7 @@ package store
 import (
 	"context"
 	"errors"
+	"math"
 
 	"gorm.io/gorm"
 )
@@ -53,6 +54,12 @@ func (s *Store) Events(ctx context.Context, p, c string, after uint64, limit int
 	err := s.transaction(ctx, func(tx *gorm.DB) error {
 		if _, err := load(tx, p, c); err != nil {
 			return err
+		}
+		// No stored sequence can exceed MaxInt64. Do not bind a high-bit
+		// uint64, but always perform the scoped lookup above first.
+		if after >= math.MaxInt64 {
+			out = []Event{}
+			return nil
 		}
 		var rows []eventRow
 		if err := scope(tx, p, c).Where("sequence > ?", after).Order("sequence ASC").Limit(limit).Find(&rows).Error; err != nil {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"math"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -52,6 +53,9 @@ func (s *Store) Admit(ctx context.Context, p, c, id string, payload []byte) (Adm
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
+		if r.Revision >= math.MaxInt64 || r.LastOrdinal >= math.MaxInt64 {
+			return ErrConflict
+		}
 		running := r.RunningTurn
 		queued := running != ""
 		if !queued {
@@ -84,6 +88,9 @@ func (s *Store) Delete(ctx context.Context, p, c string) error {
 		}
 		if err != nil {
 			return err
+		}
+		if r.Revision >= math.MaxInt64 {
+			return ErrConflict
 		}
 		// Keep inputs/checkpoint/outbox and dedup authority. Task6 owns retention.
 		return cas(tx, r, map[string]any{"revision": r.Revision + 1, "deleted": true})
