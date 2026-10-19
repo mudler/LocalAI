@@ -61,6 +61,40 @@ This preset targets English speech. It uses a named voice and does not require
 reference audio or `ref_text`. CPU synthesis can be slower than playback; this
 preset does not establish GPU or browser latency or throughput.
 
+### Install a clause-buffered assistant preset
+
+Two English presets use the same Silero VAD, Parakeet TDT 0.6B v3, and Qwen3
+0.6B components. `vits-streaming-assistant` uses VITS-LJS through Sherpa;
+`piper-streaming-assistant` uses Piper's Amy voice.
+
+Install the shared components once, keeping their default names:
+
+```bash
+local-ai models install silero-vad-ggml
+local-ai models install parakeet-cpp-tdt-0.6b-v3
+local-ai models install qwen3-0.6b
+```
+
+Then install either TTS component and its matching preset, or install both:
+
+```bash
+local-ai models install vits-ljs-sherpa
+local-ai models install vits-streaming-assistant
+local-ai models install voice-en-us-amy-low
+local-ai models install piper-streaming-assistant
+```
+
+These presets install pipeline configurations only. They do not install missing
+components. Both enable LLM streaming, TTS streaming, and `clause_chunking: true`.
+Sherpa streams audio within each clause. Piper emits one audio result per clause.
+Each clause starts a separate synthesis, which can introduce pauses between clauses.
+The single-speaker models need no voice override or reference audio.
+
+Select the installed preset on the Talk page or use its name as the Realtime API
+model. WebSocket and WebRTC share the pipeline; WebRTC also needs the `opus`
+backend from the Backends page. Config installation and discovery checks do not
+establish speech quality, browser latency, or hardware throughput.
+
 ### Streaming the pipeline
 
 By default each stage runs to completion before the next begins: the whole utterance is transcribed, the full LLM reply is generated, then it is synthesized. Each stage can instead be streamed incrementally, which lowers the time-to-first-audio of a turn:
