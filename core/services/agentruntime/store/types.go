@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: MIT
+
+// Package store persists logical runtime records, independently of the lifecycle
+// snapshot codec and UI transcript. It does not authorize checkpoint readers,
+// sanitize events, deliver the outbox, acquire leases, or journal tool calls.
+// Callers must supply an authenticated principal and already-sanitized events.
+// State mode is stateless per request: database transactions are the authority,
+// with no process-local cache or coordination mutex.
+// SQLite is tested; PostgreSQL/distributed acceptance remains a separate gate.
+package store
+
+import "errors"
+
+var (
+	ErrNotFound     = errors.New("runtime conversation not found")
+	ErrDeleted      = errors.New("runtime conversation deleted")
+	ErrConflict     = errors.New("runtime revision, turn or input payload conflict")
+	ErrInvalidInput = errors.New("invalid runtime input")
+)
+
+// Identities are opaque, case-sensitive strings of at most 256 bytes. Whitespace
+// only identities are rejected, never mapped to an anonymous owner.
+const MaxIdentityBytes = 256
+const MaxEventPage = 1000
+
+type Admission struct {
+	InputID     string
+	RunningTurn string
+	Queued      bool
+	Revision    uint64
+}
+
+// Input IDs are conversation-local logical turn IDs, not execution attempts.
+// Ordinal and PayloadHash are assigned at admission and retained after settlement.
+type Input struct {
+	InputID     string
+	Payload     []byte
+	PayloadHash []byte
+	Ordinal     uint64
+}
+
+// Checkpoint fields are opaque and independent of the public UI transcript.
+// Version describes the caller's context codec, not the conversation revision.
+type Checkpoint struct {
+	Version          uint64
+	Context          []byte
+	Artifacts        []byte
+	Pruning          []byte
+	TranscriptCursor []byte
+}
+
+type Snapshot struct {
+	Revision   uint64
+	Running    *Input
+	Pending    []Input
+	Checkpoint Checkpoint
+	Deleted    bool
+}
+
+// Event.Sequence is server assigned. Commit binds TurnID to the settling turn;
+// an empty TurnID is filled in, a mismatched TurnID is rejected. Payload must
+// already have been sanitized by the authorized caller.
+type Event struct {
+	Sequence uint64
+	TurnID   string
+	Kind     string
+	Payload  []byte
+}
+
+type Settlement struct {
+	Revision uint64
+	Next     *Input
+}
