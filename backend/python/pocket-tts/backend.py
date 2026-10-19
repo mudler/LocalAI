@@ -102,9 +102,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.default_voice_url = self.options.get("default_voice", None)
         self._voice_cache = {}
 
+        # Pocket TTS ships a separate model per language (english, french,
+        # german, ...) and load_model() falls back to English when no language
+        # is given, so the option has to reach the loader to pick another one.
+        load_kwargs = {}
+        language = self.options.get("language")
+        if language:
+            load_kwargs["language"] = str(language)
+
         try:
-            print("Loading Pocket TTS model", file=sys.stderr)
-            self.tts_model = TTSModel.load_model()
+            print(f"Loading Pocket TTS model (language: {load_kwargs.get('language', 'default')})", file=sys.stderr)
+            self.tts_model = TTSModel.load_model(**load_kwargs)
             print(f"Model loaded successfully. Sample rate: {self.tts_model.sample_rate}", file=sys.stderr)
 
             # Pre-load default voice if specified

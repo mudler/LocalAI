@@ -35,3 +35,6 @@ config_file: |-
       # If set, this voice will be loaded when the model loads for faster first generation
       - "default_voice:azelma"
       # - "default_voice:hf://kyutai/tts-voices/alba-mackenna/casual.wav"
+      # Language model to load (defaults to English), e.g. french, german,
+      # italian, spanish, portuguese, dutch
+      # - "language:french"
