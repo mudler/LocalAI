@@ -24975,6 +24975,7 @@
         model: ced-base-q8_0.gguf
     variants:
       - model: ced-base-f16
+      - model: parakeet-cpp-ced-base
 - kind: model
   id: ced-tiny-f16
   name: ced-tiny-f16
@@ -25039,6 +25040,7 @@
         model: ced-tiny-q8_0.gguf
     variants:
       - model: ced-tiny-f16
+      - model: parakeet-cpp-ced-tiny
 - kind: model
   id: ced-mini-f16
   name: ced-mini-f16
@@ -28533,6 +28535,14 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: minimax-h3-fl2va-pruned-nvfp4
+      - model: minimax-h3-fl2va-pruned-q3
+      - model: minimax-h3-fl2va-pruned-q4
+      - model: minimax-h3-fl2va-pruned-q4-ggml
+      - model: minimax-h3-fl2va-pruned-q5
+      - model: minimax-h3-fl2va-pruned-q6
+      - model: minimax-h3-fl2va-pruned-q8
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: minimax-h3/minimax_h3_fl2va_pruned-Q2_K.gguf
@@ -29119,6 +29129,13 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: minimax-h3-ref2va-pruned-q3
+      - model: minimax-h3-ref2va-pruned-q4
+      - model: minimax-h3-ref2va-pruned-q4-ggml
+      - model: minimax-h3-ref2va-pruned-q5
+      - model: minimax-h3-ref2va-pruned-q6
+      - model: minimax-h3-ref2va-pruned-q8
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: minimax-h3/minimax_h3_ref2va_pruned-Q2_K.gguf
@@ -64472,6 +64489,8 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: flux.3-image-klein-q8_0
     url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
     files:
       - filename: stablediffusion-cpp/models/flux3_image_klein_sd-Q4_K_M.gguf
@@ -64581,6 +64600,8 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: flux.3-image-klein-base-q8_0
     url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
     files:
       - filename: stablediffusion-cpp/models/flux3_image_klein-Q4_K_M.gguf
@@ -72932,6 +72953,8 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: parakeet-cpp-tdt-0.6b-v3-silero-vad
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: parakeet-cpp/tdt-0.6b-v3-f16.gguf
@@ -73236,6 +73259,8 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: parakeet-cpp-moondream-ultra-f16
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: parakeet-cpp/ultra-q8_0.gguf
@@ -73359,6 +73384,8 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: parakeet-cpp-moondream-redux-f16
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: parakeet-cpp/redux-q8_0.gguf
@@ -73400,6 +73427,8 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: parakeet-cpp-vad
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: parakeet-cpp/silero-vad-f16.gguf
@@ -73555,6 +73584,8 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: parakeet-cpp-vad-moondream-ultra-q8_0
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: parakeet-cpp/ultra-vad-q8_0.gguf
@@ -73673,6 +73704,10 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: parakeet-cpp-nemotron-3-diarization-asr
+      - model: parakeet-cpp-nemotron-3-diarization-asr-speakers
+      - model: parakeet-cpp-nemotron-3-diarization-speakers
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
@@ -73890,6 +73925,10 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: parakeet-cpp-multilingual-diarization-speakers-sounds
+      - model: parakeet-cpp-realtime-scene-tdt
+      - model: parakeet-cpp-realtime-scene-tdt-base
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: parakeet-cpp/tdt-0.6b-v3-f16.gguf
@@ -74185,6 +74224,9 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: parakeet-cpp-realtime-scene-base
+      - model: parakeet-cpp-realtime-scene-speakers
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
@@ -88031,6 +88073,8 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: nemo-speech-cpp/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
@@ -88129,6 +88173,8 @@
     requireSignature: false
   schemaVersion: 1
   model:
+    variants:
+      - model: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: nemo-speech-cpp/parakeet-tdt-0.6b-v3.q8_0.gguf
