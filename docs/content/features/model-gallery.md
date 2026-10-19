@@ -60,6 +60,24 @@ local-ai models install nemotron-3.5-bolt-e4b-q4
 To select a build explicitly, use `--variant nemotron-3.5-bolt-e4b-q4`
 or `--variant nemotron-3.5-bolt-e4b-q8`.
 
+### Ternary Bonsai 2 2B
+
+[Ternary Bonsai 2 2B](https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf)
+is a vision-language model derived from Qwen3.5-2B. The gallery offers PQ2_0,
+PTQ1_0, and Q2_0 packings through the Bonsai backend. Each includes the Q8_0
+vision projector and uses a 32,768-token default context. These packings contain
+the same ternary weights in different storage layouts.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install ternary-bonsai-2-2b
+```
+
+Use `--variant ternary-bonsai-2-2b-ptq1` for the smallest packing or
+`--variant ternary-bonsai-2-2b-q2` for Q2_0. To select PQ2_0 explicitly,
+use `--variant ternary-bonsai-2-2b`.
+
 ### MiniCPM-V 4.7 1B
 
 [MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
