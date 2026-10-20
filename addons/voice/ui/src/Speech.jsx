@@ -6,7 +6,7 @@ export function createSpeech(ctx) {
   const { h, t, ui, hooks, viewer } = ctx
   const { useState, useEffect, useMemo } = ctx.React
 
-  function Speech({ path }) {
+  function Speech({ path, tabs }) {
     const [model, setModel] = useState(ctx.modelFrom(path))
     const [models, setModels] = useState({ status: 'loading', list: [] })
     const [profiles, setProfiles] = useState([])
@@ -57,6 +57,7 @@ export function createSpeech(ctx) {
     return (
       <main className="page vc-speech" data-testid="voice-speech">
         <ui.PageHeader title={t('speech.title')} supporting={t('speech.lede')} />
+        {tabs}
         <label className="vc-field">
           <span>{t('speech.model')}</span>
           <ui.ModelSelector value={model} onChange={setModel} options={models.list.map(m => m.id)} loading={models.status === 'loading'} />

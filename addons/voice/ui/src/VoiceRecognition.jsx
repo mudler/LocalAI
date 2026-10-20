@@ -1,9 +1,7 @@
-// The Voices page: who is speaking. Ported from pages/VoiceRecognition.jsx.
-// Two unrelated things carry the word voice and are kept apart: Speakers
-// (voiceprints used to recognise who is speaking) and Speech voices (reference
-// recordings text-to-speech speaks in). Speech voices is the library page of
-// this add-on, so its tab is a link to that page; From a recording is the
-// diarization hand-off, a tab of this page.
+// The Recognition and From a recording tabs of the Voice page. Ported from
+// pages/VoiceRecognition.jsx. Speakers are voiceprints used to recognise who is
+// speaking; the speech voices (reference recordings text-to-speech speaks in)
+// are the Library tab. The tab strip comes from VoiceHub as `tabs`.
 import { createClipInput } from '../../../internal/identity-ui/src/ClipInput.jsx'
 import { createWorkbench } from '../../../internal/identity-ui/src/Workbench.jsx'
 import { createKnownList } from '../../../internal/identity-ui/src/KnownList.jsx'
@@ -37,9 +35,10 @@ export function createVoiceRecognition(ctx, api, identity) {
 
   // Shown in place of a page whose feature the signed-in user may not use. It
   // replaces a silent redirect: the person learns what is off and what turns it on.
-  function FeatureOff({ feature }) {
+  function FeatureOff({ feature, tabs }) {
     return (
       <main className="page idn-page idn-off" data-testid="voice-off">
+        {tabs}
         <section className="idn-needed dk-card">
           <span className="dk-badge dk-badge--warn"><Icon name="lock" /> {t('off.badge')}</span>
           <h1 className="idn-h2">{t(`off.${feature}.title`)}</h1>
@@ -71,26 +70,12 @@ export function createVoiceRecognition(ctx, api, identity) {
     return { ...state, refetch: useCallback(() => load(true), [load]) }
   }
 
-  function VoicesPage({ path }) {
-    const tab = ctx.useSearch().get('tab') === 'recording' ? 'recording' : 'speakers'
+  function VoicesPage({ path, tab = 'speakers', tabs, onSpeakerCount }) {
     const isAdmin = viewer.isAdmin()
     const [model, setModel] = useState(() => ctx.modelFrom(path) || '')
     const { models, loading: modelsLoading, refetch } = useSpeakerModels()
     const names = useMemo(() => models.map(m => m.id), [models])
-    const [library, setLibrary] = useState({ loading: true, count: 0 })
-    const [savedCount, setSavedCount] = useState(() => identity.loadList('localai_voice_enrollments').length)
     const needModel = !modelsLoading && names.length === 0
-
-    // The speech voices count on the tab. Only an administrator sees the tab,
-    // so only an administrator's page asks for the list.
-    useEffect(() => {
-      if (!isAdmin) return undefined
-      let live = true
-      api.voiceProfiles.list()
-        .then((body) => { if (live) setLibrary({ loading: false, count: (body?.data || []).length }) })
-        .catch(() => { if (live) setLibrary({ loading: false, count: 0 }) })
-      return () => { live = false }
-    }, [isAdmin])
 
     return (
       <main className="page idn-page" data-testid="voices-page">
@@ -104,19 +89,11 @@ export function createVoiceRecognition(ctx, api, identity) {
           ) : null}
         />
 
-        <nav className="dk-tabs idn-tabs" role="tablist" aria-label={t('voices.tabs')}>
-          <ctx.Link className="dk-tab" role="tab" page="recognition" aria-selected={tab === 'speakers'} aria-current={tab === 'speakers' ? 'page' : undefined}>{t('voices.speakers')} <span className="dk-hubtab-count">{savedCount}</span></ctx.Link>
-          {isAdmin && (
-            <ctx.Link className="dk-tab" role="tab" page="library" aria-selected="false">
-              {t('voices.speech')} <span className="dk-hubtab-count">{library.loading ? '' : library.count}</span>
-            </ctx.Link>
-          )}
-          <ctx.Link className="dk-tab" role="tab" page="recognition" query="tab=recording" aria-selected={tab === 'recording'} aria-current={tab === 'recording' ? 'page' : undefined}>{t('voices.recording')}</ctx.Link>
-        </nav>
+        {tabs}
 
         {tab === 'speakers' && (
           <Workbench
-            kind="voice" model={model} canSpeech={isAdmin} onCount={setSavedCount}
+            kind="voice" model={model} canSpeech={isAdmin} onCount={onSpeakerCount}
             needed={needModel ? <ModelNeeded kind="voice" isAdmin={isAdmin} onInstalled={refetch} /> : null}
             more={needModel ? null : (
               <details className="idn-disclosure idn-disclosure--page idn-more">
@@ -150,7 +127,7 @@ export function createVoiceRecognition(ctx, api, identity) {
   // the gate of the page is the gate of the core route). The server checks every
   // /v1/voice/* call again. A viewer without it gets the notice and no call.
   function VoiceRecognition(props) {
-    if (!viewer.hasFeature('voice_recognition')) return <FeatureOff feature="voice" />
+    if (!viewer.hasFeature('voice_recognition')) return <FeatureOff feature="voice" tabs={props.tabs} />
     return <VoicesPage {...props} />
   }
 

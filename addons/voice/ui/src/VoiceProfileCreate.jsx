@@ -19,7 +19,7 @@ export function createVoiceProfileCreate(ctx, api) {
     )
   }
 
-  function VoiceProfileCreate() {
+  function VoiceProfileCreate({ tabs }) {
     const [audio, setAudio] = useState(null)
     const [audioProcessing, setAudioProcessing] = useState(false)
     const [audioError, setAudioError] = useState('')
@@ -116,7 +116,7 @@ export function createVoiceProfileCreate(ctx, api) {
         })
         const profile = await api.voiceProfiles.create(formData)
         ctx.toast(t('voiceCreate.toasts.created', { name: profile.name }), 'success')
-        ctx.sdk.navigation.navigate(`library?selected=${encodeURIComponent(profile.id)}`)
+        ctx.sdk.navigation.navigate(`voice/library?selected=${encodeURIComponent(profile.id)}`)
       } catch (err) {
         ctx.toast(err.message, 'error')
       } finally {
@@ -129,8 +129,9 @@ export function createVoiceProfileCreate(ctx, api) {
         <ui.PageHeader
           title={<><Icon name="mic" /> {t('voiceCreate.title')}</>}
           supporting={t('voiceCreate.subtitle')}
-          actions={<ctx.Link page="library" className="dk-btn dk-btn--secondary"><Icon name="arrow-left" /> {t('voiceCreate.actions.back')}</ctx.Link>}
+          actions={<ctx.Link page="voice/library" className="dk-btn dk-btn--secondary"><Icon name="arrow-left" /> {t('voiceCreate.actions.back')}</ctx.Link>}
         />
+        {tabs}
 
         <form className="voice-create-grid" onSubmit={submit}>
           <div className="voice-create-form">
@@ -218,7 +219,7 @@ export function createVoiceProfileCreate(ctx, api) {
             </section>
 
             <div className="voice-create-actions">
-              <ctx.Link page="library" className="dk-btn dk-btn--secondary">{t('voiceCreate.actions.cancel')}</ctx.Link>
+              <ctx.Link page="voice/library" className="dk-btn dk-btn--secondary">{t('voiceCreate.actions.cancel')}</ctx.Link>
               <button type="submit" className="dk-btn dk-btn--primary" disabled={!formReady || submitting}>
                 {submitting ? <><ui.Spinner size="sm" /> {t('voiceCreate.actions.saving')}</> : <><Icon name="save" /> {t('voiceCreate.actions.save')}</>}
               </button>

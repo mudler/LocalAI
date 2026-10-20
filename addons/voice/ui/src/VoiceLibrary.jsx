@@ -295,7 +295,7 @@ JSON`
             type="button"
             className="dk-btn dk-btn--primary"
             disabled={cloningModels.length === 0}
-            onClick={() => { close(); ctx.sdk.navigation.navigate(`speech?voice=${encodeURIComponent(profile.id)}`) }}
+            onClick={() => { close(); ctx.sdk.navigation.navigate(`voice/speech?voice=${encodeURIComponent(profile.id)}`) }}
           >
             <Icon name="headphones" /> {t('voiceLibrary.actions.useInTTS')}
           </button>
@@ -314,8 +314,10 @@ JSON`
     )
   }
 
-  function VoiceLibrary() {
+  function VoiceLibrary({ tabs, onLibraryCount }) {
     const { profiles, loading, error, refetch } = useProfiles()
+    // The count on the Library tab follows the list this tab shows.
+    useEffect(() => { if (!loading && !error) onLibraryCount?.(profiles.length) }, [loading, error, profiles.length, onLibraryCount])
     const setup = useModelSetup()
     const { cloningModels, modelsLoading } = setup
     const [search, setSearch] = useState('')
@@ -356,7 +358,7 @@ JSON`
     }, [selectedParam, profiles, openProfile])
 
     const newButton = (className) => admin && (
-      <ctx.Link page="create" className={className} data-testid="voice-library-new">
+      <ctx.Link page="voice/library/new" className={className} data-testid="voice-library-new">
         <Icon name="plus" /> {t('voiceLibrary.actions.create')}
       </ctx.Link>
     )
@@ -375,6 +377,7 @@ JSON`
             </div>
           )}
         />
+        {tabs}
 
         {error && (
           <div className="idn-error" role="alert">

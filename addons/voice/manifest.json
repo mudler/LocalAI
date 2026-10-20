@@ -14,9 +14,9 @@
       "entry": "ui/voice.js",
       "css": ["ui/voice.css"],
       "sdk": { "min": 2, "max": 2 },
-      "pages": ["recognition", "library", "create", "speech"],
-      "navigation": ["speech", "library"],
-      "mainPage": "recognition",
+      "pages": ["voice", "recognition", "library", "create", "speech"],
+      "navigation": ["voice"],
+      "mainPage": "voice",
       "icon": "ui/icon.png",
       "title": "Voice",
       "description": "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."

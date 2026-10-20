@@ -262,3 +262,7 @@
 .idn-sheet__need { flex: 1 1 160px; min-width: 0; margin-right: 0; }
 .idn-again { align-self: flex-start; margin-top: var(--dk-space-2); }
 .idn-sheet__foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--dk-space-3); flex-wrap: wrap; padding-top: var(--dk-space-3); border-top: 1px solid var(--dk-edge); }
+
+/* The tab strip of the Voice page. The recognition page is a flex column with
+   its own gap; the other pages are block layouts and need the space here. */
+.vc-speech > .vc-tabs, .voice-library-page > .vc-tabs, .voice-create-page > .vc-tabs, .vc-off > .vc-tabs { margin: var(--dk-space-4) 0 var(--dk-space-5); }
