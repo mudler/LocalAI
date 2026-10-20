@@ -20,12 +20,21 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('the sidebar has Chat, Models, Add-ons and Settings, and no Create tier', async ({ page }) => {
+  test('the sidebar has Chat, Models and Add-ons, no Settings and no Create tier', async ({ page }) => {
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
-    for (const href of ['/app/chat', '/app/models', '/app/addons', '/app/settings']) {
+    for (const href of ['/app/chat', '/app/models', '/app/addons']) {
       await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toBeVisible()
     }
+    // Settings lives under the Operate hub, not in the sidebar.
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/settings"]')).toHaveCount(0)
+    await page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' }).click()
+    await expect(page).toHaveURL(/\/app\/operate$/)
+    const settingsTab = page.locator('.dk-hubtabs [data-hub-tab="settings"]')
+    await expect(settingsTab).toBeVisible()
+    await settingsTab.click()
+    await expect(page).toHaveURL(/\/app\/settings/)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"]')).toHaveAttribute('aria-current', 'page')
     // Studio and Talk are add-ons: the sidebar lists them only as pins, and only while they are installed.
     for (const href of ['/app/studio', '/app/talk']) {
       await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toHaveCount(0)
