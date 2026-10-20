@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { upscaleModels, sourceImageFile } from './upscale.js'
-import { toWorkItem, EDGE_KINDS } from './studioWork.js'
+import '../../../internal/host-compat/test/register.mjs'
+
+// upscale.js imports a module that lives in the compat directory.
+const { upscaleModels, sourceImageFile } = await import('../src/utils/upscale.js')
+import { toWorkItem, EDGE_KINDS } from '../src/utils/studioWork.js'
 
 test('only enabled upscalers with positive finite scale are offered', () => {
   assert.deepEqual(upscaleModels([

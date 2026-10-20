@@ -14,10 +14,25 @@ func ids(es []Entry) []string {
 	return out
 }
 
-func TestStudioAndTalkAreVisibleWithoutAnyFeature(t *testing.T) {
-	got := ids(Visible(Viewer{Admin: false, Has: func(string) bool { return false }}))
-	if !slices.Equal(got, []string{"studio", "talk"}) {
-		t.Fatalf("a viewer with no feature must still see studio and talk, got %v", got)
+func TestNoAddonIsBuiltIn(t *testing.T) {
+	// Studio and Talk are packaged add-ons, installed and removed like the
+	// others, so nothing is listed for a viewer, whatever the viewer holds.
+	if got := ids(Visible(Viewer{Admin: true})); len(got) != 0 {
+		t.Fatalf("no add-on is built in, got %v", got)
+	}
+	if got := ids(Visible(Viewer{Has: func(string) bool { return true }})); len(got) != 0 {
+		t.Fatalf("no add-on is built in, got %v", got)
+	}
+	if len(IDs()) != 0 || len(Catalog()) != 0 {
+		t.Fatalf("the catalog must be empty, got %v", IDs())
+	}
+}
+
+func TestStudioAndTalkAreNotBuiltIn(t *testing.T) {
+	for _, id := range []string{"studio", "talk"} {
+		if slices.Contains(IDs(), id) {
+			t.Fatalf("%s is a packaged add-on and must not be in the built-in catalog", id)
+		}
 	}
 }
 

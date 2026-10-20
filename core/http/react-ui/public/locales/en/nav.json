@@ -13,7 +13,6 @@
   "account": "Account",
   "accountFor": "Account: {{name}}",
   "sections": {
-    "create": "Create",
     "recognition": "Recognition",
     "build": "Build",
     "operate": "Operate",
@@ -34,8 +33,6 @@
     "home": "Home",
     "models": "Models",
     "chat": "Chat",
-    "studio": "Studio",
-    "talk": "Talk",
     "fineTune": "Fine-Tune",
     "quantize": "Quantize",
     "faces": "Faces",

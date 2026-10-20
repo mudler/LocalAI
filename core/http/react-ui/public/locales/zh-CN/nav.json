@@ -13,7 +13,6 @@
   "account": "账户",
   "accountFor": "账户：{{name}}",
   "sections": {
-    "create": "创建",
     "recognition": "识别",
     "build": "构建",
     "operate": "运维",
@@ -33,8 +32,6 @@
     "home": "首页",
     "models": "Models",
     "chat": "聊天",
-    "studio": "工作室",
-    "talk": "通话",
     "fineTune": "微调（实验性）",
     "quantize": "量化（实验性）",
     "faces": "人脸",

@@ -80,8 +80,9 @@ export default function StudioOverview({ modalities, upscalers, modelsLoading, m
 
   return (
     <div data-testid="studio-overview" className="page-pad studio-front">
+      {/* The add-on shell already titles the page "Studio", so this header
+          carries the supporting line and the key hint only. */}
       <PageHeader
-        title={t('studio.overview.title')}
         supporting={t('studio.overview.subtitle')}
         actions={<span className="studio-key-hint"><kbd className="dk-kbd">/</kbd> {t('studio.composer.startTyping')}</span>}
       />

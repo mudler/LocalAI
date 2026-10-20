@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { readAllMediaHistory } from './useMediaHistory'
-import { apiUrl } from '../utils/basePath'
+import { fetchUrl } from '../utils/api'
 import { collectWork, readHandoff, sourceUrlFor } from '../utils/studioWork'
 
 // What the Studio front page hands to a workspace: a prompt, a model, a size, a
@@ -38,7 +38,7 @@ export function useHandoffSource(handoff, enabled = true) {
     if (!item || !url) { setState({ status: 'missing', blob: null, item }); return undefined }
     let cancelled = false
     setState({ status: 'loading', blob: null, item })
-    fetch(url.startsWith('http') || url.startsWith('data:') ? url : apiUrl(url))
+    fetchUrl(url)
       .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.blob() })
       .then(blob => { if (!cancelled) setState({ status: 'ready', blob, item }) })
       .catch(() => { if (!cancelled) setState({ status: 'error', blob: null, item }) })

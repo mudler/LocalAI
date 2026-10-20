@@ -473,7 +473,7 @@
         },
         "/api/addons/builtin": {
             "get": {
-                "description": "Returns the page add-ons that ship with LocalAI (Studio and Talk). Each entry carries only its own gate: the route needs an authenticated caller and no `addons` feature, so a user who reaches Studio today still reaches it from the Add-ons drawer.",
+                "description": "Returns the page add-ons that ship inside the web bundle. The list is empty today: Studio and Talk are packaged add-ons that a person installs from the Add-ons drawer. Each entry carries only its own gate: the route needs an authenticated caller and no `addons` feature.",
                 "produces": [
                     "application/json"
                 ],

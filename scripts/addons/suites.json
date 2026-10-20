@@ -3292,6 +3292,8 @@
       "package.sh refuses a foreign platform without an executable: face",
       "package.sh refuses a foreign platform without an executable: fine-tuning",
       "package.sh refuses a foreign platform without an executable: quantization",
+      "package.sh refuses a foreign platform without an executable: studio",
+      "package.sh refuses a foreign platform without an executable: talk",
       "package.sh refuses a foreign platform without an executable for every add-on",
       "package.sh builds Tables with cgo and the pure Go add-ons without",
       "matrix fails closed while no platform is enabled",

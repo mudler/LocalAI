@@ -27,7 +27,7 @@ func builtinViewer(c echo.Context, db *gorm.DB) (builtin.Viewer, bool) {
 
 // ListBuiltin lists the built-in page add-ons the caller may open.
 // @Summary List the built-in add-ons the caller may open
-// @Description Returns the page add-ons that ship with LocalAI (Studio and Talk). Each entry carries only its own gate: the route needs an authenticated caller and no `addons` feature, so a user who reaches Studio today still reaches it from the Add-ons drawer.
+// @Description Returns the page add-ons that ship inside the web bundle. The list is empty today: Studio and Talk are packaged add-ons that a person installs from the Add-ons drawer. Each entry carries only its own gate: the route needs an authenticated caller and no `addons` feature.
 // @Tags AddonNavigation
 // @Produce json
 // @Success 200 {object} map[string][]builtin.Entry "Entries the caller may open"

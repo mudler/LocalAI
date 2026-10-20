@@ -84,14 +84,6 @@ const Home = page('', () => import('./pages/Home'))
 const Chat = page('chat', () => import('./pages/Chat'))
 const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
-page('image', () => import('./pages/ImageGen'))
-page('video', () => import('./pages/VideoGen'))
-page('3d', () => import('./pages/ThreeDGen'))
-page('tts', () => import('./pages/TTS'))
-page('sound', () => import('./pages/Sound'))
-page('diarization', () => import('./pages/Diarization'))
-page('transform', () => import('./pages/AudioTransform'))
-const Talk = page('talk', () => import('./pages/Talk'))
 // Referenced only from JSX below — same blind spot as Activity further down.
 // eslint-disable-next-line no-unused-vars
 const OperateOverview = page('operate', () => import('./pages/OperateOverview'))
@@ -128,7 +120,6 @@ const Explorer = page(null, () => import('./pages/Explorer'))
 const Login = page(null, () => import('./pages/Login'))
 const FineTune = page('fine-tune', () => import('./pages/FineTune'))
 const Quantize = page('quantize', () => import('./pages/Quantize'))
-const Studio = page('studio', () => import('./pages/Studio'))
 const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
 const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
 const VoiceProfileCreate = page(null, () => import('./pages/VoiceProfileCreate'))
@@ -170,7 +161,7 @@ import HubLayout from './components/hub/HubLayout'
 import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
-import { studioRedirect } from './utils/legacyRoutes'
+import { studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
 import { buildHub, operateHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
@@ -183,12 +174,25 @@ function AgentChatRedirect() {
   return <Navigate to={`/app/agents/${encodeURIComponent(name)}${search}`} replace />
 }
 
-// An old generator link opens the same generator inside Studio. The model,
-// the query string and the hash are kept.
+// An old generator link opens the same generator inside the Studio add-on. The
+// model, the query string and the hash are kept.
 function StudioTabRedirect({ legacy }) {
   const { model } = useParams()
   const { search, hash } = useLocation()
   return <Navigate to={studioRedirect(legacy, model, search, hash)} replace />
+}
+
+// /app/studio[/tab[/model]] is a page of the Studio add-on now.
+function StudioRedirect() {
+  const { tab, model } = useParams()
+  const { search, hash } = useLocation()
+  return <Navigate to={studioAddress({ tab, model, search, hash })} replace />
+}
+
+// /app/talk is a page of the Talk add-on now.
+function TalkRedirect() {
+  const { search, hash } = useLocation()
+  return <Navigate to={talkAddress({ search, hash })} replace />
 }
 
 function BrowseRedirect() {
@@ -264,17 +268,16 @@ const appChildren = [
   { path: 'diarization/:model', element: <Feature feature="audio_diarization"><StudioTabRedirect legacy="diarization" /></Feature> },
   { path: 'transform', element: <Feature feature="audio_transform"><StudioTabRedirect legacy="transform" /></Feature> },
   { path: 'transform/:model', element: <Feature feature="audio_transform"><StudioTabRedirect legacy="transform" /></Feature> },
-  { path: 'studio', element: <Studio /> },
-  // Tabs are path segments, not a query parameter: switching generator is
-  // navigation, and ?tab= reads like a filter. Legacy ?tab= links redirect.
-  { path: 'studio/:tab', element: <Studio /> },
+  // Studio and Talk are add-ons; the old addresses open them. When the add-on
+  // is not installed the add-on page says so.
+  { path: 'studio', element: <StudioRedirect /> },
+  { path: 'studio/:tab', element: <StudioRedirect /> },
   // A generator opened on one model: /app/studio/images/<model>.
-  { path: 'studio/:tab/:model', element: <Studio /> },
-  { path: 'talk', element: <Talk /> },
+  { path: 'studio/:tab/:model', element: <StudioRedirect /> },
+  { path: 'talk', element: <TalkRedirect /> },
   { path: 'account', element: <Account /> },
   // The Add-ons drawer. A viewer without the addons feature still reaches it
-  // when a built-in tile (Studio, Talk) is theirs to open, so no one loses a
-  // page they can open today.
+  // when a built-in tile is theirs to open (the built-in list is empty today).
   // With the legacy switch on, both routes sit in the Build hub again, under
   // its Add-ons tab, and need the addons feature as they did before.
   {

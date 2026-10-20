@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "studio",
+  "version": "0.1.0",
+  "executable": "studio",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": { "min": 1, "max": 1 },
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/studio.js",
+      "css": ["ui/studio.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["studio"],
+      "navigation": ["studio"],
+      "mainPage": "studio",
+      "icon": "ui/icon.png",
+      "title": "Studio",
+      "description": "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
+    }
+  }
+}

@@ -3,7 +3,7 @@
 This directory holds the template of the catalog entries of the first-party add-ons.
 It holds no live URL, registry or namespace. The registry and repository are inputs of
 the release workflow (`ADDON_OCI_REPOSITORY`). Each first-party add-on has its own
-template (`tables`, `voice`, `face`, `fine-tuning`, `quantization`) and its own release
+template (`tables`, `voice`, `face`, `fine-tuning`, `quantization`, `studio`, `talk`) and its own release
 platform matrix, `addons/<id>/package/platforms.yaml`. The templates differ in `name:` only.
 
 ## Render entries
@@ -31,7 +31,7 @@ go run ./scripts/addons/cmd/addonpkg catalog \
   --merged <merged layout of voice> ... # the other flags as above
 ```
 
-Use `face`, `fine-tuning` or `quantization` in place of `voice` for the other packages.
+Use `face`, `fine-tuning`, `quantization`, `studio` or `talk` in place of `voice` for the other packages.
 Each package has its own repository, so pass the repository of that package.
 
 The add-on packages live in `quay.io/go-skynet/local-ai-addons`; the template itself holds

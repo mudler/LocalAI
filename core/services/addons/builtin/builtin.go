@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 // Package builtin lists the page add-ons that ship inside the LocalAI web
-// bundle: Studio and Talk. Voice, Face, fine-tuning and quantization are
-// packaged add-ons and are not listed here. Page add-ons have
-// no process and no lifecycle of their own. The catalog is the one place that
-// says who may see each of them, so the pin routes and the drawer agree.
+// bundle. None does today: Studio, Talk, Voice, Face, fine-tuning and
+// quantization are packaged add-ons that a person installs and removes, so the
+// catalog is empty. The package stays because it is the one place that says
+// who may see a built-in page, so the pin routes and the drawer agree on it the
+// day one is added. Page add-ons have no process and no lifecycle of their own.
 package builtin
 
 import "slices"
@@ -45,9 +46,16 @@ func (v Viewer) allows(e Entry) bool {
 	return true
 }
 
-var catalog = []Entry{
-	{ID: "studio", Kind: KindPage, TitleKey: "items.studio", Icon: "palette", MainPath: "/app/studio"},
-	{ID: "talk", Kind: KindPage, TitleKey: "items.talk", Icon: "phone", MainPath: "/app/talk"},
+var catalog = []Entry{}
+
+// SetCatalogForTest replaces the catalog and returns a function that puts the
+// old one back. No page is built in today, so the tests of the packages that
+// read the catalog (the pin and list routes, the pin sweep) use it to check
+// the rules against entries they make up. It is not safe for concurrent use.
+func SetCatalogForTest(entries []Entry) (restore func()) {
+	old := catalog
+	catalog = slices.Clone(entries)
+	return func() { catalog = old }
 }
 
 // Catalog returns a copy of every entry, in display order.

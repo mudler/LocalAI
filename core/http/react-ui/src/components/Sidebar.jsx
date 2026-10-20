@@ -8,7 +8,7 @@ import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { hubs, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
-import { topDestinations, createDestinations } from '../utils/destinations'
+import { topDestinations } from '../utils/destinations'
 import { primaryDestinations, visiblePrimary } from '../utils/navigationModel'
 import { useNavigation } from '../context/NavigationContext'
 import PinnedNav from './PinnedNav'
@@ -21,18 +21,13 @@ const SECTIONS_KEY = 'localai_sidebar_sections'
 // The sidebar has two layouts. The four-item layout shows Home, Chat, Models
 // and Add-ons, the Pinned section, and Build and Operate under
 // Workspace. With the legacy switch on (features.addon_navigation === false)
-// it shows Home and Models, the Create group (Chat, Studio, Talk) and
-// Workspace. Build and Operate are single entries; each opens a hub whose tab
-// bar lives in hub/hubConfig.js (shared with HubLayout). The legacy entries
-// are shared with the 404 page, which lists the same destinations.
+// it shows Home, Models and Chat, and Workspace. Build and Operate are single
+// entries; each opens a hub whose tab bar lives in hub/hubConfig.js (shared
+// with HubLayout). The legacy entries are shared with the 404 page, which
+// lists the same destinations.
 const topItems = topDestinations
 
 const sections = [
-  {
-    id: 'create',
-    titleKey: 'sections.create',
-    items: createDestinations,
-  },
   // Items come from the hubs (hubConfig.js) and carry their own gating.
   { id: 'workspace', titleKey: 'sections.workspace', hubs: true },
 ]
@@ -180,8 +175,8 @@ export default function Sidebar({ isOpen, onClose }) {
   const failedOps = operations.filter((op) => op.error).length
   const activeOps = operations.length
 
-  // Create carries no gating beyond filterItem. Workspace lists one entry per
-  // hub the viewer can use; its target is the hub's overview.
+  // Workspace lists one entry per hub the viewer can use; its target is the
+  // hub's overview.
   const getVisibleSectionItems = (section) => {
     if (!section.hubs) return section.items.filter(filterItem)
     return hubs.flatMap(hub => {

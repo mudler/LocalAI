@@ -13,7 +13,6 @@
   "account": "Konto",
   "accountFor": "Konto: {{name}}",
   "sections": {
-    "create": "Erstellen",
     "recognition": "Erkennung",
     "build": "Entwickeln",
     "operate": "Betrieb",
@@ -33,8 +32,6 @@
     "home": "Start",
     "models": "Models",
     "chat": "Chat",
-    "studio": "Studio",
-    "talk": "Sprechen",
     "fineTune": "Fine-Tuning (Experimentell)",
     "quantize": "Quantisierung (Experimentell)",
     "faces": "Gesichter",

@@ -7,12 +7,11 @@ import { CAP_AUDIO_TRANSFORM } from '../utils/capabilities'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
 // eslint-disable-next-line no-unused-vars
 import Spectrogram from '../components/audio/Spectrogram'
-import { audioTransformApi } from '../utils/api'
+import { audioTransformApi, fetchUrl } from '../utils/api'
 import { useMediaCapture } from '../hooks/useMediaCapture'
 import useObjectUrl from '../hooks/useObjectUrl'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 import { useStudioHandoff, useHandoffSource, blobToFile } from '../hooks/useStudioHandoff'
-import { apiUrl } from '../utils/basePath'
 // eslint-disable-next-line no-unused-vars
 import HandoffNote from '../components/studio/HandoffNote'
 import {
@@ -159,7 +158,7 @@ export default function AudioTransform() {
     selectEntry(null)
     ws.begin(next)
     const fetchFile = async (url, fallback) => {
-      const res = await fetch(url.startsWith('http') || url.startsWith('blob:') ? url : apiUrl(url))
+      const res = await fetchUrl(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return blobToFile(await res.blob(), url.split('?')[0].split('/').pop() || fallback)
     }

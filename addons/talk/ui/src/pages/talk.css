@@ -10,7 +10,6 @@
 .talk-page a:focus-visible,
 .talk-page input:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
 .talk-hd { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; }
-.talk-hd h1 { margin: 0; font-family: var(--font-sans); font-size: 20px; font-weight: 650; letter-spacing: -.01em; }
 .talk-hd__sub { color: var(--dk-muted); font-family: var(--font-mono); font-size: 12px; }
 .talk-hd__acts { display: flex; align-items: center; gap: 2px; margin-left: auto; }
 .talk-icobtn {

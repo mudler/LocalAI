@@ -26,6 +26,7 @@ import HomeUndoToast from '../components/home/HomeUndoToast'
 import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
+import { useAddonPage } from '../addons/useAddonPage'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
 import { readAttachmentText, renderPdfPages, PdfNoTextError } from '../utils/pdf'
 import { greetingKey } from '../utils/greeting'
@@ -448,9 +449,11 @@ export default function Home() {
   const stripBusy = !!stagingOp || !!failedOp
   useEffect(() => { if (stripBusy) setStripOpen(true) }, [stripBusy])
 
+  // Studio is an add-on: its command is offered only while it is installed.
+  const studioPage = useAddonPage('studio', 'studio')
   const slashContext = useMemo(
-    () => ({ isAdmin, assistantAvailable, hasModels: hasModels && !firstRun, loadedCount }),
-    [isAdmin, assistantAvailable, hasModels, firstRun, loadedCount],
+    () => ({ isAdmin, assistantAvailable, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage) }),
+    [isAdmin, assistantAvailable, hasModels, firstRun, loadedCount, studioPage],
   )
 
   const runAction = useCallback((id) => {
@@ -466,12 +469,12 @@ export default function Home() {
         setStripOpen(true)
         stripRef.current?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' })
         break
-      case 'studio': navigate('/app/studio'); break
+      case 'studio': if (studioPage) navigate(studioPage); break
       case 'settings': navigate('/app/settings'); break
       case 'docs': window.open(DOCS_URL, '_blank', 'noopener,noreferrer'); break
       default: break
     }
-  }, [navigate, openNewChat, openAssistantChat])
+  }, [navigate, openNewChat, openAssistantChat, studioPage])
 
   // "/" from anywhere that is not a text field starts a command.
   useEffect(() => {
@@ -671,7 +674,7 @@ export default function Home() {
             onDelete={requestDelete}
             emptyHint={(
               <div className="home-examples" aria-label={t('jump.examples')}>
-                {(isAdmin ? ['/gallery', '/import'] : []).concat(isAdmin && assistantAvailable ? ['/assistant'] : [], ['/studio']).map(c => (
+                {(isAdmin ? ['/gallery', '/import'] : []).concat(isAdmin && assistantAvailable ? ['/assistant'] : [], studioPage ? ['/studio'] : []).map(c => (
                   <code key={c}>{c}</code>
                 ))}
               </div>

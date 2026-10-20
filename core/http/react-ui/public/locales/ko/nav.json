@@ -13,7 +13,6 @@
   "account": "계정",
   "accountFor": "계정: {{name}}",
   "sections": {
-    "create": "만들기",
     "recognition": "인식",
     "build": "구축",
     "operate": "운영",
@@ -33,8 +32,6 @@
     "home": "홈",
     "models": "Models",
     "chat": "채팅",
-    "studio": "스튜디오",
-    "talk": "대화",
     "fineTune": "파인튜닝 (실험적)",
     "quantize": "양자화 (실험적)",
     "faces": "얼굴",

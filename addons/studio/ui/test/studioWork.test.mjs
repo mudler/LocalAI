@@ -5,10 +5,10 @@ import {
   MAX_FAVOURITES, TYPE_ORDER, canTake, collectWork, columnCount, countByType, dealColumns, filterWork,
   groupWork, handoffPath, layoutLineage, neighbour, projectOf, pruneIds, readHandoff, sourceUrlFor,
   suggestNext, suggestType, toggleId, waveBars,
-} from './studioWork.js'
+} from '../src/utils/studioWork.js'
 import {
   FAVOURITES_KEY, MEDIA_STORAGE_KEYS, clearAllMediaHistory,
-} from './mediaHistoryStore.js'
+} from '../src/utils/mediaHistoryStore.js'
 
 const entry = (id, createdAt, extra = {}) => ({
   id, createdAt, prompt: `prompt ${id}`, model: 'm', params: {}, results: [{ url: `/generated/${id}.png` }], ...extra,

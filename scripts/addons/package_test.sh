@@ -88,7 +88,7 @@ test -f "$work/voice/receipt.json"
 case_ok 'package.sh builds and verifies the voice add-on for the host'
 # A platform other than the host is refused for every add-on, whatever the config.
 if [ "$host" = linux/amd64 ]; then foreign=linux/arm64; else foreign=linux/amd64; fi
-for id in tables voice face fine-tuning quantization; do
+for id in tables voice face fine-tuning quantization studio talk; do
     expect_fail "package.sh refuses a foreign platform without an executable: $id" 'is not this host' sh scripts/addons/package.sh --config "addons/$id/package/platforms.yaml" --layout "$work/foreign-$id" --version 1.2.3 --platform "$foreign" --local-check
 done
 case_ok 'package.sh refuses a foreign platform without an executable for every add-on'
@@ -114,11 +114,11 @@ exec "$realgo" "\$@"
 STUB
 chmod 755 "$work/stubbin/go"
 : >"$work/gobuild.log"
-for id in tables voice face fine-tuning quantization; do
+for id in tables voice face fine-tuning quantization studio talk; do
     PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config "addons/$id/package/platforms.yaml" --layout "$work/stub-$id" --version 1.2.3 --platform "$host" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
 done
 grep -x './addons/tables/cmd/tables CGO_ENABLED=1' "$work/gobuild.log" >/dev/null
-for id in voice face fine-tuning quantization; do
+for id in voice face fine-tuning quantization studio talk; do
     grep -x "./addons/$id/cmd/$id CGO_ENABLED=0" "$work/gobuild.log" >/dev/null || { echo "FAIL: $id is not built with CGO_ENABLED=0" >&2; cat "$work/gobuild.log" >&2; exit 1; }
 done
 case_ok 'package.sh builds Tables with cgo and the pure Go add-ons without'

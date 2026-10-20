@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { axisTicks, clock, hasText, runLength, speakerRows, toRttm, toSrt } from './diarization.js'
+import { axisTicks, clock, hasText, runLength, speakerRows, toRttm, toSrt } from '../src/utils/diarization.js'
 
 const result = {
   speakers: [{ id: 'SPEAKER_00', label: '0' }, { id: 'SPEAKER_01', label: '1', name: 'Ada' }],

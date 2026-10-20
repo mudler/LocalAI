@@ -3,15 +3,24 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { STUDIO_TABS, studioRedirect, MIGRATION_ROUTES } from '../../src/utils/legacyRoutes.js'
+import { STUDIO_TABS, studioAddress, studioRedirect, talkAddress, MIGRATION_ROUTES } from '../../src/utils/legacyRoutes.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const router = readFileSync(join(here, '../../src/router.jsx'), 'utf8')
 
-test('studioRedirect keeps the model, the query and the hash', () => {
-  assert.equal(studioRedirect('image', 'stable/diffusion', '?x=1', '#top'), '/app/studio/images/stable%2Fdiffusion?x=1#top')
-  assert.equal(studioRedirect('3d', undefined, '', ''), '/app/studio/threed')
-  assert.equal(studioRedirect('tts', 'piper', '?voice=a', ''), '/app/studio/tts/piper?voice=a')
+test('studioRedirect opens the Studio add-on and keeps the model, the query and the hash', () => {
+  // A model id may hold "/" or ":", which an add-on path segment cannot, so it travels as ?model=.
+  assert.equal(studioRedirect('image', 'stable/diffusion', '?x=1', '#top'), '/app/addons/studio/studio/images?x=1&model=stable%2Fdiffusion#top')
+  assert.equal(studioRedirect('3d', undefined, '', ''), '/app/addons/studio/studio/threed')
+  assert.equal(studioRedirect('tts', 'piper', '?voice=a', ''), '/app/addons/studio/studio/tts?voice=a&model=piper')
+})
+
+test('studioAddress and talkAddress build the add-on page addresses', () => {
+  assert.equal(studioAddress(), '/app/addons/studio/studio')
+  assert.equal(studioAddress({ tab: 'images', model: 'a b', search: '?work=1' }), '/app/addons/studio/studio/images?work=1&model=a+b')
+  assert.equal(studioAddress({ search: '?work=w%201' }), '/app/addons/studio/studio?work=w+1')
+  assert.equal(talkAddress(), '/app/addons/talk/talk')
+  assert.equal(talkAddress({ search: '?model=x', hash: '#h' }), '/app/addons/talk/talk?model=x#h')
 })
 
 test('every standalone generator route maps to a Studio tab', () => {
@@ -39,8 +48,17 @@ test('each moved route has its own redirect entry, plain and with a model, bound
   }
 })
 
-test('Studio has a route that carries a model', () => {
-  assert.ok(router.includes("path: 'studio/:tab/:model'"))
+test('the Studio and Talk routes redirect to their add-ons, with or without a tab and a model', () => {
+  for (const path of ["path: 'studio'", "path: 'studio/:tab'", "path: 'studio/:tab/:model'"]) {
+    assert.ok(router.includes(`{ ${path}, element: <StudioRedirect /> }`), `no StudioRedirect for ${path}`)
+  }
+  assert.ok(router.includes("{ path: 'talk', element: <TalkRedirect /> }"))
+  assert.ok(MIGRATION_ROUTES.some(r => r.from === '/app/studio' && r.to === '/app/addons/studio/studio' && r.kind === 'addon-page'))
+  assert.ok(MIGRATION_ROUTES.some(r => r.from === '/app/talk' && r.to === '/app/addons/talk/talk' && r.kind === 'addon-page'))
+})
+
+test('the router imports no Studio or Talk page: both are add-ons', () => {
+  assert.ok(!/pages\/(Studio|Talk|ImageGen|VideoGen|ThreeDGen|TTS|Sound|Diarization|AudioTransform)'/.test(router))
 })
 
 test('the same-path routes need no redirect', () => {
@@ -48,7 +66,8 @@ test('the same-path routes need no redirect', () => {
 })
 
 test('moved biometric routes are wrapped in MovedPage in the router', () => {
-  for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'addon-page')) {
+  // Studio and Talk have no core page to fall back to; they redirect (see above).
+  for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'addon-page' && !['/app/studio', '/app/talk'].includes(x.from))) {
     const [, , , addon, page] = r.to.split('/')
     assert.ok(router.includes(`<MovedPage addon="${addon}" page="${page}">`) || router.includes(`<MovedPage addon="${addon}" page="${page}" withModel>`), `router.jsx does not wrap ${r.from}`)
   }

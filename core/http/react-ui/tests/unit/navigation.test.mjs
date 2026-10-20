@@ -44,11 +44,13 @@ test('tileFromApp: the title falls back to the id', () => {
 })
 
 test('buildTiles: built-in first, then apps by id, a built-in id wins', () => {
-  const builtin = [{ id: 'studio', titleKey: 'items.studio', icon: 'palette', mainPath: '/app/studio' }]
-  const tiles = buildTiles([app({ id: 'zed' }), app({ id: 'studio' }), app({ id: 'abc' })], builtin)
-  assert.deepEqual(tiles.map(t => t.id), ['studio', 'abc', 'zed'])
+  // No add-on is built in today (Studio and Talk are packaged add-ons), so the
+  // rule is checked with an entry the test makes up.
+  const builtin = [{ id: 'guide', titleKey: 'items.guide', icon: 'book', mainPath: '/app/guide' }]
+  const tiles = buildTiles([app({ id: 'zed' }), app({ id: 'guide' }), app({ id: 'abc' })], builtin)
+  assert.deepEqual(tiles.map(t => t.id), ['guide', 'abc', 'zed'])
   assert.equal(tiles[0].source, 'builtin')
-  assert.equal(tiles[0].target, '/app/studio')
+  assert.equal(tiles[0].target, '/app/guide')
 })
 
 test('filterTiles matches title and description, case-insensitive', () => {
@@ -98,13 +100,13 @@ test('pins api: reads and writes arrays, sends JSON, never throws on a malformed
   const calls = []
   const fetchImpl = async (url, init) => {
     calls.push([url, init?.method || 'GET', init?.body])
-    if (url.endsWith('/api/addons/builtin')) return { ok: true, json: async () => ({ builtin: [{ id: 'studio' }] }) }
-    return { ok: true, json: async () => (init?.method === 'PUT' ? JSON.parse(init.body) : ['studio', 7, null]) }
+    if (url.endsWith('/api/addons/builtin')) return { ok: true, json: async () => ({ builtin: [{ id: 'guide' }] }) }
+    return { ok: true, json: async () => (init?.method === 'PUT' ? JSON.parse(init.body) : ['guide', 7, null]) }
   }
   const api = createPinsApi({ base: (p) => `/base${p}`, fetchImpl })
-  assert.deepEqual(await api.listPins(), ['studio'])
+  assert.deepEqual(await api.listPins(), ['guide'])
   assert.deepEqual(await api.putPins(['a', 'b']), ['a', 'b'])
-  assert.deepEqual(await api.listBuiltin(), [{ id: 'studio' }])
+  assert.deepEqual(await api.listBuiltin(), [{ id: 'guide' }])
   assert.equal(calls[1][0], '/base/api/addons/pins')
   assert.equal(calls[1][1], 'PUT')
   assert.equal(calls[1][2], '["a","b"]')

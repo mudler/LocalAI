@@ -8,9 +8,11 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/services/addons/builtin"
 )
 
-func TestListBuiltinWithoutAnAccountDatabaseListsEveryEntry(t *testing.T) {
+func listBuiltin(t *testing.T) (*httptest.ResponseRecorder, []string) {
+	t.Helper()
 	e := echo.New()
 	e.GET("/api/addons/builtin", ListBuiltin(nil))
 	rec := httptest.NewRecorder()
@@ -26,7 +28,30 @@ func TestListBuiltinWithoutAnAccountDatabaseListsEveryEntry(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Builtin) != 2 || body.Builtin[0].ID != "studio" || body.Builtin[1].ID != "talk" {
+	ids := []string{}
+	for _, e := range body.Builtin {
+		ids = append(ids, e.ID)
+	}
+	return rec, ids
+}
+
+func TestListBuiltinIsEmptyBecauseStudioAndTalkArePackagedAddOns(t *testing.T) {
+	rec, ids := listBuiltin(t)
+	if len(ids) != 0 {
+		t.Fatalf("no page is built in, got %v", ids)
+	}
+	if rec.Header().Get("Cache-Control") != "private, no-store" {
+		t.Fatalf("the list depends on the caller and must not be cached, got %q", rec.Header().Get("Cache-Control"))
+	}
+}
+
+func TestListBuiltinWithoutAnAccountDatabaseListsEveryEntry(t *testing.T) {
+	defer builtin.SetCatalogForTest([]builtin.Entry{
+		{ID: "guide", Kind: builtin.KindPage, TitleKey: "items.chat", Icon: "chat", MainPath: "/app/chat"},
+		{ID: "notes-page", Kind: builtin.KindPage, TitleKey: "items.models", Icon: "boxes", MainPath: "/app/models"},
+	})()
+	rec, ids := listBuiltin(t)
+	if len(ids) != 2 || ids[0] != "guide" || ids[1] != "notes-page" {
 		t.Fatalf("unexpected body %s", rec.Body.String())
 	}
 	if rec.Header().Get("Cache-Control") != "private, no-store" {

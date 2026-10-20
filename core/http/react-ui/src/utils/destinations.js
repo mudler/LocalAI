@@ -4,15 +4,12 @@
 import { hubs, hubEntryPath } from '../components/hub/hubConfig'
 import { primaryDestinations, visiblePrimary } from './navigationModel.js'
 
+// Studio and Talk are add-ons: they are listed in the Add-ons drawer when they
+// are installed, not here.
 export const topDestinations = [
   { path: '/app', icon: 'home', labelKey: 'items.home' },
   { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
-]
-
-export const createDestinations = [
   { path: '/app/chat', icon: 'chat', labelKey: 'items.chat' },
-  { path: '/app/studio', icon: 'palette', labelKey: 'items.studio' },
-  { path: '/app/talk', icon: 'phone', labelKey: 'items.talk' },
 ]
 
 function visible(item, { isAdmin, authEnabled, hasFeature, features }) {
@@ -23,7 +20,7 @@ function visible(item, { isAdmin, authEnabled, hasFeature, features }) {
   return true
 }
 
-// Home, Models, Chat, Studio, Talk and the hubs, in the sidebar's order.
+// Home, Models, Chat and the hubs, in the sidebar's order.
 export function destinationsFor(auth) {
   const hubItems = hubs.flatMap(hub => {
     const path = hubEntryPath(hub, auth)
@@ -31,7 +28,6 @@ export function destinationsFor(auth) {
   })
   return [
     ...topDestinations.filter(i => visible(i, auth)),
-    ...createDestinations.filter(i => visible(i, auth)),
     ...hubItems,
   ]
 }

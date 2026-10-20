@@ -15,8 +15,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import GlbViewer from '../components/GlbViewer'
 // eslint-disable-next-line no-unused-vars
 import MediaInput from '../components/biometrics/MediaInput'
-import { threeDApi } from '../utils/api'
-import { apiUrl } from '../utils/basePath'
+import { threeDApi, fetchUrl } from '../utils/api'
 import { use3DHistory } from '../hooks/use3DHistory'
 import { useStudioHandoff, useHandoffSource, blobToImageInput } from '../hooks/useStudioHandoff'
 // eslint-disable-next-line no-unused-vars
@@ -177,7 +176,7 @@ export default function ThreeDGen() {
         addToast(t('threed.toasts.noResults'), 'warning')
         return
       }
-      const glbResp = await fetch(apiUrl(url))
+      const glbResp = await fetchUrl(url)
       if (!glbResp.ok) throw new Error(`fetching the generated GLB failed: HTTP ${glbResp.status}`)
       const glb = await glbResp.blob()
       const name = url.split('/').pop()

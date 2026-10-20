@@ -13,7 +13,6 @@
   "account": "Akun",
   "accountFor": "Akun: {{name}}",
   "sections": {
-    "create": "Buat",
     "recognition": "Pengenalan",
     "build": "Bangun",
     "operate": "Operasikan",
@@ -33,8 +32,6 @@
     "home": "Beranda",
     "models": "Models",
     "chat": "Obrolan",
-    "studio": "Studio",
-    "talk": "Bicara",
     "fineTune": "Fine-Tune (Eksperimental)",
     "quantize": "Kuantisasi (Eksperimental)",
     "faces": "Wajah",

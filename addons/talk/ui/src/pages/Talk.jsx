@@ -716,7 +716,7 @@ export default function Talk() {
   return (
     <div className="talk-page" data-view={view}>
       <header className="talk-hd">
-        <h1>{t('title')}</h1>
+        {/* The add-on shell already titles the page "Talk". */}
         <span className="talk-hd__sub">{t('subtitle')}</span>
         <div className="talk-hd__acts">
           {isConnected && (

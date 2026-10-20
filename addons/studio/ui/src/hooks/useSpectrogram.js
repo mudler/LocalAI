@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getSharedAudioContext } from './useAudioPeaks'
 import { fftRadix2 } from '../utils/fft'
+import { fetchUrl } from '../utils/api'
 
 // Hann windows are reused across frames and across clips, so cache one per
 // size. The window tapers each frame to suppress spectral leakage (the
@@ -42,7 +43,7 @@ export default function useSpectrogram(
 
     async function run() {
       try {
-        const resp = await fetch(src)
+        const resp = await fetchUrl(src)
         const raw = await resp.arrayBuffer()
         const ctx = getSharedAudioContext()
         if (!ctx) throw new Error('Web Audio API not available')
