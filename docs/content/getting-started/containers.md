@@ -272,7 +272,7 @@ After installation:
 1. Access the WebUI at `http://localhost:8080`
 2. Check available models: `curl http://localhost:8080/v1/models`
 3. [Install additional models](/getting-started/models/)
-4. [Try out examples](/getting-started/try-it-out/)
+4. [Try out examples](/basics/try/)
 
 ## Troubleshooting
 
@@ -421,4 +421,4 @@ These images are compatible with Nvidia ARM64 devices with CUDA 13, such as the 
 - [Full image reference](#full-image-reference) - Complete Quay and Docker Hub image matrix
 - [Install Models](/getting-started/models/) - Install and configure models
 - [GPU Acceleration](/features/gpu-acceleration/) - GPU setup and optimization
-- [Kubernetes Installation](/installation/kubernetes/) - Deploy on Kubernetes
+- [Kubernetes Installation](/basics/kubernetes/) - Deploy on Kubernetes

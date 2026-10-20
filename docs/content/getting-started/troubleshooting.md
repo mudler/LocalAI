@@ -113,7 +113,7 @@ uname -m
 
 **Common causes and fixes:**
 
-- **Wrong backend:** Ensure the backend in your model YAML matches the model format. GGUF models use `llama-cpp`, diffusion models use `diffusers`, etc. See the [compatibility table](/docs/reference/compatibility-table/) for details.
+- **Wrong backend:** Ensure the backend in your model YAML matches the model format. GGUF models use `llama-cpp`, diffusion models use `diffusers`, etc. See the [compatibility table](/model-compatibility/) for details.
 - **Backend not installed:** Check installed backends:
   ```bash
   local-ai backends list
@@ -475,7 +475,7 @@ LOCALAI_P2P_DISABLE_DHT=true local-ai run
 - Workers must be detected before inference starts - you cannot add workers mid-inference
 - Workers mode supports llama-cpp compatible models only
 
-See the [Distributed Inferencing guide](/features/distributed-inferencing/) for full setup instructions.
+See the [Distributed Inferencing guide](/features/distribute/) for full setup instructions.
 
 ## Still Having Issues?
 

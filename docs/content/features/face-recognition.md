@@ -408,5 +408,5 @@ The people list is kept in the browser because the server has no list call. Afte
   detection; `/v1/detection` works with the insightface backend too.
 - [Embeddings](/features/embeddings/) - raw vector extraction; face
   embeddings live in the same endpoint under the hood.
-- [Stores](/features/stores/) - the generic vector store powering the
+- [Stores](/stores/) - the generic vector store powering the
   1:N recognition pipeline.
