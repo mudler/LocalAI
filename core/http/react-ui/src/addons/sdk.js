@@ -22,6 +22,10 @@ export const ICON_NAMES = Object.freeze([
   'arrow-left', 'arrow-right', 'chart-bar', 'circle-dot', 'clipboard', 'code', 'cube', 'filter-off', 'gender',
   'globe', 'headphones', 'help-circle', 'mic', 'play', 'plug-off', 'save', 'shield', 'smile', 'waveform',
   'camera', 'stop', 'circle', 'image', 'spinner', 'user-shield', 'mask',
+  // Drawn by the Studio and Talk add-ons.
+  'boxes', 'compass', 'gauge', 'ghost', 'git-branch', 'images', 'key', 'layers', 'maximize', 'memory', 'music',
+  'pencil', 'repeat', 'server', 'sliders', 'square-dashed', 'store', 'undo', 'video', 'volume', 'palette', 'phone',
+  'columns', 'chevron-left',
 ])
 
 // Theme tokens as stable semantic names. Values are CSS custom properties of
@@ -125,6 +129,31 @@ export function coreRequestUrl(path, basePath = '') {
   return `${basePath}${pathname}${search}`
 }
 
+const APP_PATH = /^\/app(?:\/[A-Za-z0-9._~%-]+)*\/?$/
+const APP_QUERY = /^[A-Za-z0-9._~%&=+,:@/-]{0,1024}$/
+
+// appAddress returns an address of the web app (/app/..., with an optional
+// query and hash) or null. Dot segments, other schemes and API routes never pass.
+export function appAddress(input) {
+  if (typeof input !== 'string' || input.length === 0 || input.length > 2048) return null
+  let rest = input
+  let hash = ''
+  const h = rest.indexOf('#')
+  if (h >= 0) { hash = rest.slice(h); rest = rest.slice(0, h) }
+  if (hash && !/^#[A-Za-z0-9._~%-]{0,128}$/.test(hash)) return null
+  let query = ''
+  const q = rest.indexOf('?')
+  if (q >= 0) { query = rest.slice(q); rest = rest.slice(0, q) }
+  if (query && !APP_QUERY.test(query.slice(1))) return null
+  if (!APP_PATH.test(rest)) return null
+  for (const segment of rest.split('/')) {
+    let decoded
+    try { decoded = decodeURIComponent(segment) } catch { return null }
+    if (decoded === '.' || decoded === '..' || decoded.includes('/') || decoded.includes('\\')) return null
+  }
+  return `${rest}${query}${hash}`
+}
+
 // An operation identifier is a namespace name to the owner: it starts with a
 // letter and holds lower-case letters, digits and hyphens. A bare UUID that
 // starts with a digit is refused, so the prefix is part of the identifier.
@@ -189,6 +218,9 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
   }
 
   // Wrappers are created once per SDK so React sees a stable component type.
+  // React 19 passes `ref` to a function component as a plain prop, so a ref
+  // reaches the wrapped component and a host widget that exposes a handle
+  // (the model picker) stays usable.
   const wrap = (Component, fixed) => {
     if (!Component) return undefined
     const Wrapped = (props) => React.createElement(Component, { ...props, ...fixed })
@@ -216,7 +248,8 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
   const known = new Set(ICON_NAMES)
   const Icon = (props) => {
     const name = known.has(props?.name) ? props.name : 'puzzle'
-    return React.createElement(host.Icon, { name, size: props?.size, title: props?.title, spin: props?.spin === true, className: props?.className })
+    const style = props?.style && typeof props.style === 'object' ? props.style : undefined
+    return React.createElement(host.Icon, { name, size: props?.size, title: props?.title, spin: props?.spin === true, className: props?.className, style })
   }
   Icon.displayName = 'AddonIcon'
 
@@ -370,6 +403,23 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
         if (!r) throw new AddonSdkError('invalid_path', 'An add-on may link only to its own declared pages')
         return `${addonPrefix(addonId)}/${r.path}${r.search ? `?${r.search}` : ''}`
       },
+      // Opens a page of the app itself (a core page or a page of another
+      // add-on), for a link that leaves this add-on. Only /app/... addresses
+      // pass: no other origin, scheme or API route.
+      openApp(address, options) {
+        alive()
+        const target = appAddress(address)
+        if (!target) throw new AddonSdkError('invalid_path', 'An add-on may open only addresses under /app')
+        // The only state a page may hand over is the way back: where it was and
+        // what to call it, as short strings (the Model Editor reads these).
+        const from = options?.state?.from
+        const fromLabel = options?.state?.fromLabel
+        const state = typeof from === 'string' && from.startsWith('/app') && from.length <= 2048 && typeof fromLabel === 'string' && fromLabel.length <= 80
+          ? { from, fromLabel }
+          : undefined
+        bindings.navigate?.(target, { replace: options?.replace === true, ...(state ? { state } : {}) })
+        return true
+      },
       current: () => {
         const c = bindings.current?.() || {}
         return { page: String(c.page || ''), path: String(c.path || ''), search: String(c.search || '') }
@@ -382,6 +432,9 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
       // A write is only ever stored as a proposal; the host confirms it.
       propose: (request, options) => callApi('propose', request || {}, options),
     }),
+    // Draws children into a node outside the add-on's own tree (a full-screen
+    // sheet). It is the host's portal; the node must be in the page.
+    portal: (children, node) => (host.createPortal && node ? host.createPortal(children, node) : children),
     resources,
     // Reads that answer with private files. The result is the host's own
     // description of each file (identifier, name, media type, size): the

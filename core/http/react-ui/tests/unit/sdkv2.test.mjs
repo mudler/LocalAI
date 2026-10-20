@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as React from 'react'
 import { renderToString } from 'react-dom/server'
-import { createHostSDK, coreRequestUrl, ICON_NAMES, SDK_VERSION } from '../../src/addons/sdk.js'
+import { createHostSDK, appAddress, coreRequestUrl, ICON_NAMES, SDK_VERSION } from '../../src/addons/sdk.js'
 
 const C = (tag) => (p) => React.createElement(tag, { 'data-props': JSON.stringify(Object.keys(p).sort()) }, p.children)
 const NAMES = ['PageHeader', 'ConfirmDialog', 'ErrorWithTraceLink', 'ModelSelector', 'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch']
@@ -124,4 +124,61 @@ test('sdk.core.fetch aborts an in-flight call when the add-on is withdrawn', asy
   controller.abort('disabled')
   await assert.rejects(p, /aborted/)
   assert.equal(seen.aborted, true)
+})
+
+test('appAddress accepts addresses under /app and nothing else', () => {
+  for (const ok of ['/app', '/app/chat', '/app/models/edit/a%20b', '/app/addons/talk/talk?model=x%2Fy&work=1', '/app/studio#top']) {
+    assert.equal(appAddress(ok), ok, ok)
+  }
+  for (const bad of ['', 'app/chat', '//evil.example/app', 'https://evil.example/app', '/api/models', '/app/../api/models', '/app/%2e%2e/x', '/app/a%2Fb/../c', '/app\\evil', '/apps', '/app/x?<script>', '/app/x#a b', null, 7]) {
+    assert.equal(appAddress(bad), null, String(bad))
+  }
+})
+
+test('sdk.navigation.openApp hands only an /app address to the shell, with the way back as the only state', () => {
+  const seen = []
+  const controller = new AbortController()
+  const sdk = createHostSDK({
+    addonId: 'talk', generation: 1, signal: controller.signal, pages: ['talk'],
+    host: { React, Icon: () => null, language: () => 'en', theme: {}, api: {} },
+    bindings: { navigate: (path, options) => seen.push([path, options]) },
+  })
+  assert.equal(sdk.navigation.openApp('/app/models'), true)
+  sdk.navigation.openApp('/app/model-editor/x', { state: { from: '/app/addons/talk/talk?a=1', fromLabel: 'Talk', secret: 'no' } })
+  sdk.navigation.openApp('/app/chat', { replace: true, state: { from: 'https://evil.example', fromLabel: 'x' } })
+  assert.deepEqual(seen, [
+    ['/app/models', { replace: false }],
+    ['/app/model-editor/x', { replace: false, state: { from: '/app/addons/talk/talk?a=1', fromLabel: 'Talk' } }],
+    ['/app/chat', { replace: true }],
+  ])
+  assert.throws(() => sdk.navigation.openApp('/api/models'), (e) => e.code === 'invalid_path')
+  assert.throws(() => sdk.navigation.openApp('https://evil.example/app'), (e) => e.code === 'invalid_path')
+  controller.abort('disabled')
+  assert.throws(() => sdk.navigation.openApp('/app/models'), (e) => e.code === 'withdrawn')
+})
+
+test('sdk.portal draws into the host portal when a node is given and returns the children otherwise', () => {
+  const portals = []
+  const { sdk } = make({ createPortal: (children, node) => { portals.push([children, node]); return 'portal' } })
+  assert.equal(sdk.portal('kid', { id: 'node' }), 'portal')
+  assert.deepEqual(portals, [['kid', { id: 'node' }]])
+  assert.equal(sdk.portal('kid', null), 'kid')
+})
+
+test('sdk.Icon passes a style object and the Studio and Talk icon names are allowed', () => {
+  const seen = []
+  const { sdk } = make({ Icon: (p) => { seen.push(p); return null } })
+  renderToString(React.createElement(sdk.Icon, { name: 'palette', style: { color: 'red' } }))
+  renderToString(React.createElement(sdk.Icon, { name: 'phone', style: 'not-an-object' }))
+  assert.deepEqual(seen.map(p => [p.name, p.style]), [['palette', { color: 'red' }], ['phone', undefined]])
+  for (const n of ['palette', 'phone', 'boxes', 'compass', 'music', 'video', 'undo', 'square-dashed', 'layers']) assert.ok(ICON_NAMES.includes(n), n)
+})
+
+test('a ref reaches a host widget through its sdk.ui wrapper (React 19 passes ref as a prop)', () => {
+  const seen = []
+  const Widget = React.forwardRef((props, ref) => { seen.push(typeof ref); return null })
+  const { sdk } = make({ components: { HomeModelPicker: Widget } })
+  const ref = React.createRef()
+  renderToString(React.createElement(sdk.ui.HomeModelPicker, { ref }))
+  assert.deepEqual(seen, ['object'])
 })

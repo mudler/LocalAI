@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import Icon from '../components/Icon'
 import i18n from '../i18n'
 import { addonsApi } from '../utils/addonsClient'
@@ -8,7 +9,16 @@ import {
   PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
   DistributionBars, EmbeddingInspector, TabSwitch,
 } from './hostComponents'
+import LoadingSpinner from '../components/LoadingSpinner'
+import Modal from '../components/Modal'
+import Lightbox from '../components/Lightbox'
+import HomeModelPicker from '../components/home/HomeModelPicker'
 import { useMediaCapture, audioBufferToWavBlob } from '../hooks/useMediaCapture'
+import { useModels } from '../hooks/useModels'
+import { useResources } from '../hooks/useResources'
+import { useVoiceProfiles } from '../hooks/useVoiceProfiles'
+import { useOperations } from '../hooks/useOperations'
+import { useMCPClient } from '../hooks/useMCPClient'
 import useObjectUrl from '../hooks/useObjectUrl'
 import { useDelayedAction } from '../hooks/useDelayedAction'
 import { basePath } from '../utils/basePath'
@@ -59,8 +69,13 @@ export const host = Object.freeze({
     Button, Spinner, EmptyState, Badge, Stack, Text, ArtifactCard,
     PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
     DistributionBars, EmbeddingInspector, TabSwitch,
+    LoadingSpinner, Modal, Lightbox, HomeModelPicker,
   },
-  hooks: { useMediaCapture, useObjectUrl, useDelayedAction, audioBufferToWavBlob },
+  hooks: {
+    useMediaCapture, useObjectUrl, useDelayedAction, audioBufferToWavBlob,
+    useModels, useResources, useVoiceProfiles, useOperations, useMCPClient,
+  },
+  createPortal,
   basePath,
   Icon,
   theme: { mode: themeMode, subscribe: subscribeTheme },

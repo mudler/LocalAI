@@ -6,8 +6,8 @@
 // addons/tables/ui/build.mjs, for add-ons that share this builder.
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { dirname, join, resolve, sep } from 'node:path'
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve, sep } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -58,24 +58,84 @@ function hostGuard() {
   }
 }
 
+// Compat mode, for an add-on whose source was written against the host's own
+// modules (React hooks, the router, i18next, the shared components). The
+// source keeps those imports; this plugin answers them from a directory of
+// stand-ins that talk to the SDK, so the bundle never holds a host file:
+//
+//   - a bare import of react, react-dom, react-router-dom or react-i18next, and
+//     the JSX runtime, resolves to compat/modules/<name>.js;
+//   - a relative import whose target is not in the add-on's src/ resolves to
+//     the file at the same path under compat/ (components/Icon, utils/api ...);
+//   - a style sheet the code imports is collected, in order, into the
+//     add-on's one style sheet.
+const COMPAT_BARE = {
+  react: 'modules/react.js',
+  'react/jsx-runtime': 'modules/jsx-runtime.js',
+  'react/jsx-dev-runtime': 'modules/jsx-runtime.js',
+  'react-dom': 'modules/react-dom.js',
+  'react-router-dom': 'modules/react-router-dom.js',
+  'react-i18next': 'modules/react-i18next.js',
+}
+
+function compatPlugin({ srcRoot, compatSrc, sheets }) {
+  const tails = ['', '.js', '.jsx', '.mjs', `${sep}index.js`, `${sep}index.jsx`]
+  const file = (base) => tails.map((t) => base + t).find((f) => existsSync(f) && statSync(f).isFile())
+  return {
+    name: 'addon-compat',
+    resolveId(source, importer) {
+      if (COMPAT_BARE[source]) return join(compatSrc, COMPAT_BARE[source])
+      if (importer && source.startsWith('.') && importer.startsWith(srcRoot + sep)) {
+        const target = resolve(dirname(importer), source)
+        if (file(target)) return null
+        const rel = relative(srcRoot, target)
+        const hit = !rel.startsWith('..') && file(join(compatSrc, rel))
+        if (hit) return hit
+      }
+      return null
+    },
+    load(id) {
+      if (!id.endsWith('.css')) return null
+      if (!sheets.includes(id)) sheets.push(id)
+      return { code: '', moduleType: 'js' }
+    },
+  }
+}
+
 const reactImport = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])(react|react-dom)(?:\/[^'"]*)?\1/
 
-export async function buildAddonUI({ root, name, rgb }) {
+export async function buildAddonUI({ root, name, rgb, compat }) {
   const out = join(root, 'dist')
   const { build: bundle } = await import(require.resolve('rolldown'))
   rmSync(out, { recursive: true, force: true })
   mkdirSync(join(out, 'ui'), { recursive: true })
+  const sheets = []
+  const srcRoot = join(root, 'src')
+  const plugins = [hostGuard()]
+  if (compat) plugins.unshift(compatPlugin({ srcRoot, compatSrc: resolve(compat), sheets }))
   await bundle({
     input: join(root, 'src/index.jsx'),
     // React stays a visible import so the check below can see it. The host
     // gives the add-on React through the SDK, so any such import is refused.
-    external: [/^react(-dom)?(\/|$)/],
-    plugins: [hostGuard()],
-    output: { file: join(out, `ui/${name}.js`), format: 'esm', minify: false, sourcemap: false },
-    transform: { jsx: { runtime: 'classic', pragma: 'h', pragmaFrag: 'Fragment' } },
+    // In compat mode the plugin answers those imports with stand-ins first.
+    external: compat ? [] : [/^react(-dom)?(\/|$)/],
+    plugins,
+    output: {
+      file: join(out, `ui/${name}.js`), format: 'esm', minify: false, sourcemap: false,
+      // One file: a page loaded on demand is part of it.
+      ...(compat ? { codeSplitting: false } : {}),
+    },
+    transform: { jsx: compat ? { runtime: 'automatic', importSource: 'react' } : { runtime: 'classic', pragma: 'h', pragmaFrag: 'Fragment' } },
     logLevel: 'warn',
   })
-  copyFileSync(join(root, 'src/style.css'), join(out, `ui/${name}.css`))
+  if (compat) {
+    // The add-on's own sheet first, then the sheets its code imported.
+    const own = join(srcRoot, 'style.css')
+    const parts = [existsSync(own) ? readFileSync(own, 'utf8') : '', ...sheets.filter((f) => f !== own).map((f) => readFileSync(f, 'utf8'))]
+    writeFileSync(join(out, `ui/${name}.css`), parts.join('\n'))
+  } else {
+    copyFileSync(join(root, 'src/style.css'), join(out, `ui/${name}.css`))
+  }
   writeFileSync(join(out, 'ui/icon.png'), solidIcon(rgb))
   const js = readFileSync(join(out, `ui/${name}.js`), 'utf8')
   const bad = reactImport.exec(js)

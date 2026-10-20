@@ -200,14 +200,14 @@ export default function AddonRoute() {
           {reloadButton}
         </div>
       )}
-      <AddonSurface id={addonId} instance={instance} resolved={resolved || lastResolved.current} frozen={isStale} t={t} />
+      <AddonSurface id={addonId} instance={instance} resolved={resolved || lastResolved.current} search={location.search.replace(/^\?/, '')} frozen={isStale} t={t} />
       {leaveDialog}
       {reloadDialog}
     </div>
   )
 }
 
-function AddonSurface({ id, instance, resolved, frozen = false, t }) {
+function AddonSurface({ id, instance, resolved, search = '', frozen = false, t }) {
   const Component = instance.Component
   const labels = useMemo(() => ({ title: t('shell.error.title'), text: t('shell.error.text'), retryLabel: t('shell.error.retry') }), [t])
   if (!Component) {
@@ -221,7 +221,7 @@ function AddonSurface({ id, instance, resolved, frozen = false, t }) {
       data-testid="addon-surface"
     >
       <AddonErrorBoundary key={`${instance.version}:${resolved ? resolved.path : ''}`} labels={labels}>
-        <Component page={resolved ? resolved.page : ''} path={resolved ? resolved.rest : ''} />
+        <Component page={resolved ? resolved.page : ''} path={resolved ? resolved.rest : ''} search={search} />
       </AddonErrorBoundary>
     </div>
   )
