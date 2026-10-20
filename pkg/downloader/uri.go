@@ -211,7 +211,11 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 		req.Header.Add("Authorization", authorization)
 	}
 
-	response, err := downloadHTTPClient().Do(req)
+	// The caller validated the URL itself (gallery config SSRF checks), but
+	// redirects are resolved inside net/http: without validating every hop, a
+	// public URL that 302s to a loopback/private/link-local address bypasses
+	// that check. Re-run the external-URL validation on each redirect target.
+	response, err := redirectValidatedHTTPClient().Do(req)
 	if err != nil {
 		return err
 	}
@@ -488,6 +492,24 @@ func downloadHTTPClient() *http.Client {
 		)
 	}
 	return downloadClientCached
+}
+
+// redirectValidatedHTTPClient returns a client for URL config reads that
+// follows redirects but re-validates every redirect target with
+// utils.ValidateExternalURL, so a public URL cannot redirect its way to a
+// loopback/private/link-local address.
+func redirectValidatedHTTPClient() *http.Client {
+	base := httpclient.HardenedTransport()
+	if DownloadResponseHeaderTimeout > 0 {
+		base.ResponseHeaderTimeout = DownloadResponseHeaderTimeout
+	}
+	return httpclient.New(
+		httpclient.WithFollowRedirects(),
+		httpclient.WithRedirectURLValidation(func(u *url.URL) error {
+			return utils.ValidateExternalURL(u.String())
+		}),
+		httpclient.WithTransport(credentials.Transport(base)),
+	)
 }
 
 func newDownloadRequest(
