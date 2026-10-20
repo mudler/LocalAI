@@ -68908,6 +68908,52 @@
     - filename: audio-cpp/yue2-3b/sidecars/yue2-vae-config.json
       sha256: f0191bb9694009956de44e0c361a6f1334760be4c8f848e599bde242a54a0970
       uri: huggingface://audio-cpp/Yue2-3B-GGUF/sidecars/yue2-vae-config.json
+- name: audio-cpp-fish-drama3
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/fishaudio/drama-3
+    - https://huggingface.co/Jmica/Drama-3-GGUF
+    - https://huggingface.co/Jmica/Drama-3-GGUF/blob/17a5b40c5dc2c2be986f5371a7e650108b828e29/LICENSE
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Fish Audio Drama 3 is an experimental community port served by audio-cpp.
+    This GGUF uses Q4_K_S experts and an 8-bit (Q8) backbone. The download is
+    approximately 24.6 GB; runtime memory requirements exceed the weight size.
+    Allow additional memory for inference and reference audio processing.
+
+    For voice cloning, supply a server-local reference WAV path in the OpenAI
+    `voice` field and its transcript in `params.reference_text` (or
+    `params.ref_text`). Cloning requires reference audio and a matching
+    transcript; plain TTS can run without a reference. No named preset voices
+    are provided. Use only reference audio for which you have rights and consent.
+
+    The Fish Audio Community License governs the weights, not MIT. Review its
+    use and redistribution terms before installation. This community port is
+    experimental and is not an official Fish Audio serving implementation.
+  license: other
+  tags:
+    - audio-cpp
+    - fish-drama3
+    - experimental
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - gguf
+    - quantized
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - tts
+    name: audio-cpp-fish-drama3
+    options:
+      - family:fish_drama3
+      - backend:best
+    parameters:
+      model: audio-cpp/drama-3-backbone-8bit-experts-Q4_K_S.gguf
+  files:
+    - filename: audio-cpp/drama-3-backbone-8bit-experts-Q4_K_S.gguf
+      sha256: 05af716baf78e7c20863b9ccebb3ebdeca9607dd3ea7d0b72c35079e675b212b
+      uri: https://huggingface.co/Jmica/Drama-3-GGUF/resolve/17a5b40c5dc2c2be986f5371a7e650108b828e29/drama-3-backbone-8bit-experts-Q4_K_S.gguf
 - name: audio-cpp-indextts-2.5
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
