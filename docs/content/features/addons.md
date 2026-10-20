@@ -155,24 +155,37 @@ refusal again.
 
 ### The SDK 2 surface
 
-An add-on page gets these from the SDK object. Props pass through unchanged, and
+An add-on page gets these from the SDK object. The page component also receives the
+query string of its address as `search`, next to `page` and `path`. Props pass through unchanged, and
 the components are the ones the core pages use, so an add-on page and a core page
 draw the same thing.
 
 - `sdk.ui`: `Button`, `Text`, `Stack`, `Badge`, `Spinner`, `EmptyState`, and the
   shared `PageHeader`, `ConfirmDialog`, `ErrorWithTraceLink`, `ModelSelector`,
-  `MediaInput`, `WaveformPlayer`, `DistributionBars`, `EmbeddingInspector` and
-  `TabSwitch`.
-- `sdk.hooks`: `useMediaCapture`, `useObjectUrl`, `useDelayedAction` and
-  `audioBufferToWavBlob`. They run in the host React, so call them like any hook.
-  A host without them gives an empty object.
+  `MediaInput`, `WaveformPlayer`, `DistributionBars`, `EmbeddingInspector`,
+  `TabSwitch`, `LoadingSpinner`, `Modal`, `Lightbox` and `HomeModelPicker`. A `ref`
+  reaches the host component, so `HomeModelPicker` keeps its handle.
+- `sdk.hooks`: `useMediaCapture`, `useObjectUrl`, `useDelayedAction`,
+  `audioBufferToWavBlob`, `useModels`, `useResources`, `useVoiceProfiles`,
+  `useOperations` and `useMCPClient`. They run in the host React, so call them like
+  any hook. A host without them gives an empty object.
+- `sdk.navigation.openApp(address, { replace, state })`: opens a page of the web app,
+  a core page or a page of another add-on. Only addresses under `/app` pass; any
+  other address, scheme or API route is refused. The only `state` a page may pass is
+  the way back, `{ from, fromLabel }`, which the Model Editor reads.
+- `sdk.portal(children, node)`: draws children into a node outside the add-on's own
+  tree, for a full-screen sheet.
 - `sdk.viewer`: `isAdmin()` and `hasFeature(name)`. They answer for the signed-in
   user and are read-only. The server still decides every call.
 - `sdk.iconNames`: the icon names `sdk.Icon` can draw. Any other name draws a
   neutral glyph. SDK 2 adds `arrow-left`, `arrow-right`, `chart-bar`, `circle-dot`,
   `clipboard`, `code`, `cube`, `filter-off`, `gender`, `globe`, `headphones`,
   `help-circle`, `mic`, `play`, `plug-off`, `save`, `shield`, `smile`, `waveform`,
-  `camera`, `stop`, `circle`, `image`, `spinner`, `user-shield` and `mask`.
+  `camera`, `stop`, `circle`, `image`, `spinner`, `user-shield` and `mask`. The Studio
+  and Talk add-ons add `boxes`, `compass`, `gauge`, `ghost`, `git-branch`, `images`,
+  `key`, `layers`, `maximize`, `memory`, `music`, `pencil`, `repeat`, `server`,
+  `sliders`, `square-dashed`, `store`, `undo`, `video`, `volume`, `palette`, `phone`,
+  `columns` and `chevron-left`. `sdk.Icon` passes a `style` object.
 
 SDK 2 is a superset of SDK 1, but a range is checked as written. A manifest
 that declares only `"max": 1` is refused by a version 2 host. Before you raise
@@ -1610,9 +1623,11 @@ are a later task and will have their own review.
 Add-ons drawer can show them next to the installed apps. The answer is
 `{"builtin": [...]}`, and each entry has an `id`, a `kind` (always `page`), a `titleKey`,
 an `icon` and a `mainPath`, plus a `feature` or `adminOnly` when the entry has a gate.
-Today the list is Studio and Talk. They have no gate, so every authenticated caller sees
-both. The route needs an authenticated caller and does not need the `addons` feature, so a
-user who reaches Studio today still reaches it from the drawer. When authentication is off,
+Today the list is empty: Studio and Talk, which used to be built in, are packaged
+add-ons now (see [The Studio add-on](#the-studio-add-on) and
+[The Talk add-on](#the-talk-add-on)), so a person installs and removes them like the
+others. The route is kept for the day a page is built in again. It needs an
+authenticated caller and does not need the `addons` feature. When authentication is off,
 the caller is the local owner and sees every entry. The answer depends on the caller and is
 sent with `Cache-Control: private, no-store`.
 
@@ -1626,7 +1641,7 @@ browser must be a same-origin request or carry a credential header. The answer d
 the caller and is sent with `Cache-Control: private, no-store`.
 
 - **Filtering.** A pin is filtered like a tile. The list holds only IDs the caller may see
-  now: the built-in add-ons that pass their gates, plus the installed apps the owner lists
+  now: the built-in add-ons that pass their gates (none today), plus the installed apps the owner lists
   for the caller. An ID the caller cannot see is left out of a read and dropped from a
   save, with no hint whether it exists. Duplicates are dropped.
 - **Hidden pins survive.** A pin that is only hidden for now (an access change, or an
@@ -1641,7 +1656,9 @@ the caller and is sent with `Cache-Control: private, no-store`.
   frontends, one of them runs it at a time. A disabled add-on is not removed, so its pins
   never expire. A sweep that cannot read the add-on owner changes nothing.
 - **Upgrade seed.** A read or a save never pins anything. Once, at the upgrade that adds
-  this feature, the accounts that exist then get Studio and Talk pinned. An account created
+  this feature, the accounts that exist then get Studio and Talk pinned. Both are
+  add-ons, so a pin is drawn once the add-on is installed, and an add-on that is not
+  installed within the retention window loses its seeded pin. An account created
   later starts with no pins. An unpin stays after a restart.
 - **Startup.** If the pins file cannot be read (it is corrupt), the server does not start
   and logs the error. It does not fall back to memory, because that would lose every unpin
@@ -1657,7 +1674,8 @@ serves `/api/addons/builtin` and `/api/addons/pins`.
 
 The web UI serves one page for add-ons at `/app/addons`, the **Add-ons drawer**. It is
 shown to a caller who holds the `addons` feature, and to anyone who can open a built-in
-tile (Studio, Talk), so no one loses a page they can open today. Administrators also
+tile (none today). Studio and Talk are add-ons: they are in the drawer only while they
+are installed. Administrators also
 reach **Browse**, **Installed** and **Libraries** from the drawer. The tabs are a
 convenience: the owner checks administration again on every call, so a request that skips
 the page is denied the same way (403).
@@ -1676,18 +1694,22 @@ an app (`/app/addons?manage=ID`) opens the Installed tab with that addon's detai
 
 ### Old links
 
-The generators that had their own page now open inside Studio. The old links still work
-and keep the model, the query string and the hash:
+The generators that had their own page now open inside the Studio add-on, and the
+Studio and Talk pages open their add-ons. The old links still work and keep the model, the
+query string and the hash:
 
 | Old link | Opens |
 |---|---|
-| `/app/image` | `/app/studio/images` |
-| `/app/video` | `/app/studio/video` |
-| `/app/3d` | `/app/studio/threed` |
-| `/app/tts` | `/app/studio/tts` |
-| `/app/sound` | `/app/studio/sound` |
-| `/app/diarization` | `/app/studio/diarization` |
-| `/app/transform` | `/app/studio/transform` |
+| `/app/studio` | `/app/addons/studio/studio` |
+| `/app/studio/<tab>` | `/app/addons/studio/studio/<tab>` |
+| `/app/talk` | `/app/addons/talk/talk` |
+| `/app/image` | `/app/addons/studio/studio/images` |
+| `/app/video` | `/app/addons/studio/studio/video` |
+| `/app/3d` | `/app/addons/studio/studio/threed` |
+| `/app/tts` | `/app/addons/studio/studio/tts` |
+| `/app/sound` | `/app/addons/studio/studio/sound` |
+| `/app/diarization` | `/app/addons/studio/studio/diarization` |
+| `/app/transform` | `/app/addons/studio/studio/transform` |
 | `/app/face` | `/app/addons/face/recognition` |
 | `/app/face/<model>` | `/app/addons/face/recognition?model=<model>` |
 | `/app/voice` | `/app/addons/voice/recognition` |
@@ -1697,16 +1719,57 @@ and keep the model, the query string and the hash:
 
 The two face links and the four voice links open their add-on only while it is installed and usable. Without
 it, they open the same pages in the core web UI, so nobody loses a page they can open today.
+The Studio and Talk links have no core page to fall back to: without the add-on they open
+the add-on page, which says the add-on is not available.
 A model id can hold `/` or `:`, which an add-on path segment refuses, so the model travels
-as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/recognition?model=org%2Fname`; the face links do the same).
+as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/recognition?model=org%2Fname`; the face links and the
+Studio links do the same).
 
-A link with a model (`/app/image/<model>`) opens `/app/studio/images/<model>`. The
-`/app/studio?tab=` links redirect to `/app/studio/<tab>`. A viewer without the `3d`,
+A link with a model (`/app/image/<model>`) opens `/app/addons/studio/studio/images?model=<model>`. The
+`/app/studio?tab=` links redirect to `/app/addons/studio/studio/<tab>`. A viewer without the `3d`,
 `audio_diarization` or `audio_transform` feature still lands on the app home, as before.
 
 The legacy switch (`LOCALAI_LEGACY_NAVIGATION`) restores the old sidebar and the Add-ons
 tab of the Build hub only. These redirects do not depend on it: with the switch on, the
-old generator links also open Studio.
+old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, Chat and
+the hubs; Studio and Talk are in the drawer, as add-ons.
+
+### The Studio add-on
+
+The Studio add-on (`studio`) is a packaged add-on. It is not shipped with LocalAI: install
+it from **Browse add-ons** in the drawer and start it. Once it is usable, it appears in
+the drawer and can be pinned. Until then the sidebar, the drawer and the Home `/studio`
+command do not list it, and the old Studio links open the add-on page, which says the
+add-on is not available.
+
+| Page | Path | Who sees it |
+|---|---|---|
+| Studio (main page) | `/app/addons/studio/studio` | users with the `addons` feature |
+
+The tab is the one path segment after the page: `/app/addons/studio/studio/images`,
+`.../video`, `.../threed`, `.../tts`, `.../sound`, `.../transform` and `.../diarization`.
+The overview is the page without a tab. A model travels as `?model=<id>` and a result as
+`?work=<id>`. A tab whose feature is off for the user (`3d`, `audio_diarization`,
+`audio_transform`) is not listed.
+
+The pages call core routes with the signed-in user's own session (see "Core routes from
+add-ons"): `/v1/images/generations`, `/v1/images/upscale`, `/video`, `/3d/*`, `/tts`,
+`/v1/audio/speech`, `/v1/sound-generation`, `/audio/transformations`,
+`/v1/audio/diarization`, `/api/models/*`, `/api/resources` and `/api/operations`. The
+core keeps these routes and checks every call again, so the page never widens what a
+user may do. The history stays in the browser, under the same keys as before the move,
+so what a person made earlier is still there when the add-on is installed. The words are
+the `media` locale files of the web UI, in every language the web UI has.
+
+### The Talk add-on
+
+The Talk add-on (`talk`) is a packaged add-on, separate from Studio. Install it from
+**Browse add-ons** and start it. It adds the page `/app/addons/talk/talk` (main page) for
+users with the `addons` feature. The page opens a WebRTC session to a realtime pipeline
+through `/v1/realtime/calls` and reads the pipeline list from `/api/pipeline-models`, with
+the signed-in user's own session; the core keeps both routes. The page uses the MCP servers
+that the person added in the browser, the same list as Chat. The words are the English `talk` locale
+file of the web UI; other languages read the English text.
 
 ### The Voice add-on
 
@@ -1778,14 +1841,14 @@ a job that a tool started. See [Fine-tuning](../fine-tuning/#fine-tuning-is-an-a
 
 ### The drawer
 
-The drawer is a grid of tiles with a search box. The built-in tiles (Studio, Talk) come
+The drawer is a grid of tiles with a search box. The built-in tiles (none today) come
 first, then the installed add-ons by identifier. Each tile has a pin control, a real
 button with a name and a pressed state, so it works from the keyboard; a pinned tile also
 has buttons to move it earlier or later. Pinning a ninth add-on opens a dialog that asks
 the user to unpin one first. A running tile opens the add-on; every other tile opens a
 detail view (`/app/addons?detail=ID`) and never the main page, because the main page
 needs a live process. Administrators also see **Browse add-ons** and **Add a new add-on**.
-A caller without the `addons` feature sees only the built-in tiles, and the page does not
+A caller without the `addons` feature sees only the built-in tiles (none today), and the page does not
 call `GET /api/addons/apps` for that caller.
 
 The detail view shows the entry as described next, and the pages the add-on names in
@@ -2452,7 +2515,7 @@ that collides with host class names.
 
 ## First-party package and release channels
 
-The first-party add-ons (Tables, Voice, Face, Fine-tuning and Quantization) are each distributed as an OCI image of one platform for each
+The first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio and Talk) are each distributed as an OCI image of one platform for each
 supported operating system and architecture, joined by an image index. The host
 installs it as any other OCI package: it extracts layers into a private directory and
 starts the executable as a managed process. No container runtime runs the add-on.
@@ -2512,8 +2575,8 @@ backend image repository is refused.
 
 Every platform matrix lists four platforms: `linux/amd64` on `ubuntu-24.04`, `linux/arm64`
 on `ubuntu-24.04-arm`, `darwin/arm64` on `macos-14` and `darwin/amd64` on `macos-15-intel`.
-All of them are disabled for Voice, Face, fine-tuning and quantization until the native
-check of each passes. A test fails when a platform is enabled without a recorded check.
+Voice, Face, fine-tuning, quantization, Studio and Talk enable all four. A test fails when a
+platform is enabled without a recorded check.
 
 Each package also has a catalog template in `gallery/addons/<id>.yaml.tmpl`, so it can be
 listed in Browse add-ons once a maintainer renders and publishes its entries. See
