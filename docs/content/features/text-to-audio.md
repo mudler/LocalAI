@@ -1170,7 +1170,10 @@ tool call, multiple calls, or invalid arguments returns a request error. Expansi
 Cancellation propagates to model loading, text inference, and audio generation.
 
 In **Studio → Sound → Simple**, choose a **Prompt expansion model** before
-submitting. The list contains installed, enabled chat models. **Backend default**
+submitting. Sound uses the same model picker as Home, with search for longer
+model lists and keyboard navigation. The list contains installed, enabled chat
+models. You must explicitly choose a model or **Backend default**; opening or
+dismissing the picker does not select a model. **Backend default**
 omits `expansion_model` and uses the audio backend's existing prompt behavior.
 Sound remembers either choice in this browser, separately from your chat model.
 If a remembered model disappears or loses chat support, choose again.

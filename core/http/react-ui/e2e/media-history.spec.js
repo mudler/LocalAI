@@ -230,7 +230,8 @@ test.describe('Media History - Sound Generation', () => {
     await page.goto('/app/sound')
     await expect(page.getByRole('button', { name: 'test-sound-model' })).toBeVisible({ timeout: 10_000 })
 
-    await page.getByLabel('Prompt expansion model', { exact: true }).selectOption('__backend_default__')
+    await page.getByRole('button', { name: 'Prompt expansion model', exact: true }).click()
+    await page.getByRole('option', { name: 'Backend default', exact: true }).click()
     await page.locator('.textarea').first().fill('upbeat jazz')
     await page.locator('button[type="submit"]').click()
 
