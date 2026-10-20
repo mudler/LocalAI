@@ -74,13 +74,39 @@ loopback carrier with keys that are made at each start and never written to disk
 | Flag | Environment variable | Default | What it does |
 |---|---|---|---|
 | `--addons-enabled` | `LOCALAI_ADDONS_ENABLED` | `true` | Runs the addon owner. `--addons-enabled=false` turns it off completely: no owner starts, no addon runs, and every addon request is refused as unavailable. |
-| `--addons-ownership-mode` | `LOCALAI_ADDONS_OWNERSHIP_MODE` | `named-user` | `named-user` gives each account its own access. `local-owner` makes every caller share one owner. Any other value stops startup with an error. |
+| `--addons-ownership-mode` | `LOCALAI_ADDONS_OWNERSHIP_MODE` | `local-owner` when authentication is off, `named-user` when it is on | `named-user` gives each account its own access. `local-owner` makes every caller share one owner. A value you set always wins over the default. Any other value stops startup with an error. |
+| `--addons-official-library` | `LOCALAI_ADDONS_OFFICIAL_LIBRARY` | `true` | Registers the [official library](#the-official-library) on the first start. `--addons-official-library=false` does not register it. |
 
-`named-user` needs authentication. If authentication is off, the owner stays off and
-LocalAI logs a warning; it does not stop. To use addons without accounts, select
-`--addons-ownership-mode=local-owner` explicitly (see
-[Explicit local-owner mode](#explicit-local-owner-mode)). The mode is never chosen
-for you.
+`named-user` needs authentication. With authentication on and no mode set, LocalAI
+uses `named-user`. With authentication off there are no accounts, so LocalAI uses
+`local-owner` by default: every caller that can reach the server shares one owner and
+can install, run and remove add-ons. See
+[Explicit local-owner mode](#explicit-local-owner-mode) for what that means. To keep
+add-ons off on a server without authentication, set
+`--addons-enabled=false`, or set `--addons-ownership-mode=named-user`; with
+authentication off, `named-user` leaves the owner off and LocalAI logs a warning.
+
+## The official library
+
+On the first start, when the owner has no `sources.json` in the `addons` folder yet,
+LocalAI registers one library with the ID `official`. It is a YAML index of the
+first-party add-ons (Fine-tuning, Quantization, Voice and Face), kept in this
+repository at `gallery/addons/index.yaml` and read from the master branch:
+
+```
+https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/addons/index.yaml
+```
+
+The index has the same format as the other libraries (see
+[Catalog document and limits](#catalog-document-and-limits)). The library requires the
+signature of the add-on package workflow that runs on master, so a package that this
+workflow did not build and sign is refused at install.
+
+The first start writes `sources.json`, and from then on that file is the record of
+your choices. If you remove the `official` library (in the Add-ons page or through the
+source routes), it stays removed, and a `sources.json` you already have is never
+changed. To start without it, set `--addons-official-library=false` before the first
+start. To get it back, add a source with the URL above.
 
 ## Manifest
 
@@ -511,9 +537,9 @@ Forwarding instances construct no catalog or installer and never reconcile stora
 `AdminCheck` is mandatory on the owner and excluded from serialized settings.
 `Host` optionally sets compatibility; its zero value uses the current host and
 version-one contracts. `OwnershipMode` is `named-user` (the default when empty) or
-`local-owner`; see "Explicit local-owner mode" below. There are no CLI flags or
-runtime settings for addons: like the rest of `AddonConfig` it is startup-only
-configuration that the embedding host supplies, and every frontend of one
+`local-owner`; see "Explicit local-owner mode" below. `local-ai run` sets it from
+`--addons-ownership-mode`. Like the rest of `AddonConfig` it is startup-only
+configuration with no runtime setting, and every frontend of one
 deployment must use the same value.
 Application bootstrap starts enabled addon processes after durable reconciliation.
 
@@ -734,7 +760,7 @@ queries current account, credential, and feature state before dispatch. Missing 
 paused keys, revoked keys, expired sessions, and legacy synthetic identities deny access.
 The embedding host's permissive installation callback cannot override these checks when
 transport is enabled in the default named-user mode. Local-owner HTTP access exists only
-when the deployment sets `OwnershipMode: "local-owner"`; it is never inferred.
+when the deployment sets `OwnershipMode: "local-owner"`. A request never selects it; only the deployment does, and `local-ai run` does so by default when authentication is off.
 
 The carrier requires TLS 1.3, CA verification, and explicit certificate pins. It obtains
 a fresh random audience from the pinned owner before signing each request. Each owner
@@ -925,9 +951,12 @@ the file (a revocation is not undone) and the store accepts no further writes, r
 
 ### Explicit local-owner mode
 
-Set `AddonConfig.OwnershipMode` to `local-owner` to select this mode. It is the only way:
-a missing credential, an absent account database or an unknown value never selects it, and
-an unknown value fails startup. The owner logs a warning at startup that unauthenticated
+Set `--addons-ownership-mode=local-owner` (or `AddonConfig.OwnershipMode` in an embedding
+host) to select this mode. `local-ai run` also selects it by default when authentication
+is off and you set no mode. Nothing else selects it: a missing credential, an absent
+account database or an unknown value never does, and an unknown value fails startup.
+If you turn authentication on later, set the mode to `named-user` and move the data
+with `policy.MigrateMode` while stopped; the store refuses the other mode. The owner logs a warning at startup that unauthenticated
 callers share one authority and that any caller that can reach the port can confirm
 addon proposals.
 
