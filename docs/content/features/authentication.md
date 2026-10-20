@@ -151,6 +151,27 @@ LocalAI does not migrate, delete or pause anything when you enable
 authentication. Nothing moves the anonymous data to an account.
 {{% /notice %}}
 
+To keep the root storage area without moving it, name the account that owns it
+with `LOCALAI_AUTH_LEGACY_OWNER`. Requests authenticated as that account
+(session or one of its API keys) use the root storage area instead of a
+per-user one, so the collections made while auth was off stay visible and
+usable, and switching auth off again returns to the same data. The fine-tuning
+and quantization job endpoints answer that account as they answer without
+auth, with the jobs of every user. Every other account keeps its own storage
+area. The account is matched by e-mail, case-insensitively; treat the address
+like `LOCALAI_ADMIN_EMAIL` and register it before anyone else can. Legacy API
+keys (`LOCALAI_API_KEY`) are not the owner.
+
+```bash
+LOCALAI_AUTH=true \
+LOCALAI_ADMIN_EMAIL=owner@example.com \
+LOCALAI_AUTH_LEGACY_OWNER=owner@example.com \
+LOCALAI_REGISTRATION_MODE=invite \
+local-ai run
+```
+
+Without `LOCALAI_AUTH_LEGACY_OWNER`, or for any other account, the steps below apply.
+
 Before switching an existing instance:
 
 1. Switch off the triggers and Telegram bindings you want to keep, while auth is still off.
@@ -197,6 +218,7 @@ trigger and the binding stay, and work again when the feature is given back.
 | `LOCALAI_OIDC_CLIENT_SECRET` | | OIDC Client Secret |
 | `LOCALAI_BASE_URL` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) |
 | `LOCALAI_ADMIN_EMAIL` | | Email address to auto-promote to admin role on login |
+| `LOCALAI_AUTH_LEGACY_OWNER` | | Email address of the account that keeps the root storage area (data created while auth was off) |
 | `LOCALAI_REGISTRATION_MODE` | `approval` | Registration mode: `open`, `approval`, or `invite` |
 | `LOCALAI_DISABLE_LOCAL_AUTH` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only deployments) |
 

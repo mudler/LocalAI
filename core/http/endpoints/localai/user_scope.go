@@ -9,13 +9,10 @@ import (
 )
 
 // getUserID extracts the scoped user ID from the request context.
-// Returns empty string when auth is not active (backward compat).
+// Returns empty string when auth is not active (backward compat) and for the
+// legacy owner (LOCALAI_AUTH_LEGACY_OWNER), who keeps the root storage area.
 func getUserID(c echo.Context) string {
-	user := auth.GetUser(c)
-	if user == nil {
-		return ""
-	}
-	return user.ID
+	return auth.GetStorageUserID(c)
 }
 
 // decodedParam returns the named path parameter, URL-decoding it.
