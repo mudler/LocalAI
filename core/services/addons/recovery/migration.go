@@ -35,6 +35,13 @@ func formatChanged(prev, next packages.PackageReceipt) bool {
 	return next.Manifest.DataFormat.Max != prev.Manifest.DataFormat.Max
 }
 
+// FormatChanged reports whether next would migrate the data that prev wrote.
+// A caller that cannot take a backup first (a reinstall has no running
+// generation to stop) must refuse such a package rather than migrate unbacked.
+func FormatChanged(prev, next packages.PackageReceipt) bool {
+	return prev.Manifest.ID != "" && formatChanged(prev, next)
+}
+
 // migrationState reads the status file the add-on writes while it migrates.
 // The bool is false when it wrote none.
 func (r *Recovery) migrationState(addonID string) (string, string, bool) {

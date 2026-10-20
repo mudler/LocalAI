@@ -364,6 +364,14 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok && recovery.CheckCompatible(last, staged.Receipt()) != nil {
 					return fail()
 				}
+				if cmd.Action != "upgrade" {
+					// A reinstall has no running generation to back up, and
+					// the candidate would migrate the retained data when it
+					// starts. Only an upgrade takes a verified backup first.
+					if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok && recovery.FormatChanged(last, staged.Receipt()) {
+						return fail()
+					}
+				}
 				if cmd.Action == "upgrade" {
 					return m.upgradeWithRecovery(ctx, cmd, op, &next, staged, fail)
 				}
