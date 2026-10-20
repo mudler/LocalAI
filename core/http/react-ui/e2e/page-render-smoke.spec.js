@@ -14,7 +14,7 @@ import { test, expect } from './coverage-fixtures.js'
 // not bounce to a gate redirect (/login or back to /app home).
 const PAGES = [
   ['/app/talk', 'Talk'],
-  ['/app/3d', '3D Generation'],
+  ['/app/studio/threed', '3D Generation'],
   ['/app/usage', 'Usage'],
   ['/app/traffic', 'Traffic overview'],
   ['/app/traffic/models', 'Traffic models'],

@@ -90,7 +90,7 @@ func (fx *mcpAutoFixture) chat(appConfig *config.ApplicationConfig, db *gorm.DB,
 	if db != nil {
 		dbs = append(dbs, db)
 	}
-	handler := ChatEndpoint(nil, nil, nil, appConfig, nil, nil, stopCompressor{}, dbs...)
+	handler := ChatEndpoint(nil, nil, nil, appConfig, nil, nil, nil, stopCompressor{}, dbs...)
 	Expect(handler(c)).To(MatchError(ContainSubstring(errStopAfterTools.Error())))
 
 	var names []string

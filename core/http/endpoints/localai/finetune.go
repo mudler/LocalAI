@@ -13,7 +13,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/finetune"
 )
@@ -276,51 +275,12 @@ func DownloadExportedModelEndpoint(ftService *finetune.FineTuneService) echo.Han
 // ListFineTuneBackendsEndpoint returns installed backends tagged with "fine-tuning".
 func ListFineTuneBackendsEndpoint(appConfig *config.ApplicationConfig, clusterCapabilities ClusterCapabilityProvider, clusterInstalled ClusterInstalledProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		capabilities := ResolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
-		installed := resolveClusterInstalled(c.Request().Context(), clusterInstalled)
-		backends, err := gallery.AvailableBackendsForCapabilities(appConfig.BackendGalleries, appConfig.SystemState, capabilities)
+		result, err := listTaggedBackends(c.Request().Context(), appConfig, clusterCapabilities, clusterInstalled, "fine-tuning")
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "failed to list backends: " + err.Error(),
 			})
 		}
-
-		type backendInfo struct {
-			Name        string   `json:"name"`
-			Description string   `json:"description,omitempty"`
-			Tags        []string `json:"tags,omitempty"`
-		}
-
-		var result []backendInfo
-		for _, b := range backends {
-			if !installedInCluster(b, installed) {
-				continue
-			}
-			hasTag := false
-			for _, t := range b.Tags {
-				if strings.EqualFold(t, "fine-tuning") {
-					hasTag = true
-					break
-				}
-			}
-			if !hasTag {
-				continue
-			}
-			name := b.Name
-			if b.Alias != "" {
-				name = b.Alias
-			}
-			result = append(result, backendInfo{
-				Name:        name,
-				Description: b.Description,
-				Tags:        b.Tags,
-			})
-		}
-
-		if result == nil {
-			result = []backendInfo{}
-		}
-
 		return c.JSON(http.StatusOK, result)
 	}
 }

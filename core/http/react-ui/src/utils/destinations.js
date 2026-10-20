@@ -2,6 +2,7 @@
 // on what exists and who may see it. Each hub is one destination, opening on
 // its overview; it is listed only when the viewer can see a tab in it.
 import { hubs, hubEntryPath } from '../components/hub/hubConfig'
+import { primaryDestinations, visiblePrimary } from './navigationModel.js'
 
 export const topDestinations = [
   { path: '/app', icon: 'home', labelKey: 'items.home' },
@@ -31,6 +32,19 @@ export function destinationsFor(auth) {
   return [
     ...topDestinations.filter(i => visible(i, auth)),
     ...createDestinations.filter(i => visible(i, auth)),
+    ...hubItems,
+  ]
+}
+
+// The four-item layout: Home, then Chat, Models, Add-ons and Settings, then the hubs.
+export function destinationsForNavigation(auth) {
+  const hubItems = hubs.flatMap(hub => {
+    const path = hubEntryPath(hub, auth)
+    return path ? [{ path, icon: hub.icon, labelKey: hub.titleKey }] : []
+  })
+  return [
+    ...topDestinations.filter(i => i.path === '/app'),
+    ...visiblePrimary(primaryDestinations, auth),
     ...hubItems,
   ]
 }

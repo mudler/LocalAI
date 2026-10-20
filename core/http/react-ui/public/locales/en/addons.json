@@ -1,0 +1,526 @@
+{
+  "actions": {
+    "blocked": "An earlier action on this add-on is not confirmed yet. Check its status or dismiss it first.",
+    "checkStatus": "Check status",
+    "dismiss": "Dismiss",
+    "failed": "The owner did not complete the action. Nothing was changed. Try again to start a new attempt.",
+    "notApplied": "The owner reported the action as done, but the add-on did not change. Try again to start a new attempt.",
+    "unknown": "The owner did not confirm the action yet. It may still be applied. Check its status, or dismiss it before you start another action."
+  },
+  "approval": {
+    "title": "Approval needed",
+    "from": "From {{addon}}",
+    "loading": "Loading the request",
+    "failed": "This request is not available.",
+    "rejected": "The request could not be completed. Check its state and try again.",
+    "changes": "Changes",
+    "expires": "Expires",
+    "state": "State",
+    "expired": "This request has expired. Ask for it again.",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "close": "Close",
+    "states": {
+      "pending": "Waiting for your decision",
+      "applied": "Applied",
+      "cancelled": "Cancelled",
+      "expired": "Expired",
+      "executing": "Applying",
+      "rejected": "Rejected",
+      "outcome-unknown": "Outcome unknown",
+      "abandoned-unknown": "Outcome unknown",
+      "unknown": "Unknown"
+    }
+  },
+  "apps": {
+    "emptyBody": "When an administrator installs and enables an add-on, it appears here.",
+    "emptyTitle": "No apps yet",
+    "headless": "Runs in the background and has no page of its own.",
+    "listLabel": "Apps",
+    "loading": "Loading apps",
+    "manage": "Manage",
+    "open": "Open",
+    "stale": "The list could not be refreshed. What you see may be out of date.",
+    "start": "Start",
+    "stop": "Stop",
+    "toolsMore_one": "and {{count}} more",
+    "toolsMore_other": "and {{count}} more",
+    "tools_one": "{{count}} tool",
+    "tools_other": "{{count}} tools",
+    "version": "Version {{version}}",
+    "working": "Waiting for the owner to confirm."
+  },
+  "browse": {
+    "confirmBody": "Version {{version}} from the library {{library}} will be downloaded and verified before it is installed.",
+    "confirmNotEnabled": "Installing does not start the add-on. You enable it as a separate step.",
+    "confirmTitle": "Install {{name}}?",
+    "details": "Details",
+    "detailsLead": "Library entry for {{id}}",
+    "emptyBody": "Add a library on the Libraries tab, then refresh it.",
+    "emptyTitle": "No add-ons found",
+    "fromLibrary": "from {{library}}",
+    "install": "Install",
+    "installedDetail": "Version {{version}}, generation {{generation}}",
+    "installedNotEnabled": "Installed. It is not enabled: enable it on the Installed tab when you are ready.",
+    "installedOther": "Installed {{version}} (another version)",
+    "installedSame": "Installed {{version}}",
+    "installedState": "Installed",
+    "installing": "Installing",
+    "search": "Search the libraries"
+  },
+  "catalog": {
+    "allLibraries": "All libraries",
+    "cancel": "Cancel",
+    "close": "Close",
+    "count_one": "{{count}} result",
+    "count_other": "{{count}} results",
+    "emptyBody": "This list is empty.",
+    "emptyFiltered": "Nothing matches the search. Change the words or the library.",
+    "emptyTitle": "Nothing to show",
+    "libraries": "Libraries",
+    "loading": "Loading results",
+    "next": "Next page",
+    "previous": "Previous page",
+    "retry": "Try again",
+    "search": "Search"
+  },
+  "drawer": {
+    "add": "Add a new add-on",
+    "browse": "Browse add-ons",
+    "builtinDetail": "This add-on ships with LocalAI.",
+    "close": "Close",
+    "limitBody": "The sidebar shows at most eight pinned add-ons. Unpin one first.",
+    "limitTitle": "Eight add-ons are pinned",
+    "moveEarlier": "Move {{name}} earlier",
+    "moveLater": "Move {{name}} later",
+    "pin": "Pin {{name}}",
+    "running": "Running",
+    "search": "Search add-ons",
+    "status": {
+      "failed": "failed",
+      "starting": "starting"
+    },
+    "stopped": "Stopped",
+    "unpin": "Unpin {{name}}"
+  },
+  "errors": {
+    "auth": "You are signed out. Sign in again.",
+    "denied": "The server refused this. You may not have permission, or the add-on changed. The list was refreshed.",
+    "invalid": "The server could not accept this request.",
+    "network": "The server could not be reached. Check your connection.",
+    "unavailable": "The add-on owner is not available right now. Try again in a moment.",
+    "unknownOutcome": "The result could not be confirmed. Check the status before you try again."
+  },
+  "installed": {
+    "disable": "Disable",
+    "disabled": "Disabled",
+    "emptyBody": "Install an add-on from the Browse tab.",
+    "emptyTitle": "Nothing is installed",
+    "enable": "Enable",
+    "enabled": "Enabled",
+    "generation": "Generation {{generation}}",
+    "listLabel": "Installed add-ons",
+    "loading": "Loading installed add-ons",
+    "manage": "Details",
+    "manageLead": "Management view of {{id}}",
+    "missing": "{{id}} is not installed.",
+    "uninstall": "Uninstall",
+    "uninstallBody": "The add-on stops and its package is removed from use. Its data, identity and grants are kept, so installing it again picks them up. Nothing is deleted.",
+    "uninstallTitle": "Uninstall {{name}}?"
+  },
+  "libraries": {
+    "add": "Add a library",
+    "addTitle": "Add a library",
+    "disabled": "Disabled",
+    "edit": "Edit",
+    "editTitle": "Edit {{name}}",
+    "emptyBody": "Add a library to browse and install add-ons.",
+    "emptyTitle": "No libraries",
+    "enabled": "Enabled",
+    "errors": {
+      "id": "Use lowercase letters, digits and hyphens, starting with a letter.",
+      "name": "Enter a name of up to 256 characters.",
+      "reference": "This does not look like a reference name. Use the name of a configured credential, not the secret.",
+      "required": "Required when a signature is required.",
+      "url": "Enter an http or https address.",
+      "urlCredentials": "The address must not contain a user name or password.",
+      "urlQuery": "The address must not contain a query string or fragment."
+    },
+    "fields": {
+      "enabled": "Enabled",
+      "id": "Identifier",
+      "identity": "Signer identity",
+      "issuer": "Signer issuer",
+      "name": "Name",
+      "reference": "Credential reference (optional)",
+      "requireSignature": "Require a signature",
+      "url": "Catalog URL"
+    },
+    "hints": {
+      "id": "Lowercase letters, digits and hyphens. It cannot change later.",
+      "reference": "The name of a credential the owner configured. Never paste a token or password here.",
+      "url": "An https address without credentials or a query string."
+    },
+    "lastRefresh": "Refreshed {{when}}, {{count}} entries",
+    "lead": "A library is a catalog document that lists add-ons. Credentials are never typed here: a private library names a credential the owner configured.",
+    "listLabel": "Libraries",
+    "loading": "Loading libraries",
+    "notRefreshed": "Not refreshed yet",
+    "reference": "Credential reference: {{name}}",
+    "refresh": "Refresh",
+    "refreshFailed": "Last refresh failed",
+    "refreshed": "Refreshed {{name}}.",
+    "remove": "Remove",
+    "removeBody": "The library is removed from this list. Add-ons that were installed from it stay installed and keep running.",
+    "removeTitle": "Remove {{name}}?",
+    "removed": "Removed {{name}}.",
+    "save": "Save",
+    "saved": "Saved {{name}}."
+  },
+  "manage": {
+    "api": "Add-on API",
+    "atLeast": "or more",
+    "compatibility": "Compatibility",
+    "data": "Retained data",
+    "dataFormat": "Data format",
+    "desired": "Wanted state",
+    "failedNote_one": "The process is not serving after {{count}} restart attempt.",
+    "failedNote_other": "The process is not serving after {{count}} restart attempts.",
+    "generations": "Retained generations",
+    "hasUI": "Has pages",
+    "headless": "Headless, no pages",
+    "health": "Health",
+    "host": "Host API",
+    "interface": "Interface",
+    "logs": "Logs",
+    "logsNone": "The output of add-on processes is not collected in this release. Health and restart attempts above are what the owner can report.",
+    "observed": "Observed state",
+    "protocol": "Protocol",
+    "restarts": "Restart attempts",
+    "storage": "Storage",
+    "tools": "Tools",
+    "trust": "Trust"
+  },
+  "page": {
+    "back": "Back to add-ons",
+    "body": "This build cannot open add-on pages yet. The add-on keeps running.",
+    "title": "This page is not available yet"
+  },
+  "shell": {
+    "loading": "Loading {{title}}",
+    "unavailable": {
+      "title": "This add-on is not available"
+    },
+    "reasons": {
+      "disabled": "The add-on was stopped. Start it again from the Add-ons page.",
+      "removed": "The add-on is not installed, or you can no longer use it.",
+      "failed": "The add-on stopped responding. It is restarted automatically; reload to try again.",
+      "updated": "The add-on was updated. Reload to use the new version.",
+      "no-ui": "This version of the add-on has no pages.",
+      "incompatible_sdk": "This add-on needs another version of the LocalAI interface than this page provides.",
+      "untrusted_asset": "The add-on pointed at a file outside its own package, so it was not loaded.",
+      "invalid_module": "The add-on does not follow the interface contract, so it was not loaded.",
+      "import_failed": "The add-on could not be loaded.",
+      "create_failed": "The add-on failed while it started.",
+      "timeout": "The add-on took too long to load.",
+      "css_failed": "The style sheet of the add-on could not be loaded.",
+      "aborted": "The load was canceled."
+    },
+    "reload": "Reload",
+    "reloading": "Reloading",
+    "stale": "{{title}} changed while you were editing. Your edits are still on screen but cannot be saved. Copy what you need, then reload.",
+    "discard": {
+      "title": "Discard unsaved changes?",
+      "body": "Reloading replaces this page, and the edits you have not saved are lost.",
+      "confirm": "Discard and reload",
+      "cancel": "Keep editing"
+    },
+    "leave": {
+      "title": "Leave this page?",
+      "body": "You have edits that are not saved. They are lost if you leave.",
+      "leave": "Leave",
+      "stay": "Stay"
+    },
+    "pageMissing": {
+      "title": "This page does not exist",
+      "body": "{{title}} has no page called \"{{page}}\"."
+    },
+    "noComponent": {
+      "title": "Nothing to show here",
+      "body": "This add-on adds actions to other pages and has no page of its own."
+    },
+    "error": {
+      "title": "This add-on had a problem",
+      "text": "It failed while drawing this page. The rest of LocalAI is not affected.",
+      "retry": "Try again"
+    },
+    "layer": {
+      "close": "Close"
+    }
+  },
+  "slots": {
+    "unavailable": "Unavailable",
+    "composerMore": "Add-on actions",
+    "actionFailed": "{{label}} could not be completed."
+  },
+  "state": {
+    "failed": "Failed",
+    "label": "State: {{state}}",
+    "running": "Running",
+    "starting": "Starting",
+    "stopped": "Stopped",
+    "update-pending": "Update pending"
+  },
+  "supporting": "Apps your owner runs for you, and the libraries they come from.",
+  "tabs": {
+    "apps": "Apps",
+    "browse": "Browse",
+    "installed": "Installed",
+    "label": "Add-ons sections",
+    "libraries": "Libraries"
+  },
+  "title": "Add-ons",
+  "trust": {
+    "channel": "Channel",
+    "digest": "Digest",
+    "digestOnly": "Digest only",
+    "identity": "Signer identity",
+    "issuer": "Signer issuer",
+    "library": "Library",
+    "mode": {
+      "digest": "Digest checked",
+      "signed": "Signed and digest checked"
+    },
+    "platform": "Platform",
+    "selection": "Selected as",
+    "signatureRequired": "Signature required",
+    "verification": "Verification",
+    "version": "Version"
+  },
+  "proposal": {
+    "title": "Add-on change",
+    "loading": "Loading the request",
+    "withdrawn": "This request is no longer available to you.",
+    "unavailable": "This request is not available.",
+    "addon": "Add-on",
+    "database": "Database",
+    "operation": "Operation",
+    "effects": "Changes",
+    "sample": "Preview from the host",
+    "blocked": "Another change on this database is not settled yet. Settle it first.",
+    "expired": "This request has expired. Ask for it again.",
+    "rejectedState": "The data changed or the request was refused. Nothing was applied. Ask again for a new preview.",
+    "unknown": "The outcome is not known yet. It may have been applied. Check its status before you ask again.",
+    "refresh": "Check status"
+  },
+  "artifact": {
+    "title": "File ready",
+    "loading": "Loading the file",
+    "withdrawn": "This file is no longer available to you.",
+    "unavailable": "This file is not available.",
+    "name": "File",
+    "size": "Size",
+    "expires": "Available until",
+    "state": "State",
+    "preparing": "The file is being prepared.",
+    "failed": "The file could not be completed. Nothing can be downloaded. Export again.",
+    "expired": "This file has expired and was removed. The data it came from is unchanged. Export again.",
+    "download": "Download",
+    "states": {
+      "loading": "Loading",
+      "withdrawn": "Unavailable",
+      "unavailable": "Unavailable",
+      "transferring": "Preparing",
+      "complete": "Ready",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "expired": "Expired",
+      "unknown": "Unknown"
+    },
+    "downloadDenied": "This file can no longer be downloaded. Your access to its source changed or the file expired.",
+    "downloadFailed": "The download did not finish. Try again."
+  },
+  "recovery": {
+    "title": "Data recovery",
+    "loading": "Reading the recovery state",
+    "done": "Done.",
+    "backup": "Back up now",
+    "backingUp": "Backing up…",
+    "backedUp": "Backup {{id}} was made and verified.",
+    "retention": "Keeps the newest {{count}} backups. The newest verified backup and the recovery copy of an upgrade are never removed.",
+    "none": "There is no backup of this add-on's data yet.",
+    "listLabel": "Backups of this add-on",
+    "verify": "Verify",
+    "verified": "Backup {{id}} was read completely and passed.",
+    "restore": "Restore",
+    "restored": "The backup was restored.",
+    "delete": "Delete",
+    "deleted": "Backup {{id}} was deleted.",
+    "pinned": "Recovery copy",
+    "pinnedWhy": "This is the recovery copy of the last upgrade and is kept until a newer verified backup exists.",
+    "lastRestore": "Last restore, {{when}}",
+    "purge": "Purge…",
+    "purged": "The retained data was purged.",
+    "purgeLead": "Purging removes retained data of this add-on for good. It is not the deletion of a database and not an uninstall.",
+    "purgeTitle": "Purge retained data",
+    "purgeBody": "This removes what you select below and cannot be undone. The add-on must be uninstalled or disabled.",
+    "scope": "What to remove",
+    "scopeData": "The data and every share of this add-on",
+    "scopeBackups": "All backups ({{count}})",
+    "scopeCopies": "Data copies that restores set aside ({{count}})",
+    "scopeNone": "Select what to remove.",
+    "restoreTitle": "Restore a backup",
+    "restoreBody": "The data goes back to {{when}}.",
+    "warnLost": "Changes made after the backup are lost. The add-on's data is replaced.",
+    "warnAccess": "Shares are checked again: nobody gets back access that was taken away since the backup, or whose account is gone.",
+    "warnProposals": "Proposals that were waiting are cancelled. Operations with an unknown outcome are looked up and never applied again.",
+    "warnCopy": "The data that is replaced is kept as a recovery copy until you purge it.",
+    "stopFirst": "Stop the add-on first: disable it, then restore.",
+    "mapping": "This backup was made in local-owner mode. Account ID that takes its data",
+    "typeToConfirm": "Type {{id}} to confirm",
+    "typeToConfirmLabel": "Type the add-on ID to confirm",
+    "phase": "Step {{index}} of {{total}}: {{step}}",
+    "steps": {
+      "begin": "starting",
+      "backed-up": "backed up",
+      "staged": "package published",
+      "migrating": "migrating the data",
+      "healthy": "checked",
+      "publishing": "publishing"
+    },
+    "state": {
+      "ready": "Ready",
+      "upgrading": "Upgrading",
+      "restoring": "Restoring",
+      "needs-recovery": "Needs recovery",
+      "purging": "Purging"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "This add-on's data needs recovery",
+        "body": "The add-on is not started. The previous package is kept, but it cannot read the data a failed migration began to change.",
+        "hint": "Restore the verified recovery copy below, or purge the data.",
+        "hintNone": "No verified backup is available. Purge the data to start again."
+      },
+      "upgrading": {
+        "title": "An upgrade is in progress",
+        "body": "The add-on is stopped while its data is backed up and migrated."
+      },
+      "restoring": {
+        "title": "A restore is in progress",
+        "body": "The add-on stays stopped until the restore is finished."
+      },
+      "purging": {
+        "title": "A purge is in progress",
+        "body": "The retained data is being removed."
+      }
+    },
+    "verification": {
+      "verified": "Verified",
+      "failed": "Failed verification",
+      "unverified": "Not verified yet"
+    },
+    "reason": {
+      "manual": "Made by you",
+      "upgrade": "Before an upgrade",
+      "restore": "Before a restore"
+    },
+    "errors": {
+      "needs_recovery": "The data needs recovery first: restore a verified backup or purge it.",
+      "addon_running": "Stop the add-on first.",
+      "busy": "Another recovery operation is running for this add-on.",
+      "backup_not_found": "That backup does not exist any more.",
+      "not_installed": "The add-on is not installed.",
+      "backup_corrupt": "The backup failed verification and was not used.",
+      "incompatible_format": "The data format does not fit the installed package.",
+      "identity_changed": "The installed package comes from another trusted source than the data.",
+      "mapping_required": "Name the account that takes the data of this backup.",
+      "mapping_invalid": "That account is not valid.",
+      "downgrade_unsupported": "Data of named users cannot be restored in local-owner mode.",
+      "sole_recovery_copy": "This is the only verified recovery copy and is kept.",
+      "confirmation_mismatch": "The typed ID does not match.",
+      "operation_conflict": "This operation ID was used for another request. Nothing was done.",
+      "invalid_request": "The request cannot be carried out as given.",
+      "insufficient_storage": "There is not enough free storage for a backup. Nothing was changed.",
+      "unknownOutcome": "The outcome is not known. Read the state again: the same action is not sent twice.",
+      "auth": "Sign in again.",
+      "denied": "Only administrators can do this, from their own browser session.",
+      "network": "The owner could not be reached.",
+      "unavailable": "The owner is not available."
+    }
+  },
+  "updates": {
+    "title": "Updates",
+    "checkNow": "Check for updates",
+    "checking": "Checking...",
+    "checkedAt": "Checked {{when}}",
+    "neverChecked": "Not checked yet",
+    "lastSuccess": "Library last read {{when}}",
+    "stale": "This answer may be out of date. Check again.",
+    "throttled": "A check ran moments ago. This is its result.",
+    "badge": {
+      "available": "Update {{version}}",
+      "incompatible": "Update {{version}} not compatible",
+      "failed": "Update check failed",
+      "integrity": "Integrity error"
+    },
+    "state": {
+      "unknown": "The update status is not known. Check for updates to ask the library.",
+      "up-to-date": "This add-on is up to date.",
+      "update-available": "Version {{version}} is available.",
+      "incompatible": "Version {{version}} cannot run on this host. It is not offered.",
+      "check-failed": "The update check failed, so it is not known whether an update exists.",
+      "integrity-error": "The library lists the installed version with different contents. Nothing was changed and no update is offered."
+    },
+    "reason": {
+      "platform": "The platform is not offered",
+      "host-version": "The host version does not fit",
+      "api-version": "The add-on API does not fit",
+      "protocol-version": "The protocol version does not fit",
+      "sdk-version": "The interface SDK version does not fit",
+      "data-format": "The data format does not fit",
+      "digest-changed": "The digest of this version changed"
+    },
+    "class": {
+      "source-unavailable": "The library cannot be reached.",
+      "refresh-failed": "The library could not be read.",
+      "credential-unavailable": "The credential of the library is not available.",
+      "not-listed": "The library no longer lists this add-on.",
+      "ambiguous-release": "The library lists this release more than once.",
+      "canceled": "The check was canceled.",
+      "internal": "The check failed."
+    },
+    "installed": "Installed",
+    "candidate": "Available",
+    "reasons": "Why it does not fit",
+    "upgrade": "Upgrade",
+    "confirm": {
+      "title": "Upgrade {{name}} to {{version}}?",
+      "body": "The add-on stops while its data is backed up and migrated, then the new version starts. If the new version does not start, the current version keeps running.",
+      "data": "Its data is backed up before anything changes.",
+      "action": "Upgrade",
+      "library": "Library",
+      "channel": "Channel",
+      "from": "From",
+      "to": "To"
+    },
+    "progress": "Upgrading {{name}}. Its data is backed up first.",
+    "done": "Upgraded to version {{version}}.",
+    "browseUpdate": "Update {{version}} is available. Manage it in Installed.",
+    "errors": {
+      "stale_installed": "The installed version changed since it was checked. Check for updates again.",
+      "candidate_changed": "The library no longer offers the version you checked. Check for updates again.",
+      "upgrade_conflict": "This upgrade is already recorded under another operation. It was not applied twice.",
+      "incompatible": "The new version is not compatible with this host. Nothing was changed.",
+      "integrity_error": "The library lists the installed version with different contents. Nothing was changed.",
+      "upgrade_failed": "The upgrade did not complete and the installed version is kept. You can try again.",
+      "operation_conflict": "The operation does not fit the current state. Nothing was applied.",
+      "check_failed": "The library could not be read, so the upgrade was not started. Nothing was changed.",
+      "unknownOutcome": "The result of the upgrade is not known. Read its status again; do not start another.",
+      "auth": "Sign in again to continue.",
+      "denied": "Only an administrator can do this from their own browser session.",
+      "network": "The network is not reachable.",
+      "unavailable": "The add-on owner is not available. Try again."
+    }
+  }
+}

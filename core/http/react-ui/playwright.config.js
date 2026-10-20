@@ -2,6 +2,17 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // The add-on and Tables specs need a server with authentication, a real
+  // add-on owner and a ready file the matching runner passes in an ADDONS_*
+  // variable; each reads it when the file loads, so the default run must not
+  // load them. Every one has its own config (playwright.<suite>.config.js) and
+  // is started by scripts/addons/*.sh.
+  testIgnore: [
+    '**/addons-foundation.spec.js', '**/addons-gallery.spec.js', '**/addons-proposals.spec.js',
+    '**/addons-recovery.spec.js', '**/addons-runtime.spec.js', '**/addons-slots.spec.js',
+    '**/addons-upgrade.spec.js', '**/tables-acceptance.spec.js', '**/tables-artifacts.spec.js',
+    '**/tables-ui.spec.js',
+  ],
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   // TEMPORARY: cap parallelism. Playwright's default (cores/2) oversubscribes

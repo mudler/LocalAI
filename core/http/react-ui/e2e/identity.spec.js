@@ -23,8 +23,8 @@ test.describe('Voices: Speakers', () => {
     await expect(page.getByTestId('registry-note')).toContainText('kept in this browser')
     await expect(page.getByTestId('registry-note')).toContainText('no list call')
     await expect(page.getByTestId('identify-go')).toBeDisabled()
-    // The Build bar keeps the Voices tab lit and has no second row.
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="voices"]')).toHaveAttribute('aria-current', 'page')
+    // The Build bar has no Voices tab and no second row.
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="voices"]')).toHaveCount(0)
     await expect(page.locator('.hub-subnav')).toHaveCount(0)
   })
 

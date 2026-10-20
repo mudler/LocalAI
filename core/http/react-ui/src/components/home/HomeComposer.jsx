@@ -34,13 +34,14 @@ function Marked({ text, upto }) {
 //   onPaste, onKeyDownExtra (return true to take the key), fileAccept, rows,
 //   onDictateError (message for a failed dictation, e.g. a toast),
 //   testIds and class names for the pieces tests and the thread reach for
+//   extras       a node drawn after the attach buttons (the add-on slot)
 export default function HomeComposer({
   message, onMessage, onSubmit, canSend, sending, sendTitle, textareaRef,
   picker, mcp, chips, files, onRemoveFile, onAttach,
   placeholder, slashContext, onRunAction, slash,
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
   fileAccept = '.txt,.md,.pdf', rows = 3, strictEnter = false, testId = 'home-composer',
-  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError,
+  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras,
 }) {
   const { t } = useTranslation('home')
   const imageRef = useRef(null)
@@ -215,6 +216,7 @@ export default function HomeComposer({
             onText={(text) => onMessage(message.trim() ? `${message.trimEnd()} ${text}` : text)}
             onError={onDictateError}
           />
+          {extras}
         </div>
         <span className="home-input-hint">{hint || t('input.enterHint')}</span>
         {streaming ? (

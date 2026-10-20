@@ -1,0 +1,507 @@
+{
+  "actions": {
+    "blocked": "Un'azione precedente su questo componente non è ancora confermata. Controlla prima il suo stato o ignorala.",
+    "checkStatus": "Controlla lo stato",
+    "dismiss": "Ignora",
+    "failed": "Il proprietario non ha completato l'azione. Nulla è stato modificato. Riprova per iniziare un nuovo tentativo.",
+    "notApplied": "Il proprietario ha segnalato l'azione come completata, ma il componente non è cambiato. Riprova.",
+    "unknown": "Il proprietario non ha ancora confermato l'azione. Potrebbe ancora essere applicata. Controlla lo stato o ignorala prima di avviare un'altra azione."
+  },
+  "approval": {
+    "title": "Serve la tua approvazione",
+    "from": "Da {{addon}}",
+    "loading": "Caricamento della richiesta",
+    "failed": "Questa richiesta non è disponibile.",
+    "rejected": "Non è stato possibile completare la richiesta. Controlla il suo stato e riprova.",
+    "changes": "Modifiche",
+    "expires": "Scade",
+    "state": "Stato",
+    "expired": "Questa richiesta è scaduta. Chiedila di nuovo.",
+    "confirm": "Conferma",
+    "cancel": "Annulla",
+    "close": "Chiudi",
+    "states": {
+      "pending": "In attesa della tua decisione",
+      "applied": "Applicata",
+      "cancelled": "Annullata",
+      "expired": "Scaduta",
+      "executing": "In applicazione",
+      "rejected": "Rifiutata",
+      "outcome-unknown": "Esito sconosciuto",
+      "abandoned-unknown": "Esito sconosciuto",
+      "unknown": "Sconosciuto"
+    }
+  },
+  "apps": {
+    "emptyBody": "Quando un amministratore installa e abilita un componente, compare qui.",
+    "emptyTitle": "Ancora nessuna app",
+    "headless": "Gira in background e non ha una pagina propria.",
+    "listLabel": "App",
+    "loading": "Caricamento delle app",
+    "manage": "Gestisci",
+    "open": "Apri",
+    "stale": "Non è stato possibile aggiornare l'elenco. Quanto vedi potrebbe non essere aggiornato.",
+    "start": "Avvia",
+    "stop": "Ferma",
+    "toolsMore_one": "e altri {{count}}",
+    "toolsMore_other": "e altri {{count}}",
+    "tools_one": "{{count}} strumento",
+    "tools_other": "{{count}} strumenti",
+    "version": "Versione {{version}}",
+    "working": "In attesa della conferma del proprietario."
+  },
+  "browse": {
+    "confirmBody": "La versione {{version}} della libreria {{library}} verrà scaricata e verificata prima dell'installazione.",
+    "confirmNotEnabled": "L'installazione non avvia il componente. Lo abiliti in un passaggio separato.",
+    "confirmTitle": "Installare {{name}}?",
+    "details": "Dettagli",
+    "detailsLead": "Voce di libreria per {{id}}",
+    "emptyBody": "Aggiungi una libreria nella scheda Librerie, poi aggiornala.",
+    "emptyTitle": "Nessun componente trovato",
+    "fromLibrary": "da {{library}}",
+    "install": "Installa",
+    "installedDetail": "Versione {{version}}, generazione {{generation}}",
+    "installedNotEnabled": "Installato. Non è abilitato: abilitalo nella scheda Installati quando sei pronto.",
+    "installedOther": "Installato {{version}} (altra versione)",
+    "installedSame": "Installato {{version}}",
+    "installedState": "Installato",
+    "installing": "Installazione",
+    "search": "Cerca nelle librerie"
+  },
+  "catalog": {
+    "allLibraries": "Tutte le librerie",
+    "cancel": "Annulla",
+    "close": "Chiudi",
+    "count_one": "{{count}} risultato",
+    "count_other": "{{count}} risultati",
+    "emptyBody": "Questo elenco è vuoto.",
+    "emptyFiltered": "Nessun risultato per la ricerca. Cambia le parole o la libreria.",
+    "emptyTitle": "Niente da mostrare",
+    "libraries": "Librerie",
+    "loading": "Caricamento dei risultati",
+    "next": "Pagina successiva",
+    "previous": "Pagina precedente",
+    "retry": "Riprova",
+    "search": "Cerca"
+  },
+  "errors": {
+    "auth": "Hai effettuato la disconnessione. Accedi di nuovo.",
+    "denied": "Il server ha rifiutato la richiesta. Potresti non avere il permesso, oppure il componente è cambiato. L'elenco è stato aggiornato.",
+    "invalid": "Il server non ha potuto accettare la richiesta.",
+    "network": "Impossibile raggiungere il server. Controlla la connessione.",
+    "unavailable": "Il proprietario del componente non è disponibile al momento. Riprova tra poco.",
+    "unknownOutcome": "Non è stato possibile confermare il risultato. Controlla lo stato prima di riprovare."
+  },
+  "installed": {
+    "disable": "Disabilita",
+    "disabled": "Disabilitato",
+    "emptyBody": "Installa un componente dalla scheda Sfoglia.",
+    "emptyTitle": "Nulla è installato",
+    "enable": "Abilita",
+    "enabled": "Abilitato",
+    "generation": "Generazione {{generation}}",
+    "listLabel": "Componenti installati",
+    "loading": "Caricamento dei componenti installati",
+    "manage": "Dettagli",
+    "manageLead": "Vista di gestione di {{id}}",
+    "missing": "{{id}} non è installato.",
+    "uninstall": "Disinstalla",
+    "uninstallBody": "Il componente si ferma e il suo pacchetto non viene più usato. I suoi dati, la sua identità e i suoi permessi vengono conservati, quindi reinstallarlo li ritrova. Nulla viene eliminato.",
+    "uninstallTitle": "Disinstallare {{name}}?"
+  },
+  "libraries": {
+    "add": "Aggiungi una libreria",
+    "addTitle": "Aggiungi una libreria",
+    "disabled": "Disabilitata",
+    "edit": "Modifica",
+    "editTitle": "Modifica {{name}}",
+    "emptyBody": "Aggiungi una libreria per sfogliare e installare componenti.",
+    "emptyTitle": "Nessuna libreria",
+    "enabled": "Abilitata",
+    "errors": {
+      "id": "Usa lettere minuscole, cifre e trattini, iniziando con una lettera.",
+      "name": "Inserisci un nome fino a 256 caratteri.",
+      "reference": "Non sembra un nome di riferimento. Usa il nome di una credenziale configurata, non il segreto.",
+      "required": "Obbligatorio quando è richiesta una firma.",
+      "url": "Inserisci un indirizzo http o https.",
+      "urlCredentials": "L'indirizzo non deve contenere nome utente o password.",
+      "urlQuery": "L'indirizzo non deve contenere una stringa di query o un frammento."
+    },
+    "fields": {
+      "enabled": "Abilitata",
+      "id": "Identificatore",
+      "identity": "Identità della firma",
+      "issuer": "Emittente della firma",
+      "name": "Nome",
+      "reference": "Riferimento credenziale (facoltativo)",
+      "requireSignature": "Richiedi una firma",
+      "url": "URL del catalogo"
+    },
+    "hints": {
+      "id": "Lettere minuscole, cifre e trattini. Non può cambiare in seguito.",
+      "reference": "Il nome di una credenziale configurata dal proprietario. Non incollare mai un token o una password qui.",
+      "url": "Un indirizzo https senza credenziali né stringa di query."
+    },
+    "lastRefresh": "Aggiornata {{when}}, {{count}} voci",
+    "lead": "Una libreria è un documento di catalogo che elenca componenti. Le credenziali non si digitano mai qui: una libreria privata indica una credenziale configurata dal proprietario.",
+    "listLabel": "Librerie",
+    "loading": "Caricamento delle librerie",
+    "notRefreshed": "Non ancora aggiornata",
+    "reference": "Riferimento credenziale: {{name}}",
+    "refresh": "Aggiorna",
+    "refreshFailed": "Ultimo aggiornamento non riuscito",
+    "refreshed": "{{name}} aggiornata.",
+    "remove": "Rimuovi",
+    "removeBody": "La libreria viene tolta da questo elenco. I componenti installati da essa restano installati e continuano a funzionare.",
+    "removeTitle": "Rimuovere {{name}}?",
+    "removed": "{{name}} rimossa.",
+    "save": "Salva",
+    "saved": "{{name}} salvata."
+  },
+  "manage": {
+    "api": "API del componente",
+    "atLeast": "o più",
+    "compatibility": "Compatibilità",
+    "data": "Dati conservati",
+    "dataFormat": "Formato dei dati",
+    "desired": "Stato voluto",
+    "failedNote_one": "Il processo non risponde dopo {{count}} tentativo di riavvio.",
+    "failedNote_other": "Il processo non risponde dopo {{count}} tentativi di riavvio.",
+    "generations": "Generazioni conservate",
+    "hasUI": "Ha delle pagine",
+    "headless": "Senza interfaccia, nessuna pagina",
+    "health": "Stato di salute",
+    "host": "API dell'host",
+    "interface": "Interfaccia",
+    "logs": "Log",
+    "logsNone": "L'output dei processi dei componenti non viene raccolto in questa versione. Stato di salute e tentativi di riavvio qui sopra sono ciò che il proprietario può riportare.",
+    "observed": "Stato osservato",
+    "protocol": "Protocollo",
+    "restarts": "Tentativi di riavvio",
+    "storage": "Archiviazione",
+    "tools": "Strumenti",
+    "trust": "Fiducia"
+  },
+  "page": {
+    "back": "Torna ai componenti aggiuntivi",
+    "body": "Questa versione non può ancora aprire le pagine dei componenti. Il componente continua a funzionare.",
+    "title": "Questa pagina non è ancora disponibile"
+  },
+  "shell": {
+    "loading": "Caricamento di {{title}}",
+    "unavailable": {
+      "title": "Questo componente aggiuntivo non è disponibile"
+    },
+    "reasons": {
+      "disabled": "Il componente aggiuntivo è stato fermato. Avvialo di nuovo dalla pagina dei componenti aggiuntivi.",
+      "removed": "Il componente aggiuntivo non è installato oppure non puoi più usarlo.",
+      "failed": "Il componente aggiuntivo non risponde più. Viene riavviato automaticamente; ricarica per riprovare.",
+      "updated": "Il componente aggiuntivo è stato aggiornato. Ricarica per usare la nuova versione.",
+      "no-ui": "Questa versione del componente aggiuntivo non ha pagine.",
+      "incompatible_sdk": "Questo componente aggiuntivo richiede una versione dell'interfaccia di LocalAI diversa da quella di questa pagina.",
+      "untrusted_asset": "Il componente aggiuntivo puntava a un file fuori dal proprio pacchetto, quindi non è stato caricato.",
+      "invalid_module": "Il componente aggiuntivo non rispetta il contratto dell'interfaccia, quindi non è stato caricato.",
+      "import_failed": "Impossibile caricare il componente aggiuntivo.",
+      "create_failed": "Il componente aggiuntivo non è riuscito ad avviarsi.",
+      "timeout": "Il componente aggiuntivo ha impiegato troppo a caricarsi.",
+      "css_failed": "Impossibile caricare il foglio di stile del componente aggiuntivo.",
+      "aborted": "Il caricamento è stato annullato."
+    },
+    "reload": "Ricarica",
+    "reloading": "Ricaricamento",
+    "stale": "{{title}} è cambiato mentre modificavi. Le tue modifiche sono ancora a schermo ma non possono essere salvate. Copia ciò che ti serve, poi ricarica.",
+    "discard": {
+      "title": "Scartare le modifiche non salvate?",
+      "body": "Ricaricare sostituisce questa pagina e le modifiche non salvate vanno perse.",
+      "confirm": "Scarta e ricarica",
+      "cancel": "Continua a modificare"
+    },
+    "leave": {
+      "title": "Lasciare questa pagina?",
+      "body": "Hai modifiche non salvate. Andranno perse se esci.",
+      "leave": "Esci",
+      "stay": "Resta"
+    },
+    "pageMissing": {
+      "title": "Questa pagina non esiste",
+      "body": "{{title}} non ha una pagina chiamata \"{{page}}\"."
+    },
+    "noComponent": {
+      "title": "Niente da mostrare qui",
+      "body": "Questo componente aggiuntivo aggiunge azioni ad altre pagine e non ha una pagina propria."
+    },
+    "error": {
+      "title": "Questo componente aggiuntivo ha avuto un problema",
+      "text": "Non è riuscito a disegnare questa pagina. Il resto di LocalAI non è interessato.",
+      "retry": "Riprova"
+    },
+    "layer": {
+      "close": "Chiudi"
+    }
+  },
+  "slots": {
+    "unavailable": "Non disponibile",
+    "composerMore": "Azioni dei componenti aggiuntivi",
+    "actionFailed": "Impossibile completare {{label}}."
+  },
+  "state": {
+    "failed": "Errore",
+    "label": "Stato: {{state}}",
+    "running": "In esecuzione",
+    "starting": "In avvio",
+    "stopped": "Fermo",
+    "update-pending": "Aggiornamento in attesa"
+  },
+  "supporting": "Le app che il proprietario esegue per te e le librerie da cui provengono.",
+  "tabs": {
+    "apps": "App",
+    "browse": "Sfoglia",
+    "installed": "Installati",
+    "label": "Sezioni dei componenti aggiuntivi",
+    "libraries": "Librerie"
+  },
+  "title": "Componenti aggiuntivi",
+  "trust": {
+    "channel": "Canale",
+    "digest": "Digest",
+    "digestOnly": "Solo digest",
+    "identity": "Identità della firma",
+    "issuer": "Emittente della firma",
+    "library": "Libreria",
+    "mode": {
+      "digest": "Digest verificato",
+      "signed": "Firmato e digest verificato"
+    },
+    "platform": "Piattaforma",
+    "selection": "Selezionato come",
+    "signatureRequired": "Firma richiesta",
+    "verification": "Verifica",
+    "version": "Versione"
+  },
+  "proposal": {
+    "title": "Modifica di un componente aggiuntivo",
+    "loading": "Caricamento della richiesta",
+    "withdrawn": "Questa richiesta non è più disponibile per te.",
+    "unavailable": "Questa richiesta non è disponibile.",
+    "addon": "Componente aggiuntivo",
+    "database": "Database",
+    "operation": "Operazione",
+    "effects": "Modifiche",
+    "sample": "Anteprima dell'host",
+    "blocked": "Un'altra modifica su questo database non è ancora conclusa. Concludila prima.",
+    "expired": "Questa richiesta è scaduta. Chiedila di nuovo.",
+    "rejectedState": "I dati sono cambiati o la richiesta è stata rifiutata. Non è stato applicato nulla. Chiedi una nuova anteprima.",
+    "unknown": "L'esito non è ancora noto. Potrebbe essere stato applicato. Controlla lo stato prima di chiedere di nuovo.",
+    "refresh": "Controlla lo stato"
+  },
+  "artifact": {
+    "title": "File pronto",
+    "loading": "Caricamento del file",
+    "withdrawn": "Questo file non è più disponibile per te.",
+    "unavailable": "Questo file non è disponibile.",
+    "name": "File",
+    "size": "Dimensione",
+    "expires": "Disponibile fino a",
+    "state": "Stato",
+    "preparing": "Il file è in preparazione.",
+    "failed": "Non è stato possibile completare il file. Non si può scaricare nulla. Esporta di nuovo.",
+    "expired": "Questo file è scaduto ed è stato rimosso. I dati di origine non sono cambiati. Esporta di nuovo.",
+    "download": "Scarica",
+    "states": {
+      "loading": "Caricamento",
+      "withdrawn": "Non disponibile",
+      "unavailable": "Non disponibile",
+      "transferring": "In preparazione",
+      "complete": "Pronto",
+      "failed": "Non riuscito",
+      "cancelled": "Annullato",
+      "expired": "Scaduto",
+      "unknown": "Sconosciuto"
+    },
+    "downloadDenied": "Questo file non può più essere scaricato. Il tuo accesso all'origine è cambiato o il file è scaduto.",
+    "downloadFailed": "Il download non è terminato. Riprova."
+  },
+  "recovery": {
+    "title": "Ripristino dei dati",
+    "loading": "Lettura dello stato di ripristino",
+    "done": "Fatto.",
+    "backup": "Esegui backup ora",
+    "backingUp": "Backup in corso…",
+    "backedUp": "Il backup {{id}} è stato creato e verificato.",
+    "retention": "Conserva gli ultimi {{count}} backup. Il backup verificato più recente e la copia di ripristino di un aggiornamento non vengono mai rimossi.",
+    "none": "Non c'è ancora alcun backup dei dati di questo componente.",
+    "listLabel": "Backup di questo componente",
+    "verify": "Verifica",
+    "verified": "Il backup {{id}} è stato letto per intero ed è corretto.",
+    "restore": "Ripristina",
+    "restored": "Il backup è stato ripristinato.",
+    "delete": "Elimina",
+    "deleted": "Il backup {{id}} è stato eliminato.",
+    "pinned": "Copia di ripristino",
+    "pinnedWhy": "È la copia di ripristino dell'ultimo aggiornamento e resta finché non esiste un backup verificato più recente.",
+    "lastRestore": "Ultimo ripristino, {{when}}",
+    "purge": "Elimina definitivamente…",
+    "purged": "I dati conservati sono stati eliminati.",
+    "purgeLead": "L'eliminazione definitiva rimuove per sempre i dati conservati di questo componente. Non è l'eliminazione di un database né una disinstallazione.",
+    "purgeTitle": "Elimina i dati conservati",
+    "purgeBody": "Rimuove ciò che selezioni qui sotto e non si può annullare. Il componente deve essere disinstallato o disattivato.",
+    "scope": "Cosa rimuovere",
+    "scopeData": "I dati e tutte le condivisioni di questo componente",
+    "scopeBackups": "Tutti i backup ({{count}})",
+    "scopeCopies": "Copie dei dati messe da parte dai ripristini ({{count}})",
+    "scopeNone": "Seleziona cosa rimuovere.",
+    "restoreTitle": "Ripristina un backup",
+    "restoreBody": "I dati tornano allo stato del {{when}}.",
+    "warnLost": "Le modifiche fatte dopo il backup vanno perse. I dati del componente vengono sostituiti.",
+    "warnAccess": "Le condivisioni vengono ricontrollate: nessuno riottiene un accesso revocato dopo il backup o il cui account non esiste più.",
+    "warnProposals": "Le proposte in attesa vengono annullate. Le operazioni con esito sconosciuto vengono verificate tramite ricevuta e non applicate mai più.",
+    "warnCopy": "I dati sostituiti restano come copia di ripristino finché non li elimini.",
+    "stopFirst": "Ferma prima il componente: disattivalo, poi ripristina.",
+    "mapping": "Questo backup è stato fatto in modalità proprietario locale. ID dell'account che riceve i dati",
+    "typeToConfirm": "Digita {{id}} per confermare",
+    "typeToConfirmLabel": "Digita l'ID del componente per confermare",
+    "phase": "Passo {{index}} di {{total}}: {{step}}",
+    "steps": {
+      "begin": "avvio",
+      "backed-up": "backup fatto",
+      "staged": "pacchetto pubblicato",
+      "migrating": "migrazione dei dati",
+      "healthy": "verificato",
+      "publishing": "pubblicazione"
+    },
+    "state": {
+      "ready": "Pronto",
+      "upgrading": "Aggiornamento",
+      "restoring": "Ripristino",
+      "needs-recovery": "Richiede ripristino",
+      "purging": "Eliminazione"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "I dati di questo componente richiedono un ripristino",
+        "body": "Il componente non viene avviato. Il pacchetto precedente è conservato, ma non può leggere i dati che una migrazione fallita ha iniziato a modificare.",
+        "hint": "Ripristina qui sotto la copia di ripristino verificata, oppure elimina i dati.",
+        "hintNone": "Non c'è alcun backup verificato. Elimina i dati per ricominciare."
+      },
+      "upgrading": {
+        "title": "Aggiornamento in corso",
+        "body": "Il componente è fermo mentre i suoi dati vengono salvati e migrati."
+      },
+      "restoring": {
+        "title": "Ripristino in corso",
+        "body": "Il componente resta fermo fino al termine del ripristino."
+      },
+      "purging": {
+        "title": "Eliminazione in corso",
+        "body": "I dati conservati vengono rimossi."
+      }
+    },
+    "verification": {
+      "verified": "Verificato",
+      "failed": "Verifica fallita",
+      "unverified": "Non ancora verificato"
+    },
+    "reason": {
+      "manual": "Creato da te",
+      "upgrade": "Prima di un aggiornamento",
+      "restore": "Prima di un ripristino"
+    },
+    "errors": {
+      "needs_recovery": "Prima vanno ripristinati i dati: ripristina un backup verificato oppure eliminali.",
+      "addon_running": "Ferma prima il componente.",
+      "busy": "Per questo componente è già in corso un'altra operazione di ripristino.",
+      "backup_not_found": "Questo backup non esiste più.",
+      "not_installed": "Il componente non è installato.",
+      "backup_corrupt": "Il backup non ha superato la verifica e non è stato usato.",
+      "incompatible_format": "Il formato dei dati non è adatto al pacchetto installato.",
+      "identity_changed": "Il pacchetto installato proviene da una fonte attendibile diversa da quella dei dati.",
+      "mapping_required": "Indica l'account che riceve i dati di questo backup.",
+      "mapping_invalid": "Quell'account non è valido.",
+      "downgrade_unsupported": "I dati di utenti con nome non si possono ripristinare in modalità proprietario locale.",
+      "sole_recovery_copy": "È l'unica copia di ripristino verificata e viene conservata.",
+      "confirmation_mismatch": "L'ID digitato non corrisponde.",
+      "operation_conflict": "Questo ID operazione è stato usato per un'altra richiesta. Non è stato fatto nulla.",
+      "invalid_request": "La richiesta non può essere eseguita così com'è.",
+      "insufficient_storage": "Non c'è abbastanza spazio libero per un backup. Non è stato cambiato nulla.",
+      "unknownOutcome": "L'esito non è noto. Rileggi lo stato: la stessa azione non viene inviata due volte.",
+      "auth": "Accedi di nuovo.",
+      "denied": "Solo gli amministratori possono farlo, dalla propria sessione del browser.",
+      "network": "Il proprietario non è raggiungibile.",
+      "unavailable": "Il proprietario non è disponibile."
+    }
+  },
+  "updates": {
+    "title": "Aggiornamenti",
+    "checkNow": "Cerca aggiornamenti",
+    "checking": "Controllo in corso...",
+    "checkedAt": "Controllato {{when}}",
+    "neverChecked": "Non ancora controllato",
+    "lastSuccess": "Libreria letta l'ultima volta {{when}}",
+    "stale": "Questa risposta potrebbe non essere aggiornata. Controlla di nuovo.",
+    "throttled": "Un controllo è stato eseguito poco fa. Questo è il suo risultato.",
+    "badge": {
+      "available": "Aggiornamento {{version}}",
+      "incompatible": "Aggiornamento {{version}} non compatibile",
+      "failed": "Controllo non riuscito",
+      "integrity": "Errore di integrità"
+    },
+    "state": {
+      "unknown": "Lo stato degli aggiornamenti non è noto. Cerca aggiornamenti per interrogare la libreria.",
+      "up-to-date": "Questo componente è aggiornato.",
+      "update-available": "La versione {{version}} è disponibile.",
+      "incompatible": "La versione {{version}} non può girare su questo host. Non viene offerta.",
+      "check-failed": "Il controllo non è riuscito, quindi non si sa se esista un aggiornamento.",
+      "integrity-error": "La libreria elenca la versione installata con un contenuto diverso. Nulla è stato modificato e non viene offerto alcun aggiornamento."
+    },
+    "reason": {
+      "platform": "La piattaforma non è offerta",
+      "host-version": "La versione dell'host non è adatta",
+      "api-version": "L'API del componente non è adatta",
+      "protocol-version": "La versione del protocollo non è adatta",
+      "sdk-version": "La versione dell'SDK dell'interfaccia non è adatta",
+      "data-format": "Il formato dei dati non è adatto",
+      "digest-changed": "Il digest di questa versione è cambiato"
+    },
+    "class": {
+      "source-unavailable": "La libreria non è raggiungibile.",
+      "refresh-failed": "Non è stato possibile leggere la libreria.",
+      "credential-unavailable": "Le credenziali della libreria non sono disponibili.",
+      "not-listed": "La libreria non elenca più questo componente.",
+      "ambiguous-release": "La libreria elenca questa versione più volte.",
+      "canceled": "Il controllo è stato annullato.",
+      "internal": "Il controllo non è riuscito."
+    },
+    "installed": "Installata",
+    "candidate": "Disponibile",
+    "reasons": "Perché non è adatta",
+    "upgrade": "Aggiorna",
+    "confirm": {
+      "title": "Aggiornare {{name}} alla versione {{version}}?",
+      "body": "Il componente si ferma mentre i suoi dati vengono salvati e migrati, poi parte la nuova versione. Se la nuova versione non parte, continua a girare quella attuale.",
+      "data": "I suoi dati vengono salvati prima di qualsiasi modifica.",
+      "action": "Aggiorna",
+      "library": "Libreria",
+      "channel": "Canale",
+      "from": "Da",
+      "to": "A"
+    },
+    "progress": "Aggiornamento di {{name}} in corso. Prima si salvano i suoi dati.",
+    "done": "Aggiornato alla versione {{version}}.",
+    "browseUpdate": "L'aggiornamento {{version}} è disponibile. Gestiscilo in Installati.",
+    "errors": {
+      "stale_installed": "La versione installata è cambiata dopo il controllo. Cerca di nuovo gli aggiornamenti.",
+      "candidate_changed": "La libreria non offre più la versione controllata. Cerca di nuovo gli aggiornamenti.",
+      "upgrade_conflict": "Questo aggiornamento è già registrato con un'altra operazione. Non è stato applicato due volte.",
+      "incompatible": "La nuova versione non è compatibile con questo host. Nulla è stato modificato.",
+      "integrity_error": "La libreria elenca la versione installata con un contenuto diverso. Nulla è stato modificato.",
+      "upgrade_failed": "L'aggiornamento non è stato completato e la versione installata resta. Puoi riprovare.",
+      "operation_conflict": "L'operazione non è adatta allo stato attuale. Nulla è stato applicato.",
+      "check_failed": "Non è stato possibile leggere la libreria, quindi l'aggiornamento non è partito. Nulla è stato modificato.",
+      "unknownOutcome": "Il risultato dell'aggiornamento non è noto. Leggi di nuovo il suo stato; non avviarne un altro.",
+      "auth": "Accedi di nuovo per continuare.",
+      "denied": "Solo un amministratore può farlo dalla propria sessione del browser.",
+      "network": "La rete non è raggiungibile.",
+      "unavailable": "Il proprietario del componente non è disponibile. Riprova."
+    }
+  }
+}

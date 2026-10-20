@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "face",
+  "version": "0.1.0",
+  "executable": "face",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": { "min": 1, "max": 1 },
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/face.js",
+      "css": ["ui/face.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["recognition"],
+      "navigation": [],
+      "mainPage": "recognition",
+      "icon": "ui/icon.png",
+      "title": "Face",
+      "description": "Find out whose face is in a photo, or whether two photos show the same person."
+    }
+  }
+}

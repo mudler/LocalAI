@@ -1,0 +1,251 @@
+// The page that adds a speech voice: a reference recording, its exact
+// transcript and the speaker's consent. Ported from pages/VoiceProfileCreate.jsx.
+import { createClipInput } from '../../../internal/identity-ui/src/ClipInput.jsx'
+import { createReferenceAudio } from '../../../internal/identity-ui/src/referenceAudio.js'
+
+export function createVoiceProfileCreate(ctx, api) {
+  const { h, Fragment, t, Icon, ui } = ctx
+  const { useEffect, useMemo, useState } = ctx.React
+  const { ClipInput } = createClipInput(ctx)
+  const { MAX_AUDIO_BYTES, normalizeAudioSample } = createReferenceAudio(ctx)
+
+  function ReadinessItem({ ready, warning, children }) {
+    const tone = ready ? 'ready' : warning ? 'warning' : 'pending'
+    return (
+      <li className={`voice-readiness__item voice-readiness__item--${tone}`}>
+        <Icon name={ready ? 'check' : warning ? 'warning' : 'minus'} />
+        <span>{children}</span>
+      </li>
+    )
+  }
+
+  function VoiceProfileCreate() {
+    const [audio, setAudio] = useState(null)
+    const [audioProcessing, setAudioProcessing] = useState(false)
+    const [audioError, setAudioError] = useState('')
+    const [name, setName] = useState('')
+    const [description, setDescription] = useState('')
+    const [language, setLanguage] = useState('')
+    const [transcript, setTranscript] = useState('')
+    const [additionalReferences, setAdditionalReferences] = useState([])
+    const [consent, setConsent] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
+
+    // The shell asks before it leaves a page with unsaved edits.
+    const dirty = !submitting && !!(audio || additionalReferences.length || name || description || language || transcript || consent)
+    useEffect(() => { ctx.markDirty(dirty) }, [dirty])
+    useEffect(() => () => ctx.markDirty(false), [])
+
+    useEffect(() => () => {
+      if (audio?.objectUrl) URL.revokeObjectURL(audio.dataUrl)
+    }, [audio])
+
+    const durationValid = audio?.duration >= 1 && audio?.duration <= 120
+    const durationRecommended = audio?.duration >= 6 && audio?.duration <= 30
+    const additionalReady = additionalReferences.every(reference => reference.audio && reference.transcript.trim())
+    const formReady = !!audio && durationValid && name.trim() && transcript.trim() && additionalReady && consent && !audioProcessing
+
+    const readiness = useMemo(() => ({
+      audio: !!audio && durationValid,
+      quality: !!audio && durationRecommended,
+      name: !!name.trim(),
+      transcript: !!transcript.trim(),
+      consent,
+    }), [audio, durationValid, durationRecommended, name, transcript, consent])
+
+    const handleAudio = async (sample) => {
+      if (!sample) {
+        setAudio(null)
+        setAudioError('')
+        return
+      }
+      if (sample.blob?.size > MAX_AUDIO_BYTES) {
+        setAudio(null)
+        setAudioError(t('voiceCreate.audio.tooLarge'))
+        return
+      }
+      setAudioProcessing(true)
+      setAudioError('')
+      try {
+        const normalized = await normalizeAudioSample(sample)
+        if (normalized.duration < 1 || normalized.duration > 120) {
+          if (normalized.objectUrl) URL.revokeObjectURL(normalized.dataUrl)
+          throw new Error(t('voiceCreate.audio.durationError'))
+        }
+        setAudio(normalized)
+      } catch (err) {
+        setAudio(null)
+        setAudioError(err.message || t('voiceCreate.audio.decodeError'))
+      } finally {
+        setAudioProcessing(false)
+      }
+    }
+
+    const handleAdditionalAudio = async (index, sample) => {
+      if (!sample) {
+        setAdditionalReferences(current => current.map((reference, itemIndex) => itemIndex === index ? { ...reference, audio: null } : reference))
+        return
+      }
+      setAudioProcessing(true)
+      try {
+        const normalized = await normalizeAudioSample(sample)
+        if (normalized.duration < 1 || normalized.duration > 120) throw new Error(t('voiceCreate.audio.durationError'))
+        setAdditionalReferences(current => current.map((reference, itemIndex) => itemIndex === index ? { ...reference, audio: normalized } : reference))
+      } catch (err) {
+        ctx.toast(err.message || t('voiceCreate.audio.decodeError'), 'error')
+      } finally {
+        setAudioProcessing(false)
+      }
+    }
+
+    const submit = async (event) => {
+      event.preventDefault()
+      if (!formReady) return
+      setSubmitting(true)
+      try {
+        const formData = new FormData()
+        formData.append('name', name.trim())
+        formData.append('description', description.trim())
+        formData.append('language', language.trim())
+        formData.append('transcript', transcript.trim())
+        formData.append('consent_confirmed', 'true')
+        formData.append('audio', audio.blob, 'reference.wav')
+        additionalReferences.forEach((reference, index) => {
+          formData.append('transcript', reference.transcript.trim())
+          formData.append('audio', reference.audio.blob, `reference-${index + 2}.wav`)
+        })
+        const profile = await api.voiceProfiles.create(formData)
+        ctx.toast(t('voiceCreate.toasts.created', { name: profile.name }), 'success')
+        ctx.sdk.navigation.navigate(`library?selected=${encodeURIComponent(profile.id)}`)
+      } catch (err) {
+        ctx.toast(err.message, 'error')
+      } finally {
+        setSubmitting(false)
+      }
+    }
+
+    return (
+      <main className="page voice-create-page" data-testid="voice-profile-create">
+        <ui.PageHeader
+          title={<><Icon name="mic" /> {t('voiceCreate.title')}</>}
+          supporting={t('voiceCreate.subtitle')}
+          actions={<ctx.Link page="library" className="dk-btn dk-btn--secondary"><Icon name="arrow-left" /> {t('voiceCreate.actions.back')}</ctx.Link>}
+        />
+
+        <form className="voice-create-grid" onSubmit={submit}>
+          <div className="voice-create-form">
+            <section className="voice-create-section" aria-labelledby="voice-reference-heading">
+              <div className="voice-create-section__heading">
+                <span>01</span>
+                <div><h2 id="voice-reference-heading">{t('voiceCreate.sections.reference.title')}</h2><p>{t('voiceCreate.sections.reference.body')}</p></div>
+              </div>
+              <ClipInput
+                kind="audio"
+                label={t('voiceCreate.audio.label')}
+                value={audio}
+                onChange={handleAudio}
+                idPrefix="voice-profile"
+              />
+              {audioProcessing && <div className="voice-create-processing"><ui.Spinner size="sm" /> {t('voiceCreate.audio.normalizing')}</div>}
+              {audioError && <p className="dk-field-error" role="alert">{audioError}</p>}
+              {audio && (
+                <div className="voice-create-preview">
+                  <ui.WaveformPlayer src={audio.dataUrl} height={72} label={t('voiceCreate.audio.preview')} />
+                  <div className="voice-create-preview__meta">
+                    <span><Icon name="clock" /> {audio.duration.toFixed(1)}s</span>
+                    <span><Icon name="waveform" /> {Math.round(audio.sampleRate / 1000)} kHz · PCM WAV</span>
+                    <span className={durationRecommended ? 'tone-success' : 'tone-warning'}>
+                      {durationRecommended ? t('voiceCreate.audio.qualityReady') : t('voiceCreate.audio.qualityHint')}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {additionalReferences.map((reference, index) => (
+                <div className="voice-create-preview" key={index}>
+                  <div className="voice-create-label-row">
+                    <strong>{t('voiceCreate.references.additional', { number: index + 2 })}</strong>
+                    <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => {
+                      if (reference.audio?.objectUrl) URL.revokeObjectURL(reference.audio.dataUrl)
+                      setAdditionalReferences(current => current.filter((_, itemIndex) => itemIndex !== index))
+                    }}>{t('voiceCreate.references.remove')}</button>
+                  </div>
+                  <ClipInput kind="audio" label={t('voiceCreate.audio.label')} value={reference.audio} onChange={(sample) => handleAdditionalAudio(index, sample)} idPrefix={`voice-profile-${index + 2}`} />
+                  <label className="dk-label" htmlFor={`voice-profile-transcript-${index + 2}`}>{t('voiceCreate.fields.transcript')}</label>
+                  <textarea id={`voice-profile-transcript-${index + 2}`} className="dk-textarea" rows={3} maxLength={4000} value={reference.transcript} onChange={(event) => setAdditionalReferences(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, transcript: event.target.value } : item))} required />
+                </div>
+              ))}
+              {additionalReferences.length < 9 && <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setAdditionalReferences(current => [...current, { audio: null, transcript: '' }])}><Icon name="plus" /> {t('voiceCreate.references.add')}</button>}
+            </section>
+
+            <section className="voice-create-section" aria-labelledby="voice-details-heading">
+              <div className="voice-create-section__heading">
+                <span>02</span>
+                <div><h2 id="voice-details-heading">{t('voiceCreate.sections.details.title')}</h2><p>{t('voiceCreate.sections.details.body')}</p></div>
+              </div>
+              <div className="form-grid-2col">
+                <div className="dk-field">
+                  <label className="dk-label" htmlFor="voice-profile-name">{t('voiceCreate.fields.name')}</label>
+                  <input id="voice-profile-name" className="dk-input" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} placeholder={t('voiceCreate.fields.namePlaceholder')} required />
+                </div>
+                <div className="dk-field">
+                  <label className="dk-label" htmlFor="voice-profile-language">{t('voiceCreate.fields.language')}</label>
+                  <input id="voice-profile-language" className="dk-input" value={language} maxLength={35} onChange={(event) => setLanguage(event.target.value)} placeholder={t('voiceCreate.fields.languagePlaceholder')} />
+                </div>
+              </div>
+              <div className="dk-field">
+                <label className="dk-label" htmlFor="voice-profile-description">{t('voiceCreate.fields.description')}</label>
+                <input id="voice-profile-description" className="dk-input" value={description} maxLength={500} onChange={(event) => setDescription(event.target.value)} placeholder={t('voiceCreate.fields.descriptionPlaceholder')} />
+              </div>
+              <div className="dk-field">
+                <div className="voice-create-label-row">
+                  <label className="dk-label" htmlFor="voice-profile-transcript">{t('voiceCreate.fields.transcript')}</label>
+                  <span>{transcript.length}/4000</span>
+                </div>
+                <textarea id="voice-profile-transcript" className="dk-textarea" rows={5} maxLength={4000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder={t('voiceCreate.fields.transcriptPlaceholder')} required />
+                <p className="dk-hint">{t('voiceCreate.fields.transcriptHint')}</p>
+              </div>
+            </section>
+
+            <section className="voice-create-section" aria-labelledby="voice-consent-heading">
+              <div className="voice-create-section__heading">
+                <span>03</span>
+                <div><h2 id="voice-consent-heading">{t('voiceCreate.sections.consent.title')}</h2><p>{t('voiceCreate.sections.consent.body')}</p></div>
+              </div>
+              <label className="dk-choice voice-consent-check">
+                <input className="dk-check" type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
+                <span><strong>{t('voiceCreate.consent.title')}</strong><span className="dk-hint">{t('voiceCreate.consent.body')}</span></span>
+              </label>
+            </section>
+
+            <div className="voice-create-actions">
+              <ctx.Link page="library" className="dk-btn dk-btn--secondary">{t('voiceCreate.actions.cancel')}</ctx.Link>
+              <button type="submit" className="dk-btn dk-btn--primary" disabled={!formReady || submitting}>
+                {submitting ? <><ui.Spinner size="sm" /> {t('voiceCreate.actions.saving')}</> : <><Icon name="save" /> {t('voiceCreate.actions.save')}</>}
+              </button>
+            </div>
+          </div>
+
+          <aside className="voice-readiness" aria-label={t('voiceCreate.readiness.title')}>
+            <div className="voice-readiness__header">
+              <span className="voice-readiness__icon"><Icon name="shield" /></span>
+              <div><h2>{t('voiceCreate.readiness.title')}</h2><p>{t('voiceCreate.readiness.body')}</p></div>
+            </div>
+            <ul>
+              <ReadinessItem ready={readiness.audio}>{t('voiceCreate.readiness.audio')}</ReadinessItem>
+              <ReadinessItem ready={readiness.quality} warning={!!audio && !readiness.quality}>{t('voiceCreate.readiness.quality')}</ReadinessItem>
+              <ReadinessItem ready={readiness.name}>{t('voiceCreate.readiness.name')}</ReadinessItem>
+              <ReadinessItem ready={readiness.transcript}>{t('voiceCreate.readiness.transcript')}</ReadinessItem>
+              <ReadinessItem ready={readiness.consent}>{t('voiceCreate.readiness.consent')}</ReadinessItem>
+            </ul>
+            <div className="voice-readiness__privacy">
+              <Icon name="lock" />
+              <p><strong>{t('voiceCreate.privacy.title')}</strong>{t('voiceCreate.privacy.body')}</p>
+            </div>
+          </aside>
+        </form>
+      </main>
+    )
+  }
+
+  return { VoiceProfileCreate }
+}

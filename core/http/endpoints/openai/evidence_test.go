@@ -188,7 +188,7 @@ var _ = Describe("ChatEndpoint evidence check", func() {
 		c := e.NewContext(httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader("{}")), rec)
 		c.Set(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
 		c.Set(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
-		Expect(ChatEndpoint(nil, nil, nil, config.NewApplicationConfig(), nil, nil, nil)(c)).To(Succeed())
+		Expect(ChatEndpoint(nil, nil, nil, config.NewApplicationConfig(), nil, nil, nil, nil)(c)).To(Succeed())
 		return rec
 	}
 

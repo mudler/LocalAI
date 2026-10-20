@@ -1,0 +1,503 @@
+{
+  "actions": {
+    "blocked": "此附加组件上先前的操作尚未确认。请先检查其状态或忽略它。",
+    "checkStatus": "检查状态",
+    "dismiss": "忽略",
+    "failed": "所有者未完成该操作,未做任何更改。再次尝试将开始新的尝试。",
+    "notApplied": "所有者报告操作已完成，但附加组件没有变化。请重试。",
+    "unknown": "所有者尚未确认该操作。它可能仍会被应用。请先检查状态，或忽略它，再开始其他操作。"
+  },
+  "approval": {
+    "title": "需要审批",
+    "from": "来自 {{addon}}",
+    "loading": "正在加载请求",
+    "failed": "此请求不可用。",
+    "rejected": "无法完成该请求。请检查其状态后重试。",
+    "changes": "变更",
+    "expires": "到期时间",
+    "state": "状态",
+    "expired": "此请求已过期。请重新发起。",
+    "confirm": "确认",
+    "cancel": "取消",
+    "close": "关闭",
+    "states": {
+      "pending": "等待你的决定",
+      "applied": "已应用",
+      "cancelled": "已取消",
+      "expired": "已过期",
+      "executing": "正在应用",
+      "rejected": "已拒绝",
+      "outcome-unknown": "结果未知",
+      "abandoned-unknown": "结果未知",
+      "unknown": "未知"
+    }
+  },
+  "apps": {
+    "emptyBody": "管理员安装并启用附加组件后,它会显示在这里。",
+    "emptyTitle": "还没有应用",
+    "headless": "在后台运行,没有自己的页面。",
+    "listLabel": "应用",
+    "loading": "正在加载应用",
+    "manage": "管理",
+    "open": "打开",
+    "stale": "无法刷新列表,当前显示的内容可能已过时。",
+    "start": "启动",
+    "stop": "停止",
+    "toolsMore_other": "另有 {{count}} 个",
+    "tools_other": "{{count}} 个工具",
+    "version": "版本 {{version}}",
+    "working": "正在等待所有者确认。"
+  },
+  "browse": {
+    "confirmBody": "将从库 {{library}} 下载 {{version}} 版本,并在安装前进行验证。",
+    "confirmNotEnabled": "安装不会启动附加组件,启用是单独的一步。",
+    "confirmTitle": "安装 {{name}}?",
+    "details": "详情",
+    "detailsLead": "{{id}} 的库条目",
+    "emptyBody": "在“库”标签页添加一个库,然后刷新它。",
+    "emptyTitle": "未找到附加组件",
+    "fromLibrary": "来自 {{library}}",
+    "install": "安装",
+    "installedDetail": "版本 {{version}},第 {{generation}} 代",
+    "installedNotEnabled": "已安装,但尚未启用:准备好后请在“已安装”标签页启用。",
+    "installedOther": "已安装 {{version}}(其他版本)",
+    "installedSame": "已安装 {{version}}",
+    "installedState": "已安装",
+    "installing": "正在安装",
+    "search": "搜索库"
+  },
+  "catalog": {
+    "allLibraries": "所有库",
+    "cancel": "取消",
+    "close": "关闭",
+    "count_other": "{{count}} 个结果",
+    "emptyBody": "此列表为空。",
+    "emptyFiltered": "没有匹配的结果。请更换关键词或库。",
+    "emptyTitle": "没有可显示的内容",
+    "libraries": "库",
+    "loading": "正在加载结果",
+    "next": "下一页",
+    "previous": "上一页",
+    "retry": "重试",
+    "search": "搜索"
+  },
+  "errors": {
+    "auth": "你已退出登录,请重新登录。",
+    "denied": "服务器拒绝了此请求。你可能没有权限,或附加组件已变更。列表已刷新。",
+    "invalid": "服务器无法接受此请求。",
+    "network": "无法连接服务器,请检查网络。",
+    "unavailable": "附加组件所有者暂时不可用,请稍后重试。",
+    "unknownOutcome": "无法确认结果。请先检查状态,再重试。"
+  },
+  "installed": {
+    "disable": "禁用",
+    "disabled": "已禁用",
+    "emptyBody": "请在“浏览”标签页安装附加组件。",
+    "emptyTitle": "尚未安装任何内容",
+    "enable": "启用",
+    "enabled": "已启用",
+    "generation": "第 {{generation}} 代",
+    "listLabel": "已安装的附加组件",
+    "loading": "正在加载已安装的附加组件",
+    "manage": "详情",
+    "manageLead": "{{id}} 的管理视图",
+    "missing": "{{id}} 未安装。",
+    "uninstall": "卸载",
+    "uninstallBody": "附加组件将停止,其软件包不再使用。其数据、身份和授权会保留,再次安装时会沿用。不会删除任何内容。",
+    "uninstallTitle": "卸载 {{name}}?"
+  },
+  "libraries": {
+    "add": "添加库",
+    "addTitle": "添加库",
+    "disabled": "已禁用",
+    "edit": "编辑",
+    "editTitle": "编辑 {{name}}",
+    "emptyBody": "添加库以浏览和安装附加组件。",
+    "emptyTitle": "没有库",
+    "enabled": "已启用",
+    "errors": {
+      "id": "请使用小写字母、数字和连字符,并以字母开头。",
+      "name": "请输入不超过 256 个字符的名称。",
+      "reference": "这看起来不像引用名称。请使用已配置凭据的名称,而不是密钥本身。",
+      "required": "要求签名时必填。",
+      "url": "请输入 http 或 https 地址。",
+      "urlCredentials": "地址不能包含用户名或密码。",
+      "urlQuery": "地址不能包含查询字符串或片段。"
+    },
+    "fields": {
+      "enabled": "已启用",
+      "id": "标识符",
+      "identity": "签名身份",
+      "issuer": "签名颁发者",
+      "name": "名称",
+      "reference": "凭据引用(可选)",
+      "requireSignature": "要求签名",
+      "url": "目录 URL"
+    },
+    "hints": {
+      "id": "小写字母、数字和连字符,之后不能更改。",
+      "reference": "所有者已配置的凭据名称。切勿在此粘贴令牌或密码。",
+      "url": "不含凭据和查询字符串的 https 地址。"
+    },
+    "lastRefresh": "{{when}} 已刷新,{{count}} 个条目",
+    "lead": "库是列出附加组件的目录文档。凭据绝不在此输入:私有库只引用所有者配置的凭据。",
+    "listLabel": "库",
+    "loading": "正在加载库",
+    "notRefreshed": "尚未刷新",
+    "reference": "凭据引用:{{name}}",
+    "refresh": "刷新",
+    "refreshFailed": "上次刷新失败",
+    "refreshed": "已刷新 {{name}}。",
+    "remove": "移除",
+    "removeBody": "该库将从此列表中移除。从它安装的附加组件仍保持安装并继续运行。",
+    "removeTitle": "移除 {{name}}?",
+    "removed": "已移除 {{name}}。",
+    "save": "保存",
+    "saved": "已保存 {{name}}。"
+  },
+  "manage": {
+    "api": "附加组件 API",
+    "atLeast": "或更多",
+    "compatibility": "兼容性",
+    "data": "保留的数据",
+    "dataFormat": "数据格式",
+    "desired": "期望状态",
+    "failedNote_other": "经过 {{count}} 次重启尝试后,进程仍未提供服务。",
+    "generations": "保留的代数",
+    "hasUI": "有页面",
+    "headless": "无界面,没有页面",
+    "health": "健康状况",
+    "host": "主机 API",
+    "interface": "界面",
+    "logs": "日志",
+    "logsNone": "此版本不收集附加组件进程的输出。上面的健康状况和重启尝试是所有者能报告的内容。",
+    "observed": "观测状态",
+    "protocol": "协议",
+    "restarts": "重启尝试次数",
+    "storage": "存储",
+    "tools": "工具",
+    "trust": "信任"
+  },
+  "page": {
+    "back": "返回附加组件",
+    "body": "此版本尚不能打开附加组件页面。附加组件仍在运行。",
+    "title": "此页面暂不可用"
+  },
+  "shell": {
+    "loading": "正在加载 {{title}}",
+    "unavailable": {
+      "title": "此扩展不可用"
+    },
+    "reasons": {
+      "disabled": "扩展已停止。请在扩展页面重新启动它。",
+      "removed": "扩展未安装，或您已无权使用它。",
+      "failed": "扩展不再响应。它会自动重启；请重新加载后再试。",
+      "updated": "扩展已更新。请重新加载以使用新版本。",
+      "no-ui": "此版本的扩展没有页面。",
+      "incompatible_sdk": "此扩展需要与本页面所提供版本不同的 LocalAI 界面版本。",
+      "untrusted_asset": "扩展指向了其自身包之外的文件，因此未加载。",
+      "invalid_module": "扩展不符合界面约定，因此未加载。",
+      "import_failed": "无法加载扩展。",
+      "create_failed": "扩展启动时失败。",
+      "timeout": "扩展加载时间过长。",
+      "css_failed": "无法加载扩展的样式表。",
+      "aborted": "加载已取消。"
+    },
+    "reload": "重新加载",
+    "reloading": "正在重新加载",
+    "stale": "您编辑时 {{title}} 发生了变化。您的编辑仍在屏幕上，但无法保存。请复制需要的内容，然后重新加载。",
+    "discard": {
+      "title": "放弃未保存的更改？",
+      "body": "重新加载会替换此页面，未保存的编辑将丢失。",
+      "confirm": "放弃并重新加载",
+      "cancel": "继续编辑"
+    },
+    "leave": {
+      "title": "离开此页面？",
+      "body": "您有未保存的编辑，离开后将丢失。",
+      "leave": "离开",
+      "stay": "留下"
+    },
+    "pageMissing": {
+      "title": "此页面不存在",
+      "body": "{{title}} 没有名为“{{page}}”的页面。"
+    },
+    "noComponent": {
+      "title": "这里没有可显示的内容",
+      "body": "此扩展为其他页面添加操作，没有自己的页面。"
+    },
+    "error": {
+      "title": "此扩展出现问题",
+      "text": "绘制此页面时失败。LocalAI 的其余部分不受影响。",
+      "retry": "重试"
+    },
+    "layer": {
+      "close": "关闭"
+    }
+  },
+  "slots": {
+    "unavailable": "不可用",
+    "composerMore": "附加组件操作",
+    "actionFailed": "无法完成“{{label}}”。"
+  },
+  "state": {
+    "failed": "失败",
+    "label": "状态:{{state}}",
+    "running": "运行中",
+    "starting": "启动中",
+    "stopped": "已停止",
+    "update-pending": "等待更新"
+  },
+  "supporting": "所有者为你运行的应用,以及它们的来源库。",
+  "tabs": {
+    "apps": "应用",
+    "browse": "浏览",
+    "installed": "已安装",
+    "label": "附加组件分区",
+    "libraries": "库"
+  },
+  "title": "附加组件",
+  "trust": {
+    "channel": "通道",
+    "digest": "摘要",
+    "digestOnly": "仅摘要",
+    "identity": "签名身份",
+    "issuer": "签名颁发者",
+    "library": "库",
+    "mode": {
+      "digest": "摘要已校验",
+      "signed": "已签名且摘要已校验"
+    },
+    "platform": "平台",
+    "selection": "选定为",
+    "signatureRequired": "需要签名",
+    "verification": "验证",
+    "version": "版本"
+  },
+  "proposal": {
+    "title": "附加组件的更改",
+    "loading": "正在加载请求",
+    "withdrawn": "您已无法再使用此请求。",
+    "unavailable": "此请求不可用。",
+    "addon": "附加组件",
+    "database": "数据库",
+    "operation": "操作",
+    "effects": "更改",
+    "sample": "来自主机的预览",
+    "blocked": "此数据库上的另一项更改尚未完成。请先处理它。",
+    "expired": "此请求已过期。请重新请求。",
+    "rejectedState": "数据已更改或请求被拒绝。未应用任何内容。请重新请求预览。",
+    "unknown": "结果尚不明确，可能已被应用。再次请求前请先检查状态。",
+    "refresh": "检查状态"
+  },
+  "artifact": {
+    "title": "文件已就绪",
+    "loading": "正在加载文件",
+    "withdrawn": "此文件已对你不可用。",
+    "unavailable": "此文件不可用。",
+    "name": "文件",
+    "size": "大小",
+    "expires": "可用至",
+    "state": "状态",
+    "preparing": "正在准备文件。",
+    "failed": "文件未能完成,无法下载。请重新导出。",
+    "expired": "此文件已过期并被删除。来源数据未改变。请重新导出。",
+    "download": "下载",
+    "states": {
+      "loading": "加载中",
+      "withdrawn": "不可用",
+      "unavailable": "不可用",
+      "transferring": "准备中",
+      "complete": "已就绪",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "expired": "已过期",
+      "unknown": "未知"
+    },
+    "downloadDenied": "此文件无法再下载。你对其来源的访问已变更,或文件已过期。",
+    "downloadFailed": "下载未完成。请重试。"
+  },
+  "recovery": {
+    "title": "数据恢复",
+    "loading": "正在读取恢复状态",
+    "done": "完成。",
+    "backup": "立即备份",
+    "backingUp": "正在备份…",
+    "backedUp": "备份 {{id}} 已创建并通过验证。",
+    "retention": "保留最近 {{count}} 份备份。最新的已验证备份和升级的恢复副本不会被删除。",
+    "none": "此加载项的数据还没有备份。",
+    "listLabel": "此加载项的备份",
+    "verify": "验证",
+    "verified": "备份 {{id}} 已完整读取并通过验证。",
+    "restore": "恢复",
+    "restored": "备份已恢复。",
+    "delete": "删除",
+    "deleted": "备份 {{id}} 已删除。",
+    "pinned": "恢复副本",
+    "pinnedWhy": "这是最近一次升级的恢复副本，在出现更新的已验证备份之前会一直保留。",
+    "lastRestore": "上次恢复，{{when}}",
+    "purge": "清除…",
+    "purged": "保留的数据已清除。",
+    "purgeLead": "清除会永久删除此加载项保留的数据。它不是删除数据库，也不是卸载。",
+    "purgeTitle": "清除保留的数据",
+    "purgeBody": "这会删除你在下方选择的内容，且无法撤销。加载项必须已卸载或已停用。",
+    "scope": "要删除的内容",
+    "scopeData": "此加载项的数据和所有共享",
+    "scopeBackups": "所有备份（{{count}}）",
+    "scopeCopies": "恢复操作留存的数据副本（{{count}}）",
+    "scopeNone": "请选择要删除的内容。",
+    "restoreTitle": "恢复备份",
+    "restoreBody": "数据将回到 {{when}} 的状态。",
+    "warnLost": "备份之后所做的更改会丢失。加载项的数据将被替换。",
+    "warnAccess": "共享会重新检查：自备份以来被收回的访问权限，或账户已不存在的访问权限，都不会恢复。",
+    "warnProposals": "等待中的提议会被取消。结果未知的操作会通过回执查询，且绝不会再次应用。",
+    "warnCopy": "被替换的数据会作为恢复副本保留，直到你将其清除。",
+    "stopFirst": "请先停止加载项：先停用，再恢复。",
+    "mapping": "此备份是在本地所有者模式下创建的。接收其数据的账户 ID",
+    "typeToConfirm": "输入 {{id}} 以确认",
+    "typeToConfirmLabel": "输入加载项 ID 以确认",
+    "phase": "第 {{index}} 步，共 {{total}} 步：{{step}}",
+    "steps": {
+      "begin": "正在开始",
+      "backed-up": "已备份",
+      "staged": "软件包已发布",
+      "migrating": "正在迁移数据",
+      "healthy": "已检查",
+      "publishing": "正在发布"
+    },
+    "state": {
+      "ready": "就绪",
+      "upgrading": "正在升级",
+      "restoring": "正在恢复",
+      "needs-recovery": "需要恢复",
+      "purging": "正在清除"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "此加载项的数据需要恢复",
+        "body": "加载项不会启动。上一个软件包仍然保留，但无法读取失败的迁移已开始修改的数据。",
+        "hint": "请恢复下方已验证的恢复副本，或清除数据。",
+        "hintNone": "没有已验证的备份。请清除数据以重新开始。"
+      },
+      "upgrading": {
+        "title": "升级正在进行",
+        "body": "在备份和迁移数据期间，加载项处于停止状态。"
+      },
+      "restoring": {
+        "title": "恢复正在进行",
+        "body": "恢复完成之前，加载项保持停止。"
+      },
+      "purging": {
+        "title": "清除正在进行",
+        "body": "正在删除保留的数据。"
+      }
+    },
+    "verification": {
+      "verified": "已验证",
+      "failed": "验证失败",
+      "unverified": "尚未验证"
+    },
+    "reason": {
+      "manual": "由你创建",
+      "upgrade": "升级之前",
+      "restore": "恢复之前"
+    },
+    "errors": {
+      "needs_recovery": "需要先恢复数据：请恢复已验证的备份或将其清除。",
+      "addon_running": "请先停止加载项。",
+      "busy": "此加载项正在进行另一项恢复操作。",
+      "backup_not_found": "该备份已不存在。",
+      "not_installed": "加载项未安装。",
+      "backup_corrupt": "备份未通过验证，未被使用。",
+      "incompatible_format": "数据格式与已安装的软件包不匹配。",
+      "identity_changed": "已安装的软件包来自与数据不同的可信来源。",
+      "mapping_required": "请指定接收此备份数据的账户。",
+      "mapping_invalid": "该账户无效。",
+      "downgrade_unsupported": "具名用户的数据不能在本地所有者模式下恢复。",
+      "sole_recovery_copy": "这是唯一已验证的恢复副本，会被保留。",
+      "confirmation_mismatch": "输入的 ID 不匹配。",
+      "operation_conflict": "此操作 ID 已用于另一个请求。未执行任何操作。",
+      "invalid_request": "无法按原样执行该请求。",
+      "insufficient_storage": "可用存储空间不足，无法备份。未做任何更改。",
+      "unknownOutcome": "结果未知。请重新读取状态：相同的操作不会发送两次。",
+      "auth": "请重新登录。",
+      "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
+      "network": "无法连接到所有者。",
+      "unavailable": "所有者不可用。"
+    }
+  },
+  "updates": {
+    "title": "更新",
+    "checkNow": "检查更新",
+    "checking": "正在检查...",
+    "checkedAt": "{{when}}检查",
+    "neverChecked": "尚未检查",
+    "lastSuccess": "上次读取库的时间：{{when}}",
+    "stale": "此结果可能已过期，请再次检查。",
+    "throttled": "刚刚进行过一次检查，这是它的结果。",
+    "badge": {
+      "available": "更新 {{version}}",
+      "incompatible": "更新 {{version}} 不兼容",
+      "failed": "更新检查失败",
+      "integrity": "完整性错误"
+    },
+    "state": {
+      "unknown": "更新状态未知。请检查更新以查询库。",
+      "up-to-date": "此附加组件已是最新。",
+      "update-available": "版本 {{version}} 可用。",
+      "incompatible": "版本 {{version}} 无法在此主机上运行，因此不提供。",
+      "check-failed": "更新检查失败，因此不知道是否有更新。",
+      "integrity-error": "库列出的已安装版本内容不同。未做任何更改，也不提供更新。"
+    },
+    "reason": {
+      "platform": "不提供此平台",
+      "host-version": "主机版本不匹配",
+      "api-version": "附加组件 API 不匹配",
+      "protocol-version": "协议版本不匹配",
+      "sdk-version": "界面 SDK 版本不匹配",
+      "data-format": "数据格式不匹配",
+      "digest-changed": "此版本的摘要已更改"
+    },
+    "class": {
+      "source-unavailable": "无法连接到库。",
+      "refresh-failed": "无法读取库。",
+      "credential-unavailable": "库的凭据不可用。",
+      "not-listed": "库不再列出此附加组件。",
+      "ambiguous-release": "库多次列出此版本。",
+      "canceled": "检查已取消。",
+      "internal": "检查失败。"
+    },
+    "installed": "已安装",
+    "candidate": "可用",
+    "reasons": "不匹配的原因",
+    "upgrade": "升级",
+    "confirm": {
+      "title": "将 {{name}} 升级到 {{version}}？",
+      "body": "在备份和迁移数据期间附加组件会停止，随后新版本启动。如果新版本无法启动，当前版本会继续运行。",
+      "data": "更改之前会先备份其数据。",
+      "action": "升级",
+      "library": "库",
+      "channel": "频道",
+      "from": "从",
+      "to": "到"
+    },
+    "progress": "正在升级 {{name}}。先备份其数据。",
+    "done": "已升级到版本 {{version}}。",
+    "browseUpdate": "更新 {{version}} 可用。请在“已安装”中管理。",
+    "errors": {
+      "stale_installed": "检查之后已安装的版本发生了变化。请再次检查更新。",
+      "candidate_changed": "库不再提供您检查过的版本。请再次检查更新。",
+      "upgrade_conflict": "此升级已记录在另一个操作下，没有重复应用。",
+      "incompatible": "新版本与此主机不兼容。未做任何更改。",
+      "integrity_error": "库列出的已安装版本内容不同。未做任何更改。",
+      "upgrade_failed": "升级未完成，已保留已安装的版本。您可以重试。",
+      "operation_conflict": "该操作与当前状态不符。未应用任何内容。",
+      "check_failed": "无法读取库，因此未开始升级。未做任何更改。",
+      "unknownOutcome": "升级结果未知。请再次读取其状态，不要再开始另一个升级。",
+      "auth": "请重新登录以继续。",
+      "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
+      "network": "无法连接到网络。",
+      "unavailable": "附加组件所有者不可用。请重试。"
+    }
+  }
+}

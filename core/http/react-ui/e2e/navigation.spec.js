@@ -20,12 +20,14 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('Create stays an inline tier with Chat, Studio and Talk', async ({ page }) => {
+  test('the sidebar has Chat, Models, Add-ons and Settings, and no Create tier', async ({ page }) => {
     await page.goto('/app')
-    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chat"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/studio"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/talk"]')).toBeVisible()
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
+    for (const href of ['/app/chat', '/app/models', '/app/addons', '/app/settings']) {
+      await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toBeVisible()
+    }
+    // Studio and Talk are built-in tiles of the Add-ons drawer; the sidebar lists them only as pins.
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/studio"]')).toHaveCount(await page.getByTestId('pinned-nav').locator('a[href="/app/studio"]').count())
   })
 
   test('Build and Operate sit under a Workspace label', async ({ page }) => {
@@ -59,11 +61,11 @@ test.describe('Navigation', () => {
     await page.goto('/app/agents')
     const bar = page.locator('.dk-hubtabs')
     await expect(bar).toBeVisible()
-    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'fine-tune', 'quantize', 'import', 'voices', 'faces']) {
+    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'import']) {
       await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
     }
-    await expect(bar.locator('a[href="/app/fine-tune"]')).toBeVisible()
-    await expect(bar.locator('a[href="/app/face"]')).toBeVisible()
+    await expect(bar.locator('[data-hub-tab="fine-tune"], [data-hub-tab="quantize"]')).toHaveCount(0)
+    await expect(bar.locator('[data-hub-tab="faces"]')).toHaveCount(0)
     await expect(bar.locator('[data-hub-tab="agents"]')).toHaveAttribute('aria-current', 'page')
   })
 

@@ -1,0 +1,38 @@
+# Release platform matrix of the quantization add-on package.
+#
+# A platform ships only while "enabled" is true. Enable a platform in the same
+# change that shows its native check passing on a runner of that platform;
+# until then it stays listed and disabled. The release workflow fails closed
+# when no platform is enabled, and it never builds a platform that is not
+# enabled here.
+#
+# runner:       the GitHub runner label that builds and checks the platform
+#               natively. Required for an enabled platform.
+# native_check: "executable-start": the packaged executable is extracted on
+#               the native runner and started. Required for an enabled platform.
+# runtime:      files besides the executable that the platform needs at run
+#               time, relative to the package root. They are taken from the
+#               runtime directory of the build and must exist.
+schema: 1
+addon: quantization
+executable: quantization
+manifest: addons/quantization/manifest.json
+# The directory whose content is laid at the package root (ui/quantization.js ...).
+ui: addons/quantization/ui/dist
+platforms:
+  - platform: linux/amd64
+    enabled: true
+    runner: ubuntu-24.04
+    native_check: executable-start
+  - platform: linux/arm64
+    enabled: true
+    runner: ubuntu-24.04-arm
+    native_check: executable-start
+  - platform: darwin/arm64
+    enabled: true
+    runner: macos-14
+    native_check: executable-start
+  - platform: darwin/amd64
+    enabled: true
+    runner: macos-15-intel
+    native_check: executable-start

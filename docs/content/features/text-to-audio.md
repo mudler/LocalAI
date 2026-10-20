@@ -80,7 +80,7 @@ this control may ignore it.
 
 ## Voice Library
 
-Administrators can manage reusable voice-cloning references from **Build → Voices → Speech voices** in the LocalAI WebUI. (Speakers, the first tab of the same page, is a separate feature: voiceprints for recognising who is speaking. See [Voice recognition](/features/voice-recognition/).) The library replaces per-model filesystem and YAML setup for supported cloning backends:
+Administrators can manage reusable voice-cloning references from **Speech voices** on the Recognition page of the Voice add-on (**Add-ons → Voice**, or the **Library** page of the same add-on) in the LocalAI WebUI. (Speakers, the first tab of that page, is a separate feature: voiceprints for recognising who is speaking. See [Voice recognition](/features/voice-recognition/).) The library replaces per-model filesystem and YAML setup for supported cloning backends:
 
 1. Select **Add a speech voice** and upload or record a clear reference clip. A speech voice can also be made while enrolling a speaker, from the enrol sheet.
 2. Enter the exact words spoken in the clip. Add more audio/transcript pairs when the personality needs more examples.

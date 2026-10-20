@@ -1,0 +1,507 @@
+{
+  "actions": {
+    "blocked": "Eine frühere Aktion für dieses Add-on ist noch nicht bestätigt. Prüfe zuerst ihren Status oder verwirf sie.",
+    "checkStatus": "Status prüfen",
+    "dismiss": "Verwerfen",
+    "failed": "Der Betreiber hat die Aktion nicht abgeschlossen. Es wurde nichts geändert. Versuche es erneut, um einen neuen Versuch zu starten.",
+    "notApplied": "Der Betreiber meldete die Aktion als erledigt, aber das Add-on hat sich nicht geändert. Versuche es erneut.",
+    "unknown": "Der Betreiber hat die Aktion noch nicht bestätigt. Sie kann noch angewendet werden. Prüfe den Status oder verwirf sie, bevor du eine weitere Aktion startest."
+  },
+  "approval": {
+    "title": "Freigabe erforderlich",
+    "from": "Von {{addon}}",
+    "loading": "Anfrage wird geladen",
+    "failed": "Diese Anfrage ist nicht verfügbar.",
+    "rejected": "Die Anfrage konnte nicht abgeschlossen werden. Prüfe den Status und versuche es erneut.",
+    "changes": "Änderungen",
+    "expires": "Läuft ab",
+    "state": "Status",
+    "expired": "Diese Anfrage ist abgelaufen. Fordere sie erneut an.",
+    "confirm": "Bestätigen",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "states": {
+      "pending": "Wartet auf deine Entscheidung",
+      "applied": "Angewendet",
+      "cancelled": "Abgebrochen",
+      "expired": "Abgelaufen",
+      "executing": "Wird angewendet",
+      "rejected": "Abgelehnt",
+      "outcome-unknown": "Ergebnis unbekannt",
+      "abandoned-unknown": "Ergebnis unbekannt",
+      "unknown": "Unbekannt"
+    }
+  },
+  "apps": {
+    "emptyBody": "Sobald ein Administrator ein Add-on installiert und aktiviert, erscheint es hier.",
+    "emptyTitle": "Noch keine Apps",
+    "headless": "Läuft im Hintergrund und hat keine eigene Seite.",
+    "listLabel": "Apps",
+    "loading": "Apps werden geladen",
+    "manage": "Verwalten",
+    "open": "Öffnen",
+    "stale": "Die Liste konnte nicht aktualisiert werden. Die Anzeige ist möglicherweise veraltet.",
+    "start": "Starten",
+    "stop": "Stoppen",
+    "toolsMore_one": "und {{count}} weiteres",
+    "toolsMore_other": "und {{count}} weitere",
+    "tools_one": "{{count}} Werkzeug",
+    "tools_other": "{{count}} Werkzeuge",
+    "version": "Version {{version}}",
+    "working": "Warte auf die Bestätigung des Betreibers."
+  },
+  "browse": {
+    "confirmBody": "Version {{version}} aus der Bibliothek {{library}} wird heruntergeladen und geprüft, bevor sie installiert wird.",
+    "confirmNotEnabled": "Die Installation startet das Add-on nicht. Du aktivierst es in einem eigenen Schritt.",
+    "confirmTitle": "{{name}} installieren?",
+    "details": "Details",
+    "detailsLead": "Bibliothekseintrag für {{id}}",
+    "emptyBody": "Füge im Tab Bibliotheken eine Bibliothek hinzu und aktualisiere sie.",
+    "emptyTitle": "Keine Add-ons gefunden",
+    "fromLibrary": "aus {{library}}",
+    "install": "Installieren",
+    "installedDetail": "Version {{version}}, Generation {{generation}}",
+    "installedNotEnabled": "Installiert. Es ist nicht aktiviert: Aktiviere es im Tab Installiert, wenn du bereit bist.",
+    "installedOther": "Installiert {{version}} (andere Version)",
+    "installedSame": "Installiert {{version}}",
+    "installedState": "Installiert",
+    "installing": "Wird installiert",
+    "search": "Bibliotheken durchsuchen"
+  },
+  "catalog": {
+    "allLibraries": "Alle Bibliotheken",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "count_one": "{{count}} Ergebnis",
+    "count_other": "{{count}} Ergebnisse",
+    "emptyBody": "Diese Liste ist leer.",
+    "emptyFiltered": "Nichts passt zur Suche. Ändere die Wörter oder die Bibliothek.",
+    "emptyTitle": "Nichts anzuzeigen",
+    "libraries": "Bibliotheken",
+    "loading": "Ergebnisse werden geladen",
+    "next": "Nächste Seite",
+    "previous": "Vorherige Seite",
+    "retry": "Erneut versuchen",
+    "search": "Suchen"
+  },
+  "errors": {
+    "auth": "Du bist abgemeldet. Melde dich erneut an.",
+    "denied": "Der Server hat dies abgelehnt. Möglicherweise fehlt dir die Berechtigung oder das Add-on hat sich geändert. Die Liste wurde aktualisiert.",
+    "invalid": "Der Server konnte diese Anfrage nicht annehmen.",
+    "network": "Der Server ist nicht erreichbar. Prüfe deine Verbindung.",
+    "unavailable": "Der Betreiber des Add-ons ist gerade nicht verfügbar. Versuche es gleich noch einmal.",
+    "unknownOutcome": "Das Ergebnis konnte nicht bestätigt werden. Prüfe den Status, bevor du es erneut versuchst."
+  },
+  "installed": {
+    "disable": "Deaktivieren",
+    "disabled": "Deaktiviert",
+    "emptyBody": "Installiere ein Add-on über den Tab Durchsuchen.",
+    "emptyTitle": "Nichts ist installiert",
+    "enable": "Aktivieren",
+    "enabled": "Aktiviert",
+    "generation": "Generation {{generation}}",
+    "listLabel": "Installierte Add-ons",
+    "loading": "Installierte Add-ons werden geladen",
+    "manage": "Details",
+    "manageLead": "Verwaltungsansicht von {{id}}",
+    "missing": "{{id}} ist nicht installiert.",
+    "uninstall": "Deinstallieren",
+    "uninstallBody": "Das Add-on wird gestoppt und sein Paket nicht mehr verwendet. Seine Daten, Identität und Berechtigungen bleiben erhalten, eine erneute Installation übernimmt sie. Es wird nichts gelöscht.",
+    "uninstallTitle": "{{name}} deinstallieren?"
+  },
+  "libraries": {
+    "add": "Bibliothek hinzufügen",
+    "addTitle": "Bibliothek hinzufügen",
+    "disabled": "Deaktiviert",
+    "edit": "Bearbeiten",
+    "editTitle": "{{name}} bearbeiten",
+    "emptyBody": "Füge eine Bibliothek hinzu, um Add-ons zu durchsuchen und zu installieren.",
+    "emptyTitle": "Keine Bibliotheken",
+    "enabled": "Aktiviert",
+    "errors": {
+      "id": "Verwende Kleinbuchstaben, Ziffern und Bindestriche und beginne mit einem Buchstaben.",
+      "name": "Gib einen Namen mit höchstens 256 Zeichen ein.",
+      "reference": "Das sieht nicht wie ein Referenzname aus. Verwende den Namen einer eingerichteten Zugangsdaten-Konfiguration, nicht das Geheimnis.",
+      "required": "Erforderlich, wenn eine Signatur verlangt wird.",
+      "url": "Gib eine http- oder https-Adresse ein.",
+      "urlCredentials": "Die Adresse darf keinen Benutzernamen und kein Passwort enthalten.",
+      "urlQuery": "Die Adresse darf keinen Query-String und kein Fragment enthalten."
+    },
+    "fields": {
+      "enabled": "Aktiviert",
+      "id": "Bezeichner",
+      "identity": "Identität der Signatur",
+      "issuer": "Aussteller der Signatur",
+      "name": "Name",
+      "reference": "Zugangsdaten-Referenz (optional)",
+      "requireSignature": "Signatur verlangen",
+      "url": "Katalog-URL"
+    },
+    "hints": {
+      "id": "Kleinbuchstaben, Ziffern und Bindestriche. Kann später nicht geändert werden.",
+      "reference": "Der Name einer Zugangsdaten-Konfiguration des Betreibers. Füge hier nie ein Token oder Passwort ein.",
+      "url": "Eine https-Adresse ohne Zugangsdaten und ohne Query-String."
+    },
+    "lastRefresh": "Aktualisiert {{when}}, {{count}} Einträge",
+    "lead": "Eine Bibliothek ist ein Katalogdokument, das Add-ons auflistet. Zugangsdaten werden hier nie eingetippt: Eine private Bibliothek nennt eine Zugangsdaten-Referenz, die der Betreiber eingerichtet hat.",
+    "listLabel": "Bibliotheken",
+    "loading": "Bibliotheken werden geladen",
+    "notRefreshed": "Noch nicht aktualisiert",
+    "reference": "Zugangsdaten-Referenz: {{name}}",
+    "refresh": "Aktualisieren",
+    "refreshFailed": "Letzte Aktualisierung fehlgeschlagen",
+    "refreshed": "{{name}} aktualisiert.",
+    "remove": "Entfernen",
+    "removeBody": "Die Bibliothek wird aus dieser Liste entfernt. Add-ons, die daraus installiert wurden, bleiben installiert und laufen weiter.",
+    "removeTitle": "{{name}} entfernen?",
+    "removed": "{{name}} entfernt.",
+    "save": "Speichern",
+    "saved": "{{name}} gespeichert."
+  },
+  "manage": {
+    "api": "Add-on-API",
+    "atLeast": "oder mehr",
+    "compatibility": "Kompatibilität",
+    "data": "Aufbewahrte Daten",
+    "dataFormat": "Datenformat",
+    "desired": "Gewünschter Zustand",
+    "failedNote_one": "Der Prozess antwortet nach {{count}} Neustartversuch nicht.",
+    "failedNote_other": "Der Prozess antwortet nach {{count}} Neustartversuchen nicht.",
+    "generations": "Aufbewahrte Generationen",
+    "hasUI": "Hat Seiten",
+    "headless": "Ohne Oberfläche, keine Seiten",
+    "health": "Zustand",
+    "host": "Host-API",
+    "interface": "Oberfläche",
+    "logs": "Protokolle",
+    "logsNone": "Die Ausgabe von Add-on-Prozessen wird in dieser Version nicht erfasst. Zustand und Neustartversuche oben sind das, was der Betreiber melden kann.",
+    "observed": "Beobachteter Zustand",
+    "protocol": "Protokoll",
+    "restarts": "Neustartversuche",
+    "storage": "Speicher",
+    "tools": "Werkzeuge",
+    "trust": "Vertrauen"
+  },
+  "page": {
+    "back": "Zurück zu den Add-ons",
+    "body": "Diese Version kann Add-on-Seiten noch nicht öffnen. Das Add-on läuft weiter.",
+    "title": "Diese Seite ist noch nicht verfügbar"
+  },
+  "shell": {
+    "loading": "{{title}} wird geladen",
+    "unavailable": {
+      "title": "Dieses Add-on ist nicht verfügbar"
+    },
+    "reasons": {
+      "disabled": "Das Add-on wurde gestoppt. Starten Sie es erneut auf der Add-on-Seite.",
+      "removed": "Das Add-on ist nicht installiert oder Sie dürfen es nicht mehr nutzen.",
+      "failed": "Das Add-on antwortet nicht mehr. Es wird automatisch neu gestartet; laden Sie neu, um es erneut zu versuchen.",
+      "updated": "Das Add-on wurde aktualisiert. Laden Sie neu, um die neue Version zu verwenden.",
+      "no-ui": "Diese Version des Add-ons hat keine Seiten.",
+      "incompatible_sdk": "Dieses Add-on benötigt eine andere Version der LocalAI-Oberfläche, als diese Seite bietet.",
+      "untrusted_asset": "Das Add-on verwies auf eine Datei außerhalb seines Pakets und wurde nicht geladen.",
+      "invalid_module": "Das Add-on hält den Oberflächenvertrag nicht ein und wurde nicht geladen.",
+      "import_failed": "Das Add-on konnte nicht geladen werden.",
+      "create_failed": "Das Add-on ist beim Start fehlgeschlagen.",
+      "timeout": "Das Add-on hat zu lange zum Laden gebraucht.",
+      "css_failed": "Das Stylesheet des Add-ons konnte nicht geladen werden.",
+      "aborted": "Das Laden wurde abgebrochen."
+    },
+    "reload": "Neu laden",
+    "reloading": "Wird neu geladen",
+    "stale": "{{title}} hat sich geändert, während Sie bearbeitet haben. Ihre Änderungen sind noch sichtbar, können aber nicht gespeichert werden. Kopieren Sie, was Sie brauchen, und laden Sie dann neu.",
+    "discard": {
+      "title": "Ungespeicherte Änderungen verwerfen?",
+      "body": "Beim Neuladen wird diese Seite ersetzt und nicht gespeicherte Änderungen gehen verloren.",
+      "confirm": "Verwerfen und neu laden",
+      "cancel": "Weiter bearbeiten"
+    },
+    "leave": {
+      "title": "Diese Seite verlassen?",
+      "body": "Sie haben ungespeicherte Änderungen. Sie gehen verloren, wenn Sie die Seite verlassen.",
+      "leave": "Verlassen",
+      "stay": "Bleiben"
+    },
+    "pageMissing": {
+      "title": "Diese Seite existiert nicht",
+      "body": "{{title}} hat keine Seite namens „{{page}}“."
+    },
+    "noComponent": {
+      "title": "Hier gibt es nichts anzuzeigen",
+      "body": "Dieses Add-on ergänzt andere Seiten um Aktionen und hat keine eigene Seite."
+    },
+    "error": {
+      "title": "Mit diesem Add-on ist ein Problem aufgetreten",
+      "text": "Es ist beim Zeichnen dieser Seite fehlgeschlagen. Der Rest von LocalAI ist nicht betroffen.",
+      "retry": "Erneut versuchen"
+    },
+    "layer": {
+      "close": "Schließen"
+    }
+  },
+  "slots": {
+    "unavailable": "Nicht verfügbar",
+    "composerMore": "Aktionen von Add-ons",
+    "actionFailed": "{{label}} konnte nicht abgeschlossen werden."
+  },
+  "state": {
+    "failed": "Fehlgeschlagen",
+    "label": "Zustand: {{state}}",
+    "running": "Läuft",
+    "starting": "Startet",
+    "stopped": "Gestoppt",
+    "update-pending": "Update ausstehend"
+  },
+  "supporting": "Apps, die dein Betreiber für dich ausführt, und die Bibliotheken, aus denen sie stammen.",
+  "tabs": {
+    "apps": "Apps",
+    "browse": "Durchsuchen",
+    "installed": "Installiert",
+    "label": "Bereiche der Add-ons",
+    "libraries": "Bibliotheken"
+  },
+  "title": "Add-ons",
+  "trust": {
+    "channel": "Kanal",
+    "digest": "Digest",
+    "digestOnly": "Nur Digest",
+    "identity": "Identität der Signatur",
+    "issuer": "Aussteller der Signatur",
+    "library": "Bibliothek",
+    "mode": {
+      "digest": "Digest geprüft",
+      "signed": "Signiert und Digest geprüft"
+    },
+    "platform": "Plattform",
+    "selection": "Ausgewählt als",
+    "signatureRequired": "Signatur erforderlich",
+    "verification": "Verifizierung",
+    "version": "Version"
+  },
+  "proposal": {
+    "title": "Änderung eines Add-ons",
+    "loading": "Anfrage wird geladen",
+    "withdrawn": "Diese Anfrage ist für dich nicht mehr verfügbar.",
+    "unavailable": "Diese Anfrage ist nicht verfügbar.",
+    "addon": "Add-on",
+    "database": "Datenbank",
+    "operation": "Vorgang",
+    "effects": "Änderungen",
+    "sample": "Vorschau vom Host",
+    "blocked": "Eine andere Änderung dieser Datenbank ist noch nicht abgeschlossen. Schließe sie zuerst ab.",
+    "expired": "Diese Anfrage ist abgelaufen. Frage erneut an.",
+    "rejectedState": "Die Daten haben sich geändert oder die Anfrage wurde abgelehnt. Nichts wurde angewendet. Frage eine neue Vorschau an.",
+    "unknown": "Das Ergebnis ist noch nicht bekannt. Es wurde möglicherweise angewendet. Prüfe den Status, bevor du erneut anfragst.",
+    "refresh": "Status prüfen"
+  },
+  "artifact": {
+    "title": "Datei bereit",
+    "loading": "Datei wird geladen",
+    "withdrawn": "Diese Datei ist für Sie nicht mehr verfügbar.",
+    "unavailable": "Diese Datei ist nicht verfügbar.",
+    "name": "Datei",
+    "size": "Größe",
+    "expires": "Verfügbar bis",
+    "state": "Status",
+    "preparing": "Die Datei wird vorbereitet.",
+    "failed": "Die Datei konnte nicht fertiggestellt werden. Es kann nichts heruntergeladen werden. Exportieren Sie erneut.",
+    "expired": "Diese Datei ist abgelaufen und wurde entfernt. Die zugrunde liegenden Daten sind unverändert. Exportieren Sie erneut.",
+    "download": "Herunterladen",
+    "states": {
+      "loading": "Wird geladen",
+      "withdrawn": "Nicht verfügbar",
+      "unavailable": "Nicht verfügbar",
+      "transferring": "In Vorbereitung",
+      "complete": "Bereit",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "expired": "Abgelaufen",
+      "unknown": "Unbekannt"
+    },
+    "downloadDenied": "Diese Datei kann nicht mehr heruntergeladen werden. Ihr Zugriff auf die Quelle hat sich geändert oder die Datei ist abgelaufen.",
+    "downloadFailed": "Der Download wurde nicht abgeschlossen. Versuchen Sie es erneut."
+  },
+  "recovery": {
+    "title": "Datenwiederherstellung",
+    "loading": "Wiederherstellungsstatus wird gelesen",
+    "done": "Erledigt.",
+    "backup": "Jetzt sichern",
+    "backingUp": "Sicherung läuft…",
+    "backedUp": "Sicherung {{id}} wurde erstellt und geprüft.",
+    "retention": "Behält die neuesten {{count}} Sicherungen. Die neueste geprüfte Sicherung und die Wiederherstellungskopie eines Upgrades werden nie entfernt.",
+    "none": "Für die Daten dieses Add-ons gibt es noch keine Sicherung.",
+    "listLabel": "Sicherungen dieses Add-ons",
+    "verify": "Prüfen",
+    "verified": "Sicherung {{id}} wurde vollständig gelesen und besteht die Prüfung.",
+    "restore": "Wiederherstellen",
+    "restored": "Die Sicherung wurde wiederhergestellt.",
+    "delete": "Löschen",
+    "deleted": "Sicherung {{id}} wurde gelöscht.",
+    "pinned": "Wiederherstellungskopie",
+    "pinnedWhy": "Dies ist die Wiederherstellungskopie des letzten Upgrades. Sie bleibt, bis es eine neuere geprüfte Sicherung gibt.",
+    "lastRestore": "Letzte Wiederherstellung, {{when}}",
+    "purge": "Bereinigen…",
+    "purged": "Die aufbewahrten Daten wurden bereinigt.",
+    "purgeLead": "Das Bereinigen entfernt aufbewahrte Daten dieses Add-ons endgültig. Es ist weder das Löschen einer Datenbank noch eine Deinstallation.",
+    "purgeTitle": "Aufbewahrte Daten bereinigen",
+    "purgeBody": "Dies entfernt, was Sie unten auswählen, und kann nicht rückgängig gemacht werden. Das Add-on muss deinstalliert oder deaktiviert sein.",
+    "scope": "Was entfernt werden soll",
+    "scopeData": "Die Daten und alle Freigaben dieses Add-ons",
+    "scopeBackups": "Alle Sicherungen ({{count}})",
+    "scopeCopies": "Datenkopien, die Wiederherstellungen zur Seite gelegt haben ({{count}})",
+    "scopeNone": "Wählen Sie, was entfernt werden soll.",
+    "restoreTitle": "Sicherung wiederherstellen",
+    "restoreBody": "Die Daten gehen auf den Stand von {{when}} zurück.",
+    "warnLost": "Änderungen nach der Sicherung gehen verloren. Die Daten des Add-ons werden ersetzt.",
+    "warnAccess": "Freigaben werden neu geprüft: Niemand erhält Zugriff zurück, der seit der Sicherung entzogen wurde oder dessen Konto nicht mehr existiert.",
+    "warnProposals": "Wartende Vorschläge werden abgebrochen. Vorgänge mit unbekanntem Ergebnis werden nachgeschlagen und nie erneut angewendet.",
+    "warnCopy": "Die ersetzten Daten bleiben als Wiederherstellungskopie, bis Sie sie bereinigen.",
+    "stopFirst": "Halten Sie das Add-on zuerst an: deaktivieren, dann wiederherstellen.",
+    "mapping": "Diese Sicherung wurde im Modus „lokaler Eigentümer“ erstellt. Konto-ID, die die Daten übernimmt",
+    "typeToConfirm": "Geben Sie {{id}} zur Bestätigung ein",
+    "typeToConfirmLabel": "Add-on-ID zur Bestätigung eingeben",
+    "phase": "Schritt {{index}} von {{total}}: {{step}}",
+    "steps": {
+      "begin": "Start",
+      "backed-up": "gesichert",
+      "staged": "Paket veröffentlicht",
+      "migrating": "Daten werden migriert",
+      "healthy": "geprüft",
+      "publishing": "Veröffentlichung"
+    },
+    "state": {
+      "ready": "Bereit",
+      "upgrading": "Upgrade läuft",
+      "restoring": "Wiederherstellung läuft",
+      "needs-recovery": "Wiederherstellung nötig",
+      "purging": "Bereinigung läuft"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "Die Daten dieses Add-ons müssen wiederhergestellt werden",
+        "body": "Das Add-on wird nicht gestartet. Das vorherige Paket bleibt erhalten, kann aber die Daten nicht lesen, die eine fehlgeschlagene Migration zu ändern begann.",
+        "hint": "Stellen Sie die geprüfte Wiederherstellungskopie unten wieder her oder bereinigen Sie die Daten.",
+        "hintNone": "Keine geprüfte Sicherung vorhanden. Bereinigen Sie die Daten, um neu zu beginnen."
+      },
+      "upgrading": {
+        "title": "Ein Upgrade läuft",
+        "body": "Das Add-on ist angehalten, während seine Daten gesichert und migriert werden."
+      },
+      "restoring": {
+        "title": "Eine Wiederherstellung läuft",
+        "body": "Das Add-on bleibt angehalten, bis die Wiederherstellung beendet ist."
+      },
+      "purging": {
+        "title": "Eine Bereinigung läuft",
+        "body": "Die aufbewahrten Daten werden entfernt."
+      }
+    },
+    "verification": {
+      "verified": "Geprüft",
+      "failed": "Prüfung fehlgeschlagen",
+      "unverified": "Noch nicht geprüft"
+    },
+    "reason": {
+      "manual": "Von Ihnen erstellt",
+      "upgrade": "Vor einem Upgrade",
+      "restore": "Vor einer Wiederherstellung"
+    },
+    "errors": {
+      "needs_recovery": "Die Daten müssen zuerst wiederhergestellt werden: Sicherung wiederherstellen oder bereinigen.",
+      "addon_running": "Halten Sie das Add-on zuerst an.",
+      "busy": "Für dieses Add-on läuft bereits ein anderer Wiederherstellungsvorgang.",
+      "backup_not_found": "Diese Sicherung existiert nicht mehr.",
+      "not_installed": "Das Add-on ist nicht installiert.",
+      "backup_corrupt": "Die Sicherung hat die Prüfung nicht bestanden und wurde nicht verwendet.",
+      "incompatible_format": "Das Datenformat passt nicht zum installierten Paket.",
+      "identity_changed": "Das installierte Paket stammt aus einer anderen vertrauenswürdigen Quelle als die Daten.",
+      "mapping_required": "Nennen Sie das Konto, das die Daten dieser Sicherung übernimmt.",
+      "mapping_invalid": "Dieses Konto ist nicht gültig.",
+      "downgrade_unsupported": "Daten benannter Benutzer können nicht im Modus „lokaler Eigentümer“ wiederhergestellt werden.",
+      "sole_recovery_copy": "Dies ist die einzige geprüfte Wiederherstellungskopie und bleibt erhalten.",
+      "confirmation_mismatch": "Die eingegebene ID stimmt nicht überein.",
+      "operation_conflict": "Diese Vorgangs-ID wurde für eine andere Anfrage verwendet. Es wurde nichts getan.",
+      "invalid_request": "Die Anfrage kann so nicht ausgeführt werden.",
+      "insufficient_storage": "Für eine Sicherung ist nicht genug freier Speicher vorhanden. Es wurde nichts geändert.",
+      "unknownOutcome": "Das Ergebnis ist nicht bekannt. Lesen Sie den Status erneut: Dieselbe Aktion wird nicht zweimal gesendet.",
+      "auth": "Melden Sie sich erneut an.",
+      "denied": "Nur Administratoren können dies, aus ihrer eigenen Browsersitzung.",
+      "network": "Der Eigentümer war nicht erreichbar.",
+      "unavailable": "Der Eigentümer ist nicht verfügbar."
+    }
+  },
+  "updates": {
+    "title": "Updates",
+    "checkNow": "Nach Updates suchen",
+    "checking": "Prüfe ...",
+    "checkedAt": "Geprüft {{when}}",
+    "neverChecked": "Noch nicht geprüft",
+    "lastSuccess": "Bibliothek zuletzt gelesen {{when}}",
+    "stale": "Diese Angabe ist möglicherweise veraltet. Bitte erneut prüfen.",
+    "throttled": "Eine Prüfung lief gerade erst. Das ist ihr Ergebnis.",
+    "badge": {
+      "available": "Update {{version}}",
+      "incompatible": "Update {{version}} nicht kompatibel",
+      "failed": "Update-Prüfung fehlgeschlagen",
+      "integrity": "Integritätsfehler"
+    },
+    "state": {
+      "unknown": "Der Update-Status ist nicht bekannt. Prüfen Sie auf Updates, um die Bibliothek zu fragen.",
+      "up-to-date": "Dieses Add-on ist aktuell.",
+      "update-available": "Version {{version}} ist verfügbar.",
+      "incompatible": "Version {{version}} läuft auf diesem Host nicht. Sie wird nicht angeboten.",
+      "check-failed": "Die Update-Prüfung ist fehlgeschlagen, daher ist nicht bekannt, ob ein Update existiert.",
+      "integrity-error": "Die Bibliothek führt die installierte Version mit anderem Inhalt. Nichts wurde geändert und es wird kein Update angeboten."
+    },
+    "reason": {
+      "platform": "Die Plattform wird nicht angeboten",
+      "host-version": "Die Host-Version passt nicht",
+      "api-version": "Die Add-on-API passt nicht",
+      "protocol-version": "Die Protokollversion passt nicht",
+      "sdk-version": "Die SDK-Version der Oberfläche passt nicht",
+      "data-format": "Das Datenformat passt nicht",
+      "digest-changed": "Der Digest dieser Version hat sich geändert"
+    },
+    "class": {
+      "source-unavailable": "Die Bibliothek ist nicht erreichbar.",
+      "refresh-failed": "Die Bibliothek konnte nicht gelesen werden.",
+      "credential-unavailable": "Die Zugangsdaten der Bibliothek sind nicht verfügbar.",
+      "not-listed": "Die Bibliothek führt dieses Add-on nicht mehr.",
+      "ambiguous-release": "Die Bibliothek führt diese Version mehrfach.",
+      "canceled": "Die Prüfung wurde abgebrochen.",
+      "internal": "Die Prüfung ist fehlgeschlagen."
+    },
+    "installed": "Installiert",
+    "candidate": "Verfügbar",
+    "reasons": "Warum es nicht passt",
+    "upgrade": "Aktualisieren",
+    "confirm": {
+      "title": "{{name}} auf {{version}} aktualisieren?",
+      "body": "Das Add-on wird angehalten, während seine Daten gesichert und migriert werden, dann startet die neue Version. Startet die neue Version nicht, läuft die aktuelle weiter.",
+      "data": "Seine Daten werden gesichert, bevor sich etwas ändert.",
+      "action": "Aktualisieren",
+      "library": "Bibliothek",
+      "channel": "Kanal",
+      "from": "Von",
+      "to": "Auf"
+    },
+    "progress": "{{name}} wird aktualisiert. Zuerst werden die Daten gesichert.",
+    "done": "Auf Version {{version}} aktualisiert.",
+    "browseUpdate": "Update {{version}} ist verfügbar. Verwaltung unter Installiert.",
+    "errors": {
+      "stale_installed": "Die installierte Version hat sich seit der Prüfung geändert. Bitte erneut nach Updates suchen.",
+      "candidate_changed": "Die Bibliothek bietet die geprüfte Version nicht mehr an. Bitte erneut nach Updates suchen.",
+      "upgrade_conflict": "Diese Aktualisierung ist bereits unter einer anderen Operation erfasst. Sie wurde nicht doppelt ausgeführt.",
+      "incompatible": "Die neue Version ist mit diesem Host nicht kompatibel. Nichts wurde geändert.",
+      "integrity_error": "Die Bibliothek führt die installierte Version mit anderem Inhalt. Nichts wurde geändert.",
+      "upgrade_failed": "Die Aktualisierung wurde nicht abgeschlossen, die installierte Version bleibt erhalten. Sie können es erneut versuchen.",
+      "operation_conflict": "Die Operation passt nicht zum aktuellen Zustand. Nichts wurde angewendet.",
+      "check_failed": "Die Bibliothek konnte nicht gelesen werden, daher wurde die Aktualisierung nicht gestartet. Nichts wurde geändert.",
+      "unknownOutcome": "Das Ergebnis der Aktualisierung ist nicht bekannt. Lesen Sie ihren Status erneut; starten Sie keine weitere.",
+      "auth": "Bitte erneut anmelden.",
+      "denied": "Das kann nur ein Administrator in der eigenen Browsersitzung tun.",
+      "network": "Das Netzwerk ist nicht erreichbar.",
+      "unavailable": "Der Add-on-Eigentümer ist nicht verfügbar. Bitte erneut versuchen."
+    }
+  }
+}

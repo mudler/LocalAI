@@ -1,0 +1,285 @@
+{
+  "schemaVersion": 1,
+  "id": "fine-tuning",
+  "version": "0.1.0",
+  "executable": "fine-tuning",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {
+    "min": 1,
+    "max": 1
+  },
+  "api": {
+    "min": 1,
+    "max": 1
+  },
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "dataFormat": {
+    "min": 1,
+    "max": 1
+  },
+  "capabilities": {
+    "tools": [
+      "resource-exists",
+      "fine-tune-list",
+      "fine-tune-start",
+      "fine-tune-dataset",
+      "fine-tune-status",
+      "fine-tune-checkpoints",
+      "fine-tune-stop",
+      "fine-tune-export"
+    ],
+    "toolDefinitions": [
+      {
+        "name": "fine-tune-list",
+        "kind": "read",
+        "description": "List the fine-tuning jobs of the person you are talking to, newest first, including jobs started in the web page. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "fine-tune-start",
+        "kind": "create",
+        "description": "Propose a new fine-tuning job. A person confirms it in the approval card; nothing starts before that. datasetSource is a Hugging Face ID or a reference from fine-tune-dataset. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A label for the job, 1 to 80 characters.",
+              "maxLength": 80
+            },
+            "model": {
+              "type": "string",
+              "description": "Base model as a gallery or Hugging Face ID. A local path is refused.",
+              "maxLength": 256
+            },
+            "backend": {
+              "type": "string",
+              "description": "Fine-tuning backend. The default is trl.",
+              "maxLength": 64
+            },
+            "trainingType": {
+              "type": "string",
+              "description": "Kind of training. The default is lora.",
+              "enum": [
+                "lora",
+                "loha",
+                "lokr",
+                "full"
+              ]
+            },
+            "trainingMethod": {
+              "type": "string",
+              "description": "Training method. The default is sft.",
+              "enum": [
+                "sft",
+                "dpo",
+                "grpo",
+                "rloo",
+                "reward",
+                "kto",
+                "orpo"
+              ]
+            },
+            "datasetSource": {
+              "type": "string",
+              "description": "Dataset as a Hugging Face ID or a reference from fine-tune-dataset. A local path is refused.",
+              "maxLength": 256
+            },
+            "datasetSplit": {
+              "type": "string",
+              "description": "Dataset split, such as train.",
+              "maxLength": 64
+            },
+            "learningRate": {
+              "type": "number",
+              "description": "Learning rate. Zero keeps the default.",
+              "minimum": 0
+            },
+            "numEpochs": {
+              "type": "integer",
+              "description": "Number of epochs. Zero keeps the default.",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "batchSize": {
+              "type": "integer",
+              "description": "Batch size. Zero keeps the default.",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            "maxSteps": {
+              "type": "integer",
+              "description": "Stop after this many steps. Zero means no limit.",
+              "minimum": 0
+            },
+            "adapterRank": {
+              "type": "integer",
+              "description": "Rank of the adapter. Zero keeps the default.",
+              "minimum": 0,
+              "maximum": 1024
+            },
+            "adapterAlpha": {
+              "type": "integer",
+              "description": "Alpha of the adapter. Zero keeps the default.",
+              "minimum": 0,
+              "maximum": 4096
+            }
+          },
+          "required": [
+            "name",
+            "model",
+            "datasetSource"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "fine-tune-dataset",
+        "kind": "create",
+        "description": "Propose sending a small text dataset (up to 900 KiB, a .jsonl, .json, .csv or .txt file) to the server. A person confirms it. The reference it returns is the datasetSource of fine-tune-start, works for that person only and is lost when the server restarts. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "File name of the dataset, ending in .jsonl, .json, .csv or .txt. No folder.",
+              "maxLength": 255
+            },
+            "content": {
+              "type": "string",
+              "description": "The dataset as UTF-8 text, 1 byte to 900 KiB.",
+              "maxLength": 921600
+            }
+          },
+          "required": [
+            "name",
+            "content"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "fine-tune-status",
+        "kind": "read",
+        "description": "Show the status of a fine-tuning job that a tool started, or the reference of a dataset that fine-tune-dataset sent. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the fine-tuning job, as returned by a job start. Only a job that a tool started has one."
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "fine-tune-checkpoints",
+        "kind": "read",
+        "description": "List the saved checkpoints of a fine-tuning job that a tool started, with step and time. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the fine-tuning job, as returned by a job start. Only a job that a tool started has one."
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "fine-tune-stop",
+        "kind": "write",
+        "description": "Propose stopping a fine-tuning job that a tool started. A person confirms it. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the fine-tuning job, as returned by a job start. Only a job that a tool started has one."
+            },
+            "saveCheckpoint": {
+              "type": "boolean",
+              "description": "Keep a checkpoint of the work so far. The default is false."
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "fine-tune-export",
+        "kind": "write",
+        "description": "Propose registering the result of a fine-tuning job that a tool started as a model. Administrators only. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the fine-tuning job, as returned by a job start. Only a job that a tool started has one."
+            },
+            "exportFormat": {
+              "type": "string",
+              "description": "Export format. The default is the engine default.",
+              "enum": [
+                "lora",
+                "merged_16bit",
+                "merged_4bit",
+                "gguf"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "description": "Name of the model, 1 to 64 letters, digits, dots, dashes or underscores. Leave out to let the engine choose.",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ],
+    "resources": {
+      "noun": "fine-tuning job",
+      "create": "fine-tune-start",
+      "inspect": "fine-tune-status"
+    },
+    "ui": {
+      "entry": "ui/fine-tuning.js",
+      "css": [
+        "ui/fine-tuning.css"
+      ],
+      "sdk": {
+        "min": 2,
+        "max": 2
+      },
+      "pages": [
+        "jobs"
+      ],
+      "navigation": [],
+      "mainPage": "jobs",
+      "icon": "ui/icon.png",
+      "title": "Fine-tuning",
+      "description": "Train an adapter on your own data, then export it as a model you can chat with."
+    }
+  }
+}

@@ -480,6 +480,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"quantization":      true,
 			"distributed":       appConfig.Distributed.Enabled,
 			"localai_assistant": !appConfig.DisableLocalAIAssistant && app.LocalAIAssistant() != nil,
+			"addon_navigation":  !appConfig.LegacyNavigation,
 		})
 	})
 

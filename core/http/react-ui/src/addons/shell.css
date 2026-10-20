@@ -1,0 +1,121 @@
+/* ==========================================================================
+   The add-on shell: the root an add-on page is drawn in, the banner of a
+   withdrawn page, the error card and the layout wrappers of the SDK. Loaded
+   with the registry, so a dialog an add-on opens from any page is styled.
+   ========================================================================== */
+
+/* ---- Add-on page shell ----------------------------------------------------
+   The root an add-on page is drawn in. The add-on's own style sheet is
+   scoped to [data-addon="<id>"], so it reaches only this element. */
+
+.ad-host { min-width: 0; color: var(--dk-text); }
+.ad-host--frozen { opacity: 0.72; }
+.ad-shell-actions { display: inline-flex; flex-wrap: wrap; gap: var(--dk-space-2, 8px); justify-content: center; margin-top: var(--dk-space-3); }
+.ad-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-3) var(--dk-space-4);
+  border-radius: var(--dk-radius-1);
+  background: var(--dk-warn-wash);
+  color: var(--dk-warn-text);
+  font-size: var(--dk-text-13);
+}
+.ad-banner > span { flex: 1 1 240px; min-width: 0; }
+.ad-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-4);
+  border-radius: var(--dk-radius-1);
+  background: var(--dk-error-wash);
+  color: var(--dk-error-text);
+}
+.ad-boundary__title { margin: 0; font-size: var(--dk-text-15); font-weight: var(--dk-weight-semibold); }
+.ad-boundary__text { margin: 0; font-size: var(--dk-text-13); }
+.ad-stack { display: flex; flex-direction: column; align-items: flex-start; }
+.ad-stack--sm { gap: var(--dk-space-1); }
+.ad-stack--md { gap: var(--dk-space-3); }
+.ad-stack--lg { gap: var(--dk-space-5); }
+.ad-text { margin: 0; font-size: var(--dk-text-13); }
+.ad-text--muted { color: var(--dk-muted); }
+
+/* ---- Host slots ------------------------------------------------------------
+   Contributions of add-ons in existing pages. Each one sits in a container of
+   its own; nothing here styles a host node. */
+
+.ad-slot { display: inline-flex; align-items: center; min-width: 0; max-width: 100%; }
+.ad-slot-unavailable {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 var(--dk-space-2);
+  border-radius: var(--dk-radius-1);
+  background: var(--dk-inset);
+  color: var(--dk-muted);
+  font-size: var(--dk-text-12, 12px);
+}
+.ad-action-img { width: 1em; height: 1em; object-fit: contain; flex: 0 0 auto; }
+.ad-menu { position: relative; display: inline-flex; }
+.ad-menu__panel {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + var(--dk-space-1));
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-1);
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 2 * var(--dk-space-4)));
+  padding: var(--dk-space-1);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-1);
+  background: var(--dk-surface, var(--dk-inset));
+  box-shadow: var(--dk-shadow-pop, 0 8px 24px rgb(0 0 0 / 0.24));
+}
+.ad-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  min-height: 36px;
+  padding: 0 var(--dk-space-2);
+  border: 0;
+  border-radius: var(--dk-radius-1);
+  background: transparent;
+  color: var(--dk-text);
+  font: inherit;
+  font-size: var(--dk-text-13);
+  text-align: left;
+  cursor: pointer;
+}
+.ad-menu__item:hover, .ad-menu__item:focus-visible { background: var(--dk-hover); }
+.ad-menu__item:disabled { opacity: 0.55; cursor: default; }
+.ad-menu__slot { padding: 0 var(--dk-space-2); min-width: 0; }
+.ad-sections { display: flex; flex-direction: column; gap: var(--dk-space-5, 24px); margin-top: var(--dk-space-5, 24px); }
+.ad-section { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
+.ad-section__head { display: flex; align-items: center; gap: var(--dk-space-2); padding-bottom: var(--dk-space-2); border-bottom: 1px solid var(--dk-edge); }
+.ad-section__title { margin: 0; font-size: var(--dk-text-15); font-weight: var(--dk-weight-semibold); }
+.hub-subnav__slot { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
+
+/* ---- Approval frame ------------------------------------------------------- */
+
+.ad-approval { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
+.ad-approval__from { margin: 0; color: var(--dk-muted); font-size: var(--dk-text-13); }
+.ad-approval__facts { display: flex; flex-wrap: wrap; gap: var(--dk-space-4); margin: 0; }
+.ad-approval__facts dt { color: var(--dk-muted); font-size: var(--dk-text-12, 12px); }
+.ad-approval__facts dd { margin: 0; font-size: var(--dk-text-13); }
+.ad-approval__body { min-width: 0; padding: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-inset); overflow-x: auto; }
+.ad-approval__foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--dk-space-2); }
+/* The proposal card drawn inline in a chat thread. */
+.ad-pcard { padding: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-surface, transparent); max-width: 40rem; }
+.ad-pcard[data-state="applied"] { border-color: var(--dk-ok, var(--dk-edge)); }
+.ad-pcard__facts dd code { overflow-wrap: anywhere; }
+.ad-pcard .ad-result { max-height: 12rem; }
+/* The download is a link drawn as the host's primary button: the global link
+   hover colour must not take the label's colour from the button. */
+.ad-artifact a.dk-btn--primary,
+.ad-artifact a.dk-btn--primary:hover,
+.ad-artifact a.dk-btn--primary:focus-visible { color: var(--dk-on-accent); text-decoration: none; }
+.ad-result { margin: 0; max-height: 40vh; overflow: auto; font-size: var(--dk-text-12, 12px); white-space: pre-wrap; overflow-wrap: anywhere; }

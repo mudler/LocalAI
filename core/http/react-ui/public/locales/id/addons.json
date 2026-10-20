@@ -1,0 +1,507 @@
+{
+  "actions": {
+    "blocked": "Aksi sebelumnya pada add-on ini belum dikonfirmasi. Periksa statusnya atau abaikan terlebih dahulu.",
+    "checkStatus": "Periksa status",
+    "dismiss": "Abaikan",
+    "failed": "Pemilik tidak menyelesaikan tindakan. Tidak ada yang diubah. Coba lagi untuk memulai percobaan baru.",
+    "notApplied": "Pemilik melaporkan aksi selesai, tetapi add-on tidak berubah. Coba lagi.",
+    "unknown": "Pemilik belum mengonfirmasi aksi ini. Aksi mungkin masih diterapkan. Periksa statusnya atau abaikan sebelum memulai aksi lain."
+  },
+  "approval": {
+    "title": "Perlu persetujuan",
+    "from": "Dari {{addon}}",
+    "loading": "Memuat permintaan",
+    "failed": "Permintaan ini tidak tersedia.",
+    "rejected": "Permintaan tidak dapat diselesaikan. Periksa statusnya lalu coba lagi.",
+    "changes": "Perubahan",
+    "expires": "Kedaluwarsa",
+    "state": "Status",
+    "expired": "Permintaan ini sudah kedaluwarsa. Minta lagi.",
+    "confirm": "Konfirmasi",
+    "cancel": "Batal",
+    "close": "Tutup",
+    "states": {
+      "pending": "Menunggu keputusan Anda",
+      "applied": "Diterapkan",
+      "cancelled": "Dibatalkan",
+      "expired": "Kedaluwarsa",
+      "executing": "Sedang diterapkan",
+      "rejected": "Ditolak",
+      "outcome-unknown": "Hasil tidak diketahui",
+      "abandoned-unknown": "Hasil tidak diketahui",
+      "unknown": "Tidak diketahui"
+    }
+  },
+  "apps": {
+    "emptyBody": "Saat administrator memasang dan mengaktifkan add-on, add-on itu muncul di sini.",
+    "emptyTitle": "Belum ada aplikasi",
+    "headless": "Berjalan di latar belakang dan tidak punya halaman sendiri.",
+    "listLabel": "Aplikasi",
+    "loading": "Memuat aplikasi",
+    "manage": "Kelola",
+    "open": "Buka",
+    "stale": "Daftar tidak dapat diperbarui. Yang Anda lihat mungkin sudah usang.",
+    "start": "Mulai",
+    "stop": "Hentikan",
+    "toolsMore_one": "dan {{count}} lagi",
+    "toolsMore_other": "dan {{count}} lagi",
+    "tools_one": "{{count}} alat",
+    "tools_other": "{{count}} alat",
+    "version": "Versi {{version}}",
+    "working": "Menunggu konfirmasi pemilik."
+  },
+  "browse": {
+    "confirmBody": "Versi {{version}} dari pustaka {{library}} akan diunduh dan diverifikasi sebelum dipasang.",
+    "confirmNotEnabled": "Pemasangan tidak menjalankan add-on. Anda mengaktifkannya sebagai langkah terpisah.",
+    "confirmTitle": "Pasang {{name}}?",
+    "details": "Detail",
+    "detailsLead": "Entri pustaka untuk {{id}}",
+    "emptyBody": "Tambahkan pustaka di tab Pustaka, lalu segarkan.",
+    "emptyTitle": "Add-on tidak ditemukan",
+    "fromLibrary": "dari {{library}}",
+    "install": "Pasang",
+    "installedDetail": "Versi {{version}}, generasi {{generation}}",
+    "installedNotEnabled": "Terpasang. Belum diaktifkan: aktifkan di tab Terpasang saat Anda siap.",
+    "installedOther": "Terpasang {{version}} (versi lain)",
+    "installedSame": "Terpasang {{version}}",
+    "installedState": "Terpasang",
+    "installing": "Memasang",
+    "search": "Cari di pustaka"
+  },
+  "catalog": {
+    "allLibraries": "Semua pustaka",
+    "cancel": "Batal",
+    "close": "Tutup",
+    "count_one": "{{count}} hasil",
+    "count_other": "{{count}} hasil",
+    "emptyBody": "Daftar ini kosong.",
+    "emptyFiltered": "Tidak ada yang cocok dengan pencarian. Ubah kata atau pustaka.",
+    "emptyTitle": "Tidak ada yang ditampilkan",
+    "libraries": "Pustaka",
+    "loading": "Memuat hasil",
+    "next": "Halaman berikutnya",
+    "previous": "Halaman sebelumnya",
+    "retry": "Coba lagi",
+    "search": "Cari"
+  },
+  "errors": {
+    "auth": "Anda sudah keluar. Masuk lagi.",
+    "denied": "Server menolak ini. Anda mungkin tidak punya izin, atau add-on berubah. Daftar telah diperbarui.",
+    "invalid": "Server tidak dapat menerima permintaan ini.",
+    "network": "Server tidak dapat dijangkau. Periksa koneksi Anda.",
+    "unavailable": "Pemilik add-on tidak tersedia saat ini. Coba lagi sebentar lagi.",
+    "unknownOutcome": "Hasil tidak dapat dikonfirmasi. Periksa statusnya sebelum mencoba lagi."
+  },
+  "installed": {
+    "disable": "Nonaktifkan",
+    "disabled": "Nonaktif",
+    "emptyBody": "Pasang add-on dari tab Jelajahi.",
+    "emptyTitle": "Belum ada yang terpasang",
+    "enable": "Aktifkan",
+    "enabled": "Aktif",
+    "generation": "Generasi {{generation}}",
+    "listLabel": "Add-on terpasang",
+    "loading": "Memuat add-on terpasang",
+    "manage": "Detail",
+    "manageLead": "Tampilan pengelolaan {{id}}",
+    "missing": "{{id}} tidak terpasang.",
+    "uninstall": "Copot",
+    "uninstallBody": "Add-on berhenti dan paketnya tidak lagi dipakai. Data, identitas, dan izinnya dipertahankan, jadi memasangnya lagi akan memakainya kembali. Tidak ada yang dihapus.",
+    "uninstallTitle": "Copot {{name}}?"
+  },
+  "libraries": {
+    "add": "Tambah pustaka",
+    "addTitle": "Tambah pustaka",
+    "disabled": "Nonaktif",
+    "edit": "Ubah",
+    "editTitle": "Ubah {{name}}",
+    "emptyBody": "Tambahkan pustaka untuk menjelajah dan memasang add-on.",
+    "emptyTitle": "Belum ada pustaka",
+    "enabled": "Aktif",
+    "errors": {
+      "id": "Gunakan huruf kecil, angka, dan tanda hubung, diawali huruf.",
+      "name": "Masukkan nama hingga 256 karakter.",
+      "reference": "Ini tidak terlihat seperti nama referensi. Gunakan nama kredensial yang dikonfigurasi, bukan rahasianya.",
+      "required": "Wajib diisi bila tanda tangan diwajibkan.",
+      "url": "Masukkan alamat http atau https.",
+      "urlCredentials": "Alamat tidak boleh berisi nama pengguna atau kata sandi.",
+      "urlQuery": "Alamat tidak boleh berisi query string atau fragmen."
+    },
+    "fields": {
+      "enabled": "Aktif",
+      "id": "Pengenal",
+      "identity": "Identitas tanda tangan",
+      "issuer": "Penerbit tanda tangan",
+      "name": "Nama",
+      "reference": "Referensi kredensial (opsional)",
+      "requireSignature": "Wajibkan tanda tangan",
+      "url": "URL katalog"
+    },
+    "hints": {
+      "id": "Huruf kecil, angka, dan tanda hubung. Tidak dapat diubah nanti.",
+      "reference": "Nama kredensial yang dikonfigurasi pemilik. Jangan pernah menempelkan token atau kata sandi di sini.",
+      "url": "Alamat https tanpa kredensial dan tanpa query string."
+    },
+    "lastRefresh": "Disegarkan {{when}}, {{count}} entri",
+    "lead": "Pustaka adalah dokumen katalog yang mendaftar add-on. Kredensial tidak pernah diketik di sini: pustaka privat menyebut kredensial yang dikonfigurasi pemilik.",
+    "listLabel": "Pustaka",
+    "loading": "Memuat pustaka",
+    "notRefreshed": "Belum disegarkan",
+    "reference": "Referensi kredensial: {{name}}",
+    "refresh": "Segarkan",
+    "refreshFailed": "Penyegaran terakhir gagal",
+    "refreshed": "{{name}} disegarkan.",
+    "remove": "Hapus",
+    "removeBody": "Pustaka dihapus dari daftar ini. Add-on yang dipasang darinya tetap terpasang dan berjalan.",
+    "removeTitle": "Hapus {{name}}?",
+    "removed": "{{name}} dihapus.",
+    "save": "Simpan",
+    "saved": "{{name}} disimpan."
+  },
+  "manage": {
+    "api": "API add-on",
+    "atLeast": "atau lebih",
+    "compatibility": "Kompatibilitas",
+    "data": "Data yang dipertahankan",
+    "dataFormat": "Format data",
+    "desired": "Status yang diinginkan",
+    "failedNote_one": "Proses tidak melayani setelah {{count}} percobaan mulai ulang.",
+    "failedNote_other": "Proses tidak melayani setelah {{count}} percobaan mulai ulang.",
+    "generations": "Generasi yang dipertahankan",
+    "hasUI": "Punya halaman",
+    "headless": "Tanpa antarmuka, tanpa halaman",
+    "health": "Kesehatan",
+    "host": "API host",
+    "interface": "Antarmuka",
+    "logs": "Log",
+    "logsNone": "Keluaran proses add-on tidak dikumpulkan di rilis ini. Kesehatan dan percobaan mulai ulang di atas adalah yang dapat dilaporkan pemilik.",
+    "observed": "Status teramati",
+    "protocol": "Protokol",
+    "restarts": "Percobaan mulai ulang",
+    "storage": "Penyimpanan",
+    "tools": "Alat",
+    "trust": "Kepercayaan"
+  },
+  "page": {
+    "back": "Kembali ke add-on",
+    "body": "Rilis ini belum dapat membuka halaman add-on. Add-on tetap berjalan.",
+    "title": "Halaman ini belum tersedia"
+  },
+  "shell": {
+    "loading": "Memuat {{title}}",
+    "unavailable": {
+      "title": "Add-on ini tidak tersedia"
+    },
+    "reasons": {
+      "disabled": "Add-on dihentikan. Mulai lagi dari halaman Add-on.",
+      "removed": "Add-on tidak terpasang, atau Anda tidak lagi dapat menggunakannya.",
+      "failed": "Add-on berhenti merespons. Add-on dimulai ulang otomatis; muat ulang untuk mencoba lagi.",
+      "updated": "Add-on diperbarui. Muat ulang untuk memakai versi baru.",
+      "no-ui": "Versi add-on ini tidak memiliki halaman.",
+      "incompatible_sdk": "Add-on ini membutuhkan versi antarmuka LocalAI yang berbeda dari yang disediakan halaman ini.",
+      "untrusted_asset": "Add-on menunjuk ke berkas di luar paketnya sendiri, sehingga tidak dimuat.",
+      "invalid_module": "Add-on tidak mengikuti kontrak antarmuka, sehingga tidak dimuat.",
+      "import_failed": "Add-on tidak dapat dimuat.",
+      "create_failed": "Add-on gagal saat dimulai.",
+      "timeout": "Add-on terlalu lama dimuat.",
+      "css_failed": "Lembar gaya add-on tidak dapat dimuat.",
+      "aborted": "Pemuatan dibatalkan."
+    },
+    "reload": "Muat ulang",
+    "reloading": "Memuat ulang",
+    "stale": "{{title}} berubah saat Anda mengedit. Perubahan Anda masih ada di layar tetapi tidak dapat disimpan. Salin yang Anda perlukan, lalu muat ulang.",
+    "discard": {
+      "title": "Buang perubahan yang belum disimpan?",
+      "body": "Memuat ulang mengganti halaman ini, dan perubahan yang belum disimpan hilang.",
+      "confirm": "Buang dan muat ulang",
+      "cancel": "Lanjutkan mengedit"
+    },
+    "leave": {
+      "title": "Tinggalkan halaman ini?",
+      "body": "Anda memiliki perubahan yang belum disimpan. Perubahan hilang jika Anda pergi.",
+      "leave": "Tinggalkan",
+      "stay": "Tetap di sini"
+    },
+    "pageMissing": {
+      "title": "Halaman ini tidak ada",
+      "body": "{{title}} tidak memiliki halaman bernama \"{{page}}\"."
+    },
+    "noComponent": {
+      "title": "Tidak ada yang ditampilkan di sini",
+      "body": "Add-on ini menambahkan aksi ke halaman lain dan tidak memiliki halaman sendiri."
+    },
+    "error": {
+      "title": "Add-on ini mengalami masalah",
+      "text": "Add-on gagal saat menggambar halaman ini. Bagian LocalAI lainnya tidak terpengaruh.",
+      "retry": "Coba lagi"
+    },
+    "layer": {
+      "close": "Tutup"
+    }
+  },
+  "slots": {
+    "unavailable": "Tidak tersedia",
+    "composerMore": "Aksi add-on",
+    "actionFailed": "{{label}} tidak dapat diselesaikan."
+  },
+  "state": {
+    "failed": "Gagal",
+    "label": "Status: {{state}}",
+    "running": "Berjalan",
+    "starting": "Memulai",
+    "stopped": "Berhenti",
+    "update-pending": "Pembaruan tertunda"
+  },
+  "supporting": "Aplikasi yang dijalankan pemilik untuk Anda, beserta pustaka asalnya.",
+  "tabs": {
+    "apps": "Aplikasi",
+    "browse": "Jelajahi",
+    "installed": "Terpasang",
+    "label": "Bagian add-on",
+    "libraries": "Pustaka"
+  },
+  "title": "Add-on",
+  "trust": {
+    "channel": "Kanal",
+    "digest": "Digest",
+    "digestOnly": "Hanya digest",
+    "identity": "Identitas tanda tangan",
+    "issuer": "Penerbit tanda tangan",
+    "library": "Pustaka",
+    "mode": {
+      "digest": "Digest diperiksa",
+      "signed": "Bertanda tangan dan digest diperiksa"
+    },
+    "platform": "Platform",
+    "selection": "Dipilih sebagai",
+    "signatureRequired": "Tanda tangan diwajibkan",
+    "verification": "Verifikasi",
+    "version": "Versi"
+  },
+  "proposal": {
+    "title": "Perubahan dari add-on",
+    "loading": "Memuat permintaan",
+    "withdrawn": "Permintaan ini tidak lagi tersedia untuk Anda.",
+    "unavailable": "Permintaan ini tidak tersedia.",
+    "addon": "Add-on",
+    "database": "Basis data",
+    "operation": "Operasi",
+    "effects": "Perubahan",
+    "sample": "Pratinjau dari host",
+    "blocked": "Perubahan lain pada basis data ini belum selesai. Selesaikan terlebih dahulu.",
+    "expired": "Permintaan ini telah kedaluwarsa. Ajukan lagi.",
+    "rejectedState": "Data berubah atau permintaan ditolak. Tidak ada yang diterapkan. Minta pratinjau baru.",
+    "unknown": "Hasilnya belum diketahui. Mungkin sudah diterapkan. Periksa statusnya sebelum meminta lagi.",
+    "refresh": "Periksa status"
+  },
+  "artifact": {
+    "title": "File siap",
+    "loading": "Memuat file",
+    "withdrawn": "File ini tidak lagi tersedia untuk Anda.",
+    "unavailable": "File ini tidak tersedia.",
+    "name": "File",
+    "size": "Ukuran",
+    "expires": "Tersedia hingga",
+    "state": "Status",
+    "preparing": "File sedang disiapkan.",
+    "failed": "File tidak dapat diselesaikan. Tidak ada yang dapat diunduh. Ekspor lagi.",
+    "expired": "File ini telah kedaluwarsa dan dihapus. Data sumbernya tidak berubah. Ekspor lagi.",
+    "download": "Unduh",
+    "states": {
+      "loading": "Memuat",
+      "withdrawn": "Tidak tersedia",
+      "unavailable": "Tidak tersedia",
+      "transferring": "Menyiapkan",
+      "complete": "Siap",
+      "failed": "Gagal",
+      "cancelled": "Dibatalkan",
+      "expired": "Kedaluwarsa",
+      "unknown": "Tidak diketahui"
+    },
+    "downloadDenied": "File ini tidak dapat diunduh lagi. Akses Anda ke sumbernya berubah atau file telah kedaluwarsa.",
+    "downloadFailed": "Pengunduhan tidak selesai. Coba lagi."
+  },
+  "recovery": {
+    "title": "Pemulihan data",
+    "loading": "Membaca status pemulihan",
+    "done": "Selesai.",
+    "backup": "Cadangkan sekarang",
+    "backingUp": "Mencadangkan…",
+    "backedUp": "Cadangan {{id}} dibuat dan diverifikasi.",
+    "retention": "Menyimpan {{count}} cadangan terbaru. Cadangan terverifikasi terbaru dan salinan pemulihan dari peningkatan tidak pernah dihapus.",
+    "none": "Belum ada cadangan untuk data add-on ini.",
+    "listLabel": "Cadangan add-on ini",
+    "verify": "Verifikasi",
+    "verified": "Cadangan {{id}} dibaca seluruhnya dan lolos.",
+    "restore": "Pulihkan",
+    "restored": "Cadangan telah dipulihkan.",
+    "delete": "Hapus",
+    "deleted": "Cadangan {{id}} dihapus.",
+    "pinned": "Salinan pemulihan",
+    "pinnedWhy": "Ini salinan pemulihan dari peningkatan terakhir dan disimpan sampai ada cadangan terverifikasi yang lebih baru.",
+    "lastRestore": "Pemulihan terakhir, {{when}}",
+    "purge": "Bersihkan…",
+    "purged": "Data yang disimpan telah dibersihkan.",
+    "purgeLead": "Pembersihan menghapus data tersimpan add-on ini selamanya. Ini bukan penghapusan database dan bukan pencopotan.",
+    "purgeTitle": "Bersihkan data tersimpan",
+    "purgeBody": "Ini menghapus apa yang Anda pilih di bawah dan tidak bisa dibatalkan. Add-on harus dicopot atau dinonaktifkan.",
+    "scope": "Yang dihapus",
+    "scopeData": "Data dan semua berbagi add-on ini",
+    "scopeBackups": "Semua cadangan ({{count}})",
+    "scopeCopies": "Salinan data yang disisihkan oleh pemulihan ({{count}})",
+    "scopeNone": "Pilih yang akan dihapus.",
+    "restoreTitle": "Pulihkan cadangan",
+    "restoreBody": "Data kembali ke keadaan {{when}}.",
+    "warnLost": "Perubahan setelah cadangan hilang. Data add-on diganti.",
+    "warnAccess": "Berbagi diperiksa lagi: tidak ada yang mendapatkan kembali akses yang dicabut sejak cadangan atau yang akunnya sudah tidak ada.",
+    "warnProposals": "Usulan yang menunggu dibatalkan. Operasi dengan hasil tidak diketahui dicari lewat tanda terima dan tidak pernah diterapkan lagi.",
+    "warnCopy": "Data yang diganti disimpan sebagai salinan pemulihan sampai Anda membersihkannya.",
+    "stopFirst": "Hentikan add-on dulu: nonaktifkan, lalu pulihkan.",
+    "mapping": "Cadangan ini dibuat dalam mode pemilik lokal. ID akun yang menerima datanya",
+    "typeToConfirm": "Ketik {{id}} untuk mengonfirmasi",
+    "typeToConfirmLabel": "Ketik ID add-on untuk mengonfirmasi",
+    "phase": "Langkah {{index}} dari {{total}}: {{step}}",
+    "steps": {
+      "begin": "memulai",
+      "backed-up": "dicadangkan",
+      "staged": "paket dipublikasikan",
+      "migrating": "memigrasikan data",
+      "healthy": "diperiksa",
+      "publishing": "mempublikasikan"
+    },
+    "state": {
+      "ready": "Siap",
+      "upgrading": "Meningkatkan",
+      "restoring": "Memulihkan",
+      "needs-recovery": "Perlu pemulihan",
+      "purging": "Membersihkan"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "Data add-on ini perlu dipulihkan",
+        "body": "Add-on tidak dijalankan. Paket sebelumnya disimpan, tetapi tidak bisa membaca data yang mulai diubah oleh migrasi yang gagal.",
+        "hint": "Pulihkan salinan pemulihan terverifikasi di bawah, atau bersihkan datanya.",
+        "hintNone": "Tidak ada cadangan terverifikasi. Bersihkan data untuk memulai ulang."
+      },
+      "upgrading": {
+        "title": "Peningkatan sedang berjalan",
+        "body": "Add-on dihentikan selagi datanya dicadangkan dan dimigrasikan."
+      },
+      "restoring": {
+        "title": "Pemulihan sedang berjalan",
+        "body": "Add-on tetap berhenti sampai pemulihan selesai."
+      },
+      "purging": {
+        "title": "Pembersihan sedang berjalan",
+        "body": "Data tersimpan sedang dihapus."
+      }
+    },
+    "verification": {
+      "verified": "Terverifikasi",
+      "failed": "Verifikasi gagal",
+      "unverified": "Belum diverifikasi"
+    },
+    "reason": {
+      "manual": "Dibuat oleh Anda",
+      "upgrade": "Sebelum peningkatan",
+      "restore": "Sebelum pemulihan"
+    },
+    "errors": {
+      "needs_recovery": "Data harus dipulihkan dulu: pulihkan cadangan terverifikasi atau bersihkan.",
+      "addon_running": "Hentikan add-on dulu.",
+      "busy": "Operasi pemulihan lain sedang berjalan untuk add-on ini.",
+      "backup_not_found": "Cadangan itu sudah tidak ada.",
+      "not_installed": "Add-on tidak terpasang.",
+      "backup_corrupt": "Cadangan gagal verifikasi dan tidak digunakan.",
+      "incompatible_format": "Format data tidak cocok dengan paket terpasang.",
+      "identity_changed": "Paket terpasang berasal dari sumber tepercaya yang berbeda dari data.",
+      "mapping_required": "Sebutkan akun yang menerima data cadangan ini.",
+      "mapping_invalid": "Akun itu tidak valid.",
+      "downgrade_unsupported": "Data pengguna bernama tidak bisa dipulihkan dalam mode pemilik lokal.",
+      "sole_recovery_copy": "Ini satu-satunya salinan pemulihan terverifikasi dan disimpan.",
+      "confirmation_mismatch": "ID yang diketik tidak cocok.",
+      "operation_conflict": "ID operasi ini dipakai untuk permintaan lain. Tidak ada yang dilakukan.",
+      "invalid_request": "Permintaan tidak dapat dilaksanakan seperti ini.",
+      "insufficient_storage": "Ruang kosong tidak cukup untuk cadangan. Tidak ada yang diubah.",
+      "unknownOutcome": "Hasilnya tidak diketahui. Baca status lagi: tindakan yang sama tidak dikirim dua kali.",
+      "auth": "Masuk lagi.",
+      "denied": "Hanya administrator yang bisa melakukannya, dari sesi peramban mereka sendiri.",
+      "network": "Pemilik tidak dapat dijangkau.",
+      "unavailable": "Pemilik tidak tersedia."
+    }
+  },
+  "updates": {
+    "title": "Pembaruan",
+    "checkNow": "Periksa pembaruan",
+    "checking": "Memeriksa...",
+    "checkedAt": "Diperiksa {{when}}",
+    "neverChecked": "Belum diperiksa",
+    "lastSuccess": "Pustaka terakhir dibaca {{when}}",
+    "stale": "Jawaban ini mungkin sudah usang. Periksa lagi.",
+    "throttled": "Pemeriksaan baru saja dijalankan. Ini hasilnya.",
+    "badge": {
+      "available": "Pembaruan {{version}}",
+      "incompatible": "Pembaruan {{version}} tidak kompatibel",
+      "failed": "Pemeriksaan pembaruan gagal",
+      "integrity": "Kesalahan integritas"
+    },
+    "state": {
+      "unknown": "Status pembaruan tidak diketahui. Periksa pembaruan untuk menanyakan pustaka.",
+      "up-to-date": "Add-on ini sudah terbaru.",
+      "update-available": "Versi {{version}} tersedia.",
+      "incompatible": "Versi {{version}} tidak dapat berjalan di host ini. Versi ini tidak ditawarkan.",
+      "check-failed": "Pemeriksaan gagal, jadi tidak diketahui apakah ada pembaruan.",
+      "integrity-error": "Pustaka mencantumkan versi terpasang dengan isi berbeda. Tidak ada yang diubah dan tidak ada pembaruan yang ditawarkan."
+    },
+    "reason": {
+      "platform": "Platform tidak ditawarkan",
+      "host-version": "Versi host tidak cocok",
+      "api-version": "API add-on tidak cocok",
+      "protocol-version": "Versi protokol tidak cocok",
+      "sdk-version": "Versi SDK antarmuka tidak cocok",
+      "data-format": "Format data tidak cocok",
+      "digest-changed": "Digest versi ini berubah"
+    },
+    "class": {
+      "source-unavailable": "Pustaka tidak dapat dijangkau.",
+      "refresh-failed": "Pustaka tidak dapat dibaca.",
+      "credential-unavailable": "Kredensial pustaka tidak tersedia.",
+      "not-listed": "Pustaka tidak lagi mencantumkan add-on ini.",
+      "ambiguous-release": "Pustaka mencantumkan rilis ini lebih dari sekali.",
+      "canceled": "Pemeriksaan dibatalkan.",
+      "internal": "Pemeriksaan gagal."
+    },
+    "installed": "Terpasang",
+    "candidate": "Tersedia",
+    "reasons": "Mengapa tidak cocok",
+    "upgrade": "Perbarui",
+    "confirm": {
+      "title": "Perbarui {{name}} ke versi {{version}}?",
+      "body": "Add-on berhenti saat datanya dicadangkan dan dimigrasi, lalu versi baru dimulai. Jika versi baru tidak dimulai, versi saat ini tetap berjalan.",
+      "data": "Datanya dicadangkan sebelum ada yang berubah.",
+      "action": "Perbarui",
+      "library": "Pustaka",
+      "channel": "Kanal",
+      "from": "Dari",
+      "to": "Ke"
+    },
+    "progress": "Memperbarui {{name}}. Datanya dicadangkan lebih dulu.",
+    "done": "Diperbarui ke versi {{version}}.",
+    "browseUpdate": "Pembaruan {{version}} tersedia. Kelola di Terpasang.",
+    "errors": {
+      "stale_installed": "Versi terpasang berubah sejak diperiksa. Periksa pembaruan lagi.",
+      "candidate_changed": "Pustaka tidak lagi menawarkan versi yang diperiksa. Periksa pembaruan lagi.",
+      "upgrade_conflict": "Peningkatan ini sudah tercatat di operasi lain. Peningkatan tidak diterapkan dua kali.",
+      "incompatible": "Versi baru tidak kompatibel dengan host ini. Tidak ada yang diubah.",
+      "integrity_error": "Pustaka mencantumkan versi terpasang dengan isi berbeda. Tidak ada yang diubah.",
+      "upgrade_failed": "Peningkatan tidak selesai dan versi terpasang dipertahankan. Anda dapat mencoba lagi.",
+      "operation_conflict": "Operasi tidak sesuai dengan keadaan saat ini. Tidak ada yang diterapkan.",
+      "check_failed": "Pustaka tidak dapat dibaca, jadi peningkatan tidak dimulai. Tidak ada yang diubah.",
+      "unknownOutcome": "Hasil peningkatan tidak diketahui. Baca statusnya lagi; jangan mulai yang lain.",
+      "auth": "Masuk lagi untuk melanjutkan.",
+      "denied": "Hanya administrator yang dapat melakukannya dari sesi browser sendiri.",
+      "network": "Jaringan tidak dapat dijangkau.",
+      "unavailable": "Pemilik add-on tidak tersedia. Coba lagi."
+    }
+  }
+}

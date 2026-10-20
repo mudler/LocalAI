@@ -680,14 +680,15 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 	modelsPath := s.appConfig.SystemState.Model.ModelsPath
 	outputPath := filepath.Join(modelsPath, modelName)
 
-	// Check for name collision
-	configPath := filepath.Join(modelsPath, modelName+".yaml")
+	// A folder or a file of any extension with the name is a collision, not
+	// only the config file.
 	if err := utils.VerifyPath(modelName+".yaml", modelsPath); err != nil {
 		return "", fmt.Errorf("invalid model name: %w", err)
 	}
-	if _, err := os.Stat(configPath); err == nil {
+	if utils.ModelNameTaken(modelsPath, modelName) {
 		return "", fmt.Errorf("model %q already exists, choose a different name", modelName)
 	}
+	configPath := filepath.Join(modelsPath, modelName+".yaml")
 
 	// Create output directory
 	if err := os.MkdirAll(outputPath, 0750); err != nil {

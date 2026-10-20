@@ -6,6 +6,8 @@ import { editableMessageText, escapeHtml, messageText, splitError } from './chat
 // eslint-disable-next-line no-unused-vars
 import { ActivityGroup, StreamingActivity } from './ActivityFold'
 import Icon from '../Icon'
+// eslint-disable-next-line no-unused-vars
+import AddonSlot from '../../addons/AddonSlot'
 
 // Assistant prose. The HTML string is memoised, so React leaves the node alone
 // while the page re-renders for other reasons (polling, streaming elsewhere):
@@ -91,7 +93,7 @@ function ErrorCard({ message, kept, onRetry, canRetry }) {
 // B work from the keyboard.
 function ChatMessage({
   msg, index, isLast, model, warm, canvasMode, busy,
-  editing, draft, onDraft, activityItems, actions, onOpenImage, getClientForTool,
+  editing, draft, onDraft, activityItems, actions, onOpenImage, getClientForTool, conversationId,
 }) {
   const { t } = useTranslation('chat')
   const isUser = msg.role === 'user'
@@ -211,6 +213,7 @@ function ChatMessage({
               <Icon name="git-branch" />
             </button>
           )}
+          {conversationId && <AddonSlot slot="chat.message.actions" context={{ conversationId, messageId: String(index), role: msg.role }} />}
         </div>
       )}
     </article>

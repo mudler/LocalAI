@@ -9,7 +9,7 @@ test.describe('404', () => {
     await expect(nf).toContainText('/app/no-such-page')
     await expect(nf.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/app')
     const places = nf.getByRole('navigation', { name: 'Where to go' })
-    for (const name of ['Home', 'Models', 'Chat', 'Studio', 'Talk', 'Build', 'Operate']) {
+    for (const name of ['Home', 'Models', 'Chat', 'Add-ons', 'Settings', 'Build', 'Operate']) {
       await expect(places.getByRole('link', { name })).toBeVisible()
     }
   })

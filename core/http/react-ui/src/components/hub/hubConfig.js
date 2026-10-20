@@ -20,12 +20,36 @@
 //   adminOnly, authOnly, feature, requiresAgentPool, unlessFeature  gating
 //   match         extra path prefixes that belong to the tab (sub-pages)
 //   showWhen      tab only: `/api/features` flag that must be on
+//   showWhenOff   tab only: `/api/features` flag that must be off (answered false)
 //   revealOnRoute tab only: draw the tab while the viewer is on one of its
 //                 routes, even when `showWhen` is off
 //   signals       tab only: values from the Operate summary (see
 //                 OperateSummaryContext), each drawn as a neutral count
 //                 (kind `count`) or an attention badge (kind `attention`,
 //                 or `error` for failures)
+
+import { FEATURE_ADDONS } from '../../utils/capabilities.js'
+
+// Fine-tuning and quantization are add-on pages now and have no tab in the Build
+// bar. The Build overview still lists them as cards: their old routes open the
+// add-on while it is usable and the core page otherwise, so a user without the
+// add-on keeps a way in.
+export const buildOverviewTools = [
+  {
+    id: 'fine-tune',
+    labelKey: 'items.fineTune',
+    descriptionKey: 'hub.descriptions.fineTune',
+    icon: 'graduation-cap',
+    items: [{ path: '/app/fine-tune', labelKey: 'items.fineTune', feature: 'fine_tuning' }],
+  },
+  {
+    id: 'quantize',
+    labelKey: 'items.quantize',
+    descriptionKey: 'hub.descriptions.quantize',
+    icon: 'minimize',
+    items: [{ path: '/app/quantize', labelKey: 'items.quantize', feature: 'quantization' }],
+  },
+]
 
 export const buildHub = {
   id: 'build',
@@ -61,6 +85,20 @@ export const buildHub = {
       items: [{ path: '/app/collections', labelKey: 'items.memory', feature: 'collections', requiresAgentPool: true }],
     },
     {
+      id: 'addons',
+      labelKey: 'items.addons',
+      descriptionKey: 'hub.descriptions.addons',
+      icon: 'puzzle',
+      // The previous navigation only: with the four-item sidebar the Add-ons
+      // drawer is a page of its own (LOCALAI_LEGACY_NAVIGATION brings this back).
+      showWhenOff: 'addon_navigation',
+      // The page serves everyone with the feature; the management tabs are
+      // administrator-only and checked by the server on every call.
+      items: [{ path: '/app/addons', labelKey: 'items.addons', feature: FEATURE_ADDONS, exact: true }],
+      // Add-on pages that declare navigation are listed in the second row.
+      addonNavigation: true,
+    },
+    {
       id: 'jobs',
       labelKey: 'items.jobs',
       descriptionKey: 'hub.descriptions.jobs',
@@ -68,42 +106,11 @@ export const buildHub = {
       items: [{ path: '/app/agent-jobs', labelKey: 'items.jobs', feature: 'mcp', requiresAgentPool: true }],
     },
     {
-      id: 'fine-tune',
-      labelKey: 'items.fineTune',
-      descriptionKey: 'hub.descriptions.fineTune',
-      icon: 'graduation-cap',
-      items: [{ path: '/app/fine-tune', labelKey: 'items.fineTune', feature: 'fine_tuning' }],
-    },
-    {
-      id: 'quantize',
-      labelKey: 'items.quantize',
-      descriptionKey: 'hub.descriptions.quantize',
-      icon: 'minimize',
-      items: [{ path: '/app/quantize', labelKey: 'items.quantize', feature: 'quantization' }],
-    },
-    {
       id: 'import',
       labelKey: 'hub.import',
       descriptionKey: 'hub.descriptions.import',
       icon: 'download',
       items: [{ path: '/app/import-model', labelKey: 'hub.import', adminOnly: true }],
-    },
-    {
-      id: 'voices',
-      labelKey: 'items.voices',
-      descriptionKey: 'hub.descriptions.voices',
-      icon: 'mic',
-      // One Voices page with Speakers, Speech voices and From a recording as its
-      // own tabs, so the bar has no second row.
-      items: [{ path: '/app/voice', labelKey: 'items.voices', feature: 'voice_recognition' }],
-      match: ['/app/voice-library'],
-    },
-    {
-      id: 'faces',
-      labelKey: 'items.faces',
-      descriptionKey: 'hub.descriptions.faces',
-      icon: 'smile',
-      items: [{ path: '/app/face', labelKey: 'items.faces', feature: 'face_recognition' }],
     },
   ],
 }
@@ -213,11 +220,19 @@ export function isHubItemVisible(item, { isAdmin, authEnabled, hasFeature, featu
 }
 
 export function visibleItems(tab, auth) {
-  return tab.items.filter(item => isHubItemVisible(item, auth))
+  const own = tab.items.filter(item => isHubItemVisible(item, auth))
+  // Pages that add-ons contribute to navigation join the tab that owns them.
+  // They come from the registry's usable add-ons only, so a disabled, failed
+  // or incompatible add-on has no link. The server checks every call.
+  if (tab.addonNavigation && own.length > 0 && Array.isArray(auth.addonNavigation)) {
+    return [...own, ...auth.addonNavigation.map(item => ({ path: item.path, label: item.label, addonId: item.addonId }))]
+  }
+  return own
 }
 
 // A tab with a `showWhen` flag stays hidden until /api/features says it is on.
 function tabGateOpen(tab, auth) {
+  if (tab.showWhenOff && auth.features[tab.showWhenOff] !== false) return false
   return !tab.showWhen || auth.features[tab.showWhen] === true
 }
 

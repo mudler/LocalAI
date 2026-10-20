@@ -33,6 +33,7 @@ import (
 // and document the deprecation in the help text.
 
 type RunCMD struct {
+	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" default:"fine-tuning=finetune.,quantization=quantize." help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
 	Pprof                     bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
 	PprofAddress              string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
 	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
@@ -130,6 +131,8 @@ type RunCMD struct {
 	TracingMaxBodyBytes                int      `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
 	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
 	OpenResponsesStoreTTL              string   `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
+
+	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
 	DisableLocalAIAssistant bool `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
@@ -312,7 +315,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if !r.PreloadBackendOnly {
 		defer cancelRun(nil)
 	}
+	hostOps, err := config.ParseAddonHostOps(r.AddonHostOps)
+	if err != nil {
+		cancelRun(nil)
+		return fmt.Errorf("--addon-host-ops: %w", err)
+	}
 	opts := []config.AppOption{
+		config.WithAddonHostOps(hostOps),
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
 		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
@@ -587,6 +596,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.AgentPoolDefaultModel != "" {
 		opts = append(opts, config.WithAgentPoolDefaultModel(r.AgentPoolDefaultModel))
+	}
+	if r.LegacyNavigation {
+		opts = append(opts, config.WithLegacyNavigation(true))
 	}
 	if r.DisableLocalAIAssistant {
 		opts = append(opts, config.WithDisableLocalAIAssistant(true))

@@ -17,7 +17,8 @@
     "recognition": "Recognition",
     "build": "Build",
     "operate": "Operate",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "pinned": "Pinned"
   },
   "operate": {
     "inference": "Inference",
@@ -68,7 +69,8 @@
     "p2p": "P2P",
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
-    "prometheus": "Prometheus"
+    "prometheus": "Prometheus",
+    "addons": "Add-ons"
   },
   "footer": {
     "github": "GitHub",
@@ -100,7 +102,8 @@
       "quantize": "Shrink a model to run on smaller hardware.",
       "import": "Add a model from a file, a URL or a Hugging Face repository.",
       "voices": "Identify speakers and keep a library of voice profiles.",
-      "faces": "Detect, compare and match faces."
+      "faces": "Detect, compare and match faces.",
+      "addons": "Install add-ons and open the apps they provide."
     }
   }
 }
