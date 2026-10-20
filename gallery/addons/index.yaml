@@ -75,3 +75,39 @@
     description: "Find out whose face is in a photo, or whether two photos show the same person."
     mainPage: "recognition"
     icon: "ui/icon.png"
+- addonId: "studio"
+  name: Studio
+  description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
+  version: "0.0.0-dev.422af83405a3"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons/studio:sha-422af83405a3"
+  digest: "sha256:1b06153044ba49ce235a56b0739376b75079f38b939ee62c9f3f6f308ddb8073"
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Studio"
+    description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
+    mainPage: "studio"
+    icon: "ui/icon.png"
+- addonId: "talk"
+  name: Talk
+  description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+  version: "0.0.0-dev.422af83405a3"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons/talk:sha-422af83405a3"
+  digest: "sha256:678569227df72b597f40859a3830bb3a8a17ec02a19050ad71c416b91f4e7951"
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talk"
+    description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+    mainPage: "talk"
+    icon: "ui/icon.png"
