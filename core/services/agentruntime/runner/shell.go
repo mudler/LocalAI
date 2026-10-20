@@ -20,7 +20,9 @@ var errShell = errors.New("runner: operation unavailable")
 // Settle must synchronize current authority, lease epoch, revision and active
 // turn with the durable ciphertext write. Check followed by Commit is invalid.
 type nativeSession interface {
-	Run(context.Context, []byte) error
+	// Run must acquire the single-use permit before executing. Cancel is sticky:
+	// cancellation before native entry must prevent inference, even after admission.
+	Run(context.Context, []byte, *startPermit) error
 	Cancel()
 	AwaitQuiescence(context.Context) error
 	Export() (nibadapter.Checkpoint, []byte, error)
@@ -65,13 +67,20 @@ type shellDependencies struct {
 }
 type coordinator struct {
 	redacted
+	open func() *coordinatorFields
+}
+
+func (c *coordinator) fields() *coordinatorFields { return c.open() }
+
+type coordinatorFields struct {
 	mu       sync.Mutex
 	state    runnerState
 	deps     shellDependencies
 	ctx      context.Context
 	session  nativeSession
 	joined   bool
-	restored *pc.PrivatePayload
+	restored func() *pc.PrivatePayload
+	permit   *startPermit
 	next     *handoff
 	workers  sync.WaitGroup
 }
@@ -96,22 +105,37 @@ func newCoordinator(ctx context.Context, initial data, d shellDependencies, rest
 			return nil, errShell
 		}
 	}
-	c := &coordinator{ctx: ctx, state: idle{initial.clone()}, deps: d, restored: restored}
-	c.workers.Add(1)
-	go func() { defer c.workers.Done(); <-ctx.Done(); _ = c.leaseLost() }()
+	// Trusted injection only: the host must authorize Codec.Restore for this target.
+	// Own a clone before retaining it; caller replacement cannot change this attempt.
+	var owned *pc.PrivatePayload
+	if restored != nil {
+		p, e := pc.NewPrivatePayload(restored.NativeCheckpoint(), restored.Cursor())
+		if e != nil {
+			return nil, errShell
+		}
+		owned = &p
+	}
+	f := &coordinatorFields{ctx: ctx, state: idle{initial.clone()}, deps: d, restored: func() *pc.PrivatePayload { return owned }, permit: &startPermit{}}
+	c := &coordinator{open: func() *coordinatorFields { return f }}
+	c.fields().workers.Add(1)
+	go func() { defer c.fields().workers.Done(); <-ctx.Done(); _ = c.leaseLost() }()
 	return c, nil
 }
-func (c *coordinator) waitWorkers()  { c.workers.Wait() }
-func (c *coordinator) phase() string { c.mu.Lock(); defer c.mu.Unlock(); return c.state.phase() }
+func (c *coordinator) waitWorkers() { c.fields().workers.Wait() }
+func (c *coordinator) phase() string {
+	c.fields().mu.Lock()
+	defer c.fields().mu.Unlock()
+	return c.fields().state.phase()
+}
 func (c *coordinator) input() []byte {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return slices.Clone(c.state.payload().fields().input)
+	c.fields().mu.Lock()
+	defer c.fields().mu.Unlock()
+	return slices.Clone(c.fields().state.payload().fields().input)
 }
 func (c *coordinator) host(n string) error {
-	c.mu.Lock()
-	id := c.state.payload().fields().id.clone()
-	c.mu.Unlock()
+	c.fields().mu.Lock()
+	id := c.fields().state.payload().fields().id.clone()
+	c.fields().mu.Unlock()
 	return c.deliver(n, id, nil)
 }
 func (c *coordinator) begin() error     { return c.host("Begin") }
@@ -121,14 +145,17 @@ func (c *coordinator) leaseLost() error { return c.host("LeaseLost") }
 func (c *coordinator) timeout() error   { return c.host("CancelTimedOut") }
 func (c *coordinator) unknown() error   { return c.host("UnknownJournal") }
 func (c *coordinator) deliver(n string, id identity, b []byte) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	e := makeEvent(n, ownEventData(&eventFields{id: id, now: c.deps.Clock.Now(), trusted: true, content: b}))
-	t := PureReduce(c.state, e)
-	if CheckTransition(c.state, e, t) != nil {
+	c.fields().mu.Lock()
+	defer c.fields().mu.Unlock()
+	e := makeEvent(n, ownEventData(&eventFields{id: id, now: c.fields().deps.Clock.Now(), trusted: true, content: b}))
+	t := PureReduce(c.fields().state, e)
+	if CheckTransition(c.fields().state, e, t) != nil {
 		return errShell
 	}
-	c.state = t.state
+	if c.fields().state.phase() == "Running" && t.state.phase() != "Running" {
+		c.fields().permit.invalidate()
+	}
+	c.fields().state = t.state
 	for _, fx := range t.effects {
 		c.execute(fx)
 	}
@@ -138,72 +165,81 @@ func (c *coordinator) deliver(n string, id identity, b []byte) error {
 // Called under the coordinator lock. Slow work runs outside it; its result is
 // reduced again against the current phase and captured immutable identity.
 func (c *coordinator) async(fn func()) {
-	c.workers.Add(1)
-	go func() { defer c.workers.Done(); fn() }()
+	c.fields().workers.Add(1)
+	go func() { defer c.fields().workers.Done(); fn() }()
 }
 func (c *coordinator) execute(fx effect) {
 	id := fx.payload().fields().id.clone()
 	switch fx.(type) {
 	case restoreSessionEffect:
 		c.async(func() {
-			if c.deps.Authority.Check(c.ctx, id) != nil {
+			if c.fields().deps.Authority.Check(c.fields().ctx, id) != nil {
 				_ = c.deliver("RestoreFailed", id, nil)
 				return
 			}
-			s, e := c.deps.Factory.New(c.ctx, id, c.restored, func() { _ = c.deliver("Stream", id, nil) })
+			s, e := c.fields().deps.Factory.New(c.fields().ctx, id, c.fields().restored(), func() { _ = c.deliver("Stream", id, nil) })
 			if e != nil || missing(s) {
 				_ = c.deliver("RestoreFailed", id, nil)
 				return
 			}
-			c.mu.Lock()
-			if c.state.phase() != "Restoring" || !c.state.payload().fields().id.equal(id) {
-				c.mu.Unlock()
+			c.fields().mu.Lock()
+			if c.fields().state.phase() != "Restoring" || !c.fields().state.payload().fields().id.equal(id) {
+				c.fields().mu.Unlock()
 				s.Cancel()
-				if s.AwaitQuiescence(c.ctx) == nil {
+				if s.AwaitQuiescence(c.fields().ctx) == nil {
 					_ = s.Close()
 				}
 				return
 			}
-			c.session = s
-			c.mu.Unlock()
+			c.fields().session = s
+			c.fields().mu.Unlock()
 			_ = c.deliver("RestoreSucceeded", id, nil)
 		})
 	case startTurnEffect:
-		s := c.session
-		input := slices.Clone(c.state.payload().fields().input)
+		s := c.fields().session
+		input := slices.Clone(c.fields().state.payload().fields().input)
 		c.async(func() {
-			if c.deps.Authority.Check(c.ctx, id) != nil {
+			if c.fields().deps.Authority.Check(c.fields().ctx, id) != nil {
 				_ = c.deliver("LeaseLost", id, nil)
 				return
 			}
-			if s.Run(c.ctx, input) != nil {
+			c.fields().mu.Lock()
+			valid := c.fields().state.phase() == "Running" && c.fields().state.payload().fields().id.equal(id) && c.fields().ctx.Err() == nil
+			permit := c.fields().permit
+			c.fields().mu.Unlock()
+			if !valid {
+				return
+			}
+			// The permit closes the unlocked check-to-native-entry window. Never hold
+			// c.fields().mu over Run: Stop must be able to cancel a blocked native turn.
+			if s.Run(c.fields().ctx, input, permit) != nil {
 				_ = c.deliver("UnknownJournal", id, nil)
 				return
 			}
 			_ = c.deliver("TurnFinished", id, nil)
 		})
 	case cancelSessionEffect:
-		if c.session != nil {
-			c.session.Cancel()
+		if c.fields().session != nil {
+			c.fields().session.Cancel()
 		}
 	case awaitQuiescenceEffect:
-		s := c.session
+		s := c.fields().session
 		if s == nil {
 			return
 		}
 		c.async(func() {
-			if s.AwaitQuiescence(c.ctx) != nil {
+			if s.AwaitQuiescence(c.fields().ctx) != nil {
 				_ = c.deliver("CancelTimedOut", id, nil)
 				return
 			}
-			c.mu.Lock()
-			c.joined = true
-			c.mu.Unlock()
+			c.fields().mu.Lock()
+			c.fields().joined = true
+			c.fields().mu.Unlock()
 			_ = c.deliver("QuiescenceConfirmed", id, nil)
 		})
 	case exportAndSealEffect:
-		s := c.session
-		if !c.joined || s == nil {
+		s := c.fields().session
+		if !c.fields().joined || s == nil {
 			return
 		}
 		c.async(func() {
@@ -217,7 +253,7 @@ func (c *coordinator) execute(fx effect) {
 				_ = c.deliver("SealFailed", id, nil)
 				return
 			}
-			r, e := c.deps.Provenance.SaveRequest(c.ctx, id)
+			r, e := c.fields().deps.Provenance.SaveRequest(c.fields().ctx, id)
 			f := id.fields()
 			target := pc.Scope{Principal: f.principal, Conversation: f.conversation, Turn: f.turn, Attempt: f.attempt, Epoch: f.epoch}
 			if e != nil || r.Target != target || r.Binding.Source != target {
@@ -225,7 +261,7 @@ func (c *coordinator) execute(fx effect) {
 				return
 			}
 			r.Quiescent = true
-			sealed, e := c.deps.Codec.Seal(c.ctx, r, p)
+			sealed, e := c.fields().deps.Codec.Seal(c.fields().ctx, r, p)
 			if e != nil {
 				_ = c.deliver("SealFailed", id, nil)
 				return
@@ -233,30 +269,30 @@ func (c *coordinator) execute(fx effect) {
 			_ = c.deliver("SealSucceeded", id, sealed.StoreCheckpoint().Context)
 		})
 	case settleCiphertextEffect:
-		r := settlementRequest{id: id, checkpoint: store.Checkpoint{Version: 1, Context: slices.Clone(fx.payload().fields().content)}, outcome: c.state.payload().fields().outcome}
+		r := settlementRequest{id: id, checkpoint: store.Checkpoint{Version: 1, Context: slices.Clone(fx.payload().fields().content)}, outcome: c.fields().state.payload().fields().outcome}
 		c.async(func() {
-			next, e := c.deps.Settlement.Settle(c.ctx, r)
+			next, e := c.fields().deps.Settlement.Settle(c.fields().ctx, r)
 			if e != nil {
 				_ = c.deliver("SettleFailed", id, nil)
 				return
 			}
-			c.mu.Lock()
-			c.next = next
-			c.mu.Unlock()
+			c.fields().mu.Lock()
+			c.fields().next = next
+			c.fields().mu.Unlock()
 			_ = c.deliver("SettleSucceeded", id, nil)
 		})
 	case startNextEffect:
-		if c.next != nil {
-			next := handoff{initial: c.next.initial.clone()}
+		if c.fields().next != nil {
+			next := handoff{initial: c.fields().next.initial.clone()}
 			old := id.fields()
 			fresh := next.initial.fields().id.fields()
 			if fresh != nil && fresh.principal == old.principal && fresh.conversation == old.conversation && !next.initial.fields().id.equal(id) && len(next.initial.fields().input) > 0 {
-				c.async(func() { _ = c.deps.Handoff.StartNext(c.ctx, next) })
+				c.async(func() { _ = c.fields().deps.Handoff.StartNext(c.fields().ctx, next) })
 			}
 		}
 	case closeSessionEffect:
-		if c.session != nil && c.joined {
-			s := c.session
+		if c.fields().session != nil && c.fields().joined {
+			s := c.fields().session
 			c.async(func() { _ = s.Close() })
 		}
 	case emitSafeEffect, holdInputEffect:
@@ -264,3 +300,21 @@ func (c *coordinator) execute(fx effect) {
 	}
 }
 func shellDiagnostic(c *coordinator) string { return fmt.Sprint(c) }
+
+// startPermit linearizes cancellation against native execution admission.
+// It is local attempt state, not provider fencing or durable authority.
+type startPermit struct {
+	mu                sync.Mutex
+	invalid, admitted bool
+}
+
+func (p *startPermit) enter(ctx context.Context) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.invalid || p.admitted || ctx.Err() != nil {
+		return false
+	}
+	p.admitted = true
+	return true
+}
+func (p *startPermit) invalidate() { p.mu.Lock(); p.invalid = true; p.mu.Unlock() }

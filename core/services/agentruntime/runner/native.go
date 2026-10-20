@@ -19,13 +19,20 @@ import (
 // an isolated temporary HOME and state directory. No caller Config is accepted.
 type localNativeFactory struct {
 	redacted
-	endpoint, stateDir string
+	open func() (string, string)
 }
 
+func newLocalNativeFactory(endpoint, stateDir string) localNativeFactory {
+	return localNativeFactory{open: func() (string, string) { return endpoint, stateDir }}
+}
 func denyNative(chat.ToolCallRequest) error { return errShell }
 func (f localNativeFactory) config() (types.Config, error) {
-	u, e := url.Parse(f.endpoint)
-	if e != nil || u.Scheme != "http" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || f.stateDir == "" {
+	if f.open == nil {
+		return types.Config{}, errShell
+	}
+	endpoint, stateDir := f.open()
+	u, e := url.Parse(endpoint)
+	if e != nil || u.Scheme != "http" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || stateDir == "" {
 		return types.Config{}, errShell
 	}
 	ip := net.ParseIP(u.Hostname())
@@ -33,7 +40,7 @@ func (f localNativeFactory) config() (types.Config, error) {
 		return types.Config{}, errShell
 	}
 	no := false
-	return types.Config{Model: "fixture", BaseURL: f.endpoint, APIKey: "fixture-only", BaseDir: f.stateDir, WorkingDir: f.stateDir, IgnoreSavedEndpoint: true, LSPAutoDetect: &no, BuiltinTools: []string{"__runner_deny_all__"}, AgentOptions: types.AgentOptions{Iterations: 1, MaxAttempts: 1, MaxRetries: 1, NoTitles: true}, Compaction: types.CompactionConfig{Disabled: true, MaxContextTokens: 131072}}, nil
+	return types.Config{Model: "fixture", BaseURL: endpoint, APIKey: "fixture-only", BaseDir: stateDir, WorkingDir: stateDir, IgnoreSavedEndpoint: true, LSPAutoDetect: &no, BuiltinTools: []string{"__runner_deny_all__"}, AgentOptions: types.AgentOptions{Iterations: 1, MaxAttempts: 1, MaxRetries: 1, NoTitles: true}, Compaction: types.CompactionConfig{Disabled: true, MaxContextTokens: 131072}}, nil
 }
 func (f localNativeFactory) New(ctx context.Context, id identity, p *pc.PrivatePayload, cb func()) (nativeSession, error) {
 	if !id.valid() {
@@ -57,41 +64,57 @@ func (f localNativeFactory) New(ctx context.Context, id identity, p *pc.PrivateP
 		cancel()
 		return nil, errShell
 	}
-	return &localNativeSession{session: s, cancel: cancel, done: make(chan struct{})}, nil
+	fields := &localNativeFields{session: s, cancel: cancel, done: make(chan struct{})}
+	return &localNativeSession{open: func() *localNativeFields { return fields }}, nil
 }
 
 type localNativeSession struct {
 	redacted
-	mu                      sync.Mutex
-	session                 *chat.Session
-	cancel                  context.CancelFunc
-	done                    chan struct{}
-	started, joined, closed bool
+	open func() *localNativeFields
 }
 
-func (s *localNativeSession) Run(ctx context.Context, input []byte) error {
-	s.mu.Lock()
-	if s.started || s.joined || s.closed || ctx.Err() != nil {
-		s.mu.Unlock()
+func (s *localNativeSession) fields() *localNativeFields { return s.open() }
+
+type localNativeFields struct {
+	mu                                 sync.Mutex
+	session                            *chat.Session
+	cancel                             context.CancelFunc
+	done                               chan struct{}
+	started, joined, closed, cancelled bool
+}
+
+func (s *localNativeSession) Run(ctx context.Context, input []byte, permit *startPermit) error {
+	s.fields().mu.Lock()
+	if s.fields().cancelled || permit == nil || !permit.enter(ctx) || s.fields().started || s.fields().joined || s.fields().closed || ctx.Err() != nil {
+		s.fields().mu.Unlock()
 		return errShell
 	}
-	s.started = true
-	s.mu.Unlock()
-	defer close(s.done)
-	_, e := s.session.SendMessage(string(input))
+	s.fields().started = true
+	s.fields().mu.Unlock()
+	defer close(s.fields().done)
+	_, e := s.fields().session.SendMessage(string(input))
 	if e != nil {
 		return errShell
 	}
 	return nil
 }
-func (s *localNativeSession) Cancel() { s.cancel(); s.session.Interrupt() }
+func (s *localNativeSession) Cancel() {
+	s.fields().mu.Lock()
+	s.fields().cancelled = true
+	s.fields().cancel()
+	s.fields().mu.Unlock()
+	s.fields().session.Interrupt()
+}
 func (s *localNativeSession) AwaitQuiescence(ctx context.Context) error {
-	s.mu.Lock()
-	started := s.started
-	s.mu.Unlock()
+	s.fields().mu.Lock()
+	started := s.fields().started
+	if !started {
+		s.fields().joined = true
+	}
+	s.fields().mu.Unlock()
 	if started {
 		select {
-		case <-s.done:
+		case <-s.fields().done:
 		case <-ctx.Done():
 			return errShell
 		}
@@ -101,40 +124,40 @@ func (s *localNativeSession) AwaitQuiescence(ctx context.Context) error {
 	// sections. It is cancelled by SendMessage's defer. No stream relay, skills,
 	// transports, titles or helpers exist in this adapter. Joining SendMessage
 	// therefore joins ALL checkpoint writers, not every inert nib goroutine.
-	if s.session.RunLive() || s.session.AgentManager().HasRunning() {
+	if s.fields().session.RunLive() || s.fields().session.AgentManager().HasRunning() {
 		return errShell
 	}
-	s.mu.Lock()
-	s.joined = true
-	s.mu.Unlock()
+	s.fields().mu.Lock()
+	s.fields().joined = true
+	s.fields().mu.Unlock()
 	return nil
 }
 func (s *localNativeSession) Export() (nibadapter.Checkpoint, []byte, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.joined || s.closed {
+	s.fields().mu.Lock()
+	defer s.fields().mu.Unlock()
+	if !s.fields().joined || s.fields().closed {
 		return nibadapter.Checkpoint{}, nil, errShell
 	}
-	cp, e := nibadapter.ExportCheckpoint(s.session, true)
+	cp, e := nibadapter.ExportCheckpoint(s.fields().session, true)
 	if e != nil {
 		return nibadapter.Checkpoint{}, nil, errShell
 	}
 	cursor := make([]byte, 8)
-	binary.BigEndian.PutUint64(cursor, uint64(len(s.session.ExportHistory())))
+	binary.BigEndian.PutUint64(cursor, uint64(len(s.fields().session.ExportHistory())))
 	return cp, cursor, nil
 }
 func (s *localNativeSession) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.joined {
+	s.fields().mu.Lock()
+	defer s.fields().mu.Unlock()
+	if !s.fields().joined {
 		return errShell
 	}
-	if s.closed {
+	if s.fields().closed {
 		return nil
 	}
-	s.closed = true
-	s.cancel()
-	if s.session.Close() != nil {
+	s.fields().closed = true
+	s.fields().cancel()
+	if s.fields().session.Close() != nil {
 		return errShell
 	}
 	return nil

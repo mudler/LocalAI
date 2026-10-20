@@ -115,7 +115,7 @@ var _ = Describe("Actual tool-disabled nib turn", func() {
 		for _, r := range []chat.ToolCallRequest{{}, {Name: "bash", Arguments: "private"}, {Name: "spawn_agent", AgentID: "helper"}} {
 			Expect(denyNative(r)).To(HaveOccurred())
 		}
-		cfg, e := (localNativeFactory{endpoint: "http://127.0.0.1:1/v1", stateDir: GinkgoT().TempDir()}).config()
+		cfg, e := (newLocalNativeFactory("http://127.0.0.1:1/v1", GinkgoT().TempDir())).config()
 		Expect(e).NotTo(HaveOccurred())
 		Expect(cfg.BuiltinTools).To(Equal([]string{"__runner_deny_all__"}))
 		Expect(cfg.MCPServers).To(BeEmpty())
@@ -157,16 +157,16 @@ var _ = Describe("Actual tool-disabled nib turn", func() {
 		host := &shellHost{}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		c, e := newCoordinator(ctx, fixture(), shellDependencies{Factory: localNativeFactory{endpoint: server.URL + "/v1", stateDir: GinkgoT().TempDir()}, Authority: host, Provenance: h, Settlement: h, Handoff: host, Clock: host, Codec: codec}, nil)
+		c, e := newCoordinator(ctx, fixture(), shellDependencies{Factory: newLocalNativeFactory(server.URL+"/v1", GinkgoT().TempDir()), Authority: host, Provenance: h, Settlement: h, Handoff: host, Clock: host, Codec: codec}, nil)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(c.begin()).To(Succeed())
 		Eventually(h.settled, 10*time.Second).Should(BeClosed())
 		Eventually(c.phase).Should(Equal("Idle"))
 		Expect(turns.Load()).To(Equal(int32(1)))
 		Expect(toolSchemas.Load()).To(BeZero())
-		c.mu.Lock()
-		native := c.session.(*localNativeSession)
-		c.mu.Unlock()
+		c.fields().mu.Lock()
+		native := c.fields().session.(*localNativeSession)
+		c.fields().mu.Unlock()
 		cp, cursor, e := native.Export()
 		Expect(e).NotTo(HaveOccurred())
 		Expect(cp.Context).To(ContainSubstring("PRIVATE-NATIVE-ANSWER"))
@@ -201,7 +201,7 @@ var _ = Describe("Actual tool-disabled nib turn", func() {
 		id := fixture().fields().id.clone()
 		id.fields().attempt = 2
 		id.fields().epoch = 2
-		fresh, e := (localNativeFactory{endpoint: server.URL + "/v1", stateDir: GinkgoT().TempDir()}).New(ctx, id, &p, func() {})
+		fresh, e := (newLocalNativeFactory(server.URL+"/v1", GinkgoT().TempDir())).New(ctx, id, &p, func() {})
 		Expect(e).NotTo(HaveOccurred())
 		Expect(fresh.AwaitQuiescence(ctx)).To(Succeed())
 		restored, cur, e := fresh.Export()
@@ -214,14 +214,43 @@ var _ = Describe("Actual tool-disabled nib turn", func() {
 		c.waitWorkers()
 	})
 	It("rejects external provider URLs before constructing a session", func() {
-		_, e := (localNativeFactory{endpoint: "https://example.com/v1", stateDir: "private"}).config()
+		_, e := (newLocalNativeFactory("https://example.com/v1", "private")).config()
 		Expect(e).To(HaveOccurred())
 	})
 	It("redacts session and factory diagnostics", func() {
-		f := localNativeFactory{endpoint: "PRIVATE-URL", stateDir: "PRIVATE-PATH"}
+		f := newLocalNativeFactory("PRIVATE-URL", "PRIVATE-PATH")
 		Expect(fmt.Sprintf("%#v", f)).NotTo(ContainSubstring("PRIVATE-"))
 		Expect(fmt.Sprintf("%+v", &localNativeSession{})).NotTo(ContainSubstring("session:"))
 	})
 })
 
 var _ = nibadapter.CheckpointVersion
+
+var _ = Describe("Native review safety regressions", func() {
+	It("hides factory secrets in every nested private formatting fallback", func() {
+		f := newLocalNativeFactory("FACTORY-SECRET-URL", "FACTORY-SECRET-PATH")
+		for _, v := range []any{f, struct{ private localNativeFactory }{f}} {
+			for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q", "%d", "%x", "%X", "%z"} {
+				out := fmt.Sprintf(verb, v)
+				Expect(out).NotTo(ContainSubstring("FACTORY-SECRET"))
+			}
+		}
+	})
+})
+
+var _ = Describe("Native cancellation admission", func() {
+	It("rejects Cancel before Run and before join without contacting a provider", func() {
+		GinkgoT().Setenv("HOME", GinkgoT().TempDir())
+		var requests atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { requests.Add(1); w.WriteHeader(500) }))
+		defer server.Close()
+		s, e := newLocalNativeFactory(server.URL+"/v1", GinkgoT().TempDir()).New(context.Background(), fixture().fields().id, nil, func() {})
+		Expect(e).NotTo(HaveOccurred())
+		s.Cancel()
+		Expect(s.Run(context.Background(), []byte("never-run"), &startPermit{})).To(HaveOccurred())
+		Expect(s.AwaitQuiescence(context.Background())).To(Succeed())
+		Expect(s.Run(context.Background(), []byte("never-run"), &startPermit{})).To(HaveOccurred())
+		Expect(s.Close()).To(Succeed())
+		Expect(requests.Load()).To(BeZero())
+	})
+})

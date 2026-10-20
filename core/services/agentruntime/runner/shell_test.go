@@ -4,7 +4,9 @@ package runner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/services/agentruntime/nibadapter"
 	pc "github.com/mudler/LocalAI/core/services/agentruntime/privatecheckpoint"
@@ -22,8 +24,17 @@ type shellFake struct {
 	callback                func()
 }
 
-func (f *shellFake) Run(context.Context, []byte) error { <-f.run; return nil }
-func (f *shellFake) Cancel()                           { f.mu.Lock(); f.cancel++; f.mu.Unlock() }
+func (f *shellFake) Run(ctx context.Context, _ []byte, p *startPermit) error {
+	f.mu.Lock()
+	ok := f.cancel == 0 && p.enter(ctx)
+	f.mu.Unlock()
+	if !ok {
+		return errShell
+	}
+	<-f.run
+	return nil
+}
+func (f *shellFake) Cancel() { f.mu.Lock(); f.cancel++; f.mu.Unlock() }
 func (f *shellFake) AwaitQuiescence(ctx context.Context) error {
 	select {
 	case <-f.joined:
@@ -103,7 +114,7 @@ var _ = Describe("Runner effect shell", func() {
 	})
 	It("rejects a typed nil session factory", func() {
 		var n *shellFake
-		d := c.deps
+		d := c.fields().deps
 		d.Factory = n
 		_, e := newCoordinator(context.Background(), fixture(), d, nil)
 		Expect(e).To(HaveOccurred())
@@ -218,10 +229,10 @@ var _ = Describe("Runner effect shell", func() {
 	It("settlement failure holds input and FIFO", func() {
 		d := fixture()
 		d.fields().ciphertext = []byte("cipher")
-		c.mu.Lock()
-		c.state = settling{d}
+		c.fields().mu.Lock()
+		c.fields().state = settling{d}
 		c.execute(makeEffect("SettleCiphertext", d))
-		c.mu.Unlock()
+		c.fields().mu.Unlock()
 		Eventually(c.phase).Should(Equal("Interrupted"))
 		Expect(c.input()).To(Equal([]byte("private-input")))
 		Expect(h.next).To(BeZero())
@@ -234,19 +245,168 @@ var _ = Describe("Runner effect shell", func() {
 		next.fields().input = []byte("next-input")
 		h.success = true
 		h.nextItem = &handoff{initial: next}
-		c.mu.Lock()
-		c.state = settling{d}
+		c.fields().mu.Lock()
+		c.fields().state = settling{d}
 		c.execute(makeEffect("SettleCiphertext", d))
-		c.mu.Unlock()
+		c.fields().mu.Unlock()
 		Eventually(c.phase).Should(Equal("Idle"))
 		Eventually(func() int { h.mu.Lock(); defer h.mu.Unlock(); return h.next }).Should(Equal(1))
-		c.mu.Lock()
-		Expect(c.state.payload().fields().id.equal(d.fields().id)).To(BeTrue())
-		c.mu.Unlock()
+		c.fields().mu.Lock()
+		Expect(c.fields().state.payload().fields().id.equal(d.fields().id)).To(BeTrue())
+		c.fields().mu.Unlock()
 		Expect(c.input()).To(BeEmpty())
 	})
 	It("private shell diagnostics do not retain plaintext", func() {
 		Expect(shellDiagnostic(c)).NotTo(ContainSubstring("private-input"))
 		Expect(shellDiagnostic(c)).NotTo(ContainSubstring("private-principal"))
+	})
+})
+
+// Gates reproduce the slow authorization boundary without sleeps.
+type gatedAuthority struct {
+	shellHost
+	calls            atomic.Int32
+	entered, release chan struct{}
+}
+
+func (a *gatedAuthority) Check(context.Context, identity) error {
+	if a.calls.Add(1) == 2 {
+		close(a.entered)
+		<-a.release
+	}
+	return nil
+}
+
+type countingSession struct {
+	shellFake
+	runs atomic.Int32
+}
+
+func (f *countingSession) Run(ctx context.Context, _ []byte, p *startPermit) error {
+	f.mu.Lock()
+	ok := f.cancel == 0 && p.enter(ctx)
+	f.mu.Unlock()
+	if !ok {
+		return errShell
+	}
+	f.runs.Add(1)
+	return nil
+}
+func (f *countingSession) New(context.Context, identity, *pc.PrivatePayload, func()) (nativeSession, error) {
+	return f, nil
+}
+
+var _ = Describe("Shell review safety regressions", func() {
+	for _, event := range []string{"Stop", "LeaseLost"} {
+		It("invalidates slow start authorization on "+event, func() {
+			a := &gatedAuthority{entered: make(chan struct{}), release: make(chan struct{})}
+			f := &countingSession{shellFake: shellFake{run: make(chan struct{}), joined: make(chan struct{})}}
+			h := &shellHost{}
+			ctx, cancel := context.WithCancel(context.Background())
+			c, e := newCoordinator(ctx, fixture(), shellDependencies{Factory: f, Authority: a, Provenance: h, Settlement: h, Handoff: h, Clock: h, Codec: &pc.Service{}}, nil)
+			Expect(e).NotTo(HaveOccurred())
+			defer func() { cancel(); f.finishJoin(); c.waitWorkers() }()
+			Expect(c.begin()).To(Succeed())
+			Eventually(a.entered).Should(BeClosed())
+			Expect(c.host(event)).To(Succeed())
+			Expect(c.phase()).To(Equal("Cancelling"))
+			close(a.release)
+			cancel()
+			f.finishJoin()
+			c.waitWorkers()
+			Expect(f.runs.Load()).To(BeZero())
+		})
+	}
+	It("hides retained restore bytes in nested private formatting", func() {
+		cp := nibadapter.Checkpoint{Version: nibadapter.CheckpointVersion, Context: []byte(`[{"role":"user","content":"RESTORE-SECRET"}]`), History: []byte(`[]`), Artifacts: []byte(`[]`), Pruning: []byte(`{}`)}
+		p, e := pc.NewPrivatePayload(cp, []byte("CURSOR-SECRET"))
+		Expect(e).NotTo(HaveOccurred())
+		h := &shellHost{}
+		f := &shellFake{}
+		ctx, cancel := context.WithCancel(context.Background())
+		c, e := newCoordinator(ctx, fixture(), shellDependencies{Factory: f, Authority: h, Provenance: h, Settlement: h, Handoff: h, Clock: h, Codec: &pc.Service{}}, &p)
+		Expect(e).NotTo(HaveOccurred())
+		defer func() { cancel(); c.waitWorkers() }()
+		// Clone only the data holder, never a live mutex or WaitGroup.
+		holder := struct{ private coordinator }{coordinator{open: func() *coordinatorFields { return &coordinatorFields{restored: c.fields().restored} }}}
+		for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q", "%d", "%x", "%X", "%z"} {
+			out := fmt.Sprintf(verb, holder)
+			for _, secret := range [][]byte{[]byte("CURSOR-SECRET"), []byte("RESTORE-SECRET")} {
+				Expect(out).NotTo(ContainSubstring(string(secret)))
+				Expect(out).NotTo(ContainSubstring(fmt.Sprint(secret)[1 : len(fmt.Sprint(secret))-1]))
+			}
+		}
+	})
+})
+
+// This gate is INSIDE Run, after the coordinator's final phase check, but before
+// the native implementation acquires its execution permit.
+type entryGatedSession struct {
+	countingSession
+	entered, release, returned chan struct{}
+}
+
+func (f *entryGatedSession) Run(ctx context.Context, input []byte, p *startPermit) error {
+	close(f.entered)
+	<-f.release
+	defer close(f.returned)
+	return f.countingSession.Run(ctx, input, p)
+}
+func (f *entryGatedSession) New(context.Context, identity, *pc.PrivatePayload, func()) (nativeSession, error) {
+	return f, nil
+}
+
+var _ = Describe("Shell admission and ownership regressions", func() {
+	for _, event := range []string{"Stop", "LeaseLost"} {
+		It("revokes native entry after the unlocked phase check on "+event, func() {
+			f := &entryGatedSession{countingSession: countingSession{shellFake: shellFake{joined: make(chan struct{})}}, entered: make(chan struct{}), release: make(chan struct{}), returned: make(chan struct{})}
+			h := &shellHost{}
+			ctx, cancel := context.WithCancel(context.Background())
+			c, e := newCoordinator(ctx, fixture(), shellDependencies{Factory: f, Authority: h, Provenance: h, Settlement: h, Handoff: h, Clock: h, Codec: &pc.Service{}}, nil)
+			Expect(e).NotTo(HaveOccurred())
+			defer func() { cancel(); f.finishJoin(); c.waitWorkers() }()
+			Expect(c.begin()).To(Succeed())
+			Eventually(f.entered).Should(BeClosed())
+			// Stop must finish even though Run is blocked. No coordinator lock may be
+			// held over Run. Finish this call before releasing native entry.
+			stopped := make(chan error, 1)
+			go func() { stopped <- c.host(event) }()
+			Eventually(stopped).Should(Receive(Succeed()))
+			close(f.release)
+			Eventually(f.returned).Should(BeClosed())
+			cancel()
+			f.finishJoin()
+			c.waitWorkers()
+			Expect(f.runs.Load()).To(BeZero())
+		})
+	}
+	It("owns the restored payload before the caller replaces its value", func() {
+		cp := nibadapter.Checkpoint{Version: nibadapter.CheckpointVersion, Context: []byte(`[]`), History: []byte(`[]`), Artifacts: []byte(`[]`), Pruning: []byte(`{}`)}
+		p, e := pc.NewPrivatePayload(cp, []byte("owned-cursor"))
+		Expect(e).NotTo(HaveOccurred())
+		h := &shellHost{}
+		ctx, cancel := context.WithCancel(context.Background())
+		c, e := newCoordinator(ctx, fixture(), shellDependencies{Factory: &shellFake{}, Authority: h, Provenance: h, Settlement: h, Handoff: h, Clock: h, Codec: &pc.Service{}}, &p)
+		Expect(e).NotTo(HaveOccurred())
+		defer func() { cancel(); c.waitWorkers() }()
+		p = pc.PrivatePayload{}
+		Expect(c.fields().restored().NativeCheckpoint()).To(Equal(cp))
+		Expect(c.fields().restored().Cursor()).To(Equal([]byte("owned-cursor")))
+	})
+	It("admits a permit once and never after invalidation", func() {
+		p := &startPermit{}
+		Expect(p.enter(context.Background())).To(BeTrue())
+		Expect(p.enter(context.Background())).To(BeFalse())
+		p.invalidate()
+		Expect(p.enter(context.Background())).To(BeFalse())
+		q := &startPermit{}
+		q.invalidate()
+		Expect(q.enter(context.Background())).To(BeFalse())
+	})
+	It("makes both fake session implementations sticky Cancel before Run", func() {
+		for _, s := range []nativeSession{&shellFake{}, &countingSession{}} {
+			s.Cancel()
+			Expect(s.Run(context.Background(), nil, &startPermit{})).To(HaveOccurred())
+		}
 	})
 })
