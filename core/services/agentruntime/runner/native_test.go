@@ -17,6 +17,7 @@ import (
 	pc "github.com/mudler/LocalAI/core/services/agentruntime/privatecheckpoint"
 	"github.com/mudler/LocalAI/core/services/agentruntime/store"
 	"github.com/mudler/nib/chat"
+	"github.com/mudler/nib/llmprovider/catalog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -128,6 +129,12 @@ var _ = Describe("Actual tool-disabled nib turn", func() {
 	})
 	It("runs SendMessage joins checkpoint writers seals ciphertext and restores an authorized fresh attempt", func() {
 		GinkgoT().Setenv("HOME", GinkgoT().TempDir())
+		// The embedded catalog is lazily decompressed and decoded under sync.Once.
+		// Prepare this CPU-heavy process cache outside the turn's liveness deadline;
+		// cold race-instrumented JSON decoding can exceed ten seconds on CI hosts.
+		started := time.Now()
+		Expect(catalog.Load()).To(Succeed())
+		GinkgoWriter.Printf("embedded catalog preparation=%s seed=%d\n", time.Since(started), GinkgoRandomSeed())
 		var turns atomic.Int32
 		var toolSchemas atomic.Int32
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +167,14 @@ var _ = Describe("Actual tool-disabled nib turn", func() {
 		c, e := newCoordinator(ctx, fixture(), shellDependencies{Factory: newLocalNativeFactory(server.URL+"/v1", GinkgoT().TempDir()), Authority: host, Provenance: h, Settlement: h, Handoff: host, Clock: host, Codec: codec}, nil)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(c.begin()).To(Succeed())
-		Eventually(h.settled, 10*time.Second).Should(BeClosed())
+		Eventually(func() string {
+			select {
+			case <-h.settled:
+				return "settled"
+			default:
+			}
+			return fmt.Sprintf("phase=%s completions=%d tools=%d", c.phase(), turns.Load(), toolSchemas.Load())
+		}, 10*time.Second).Should(Equal("settled"))
 		Eventually(c.phase).Should(Equal("Idle"))
 		Expect(turns.Load()).To(Equal(int32(1)))
 		Expect(toolSchemas.Load()).To(BeZero())
