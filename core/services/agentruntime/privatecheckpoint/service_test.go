@@ -29,7 +29,7 @@ type fixture struct {
 	snap                             store.Snapshot
 	key                              []byte
 	onRead, onLookup, onOpen, onAuth func()
-	opens                            int
+	opens, seals                     int
 	allowed                          map[Operation]bool
 	denyResource                     string
 }
@@ -82,7 +82,10 @@ func (f *fixture) Lookup(context.Context, KeyScope, KeyVersion) (KeyMaterial, er
 	}
 	return NewKeyMaterial(f.key, f.status), nil
 }
-func (f *fixture) Seal(k, p, a []byte) ([]byte, []byte, error) { return AES256GCM{}.Seal(k, p, a) }
+func (f *fixture) Seal(k, p, a []byte) ([]byte, []byte, error) {
+	f.seals++
+	return AES256GCM{}.Seal(k, p, a)
+}
 func (f *fixture) Open(k, n, c, a []byte) ([]byte, error) {
 	f.opens++
 	p, e := (AES256GCM{}).Open(k, n, c, a)
@@ -128,6 +131,126 @@ var _ = Describe("Private checkpoint", func() {
 		req = SaveRequest{Target: scope, Lease: ownership.Lease{Key: ownership.Key{Principal: "alice", Conversation: "chat"}, Owner: "worker", Epoch: 1, ExpiresAt: f.now.Add(time.Hour)}, Revision: 3, Quiescent: true, Binding: Binding{Source: scope, SourceRevision: 2, Resources: []Resource{{"a", 1}, {"b", 2}}, AuthRevision: 1, TaintRevision: 1, RetentionRevision: 1, ExpiresAt: f.now.Add(time.Hour)}}
 		payload, e = NewPrivatePayload(nibadapter.Checkpoint{Version: nibadapter.CheckpointVersion, Context: []byte(`[{"role":"user","content":"` + secret + ` context"}]`), History: []byte(`[{"role":"user","content":"` + secret + ` history"}]`), Artifacts: []byte(`[{"id":1,"content":"` + secret + ` artifact"},{"id":2,"content":"OTHER-BODY"}]`), Pruning: []byte(`{"compressed":{"0":{"level":1,"content":"` + secret + ` pruning"}}}`)}, []byte(secret+" cursor"))
 		Expect(e).NotTo(HaveOccurred())
+	})
+
+	// These hooks run synchronously inside real host callbacks, not before the
+	// operation. No sleeps or substitute crypto hide the boundary ordering.
+	for _, op := range []Operation{Save, Restore, Export, Download} {
+		op := op
+		invoke := func(c context.Context) error {
+			switch op {
+			case Save:
+				v, e := s.Seal(c, req, payload)
+				if e != nil {
+					Expect(v.StoreCheckpoint().Context).To(BeEmpty())
+				}
+				return e
+			case Restore, Export:
+				var p PrivatePayload
+				var e error
+				if op == Restore {
+					p, e = s.Restore(c, read, cp)
+				} else {
+					p, e = s.Export(c, read, cp)
+				}
+				if e != nil {
+					Expect(p.native).To(BeEmpty())
+					Expect(p.cursor).To(BeEmpty())
+				}
+				return e
+			default:
+				v, e := s.DownloadArtifact(c, DownloadRequest{ReadRequest: read, ArtifactID: 1}, cp)
+				if e != nil {
+					Expect(v.Bytes()).To(BeEmpty())
+				}
+				return e
+			}
+		}
+		for _, phase := range []int{2, 3} {
+			for _, status := range []KeyStatus{KeyRevoked, KeyDestroyed} {
+				phase, status := phase, status
+				It(fmt.Sprintf("denies %s key status %d during authorization phase %d", op, status, phase), func() {
+					seal()
+					f.seals = 0
+					calls := 0
+					f.onAuth = func() {
+						calls++
+						if calls == phase {
+							f.status = status
+						}
+					}
+					// The authorizer still returns allowed: only key status changes.
+					err := invoke(ctx)
+					if phase == 2 {
+						Expect(f.opens+f.seals).To(BeZero(), "no crypto after observed revocation")
+					}
+					Expect(calls).To(Equal(phase))
+					Expect(err).To(MatchError(ErrDenied))
+				})
+			}
+		}
+		It(fmt.Sprintf("denies %s when key lookup revokes authorization", op), func() {
+			seal()
+			f.seals = 0
+			f.onLookup = func() { f.revoked = true }
+			Expect(invoke(ctx)).To(MatchError(ErrDenied))
+			Expect(f.opens + f.seals).To(BeZero())
+		})
+		for _, phase := range []int{2, 3} {
+			phase := phase
+			It(fmt.Sprintf("denies %s changed key material during authorization phase %d", op, phase), func() {
+				seal()
+				f.seals = 0
+				calls := 0
+				f.onAuth = func() {
+					calls++
+					if calls == phase {
+						f.key[0]++
+					}
+				}
+				err := invoke(ctx)
+				if phase == 2 {
+					Expect(f.opens + f.seals).To(BeZero())
+				}
+				Expect(err).To(MatchError(ErrDenied))
+			})
+		}
+		for _, cancelInstead := range []bool{false, true} {
+			cancelInstead := cancelInstead
+			It(fmt.Sprintf("denies %s slow final lookup cancellation=%t", op, cancelInstead), func() {
+				seal()
+				c, cancel := context.WithCancel(ctx)
+				defer cancel()
+				auths := 0
+				f.onAuth = func() { auths++ }
+				f.onLookup = func() {
+					if auths == 3 {
+						if cancelInstead {
+							cancel()
+						} else {
+							f.now = req.Binding.ExpiresAt
+						}
+					}
+				}
+				Expect(invoke(c)).To(MatchError(ErrDenied))
+			})
+		}
+	}
+	DescribeTable("round trips canonical resource manifests", func(resources []Resource) {
+		req.Binding.Resources = resources
+		seal()
+		p, e := s.Restore(ctx, read, cp)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(p.NativeCheckpoint()).To(Equal(payload.NativeCheckpoint()))
+		Expect(p.Cursor()).To(Equal(payload.Cursor()))
+		Expect(s.Export(ctx, read, cp)).Error().NotTo(HaveOccurred())
+		Expect(s.DownloadArtifact(ctx, DownloadRequest{ReadRequest: read, ArtifactID: 1}, cp)).Error().NotTo(HaveOccurred())
+	}, Entry("nil", []Resource(nil)), Entry("empty", []Resource{}), Entry("unsorted nonempty", []Resource{{"b", 2}, {"a", 1}}))
+	It("rejects duplicate resource entries without discarding them", func() {
+		req.Binding.Resources = []Resource{{"a", 1}, {"a", 2}}
+		_, e := s.Seal(ctx, req, payload)
+		Expect(e).To(MatchError(ErrDenied))
+		Expect(f.seals).To(BeZero())
 	})
 	It("requires all injected dependencies including typed nils", func() {
 		_, e := New(Dependencies{})
