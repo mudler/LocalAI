@@ -174,6 +174,17 @@ test.describe('Home model chip', () => {
     await expect(chip).toBeFocused()
   })
 
+  test('keeps Home auto-selection and remembers an explicit model', async ({ page }) => {
+    await ready(page)
+    const chip = page.getByTestId('home-model-chip')
+    await expect(chip).toContainText('qwen3-8b-instruct')
+    await chip.click()
+    await page.getByRole('option', { name: /gemma-4-e4b/ }).click()
+    expect(await page.evaluate(() => localStorage.getItem('localai_last_model:FLAG_CHAT'))).toBe('gemma-4-e4b-it-qat-q4_0')
+    await page.reload()
+    await expect(chip).toContainText('gemma-4-e4b-it-qat-q4_0')
+  })
+
   test('Escape closes the list and returns to the chip', async ({ page }) => {
     await ready(page)
     const chip = page.getByTestId('home-model-chip')
@@ -479,7 +490,7 @@ test.describe('Home first run', () => {
     await mockFirstRun(page)
     await ready(page)
     const guide = page.getByTestId('home-first-run')
-    await expect(guide.getByRole('listitem')).toHaveCount(3)
+    await expect(guide.locator('.home-step')).toHaveCount(3)
     await expect(guide.locator('.home-step[data-state="now"]')).toContainText('Browse the Model Gallery')
     await expect(guide.locator('.home-step').nth(1).locator('.home-starters')).toContainText('tiny-chat')
     await expect(guide.getByRole('button', { name: /browse model gallery/i })).toBeVisible()

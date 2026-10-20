@@ -1,5 +1,5 @@
 // eslint-disable-next-line no-unused-vars
-import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useModels } from '../../hooks/useModels'
 import { readLastModel, writeLastModel } from '../../utils/lastModel'
@@ -25,7 +25,9 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
   {
     value, onChange, capability, loadedIds, disabled = false, placeholder,
     models: givenModels, loading: givenLoading, grouped = false, describe, onOpen, footer,
-    showWarm = true, labels,
+    showWarm = true, labels, autoSelect = true, rememberSelection = true,
+    defaultChoice, defaultSelected = false, onChooseDefault, id, describedBy,
+
   },
   ref,
 ) {
@@ -34,6 +36,10 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
   const models = givenModels || own.models
   const loading = givenModels ? !!givenLoading : own.loading
   const names = useMemo(() => models.map(m => m.id), [models])
+  const instanceId = useId()
+  const menuId = `${instanceId}-menu`
+  const listId = `${instanceId}-list`
+  // A null row is a non-model action, never an installed model ID.
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -46,19 +52,19 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
   // there, otherwise the first one. Auto-select is not a user choice, so it is
   // not written back.
   useEffect(() => {
-    if (names.length > 0 && (!value || !names.includes(value))) {
+    if (autoSelect && !defaultSelected && names.length > 0 && (!value || !names.includes(value))) {
       const remembered = readLastModel(capability)
       onChange(remembered && names.includes(remembered) ? remembered : names[0])
     }
-  }, [names, value, onChange, capability])
+  }, [names, value, onChange, capability, autoSelect, defaultSelected])
 
   // Loaded models first when the list is grouped; each group keeps its order.
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     const found = q ? names.filter(n => n.toLowerCase().includes(q)) : names
-    if (!grouped) return found
-    return [...found.filter(n => loadedIds?.has(n)), ...found.filter(n => !loadedIds?.has(n))]
-  }, [names, query, grouped, loadedIds])
+    const ordered = grouped ? [...found.filter(n => loadedIds?.has(n)), ...found.filter(n => !loadedIds?.has(n))] : found
+    return defaultChoice && (!q || defaultChoice.toLowerCase().includes(q)) ? [null, ...ordered] : ordered
+  }, [names, query, grouped, loadedIds, defaultChoice])
 
   const close = useCallback((restoreFocus = false) => {
     setOpen(false)
@@ -67,12 +73,12 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
   }, [])
 
   const openMenu = useCallback(() => {
-    if (disabled || names.length === 0) return
-    setActive(Math.max(0, names.indexOf(value)))
+    if (disabled || (names.length === 0 && !defaultChoice)) return
+    setActive(defaultSelected ? 0 : Math.max(0, names.indexOf(value) + (defaultChoice ? 1 : 0)))
     setQuery('')
     setOpen(true)
     onOpen?.()
-  }, [disabled, names, value, onOpen])
+  }, [disabled, names, value, onOpen, defaultChoice, defaultSelected])
 
   useImperativeHandle(ref, () => ({ open: openMenu, focus: () => chipRef.current?.focus() }), [openMenu])
 
@@ -97,10 +103,13 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
   }, [open, active, shown])
 
   const pick = useCallback((name) => {
-    writeLastModel(capability, name)
-    onChange(name)
+    if (name === null) onChooseDefault?.()
+    else {
+      if (rememberSelection) writeLastModel(capability, name)
+      onChange(name)
+    }
     close(true)
-  }, [capability, onChange, close])
+  }, [capability, onChange, close, rememberSelection, onChooseDefault])
 
   const onMenuKey = (e) => {
     const n = shown.length
@@ -108,24 +117,27 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
     else if (e.key === 'ArrowUp') { e.preventDefault(); if (n) setActive(a => (a + n - 1) % n) }
     else if (e.key === 'Home' && !query) { e.preventDefault(); setActive(0) }
     else if (e.key === 'End' && !query) { e.preventDefault(); setActive(Math.max(0, n - 1)) }
-    else if (e.key === 'Enter') { e.preventDefault(); if (shown[active]) pick(shown[active]) }
+    else if (e.key === 'Enter') { e.preventDefault(); if (active < n) pick(shown[active]) }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true) }
     else if (e.key === 'Tab') close()
   }
 
   const isWarm = (name) => loadedIds?.has(name)
-  const label = value || placeholder || (loading ? t('picker.loading') : (labels?.none || t('picker.none')))
-  const activeId = shown[active] ? `home-model-opt-${active}` : undefined
+  const label = (defaultSelected ? defaultChoice : value) || placeholder || (loading ? t('picker.loading') : (labels?.none || t('picker.none')))
+  const activeId = active < shown.length ? `${instanceId}-opt-${active}` : undefined
 
   return (
     <div className="home-pick" ref={rootRef}>
       <button
         ref={chipRef}
+        id={id}
+        aria-label={labels?.label}
+        aria-describedby={[labels?.label && `${instanceId}-selection`, describedBy].filter(Boolean).join(' ') || undefined}
         type="button"
         className="home-chip home-chip--model"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-controls="home-model-menu"
+        aria-controls={listId}
         disabled={disabled}
         title={labels?.title || t('picker.title')}
         data-testid="home-model-chip"
@@ -133,12 +145,12 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
         onKeyDown={(e) => { if (e.key === 'ArrowDown' && !open) { e.preventDefault(); openMenu() } }}
       >
         <Icon name="cube" />
-        {showWarm && <span className={`home-dot${value && isWarm(value) ? '' : ' home-dot--cold'}`} aria-hidden="true" />}
-        <span className="home-chip__text">{label}</span>
+        {showWarm && !defaultSelected && <span className={`home-dot${value && isWarm(value) ? '' : ' home-dot--cold'}`} aria-hidden="true" />}
+        <span id={labels?.label ? `${instanceId}-selection` : undefined} className="home-chip__text">{label}</span>
         <Icon name="chevron-down" className="home-chip__caret" />
       </button>
       {open && (
-        <div className="home-menu home-menu--models" id="home-model-menu" onKeyDown={onMenuKey}>
+        <div className="home-menu home-menu--models" id={menuId} onKeyDown={onMenuKey}>
           {names.length >= FILTER_FROM && (
             <input
               ref={filterRef}
@@ -150,13 +162,13 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
               onChange={(e) => { setQuery(e.target.value); setActive(0) }}
               role="combobox"
               aria-expanded="true"
-              aria-controls="home-model-list"
+              aria-controls={listId}
               aria-activedescendant={activeId}
             />
           )}
           <ul
             ref={menuRef}
-            id="home-model-list"
+            id={listId}
             className="home-menu__list"
             role="listbox"
             aria-label={labels?.label || t('picker.label')}
@@ -167,29 +179,30 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
             {shown.length === 0 && <li className="home-menu__empty" role="presentation">{t('picker.noMatch')}</li>}
             {shown.map((name, i) => {
               const warm = isWarm(name)
-              const info = describe ? describe(name, warm) : null
+              const info = name !== null && describe ? describe(name, warm) : null
+              const selected = name === null ? defaultSelected : !defaultSelected && name === value
               const first = grouped && (i === 0 || isWarm(shown[i - 1]) !== warm)
               return (
-                <Fragment key={name}>
+                <Fragment key={name === null ? `${instanceId}-default` : name}>
                   {first && (
                     <li className="home-menu__head" role="presentation">
                       {warm ? t('picker.loadedNow') : t('picker.installed')}
                     </li>
                   )}
                   <li
-                    id={`home-model-opt-${i}`}
+                    id={`${instanceId}-opt-${i}`}
                     role="option"
-                    aria-selected={name === value}
+                    aria-selected={selected}
                     data-active={i === active}
                     className={`home-menu__item${info ? ' home-menu__item--rich' : ''}`}
                     onMouseMove={() => setActive(i)}
                     onClick={() => pick(name)}
                   >
-                    {showWarm && <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />}
+                    {showWarm && name !== null && <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />}
                     {info ? (
                       <>
                         <span className="home-menu__main">
-                          <code>{name}</code>
+                          <code>{name === null ? defaultChoice : name}</code>
                           {(info.size || info.vision) && (
                             <small className="home-menu__caps">
                               {info.size && <span>{info.size}</span>}
@@ -198,16 +211,16 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
                           )}
                         </span>
                         <span className="home-menu__state" data-tone={info.fit?.tone}>
-                          <b>{name === value ? <Icon name="check" className="home-menu__check" /> : null}{warm ? t('picker.warm') : t('picker.cold')}</b>
+                          <b>{selected ? <Icon name="check" className="home-menu__check" /> : null}{warm ? t('picker.warm') : t('picker.cold')}</b>
                           {info.fit && <small>{info.fit.text}</small>}
                         </span>
                       </>
                     ) : (
                       <>
-                        <code>{name}</code>
-                        {name === value
+                        <code>{name === null ? defaultChoice : name}</code>
+                        {selected
                           ? <Icon name="check" className="home-menu__check" />
-                          : (showWarm && <small>{warm ? t('picker.warm') : t('picker.cold')}</small>)}
+                          : (showWarm && name !== null && <small>{warm ? t('picker.warm') : t('picker.cold')}</small>)}
                       </>
                     )}
                   </li>

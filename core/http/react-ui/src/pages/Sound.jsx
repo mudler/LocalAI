@@ -1,5 +1,7 @@
 import { useState } from 'react'
 // eslint-disable-next-line no-unused-vars
+import HomeModelPicker from '../components/home/HomeModelPicker'
+// eslint-disable-next-line no-unused-vars
 import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { CAP_SOUND_GENERATION } from '../utils/capabilities'
@@ -218,11 +220,23 @@ export default function Sound() {
             />
             {!text && <Starters type="sound" onPick={setText} />}
             <Field label={t('sound.expansion.label')} htmlFor="sound-expansion-model" changed={changed.has('expansionModel')}>
-              <select id="sound-expansion-model" className="dk-input" value={expansion.value} onChange={e => expansion.choose(e.target.value)} disabled={expansion.loading} aria-describedby="sound-expansion-help">
-                <option value="" disabled>{t('sound.expansion.placeholder')}</option>
-                <option value={BACKEND_DEFAULT}>{t('sound.expansion.backendDefault')}</option>
-                {expansion.models.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
-              </select>
+              <HomeModelPicker
+                id="sound-expansion-model"
+                describedBy="sound-expansion-help"
+                labels={{ label: t('sound.expansion.label'), heading: t('sound.expansion.label') }}
+                placeholder={t('sound.expansion.placeholder')}
+                value={expansion.value === BACKEND_DEFAULT ? '' : expansion.value}
+                onChange={expansion.choose}
+                models={expansion.models}
+                loading={expansion.loading}
+                disabled={expansion.loading}
+                autoSelect={false}
+                showWarm={false}
+                rememberSelection={false}
+                defaultChoice={t('sound.expansion.backendDefault')}
+                defaultSelected={expansion.value === BACKEND_DEFAULT}
+                onChooseDefault={() => expansion.choose(BACKEND_DEFAULT)}
+              />
               <p id="sound-expansion-help" className="text-note" role="status">{expansion.loading
                 ? t('sound.expansion.loading')
                 : expansion.error ? t('sound.expansion.error')
