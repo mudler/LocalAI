@@ -125,6 +125,7 @@ type options struct {
 	responseHeaderTimeout time.Duration
 	transport             http.RoundTripper
 	followRedirects       bool
+	redirectValidator     func(*url.URL) error
 }
 
 // Option configures a client built by New.
@@ -159,6 +160,17 @@ func WithResponseHeaderTimeout(d time.Duration) Option {
 // redirects (e.g. some download CDNs) and the request carries a secret.
 func WithFollowRedirects() Option { return func(o *options) { o.followRedirects = true } }
 
+// WithRedirectURLValidation supplies a validator that is run against every
+// redirect target before the redirect is followed; returning an error aborts
+// the chain. It only takes effect together with WithFollowRedirects (on a
+// no-redirect client no redirect is ever followed, so the validator is never
+// consulted). Use this to re-apply an SSRF/private-IP policy per hop: net/http
+// resolves redirects internally, so validating only the initial URL lets a
+// public address 302 to a loopback/private/link-local target.
+func WithRedirectURLValidation(validator func(*url.URL) error) Option {
+	return func(o *options) { o.redirectValidator = validator }
+}
+
 // New returns a hardened *http.Client. By default it refuses redirects, sets a
 // TLS 1.2 floor, bounds connection setup, and imposes no body deadline (safe
 // for streaming). Apply Options to adjust.
@@ -184,6 +196,18 @@ func New(opts ...Option) *http.Client {
 	check := NoRedirect
 	if o.followRedirects {
 		check = stripAuthOnRedirect
+		if o.redirectValidator != nil {
+			validator := o.redirectValidator
+			check = func(req *http.Request, via []*http.Request) error {
+				if err := stripAuthOnRedirect(req, via); err != nil {
+					return err
+				}
+				if err := validator(req.URL); err != nil {
+					return fmt.Errorf("httpclient: refusing to follow redirect to %s: %w", req.URL.Redacted(), err)
+				}
+				return nil
+			}
+		}
 	}
 
 	return &http.Client{
