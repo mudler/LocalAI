@@ -77,3 +77,31 @@ func TestLoopbackRejectsInvalidPortFile(t *testing.T) {
 		t.Fatal("expected an error for an invalid port file")
 	}
 }
+
+func TestLoopbackRejectsLoosePortFileMode(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, loopbackPortFile)
+	if err := os.WriteFile(path, []byte("40123\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := NewLoopbackCarrierConfig("local", root); err == nil || !strings.Contains(err.Error(), "0600") {
+		t.Fatalf("expected a mode error, got %v", err)
+	}
+}
+
+func TestLoopbackRejectsPortFileSymlinkOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "port")
+	if err := os.WriteFile(outside, []byte("40123\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, loopbackPortFile)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := NewLoopbackCarrierConfig("local", root); err == nil {
+		t.Fatal("expected an error for a port file that links outside the root")
+	}
+}

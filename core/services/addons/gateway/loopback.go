@@ -10,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"os"
@@ -32,7 +33,7 @@ const loopbackPortFile = "loopback-port"
 // address and the identity would no longer match.
 func loopbackPort(root string) (int, error) {
 	path := filepath.Join(root, loopbackPortFile)
-	raw, err := os.ReadFile(path)
+	raw, err := readLoopbackPortFile(root)
 	switch {
 	case err == nil:
 		port, perr := strconv.Atoi(strings.TrimSpace(string(raw)))
@@ -61,6 +62,33 @@ func loopbackPort(root string) (int, error) {
 		return 0, err
 	}
 	return port, nil
+}
+
+// readLoopbackPortFile reads the persisted port file from the add-on root. The
+// read goes through os.Root, so the name cannot leave the root, not even by a
+// symbolic link. The file must be a regular file that no group or other user
+// can access: a looser mode means someone else could have changed the port, so
+// the read fails closed. A missing file returns an error for which
+// os.IsNotExist is true.
+func readLoopbackPortFile(root string) ([]byte, error) {
+	r, err := os.OpenRoot(filepath.Clean(root))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = r.Close() }()
+	f, err := r.Open(loopbackPortFile)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+		return nil, fmt.Errorf("add-on owner loopback port file %s must be a regular file with mode 0600 or less; fix or remove it together with the add-on state", filepath.Join(root, loopbackPortFile))
+	}
+	return io.ReadAll(io.LimitReader(f, 64))
 }
 
 // NewLoopbackCarrierConfig builds the carrier identity of a deployment with one
