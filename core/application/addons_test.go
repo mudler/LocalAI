@@ -90,6 +90,36 @@ var _ = Describe("addon bootstrap", func() {
 		Expect(e).NotTo(HaveOccurred())
 	})
 
+	It("registers the official library once and respects the admin afterwards", func() {
+		requireAddonRuntime()
+		c := cfg()
+		c.OfficialLibrary = true
+		Expect(os.MkdirAll(c.Root, 0700)).To(Succeed())
+		// The default library is on the network; keep this spec offline by
+		// cancelling the startup refresh. The seed happens before it.
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		a := setup()
+		a.applicationConfig.Addons = c
+		a.applicationConfig.Context = ctx
+		_ = a.startAddons()
+		sources, e := catalog.NewSources(filepath.Join(c.Root, "sources.json"), c.AdminCheck, catalog.CredentialResolver{})
+		Expect(e).NotTo(HaveOccurred())
+		list, e := sources.List(context.Background(), contract.Actor{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].URL).To(Equal(catalog.OfficialLibraryURL))
+		// The admin removes it; the next start does not add it again.
+		Expect(sources.Save(context.Background(), contract.Actor{}, catalog.Source{ID: catalog.OfficialLibraryID, Removed: true})).To(Succeed())
+		a = setup()
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(Succeed())
+		DeferCleanup(a.Shutdown)
+		list, e = a.AddonSources().List(context.Background(), contract.Actor{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(list).To(BeEmpty())
+	})
+
 	It("bounds offline refresh and ignores disabled sources and forwarders", func() {
 		requireAddonRuntime()
 		var calls atomic.Int32

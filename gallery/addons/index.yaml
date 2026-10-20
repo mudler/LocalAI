@@ -1,0 +1,77 @@
+# Official add-on library: the first-party add-ons, one entry for each package.
+# LocalAI registers this file as its default library (the raw URL of this file
+# on the master branch). The entries are rendered by the add-on package
+# workflow with `addonpkg catalog`, so the digests pin the published images:
+# regenerate this file from the workflow output, never edit a digest by hand.
+- addonId: "fine-tuning"
+  name: Fine-tuning
+  description: "Train an adapter on your own data, then export it as a model you can chat with."
+  version: "0.0.0-dev.99d1dca2c869"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons/fine-tuning:sha-99d1dca2c869"
+  digest: "sha256:9e2168ea73c32427e9f7d3c071d2dd36ca37877a78dd3bdbacebd8b9fe6e270a"
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Fine-tuning"
+    description: "Train an adapter on your own data, then export it as a model you can chat with."
+    mainPage: "jobs"
+    icon: "ui/icon.png"
+- addonId: "quantization"
+  name: Quantization
+  description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
+  version: "0.0.0-dev.99d1dca2c869"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons/quantization:sha-99d1dca2c869"
+  digest: "sha256:d1dd5b3cfc7e96cac2825cd8aaf86ebacb49d686f433f1969ad149928d0858ad"
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Quantization"
+    description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
+    mainPage: "jobs"
+    icon: "ui/icon.png"
+- addonId: "voice"
+  name: Voice
+  description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+  version: "0.0.0-dev.99d1dca2c869"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons/voice:sha-99d1dca2c869"
+  digest: "sha256:1d9ff8c81ad8963c2a32426a97dfb4d2935833f9a36615af9c132040672236a2"
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Voice"
+    description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+    mainPage: "recognition"
+    icon: "ui/icon.png"
+- addonId: "face"
+  name: Face
+  description: "Find out whose face is in a photo, or whether two photos show the same person."
+  version: "0.0.0-dev.99d1dca2c869"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons/face:sha-99d1dca2c869"
+  digest: "sha256:a48ad28afc98b10f952e330243487a0fd3ab2aa4187478e8768712f6b77e86f6"
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Face"
+    description: "Find out whose face is in a photo, or whether two photos show the same person."
+    mainPage: "recognition"
+    icon: "ui/icon.png"

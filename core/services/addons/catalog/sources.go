@@ -77,6 +77,10 @@ type Sources struct {
 	credentials CredentialResolver
 	sources     map[string]Source
 	cache       map[string]cached
+	// fresh is true when no configuration file existed at construction. Only
+	// then may SeedDefault add a library; a file the admin already has, even an
+	// empty one, is never touched.
+	fresh bool
 }
 
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
@@ -91,6 +95,7 @@ func NewSources(path string, admin AdminCheck, credentials CredentialResolver) (
 	s := &Sources{path: path, admin: admin, credentials: credentials, sources: map[string]Source{}, cache: map[string]cached{}}
 	info, e := os.Lstat(path)
 	if os.IsNotExist(e) {
+		s.fresh = true
 		return s, nil
 	}
 	if e != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
@@ -212,6 +217,16 @@ func (s *Sources) Save(ctx context.Context, actor contract.Actor, src Source) er
 	} else {
 		next[src.ID] = src
 	}
+	if e := s.persist(next); e != nil {
+		return e
+	}
+	s.sources = next
+	delete(s.cache, src.ID)
+	return nil
+}
+
+// persist writes the whole configuration atomically. The caller holds s.mu.
+func (s *Sources) persist(next map[string]Source) error {
 	data, e := json.Marshal(next)
 	if e != nil || len(data) > 1<<20 {
 		return ErrInvalid
@@ -231,9 +246,31 @@ func (s *Sources) Save(ctx context.Context, actor contract.Actor, src Source) er
 	if e = os.Rename(f.Name(), s.path); e != nil {
 		return ErrUnavailable
 	}
-	s.sources = next
-	delete(s.cache, src.ID)
 	return nil
+}
+
+// SeedDefault adds a default library on the first start, when the owner has no
+// configuration file yet, and writes the file. The file is the record: once it
+// exists, the admin's choices win, so a default that the admin removes stays
+// removed (the file then holds the remaining libraries, possibly none) and a
+// library the admin edited is not reset. It reports whether it added src.
+// It is trusted startup code and takes no actor; it never runs for a request.
+func (s *Sources) SeedDefault(src Source) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.fresh {
+		return false, nil
+	}
+	if !idPattern.MatchString(src.ID) || src.Removed || !validSource(src) {
+		return false, ErrInvalid
+	}
+	next := map[string]Source{src.ID: src}
+	if e := s.persist(next); e != nil {
+		return false, e
+	}
+	s.sources = next
+	s.fresh = false
+	return true, nil
 }
 func decode(data []byte, out any) error {
 	d := json.NewDecoder(bytes.NewReader(data))

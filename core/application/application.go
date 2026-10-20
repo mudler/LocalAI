@@ -867,6 +867,11 @@ func (a *Application) startAddons() error {
 		if err != nil {
 			return err
 		}
+		if c.OfficialLibrary {
+			if _, err = sources.SeedDefault(catalog.OfficialLibrary()); err != nil {
+				return err
+			}
+		}
 		host := c.Host
 		if host == (contract.HostCompatibility{}) {
 			host = contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
