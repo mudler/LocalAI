@@ -95,6 +95,24 @@ test.describe('Add-on navigation', () => {
     expect(appsCalled).toBe(false)
   })
 
+  // The icon of a built-in tile sat in the top-left corner of its 40px box, at the
+  // size of the page text, because only the empty-icon box was laid out as a grid.
+  test('a built-in tile draws its icon centred in the icon box', async ({ page }) => {
+    await setup(page, { builtin: [{ id: 'guide', kind: 'page', titleKey: 'items.chat', icon: 'palette', mainPath: '/app/chat' }], studio: false })
+    await page.goto('/app/addons')
+    const box = page.locator('.ad-icon').first()
+    await expect(box.locator('svg[data-icon="palette"]')).toBeVisible()
+    const offsets = await box.evaluate(el => {
+      const outer = el.getBoundingClientRect()
+      const inner = el.querySelector('svg').getBoundingClientRect()
+      return { dx: (inner.left + inner.width / 2) - (outer.left + outer.width / 2), dy: (inner.top + inner.height / 2) - (outer.top + outer.height / 2), width: inner.width, box: outer.width }
+    })
+    expect(Math.abs(offsets.dx)).toBeLessThan(1)
+    expect(Math.abs(offsets.dy)).toBeLessThan(1)
+    expect(offsets.width).toBeGreaterThan(16)
+    expect(offsets.box).toBe(40)
+  })
+
   test('member without the add-ons feature and with no built-in tile goes home, and Studio and Talk are not built in', async ({ page }) => {
     await setup(page, { addons: false })
     await page.goto('/app/addons')

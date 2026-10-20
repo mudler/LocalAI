@@ -17,7 +17,7 @@ export default function AddonTile({ tile, pinned, onPin, onMove, onOpenDetail })
   const body = (
     <>
       {tile.source === 'builtin'
-        ? <span className="ad-icon" aria-hidden="true"><Icon name={tile.iconName} /></span>
+        ? <span className="ad-icon ad-icon--empty" aria-hidden="true"><Icon name={tile.iconName} /></span>
         : <AppIcon src={tile.icon ? apiUrl(tile.icon) : ''} />}
       <span className="ad-tile__text">
         <span className="ad-tile__title">{title}</span>
