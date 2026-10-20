@@ -19,7 +19,7 @@ export async function load(extra = {}) {
   const calls = []
   const controller = new AbortController()
   const sdk = createHostSDK({
-    addonId: 'voice', generation: 1, signal: controller.signal, pages: ['recognition', 'library', 'create', 'speech'],
+    addonId: 'voice', generation: 1, signal: controller.signal, pages: ['voice', 'recognition', 'library', 'create', 'speech'],
     host: {
       React,
       components: Object.fromEntries(['Button', 'Spinner', 'EmptyState', 'Badge', 'Stack', 'Text', 'PageHeader', 'ConfirmDialog', 'ErrorWithTraceLink', 'ModelSelector', 'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch'].map(n => [n, stub(n === 'PageHeader' ? 'header' : 'div')])),
@@ -50,18 +50,36 @@ test('render: an unknown page draws nothing', async () => {
   assert.equal(renderToString(React.createElement(addon.Component, { page: 'nope', path: '' })), '')
 })
 
-test('render: the manifest declares the four pages, the main page and SDK 2', async () => {
+test('render: the manifest declares one page in the navigation, the older pages, the main page and SDK 2', async () => {
   const { readFileSync } = await import('node:fs')
   const m = JSON.parse(readFileSync(join(here, '../../manifest.json'), 'utf8'))
   assert.equal(m.id, 'voice')
-  assert.deepEqual(m.capabilities.ui.pages, ['recognition', 'library', 'create', 'speech'])
-  assert.equal(m.capabilities.ui.mainPage, 'recognition')
+  assert.deepEqual(m.capabilities.ui.pages, ['voice', 'recognition', 'library', 'create', 'speech'])
+  assert.deepEqual(m.capabilities.ui.navigation, ['voice'])
+  assert.equal(m.capabilities.ui.mainPage, 'voice')
   assert.deepEqual(m.capabilities.ui.sdk, { min: 2, max: 2 })
   assert.deepEqual(m.capabilities.tools ?? [], [])
 })
 
-test('render: a registered page is drawn with its path', async () => {
+test('render: a tab is drawn with the rest of the path and the tab strip', async () => {
   const { mod, sdk } = await load()
-  const addon = await mod.createAddon(sdk, { pages: { speech: ({ path }) => React.createElement('p', null, `page:${path}`) } })
-  assert.equal(renderToString(React.createElement(addon.Component, { page: 'speech', path: 'abc' })), '<p>page:abc</p>')
+  const addon = await mod.createAddon(sdk, { pages: { speech: ({ path, tabs }) => React.createElement('div', null, tabs, React.createElement('p', null, `page:${path}`)) } })
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'speech/abc' }))
+  assert.match(html, /<p>page:abc<\/p>/)
+  assert.match(html, /data-testid="voice-tabs"/)
+  assert.match(html, /data-tab="speech"[^>]*aria-selected="true"/)
+})
+
+test('render: no tab in the path opens the recognition tab', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  assert.match(renderToString(React.createElement(addon.Component, { page: 'voice', path: '' })), /data-testid="voices-page"/)
+})
+
+test('render: an older page name draws nothing itself; the shell sends it to its tab', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  for (const page of ['recognition', 'library', 'create', 'speech']) {
+    assert.equal(renderToString(React.createElement(addon.Component, { page, path: '' })), '', page)
+  }
 })

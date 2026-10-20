@@ -13,7 +13,7 @@ const { renderToString } = require('react-dom/server')
 test('speech: the first paint shows the title and the text box', async () => {
   const { mod, sdk } = await load()
   const addon = await mod.createAddon(sdk)
-  const html = renderToString(React.createElement(addon.Component, { page: 'speech', path: '' }))
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'speech' }))
   assert.match(html, /data-testid="voice-speech"/)
   assert.match(html, /<textarea/)
 })

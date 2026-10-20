@@ -13,14 +13,14 @@ const { renderToString } = require('react-dom/server')
 test('library: the first paint of the library page has the core test id', async () => {
   const { mod, sdk } = await load()
   const addon = await mod.createAddon(sdk)
-  const html = renderToString(React.createElement(addon.Component, { page: 'library', path: '' }))
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))
   assert.match(html, /data-testid="voice-library"/)
 })
 
 test('create: the first paint of the create page has the core test id', async () => {
   const { mod, sdk } = await load()
   const addon = await mod.createAddon(sdk)
-  const html = renderToString(React.createElement(addon.Component, { page: 'create', path: '' }))
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library/new' }))
   assert.match(html, /data-testid="voice-profile-create"/)
 })
 
@@ -47,12 +47,12 @@ function queuedEffects() {
 }
 const profileCalls = (calls) => calls.filter(([url]) => /^\/api\/(voice-profiles|models|operations)/.test(url))
 
-for (const page of ['library', 'create']) {
+for (const [page, path] of [['library', 'library'], ['create', 'library/new']]) {
   test(`${page}: a viewer who is not an administrator sees the off notice and the page makes no call`, async () => {
     const q = queuedEffects()
     const { mod, sdk, calls } = await load({ React: q.React, viewer: { isAdmin: () => false, hasFeature: () => true } })
     const addon = await mod.createAddon(sdk)
-    const html = renderToString(React.createElement(addon.Component, { page, path: '' }))
+    const html = renderToString(React.createElement(addon.Component, { page: 'voice', path }))
     q.run()
     await new Promise(r => setTimeout(r, 20))
     assert.match(html, /data-testid="voice-admin-only"/)
@@ -65,7 +65,7 @@ test('library: an administrator gets the library and the profile list is request
   const q = queuedEffects()
   const { mod, sdk, calls } = await load({ React: q.React })
   const addon = await mod.createAddon(sdk)
-  const html = renderToString(React.createElement(addon.Component, { page: 'library', path: '' }))
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))
   q.run()
   await new Promise(r => setTimeout(r, 20))
   assert.doesNotMatch(html, /voice-admin-only/)

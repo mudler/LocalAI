@@ -254,8 +254,8 @@ test.beforeAll(async () => {
 })
 
 const voiceApp = () => app({
-  id: 'voice', name: 'voice', title: 'Voice', icon: undefined, generation: 1, version: '0.1.0', mainPage: '/app/addons/voice/recognition',
-  ui: { entry: `${VOICE_BASE}/ui/voice.js`, css: [`${VOICE_BASE}/ui/voice.css`], sdk: { min: 2, max: 2 }, pages: ['recognition', 'library', 'create', 'speech'], navigation: [], chatActions: [] },
+  id: 'voice', name: 'voice', title: 'Voice', icon: undefined, generation: 1, version: '0.1.0', mainPage: '/app/addons/voice/voice',
+  ui: { entry: `${VOICE_BASE}/ui/voice.js`, css: [`${VOICE_BASE}/ui/voice.css`], sdk: { min: 2, max: 2 }, pages: ['voice', 'recognition', 'library', 'create', 'speech'], navigation: ['voice'], chatActions: [] },
 })
 
 async function serveVoice(page) {
@@ -279,14 +279,26 @@ async function expectVoicesPage(page) {
   }
 }
 
+// The tabs of the one Voice page. An administrator sees all four.
+async function expectVoiceTabs(page, active) {
+  const tabs = page.getByTestId('voice-tabs')
+  await expect(tabs).toBeVisible()
+  for (const name of [/^Recognition/, /^Library/, /^Text to speech$/, /^From a recording$/]) {
+    await expect(tabs.getByRole('tab', { name })).toBeVisible()
+  }
+  await expect(tabs.locator('[aria-selected="true"]')).toHaveAttribute('data-tab', active)
+}
+
 test.describe('Add-on navigation: the Voice recognition page', () => {
-  test('the Voice add-on draws the same page, test ids and tabs as the core page', async ({ page }) => {
+  test('the Voice add-on draws the recognition tab with the core test ids', async ({ page }) => {
     await setup(page, { apps: [voiceApp()] })
     await asAdmin(page)
     await serveVoice(page)
     await mockIdentity(page)
-    await page.goto('/app/addons/voice/recognition')
-    await expectVoicesPage(page)
+    await page.goto('/app/addons/voice/voice/recognition')
+    await expect(page.getByTestId('voices-page')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Voices', level: 1 })).toBeVisible()
+    await expectVoiceTabs(page, 'recognition')
     await expect(page.locator('[data-testid="addon-surface"][data-addon="voice"]')).toBeVisible()
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
   })
@@ -306,7 +318,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await serveVoice(page)
     await mockIdentity(page)
     await page.goto('/app/voice/org%2Fname')
-    await expect(page).toHaveURL(/\/app\/addons\/voice\/recognition\?model=org%2Fname$/)
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recognition\?model=org%2Fname$/)
     await expect(page.getByTestId('voices-page')).toBeVisible()
   })
 
@@ -315,9 +327,76 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     // An administrator holds every feature, so the viewer is a member.
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, voice_recognition: false }) }))
     await serveVoice(page)
-    await page.goto('/app/addons/voice/recognition')
+    await page.goto('/app/addons/voice/voice/recognition')
     await expect(page.getByTestId('voice-off')).toBeVisible()
     await expect(page.getByTestId('voices-page')).toHaveCount(0)
+  })
+
+  test('the sections are tabs of one page and each tab keeps its address', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/voice/voice')
+    // No tab in the address opens the default tab.
+    await expect(page.getByTestId('voices-page')).toBeVisible()
+    await expectVoiceTabs(page, 'recognition')
+
+    const tabs = page.getByTestId('voice-tabs')
+    await tabs.getByRole('tab', { name: /^Library/ }).click()
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library$/)
+    await expect(page.getByTestId('voice-library')).toBeVisible()
+    await expectVoiceTabs(page, 'library')
+
+    await page.getByTestId('voice-library-new').first().click()
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library\/new$/)
+    await expect(page.getByTestId('voice-profile-create')).toBeVisible()
+    await expectVoiceTabs(page, 'library')
+
+    await tabs.getByRole('tab', { name: /^Text to speech$/ }).click()
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/speech$/)
+    await expect(page.getByTestId('voice-speech')).toBeVisible()
+    await expectVoiceTabs(page, 'speech')
+
+    await tabs.getByRole('tab', { name: /^From a recording$/ }).click()
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recording$/)
+    await expect(page.getByTestId('recording-tab')).toBeVisible()
+    await expectVoiceTabs(page, 'recording')
+  })
+
+  test('a viewer who is not an administrator gets no Library tab', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, voice_recognition: true }) }))
+    await serveVoice(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/voice/voice/recognition')
+    const tabs = page.getByTestId('voice-tabs')
+    await expect(tabs.getByRole('tab', { name: /^Recognition/ })).toBeVisible()
+    await expect(tabs.getByRole('tab', { name: /^Text to speech$/ })).toBeVisible()
+    await expect(tabs.getByRole('tab', { name: /^Library/ })).toHaveCount(0)
+    await page.goto('/app/addons/voice/voice/library')
+    await expect(page.getByTestId('voice-admin-only')).toBeVisible()
+    await expect(page.getByTestId('voice-library')).toHaveCount(0)
+  })
+
+  test('the older page addresses of the add-on open the matching tab', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    const cases = [
+      ['/app/addons/voice/recognition', /\/voice\/voice\/recognition$/, 'recognition'],
+      ['/app/addons/voice/recognition?model=wespeaker-resnet34', /\/voice\/voice\/recognition\?model=wespeaker-resnet34$/, 'recognition'],
+      ['/app/addons/voice/recognition?tab=recording', /\/voice\/voice\/recording$/, 'recording'],
+      ['/app/addons/voice/library?selected=prof-1', /\/voice\/voice\/library\?selected=prof-1$/, 'library'],
+      ['/app/addons/voice/create', /\/voice\/voice\/library\/new$/, 'library'],
+      ['/app/addons/voice/speech?voice=prof-1', /\/voice\/voice\/speech\?voice=prof-1$/, 'speech'],
+    ]
+    for (const [from, to, active] of cases) {
+      await page.goto(from)
+      await expect(page, from).toHaveURL(to)
+      await expectVoiceTabs(page, active)
+    }
   })
 
   test('the Build hub has no Voices tab', async ({ page }) => {
@@ -334,7 +413,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await asAdmin(page)
     await serveVoice(page)
     const calls = await mockIdentity(page, { stored: people, identify: { matches: [match('v-marta', 'Marta Rossi', 0.18), match('v-jonas', 'Jonas Weber', 0.41)] } })
-    await page.goto('/app/addons/voice/recognition')
+    await page.goto('/app/addons/voice/voice/recognition')
     await expect(page.getByTestId('voices-page')).toBeVisible()
 
     await page.locator('#voice-probe-audio-file').setInputFiles(clipFile())

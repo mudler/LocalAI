@@ -13,7 +13,7 @@ const { renderToString } = require('react-dom/server')
 test('recognition: the first paint has the core test id and the page title', async () => {
   const { mod, sdk } = await load()
   const addon = await mod.createAddon(sdk)
-  const html = renderToString(React.createElement(addon.Component, { page: 'recognition', path: '' }))
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recognition' }))
   assert.match(html, /data-testid="voices-page"/)
   assert.match(html, /Voices/)
 })
@@ -21,7 +21,7 @@ test('recognition: the first paint has the core test id and the page title', asy
 test('recognition: a viewer without voice_recognition gets the off notice, not the workbench', async () => {
   const { mod, sdk } = await load({ viewer: { isAdmin: () => false, hasFeature: (f) => f !== 'voice_recognition' } })
   const addon = await mod.createAddon(sdk)
-  const html = renderToString(React.createElement(addon.Component, { page: 'recognition', path: '' }))
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recognition' }))
   assert.match(html, /data-testid="voice-off"/)
   assert.doesNotMatch(html, /idn-bench/)
 })
@@ -34,23 +34,23 @@ test('recognition: the model of the path reaches the model selection', async () 
   components.ModelSelector = (p) => { seen.push(p.value); return React.createElement('div') }
   const { mod, sdk } = await load({ components })
   const addon = await mod.createAddon(sdk)
-  renderToString(React.createElement(addon.Component, { page: 'recognition', path: 'speechbrain' }))
+  renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recognition/speechbrain' }))
   assert.deepEqual(seen, ['speechbrain'])
 })
 
-test('recognition: a viewer who is not an administrator still gets the workbench and no speech voices tab', async () => {
+test('recognition: a viewer who is not an administrator still gets the workbench and no Library tab', async () => {
   const { mod, sdk } = await load({ viewer: { isAdmin: () => false, hasFeature: () => true } })
   const addon = await mod.createAddon(sdk)
-  const html = renderToString(React.createElement(addon.Component, { page: 'recognition', path: '' }))
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recognition' }))
   assert.match(html, /idn-bench/)
-  assert.doesNotMatch(html, /Speech voices/)
+  assert.doesNotMatch(html, /Library/)
 })
 
-test('recognition: an administrator sees the three tabs', async () => {
+test('recognition: an administrator sees the four tabs', async () => {
   const { mod, sdk } = await load()
   const addon = await mod.createAddon(sdk)
-  const html = renderToString(React.createElement(addon.Component, { page: 'recognition', path: '' }))
-  for (const label of ['Speakers', 'Speech voices', 'From a recording']) assert.ok(html.includes(label), label)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recognition' }))
+  for (const label of ['Recognition', 'Library', 'Text to speech', 'From a recording']) assert.ok(html.includes(label), label)
 })
 
 test('recognition: the bundle carries no face-only canvas and no host import', async () => {

@@ -68,7 +68,8 @@ test('the same-path routes need no redirect', () => {
 test('moved biometric routes are wrapped in MovedPage in the router', () => {
   // Studio and Talk have no core page to fall back to; they redirect (see above).
   for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'addon-page' && !['/app/studio', '/app/talk'].includes(x.from))) {
-    const [, , , addon, page] = r.to.split('/')
+    const [, , , addon, ...rest] = r.to.split('/')
+    const page = rest.join('/')
     assert.ok(router.includes(`<MovedPage addon="${addon}" page="${page}">`) || router.includes(`<MovedPage addon="${addon}" page="${page}" withModel>`), `router.jsx does not wrap ${r.from}`)
   }
 })
@@ -114,4 +115,11 @@ test('the Build hub has no fine-tune or quantize tab', async () => {
 test('the Build overview keeps the fine-tune and quantize cards, linked to the old routes', async () => {
   const { buildOverviewTools } = await import('../../src/components/hub/hubConfig.js')
   assert.deepEqual(buildOverviewTools.map(t => [t.id, t.items[0].path]), [['fine-tune', '/app/fine-tune'], ['quantize', '/app/quantize']])
+})
+
+test('the voice routes open the tabs of the one Voice page', () => {
+  const to = (from) => MIGRATION_ROUTES.find(r => r.from === from)?.to
+  assert.equal(to('/app/voice'), '/app/addons/voice/voice/recognition')
+  assert.equal(to('/app/voice-library'), '/app/addons/voice/voice/library')
+  assert.equal(to('/app/voice-library/new'), '/app/addons/voice/voice/library/new')
 })
