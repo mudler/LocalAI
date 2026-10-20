@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 package toolbroker
 
+import "reflect"
+
 // Reduce trusts evidence only as model input. A Fresh dispatch is the successful
 // DB Prepared->Dispatched observation, never merely a lease or Prepare success.
 // Its single local claim is not an external-provider atomicity guarantee.
@@ -22,7 +24,7 @@ func Reduce(s State, e Event) (Transition, error) {
 			n.lastTime = in.Now
 		}
 		t := Transition{State: n, Effects: fx, RuleID: id, Guard: guard}
-		if err := CheckTransition(before, e, t); err != nil {
+		if err := checkTransitionGuards(before, e, t); err != nil {
 			return Transition{}, err
 		}
 		return t, nil
@@ -289,7 +291,29 @@ func CheckInvariants(s State) error {
 	}
 	return nil
 }
+
+// CheckTransition validates untrusted candidate transitions independently of their
+// construction. Guard checks enforce security boundaries even if Reduce changes;
+// canonical comparison also rejects omitted effects and invented state/metadata.
+// Reduce calls only checkTransitionGuards, so this comparison cannot recurse.
 func CheckTransition(before State, e Event, t Transition) error {
+	if err := checkTransitionGuards(before, e, t); err != nil {
+		return err
+	}
+	expected, err := Reduce(before, e)
+	if err != nil || expected.State != t.State || expected.RuleID != t.RuleID || expected.Guard != t.Guard || !reflect.DeepEqual(expected.Effects, t.Effects) {
+		return ErrInvariant
+	}
+	return nil
+}
+
+func checkTransitionGuards(before State, e Event, t Transition) error {
+	if e == nil || before.config.Policy > AllowAll || before.config.ApprovalTTL <= 0 {
+		return ErrInvariant
+	}
+	if err := CheckInvariants(before); err != nil {
+		return err
+	}
 	if err := CheckInvariants(t.State); err != nil {
 		return err
 	}
@@ -298,14 +322,20 @@ func CheckTransition(before State, e Event, t Transition) error {
 	}
 	runs := 0
 	for _, fx := range t.Effects {
-		switch fx.(type) {
+		binding, ok := effectBinding(fx)
+		in := e.eventInput()
+		if !ok || binding != before.config.Binding || in.Binding != before.config.Binding || in.Now <= 0 || in.Now < before.lastTime {
+			return ErrInvariant
+		}
+		switch v := fx.(type) {
 		case RunExecutor:
 			runs++
 			p, ok := before.phase.(Checking)
 			if !ok || p.purpose != invocationAdmission || t.RuleID != "TB-R14" {
 				return ErrInvariant
 			}
-			if _, ok := e.(AdmissionPassed); !ok {
+			a, ok := e.(AdmissionPassed)
+			if !ok || !a.Evidence.Current || !a.Evidence.Registered || !a.Evidence.Selected || !a.Evidence.Resource || !a.Evidence.Helper || (p.until > 0 && in.Now >= p.until) || before.dispatches != 1 || before.runs != 0 {
 				return ErrInvariant
 			}
 		case DispatchJournal:
@@ -316,7 +346,14 @@ func CheckTransition(before State, e Event, t Transition) error {
 			if _, ok := before.phase.(Authorized); !ok {
 				return ErrInvariant
 			}
-		case CheckAdmission, RequestApproval, RecordDecision, RecheckExecutionAdmission, CompleteJournal, CancelExecutor, ReturnRecordedResult, ReturnDenied, HoldForReconciliation, NotifyInterrupted:
+		case CompleteJournal:
+			p, ok := before.phase.(Executing)
+			completed, eventOK := e.(ExecutionCompleted)
+			next, nextOK := t.State.phase.(Executing)
+			if !ok || p.stage != runningBody || !eventOK || !nextOK || next.stage != awaitingJournal || v.Output != completed.Output || t.State.result != completed.Output || t.RuleID != "TB-R17" {
+				return ErrInvariant
+			}
+		case CheckAdmission, RequestApproval, RecordDecision, RecheckExecutionAdmission, CancelExecutor, ReturnRecordedResult, ReturnDenied, HoldForReconciliation, NotifyInterrupted:
 		}
 	}
 	if int(t.State.runs-before.runs) != runs {
@@ -346,4 +383,38 @@ func CheckTransition(before State, e Event, t Transition) error {
 	case New, Checking, WaitingApproval, Authorized, Claiming, Claimed, Executing:
 	}
 	return nil
+}
+
+// Keep the closed effect vocabulary explicit: a new effect must declare its
+// immutable request binding before the transition gate can accept it.
+func effectBinding(fx Effect) (Binding, bool) {
+	switch v := fx.(type) {
+	case CheckAdmission:
+		return v.Binding, true
+	case RequestApproval:
+		return v.Binding, true
+	case RecordDecision:
+		return v.Binding, true
+	case PrepareJournal:
+		return v.Binding, true
+	case DispatchJournal:
+		return v.Binding, true
+	case RecheckExecutionAdmission:
+		return v.Binding, true
+	case RunExecutor:
+		return v.Binding, true
+	case CompleteJournal:
+		return v.Binding, true
+	case CancelExecutor:
+		return v.Binding, true
+	case ReturnRecordedResult:
+		return v.Binding, true
+	case ReturnDenied:
+		return v.Binding, true
+	case HoldForReconciliation:
+		return v.Binding, true
+	case NotifyInterrupted:
+		return v.Binding, true
+	}
+	return Binding{}, false
 }

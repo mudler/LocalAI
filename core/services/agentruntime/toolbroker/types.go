@@ -40,13 +40,14 @@ type Binding struct {
 }
 
 // Exact argument bytes are retained as an immutable string, not canonicalized JSON.
+// Nil and empty arguments share the empty-byte binding. Nonempty bytes stay exact.
 // Length-delimited JSON tuple encoding prevents concatenation ambiguity.
 func NewBinding(s Scope, r string, t ToolID, args []byte, v Revisions, key string) (Binding, error) {
 	if s.Principal == "" || s.Conversation == "" || s.Turn == "" || s.Attempt == 0 || s.Epoch == 0 || r == "" || t == "" {
 		return Binding{}, ErrInvalid
 	}
 	b := Binding{scope: s, request: r, tool: t, arguments: string(args), revisions: v, providerKey: key}
-	data, _ := json.Marshal([]any{"toolbroker-binding/v1", s, r, t, []byte(args), v, key})
+	data, _ := json.Marshal([]any{"toolbroker-binding/v1", s, r, t, b.Arguments(), v, key})
 	b.digest = sha256.Sum256(data)
 	return b, nil
 }
