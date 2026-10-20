@@ -25,9 +25,12 @@ type Capabilities struct {
 }
 
 func PinnedCapabilities() Capabilities {
-	return Capabilities{Version: "v0.12.1", CheckpointRestore: true, HistoryRestore: true, ArtifactRestore: true, PruningRestore: true, Streaming: true, EventProjection: true, Approvals: true, Questions: true, CompactionEvents: true, HelperEvents: true}
+	return Capabilities{Version: PinnedVersion, CheckpointRestore: true, HistoryRestore: true, ArtifactRestore: true, PruningRestore: true, Streaming: true, EventProjection: true, MandatoryPolicyInterception: true, Approvals: true, Questions: true, CompactionEvents: true, HelperEvents: true}
 }
 
+const PinnedVersion = "v0.12.2-0.20261020064257-4bdb29c37b09"
+
+// CheckpointVersion retains the compatible native checkpoint wire format.
 const CheckpointVersion = "nib-v0.12.1/checkpoint-1"
 
 // Checkpoint contains independent JSON buffers in nib's native wire types.
@@ -41,9 +44,8 @@ type Checkpoint struct {
 }
 
 var (
-	ErrNotQuiescent               = errors.New("checkpoint export requires a quiescent host boundary")
-	ErrPolicyRequired             = errors.New("mandatory host tool policy is required")
-	ErrMandatoryPolicyUnsupported = errors.New("nib v0.12.1 lacks mandatory host policy interception; secure tool integration is blocked")
+	ErrNotQuiescent   = errors.New("checkpoint export requires a quiescent host boundary")
+	ErrPolicyRequired = errors.New("mandatory host tool policy is required")
 )
 
 func EncodeCheckpoint(cp Checkpoint) ([]byte, error) {
@@ -66,7 +68,7 @@ func DecodeCheckpoint(data []byte) (Checkpoint, error) {
 // RestoreConfig validates all sections before returning construction inputs.
 // Unmarshalling creates deep independent ownership, including tool-call slices.
 // Callers must validate their remaining config and must not connect tools while
-// RequireSecureTools reports the upstream blocker.
+// RequireSecureTools rejects a missing host policy.
 func RestoreConfig(cfg types.Config, cp Checkpoint) (types.Config, error) {
 	if cp.Version != CheckpointVersion {
 		return types.Config{}, fmt.Errorf("unsupported checkpoint version %q", cp.Version)
@@ -171,13 +173,13 @@ type Identity struct {
 }
 type Policy func(Identity, chat.ToolCallRequest) error
 
-// RequireSecureTools always blocks on this pin, even with a non-nil policy.
-// OnToolCall is an optional prompt hook; it cannot implement mandatory ACLs.
+// RequireSecureTools requires a host policy for the audited mandatory hook.
+// Callers must install NewCallbacks on every tool-enabled session.
 func RequireSecureTools(policy Policy) error {
 	if policy == nil {
 		return ErrPolicyRequired
 	}
-	return ErrMandatoryPolicyUnsupported
+	return nil
 }
 
 type EventKind string
@@ -227,14 +229,13 @@ func NewCallbacks(id Identity, policy Policy, sink func(Event), ask func(Identit
 		OnStatus: text(Status), OnReasoning: text(Reasoning), OnResponse: text(Text), OnStepContent: text(Text),
 		OnError:  func(err error) { emit(Event{Kind: Failure, Err: err}) },
 		OnStream: func(ev chat.StreamEvent) { emit(Event{Kind: Stream, Stream: ev}) },
-		OnToolCall: func(req chat.ToolCallRequest) chat.ToolCallResponse {
+		ToolPolicy: func(req chat.ToolCallRequest) error {
 			req.ExternalSources = slices.Clone(req.ExternalSources)
-			if err := policy(id, req); err != nil {
-				return chat.ToolCallResponse{Adjustment: err.Error()}
-			}
-			// Never return AlwaysAllow, AlwaysPrefix, or AllowAllTurn grants.
-			return chat.ToolCallResponse{Approved: true}
+			return policy(id, req)
 		},
+		// Ordinary human approval is independent of policy success. Fail closed
+		// unless the host installs its own optional approval callback.
+		OnToolCall:  func(chat.ToolCallRequest) chat.ToolCallResponse { return chat.ToolCallResponse{} },
 		OnToolStart: func(ts chat.ToolStart) { emit(Event{Kind: ToolStarted, ToolName: ts.Name, Arguments: ts.Arguments}) },
 		OnToolResult: func(res chat.ToolResult) {
 			emit(Event{Kind: ToolFinished, ToolName: res.Name, Arguments: res.Arguments, Text: res.Result, AgentID: res.AgentID})

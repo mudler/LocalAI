@@ -17,7 +17,7 @@ import (
 
 func TestNibAdapter(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "Pinned nib adapter") }
 
-var _ = Describe("v0.12.1 contract", func() {
+var _ = Describe("audited nib contract", func() {
 	var cp Checkpoint
 	BeforeEach(func() {
 		cp = Checkpoint{Version: CheckpointVersion,
@@ -27,9 +27,9 @@ var _ = Describe("v0.12.1 contract", func() {
 			Pruning:   []byte(`{"pruned":{"c1":"old"},"compressed":{"c1":{"level":1,"content":"short"}},"compress_band":1}`)}
 	})
 	It("advertises only the executable bounded contract", func() {
-		Expect(PinnedCapabilities()).To(Equal(Capabilities{Version: "v0.12.1", CheckpointRestore: true, HistoryRestore: true, ArtifactRestore: true, PruningRestore: true, Streaming: true, EventProjection: true, Approvals: true, Questions: true, CompactionEvents: true, HelperEvents: true}))
+		Expect(PinnedCapabilities()).To(Equal(Capabilities{Version: PinnedVersion, CheckpointRestore: true, HistoryRestore: true, ArtifactRestore: true, PruningRestore: true, Streaming: true, EventProjection: true, MandatoryPolicyInterception: true, Approvals: true, Questions: true, CompactionEvents: true, HelperEvents: true}))
 		Expect(RequireSecureTools(nil)).To(MatchError(ErrPolicyRequired))
-		Expect(RequireSecureTools(func(Identity, chat.ToolCallRequest) error { return nil })).To(MatchError(ErrMandatoryPolicyUnsupported))
+		Expect(RequireSecureTools(func(Identity, chat.ToolCallRequest) error { return nil })).NotTo(HaveOccurred())
 	})
 	It("round trips independent owned buffers and rejects malformed versions and sections", func() {
 		encoded, err := EncodeCheckpoint(cp)
@@ -310,10 +310,11 @@ var _ = Describe("v0.12.1 contract", func() {
 			return errors.New("ACL denied")
 		}, func(Event) {}, nil)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(denied.OnToolCall(chat.ToolCallRequest{Name: "read"})).To(Equal(chat.ToolCallResponse{Adjustment: "ACL denied"}))
+		Expect(denied.ToolPolicy(chat.ToolCallRequest{Name: "read"})).To(MatchError("ACL denied"))
 		allowed, err := NewCallbacks(id, func(Identity, chat.ToolCallRequest) error { return nil }, func(Event) {}, nil)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(allowed.OnToolCall(chat.ToolCallRequest{})).To(Equal(chat.ToolCallResponse{Approved: true}))
+		Expect(allowed.ToolPolicy(chat.ToolCallRequest{})).To(Succeed())
+		Expect(allowed.OnToolCall(chat.ToolCallRequest{})).To(Equal(chat.ToolCallResponse{}))
 		Expect(allowed.OnAskUser(chat.AskRequest{})).To(Equal("Question handler unavailable"))
 	})
 	It("passes questions with stable host identity and separately owned options", func() {
