@@ -66,7 +66,7 @@ var _ = Describe("official library default", func() {
 })
 
 var _ = Describe("official library index", func() {
-	It("lists the six first-party add-ons in the library format", func() {
+	It("lists the seven first-party add-ons in the library format", func() {
 		data, e := os.ReadFile("../../../../gallery/addons/index.yaml")
 		Expect(e).NotTo(HaveOccurred())
 		releases, e := DecodeIndex(data)
@@ -78,6 +78,6 @@ var _ = Describe("official library index", func() {
 			Expect(versionPattern.MatchString(r.Version)).To(BeTrue(), r.AddonID)
 			Expect(r.Artifact).To(HavePrefix("oci://"), r.AddonID)
 		}
-		Expect(ids).To(ConsistOf("fine-tuning", "quantization", "voice", "face", "studio", "talk"))
+		Expect(ids).To(ConsistOf("fine-tuning", "quantization", "voice", "face", "studio", "talk", "tables"))
 	})
 })
