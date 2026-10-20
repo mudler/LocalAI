@@ -64,6 +64,24 @@ store and forward the typed operation to the owner. The consequences are by desi
 A deployment with one instance is the owner and has no frontend; everything above
 still holds.
 
+## Turning the owner on or off
+
+A normal `local-ai run` starts the addon owner, so Apps, Add-ons and Tables work
+without extra setup. The node is its own owner: it keeps addon state under the
+`addons` folder of the data path (`--data-path`) and reaches the owner over a
+loopback carrier with keys that are made at each start and never written to disk.
+
+| Flag | Environment variable | Default | What it does |
+|---|---|---|---|
+| `--addons-enabled` | `LOCALAI_ADDONS_ENABLED` | `true` | Runs the addon owner. `--addons-enabled=false` turns it off completely: no owner starts, no addon runs, and every addon request is refused as unavailable. |
+| `--addons-ownership-mode` | `LOCALAI_ADDONS_OWNERSHIP_MODE` | `named-user` | `named-user` gives each account its own access. `local-owner` makes every caller share one owner. Any other value stops startup with an error. |
+
+`named-user` needs authentication. If authentication is off, the owner stays off and
+LocalAI logs a warning; it does not stop. To use addons without accounts, select
+`--addons-ownership-mode=local-owner` explicitly (see
+[Explicit local-owner mode](#explicit-local-owner-mode)). The mode is never chosen
+for you.
+
 ## Manifest
 
 `ParseManifest` accepts a single JSON object, at most 64 KiB, and rejects unknown
