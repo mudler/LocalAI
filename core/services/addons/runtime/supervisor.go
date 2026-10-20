@@ -470,10 +470,16 @@ func (s *Supervisor) terminate(p *process) {
 	p.client.http.CloseIdleConnections()
 	_ = s.ledger.remove(p.registration.AddonID, p.registration.Incarnation)
 }
+
+// healthMissesToKill is how many probes in a row must fail before the
+// supervisor kills a running add-on.
+const healthMissesToKill = 3
+
 func (s *Supervisor) monitor(ctx context.Context, slot *slot, p *process) {
 	defer close(slot.workerDone)
 	defer s.workers.Done()
 	for {
+		misses := 0
 		ticker := time.NewTicker(100 * time.Millisecond)
 	healthLoop:
 		for {
@@ -489,9 +495,16 @@ func (s *Supervisor) monitor(ctx context.Context, slot *slot, p *process) {
 						ticker.Stop()
 						return
 					}
+					// One missed probe is a busy add-on, not a dead one:
+					// killing it would drop the work it is serving.
+					misses++
+					if misses < healthMissesToKill {
+						continue
+					}
 					s.terminate(p)
 					break healthLoop
 				}
+				misses = 0
 				if time.Since(p.readyAt) >= s.config.StableHealth {
 					s.mu.Lock()
 					slot.attempts = 0
