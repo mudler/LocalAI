@@ -265,11 +265,29 @@ func journalStatus(s ownership.ToolStatus) RecordStatus {
 // checkedEffects is a private, single-use capability produced only by the
 // reducer and both transition checks. A phase snapshot alone grants no effects.
 type checkedEffects struct {
-	broker   *Broker
-	call     *brokerCall
-	state    State
-	runs     []RunExecutor
-	consumed bool
+	broker        *Broker
+	call          *brokerCall
+	state         State
+	runs          []RunExecutor
+	consumed      bool
+	approvalUntil int64
+}
+
+// The reducer carries a deadline through claim/admission phases, but Executing
+// intentionally has no approval lifetime. Keep it in the checked run capability
+// so the final (potentially blocking) trusted admission cannot outlive approval.
+func approvalDeadline(s State) int64 {
+	switch p := s.phase.(type) {
+	case Authorized:
+		return p.until
+	case Claiming:
+		return p.until
+	case Claimed:
+		return p.until
+	case Checking:
+		return p.until
+	}
+	return 0
 }
 
 func (b *Broker) takeRun(ctx context.Context, c *brokerCall, effects *checkedEffects) (Binding, bool) {
@@ -285,6 +303,10 @@ func (b *Broker) takeRun(ctx context.Context, c *brokerCall, effects *checkedEff
 		_ = b.invalidate(ctx, c)
 		return Binding{}, false
 	}
+	if effects.approvalUntil > 0 && b.dep.Clock().UnixNano() >= effects.approvalUntil {
+		_ = b.apply(ctx, c, Expired{b.input(c)})
+		return Binding{}, false
+	}
 	return effects.runs[0].Binding, true
 }
 
@@ -294,7 +316,7 @@ func (b *Broker) apply(ctx context.Context, c *brokerCall, e Event) error {
 }
 
 func (b *Broker) applyChecked(ctx context.Context, c *brokerCall, e Event) (*checkedEffects, error) {
-	checked := &checkedEffects{broker: b, call: c}
+	checked := &checkedEffects{broker: b, call: c, approvalUntil: approvalDeadline(c.state)}
 	observe := func(ctx context.Context, c *brokerCall, e Event) error {
 		next, err := b.applyChecked(ctx, c, e)
 		if err == nil && next != nil {
@@ -334,7 +356,13 @@ func (b *Broker) applyChecked(ctx context.Context, c *brokerCall, e Event) (*che
 				return nil, b.invalidate(ctx, c)
 			}
 			c.lease = lease
-			record, err := b.dep.Journal.Prepare(ctx, lease, b.dep.Clock(), journalCall(fx.Binding))
+			now := b.dep.Clock()
+			if until := approvalDeadline(c.state); until > 0 && now.UnixNano() >= until {
+				err = observe(ctx, c, Expired{Input{Binding: c.state.Binding(), Now: now.UnixNano()}})
+				checked.state = c.state
+				return checked, err
+			}
+			record, err := b.dep.Journal.Prepare(ctx, lease, now, journalCall(fx.Binding))
 			if err != nil {
 				err = observe(ctx, c, PreparedObserved{Input: b.input(c), Status: RecordConflict})
 				checked.state = c.state
@@ -358,7 +386,13 @@ func (b *Broker) applyChecked(ctx context.Context, c *brokerCall, e Event) (*che
 				return nil, b.invalidate(ctx, c)
 			}
 			c.lease = lease
-			_, err := b.dep.Journal.Dispatch(ctx, lease, b.dep.Clock(), journalCall(fx.Binding))
+			now := b.dep.Clock()
+			if until := approvalDeadline(c.state); until > 0 && now.UnixNano() >= until {
+				err = observe(ctx, c, Expired{Input{Binding: c.state.Binding(), Now: now.UnixNano()}})
+				checked.state = c.state
+				return checked, err
+			}
+			_, err := b.dep.Journal.Dispatch(ctx, lease, now, journalCall(fx.Binding))
 			if err != nil {
 				err = observe(ctx, c, DispatchRejected{b.input(c)})
 				checked.state = c.state

@@ -143,6 +143,78 @@ var _ = Describe("broker shell", func() {
 		Expect(ok).To(BeFalse())
 		Expect(count.Load()).To(BeZero())
 	})
+	for _, boundary := range []string{"prepare", "dispatch", "final invocation"} {
+		for _, late := range []time.Duration{0, time.Nanosecond} {
+			It(fmt.Sprintf("rejects approval expiry after trusted admission at %s boundary plus %s", boundary, late), func() {
+				request.Config.Policy = RequireApproval
+				auth.Policy = RequireApproval
+				h, v := begin()
+				Expect(v.Phase).To(Equal("WaitingApproval"))
+				deadline := now.Add(time.Second)
+				v, err := b.Decide(ctx, ApprovalDecision{Handle: h, Allow: true, Approval: Approval{Binding: request.Config.Binding, Actor: HumanActor, ActorID: "human", ExpiresAt: deadline.UnixNano()}})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(v.Phase).To(Equal("Authorized"))
+				advanced := false
+				b.dep.Current = func(context.Context, Binding) (Authority, error) {
+					atBoundary := false
+					switch p := h.call.state.phase.(type) {
+					case Claiming:
+						atBoundary = boundary == "prepare" && p.stage == awaitingPrepare || boundary == "dispatch" && p.stage == awaitingDispatch
+					case Executing:
+						atBoundary = boundary == "final invocation" && p.stage == runningBody
+					}
+					if atBoundary && !advanced {
+						now = deadline.Add(late)
+						advanced = true
+					}
+					return auth, nil
+				}
+				claim, err := b.ClaimCall(ctx, h)
+				if boundary == "final invocation" {
+					Expect(err).NotTo(HaveOccurred())
+					_, err = b.Invoke(ctx, claim, exec)
+					Expect(err).NotTo(HaveOccurred())
+				} else {
+					Expect(err).To(MatchError(ErrUnavailable))
+				}
+				Expect(advanced).To(BeTrue())
+				Expect(count.Load()).To(BeZero())
+				rows, err := manager.Records(ctx, auth.Lease, now, "turn")
+				Expect(err).NotTo(HaveOccurred())
+				switch boundary {
+				case "prepare":
+					Expect(rows).To(BeEmpty())
+				case "dispatch":
+					Expect(rows).To(HaveLen(1))
+					Expect(rows[0].Status).To(Equal(ownership.Prepared))
+				case "final invocation":
+					Expect(rows).To(HaveLen(1))
+					Expect(rows[0].Status).To(Equal(ownership.Dispatched))
+				}
+				v, err = b.View(h)
+				Expect(err).NotTo(HaveOccurred())
+				if boundary == "final invocation" {
+					Expect(v.Phase).To(Equal("Unknown"))
+				} else {
+					Expect(v.Phase).To(Equal("Denied"))
+				}
+			})
+		}
+	}
+	It("keeps nonwaiting AllowAll free of an approval deadline after trusted admission", func() {
+		h, _ := begin()
+		advanced := false
+		b.dep.Current = func(context.Context, Binding) (Authority, error) {
+			if !advanced {
+				now = now.Add(11 * time.Second)
+				advanced = true
+			}
+			return auth, nil
+		}
+		o := invoke(h)
+		Expect(o.Status).To(Equal("Completed"))
+		Expect(count.Load()).To(Equal(int32(1)))
+	})
 	It("requires every trusted dependency", func() {
 		d := dep
 		d.Current = nil

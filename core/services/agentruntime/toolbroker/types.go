@@ -7,9 +7,11 @@ package toolbroker
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 var ErrInvalid = errors.New("toolbroker: invalid model input")
@@ -43,12 +45,11 @@ type Binding struct {
 // Nil and empty arguments share the empty-byte binding. Nonempty bytes stay exact.
 // Length-delimited JSON tuple encoding prevents concatenation ambiguity.
 func NewBinding(s Scope, r string, t ToolID, args []byte, v Revisions, key string) (Binding, error) {
-	if s.Principal == "" || s.Conversation == "" || s.Turn == "" || s.Attempt == 0 || s.Epoch == 0 || r == "" || t == "" {
+	if !bindingFieldsValid(s, r, t) {
 		return Binding{}, ErrInvalid
 	}
 	b := Binding{scope: s, request: r, tool: t, arguments: string(args), revisions: v, providerKey: key}
-	data, _ := json.Marshal([]any{"toolbroker-binding/v1", s, r, t, b.Arguments(), v, key})
-	b.digest = sha256.Sum256(data)
+	b.digest = sha256.Sum256(bindingEncoding(b))
 	return b, nil
 }
 func (b Binding) Arguments() []byte   { return []byte(b.arguments) }
@@ -58,8 +59,69 @@ func (b Binding) ToolID() ToolID      { return b.tool }
 func (b Binding) Digest() [32]byte    { return b.digest }
 func (b Binding) ProviderKey() string { return b.providerKey }
 func (b Binding) valid() bool {
-	c, e := NewBinding(b.scope, b.request, b.tool, b.Arguments(), b.revisions, b.providerKey)
-	return e == nil && c == b
+	return bindingFieldsValid(b.scope, b.request, b.tool) && sha256.Sum256(bindingEncoding(b)) == b.digest
+}
+
+func bindingFieldsValid(s Scope, r string, t ToolID) bool {
+	return s.Principal != "" && s.Conversation != "" && s.Turn != "" && s.Attempt != 0 && s.Epoch != 0 && r != "" && t != ""
+}
+
+// appendBindingString takes the allocation-free path only for JSON-safe ASCII.
+// encoding/json remains authoritative for escaping, invalid UTF-8 replacement,
+// HTML escaping and U+2028/U+2029: strconv.AppendQuote is not wire compatible.
+func appendBindingString(dst []byte, text string) []byte {
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		if c < 0x20 || c >= 0x7f || c == '"' || c == '\\' || c == '<' || c == '>' || c == '&' {
+			encoded, _ := json.Marshal(text)
+			return append(dst, encoded...)
+		}
+	}
+	dst = append(dst, '"')
+	dst = append(dst, text...)
+	return append(dst, '"')
+}
+
+// bindingEncoding preserves the original v1 json.Marshal tuple, including
+// exported struct field order and base64 byte-slice encoding. Arguments() always
+// returns a non-nil slice, so both nil and empty input encode as "", not null.
+// Both construction and validation hash these bytes; validation never trusts a
+// cached validity bit and does not clone the immutable argument string.
+func bindingEncoding(b Binding) []byte {
+	dst := make([]byte, 0, 384+base64.StdEncoding.EncodedLen(len(b.arguments)))
+	dst = append(dst, `["toolbroker-binding/v1",{"Principal":`...)
+	dst = appendBindingString(dst, b.scope.Principal)
+	dst = append(dst, `,"Conversation":`...)
+	dst = appendBindingString(dst, b.scope.Conversation)
+	dst = append(dst, `,"Turn":`...)
+	dst = appendBindingString(dst, b.scope.Turn)
+	dst = append(dst, `,"Attempt":`...)
+	dst = strconv.AppendUint(dst, b.scope.Attempt, 10)
+	dst = append(dst, `,"Epoch":`...)
+	dst = strconv.AppendUint(dst, b.scope.Epoch, 10)
+	dst = append(dst, '}', ',')
+	dst = appendBindingString(dst, b.request)
+	dst = append(dst, ',')
+	dst = appendBindingString(dst, string(b.tool))
+	dst = append(dst, ',', '"')
+	dst = base64.StdEncoding.AppendEncode(dst, []byte(b.arguments))
+	dst = append(dst, `",{"Catalog":`...)
+	dst = appendBindingString(dst, b.revisions.Catalog)
+	dst = append(dst, `,"Config":`...)
+	dst = appendBindingString(dst, b.revisions.Config)
+	dst = append(dst, `,"Authorization":`...)
+	dst = appendBindingString(dst, b.revisions.Authorization)
+	dst = append(dst, `,"Resource":`...)
+	dst = appendBindingString(dst, b.revisions.Resource)
+	dst = append(dst, `,"Proposal":`...)
+	dst = appendBindingString(dst, b.revisions.Proposal)
+	dst = append(dst, `,"ParentGrant":`...)
+	dst = appendBindingString(dst, b.revisions.ParentGrant)
+	dst = append(dst, `,"Taint":`...)
+	dst = appendBindingString(dst, b.revisions.Taint)
+	dst = append(dst, '}', ',')
+	dst = appendBindingString(dst, b.providerKey)
+	return append(dst, ']')
 }
 
 type Output struct {
