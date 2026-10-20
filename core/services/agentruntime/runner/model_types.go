@@ -11,14 +11,13 @@ import (
 	"slices"
 )
 
-// Direct formatting/JSON redact. Sensitive leaves live behind private pointers:
-// fmt's recursive private-field formatting prints nested pointers as addresses,
-// not their referents. This protects raw wrappers too, without a global registry.
-// Pointer addresses (including explicit %p) are not content redaction failures,
-// but are not stable diagnostics; use safeLog in future host logs. Constructors
-// and payload accessors clone owned storage, identity fields and byte buffers.
-// Explicit payload access or dereferencing private storage is trusted internal
-// access, not a redaction boundary. No unsafe/reflection-introspection claim.
+// Direct formatting/JSON redact. Private closures hold sensitive storage: fmt
+// can print a function address, but cannot traverse its captured environment,
+// even in invalid-verb diagnostics through unexported container fields. No
+// global registry is needed. Addresses are not stable diagnostics; use safeLog.
+// Constructors/accessors clone owned identities and byte buffers. Calling the
+// private fields accessors is trusted internal access, not a redaction boundary.
+// This does not protect against unsafe or deliberate reflection introspection.
 type redacted struct{}
 
 func (redacted) Format(f fmt.State, _ rune)   { _, _ = io.WriteString(f, "[runner:redacted]") }
@@ -28,7 +27,7 @@ func (redacted) MarshalJSON() ([]byte, error) { return []byte(`"[runner:redacted
 // Conversation is explicit in addition to lifecycle's principal/turn/attempt/epoch.
 type identity struct {
 	redacted
-	*identityFields
+	open func() *identityFields
 }
 
 type identityFields struct {
@@ -36,22 +35,32 @@ type identityFields struct {
 	attempt, epoch                uint64
 }
 
-func (i identity) valid() bool {
-	return i.identityFields != nil && i.principal != "" && i.conversation != "" && i.turn != "" && i.attempt > 0 && i.epoch > 0
+func ownIdentity(f *identityFields) identity {
+	return identity{open: func() *identityFields { return f }}.clone()
 }
-
+func (i identity) fields() *identityFields {
+	if i.open == nil {
+		return nil
+	}
+	return i.open()
+}
+func (i identity) valid() bool {
+	f := i.fields()
+	return f != nil && f.principal != "" && f.conversation != "" && f.turn != "" && f.attempt > 0 && f.epoch > 0
+}
 func (i identity) clone() identity {
-	if i.identityFields == nil {
+	if i.fields() == nil {
 		return identity{}
 	}
-	fields := *i.identityFields
-	return identity{identityFields: &fields}
+	f := *i.fields()
+	return identity{open: func() *identityFields { return &f }}
 }
 func (i identity) equal(other identity) bool {
-	if i.identityFields == nil || other.identityFields == nil {
-		return i.identityFields == other.identityFields
+	a, b := i.fields(), other.fields()
+	if a == nil || b == nil {
+		return a == b
 	}
-	return *i.identityFields == *other.identityFields
+	return *a == *b
 }
 
 type completion uint8
@@ -64,9 +73,8 @@ const (
 
 type data struct {
 	redacted
-	*dataFields
+	open func() *dataFields
 }
-
 type dataFields struct {
 	id                identity
 	attached          bool
@@ -74,16 +82,21 @@ type dataFields struct {
 	outcome           completion
 }
 
-func (d data) clone() data {
-	if d.dataFields == nil {
-		return data{dataFields: &dataFields{}}
+func ownData(f *dataFields) data {
+	return data{open: func() *dataFields { return f }}.clone()
+}
+func (d data) fields() *dataFields {
+	if d.open == nil {
+		return &dataFields{}
 	}
-	fields := *d.dataFields
-	d.dataFields = &fields
-	d.id = d.id.clone()
-	d.input = slices.Clone(d.input)
-	d.ciphertext = slices.Clone(d.ciphertext)
-	return d
+	return d.open()
+}
+func (d data) clone() data {
+	f := *d.fields()
+	f.id = f.id.clone()
+	f.input = slices.Clone(f.input)
+	f.ciphertext = slices.Clone(f.ciphertext)
+	return data{open: func() *dataFields { return &f }}
 }
 
 type runnerState interface {
@@ -101,7 +114,7 @@ type event interface {
 // modeled host facts only, and deliberately have no public construction API.
 type eventData struct {
 	redacted
-	*eventFields
+	open func() *eventFields
 }
 
 type eventFields struct {
@@ -117,7 +130,7 @@ type effect interface {
 }
 type effectData struct {
 	redacted
-	*effectFields
+	open func() *effectFields
 }
 
 type effectFields struct {
@@ -125,23 +138,35 @@ type effectFields struct {
 	content []byte
 }
 
-func (e eventData) clone() eventData {
-	if e.eventFields == nil {
-		return eventData{eventFields: &eventFields{}}
+func ownEventData(f *eventFields) eventData {
+	return eventData{open: func() *eventFields { return f }}.clone()
+}
+func (e eventData) fields() *eventFields {
+	if e.open == nil {
+		return &eventFields{}
 	}
-	fields := *e.eventFields
-	fields.id = fields.id.clone()
-	fields.content = slices.Clone(fields.content)
-	return eventData{eventFields: &fields}
+	return e.open()
+}
+func (e eventData) clone() eventData {
+	f := *e.fields()
+	f.id = f.id.clone()
+	f.content = slices.Clone(f.content)
+	return eventData{open: func() *eventFields { return &f }}
+}
+func ownEffectData(f *effectFields) effectData {
+	return effectData{open: func() *effectFields { return f }}.clone()
+}
+func (e effectData) fields() *effectFields {
+	if e.open == nil {
+		return &effectFields{}
+	}
+	return e.open()
 }
 func (e effectData) clone() effectData {
-	if e.effectFields == nil {
-		return effectData{effectFields: &effectFields{}}
-	}
-	fields := *e.effectFields
-	fields.id = fields.id.clone()
-	fields.content = slices.Clone(fields.content)
-	return effectData{effectFields: &fields}
+	f := *e.fields()
+	f.id = f.id.clone()
+	f.content = slices.Clone(f.content)
+	return effectData{open: func() *effectFields { return &f }}
 }
 
 type transition struct {
@@ -418,9 +443,9 @@ func makeState(phase string, d data) runnerState {
 }
 
 func makeEffect(name string, d data) effect {
-	e := effectData{effectFields: &effectFields{id: d.id.clone()}}
+	e := ownEffectData(&effectFields{id: d.fields().id.clone()})
 	if name == "SettleCiphertext" {
-		e.content = slices.Clone(d.ciphertext)
+		e.fields().content = slices.Clone(d.fields().ciphertext)
 	}
 	switch name {
 	case "RestoreSession":

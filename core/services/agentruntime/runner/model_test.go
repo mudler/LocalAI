@@ -14,7 +14,7 @@ func TestRuntimeRunner(t *testing.T) {
 	RunSpecs(t, "Runtime runner pure model")
 }
 func fixture() data {
-	return data{dataFields: &dataFields{id: identity{identityFields: &identityFields{principal: "private-principal", conversation: "private-conversation", turn: "private-turn", attempt: 1, epoch: 1}}, input: []byte("private-input")}}
+	return ownData(&dataFields{id: ownIdentity(&identityFields{principal: "private-principal", conversation: "private-conversation", turn: "private-turn", attempt: 1, epoch: 1}), input: []byte("private-input")})
 }
 
 // phaseFixture supplies a lawful representative, not an assertion that every
@@ -23,16 +23,16 @@ func fixture() data {
 func phaseFixture(phase string) data {
 	d := fixture()
 	if phase == "Cancelling" {
-		d.outcome = stopped
+		d.fields().outcome = stopped
 	}
 	if phase == "Settling" {
-		d.ciphertext = []byte("cipher")
+		d.fields().ciphertext = []byte("cipher")
 	}
 	return d
 }
 
 func ev(n string, d data) event {
-	return makeEvent(n, eventData{eventFields: &eventFields{id: d.id, now: 1, trusted: true, content: []byte("private-ciphertext")}})
+	return makeEvent(n, ownEventData(&eventFields{id: d.fields().id, now: 1, trusted: true, content: []byte("private-ciphertext")}))
 }
 func step(s runnerState, e event) transition {
 	r := PureReduce(s, e)
@@ -57,16 +57,16 @@ var _ = Describe("Runner model", func() {
 	It("attaches without starting execution", func() {
 		d := fixture()
 		r := step(idle{d}, ev("Attach", d))
-		Expect(r.state.payload().attached).To(BeTrue())
+		Expect(r.state.payload().fields().attached).To(BeTrue())
 		Expect(r.effects).To(BeEmpty())
 	})
 	It("detaches only the attachment during running", func() {
 		d := fixture()
-		d.attached = true
+		d.fields().attached = true
 		r := step(running{d}, ev("Detach", d))
 		Expect(r.state.phase()).To(Equal("Running"))
 		Expect(r.effects).To(BeEmpty())
-		Expect(r.state.payload().attached).To(BeFalse())
+		Expect(r.state.payload().fields().attached).To(BeFalse())
 	})
 	for _, field := range []string{"attempt", "epoch", "principal", "conversation", "turn"} {
 		field := field
@@ -75,15 +75,15 @@ var _ = Describe("Runner model", func() {
 			e := ev("TurnFinished", d).payload()
 			switch field {
 			case "attempt":
-				e.id.attempt++
+				e.fields().id.fields().attempt++
 			case "epoch":
-				e.id.epoch++
+				e.fields().id.fields().epoch++
 			case "principal":
-				e.id.principal += "other"
+				e.fields().id.fields().principal += "other"
 			case "conversation":
-				e.id.conversation += "other"
+				e.fields().id.fields().conversation += "other"
 			case "turn":
-				e.id.turn += "other"
+				e.fields().id.fields().turn += "other"
 			}
 			r := step(running{d}, makeEvent("TurnFinished", e))
 			Expect(r.rule).To(Equal("RR002"))
@@ -100,8 +100,8 @@ var _ = Describe("Runner model", func() {
 	It("lease loss requests cancellation without releasing input", func() {
 		d := fixture()
 		r := step(running{d}, ev("LeaseLost", d))
-		Expect(r.state.payload().outcome).To(Equal(leaseLost))
-		Expect(r.state.payload().input).To(Equal(d.input))
+		Expect(r.state.payload().fields().outcome).To(Equal(leaseLost))
+		Expect(r.state.payload().fields().input).To(Equal(d.fields().input))
 		Expect(effectNames(r)).NotTo(ContainElement("StartNext"))
 	})
 	It("late finish during cancellation cannot export", func() {
@@ -121,12 +121,12 @@ var _ = Describe("Runner model", func() {
 		r := step(restoring{d}, ev("RestoreFailed", d))
 		Expect(r.state.phase()).To(Equal("Interrupted"))
 		Expect(effectNames(r)).To(Equal([]string{"CloseSession", "HoldInput"}))
-		Expect(r.state.payload().input).To(Equal(d.input))
+		Expect(r.state.payload().fields().input).To(Equal(d.fields().input))
 	})
 	It("requires trusted quiescence before export", func() {
 		d := phaseFixture("Cancelling")
 		e := ev("QuiescenceConfirmed", d).payload()
-		e.trusted = false
+		e.fields().trusted = false
 		r := step(cancelling{d}, makeEvent("QuiescenceConfirmed", e))
 		Expect(r.state.phase()).To(Equal("Cancelling"))
 		Expect(r.effects).To(BeEmpty())
@@ -139,21 +139,21 @@ var _ = Describe("Runner model", func() {
 	})
 	It("settlement failure holds ciphertext and input", func() {
 		d := fixture()
-		d.ciphertext = []byte("cipher")
+		d.fields().ciphertext = []byte("cipher")
 		r := step(settling{d}, ev("SettleFailed", d))
 		Expect(r.state.phase()).To(Equal("Interrupted"))
-		Expect(r.state.payload().ciphertext).To(Equal(d.ciphertext))
+		Expect(r.state.payload().fields().ciphertext).To(Equal(d.fields().ciphertext))
 		Expect(effectNames(r)).To(Equal([]string{"HoldInput"}))
 	})
 	It("only successful trusted settlement releases FIFO", func() {
 		d := fixture()
-		d.ciphertext = []byte("cipher")
+		d.fields().ciphertext = []byte("cipher")
 		r := step(settling{d}, ev("SettleSucceeded", d))
 		Expect(r.state.phase()).To(Equal("Idle"))
 		Expect(effectNames(r)).To(Equal([]string{"StartNext"}))
-		Expect(r.state.payload().input).To(BeEmpty())
+		Expect(r.state.payload().fields().input).To(BeEmpty())
 		e := ev("SettleSucceeded", d).payload()
-		e.trusted = false
+		e.fields().trusted = false
 		r = step(settling{d}, makeEvent("SettleSucceeded", e))
 		Expect(effectNames(r)).NotTo(ContainElement("StartNext"))
 	})
@@ -168,11 +168,11 @@ var _ = Describe("Runner model", func() {
 	It("reconciliation requires explicit trusted evidence and a fresh attempt", func() {
 		d := fixture()
 		e := ev("Resume", d).payload()
-		e.id.attempt++
-		e.reconciled = true
+		e.fields().id.fields().attempt++
+		e.fields().reconciled = true
 		r := step(reconciliation{d}, makeEvent("Resume", e))
 		Expect(r.state.phase()).To(Equal("Restoring"))
-		Expect(r.state.payload().input).To(Equal(d.input))
+		Expect(r.state.payload().fields().input).To(Equal(d.fields().input))
 	})
 	It("deleted attempts cannot resurrect", func() {
 		d := fixture()
@@ -191,19 +191,19 @@ var _ = Describe("Runner model", func() {
 	It("owns event state and effect buffers", func() {
 		d := fixture()
 		b := []byte("cipher")
-		e := makeEvent("SealSucceeded", eventData{eventFields: &eventFields{id: d.id, trusted: true, now: 1, content: b}})
+		e := makeEvent("SealSucceeded", ownEventData(&eventFields{id: d.fields().id, trusted: true, now: 1, content: b}))
 		b[0] = 'X'
 		r := step(sealing{d}, e)
-		Expect(string(r.state.payload().ciphertext)).To(Equal("cipher"))
-		r.effects[0].payload().content[0] = 'Y'
-		Expect(string(r.state.payload().ciphertext)).To(Equal("cipher"))
-		d.input[0] = 'X'
-		Expect(string(r.state.payload().input)).To(Equal("private-input"))
+		Expect(string(r.state.payload().fields().ciphertext)).To(Equal("cipher"))
+		r.effects[0].payload().fields().content[0] = 'Y'
+		Expect(string(r.state.payload().fields().ciphertext)).To(Equal("cipher"))
+		d.fields().input[0] = 'X'
+		Expect(string(r.state.payload().fields().input)).To(Equal("private-input"))
 	})
 	It("redacts formatting JSON and validation errors", func() {
 		d := fixture()
 		r := PureReduce(sealing{d}, ev("SealSucceeded", d))
-		for _, v := range []any{d, d.id, sealing{d}, ev("Stream", d), r, r.effects[0]} {
+		for _, v := range []any{d, d.fields().id, sealing{d}, ev("Stream", d), r, r.effects[0]} {
 			for _, f := range []string{"%v", "%+v", "%#v"} {
 				Expect(fmt.Sprintf(f, v)).NotTo(ContainSubstring("private-"))
 			}
@@ -217,7 +217,7 @@ var _ = Describe("Runner model", func() {
 		d := fixture()
 		e := ev("Detach", d)
 		r := PureReduce(running{d}, e)
-		r.effects = []effect{startNextEffect{effectData{effectFields: &effectFields{id: d.id}}}}
+		r.effects = []effect{startNextEffect{ownEffectData(&effectFields{id: d.fields().id})}}
 		Expect(CheckTransition(running{d}, e, r)).NotTo(Succeed())
 	})
 	It("rejects forged state identity and guard labels", func() {
@@ -228,7 +228,7 @@ var _ = Describe("Runner model", func() {
 		Expect(CheckTransition(running{d}, e, r)).NotTo(Succeed())
 		r = PureReduce(running{d}, e)
 		x := r.state.payload()
-		x.id.epoch++
+		x.fields().id.fields().epoch++
 		r.state = cancelling{x}
 		Expect(CheckTransition(running{d}, e, r)).NotTo(Succeed())
 	})
@@ -256,21 +256,21 @@ var _ = Describe("Runner model", func() {
 // two attachment values and three completion reasons. Resume caps attempts at 2.
 func stateKey(s runnerState) string {
 	d := s.payload()
-	return fmt.Sprintf("%s/%d/%d/%t/%d/%s/%s", s.phase(), d.id.attempt, d.id.epoch, d.attached, d.outcome, string(d.input), string(d.ciphertext))
+	return fmt.Sprintf("%s/%d/%d/%t/%d/%s/%s", s.phase(), d.fields().id.fields().attempt, d.fields().id.fields().epoch, d.fields().attached, d.fields().outcome, string(d.fields().input), string(d.fields().ciphertext))
 }
 func boundedEvents(s runnerState) []event {
 	d := s.payload()
 	out := []event{}
 	for _, n := range events {
 		e := ev(n, d).payload()
-		e.content = []byte("cipher")
+		e.fields().content = []byte("cipher")
 		out = append(out, makeEvent(n, e))
-		e.trusted = false
+		e.fields().trusted = false
 		out = append(out, makeEvent(n, e))
-		if n == "Resume" && d.id.attempt < 2 {
-			e.trusted = true
-			e.reconciled = true
-			e.id.attempt++
+		if n == "Resume" && d.fields().id.fields().attempt < 2 {
+			e.fields().trusted = true
+			e.fields().reconciled = true
+			e.fields().id.fields().attempt++
 			out = append(out, makeEvent(n, e))
 		}
 	}

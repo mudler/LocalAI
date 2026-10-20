@@ -17,8 +17,8 @@ func traceRun(steps []traceStep) {
 		e := ev(w.event, s.payload())
 		if w.event == "Resume" {
 			v := e.payload()
-			v.id.attempt++
-			v.reconciled = true
+			v.fields().id.fields().attempt++
+			v.fields().reconciled = true
 			e = makeEvent("Resume", v)
 		}
 		r := step(s, e)

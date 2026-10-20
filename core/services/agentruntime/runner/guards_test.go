@@ -19,22 +19,22 @@ var _ = Describe("Independent guard rejection", func() {
 			e := ev(n, d)
 			r := PureReduce(s, e)
 			r.state = sealing{d}
-			r.effects = []effect{exportAndSealEffect{effectData{effectFields: &effectFields{id: d.id}}}}
+			r.effects = []effect{exportAndSealEffect{ownEffectData(&effectFields{id: d.fields().id})}}
 			Expect(CheckTransition(s, e, r)).NotTo(Succeed())
 		}
 	})
 	It("rejects forged settlement release after untrusted success or failed settlement", func() {
 		d := fixture()
-		d.ciphertext = []byte("cipher")
+		d.fields().ciphertext = []byte("cipher")
 		for _, n := range []string{"SettleSucceeded", "SettleFailed"} {
 			e := ev(n, d).payload()
-			e.trusted = false
+			e.fields().trusted = false
 			r := PureReduce(settling{d}, makeEvent(n, e))
 			x := d.clone()
-			x.input = nil
-			x.ciphertext = nil
+			x.fields().input = nil
+			x.fields().ciphertext = nil
 			r.state = idle{x}
-			r.effects = []effect{startNextEffect{effectData{effectFields: &effectFields{id: d.id}}}}
+			r.effects = []effect{startNextEffect{ownEffectData(&effectFields{id: d.fields().id})}}
 			Expect(CheckTransition(settling{d}, makeEvent(n, e), r)).NotTo(Succeed())
 		}
 	})
@@ -46,14 +46,14 @@ var _ = Describe("Independent guard rejection", func() {
 			s := makeState(p, d)
 			Expect(CheckInvariants(s)).To(Succeed())
 			e := ev(n, d).payload()
-			e.now = 0
+			e.fields().now = 0
 			r := step(s, makeEvent(n, e))
 			Expect(r.state.phase()).To(Equal(p))
 			Expect(r.effects).To(BeEmpty())
 		}
 		d = phaseFixture("Sealing")
 		e := ev("SealSucceeded", d).payload()
-		e.content = nil
+		e.fields().content = nil
 		r := step(sealing{d}, makeEvent("SealSucceeded", e))
 		Expect(r.state.phase()).To(Equal("Sealing"))
 		Expect(r.effects).To(BeEmpty())
@@ -69,7 +69,7 @@ var _ = Describe("Independent guard rejection", func() {
 				for _, cb := range []string{"SealSucceeded", "SettleSucceeded"} {
 					r = step(r.state, ev(cb, d))
 					Expect(effectNames(r)).NotTo(ContainElement("StartNext"))
-					Expect(r.state.payload().input).To(Equal(d.input))
+					Expect(r.state.payload().fields().input).To(Equal(d.fields().input))
 				}
 			}
 		}
@@ -80,33 +80,33 @@ var _ = Describe("Independent guard rejection", func() {
 			e := ev(n, d)
 			if n == "Stream" {
 				v := e.payload()
-				v.id.epoch++
+				v.fields().id.fields().epoch++
 				e = makeEvent(n, v)
 			}
 			r := step(idle{d}, e)
-			d.input[0] = 'X'
-			Expect(string(r.state.payload().input)).To(Equal("private-input"))
+			d.fields().input[0] = 'X'
+			Expect(string(r.state.payload().fields().input)).To(Equal("private-input"))
 		}
 	})
 	It("rejects cross-scope resume and same-attempt reconciliation", func() {
 		d := fixture()
 		for _, change := range []string{"principal", "conversation", "turn", "attempt", "epoch", "proof"} {
 			v := ev("Resume", d).payload()
-			v.id.attempt++
-			v.reconciled = true
+			v.fields().id.fields().attempt++
+			v.fields().reconciled = true
 			switch change {
 			case "principal":
-				v.id.principal = "other"
+				v.fields().id.fields().principal = "other"
 			case "conversation":
-				v.id.conversation = "other"
+				v.fields().id.fields().conversation = "other"
 			case "turn":
-				v.id.turn = "other"
+				v.fields().id.fields().turn = "other"
 			case "attempt":
-				v.id.attempt = d.id.attempt
+				v.fields().id.fields().attempt = d.fields().id.fields().attempt
 			case "epoch":
-				v.id.epoch = 0
+				v.fields().id.fields().epoch = 0
 			case "proof":
-				v.reconciled = false
+				v.fields().reconciled = false
 			}
 			r := PureReduce(reconciliation{d}, makeEvent("Resume", v))
 			Expect(r.state.phase()).To(Equal("Reconciliation"))
@@ -147,21 +147,21 @@ var _ = Describe("Independent guard rejection", func() {
 					v := ev(n, d).payload()
 					switch field {
 					case "principal":
-						v.id.principal = "other"
+						v.fields().id.fields().principal = "other"
 					case "conversation":
-						v.id.conversation = "other"
+						v.fields().id.fields().conversation = "other"
 					case "turn":
-						v.id.turn = "other"
+						v.fields().id.fields().turn = "other"
 					case "attempt":
-						v.id.attempt++
+						v.fields().id.fields().attempt++
 					case "epoch":
-						v.id.epoch++
+						v.fields().id.fields().epoch++
 					}
 					s := makeState(p, d)
 					Expect(CheckInvariants(s)).To(Succeed())
 					r := step(s, makeEvent(n, v))
 					Expect(r.effects).To(BeEmpty(), fmt.Sprintf("%s %s %s", p, n, field))
-					Expect(reflect.DeepEqual(r.state, s)).To(BeTrue())
+					Expect(sameState(r.state, s)).To(BeTrue())
 					count++
 				}
 			}
