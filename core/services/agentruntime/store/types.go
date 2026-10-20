@@ -14,6 +14,10 @@
 // that domain conflict without being bound to SQL. Caller Event.Sequence is
 // ignored. Events cursors >= MaxInt64 yield empty pages only after validation
 // and scoped live-conversation lookup.
+// ApplySettlement is a trusted transaction participant, not an authority API.
+// Runtime hosts use ownership.Manager.Settle; legacy Commit stays unfenced and
+// retains whole-transaction transient retries without revision rebasing. Hold
+// persists a waiting outcome, not a new durable lifecycle or recovery phase.
 // SQLite is tested; PostgreSQL/distributed acceptance remains a separate gate.
 package store
 
@@ -79,4 +83,22 @@ type Event struct {
 type Settlement struct {
 	Revision uint64
 	Next     *Input
+}
+
+// SettlementMode selects whether settlement completes or retains the active turn.
+type SettlementMode uint8
+
+const (
+	CompleteTurn SettlementMode = iota + 1
+	HoldTurn
+)
+
+// SettlementWrite is trusted host input. Events must already be sanitized and
+// checkpoint bytes must already be sealed. Event.Sequence is ignored.
+type SettlementWrite struct {
+	ExpectedRevision uint64
+	TurnID           string
+	Checkpoint       Checkpoint
+	Events           []Event
+	Mode             SettlementMode
 }

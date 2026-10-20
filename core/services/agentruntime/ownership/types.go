@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Package ownership provides database-backed leases and a tool intent journal.
 // All timestamps must come from a trusted host UTC clock, never model/browser
-// input. This package fences its own transactions, not the separate store APIs;
-// the runner must unify their transaction boundary before integration. SQLite
+// input. Settle fences runtime settlement in this package's transaction; legacy
+// Store.Commit remains unfenced. No production runner adapter is wired. SQLite
 // behavior is tested; PostgreSQL and multi-node clock authority are later gates.
 // No external side-effect exactly-once guarantee is made: Unknown needs evidence,
 // not replay. Reconcile must only be exposed to host-verified evidence admission.
