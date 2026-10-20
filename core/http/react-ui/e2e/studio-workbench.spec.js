@@ -1,9 +1,12 @@
 import { test, expect } from './coverage-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 // The generator workbenches (mock 5b/5c): the control column and the record of
 // what the form actually sent.
 
 test.describe('Studio workbench', () => {
+  test.beforeEach(async ({ page }) => { await installStudioAddons(page, { ids: ['studio'] }) })
+
   test('the compose card is a flat hairline card, not a shadowed one', async ({ page }) => {
     await page.goto('/app/studio/images')
     const card = page.locator('[data-testid="ws-compose"]')

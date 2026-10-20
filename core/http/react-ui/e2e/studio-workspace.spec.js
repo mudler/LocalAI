@@ -26,7 +26,7 @@ test.describe('Workspace frame (Images)', () => {
     await expect(page.locator('[data-testid="studio-workspace"]')).toHaveAttribute('data-type', 'images')
     await expect(page.locator('.studio-tab')).toHaveCount(8)
     await page.locator('.studio-tab[data-tab="tts"]').click()
-    await expect(page).toHaveURL(/\/app\/studio\/tts$/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/tts$/)
     await expect(page.locator('[data-testid="studio-workspace"]')).toHaveAttribute('data-type', 'tts')
   })
 
@@ -146,7 +146,7 @@ test.describe('Workspace frame (Images)', () => {
     await expect(page.locator('[data-testid="use-in-to-3d"]')).toBeEnabled()
     await expect(page.locator('[data-testid="use-in-variation"]')).toBeEnabled()
     await page.locator('[data-testid="use-in-animate"]').click()
-    await expect(page).toHaveURL(/\/app\/studio\/video\?.*from=img-forest.*edge=animate/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/video\?.*from=img-forest.*edge=animate/)
     await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready')
   })
 
@@ -175,7 +175,7 @@ test.describe('Workspace frame (Images)', () => {
     await page.goto('/app/studio/images')
     await tile(page).filter({ hasText: 'Misty pine forest' }).locator('.ws-tile__open').click()
     await page.locator('[data-testid="ws-lineage"]').click()
-    await expect(page).toHaveURL(/\/app\/studio\?work=img-forest/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\?work=img-forest/)
     await expect(page.locator('[data-testid="studio-lineage"]')).toBeVisible()
   })
 
@@ -187,7 +187,7 @@ test.describe('Workspace frame (Images)', () => {
     const from = page.locator('[data-testid="ws-from"]')
     await expect(from).toContainText('animate')
     await from.getByRole('link').click()
-    await expect(page).toHaveURL(/\/app\/studio\?work=img-harbour$/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\?work=img-harbour$/)
   })
 
   test('Re-run with edits loads the take, outlines and lists what changed, and runs the edited values', async ({ page }) => {

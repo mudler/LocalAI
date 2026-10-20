@@ -1,5 +1,7 @@
 import { expect } from '@playwright/test'
-// Shared fixtures for the Studio front page specs: the installed models, a
+import { installStudioAddons } from './studio-addon.js'
+// Shared fixtures for the Studio front page specs (Studio is an add-on, see
+// studio-addon.js): the installed models, a
 // gallery that offers a model per type, a machine, believable stored history,
 // and stand-ins for the files the history points at.
 //
@@ -68,6 +70,8 @@ export async function mockStudio(page, {
   installStatus = 200,
 } = {}) {
   const state = { types: [...types], installs: [], capabilityCalls: 0 }
+  // Studio is an add-on: install the built bundle, then stub what it reads.
+  await installStudioAddons(page, { ids: ['studio'] })
   await page.route('**/api/models/capabilities', route => {
     state.capabilityCalls += 1
     if (capabilitiesStatus !== 200) return route.fulfill({ status: capabilitiesStatus, json: { error: 'down' } })

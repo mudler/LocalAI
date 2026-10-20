@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 // No coloured strip on the left edge of a tile, card, row or message. A rail
 // can be drawn four ways, and each is checked from computed style:
@@ -16,6 +17,8 @@ const ROUTES = [
 ]
 
 test('no element on the main routes carries a left accent rail', async ({ page }) => {
+  // Studio and Talk are add-ons; /app/studio and /app/talk open them.
+  await installStudioAddons(page)
   test.setTimeout(ROUTES.length * 8_000)
   const findings = []
   for (const theme of ['light', 'dark']) {

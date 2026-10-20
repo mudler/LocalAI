@@ -26,8 +26,10 @@ test.describe('Navigation', () => {
     for (const href of ['/app/chat', '/app/models', '/app/addons', '/app/settings']) {
       await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toBeVisible()
     }
-    // Studio and Talk are built-in tiles of the Add-ons drawer; the sidebar lists them only as pins.
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/studio"]')).toHaveCount(await page.getByTestId('pinned-nav').locator('a[href="/app/studio"]').count())
+    // Studio and Talk are add-ons: the sidebar lists them only as pins, and only while they are installed.
+    for (const href of ['/app/studio', '/app/talk']) {
+      await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toHaveCount(0)
+    }
   })
 
   test('Build and Operate sit under a Workspace label', async ({ page }) => {

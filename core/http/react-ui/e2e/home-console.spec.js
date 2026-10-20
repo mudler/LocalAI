@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockHome, mockUser, seedChats, sampleChats, CHATS_KEY, LOADED } from './home-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 // The Home console: command bar, slash menu, memory strip, resume list, first
 // run and the phone layout. Data is stubbed the way the other Home specs do it;
@@ -39,8 +40,24 @@ test.describe('Home slash menu', () => {
     expect(names).toEqual([
       '/model', '/new', '/chat', '/assistant',
       '/gallery', '/installed', '/import', '/stop',
-      '/studio', '/settings', '/docs',
+      '/settings', '/docs',
     ])
+  })
+
+  // Studio is an add-on: its command is offered only while it is installed.
+  test('the /studio command appears once the Studio add-on is installed', async ({ page }) => {
+    await installStudioAddons(page, { ids: ['studio'] })
+    await ready(page)
+    await page.locator('.home-textarea').fill('/')
+    await expect(page.getByTestId('home-slash-studio')).toBeVisible()
+    await page.getByTestId('home-slash-studio').click()
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio/)
+  })
+
+  test('the /studio command is not offered while the Studio add-on is not installed', async ({ page }) => {
+    await ready(page)
+    await page.locator('.home-textarea').fill('/stu')
+    await expect(page.getByTestId('home-slash-studio')).toHaveCount(0)
   })
 
   test('filters as you type and marks the typed part', async ({ page }) => {
@@ -93,8 +110,8 @@ test.describe('Home slash menu', () => {
   test('a click on an action runs it and clears the box', async ({ page }) => {
     await ready(page)
     await page.locator('.home-textarea').fill('/')
-    await page.getByTestId('home-slash-studio').click()
-    await expect(page).toHaveURL(/\/app\/studio/)
+    await page.getByTestId('home-slash-installed').click()
+    await expect(page).toHaveURL(/\/app\/models\?view=installed/)
   })
 
   test('"/" outside a text field starts a command', async ({ page }) => {
@@ -138,7 +155,7 @@ test.describe('Home slash menu', () => {
     await ready(page)
     await page.locator('.home-textarea').fill('/')
     const names = await page.locator('.dk-cmd-name').allTextContents()
-    expect(names).toEqual(['/model', '/new', '/chat', '/studio', '/docs'])
+    expect(names).toEqual(['/model', '/new', '/chat', '/docs'])
   })
 
   test('and the library row keeps only the documentation link', async ({ page }) => {

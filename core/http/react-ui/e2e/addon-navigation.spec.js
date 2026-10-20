@@ -3,18 +3,21 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ADMIN, MEMBER, app, sessionFor, mockAddons } from './addons-fixtures.js'
+import { installStudioAddons, packagedApp } from './studio-addon.js'
 import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } from './identity-fixtures.js'
 
-const STUDIO = { id: 'studio', kind: 'page', titleKey: 'items.studio', icon: 'palette', mainPath: '/app/studio' }
-const TALK = { id: 'talk', kind: 'page', titleKey: 'items.talk', icon: 'phone', mainPath: '/app/talk' }
-
-async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [STUDIO, TALK] } = {}) {
+// Studio and Talk are packaged add-ons, not built-in tiles: the specs install
+// the real packages. No page is built in today, so `builtin` is empty unless a
+// spec makes one up to check the built-in rules.
+async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true } = {}) {
   let saved = pins
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons }) }))
   await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: true } }))
   await page.route('**/api/addons/builtin', route => route.fulfill({ json: { builtin } }))
   // mockAddons installs the Apps routes with the real response shape ({ apps }).
-  await mockAddons(page, { apps })
+  // The packages are served from the build output, so a page that opens one runs it.
+  if (studio) await installStudioAddons(page, { apps: [packagedApp('studio'), packagedApp('talk'), ...apps] })
+  else await mockAddons(page, { apps })
   await page.route('**/api/addons/pins', async route => {
     if (route.request().method() === 'PUT') saved = route.request().postDataJSON()
     await route.fulfill({ json: saved })
@@ -81,14 +84,22 @@ test.describe('Add-on navigation', () => {
 
   test('member without the add-ons feature sees the built-in tiles and no error', async ({ page }) => {
     let appsCalled = false
-    await setup(page, { addons: false })
+    // No page is built in today, so the spec makes one up.
+    await setup(page, { addons: false, builtin: [{ id: 'guide', kind: 'page', titleKey: 'items.chat', icon: 'chat', mainPath: '/app/chat' }] })
     // Registered after setup, so it wins over the mocked Apps route.
     await page.route(/\/api\/addons\/apps$/, route => { appsCalled = true; return route.fulfill({ status: 403, json: {} }) })
     await page.goto('/app/addons')
-    await expect(page.getByTestId('addon-tile')).toHaveCount(2)
+    await expect(page.getByTestId('addon-tile')).toHaveCount(1)
     await expect(page.getByTestId('addons-browse')).toHaveCount(0)
     await expect(page.getByRole('alert')).toHaveCount(0)
     expect(appsCalled).toBe(false)
+  })
+
+  test('member without the add-ons feature and with no built-in tile goes home, and Studio and Talk are not built in', async ({ page }) => {
+    await setup(page, { addons: false })
+    await page.goto('/app/addons')
+    await expect(page).toHaveURL(/\/app$/)
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Add-ons' })).toHaveCount(0)
   })
 
   test('the legacy flag brings the old sidebar back', async ({ page }) => {
@@ -96,7 +107,10 @@ test.describe('Add-on navigation', () => {
     await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: false } }))
     await page.goto('/app')
     await expect(page.getByTestId('pinned-nav')).toHaveCount(0)
-    await expect(page.getByRole('navigation').getByRole('link', { name: 'Studio' })).toBeVisible()
+    // Home, Models and Chat head the old sidebar; Studio and Talk are add-ons and are not in it.
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Studio' })).toHaveCount(0)
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
   })
 
   test('the layout holds at phone width', async ({ page }) => {
@@ -132,7 +146,7 @@ test.describe('Add-on navigation', () => {
     // been drawn from, not before, when a missing pin proves nothing.
     await page.route(/\/api\/addons\/apps$/, async route => {
       await new Promise(resolve => setTimeout(resolve, 4000))
-      await route.fulfill({ json: { apps: [] } })
+      await route.fulfill({ json: { apps: [packagedApp('studio')] } })
     })
     const listed = page.waitForResponse(res => /\/api\/addons\/apps$/.test(res.url()))
     await page.goto('/app')
@@ -191,13 +205,13 @@ test.describe('Add-on navigation: the Add-ons hub tab and the route in both layo
   test('an old generator link keeps its model, query and hash', async ({ page }) => {
     await setup(page)
     await page.goto('/app/image/stable%2Fdiffusion?x=1#top')
-    await expect(page).toHaveURL(/\/app\/studio\/images\/stable%2Fdiffusion\?x=1#top$/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/images\?x=1&model=stable%2Fdiffusion#top$/)
   })
 
   test('the legacy ?tab= link of Studio still works', async ({ page }) => {
     await setup(page)
     await page.goto('/app/studio?tab=tts')
-    await expect(page).toHaveURL(/\/app\/studio\/tts$/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/tts$/)
   })
 
   test('a viewer without the 3d feature still ends on the app home', async ({ page }) => {

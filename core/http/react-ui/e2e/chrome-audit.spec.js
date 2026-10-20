@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 // A standing guard against the two defects an earlier automated edit left
 // scattered through the pages: icons that render nothing at all (here, an svg
@@ -14,6 +15,8 @@ const ROUTES = [
 ]
 
 test('no page renders a dead icon or a default-chrome control', async ({ page }) => {
+  // Studio and Talk are add-ons; /app/studio and /app/talk open them.
+  await installStudioAddons(page)
   // One test walks every route, so its budget has to scale with the list rather
   // than sit on Playwright's per-test default of 30s. At 25 routes that default
   // allows ~1.2s per navigation, which holds on a developer machine and does
