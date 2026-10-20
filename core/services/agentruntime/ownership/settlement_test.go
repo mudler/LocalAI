@@ -3,6 +3,9 @@ package ownership
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
 	"math"
 	"path/filepath"
 	"sync"
@@ -364,6 +367,55 @@ var _ = Describe("Atomic fenced settlement", func() {
 			Expect(count).To(BeZero())
 		})
 	}
+	for _, mode := range []store.SettlementMode{store.CompleteTurn, store.HoldTurn} {
+		for _, deadline := range []bool{false, true} {
+			mode, deadline := mode, deadline
+			It(fmt.Sprintf("preserves cancellation identity when automatic rollback wins COMMIT (mode=%d deadline=%t)", mode, deadline), func() {
+				before, e := s.Get(ctx, "alice", "chat")
+				Expect(e).NotTo(HaveOccurred())
+				canceled, cancel := context.WithCancel(ctx)
+				want := context.Canceled
+				if deadline {
+					cancel()
+					canceled, cancel = context.WithTimeout(ctx, 5*time.Second)
+					want = context.DeadlineExceeded
+				}
+				defer cancel()
+				calls := 0
+				Expect(db.Callback().Create().After("gorm:create").Register("rollback_before_commit", func(tx *gorm.DB) {
+					if tx.Statement.Table != "runtime_events" || tx.Error != nil {
+						return
+					}
+					calls++
+					if !deadline {
+						cancel()
+					}
+					Eventually(canceled.Done(), 10*time.Second).Should(BeClosed())
+					// Wait for database/sql's rollback to mark the transaction done,
+					// rather than hoping a sleep wins the COMMIT scheduling race.
+					transaction, ok := tx.Statement.ConnPool.(*sql.Tx)
+					Expect(ok).To(BeTrue())
+					Eventually(func() error {
+						_, err := transaction.ExecContext(ctx, "SELECT 1")
+						return err
+					}, 10*time.Second).Should(MatchError(sql.ErrTxDone))
+				})).To(Succeed())
+				DeferCleanup(func() { Expect(db.Callback().Create().Remove("rollback_before_commit")).To(Succeed()) })
+				write.Mode = mode
+				out, e := m.Settle(canceled, lease, now, write)
+				Expect(out).To(Equal(store.Settlement{}))
+				Expect(calls).To(Equal(1))
+				_, fresh, d := open()
+				after, readErr := fresh.Get(ctx, "alice", "chat")
+				Expect(readErr).NotTo(HaveOccurred())
+				Expect(after).To(Equal(before))
+				var count int64
+				Expect(d.Table("runtime_events").Count(&count).Error).To(Succeed())
+				Expect(count).To(BeZero())
+				Expect(e).To(MatchError(want))
+			})
+		}
+	}
 	It("rolls back hold checkpoint and earlier events after the second event fails", func() {
 		before, e := s.Get(ctx, "alice", "chat")
 		Expect(e).NotTo(HaveOccurred())
@@ -381,6 +433,27 @@ var _ = Describe("Atomic fenced settlement", func() {
 		Expect(count).To(BeZero())
 	})
 
+	It("does not replace an unrelated mutation failure with concurrent cancellation", func() {
+		canceled, cancel := context.WithCancel(ctx)
+		defer cancel()
+		Expect(db.Callback().Create().After("gorm:create").Register("unrelated_failure", func(tx *gorm.DB) {
+			if tx.Statement.Table == "runtime_events" && tx.Error == nil {
+				cancel()
+				tx.AddError(errors.New("private unrelated failure"))
+			}
+		})).To(Succeed())
+		DeferCleanup(func() { Expect(db.Callback().Create().Remove("unrelated_failure")).To(Succeed()) })
+		out, e := m.Settle(canceled, lease, now, write)
+		Expect(out).To(Equal(store.Settlement{}))
+		Expect(e).To(MatchError(errSettlement))
+	})
+	It("preserves domain errors even when the context is canceled", func() {
+		canceled, cancel := context.WithCancel(ctx)
+		cancel()
+		out, e := m.Settle(canceled, Lease{}, now, write)
+		Expect(out).To(Equal(store.Settlement{}))
+		Expect(e).To(MatchError(ErrInvalidInput))
+	})
 	It("propagates cancellation without returning a candidate", func() {
 		canceled, cancel := context.WithCancel(ctx)
 		cancel()

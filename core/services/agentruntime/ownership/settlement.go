@@ -3,6 +3,7 @@ package ownership
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -24,6 +25,13 @@ func (m *Manager) Settle(ctx context.Context, l Lease, now time.Time, w store.Se
 		return err
 	})
 	if err != nil {
+		// database/sql may finish automatic rollback before COMMIT, returning
+		// ErrTxDone instead of the context error. Only normalize cancellation
+		// outcomes of a failed transaction; never mask other failures or a
+		// successfully committed candidate if the context changes afterward.
+		if ctxErr := ctx.Err(); ctxErr != nil && (errors.Is(err, sql.ErrTxDone) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
+			return store.Settlement{}, ctxErr
+		}
 		switch {
 		case errors.Is(err, context.Canceled):
 			err = context.Canceled
