@@ -676,22 +676,27 @@ func (a *Application) start() error {
 
 	a.agentJobService = agentJobService
 
-	// Initialize chat history store for the WebUI (issue #9432). Reuses the
-	// shared auth database so per-user chat history sits alongside agent
-	// configs and jobs in one place — mudler's review on #9902 called out
-	// the file-based store as inconsistent with the rest of LocalAI's
-	// per-user state. When auth is disabled the store stays nil and the
-	// React UI falls back to localStorage.
-	if !a.applicationConfig.DisableWebUI && a.authDB != nil {
-		store, err := chathistory.New(a.authDB)
-		if err != nil {
-			xlog.Warn("Chat history persistence disabled: failed to initialise store", "error", err)
-		} else {
-			a.chatHistoryStore = store
-		}
-	}
-
 	return nil
+}
+
+// initChatHistoryStore initializes the chat history store for the WebUI
+// (issue #9432). It reuses the shared auth database so per-user chat history
+// sits alongside agent configs and jobs in one place — mudler's review on
+// #9902 called out the file-based store as inconsistent with the rest of
+// LocalAI's per-user state. When auth is disabled the store stays nil and the
+// React UI falls back to localStorage. It must run after the auth database is
+// opened: start() runs before that, so a store set up there was always nil
+// and the conversation routes were never registered.
+func (a *Application) initChatHistoryStore() {
+	if a.applicationConfig.DisableWebUI || a.authDB == nil {
+		return
+	}
+	store, err := chathistory.New(a.authDB)
+	if err != nil {
+		xlog.Warn("Chat history persistence disabled: failed to initialise store", "error", err)
+		return
+	}
+	a.chatHistoryStore = store
 }
 
 // agentPoolOptions builds the agent pool's dependencies. WorkQueue stays a nil
