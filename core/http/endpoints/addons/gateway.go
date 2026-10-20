@@ -60,7 +60,8 @@ type Option func(*settings)
 type settings struct{ mode string }
 
 // WithOwnership selects the ownership mode the deployment configured. The
-// default is named-user; local-owner is never inferred from a request.
+// default is named-user; local-owner is never inferred from a request. The
+// CLI selects it as the documented default of an install with authentication off.
 func WithOwnership(mode string) Option {
 	return func(s *settings) { s.mode = mode }
 }

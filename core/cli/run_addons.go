@@ -19,13 +19,27 @@ const localAddonOwnerID = "local"
 // the run flags. Only the on/off switch and the ownership mode are flags; the
 // rest follows from the node being its own owner.
 //
-// The default mode, named-user, needs the account database. Without
-// authentication there is no such database, so the owner stays off with a
-// warning instead of stopping the server: local-owner mode is never inferred
-// and an operator must select it.
+// An empty mode takes the documented default: local-owner when authentication
+// is off, named-user when it is on. An explicit mode always wins. Named-user
+// needs the account database, so an explicit named-user without
+// authentication leaves the owner off with a warning instead of stopping the
+// server.
 func addonConfigFor(enabled bool, mode, dataPath string, authEnabled bool) (config.AddonConfig, error) {
 	if !enabled {
 		return config.AddonConfig{}, nil
+	}
+	if mode == "" {
+		// The documented default for an install that did not choose a mode.
+		// With authentication off there are no accounts, so the one shared
+		// local owner is what makes add-ons usable; with authentication on,
+		// every account keeps its own access. This is the one place that
+		// resolves the default. It is an explicit, documented default for
+		// auth-off installs, not an inference from the request or the network,
+		// and a flag or environment value always wins over it.
+		mode = auth.AddonModeNamedUser
+		if !authEnabled {
+			mode = auth.AddonModeLocalOwner
+		}
 	}
 	switch mode {
 	case auth.AddonModeNamedUser, auth.AddonModeLocalOwner:

@@ -32,7 +32,7 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 		return &command.Run, err
 	}
 	BeforeEach(func() {
-		for _, key := range []string{"LOCALAI_ADDONS_ENABLED", "LOCALAI_ADDONS_OWNERSHIP_MODE"} {
+		for _, key := range []string{"LOCALAI_ADDONS_ENABLED", "LOCALAI_ADDONS_OWNERSHIP_MODE", "LOCALAI_ADDONS_OFFICIAL_LIBRARY"} {
 			value, present := os.LookupEnv(key)
 			DeferCleanup(func() {
 				if present {
@@ -45,11 +45,12 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 		}
 	})
 
-	It("turns the owner on by default, in named-user mode", func() {
+	It("turns the owner on by default, in named-user mode when authentication is on", func() {
 		r, err := parse()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(r.AddonsEnabled).To(BeTrue())
-		Expect(r.AddonsOwnershipMode).To(Equal("named-user"))
+		Expect(r.AddonsOwnershipMode).To(BeEmpty())
+		Expect(r.AddonsOfficialLibrary).To(BeTrue())
 		dir := GinkgoT().TempDir()
 		c, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, dir, true)
 		Expect(err).NotTo(HaveOccurred())
@@ -63,6 +64,32 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 		Expect(c.ListenAddress).NotTo(BeEmpty())
 		Expect(c.OwnerAddress).To(Equal("https://" + c.ListenAddress))
 		Expect(c.Transport.OwnerAddress).To(Equal(c.OwnerAddress))
+	})
+
+	It("defaults to local-owner when authentication is off", func() {
+		r, err := parse()
+		Expect(err).NotTo(HaveOccurred())
+		c, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, GinkgoT().TempDir(), false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.Enabled).To(BeTrue())
+		Expect(c.OwnershipMode).To(Equal("local-owner"))
+	})
+
+	It("lets an explicit named-user win over the auth-off default", func() {
+		r, err := parse("--addons-ownership-mode=named-user")
+		Expect(err).NotTo(HaveOccurred())
+		c, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, GinkgoT().TempDir(), false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c).To(Equal(config.AddonConfig{}))
+	})
+
+	It("reads the ownership mode and the official library from the environment", func() {
+		Expect(os.Setenv("LOCALAI_ADDONS_OWNERSHIP_MODE", "named-user")).To(Succeed())
+		Expect(os.Setenv("LOCALAI_ADDONS_OFFICIAL_LIBRARY", "false")).To(Succeed())
+		r, err := parse()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(r.AddonsOwnershipMode).To(Equal("named-user"))
+		Expect(r.AddonsOfficialLibrary).To(BeFalse())
 	})
 
 	It("turns the owner off completely with --addons-enabled=false", func() {

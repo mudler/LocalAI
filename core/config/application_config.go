@@ -26,12 +26,18 @@ type AddonConfig struct {
 	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
 	SharedStorage                                      bool
 	// OwnershipMode is "named-user" (the default when empty) or "local-owner".
-	// Local-owner mode is explicit opt-in and never inferred: every caller that
-	// reaches the addon routes shares one authority and sharing is disabled.
+	// Local-owner mode is never inferred from a request. The CLI sets it as the
+	// documented default when authentication is off and the operator chose no
+	// mode. Every caller that reaches the addon routes shares one authority and
+	// sharing is disabled.
 	// Every frontend of a deployment must use the same value.
 	OwnershipMode string
-	Host          contract.HostCompatibility
-	AdminCheck    func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
+	// OfficialLibrary registers the official add-on library on the first start,
+	// when the owner has no sources.json yet. A sources.json that exists is
+	// never changed by it, so a library the admin removed stays removed.
+	OfficialLibrary bool
+	Host            contract.HostCompatibility
+	AdminCheck      func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
 	// BackupKeep is how many backups of one add-on the owner keeps; zero is
 	// three. BackupMaxAge removes older ones; zero keeps them by count only.
 	// The newest verified backup and the recovery copy of an upgrade are
