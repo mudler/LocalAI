@@ -8,7 +8,7 @@
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
-import { mkdirSync, rmSync, writeFileSync, copyFileSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync, copyFileSync, readFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -78,7 +78,10 @@ export async function build() {
     logLevel: 'warn',
   })
   copyFileSync(join(here, 'src/style.css'), join(out, 'ui/tables.css'))
-  writeFileSync(join(out, 'ui/icon.png'), icon())
+  // A committed ui/icon.png ships unchanged; the drawn grid is the fallback.
+  const committed = join(here, 'icon.png')
+  if (existsSync(committed)) copyFileSync(committed, join(out, 'ui/icon.png'))
+  else writeFileSync(join(out, 'ui/icon.png'), icon())
   const js = readFileSync(join(out, 'ui/tables.js'), 'utf8')
   if (/from\s+['"](react|react-dom)/.test(js) || /require\(/.test(js)) throw new Error('the bundle must not import React')
   return out

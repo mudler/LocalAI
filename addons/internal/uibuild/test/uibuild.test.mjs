@@ -30,6 +30,14 @@ test('buildAddonUI writes the module, the style sheet and a PNG icon', async () 
   assert.deepEqual(await firstPixel(png), [26, 62, 138])
 })
 
+test('a committed icon.png next to src is copied unchanged and no square is generated', async () => {
+  const root = join(here, 'fixture-icon')
+  const dist = await buildAddonUI({ root, name: 'fixture', rgb: [26, 62, 138] })
+  const out = readFileSync(join(dist, 'ui/icon.png'))
+  assert.ok(out.equals(readFileSync(join(root, 'icon.png'))), 'the packaged icon is the committed file')
+  assert.equal(out.readUInt32BE(16), 256, 'the committed icon keeps its own size, not the 128 pixel square')
+})
+
 test('the bundle is an ES module that exports createAddon and calls h for JSX', async () => {
   const dist = await buildAddonUI({ root: join(here, 'fixture'), name: 'fixture', rgb: [1, 2, 3] })
   const js = readFileSync(join(dist, 'ui/fixture.js'), 'utf8')

@@ -136,7 +136,11 @@ export async function buildAddonUI({ root, name, rgb, compat }) {
   } else {
     copyFileSync(join(root, 'src/style.css'), join(out, `ui/${name}.css`))
   }
-  writeFileSync(join(out, 'ui/icon.png'), solidIcon(rgb))
+  // A committed icon (ui/icon.png next to src/) ships unchanged. Only an
+  // add-on without one gets the generated solid square.
+  const icon = join(root, 'icon.png')
+  if (existsSync(icon)) copyFileSync(icon, join(out, 'ui/icon.png'))
+  else writeFileSync(join(out, 'ui/icon.png'), solidIcon(rgb))
   const js = readFileSync(join(out, `ui/${name}.js`), 'utf8')
   const bad = reactImport.exec(js)
   if (bad) throw new Error(`the bundle must not import React: found ${bad[0]}`)
