@@ -12,6 +12,7 @@ import {
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
+import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
 
@@ -261,4 +262,19 @@ test('a completed status that left the add-on unchanged is not reported as done'
   assert.equal(effectOutcome('completed', false), 'not_applied')
   assert.equal(effectOutcome('failed', false), 'failed')
   assert.equal(effectOutcome('unknown', false), 'unknown')
+})
+
+test('a refusal shows the server reason and falls back to the generic text', () => {
+  const t = key => `T:${key}`
+  const withBody = new AddonsError(classifyResponse(403, { error: { type: 'addon_error', message: 'Same-origin browser request required' } }))
+  assert.equal(describeError(withBody, t), 'Same-origin browser request required')
+  assert.equal(describeOutcome('denied', t, withBody), 'Same-origin browser request required')
+  const noBody = new AddonsError(classifyResponse(403, null))
+  assert.equal(describeError(noBody, t), 'T:errors.denied')
+  assert.equal(describeOutcome('denied', t, noBody), 'T:errors.denied')
+  assert.equal(describeOutcome('denied', t), 'T:errors.denied')
+  const invalid = new AddonsError(classifyResponse(400, { error: { message: 'Bad id' } }))
+  assert.equal(describeError(invalid, t), 'Bad id')
+  // Other kinds keep their own words.
+  assert.equal(describeError(new AddonsError(classifyResponse(401, { error: { message: 'x' } })), t), 'T:errors.auth')
 })

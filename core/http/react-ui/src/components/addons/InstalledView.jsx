@@ -194,7 +194,7 @@ function latest(actions, addon, verbs) {
 function outcomeText(result, t) {
   const type = result && result.error && result.error.type
   if (type && UPDATE_TYPES.has(type)) return t(`updates.errors.${type}`)
-  return describeOutcome(result.outcome, t)
+  return describeOutcome(result.outcome, t, result.error)
 }
 
 function UpdateFact({ view, t }) {

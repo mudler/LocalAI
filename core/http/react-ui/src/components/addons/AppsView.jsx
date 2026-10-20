@@ -267,7 +267,7 @@ function AppCard({ app, t, language, actions, onStartStop }) {
 }
 
 function ActionResult({ outcome, t }) {
-  const text = describeOutcome(outcome.outcome, t)
+  const text = describeOutcome(outcome.outcome, t, outcome.error)
   if (!text) return null
   return <p className="ad-card__note" data-tone="error" role="alert">{text}</p>
 }

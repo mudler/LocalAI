@@ -86,7 +86,7 @@ export default function BrowseView({ api, adapter }) {
           </div>
           {pending && <UnknownNotice addonId={entry.id} actions={actions} />}
           {!pending && st && !working && st.outcome !== 'completed' && (
-            <p className="ad-entry__note" data-tone="error" role="alert">{describeOutcome(st.outcome, t)}</p>
+            <p className="ad-entry__note" data-tone="error" role="alert">{describeOutcome(st.outcome, t, st.error)}</p>
           )}
           {st && st.outcome === 'completed' && <p className="ad-entry__note" data-tone="ok" role="status">{t('browse.installedNotEnabled')}</p>}
         </div>
