@@ -11,6 +11,8 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 // AddonError is the error object of every failure response of the addon endpoints.
@@ -267,12 +269,47 @@ func BrowserProtection() echo.MiddlewareFunc {
 			// credential too, unless a header credential is sent with it.
 			_, token := c.Cookie("token")
 			headerCredential := h.Get("Authorization") != "" || h.Get("X-Api-Key") != "" || h.Get("Xi-Api-Key") != ""
-			if (session == nil || (token == nil && !headerCredential)) && h.Get("Sec-Fetch-Site") != "same-origin" {
+			if session == nil || (token == nil && !headerCredential) {
 				// The global CSRF check lets same-site requests through, so
 				// a sibling origin could drive an administrator's cookie.
-				return failure(c, 403, "Same-origin browser request required")
+				// A present Sec-Fetch-Site that is not same-origin is a
+				// cross-site request and is always refused.
+				//
+				// Browsers omit Sec-Fetch-* over plain HTTP on an address that
+				// is not localhost, so an absent header does not mean cross-site:
+				// a LAN address over HTTP would never work. Without the header
+				// the request must still prove it comes from this host, through
+				// Origin or, when Origin is absent, Referer. The check is still
+				// needed because a missing header alone would let any client
+				// that strips it, or any page that sends none, drive the cookie.
+				site := h.Get("Sec-Fetch-Site")
+				if site == "" {
+					if !sameHostBrowserRequest(c.Request()) {
+						return failure(c, 403, "Same-origin browser request required")
+					}
+				} else if site != "same-origin" {
+					return failure(c, 403, "Same-origin browser request required")
+				}
 			}
 			return next(c)
 		}
 	}
+}
+
+// sameHostBrowserRequest reports whether Origin, or failing that Referer,
+// names the same host and port as the request. A malformed or "null" value
+// never matches. When Origin is present, Referer is not consulted.
+func sameHostBrowserRequest(r *http.Request) bool {
+	source := r.Header.Get("Origin")
+	if source == "" {
+		source = r.Header.Get("Referer")
+	}
+	if source == "" {
+		return false
+	}
+	u, err := url.Parse(source)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return strings.EqualFold(u.Host, r.Host)
 }
