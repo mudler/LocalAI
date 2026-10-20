@@ -71,7 +71,10 @@ type Migrator interface {
 type Manager struct {
 	// One lock also serializes journal publication across addons. No operation can
 	// overtake another operation on the same addon, including reconciliation.
-	mu                      sync.Mutex
+	mu sync.Mutex
+	// opMu serializes Submit and Reconcile as whole operations, so mu can be
+	// released around a slow fetch without letting another operation in.
+	opMu                    sync.Mutex
 	toolCache               map[string]toolDeclaration
 	config                  OwnerConfig
 	catalog                 catalog.Catalog
@@ -214,6 +217,8 @@ func (m *Manager) Status(ctx context.Context, id string) (Status, error) {
 	return s, nil
 }
 func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd LifecycleCommand) (OperationStatus, error) {
+	m.opMu.Lock()
+	defer m.opMu.Unlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if e := m.check(ctx); e != nil {
@@ -336,20 +341,34 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		receipt, published := m.canceled[cmd.OperationID]
 		delete(m.canceled, cmd.OperationID)
 		if !published {
+			// Resolving a release and staging a package fetch and verify over
+			// the network and the disk. They touch neither the journal nor
+			// the runtime, so the state lock is released: reads stay
+			// available, and opMu keeps every other operation out.
 			var r catalog.Release
+			var resolveErr error
+			m.mu.Unlock()
 			if release != nil {
 				r = *release
 			} else {
-				var e error
-				r, e = m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
-				if e != nil {
-					return fail()
-				}
+				r, resolveErr = m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
 			}
-			staged, e := m.installer.Stage(ctx, r, nil)
-			if e != nil {
-				return fail(e)
+			var staged packages.StagedPackage
+			var stageErr error
+			if resolveErr == nil {
+				staged, stageErr = m.installer.Stage(ctx, r, nil)
 			}
+			m.mu.Lock()
+			if resolveErr != nil {
+				return fail()
+			}
+			if stageErr != nil {
+				return fail(stageErr)
+			}
+			if m.uncertain || m.runtimeRecoveryRequired {
+				return op.Status, ErrRecoveryRequired
+			}
+			var e error
 			if release != nil {
 				// An explicit upgrade never changes the trusted identity,
 				// the library or the channel, whatever the add-on holds.
@@ -458,6 +477,8 @@ func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
 	return op.Status, m.persist("completed")
 }
 func (m *Manager) Reconcile(ctx context.Context) error {
+	m.opMu.Lock()
+	defer m.opMu.Unlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if e := m.check(ctx); e != nil {
