@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -20,7 +21,7 @@ func scopeOK(s Scope) bool {
 	return id(s.Principal) && id(s.Conversation) && id(s.Turn) && s.Attempt > 0 && s.Epoch > 0
 }
 func bindingCopy(b Binding) (Binding, error) {
-	b.Resources = append([]Resource(nil), b.Resources...)
+	b.Resources = append([]Resource{}, b.Resources...)
 	if !scopeOK(b.Source) || b.SourceRevision == 0 || b.AuthRevision == 0 || b.TaintRevision == 0 || b.RetentionRevision == 0 || b.ExpiresAt.IsZero() || len(b.Resources) > 256 {
 		return Binding{}, ErrDenied
 	}
@@ -33,7 +34,7 @@ func bindingCopy(b Binding) (Binding, error) {
 	return b, nil
 }
 func authCopy(r AuthorizationRequest) AuthorizationRequest {
-	r.Binding.Resources = append([]Resource(nil), r.Binding.Resources...)
+	r.Binding.Resources = append([]Resource{}, r.Binding.Resources...)
 	return r
 }
 func cleanupBinding(r AuthorizationRequest) CleanupBinding {
@@ -43,59 +44,63 @@ func cleanupBinding(r AuthorizationRequest) CleanupBinding {
 // Each phase rechecks independent host authorities. These checks do not make
 // external ACL revocation atomic; host synchronization remains an integration gate.
 func (s *Service) check(ctx context.Context, r AuthorizationRequest, cp *store.Checkpoint) error {
+	_, e := s.authority(ctx, r, cp)
+	return e
+}
+func (s *Service) authority(ctx context.Context, r AuthorizationRequest, cp *store.Checkpoint) (time.Time, error) {
 	if ctx.Err() != nil || !scopeOK(r.Target) || r.Target.Principal != r.Binding.Source.Principal || r.Target.Conversation != r.Binding.Source.Conversation || r.Lease.Principal != r.Target.Principal || r.Lease.Conversation != r.Target.Conversation || r.Lease.Epoch != r.Target.Epoch || !id(r.Lease.Owner) {
-		return ErrDenied
+		return time.Time{}, ErrDenied
 	}
 	deadline := func() bool {
 		n := s.d.Clock.Now()
 		return ctx.Err() == nil && n.Before(r.Binding.ExpiresAt) && n.Before(r.Lease.ExpiresAt)
 	}
 	if !deadline() {
-		return ErrDenied
+		return time.Time{}, ErrDenied
 	}
 	// Reader can block or revoke grants; authority is always checked AFTER it.
 	snap, e := s.d.Reader.Get(ctx, r.Target.Principal, r.Target.Conversation)
 	if e != nil || !deadline() || snap.Deleted || snap.Revision != r.Revision || snap.Running == nil || snap.Running.InputID != r.Target.Turn {
-		return ErrDenied
+		return time.Time{}, ErrDenied
 	}
 	if cp != nil && (snap.Checkpoint.Version != 1 || !bytes.Equal(snap.Checkpoint.Context, cp.Context) || len(snap.Checkpoint.Artifacts)+len(snap.Checkpoint.Pruning)+len(snap.Checkpoint.TranscriptCursor) != 0) {
-		return ErrDenied
+		return time.Time{}, ErrDenied
 	}
 	state, e := s.d.Cleanup.State(ctx, cleanupBinding(r))
 	if e != nil || !deadline() || state != SealedPresent {
-		return ErrDenied
+		return time.Time{}, ErrDenied
 	}
 	if s.d.Leases.Check(ctx, r.Lease, s.d.Clock.Now()) != nil || !deadline() {
-		return ErrDenied
+		return time.Time{}, ErrDenied
 	}
 	if s.d.Retention.Check(ctx, authCopy(r).Binding, s.d.Clock.Now()) != nil || !deadline() {
-		return ErrDenied
+		return time.Time{}, ErrDenied
 	}
 	a, e := s.d.Authorizer.Check(ctx, authCopy(r))
 	if e != nil || !deadline() || !s.d.Clock.Now().Before(a.ExpiresAt) || !reflect.DeepEqual(r, a.Request) {
-		return ErrDenied
+		return time.Time{}, ErrDenied
 	}
 	switch r.Operation {
 	case Save:
 		if !a.IndirectRetain {
-			return ErrDenied
+			return time.Time{}, ErrDenied
 		}
 	case Restore:
 		if !a.ReadUse {
-			return ErrDenied
+			return time.Time{}, ErrDenied
 		}
 	case Export:
 		if !a.ReadUse || !a.Export {
-			return ErrDenied
+			return time.Time{}, ErrDenied
 		}
 	case Download:
 		if !a.ReadUse || !a.Download {
-			return ErrDenied
+			return time.Time{}, ErrDenied
 		}
 	default:
-		return ErrDenied
+		return time.Time{}, ErrDenied
 	}
-	return nil
+	return a.ExpiresAt, nil
 }
 func keyScope(r AuthorizationRequest) KeyScope {
 	return KeyScope{r.Binding.Source.Principal, r.Binding.Source.Conversation}
@@ -111,6 +116,26 @@ func (s *Service) key(ctx context.Context, r AuthorizationRequest, v KeyVersion,
 		return nil, ErrDenied
 	}
 	return k, nil
+}
+
+// boundary performs a finite authority-then-exact-key revalidation. Earlier
+// lookups are followed by authority checks; this last lookup catches key changes
+// during those checks. Independent remote authorities are not an atomic snapshot:
+// the host must synchronize mutations made during the final key callback.
+func (s *Service) boundary(ctx context.Context, r AuthorizationRequest, cp *store.Checkpoint, v KeyVersion, save bool, expected []byte) error {
+	until, e := s.authority(ctx, r, cp)
+	if e != nil {
+		return ErrDenied
+	}
+	fresh, e := s.key(ctx, r, v, save)
+	same := bytes.Equal(expected, fresh)
+	clear(fresh)
+	// Key lookup can block past any of the deadlines or cancel the request.
+	now := s.d.Clock.Now()
+	if e != nil || !same || ctx.Err() != nil || !now.Before(until) || !now.Before(r.Binding.ExpiresAt) || !now.Before(r.Lease.ExpiresAt) {
+		return ErrDenied
+	}
+	return nil
 }
 func (s *Service) Seal(ctx context.Context, r SaveRequest, p PrivatePayload) (SealedCheckpoint, error) {
 	b, e := bindingCopy(r.Binding)
@@ -141,7 +166,7 @@ func (s *Service) Seal(ctx context.Context, r SaveRequest, p PrivatePayload) (Se
 		return SealedCheckpoint{}, ErrDenied
 	}
 	defer clear(k)
-	if s.check(ctx, ar, nil) != nil {
+	if s.boundary(ctx, ar, nil, v, true, k) != nil {
 		return SealedCheckpoint{}, ErrDenied
 	}
 	plain, e := encodePayload(owned)
@@ -162,14 +187,7 @@ func (s *Service) Seal(ctx context.Context, r SaveRequest, p PrivatePayload) (Se
 	if len(out) > MaxEnvelope {
 		return SealedCheckpoint{}, ErrDenied
 	}
-	// Fresh key status and authority after crypto before releasing ciphertext.
-	fresh, e := s.key(ctx, ar, v, true)
-	if e != nil {
-		return SealedCheckpoint{}, ErrDenied
-	}
-	same := bytes.Equal(k, fresh)
-	clear(fresh)
-	if !same || s.check(ctx, ar, nil) != nil || ctx.Err() != nil {
+	if s.boundary(ctx, ar, nil, v, true, k) != nil {
 		return SealedCheckpoint{}, ErrDenied
 	}
 	return SealedCheckpoint{out}, nil
@@ -202,7 +220,7 @@ func (s *Service) read(ctx context.Context, r ReadRequest, cp store.Checkpoint, 
 		return PrivatePayload{}, ErrDenied
 	}
 	defer clear(k)
-	if s.check(ctx, ar, &cp) != nil {
+	if s.boundary(ctx, ar, &cp, env.Header.Key, false, k) != nil {
 		return PrivatePayload{}, ErrDenied
 	}
 	if ctx.Err() != nil {
@@ -228,10 +246,7 @@ func (s *Service) read(ctx context.Context, r ReadRequest, cp store.Checkpoint, 
 	if e != nil {
 		return PrivatePayload{}, ErrDenied
 	}
-	fresh, e := s.key(ctx, ar, env.Header.Key, false)
-	same := bytes.Equal(k, fresh)
-	clear(fresh)
-	if e != nil || !same || s.check(ctx, ar, &cp) != nil || ctx.Err() != nil {
+	if s.boundary(ctx, ar, &cp, env.Header.Key, false, k) != nil {
 		clear(p.native)
 		clear(p.cursor)
 		return PrivatePayload{}, ErrDenied
