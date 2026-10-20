@@ -579,7 +579,7 @@ The clip you test with is sent to the model on the server and is not kept. Analy
 - [Audio to Text](/features/audio-to-text/) - transcription (Whisper,
   Voxtral, faster-whisper). Runs in addition to, not instead of,
   voice recognition.
-- [Stores](/features/stores/) - the generic vector store powering
+- [Stores](/stores/) - the generic vector store powering
   both the face and voice 1:N recognition pipelines.
 - [Embeddings](/features/embeddings/) - text-only OpenAI-compatible
   embedding endpoint; for audio embeddings use `/v1/voice/embed`.
