@@ -213,7 +213,7 @@ function MovedPage({ addon, page, withModel, children }) {
   // The list is read only for a user the server lets see add-ons.
   useEffect(() => (allowed ? acquire() : undefined), [acquire, allowed])
   const app = apps.find(a => a.id === addon)
-  if (appStatus(app) === 'ready' && app.ui.pages.includes(page)) {
+  if (appStatus(app) === 'ready' && app.ui.pages.includes(page.split('/')[0])) {
     const params = new URLSearchParams(search)
     if (withModel && model) params.set('model', model)
     const query = params.toString()
@@ -306,9 +306,9 @@ const appChildren = [
       { path: 'quantize', element: <MovedPage addon="quantization" page="jobs"><Feature feature="quantization" disabled={<ToolOff tool="quantize" />}><Quantize /></Feature></MovedPage> },
       { path: 'face', element: <MovedPage addon="face" page="recognition"><Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature></MovedPage> },
       { path: 'face/:model', element: <MovedPage addon="face" page="recognition" withModel><Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature></MovedPage> },
-      { path: 'voice', element: <MovedPage addon="voice" page="recognition"><Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature></MovedPage> },
-      { path: 'voice/:model', element: <MovedPage addon="voice" page="recognition" withModel><Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature></MovedPage> },
-      { path: 'voice-library', element: <Admin><MovedPage addon="voice" page="library"><VoiceRecognition tab="speech" /></MovedPage></Admin> },
+      { path: 'voice', element: <MovedPage addon="voice" page="voice/recognition"><Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature></MovedPage> },
+      { path: 'voice/:model', element: <MovedPage addon="voice" page="voice/recognition" withModel><Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature></MovedPage> },
+      { path: 'voice-library', element: <Admin><MovedPage addon="voice" page="voice/library"><VoiceRecognition tab="speech" /></MovedPage></Admin> },
       { path: 'import-model', element: <Admin><ImportModel /></Admin> },
     ],
   },
@@ -363,7 +363,7 @@ const appChildren = [
     children: [{ path: ':id', element: <ModelPage /> }],
   },
   { path: 'manage', element: <Admin><ManageRedirect /></Admin> },
-  { path: 'voice-library/new', element: <Admin><MovedPage addon="voice" page="create"><VoiceProfileCreate /></MovedPage></Admin> },
+  { path: 'voice-library/new', element: <Admin><MovedPage addon="voice" page="voice/library/new"><VoiceProfileCreate /></MovedPage></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: '*', element: <NotFound /> },

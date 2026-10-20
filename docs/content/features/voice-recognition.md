@@ -559,9 +559,9 @@ default only applies when omitted.
 
 ## The WebUI page
 
-The page is the **Recognition** page of the Voice add-on (**Add-ons → Voice**, `/app/addons/voice/recognition`). Install the add-on from **Browse add-ons** and start it; the old `/app/voice` link opens the same page in the core web UI until then. The page calls the `/v1/voice/*` routes described on this page with your own session. It has three tabs. **Speakers** is this feature. **Speech voices** is the [Voice Library](/features/text-to-audio/#voice-library) for text-to-speech, a different store with its own recordings and transcripts. **From a recording** links to the diarization workspace, where a speaker can be named and remembered.
+The page is the **Recognition** tab of the Voice add-on (**Add-ons → Voice**, `/app/addons/voice/voice/recognition`). Install the add-on from **Browse add-ons** and start it; the old `/app/voice` link opens the same page in the core web UI until then. The page calls the `/v1/voice/*` routes described on this page with your own session. The Voice page has four tabs. **Recognition** is this feature. **Library** is the [Voice Library](/features/text-to-audio/#voice-library) for text-to-speech, a different store with its own recordings and transcripts. **Text to speech** speaks text with a voice model. **From a recording** links to the diarization workspace, where a speaker can be named and remembered.
 
-On Speakers:
+On the Recognition tab:
 
 - **Who is this** matches a clip against the people you enrolled (`POST /v1/voice/identify`). The answer is a sentence with the real distance and the cut-off, a word for how far inside the cut-off it sits (strong, likely, close call), and a scale with the cut-off drawn on it. The cut-off slider re-reads the answer in the browser; it does not call the server again. The page sends the cut-off in the request, 0.25 by default.
 - **Same person?** compares two clips (`POST /v1/voice/verify`) and uses the threshold the model returns. The word is not a probability, and the page says so.

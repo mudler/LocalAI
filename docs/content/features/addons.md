@@ -1741,17 +1741,17 @@ query string and the hash:
 | `/app/transform` | `/app/addons/studio/studio/transform` |
 | `/app/face` | `/app/addons/face/recognition` |
 | `/app/face/<model>` | `/app/addons/face/recognition?model=<model>` |
-| `/app/voice` | `/app/addons/voice/recognition` |
-| `/app/voice/<model>` | `/app/addons/voice/recognition?model=<model>` |
-| `/app/voice-library` | `/app/addons/voice/library` |
-| `/app/voice-library/new` | `/app/addons/voice/create` |
+| `/app/voice` | `/app/addons/voice/voice/recognition` |
+| `/app/voice/<model>` | `/app/addons/voice/voice/recognition?model=<model>` |
+| `/app/voice-library` | `/app/addons/voice/voice/library` |
+| `/app/voice-library/new` | `/app/addons/voice/voice/library/new` |
 
 The two face links and the four voice links open their add-on only while it is installed and usable. Without
 it, they open the same pages in the core web UI, so nobody loses a page they can open today.
 The Studio and Talk links have no core page to fall back to: without the add-on they open
 the add-on page, which says the add-on is not available.
 A model id can hold `/` or `:`, which an add-on path segment refuses, so the model travels
-as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/recognition?model=org%2Fname`; the face links and the
+as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/voice/recognition?model=org%2Fname`; the face links and the
 Studio links do the same).
 
 A link with a model (`/app/image/<model>`) opens `/app/addons/studio/studio/images?model=<model>`. The
@@ -1806,12 +1806,19 @@ The Voice add-on (`voice`) is a packaged add-on. It is not shipped with LocalAI:
 from **Browse add-ons** in the drawer and start it. Once it is usable, it appears in the
 drawer and can be pinned. The Build hub has no Voices tab.
 
-| Page | Path | Who sees it |
+The add-on has one page, `/app/addons/voice/voice`, and one entry in the drawer. Its
+sections are tabs of that page, and the tab is the next segment of the address:
+
+| Tab | Path | Who sees it |
 |---|---|---|
-| Recognition (main page) | `/app/addons/voice/recognition` | users with the `voice_recognition` feature; the page shows an off notice for anyone else |
-| Speech (text to speech) | `/app/addons/voice/speech` | users with the `addons` feature; the server refuses the speech call without `audio_speech` |
-| Library | `/app/addons/voice/library` | administrators |
-| Create | `/app/addons/voice/create` | administrators |
+| Recognition (default) | `/app/addons/voice/voice/recognition` | users with the `voice_recognition` feature; the tab shows an off notice for anyone else |
+| Library | `/app/addons/voice/voice/library` (the form to add a voice is `.../library/new`) | administrators |
+| Text to speech | `/app/addons/voice/voice/speech` | users with the `addons` feature; the server refuses the speech call without `audio_speech` |
+| From a recording | `/app/addons/voice/voice/recording` | users with the `addons` feature |
+
+The earlier page addresses (`/app/addons/voice/recognition`, `.../library`, `.../create`
+and `.../speech`) still open: each one redirects to its tab and keeps the query string
+(`?model=`, `?selected=`, `?voice=`).
 
 All of these also need the `addons` feature to see the tile. The pages call core routes
 with the signed-in user's own session (see "Core routes from add-ons"): `/v1/voice/*` for
@@ -1820,11 +1827,12 @@ for the library and `/v1/audio/speech` for the speech page. The core keeps the v
 registry and these routes; the server checks every call again, so an add-on page never
 widens what a user may do.
 
-The recognition page has three tabs. **Speakers** is the workbench: who is this, same
-person, the people this browser enrolled, and the analyze and embedding tools under **More
-tools**. **Speech voices** opens the library page and is shown to administrators only.
-**From a recording** links to the diarization workspace of Studio. The Face add-on shares
-the same views, built from one source directory into each add-on.
+The **Recognition** tab is the workbench: who is this, same person, the people this
+browser enrolled, and the analyze and embedding tools under **More tools**. **Library**
+manages the reference recordings that text-to-speech can use and is shown to
+administrators only. **Text to speech** speaks text with a voice model. **From a
+recording** links to the diarization workspace of Studio. The Face add-on shares the same
+views, built from one source directory into each add-on.
 
 ### The Face add-on
 

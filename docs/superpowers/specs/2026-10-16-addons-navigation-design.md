@@ -338,10 +338,10 @@ Routes below come from `core/http/react-ui/src/utils/destinations.js`, `core/htt
 | `/app/fine-tune` | Build hub | Fine-tuning add-on, page `jobs` (`/app/addons/fine-tuning/jobs`) while it is installed and running; the core page otherwise. |
 | `/app/quantize` | Build hub | Quantization add-on, page `jobs` (`/app/addons/quantization/jobs`) while it is installed and running; the core page otherwise. |
 | `/app/face`, `/app/face/:model` | Build hub | Face add-on, page `recognition` (`/app/addons/face/recognition`) while it is installed and running; the core page otherwise. The model travels as `?model=`. |
-| `/app/voice`, `/app/voice/:model` | Build hub | Voice add-on, page `recognition` (`/app/addons/voice/recognition`) while it is installed and running; the core page otherwise. The model travels as `?model=`. |
-| `/app/voice-library` | Build hub (match) | Voice add-on, page `library` (`/app/addons/voice/library`) while it is installed and running; the core page otherwise. Whether it also has a drawer tile of its own is open, see question (c). |
-| `/app/voice-library/new` | page | Voice add-on, page `create` (`/app/addons/voice/create`) while it is installed and running; the core page otherwise. |
-| (new) | none | Voice add-on, page `speech`: text-to-speech generation. No old route. |
+| `/app/voice`, `/app/voice/:model` | Build hub | Voice add-on, page `voice`, tab `recognition` (`/app/addons/voice/voice/recognition`) while it is installed and running; the core page otherwise. The model travels as `?model=`. |
+| `/app/voice-library` | Build hub (match) | Voice add-on, page `voice`, tab `library` (`/app/addons/voice/voice/library`) while it is installed and running; the core page otherwise. Whether it also has a drawer tile of its own is open, see question (c). |
+| `/app/voice-library/new` | page | Voice add-on, page `voice`, tab `library`, view `new` (`/app/addons/voice/voice/library/new`) while it is installed and running; the core page otherwise. |
+| (new) | none | Voice add-on, page `voice`, tab `speech`: text-to-speech generation. No old route. The Voice add-on is one page with tabs; the older page names stay declared and redirect to their tab. |
 | `/app/addons` | Build hub tab | Add-ons (top level), drawer page. |
 | `/app/addons/:addonId/*` | add-on pages | unchanged |
 | `/app/build`, `/app/agents`, `/app/skills`, `/app/collections`, `/app/agent-jobs`, `/app/import-model` | Build hub | unchanged; out of scope |
