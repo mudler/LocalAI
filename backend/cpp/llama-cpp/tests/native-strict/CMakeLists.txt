@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+cmake_minimum_required(VERSION 3.14)
+project(localai_native_strict C CXX)
+if(NOT IS_DIRECTORY "${LLAMA_SOURCE_DIR}/common")
+    message(FATAL_ERROR "LLAMA_SOURCE_DIR must name the pinned llama.cpp source")
+endif()
+add_subdirectory("${LLAMA_SOURCE_DIR}" pinned)
+add_executable(native-strict ../native-strict.cpp)
+target_link_libraries(native-strict PRIVATE llama-common llama)
+target_compile_features(native-strict PRIVATE cxx_std_17)
+enable_testing()
+add_test(NAME native-strict COMMAND native-strict)

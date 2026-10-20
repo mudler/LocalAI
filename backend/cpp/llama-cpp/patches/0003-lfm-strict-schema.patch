@@ -1,0 +1,29 @@
+--- a/common/chat.h
++++ b/common/chat.h
+@@ -224,4 +224,5 @@
+     std::string name;
+     std::string description;
+     std::string parameters;
++    bool strict = false;
+ };
+--- a/common/chat.cpp
++++ b/common/chat.cpp
+@@ -539,6 +539,10 @@
+                 { "parameters", json::parse(tool.parameters) },
+             }},
+         });
++        // Keep the legacy non-strict tool representation unchanged.
++        if (tool.strict) {
++            result.back()["function"]["strict"] = true;
++        }
+     }
+     return result;
+ }
+@@ -578,6 +582,7 @@
+                     /* .name = */ function.at("name"),
+                     /* .description = */ function.value("description", ""),
+                     /* .parameters = */ function.value("parameters", json::object()).dump(),
++                    /* .strict = */ function.value("strict", false),
+                 });
+             }
+         }
