@@ -188,6 +188,13 @@ func Dispatch(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc 
 		if decode(c, &r) != nil {
 			return failure(c, 400, "Invalid addon request")
 		}
+		// Recovery and update mutations have their own routes, which accept
+		// only the administrator's own browser session. The generic dispatch
+		// also takes API keys, so it must not carry them.
+		if (gateway.RecoveryAction(r.Action) && r.Action != gateway.ActionRecoveryStatus) ||
+			(gateway.UpdateAction(r.Action) && r.Action != gateway.ActionUpdateStatus) {
+			return failure(c, 403, "Addon request denied")
+		}
 		if r.Action != "read" {
 			if e = administrator(c, db, a, s); e != nil {
 				if errors.Is(e, gateway.ErrUnavailable) {
@@ -254,10 +261,16 @@ func Relay(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 func BrowserProtection() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if _, err := c.Cookie("session"); err == nil {
-				if c.Request().Header.Get("Sec-Fetch-Site") != "same-origin" {
-					return failure(c, 403, "Same-origin browser request required")
-				}
+			h := c.Request().Header
+			_, session := c.Cookie("session")
+			// The legacy token cookie carries an API key. It is a browser
+			// credential too, unless a header credential is sent with it.
+			_, token := c.Cookie("token")
+			headerCredential := h.Get("Authorization") != "" || h.Get("X-Api-Key") != "" || h.Get("Xi-Api-Key") != ""
+			if (session == nil || (token == nil && !headerCredential)) && h.Get("Sec-Fetch-Site") != "same-origin" {
+				// The global CSRF check lets same-site requests through, so
+				// a sibling origin could drive an administrator's cookie.
+				return failure(c, 403, "Same-origin browser request required")
 			}
 			return next(c)
 		}

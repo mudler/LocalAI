@@ -46,10 +46,34 @@ var _ = Describe("authenticated addon HTTP", func() {
 			e.ServeHTTP(w, r)
 			return w.Code
 		}
+		// Recovery and update mutations are not reachable through the generic
+		// dispatch with a key, only through their own browser-session routes.
+		for _, action := range []string{"recovery-restore", "recovery-purge", "recovery-backup", "update-upgrade", "update-check"} {
+			r := httptest.NewRequest("POST", "/api/addons/dispatch", bytes.NewBufferString(`{"addonId":"sample","operationId":"op","generation":1,"action":"`+action+`","arguments":{}}`))
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, r)
+			Expect(w.Code).To(Equal(403), action)
+		}
 		Expect(call(false, "cross-site")).To(Equal(503))
 		Expect(call(true, "cross-site")).To(Equal(403))
 		Expect(call(true, "")).To(Equal(403))
 		Expect(call(true, "same-origin")).To(Equal(503))
+		// The legacy token cookie is a browser credential too: a same-site
+		// request from a sibling origin must not drive it.
+		tokenCall := func(site string) int {
+			r := httptest.NewRequest("POST", "/api/addons/dispatch", bytes.NewBufferString(`{"addonId":"sample","operationId":"op","generation":1,"action":"enable","arguments":{}}`))
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Sec-Fetch-Site", site)
+			r.AddCookie(&http.Cookie{Name: "token", Value: token})
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, r)
+			return w.Code
+		}
+		Expect(tokenCall("same-site")).To(Equal(403))
+		Expect(tokenCall("")).To(Equal(403))
+		Expect(tokenCall("same-origin")).To(Equal(503))
 		Expect(db.Model(&u).Update("role", auth.RoleUser).Error).To(Succeed())
 		Expect(call(false, "")).To(Equal(401))
 	})

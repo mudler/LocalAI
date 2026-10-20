@@ -907,8 +907,13 @@ func (a *Application) startAddons() error {
 	}
 	if cat.Sources != nil {
 		if err = cat.Sources.RefreshEnabled(a.applicationConfig.Context); err != nil {
-			_ = m.Close()
-			return err
+			if a.applicationConfig.Context.Err() != nil {
+				_ = m.Close()
+				return err
+			}
+			// An unreachable library must not keep LocalAI or the installed
+			// add-ons down. The cache stays empty until an explicit refresh.
+			xlog.Warn("Could not refresh the add-on libraries at startup", "error", err)
 		}
 	}
 	if c.InstanceID == c.OwnerID {
