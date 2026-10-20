@@ -507,6 +507,7 @@ test.describe('Home first run', () => {
     await mockFirstRun(page)
     await ready(page)
     const guide = page.getByTestId('home-first-run')
+    // The steps only: the recommended models are a list inside the second step.
     await expect(guide.locator('.home-step')).toHaveCount(3)
     await expect(guide.locator('.home-step[data-state="now"]')).toContainText('Browse the Model Gallery')
     await expect(guide.locator('.home-step').nth(1).locator('.home-starters')).toContainText('tiny-chat')
