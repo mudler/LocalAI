@@ -14,10 +14,25 @@ func TestRuntimeRunner(t *testing.T) {
 	RunSpecs(t, "Runtime runner pure model")
 }
 func fixture() data {
-	return data{id: identity{principal: "private-principal", conversation: "private-conversation", turn: "private-turn", attempt: 1, epoch: 1}, input: []byte("private-input")}
+	return data{dataFields: &dataFields{id: identity{identityFields: &identityFields{principal: "private-principal", conversation: "private-conversation", turn: "private-turn", attempt: 1, epoch: 1}}, input: []byte("private-input")}}
 }
+
+// phaseFixture supplies a lawful representative, not an assertion that every
+// cross-product of shared payload fields is valid. Invalid shapes are tested
+// separately; the 190 pairs and 950 stale bindings must use legal pre-states.
+func phaseFixture(phase string) data {
+	d := fixture()
+	if phase == "Cancelling" {
+		d.outcome = stopped
+	}
+	if phase == "Settling" {
+		d.ciphertext = []byte("cipher")
+	}
+	return d
+}
+
 func ev(n string, d data) event {
-	return makeEvent(n, eventData{id: d.id, now: 1, trusted: true, content: []byte("private-ciphertext")})
+	return makeEvent(n, eventData{eventFields: &eventFields{id: d.id, now: 1, trusted: true, content: []byte("private-ciphertext")}})
 }
 func step(s runnerState, e event) transition {
 	r := PureReduce(s, e)
@@ -90,13 +105,13 @@ var _ = Describe("Runner model", func() {
 		Expect(effectNames(r)).NotTo(ContainElement("StartNext"))
 	})
 	It("late finish during cancellation cannot export", func() {
-		d := fixture()
+		d := phaseFixture("Cancelling")
 		r := step(cancelling{d}, ev("TurnFinished", d))
 		Expect(r.state.phase()).To(Equal("Cancelling"))
 		Expect(r.effects).To(BeEmpty())
 	})
 	It("cancel timeout never attests quiescence", func() {
-		d := fixture()
+		d := phaseFixture("Cancelling")
 		r := step(cancelling{d}, ev("CancelTimedOut", d))
 		Expect(r.state.phase()).To(Equal("Interrupted"))
 		Expect(effectNames(r)).To(Equal([]string{"HoldInput"}))
@@ -109,7 +124,7 @@ var _ = Describe("Runner model", func() {
 		Expect(r.state.payload().input).To(Equal(d.input))
 	})
 	It("requires trusted quiescence before export", func() {
-		d := fixture()
+		d := phaseFixture("Cancelling")
 		e := ev("QuiescenceConfirmed", d).payload()
 		e.trusted = false
 		r := step(cancelling{d}, makeEvent("QuiescenceConfirmed", e))
@@ -176,7 +191,7 @@ var _ = Describe("Runner model", func() {
 	It("owns event state and effect buffers", func() {
 		d := fixture()
 		b := []byte("cipher")
-		e := makeEvent("SealSucceeded", eventData{id: d.id, trusted: true, now: 1, content: b})
+		e := makeEvent("SealSucceeded", eventData{eventFields: &eventFields{id: d.id, trusted: true, now: 1, content: b}})
 		b[0] = 'X'
 		r := step(sealing{d}, e)
 		Expect(string(r.state.payload().ciphertext)).To(Equal("cipher"))
@@ -202,7 +217,7 @@ var _ = Describe("Runner model", func() {
 		d := fixture()
 		e := ev("Detach", d)
 		r := PureReduce(running{d}, e)
-		r.effects = []effect{startNextEffect{effectData{id: d.id}}}
+		r.effects = []effect{startNextEffect{effectData{effectFields: &effectFields{id: d.id}}}}
 		Expect(CheckTransition(running{d}, e, r)).NotTo(Succeed())
 	})
 	It("rejects forged state identity and guard labels", func() {
@@ -219,15 +234,11 @@ var _ = Describe("Runner model", func() {
 	})
 	It("enumerates all 190 phase-event pairs with stable distinct pair rules", func() {
 		seen := map[string]bool{}
-		d := fixture()
 		for _, p := range phases {
 			for _, n := range events {
+				d := phaseFixture(p)
 				s := makeState(p, d)
-				if p == "Settling" {
-					x := d.clone()
-					x.ciphertext = []byte("cipher")
-					s = makeState(p, x)
-				}
+				Expect(CheckInvariants(s)).To(Succeed())
 				r := step(s, ev(n, d))
 				Expect(r.rule).NotTo(BeEmpty())
 				Expect(r.guard).NotTo(BeEmpty())

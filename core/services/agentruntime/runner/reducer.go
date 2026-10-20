@@ -32,8 +32,33 @@ func CheckInvariants(s runnerState) error {
 	if !d.id.valid() || d.outcome > leaseLost {
 		return errInvalid
 	}
-	if s.phase() == "Settling" && len(d.ciphertext) == 0 {
-		return errInvalid
+	// Empty input represents a settled attempt only, not an executable turn.
+	// Late uncertainty may hold that empty attempt; it cannot restore or start it.
+	if len(d.input) == 0 {
+		if (s.phase() != "Idle" && s.phase() != "Reconciliation" && s.phase() != "Deleted") || d.outcome != finished || len(d.ciphertext) != 0 {
+			return errInvalid
+		}
+	}
+	switch s.phase() {
+	case "Idle", "Restoring", "Running", "Quiescent":
+		if d.outcome != finished || len(d.ciphertext) != 0 {
+			return errInvalid
+		}
+	case "Cancelling":
+		if d.outcome == finished || len(d.ciphertext) != 0 {
+			return errInvalid
+		}
+	case "Sealing":
+		if len(d.ciphertext) != 0 {
+			return errInvalid
+		}
+	case "Settling":
+		if len(d.ciphertext) == 0 {
+			return errInvalid
+		}
+	case "Interrupted", "Reconciliation", "Deleted":
+		// Restore/seal failures legitimately retain finished as the outcome.
+		// Settlement failure/interruption/uncertainty may retain ciphertext.
 	}
 	return nil
 }
@@ -58,7 +83,7 @@ func PureReduce(s runnerState, e event) transition {
 	}
 	d := s.payload().clone()
 	v := e.payload()
-	same := d.id == v.id
+	same := d.id.equal(v.id)
 	if !same && !freshResume(s, e) {
 		return transition{state: makeState(s.phase(), d), rule: "RR002", guard: "stale host binding rejected"}
 	}
@@ -79,7 +104,7 @@ func PureReduce(s runnerState, e event) transition {
 		out.guard += "; empty ciphertext rejected"
 		return out
 	}
-	if e.name() == "Begin" && len(d.input) == 0 {
+	if (e.name() == "Begin" || e.name() == "Resume") && len(d.input) == 0 {
 		out.guard += "; missing active input"
 		return out
 	}
@@ -128,41 +153,41 @@ func CheckTransition(before runnerState, e event, r transition) error {
 	}
 	a, b, v := before.payload(), r.state.payload(), e.payload()
 	p, n := before.phase(), e.name()
-	if a.id != b.id && !(n == "Resume" && v.trusted && v.now > 0 && v.reconciled && freshResume(before, e) && b.id == v.id) {
+	if !a.id.equal(b.id) && !(n == "Resume" && v.trusted && v.now > 0 && v.reconciled && freshResume(before, e) && b.id.equal(v.id)) {
 		return errInvalid
 	}
 	if p == "Deleted" && (r.state.phase() != "Deleted" || len(r.effects) > 0) {
 		return errInvalid
 	}
-	if !reflect.DeepEqual(a.input, b.input) && !(p == "Settling" && n == "SettleSucceeded" && v.trusted && v.now > 0 && a.id == v.id && a.outcome == finished && len(b.input) == 0) {
+	if !reflect.DeepEqual(a.input, b.input) && !(p == "Settling" && n == "SettleSucceeded" && v.trusted && v.now > 0 && a.id.equal(v.id) && a.outcome == finished && len(b.input) == 0) {
 		return errInvalid
 	}
 	if n == "Detach" && (r.state.phase() != p || len(r.effects) > 0) {
 		return errInvalid
 	}
 	for _, fx := range r.effects {
-		if fx == nil || fx.payload().id != b.id {
+		if fx == nil || !fx.payload().id.equal(b.id) {
 			return errInvalid
 		}
 		switch fx.(type) {
 		case exportAndSealEffect:
-			if (p != "Cancelling" && p != "Quiescent") || n != "QuiescenceConfirmed" || !v.trusted || v.now == 0 || a.id != v.id || r.state.phase() != "Sealing" {
+			if (p != "Cancelling" && p != "Quiescent") || n != "QuiescenceConfirmed" || !v.trusted || v.now == 0 || !a.id.equal(v.id) || r.state.phase() != "Sealing" {
 				return errInvalid
 			}
 		case startNextEffect:
-			if p != "Settling" || n != "SettleSucceeded" || !v.trusted || v.now == 0 || a.id != v.id || a.outcome != finished || r.state.phase() != "Idle" {
+			if p != "Settling" || n != "SettleSucceeded" || !v.trusted || v.now == 0 || !a.id.equal(v.id) || a.outcome != finished || r.state.phase() != "Idle" {
 				return errInvalid
 			}
 		case settleCiphertextEffect:
-			if p != "Sealing" || n != "SealSucceeded" || !v.trusted || v.now == 0 || a.id != v.id || len(v.content) == 0 || !slices.Equal(fx.payload().content, v.content) {
+			if p != "Sealing" || n != "SealSucceeded" || !v.trusted || v.now == 0 || !a.id.equal(v.id) || len(v.content) == 0 || !slices.Equal(fx.payload().content, v.content) {
 				return errInvalid
 			}
 		case startTurnEffect:
-			if p != "Restoring" || n != "RestoreSucceeded" || !v.trusted || a.id != v.id {
+			if p != "Restoring" || n != "RestoreSucceeded" || !v.trusted || v.now == 0 || !a.id.equal(v.id) || len(a.input) == 0 || a.outcome != finished {
 				return errInvalid
 			}
 		case restoreSessionEffect:
-			if !((p == "Idle" && n == "Begin") || ((p == "Interrupted" || p == "Reconciliation") && n == "Resume" && v.reconciled && freshResume(before, e))) {
+			if len(a.input) == 0 || !v.trusted || v.now == 0 || !((p == "Idle" && n == "Begin") || ((p == "Interrupted" || p == "Reconciliation") && n == "Resume" && v.reconciled && freshResume(before, e))) {
 				return errInvalid
 			}
 		case cancelSessionEffect, awaitQuiescenceEffect, emitSafeEffect, closeSessionEffect, holdInputEffect:

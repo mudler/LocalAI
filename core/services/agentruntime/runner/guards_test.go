@@ -14,12 +14,12 @@ var _ = Describe("Independent guard rejection", func() {
 		for _, n := range []string{"Stream", "CancelTimedOut", "TurnFinished"} {
 			s := runnerState(running{d})
 			if n == "CancelTimedOut" {
-				s = cancelling{d}
+				s = cancelling{phaseFixture("Cancelling")}
 			}
 			e := ev(n, d)
 			r := PureReduce(s, e)
 			r.state = sealing{d}
-			r.effects = []effect{exportAndSealEffect{effectData{id: d.id}}}
+			r.effects = []effect{exportAndSealEffect{effectData{effectFields: &effectFields{id: d.id}}}}
 			Expect(CheckTransition(s, e, r)).NotTo(Succeed())
 		}
 	})
@@ -30,8 +30,11 @@ var _ = Describe("Independent guard rejection", func() {
 			e := ev(n, d).payload()
 			e.trusted = false
 			r := PureReduce(settling{d}, makeEvent(n, e))
-			r.state = idle{d}
-			r.effects = []effect{startNextEffect{effectData{id: d.id}}}
+			x := d.clone()
+			x.input = nil
+			x.ciphertext = nil
+			r.state = idle{x}
+			r.effects = []effect{startNextEffect{effectData{effectFields: &effectFields{id: d.id}}}}
 			Expect(CheckTransition(settling{d}, makeEvent(n, e), r)).NotTo(Succeed())
 		}
 	})
@@ -39,14 +42,16 @@ var _ = Describe("Independent guard rejection", func() {
 		d := fixture()
 		for _, n := range []string{"RestoreSucceeded", "QuiescenceConfirmed", "SealSucceeded", "SettleSucceeded"} {
 			p := map[string]string{"RestoreSucceeded": "Restoring", "QuiescenceConfirmed": "Cancelling", "SealSucceeded": "Sealing", "SettleSucceeded": "Settling"}[n]
-			d.ciphertext = []byte("cipher")
+			d = phaseFixture(p)
 			s := makeState(p, d)
+			Expect(CheckInvariants(s)).To(Succeed())
 			e := ev(n, d).payload()
 			e.now = 0
 			r := step(s, makeEvent(n, e))
 			Expect(r.state.phase()).To(Equal(p))
 			Expect(r.effects).To(BeEmpty())
 		}
+		d = phaseFixture("Sealing")
 		e := ev("SealSucceeded", d).payload()
 		e.content = nil
 		r := step(sealing{d}, makeEvent("SealSucceeded", e))
@@ -55,8 +60,8 @@ var _ = Describe("Independent guard rejection", func() {
 	})
 	It("stop and lease loss invalidate pending seal and settlement", func() {
 		d := fixture()
-		d.ciphertext = []byte("cipher")
 		for _, p := range []string{"Quiescent", "Sealing", "Settling"} {
+			d = phaseFixture(p)
 			for _, n := range []string{"Stop", "LeaseLost"} {
 				r := step(makeState(p, d), ev(n, d))
 				Expect(effectNames(r)).To(ContainElement("CancelSession"))
@@ -138,8 +143,7 @@ var _ = Describe("Independent guard rejection", func() {
 		for _, p := range phases {
 			for _, n := range events {
 				for _, field := range []string{"principal", "conversation", "turn", "attempt", "epoch"} {
-					d := fixture()
-					d.ciphertext = []byte("cipher")
+					d := phaseFixture(p)
 					v := ev(n, d).payload()
 					switch field {
 					case "principal":
@@ -154,6 +158,7 @@ var _ = Describe("Independent guard rejection", func() {
 						v.id.epoch++
 					}
 					s := makeState(p, d)
+					Expect(CheckInvariants(s)).To(Succeed())
 					r := step(s, makeEvent(n, v))
 					Expect(r.effects).To(BeEmpty(), fmt.Sprintf("%s %s %s", p, n, field))
 					Expect(reflect.DeepEqual(r.state, s)).To(BeTrue())
