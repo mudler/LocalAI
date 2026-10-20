@@ -134,7 +134,8 @@ test.describe('Studio composer: keys', () => {
   test('/ focuses the prompt from anywhere on the page', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/studio')
-    await page.locator('h1.page-title').click()
+    // The add-on shell titles the page; click that title, away from every field.
+    await page.locator('h1.page-title').first().click()
     await page.keyboard.press('/')
     await expect(prompt(page)).toBeFocused()
     // Typing a slash in the prompt is a slash, not a jump.
