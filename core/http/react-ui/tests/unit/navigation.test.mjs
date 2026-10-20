@@ -79,10 +79,10 @@ test('movePin moves one place and stops at the ends', () => {
 
 const user = { isAdmin: false, authEnabled: true, hasFeature: () => false, features: {}, hasBuiltin: false }
 
-test('the sidebar has four primary items and Settings and Models are administrator items', () => {
-  assert.deepEqual(primaryDestinations.map(i => i.path), ['/app/chat', '/app/models', '/app/addons', '/app/settings'])
+test('Settings is not a primary item and Models is an administrator item', () => {
+  assert.deepEqual(primaryDestinations.map(i => i.path), ['/app/chat', '/app/models', '/app/addons'])
   const admin = visiblePrimary(primaryDestinations, { ...user, isAdmin: true, hasFeature: () => true })
-  assert.equal(admin.length, 4)
+  assert.equal(admin.length, 3)
   const member = visiblePrimary(primaryDestinations, { ...user, hasBuiltin: true })
   assert.deepEqual(member.map(i => i.path), ['/app/chat', '/app/addons'])
 })

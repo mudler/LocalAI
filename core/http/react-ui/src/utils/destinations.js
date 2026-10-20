@@ -36,7 +36,7 @@ export function destinationsFor(auth) {
   ]
 }
 
-// The four-item layout: Home, then Chat, Models, Add-ons and Settings, then the hubs.
+// The four-item layout: Home, then Chat, Models and Add-ons, then the hubs.
 export function destinationsForNavigation(auth) {
   const hubItems = hubs.flatMap(hub => {
     const path = hubEntryPath(hub, auth)

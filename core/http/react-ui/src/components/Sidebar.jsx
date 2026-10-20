@@ -18,8 +18,8 @@ import Icon from './Icon'
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
-// The sidebar has two layouts. The four-item layout shows Home, Chat, Models,
-// Add-ons and Settings, the Pinned section, and Build and Operate under
+// The sidebar has two layouts. The four-item layout shows Home, Chat, Models
+// and Add-ons, the Pinned section, and Build and Operate under
 // Workspace. With the legacy switch on (features.addon_navigation === false)
 // it shows Home and Models, the Create group (Chat, Studio, Talk) and
 // Workspace. Build and Operate are single entries; each opens a hub whose tab
