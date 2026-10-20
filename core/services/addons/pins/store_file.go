@@ -31,7 +31,7 @@ func NewFileStore(path string) (*FileStore, error) {
 	if path == "" {
 		return s, nil
 	}
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Clean(path))
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
 	}

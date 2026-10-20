@@ -253,7 +253,7 @@ func DownloadExportedModelEndpoint(ftService *finetune.FineTuneService) echo.Han
 				return nil
 			}
 
-			f, err := os.Open(path)
+			f, err := os.Open(filepath.Clean(path))
 			if err != nil {
 				return err
 			}

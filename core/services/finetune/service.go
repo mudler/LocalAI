@@ -115,7 +115,7 @@ func (s *FineTuneService) saveJobState(job *schema.FineTuneJob) {
 	}
 
 	statePath := filepath.Join(dir, "state.json")
-	if err := os.WriteFile(statePath, data, 0640); err != nil {
+	if err := os.WriteFile(statePath, data, 0600); err != nil {
 		xlog.Error("Failed to write job state", "job_id", job.ID, "error", err)
 	}
 }
@@ -137,7 +137,7 @@ func (s *FineTuneService) loadJobsFromDisk(_ context.Context) ([]*schema.FineTun
 			continue
 		}
 		statePath := filepath.Join(baseDir, entry.Name(), "state.json")
-		data, err := os.ReadFile(statePath)
+		data, err := os.ReadFile(filepath.Clean(statePath))
 		if err != nil {
 			continue
 		}
@@ -660,7 +660,7 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 			s.setExportFailed(job, fmt.Sprintf("failed to marshal config: %v", err))
 			return
 		}
-		if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
+		if err := os.WriteFile(configPath, yamlData, 0600); err != nil {
 			s.setExportFailed(job, fmt.Sprintf("failed to write config file: %v", err))
 			return
 		}
@@ -765,7 +765,7 @@ func (s *FineTuneService) UploadDataset(filename string, data []byte) (string, e
 		return "", fmt.Errorf("invalid filename")
 	}
 	filePath := filepath.Join(uploadDir, uuid.New().String()[:8]+"-"+base)
-	if err := os.WriteFile(filePath, data, 0640); err != nil {
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
 		return "", fmt.Errorf("failed to write dataset: %w", err)
 	}
 

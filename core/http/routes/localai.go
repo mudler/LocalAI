@@ -409,6 +409,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"load_status":  "/api/models/:id/load-status",
 					"load_cancel":  "/api/models/:id/load-cancel",
 				},
+				// #nosec G101 -- route paths, not credentials.
 				"ai_functions": map[string]string{
 					"tts":            "/tts",
 					"tts_voices":     "/v1/audio/voices",
@@ -429,6 +430,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"prompts":          "/v1/mcp/prompts/:model",
 					"resources":        "/v1/mcp/resources/:model",
 				},
+				// #nosec G101 -- route paths, not credentials.
 				"p2p": map[string]string{
 					"nodes": "/api/p2p",
 					"token": "/api/p2p/token",

@@ -623,6 +623,7 @@ func (a *Application) waitForHealthyWorker() {
 			}
 		}
 		// Add 0-1s jitter to prevent thundering-herd on the node registry
+		// #nosec G404 -- jitter only spreads retries, it is not security sensitive.
 		jitter := time.Duration(rand.Int64N(int64(time.Second)))
 		select {
 		case <-a.applicationConfig.Context.Done():

@@ -730,7 +730,7 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 // loadOrGenerateHMACSecret loads an HMAC secret from the given file path,
 // or generates a random 32-byte secret and persists it if the file doesn't exist.
 func loadOrGenerateHMACSecret(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err == nil {
 		secret := string(data)
 		if len(secret) >= 32 {

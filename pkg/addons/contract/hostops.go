@@ -48,6 +48,7 @@ const (
 )
 
 // HostCredentialHeader carries the host credential of the incarnation.
+// #nosec G101 -- this is a header name, not a credential value.
 const HostCredentialHeader = "X-Addon-Host-Credential"
 
 // hostOpName is the brief's shape ^[a-z]+\.[a-z.]+$ without an empty word:
