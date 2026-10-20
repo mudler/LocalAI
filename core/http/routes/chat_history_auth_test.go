@@ -25,10 +25,15 @@ import (
 type chatHistoryServer struct {
 	e        *echo.Echo
 	db       *gorm.DB
+	store    *chathistory.Store
 	sessions map[string]string
 }
 
 func newChatHistoryServer() *chatHistoryServer {
+	return newChatHistoryServerWithConfig(config.NewApplicationConfig())
+}
+
+func newChatHistoryServerWithConfig(appConfig *config.ApplicationConfig) *chatHistoryServer {
 	db, err := auth.InitDB(":memory:")
 	Expect(err).NotTo(HaveOccurred())
 	sqlDB, err := db.DB()
@@ -38,7 +43,7 @@ func newChatHistoryServer() *chatHistoryServer {
 	store, err := chathistory.New(db)
 	Expect(err).NotTo(HaveOccurred())
 
-	s := &chatHistoryServer{e: echo.New(), db: db, sessions: map[string]string{}}
+	s := &chatHistoryServer{e: echo.New(), db: db, store: store, sessions: map[string]string{}}
 	for _, id := range []string{"alice", "bob", "carol"} {
 		user := &auth.User{ID: id, Email: id + "@example.test", Name: id, Role: auth.RoleUser, Status: auth.StatusActive, Provider: auth.ProviderLocal}
 		Expect(db.Create(user).Error).To(Succeed())
@@ -49,7 +54,7 @@ func newChatHistoryServer() *chatHistoryServer {
 	// carol had the default-on feature revoked by an admin.
 	Expect(auth.UpdateUserPermissions(db, "carol", auth.PermissionMap{auth.FeatureChatHistory: false})).To(Succeed())
 
-	s.e.Use(auth.Middleware(db, config.NewApplicationConfig()))
+	s.e.Use(auth.Middleware(db, appConfig))
 	routes.RegisterChatHistoryRoutes(s.e, store, auth.RequireFeature(db, auth.FeatureChatHistory))
 	return s
 }

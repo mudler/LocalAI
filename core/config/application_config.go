@@ -250,6 +250,7 @@ type AuthConfig struct {
 	OIDCClientID        string
 	OIDCClientSecret    string
 	AdminEmail          string // auto-promote to admin on login
+	LegacyOwnerEmail    string // account that keeps the root storage area created while auth was off
 	RegistrationMode    string // "open", "approval" (default when empty), "invite"
 	DisableLocalAuth    bool   // disable local email/password registration and login
 	APIKeyHMACSecret    string // HMAC secret for API key hashing; auto-generated if empty
@@ -1085,6 +1086,12 @@ func WithExternalBaseURL(url string) AppOption {
 func WithAuthAdminEmail(email string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Auth.AdminEmail = email
+	}
+}
+
+func WithAuthLegacyOwnerEmail(email string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.LegacyOwnerEmail = email
 	}
 }
 

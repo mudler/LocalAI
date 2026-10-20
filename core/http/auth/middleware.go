@@ -21,6 +21,7 @@ const (
 	contextKeyAPIKey              = "auth_apikey"
 	contextKeySource              = "auth_source"
 	contextKeyHeaderAuthenticated = "auth_header_authenticated"
+	contextKeyStorageUserID       = "auth_storage_user_id"
 )
 
 // Middleware returns an Echo middleware that handles authentication.
@@ -58,6 +59,9 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 				if user != nil {
 					c.Set(contextKeyUser, user)
 					c.Set(contextKeyRole, user.Role)
+					if IsLegacyOwner(user, appConfig.Auth.LegacyOwnerEmail) {
+						c.Set(contextKeyStorageUserID, "")
+					}
 					authenticated = true
 
 					// Session rotation for cookie-based sessions
@@ -219,6 +223,28 @@ func GetUser(c echo.Context) *User {
 		return nil
 	}
 	return u
+}
+
+// IsLegacyOwner reports whether user is the account configured to own the
+// data created before user authentication was enabled.
+func IsLegacyOwner(user *User, legacyOwnerEmail string) bool {
+	owner := strings.TrimSpace(legacyOwnerEmail)
+	return user != nil && owner != "" && strings.EqualFold(strings.TrimSpace(user.Email), owner)
+}
+
+// GetStorageUserID returns the user ID that scopes per-user storage (agents,
+// collections, skills, jobs, outputs, chat history). It is the authenticated
+// user's ID, except for the legacy owner, whose storage is the root area
+// (empty ID) that holds everything created while auth was off. Without an
+// authenticated user it is empty, as before auth existed.
+func GetStorageUserID(c echo.Context) string {
+	if id, ok := c.Get(contextKeyStorageUserID).(string); ok {
+		return id
+	}
+	if u := GetUser(c); u != nil {
+		return u.ID
+	}
+	return ""
 }
 
 // GetUserRole returns the role of the authenticated user, or empty string.

@@ -160,6 +160,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | `--oidc-client-secret` | | OIDC Client Secret | `$LOCALAI_OIDC_CLIENT_SECRET` |
 | `--auth-base-url` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) | `$LOCALAI_BASE_URL` |
 | `--auth-admin-email` | | Email address to auto-promote to admin role on login | `$LOCALAI_ADMIN_EMAIL` |
+| `--auth-legacy-owner-email` | | Email address of the account that keeps the agents, collections, skills and jobs created while auth was off (root storage area) | `$LOCALAI_AUTH_LEGACY_OWNER` |
 | `--auth-registration-mode` | `open` | Registration mode: `open`, `approval`, or `invite` | `$LOCALAI_REGISTRATION_MODE` |
 | `--disable-local-auth` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only setups) | `$LOCALAI_DISABLE_LOCAL_AUTH` |
 

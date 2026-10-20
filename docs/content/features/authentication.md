@@ -139,6 +139,25 @@ credentials after auth is enabled. Admin views do not provide a complete migrati
 or export path for root data.
 {{% /notice %}}
 
+To keep the existing data without moving it, name the account that owns it with
+`LOCALAI_AUTH_LEGACY_OWNER`. Requests authenticated as that account (session or
+one of its API keys) use the root storage area instead of a per-user one, so the
+existing agents, collections, skills, jobs, outputs and chat history stay
+visible and usable, and switching auth off again returns to the same data. Every
+other account keeps its own storage area. The account is matched by e-mail,
+case-insensitively; treat the address like `LOCALAI_ADMIN_EMAIL` and register it
+before anyone else can. Legacy API keys (`LOCALAI_API_KEY`) are not the owner.
+
+```bash
+LOCALAI_AUTH=true \
+LOCALAI_ADMIN_EMAIL=owner@example.com \
+LOCALAI_AUTH_LEGACY_OWNER=owner@example.com \
+LOCALAI_REGISTRATION_MODE=invite \
+local-ai run
+```
+
+Without `LOCALAI_AUTH_LEGACY_OWNER`, or for any other account, the steps below apply.
+
 Before switching an existing instance:
 
 1. Pause existing agents and scheduled work while auth is still off.
@@ -178,6 +197,7 @@ in **Settings → Users and keys**. Existing root agents can use an explicit
 | `LOCALAI_OIDC_CLIENT_SECRET` | | OIDC Client Secret |
 | `LOCALAI_BASE_URL` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) |
 | `LOCALAI_ADMIN_EMAIL` | | Email address to auto-promote to admin role on login |
+| `LOCALAI_AUTH_LEGACY_OWNER` | | Email address of the account that keeps the root storage area (data created while auth was off) |
 | `LOCALAI_REGISTRATION_MODE` | `approval` | Registration mode: `open`, `approval`, or `invite` |
 | `LOCALAI_DISABLE_LOCAL_AUTH` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only deployments) |
 
