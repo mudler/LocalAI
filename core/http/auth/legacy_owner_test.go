@@ -94,3 +94,53 @@ var _ = Describe("Legacy owner storage scope", func() {
 		Expect(auth.IsLegacyOwner(nil, "owner@example.test")).To(BeFalse())
 	})
 })
+
+var _ = Describe("Agent pool calls for root agents", func() {
+	const hmacSecret = "test-hmac-secret"
+	var (
+		db      *gorm.DB
+		service *auth.User
+		poolKey string
+		bobKey  string
+	)
+
+	BeforeEach(func() {
+		db = testDB()
+		service = createTestUser(db, "agents@example.test", auth.RoleUser, auth.ProviderLocal)
+		bob := createTestUser(db, "bob@example.test", auth.RoleUser, auth.ProviderLocal)
+		var err error
+		poolKey, _, err = auth.CreateAPIKey(db, service.ID, "agent pool", service.Role, hmacSecret, nil)
+		Expect(err).NotTo(HaveOccurred())
+		bobKey, _, err = auth.CreateAPIKey(db, bob.ID, "consumer", bob.Role, hmacSecret, nil)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	app := func(owner string) *echo.Echo {
+		appConfig := config.NewApplicationConfig()
+		appConfig.Auth.APIKeyHMACSecret = hmacSecret
+		appConfig.Auth.LegacyOwnerEmail = owner
+		appConfig.AgentPool.APIKey = poolKey
+		return newStorageScopeApp(db, appConfig)
+	}
+
+	It("gives the pool's own key the root storage area when a legacy owner is configured", func() {
+		rec := doRequest(app("owner@example.test"), http.MethodGet, "/scope", withBearerToken(poolKey))
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(rec.Body.String()).To(Equal("[]"))
+	})
+
+	It("keeps the pool's key in its own area when the call names a user", func() {
+		rec := doRequest(app("owner@example.test"), http.MethodGet, "/scope?user_id=someone", withBearerToken(poolKey))
+		Expect(rec.Body.String()).To(Equal("[" + service.ID + "]"))
+	})
+
+	It("changes nothing for the pool's key without a legacy owner", func() {
+		rec := doRequest(app(""), http.MethodGet, "/scope", withBearerToken(poolKey))
+		Expect(rec.Body.String()).To(Equal("[" + service.ID + "]"))
+	})
+
+	It("does not extend the root area to other keys of other accounts", func() {
+		rec := doRequest(app("owner@example.test"), http.MethodGet, "/scope", withBearerToken(bobKey))
+		Expect(rec.Body.String()).NotTo(Equal("[]"))
+	})
+})

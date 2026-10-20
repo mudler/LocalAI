@@ -148,6 +148,13 @@ other account keeps its own storage area. The account is matched by e-mail,
 case-insensitively; treat the address like `LOCALAI_ADMIN_EMAIL` and register it
 before anyone else can. Legacy API keys (`LOCALAI_API_KEY`) are not the owner.
 
+The agent pool runs the root agents with its own key (`LOCALAI_AGENT_POOL_API_KEY`).
+When a legacy owner is configured, calls made with that key use the root storage
+area too, unless they name a user with `?user_id=`; this lets knowledge base
+auto-search find the root agents' collections and append their sources. Give the
+account that owns the pool key the `collections` feature, and keep it a regular
+user: it needs no admin rights.
+
 ```bash
 LOCALAI_AUTH=true \
 LOCALAI_ADMIN_EMAIL=owner@example.com \

@@ -59,7 +59,7 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 				if user != nil {
 					c.Set(contextKeyUser, user)
 					c.Set(contextKeyRole, user.Role)
-					if IsLegacyOwner(user, appConfig.Auth.LegacyOwnerEmail) {
+					if IsLegacyOwner(user, appConfig.Auth.LegacyOwnerEmail) || isAgentPoolRootCall(c, appConfig) {
 						c.Set(contextKeyStorageUserID, "")
 					}
 					authenticated = true
@@ -230,6 +230,23 @@ func GetUser(c echo.Context) *User {
 func IsLegacyOwner(user *User, legacyOwnerEmail string) bool {
 	owner := strings.TrimSpace(legacyOwnerEmail)
 	return user != nil && owner != "" && strings.EqualFold(strings.TrimSpace(user.Email), owner)
+}
+
+// isAgentPoolRootCall reports whether the request is the agent pool calling
+// back into LocalAI with its own API key for an agent of the root storage area
+// (for example the knowledge base search behind KB auto-search citations).
+// The root agents belong to the legacy owner, so their collections live in
+// the root area; without this the pool's service account would search its own,
+// empty area. It only applies when a legacy owner is configured, and never when
+// the call names a user (?user_id=), so a user's agent is never answered from
+// the root area.
+func isAgentPoolRootCall(c echo.Context, appConfig *config.ApplicationConfig) bool {
+	poolKey := appConfig.AgentPool.APIKey
+	if strings.TrimSpace(appConfig.Auth.LegacyOwnerEmail) == "" || poolKey == "" || c.QueryParam("user_id") != "" {
+		return false
+	}
+	key := extractHeaderKey(c)
+	return key != "" && subtle.ConstantTimeCompare([]byte(key), []byte(poolKey)) == 1
 }
 
 // GetStorageUserID returns the user ID that scopes per-user storage (agents,
