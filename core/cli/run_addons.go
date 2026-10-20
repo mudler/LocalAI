@@ -40,7 +40,7 @@ func addonConfigFor(enabled bool, mode, dataPath string, authEnabled bool) (conf
 	if err != nil {
 		return config.AddonConfig{}, err
 	}
-	transport, address, err := gateway.NewLoopbackCarrierConfig(localAddonOwnerID)
+	transport, address, err := gateway.NewLoopbackCarrierConfig(localAddonOwnerID, root)
 	if err != nil {
 		return config.AddonConfig{}, fmt.Errorf("add-on owner transport: %w", err)
 	}

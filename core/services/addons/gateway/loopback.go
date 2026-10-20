@@ -9,23 +9,73 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
+
+// loopbackPortFile names the file in the add-on state root that keeps the
+// loopback port of the owner.
+const loopbackPortFile = "loopback-port"
+
+// loopbackPort returns the port the owner listens on. The owner persists its
+// own address in its identity file and refuses to start when the address
+// differs on a later start, so the port must be the same on every start for
+// the same state root. A random port at each start broke that check. The port
+// is chosen once, kept in the root, and reused. If it is taken by another
+// process, the start fails with a clear error: another port would change the
+// address and the identity would no longer match.
+func loopbackPort(root string) (int, error) {
+	path := filepath.Join(root, loopbackPortFile)
+	raw, err := os.ReadFile(path)
+	switch {
+	case err == nil:
+		port, perr := strconv.Atoi(strings.TrimSpace(string(raw)))
+		if perr != nil || port < 1 || port > 65535 {
+			return 0, fmt.Errorf("add-on owner loopback port file %s is not a valid port; fix or remove it together with the add-on state", path)
+		}
+		probe, lerr := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+		if lerr != nil {
+			return 0, fmt.Errorf("add-on owner loopback port %d is already in use (%v); free the port, or turn the owner off with --addons-enabled=false", port, lerr)
+		}
+		_ = probe.Close()
+		return port, nil
+	case !os.IsNotExist(err):
+		return 0, err
+	}
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	port := probe.Addr().(*net.TCPAddr).Port
+	_ = probe.Close()
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		return 0, err
+	}
+	if err := os.WriteFile(path, []byte(strconv.Itoa(port)+"\n"), 0o600); err != nil {
+		return 0, err
+	}
+	return port, nil
+}
 
 // NewLoopbackCarrierConfig builds the carrier identity of a deployment with one
 // instance, which is its own owner. The keys and the certificate are made fresh
 // in memory, never written to disk and never leave the process, so the carrier
-// is reachable only by this process on the loopback interface. It returns the
+// is reachable only by this process on the loopback interface. The port is kept
+// in root and is the same on every start (see loopbackPort); the certificate
+// and the pin do not enter the address, so they stay in memory. It returns the
 // config and the loopback address the owner listens on.
-func NewLoopbackCarrierConfig(instanceID string) (*CarrierConfig, string, error) {
-	probe, err := net.Listen("tcp", "127.0.0.1:0")
+func NewLoopbackCarrierConfig(instanceID, root string) (*CarrierConfig, string, error) {
+	port, err := loopbackPort(root)
 	if err != nil {
 		return nil, "", err
 	}
-	address := probe.Addr().String()
-	_ = probe.Close()
+	address := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
 	caPub, caKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, "", err
