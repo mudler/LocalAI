@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
@@ -154,7 +156,42 @@ var _ = Describe("Sound Expansion HTTP", func() {
 		Expect(properties["bpm"]).To(Equal(map[string]any{"type": "integer", "minimum": float64(1), "maximum": float64(400)}))
 		Expect(properties["duration_seconds"]).To(Equal(map[string]any{"type": "number", "minimum": float64(1), "maximum": float64(600)}))
 		Expect(properties["language"]).To(Equal(map[string]any{"type": "string", "maxLength": float64(32)}))
-		Expect(properties["keyscale"]).To(HaveKeyWithValue("maxLength", float64(32)))
+		keyscale := properties["keyscale"].(map[string]any)
+		Expect(keyscale).To(HaveLen(4))
+		Expect(keyscale["maxLength"]).To(Equal(float64(32)))
+		Expect(keyscale["type"]).To(Equal("string"))
+		Expect(keyscale["description"]).To(ContainSubstring("Omit when unspecified"))
+		Expect(keyscale).NotTo(HaveKey("pattern"))
+		values := keyscale["enum"].([]any)
+		Expect(values).To(HaveLen(504))
+		// Build the oracle independently of the production enumeration.
+		expected := map[string]bool{}
+		for _, root := range strings.Fields("A B C D E F G a b c d e f g") {
+			for _, accidental := range []string{"", "b", "#"} {
+				for _, suffix := range []string{"", " major", " minor", " maj", " min", " dorian", " phrygian", " lydian", " mixolydian", " locrian", " ionian", " aeolian"} {
+					expected[root+accidental+suffix] = true
+				}
+			}
+		}
+		seen := map[string]bool{}
+		maxLength := 0
+		for _, value := range values {
+			key := value.(string)
+			Expect(key).NotTo(BeEmpty())
+			Expect(seen[key]).To(BeFalse(), key)
+			Expect(expected[key]).To(BeTrue(), key)
+			seen[key] = true
+			maxLength = max(maxLength, utf8.RuneCountInString(key))
+			raw := fmt.Sprintf(`{"caption":"piano","lyrics":"","keyscale":%q}`, key)
+			_, err := backend.ParseSoundExpansion(raw)
+			Expect(err).NotTo(HaveOccurred(), key)
+		}
+		Expect(seen).To(Equal(expected))
+		Expect(maxLength).To(Equal(13))
+		firstTools := fake.prediction.Tools
+		Expect(request()).To(Succeed())
+		Expect(fake.prediction.Tools).To(Equal(firstTools))
+		Expect(fake.prediction.Messages[0].Content).To(ContainSubstring("Omit optional fields when unspecified"))
 		Expect(properties["timesignature"]).To(HaveKey("pattern"))
 		stored, _ := cl.GetModelConfig("chat")
 		Expect(stored.Grammar).To(Equal("installed grammar"))

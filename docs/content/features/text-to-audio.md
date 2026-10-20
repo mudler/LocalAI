@@ -1141,10 +1141,22 @@ The server caps output at 2,048 tokens and accepts only these fields:
 | `caption` | 1–500 characters |
 | `lyrics` | 0–4000 characters |
 | `bpm` | Integer from 1 through 400 |
-| `keyscale` | Musical key and optional mode, such as `C minor`, at most 32 characters |
+| `keyscale` | One of 504 musical key spellings, such as `C`, `F# minor`, or `bb dorian` (see below) |
 | `timesignature` | `N/D`, with each integer from 1 through 32 |
 | `language` | String of at most 32 characters |
 | `duration_seconds` | Number from 1 through 600 |
+
+The `keyscale` tool schema enumerates the accepted spellings instead of using a
+regular expression. Use a root from `A`–`G` or `a`–`g`, optionally followed by
+`#` or `b`. The root can stand alone or have one space followed by `major`,
+`minor`, `maj`, `min`, `dorian`, `phrygian`, `lydian`, `mixolydian`, `locrian`,
+`ionian`, or `aeolian`. Mode names are lowercase; extra whitespace and other
+spellings are not accepted. This preserves the server's existing vocabulary.
+Omit optional fields when unspecified; do not use an empty string or `null`
+for an unknown key. Empty `lyrics` remains valid for instrumental sound.
+Invalid-key errors quote and escape the rejected key, showing at most 64
+characters and the total character count if truncated. They do not include
+other generated arguments.
 
 Explicit `instrumental: true` clears generated lyrics. Your selected `language`
 (or `vocal_language`) takes precedence over generated language.
