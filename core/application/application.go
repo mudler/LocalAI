@@ -17,7 +17,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/addons"
-	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -81,7 +80,6 @@ type Application struct {
 	addonGateway       *gateway.Gateway
 	addonServer        *http.Server
 	addonSources       *catalog.Sources
-	backendLibrary     *backendlib.Installer
 	addonManager       *addons.Manager
 	addonHostOps       *addonruntime.HostOps
 	// The pin store is built once so the routes and the retention sweep share it.
@@ -826,10 +824,6 @@ func (a *Application) StartAgentPool() {
 // AddonManager is nil unless the deployment explicitly enables addons.
 func (a *Application) AddonManager() *addons.Manager { return a.addonManager }
 
-// BackendLibrary installs backends from the library entries of kind backend.
-// It is nil unless this instance owns the add-on libraries.
-func (a *Application) BackendLibrary() *backendlib.Installer { return a.backendLibrary }
-
 // AddonSources exposes owner-only source administration and explicit live refresh.
 // Forwarders never load source configuration or perform catalog I/O.
 func (a *Application) AddonSources() *catalog.Sources { return a.addonSources }
@@ -873,15 +867,8 @@ func (a *Application) startAddons() error {
 		if err != nil {
 			return err
 		}
-		var defaults []catalog.Source
 		if c.OfficialLibrary {
-			defaults = append(defaults, catalog.OfficialLibrary())
-		}
-		if c.OfficialBackendLibrary {
-			defaults = append(defaults, catalog.OfficialBackendLibrary())
-		}
-		if len(defaults) > 0 {
-			if _, err = sources.SeedDefaults(defaults...); err != nil {
+			if _, err = sources.SeedDefault(catalog.OfficialLibrary()); err != nil {
 				return err
 			}
 		}
@@ -949,12 +936,6 @@ func (a *Application) startAddons() error {
 		}
 	}
 	a.addonSources = cat.Sources
-	if cat.Sources != nil {
-		a.backendLibrary = &backendlib.Installer{
-			Catalog: cat, SystemState: a.applicationConfig.SystemState, ModelLoader: a.modelLoader,
-			MaxBytes: c.BackendMaxBytes, RequireIntegrity: a.applicationConfig.RequireBackendIntegrity,
-		}
-	}
 	a.addonManager = m
 	if err := a.startAddonGateway(); err != nil {
 		_ = m.Close()

@@ -37,8 +37,6 @@ type RunCMD struct {
 	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
 	AddonsOwnershipMode       string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
 	AddonsOfficialLibrary     bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
-	AddonsBackendLibrary      bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"false" help:"Also register the pilot backend library on the first start, when the add-on owner has no sources.json yet. The backend gallery stays the source of truth; a library backend is an additional way to install it" group:"addons"`
-	AddonsBackendMaxBytes     int64  `name:"addons-backend-max-bytes" env:"LOCALAI_ADDONS_BACKEND_MAX_BYTES" default:"8589934592" help:"Largest compressed size, in bytes, of a backend image installed from a library. Add-ons keep their own limit of 512 MiB" group:"addons"`
 	Pprof                     bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
 	PprofAddress              string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
 	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
@@ -669,8 +667,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if addonCfg.Enabled {
 		addonCfg.OfficialLibrary = r.AddonsOfficialLibrary
-		addonCfg.OfficialBackendLibrary = r.AddonsBackendLibrary
-		addonCfg.BackendMaxBytes = r.AddonsBackendMaxBytes
 		opts = append(opts, config.WithAddons(addonCfg))
 	}
 	if authEnabled {

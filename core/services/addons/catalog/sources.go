@@ -298,22 +298,16 @@ func (s *Sources) persist(next map[string]Source) error {
 // removed (the file then holds the remaining libraries, possibly none) and a
 // library the admin edited is not reset. It reports whether it added src.
 // It is trusted startup code and takes no actor; it never runs for a request.
-func (s *Sources) SeedDefault(src Source) (bool, error) { return s.SeedDefaults(src) }
-
-// SeedDefaults is SeedDefault for several libraries, written together.
-func (s *Sources) SeedDefaults(srcs ...Source) (bool, error) {
+func (s *Sources) SeedDefault(src Source) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.fresh {
 		return false, nil
 	}
-	next := map[string]Source{}
-	for _, src := range srcs {
-		if !idPattern.MatchString(src.ID) || src.Removed || !validSource(src) {
-			return false, ErrInvalid
-		}
-		next[src.ID] = src
+	if !idPattern.MatchString(src.ID) || src.Removed || !validSource(src) {
+		return false, ErrInvalid
 	}
+	next := map[string]Source{src.ID: src}
 	if e := s.persist(next); e != nil {
 		return false, e
 	}

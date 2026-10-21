@@ -36,13 +36,6 @@ type AddonConfig struct {
 	// when the owner has no sources.json yet. A sources.json that exists is
 	// never changed by it, so a library the admin removed stays removed.
 	OfficialLibrary bool
-	// OfficialBackendLibrary also registers the pilot library of backends on
-	// the first start. It is off by default: the backend gallery stays the
-	// source of truth and the library is an additional way to install.
-	OfficialBackendLibrary bool
-	// BackendMaxBytes bounds the compressed size of one backend image
-	// installed from a library; zero is 8 GiB. Add-ons keep their own limit.
-	BackendMaxBytes int64
 	Host            contract.HostCompatibility
 	AdminCheck      func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
 	// BackupKeep is how many backups of one add-on the owner keeps; zero is

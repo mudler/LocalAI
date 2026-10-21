@@ -340,9 +340,6 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("backend %q: %w", config.Name, optsErr)
 	}
 	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
-	if config.MaxBytes > 0 {
-		downloadOpts = append(downloadOpts, downloader.WithMaxBytes(config.MaxBytes))
-	}
 
 	// PreferDevelopmentBackends installs the development image as the primary URI,
 	// keeping the released image reachable as the first fallback — instead of only
@@ -449,7 +446,6 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		InstalledAt: time.Now().Format(time.RFC3339),
 		Version:     config.Version,
 		URI:         string(uri),
-		Library:     config.Library,
 	}
 
 	// Record the OCI digest for upgrade detection (non-fatal on failure)

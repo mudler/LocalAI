@@ -79,9 +79,6 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			galleryService,
 			app.UpgradeChecker())
 		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware)
-		if lib := app.BackendLibrary(); lib != nil {
-			router.POST("/backends/library/install", localai.InstallBackendFromLibraryEndpoint(lib), adminMiddleware)
-		}
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
 		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
 		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState, ClusterCapabilityProviderFor(app), ClusterInstalledProviderFor(app)), adminMiddleware)
