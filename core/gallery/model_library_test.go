@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -21,39 +22,160 @@ const (
 	modelLibraryGolds = "testdata/model_library"
 )
 
-func loadRealGallery(t *testing.T) []GalleryModel {
+// loadRealLibrary reads the library file, the source of the models, the way
+// the host reads a library.
+func loadRealLibrary(t *testing.T) []ModelLibraryEntry {
 	t.Helper()
-	src, err := os.ReadFile(realGalleryIndex)
+	src, err := os.ReadFile(realModelLibrary)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The host reads the index into a list of pointers; the shape is the same.
-	var entries []GalleryModel
-	if err := yaml.Unmarshal(src, &entries); err != nil {
+	res, err := DecodeModelIndex(src)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) == 0 {
-		t.Fatal("the real gallery index has no entries")
+	if len(res.Entries) == 0 {
+		t.Fatal("the real model library has no entries")
 	}
-	return entries
+	return res.Entries
 }
 
-// Every entry of the real index must survive the library unchanged. The count
-// is logged so a run shows how many real entries it covered.
+// sameModelEntry compares two library entries apart from the generator-owned
+// header fields the gallery has no place for: the version, which is derived
+// from the content, and the channel.
+func sameModelEntry(t *testing.T, a, b ModelLibraryEntry) bool {
+	t.Helper()
+	a.Version, b.Version = "", ""
+	a.Channel, b.Channel = "", ""
+	x, err := EncodeModelIndex([]ModelLibraryEntry{a})
+	if err != nil {
+		t.Fatal(err)
+	}
+	y, err := EncodeModelIndex([]ModelLibraryEntry{b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(x) == string(y)
+}
+
+// Every entry of the real library must survive the gallery copy unchanged:
+// library -> gallery -> library is the same entry, and gallery -> library ->
+// gallery is the same gallery entry. The count is logged so a run shows how
+// many real entries it covered.
 func TestModelLibraryRoundTripsEveryRealEntry(t *testing.T) {
-	entries := loadRealGallery(t)
+	entries := loadRealLibrary(t)
 	failed := 0
-	for _, m := range entries {
+	for _, e := range entries {
+		m, err := e.ToGallery()
+		if err != nil {
+			failed++
+			t.Errorf("%s: %v", e.ID, err)
+			continue
+		}
 		if err := VerifyModelRoundTrip(m); err != nil {
 			failed++
-			t.Errorf("%s: %v", m.Name, err)
+			t.Errorf("%s: %v", e.ID, err)
+			continue
+		}
+		back, err := ModelLibraryEntryFromGallery(m)
+		if err != nil {
+			failed++
+			t.Errorf("%s: %v", e.ID, err)
+			continue
+		}
+		if !sameModelEntry(t, e, back) {
+			failed++
+			t.Errorf("%s: library -> gallery -> library changed the entry", e.ID)
 		}
 	}
-	t.Logf("round trip: %d of %d real model entries are equal after gallery -> library -> gallery", len(entries)-failed, len(entries))
+	t.Logf("round trip: %d of %d real library entries are equal after library -> gallery -> library", len(entries)-failed, len(entries))
 }
 
-// An entry whose gallery digest is in the golden file must still produce the
-// recorded library entry. An entry changed or added since the golden file was
+// The gallery generated from the library is read by the gallery reader, and
+// the reader sees the same entries: the names, the file uris and the digests.
+func TestGeneratedGalleryLoadsWithTheSameEntries(t *testing.T) {
+	entries := loadRealLibrary(t)
+	models, err := ModelsFromLibrary(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	flat := make([]GalleryModel, len(models))
+	for i, m := range models {
+		flat[i] = *m
+	}
+	body, err := EncodeGalleryIndex(flat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The host reads the gallery file into a list of pointers.
+	var loaded []*GalleryModel
+	if err := yaml.Unmarshal(body, &loaded); err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded) != len(entries) {
+		t.Fatalf("the gallery has %d entries, the library %d", len(loaded), len(entries))
+	}
+	files := 0
+	for i, e := range entries {
+		g := loaded[i]
+		if g.Name != e.ID {
+			t.Fatalf("entry %d is %q in the gallery and %q in the library", i, g.Name, e.ID)
+		}
+		if len(g.AdditionalFiles) != len(e.Model.Files) {
+			t.Errorf("%s: %d files in the gallery, %d in the library", e.ID, len(g.AdditionalFiles), len(e.Model.Files))
+			continue
+		}
+		for j, f := range e.Model.Files {
+			files++
+			if g.AdditionalFiles[j].URI != f.URI || g.AdditionalFiles[j].SHA256 != f.SHA256 || g.AdditionalFiles[j].Filename != f.Filename {
+				t.Errorf("%s: file %d differs: %+v and %+v", e.ID, j, g.AdditionalFiles[j], f)
+			}
+		}
+		if !reflect.DeepEqual(*g, *models[i]) {
+			t.Errorf("%s: the gallery reader sees a different entry than the library gives", e.ID)
+		}
+		gd, _ := galleryEntryDigest(*g)
+		wd, _ := galleryEntryDigest(*models[i])
+		if gd != wd {
+			t.Errorf("%s: gallery digest %s, library digest %s", e.ID, gd[:12], wd[:12])
+		}
+	}
+	t.Logf("generated gallery: %d entries and %d files read back equal to the library", len(loaded), files)
+}
+
+// gallery/index.yaml is generated and never edited. The CI check regenerates it
+// and fails on a diff; this test does the same in the Go suite, so a hand edit
+// is found by go test too.
+func TestCheckedInGalleryIsTheGeneratedCopy(t *testing.T) {
+	models, err := ModelsFromLibrary(loadRealLibrary(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	flat := make([]GalleryModel, len(models))
+	for i, m := range models {
+		flat[i] = *m
+	}
+	want, err := EncodeGalleryIndex(flat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	have, err := os.ReadFile(realGalleryIndex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The generator puts a comment header in front of the body.
+	body := string(have)
+	for strings.HasPrefix(body, "#") {
+		_, rest, _ := strings.Cut(body, "\n")
+		body = rest
+	}
+	if body != string(want) {
+		t.Error("gallery/index.yaml is not the copy generated from gallery/models/index.yaml. It is generated; do not edit it by hand. Regenerate: go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml")
+	}
+}
+
+// An entry whose library digest is in the golden file must still produce the
+// recorded gallery entry. An entry changed or added since the golden file was
 // rendered has no recorded digest and is covered by the round trip only.
 func TestModelLibraryMatchesGoldenDigests(t *testing.T) {
 	f, err := os.Open(filepath.Join(modelLibraryGolds, "digests.tsv"))
@@ -61,7 +183,7 @@ func TestModelLibraryMatchesGoldenDigests(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	type pair struct{ gallery, library string }
+	type pair struct{ library, gallery string }
 	golden := map[string]pair{}
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
@@ -79,93 +201,94 @@ func TestModelLibraryMatchesGoldenDigests(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(golden) < 2000 {
-		t.Fatalf("the golden file lists %d entries; it should list the real index", len(golden))
+		t.Fatalf("the golden file lists %d entries; it should list the real library", len(golden))
 	}
 
 	checked, unchanged := 0, 0
-	for _, m := range loadRealGallery(t) {
-		want, ok := golden[m.Name]
+	for _, e := range loadRealLibrary(t) {
+		want, ok := golden[e.ID]
 		if !ok {
 			continue
 		}
-		g, l, err := ModelLibraryDigests(m)
+		l, g, err := ModelLibraryDigests(e)
 		if err != nil {
-			t.Fatalf("%s: %v", m.Name, err)
+			t.Fatalf("%s: %v", e.ID, err)
 		}
 		checked++
-		if g != want.gallery {
+		if l != want.library {
 			continue // the entry changed after the golden file was rendered
 		}
 		unchanged++
-		if l != want.library {
-			t.Errorf("%s: the library entry changed (digest %s, golden %s); render the golden files again only if the change is intended", m.Name, l, want.library)
+		if g != want.gallery {
+			t.Errorf("%s: the generated gallery entry changed (digest %s, golden %s); render the golden files again only if the change is intended", e.ID, g, want.gallery)
 		}
 	}
-	t.Logf("golden digests: %d of %d golden entries are in the index, %d unchanged and compared", checked, len(golden), unchanged)
+	t.Logf("golden digests: %d of %d golden entries are in the library, %d unchanged and compared", checked, len(golden), unchanged)
 	// Most entries are stable between renders. If almost none match, the digest
-	// of the gallery side has changed meaning and the check proves nothing.
+	// of the library side has changed meaning and the check proves nothing.
 	if unchanged*2 < checked {
-		t.Errorf("only %d of %d golden entries kept their gallery digest; render the golden files again", unchanged, checked)
+		t.Errorf("only %d of %d golden entries kept their library digest; render the golden files again", unchanged, checked)
 	}
 }
 
-// The readable samples are written both ways: the gallery entry as it stands
-// in the index and the library entry made from it.
+// The readable samples are written both ways: the library entry as it stands
+// in the library and the gallery entry generated from it.
 func TestModelLibraryMatchesGoldenSamples(t *testing.T) {
-	galleries, err := filepath.Glob(filepath.Join(modelLibraryGolds, "samples", "*.gallery.yaml"))
-	if err != nil || len(galleries) == 0 {
+	libraries, err := filepath.Glob(filepath.Join(modelLibraryGolds, "samples", "*.library.yaml"))
+	if err != nil || len(libraries) == 0 {
 		t.Fatalf("no golden samples: %v", err)
 	}
-	for _, gpath := range galleries {
-		name := strings.TrimSuffix(filepath.Base(gpath), ".gallery.yaml")
+	for _, lpath := range libraries {
+		name := strings.TrimSuffix(filepath.Base(lpath), ".library.yaml")
 		t.Run(name, func(t *testing.T) {
-			src, err := os.ReadFile(gpath)
+			src, err := os.ReadFile(lpath)
 			if err != nil {
 				t.Fatal(err)
 			}
-			var entries []GalleryModel
-			if err := yaml.Unmarshal(src, &entries); err != nil || len(entries) != 1 {
-				t.Fatalf("reading the sample: %v (%d entries)", err, len(entries))
-			}
-			libWant, err := os.ReadFile(strings.TrimSuffix(gpath, ".gallery.yaml") + ".library.yaml")
+			galWant, err := os.ReadFile(strings.TrimSuffix(lpath, ".library.yaml") + ".gallery.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			entry, err := ModelLibraryEntryFromGallery(entries[0])
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := EncodeModelIndex([]ModelLibraryEntry{entry})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(got) != string(libWant) {
-				t.Errorf("the library entry differs from the golden file:\n%s", got)
-			}
-
-			res, err := DecodeModelIndex(libWant)
+			res, err := DecodeModelIndex(src)
 			if err != nil || len(res.Entries) != 1 {
-				t.Fatalf("reading the golden library entry: %v", err)
+				t.Fatalf("reading the sample: %v (%d entries)", err, len(res.Entries))
 			}
-			back, err := res.Entries[0].ToGallery()
+			// The library sample is what a library file holds.
+			again, err := EncodeModelIndex(res.Entries)
+			if err != nil || string(again) != string(src) {
+				t.Errorf("the library sample does not encode back to itself: %v", err)
+			}
+			m, err := res.Entries[0].ToGallery()
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := VerifyModelRoundTrip(back); err != nil {
-				t.Error(err)
+			got, err := EncodeGalleryIndex([]GalleryModel{m})
+			if err != nil {
+				t.Fatal(err)
 			}
-			if d := firstDifference(stripRuntime(entries[0]), back); d != "unknown field" {
-				t.Errorf("the golden library entry does not give back the gallery entry: %s", d)
+			if string(got) != string(galWant) {
+				t.Errorf("the gallery entry differs from the golden file:\n%s", got)
+			}
+
+			var loaded []GalleryModel
+			if err := yaml.Unmarshal(galWant, &loaded); err != nil || len(loaded) != 1 {
+				t.Fatalf("the gallery reader on the golden entry: %v", err)
+			}
+			if d := firstDifference(stripRuntime(m), loaded[0]); d != "unknown field" {
+				t.Errorf("the golden gallery entry does not load as the library entry: %s", d)
+			}
+			if err := VerifyModelRoundTrip(loaded[0]); err != nil {
+				t.Error(err)
 			}
 		})
 	}
 }
 
-// The rendered file in the repository is read by the host, so it must decode,
-// and every entry must agree with itself. It may be older than the gallery
-// index; the render command brings it up to date.
-func TestRenderedModelLibraryIsConsistent(t *testing.T) {
+// The library file in the repository is the source and is read by the host,
+// so it must decode, and every entry must have the library shape: it converts
+// to a gallery entry and comes back as itself. Edited entries keep their own
+// version; only the content is compared.
+func TestRealModelLibraryHasTheLibraryShape(t *testing.T) {
 	src, err := os.ReadFile(realModelLibrary)
 	if err != nil {
 		t.Fatal(err)
@@ -175,9 +298,12 @@ func TestRenderedModelLibraryIsConsistent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(res.Skipped) != 0 {
-		t.Errorf("the rendered library skipped %d entries", len(res.Skipped))
+		t.Errorf("the model library skipped %d entries", len(res.Skipped))
 	}
 	for _, e := range res.Entries {
+		if e.Name != e.ID {
+			t.Errorf("%s: the name %q differs from the id; the gallery copy cannot carry it", e.ID, e.Name)
+		}
 		m, err := e.ToGallery()
 		if err != nil {
 			t.Fatalf("%s: %v", e.ID, err)
@@ -186,13 +312,11 @@ func TestRenderedModelLibraryIsConsistent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", e.ID, err)
 		}
-		a, _ := EncodeModelIndex([]ModelLibraryEntry{e})
-		b, _ := EncodeModelIndex([]ModelLibraryEntry{again})
-		if string(a) != string(b) {
-			t.Errorf("%s: the rendered entry is not what its own gallery entry renders to; it was edited by hand or is from another shape", e.ID)
+		if !sameModelEntry(t, e, again) {
+			t.Errorf("%s: the entry changes on the way through the gallery copy; it has a field the gallery cannot carry", e.ID)
 		}
 	}
-	t.Logf("rendered model library: %d entries", len(res.Entries))
+	t.Logf("model library: %d entries have the library shape", len(res.Entries))
 }
 
 func libraryEntry(extra string) string {

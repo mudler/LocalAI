@@ -1,6 +1,4 @@
 - name: vits-streaming-assistant
-  urls:
-    - https://localai.io/features/openai-realtime/
   description: |
     English voice assistant preset: Silero VAD, Parakeet TDT 0.6B v3, Qwen3
     0.6B chat, and VITS-LJS English single-speaker TTS through sherpa-onnx.
@@ -11,6 +9,8 @@
     WebRTC also needs the opus backend. No browser or hardware performance
     is established by this preset.
   license: mit
+  urls:
+    - https://localai.io/features/openai-realtime/
   tags:
     - voice-assistant
     - audio-pipeline
@@ -20,12 +20,12 @@
     - sherpa-onnx
   config_file:
     pipeline:
-        vad: silero-vad-ggml
-        transcription: parakeet-cpp-tdt-0.6b-v3
-        llm: qwen3-0.6b
-        tts: vits-ljs-sherpa
-        disable_thinking: true
-        streaming:
-            llm: true
-            tts: true
-            clause_chunking: true
+      disable_thinking: true
+      llm: qwen3-0.6b
+      streaming:
+        clause_chunking: true
+        llm: true
+        tts: true
+      transcription: parakeet-cpp-tdt-0.6b-v3
+      tts: vits-ljs-sherpa
+      vad: silero-vad-ggml

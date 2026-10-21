@@ -4,7 +4,9 @@ When adding a GGUF model from HuggingFace to the LocalAI model gallery, follow t
 
 ## Gallery file
 
-All models are defined in `gallery/index.yaml`. Find the appropriate section (embedding models near other embeddings, chat models near similar chat models) and add a new entry.
+The source of the models is the library file, `gallery/models/index.yaml`. Edit it there, in the library entry shape (header plus a `model:` body; see `docs/content/features/model-gallery.md`). `gallery/index.yaml` is a generated copy for releases before the cutover and is never edited by hand: after an edit run `go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml` and commit both files. CI fails when the copy differs. The examples below use the gallery field names (`files`, `overrides`, `config_file`); in the library they sit under `model:`, with `config_file` written as `configFile`.
+
+Find the appropriate section (embedding models near other embeddings, chat models near similar chat models) and add a new entry.
 
 ## Getting the SHA256
 
@@ -207,7 +209,7 @@ Look at existing `.yaml` files in `gallery/` to find the right prompt template f
 1. **Find the GGUF file** on HuggingFace — note exact filename (case-sensitive)
 2. **Get the SHA256** using the `curl -sI` + `x-linked-etag` method above
 3. **Choose the right template** config from `gallery/` based on model architecture
-4. **Add the entry** to `gallery/index.yaml` near similar models
+4. **Add the entry** to `gallery/models/index.yaml` near similar models, then regenerate `gallery/index.yaml`
 5. **Set `embeddings: true`** if it's an embedding model
 6. **Include both URLs** — the original model page and the GGUF repo
 7. **Write a description** — mention model size, capabilities, and quantization type

@@ -1,10 +1,5 @@
-- name: wemm-embedding-2b
-  variants:
-    - model: wemm-embedding-4b
-    - model: wemm-embedding-9b
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/tencent/WeMM-Embedding-2B
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: wemm-embedding-2b
   description: |
     WeMM-Embedding-2B is Tencent's Apache-2.0 multilingual embedding model
     built on Qwen3.5. This entry serves the original bfloat16 safetensors with
@@ -14,6 +9,8 @@
     The upstream model can also embed images and videos. LocalAI currently
     exposes text input through its embeddings API for this backend.
   license: apache-2.0
+  urls:
+    - https://huggingface.co/tencent/WeMM-Embedding-2B
   tags:
     - embeddings
     - safetensors
@@ -23,13 +20,15 @@
     - rag
     - gpu
     - cpu
-  last_checked: "2026-08-29"
   overrides:
     backend: transformers
     embeddings: true
+    known_usecases:
+      - embeddings
+    parameters:
+      model: tencent/WeMM-Embedding-2B
     trust_remote_code: true
     type: SentenceTransformer
-    known_usecases:
-        - embeddings
-    parameters:
-        model: tencent/WeMM-Embedding-2B
+  variants:
+    - model: wemm-embedding-4b
+    - model: wemm-embedding-9b

@@ -373,7 +373,9 @@ To use a gallery that needs authentication, such as a private GitHub repository 
 
 ## Model library (preview)
 
-The model library lists the same models as the model gallery in the shared library entry shape. Each entry has the common header (`kind`, `id`, `name`, `version`, `description`, `license`, `urls`, `tags`, `icon`, `channel`, `policy`, `schemaVersion`) and a `model` body with `url`, `backend`, `size`, `files`, `configFile`, `overrides`, `variants` and `promptTemplates`. It is a separate file, `gallery/models/index.yaml`. The model gallery index stays the default and is not changed.
+The model library lists the models in the shared library entry shape. Each entry has the common header (`kind`, `id`, `name`, `version`, `description`, `license`, `urls`, `tags`, `icon`, `channel`, `policy`, `schemaVersion`) and a `model` body with `url`, `backend`, `size`, `files`, `configFile`, `overrides`, `variants` and `promptTemplates`. It is the file `gallery/models/index.yaml`, and it is the source of truth for the models: to add, change or remove a model, edit this file.
+
+The old gallery file, `gallery/index.yaml`, is a generated copy of the library. It stays only so that releases from before the cutover, which read the gallery, keep working. Never edit it by hand; CI fails when it differs from the generated copy.
 
 LocalAI lists the library as a default model source, `official-models`, next to the `localai` gallery, so a standard install has it without a flag. To start without it, remove it; a source you remove stays removed:
 
@@ -383,15 +385,26 @@ local-ai library remove official-models
 
 The gallery named `localai` keeps its own index. A source you add with `local-ai library add` is added to the defaults. If the library cannot be fetched or read, listing the models fails with an error; LocalAI does not fall back to the gallery, so the problem is never silent. Entries of another kind are skipped. The library has no mirrors and no signature policy of its own. The sha256 of each model file is still checked on install.
 
-The library is rendered from the gallery, never edited by hand. The command converts every entry to a library entry and back, and fails if one entry does not come back equal:
+### Edit the library, generate the gallery
+
+All edits go to `gallery/models/index.yaml`. After an edit, generate the gallery copy and commit both files:
 
 ```bash
 go run ./scripts/models/cmd/modelcatalog \
-  --index gallery/index.yaml \
-  --out gallery/models/index.yaml
+  --library gallery/models/index.yaml \
+  --out gallery/index.yaml
 ```
 
-The tests in `core/gallery` run the same round trip on every entry of the real index, and compare the result with golden files in `core/gallery/testdata/model_library`. After you change the library shape on purpose, render the golden files again with `--golden core/gallery/testdata/model_library`.
+The command reads the library with the same strict reader the host uses. It converts every library entry to a gallery entry and back, loads its own output the way the host loads a gallery, and fails if one entry does not come back equal.
+
+The gallery copy cannot carry everything a library entry or the old gallery file could hold. The command lists what it drops on every run:
+
+- The keys `last_checked`, `parameters`, `Base Model`, `Context Length`, `License` and `Training Data` are not in the library. The gallery reader has no field for any of them, so the host ignored them on load, and dropping them changes no entry the host reads.
+- The library header fields `version`, `channel` and `schemaVersion` have no place in a gallery entry. The host does not read them from a gallery.
+
+CI (the `model library` workflow) checks the library file itself. It decodes, every entry has the library shape, every entry converts to a gallery entry and back, and the gallery reader loads the generated gallery and sees the same names, file URIs and digests. It then generates the gallery copy again and fails with a message to regenerate, not to edit by hand, when `gallery/index.yaml` differs from it.
+
+The tests in `core/gallery` run the same checks on every entry of the real library, and compare the result with golden files in `core/gallery/testdata/model_library`, which are written from the library. After you change the library shape on purpose, write the golden files again with `--golden core/gallery/testdata/model_library`.
 
 ## Gallery mirrors
 

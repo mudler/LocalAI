@@ -1,21 +1,14 @@
-- name: kimodo-soma-rp
-  variants:
-    - model: kimodo-soma-rp-bf16
-    - model: kimodo-soma-rp-q4_k
-    - model: kimodo-soma-rp-q4_k_m
-    - model: kimodo-soma-rp-q5_k
-    - model: kimodo-soma-rp-q6_k
-  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
-  backend: kimodocpp
-  urls:
-    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
-    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
-    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+- url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  name: kimodo-soma-rp
   description: |
     Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
     and the shared monolithic Q8_0 Llama-3/LLM2Vec text encoder.
     Exports an animated skeleton GLB without a mesh or skin. Motion and text
     weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
   tags:
     - 3d_animation
     - text-to-motion
@@ -24,21 +17,28 @@
     - vulkan
     - kimodo
     - q8_0
-  overrides:
-    parameters:
-        model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
-    options:
-        - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
-        - frames:150
-        - steps:100
-        - text_guidance:2
   files:
     - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
-      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
       sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
     - filename: kimodo/text/tokenizer.gguf
-      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
       sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
     - filename: kimodo/text/Llama-3-Kimodo-Q8_0.gguf
-      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
       sha256: b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
+  backend: kimodocpp
+  overrides:
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+  variants:
+    - model: kimodo-soma-rp-bf16
+    - model: kimodo-soma-rp-q4_k
+    - model: kimodo-soma-rp-q4_k_m
+    - model: kimodo-soma-rp-q5_k
+    - model: kimodo-soma-rp-q6_k
