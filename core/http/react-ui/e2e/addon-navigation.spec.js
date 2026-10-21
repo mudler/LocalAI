@@ -315,7 +315,9 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await mockIdentity(page)
     await page.goto('/app/addons/voice/voice/recognition')
     await expect(page.getByTestId('voices-page')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Voices', level: 1 })).toBeVisible()
+    // The add-on shell shows the one title; the page does not repeat it.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+    await expect(page.getByRole('heading', { name: 'Voice', exact: true, level: 1 })).toBeVisible()
     await expectVoiceTabs(page, 'recognition')
     await expect(page.locator('[data-testid="addon-surface"][data-addon="voice"]')).toBeVisible()
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
@@ -512,9 +514,12 @@ async function asFaceAdmin(page, features = {}) {
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true, face_recognition: true, ...features }) }))
 }
 
-async function expectFacesPage(page) {
+// The core page titles itself "Faces"; inside the add-on shell the shell shows
+// the one title, "Face", and the page does not repeat it.
+async function expectFacesPage(page, title = 'Faces') {
   await expect(page.getByTestId('faces-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Faces', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  await expect(page.getByRole('heading', { name: title, exact: true, level: 1 })).toBeVisible()
 }
 
 test.describe('Add-on navigation: the Face recognition page', () => {
@@ -524,7 +529,7 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await serveFace(page)
     await mockIdentity(page)
     await page.goto('/app/addons/face/recognition')
-    await expectFacesPage(page)
+    await expectFacesPage(page, 'Face')
     await expect(page.locator('[data-testid="addon-surface"][data-addon="face"]')).toBeVisible()
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
   })
