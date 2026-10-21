@@ -2,34 +2,28 @@
 package application
 
 import (
-	"testing"
-
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestAFrontendWithoutTheAddonProcessOffersNoHostOperations(t *testing.T) {
-	named := map[string][]string{"fine-tuning": {"finetune."}}
-	a := &Application{applicationConfig: &config.ApplicationConfig{AddonHostOps: named}}
-	if a.newAddonHostOps(nil, contract.DefaultLimits()) != nil {
-		t.Fatal("a process without the add-on manager built a broker")
-	}
-	if a.AddonHostOps() != nil {
-		t.Fatal("a process that never started the supervisor offers host operations")
-	}
-}
+var _ = Describe("add-on host operations", func() {
+	It("are not offered by a frontend without the add-on process", func() {
+		named := map[string][]string{"fine-tuning": {"finetune."}}
+		a := &Application{applicationConfig: &config.ApplicationConfig{AddonHostOps: named}}
+		Expect(a.newAddonHostOps(nil, contract.DefaultLimits())).To(BeNil(), "a process without the add-on manager built a broker")
+		Expect(a.AddonHostOps()).To(BeNil(), "a process that never started the supervisor offers host operations")
+	})
 
-func TestAHostThatNamesNoAddonOffersNoHostOperations(t *testing.T) {
-	for _, ops := range []map[string][]string{nil, {}} {
-		a := &Application{applicationConfig: &config.ApplicationConfig{AddonHostOps: ops}}
-		if a.newAddonHostOps(nil, contract.DefaultLimits()) != nil {
-			t.Fatalf("%v built a broker", ops)
+	It("are not offered by a host that names no add-on", func() {
+		for _, ops := range []map[string][]string{nil, {}} {
+			a := &Application{applicationConfig: &config.ApplicationConfig{AddonHostOps: ops}}
+			Expect(a.newAddonHostOps(nil, contract.DefaultLimits())).To(BeNil(), "%v built a broker", ops)
 		}
-	}
-}
+	})
 
-func TestTheFeatureCheckRefusesWithoutAnAccountDatabase(t *testing.T) {
-	if addonFeatureCheck(nil)("u1", "fine_tuning") {
-		t.Fatal("no database must mean no feature")
-	}
-}
+	It("refuses the feature check without an account database", func() {
+		Expect(addonFeatureCheck(nil)("u1", "fine_tuning")).To(BeFalse(), "no database must mean no feature")
+	})
+})

@@ -121,7 +121,7 @@ var _ = Describe("alternating authenticated frontends", func() {
 			resp, e := client.Do(req)
 			Expect(e).NotTo(HaveOccurred())
 			b, e := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			Expect(e).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(200))
 			var result contract.Result
@@ -134,7 +134,7 @@ var _ = Describe("alternating authenticated frontends", func() {
 		req.Header.Set("Authorization", "Bearer "+token)
 		resp, e := client.Do(req)
 		Expect(e).NotTo(HaveOccurred())
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(401))
 	})
 })

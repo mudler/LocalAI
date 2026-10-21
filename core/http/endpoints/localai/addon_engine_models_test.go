@@ -3,11 +3,12 @@ package localai
 import (
 	"context"
 	"errors"
-	"testing"
 
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type fakeFTJobs struct {
@@ -55,72 +56,68 @@ func (f *fakeQJobs) ImportModel(context.Context, string, string, schema.Quantiza
 
 var errNoJob = errors.New("job not found: j9")
 
-func TestFineTuneModelsMapsAMissingJobToNotFound(t *testing.T) {
-	f := FineTuneModels{Svc: &fakeFTJobs{getErr: errNoJob}}
-	if _, err := f.ExportModel(context.Background(), "u1", "j9", schema.ExportRequest{}); !errors.Is(err, hostops.ErrNotFound) || !errors.Is(err, errNoJob) {
-		t.Fatalf("export: got %v, want not found", err)
-	}
-	if _, err := f.Checkpoints(context.Background(), "u1", "j9"); !errors.Is(err, hostops.ErrNotFound) {
-		t.Fatalf("checkpoints: got %v, want not found", err)
-	}
-}
+var _ = Describe("FineTuneModels", func() {
+	It("maps a missing job to not found", func() {
+		f := FineTuneModels{Svc: &fakeFTJobs{getErr: errNoJob}}
+		_, err := f.ExportModel(context.Background(), "u1", "j9", schema.ExportRequest{})
+		Expect(err).To(MatchError(hostops.ErrNotFound), "export")
+		Expect(err).To(MatchError(errNoJob), "export")
+		_, err = f.Checkpoints(context.Background(), "u1", "j9")
+		Expect(err).To(MatchError(hostops.ErrNotFound), "checkpoints")
+	})
 
-func TestFineTuneModelsRefusesAnExportThatIsRunningAsAConflict(t *testing.T) {
-	svc := &fakeFTJobs{job: &schema.FineTuneJob{ID: "j1", ExportStatus: "exporting"}, exported: "/models/m"}
-	f := FineTuneModels{Svc: svc}
-	if _, err := f.ExportModel(context.Background(), "u1", "j1", schema.ExportRequest{}); !errors.Is(err, hostops.ErrConflict) {
-		t.Fatalf("got %v, want conflict", err)
-	}
-	if svc.exports != 0 {
-		t.Fatalf("service export ran %d times for a running export", svc.exports)
-	}
-}
+	It("refuses an export that is running as a conflict", func() {
+		svc := &fakeFTJobs{job: &schema.FineTuneJob{ID: "j1", ExportStatus: "exporting"}, exported: "/models/m"}
+		f := FineTuneModels{Svc: svc}
+		_, err := f.ExportModel(context.Background(), "u1", "j1", schema.ExportRequest{})
+		Expect(err).To(MatchError(hostops.ErrConflict))
+		Expect(svc.exports).To(BeZero(), "service export ran for a running export")
+	})
 
-func TestFineTuneModelsPassesAFinishedJobToTheService(t *testing.T) {
-	svc := &fakeFTJobs{job: &schema.FineTuneJob{ID: "j1", ExportStatus: ""}, exported: "/models/m"}
-	f := FineTuneModels{Svc: svc}
-	got, err := f.ExportModel(context.Background(), "u1", "j1", schema.ExportRequest{})
-	if err != nil || got != "/models/m" || svc.exports != 1 {
-		t.Fatalf("got %q %v exports=%d", got, err, svc.exports)
-	}
-}
+	It("passes a finished job to the service", func() {
+		svc := &fakeFTJobs{job: &schema.FineTuneJob{ID: "j1", ExportStatus: ""}, exported: "/models/m"}
+		f := FineTuneModels{Svc: svc}
+		got, err := f.ExportModel(context.Background(), "u1", "j1", schema.ExportRequest{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal("/models/m"))
+		Expect(svc.exports).To(Equal(1))
+	})
 
-func TestFineTuneModelsListsCheckpointsWithTheirPaths(t *testing.T) {
-	svc := &fakeFTJobs{job: &schema.FineTuneJob{ID: "j1"}, cps: []*pb.CheckpointInfo{{Step: 7, Path: "/out/ckpt-7"}}}
-	got, err := FineTuneModels{Svc: svc}.Checkpoints(context.Background(), "u1", "j1")
-	if err != nil || len(got) != 1 || got[0].Step != 7 || got[0].Path != "/out/ckpt-7" {
-		t.Fatalf("got %+v %v", got, err)
-	}
-}
+	It("lists checkpoints with their paths", func() {
+		svc := &fakeFTJobs{job: &schema.FineTuneJob{ID: "j1"}, cps: []*pb.CheckpointInfo{{Step: 7, Path: "/out/ckpt-7"}}}
+		got, err := FineTuneModels{Svc: svc}.Checkpoints(context.Background(), "u1", "j1")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].Step).To(BeEquivalentTo(7))
+		Expect(got[0].Path).To(Equal("/out/ckpt-7"))
+	})
+})
 
-func TestQuantizationModelsMapsAMissingJobToNotFound(t *testing.T) {
-	q := QuantizationModels{Svc: &fakeQJobs{getErr: errNoJob}}
-	if _, err := q.ImportModel(context.Background(), "u1", "j9", schema.QuantizationImportRequest{}); !errors.Is(err, hostops.ErrNotFound) {
-		t.Fatalf("got %v, want not found", err)
-	}
-}
+var _ = Describe("QuantizationModels", func() {
+	It("maps a missing job to not found", func() {
+		q := QuantizationModels{Svc: &fakeQJobs{getErr: errNoJob}}
+		_, err := q.ImportModel(context.Background(), "u1", "j9", schema.QuantizationImportRequest{})
+		Expect(err).To(MatchError(hostops.ErrNotFound))
+	})
 
-func TestQuantizationModelsRefusesAJobThatIsNotCompletedAsAConflict(t *testing.T) {
-	svc := &fakeQJobs{job: &schema.QuantizationJob{ID: "q1", Status: "running"}, imported: "/models/q"}
-	if _, err := (QuantizationModels{Svc: svc}).ImportModel(context.Background(), "u1", "q1", schema.QuantizationImportRequest{}); !errors.Is(err, hostops.ErrConflict) {
-		t.Fatalf("got %v, want conflict", err)
-	}
-	if svc.imports != 0 {
-		t.Fatalf("service import ran %d times for an unfinished job", svc.imports)
-	}
-}
+	It("refuses a job that is not completed as a conflict", func() {
+		svc := &fakeQJobs{job: &schema.QuantizationJob{ID: "q1", Status: "running"}, imported: "/models/q"}
+		_, err := (QuantizationModels{Svc: svc}).ImportModel(context.Background(), "u1", "q1", schema.QuantizationImportRequest{})
+		Expect(err).To(MatchError(hostops.ErrConflict))
+		Expect(svc.imports).To(BeZero(), "service import ran for an unfinished job")
+	})
 
-func TestQuantizationModelsRefusesAnImportThatIsRunningAsAConflict(t *testing.T) {
-	svc := &fakeQJobs{job: &schema.QuantizationJob{ID: "q1", Status: "completed", ImportStatus: "importing"}, imported: "/models/q"}
-	if _, err := (QuantizationModels{Svc: svc}).ImportModel(context.Background(), "u1", "q1", schema.QuantizationImportRequest{}); !errors.Is(err, hostops.ErrConflict) {
-		t.Fatalf("got %v, want conflict", err)
-	}
-}
+	It("refuses an import that is running as a conflict", func() {
+		svc := &fakeQJobs{job: &schema.QuantizationJob{ID: "q1", Status: "completed", ImportStatus: "importing"}, imported: "/models/q"}
+		_, err := (QuantizationModels{Svc: svc}).ImportModel(context.Background(), "u1", "q1", schema.QuantizationImportRequest{})
+		Expect(err).To(MatchError(hostops.ErrConflict))
+	})
 
-func TestQuantizationModelsPassesACompletedJobToTheService(t *testing.T) {
-	svc := &fakeQJobs{job: &schema.QuantizationJob{ID: "q1", Status: "completed"}, imported: "/models/q"}
-	got, err := (QuantizationModels{Svc: svc}).ImportModel(context.Background(), "u1", "q1", schema.QuantizationImportRequest{})
-	if err != nil || got != "/models/q" || svc.imports != 1 {
-		t.Fatalf("got %q %v imports=%d", got, err, svc.imports)
-	}
-}
+	It("passes a completed job to the service", func() {
+		svc := &fakeQJobs{job: &schema.QuantizationJob{ID: "q1", Status: "completed"}, imported: "/models/q"}
+		got, err := (QuantizationModels{Svc: svc}).ImportModel(context.Background(), "u1", "q1", schema.QuantizationImportRequest{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal("/models/q"))
+		Expect(svc.imports).To(Equal(1))
+	})
+})

@@ -167,7 +167,7 @@ func fetch(url string, mutate func(*http.Request)) fetched {
 	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := client.Do(req)
 	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, rerr := io.ReadAll(resp.Body)
 	return fetched{code: resp.StatusCode, header: resp.Header, body: string(b), err: rerr}
 }

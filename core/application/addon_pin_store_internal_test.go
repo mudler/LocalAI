@@ -5,33 +5,30 @@ import (
 	"bytes"
 	"log/slog"
 	"path/filepath"
-	"testing"
 
 	"github.com/mudler/xlog"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func capture(t *testing.T) *bytes.Buffer {
+func capture() *bytes.Buffer {
 	var buf bytes.Buffer
 	xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}), xlog.LogLevelDebug))
 	return &buf
 }
 
-func TestMemoryOnlyPinsLogOneWarning(t *testing.T) {
-	buf := capture(t)
-	if _, err := pinStoreFor(nil, ""); err != nil {
-		t.Fatal(err)
-	}
-	if got := bytes.Count(buf.Bytes(), []byte("memory only")); got != 1 {
-		t.Fatalf("want one memory-only warning, got %d in %q", got, buf.String())
-	}
-}
+var _ = Describe("pinStoreFor", func() {
+	It("logs one warning for memory-only pins", func() {
+		buf := capture()
+		_, err := pinStoreFor(nil, "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(bytes.Count(buf.Bytes(), []byte("memory only"))).To(Equal(1), "log: %q", buf.String())
+	})
 
-func TestPinsFileDoesNotWarn(t *testing.T) {
-	buf := capture(t)
-	if _, err := pinStoreFor(nil, filepath.Join(t.TempDir(), "addon-pins.json")); err != nil {
-		t.Fatal(err)
-	}
-	if buf.Len() != 0 {
-		t.Fatalf("unexpected log: %q", buf.String())
-	}
-}
+	It("does not warn with a pins file", func() {
+		buf := capture()
+		_, err := pinStoreFor(nil, filepath.Join(GinkgoT().TempDir(), "addon-pins.json"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(buf.Len()).To(BeZero(), "unexpected log: %q", buf.String())
+	})
+})

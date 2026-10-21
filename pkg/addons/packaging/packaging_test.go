@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -1091,86 +1090,82 @@ var _ = Describe("workflow policy", func() {
 // written out so a new add-on is a deliberate change here and in the workflow.
 var firstPartyAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk"}
 
-func readWorkflow(t *testing.T) string {
-	t.Helper()
+func readWorkflow() string {
+	GinkgoHelper()
 	b, err := os.ReadFile("../../../.github/workflows/addons-package.yml")
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	return string(b)
 }
 
-func TestTheWorkflowHasNoHardCodedAddonPath(t *testing.T) {
-	text := readWorkflow(t)
-	for i, line := range strings.Split(text, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "#") {
-			continue
+var _ = Describe("the add-on package workflow", func() {
+	It("has no hard-coded add-on path", func() {
+		text := readWorkflow()
+		for i, line := range strings.Split(text, "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+			Expect(line).ToNot(ContainSubstring("addons/tables/"), "line %d names addons/tables/ outside the add-on list: %s", i+1, trimmed)
 		}
-		if strings.Contains(line, "addons/tables/") {
-			t.Errorf("line %d names addons/tables/ outside the add-on list: %s", i+1, trimmed)
-		}
-	}
-}
+	})
 
-func TestTheWorkflowRunsEveryFirstPartyAddon(t *testing.T) {
-	var doc struct {
-		Jobs map[string]struct {
-			Strategy struct {
-				Matrix any `yaml:"matrix"`
-			} `yaml:"strategy"`
-			Steps []map[string]any `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal([]byte(readWorkflow(t)), &doc); err != nil {
-		t.Fatal(err)
-	}
-	// validate lists the add-ons literally. The other jobs take the add-ons
-	// that have an enabled platform from the plan.
-	list := func(v any) []string {
-		var out []string
-		items, _ := v.([]any)
-		for _, x := range items {
-			out = append(out, fmt.Sprint(x))
+	Context("for every first-party add-on", func() {
+		var doc struct {
+			Jobs map[string]struct {
+				Strategy struct {
+					Matrix any `yaml:"matrix"`
+				} `yaml:"strategy"`
+				Steps []map[string]any `yaml:"steps"`
+			} `yaml:"jobs"`
 		}
-		return out
-	}
-	matrixOf := func(job string) map[string]any { m, _ := doc.Jobs[job].Strategy.Matrix.(map[string]any); return m }
-	got := list(matrixOf("validate")["addon"])
-	if strings.Join(got, ",") != strings.Join(firstPartyAddons, ",") {
-		t.Fatalf("validate matrix lists %v, want %v", got, firstPartyAddons)
-	}
-	for _, job := range []string{"publish", "promote"} {
-		if _, ok := matrixOf(job)["addon"]; !ok {
-			t.Errorf("%s has no addon matrix", job)
+		matrixOf := func(job string) map[string]any { m, _ := doc.Jobs[job].Strategy.Matrix.(map[string]any); return m }
+
+		BeforeEach(func() {
+			Expect(yaml.Unmarshal([]byte(readWorkflow()), &doc)).To(Succeed())
+		})
+
+		It("lists the add-ons in the validate matrix", func() {
+			// validate lists the add-ons literally. The other jobs take the add-ons
+			// that have an enabled platform from the plan.
+			var got []string
+			items, _ := matrixOf("validate")["addon"].([]any)
+			for _, x := range items {
+				got = append(got, fmt.Sprint(x))
+			}
+			Expect(strings.Join(got, ",")).To(Equal(strings.Join(firstPartyAddons, ",")), "validate matrix lists %v, want %v", got, firstPartyAddons)
+		})
+
+		for _, job := range []string{"publish", "promote"} {
+			It("gives "+job+" an add-on matrix", func() {
+				Expect(matrixOf(job)).To(HaveKey("addon"), "%s has no addon matrix", job)
+			})
 		}
-	}
-	if !strings.Contains(fmt.Sprint(doc.Jobs["package"].Strategy.Matrix), "needs.plan.outputs.matrix") {
-		t.Error("package does not take its legs from the plan")
-	}
-	// The plan loops over the same list.
-	plan := readWorkflow(t)
-	if !strings.Contains(plan, "for id in "+strings.Join(firstPartyAddons, " ")+"; do") {
-		t.Errorf("plan does not loop over exactly %v", firstPartyAddons)
-	}
-	for _, id := range firstPartyAddons {
-		file := "../../../addons/" + id + "/package/platforms.yaml"
-		cfg, err := loadPlatforms(file)
-		if err != nil {
-			t.Errorf("%s: %v", id, err)
-			continue
+
+		It("takes the package legs from the plan", func() {
+			Expect(fmt.Sprint(doc.Jobs["package"].Strategy.Matrix)).To(ContainSubstring("needs.plan.outputs.matrix"),
+				"package does not take its legs from the plan")
+		})
+
+		It("loops the plan over the same list", func() {
+			plan := readWorkflow()
+			Expect(plan).To(ContainSubstring("for id in "+strings.Join(firstPartyAddons, " ")+"; do"),
+				"plan does not loop over exactly %v", firstPartyAddons)
+		})
+
+		for _, id := range firstPartyAddons {
+			It("has consistent package files for "+id, func() {
+				file := "../../../addons/" + id + "/package/platforms.yaml"
+				cfg, err := loadPlatforms(file)
+				Expect(err).ToNot(HaveOccurred(), id)
+				Expect(cfg.Addon).To(Equal(id), "platforms file names add-on %q", cfg.Addon)
+				Expect(cfg.Manifest).To(Equal("addons/"+id+"/manifest.json"), "platforms file names manifest %q", cfg.Manifest)
+				Expect(cfg.UI).To(Equal("addons/"+id+"/ui/dist"), "ui is %q", cfg.UI)
+				_, err = os.Stat("../../../addons/" + id + "/cmd/" + cfg.Executable + "/main.go")
+				Expect(err).ToNot(HaveOccurred(), "no executable source for %q", cfg.Executable)
+			})
 		}
-		if cfg.Addon != id || cfg.Manifest != "addons/"+id+"/manifest.json" {
-			t.Errorf("%s: platforms file names add-on %q and manifest %q", id, cfg.Addon, cfg.Manifest)
-		}
-		if cfg.UI != "addons/"+id+"/ui/dist" {
-			t.Errorf("%s: ui is %q", id, cfg.UI)
-		}
-		if _, err := os.Stat("../../../addons/" + id + "/cmd/" + cfg.Executable + "/main.go"); err != nil {
-			t.Errorf("%s: no executable source for %q: %v", id, cfg.Executable, err)
-		}
-	}
-}
+	})
+})
 
 // documentedAddonRepository is the value the documentation gives for the
 // ADDON_OCI_REPOSITORY variable: the Tables repository in the add-on namespace.

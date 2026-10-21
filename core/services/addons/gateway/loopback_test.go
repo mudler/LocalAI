@@ -6,102 +6,70 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestLoopbackAddressIsStableAcrossStarts(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "addons")
-	_, first, err := NewLoopbackCarrierConfig("local", root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg, second, err := NewLoopbackCarrierConfig("local", root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first != second {
-		t.Fatalf("address changed between starts: %s then %s", first, second)
-	}
-	if cfg.OwnerAddress != "https://"+second {
-		t.Fatalf("owner address %q does not match listen address %q", cfg.OwnerAddress, second)
-	}
-	info, err := os.Stat(filepath.Join(root, loopbackPortFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("port file mode is %v, want 0600", info.Mode().Perm())
-	}
-}
+var _ = Describe("the loopback carrier config", func() {
+	It("keeps its address stable across starts", func() {
+		root := filepath.Join(GinkgoT().TempDir(), "addons")
+		_, first, err := NewLoopbackCarrierConfig("local", root)
+		Expect(err).ToNot(HaveOccurred())
+		cfg, second, err := NewLoopbackCarrierConfig("local", root)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(second).To(Equal(first), "address changed between starts")
+		Expect(cfg.OwnerAddress).To(Equal("https://"+second), "owner address does not match listen address")
+		info, err := os.Stat(filepath.Join(root, loopbackPortFile))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)), "port file mode")
+	})
 
-func TestLoopbackDifferentRootsDoNotShareState(t *testing.T) {
-	_, a, err := NewLoopbackCarrierConfig("local", filepath.Join(t.TempDir(), "addons"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := NewLoopbackCarrierConfig("local", filepath.Join(t.TempDir(), "addons")); err != nil {
-		t.Fatal(err)
-	}
-	if a == "" {
-		t.Fatal("empty address")
-	}
-}
+	It("does not share state between different roots", func() {
+		_, a, err := NewLoopbackCarrierConfig("local", filepath.Join(GinkgoT().TempDir(), "addons"))
+		Expect(err).ToNot(HaveOccurred())
+		_, _, err = NewLoopbackCarrierConfig("local", filepath.Join(GinkgoT().TempDir(), "addons"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(a).ToNot(BeEmpty(), "empty address")
+	})
 
-func TestLoopbackPortInUseFailsClearly(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "addons")
-	_, address, err := NewLoopbackCarrierConfig("local", root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	held, err := net.Listen("tcp", address)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = held.Close() }()
-	_, _, err = NewLoopbackCarrierConfig("local", root)
-	if err == nil {
-		t.Fatal("expected an error while the port is in use")
-	}
-	_, port, _ := net.SplitHostPort(address)
-	if !strings.Contains(err.Error(), port) || !strings.Contains(err.Error(), "--addons-enabled=false") {
-		t.Fatalf("error does not name the port and the option: %v", err)
-	}
-}
+	It("fails clearly when the port is in use", func() {
+		root := filepath.Join(GinkgoT().TempDir(), "addons")
+		_, address, err := NewLoopbackCarrierConfig("local", root)
+		Expect(err).ToNot(HaveOccurred())
+		held, err := net.Listen("tcp", address)
+		Expect(err).ToNot(HaveOccurred())
+		defer func() { _ = held.Close() }()
+		_, _, err = NewLoopbackCarrierConfig("local", root)
+		Expect(err).To(HaveOccurred(), "expected an error while the port is in use")
+		_, port, _ := net.SplitHostPort(address)
+		Expect(err.Error()).To(ContainSubstring(port), "error does not name the port")
+		Expect(err.Error()).To(ContainSubstring("--addons-enabled=false"), "error does not name the option")
+	})
 
-func TestLoopbackRejectsInvalidPortFile(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, loopbackPortFile), []byte("nope"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := NewLoopbackCarrierConfig("local", root); err == nil {
-		t.Fatal("expected an error for an invalid port file")
-	}
-}
+	It("rejects an invalid port file", func() {
+		root := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(root, loopbackPortFile), []byte("nope"), 0o600)).To(Succeed())
+		_, _, err := NewLoopbackCarrierConfig("local", root)
+		Expect(err).To(HaveOccurred(), "expected an error for an invalid port file")
+	})
 
-func TestLoopbackRejectsLoosePortFileMode(t *testing.T) {
-	root := t.TempDir()
-	path := filepath.Join(root, loopbackPortFile)
-	if err := os.WriteFile(path, []byte("40123\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(path, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := NewLoopbackCarrierConfig("local", root); err == nil || !strings.Contains(err.Error(), "0600") {
-		t.Fatalf("expected a mode error, got %v", err)
-	}
-}
+	It("rejects a port file with a loose mode", func() {
+		root := GinkgoT().TempDir()
+		path := filepath.Join(root, loopbackPortFile)
+		Expect(os.WriteFile(path, []byte("40123\n"), 0o600)).To(Succeed())
+		Expect(os.Chmod(path, 0o644)).To(Succeed())
+		_, _, err := NewLoopbackCarrierConfig("local", root)
+		Expect(err).To(HaveOccurred())
+		Expect(strings.Contains(err.Error(), "0600")).To(BeTrue(), "expected a mode error, got %v", err)
+	})
 
-func TestLoopbackRejectsPortFileSymlinkOutsideRoot(t *testing.T) {
-	root := t.TempDir()
-	outside := filepath.Join(t.TempDir(), "port")
-	if err := os.WriteFile(outside, []byte("40123\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(outside, filepath.Join(root, loopbackPortFile)); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := NewLoopbackCarrierConfig("local", root); err == nil {
-		t.Fatal("expected an error for a port file that links outside the root")
-	}
-}
+	It("rejects a port file that links outside the root", func() {
+		root := GinkgoT().TempDir()
+		outside := filepath.Join(GinkgoT().TempDir(), "port")
+		Expect(os.WriteFile(outside, []byte("40123\n"), 0o600)).To(Succeed())
+		Expect(os.Symlink(outside, filepath.Join(root, loopbackPortFile))).To(Succeed())
+		_, _, err := NewLoopbackCarrierConfig("local", root)
+		Expect(err).To(HaveOccurred(), "expected an error for a port file that links outside the root")
+	})
+})

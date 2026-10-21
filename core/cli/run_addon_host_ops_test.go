@@ -3,20 +3,17 @@ package cli
 
 import (
 	"reflect"
-	"testing"
 
 	"github.com/mudler/LocalAI/core/config"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestTheAddonHostOpsFlagDefaultIsTheDocumentedSetting(t *testing.T) {
-	f, ok := reflect.TypeOf(RunCMD{}).FieldByName("AddonHostOps")
-	if !ok {
-		t.Fatal("the flag is missing")
-	}
-	if got := f.Tag.Get("default"); got != config.DefaultAddonHostOps {
-		t.Fatalf("flag default %q differs from %q", got, config.DefaultAddonHostOps)
-	}
-	if f.Tag.Get("env") != "LOCALAI_ADDON_HOST_OPS" {
-		t.Fatalf("env %q", f.Tag.Get("env"))
-	}
-}
+var _ = Describe("the add-on host operations flag", func() {
+	It("defaults to the documented setting", func() {
+		f, ok := reflect.TypeOf(RunCMD{}).FieldByName("AddonHostOps")
+		Expect(ok).To(BeTrue(), "the flag is missing")
+		Expect(f.Tag.Get("default")).To(Equal(config.DefaultAddonHostOps))
+		Expect(f.Tag.Get("env")).To(Equal("LOCALAI_ADDON_HOST_OPS"))
+	})
+})

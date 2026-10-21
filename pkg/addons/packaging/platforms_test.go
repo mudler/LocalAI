@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // The release platforms of the packaged first-party add-ons, with the runner
@@ -26,72 +28,50 @@ var nativeChecked = map[string]bool{"linux/amd64": true, "linux/arm64": true, "d
 
 var packagedAddons = []string{"voice", "face", "fine-tuning", "quantization", "studio", "talk"}
 
-func TestEveryPackagedAddonListsEveryReleasePlatformWithItsRunner(t *testing.T) {
+var _ = Describe("the packaged add-ons", func() {
 	for _, id := range packagedAddons {
-		p, err := loadPlatforms(filepath.Join("..", "..", "..", "addons", id, "package", "platforms.yaml"))
-		if err != nil {
-			t.Fatalf("%s: %v", id, err)
-		}
-		if p.Addon != id || p.Executable != id {
-			t.Fatalf("%s: addon %q executable %q", id, p.Addon, p.Executable)
-		}
-		got := map[string]string{}
-		for _, e := range p.Platforms {
-			got[e.Platform] = e.Runner
-			if e.NativeCheck != NativeCheckKind {
-				t.Fatalf("%s %s: native check %q", id, e.Platform, e.NativeCheck)
-			}
-		}
-		if len(got) != len(releasePlatforms) {
-			t.Fatalf("%s lists %d platforms, want %d", id, len(got), len(releasePlatforms))
-		}
-		for platform, runner := range releasePlatforms {
-			if got[platform] != runner {
-				t.Fatalf("%s: platform %s has runner %q, want %q", id, platform, got[platform], runner)
-			}
-		}
-	}
-}
+		Context(id, func() {
+			It("lists every release platform with its runner", func() {
+				p, err := loadPlatforms(filepath.Join("..", "..", "..", "addons", id, "package", "platforms.yaml"))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(p.Addon).To(Equal(id))
+				Expect(p.Executable).To(Equal(id))
+				got := map[string]string{}
+				for _, e := range p.Platforms {
+					got[e.Platform] = e.Runner
+					Expect(e.NativeCheck).To(Equal(NativeCheckKind), "%s: native check", e.Platform)
+				}
+				Expect(got).To(HaveLen(len(releasePlatforms)))
+				for platform, runner := range releasePlatforms {
+					Expect(got[platform]).To(Equal(runner), "platform %s", platform)
+				}
+			})
 
-func TestAPlatformIsEnabledExactlyWhenItsNativeCheckIsRecorded(t *testing.T) {
-	for _, id := range packagedAddons {
-		p, err := loadPlatforms(filepath.Join("..", "..", "..", "addons", id, "package", "platforms.yaml"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var enabled []string
-		for _, e := range p.Platforms {
-			if e.Enabled {
-				enabled = append(enabled, e.Platform)
-			}
-		}
-		var recorded []string
-		for platform := range nativeChecked {
-			recorded = append(recorded, platform)
-		}
-		sort.Strings(enabled)
-		sort.Strings(recorded)
-		if len(enabled) != len(recorded) {
-			t.Fatalf("%s: enabled %v, native check recorded for %v", id, enabled, recorded)
-		}
-		for i := range enabled {
-			if enabled[i] != recorded[i] {
-				t.Fatalf("%s: enabled %v, native check recorded for %v", id, enabled, recorded)
-			}
-		}
-	}
-}
+			It("enables a platform exactly when its native check is recorded", func() {
+				p, err := loadPlatforms(filepath.Join("..", "..", "..", "addons", id, "package", "platforms.yaml"))
+				Expect(err).ToNot(HaveOccurred())
+				var enabled []string
+				for _, e := range p.Platforms {
+					if e.Enabled {
+						enabled = append(enabled, e.Platform)
+					}
+				}
+				var recorded []string
+				for platform := range nativeChecked {
+					recorded = append(recorded, platform)
+				}
+				sort.Strings(enabled)
+				sort.Strings(recorded)
+				Expect(enabled).To(Equal(recorded), "enabled platforms and recorded native checks differ")
+			})
 
-func TestEveryPackagedAddonHasACatalogTemplate(t *testing.T) {
-	for _, id := range packagedAddons {
-		b, err := os.ReadFile(filepath.Join("..", "..", "..", "gallery", "addons", id+".yaml.tmpl"))
-		if err != nil {
-			t.Fatalf("%s: %v", id, err)
-		}
-		for _, want := range []string{`addonId: "{{addon}}"`, "requireSignature: true"} {
-			if !strings.Contains(string(b), want) {
-				t.Fatalf("%s template lacks %q", id, want)
-			}
-		}
+			It("has a catalog template", func() {
+				b, err := os.ReadFile(filepath.Join("..", "..", "..", "gallery", "addons", id+".yaml.tmpl"))
+				Expect(err).ToNot(HaveOccurred())
+				for _, want := range []string{`addonId: "{{addon}}"`, "requireSignature: true"} {
+					Expect(strings.Contains(string(b), want)).To(BeTrue(), "template lacks %q", want)
+				}
+			})
+		})
 	}
-}
+})

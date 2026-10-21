@@ -137,7 +137,7 @@ var _ = Describe("server-side tool declarations over HTTP", Label("tools"), func
 			req.Header.Set("Content-Type", "application/json")
 			resp, e := hc.Do(req)
 			Expect(e).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			b, _ := io.ReadAll(resp.Body)
 			return resp.StatusCode, string(b)
 		}

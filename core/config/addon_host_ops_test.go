@@ -2,37 +2,49 @@
 package config
 
 import (
-	"reflect"
-	"testing"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestParseAddonHostOps(t *testing.T) {
-	got, err := ParseAddonHostOps(DefaultAddonHostOps)
-	want := map[string][]string{"fine-tuning": {"finetune."}, "quantization": {"quantize."}}
-	if err != nil || !reflect.DeepEqual(got, want) {
-		t.Fatalf("%v %v", got, err)
-	}
-	got, err = ParseAddonHostOps(" a-b = x. , a-b=y. ,c=z.")
-	if err != nil || !reflect.DeepEqual(got, map[string][]string{"a-b": {"x.", "y."}, "c": {"z."}}) {
-		t.Fatalf("%v %v", got, err)
-	}
-	if got, err := ParseAddonHostOps(""); err != nil || len(got) != 0 {
-		t.Fatalf("an empty setting names nobody: %v %v", got, err)
-	}
-	for _, bad := range []string{"fine-tuning", "=finetune.", "fine-tuning=", "fine-tuning=finetune", "Fine=finetune.", "fine-tuning=Finetune.", "a/b=finetune."} {
-		if _, err := ParseAddonHostOps(bad); err == nil {
-			t.Errorf("%q: accepted", bad)
-		}
-	}
-}
+var _ = Describe("ParseAddonHostOps", func() {
+	It("parses the default setting", func() {
+		got, err := ParseAddonHostOps(DefaultAddonHostOps)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal(map[string][]string{"fine-tuning": {"finetune."}, "quantization": {"quantize."}}))
+	})
 
-func TestWithAddonHostOpsReplacesTheDefault(t *testing.T) {
-	o := &ApplicationConfig{}
-	if o.AddonHostOps != nil {
-		t.Fatal("the field starts unset")
-	}
-	WithAddonHostOps(map[string][]string{"x": {"y."}})(o)
-	if len(o.AddonHostOps) != 1 {
-		t.Fatalf("%v", o.AddonHostOps)
-	}
-}
+	It("trims blanks and merges repeated names", func() {
+		got, err := ParseAddonHostOps(" a-b = x. , a-b=y. ,c=z.")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal(map[string][]string{"a-b": {"x.", "y."}, "c": {"z."}}))
+	})
+
+	It("names nobody for an empty setting", func() {
+		got, err := ParseAddonHostOps("")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(BeEmpty())
+	})
+
+	DescribeTable("rejects a malformed setting",
+		func(bad string) {
+			_, err := ParseAddonHostOps(bad)
+			Expect(err).To(HaveOccurred(), "%q: accepted", bad)
+		},
+		Entry("no operations", "fine-tuning"),
+		Entry("no add-on name", "=finetune."),
+		Entry("empty prefix", "fine-tuning="),
+		Entry("prefix without a dot", "fine-tuning=finetune"),
+		Entry("uppercase add-on name", "Fine=finetune."),
+		Entry("uppercase prefix", "fine-tuning=Finetune."),
+		Entry("slash in the name", "a/b=finetune."),
+	)
+})
+
+var _ = Describe("WithAddonHostOps", func() {
+	It("replaces the default", func() {
+		o := &ApplicationConfig{}
+		Expect(o.AddonHostOps).To(BeNil(), "the field starts unset")
+		WithAddonHostOps(map[string][]string{"x": {"y."}})(o)
+		Expect(o.AddonHostOps).To(HaveLen(1))
+	})
+})
