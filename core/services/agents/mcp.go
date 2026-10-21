@@ -5,6 +5,8 @@ import (
 	"os/exec"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/mcptransport"
 	"github.com/mudler/xlog"
 )
 
@@ -18,13 +20,13 @@ func setupMCPSessions(ctx context.Context, cfg *AgentConfig) ([]*gomcp.ClientSes
 		Version: "v1.0.0",
 	}, nil)
 
-	// HTTP MCP servers (using SSE client transport)
+	// HTTP MCP servers: Streamable HTTP first, legacy SSE as fallback, both bounded by the
+	// discovery timeout (same helper as the model MCP path).
 	for _, srv := range cfg.MCPServers {
 		if srv.URL == "" {
 			continue
 		}
-		transport := &gomcp.SSEClientTransport{Endpoint: srv.URL}
-		session, err := client.Connect(ctx, transport, nil)
+		session, err := mcptransport.Connect(ctx, client, srv.URL, nil, config.DefaultMCPDiscoveryTimeout)
 		if err != nil {
 			xlog.Warn("Failed to connect to HTTP MCP server", "url", srv.URL, "error", err)
 			continue
