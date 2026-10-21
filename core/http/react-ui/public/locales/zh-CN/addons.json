@@ -35,6 +35,16 @@
   "apps": {
     "emptyBody": "管理员安装并启用附加组件后,它会显示在这里。",
     "emptyTitle": "还没有应用",
+    "firstRun": {
+      "browse": "Browse add-ons",
+      "browseBody": "Pick an add-on from a library and install it.",
+      "browseTitle": "Browse and install.",
+      "libraryBody": "The official library is registered by default. You can add more under Libraries.",
+      "libraryTitle": "Choose a library.",
+      "startBody": "Start an installed add-on from its tile. Add-ons that were running start again with the server.",
+      "startTitle": "Start it.",
+      "title": "Welcome to Apps"
+    },
     "headless": "在后台运行,没有自己的页面。",
     "listLabel": "应用",
     "loading": "正在加载应用",
@@ -43,7 +53,9 @@
     "stale": "无法刷新列表,当前显示的内容可能已过时。",
     "start": "启动",
     "stop": "停止",
+    "toolsMore_one": "and {{count}} more",
     "toolsMore_other": "另有 {{count}} 个",
+    "tools_one": "{{count}} tool",
     "tools_other": "{{count}} 个工具",
     "version": "版本 {{version}}",
     "working": "正在等待所有者确认。"
@@ -64,12 +76,24 @@
     "installedSame": "已安装 {{version}}",
     "installedState": "已安装",
     "installing": "正在安装",
-    "search": "搜索库"
+    "search": "搜索库",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind"
   },
   "catalog": {
     "allLibraries": "所有库",
     "cancel": "取消",
     "close": "关闭",
+    "count_one": "{{count}} result",
     "count_other": "{{count}} 个结果",
     "emptyBody": "此列表为空。",
     "emptyFiltered": "没有匹配的结果。请更换关键词或库。",
@@ -80,6 +104,27 @@
     "previous": "上一页",
     "retry": "重试",
     "search": "搜索"
+  },
+  "drawer": {
+    "add": "Add a new add-on",
+    "browse": "Browse add-ons",
+    "builtinDetail": "This add-on ships with LocalAI.",
+    "close": "Close",
+    "limitBody": "The sidebar shows at most eight pinned add-ons. Unpin one first.",
+    "limitTitle": "Eight add-ons are pinned",
+    "moveEarlier": "Move {{name}} earlier",
+    "moveLater": "Move {{name}} later",
+    "pin": "Pin {{name}}",
+    "pinLabel": "Pin",
+    "pinned": "Pinned",
+    "running": "Running",
+    "search": "Search add-ons",
+    "status": {
+      "failed": "failed",
+      "starting": "starting"
+    },
+    "stopped": "Stopped",
+    "unpin": "Unpin {{name}}"
   },
   "errors": {
     "auth": "你已退出登录,请重新登录。",
@@ -122,7 +167,8 @@
       "required": "要求签名时必填。",
       "url": "请输入 http 或 https 地址。",
       "urlCredentials": "地址不能包含用户名或密码。",
-      "urlQuery": "地址不能包含查询字符串或片段。"
+      "urlQuery": "地址不能包含查询字符串或片段。",
+      "either": "Use the exact identity or the pattern, not both."
     },
     "fields": {
       "enabled": "已启用",
@@ -132,12 +178,14 @@
       "name": "名称",
       "reference": "凭据引用(可选)",
       "requireSignature": "要求签名",
-      "url": "目录 URL"
+      "url": "目录 URL",
+      "identityRegex": "Signer identity pattern (optional)"
     },
     "hints": {
       "id": "小写字母、数字和连字符,之后不能更改。",
       "reference": "所有者已配置的凭据名称。切勿在此粘贴令牌或密码。",
-      "url": "不含凭据和查询字符串的 https 地址。"
+      "url": "不含凭据和查询字符串的 https 地址。",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
     },
     "lastRefresh": "{{when}} 已刷新,{{count}} 个条目",
     "lead": "库是列出附加组件的目录文档。凭据绝不在此输入:私有库只引用所有者配置的凭据。",
@@ -153,7 +201,9 @@
     "removeTitle": "移除 {{name}}?",
     "removed": "已移除 {{name}}。",
     "save": "保存",
-    "saved": "已保存 {{name}}。"
+    "saved": "已保存 {{name}}。",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
   },
   "manage": {
     "api": "附加组件 API",
@@ -162,6 +212,7 @@
     "data": "保留的数据",
     "dataFormat": "数据格式",
     "desired": "期望状态",
+    "failedNote_one": "The process is not serving after {{count}} restart attempt.",
     "failedNote_other": "经过 {{count}} 次重启尝试后,进程仍未提供服务。",
     "generations": "保留的代数",
     "hasUI": "有页面",

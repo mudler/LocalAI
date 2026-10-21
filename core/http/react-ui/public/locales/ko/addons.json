@@ -35,6 +35,16 @@
   "apps": {
     "emptyBody": "관리자가 애드온을 설치하고 활성화하면 여기에 나타납니다.",
     "emptyTitle": "아직 앱이 없습니다",
+    "firstRun": {
+      "browse": "Browse add-ons",
+      "browseBody": "Pick an add-on from a library and install it.",
+      "browseTitle": "Browse and install.",
+      "libraryBody": "The official library is registered by default. You can add more under Libraries.",
+      "libraryTitle": "Choose a library.",
+      "startBody": "Start an installed add-on from its tile. Add-ons that were running start again with the server.",
+      "startTitle": "Start it.",
+      "title": "Welcome to Apps"
+    },
     "headless": "백그라운드에서 실행되며 자체 페이지가 없습니다.",
     "listLabel": "앱",
     "loading": "앱을 불러오는 중",
@@ -43,7 +53,9 @@
     "stale": "목록을 새로 고칠 수 없습니다. 표시된 내용이 오래되었을 수 있습니다.",
     "start": "시작",
     "stop": "중지",
+    "toolsMore_one": "and {{count}} more",
     "toolsMore_other": "외 {{count}}개",
+    "tools_one": "{{count}} tool",
     "tools_other": "도구 {{count}}개",
     "version": "버전 {{version}}",
     "working": "소유자의 확인을 기다리는 중입니다."
@@ -64,12 +76,24 @@
     "installedSame": "{{version}} 설치됨",
     "installedState": "설치됨",
     "installing": "설치 중",
-    "search": "라이브러리 검색"
+    "search": "라이브러리 검색",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind"
   },
   "catalog": {
     "allLibraries": "모든 라이브러리",
     "cancel": "취소",
     "close": "닫기",
+    "count_one": "{{count}} result",
     "count_other": "결과 {{count}}개",
     "emptyBody": "이 목록은 비어 있습니다.",
     "emptyFiltered": "검색과 일치하는 항목이 없습니다. 검색어나 라이브러리를 바꿔 보세요.",
@@ -80,6 +104,27 @@
     "previous": "이전 페이지",
     "retry": "다시 시도",
     "search": "검색"
+  },
+  "drawer": {
+    "add": "Add a new add-on",
+    "browse": "Browse add-ons",
+    "builtinDetail": "This add-on ships with LocalAI.",
+    "close": "Close",
+    "limitBody": "The sidebar shows at most eight pinned add-ons. Unpin one first.",
+    "limitTitle": "Eight add-ons are pinned",
+    "moveEarlier": "Move {{name}} earlier",
+    "moveLater": "Move {{name}} later",
+    "pin": "Pin {{name}}",
+    "pinLabel": "Pin",
+    "pinned": "Pinned",
+    "running": "Running",
+    "search": "Search add-ons",
+    "status": {
+      "failed": "failed",
+      "starting": "starting"
+    },
+    "stopped": "Stopped",
+    "unpin": "Unpin {{name}}"
   },
   "errors": {
     "auth": "로그아웃되었습니다. 다시 로그인하세요.",
@@ -122,7 +167,8 @@
       "required": "서명을 요구할 때는 필수입니다.",
       "url": "http 또는 https 주소를 입력하세요.",
       "urlCredentials": "주소에 사용자 이름이나 비밀번호를 넣을 수 없습니다.",
-      "urlQuery": "주소에 쿼리 문자열이나 프래그먼트를 넣을 수 없습니다."
+      "urlQuery": "주소에 쿼리 문자열이나 프래그먼트를 넣을 수 없습니다.",
+      "either": "Use the exact identity or the pattern, not both."
     },
     "fields": {
       "enabled": "활성화됨",
@@ -132,12 +178,14 @@
       "name": "이름",
       "reference": "자격 증명 참조(선택)",
       "requireSignature": "서명 요구",
-      "url": "카탈로그 URL"
+      "url": "카탈로그 URL",
+      "identityRegex": "Signer identity pattern (optional)"
     },
     "hints": {
       "id": "소문자, 숫자, 하이픈. 나중에 변경할 수 없습니다.",
       "reference": "소유자가 구성한 자격 증명의 이름. 토큰이나 비밀번호를 여기에 붙여넣지 마세요.",
-      "url": "자격 증명과 쿼리 문자열이 없는 https 주소."
+      "url": "자격 증명과 쿼리 문자열이 없는 https 주소.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
     },
     "lastRefresh": "{{when}}에 새로 고침, 항목 {{count}}개",
     "lead": "라이브러리는 애드온을 나열하는 카탈로그 문서입니다. 자격 증명은 여기에 입력하지 않습니다. 비공개 라이브러리는 소유자가 구성한 자격 증명을 이름으로 가리킵니다.",
@@ -153,7 +201,9 @@
     "removeTitle": "{{name}}을(를) 제거할까요?",
     "removed": "{{name}}을(를) 제거했습니다.",
     "save": "저장",
-    "saved": "{{name}}을(를) 저장했습니다."
+    "saved": "{{name}}을(를) 저장했습니다.",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
   },
   "manage": {
     "api": "애드온 API",
@@ -162,6 +212,7 @@
     "data": "보존된 데이터",
     "dataFormat": "데이터 형식",
     "desired": "원하는 상태",
+    "failedNote_one": "The process is not serving after {{count}} restart attempt.",
     "failedNote_other": "재시작을 {{count}}번 시도한 후에도 프로세스가 응답하지 않습니다.",
     "generations": "보존된 세대",
     "hasUI": "페이지 있음",

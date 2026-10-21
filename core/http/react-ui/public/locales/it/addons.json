@@ -35,6 +35,16 @@
   "apps": {
     "emptyBody": "Quando un amministratore installa e abilita un componente, compare qui.",
     "emptyTitle": "Ancora nessuna app",
+    "firstRun": {
+      "browse": "Browse add-ons",
+      "browseBody": "Pick an add-on from a library and install it.",
+      "browseTitle": "Browse and install.",
+      "libraryBody": "The official library is registered by default. You can add more under Libraries.",
+      "libraryTitle": "Choose a library.",
+      "startBody": "Start an installed add-on from its tile. Add-ons that were running start again with the server.",
+      "startTitle": "Start it.",
+      "title": "Welcome to Apps"
+    },
     "headless": "Gira in background e non ha una pagina propria.",
     "listLabel": "App",
     "loading": "Caricamento delle app",
@@ -66,7 +76,18 @@
     "installedSame": "Installato {{version}}",
     "installedState": "Installato",
     "installing": "Installazione",
-    "search": "Cerca nelle librerie"
+    "search": "Cerca nelle librerie",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind"
   },
   "catalog": {
     "allLibraries": "Tutte le librerie",
@@ -83,6 +104,27 @@
     "previous": "Pagina precedente",
     "retry": "Riprova",
     "search": "Cerca"
+  },
+  "drawer": {
+    "add": "Add a new add-on",
+    "browse": "Browse add-ons",
+    "builtinDetail": "This add-on ships with LocalAI.",
+    "close": "Close",
+    "limitBody": "The sidebar shows at most eight pinned add-ons. Unpin one first.",
+    "limitTitle": "Eight add-ons are pinned",
+    "moveEarlier": "Move {{name}} earlier",
+    "moveLater": "Move {{name}} later",
+    "pin": "Pin {{name}}",
+    "pinLabel": "Pin",
+    "pinned": "Pinned",
+    "running": "Running",
+    "search": "Search add-ons",
+    "status": {
+      "failed": "failed",
+      "starting": "starting"
+    },
+    "stopped": "Stopped",
+    "unpin": "Unpin {{name}}"
   },
   "errors": {
     "auth": "Hai effettuato la disconnessione. Accedi di nuovo.",
@@ -125,7 +167,8 @@
       "required": "Obbligatorio quando è richiesta una firma.",
       "url": "Inserisci un indirizzo http o https.",
       "urlCredentials": "L'indirizzo non deve contenere nome utente o password.",
-      "urlQuery": "L'indirizzo non deve contenere una stringa di query o un frammento."
+      "urlQuery": "L'indirizzo non deve contenere una stringa di query o un frammento.",
+      "either": "Use the exact identity or the pattern, not both."
     },
     "fields": {
       "enabled": "Abilitata",
@@ -135,12 +178,14 @@
       "name": "Nome",
       "reference": "Riferimento credenziale (facoltativo)",
       "requireSignature": "Richiedi una firma",
-      "url": "URL del catalogo"
+      "url": "URL del catalogo",
+      "identityRegex": "Signer identity pattern (optional)"
     },
     "hints": {
       "id": "Lettere minuscole, cifre e trattini. Non può cambiare in seguito.",
       "reference": "Il nome di una credenziale configurata dal proprietario. Non incollare mai un token o una password qui.",
-      "url": "Un indirizzo https senza credenziali né stringa di query."
+      "url": "Un indirizzo https senza credenziali né stringa di query.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
     },
     "lastRefresh": "Aggiornata {{when}}, {{count}} voci",
     "lead": "Una libreria è un documento di catalogo che elenca componenti. Le credenziali non si digitano mai qui: una libreria privata indica una credenziale configurata dal proprietario.",
@@ -156,7 +201,9 @@
     "removeTitle": "Rimuovere {{name}}?",
     "removed": "{{name}} rimossa.",
     "save": "Salva",
-    "saved": "{{name}} salvata."
+    "saved": "{{name}} salvata.",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
   },
   "manage": {
     "api": "API del componente",

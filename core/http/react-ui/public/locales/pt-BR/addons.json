@@ -35,6 +35,16 @@
   "apps": {
     "emptyBody": "Quando um administrador instala e habilita um complemento, ele aparece aqui.",
     "emptyTitle": "Ainda não há apps",
+    "firstRun": {
+      "browse": "Browse add-ons",
+      "browseBody": "Pick an add-on from a library and install it.",
+      "browseTitle": "Browse and install.",
+      "libraryBody": "The official library is registered by default. You can add more under Libraries.",
+      "libraryTitle": "Choose a library.",
+      "startBody": "Start an installed add-on from its tile. Add-ons that were running start again with the server.",
+      "startTitle": "Start it.",
+      "title": "Welcome to Apps"
+    },
     "headless": "Roda em segundo plano e não tem página própria.",
     "listLabel": "Apps",
     "loading": "Carregando apps",
@@ -66,7 +76,18 @@
     "installedSame": "Instalado {{version}}",
     "installedState": "Instalado",
     "installing": "Instalando",
-    "search": "Pesquisar nas bibliotecas"
+    "search": "Pesquisar nas bibliotecas",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind"
   },
   "catalog": {
     "allLibraries": "Todas as bibliotecas",
@@ -83,6 +104,27 @@
     "previous": "Página anterior",
     "retry": "Tentar de novo",
     "search": "Pesquisar"
+  },
+  "drawer": {
+    "add": "Add a new add-on",
+    "browse": "Browse add-ons",
+    "builtinDetail": "This add-on ships with LocalAI.",
+    "close": "Close",
+    "limitBody": "The sidebar shows at most eight pinned add-ons. Unpin one first.",
+    "limitTitle": "Eight add-ons are pinned",
+    "moveEarlier": "Move {{name}} earlier",
+    "moveLater": "Move {{name}} later",
+    "pin": "Pin {{name}}",
+    "pinLabel": "Pin",
+    "pinned": "Pinned",
+    "running": "Running",
+    "search": "Search add-ons",
+    "status": {
+      "failed": "failed",
+      "starting": "starting"
+    },
+    "stopped": "Stopped",
+    "unpin": "Unpin {{name}}"
   },
   "errors": {
     "auth": "Você saiu da conta. Entre novamente.",
@@ -125,7 +167,8 @@
       "required": "Obrigatório quando uma assinatura é exigida.",
       "url": "Informe um endereço http ou https.",
       "urlCredentials": "O endereço não deve conter nome de usuário nem senha.",
-      "urlQuery": "O endereço não deve conter string de consulta nem fragmento."
+      "urlQuery": "O endereço não deve conter string de consulta nem fragmento.",
+      "either": "Use the exact identity or the pattern, not both."
     },
     "fields": {
       "enabled": "Habilitada",
@@ -135,12 +178,14 @@
       "name": "Nome",
       "reference": "Referência de credencial (opcional)",
       "requireSignature": "Exigir assinatura",
-      "url": "URL do catálogo"
+      "url": "URL do catálogo",
+      "identityRegex": "Signer identity pattern (optional)"
     },
     "hints": {
       "id": "Letras minúsculas, dígitos e hifens. Não pode mudar depois.",
       "reference": "O nome de uma credencial que o proprietário configurou. Nunca cole um token ou senha aqui.",
-      "url": "Um endereço https sem credenciais nem string de consulta."
+      "url": "Um endereço https sem credenciais nem string de consulta.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
     },
     "lastRefresh": "Atualizada {{when}}, {{count}} entradas",
     "lead": "Uma biblioteca é um documento de catálogo que lista complementos. Credenciais nunca são digitadas aqui: uma biblioteca privada indica uma credencial que o proprietário configurou.",
@@ -156,7 +201,9 @@
     "removeTitle": "Remover {{name}}?",
     "removed": "{{name}} removida.",
     "save": "Salvar",
-    "saved": "{{name}} salva."
+    "saved": "{{name}} salva.",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
   },
   "manage": {
     "api": "API do complemento",
