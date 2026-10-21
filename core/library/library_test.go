@@ -46,8 +46,8 @@ func TestDefaultsFlagsAreUnchanged(t *testing.T) {
 		// The same JSON loads, mirrors and policy included.
 		want := in
 		if kind == catalog.KindModel {
-			// The shipped model library is a default source, read next to the gallery.
-			want = append(append([]config.Gallery(nil), in...), modelLibrary())
+			// A master build reads the model library instead of the localai gallery.
+			want = []config.Gallery{modelLibrary()}
 		}
 		if got := ApplyGalleries(store, kind, in); !reflect.DeepEqual(got, want) {
 			t.Errorf("%s: galleries changed:\n got %+v\nwant %+v", kind, got, want)
@@ -74,7 +74,7 @@ func TestEachFlagEntryBecomesAUserSourceOfItsKind(t *testing.T) {
 		t.Errorf("backend source = %+v, %v", b, ok)
 	}
 	// The flags still decide the list the server reads.
-	if got := ApplyGalleries(store, catalog.KindModel, models); !reflect.DeepEqual(got, append(append([]config.Gallery(nil), models...), modelLibrary())) {
+	if got := ApplyGalleries(store, catalog.KindModel, models); !reflect.DeepEqual(got, []config.Gallery{models[1], modelLibrary()}) {
 		t.Errorf("model galleries = %+v", got)
 	}
 }
@@ -180,7 +180,7 @@ func TestSourcesTheUserAddedReachTheServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	models := ApplyGalleries(store, catalog.KindModel, parse(config.DefaultGalleriesJSON))
-	if len(models) != 3 || !models[1].Library || models[1].URL != "https://example.org/lib.yaml" || models[1].Name != "Model library" || !reflect.DeepEqual(models[2], modelLibrary()) {
+	if len(models) != 2 || !models[0].Library || models[0].URL != "https://example.org/lib.yaml" || models[0].Name != "Model library" || !reflect.DeepEqual(models[1], modelLibrary()) {
 		t.Errorf("models = %+v", models)
 	}
 	backends := ApplyGalleries(store, catalog.KindBackend, parse(config.DefaultBackendGalleriesJSON))
@@ -206,7 +206,7 @@ func TestOptionKeepsDefaultDeploymentsAsTheyWere(t *testing.T) {
 	)
 	for i := 0; i < 2; i++ {
 		o := build()
-		if !reflect.DeepEqual(o.Galleries, append(append([]config.Gallery(nil), want.Galleries...), modelLibrary())) || !reflect.DeepEqual(o.BackendGalleries, want.BackendGalleries) {
+		if !reflect.DeepEqual(o.Galleries, []config.Gallery{modelLibrary()}) || !reflect.DeepEqual(o.BackendGalleries, want.BackendGalleries) {
 			t.Fatalf("start %d changed the galleries:\n%+v\n%+v", i, o.Galleries, o.BackendGalleries)
 		}
 	}
@@ -257,6 +257,88 @@ func TestCustomFlagsLoadAsBefore(t *testing.T) {
 	for id, kind := range map[string]catalog.Kind{"a": catalog.KindModel, "b": catalog.KindModel, "c": catalog.KindBackend} {
 		if e, ok := byID(store, id); !ok || e.Kind != kind || e.Default {
 			t.Errorf("source %s = %+v, %v", id, e, ok)
+		}
+	}
+}
+
+// setModelSource sets the build-time model source for one test.
+func setModelSource(t *testing.T, v string) {
+	t.Helper()
+	old := ModelSource
+	ModelSource = v
+	t.Cleanup(func() { ModelSource = old })
+}
+
+// modelGalleries runs the startup option with the default flags and returns
+// the model galleries the server would read.
+func modelGalleries(t *testing.T) []config.Gallery {
+	t.Helper()
+	o := config.NewApplicationConfig(
+		config.WithStringGalleries(config.DefaultGalleriesJSON),
+		config.WithBackendGalleries(config.DefaultBackendGalleriesJSON),
+	)
+	Option(t.TempDir(), true, false)(o)
+	return o.Galleries
+}
+
+// A build from master, and any build that sets no value, reads the model
+// library. The release workflow passes ModelSource=gallery for a tagged build
+// until it cuts over.
+func TestMasterBuildDefaultsToTheModelLibrary(t *testing.T) {
+	if ModelSource != ModelSourceLibrary || !UseModelLibrary() {
+		t.Fatalf("the unset build value is %q; a master build must read the library", ModelSource)
+	}
+	got := modelGalleries(t)
+	if len(got) != 1 || got[0].URL != catalog.OfficialModelLibraryURL {
+		t.Errorf("a master build reads %+v, want only the model library", got)
+	}
+	for _, g := range got {
+		if g.Name == "localai" {
+			t.Errorf("a master build reads the localai gallery by default: %+v", g)
+		}
+	}
+}
+
+func TestTaggedBuildDefaultsToTheGalleryUntilCutover(t *testing.T) {
+	setModelSource(t, ModelSourceGallery)
+	if UseModelLibrary() {
+		t.Fatal("a tagged build before the cutover must not read the library")
+	}
+	got := modelGalleries(t)
+	if len(got) != 1 || got[0].Name != "localai" || got[0].Library {
+		t.Errorf("a tagged build reads %+v, want only the localai gallery", got)
+	}
+	// The cutover: the release workflow passes the library value.
+	setModelSource(t, ModelSourceLibrary)
+	if got := modelGalleries(t); len(got) != 1 || got[0].URL != catalog.OfficialModelLibraryURL {
+		t.Errorf("after the cutover a tagged build reads %+v, want only the model library", got)
+	}
+}
+
+// Only the exact value "gallery" turns the library off, so a mistyped build
+// value never leaves a build without a model source.
+func TestUnknownModelSourceReadsTheLibrary(t *testing.T) {
+	setModelSource(t, "galery")
+	if !UseModelLibrary() {
+		t.Error("an unknown value must fall back to the library")
+	}
+}
+
+// The other default stays shipped and can be turned on by the user.
+func TestBothModelSourcesAreShippedOneEnabled(t *testing.T) {
+	for _, lib := range []bool{true, false} {
+		var enabled []string
+		for _, s := range defaults(true, false, lib) {
+			if s.Kind == catalog.KindModel && s.Enabled {
+				enabled = append(enabled, s.ID)
+			}
+		}
+		want := catalog.OfficialModelLibraryID
+		if !lib {
+			want = DefaultModelSourceID
+		}
+		if len(enabled) != 1 || enabled[0] != want {
+			t.Errorf("library=%v: enabled model sources = %v, want [%s]", lib, enabled, want)
 		}
 	}
 }

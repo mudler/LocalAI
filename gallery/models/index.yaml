@@ -1,8 +1,9 @@
 # Model library: the models of the model gallery in the library entry shape. The
-# gallery, gallery/index.yaml, stays the source of truth and the default. This
-# file is rendered with scripts/models/cmd/modelcatalog; render it again after
-# the gallery changes and never edit it by hand. The host lists it as a default
-# model source.
+# gallery, gallery/index.yaml, stays the source of truth. This file is rendered
+# with scripts/models/cmd/modelcatalog; render it again after the gallery
+# changes and never edit it by hand. CI fails when it is stale. A build from
+# master reads it as the default model source; a tagged build reads the gallery
+# until the release cutover.
 - kind: model
   id: adavar-3b-q4
   name: adavar-3b-q4

@@ -44,10 +44,12 @@ func TestLibraryListShowsDefaultsOfEveryKind(t *testing.T) {
 			t.Errorf("list is missing %q:\n%s", want, got)
 		}
 	}
-	for _, id := range []string{"official", "localai", "localai-backends"} {
+	// A master build enables the model library and ships the localai gallery
+	// off, so every model is listed once.
+	for id, enabled := range map[string]bool{"official": true, "official-models": library.UseModelLibrary(), "localai": !library.UseModelLibrary(), "localai-backends": true} {
 		e, ok := entry(t, f, id)
-		if !ok || !e.Default || !e.Enabled || e.Removed {
-			t.Errorf("default %s = %+v, %v", id, e, ok)
+		if !ok || !e.Default || e.Enabled != enabled || e.Removed {
+			t.Errorf("default %s = %+v, %v, want enabled=%v", id, e, ok, enabled)
 		}
 	}
 }

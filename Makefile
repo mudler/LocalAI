@@ -45,6 +45,12 @@ LAUNCHER_APP_VERSION?=$(shell v=$$(echo "$(VERSION)" | sed -E 's/^v//; s/[+-].*$
 LD_FLAGS?=-s -w
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
+# The model source the binary reads by default: "library" (the model library) or
+# "gallery" (the gallery named localai). A build from master reads the library.
+# A build of a commit that carries a tag reads the gallery until the release
+# workflow cuts over by setting LOCALAI_MODEL_SOURCE=library (see release.yaml).
+LOCALAI_MODEL_SOURCE?=$(shell git describe --exact-match --tags >/dev/null 2>&1 && echo gallery || echo library)
+override LD_FLAGS += -X "github.com/mudler/LocalAI/core/library.ModelSource=$(LOCALAI_MODEL_SOURCE)"
 
 OPTIONAL_TARGETS?=
 

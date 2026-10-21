@@ -24,12 +24,43 @@ const (
 	DefaultBackendSourceID = "localai-backends"
 )
 
+// ModelSource says which model source a build reads by default: ModelSourceLibrary
+// or ModelSourceGallery. The value is set at build time with
+//
+//	-ldflags "-X github.com/mudler/LocalAI/core/library.ModelSource=gallery"
+//
+// A build from master, and a plain `go build` or `go test`, leaves it
+// unchanged, so it reads the model library. A tagged build reads the model
+// gallery until the release workflow cuts over (see the cutover step in
+// .github/workflows/release.yaml and MODEL_SOURCE in the Makefile).
+var ModelSource = ModelSourceLibrary
+
+const (
+	// ModelSourceLibrary reads the model library (official-models) by default.
+	ModelSourceLibrary = "library"
+	// ModelSourceGallery reads the gallery named localai by default.
+	ModelSourceGallery = "gallery"
+)
+
+// UseModelLibrary reports whether this build reads the model library by
+// default. Only the exact value "gallery" selects the gallery, so a mistyped
+// build value cannot leave a build with no model source.
+func UseModelLibrary() bool { return ModelSource != ModelSourceGallery }
+
 // Defaults returns the sources LocalAI ships: the official add-on library, the
 // pilot backend library, the model library, the model gallery index and the
 // backend gallery index. The add-on library is left out when official is false
 // and the backend library when pilot is false. A default can be removed; the
 // removal is remembered.
+//
+// Both model sources are shipped, but only one is enabled, the one ModelSource
+// names, so every model is listed once. The other can be turned on with
+// `local-ai library enable`.
 func Defaults(official, pilot bool) []catalog.Source {
+	return defaults(official, pilot, UseModelLibrary())
+}
+
+func defaults(official, pilot, modelLibrary bool) []catalog.Source {
 	var out []catalog.Source
 	if official {
 		out = append(out, catalog.OfficialLibrary())
@@ -37,9 +68,11 @@ func Defaults(official, pilot bool) []catalog.Source {
 	if pilot {
 		out = append(out, catalog.OfficialBackendLibrary())
 	}
-	out = append(out,
-		catalog.OfficialModelLibrary(),
-		defaultGallery(catalog.KindModel, DefaultModelSourceID, "Official models", config.DefaultGalleriesJSON),
+	lib := catalog.OfficialModelLibrary()
+	lib.Enabled = modelLibrary
+	gal := defaultGallery(catalog.KindModel, DefaultModelSourceID, "Official models", config.DefaultGalleriesJSON)
+	gal.Enabled = !modelLibrary
+	out = append(out, lib, gal,
 		defaultGallery(catalog.KindBackend, DefaultBackendSourceID, "Official backends", config.DefaultBackendGalleriesJSON),
 	)
 	return out
