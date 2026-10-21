@@ -20,10 +20,6 @@ export default function BrowseView({ api, adapter }) {
   const { t } = useTranslation('addons')
   const [params, setParams] = useSearchParams()
   const [installed, setInstalled] = useState({})
-  // Backends are installed by the backend code of the host, not by the add-on
-  // owner, so they have their own installed list and their own install state.
-  const [installedBackends, setInstalledBackends] = useState({})
-  const [backendWork, setBackendWork] = useState({})
   const [reload, setReload] = useState(0)
   const [confirm, setConfirm] = useState(null)
   const [details, setDetails] = useState(null)
@@ -47,31 +43,9 @@ export default function BrowseView({ api, adapter }) {
     return () => ctl.abort()
   }, [api, reload])
 
-  useEffect(() => {
-    const ctl = new AbortController()
-    api.backends.installed(ctl.signal)
-      .then(list => setInstalledBackends(Object.fromEntries(list.map(b => [b.id, b]))))
-      .catch(() => { if (!ctl.signal.aborted) setInstalledBackends({}) })
-    return () => ctl.abort()
-  }, [api, reload])
-
   const actions = useAddonActions(api, { onSettled: () => setReload(n => n + 1) })
 
-  const installBackend = async (entry) => {
-    setConfirm(null)
-    const key = `install:${entry.key}`
-    setBackendWork(w => ({ ...w, [key]: { phase: 'working' } }))
-    try {
-      await api.backends.install({ sourceId: entry.sourceId, name: entry.id, version: entry.version })
-      setBackendWork(w => ({ ...w, [key]: { phase: 'done' } }))
-    } catch (error) {
-      setBackendWork(w => ({ ...w, [key]: { phase: 'failed', error } }))
-    }
-    setReload(n => n + 1)
-  }
-
   const install = (entry) => {
-    if (entry.kind === 'backend') return installBackend(entry)
     setConfirm(null)
     actions.run(`install:${entry.key}`, {
       addonId: entry.id,
@@ -83,13 +57,11 @@ export default function BrowseView({ api, adapter }) {
   }
 
   const renderEntry = (entry) => {
-    const isBackend = entry.kind === 'backend'
-    const have = isBackend ? installedBackends[entry.id] : installed[entry.id]
+    const have = installed[entry.id]
     const key = `install:${entry.key}`
-    const bw = isBackend ? backendWork[key] : null
-    const st = isBackend ? null : actions.state[key]
-    const pending = !isBackend && Boolean(actions.unknown[entry.id])
-    const working = isBackend ? bw?.phase === 'working' : st?.phase === 'working'
+    const st = actions.state[key]
+    const pending = Boolean(actions.unknown[entry.id])
+    const working = st?.phase === 'working'
     return (
       <article className="ad-entry" aria-labelledby={`entry-${entry.key}`}>
         <AppIcon src="" />
@@ -104,27 +76,19 @@ export default function BrowseView({ api, adapter }) {
           </p>
           {entry.description && <p className="ad-entry__text">{entry.description}</p>}
           <div className="ad-facts">
-            <Fact icon={isBackend ? 'cpu' : 'puzzle'}><span data-testid="entry-kind" data-kind={entry.kind}>{t(`browse.kind.${entry.kind}`, { defaultValue: entry.kind })}</span></Fact>
             <Fact icon="cpu">{entry.platform.os}/{entry.platform.arch}</Fact>
             <Fact icon={entry.policy.requireSignature ? 'shield' : 'info'} tone={entry.policy.requireSignature ? 'ok' : undefined}>
               {entry.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}
             </Fact>
             {entry.channel && <Fact icon="tag">{entry.channel}</Fact>}
-            {isBackend && have && <Fact icon="check-circle" tone="ok">{t('browse.installedBackend')}</Fact>}
-            {!isBackend && have && <Fact icon="check-circle" tone="ok">{have.version === entry.version ? t('browse.installedSame', { version: have.version }) : t('browse.installedOther', { version: have.version })}</Fact>}
-            {!isBackend && have && updateView(have.update).state === 'update-available' && <Fact icon="arrow-up" tone="warn">{t('updates.badge.available', { version: updateView(have.update).version })}</Fact>}
+            {have && <Fact icon="check-circle" tone="ok">{have.version === entry.version ? t('browse.installedSame', { version: have.version }) : t('browse.installedOther', { version: have.version })}</Fact>}
+            {have && updateView(have.update).state === 'update-available' && <Fact icon="arrow-up" tone="warn">{t('updates.badge.available', { version: updateView(have.update).version })}</Fact>}
           </div>
           {pending && <UnknownNotice addonId={entry.id} actions={actions} />}
           {!pending && st && !working && st.outcome !== 'completed' && (
             <p className="ad-entry__note" data-tone="error" role="alert">{describeOutcome(st.outcome, t, st.error)}</p>
           )}
           {st && st.outcome === 'completed' && <p className="ad-entry__note" data-tone="ok" role="status">{t('browse.installedNotEnabled')}</p>}
-          {bw?.phase === 'failed' && (
-            <p className="ad-entry__note" data-tone="error" role="alert">
-              {t('browse.backendFailed')} {bw.error?.status >= 400 && bw.error.message && bw.error.message !== bw.error.kind ? bw.error.message : describeError(bw.error, t)}
-            </p>
-          )}
-          {bw?.phase === 'done' && <p className="ad-entry__note" data-tone="ok" role="status">{t('browse.installedBackendNote')}</p>}
         </div>
         <div className="ad-entry__acts">
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setDetails(entry)}>
@@ -157,12 +121,12 @@ export default function BrowseView({ api, adapter }) {
         title={confirm ? t('browse.confirmTitle', { name: confirm.title }) : ''}
         message={confirm ? (
           <div className="ad-confirm">
-            <p>{confirm.kind === 'backend' ? t('browse.confirmBackendBody', { version: confirm.version, library: confirm.sourceId }) : t('browse.confirmBody', { version: confirm.version, library: confirm.sourceId })}</p>
+            <p>{t('browse.confirmBody', { version: confirm.version, library: confirm.sourceId })}</p>
             <dl className="dk-kv">
               <dt>{t('trust.digest')}</dt><dd className="dk-mono">{shortDigest(confirm.digest)}</dd>
               <dt>{t('trust.verification')}</dt><dd>{confirm.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}</dd>
             </dl>
-            <p>{confirm.kind === 'backend' ? t('browse.confirmBackendNote') : t('browse.confirmNotEnabled')}</p>
+            <p>{t('browse.confirmNotEnabled')}</p>
           </div>
         ) : null}
         confirmLabel={t('browse.install')}
@@ -188,14 +152,12 @@ function EntryDetails({ adapter, entry, onClose }) {
     <SideSheet title={e.title} description={t('browse.detailsLead', { id: e.id })} onClose={onClose} closeLabel={t('catalog.close')} labelId="entry-details-title">
       {state.status === 'error' && <p className="op-error" role="alert">{describeError(state.error, t)}</p>}
       <dl className="dk-kv ad-kv">
-        <dt>{t('browse.kindLabel')}</dt><dd data-testid="details-kind">{t(`browse.kind.${e.kind}`, { defaultValue: e.kind })}</dd>
         <dt>{t('trust.version')}</dt><dd>{e.version}</dd>
-        {e.alias && (<><dt>{t('browse.alias')}</dt><dd className="dk-mono">{e.alias}</dd></>)}
         <dt>{t('trust.library')}</dt><dd>{e.sourceId}</dd>
         {e.channel && (<><dt>{t('trust.channel')}</dt><dd>{e.channel}</dd></>)}
         <dt>{t('trust.platform')}</dt><dd>{e.platform.os}/{e.platform.arch}</dd>
         <dt>{t('trust.verification')}</dt><dd>{e.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}</dd>
-        {e.policy.requireSignature && (<><dt>{t('trust.issuer')}</dt><dd className="dk-mono ad-wrap">{e.policy.issuer}</dd><dt>{t('trust.identity')}</dt><dd className="dk-mono ad-wrap">{e.policy.identity || e.policy.identityRegex}</dd></>)}
+        {e.policy.requireSignature && (<><dt>{t('trust.issuer')}</dt><dd className="dk-mono ad-wrap">{e.policy.issuer}</dd><dt>{t('trust.identity')}</dt><dd className="dk-mono ad-wrap">{e.policy.identity}</dd></>)}
         <dt>{t('trust.digest')}</dt><dd className="dk-mono ad-wrap">{e.digest}</dd>
         {e.installed && (<><dt>{t('browse.installedState')}</dt><dd>{t('browse.installedDetail', { version: e.installed.version, generation: e.installed.generation })}</dd></>)}
       </dl>

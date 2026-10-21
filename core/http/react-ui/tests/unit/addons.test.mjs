@@ -153,12 +153,11 @@ test('the api sends one dispatch shape and classifies refusals', async () => {
   assert.equal(calls[0].init.method, 'POST')
   assert.equal(calls[0].init.credentials, 'same-origin')
   const sent = JSON.parse(calls[0].init.body)
-  assert.deepEqual(sent.arguments, { text: 'no', kind: 'all', sourceId: 'main', offset: 10, limit: 10 })
+  assert.deepEqual(sent.arguments, { text: 'no', sourceId: 'main', offset: 10, limit: 10 })
   assert.equal(sent.action, 'catalog-search')
   assert.ok(sent.operationId)
   assert.equal(page.total, 31)
   assert.equal(page.entries[0].key, 'main/notes/1.0.0')
-  assert.equal(page.entries[0].kind, 'addon')
   await assert.rejects(adapter.listSources(), e => e instanceof AddonsError && e.kind === 'denied')
   await assert.rejects(
     adapter.submitLifecycle({ operationId: 'op-1', action: 'install', addonId: 'notes', sourceId: 'main', version: '1.0.0' }),
@@ -278,40 +277,4 @@ test('a refusal shows the server reason and falls back to the generic text', () 
   assert.equal(describeError(invalid, t), 'Bad id')
   // Other kinds keep their own words.
   assert.equal(describeError(new AddonsError(classifyResponse(401, { error: { message: 'x' } })), t), 'T:errors.auth')
-})
-
-test('a backend entry keeps its kind and installs through the backend route', async () => {
-  const calls = []
-  const api = createAddonsApi({
-    fetch: async (url, init) => {
-      calls.push({ url, init })
-      const body = init.body ? JSON.parse(init.body) : null
-      if (body?.action === 'catalog-search') return json(200, { payload: { releases: [{ kind: 'backend', addonId: 'cpu-local-store', alias: 'local-store', name: 'cpu-local-store', version: '0.0.0-latest.aaaaaaaaaaaa', sourceId: 'official-backends', os: 'linux', arch: 'amd64', digest: 'sha256:a' }], total: 1 } })
-      if (url === '/backends/library/install') return json(409, { error: { type: 'backend_library', message: 'backend is already installed from another origin: "cpu-local-store"' } })
-      if (url === '/backends') return json(200, [{ Name: 'cpu-local-store', Metadata: { library: 'official-backends' } }, { Name: 'llama-cpp' }])
-      return json(200, {})
-    },
-  })
-  const adapter = createAddonsCatalogAdapter(api, { pageSize: 10 })
-  const page = await adapter.search({})
-  assert.equal(page.entries[0].kind, 'backend')
-  assert.equal(page.entries[0].alias, 'local-store')
-  assert.equal(page.entries[0].key, 'official-backends/cpu-local-store/0.0.0-latest.aaaaaaaaaaaa')
-  assert.deepEqual(await api.backends.installed(), [{ id: 'cpu-local-store', library: 'official-backends' }, { id: 'llama-cpp', library: '' }])
-  await assert.rejects(
-    api.backends.install({ sourceId: 'official-backends', name: 'cpu-local-store', version: 'v' }),
-    e => e instanceof AddonsError && e.kind === 'unavailable' && e.status === 409 && /another origin/.test(e.message),
-  )
-  const sent = JSON.parse(calls.at(-1).init.body)
-  assert.deepEqual(sent, { sourceId: 'official-backends', name: 'cpu-local-store', version: 'v' })
-})
-
-test('a library signer is named exactly or by a pattern, never both', () => {
-  const ok = { id: 'b', name: 'B', url: 'https://library.example/i.yaml', enabled: true, requireSignature: true, issuer: 'i' }
-  assert.equal(validateSourceDraft({ ...ok }).identity, 'required')
-  assert.deepEqual(validateSourceDraft({ ...ok, identityRegex: '^a$' }), {})
-  assert.equal(validateSourceDraft({ ...ok, identity: 'x', identityRegex: '^a$' }).identityRegex, 'either')
-  const wire = draftToSource({ ...ok, identityRegex: ' ^a$ ' })
-  assert.deepEqual(wire.policy, { requireSignature: true, issuer: 'i', identityRegex: '^a$' })
-  assert.equal(sourceToDraft({ policy: { requireSignature: true, issuer: 'i', identityRegex: '^a$' } }).identityRegex, '^a$')
 })

@@ -67,7 +67,7 @@
     "details": "Details",
     "detailsLead": "Library entry for {{id}}",
     "emptyBody": "Add a library on the Libraries tab, then refresh it.",
-    "emptyTitle": "No library entries found",
+    "emptyTitle": "No add-ons found",
     "fromLibrary": "from {{library}}",
     "install": "Install",
     "installedDetail": "Version {{version}}, generation {{generation}}",
@@ -76,18 +76,7 @@
     "installedSame": "Installed {{version}}",
     "installedState": "Installed",
     "installing": "Installing",
-    "search": "Search the libraries",
-    "kind": {
-      "addon": "Add-on",
-      "backend": "Backend"
-    },
-    "installedBackend": "Installed",
-    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
-    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
-    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
-    "backendFailed": "The backend was not installed.",
-    "alias": "Alias",
-    "kindLabel": "Kind"
+    "search": "Search the libraries"
   },
   "catalog": {
     "allLibraries": "All libraries",
@@ -167,8 +156,7 @@
       "required": "Required when a signature is required.",
       "url": "Enter an http or https address.",
       "urlCredentials": "The address must not contain a user name or password.",
-      "urlQuery": "The address must not contain a query string or fragment.",
-      "either": "Use the exact identity or the pattern, not both."
+      "urlQuery": "The address must not contain a query string or fragment."
     },
     "fields": {
       "enabled": "Enabled",
@@ -178,14 +166,12 @@
       "name": "Name",
       "reference": "Credential reference (optional)",
       "requireSignature": "Require a signature",
-      "url": "Catalog URL",
-      "identityRegex": "Signer identity pattern (optional)"
+      "url": "Catalog URL"
     },
     "hints": {
       "id": "Lowercase letters, digits and hyphens. It cannot change later.",
       "reference": "The name of a credential the owner configured. Never paste a token or password here.",
-      "url": "An https address without credentials or a query string.",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
+      "url": "An https address without credentials or a query string."
     },
     "lastRefresh": "Refreshed {{when}}, {{count}} entries",
     "lead": "A library is a catalog document that lists add-ons. Credentials are never typed here: a private library names a credential the owner configured.",
@@ -201,9 +187,7 @@
     "removeTitle": "Remove {{name}}?",
     "removed": "Removed {{name}}.",
     "save": "Save",
-    "saved": "Saved {{name}}.",
-    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
-    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
+    "saved": "Saved {{name}}."
   },
   "manage": {
     "api": "Add-on API",
