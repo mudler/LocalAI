@@ -51,15 +51,19 @@ test.describe('Add a node', () => {
   })
 
   test('waits for a worker, then shows it when one registers, and approves it', async ({ page }) => {
-    let polls = 0
+    // The shell and the page both read /api/nodes, and which of them asks first
+    // depends on load, so a call count cannot say when the worker registers. The
+    // worker joins when the test says so, after the page shows it is listening.
+    let registered = false
     const known = clusterNodes()
     const arrived = { id: 'n-new', name: 'gpu-box-9', node_type: 'backend', address: '10.0.4.19:50051', status: 'pending', version: 'v3.9.0', labels: {}, last_heartbeat: new Date().toISOString() }
-    const log = await mockSwarm(page, { onNodes: () => { polls += 1; return polls < 3 ? known : [...known, arrived] } })
+    const log = await mockSwarm(page, { onNodes: () => (registered ? [...known, arrived] : known) })
     await page.goto('/app/nodes/add')
 
     const wait = page.getByRole('status').filter({ hasText: 'Listening for a worker' })
     await expect(wait).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('found-node')).toHaveCount(0)
+    registered = true
 
     const found = page.getByTestId('found-node')
     await expect(found).toBeVisible({ timeout: 20_000 })
