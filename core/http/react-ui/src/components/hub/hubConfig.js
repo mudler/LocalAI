@@ -262,8 +262,11 @@ export function resolveTabs(hub, auth, pathname) {
   return { tabs, current }
 }
 
-export function hubOwnsPath(hub, pathname) {
-  return hub.tabs.some(tab => tabOwnsPath(tab, pathname))
+// With `auth`, a tab whose gate is closed owns nothing: the Add-ons tab of the
+// Build hub only exists in the legacy navigation, so in the four-item sidebar
+// /app/addons belongs to the Apps entry alone and must not light a hub entry.
+export function hubOwnsPath(hub, pathname, auth) {
+  return hub.tabs.some(tab => (!auth || tabGateOpen(tab, auth)) && tabOwnsPath(tab, pathname))
 }
 
 // The page the hub's single sidebar entry links to: its overview, when the

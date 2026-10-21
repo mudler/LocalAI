@@ -151,3 +151,37 @@ test('the first-run card shows only to an installer when nothing is installed', 
   assert.equal(showFirstRun({ apps: [], isAdmin: false }), false)
   assert.equal(showFirstRun({ apps: [], isAdmin: true, canList: false }), false)
 })
+
+test('sidebar entries own one route each: Apps on /app/addons, never a hub', async () => {
+  const { hubs, hubOwnsPath } = await import('../../src/components/hub/hubConfig.js')
+  const [build, operate] = hubs
+  // /api/features has answered and the legacy switch is off: four-item sidebar.
+  const auth = { isAdmin: true, authEnabled: true, hasFeature: () => true, features: { addon_navigation: true } }
+  for (const p of ['/app/addons', '/app/addons/voice/voice', '/app/addons/notes/home']) {
+    assert.equal(hubOwnsPath(build, p, auth), false, `Build owns ${p}`)
+    assert.equal(hubOwnsPath(operate, p, auth), false, `Operate owns ${p}`)
+  }
+  // Before /api/features answers the Add-ons tab is also closed.
+  assert.equal(hubOwnsPath(build, '/app/addons', { ...auth, features: {} }), false)
+})
+
+test('sidebar hubs keep their own routes, and Apps does not claim them', async () => {
+  const { hubs, hubOwnsPath } = await import('../../src/components/hub/hubConfig.js')
+  const [build, operate] = hubs
+  const auth = { isAdmin: true, authEnabled: true, hasFeature: () => true, features: { addon_navigation: true } }
+  for (const p of ['/app/operate', '/app/settings', '/app/backends', '/app/traces', '/app/nodes']) {
+    assert.equal(hubOwnsPath(operate, p, auth), true, `Operate misses ${p}`)
+    assert.equal(hubOwnsPath(build, p, auth), false, `Build owns ${p}`)
+  }
+  assert.equal(hubOwnsPath(build, '/app/build', auth), true)
+  assert.equal(hubOwnsPath(build, '/app/agents', auth), true)
+  assert.equal(hubOwnsPath(operate, '/app/build', auth), false)
+  // The primary Apps entry matches /app/addons and its subpaths only.
+  const apps = '/app/addons'
+  const appsActive = p => p === apps || p.startsWith(apps + '/')
+  assert.equal(appsActive('/app/addons/voice/voice'), true)
+  assert.equal(appsActive('/app/operate'), false)
+  // Legacy navigation: the Build hub keeps the Add-ons tab.
+  const legacy = { ...auth, features: { addon_navigation: false } }
+  assert.equal(hubOwnsPath(build, '/app/addons', legacy), true)
+})

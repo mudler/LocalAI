@@ -253,7 +253,7 @@ export default function Sidebar({ isOpen, onClose }) {
                         item={item}
                         onClose={onClose}
                         collapsed={collapsed}
-                        active={item.hub ? hubOwnsPath(item.hub, location.pathname) : undefined}
+                        active={item.hub ? hubOwnsPath(item.hub, location.pathname, auth) : undefined}
                         badge={item.hub?.id === 'operate' && activeOps > 0 ? (
                           <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
                             {failedOps > 0 ? failedOps : activeOps}
