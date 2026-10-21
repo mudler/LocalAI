@@ -209,6 +209,15 @@ the repository, so upgrade every node, workers included, before you rely on it:
 }
 ```
 
+## Installing from a library
+
+A library of the [Add-ons page]({{% relref "features/addons" %}}) can list backends too. The
+backend gallery stays the source of truth: a library entry is one more way to see and
+install a backend from it, with the same signature check, a pinned image digest and a
+size limit (8 GiB by default). The Browse tab of the Add-ons page shows each entry with
+its kind. See [Backends in the library]({{% relref "features/addons#backends-in-the-library" %}})
+for the entry format, the signer pattern and the install route.
+
 ## Pre-installing Backends
 
 You can pre-install backends when starting LocalAI using the `LOCALAI_EXTERNAL_BACKENDS` environment variable:

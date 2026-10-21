@@ -76,6 +76,8 @@ loopback carrier with keys that are made at each start and never written to disk
 | `--addons-enabled` | `LOCALAI_ADDONS_ENABLED` | `true` | Runs the addon owner. `--addons-enabled=false` turns it off completely: no owner starts, no addon runs, and every addon request is refused as unavailable. |
 | `--addons-ownership-mode` | `LOCALAI_ADDONS_OWNERSHIP_MODE` | `local-owner` when authentication is off, `named-user` when it is on | `named-user` gives each account its own access. `local-owner` makes every caller share one owner. A value you set always wins over the default. Any other value stops startup with an error. |
 | `--addons-official-library` | `LOCALAI_ADDONS_OFFICIAL_LIBRARY` | `true` | Registers the [official library](#the-official-library) on the first start. `--addons-official-library=false` does not register it. |
+| `--addons-backend-library` | `LOCALAI_ADDONS_BACKEND_LIBRARY` | `false` | Also registers the pilot [backend library](#backends-in-the-library) on the first start. |
+| `--addons-backend-max-bytes` | `LOCALAI_ADDONS_BACKEND_MAX_BYTES` | `8589934592` (8 GiB) | Largest compressed size of a backend image installed from a library. Add-ons keep their own limit of 512 MiB. |
 
 `named-user` needs authentication. With authentication on and no mode set, LocalAI
 uses `named-user`. With authentication off there are no accounts, so LocalAI uses
@@ -107,6 +109,147 @@ your choices. If you remove the `official` library (in the Add-ons page or throu
 source routes), it stays removed, and a `sources.json` you already have is never
 changed. To start without it, set `--addons-official-library=false` before the first
 start. To get it back, add a source with the URL above.
+
+## Backends in the library
+
+A library lists more than add-ons. Every entry has one schema and an optional `kind`
+field. The kinds are:
+
+| Kind | What the entry installs | State |
+|---|---|---|
+| `addon` | A supervised add-on package. It is the default: an entry without `kind` is an add-on, so every index written before kinds existed stays valid. | Supported |
+| `backend` | A backend image for the backends directory. | Supported (phase 1, pilot) |
+| `model` | A model. | Reserved. No reader installs it yet. |
+
+The backend gallery (`backend/index.yaml`) stays the source of truth and its install
+path does not change. A library entry of kind `backend` is one more way to see and
+install a backend that the gallery already lists.
+
+### How a reader treats an unknown kind
+
+A reader keeps the entries of the kinds it knows and skips every other entry. It does
+not read the fields of a skipped entry, so a newer kind can carry fields this version has
+never seen. The index is not refused. A skipped entry is reported in two places:
+
+- the refresh result and the state of the library have `skipped` (a count) and
+  `skippedKinds`. The Libraries tab shows them;
+- the refresh writes a warning to the log.
+
+A kind that is not a plain lowercase name, or that is not text, is a malformed entry
+and the index is refused. An unknown field on an entry of a known kind is still refused.
+Search lists add-ons unless the caller asks for a kind: `catalog-search` takes an optional
+`kind` argument (`addon`, `backend` or `all`).
+
+### A backend entry
+
+```yaml
+- kind: backend
+  addonId: cpu-local-store      # the backend name, also its directory name
+  alias: local-store            # optional: the name a model uses
+  name: cpu-local-store
+  description: Local Store is a local-first vector database.
+  version: 0.0.0-latest.0a1056fd8633
+  channel: latest
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-local-store
+  digest: sha256:0a1056fd863328adf9d1097808aa2b52f68c4ca2e5385100a754755b3ca6218f
+  os: linux
+  arch: amd64
+```
+
+The `digest` is the digest of the image for the platform. The install uses the image by
+digest and never by tag. A backend entry must use an `oci://` artifact. It has no main
+page or icon, and only a backend entry can set `alias`. The backend name is a directory
+name: it has no `/` and no `..`.
+
+### Signer identity pattern
+
+The signature policy belongs to the library, as for add-ons. A backend library can name
+the signer with `identityRegex` instead of an exact `identity`, so images that the merge
+workflow signed on master and on a tag both verify:
+
+```json
+{
+  "requireSignature": true,
+  "issuer": "https://token.actions.githubusercontent.com",
+  "identityRegex": "^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"
+}
+```
+
+Set `identity` or `identityRegex`, not both. The pattern must be one expression that
+starts with `^` and ends with `$`. A pattern with a top-level alternation, such as
+`^a|b$`, is refused, because one branch would match a part of the identity only. An
+add-on install refuses a library policy that has a pattern: add-on libraries name the
+signer exactly.
+
+### Install a backend from a library
+
+An administrator installs a backend from the Browse tab of the Add-ons page. The entry
+shows its kind. The page sends the install to the backend route, not to the add-on
+lifecycle: an add-on stays disabled until you enable it, a backend is ready to use when
+the install ends.
+
+The route is `POST /backends/library/install`. It is for administrators and exists only
+when the add-on owner runs on this instance:
+
+```bash
+curl -X POST http://localhost:8080/backends/library/install \
+  -H 'Content-Type: application/json' \
+  -d '{"sourceId":"official-backends","name":"cpu-local-store","version":"latest"}'
+```
+
+The request names the entry and nothing else. The library resolves the image, the digest
+and the policy, so a request cannot change them. The install:
+
+1. resolves the entry of kind `backend` for this platform;
+2. refuses it when `--require-backend-integrity` is on and the library does not require a
+   signature;
+3. pins the image by digest, verifies the signature before it fetches any layer and refuses
+   an image over the size limit (the layers are summed from the manifest);
+4. installs with the same code as the gallery, so the backend lands in the same directory
+   with the same `metadata.json`, plus `library`, the ID of the library it came from.
+
+The install runs inside the request and answers when it ends: `200` on success, `404` for
+an unknown entry, `409` when the name is already installed from another origin (a gallery,
+another library or a manual install; nothing changes), `413` over the size limit and `400`
+when strict mode refuses the library. Installing again from the same library is a
+reinstall.
+
+A library install touches only the node that serves the request. In a distributed
+deployment the backend is installed on that node only; the per-node routes of the backend
+gallery are unchanged.
+
+### Size limits
+
+The limit is on the compressed size of the package or image, by kind:
+
+| Kind | Default | Configure |
+|---|---|---|
+| `addon` | 512 MiB | No |
+| `backend` | 8 GiB | `--addons-backend-max-bytes` |
+
+### The pilot backend library
+
+`gallery/backends/index.yaml` lists a pilot: the CPU build of `local-store` for
+`linux/amd64`. Register it on the first start with `--addons-backend-library`, or add it
+later in the Libraries tab with this URL and the policy above:
+
+```
+https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/backends/index.yaml
+```
+
+The entries are rendered from the backend gallery. The command reads the registry, so the
+digests are never edited by hand. Render the file again after the backend images are
+rebuilt:
+
+```bash
+go run ./scripts/backends/cmd/backendcatalog \
+  --index backend/index.yaml \
+  --backends cpu-local-store \
+  --out gallery/backends/index.yaml
+```
+
+Phase 1 does not include models, the other backends, distributed install from a library,
+or a change to the gallery.
 
 ## Manifest
 
@@ -371,7 +514,8 @@ A catalog (the library index) is one YAML document: a block list of releases wit
     mainPage: databases
 ```
 
-Unknown fields, a second YAML document and duplicate keys are rejected. A JSON
+An entry may carry a `kind` (see [Backends in the library](#backends-in-the-library));
+without it the entry is an add-on. Unknown fields, a second YAML document and duplicate keys are rejected. A JSON
 array is refused too, even though YAML can read it: write the index as a block
 list. An empty library is `[]`. Package manifests (`manifest.json`) stay JSON; only
 the library index is YAML. Source identity and verification policy always
@@ -464,7 +608,8 @@ duplicate paths, file/directory collisions, and a supplied `receipt.json` are
 rejected. OCI layers cannot overwrite earlier paths: packages are flattened
 application bundles, not general-purpose container root filesystems.
 
-Defaults cap compressed downloads and extracted content at 512 MiB and archive
+Defaults cap compressed downloads and extracted content at 512 MiB (a backend image has its own
+[limit](#size-limits)) and archive
 entries at 10,000; owner configuration may set smaller positive limits. Staging
 is private, cancellation-aware, and removed on failure. Existing packages are
 never replaced or deleted. Commit publishes a unique read-only package directory
@@ -1927,7 +2072,7 @@ writes keep the operation identity and outcome-unknown rule of the lifecycle act
 
 | Action | Kind | Arguments | Payload |
 |---|---|---|---|
-| `catalog-search` | read | `text`, `sourceId`, `offset`, `limit` (at most 100) | `{releases, total}`; only releases for the owner's configured target platform are listed, and `total` counts that set |
+| `catalog-search` | read | `text`, `kind` (`addon` by default, `backend` or `all`), `sourceId`, `offset`, `limit` (at most 100) | `{releases, total}`; only releases for the owner's configured target platform are listed, and `total` counts that set |
 | `catalog-details` | read | request `addonId`; `sourceId`, `version` | `{release, installed}`; `installed` is `null` or `{version, generation, enabled}` |
 | `catalog-sources` | read | none | `{sources}`; each source has `refresh` once the owner fetched it |
 | `addons-installed` | read | none | `{addons}`, the installed view below |
