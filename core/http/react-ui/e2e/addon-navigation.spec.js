@@ -405,8 +405,8 @@ async function expectVoiceTabs(page, active) {
   await expect(tabs.locator('[aria-selected="true"]')).toHaveAttribute('data-tab', active)
 }
 
-// The add-on shell shows the one title, "Voice"; the Library and Text to speech
-// pages do not repeat it with a heading of their own.
+// The add-on shell shows the one title, "Voice"; the Library, Text to speech and
+// From a recording tabs do not repeat it with a heading of their own.
 async function expectOneVoiceTitle(page) {
   await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
   await expect(page.getByRole('heading', { name: 'Voice', exact: true, level: 1 })).toBeVisible()
@@ -489,6 +489,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recording$/)
     await expect(page.getByTestId('recording-tab')).toBeVisible()
     await expectVoiceTabs(page, 'recording')
+    await expectOneVoiceTitle(page)
   })
 
   test('a viewer who is not an administrator gets no Library tab', async ({ page }) => {
