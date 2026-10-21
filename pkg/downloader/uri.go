@@ -499,16 +499,14 @@ func downloadHTTPClient() *http.Client {
 // utils.ValidateExternalURL, so a public URL cannot redirect its way to a
 // loopback/private/link-local address.
 func redirectValidatedHTTPClient() *http.Client {
-	base := httpclient.HardenedTransport()
-	if DownloadResponseHeaderTimeout > 0 {
-		base.ResponseHeaderTimeout = DownloadResponseHeaderTimeout
-	}
+	// Share the credential wrapper and connection pool with file downloads.
+	base := downloadHTTPClient().Transport
 	return httpclient.New(
 		httpclient.WithFollowRedirects(),
 		httpclient.WithRedirectURLValidation(func(u *url.URL) error {
 			return utils.ValidateExternalURL(u.String())
 		}),
-		httpclient.WithTransport(credentials.Transport(base)),
+		httpclient.WithTransport(base),
 	)
 }
 
