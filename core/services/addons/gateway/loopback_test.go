@@ -57,7 +57,7 @@ func TestLoopbackPortInUseFailsClearly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer held.Close()
+	defer func() { _ = held.Close() }()
 	_, _, err = NewLoopbackCarrierConfig("local", root)
 	if err == nil {
 		t.Fatal("expected an error while the port is in use")
