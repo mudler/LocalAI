@@ -47,7 +47,9 @@ import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
-import { useAddonToolsAvailable } from '../addons/useAddonRegistry'
+import { useAddonToolAddons } from '../addons/useAddonRegistry'
+import AddonToolsMenu from '../components/chat/AddonToolsMenu'
+import { enabledAddonIds, toggleAddonSettings, toggleAllAddonSettings } from '../utils/chatAddons'
 // eslint-disable-next-line no-unused-vars
 import AddonSlot from '../addons/AddonSlot'
 import { useOperations } from '../hooks/useOperations'
@@ -211,7 +213,8 @@ function ChatPage() {
   const modelFit = useModelFit({ openCount: fitOpenCount, names: modelNames, contextSize: activeChat?.contextSize })
   const onPickerOpen = useCallback(() => setFitOpenCount(n => n + 1), [])
   const hasThread = (activeChat?.history?.length || 0) > 0
-  const hasAddonTools = useAddonToolsAvailable()
+  const toolAddonList = useAddonToolAddons()
+  const hasAddonTools = toolAddonList.length > 0
   const slashConfig = useMemo(() => ({
     actions: availableChatActions({ isAdmin, hasModels: chatModels.length > 0, hasThread, hasAddonTools }),
     groups: CHAT_SLASH_GROUPS,
@@ -1148,9 +1151,9 @@ function ChatPage() {
       }
       case 'assistant': updateChatSettings(activeChat.id, { localaiAssistant: !activeChat.localaiAssistant }); break
       case 'addon-tools': {
-        const next = !activeChat.addonTools
-        updateChatSettings(activeChat.id, { addonTools: next })
-        addToast(t(next ? 'toasts.addonToolsOn' : 'toasts.addonToolsOff'), 'success', 2500)
+        const settings = toggleAllAddonSettings(activeChat, toolAddonList)
+        updateChatSettings(activeChat.id, settings)
+        addToast(t(settings.addonTools ? 'toasts.addonToolsOn' : 'toasts.addonToolsOff'), 'success', 2500)
         break
       }
       case 'canvas': toggleCanvasMode(); break
@@ -1196,6 +1199,14 @@ function ChatPage() {
           onSettings={() => setShowSettings(v => !v)}
           settingsOpen={showSettings}
           moreItems={moreItems}
+          addonsMenu={(
+            <AddonToolsMenu
+              addons={toolAddonList}
+              enabledIds={enabledAddonIds(activeChat, toolAddonList)}
+              onToggle={(id) => updateChatSettings(activeChat.id, toggleAddonSettings(activeChat, toolAddonList, id))}
+              onToggleAll={() => updateChatSettings(activeChat.id, toggleAllAddonSettings(activeChat, toolAddonList))}
+            />
+          )}
         />
 
         {find.open && (

@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo } from 'react'
 import { RegistryContext, EMPTY_LIST } from './registryContext'
 import { usable } from './registryState'
+import { toolAddons } from '../utils/chatAddons'
 import { declaresSlot, slotContributions } from './slots'
 
 export function useAddonRegistry() {
@@ -83,14 +84,19 @@ export function useSlotContributions(slot, enabled = true) {
   )
 }
 
-// Whether the signed-in person has add-ons that offer tools to a model: an
-// enabled, running add-on whose manifest defines at least one. The server
-// decides what a chat may call; this only decides whether to offer the switch.
-export function useAddonToolsAvailable() {
+// The add-ons that offer tools to a model: enabled, running, with at least one
+// tool in the manifest. The server decides what a chat may call; this only
+// decides what to offer. Add-ons without tools are not listed.
+export function useAddonToolAddons() {
   const registry = useContext(RegistryContext)
   const acquire = registry ? registry.acquire : null
   const allowed = registry ? registry.allowed : false
   useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
   const apps = registry ? registry.apps : EMPTY_LIST
-  return allowed && apps.some(a => a.enabled && a.state === 'running' && Array.isArray(a.toolDefinitions) && a.toolDefinitions.length > 0)
+  return useMemo(() => (allowed ? toolAddons(apps) : EMPTY_LIST), [allowed, apps])
+}
+
+// Whether the signed-in person has any add-on that offers tools to a model.
+export function useAddonToolsAvailable() {
+  return useAddonToolAddons().length > 0
 }
