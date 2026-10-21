@@ -382,7 +382,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithMLXTunnelCallback(func(tunnels []string) {
 			hostfile := filepath.Join(os.TempDir(), "localai_mlx_hostfile.json")
 			data, _ := json.Marshal(tunnels)
-			os.WriteFile(hostfile, data, 0600)
+			if err := os.WriteFile(hostfile, data, 0600); err != nil {
+				xlog.Error("failed to write MLX hostfile", "path", hostfile, "error", err)
+				return
+			}
 			os.Setenv("MLX_DISTRIBUTED_HOSTFILE", hostfile)
 			xlog.Debug("setting MLX_DISTRIBUTED_HOSTFILE", "value", hostfile, "tunnels", tunnels)
 		}),
