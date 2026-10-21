@@ -239,6 +239,7 @@
 .idn-recording__text { margin: 0; max-width: 62ch; line-height: 1.5; }
 .idn-recording__steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; color: var(--dk-muted); font-size: var(--dk-text-15); }
 .idn-recording .dk-hint { margin: 0; max-width: 62ch; }
+@media (max-width: 720px) {
   .idn-tool { padding: var(--dk-space-3); }
   .idn-pair { grid-template-columns: minmax(0, 1fr); }
   .idn-result__tune { grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-4); }
@@ -256,7 +257,10 @@
   .idn-more__body { padding-left: 0; }
   .idn-more > summary .dk-hint { display: none; }
   .idn-needed__list li { flex-direction: column; align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
   .idn-working .dk-progress[data-indeterminate] .dk-progress-bar { animation: none; }
+}
 .idn-who .dk-table-sub { white-space: normal; overflow: visible; text-overflow: clip; max-width: 62ch; }
 .idn-pair--boxes .idn-face { max-width: 340px; }
 .idn-sheet__need { flex: 1 1 160px; min-width: 0; margin-right: 0; }
