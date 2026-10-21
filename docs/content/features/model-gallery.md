@@ -371,6 +371,29 @@ The models in the gallery will be automatically indexed and available for instal
 
 To use a gallery that needs authentication, such as a private GitHub repository or an internal server, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}).
 
+## Model library (preview)
+
+The model library lists the same models as the model gallery in the shared library entry shape. Each entry has the common header (`kind`, `id`, `name`, `version`, `description`, `license`, `urls`, `tags`, `icon`, `channel`, `policy`, `schemaVersion`) and a `model` body with `url`, `backend`, `size`, `files`, `configFile`, `overrides`, `variants` and `promptTemplates`. It is a separate file, `gallery/models/index.yaml`. The model gallery index stays the default and is not changed.
+
+Select the library with a flag or an environment variable:
+
+| Flag | Environment | Default | Meaning |
+|---|---|---|---|
+| `--model-index-source` | `LOCALAI_MODEL_INDEX_SOURCE` | `gallery` | `gallery` reads the gallery index. `library` reads the model library. |
+| `--model-library-url` | `LOCALAI_MODEL_LIBRARY_URL` | the file in the LocalAI repository | The library to read when the source is `library`. |
+
+The setting applies to the gallery named `localai`. A gallery you add keeps its own index. If the library cannot be fetched or read, listing the models fails with an error; LocalAI does not fall back to the gallery, so the setting is never silent. Entries of another kind are skipped. The library has no mirrors and no signature policy of its own, so it does not use the mirrors or the artifact verification of the `localai` gallery. The sha256 of each model file is still checked on install.
+
+The library is rendered from the gallery, never edited by hand. The command converts every entry to a library entry and back, and fails if one entry does not come back equal:
+
+```bash
+go run ./scripts/models/cmd/modelcatalog \
+  --index gallery/index.yaml \
+  --out gallery/models/index.yaml
+```
+
+The tests in `core/gallery` run the same round trip on every entry of the real index, and compare the result with golden files in `core/gallery/testdata/model_library`. After you change the library shape on purpose, render the golden files again with `--golden core/gallery/testdata/model_library`.
+
 ## Gallery mirrors
 
 A gallery entry can declare a `mirrors` list of alternative locations for the same index file. Mirrors exist for availability, not for load balancing: LocalAI always prefers the `url`, and only falls back to the mirrors, in the order you listed them, when the one before it cannot be fetched. If the primary works, the mirrors are never contacted.

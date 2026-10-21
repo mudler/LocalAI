@@ -103,6 +103,8 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 |-----------|---------|-------------|----------------------|
 | `--galleries` | | JSON list of galleries | `$LOCALAI_GALLERIES`, `$GALLERIES` |
 | `--autoload-galleries` | `true` | Automatically load galleries on startup | `$LOCALAI_AUTOLOAD_GALLERIES`, `$AUTOLOAD_GALLERIES` |
+| `--model-index-source` | `gallery` | File the models of the official gallery are read from: `gallery` or `library`. See [Model library](/features/model-gallery/#model-library-preview) | `$LOCALAI_MODEL_INDEX_SOURCE` |
+| `--model-library-url` | | URL of the model library read with `--model-index-source=library` | `$LOCALAI_MODEL_LIBRARY_URL` |
 | `--vram-persistent-cache` | `true` | Persist successful remote VRAM metadata probes across restarts | `$LOCALAI_VRAM_PERSISTENT_CACHE`, `$VRAM_PERSISTENT_CACHE` |
 | `--preload-models` | | A list of models to apply in JSON at start | `$LOCALAI_PRELOAD_MODELS`, `$PRELOAD_MODELS` |
 | `--models` | | A list of model configuration URLs to load | `$LOCALAI_MODELS`, `$MODELS` |
