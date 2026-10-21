@@ -146,7 +146,6 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolImportModelURI, ImportModelURIRequest{URI: "Qwen/Qwen3-4B-GGUF"}, "ImportModelURI"},
 		{ToolDeleteModel, map[string]any{"name": "foo"}, "DeleteModel"},
 		{ToolInstallBackend, InstallBackendRequest{BackendName: "llama-cpp"}, "InstallBackend"},
-		{ToolInstallLibraryBackend, InstallLibraryBackendRequest{SourceID: "official", Name: "demo", Version: "1.0.0"}, "InstallLibraryBackend"},
 		{ToolUpgradeBackend, map[string]any{"name": "llama-cpp"}, "UpgradeBackend"},
 		{ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{"context_size": 4096}}, "EditModelConfig"},
 		{ToolReloadModels, struct{}{}, "ReloadModels"},
@@ -170,9 +169,6 @@ var _ = Describe("Tool dispatch", func() {
 				installModel:   func(InstallModelRequest) (string, error) { return "job-1", nil },
 				installBackend: func(InstallBackendRequest) (string, error) { return "job-2", nil },
 				upgradeBackend: func(string) (string, error) { return "job-3", nil },
-				installLibraryBackend: func(InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error) {
-					return &InstallLibraryBackendResult{Status: "installed"}, nil
-				},
 			}
 			ctx, sess, done := connectInMemory(fc, Options{})
 			DeferCleanup(done)

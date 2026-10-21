@@ -681,9 +681,6 @@ func (a *Application) start() (startErr error) {
 		assistantClient.StatsRecorder = a.statsRecorder
 		assistantClient.FallbackUser = a.fallbackUser
 		assistantClient.VoiceProfiles = a.voiceProfileStore
-		if a.backendLibrary != nil {
-			assistantClient.BackendLibrary = a.backendLibrary
-		}
 		if a.distributed != nil && a.distributed.Unloader != nil {
 			assistantClient.LoadStopper = a.distributed.Unloader
 		}

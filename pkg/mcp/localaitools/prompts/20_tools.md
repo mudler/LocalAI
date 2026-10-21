@@ -32,7 +32,6 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `import_model_uri` — Install a model from an arbitrary URI (HuggingFace, OCI, http(s), file://). May return `ambiguous_backend` when several backends apply; call again with `backend_preference` to disambiguate.
 - `delete_model` — Delete an installed model.
 - `install_backend` — Install a backend.
-- `install_library_backend` — Install a backend from an add-on library entry by `source_id`, `name` and `version`. The call returns when the install is done, with no job id. The backend gallery is not changed.
 - `upgrade_backend` — Upgrade an installed backend by name.
 - `edit_model_config` — Patch (deep-merge) JSON into an installed model's config.
 - `reload_models` — Reload all model configs from disk.

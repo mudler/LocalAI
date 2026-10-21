@@ -482,22 +482,3 @@ var _ = Describe("Bearer token", func() {
 		Expect(sawAuth).To(Equal("Bearer secret-key"))
 	})
 })
-
-var _ = Describe("InstallLibraryBackend", func() {
-	It("posts the library entry to the backend library route", func() {
-		var path string
-		var body map[string]any
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			path = r.Method + " " + r.URL.Path
-			Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
-			_ = json.NewEncoder(w).Encode(map[string]any{"status": "installed", "name": "demo", "sourceId": "official"})
-		}))
-		DeferCleanup(srv.Close)
-
-		res, err := New(srv.URL, "").InstallLibraryBackend(context.Background(), localaitools.InstallLibraryBackendRequest{SourceID: "official", Name: "demo", Version: "1.0.0"})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(path).To(Equal("POST /backends/library/install"))
-		Expect(body).To(Equal(map[string]any{"sourceId": "official", "name": "demo", "version": "1.0.0"}))
-		Expect(res.Status).To(Equal("installed"))
-	})
-})
