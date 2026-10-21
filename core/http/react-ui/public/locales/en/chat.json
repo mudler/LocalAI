@@ -313,5 +313,16 @@
     "bodyMember": "No chat model is installed on this server yet. Ask an administrator to install one.",
     "gallery": "Browse the gallery",
     "import": "Import a model"
+  },
+  "attachmentCollection": {
+    "title": "Attachments",
+    "label": "Save attachments to collection",
+    "none": "None",
+    "help": "Each file you attach is also uploaded, as the original file, to this collection when you send. The chat itself works as before. Remembered in this browser.",
+    "helpEmpty": "You have no collections yet. Create one under Memory to keep chat attachments there.",
+    "uploading": "saving to {{collection}}…",
+    "saved": "saved to {{collection}}",
+    "failed": "failed: {{reason}}",
+    "dismiss": "Dismiss upload status"
   }
 }
