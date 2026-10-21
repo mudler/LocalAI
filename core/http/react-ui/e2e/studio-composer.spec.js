@@ -329,8 +329,12 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await stubMedia(page)
     await seedHistory(page, sampleHistory())
     await page.route('**/video', route => route.fulfill({ json: { data: [{ url: '/generated-videos/new.mp4' }] } }))
+    // Both addresses below are cold loads of the Studio bundle: the page
+    // shows "Loading" until its module has run. That takes about two seconds
+    // here and over seven on a loaded machine, so the first assertion after
+    // each load gets a longer budget than the default five seconds.
     await page.goto('/app/studio/video?prompt=Slow%20push-in&from=img-forest&edge=animate&model=wan2.1-t2v-1.3b')
-    await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready')
+    await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready', { timeout: 20_000 })
     await page.getByRole('button', { name: /generate/i }).click()
     await expect(page.locator('[data-testid="media-history-item"]').first()).toBeVisible()
     await expect.poll(async () => (await readStore(page, 'localai_video_history'))?.[0]?.parentId).toBe('img-forest')
@@ -339,7 +343,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     expect(saved.prompt).toBe('Slow push-in')
     // And the front page now stacks the forest picture with its clip.
     await page.goto('/app/studio')
-    await expect(page.locator('[data-testid="work-project"][data-id="img-forest"]')).toHaveAttribute('data-count', '2')
+    await expect(page.locator('[data-testid="work-project"][data-id="img-forest"]')).toHaveAttribute('data-count', '2', { timeout: 20_000 })
   })
 
   test('a result made without a hand-off records no link', async ({ page }) => {
