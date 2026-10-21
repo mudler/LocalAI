@@ -937,6 +937,9 @@ func (a *Application) startAddons() error {
 	}
 	a.addonSources = cat.Sources
 	a.addonManager = m
+	if c.InstanceID == c.OwnerID {
+		go a.runAddonAutoUpgrade(a.applicationConfig.Context, upgradeInitialDelay, upgradeCheckInterval)
+	}
 	if err := a.startAddonGateway(); err != nil {
 		_ = m.Close()
 		return err

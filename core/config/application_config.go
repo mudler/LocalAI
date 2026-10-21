@@ -191,6 +191,7 @@ type ApplicationConfig struct {
 	AutoloadGalleries, AutoloadBackendGalleries bool
 	VRAMPersistentCache                         bool
 	AutoUpgradeBackends                         bool
+	AutoUpgradeAddons                           bool
 	PreferDevelopmentBackends                   bool
 
 	// RequireBackendIntegrity promotes a missing SHA256 (tarball/HTTP URIs)
@@ -667,6 +668,10 @@ var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 
 func WithAutoUpgradeBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
+}
+
+func WithAutoUpgradeAddons(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.AutoUpgradeAddons = v }
 }
 
 func WithVRAMPersistentCache(v bool) AppOption {

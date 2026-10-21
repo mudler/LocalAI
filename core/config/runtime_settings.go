@@ -21,6 +21,7 @@ type RuntimeSettings struct {
 	SingleBackend             *bool `json:"single_backend,omitempty"`              // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends         *int  `json:"max_active_backends,omitempty"`         // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
 	AutoUpgradeBackends       *bool `json:"auto_upgrade_backends,omitempty"`       // Automatically upgrade backends when new versions are detected
+	AutoUpgradeAddons         *bool `json:"auto_upgrade_addons,omitempty"`         // Automatically upgrade installed add-ons when their library lists a newer version
 	PreferDevelopmentBackends *bool `json:"prefer_development_backends,omitempty"` // Display/download preference; installed alias resolver changes require restart
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
 	MemoryReclaimerEnabled   *bool    `json:"memory_reclaimer_enabled,omitempty"`   // Enable memory threshold monitoring

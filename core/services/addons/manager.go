@@ -112,6 +112,10 @@ type Manager struct {
 	// updates is the owner's update check. Nil means no checks and no pinned
 	// upgrades.
 	updates *updates.Checker
+	// autoFailures holds, per add-on, the candidate digest of the last
+	// automatic upgrade that failed. In memory only: a restart tries again.
+	autoMu       sync.Mutex
+	autoFailures map[string]string
 }
 
 func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *packages.Installer, admin catalog.AdminCheck) (*Manager, error) {
@@ -217,6 +221,13 @@ func (m *Manager) Status(ctx context.Context, id string) (Status, error) {
 	return s, nil
 }
 func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd LifecycleCommand) (OperationStatus, error) {
+	return m.submit(ctx, actor, cmd, false)
+}
+
+// submit is the one lifecycle path. The owner's automatic upgrade passes
+// owner true: the owner acts on its own setting, so no administrator is asked.
+// Everything after that gate is shared with the manual upgrade.
+func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd LifecycleCommand, owner bool) (OperationStatus, error) {
 	m.opMu.Lock()
 	defer m.opMu.Unlock()
 	m.mu.Lock()
@@ -224,7 +235,7 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	if e := m.check(ctx); e != nil {
 		return OperationStatus{}, e
 	}
-	if m.admin == nil || m.admin(ctx, actor) != nil {
+	if !owner && (m.admin == nil || m.admin(ctx, actor) != nil) {
 		return OperationStatus{}, ErrForbidden
 	}
 	if m.uncertain || m.runtimeRecoveryRequired {
