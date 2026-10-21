@@ -4,71 +4,58 @@ package pins
 import (
 	"context"
 	"path/filepath"
-	"slices"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestFileStoreContract(t *testing.T) {
-	runStoreContract(t, func(t *testing.T) Store {
-		s, err := NewFileStore(filepath.Join(t.TempDir(), "pins.json"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return s
+var _ = Describe("File store", func() {
+	Context("contract with a file", func() {
+		registerStoreContract(func() Store {
+			s, err := NewFileStore(filepath.Join(GinkgoT().TempDir(), "pins.json"))
+			Expect(err).ToNot(HaveOccurred())
+			return s
+		})
 	})
-}
 
-func TestMemoryOnlyFileStoreContract(t *testing.T) {
-	runStoreContract(t, func(t *testing.T) Store {
-		s, err := NewFileStore("")
-		if err != nil {
-			t.Fatal(err)
-		}
-		return s
+	Context("contract in memory only", func() {
+		registerStoreContract(func() Store {
+			s, err := NewFileStore("")
+			Expect(err).ToNot(HaveOccurred())
+			return s
+		})
 	})
-}
 
-func TestFileStoreKeepsPinsAcrossAReopen(t *testing.T) {
-	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "pins.json")
-	a, _ := NewFileStore(path)
-	if ran, _ := a.SeedExisting(ctx, []string{"local-owner"}, SeedIDs); !ran {
-		t.Fatal("first seed must run")
-	}
-	_ = a.Replace(ctx, "local-owner", []string{"talk"})
-	b, err := NewFileStore(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, _ := b.List(ctx, "local-owner")
-	if !slices.Equal(idsOf(got), []string{"talk"}) {
-		t.Fatalf("pins lost across a restart: %v", idsOf(got))
-	}
-	if again, _ := b.SeedExisting(ctx, []string{"local-owner"}, SeedIDs); again {
-		t.Fatal("the seed marker must survive a restart")
-	}
-}
+	It("keeps pins across a reopen", func() {
+		ctx := context.Background()
+		path := filepath.Join(GinkgoT().TempDir(), "pins.json")
+		a, _ := NewFileStore(path)
+		ran, _ := a.SeedExisting(ctx, []string{"local-owner"}, SeedIDs)
+		Expect(ran).To(BeTrue(), "first seed must run")
+		_ = a.Replace(ctx, "local-owner", []string{"talk"})
+		b, err := NewFileStore(path)
+		Expect(err).ToNot(HaveOccurred())
+		got, _ := b.List(ctx, "local-owner")
+		Expect(idsOf(got)).To(Equal([]string{"talk"}), "pins lost across a restart")
+		again, _ := b.SeedExisting(ctx, []string{"local-owner"}, SeedIDs)
+		Expect(again).To(BeFalse(), "the seed marker must survive a restart")
+	})
 
-// The retention window of a removed add-on must not restart at each reopen.
-func TestFileStoreKeepsTheMissingMarkAndTheOwnerAcrossAReopen(t *testing.T) {
-	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "pins.json")
-	a, _ := NewFileStore(path)
-	_ = a.Replace(ctx, "local-owner", []string{"notes", "studio"})
-	mark := time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)
-	if err := a.MarkMissing(ctx, []string{"notes"}, mark); err != nil {
-		t.Fatal(err)
-	}
-	b, err := NewFileStore(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, _ := b.List(ctx, "local-owner")
-	if len(got) != 2 || got[0].UserID != "local-owner" {
-		t.Fatalf("the owner of a pin was lost: %+v", got)
-	}
-	if got[0].MissingSince == nil || !got[0].MissingSince.Equal(mark) {
-		t.Fatalf("the start of the retention window was lost across a restart: %v", got[0].MissingSince)
-	}
-}
+	// The retention window of a removed add-on must not restart at each reopen.
+	It("keeps the missing mark and the owner across a reopen", func() {
+		ctx := context.Background()
+		path := filepath.Join(GinkgoT().TempDir(), "pins.json")
+		a, _ := NewFileStore(path)
+		_ = a.Replace(ctx, "local-owner", []string{"notes", "studio"})
+		mark := time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)
+		Expect(a.MarkMissing(ctx, []string{"notes"}, mark)).To(Succeed())
+		b, err := NewFileStore(path)
+		Expect(err).ToNot(HaveOccurred())
+		got, _ := b.List(ctx, "local-owner")
+		Expect(got).To(HaveLen(2), "the owner of a pin was lost: %+v", got)
+		Expect(got[0].UserID).To(Equal("local-owner"), "the owner of a pin was lost: %+v", got)
+		Expect(got[0].MissingSince).ToNot(BeNil(), "the start of the retention window was lost across a restart")
+		Expect(got[0].MissingSince.Equal(mark)).To(BeTrue(), "the start of the retention window was lost across a restart: %v", got[0].MissingSince)
+	})
+})
