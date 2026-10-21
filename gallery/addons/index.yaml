@@ -42,10 +42,10 @@
 - addonId: "voice"
   name: Voice
   description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
-  version: "0.0.0-dev.99d1dca2c869"
+  version: "0.0.0-dev.50f0f3de26d2"
   channel: "development"
-  artifact: "oci://quay.io/go-skynet/local-ai-addons/voice:sha-99d1dca2c869"
-  digest: "sha256:1d9ff8c81ad8963c2a32426a97dfb4d2935833f9a36615af9c132040672236a2"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons/voice:sha-50f0f3de26d2"
+  digest: "sha256:1343e18fe7b05e6d65da57f6f86ebf75f2861f24ab029a9179935c98fb613583"
   os: "linux"
   arch: "amd64"
   policy:
@@ -55,7 +55,7 @@
   ui:
     title: "Voice"
     description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
-    mainPage: "recognition"
+    mainPage: "voice"
     icon: "ui/icon.png"
 - addonId: "face"
   name: Face
