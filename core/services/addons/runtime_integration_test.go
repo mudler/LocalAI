@@ -197,7 +197,7 @@ var _ = Describe("Restart lifecycle cancellation", func() {
 				Expect(tw.Close()).To(Succeed())
 				artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(archive.Bytes()) }))
 				DeferCleanup(artifact.Close)
-				release := catalog.Release{AddonID: "sample", Name: "Sample", Version: "2.0.0", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(archive.Bytes())), OS: manifest.OS, Arch: manifest.Arch}
+				release := catalog.Release{ID: "sample", Name: "Sample", Version: "2.0.0", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(archive.Bytes())), OS: manifest.OS, Arch: manifest.Arch}
 				library := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					_ = catalog.WriteIndex(w, []catalog.Release{release})
 				}))

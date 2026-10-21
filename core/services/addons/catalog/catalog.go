@@ -62,10 +62,13 @@ type Release struct {
 	Channel           string `json:"channel,omitempty"`
 	AllowLoopbackHTTP bool   `json:"allowLoopbackHTTP,omitempty"`
 	// Selection is stamped by Resolve, not trusted from remote metadata.
-	Selection   string             `json:"selection,omitempty"`
-	SourceID    string             `json:"sourceId,omitempty"`
-	SourceURL   string             `json:"sourceUrl,omitempty"`
-	AddonID     string             `json:"addonId"`
+	Selection string `json:"selection,omitempty"`
+	SourceID  string `json:"sourceId,omitempty"`
+	SourceURL string `json:"sourceUrl,omitempty"`
+	// ID is the identifier of the entry. An index written before the shared
+	// envelope names it addonId; DecodeIndex still reads that name (see
+	// LegacyIDField) and every writer emits id.
+	ID          string             `json:"id"`
 	Name        string             `json:"name"`
 	Description string             `json:"description,omitempty"`
 	Version     string             `json:"version"`
@@ -145,7 +148,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 			if r.OS != targetOS || r.Arch != targetArch {
 				continue
 			}
-			if strings.Contains(strings.ToLower(r.Name+" "+r.AddonID+" "+r.Description), strings.ToLower(q.Text)) {
+			if strings.Contains(strings.ToLower(r.Name+" "+r.ID+" "+r.Description), strings.ToLower(q.Text)) {
 				all = append(all, r)
 			}
 		}
@@ -158,7 +161,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	return p, nil
 }
 func releaseKey(r Release) string {
-	return r.SourceID + "/" + r.AddonID + "/" + r.Version + "/" + r.OS + "/" + r.Arch
+	return r.SourceID + "/" + r.ID + "/" + r.Version + "/" + r.OS + "/" + r.Arch
 }
 func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string) (Release, error) {
 	if e := ctx.Err(); e != nil {
@@ -184,7 +187,7 @@ func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string)
 	targetOS, targetArch := c.target()
 	var found *Release
 	for _, r := range cache.releases {
-		if r.AddonID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {
+		if r.ID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {
 			if found != nil {
 				return Release{}, ErrInvalid
 			}
@@ -226,7 +229,7 @@ func (c Catalog) Releases(ctx context.Context, sourceID, addonID string) ([]Rele
 	}
 	out := []Release{}
 	for _, r := range cache.releases {
-		if r.AddonID == addonID {
+		if r.ID == addonID {
 			out = append(out, r)
 		}
 	}

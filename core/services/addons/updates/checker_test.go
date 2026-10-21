@@ -65,7 +65,7 @@ func (l *library) Releases(ctx context.Context, _, id string) ([]catalog.Release
 	}
 	out := []catalog.Release{}
 	for _, r := range l.cached {
-		if r.AddonID == id {
+		if r.ID == id {
 			out = append(out, r)
 		}
 	}
@@ -79,7 +79,7 @@ func (l *library) Resolve(_ context.Context, source, id, version string) (catalo
 	}
 	var found *catalog.Release
 	for _, r := range l.cached {
-		if r.AddonID == id && r.OS == osName && r.Arch == archName && (r.Version == version || (r.Channel != "" && r.Channel == version)) {
+		if r.ID == id && r.OS == osName && r.Arch == archName && (r.Version == version || (r.Channel != "" && r.Channel == version)) {
 			if found != nil {
 				return catalog.Release{}, catalog.ErrInvalid
 			}
@@ -133,7 +133,7 @@ func (i *installs) Installation(_ context.Context, id string) (updates.Installat
 }
 
 func rel(version, channel, digest string) catalog.Release {
-	return catalog.Release{AddonID: "notes", Name: "notes", SourceID: "official", Version: version, Channel: channel, Digest: digest, OS: osName, Arch: archName}
+	return catalog.Release{ID: "notes", Name: "notes", SourceID: "official", Version: version, Channel: channel, Digest: digest, OS: osName, Arch: archName}
 }
 
 func installed(version, selection, channel, digest string) updates.Installation {

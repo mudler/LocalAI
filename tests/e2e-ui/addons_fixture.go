@@ -168,7 +168,7 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 		version, _ := manifest["version"].(string)
 		f.archives[entry.Name()+".tar"] = buf.Bytes()
 		release := catalog.Release{
-			AddonID: id, Name: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH,
+			ID: id, Name: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH,
 			Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(buf.Bytes())), Artifact: "/" + entry.Name() + ".tar",
 		}
 		if channel, err := os.ReadFile(filepath.Join(pkg, ".fixture-channel")); err == nil { // #nosec G304 -- test harness reads files it created in its own work directory
@@ -271,7 +271,7 @@ func (f *addonsFixture) listed() []catalog.Release {
 		if m.generation > f.step {
 			continue
 		}
-		key := m.AddonID + "/" + m.Channel + "/" + m.Version
+		key := m.ID + "/" + m.Channel + "/" + m.Version
 		if cur, ok := best[key]; !ok || m.generation > cur.generation {
 			best[key] = m
 		}
@@ -408,7 +408,7 @@ func (f *addonsFixture) seed(ctx context.Context, app *application.Application, 
 		return err
 	}
 	for _, r := range f.listed() {
-		creds.Packages = append(creds.Packages, r.AddonID+"@"+r.Version)
+		creds.Packages = append(creds.Packages, r.ID+"@"+r.Version)
 	}
 	if len(f.moving) > 0 {
 		creds.Control = "http://" + f.listener.Addr().String() + "/_fixture"

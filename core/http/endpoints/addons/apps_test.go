@@ -91,7 +91,7 @@ func newAppsStack() *appsStack {
 	DeferCleanup(artifact.Close)
 	releases := []catalog.Release{}
 	for _, id := range []string{"notes", "headless"} {
-		releases = append(releases, catalog.Release{AddonID: id, Name: id, Version: "1.0.0", Artifact: artifact.URL + "/" + id + ".tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(archives[id])), OS: "linux", Arch: "amd64"})
+		releases = append(releases, catalog.Release{ID: id, Name: id, Version: "1.0.0", Artifact: artifact.URL + "/" + id + ".tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(archives[id])), OS: "linux", Arch: "amd64"})
 	}
 	library := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _ = catalog.WriteIndex(w, releases) }))
 	DeferCleanup(library.Close)

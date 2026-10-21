@@ -73,7 +73,7 @@ var _ = Describe("reserved add-on IDs", func() {
 		s := setup()
 		for _, id := range contract.ReservedAddonIDs() {
 			r := release()
-			r.AddonID = id
+			r.ID = id
 			server := library(func(w http.ResponseWriter, _ *http.Request) { _ = WriteIndex(w, []Release{r}) })
 			save(s, "one", server.URL)
 			_, e := s.Refresh(ctx, "one")
@@ -205,7 +205,7 @@ var _ = Describe("what the update check reads", func() {
 		other := release()
 		other.OS = "plan9"
 		unrelated := release()
-		unrelated.AddonID = "notes"
+		unrelated.ID = "notes"
 		s := serve(release(), other, unrelated)
 		c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
 		list, e := c.Releases(ctx, "lib", "tables")

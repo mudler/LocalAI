@@ -352,12 +352,12 @@ refresh time and prevents stale cached releases from resolving successfully.
 ### Catalog document and limits
 
 A catalog (the library index) is one YAML document: a block list of releases with
-`addonId`, `name`, optional `description`, `version`, `artifact`
+`id` (an index written before this name may still use `addonId`, which is read for one release), `name`, optional `description`, `version`, `artifact`
 (`oci://host/repository`), `digest` (`sha256:` plus 64 lowercase hex characters),
 `os` and `arch`. It uses the same format as the model and backend gallery indexes:
 
 ```yaml
-- addonId: tables
+- id: tables
   name: Tables
   description: Tables for LocalAI
   version: 1.0.0

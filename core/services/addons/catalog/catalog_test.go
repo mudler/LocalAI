@@ -29,7 +29,7 @@ func checker(_ context.Context, a contract.Actor) error {
 	return nil
 }
 func release() Release {
-	return Release{AddonID: "tables", Name: "Tables", Version: "1.0.0", Artifact: "oci://registry.example/tables", Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", OS: "linux", Arch: "amd64"}
+	return Release{ID: "tables", Name: "Tables", Version: "1.0.0", Artifact: "oci://registry.example/tables", Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", OS: "linux", Arch: "amd64"}
 }
 func library(handler http.HandlerFunc) *httptest.Server {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +90,7 @@ var _ = Describe("private catalogs", func() {
 		other := release()
 		other.OS, other.Arch = "windows", "arm64"
 		onlyOther := release()
-		onlyOther.AddonID, onlyOther.Name = "notes", "Notes"
+		onlyOther.ID, onlyOther.Name = "notes", "Notes"
 		onlyOther.OS, onlyOther.Arch = "windows", "arm64"
 		server := library(func(w http.ResponseWriter, r *http.Request) {
 			_ = WriteIndex(w, []Release{release(), other, onlyOther})
@@ -265,7 +265,7 @@ var _ = Describe("catalog display metadata", func() {
 	entries := func(mutate func(*Release)) []Release {
 		plain := release()
 		app := release()
-		app.AddonID, app.Name = "notes", "Notes"
+		app.ID, app.Name = "notes", "Notes"
 		app.UI = EntryUI{Title: "Notes", Description: "Keep notes.", MainPage: "home", Icon: "ui/icon.png", LaunchMode: "always"}
 		if mutate != nil {
 			mutate(&app)
@@ -287,7 +287,7 @@ var _ = Describe("catalog display metadata", func() {
 		Expect(page.Releases).To(HaveLen(2))
 		byID := map[string]Release{}
 		for _, r := range page.Releases {
-			byID[r.AddonID] = r
+			byID[r.ID] = r
 		}
 		Expect(byID["tables"].UI).To(Equal(EntryUI{}))
 		Expect(byID["notes"].UI).To(Equal(EntryUI{Title: "Notes", Description: "Keep notes.", MainPage: "home", Icon: "ui/icon.png", LaunchMode: "always"}))

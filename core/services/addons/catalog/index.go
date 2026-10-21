@@ -50,9 +50,18 @@ func DecodeIndex(data []byte) ([]Release, error) {
 	if len(list.Content) > MaxIndexReleases {
 		return nil, errors.New("index has too many releases")
 	}
-	var plain any
+	var plain []any
 	if err := list.Decode(&plain); err != nil {
 		return nil, err
+	}
+	for _, item := range plain {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			return nil, errors.New("index entry must be a mapping")
+		}
+		if err := NormalizeLegacyID(entry); err != nil {
+			return nil, err
+		}
 	}
 	b, err := json.Marshal(plain)
 	if err != nil {
@@ -63,6 +72,26 @@ func DecodeIndex(data []byte) ([]Release, error) {
 		return nil, err
 	}
 	return releases, nil
+}
+
+// LegacyIDField is the name the identifier of an entry had before the shared
+// envelope. A reader still accepts it for one release; every writer emits id.
+const LegacyIDField = "addonId"
+
+// NormalizeLegacyID moves the legacy addonId of a decoded entry to id, so one
+// strict decoder serves both spellings. An entry that holds both is refused
+// even when they agree, because it is not the output of any writer.
+func NormalizeLegacyID(entry map[string]any) error {
+	legacy, ok := entry[LegacyIDField]
+	if !ok {
+		return nil
+	}
+	if _, both := entry["id"]; both {
+		return errors.New("index entry has both id and " + LegacyIDField)
+	}
+	entry["id"] = legacy
+	delete(entry, LegacyIDField)
+	return nil
 }
 
 // EncodeIndex writes releases as a library index. It is the inverse of

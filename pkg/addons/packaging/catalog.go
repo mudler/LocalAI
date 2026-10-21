@@ -23,7 +23,7 @@ var ownerRepoRE = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 // the JSON names of catalog.Release on purpose: the generated file is checked
 // against the names, not against this program's idea of them.
 type catalogRelease struct {
-	AddonID     string `json:"addonId"`
+	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Version     string `json:"version"`
@@ -236,7 +236,7 @@ func checkRelease(r catalogRelease, version, digest, repository, tag string) err
 		return errors.New("entry must require a signature of the GitHub Actions OIDC issuer")
 	case !strings.Contains(r.Policy.Identity, "/.github/workflows/"+SignerWorkflow+"@refs/"):
 		return errors.New("entry identity must name the add-on package workflow")
-	case r.OS == "" || r.Arch == "" || r.AddonID == "" || r.Channel == "":
+	case r.OS == "" || r.Arch == "" || r.ID == "" || r.Channel == "":
 		return errors.New("entry needs addon id, os, arch and channel")
 	}
 	return nil

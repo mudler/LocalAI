@@ -66,7 +66,7 @@ var _ = Describe("install refusal in the dispatch response", func() {
 			if id == "corrupt" {
 				digest = fmt.Sprintf("sha256:%x", sha256.Sum256([]byte("other")))
 			}
-			releases = append(releases, catalog.Release{AddonID: id, Name: id, Version: "1.0.0", Artifact: artifact.URL + "/p.tar", Digest: digest, OS: "linux", Arch: "amd64"})
+			releases = append(releases, catalog.Release{ID: id, Name: id, Version: "1.0.0", Artifact: artifact.URL + "/p.tar", Digest: digest, OS: "linux", Arch: "amd64"})
 		}
 		library := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _ = catalog.WriteIndex(w, releases) }))
 		DeferCleanup(library.Close)

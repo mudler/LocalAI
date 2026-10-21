@@ -162,7 +162,7 @@ func (l *Library) Add(p Package, effectsDir string) error {
 	defer l.mu.Unlock()
 	l.archives[name] = buf.Bytes()
 	l.releases = append(l.releases, catalog.Release{
-		AddonID: p.ID, Name: p.ID, Version: p.Version, OS: runtime.GOOS, Arch: runtime.GOARCH,
+		ID: p.ID, Name: p.ID, Version: p.Version, OS: runtime.GOOS, Arch: runtime.GOARCH,
 		Digest:   fmt.Sprintf("sha256:%x", sha256.Sum256(buf.Bytes())),
 		Artifact: "http://" + l.listener.Addr().String() + "/" + name,
 	})
@@ -179,7 +179,7 @@ func (l *Library) AddArchive(id, version string, archive []byte) (string, error)
 	defer l.mu.Unlock()
 	l.archives[name] = archive
 	l.releases = append(l.releases, catalog.Release{
-		AddonID: id, Name: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH,
+		ID: id, Name: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH,
 		Digest:   digest,
 		Artifact: "http://" + l.listener.Addr().String() + "/" + name,
 	})

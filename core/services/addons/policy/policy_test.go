@@ -1054,7 +1054,7 @@ var _ = Describe("real manager lifecycle", func() {
 		Expect(tw.Close()).To(Succeed())
 		artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(b.Bytes()) }))
 		DeferCleanup(artifact.Close)
-		release := catalog.Release{AddonID: "sample", Name: "Sample", Version: "1.2.3", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes())), OS: "linux", Arch: "amd64"}
+		release := catalog.Release{ID: "sample", Name: "Sample", Version: "1.2.3", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes())), OS: "linux", Arch: "amd64"}
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			_ = catalog.WriteIndex(w, []catalog.Release{release})
 		}))
