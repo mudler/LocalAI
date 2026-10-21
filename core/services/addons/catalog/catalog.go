@@ -24,10 +24,6 @@ type VerificationPolicy struct {
 	RequireSignature bool   `json:"requireSignature"`
 	Issuer           string `json:"issuer,omitempty"`
 	Identity         string `json:"identity,omitempty"`
-	// IdentityRegex is an anchored pattern for the signer identity, used
-	// instead of Identity so that master and tagged builds both verify. Only a
-	// library that serves backends may use it; an add-on install refuses it.
-	IdentityRegex string `json:"identityRegex,omitempty"`
 }
 
 // EntryUI is optional display metadata a catalog may offer for an entry. It is
@@ -63,30 +59,21 @@ type Requirements struct {
 }
 
 type Release struct {
-	// Kind says what the entry installs: addon (the default when absent),
-	// backend or model. See ReadIndex for how a reader treats a kind it does
-	// not know.
-	Kind              Kind   `json:"kind,omitempty"`
 	Channel           string `json:"channel,omitempty"`
 	AllowLoopbackHTTP bool   `json:"allowLoopbackHTTP,omitempty"`
 	// Selection is stamped by Resolve, not trusted from remote metadata.
-	Selection string `json:"selection,omitempty"`
-	SourceID  string `json:"sourceId,omitempty"`
-	SourceURL string `json:"sourceUrl,omitempty"`
-	// AddonID is the identifier of the entry for every kind. For a backend it
-	// is the backend name, which is also its directory name.
-	AddonID     string `json:"addonId"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Version     string `json:"version"`
-	Artifact    string `json:"artifact"`
-	Digest      string `json:"digest"`
-	// Alias is the name a model may use to ask for this backend. Only a
-	// backend entry may set it.
-	Alias  string             `json:"alias,omitempty"`
-	OS     string             `json:"os"`
-	Arch   string             `json:"arch"`
-	Policy VerificationPolicy `json:"policy"`
+	Selection   string             `json:"selection,omitempty"`
+	SourceID    string             `json:"sourceId,omitempty"`
+	SourceURL   string             `json:"sourceUrl,omitempty"`
+	AddonID     string             `json:"addonId"`
+	Name        string             `json:"name"`
+	Description string             `json:"description,omitempty"`
+	Version     string             `json:"version"`
+	Artifact    string             `json:"artifact"`
+	Digest      string             `json:"digest"`
+	OS          string             `json:"os"`
+	Arch        string             `json:"arch"`
+	Policy      VerificationPolicy `json:"policy"`
 	// UI is the optional display metadata of the entry. It is comparable on
 	// purpose: a release is compared with its trusted resolution at staging.
 	UI EntryUI `json:"ui,omitzero"`
@@ -94,9 +81,6 @@ type Release struct {
 	Requires Requirements `json:"requires,omitzero"`
 }
 type Query struct {
-	// Kind limits the listing. Empty lists add-ons only; "all" lists every
-	// kind this host reads.
-	Kind           Kind
 	Text, SourceID string
 	Offset, Limit  int
 }
@@ -135,7 +119,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	if c.Sources == nil {
 		return Page{}, ErrUnavailable
 	}
-	if q.Offset < 0 || q.Limit < 0 || q.Limit > 100 || !validQueryKind(q.Kind) {
+	if q.Offset < 0 || q.Limit < 0 || q.Limit > 100 {
 		return Page{}, ErrInvalid
 	}
 	if q.Limit == 0 {
@@ -158,7 +142,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 			return Page{}, ErrRefresh
 		}
 		for _, r := range cache.releases {
-			if r.OS != targetOS || r.Arch != targetArch || !q.matchesKind(r) {
+			if r.OS != targetOS || r.Arch != targetArch {
 				continue
 			}
 			if strings.Contains(strings.ToLower(r.Name+" "+r.AddonID+" "+r.Description), strings.ToLower(q.Text)) {
@@ -174,17 +158,9 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	return p, nil
 }
 func releaseKey(r Release) string {
-	return r.SourceID + "/" + string(r.EntryKind()) + "/" + r.AddonID + "/" + r.Version + "/" + r.OS + "/" + r.Arch
+	return r.SourceID + "/" + r.AddonID + "/" + r.Version + "/" + r.OS + "/" + r.Arch
 }
-
-// Resolve finds one add-on release. A backend release is never returned here,
-// so an add-on install cannot be pointed at a backend image.
 func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string) (Release, error) {
-	return c.ResolveKind(ctx, KindAddon, sourceID, addonID, version)
-}
-
-// ResolveKind finds one release of the given kind.
-func (c Catalog) ResolveKind(ctx context.Context, kind Kind, sourceID, addonID, version string) (Release, error) {
 	if e := ctx.Err(); e != nil {
 		return Release{}, e
 	}
@@ -208,7 +184,7 @@ func (c Catalog) ResolveKind(ctx context.Context, kind Kind, sourceID, addonID, 
 	targetOS, targetArch := c.target()
 	var found *Release
 	for _, r := range cache.releases {
-		if r.EntryKind() == kind && r.AddonID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {
+		if r.AddonID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {
 			if found != nil {
 				return Release{}, ErrInvalid
 			}
@@ -250,7 +226,7 @@ func (c Catalog) Releases(ctx context.Context, sourceID, addonID string) ([]Rele
 	}
 	out := []Release{}
 	for _, r := range cache.releases {
-		if r.EntryKind() == KindAddon && r.AddonID == addonID {
+		if r.AddonID == addonID {
 			out = append(out, r)
 		}
 	}

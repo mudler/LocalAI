@@ -70,11 +70,6 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	}
 	// Do not accept a caller's substituted artifact, policy, source or digest.
 	r.Selection = selection
-	// An add-on library names its signer exactly. A pattern is for backend
-	// sources only, so an add-on install refuses a policy that carries one.
-	if r.Policy.IdentityRegex != "" || r.EntryKind() != catalog.KindAddon {
-		return out, ErrPackage
-	}
 	if r != trusted || r.Digest == "" || r.OS != i.Host.OS || r.Arch != i.Host.Arch {
 		return out, ErrPackage
 	}

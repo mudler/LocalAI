@@ -14,15 +14,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"regexp/syntax"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
-	"github.com/mudler/xlog"
 )
 
 // AdminCheck must revalidate current identity, credential and administrator role
@@ -41,15 +38,10 @@ type Source struct {
 	Removed bool `json:"removed,omitempty"`
 }
 type RefreshResult struct {
-	SourceID string `json:"sourceId"`
-	Count    int    `json:"count"`
-	// Skipped counts the entries left out because their kind is not one this
-	// host reads, and SkippedKinds names those kinds. A library that serves a
-	// newer kind still refreshes; this is how the owner learns of the gap.
-	Skipped      int       `json:"skipped,omitempty"`
-	SkippedKinds []string  `json:"skippedKinds,omitempty"`
-	CheckedAt    time.Time `json:"checkedAt"`
-	LastSuccess  time.Time `json:"lastSuccess"`
+	SourceID    string    `json:"sourceId"`
+	Count       int       `json:"count"`
+	CheckedAt   time.Time `json:"checkedAt"`
+	LastSuccess time.Time `json:"lastSuccess"`
 }
 
 // RefreshState is what the owner last learned from fetching one library. It is
@@ -58,9 +50,6 @@ type RefreshState struct {
 	CheckedAt   time.Time `json:"checkedAt"`
 	LastSuccess time.Time `json:"lastSuccess"`
 	Count       int       `json:"count"`
-	// Skipped and SkippedKinds are as in RefreshResult.
-	Skipped      int      `json:"skipped,omitempty"`
-	SkippedKinds []string `json:"skippedKinds,omitempty"`
 	// Failed is true when the latest fetch failed; the previous releases are
 	// not served in that case.
 	Failed bool `json:"failed"`
@@ -100,39 +89,7 @@ var versionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z][a-z0-9
 
 func validSource(s Source) bool {
 	_, e := safeURL(s.URL)
-	return idPattern.MatchString(s.ID) && len(s.Name) > 0 && len(s.Name) <= 256 && e == nil && validPolicy(s.Policy)
-}
-
-// validPolicy accepts a policy that asks for no signature, or one with an
-// issuer and exactly one identity: an exact string or an anchored pattern.
-// Without a signature requirement the identity fields must be empty, so a
-// policy never looks stricter than it is.
-func validPolicy(p VerificationPolicy) bool {
-	if !p.RequireSignature {
-		return p.IdentityRegex == ""
-	}
-	if p.Issuer == "" || (p.Identity == "") == (p.IdentityRegex == "") {
-		return false
-	}
-	if p.IdentityRegex == "" {
-		return true
-	}
-	return anchoredPattern(p.IdentityRegex)
-}
-
-// anchoredPattern reports whether the pattern is one expression that must match
-// the whole identity: a concatenation that starts at the beginning of the text
-// and ends at its end. A top-level alternation such as "^a|b$" is refused,
-// because one of its branches would match a part of the identity only.
-func anchoredPattern(p string) bool {
-	if len(p) > 512 {
-		return false
-	}
-	re, e := syntax.Parse(p, syntax.Perl)
-	if e != nil || re.Op != syntax.OpConcat || len(re.Sub) < 2 {
-		return false
-	}
-	return re.Sub[0].Op == syntax.OpBeginText && re.Sub[len(re.Sub)-1].Op == syntax.OpEndText
+	return idPattern.MatchString(s.ID) && len(s.Name) > 0 && len(s.Name) <= 256 && e == nil && (!s.Policy.RequireSignature || (s.Policy.Identity != "" && s.Policy.Issuer != ""))
 }
 func NewSources(path string, admin AdminCheck, credentials CredentialResolver) (*Sources, error) {
 	s := &Sources{path: path, admin: admin, credentials: credentials, sources: map[string]Source{}, cache: map[string]cached{}}
@@ -194,7 +151,7 @@ func (s *Sources) Views(ctx context.Context, actor contract.Actor) ([]SourceView
 	for _, src := range list {
 		v := SourceView{Source: src}
 		if c, ok := s.cache[src.ID]; ok {
-			v.Refresh = &RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Skipped: c.result.Skipped, SkippedKinds: c.result.SkippedKinds, Failed: c.failed}
+			v.Refresh = &RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Failed: c.failed}
 		}
 		out = append(out, v)
 	}
@@ -219,7 +176,7 @@ func (s *Sources) State(sourceID string) (RefreshState, bool) {
 	if !ok {
 		return RefreshState{}, false
 	}
-	return RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Skipped: c.result.Skipped, SkippedKinds: c.result.SkippedKinds, Failed: c.failed}, true
+	return RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Failed: c.failed}, true
 }
 
 // Get returns a value copy only after authoritative administrator validation.
@@ -337,7 +294,7 @@ func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, 
 	}
 	old := s.cache[sourceID]
 	result := RefreshResult{SourceID: sourceID, CheckedAt: time.Now().UTC(), LastSuccess: old.result.LastSuccess}
-	releases, skipped, e := s.fetch(ctx, src)
+	releases, e := s.fetch(ctx, src)
 	if e != nil {
 		s.cache[sourceID] = cached{result: result, failed: true}
 		if errors.Is(e, ErrCredential) {
@@ -346,20 +303,14 @@ func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, 
 		return result, ErrRefresh
 	}
 	result.Count = len(releases)
-	result.Skipped = len(skipped.Skipped)
-	if result.Skipped > 0 {
-		result.SkippedKinds = skipped.SkippedKinds()
-		xlog.Warn("library index has entries of a kind this host does not read; they were skipped",
-			"source", sourceID, "skipped", result.Skipped, "kinds", result.SkippedKinds)
-	}
 	result.LastSuccess = result.CheckedAt
 	s.cache[sourceID] = cached{releases: releases, result: result}
 	return result, nil
 }
-func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult, error) {
+func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 	req, e := http.NewRequestWithContext(ctx, http.MethodGet, src.URL, nil)
 	if e != nil {
-		return nil, IndexResult{}, ErrRefresh
+		return nil, ErrRefresh
 	}
 	if src.AuthReference != "" {
 		c, e := s.credentials.Resolve(ctx, src.AuthReference, src.URL)
@@ -369,38 +320,37 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		if e != nil {
 			// A refresh that failed for want of a credential is still a
 			// failed refresh; the class lets a caller say which one.
-			return nil, IndexResult{}, fmt.Errorf("%w: %w", ErrRefresh, ErrCredential)
+			return nil, fmt.Errorf("%w: %w", ErrRefresh, ErrCredential)
 		}
 	}
 	response, e := httpclient.NewWithTimeout(30 * time.Second).Do(req)
 	if e != nil {
-		return nil, IndexResult{}, ErrRefresh
+		return nil, ErrRefresh
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
-		return nil, IndexResult{}, ErrRefresh
+		return nil, ErrRefresh
 	}
 	data, e := io.ReadAll(io.LimitReader(response.Body, MaxIndexBytes+1))
 	if e != nil || len(data) > MaxIndexBytes {
-		return nil, IndexResult{}, ErrRefresh
+		return nil, ErrRefresh
 	}
-	indexed, e := ReadIndex(data, ReadableKinds...)
-	releases := indexed.Releases
+	releases, e := DecodeIndex(data)
 	if e != nil || releases == nil {
-		return nil, IndexResult{}, ErrRefresh
+		return nil, ErrRefresh
 	}
 	seen := map[string]bool{}
 	for i := range releases {
 		r := &releases[i]
 		u, e := url.Parse(r.Artifact)
-		if e != nil || !validArtifactScheme(u, src.AllowLoopbackHTTP) || u.Host == "" || u.Path == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !validEntryID(*r) || !versionPattern.MatchString(r.Version) || !digestPattern.MatchString(r.Digest) || r.Name == "" || !idPattern.MatchString(r.OS) || !idPattern.MatchString(r.Arch) {
-			return nil, IndexResult{}, ErrRefresh
+		if e != nil || !validArtifactScheme(u, src.AllowLoopbackHTTP) || u.Host == "" || u.Path == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !contract.ValidAddonID(r.AddonID) || !versionPattern.MatchString(r.Version) || !digestPattern.MatchString(r.Digest) || r.Name == "" || !idPattern.MatchString(r.OS) || !idPattern.MatchString(r.Arch) {
+			return nil, ErrRefresh
 		}
 		if r.Channel != "" && (!channelPattern.MatchString(r.Channel) || versionPattern.MatchString(r.Channel)) {
-			return nil, IndexResult{}, ErrRefresh
+			return nil, ErrRefresh
 		}
-		if !validKindFields(*r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) {
-			return nil, IndexResult{}, ErrRefresh
+		if !validEntryUI(r.UI) || !validRequirements(r.Requires) {
+			return nil, ErrRefresh
 		}
 		r.Selection = ""
 		r.SourceID = src.ID
@@ -409,36 +359,11 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		r.Policy = src.Policy
 		key := releaseKey(*r)
 		if seen[key] {
-			return nil, IndexResult{}, ErrRefresh
+			return nil, ErrRefresh
 		}
 		seen[key] = true
 	}
-	return releases, indexed, nil
-}
-
-// backendNamePattern is a backend name: it is also a directory name, so it
-// holds no separator and cannot start with a dot.
-var backendNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
-
-// validEntryID applies the identifier rule of the entry's kind.
-func validEntryID(r Release) bool {
-	if r.EntryKind() == KindBackend {
-		return backendNamePattern.MatchString(r.AddonID) && !strings.Contains(r.AddonID, "..")
-	}
-	return contract.ValidAddonID(r.AddonID)
-}
-
-// validKindFields refuses fields that belong to another kind. A backend is an
-// image for the backends directory: it has no main page or icon, and it is
-// always an OCI image, pinned by digest. Only a backend may set an alias.
-func validKindFields(r Release) bool {
-	if r.EntryKind() != KindBackend {
-		return r.Alias == ""
-	}
-	if !strings.HasPrefix(r.Artifact, "oci://") || r.UI.MainPage != "" || r.UI.Icon != "" || r.UI.LaunchMode != "" || r.Requires != (Requirements{}) {
-		return false
-	}
-	return r.Alias == "" || (backendNamePattern.MatchString(r.Alias) && !strings.Contains(r.Alias, ".."))
+	return releases, nil
 }
 
 // validEntryUI applies to catalog display hints the same rules the manifest
