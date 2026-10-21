@@ -8,7 +8,7 @@ import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/arti
 // eslint-disable-next-line no-unused-vars
 import CanvasPanel from '../components/CanvasPanel'
 // eslint-disable-next-line no-unused-vars
-import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
+import { fileToBase64, modelsApi, mcpApi, agentCollectionsApi } from '../utils/api'
 import { readAttachmentText, renderPdfPages, PdfNoTextError } from '../utils/pdf'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
@@ -47,6 +47,13 @@ import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
+import { useHubAuth } from '../components/hub/useHubAuth'
+import {
+  canSaveAttachments, collectionNames, effectiveCollection,
+  loadAttachmentCollection, saveAttachmentCollection, saveAttachmentsToCollection,
+} from '../utils/attachmentCollection'
+// eslint-disable-next-line no-unused-vars
+import AttachmentUploads from '../components/chat/AttachmentUploads'
 import { useOperations } from '../hooks/useOperations'
 import { useLoadedModels } from '../hooks/useLoadedModels'
 import { copyToClipboard } from '../utils/clipboard'
@@ -227,6 +234,48 @@ function ChatPage() {
   })
   const focusActive = focusModeEnabled && isInConversation && !focusOverride
   const prevAppCollapseRef = useRef(null)
+
+  // Optional copy of each attachment into a knowledge collection. The list is
+  // only fetched for viewers who may use collections; a failed list hides the
+  // option rather than offering a choice that cannot work.
+  const hubAuth = useHubAuth()
+  const collectionsAllowed = canSaveAttachments(hubAuth)
+  const [collectionOptions, setCollectionOptions] = useState(null)
+  const [attachmentCollectionChoice, setAttachmentCollectionChoice] = useState(() => loadAttachmentCollection())
+  const [attachmentUploads, setAttachmentUploads] = useState([])
+  const uploadBatchRef = useRef(0)
+  useEffect(() => {
+    if (!collectionsAllowed) { setCollectionOptions(null); return }
+    let live = true
+    agentCollectionsApi.list()
+      .then(data => { if (live) setCollectionOptions(collectionNames(data)) })
+      .catch(() => { if (live) setCollectionOptions(null) })
+    return () => { live = false }
+  }, [collectionsAllowed, showSettings])
+  useEffect(() => {
+    uploadBatchRef.current++
+    setAttachmentUploads([])
+  }, [activeChatId])
+  const attachmentCollection = effectiveCollection(attachmentCollectionChoice, collectionOptions)
+  const chooseAttachmentCollection = useCallback((name) => {
+    setAttachmentCollectionChoice(name)
+    saveAttachmentCollection(name)
+  }, [])
+
+  // Started from the send handler, not from an effect, so a re-render can
+  // never upload the same message twice. Only the latest batch may update
+  // the status strip.
+  const startAttachmentUploads = useCallback((entries) => {
+    if (!attachmentCollection) return
+    const batch = ++uploadBatchRef.current
+    saveAttachmentsToCollection({
+      collection: attachmentCollection,
+      entries,
+      upload: (name, form) => agentCollectionsApi.upload(name, form),
+      idPrefix: `up${batch}`,
+      onStatus: (statuses) => { if (uploadBatchRef.current === batch) setAttachmentUploads(statuses) },
+    })
+  }, [attachmentCollection])
 
   const toggleFocusMode = (next) => {
     setFocusModeEnabled(next)
@@ -741,7 +790,7 @@ function ChatPage() {
     const newFiles = []
     for (const file of list) {
       const base64 = await fileToBase64(file)
-      const entry = { name: file.name, type: file.type, base64 }
+      const entry = { name: file.name, type: file.type, base64, source: file }
       if (!file.type.startsWith('image/') && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
         try {
           entry.textContent = await readAttachmentText(file)
@@ -750,7 +799,7 @@ function ChatPage() {
           if (err instanceof PdfNoTextError) {
             try {
               const { pages, total } = await renderPdfPages(file)
-              newFiles.push(...pages)
+              newFiles.push(...pages.map(p => ({ ...p, source: file })))
               addToast(t('toasts.pdfScannedAsImages', { name: file.name, count: pages.length, total }), 'info')
               continue
             } catch {
@@ -782,7 +831,8 @@ function ChatPage() {
       const name = (file.name && file.name !== 'image.png')
         ? file.name
         : `pasted-image-${i + 1}.${(file.type.split('/')[1] || 'png').replace('+xml', '')}`
-      return { name, type: file.type, base64: await fileToBase64(file) }
+      // The renamed copy is what a collection receives, so pastes don't overwrite each other there.
+      return { name, type: file.type, base64: await fileToBase64(file), source: new File([file], name, { type: file.type }) }
     }))
     setFiles(prev => [...prev, ...newFiles])
   }, [])
@@ -797,6 +847,7 @@ function ChatPage() {
     }
     setInput('')
     setFiles([])
+    if (files.length > 0) startAttachmentUploads(files)
     const tools = getToolsForLLM()
     const mcpOptions = tools.length > 0 ? {
       clientMCPTools: tools,
@@ -818,7 +869,7 @@ function ChatPage() {
       },
     } : {}
     await sendMessage(msg, files, mcpOptions)
-  }, [isStreaming, input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
+  }, [isStreaming, input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition, startAttachmentUploads])
 
   const handleRegenerate = useCallback(async (targetIndex) => {
     if (!activeChat || isStreaming) return
@@ -1257,6 +1308,7 @@ function ChatPage() {
         {/* Dock: the Home command bar under the thread */}
         <div className="cx-dock">
           <div className="cx-dock__in">
+            <AttachmentUploads uploads={attachmentUploads} onDismiss={() => setAttachmentUploads([])} />
             <HomeComposer
               onDictateError={(m) => addToast(m, 'error')}
               message={input}
@@ -1346,6 +1398,9 @@ function ChatPage() {
           onUpdate={(patch) => updateChatSettings(activeChat.id, patch)}
           focusMode={focusModeEnabled}
           onFocusMode={toggleFocusMode}
+          collectionOptions={collectionOptions}
+          attachmentCollection={attachmentCollection}
+          onAttachmentCollection={chooseAttachmentCollection}
           modelInfo={modelInfo}
           onEditConfig={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`, { state: fromState(location, 'Chat') })}
           onClear={() => { setShowSettings(false); promptClear() }}

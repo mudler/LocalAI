@@ -549,6 +549,24 @@
 }
 .cx-foot__tokens { margin-left: auto; white-space: nowrap; }
 
+/* Where the last message's attachments went (save-to-collection). */
+.cx-uploads {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0 6px 8px;
+  color: var(--dk-muted);
+  font-size: 12.5px;
+}
+.cx-uploads__list { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.cx-uploads__item { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+.cx-uploads__name { overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
+.cx-uploads__state { flex-shrink: 0; }
+.cx-uploads__item[data-state="saved"] .lai-icon { color: var(--dk-ok-text); }
+.cx-uploads__item[data-state="failed"],
+.cx-uploads__item[data-state="failed"] .lai-icon { color: var(--dk-error-text); }
+.cx-uploads__item[data-state="failed"] .cx-uploads__state { flex-shrink: 1; overflow-wrap: anywhere; }
+
 /* ---- Header ----------------------------------------------------------------- */
 .cx-page { --cx-float: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text)); }
 .cx-hd {
