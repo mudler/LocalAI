@@ -142,7 +142,11 @@ export function validateSourceDraft(draft = {}) {
   if (ref && !REFERENCE.test(ref)) errors.authReference = 'reference'
   if (draft.requireSignature) {
     if (!String(draft.issuer || '').trim()) errors.issuer = 'required'
-    if (!String(draft.identity || '').trim()) errors.identity = 'required'
+    // A signer is named exactly or by a pattern (backend libraries), not both.
+    const exact = String(draft.identity || '').trim()
+    const pattern = String(draft.identityRegex || '').trim()
+    if (!exact && !pattern) errors.identity = 'required'
+    else if (exact && pattern) errors.identityRegex = 'either'
   }
   return errors
 }
@@ -159,7 +163,10 @@ export function draftToSource(draft) {
   }
   if (draft.requireSignature) {
     source.policy.issuer = String(draft.issuer).trim()
-    source.policy.identity = String(draft.identity).trim()
+    const exact = String(draft.identity || '').trim()
+    const pattern = String(draft.identityRegex || '').trim()
+    if (exact) source.policy.identity = exact
+    if (pattern) source.policy.identityRegex = pattern
   }
   const ref = String(draft.authReference || '').trim()
   if (ref) source.authReference = ref
@@ -177,6 +184,7 @@ export function sourceToDraft(source = {}) {
     requireSignature: Boolean(source.policy?.requireSignature),
     issuer: source.policy?.issuer || '',
     identity: source.policy?.identity || '',
+    identityRegex: source.policy?.identityRegex || '',
     authReference: source.authReference || '',
     allowLoopbackHTTP: Boolean(source.allowLoopbackHTTP),
   }

@@ -128,6 +128,19 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
       prune(id, { operationId }, signal) { return api.recovery.mutate(id, 'recovery/prune', { operationId }, signal) },
       purge(id, body, signal) { return api.recovery.mutate(id, 'purge', body, signal) },
     },
+    // Backends of the libraries. The library entry is resolved by the server;
+    // the request names the entry and nothing else. The install runs inside
+    // the request and answers when the backend is in place.
+    backends: {
+      async installed(signal) {
+        const out = await call('/backends', { signal })
+        const list = Array.isArray(out) ? out : (Array.isArray(out?.backends) ? out.backends : [])
+        return list.map(b => ({ id: b.Name || b.name || '', library: b.Metadata?.library || '' })).filter(b => b.id)
+      },
+      install({ sourceId, name, version }, signal) {
+        return call('/backends/library/install', { method: 'POST', body: { sourceId, name, version }, signal })
+      },
+    },
     // Update detection and the explicit upgrade. The status is the owner's
     // answer and the page never derives it. Check and upgrade are the
     // administrator's own action: the operation ID is also the confirmation
@@ -174,6 +187,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     description: release.description || release.ui?.description || '',
     version: release.version,
     sourceId: release.sourceId,
+    // The kind of the entry: addon when the library does not say.
+    kind: release.kind || 'addon',
+    alias: release.alias || '',
     channel: release.channel || '',
     digest: release.digest || '',
     platform: { os: release.os, arch: release.arch },
@@ -188,7 +204,7 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
       const payload = await api.dispatch({
         operationId: newOperationId(),
         action: 'catalog-search',
-        args: { text: query?.text || '', sourceId: query?.sourceId || '', offset, limit: pageSize },
+        args: { text: query?.text || '', kind: 'all', sourceId: query?.sourceId || '', offset, limit: pageSize },
       }, signal)
       const releases = Array.isArray(payload?.releases) ? payload.releases : []
       return { entries: releases.map(toEntry), total: Number(payload?.total) || 0, offset }

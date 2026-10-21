@@ -10,7 +10,7 @@ import { createOperationBook, draftToSource, slugify, sourceToDraft, validateSou
 import './catalog.css'
 import '../addons/addons.css'
 
-const BLANK = { id: '', name: '', url: '', enabled: true, requireSignature: false, issuer: '', identity: '', authReference: '', allowLoopbackHTTP: false }
+const BLANK = { id: '', name: '', url: '', enabled: true, requireSignature: false, issuer: '', identity: '', identityRegex: '', authReference: '', allowLoopbackHTTP: false }
 
 function seen(iso) {
   const d = new Date(iso)
@@ -132,6 +132,9 @@ export default function SourcesView({ adapter, describeError, onChanged }) {
                     {source.authReference && <span className="ad-fact"><Icon name="key" aria-hidden="true" />{t('libraries.reference', { name: source.authReference })}</span>}
                     {source.refresh?.failed && <span className="ad-fact" data-tone="error">{t('libraries.refreshFailed')}</span>}
                     {!source.refresh && source.enabled && <span className="ad-fact">{t('libraries.notRefreshed')}</span>}
+                    {source.refresh?.skipped > 0 && !source.refresh.failed && (
+                      <span className="ad-fact" data-tone="warn" data-testid="skipped-kinds">{t('libraries.skipped', { count: source.refresh.skipped, kinds: (source.refresh.skippedKinds || []).join(', ') })}</span>
+                    )}
                     {last && !source.refresh.failed && <span className="ad-fact">{t('libraries.lastRefresh', { when: last.toLocaleString(i18n.language), count: source.refresh.count })}</span>}
                   </div>
                 </div>
@@ -214,6 +217,7 @@ function SourceEditor({ draft, onSave, onClose, saving, t }) {
         </label>
         {form.requireSignature && field('issuer', t('libraries.fields.issuer'), { autoComplete: 'off' })}
         {form.requireSignature && field('identity', t('libraries.fields.identity'), { autoComplete: 'off' })}
+        {form.requireSignature && field('identityRegex', t('libraries.fields.identityRegex'), { autoComplete: 'off', spellCheck: false }, t('libraries.hints.identityRegex'))}
         {field('authReference', t('libraries.fields.reference'), { autoComplete: 'off', spellCheck: false }, t('libraries.hints.reference'))}
       </form>
     </SideSheet>
