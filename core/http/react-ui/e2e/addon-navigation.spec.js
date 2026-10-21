@@ -26,22 +26,40 @@ async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true
 }
 
 test.describe('Add-on navigation', () => {
-  test('the sidebar shows Chat and one Apps entry, with no Pinned section', async ({ page }) => {
+  test('the sidebar lists the pinned apps under Apps, in pin order, with Show all last', async ({ page }) => {
     await setup(page)
     await page.goto('/app')
     const nav = page.getByRole('navigation')
     await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
-    // Apps, then Show all: both open the drawer, and Show all comes last in the group.
-    const apps = nav.locator('a.nav-item[href="/app/addons"]')
-    await expect(apps).toHaveCount(2)
-    await expect(apps.nth(0)).toHaveText('Apps')
-    await expect(apps.nth(1)).toHaveText('Show all')
-    await expect(nav.getByRole('link', { name: 'Apps' })).toHaveCount(1)
+    // Apps, then the pinned apps in pin order, then Show all as the last line.
+    await expect(nav.getByRole('link', { name: 'Apps', exact: true })).toHaveCount(1)
+    const pinned = nav.getByTestId('apps-pinned-link')
+    await expect(pinned).toHaveCount(2)
+    await expect(pinned.nth(0)).toHaveAttribute('data-app', 'studio')
+    await expect(pinned.nth(0)).toHaveText('Studio')
+    await expect(pinned.nth(1)).toHaveAttribute('data-app', 'talk')
+    await expect(pinned.nth(1)).toHaveText('Talk')
+    await expect(nav.getByTestId('apps-show-all')).toHaveText('Show all')
+    const group = await nav.locator('a.nav-item').evaluateAll(els => els.map(e => e.textContent.trim()))
+    const at = group.indexOf('Apps')
+    expect(group.slice(at, at + 4)).toEqual(['Apps', 'Studio', 'Talk', 'Show all'])
+    await expect(pinned.nth(0)).toHaveAttribute('href', /\/app\/addons\/studio\//)
+    // There is no Pinned section.
     await expect(page.getByTestId('pinned-nav')).toHaveCount(0)
     await expect(page.locator('.sidebar-section-title', { hasText: 'Pinned' })).toHaveCount(0)
-    // Pinned add-ons are not links in the sidebar.
-    await expect(nav.getByRole('link', { name: 'Studio' })).toHaveCount(0)
-    await expect(nav.getByRole('link', { name: 'Talk' })).toHaveCount(0)
+  })
+
+  test('the sidebar follows the pin order and shows no pinned app when none is pinned', async ({ page }) => {
+    await setup(page, { pins: ['talk', 'studio', 'missing'] })
+    await page.goto('/app')
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByTestId('apps-pinned-link')).toHaveText(['Talk', 'Studio'])
+    await expect(nav.getByTestId('apps-show-all')).toBeVisible()
+    await page.unroute('**/api/addons/pins')
+    await page.route('**/api/addons/pins', route => route.fulfill({ json: [] }))
+    await page.goto('/app')
+    await expect(nav.getByTestId('apps-show-all')).toBeVisible()
+    await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
   })
 
   test('the Apps entry opens the drawer, where pinned add-ons are shown and their order can be changed', async ({ page }) => {

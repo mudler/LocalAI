@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  PIN_CAP, tileFromApp, tileFromBuiltin, buildTiles, filterTiles, resolvePins, togglePin, movePin,
+  PIN_CAP, sidebarPinLinks, tileFromApp, tileFromBuiltin, buildTiles, filterTiles, resolvePins, togglePin, movePin,
 } from '../../src/utils/addonTiles.js'
 import { primaryDestinations, visiblePrimary } from '../../src/utils/navigationModel.js'
 import { createPinsApi } from '../../src/utils/pinsApi.js'
@@ -115,4 +115,31 @@ test('pins api: reads and writes arrays, sends JSON, never throws on a malformed
 test('pins api: a failed answer is an error with the status', async () => {
   const api = createPinsApi({ base: (p) => p, fetchImpl: async () => ({ ok: false, status: 503, json: async () => ({}) }) })
   await assert.rejects(() => api.listPins(), (e) => e.status === 503)
+})
+
+test('sidebarPinLinks: pinned apps are listed in pin order with their main page', () => {
+  const tiles = buildTiles([app({ id: 'notes', title: 'Notes' }), app({ id: 'studio', title: 'Studio', mainPage: '/app/addons/studio/home' })], [])
+  const links = sidebarPinLinks(['studio', 'notes'], tiles)
+  assert.deepEqual(links.map(l => l.id), ['studio', 'notes'])
+  assert.deepEqual(links.map(l => l.title), ['Studio', 'Notes'])
+  assert.deepEqual(links.map(l => l.to), ['/app/addons/studio/home', '/app/addons/notes/home'])
+  assert.ok(links.every(l => l.stopped === false))
+})
+
+test('sidebarPinLinks: nothing is listed when no app is pinned', () => {
+  const tiles = buildTiles([app()], [])
+  assert.deepEqual(sidebarPinLinks([], tiles), [])
+  assert.deepEqual(sidebarPinLinks(undefined, tiles), [])
+})
+
+test('sidebarPinLinks: a pin that is not installed is not listed', () => {
+  const tiles = buildTiles([app({ id: 'notes' })], [])
+  assert.deepEqual(sidebarPinLinks(['gone', 'notes', 'also-gone'], tiles).map(l => l.id), ['notes'])
+})
+
+test('sidebarPinLinks: a stopped app opens its detail view and is marked stopped', () => {
+  const tiles = buildTiles([app({ enabled: false, state: 'stopped' })], [])
+  const [link] = sidebarPinLinks(['notes'], tiles)
+  assert.equal(link.to, '/app/addons?detail=notes')
+  assert.equal(link.stopped, true)
 })

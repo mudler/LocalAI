@@ -13,13 +13,14 @@ import { primaryDestinations, visiblePrimary } from '../utils/navigationModel'
 import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
+import AppsPinnedLinks from './AppsPinnedLinks'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
 // The sidebar has two layouts. The four-item layout shows Home, Chat, Models
 // and Apps (the entry for the add-ons drawer), and Build and Operate under
-// Workspace. Pinned add-ons are not in the sidebar; they are used from the drawer. With the legacy switch on (features.addon_navigation === false)
+// Workspace. Pinned apps are listed under Apps. With the legacy switch on (features.addon_navigation === false)
 // it shows Home, Models and Chat, and Workspace. Build and Operate are single
 // entries; each opens a hub whose tab bar lives in hub/hubConfig.js (shared
 // with HubLayout). The legacy entries are shared with the 404 page, which
@@ -219,8 +220,10 @@ export default function Sidebar({ isOpen, onClose }) {
             {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
               <Fragment key={item.path}>
                 <NavItem item={item} onClose={onClose} collapsed={collapsed} />
-                {/* The last line of the Apps group: the full list of apps. It has
-                    no active style of its own; the Apps entry above carries it. */}
+                {/* The Apps group: the pinned apps in pin order, then the full list
+                    of apps as the last line. Show all has no active style of its
+                    own; the Apps entry above carries it. */}
+                {!legacy && item.addonsEntry && !collapsed && <AppsPinnedLinks onClose={onClose} />}
                 {!legacy && item.addonsEntry && !collapsed && (
                   <NavLink to={item.path} onClick={onClose} className="nav-item nav-item--sub" data-testid="apps-show-all">
                     <span className="nav-label">{t('items.showAll')}</span>

@@ -91,3 +91,19 @@ export function movePin(ids, id, delta) {
   ;[next[i], next[j]] = [next[j], next[i]]
   return next
 }
+
+// The links shown under the Apps entry of the sidebar: the pinned tiles in pin
+// order, each with the page it opens. A pin without a tile (not installed, hidden)
+// is left out. A stopped add-on has no live main page, so it opens its detail view.
+export function sidebarPinLinks(ids, tiles) {
+  return resolvePins(ids, tiles).map(tile => ({
+    id: tile.id,
+    to: tile.target || tile.detailPath,
+    title: tile.title,
+    titleKey: tile.titleKey,
+    icon: tile.icon,
+    iconName: tile.iconName,
+    source: tile.source,
+    stopped: tile.state === 'stopped',
+  }))
+}
