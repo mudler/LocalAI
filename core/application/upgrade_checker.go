@@ -7,6 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -33,6 +34,11 @@ type UpgradeChecker struct {
 	// mode this ensures CheckUpgrades asks workers instead of the (empty)
 	// frontend filesystem — fixing the bug where upgrades never surfaced.
 	backendManagerFn func() galleryop.BackendManager
+
+	// libraryFn returns the installer of library backends, or nil when the
+	// host has none. It is read on each check because the add-on owner starts
+	// after the checker is built.
+	libraryFn func() libraryUpgrader
 
 	checkInterval time.Duration
 	stop          chan struct{}
@@ -157,7 +163,46 @@ func (uc *UpgradeChecker) GetAvailableUpgrades() map[string]gallery.UpgradeInfo 
 	return result
 }
 
+// libraryUpgrader is the part of the library backend installer the checker
+// needs: the newer builds the library lists, and the install of one.
+type libraryUpgrader interface {
+	Updates(ctx context.Context) ([]backendlib.Update, error)
+	Install(ctx context.Context, sourceID, backend, version string, progress backendlib.Progress) error
+}
+
+// SetLibraryBackends makes the checker upgrade library backends too. fn may
+// return nil while the host has no library.
+func (uc *UpgradeChecker) SetLibraryBackends(fn func() libraryUpgrader) { uc.libraryFn = fn }
+
+// upgradeLibraryBackends follows the same switch as the gallery backends:
+// with auto_upgrade_backends on, a library backend moves to the newer build
+// the library lists; with it off nothing is installed and the Update button on
+// the Backends page stays the only way. The switch is read on every check, so
+// a change in the runtime settings applies at the next one.
+func (uc *UpgradeChecker) upgradeLibraryBackends(ctx context.Context) {
+	if !uc.appConfig.AutoUpgradeBackends || uc.libraryFn == nil {
+		return
+	}
+	lib := uc.libraryFn()
+	if lib == nil {
+		return
+	}
+	updates, err := lib.Updates(ctx)
+	if err != nil {
+		xlog.Debug("Library backend upgrade check failed", "error", err)
+		return
+	}
+	for _, u := range updates {
+		xlog.Info("Auto-upgrading library backend", "backend", u.Name, "library", u.SourceID,
+			"from", u.InstalledVersion, "to", u.Version)
+		if err := lib.Install(ctx, u.SourceID, u.Name, u.Version, backendlib.Progress{}); err != nil {
+			xlog.Error("Failed to auto-upgrade library backend", "backend", u.Name, "error", err)
+		}
+	}
+}
+
 func (uc *UpgradeChecker) runCheck(ctx context.Context) {
+	defer uc.upgradeLibraryBackends(ctx)
 	var (
 		upgrades map[string]gallery.UpgradeInfo
 		err      error

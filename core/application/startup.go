@@ -504,6 +504,13 @@ func New(opts ...config.AppOption) (*Application, error) {
 		bmFn := func() galleryop.BackendManager { return application.GalleryService().BackendManager() }
 		uc := NewUpgradeChecker(options, application.ModelLoader(), application.distributedDB(), bmFn)
 		application.upgradeChecker = uc
+		// Library backends follow the same auto_upgrade_backends switch.
+		uc.SetLibraryBackends(func() libraryUpgrader {
+			if l := application.BackendLibrary(); l != nil {
+				return l
+			}
+			return nil
+		})
 		// A request that proves a backend is older than the server marks it
 		// stale; refresh the upgrade cache so /backends/upgrades shows it.
 		gallery.SetStaleBackendNotifier(uc.TriggerCheck)
