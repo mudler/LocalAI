@@ -4,18 +4,17 @@ package tools
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/addons/internal/hostclient"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var ctx = context.Background()
@@ -103,194 +102,16 @@ func envelope(tool, opID, resource, args string) contract.Envelope {
 const startJSON = `{"name":"my quant","model":"org/base","quantizationType":"q4_k_m"}`
 
 // started returns a runtime that already holds the job job-1 for resource res1.
-func started(t *testing.T) (contract.Runtime, *fakeEngine) {
-	t.Helper()
+func started() (contract.Runtime, *fakeEngine) {
 	eng := &fakeEngine{result: map[string]any{"quantize.start": map[string]any{"id": "job-1", "status": "queued"}}}
-	rt := New(eng, t.TempDir())
+	rt := New(eng, GinkgoT().TempDir())
 	rec, err := rt.Apply(ctx, envelope("quantize-start", "create-res1", "res1", startJSON), contract.Revision{Schema: 1})
-	if err != nil || rec.State != contract.ReceiptCommitted {
-		t.Fatalf("setup: %v %+v", err, rec)
-	}
+	Expect(err).NotTo(HaveOccurred(), "setup")
+	Expect(rec.State).To(Equal(contract.ReceiptCommitted), "setup: %+v", rec)
 	return rt, eng
 }
 
-func TestStartCallsTheEngineOnceAndRemembersTheJob(t *testing.T) {
-	eng := &fakeEngine{result: map[string]any{"quantize.start": map[string]any{"id": "job-1", "status": "queued"}}}
-	rt := New(eng, t.TempDir())
-	rec, err := rt.Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1, Data: 0})
-	if err != nil || rec.State != contract.ReceiptCommitted || rec.Revision.Schema == 0 {
-		t.Fatalf("%v %+v", err, rec)
-	}
-	if got := eng.ops(); !reflect.DeepEqual(got, []string{"quantize.start"}) {
-		t.Fatalf("ops %v", got)
-	}
-	again, err := rt.Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1, Data: 1})
-	if err != nil || again.State != contract.ReceiptCommitted {
-		t.Fatalf("%v %+v", err, again)
-	}
-	if n := eng.count("quantize.start"); n != 1 {
-		t.Fatalf("started %d jobs", n)
-	}
-	// A different operation on the same resource is a clash, not a second job.
-	if _, err := rt.Apply(ctx, envelope("quantize-start", "op9", "res1", startJSON), contract.Revision{Schema: 1}); !errors.Is(err, protocol.ErrConflict) {
-		t.Fatalf("want a conflict, got %v", err)
-	}
-}
-
-func TestStartSendsOnlyTheFieldsOfTheEngineOperation(t *testing.T) {
-	eng := &fakeEngine{result: map[string]any{"quantize.start": map[string]any{"id": "job-1", "status": "queued"}}}
-	rt := New(eng, t.TempDir())
-	args := `{"name":"my quant","model":"org/base","backend":"llama-cpp-quantization","quantizationType":"q5_k_m"}`
-	if _, err := rt.Apply(ctx, envelope("quantize-start", "op1", "res1", args), contract.Revision{Schema: 1}); err != nil {
-		t.Fatal(err)
-	}
-	c := eng.last("quantize.start")
-	if c.opID != "op1" {
-		t.Fatalf("the call must carry the operation of the request, got %q", c.opID)
-	}
-	if len(c.args) != 3 || c.args["model"] != "org/base" || c.args["backend"] != "llama-cpp-quantization" || c.args["quantizationType"] != "q5_k_m" {
-		t.Fatalf("args %v", c.args)
-	}
-}
-
-func TestPreviewOfStartHasANonzeroRevisionAndCreatesNothing(t *testing.T) {
-	eng := &fakeEngine{}
-	rt := New(eng, t.TempDir())
-	p, err := rt.Preview(ctx, envelope("quantize-start", "op1", "res1", startJSON))
-	if err != nil || p.Revision.Schema == 0 || len(eng.ops()) != 0 {
-		t.Fatalf("%v %+v %v", err, p, eng.ops())
-	}
-	if !json.Valid(p.Summary) || !strings.Contains(string(p.Summary), "q4_k_m") {
-		t.Fatalf("summary %s", p.Summary)
-	}
-	for name, args := range map[string]string{
-		"empty model":  `{"name":"x","model":""}`,
-		"bad type":     `{"name":"x","model":"m","quantizationType":"Q4 K"}`,
-		"long name":    `{"name":"` + strings.Repeat("n", 81) + `","model":"m"}`,
-		"a token":      `{"name":"x","model":"m","hfToken":"hf_x"}`,
-		"unknown part": `{"name":"x","model":"m","path":"/etc"}`,
-	} {
-		if _, err := rt.Preview(ctx, envelope("quantize-start", "op-"+name, "res1", args)); !errors.Is(err, protocol.ErrBadRequest) {
-			t.Fatalf("%s: %v", name, err)
-		}
-	}
-}
-
-func TestStatusReadsTheJobOfTheResource(t *testing.T) {
-	rt, eng := started(t)
-	eng.result["quantize.get"] = map[string]any{"id": "job-1", "status": "quantizing", "model": "org/base"}
-	res, err := rt.Read(ctx, envelope("quantize-status", "r1", "res1", ""))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := eng.last("quantize.get").args["jobId"]; got != "job-1" {
-		t.Fatalf("jobId %v", got)
-	}
-	var v map[string]any
-	if err := json.Unmarshal(res.Payload, &v); err != nil {
-		t.Fatal(err)
-	}
-	if v["name"] != "my quant" || v["status"] != "quantizing" {
-		t.Fatalf("payload %v", v)
-	}
-	rev, _ := v["revision"].(map[string]any)
-	if rev["schema"] == nil || rev["schema"] == float64(0) {
-		t.Fatalf("inspect needs a revision: %v", v)
-	}
-	if _, has := v["id"]; has {
-		t.Fatalf("the engine job ID must not reach the model: %v", v)
-	}
-}
-
-func TestAToolCannotControlAJobItDidNotStart(t *testing.T) {
-	eng := &fakeEngine{}
-	rt := New(eng, t.TempDir())
-	if _, err := rt.Apply(ctx, envelope("quantize-stop", "op2", "nope", `{}`), contract.Revision{Schema: 1}); !errors.Is(err, protocol.ErrNotFound) {
-		t.Fatalf("stop: %v", err)
-	}
-	if _, err := rt.Apply(ctx, envelope("quantize-import", "op3", "nope", `{}`), contract.Revision{Schema: 1}); !errors.Is(err, protocol.ErrNotFound) {
-		t.Fatalf("import: %v", err)
-	}
-	if _, err := rt.Read(ctx, envelope("quantize-status", "r1", "nope", "")); !errors.Is(err, protocol.ErrNotFound) {
-		t.Fatalf("status: %v", err)
-	}
-	if _, err := rt.Preview(ctx, envelope("quantize-stop", "op2", "nope", `{}`)); !errors.Is(err, protocol.ErrNotFound) {
-		t.Fatalf("preview: %v", err)
-	}
-	if n := len(eng.ops()); n != 0 {
-		t.Fatalf("the engine was called %d times: %v", n, eng.ops())
-	}
-}
-
-func TestStopAndImportUseTheStoredJobAndAdvanceTheRevision(t *testing.T) {
-	rt, eng := started(t)
-	eng.result["quantize.import"] = map[string]any{"model": "my-model"}
-	p, err := rt.Preview(ctx, envelope("quantize-stop", "op2", "res1", `{}`))
-	if err != nil || p.Revision.Schema == 0 {
-		t.Fatalf("%v %+v", err, p)
-	}
-	rec, err := rt.Apply(ctx, envelope("quantize-stop", "op2", "res1", `{}`), p.Revision)
-	if err != nil || rec.State != contract.ReceiptCommitted {
-		t.Fatalf("%v %+v", err, rec)
-	}
-	c := eng.last("quantize.stop")
-	if len(c.args) != 1 || c.args["jobId"] != "job-1" {
-		t.Fatalf("stop args %v (a quantization job has no checkpoint to save)", c.args)
-	}
-	if rec.Revision.Data <= p.Revision.Data {
-		t.Fatalf("the revision must advance: %+v then %+v", p.Revision, rec.Revision)
-	}
-	if _, err := rt.Apply(ctx, envelope("quantize-stop", "op2", "res1", `{}`), p.Revision); err != nil || eng.count("quantize.stop") != 1 {
-		t.Fatalf("stop ran %d times (%v)", eng.count("quantize.stop"), err)
-	}
-	// Import names the model and never a path.
-	ex, err := rt.Apply(ctx, envelope("quantize-import", "op3", "res1", `{"name":"my-model"}`), rec.Revision)
-	if err != nil || ex.State != contract.ReceiptCommitted || !strings.Contains(string(ex.Result.Payload), "my-model") {
-		t.Fatalf("%v %+v", err, ex)
-	}
-	if a := eng.last("quantize.import").args; len(a) != 2 || a["jobId"] != "job-1" || a["name"] != "my-model" {
-		t.Fatalf("import args %v", a)
-	}
-	if _, err := rt.Preview(ctx, envelope("quantize-import", "op4", "res1", `{"name":"../x"}`)); !errors.Is(err, protocol.ErrBadRequest) {
-		t.Fatalf("a bad model name must be refused, got %v", err)
-	}
-	if _, err := rt.Apply(ctx, envelope("quantize-import", "op5", "res1", `{"name":"a b"}`), ex.Revision); !errors.Is(err, protocol.ErrBadRequest) {
-		t.Fatalf("a bad model name must be refused at apply, got %v", err)
-	}
-}
-
-func TestAStaleRevisionIsRejectedAndTheEngineIsNotCalled(t *testing.T) {
-	rt, eng := started(t)
-	rec, err := rt.Apply(ctx, envelope("quantize-stop", "op2", "res1", `{}`), contract.Revision{Schema: 1, Data: 99})
-	if err != nil || rec.State != contract.ReceiptRejected {
-		t.Fatalf("%v %+v", err, rec)
-	}
-	if eng.count("quantize.stop") != 0 {
-		t.Fatal("the engine was called")
-	}
-}
-
-func TestHostRefusalsMapToProtocolErrors(t *testing.T) {
-	rt, eng := started(t)
-	for code, want := range map[string]error{
-		contract.HostFeature: protocol.ErrForbidden, contract.HostBadRequest: protocol.ErrBadRequest,
-		contract.HostNotFound: protocol.ErrNotFound, contract.HostConflict: protocol.ErrConflict,
-	} {
-		eng.result["quantize.import"] = &contract.HostError{Code: code, Message: "m"}
-		_, err := rt.Apply(ctx, envelope("quantize-import", "op-"+code, "res1", `{}`), contract.Revision{Schema: 1, Data: 1})
-		if !errors.Is(err, want) {
-			t.Fatalf("%s: %v, want %v", code, err, want)
-		}
-	}
-	eng.result["quantize.import"] = &contract.HostError{Code: contract.HostUnavailable, Message: "m"}
-	_, err := rt.Apply(ctx, envelope("quantize-import", "op-u", "res1", `{}`), contract.Revision{Schema: 1, Data: 1})
-	if err == nil || errors.Is(err, protocol.ErrBadRequest) || errors.Is(err, protocol.ErrForbidden) || errors.Is(err, protocol.ErrNotFound) || errors.Is(err, protocol.ErrConflict) {
-		t.Fatalf("an unavailable engine must stay uncertain, got %v", err)
-	}
-}
-
-func exists(t *testing.T, rt contract.Runtime, res string) (bool, error) {
-	t.Helper()
+func exists(rt contract.Runtime, res string) (bool, error) {
 	r, err := rt.Read(ctx, envelope("resource-exists", "x-"+res, res, ""))
 	if err != nil {
 		return false, err
@@ -302,214 +123,325 @@ func exists(t *testing.T, rt contract.Runtime, res string) (bool, error) {
 	return v.Exists, nil
 }
 
-func TestResourceExistsAnswersFromTheJournalAndTheEngine(t *testing.T) {
-	rt, eng := started(t)
-	eng.result["quantize.get"] = map[string]any{"id": "job-1", "status": "quantizing"}
-	if ok, err := exists(t, rt, "res1"); err != nil || !ok {
-		t.Fatalf("mapped: %v %v", ok, err)
-	}
-	if ok, err := exists(t, rt, "other"); err != nil || ok {
-		t.Fatalf("unmapped: %v %v", ok, err)
-	}
-	eng.result["quantize.get"] = &contract.HostError{Code: contract.HostNotFound, Message: "gone"}
-	if ok, err := exists(t, rt, "res1"); err != nil || ok {
-		t.Fatalf("deleted job: %v %v", ok, err)
-	}
-	eng.result["quantize.get"] = &contract.HostError{Code: contract.HostUnavailable, Message: "down"}
-	if _, err := exists(t, rt, "res1"); err == nil {
-		t.Fatal("an unavailable engine must not read as absent")
-	}
-	eng.result["quantize.get"] = hostclient.ErrNoHostOps
-	if _, err := exists(t, rt, "res1"); err == nil {
-		t.Fatal("no host endpoint must not read as absent")
-	}
-}
-
-func TestJournalSurvivesARestart(t *testing.T) {
-	dir := t.TempDir()
-	eng := &fakeEngine{result: map[string]any{"quantize.start": map[string]any{"id": "job-1", "status": "queued"}, "quantize.get": map[string]any{"status": "quantizing"}}}
-	if _, err := New(eng, dir).Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1}); err != nil {
-		t.Fatal(err)
-	}
-	again := New(eng, dir)
-	if _, err := again.Read(ctx, envelope("quantize-status", "r1", "res1", "")); err != nil {
-		t.Fatal(err)
-	}
-	if eng.last("quantize.get").args["jobId"] != "job-1" {
-		t.Fatal("the restarted runtime lost the job")
-	}
-	if _, err := again.Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1}); err != nil || eng.count("quantize.start") != 1 {
-		t.Fatalf("started %d times (%v)", eng.count("quantize.start"), err)
-	}
-	if r, err := again.Receipt(ctx, "op1"); err != nil || r.State != contract.ReceiptCommitted {
-		t.Fatalf("%v %+v", err, r)
-	}
-	if _, err := again.Receipt(ctx, "never"); !errors.Is(err, protocol.ErrNotFound) {
-		t.Fatalf("an unknown operation must be not found, got %v", err)
-	}
-	entries, _ := os.ReadDir(dir)
-	for _, e := range entries {
-		if strings.Contains(e.Name(), ".tmp") {
-			t.Fatalf("a temporary file was left: %s", e.Name())
-		}
-	}
-	if _, err := os.Stat(filepath.Join(dir, "journal.json")); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestWithoutAHostEndpointEveryToolRefuses(t *testing.T) {
-	var nilClient *hostclient.Client
-	dir := t.TempDir()
-	rt := New(nilClient, dir)
-	if _, err := rt.Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1}); !errors.Is(err, hostclient.ErrNoHostOps) {
-		t.Fatalf("start: %v", err)
-	}
-	seed := New(&fakeEngine{result: map[string]any{"quantize.start": map[string]any{"id": "job-1"}}}, dir)
-	if _, err := seed.Apply(ctx, envelope("quantize-start", "op0", "res1", startJSON), contract.Revision{Schema: 1}); err != nil {
-		t.Fatal(err)
-	}
-	rt = New(nilClient, dir)
-	for _, tool := range []string{"quantize-status", "resource-exists"} {
-		if _, err := rt.Read(ctx, envelope(tool, "r-"+tool, "res1", "")); !errors.Is(err, hostclient.ErrNoHostOps) {
-			t.Fatalf("%s: %v", tool, err)
-		}
-	}
-	if _, err := rt.Read(ctx, envelope("quantize-list", "r-list", "", "")); !errors.Is(err, hostclient.ErrNoHostOps) {
-		t.Fatalf("list: %v", err)
-	}
-	for _, tool := range []string{"quantize-stop", "quantize-import"} {
-		if _, err := rt.Apply(ctx, envelope(tool, "a-"+tool, "res1", `{}`), contract.Revision{Schema: 1, Data: 1}); !errors.Is(err, hostclient.ErrNoHostOps) {
-			t.Fatalf("%s: %v", tool, err)
-		}
-	}
-}
-
-func TestAnUnknownToolIsABadRequest(t *testing.T) {
-	rt := New(&fakeEngine{}, t.TempDir())
-	if _, err := rt.Read(ctx, envelope("quantize-nope", "r1", "res1", "")); !errors.Is(err, protocol.ErrBadRequest) {
-		t.Fatalf("read: %v", err)
-	}
-	if _, err := rt.Apply(ctx, envelope("quantize-nope", "a1", "res1", ""), contract.Revision{Schema: 1}); !errors.Is(err, protocol.ErrBadRequest) {
-		t.Fatalf("apply: %v", err)
-	}
-	if _, err := rt.OpenOutput(ctx, envelope("quantize-status", "o1", "res1", ""), "h"); !errors.Is(err, protocol.ErrNotFound) {
-		t.Fatalf("output: %v", err)
-	}
-}
-
-func TestListReadsTheCallersJobsWithoutAResource(t *testing.T) {
-	eng := &fakeEngine{result: map[string]any{"quantize.list": map[string]any{"jobs": []any{map[string]any{"id": "ui-job", "status": "completed"}}}}}
-	rt := New(eng, t.TempDir())
-	res, err := rt.Read(ctx, envelope("quantize-list", "r1", "", ""))
-	if err != nil || !strings.Contains(string(res.Payload), "ui-job") {
-		t.Fatalf("%v %s", err, res.Payload)
-	}
-	if got := eng.ops(); !reflect.DeepEqual(got, []string{"quantize.list"}) {
-		t.Fatalf("ops %v", got)
-	}
-	if c := eng.last("quantize.list"); c.args != nil {
-		t.Fatalf("the list takes no argument, got %v", c.args)
-	}
-	if _, err := rt.Read(ctx, envelope("quantize-list", "r2", "", `{"userId":"other"}`)); !errors.Is(err, protocol.ErrBadRequest) {
-		t.Fatalf("an argument must be refused, got %v", err)
-	}
-}
-
-func loadManifest(t *testing.T) contract.Manifest {
-	t.Helper()
+func loadManifest() contract.Manifest {
 	b, err := os.ReadFile("../../manifest.json")
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	m, err := contract.ParseManifest(b)
-	if err != nil {
-		t.Fatalf("the manifest must satisfy the contract: %v", err)
-	}
+	Expect(err).NotTo(HaveOccurred(), "the manifest must satisfy the contract")
 	return m
 }
 
-func TestManifestDeclaresTheToolsAndTheResourceMapping(t *testing.T) {
-	m := loadManifest(t)
-	if m.ID != "quantization" || m.Capabilities.UI.MainPage != "jobs" || !reflect.DeepEqual(m.Capabilities.UI.Pages, []string{"jobs"}) || m.Capabilities.UI.Title == nil || m.Capabilities.UI.Title.Text != "Quantization" {
-		t.Fatalf("manifest %+v", m)
-	}
-	if m.Capabilities.UI.SDK.Min != 2 || m.Capabilities.UI.SDK.Max != 2 {
-		t.Fatalf("sdk %+v", m.Capabilities.UI.SDK)
-	}
-	if !reflect.DeepEqual(m.Capabilities.Tools, Tools) {
-		t.Fatalf("manifest tools %v, package tools %v", m.Capabilities.Tools, Tools)
-	}
-	r := m.Capabilities.Resources
-	if r == nil || r.Noun != "quantization job" || r.Create != "quantize-start" || r.Inspect != "quantize-status" {
-		t.Fatalf("resources %+v", r)
-	}
-	kinds := map[string]string{}
-	for _, d := range m.Capabilities.ToolDefinitions {
-		kinds[d.Name] = d.Kind
-	}
-	want := map[string]string{"quantize-list": "read", "quantize-status": "read", "quantize-start": "create", "quantize-stop": "write", "quantize-import": "write"}
-	if !reflect.DeepEqual(kinds, want) {
-		t.Fatalf("kinds %v", kinds)
-	}
-	for _, d := range m.Capabilities.ToolDefinitions {
-		if d.Name == "quantize-list" && !contract.IsResourceless(d) {
-			t.Fatal("the list tool must declare no resource")
-		}
-		if d.Name != "quantize-list" && contract.IsResourceless(d) {
-			t.Fatalf("%s must not be resource-less", d.Name)
-		}
-		if len(d.Description) >= 400 || !strings.Contains(d.Description, "started") {
-			t.Fatalf("%s: the description must be short and say that only jobs a tool started can be controlled", d.Name)
-		}
-	}
-}
+var _ = Describe("quantization tools", func() {
+	It("start calls the engine once and remembers the job", func() {
+		eng := &fakeEngine{result: map[string]any{"quantize.start": map[string]any{"id": "job-1", "status": "queued"}}}
+		rt := New(eng, GinkgoT().TempDir())
+		rec, err := rt.Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1, Data: 0})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.State).To(Equal(contract.ReceiptCommitted))
+		Expect(rec.Revision.Schema).NotTo(BeZero())
+		Expect(eng.ops()).To(Equal([]string{"quantize.start"}))
+		again, err := rt.Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1, Data: 1})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(again.State).To(Equal(contract.ReceiptCommitted))
+		Expect(eng.count("quantize.start")).To(Equal(1))
+		// A different operation on the same resource is a clash, not a second job.
+		_, err = rt.Apply(ctx, envelope("quantize-start", "op9", "res1", startJSON), contract.Revision{Schema: 1})
+		Expect(err).To(MatchError(protocol.ErrConflict))
+	})
 
-func TestNoToolArgumentNamesAUserAPathOrASecret(t *testing.T) {
-	m := loadManifest(t)
-	for _, d := range m.Capabilities.ToolDefinitions {
-		var s struct {
-			Properties map[string]json.RawMessage `json:"properties"`
-		}
-		if err := json.Unmarshal(d.InputSchema, &s); err != nil {
-			t.Fatal(err)
-		}
-		for name := range s.Properties {
-			lower := strings.ToLower(name)
-			if contract.ForbiddenToolProperty(name) || strings.Contains(lower, "path") || strings.Contains(lower, "dir") || strings.Contains(lower, "token") {
-				t.Fatalf("%s: property %q names an identity, a path or a secret", d.Name, name)
-			}
-		}
-	}
-}
+	It("start sends only the fields of the engine operation", func() {
+		eng := &fakeEngine{result: map[string]any{"quantize.start": map[string]any{"id": "job-1", "status": "queued"}}}
+		rt := New(eng, GinkgoT().TempDir())
+		args := `{"name":"my quant","model":"org/base","backend":"llama-cpp-quantization","quantizationType":"q5_k_m"}`
+		_, err := rt.Apply(ctx, envelope("quantize-start", "op1", "res1", args), contract.Revision{Schema: 1})
+		Expect(err).NotTo(HaveOccurred())
+		c := eng.last("quantize.start")
+		Expect(c.opID).To(Equal("op1"), "the call must carry the operation of the request")
+		Expect(c.args).To(HaveLen(3))
+		Expect(c.args["model"]).To(Equal("org/base"))
+		Expect(c.args["backend"]).To(Equal("llama-cpp-quantization"))
+		Expect(c.args["quantizationType"]).To(Equal("q5_k_m"))
+	})
 
-func TestStartSchemaHasTheHostOperationFieldsAndTheNameTheHostNeeds(t *testing.T) {
-	m := loadManifest(t)
-	for _, d := range m.Capabilities.ToolDefinitions {
-		if d.Name != "quantize-start" {
-			continue
+	Describe("preview of start", func() {
+		It("has a nonzero revision and creates nothing", func() {
+			eng := &fakeEngine{}
+			rt := New(eng, GinkgoT().TempDir())
+			p, err := rt.Preview(ctx, envelope("quantize-start", "op1", "res1", startJSON))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.Revision.Schema).NotTo(BeZero())
+			Expect(eng.ops()).To(BeEmpty())
+			Expect(json.Valid(p.Summary)).To(BeTrue(), "summary %s", p.Summary)
+			Expect(string(p.Summary)).To(ContainSubstring("q4_k_m"))
+		})
+
+		for name, args := range map[string]string{
+			"empty model":  `{"name":"x","model":""}`,
+			"bad type":     `{"name":"x","model":"m","quantizationType":"Q4 K"}`,
+			"long name":    `{"name":"` + strings.Repeat("n", 81) + `","model":"m"}`,
+			"a token":      `{"name":"x","model":"m","hfToken":"hf_x"}`,
+			"unknown part": `{"name":"x","model":"m","path":"/etc"}`,
+		} {
+			It("refuses "+name, func() {
+				rt := New(&fakeEngine{}, GinkgoT().TempDir())
+				_, err := rt.Preview(ctx, envelope("quantize-start", "op-"+name, "res1", args))
+				Expect(err).To(MatchError(protocol.ErrBadRequest))
+			})
 		}
-		var s struct {
-			Properties map[string]json.RawMessage `json:"properties"`
-			Required   []string                   `json:"required"`
+	})
+
+	It("status reads the job of the resource", func() {
+		rt, eng := started()
+		eng.result["quantize.get"] = map[string]any{"id": "job-1", "status": "quantizing", "model": "org/base"}
+		res, err := rt.Read(ctx, envelope("quantize-status", "r1", "res1", ""))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(eng.last("quantize.get").args["jobId"]).To(Equal("job-1"))
+		var v map[string]any
+		Expect(json.Unmarshal(res.Payload, &v)).To(Succeed())
+		Expect(v["name"]).To(Equal("my quant"))
+		Expect(v["status"]).To(Equal("quantizing"))
+		rev, _ := v["revision"].(map[string]any)
+		Expect(rev["schema"]).NotTo(BeNil(), "inspect needs a revision: %v", v)
+		Expect(rev["schema"]).NotTo(Equal(float64(0)), "inspect needs a revision: %v", v)
+		Expect(v).NotTo(HaveKey("id"), "the engine job ID must not reach the model")
+	})
+
+	It("does not let a tool control a job it did not start", func() {
+		eng := &fakeEngine{}
+		rt := New(eng, GinkgoT().TempDir())
+		_, err := rt.Apply(ctx, envelope("quantize-stop", "op2", "nope", `{}`), contract.Revision{Schema: 1})
+		Expect(err).To(MatchError(protocol.ErrNotFound), "stop")
+		_, err = rt.Apply(ctx, envelope("quantize-import", "op3", "nope", `{}`), contract.Revision{Schema: 1})
+		Expect(err).To(MatchError(protocol.ErrNotFound), "import")
+		_, err = rt.Read(ctx, envelope("quantize-status", "r1", "nope", ""))
+		Expect(err).To(MatchError(protocol.ErrNotFound), "status")
+		_, err = rt.Preview(ctx, envelope("quantize-stop", "op2", "nope", `{}`))
+		Expect(err).To(MatchError(protocol.ErrNotFound), "preview")
+		Expect(eng.ops()).To(BeEmpty(), "the engine must not be called")
+	})
+
+	It("stop and import use the stored job and advance the revision", func() {
+		rt, eng := started()
+		eng.result["quantize.import"] = map[string]any{"model": "my-model"}
+		p, err := rt.Preview(ctx, envelope("quantize-stop", "op2", "res1", `{}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.Revision.Schema).NotTo(BeZero())
+		rec, err := rt.Apply(ctx, envelope("quantize-stop", "op2", "res1", `{}`), p.Revision)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.State).To(Equal(contract.ReceiptCommitted))
+		c := eng.last("quantize.stop")
+		Expect(c.args).To(HaveLen(1), "a quantization job has no checkpoint to save")
+		Expect(c.args["jobId"]).To(Equal("job-1"))
+		Expect(rec.Revision.Data).To(BeNumerically(">", p.Revision.Data), "the revision must advance")
+		_, err = rt.Apply(ctx, envelope("quantize-stop", "op2", "res1", `{}`), p.Revision)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(eng.count("quantize.stop")).To(Equal(1))
+		// Import names the model and never a path.
+		ex, err := rt.Apply(ctx, envelope("quantize-import", "op3", "res1", `{"name":"my-model"}`), rec.Revision)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ex.State).To(Equal(contract.ReceiptCommitted))
+		Expect(string(ex.Result.Payload)).To(ContainSubstring("my-model"))
+		a := eng.last("quantize.import").args
+		Expect(a).To(HaveLen(2))
+		Expect(a["jobId"]).To(Equal("job-1"))
+		Expect(a["name"]).To(Equal("my-model"))
+		_, err = rt.Preview(ctx, envelope("quantize-import", "op4", "res1", `{"name":"../x"}`))
+		Expect(err).To(MatchError(protocol.ErrBadRequest), "a bad model name must be refused")
+		_, err = rt.Apply(ctx, envelope("quantize-import", "op5", "res1", `{"name":"a b"}`), ex.Revision)
+		Expect(err).To(MatchError(protocol.ErrBadRequest), "a bad model name must be refused at apply")
+	})
+
+	It("rejects a stale revision and does not call the engine", func() {
+		rt, eng := started()
+		rec, err := rt.Apply(ctx, envelope("quantize-stop", "op2", "res1", `{}`), contract.Revision{Schema: 1, Data: 99})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.State).To(Equal(contract.ReceiptRejected))
+		Expect(eng.count("quantize.stop")).To(BeZero(), "the engine was called")
+	})
+
+	Describe("host refusals", func() {
+		for code, want := range map[string]error{
+			contract.HostFeature: protocol.ErrForbidden, contract.HostBadRequest: protocol.ErrBadRequest,
+			contract.HostNotFound: protocol.ErrNotFound, contract.HostConflict: protocol.ErrConflict,
+		} {
+			It("maps "+code+" to a protocol error", func() {
+				rt, eng := started()
+				eng.result["quantize.import"] = &contract.HostError{Code: code, Message: "m"}
+				_, err := rt.Apply(ctx, envelope("quantize-import", "op-"+code, "res1", `{}`), contract.Revision{Schema: 1, Data: 1})
+				Expect(err).To(MatchError(want))
+			})
 		}
-		_ = json.Unmarshal(d.InputSchema, &s)
-		var got []string
-		for k := range s.Properties {
-			got = append(got, k)
-		}
-		if len(got) != 4 {
-			t.Fatalf("properties %v", got)
-		}
-		for _, w := range []string{"name", "model", "backend", "quantizationType"} {
-			if _, ok := s.Properties[w]; !ok {
-				t.Fatalf("missing %s", w)
+
+		It("keeps an unavailable engine uncertain", func() {
+			rt, eng := started()
+			eng.result["quantize.import"] = &contract.HostError{Code: contract.HostUnavailable, Message: "m"}
+			_, err := rt.Apply(ctx, envelope("quantize-import", "op-u", "res1", `{}`), contract.Revision{Schema: 1, Data: 1})
+			Expect(err).To(HaveOccurred())
+			for _, e := range []error{protocol.ErrBadRequest, protocol.ErrForbidden, protocol.ErrNotFound, protocol.ErrConflict} {
+				Expect(err).NotTo(MatchError(e), "an unavailable engine must stay uncertain")
 			}
+		})
+	})
+
+	It("answers resource-exists from the journal and the engine", func() {
+		rt, eng := started()
+		eng.result["quantize.get"] = map[string]any{"id": "job-1", "status": "quantizing"}
+		ok, err := exists(rt, "res1")
+		Expect(err).NotTo(HaveOccurred(), "mapped")
+		Expect(ok).To(BeTrue(), "mapped")
+		ok, err = exists(rt, "other")
+		Expect(err).NotTo(HaveOccurred(), "unmapped")
+		Expect(ok).To(BeFalse(), "unmapped")
+		eng.result["quantize.get"] = &contract.HostError{Code: contract.HostNotFound, Message: "gone"}
+		ok, err = exists(rt, "res1")
+		Expect(err).NotTo(HaveOccurred(), "deleted job")
+		Expect(ok).To(BeFalse(), "deleted job")
+		eng.result["quantize.get"] = &contract.HostError{Code: contract.HostUnavailable, Message: "down"}
+		_, err = exists(rt, "res1")
+		Expect(err).To(HaveOccurred(), "an unavailable engine must not read as absent")
+		eng.result["quantize.get"] = hostclient.ErrNoHostOps
+		_, err = exists(rt, "res1")
+		Expect(err).To(HaveOccurred(), "no host endpoint must not read as absent")
+	})
+
+	It("keeps the journal across a restart", func() {
+		dir := GinkgoT().TempDir()
+		eng := &fakeEngine{result: map[string]any{"quantize.start": map[string]any{"id": "job-1", "status": "queued"}, "quantize.get": map[string]any{"status": "quantizing"}}}
+		_, err := New(eng, dir).Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1})
+		Expect(err).NotTo(HaveOccurred())
+		again := New(eng, dir)
+		_, err = again.Read(ctx, envelope("quantize-status", "r1", "res1", ""))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(eng.last("quantize.get").args["jobId"]).To(Equal("job-1"), "the restarted runtime lost the job")
+		_, err = again.Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(eng.count("quantize.start")).To(Equal(1))
+		r, err := again.Receipt(ctx, "op1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(r.State).To(Equal(contract.ReceiptCommitted))
+		_, err = again.Receipt(ctx, "never")
+		Expect(err).To(MatchError(protocol.ErrNotFound), "an unknown operation must be not found")
+		entries, _ := os.ReadDir(dir)
+		for _, e := range entries {
+			Expect(e.Name()).NotTo(ContainSubstring(".tmp"), "a temporary file was left")
 		}
-		if !reflect.DeepEqual(s.Required, []string{"name", "model"}) {
-			t.Fatalf("required %v", s.Required)
+		_, err = os.Stat(filepath.Join(dir, "journal.json"))
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("refuses every tool without a host endpoint", func() {
+		var nilClient *hostclient.Client
+		dir := GinkgoT().TempDir()
+		rt := New(nilClient, dir)
+		_, err := rt.Apply(ctx, envelope("quantize-start", "op1", "res1", startJSON), contract.Revision{Schema: 1})
+		Expect(err).To(MatchError(hostclient.ErrNoHostOps), "start")
+		seed := New(&fakeEngine{result: map[string]any{"quantize.start": map[string]any{"id": "job-1"}}}, dir)
+		_, err = seed.Apply(ctx, envelope("quantize-start", "op0", "res1", startJSON), contract.Revision{Schema: 1})
+		Expect(err).NotTo(HaveOccurred())
+		rt = New(nilClient, dir)
+		for _, tool := range []string{"quantize-status", "resource-exists"} {
+			_, err := rt.Read(ctx, envelope(tool, "r-"+tool, "res1", ""))
+			Expect(err).To(MatchError(hostclient.ErrNoHostOps), tool)
 		}
-		return
-	}
-	t.Fatal("no start definition")
-}
+		_, err = rt.Read(ctx, envelope("quantize-list", "r-list", "", ""))
+		Expect(err).To(MatchError(hostclient.ErrNoHostOps), "list")
+		for _, tool := range []string{"quantize-stop", "quantize-import"} {
+			_, err := rt.Apply(ctx, envelope(tool, "a-"+tool, "res1", `{}`), contract.Revision{Schema: 1, Data: 1})
+			Expect(err).To(MatchError(hostclient.ErrNoHostOps), tool)
+		}
+	})
+
+	It("treats an unknown tool as a bad request", func() {
+		rt := New(&fakeEngine{}, GinkgoT().TempDir())
+		_, err := rt.Read(ctx, envelope("quantize-nope", "r1", "res1", ""))
+		Expect(err).To(MatchError(protocol.ErrBadRequest), "read")
+		_, err = rt.Apply(ctx, envelope("quantize-nope", "a1", "res1", ""), contract.Revision{Schema: 1})
+		Expect(err).To(MatchError(protocol.ErrBadRequest), "apply")
+		_, err = rt.OpenOutput(ctx, envelope("quantize-status", "o1", "res1", ""), "h")
+		Expect(err).To(MatchError(protocol.ErrNotFound), "output")
+	})
+
+	It("lists the caller's jobs without a resource", func() {
+		eng := &fakeEngine{result: map[string]any{"quantize.list": map[string]any{"jobs": []any{map[string]any{"id": "ui-job", "status": "completed"}}}}}
+		rt := New(eng, GinkgoT().TempDir())
+		res, err := rt.Read(ctx, envelope("quantize-list", "r1", "", ""))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(res.Payload)).To(ContainSubstring("ui-job"))
+		Expect(eng.ops()).To(Equal([]string{"quantize.list"}))
+		Expect(eng.last("quantize.list").args).To(BeNil(), "the list takes no argument")
+		_, err = rt.Read(ctx, envelope("quantize-list", "r2", "", `{"userId":"other"}`))
+		Expect(err).To(MatchError(protocol.ErrBadRequest), "an argument must be refused")
+	})
+
+	Describe("manifest", func() {
+		It("declares the tools and the resource mapping", func() {
+			m := loadManifest()
+			Expect(m.ID).To(Equal("quantization"))
+			Expect(m.Capabilities.UI.MainPage).To(Equal("jobs"))
+			Expect(m.Capabilities.UI.Pages).To(Equal([]string{"jobs"}))
+			Expect(m.Capabilities.UI.Title).NotTo(BeNil())
+			Expect(m.Capabilities.UI.Title.Text).To(Equal("Quantization"))
+			Expect(m.Capabilities.UI.SDK.Min).To(BeEquivalentTo(2))
+			Expect(m.Capabilities.UI.SDK.Max).To(BeEquivalentTo(2))
+			Expect(m.Capabilities.Tools).To(Equal(Tools))
+			r := m.Capabilities.Resources
+			Expect(r).NotTo(BeNil())
+			Expect(r.Noun).To(Equal("quantization job"))
+			Expect(r.Create).To(Equal("quantize-start"))
+			Expect(r.Inspect).To(Equal("quantize-status"))
+			kinds := map[string]string{}
+			for _, d := range m.Capabilities.ToolDefinitions {
+				kinds[d.Name] = d.Kind
+			}
+			want := map[string]string{"quantize-list": "read", "quantize-status": "read", "quantize-start": "create", "quantize-stop": "write", "quantize-import": "write"}
+			Expect(kinds).To(Equal(want))
+			for _, d := range m.Capabilities.ToolDefinitions {
+				if d.Name == "quantize-list" {
+					Expect(contract.IsResourceless(d)).To(BeTrue(), "the list tool must declare no resource")
+				} else {
+					Expect(contract.IsResourceless(d)).To(BeFalse(), "%s must not be resource-less", d.Name)
+				}
+				Expect(len(d.Description)).To(BeNumerically("<", 400), d.Name)
+				Expect(d.Description).To(ContainSubstring("started"), "%s: the description must say that only jobs a tool started can be controlled", d.Name)
+			}
+		})
+
+		It("names no user, path or secret in any tool argument", func() {
+			m := loadManifest()
+			for _, d := range m.Capabilities.ToolDefinitions {
+				var s struct {
+					Properties map[string]json.RawMessage `json:"properties"`
+				}
+				Expect(json.Unmarshal(d.InputSchema, &s)).To(Succeed())
+				for name := range s.Properties {
+					lower := strings.ToLower(name)
+					Expect(contract.ForbiddenToolProperty(name) || strings.Contains(lower, "path") || strings.Contains(lower, "dir") || strings.Contains(lower, "token")).To(BeFalse(),
+						"%s: property %q names an identity, a path or a secret", d.Name, name)
+				}
+			}
+		})
+
+		It("gives the start schema the host operation fields and the name the host needs", func() {
+			m := loadManifest()
+			found := false
+			for _, d := range m.Capabilities.ToolDefinitions {
+				if d.Name != "quantize-start" {
+					continue
+				}
+				found = true
+				var s struct {
+					Properties map[string]json.RawMessage `json:"properties"`
+					Required   []string                   `json:"required"`
+				}
+				_ = json.Unmarshal(d.InputSchema, &s)
+				Expect(s.Properties).To(HaveLen(4))
+				for _, w := range []string{"name", "model", "backend", "quantizationType"} {
+					Expect(s.Properties).To(HaveKey(w))
+				}
+				Expect(s.Required).To(Equal([]string{"name", "model"}))
+				break
+			}
+			Expect(found).To(BeTrue(), "no start definition")
+		})
+	})
+})
