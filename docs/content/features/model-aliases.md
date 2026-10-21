@@ -160,7 +160,8 @@ deterministic and applies to each request on its own:
 3. Otherwise the distinct URLs of those tool results are collected in the order
    they first appear, at most five, and appended after a blank line as one line:
    `Quellen: https://a.example/test, https://b.example/oil`. Punctuation that
-   ends a sentence is not taken as part of a URL.
+   ends a sentence is not taken as part of a URL. Parentheses inside URL paths
+   and query parameters in JSON-encoded MCP text results are preserved.
 4. If no tool result contains a URL, nothing is appended. No URL is ever made
    up: every link on the line was returned by a tool.
 

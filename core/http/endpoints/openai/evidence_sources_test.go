@@ -1,11 +1,25 @@
 package openai
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("sourceURLs", func() {
+	It("preserves parentheses inside URLs and removes surrounding Markdown punctuation", func() {
+		url := "https://en.wikipedia.org/wiki/Mercury_(planet)"
+		Expect(sourceURLs([]string{"[Mercury](" + url + "). (" + url + ")"})).To(Equal([]string{url}))
+	})
+
+	It("decodes multiple MCP text results before extracting URLs", func() {
+		url := "https://example.com/search?a=1&b=2"
+		encoded, err := json.Marshal([]string{"First " + url + "\n", "Second https://example.com/other"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sourceURLs([]string{string(encoded)})).To(Equal([]string{url, "https://example.com/other"}))
+	})
+
 	It("returns unique URLs in order of appearance, at most five", func() {
 		text := "x https://1.example/a, y (https://2.example/b) z https://1.example/a " +
 			"[l](https://3.example/c). \"https://4.example/d\" http://5.example/e; https://6.example/f"

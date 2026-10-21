@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"encoding/json"
 	"regexp"
 	"strings"
 
@@ -12,9 +13,9 @@ import (
 var numberToken = regexp.MustCompile(`\b\d+(?:[.,]\d+)?\b`)
 
 // urlToken matches an http(s) URL up to the first character that cannot be
-// part of one in tool output: whitespace, a quote, a closing bracket of
-// Markdown or JSON, or the backslash of a JSON escape.
-var urlToken = regexp.MustCompile(`https?://[^\s"'<>()\[\]{}\\]+`)
+// part of one in tool output. Parentheses are allowed inside URL paths;
+// sourceURLs removes unmatched closing parentheses from Markdown links.
+var urlToken = regexp.MustCompile(`https?://[^\s"'<>\[\]{}\\]+`)
 
 // maxSourceURLs caps the appended source line; a search tool can return
 // dozens of links, and the first ones are the ones it ranked highest.
@@ -27,8 +28,20 @@ func sourceURLs(texts []string) []string {
 	var urls []string
 	seen := map[string]struct{}{}
 	for _, text := range texts {
+		// ExecuteMCPToolCall JSON-encodes multiple TextContent results.
+		// Decode that envelope so escaped query separators remain intact.
+		var parts []string
+		var single string
+		if json.Unmarshal([]byte(text), &parts) == nil {
+			text = strings.Join(parts, "\n")
+		} else if json.Unmarshal([]byte(text), &single) == nil {
+			text = single
+		}
 		for _, token := range urlToken.FindAllString(text, -1) {
 			token = strings.TrimRight(token, ".,;:!?")
+			for strings.HasSuffix(token, ")") && strings.Count(token, ")") > strings.Count(token, "(") {
+				token = strings.TrimRight(strings.TrimSuffix(token, ")"), ".,;:!?")
+			}
 			if _, ok := seen[token]; ok || strings.HasSuffix(token, "://") {
 				continue
 			}
