@@ -2236,6 +2236,22 @@ installation is never deleted. `409 upgrade_failed` says that the attempt failed
 attempt needs a new operation ID. After `outcome_unknown`, read `operation-status` with
 the same ID and do not submit a new upgrade.
 
+### Automatic upgrade
+
+By default add-ons upgrade only when an administrator starts the upgrade. The
+setting **Upgrade add-ons automatically** (`auto_upgrade_addons` in the runtime
+settings, flag `--auto-upgrade-addons` or `LOCALAI_AUTO_UPGRADE_ADDONS`) is off by
+default, like the matching setting for backends. When you turn it on, the owner checks
+the library of every installed add-on shortly after start and then every six hours,
+the same schedule as the backend update check. When a library lists a newer version
+for the channel the add-on was installed from, the owner runs the same pinned upgrade
+that the **Upgrade** action runs. The digest and signature checks, the compatibility
+checks, the data backup and the recovery behavior above all apply, and an upgrade that
+fails any of them changes nothing and is written to the log. An automatic upgrade never
+changes the library, the channel or the trusted signer. A candidate that failed is not
+tried again until the library lists a different one. With the setting off, nothing
+upgrades by itself.
+
 ### In the page
 
 The Installed list and the management sheet show a badge with the candidate version and

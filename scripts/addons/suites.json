@@ -286,7 +286,14 @@
       "does not accept pins without an update checker or on another action",
       "keeps the unpinned typed upgrade of an earlier release working",
       "carries the SDK refusal text to the caller of a failed install and keeps the generic error",
-      "installs an add-on whose SDK range contains the host SDK"
+      "installs an add-on whose SDK range contains the host SDK",
+      "upgrades an installed add-on through the same path as a manual upgrade",
+      "does nothing when no newer version is listed",
+      "refuses a candidate whose package no longer matches its listed digest and replaces nothing",
+      "refuses a candidate that fails the signature policy of its library and replaces nothing",
+      "does not upgrade to a release the host cannot run",
+      "does nothing without an update checker",
+      "keeps the manual upgrade closed to a caller who is not an administrator"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
