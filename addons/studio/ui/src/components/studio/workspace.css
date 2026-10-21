@@ -198,6 +198,10 @@
 
 /* Fields (Advanced fold, and fields of the types that have them inline). */
 .ws-field { display: grid; gap: 6px; align-content: start; min-width: 0; border-radius: var(--dk-radius-2); }
+/* The Home picker sizes its menu from the viewport, which assumes a 24px page
+   gutter. Inside the composer card the field sits further in, so the menu would
+   run past the right edge of a narrow screen. Size it from the field instead. */
+.ws-field .home-menu { width: auto; min-width: min(400px, 100%); max-width: min(560px, 100%); }
 .ws-field[data-changed] .dk-input,
 .ws-field[data-changed] .dk-select,
 .ws-field[data-changed] .ws-prompt,
