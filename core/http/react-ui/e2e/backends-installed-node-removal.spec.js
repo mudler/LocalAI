@@ -414,11 +414,13 @@ for (const beforeConfirm of [false, true]) test(`generic deletion blocks targete
       history.pushState({}, '', url); dispatchEvent(new PopStateEvent('popstate'))
     }, ids[0])
   }
-  // The popstate renders the targeted page in a later commit. A click that
-  // lands before it reaches a button that is missing or still disabled and
-  // sends nothing.
-  await expect(reinstall(page)).toBeEnabled()
-  await reinstall(page).evaluate(el => el.click())
+  // The popstate renders the targeted page in a later commit. Until then the
+  // page still draws the generic Reinstall button, which is enabled and has
+  // the same name, so the wait must be for the button of the target node. A
+  // click on the generic one sends no node request.
+  const onTarget = reinstall(page).and(page.getByTitle(`Reinstall on ${ids[0]}`))
+  await expect(onTarget).toBeEnabled()
+  await onTarget.evaluate(el => el.click())
   await expect.poll(() => s.installs.length).toBe(1)
   if (beforeConfirm) {
     await confirm(page).click()
