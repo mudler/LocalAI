@@ -13,7 +13,7 @@ test.describe('Add a node', () => {
     await page.goto('/app/nodes/add')
     await expect(page.getByRole('heading', { name: 'Add a node' })).toBeVisible({ timeout: 15_000 })
     await expect(page.getByRole('radio', { name: 'Registered worker' })).toHaveAttribute('aria-checked', 'true')
-    await expect(command(page)).toContainText('LOCALAI_REGISTER_TO="http://127.0.0.1:8089"')
+    await expect(command(page)).toContainText(`LOCALAI_REGISTER_TO="${new URL(page.url()).origin}"`)
     await expect(command(page)).toContainText('LOCALAI_REGISTRATION_TOKEN="$TOKEN"')
     await expect(command(page)).toContainText('localai/localai:latest-cpu worker')
     await expect(page.getByText('This page never shows it.')).toBeVisible()
