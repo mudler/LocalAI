@@ -263,6 +263,23 @@ test.describe('Talk session settings', () => {
     expect(update.session.audio.input.transcription.language).toBe('it')
   })
 
+  // Each keystroke re-renders the Talk page, which hands the sheet a new
+  // onClose. Focus has to stay in the field rather than jump to Close.
+  test('typing in the sheet keeps focus in the field while the page re-renders', async ({ page }) => {
+    await fakeRealtime(page)
+    await page.goto('/app/talk')
+    await page.getByTestId('talk-settings-button').click()
+    const sheet = page.getByTestId('talk-settings')
+    const instructions = sheet.getByRole('textbox', { name: 'Instructions' })
+    await instructions.fill('')
+    await page.keyboard.type('Be brief.', { delay: 20 })
+    await expect(instructions).toBeFocused()
+    await expect(instructions).toHaveValue('Be brief.')
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveCount(0)
+    await expect(page.getByTestId('talk-settings-button')).toBeFocused()
+  })
+
   test('Manage mode is fixed while a session is open', async ({ page }) => {
     await fakeRealtime(page)
     await startSession(page)
