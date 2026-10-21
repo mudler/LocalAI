@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ThemeToggle from './ThemeToggle'
@@ -11,7 +11,6 @@ import { hubs, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
 import { topDestinations } from '../utils/destinations'
 import { primaryDestinations, visiblePrimary } from '../utils/navigationModel'
 import { useNavigation } from '../context/NavigationContext'
-import PinnedNav from './PinnedNav'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
 
@@ -19,8 +18,8 @@ const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
 // The sidebar has two layouts. The four-item layout shows Home, Chat, Models
-// and Add-ons, the Pinned section, and Build and Operate under
-// Workspace. With the legacy switch on (features.addon_navigation === false)
+// and Apps (the entry for the add-ons drawer), and Build and Operate under
+// Workspace. Pinned add-ons are not in the sidebar; they are used from the drawer. With the legacy switch on (features.addon_navigation === false)
 // it shows Home, Models and Chat, and Workspace. Build and Operate are single
 // entries; each opens a hub whose tab bar lives in hub/hubConfig.js (shared
 // with HubLayout). The legacy entries are shared with the 404 page, which
@@ -218,11 +217,18 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* Top-level items */}
           <div className="sidebar-section">
             {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
-              <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
+              <Fragment key={item.path}>
+                <NavItem item={item} onClose={onClose} collapsed={collapsed} />
+                {/* The last line of the Apps group: the full list of apps. It has
+                    no active style of its own; the Apps entry above carries it. */}
+                {!legacy && item.addonsEntry && !collapsed && (
+                  <NavLink to={item.path} onClick={onClose} className="nav-item nav-item--sub" data-testid="apps-show-all">
+                    <span className="nav-label">{t('items.showAll')}</span>
+                  </NavLink>
+                )}
+              </Fragment>
             ))}
           </div>
-
-          {!legacy && <PinnedNav onClose={onClose} collapsed={collapsed} />}
 
           {/* Collapsible sections */}
           {(legacy ? sections : sections.filter(s => s.hubs)).map(section => {

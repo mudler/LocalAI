@@ -26,21 +26,34 @@ async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true
 }
 
 test.describe('Add-on navigation', () => {
-  test('the sidebar shows Chat, Add-ons and the Pinned section', async ({ page }) => {
+  test('the sidebar shows Chat and one Apps entry, with no Pinned section', async ({ page }) => {
     await setup(page)
     await page.goto('/app')
     const nav = page.getByRole('navigation')
     await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
-    await expect(nav.getByRole('link', { name: 'Add-ons' })).toBeVisible()
-    const pinned = page.getByTestId('pinned-nav')
-    await expect(pinned.getByRole('link', { name: 'Studio' })).toBeVisible()
-    await expect(pinned.getByRole('link', { name: 'Talk' })).toBeVisible()
+    // Apps, then Show all: both open the drawer, and Show all comes last in the group.
+    const apps = nav.locator('a.nav-item[href="/app/addons"]')
+    await expect(apps).toHaveCount(2)
+    await expect(apps.nth(0)).toHaveText('Apps')
+    await expect(apps.nth(1)).toHaveText('Show all')
+    await expect(nav.getByRole('link', { name: 'Apps' })).toHaveCount(1)
+    await expect(page.getByTestId('pinned-nav')).toHaveCount(0)
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Pinned' })).toHaveCount(0)
+    // Pinned add-ons are not links in the sidebar.
+    await expect(nav.getByRole('link', { name: 'Studio' })).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: 'Talk' })).toHaveCount(0)
   })
 
-  test('an empty Pinned section is hidden', async ({ page }) => {
-    await setup(page, { pins: [] })
+  test('the Apps entry opens the drawer, where pinned add-ons are shown and their order can be changed', async ({ page }) => {
+    const server = await setup(page, { pins: ['studio', 'talk'] })
     await page.goto('/app')
-    await expect(page.getByTestId('pinned-nav')).toHaveCount(0)
+    await page.getByRole('navigation').getByRole('link', { name: 'Apps' }).click()
+    await expect(page).toHaveURL(/\/app\/addons$/)
+    await expect(page.getByTestId('addon-tile')).toHaveCount(2)
+    await expect(page.getByTestId('pin-toggle')).toHaveCount(2)
+    for (const toggle of await page.getByTestId('pin-toggle').all()) await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    await page.locator('[data-testid="addon-tile"][data-app="studio"]').getByTestId('pin-later').click()
+    await expect.poll(() => server.saved()).toEqual(['talk', 'studio'])
   })
 
   test('the drawer lists tiles, searches them and pins from the keyboard', async ({ page }) => {
@@ -117,14 +130,14 @@ test.describe('Add-on navigation', () => {
     await setup(page, { addons: false })
     await page.goto('/app/addons')
     await expect(page).toHaveURL(/\/app$/)
-    await expect(page.getByRole('navigation').getByRole('link', { name: 'Add-ons' })).toHaveCount(0)
+    await expect(page.getByRole('navigation').locator('a.nav-item[href="/app/addons"]')).toHaveCount(0)
   })
 
   test('the legacy flag brings the old sidebar back', async ({ page }) => {
     await setup(page)
     await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: false } }))
     await page.goto('/app')
-    await expect(page.getByTestId('pinned-nav')).toHaveCount(0)
+    await expect(page.getByTestId('apps-show-all')).toHaveCount(0)
     // Home, Models and Chat head the old sidebar; Studio and Talk are add-ons and are not in it.
     await expect(page.getByRole('navigation').getByRole('link', { name: 'Chat' })).toBeVisible()
     await expect(page.getByRole('navigation').getByRole('link', { name: 'Studio' })).toHaveCount(0)
@@ -158,7 +171,7 @@ test.describe('Add-on navigation', () => {
     await expect(toggle).toHaveAccessibleName(/(Pin|Unpin) /)
   })
 
-  test('a pin of an add-on that is no longer listed is not drawn and shows no error', async ({ page }) => {
+  test('a pin of an add-on that is no longer listed is not drawn in the drawer and shows no error', async ({ page }) => {
     await setup(page, { pins: ['studio', 'removed-addon'] })
     // The Home page raises its own alert when the model list or a staging
     // operation fails. Both come from the shared test server, so a slow answer
@@ -173,22 +186,21 @@ test.describe('Add-on navigation', () => {
       await route.fulfill({ json: { apps: [packagedApp('studio')] } })
     })
     const listed = page.waitForResponse(res => /\/api\/addons\/apps$/.test(res.url()))
-    await page.goto('/app')
+    await page.goto('/app/addons')
     await listed
-    // Two frames: the list reaches React and the sidebar redraws from it.
+    // Two frames: the list reaches React and the drawer redraws from it.
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
-    const pinned = page.getByTestId('pinned-nav')
-    await expect(pinned.getByRole('link')).toHaveCount(1)
+    await expect(page.getByTestId('addon-tile')).toHaveCount(1)
     await expect(page.getByRole('alert')).toHaveCount(0)
   })
 
-  test('a stopped pinned add-on is muted and opens the detail view', async ({ page }) => {
+  test('a stopped pinned add-on in the drawer opens the detail view', async ({ page }) => {
     await setup(page, { pins: ['notes'], apps: [app({ id: 'notes', title: 'Notes', enabled: false, state: 'stopped' })] })
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor({ ...MEMBER, role: 'admin' }, { addons: true }) }))
-    await page.goto('/app')
-    const link = page.getByTestId('pinned-nav').getByRole('link', { name: /Notes/ })
-    await expect(link).toHaveClass(/nav-item--muted/)
-    await link.click()
+    await page.goto('/app/addons')
+    const tile = page.locator('[data-testid="addon-tile"][data-app="notes"]')
+    await expect(tile).toHaveAttribute('data-state', 'stopped')
+    await tile.locator('.ad-tile__open').click()
     await expect(page).toHaveURL(/\/app\/addons\?detail=notes$/)
     await expect(page.getByTestId('addon-detail')).toBeVisible()
   })

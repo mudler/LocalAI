@@ -1662,6 +1662,8 @@ sent with `Cache-Control: private, no-store`.
 
 ### Pins
 
+Pins no longer appear in the sidebar. They are used from the add-ons drawer: a pinned tile there has buttons to move it earlier or later.
+
 `GET /api/addons/pins` returns the caller's pinned add-on IDs as a JSON array, in order.
 `PUT /api/addons/pins` takes a JSON array of add-on IDs, replaces the caller's pins with it
 and returns the saved list. Both routes need an authenticated caller. They need no
@@ -1709,11 +1711,11 @@ reach **Browse**, **Installed** and **Libraries** from the drawer. The tabs are 
 convenience: the owner checks administration again on every call, so a request that skips
 the page is denied the same way (403).
 
-The sidebar has four items: **Chat**, **Models**, **Add-ons** and **Settings**. Below them
-a **Pinned** section lists the add-ons the user pinned, in the order the user chose. Pins
-belong to the user, follow the user across browsers, and are capped at eight in the
-sidebar. A pin whose add-on is stopped is muted and opens the detail view; a pin whose
-add-on was removed or is hidden is not drawn. An empty section is not drawn. Operators who
+The sidebar has the items **Chat**, **Models** and **Apps**, and below Apps a **Show all**
+link. Both open the add-ons drawer at `/app/addons`. Pins no longer appear in the sidebar:
+the user pins add-ons and changes their order with the buttons on a pinned tile in the drawer. Pins belong to the user, follow the user across browsers, and are
+capped at eight. A pin whose add-on is stopped opens the detail view; a pin whose add-on
+was removed or is hidden is not drawn. Operators who
 need the previous sidebar can set `LOCALAI_LEGACY_NAVIGATION=true` (flag
 `--legacy-navigation`); it also brings back the Add-ons tab of the Build hub, which then opens `/app/addons`. The switch is a rollback aid and is removed one release after the
 new navigation ships; the UI reads it from the `addon_navigation` key of `/api/features`.

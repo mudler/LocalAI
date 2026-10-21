@@ -16,8 +16,7 @@
     "recognition": "Recognition",
     "build": "Build",
     "operate": "Operate",
-    "workspace": "Workspace",
-    "pinned": "Pinned"
+    "workspace": "Workspace"
   },
   "operate": {
     "inference": "Inference",
@@ -67,7 +66,8 @@
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
-    "addons": "Add-ons"
+    "addons": "Apps",
+    "showAll": "Show all"
   },
   "footer": {
     "github": "GitHub",

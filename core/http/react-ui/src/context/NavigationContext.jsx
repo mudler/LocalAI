@@ -3,8 +3,7 @@ import { useAuth } from './AuthContext'
 import { pinsApi } from '../utils/pinsClient'
 import { PIN_CAP, togglePin, movePin } from '../utils/addonTiles'
 
-// What the shell needs to draw the Add-ons item, the drawer and the Pinned
-// section: the built-in catalog and the caller's pins. Both come from the
+// What the shell needs to draw the Apps item and the drawer: the built-in catalog and the caller's pins. Both come from the
 // server, so a pin follows the user across browsers.
 const EMPTY = Object.freeze({
   status: 'idle', builtin: [], pinIds: [],
