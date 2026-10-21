@@ -60,6 +60,28 @@ local-ai models install nemotron-3.5-bolt-e4b-q4
 To select a build explicitly, use `--variant nemotron-3.5-bolt-e4b-q4`
 or `--variant nemotron-3.5-bolt-e4b-q8`.
 
+### Humanizer 12B
+
+[Humanizer 12B](https://huggingface.co/jialinyyzz/humanizer) rewrites English and
+Chinese drafts with the llama.cpp backend. Its variants include quantized GGUF
+builds and an unquantized BF16 build. Each uses an 8,192-token context.
+
+To install BF16 explicitly:
+
+```bash
+local-ai models install humanizer-12b-q4 --variant humanizer-12b-bf16
+```
+
+Omit `--variant` for automatic selection based on available memory. BF16 weights
+require approximately 23.8 GB of disk space, plus memory for inference.
+
+These gallery entries use the completions API. Send the publisher's instruction,
+two newline characters, the trimmed draft, and the separator
+`\n\n### Rewritten:\n\n` as the prompt. Copy the instruction verbatim from
+[the publisher's prompt format](https://huggingface.co/jialinyyzz/humanizer/blob/2e57b6528a4070c33f3e09ca24e3325a84272f68/prompt_format.json).
+Keep the configured sampling settings and do not add stop strings. Split long
+documents at paragraph boundaries and review rewrites for factual changes.
+
 ### MiniCPM-V 4.7 1B
 
 [MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)

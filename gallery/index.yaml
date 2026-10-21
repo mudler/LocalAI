@@ -4,6 +4,48 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: humanizer-12b-bf16
+  description: |
+    Humanizer is a 12B Gemma 4 fine-tune for rewriting English and Chinese text.
+    This unquantized BF16 GGUF build uses llama.cpp with an 8,192-token context.
+    This entry uses the completions API with the publisher's exact rewriting prompt.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/google/gemma-4-12B
+    - https://huggingface.co/jialinyyzz/humanizer
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - text-generation
+    - rewriting
+    - gemma
+  files:
+    - filename: humanizer-12b-bf16.gguf
+      sha256: 47d79b44c3e15ea2540f4edb63556f2b7e456067d7dd252a42ff103a26a51be9
+      uri: https://huggingface.co/jialinyyzz/humanizer/resolve/2e57b6528a4070c33f3e09ca24e3325a84272f68/humanizer-12b-bf16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_input_modalities:
+      - text
+    known_usecases:
+      - completion
+    mmap: true
+    options:
+      - use_jinja:false
+    parameters:
+      min_p: 0
+      model: humanizer-12b-bf16.gguf
+      repeat_penalty: 1.0
+      temperature: 1.0
+      top_k: 0
+      top_p: 0.95
+    stopwords: []
+    template:
+      completion: '{{.Input}}'
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
@@ -75942,6 +75984,7 @@
     - model: humanizer-12b-q3-qat
     - model: humanizer-12b-q6
     - model: humanizer-12b-q8
+    - model: humanizer-12b-bf16
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: humanizer-12b-q6
   description: |
