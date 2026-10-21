@@ -61,7 +61,7 @@ var _ = Describe("add-on automatic upgrade setting", func() {
 			mu.Lock()
 			defer mu.Unlock()
 			archives["/"+version+".tar"] = b.Bytes()
-			releases = append(releases, catalog.Release{AddonID: "sample", Name: "Sample", Version: version, OS: "linux", Arch: "amd64",
+			releases = append(releases, catalog.Release{ID: "sample", Name: "Sample", Version: version, OS: "linux", Arch: "amd64",
 				Artifact: url + "/" + version + ".tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes()))})
 		}
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
