@@ -67,6 +67,7 @@ func (s Source) readByCatalog() bool {
 
 // IsTombstone says the record only remembers that a default was removed.
 func (s Source) IsTombstone() bool { return s.Default && s.Removed }
+
 type RefreshResult struct {
 	SourceID string `json:"sourceId"`
 	Count    int    `json:"count"`

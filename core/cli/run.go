@@ -16,6 +16,7 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
+	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
@@ -349,6 +350,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
 		config.WithBackendGalleries(r.BackendGalleries),
+		// The galleries the flags named also become library sources, and the
+		// library sources decide which galleries are read. This must stay
+		// after the two options above.
+		library.Option(r.DataPath, r.AddonsOfficialLibrary, r.AddonsBackendLibrary),
 		config.WithVRAMPersistentCache(r.VRAMPersistentCache),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
