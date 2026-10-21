@@ -84,6 +84,11 @@ type Application struct {
 	backendLibrary     *backendlib.Installer
 	addonManager       *addons.Manager
 	addonHostOps       *addonruntime.HostOps
+
+	// libraryStore is the library sources file when no add-on owner runs here.
+	libraryStore   *catalog.Sources
+	libraryStoreMu sync.Mutex
+
 	// The pin store is built once so the routes and the retention sweep share it.
 	addonPinStoreOnce    sync.Once
 	addonPinStore        pins.Store
@@ -883,6 +888,7 @@ func (a *Application) startAddons() error {
 		if c.OfficialBackendLibrary {
 			defaults = append(defaults, catalog.OfficialBackendLibrary())
 		}
+		sources.SetOfficial(a.applicationConfig.OfficialLibraries)
 		if len(defaults) > 0 {
 			if _, err = sources.SeedDefaults(defaults...); err != nil {
 				return err

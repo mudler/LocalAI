@@ -77,6 +77,7 @@ loopback carrier with keys that are made at each start and never written to disk
 | `--addons-ownership-mode` | `LOCALAI_ADDONS_OWNERSHIP_MODE` | `local-owner` when authentication is off, `named-user` when it is on | `named-user` gives each account its own access. `local-owner` makes every caller share one owner. A value you set always wins over the default. Any other value stops startup with an error. |
 | `--addons-official-library` | `LOCALAI_ADDONS_OFFICIAL_LIBRARY` | `true` | Registers the [official library](#the-official-library) on the first start. `--addons-official-library=false` does not register it. |
 | `--addons-backend-library` | `LOCALAI_ADDONS_BACKEND_LIBRARY` | `true` | Registers the pilot [backend library](#backends-in-the-library) on the first start, like the official library. `--addons-backend-library=false` starts without it. A library you remove stays removed. |
+| `--official-libraries` | `LOCALAI_OFFICIAL_LIBRARIES` | `true` | Use the default library sources of add-ons, backends and models. `--official-libraries=false` leaves them listed but unread. It is also the runtime setting `official_libraries`. See [Library sources](#library-sources). |
 | `--addons-backend-max-bytes` | `LOCALAI_ADDONS_BACKEND_MAX_BYTES` | `8589934592` (8 GiB) | Largest compressed size of a backend image installed from a library. Add-ons keep their own limit of 512 MiB. |
 
 `named-user` needs authentication. With authentication on and no mode set, LocalAI
@@ -108,7 +109,86 @@ The first start writes `sources.json`, and from then on that file is the record 
 your choices. If you remove the `official` library (in the Add-ons page or through the
 source routes), it stays removed, and a `sources.json` you already have is never
 changed. To start without it, set `--addons-official-library=false` before the first
-start. To get it back, add a source with the URL above.
+start. To get it back, add a source with the URL above, or enable it again (see
+[Library sources](#library-sources)).
+
+## Library sources
+
+A library source is a place LocalAI reads entries from. There are three kinds:
+
+| Kind | What it provides | Read by |
+|---|---|---|
+| `addon` | Add-ons, as a library index | The Add-ons catalog |
+| `backend` | Backends, as a library index or a backend gallery index | The Backends page and the backend library |
+| `model` | Models, as a library index or a model gallery index | The model gallery |
+
+All sources of all kinds are in one store, `addons/sources.json` under the data path.
+`local-ai library` (see the [CLI reference](/reference/cli-reference/#library-sources)), the
+HTTP routes below and the Libraries tab work on the same store with the same code, so
+a change made in one place shows in the others.
+
+A source can be a default: one that LocalAI ships (the official add-on library, the
+model gallery index and the backend gallery index). A default is marked `default`. If
+you remove a default, LocalAI keeps a record of the removal (a tombstone, `removed:
+true`), so the default does not come back at the next start. Turn the source on again
+to bring it back. A source you added is deleted when you remove it.
+
+### The Libraries tab
+
+The Libraries tab of the Add-ons page lists the sources of all three kinds. Use the kind
+filter to show only add-ons, backends or models. Each source shows its kind, a Default
+badge for a shipped default, and its state: enabled, disabled, removed or, while the
+official libraries are off, off. Administrators can add a source (kind, format, name and
+address), turn a source on or off, and remove it. A removed default stays in the list
+with a Restore button. An add-on source can also be edited, to set its signature policy
+and credential reference, and refreshed. Backend and model sources have no signature
+policy of their own.
+
+### Conflicts
+
+When two libraries list the same entry, LocalAI does not choose silently:
+
+- A source you added wins over a default. The default is ignored for that entry.
+- Two sources you added that list the same entry are a conflict. LocalAI refuses to
+  install or resolve that entry until you turn one of the sources off or remove it.
+
+The list shows the message next to each source that clashes. Only sources that LocalAI
+fetches as a library index can clash, so gallery-format sources never show a conflict.
+
+### Use official libraries
+
+The setting `official_libraries` (default on) switches all default sources of all
+three kinds at once. In the Settings page it is the toggle **Use official libraries**,
+in the group Backends and galleries. On the command line it is
+`--official-libraries` (`LOCALAI_OFFICIAL_LIBRARIES`).
+
+When it is off, LocalAI does not read the default sources. The default add-on library,
+model gallery index and backend gallery index are not used for search, install or
+update checks. They stay in the store, still marked `default`, and the Libraries tab shows
+them as off (`suspended: true` in the routes). Each source keeps its own enabled state, so turning the
+setting back on restores exactly what was there. Sources you added are not affected. The
+change applies at once, with no restart.
+
+### Source routes
+
+The routes are for administrators. A caller who is not an administrator gets `403`, and a
+caller who is not signed in gets `401` when authentication is on. They are not add-on
+routes, so they do not need the add-ons owner to run.
+
+| Method and path | What it does |
+|---|---|
+| `GET /api/library/sources` | List every source of all kinds, tombstones included |
+| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery"}`. `id`, `name` and `format` are optional. The same kind and URL twice, or a taken id, is `409` |
+| `POST /api/library/sources/{id}/enable` | Turn a source on. This also brings back a removed default |
+| `POST /api/library/sources/{id}/disable` | Turn a source off without removing it |
+| `DELETE /api/library/sources/{id}` | Remove a source. A default leaves a tombstone |
+
+The list answers `{"sources": [...], "officialLibraries": true}`. Each source has `kind`,
+`id`, `name`, `url`, `format`, `enabled` (what LocalAI does with it), `default`, `removed`,
+`suspended`, `conflict` (the message, when there is one), `policy` and, for an add-on
+source, `refresh` (the last fetch). A source that does not exist is `404`. Changes to
+model and backend sources apply to the running server. No MCP tool maps to these
+routes.
 
 ## Backends in the library
 

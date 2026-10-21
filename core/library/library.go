@@ -9,6 +9,7 @@ package library
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -125,6 +126,9 @@ func SourceID(name, url string) string {
 }
 
 // freeID returns id, or id with a number when another record has it.
+// ErrDuplicate is returned when a source of the same kind already lists the URL.
+var ErrDuplicate = errors.New("already a library source")
+
 func freeID(taken map[string]bool, id string) string {
 	if !taken[id] {
 		return id
@@ -142,7 +146,7 @@ func freeID(taken map[string]bool, id string) string {
 func Add(store *catalog.Sources, kind catalog.Kind, url, id, name, format string) (catalog.Source, error) {
 	for _, e := range store.Entries() {
 		if e.Kind == kind && e.URL == url && !e.IsTombstone() {
-			return catalog.Source{}, fmt.Errorf("%s is already a %s source (%s)", url, kind, e.ID)
+			return catalog.Source{}, fmt.Errorf("%w: %s is already a %s source (%s)", ErrDuplicate, url, kind, e.ID)
 		}
 	}
 	if id == "" {

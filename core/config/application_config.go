@@ -69,6 +69,10 @@ func WithAddons(c AddonConfig) AppOption {
 }
 
 type ApplicationConfig struct {
+	// OfficialLibraries is the switch for the shipped default library sources
+	// of every kind. On by default; off keeps them listed but unread.
+	OfficialLibraries bool
+
 	Addons AddonConfig `json:"-" yaml:"-"`
 
 	// AddonHostOps maps an add-on ID to the host operation prefixes it may
@@ -356,6 +360,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		UploadLimitMB:             15,
 		Debug:                     true,
 		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
+		OfficialLibraries:         true,
 		ModelPreloadRenderMode:    "dark",
 		// Capture backend process stdout/stderr into the per-model
 		// BackendLogStore by default so the UI "Backend Logs" page works out
@@ -671,6 +676,10 @@ var EnableGalleriesAutoload = func(o *ApplicationConfig) {
 
 var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadBackendGalleries = true
+}
+
+func WithOfficialLibraries(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.OfficialLibraries = v }
 }
 
 func WithAutoUpgradeBackends(v bool) AppOption {

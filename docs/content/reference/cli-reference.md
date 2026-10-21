@@ -251,6 +251,8 @@ distinct from the `1` a failure reports.
 | `local-ai library enable <id>` | Turn a source on. This also brings back a removed default |
 | `local-ai library disable <id>` | Turn a source off without removing it |
 
+All `local-ai library` commands accept `--official-libraries` (`LOCALAI_OFFICIAL_LIBRARIES`, default `true`). With `--official-libraries=false` the list shows the shipped default sources as off. The same switch is the runtime setting `official_libraries` and the toggle "Use official libraries" in Settings. See [Library sources](/features/addons/#library-sources).
+
 When two enabled sources list the same entry (same kind and id), your own source wins over a shipped default. If two of your own sources list it, the entry is refused and the message names both sources: disable or remove one of them. The `--galleries` and `--backend-galleries` flags keep working: each gallery they name is added as a source of your own (kind `model` or `backend`, format `gallery`) at startup, unless it is already a source.
 
 ## Other Commands

@@ -55,6 +55,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// full restart. Env/CLI values win over the file (see
 	// ApplyRuntimeSettingsAtStartup).
 	loadStartupSettings(options)
+	applyOfficialLibrariesAtStartup(options)
 
 	// WithThreads no longer eagerly resolves 0 (so the settings merge can
 	// tell "unset" from "env-set"); resolve the physical-core default now

@@ -52,6 +52,10 @@ type Source struct {
 	// as a tombstone, so the default is not added again at the next start; a
 	// tombstone is never enabled and never listed by the management view.
 	Removed bool `json:"removed,omitempty"`
+	// Suspended is runtime state, never stored: the host-wide "official
+	// libraries" switch is off and this is a shipped default. The record keeps
+	// its own Enabled value, so turning the switch back on restores it.
+	Suspended bool `json:"-"`
 }
 
 // FormatGallery marks a source whose index is a gallery index, as the
@@ -62,7 +66,7 @@ const FormatGallery = "gallery"
 // source. Model sources and gallery-format sources are read by the gallery
 // readers instead.
 func (s Source) readByCatalog() bool {
-	return s.Enabled && !s.Removed && s.Kind != KindModel && s.Format != FormatGallery
+	return s.Enabled && !s.Removed && !s.Suspended && s.Kind != KindModel && s.Format != FormatGallery
 }
 
 // IsTombstone says the record only remembers that a default was removed.
@@ -120,6 +124,9 @@ type Sources struct {
 	// then may SeedDefault add a library; a file the admin already has, even an
 	// empty one, is never touched.
 	fresh bool
+	// officialOff is the official-libraries switch: when set, every shipped
+	// default is suspended (see Source.Suspended).
+	officialOff bool
 }
 
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
@@ -343,6 +350,7 @@ func (s *Sources) apply(src Source) (map[string]Source, error) {
 	}
 	src.Default, src.Format = false, ""
 	if had {
+		src.Suspended = old.Suspended
 		src.Default, src.Format = old.Default, old.Format
 		if src.Kind == "" {
 			src.Kind = old.Kind
@@ -412,7 +420,7 @@ func (s *Sources) SeedDefaults(srcs ...Source) (bool, error) {
 	}
 	added := false
 	for _, src := range srcs {
-		src.Default, src.Removed = true, false
+		src.Default, src.Removed, src.Suspended = true, false, s.officialOff
 		if src.Kind == "" {
 			src.Kind = KindAddon
 		}

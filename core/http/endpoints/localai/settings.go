@@ -195,6 +195,12 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		watchdogChanged := appConfig.ApplyRuntimeSettings(&settings)
 		restartRequired := prevDevelopmentPreference != appConfig.PreferDevelopmentBackends
 		gallery.ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries, appConfig)
+		if settings.OfficialLibraries != nil {
+			// The shipped default sources of every kind follow the switch now.
+			if err := app.ApplyLibraries(); err != nil {
+				xlog.Warn("could not apply the official libraries setting", "error", err)
+			}
+		}
 		if settings.VRAMPersistentCache != nil || settings.AutoloadGalleries != nil {
 			if appConfig.VRAMPersistentCache && appConfig.AutoloadGalleries {
 				vram.ConfigurePersistentCache(filepath.Join(appConfig.SystemState.Model.ModelsPath, "..", "cache", "vram"), 24*time.Hour)

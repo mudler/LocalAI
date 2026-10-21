@@ -157,7 +157,7 @@ func TestRemovedOrDisabledSourcesLeaveTheGalleryList(t *testing.T) {
 	}
 	// The removal holds at the next start, with the same flags.
 	o := config.NewApplicationConfig(config.WithStringGalleries(config.DefaultGalleriesJSON))
-	Option(dir, true, false)(o)
+	Option(dir, true, false, true)(o)
 	if len(o.Galleries) != 0 {
 		t.Errorf("the removed default came back: %+v", o.Galleries)
 	}
@@ -197,7 +197,7 @@ func TestOptionKeepsDefaultDeploymentsAsTheyWere(t *testing.T) {
 			config.WithStringGalleries(config.DefaultGalleriesJSON),
 			config.WithBackendGalleries(config.DefaultBackendGalleriesJSON),
 		)
-		Option(dir, true, false)(o)
+		Option(dir, true, false, true)(o)
 		return o
 	}
 	want := config.NewApplicationConfig(
@@ -228,7 +228,7 @@ func TestOptionSurvivesAnUnusableStore(t *testing.T) {
 	}
 	o := config.NewApplicationConfig(config.WithStringGalleries(config.DefaultGalleriesJSON))
 	before := append([]config.Gallery(nil), o.Galleries...)
-	Option(filepath.Join(file, "sub"), true, false)(o)
+	Option(filepath.Join(file, "sub"), true, false, true)(o)
 	if !reflect.DeepEqual(o.Galleries, before) {
 		t.Errorf("galleries changed: %+v", o.Galleries)
 	}
@@ -246,7 +246,7 @@ func TestCustomFlagsLoadAsBefore(t *testing.T) {
 		config.EnableGalleriesAutoload,
 		config.EnableBackendGalleriesAutoload,
 	)
-	Option(dir, true, false)(o)
+	Option(dir, true, false, true)(o)
 	if !reflect.DeepEqual(o.Galleries, append(parse(models), modelLibrary())) || !reflect.DeepEqual(o.BackendGalleries, parse(backends)) {
 		t.Errorf("galleries changed: %+v %+v", o.Galleries, o.BackendGalleries)
 	}
@@ -277,7 +277,7 @@ func modelGalleries(t *testing.T) []config.Gallery {
 		config.WithStringGalleries(config.DefaultGalleriesJSON),
 		config.WithBackendGalleries(config.DefaultBackendGalleriesJSON),
 	)
-	Option(t.TempDir(), true, false)(o)
+	Option(t.TempDir(), true, false, true)(o)
 	return o.Galleries
 }
 

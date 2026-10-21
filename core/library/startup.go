@@ -68,14 +68,14 @@ func ApplyGalleries(store *catalog.Sources, kind catalog.Kind, galleries []confi
 	out := make([]config.Gallery, 0, len(galleries))
 	have := map[string]bool{}
 	for _, g := range galleries {
-		if e, ok := state[g.URL]; ok && (!e.Enabled || e.Removed) {
+		if e, ok := state[g.URL]; ok && (!e.Enabled || e.Removed || e.Suspended) {
 			continue
 		}
 		out = append(out, g)
 		have[g.URL] = true
 	}
 	for _, e := range store.Entries() {
-		if e.Kind == kind && e.Enabled && !e.Removed && (!e.Default || e.Format != catalog.FormatGallery) && !have[e.URL] && (e.Format == catalog.FormatGallery || kind == catalog.KindModel) {
+		if e.Kind == kind && e.Enabled && !e.Removed && !e.Suspended && (!e.Default || e.Format != catalog.FormatGallery) && !have[e.URL] && (e.Format == catalog.FormatGallery || kind == catalog.KindModel) {
 			extra = append(extra, e)
 		}
 	}
@@ -91,13 +91,14 @@ func ApplyGalleries(store *catalog.Sources, kind catalog.Kind, galleries []confi
 // galleries. If the store cannot be read or written the galleries stay as the
 // flags set them and a warning says why: the library must never stop a
 // deployment that worked before.
-func Option(dataPath string, official, pilot bool) config.AppOption {
+func Option(dataPath string, official, pilot, useOfficial bool) config.AppOption {
 	return func(o *config.ApplicationConfig) {
 		store, err := Open(dataPath, official, pilot)
 		if err != nil {
 			xlog.Warn("library sources are not applied", "error", err)
 			return
 		}
+		store.SetOfficial(useOfficial)
 		if added, err := MapGalleries(store, catalog.KindModel, o.Galleries); err != nil {
 			xlog.Warn("could not record the model galleries as library sources", "error", err)
 		} else if len(added) > 0 {
@@ -111,6 +112,52 @@ func Option(dataPath string, official, pilot bool) config.AppOption {
 		o.Galleries = ApplyGalleries(store, catalog.KindModel, o.Galleries)
 		o.BackendGalleries = ApplyGalleries(store, catalog.KindBackend, o.BackendGalleries)
 	}
+}
+
+// Reconcile makes the galleries the server reads match the store, for a store
+// that changed while the server runs: a source turned on or off, added,
+// removed, or the official-libraries switch. A gallery that is already listed
+// keeps its mirrors and order; one the store no longer enables is dropped;
+// an enabled source that is not listed yet is appended. A gallery that is
+// not a source at all is kept. It returns the new
+// model and backend galleries.
+//
+// dropped names the addresses of sources that were deleted: a deleted source is
+// no longer in the store, so only the caller can say its gallery must go.
+func Reconcile(store *catalog.Sources, models, backends []config.Gallery, dropped ...string) ([]config.Gallery, []config.Gallery) {
+	return reconcileKind(store, catalog.KindModel, models, dropped), reconcileKind(store, catalog.KindBackend, backends, dropped)
+}
+
+func reconcileKind(store *catalog.Sources, kind catalog.Kind, current []config.Gallery, dropped []string) []config.Gallery {
+	live := map[string]catalog.Source{}
+	known := map[string]bool{}
+	for _, u := range dropped {
+		known[u] = true
+	}
+	for _, e := range store.Entries() {
+		if e.Kind == kind {
+			known[e.URL] = true
+		}
+		if e.Kind == kind && e.Enabled && !e.Removed && !e.Suspended && (e.Format == catalog.FormatGallery || kind == catalog.KindModel) {
+			live[e.URL] = e
+		}
+	}
+	out := make([]config.Gallery, 0, len(current))
+	have := map[string]bool{}
+	for _, g := range current {
+		// A gallery the store does not know is not the store's to drop.
+		if _, ok := live[g.URL]; ok || !known[g.URL] {
+			out = append(out, g)
+			have[g.URL] = true
+		}
+	}
+	for _, e := range store.Entries() {
+		if _, ok := live[e.URL]; ok && e.Kind == kind && !have[e.URL] {
+			out = append(out, config.Gallery{Name: e.Name, URL: e.URL, Library: e.Format != catalog.FormatGallery})
+			have[e.URL] = true
+		}
+	}
+	return out
 }
 
 // parse is for tests: a JSON gallery list as a flag carries it.

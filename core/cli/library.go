@@ -20,10 +20,16 @@ type LibraryFlags struct {
 	DataPath              string `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data. The library sources are stored under it, in addons/sources.json, the file the server reads" group:"storage"`
 	AddonsOfficialLibrary bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"List the official add-on library as a default source" group:"addons"`
 	AddonsBackendLibrary  bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"List the pilot backend library as a default source" group:"addons"`
+	OfficialLibraries     bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of every kind. Off: they stay in the list, shown as off" group:"addons"`
 }
 
 func (f LibraryFlags) open() (*catalog.Sources, error) {
-	return library.Open(f.DataPath, f.AddonsOfficialLibrary, f.AddonsBackendLibrary)
+	store, err := library.Open(f.DataPath, f.AddonsOfficialLibrary, f.AddonsBackendLibrary)
+	if err != nil {
+		return nil, err
+	}
+	store.SetOfficial(f.OfficialLibraries)
+	return store, nil
 }
 
 // LibraryCMD manages the sources LocalAI reads add-ons, backends and models from.
@@ -80,7 +86,7 @@ func writeSources(w io.Writer, entries []catalog.Source) error {
 	tw := tabwriter.NewWriter(w, 2, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "KIND\tID\tURL\tENABLED\tDEFAULT\tREMOVED")
 	for _, e := range entries {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", e.Kind, e.ID, e.URL, yesNo(e.Enabled), yesNo(e.Default), yesNo(e.Removed))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", e.Kind, e.ID, e.URL, yesNo(e.Enabled && !e.Suspended), yesNo(e.Default), yesNo(e.Removed))
 	}
 	return tw.Flush()
 }
@@ -118,16 +124,11 @@ func (c *LibraryRemove) Run(_ *cliContext.Context) error {
 	if err != nil {
 		return err
 	}
-	var was catalog.Source
-	for _, e := range store.Entries() {
-		if e.ID == c.ID {
-			was = e
-		}
-	}
-	if err := store.RemoveSource(c.ID); err != nil {
+	wasDefault, err := library.Remove(store, c.ID)
+	if err != nil {
 		return notFound(err, c.ID)
 	}
-	if was.Default {
+	if wasDefault {
 		fmt.Printf("removed default source %s; it stays removed at the next start (local-ai library enable %s brings it back)\n", c.ID, c.ID)
 	} else {
 		fmt.Printf("removed source %s\n", c.ID)

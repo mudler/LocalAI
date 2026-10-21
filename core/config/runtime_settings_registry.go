@@ -163,6 +163,10 @@ var runtimeSettingsFields = []fieldSpec{
 			return cur.MaxActiveBackends != base.MaxActiveBackends || cur.SingleBackend != base.SingleBackend
 		},
 	},
+	field("official_libraries",
+		func(s *RuntimeSettings) **bool { return &s.OfficialLibraries },
+		func(o *ApplicationConfig) bool { return o.OfficialLibraries },
+		func(o *ApplicationConfig, v bool) { o.OfficialLibraries = v }),
 	field("auto_upgrade_backends",
 		func(s *RuntimeSettings) **bool { return &s.AutoUpgradeBackends },
 		func(o *ApplicationConfig) bool { return o.AutoUpgradeBackends },

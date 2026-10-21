@@ -133,3 +133,74 @@ func (s *Sources) SetEnabled(id string, enabled bool) error {
 	delete(s.cache, id)
 	return nil
 }
+
+// SetOfficial turns the shipped default sources of every kind on or off as a
+// group. A suspended default is not read, but its record, its own enabled
+// state and its tombstone stay as they are, so turning the switch back on
+// restores exactly what was there. Sources the user added are not affected.
+// It reports whether any default changed.
+func (s *Sources) SetOfficial(on bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.officialOff = !on
+	changed := false
+	next := make(map[string]Source, len(s.sources))
+	for id, v := range s.sources {
+		if v.Default && v.Suspended != !on {
+			v.Suspended = !on
+			changed = true
+			delete(s.cache, id)
+		}
+		next[id] = v
+	}
+	s.sources = next
+	return changed
+}
+
+// Official reports whether the shipped defaults are in use.
+func (s *Sources) Official() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.officialOff
+}
+
+// Conflicts maps a source id to the message that explains how its entries
+// clash with another source: for two sources of the user that list one entry,
+// the same message as the refusal ConflictError gives; for a shipped default
+// whose entry a source of the user also lists, a note that the default loses
+// that entry. Only sources the add-on catalog reads and has fetched can
+// conflict, so gallery-format sources never appear.
+func (s *Sources) Conflicts() map[string]string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := map[string]string{}
+	keys := make([]entryKey, 0)
+	own := s.entryOwners()
+	for k := range own {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].kind != keys[j].kind {
+			return keys[i].kind < keys[j].kind
+		}
+		return keys[i].id < keys[j].id
+	})
+	for _, k := range keys {
+		o := own[k]
+		if len(o.user) >= 2 {
+			msg := (&ConflictError{Kind: k.kind, ID: k.id, First: o.user[0], Second: o.user[1]}).Error()
+			for _, id := range o.user {
+				if _, ok := out[id]; !ok {
+					out[id] = msg
+				}
+			}
+		} else if len(o.user) == 1 {
+			for _, id := range o.shipped {
+				if _, ok := out[id]; !ok {
+					out[id] = fmt.Sprintf("the %s %q is provided by your source %q, so this default source is ignored for it", k.kind, k.id, o.user[0])
+				}
+			}
+		}
+	}
+	return out
+}
