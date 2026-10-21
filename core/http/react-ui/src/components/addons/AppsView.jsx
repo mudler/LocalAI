@@ -14,6 +14,7 @@ import SideSheet from '../SideSheet'
 import AddonSlot from '../../addons/AddonSlot'
 import { useHubAuth } from '../hub/useHubAuth'
 import AddonTile from './AddonTile'
+import PinControl from './PinControl'
 import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
 import { apiUrl } from '../../utils/basePath'
@@ -107,8 +108,14 @@ export default function AppsView({ api }) {
 
   const tiles = useMemo(() => buildTiles(state.apps, nav.builtin, { language: i18n.language }), [state.apps, nav.builtin, i18n.language])
   const titleOf = useCallback((tile) => (tile.titleKey ? tn(tile.titleKey) : tile.title), [tn])
-  const shown = useMemo(() => filterTiles(tiles, query, titleOf), [tiles, query, titleOf])
-  const pinnedIds = useMemo(() => new Set(resolvePins(nav.pinIds, tiles).map(x => x.id)), [nav.pinIds, tiles])
+  const pinOrder = useMemo(() => resolvePins(nav.pinIds, tiles).map(x => x.id), [nav.pinIds, tiles])
+  const pinnedIds = useMemo(() => new Set(pinOrder), [pinOrder])
+  // Pinned apps come first, in pin order; the rest keep the catalog order.
+  const shown = useMemo(() => {
+    const found = filterTiles(tiles, query, titleOf)
+    const rank = new Map(pinOrder.map((id, i) => [id, i]))
+    return [...found.filter(x => rank.has(x.id)).sort((a, b) => rank.get(a.id) - rank.get(b.id)), ...found.filter(x => !rank.has(x.id))]
+  }, [tiles, query, titleOf, pinOrder])
   const detail = tiles.find(x => x.id === detailId) || null
 
   const onPin = async (id) => {
@@ -182,7 +189,7 @@ export default function AppsView({ api }) {
       )}
       {!legacy && <div className="ad-nav-slot"><AddonSlot slot="app.nav" context={null} /></div>}
       {detail && (
-        <SideSheet title={titleOf(detail)} onClose={closeDetail} closeLabel={t('drawer.close')} testId="addon-detail">
+        <SideSheet title={titleOf(detail)} onClose={closeDetail} headActions={<PinControl variant="head" name={titleOf(detail)} pinned={pinnedIds.has(detail.id)} onToggle={() => onPin(detail.id)} />} closeLabel={t('drawer.close')} testId="addon-detail">
           {detail.app
             ? (
               <>

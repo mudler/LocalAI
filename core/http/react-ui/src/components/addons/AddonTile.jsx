@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { apiUrl } from '../../utils/basePath'
 import { AppIcon } from './AddonBits'
+import PinControl from './PinControl'
 
 // One tile of the drawer: icon, name, state and the pin control. A running
 // tile opens the add-on; every other tile opens the detail view. The pin
@@ -36,16 +37,7 @@ export default function AddonTile({ tile, pinned, onPin, onMove, onOpenDetail })
           <button type="button" className="ad-tile__move" data-testid="pin-later" aria-label={t('drawer.moveLater', { name: title })} onClick={() => onMove(tile.id, 1)}><Icon name="chevron-down" aria-hidden="true" /></button>
         </span>
       )}
-      <button
-        type="button"
-        className="ad-tile__pin"
-        data-testid="pin-toggle"
-        aria-pressed={pinned}
-        aria-label={pinned ? t('drawer.unpin', { name: title }) : t('drawer.pin', { name: title })}
-        onClick={() => onPin(tile.id)}
-      >
-        <Icon name="star" aria-hidden="true" />
-      </button>
+      <PinControl name={title} pinned={pinned} onToggle={() => onPin(tile.id)} />
     </li>
   )
 }

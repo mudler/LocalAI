@@ -104,6 +104,8 @@
     "moveEarlier": "Move {{name}} earlier",
     "moveLater": "Move {{name}} later",
     "pin": "Pin {{name}}",
+    "pinLabel": "Pin",
+    "pinned": "Pinned",
     "running": "Running",
     "search": "Search add-ons",
     "status": {

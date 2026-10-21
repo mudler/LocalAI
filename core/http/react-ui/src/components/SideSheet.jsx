@@ -8,10 +8,11 @@ import { pushLayer } from '../utils/modalLayers'
 // click on the veil to close. The body scrolls; the footer holds the actions.
 //
 //   title, description   the head
+//   headActions          controls drawn in the head, before the close button
 //   footer               buttons for the foot (primary action last)
 //   wide                 the 720 px width
 //   closeLabel           accessible name of the close button
-export default function SideSheet({ title, description, footer, onClose, wide = false, closeLabel = 'Close', testId, labelId = 'side-sheet-title', children }) {
+export default function SideSheet({ title, description, footer, headActions, onClose, wide = false, closeLabel = 'Close', testId, labelId = 'side-sheet-title', children }) {
   const sheetRef = useRef(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
@@ -59,6 +60,7 @@ export default function SideSheet({ title, description, footer, onClose, wide = 
             <h2 className="dk-sheet-title" id={labelId}>{title}</h2>
             {description && <p className="dk-sheet-desc">{description}</p>}
           </div>
+          {headActions}
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={closeLabel} onClick={onClose}><Icon name="close" /></button>
         </div>
         <div className="dk-sheet-body">{children}</div>

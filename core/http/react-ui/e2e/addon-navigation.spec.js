@@ -92,7 +92,10 @@ test.describe('Add-on navigation', () => {
     await expect(page).toHaveURL(/\/app\/addons$/)
     await expect(page.getByTestId('addon-tile')).toHaveCount(2)
     await expect(page.getByTestId('pin-toggle')).toHaveCount(2)
-    for (const toggle of await page.getByTestId('pin-toggle').all()) await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    for (const toggle of await page.getByTestId('pin-toggle').all()) {
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+      await expect(toggle).toHaveText('Pinned')
+    }
     await page.locator('[data-testid="addon-tile"][data-app="studio"]').getByTestId('pin-later').click()
     await expect.poll(() => server.saved()).toEqual(['talk', 'studio'])
   })
@@ -106,10 +109,37 @@ test.describe('Add-on navigation', () => {
     const toggle = page.getByTestId('pin-toggle').first()
     await expect(toggle).toHaveAttribute('aria-pressed', 'false')
     await expect(toggle).toHaveAccessibleName(/Pin Notes/)
+    await expect(toggle).toHaveText('Pin')
     await toggle.focus()
     await page.keyboard.press('Enter')
     await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    await expect(toggle).toHaveText('Pinned')
     expect(server.saved()).toEqual(['notes'])
+  })
+
+  test('pinned apps come first in the grid, in pin order, and the detail view has the same pin control', async ({ page }) => {
+    const server = await setup(page, {
+      pins: ['notes'],
+      apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' }), app({ id: 'zeta', title: 'Zeta', enabled: false, state: 'stopped' })],
+    })
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto('/app/addons')
+    const tiles = page.getByTestId('addon-tile')
+    await expect(tiles.first()).toHaveAttribute('data-app', 'notes')
+    await expect(tiles.first().getByTestId('pin-toggle')).toHaveText('Pinned')
+    await expect(tiles.nth(1).getByTestId('pin-toggle')).toHaveText('Pin')
+    // The tile pin and the detail pin are one state.
+    await page.goto('/app/addons?detail=zeta')
+    const detail = page.getByTestId('addon-detail')
+    const head = detail.getByTestId('pin-toggle')
+    await expect(head).toHaveText('Pin')
+    await head.click()
+    await expect(head).toHaveText('Pinned')
+    await expect(head).toHaveAttribute('aria-pressed', 'true')
+    await expect.poll(() => server.saved()).toEqual(['notes', 'zeta'])
+    await head.click()
+    await expect(head).toHaveText('Pin')
+    await expect.poll(() => server.saved()).toEqual(['notes'])
   })
 
   test('the first-run card shows to an administrator with nothing installed and leads to Browse', async ({ page }) => {
