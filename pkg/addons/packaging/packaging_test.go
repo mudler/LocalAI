@@ -524,14 +524,14 @@ var _ = Describe("add-on repository", func() {
 })
 
 var _ = Describe("catalog index reader", func() {
-	const entry = "- addonId: tables\n  name: Tables\n  version: 1.0.0\n  channel: latest\n  artifact: oci://registry.example/tables:1.0.0\n  digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n  os: linux\n  arch: amd64\n"
+	const entry = "- id: tables\n  name: Tables\n  version: 1.0.0\n  channel: latest\n  artifact: oci://registry.example/tables:1.0.0\n  digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n  os: linux\n  arch: amd64\n"
 	It("reads a YAML list and refuses JSON, unknown fields and a second document", func() {
 		got, err := readCatalogIndex([]byte(entry))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(HaveLen(1))
-		Expect(got[0].AddonID).To(Equal("tables"))
+		Expect(got[0].ID).To(Equal("tables"))
 		for name, body := range map[string]string{
-			"json":            `[{"addonId":"tables"}]`,
+			"json":            `[{"id":"tables"}]`,
 			"unknown field":   entry + "  extra: 1\n",
 			"second document": entry + "---\n" + entry,
 			"mapping":         "addonId: tables\n",
@@ -847,7 +847,7 @@ var _ = Describe("catalog template", func() {
 		Expect(render()).To(Succeed())
 		b, err := os.ReadFile(out)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(string(b)).To(HavePrefix("- addonId: "))
+		Expect(string(b)).To(HavePrefix("- id: "))
 		entries, err := readCatalogIndex(b)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(entries).To(HaveLen(2))
@@ -881,7 +881,7 @@ var _ = Describe("catalog template", func() {
 			Expect(err).NotTo(HaveOccurred(), id)
 			Expect(entries).To(HaveLen(2), id)
 			for _, e := range entries {
-				Expect(e.AddonID).To(Equal(id))
+				Expect(e.ID).To(Equal(id))
 				Expect(e.Policy.RequireSignature).To(BeTrue())
 			}
 		}

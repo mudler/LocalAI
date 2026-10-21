@@ -3,13 +3,13 @@
 # are rendered with scripts/backends/cmd/backendcatalog, so the digests pin the
 # images the gallery names today: render the file again after the backend images
 # are rebuilt, never edit a digest by hand.
-- addonId: cpu-local-store
-  alias: local-store
+- alias: local-store
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-local-store
   channel: latest
   description: Local Store is a local-first, self-hosted, and open-source vector database.
   digest: sha256:0a1056fd863328adf9d1097808aa2b52f68c4ca2e5385100a754755b3ca6218f
+  id: cpu-local-store
   kind: backend
   name: cpu-local-store
   os: linux

@@ -82,7 +82,7 @@ var _ = Describe("installing a backend from a library", func() {
 		host = strings.TrimPrefix(reg.URL, "http://")
 		digest = push(host, "acme/backends", "latest-cpu-demo", "#!/bin/sh\necho demo\n")
 		release = catalog.Release{
-			Kind: catalog.KindBackend, AddonID: "cpu-demo", Alias: "demo", Name: "Demo (CPU)", Version: "0.0.0-latest.aaaaaaaaaaaa",
+			Kind: catalog.KindBackend, ID: "cpu-demo", Alias: "demo", Name: "Demo (CPU)", Version: "0.0.0-latest.aaaaaaaaaaaa",
 			Artifact: "oci://" + host + "/acme/backends:latest-cpu-demo", Digest: digest, OS: "linux", Arch: "amd64",
 		}
 		backendsDir = GinkgoT().TempDir()

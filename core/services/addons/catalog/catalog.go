@@ -73,9 +73,12 @@ type Release struct {
 	Selection string `json:"selection,omitempty"`
 	SourceID  string `json:"sourceId,omitempty"`
 	SourceURL string `json:"sourceUrl,omitempty"`
-	// AddonID is the identifier of the entry for every kind. For a backend it
-	// is the backend name, which is also its directory name.
-	AddonID     string `json:"addonId"`
+	// ID is the identifier of the entry for every kind, the same field the
+	// shared envelope uses. For a backend it is the backend name, which is also
+	// its directory name. An index written before the envelope names it
+	// addonId; ReadIndex still reads that name (see LegacyIDField) and every
+	// writer emits id.
+	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Version     string `json:"version"`
@@ -164,13 +167,13 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 			}
 			// A user source wins over a shipped default; a tie between two
 			// user sources is refused, never resolved silently.
-			if err := own[entryKey{r.EntryKind(), r.AddonID}].check(entryKey{r.EntryKind(), r.AddonID}, src.Default); err != nil {
+			if err := own[entryKey{r.EntryKind(), r.ID}].check(entryKey{r.EntryKind(), r.ID}, src.Default); err != nil {
 				if errors.Is(err, ErrConflict) {
 					return Page{}, err
 				}
 				continue
 			}
-			if strings.Contains(strings.ToLower(r.Name+" "+r.AddonID+" "+r.Description), strings.ToLower(q.Text)) {
+			if strings.Contains(strings.ToLower(r.Name+" "+r.ID+" "+r.Description), strings.ToLower(q.Text)) {
 				all = append(all, r)
 			}
 		}
@@ -183,7 +186,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	return p, nil
 }
 func releaseKey(r Release) string {
-	return r.SourceID + "/" + string(r.EntryKind()) + "/" + r.AddonID + "/" + r.Version + "/" + r.OS + "/" + r.Arch
+	return r.SourceID + "/" + string(r.EntryKind()) + "/" + r.ID + "/" + r.Version + "/" + r.OS + "/" + r.Arch
 }
 
 // Resolve finds one add-on release. A backend release is never returned here,
@@ -220,7 +223,7 @@ func (c Catalog) ResolveKind(ctx context.Context, kind Kind, sourceID, addonID, 
 	targetOS, targetArch := c.target()
 	var found *Release
 	for _, r := range cache.releases {
-		if r.EntryKind() == kind && r.AddonID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {
+		if r.EntryKind() == kind && r.ID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {
 			if found != nil {
 				return Release{}, ErrInvalid
 			}
@@ -268,7 +271,7 @@ func (c Catalog) KindReleases(ctx context.Context, kind Kind, sourceID, addonID 
 	}
 	out := []Release{}
 	for _, r := range cache.releases {
-		if r.EntryKind() == kind && r.AddonID == addonID {
+		if r.EntryKind() == kind && r.ID == addonID {
 			out = append(out, r)
 		}
 	}

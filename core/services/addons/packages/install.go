@@ -64,7 +64,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if selection == "" {
 		selection = r.Version
 	}
-	trusted, e := i.Catalog.Resolve(ctx, r.SourceID, r.AddonID, selection)
+	trusted, e := i.Catalog.Resolve(ctx, r.SourceID, r.ID, selection)
 	if e != nil {
 		return out, e
 	}
@@ -217,7 +217,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if e = contract.ValidateManifest(m, i.Host); e != nil {
 		return out, e
 	}
-	if m.ID != r.AddonID || m.Version != r.Version {
+	if m.ID != r.ID || m.Version != r.Version {
 		return out, ErrPackage
 	}
 	assets := []string{m.Executable}

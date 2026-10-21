@@ -88,7 +88,7 @@ func render(gallerySource []byte, names []string, osName, arch string, resolve r
 		}
 		out = append(out, catalog.Release{
 			Kind:        catalog.KindBackend,
-			AddonID:     e.Name,
+			ID:     e.Name,
 			Alias:       e.Alias,
 			Name:        e.Name,
 			Description: strings.Join(strings.Fields(e.Description), " "),

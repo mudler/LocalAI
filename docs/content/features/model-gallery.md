@@ -375,13 +375,13 @@ To use a gallery that needs authentication, such as a private GitHub repository 
 
 The model library lists the same models as the model gallery in the shared library entry shape. Each entry has the common header (`kind`, `id`, `name`, `version`, `description`, `license`, `urls`, `tags`, `icon`, `channel`, `policy`, `schemaVersion`) and a `model` body with `url`, `backend`, `size`, `files`, `configFile`, `overrides`, `variants` and `promptTemplates`. It is a separate file, `gallery/models/index.yaml`. The model gallery index stays the default and is not changed.
 
-Add the library as a model source:
+LocalAI lists the library as a default model source, `official-models`, next to the `localai` gallery, so a standard install has it without a flag. To start without it, remove it; a source you remove stays removed:
 
 ```bash
-local-ai library add https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/models/index.yaml --kind model --name "Model library"
+local-ai library remove official-models
 ```
 
-The gallery named `localai` keeps its own index. If the library cannot be fetched or read, listing the models fails with an error; LocalAI does not fall back to the gallery, so the problem is never silent. Entries of another kind are skipped. The library has no mirrors and no signature policy of its own. The sha256 of each model file is still checked on install.
+The gallery named `localai` keeps its own index. A source you add with `local-ai library add` is added to the defaults. If the library cannot be fetched or read, listing the models fails with an error; LocalAI does not fall back to the gallery, so the problem is never silent. Entries of another kind are skipped. The library has no mirrors and no signature policy of its own. The sha256 of each model file is still checked on install.
 
 The library is rendered from the gallery, never edited by hand. The command converts every entry to a library entry and back, and fails if one entry does not come back equal:
 

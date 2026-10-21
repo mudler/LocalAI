@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/xlog"
 )
 
@@ -15,8 +16,8 @@ const (
 	OfficialModelGalleryName = "localai"
 	// OfficialModelLibraryURL is the model library, rendered from the model
 	// gallery by scripts/models/cmd/modelcatalog and kept in this repository.
-	// Add it as a model source with `local-ai library add`.
-	OfficialModelLibraryURL = "https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/models/index.yaml"
+	// It is a default model source.
+	OfficialModelLibraryURL = catalog.OfficialModelLibraryURL
 )
 
 // modelLibraryFor returns the library to read for a gallery, or false when the

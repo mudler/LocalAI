@@ -86,10 +86,16 @@ func ReadIndex(data []byte, known ...Kind) (IndexResult, error) {
 				return IndexResult{}, errors.New("index entry has a malformed kind")
 			}
 			if !slices.Contains(known, Kind(kind)) {
-				id, _ := entry["addonId"].(string)
+				id, _ := entry["id"].(string)
+				if id == "" {
+					id, _ = entry[LegacyIDField].(string)
+				}
 				res.Skipped = append(res.Skipped, SkippedEntry{Position: i, Kind: kind, ID: id})
 				continue
 			}
+		}
+		if err := NormalizeLegacyID(entry); err != nil {
+			return IndexResult{}, err
 		}
 		kept = append(kept, entry)
 	}
@@ -101,6 +107,26 @@ func ReadIndex(data []byte, known ...Kind) (IndexResult, error) {
 		return IndexResult{}, err
 	}
 	return res, nil
+}
+
+// LegacyIDField is the name the identifier of an entry had before the shared
+// envelope. A reader still accepts it for one release; every writer emits id.
+const LegacyIDField = "addonId"
+
+// NormalizeLegacyID moves the legacy addonId of a decoded entry to id, so one
+// strict decoder serves both spellings. An entry that holds both is refused
+// even when they agree, because it is not the output of any writer.
+func NormalizeLegacyID(entry map[string]any) error {
+	legacy, ok := entry[LegacyIDField]
+	if !ok {
+		return nil
+	}
+	if _, both := entry["id"]; both {
+		return errors.New("index entry has both id and " + LegacyIDField)
+	}
+	entry["id"] = legacy
+	delete(entry, LegacyIDField)
+	return nil
 }
 
 // EncodeIndex writes releases as a library index. It is the inverse of

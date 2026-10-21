@@ -98,12 +98,12 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 			Expect(all.code).To(Equal(200), name)
 			page := payloadOf(all)
 			Expect(page).To(HaveKeyWithValue("total", BeNumerically("==", 2)), name)
-			Expect(byID(listOf(page, "releases"), "addonId", "notes")).To(HaveKeyWithValue("digest", HavePrefix("sha256:")), name)
+			Expect(byID(listOf(page, "releases"), "id", "notes")).To(HaveKeyWithValue("digest", HavePrefix("sha256:")), name)
 
 			one := send(e, "POST", "/api/addons/dispatch", dispatchBody("search-one-"+name, "", "catalog-search", 0, `{"text":"head","sourceId":"test","limit":1}`), admin)
 			Expect(one.code).To(Equal(200), name)
 			Expect(listOf(payloadOf(one), "releases")).To(HaveLen(1), name)
-			Expect(listOf(payloadOf(one), "releases")[0]).To(HaveKeyWithValue("addonId", "headless"), name)
+			Expect(listOf(payloadOf(one), "releases")[0]).To(HaveKeyWithValue("id", "headless"), name)
 
 			bad := send(e, "POST", "/api/addons/dispatch", dispatchBody("search-bad-"+name, "", "catalog-search", 0, `{"limit":1000}`), admin)
 			Expect(bad.code).To(Equal(403), name+": an out-of-range limit is a denied request, not a page")
@@ -113,7 +113,7 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 			details := send(e, "POST", "/api/addons/dispatch", dispatchBody("details-"+name, "notes", "catalog-details", 0, `{"sourceId":"test","version":"1.0.0"}`), admin)
 			Expect(details.code).To(Equal(200), name)
 			release, _ := payloadOf(details)["release"].(map[string]any)
-			Expect(release).To(HaveKeyWithValue("addonId", "notes"), name)
+			Expect(release).To(HaveKeyWithValue("id", "notes"), name)
 			Expect(release).To(HaveKeyWithValue("os", "linux"), name)
 			Expect(payloadOf(details)["installed"]).To(HaveKeyWithValue("generation", BeNumerically("==", 1)), name)
 			missing := send(e, "POST", "/api/addons/dispatch", dispatchBody("details-missing-"+name, "ghost", "catalog-details", 0, `{"sourceId":"test","version":"1.0.0"}`), admin)

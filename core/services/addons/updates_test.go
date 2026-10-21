@@ -57,7 +57,7 @@ func (l *updateLibrary) publish(version, channel, content string, requires catal
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.archives[name] = b.Bytes()
-	r := catalog.Release{AddonID: "sample", Name: "Sample", Version: version, Channel: channel, Artifact: l.server.URL + name,
+	r := catalog.Release{ID: "sample", Name: "Sample", Version: version, Channel: channel, Artifact: l.server.URL + name,
 		Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes())), OS: "linux", Arch: "amd64", Requires: requires}
 	// One entry per version and channel: a moving channel is replaced.
 	kept := l.releases[:0]

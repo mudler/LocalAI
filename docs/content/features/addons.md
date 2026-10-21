@@ -76,7 +76,7 @@ loopback carrier with keys that are made at each start and never written to disk
 | `--addons-enabled` | `LOCALAI_ADDONS_ENABLED` | `true` | Runs the addon owner. `--addons-enabled=false` turns it off completely: no owner starts, no addon runs, and every addon request is refused as unavailable. |
 | `--addons-ownership-mode` | `LOCALAI_ADDONS_OWNERSHIP_MODE` | `local-owner` when authentication is off, `named-user` when it is on | `named-user` gives each account its own access. `local-owner` makes every caller share one owner. A value you set always wins over the default. Any other value stops startup with an error. |
 | `--addons-official-library` | `LOCALAI_ADDONS_OFFICIAL_LIBRARY` | `true` | Registers the [official library](#the-official-library) on the first start. `--addons-official-library=false` does not register it. |
-| `--addons-backend-library` | `LOCALAI_ADDONS_BACKEND_LIBRARY` | `false` | Also registers the pilot [backend library](#backends-in-the-library) on the first start. |
+| `--addons-backend-library` | `LOCALAI_ADDONS_BACKEND_LIBRARY` | `true` | Registers the pilot [backend library](#backends-in-the-library) on the first start, like the official library. `--addons-backend-library=false` starts without it. A library you remove stays removed. |
 | `--addons-backend-max-bytes` | `LOCALAI_ADDONS_BACKEND_MAX_BYTES` | `8589934592` (8 GiB) | Largest compressed size of a backend image installed from a library. Add-ons keep their own limit of 512 MiB. |
 
 `named-user` needs authentication. With authentication on and no mode set, LocalAI
@@ -252,8 +252,9 @@ The limit is on the compressed size of the package or image, by kind:
 ### The pilot backend library
 
 `gallery/backends/index.yaml` lists a pilot: the CPU build of `local-store` for
-`linux/amd64`. Register it on the first start with `--addons-backend-library`, or add it
-later in the Libraries tab with this URL and the policy above:
+`linux/amd64`. LocalAI registers it on the first start, like the official add-on library, and a
+library you remove stays removed. To add it again later, use the Libraries tab with this
+URL and the policy above:
 
 ```
 https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/backends/index.yaml
@@ -517,12 +518,12 @@ refresh time and prevents stale cached releases from resolving successfully.
 ### Catalog document and limits
 
 A catalog (the library index) is one YAML document: a block list of releases with
-`addonId`, `name`, optional `description`, `version`, `artifact`
+`id` (an index written before this name may still use `addonId`, which is read for one release), `name`, optional `description`, `version`, `artifact`
 (`oci://host/repository`), `digest` (`sha256:` plus 64 lowercase hex characters),
 `os` and `arch`. It uses the same format as the model and backend gallery indexes:
 
 ```yaml
-- addonId: tables
+- id: tables
   name: Tables
   description: Tables for LocalAI
   version: 1.0.0

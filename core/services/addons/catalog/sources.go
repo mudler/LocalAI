@@ -543,9 +543,9 @@ var backendNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
 // validEntryID applies the identifier rule of the entry's kind.
 func validEntryID(r Release) bool {
 	if r.EntryKind() == KindBackend {
-		return backendNamePattern.MatchString(r.AddonID) && !strings.Contains(r.AddonID, "..")
+		return backendNamePattern.MatchString(r.ID) && !strings.Contains(r.ID, "..")
 	}
-	return contract.ValidAddonID(r.AddonID)
+	return contract.ValidAddonID(r.ID)
 }
 
 // validKindFields refuses fields that belong to another kind. A backend is an

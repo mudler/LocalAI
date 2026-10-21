@@ -37,8 +37,9 @@ type AddonConfig struct {
 	// never changed by it, so a library the admin removed stays removed.
 	OfficialLibrary bool
 	// OfficialBackendLibrary also registers the pilot library of backends on
-	// the first start. It is off by default: the backend gallery stays the
-	// source of truth and the library is an additional way to install.
+	// the first start, under the same rule: a sources.json that exists is
+	// never changed, so a library the admin removed stays removed. The backend
+	// gallery stays the source of truth.
 	OfficialBackendLibrary bool
 	// BackendMaxBytes bounds the compressed size of one backend image
 	// installed from a library; zero is 8 GiB. Add-ons keep their own limit.

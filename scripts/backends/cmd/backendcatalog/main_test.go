@@ -38,7 +38,7 @@ func TestRenderPinsTheGalleryImage(t *testing.T) {
 		t.Fatalf("want 1 entry, got %d", len(got))
 	}
 	r := got[0]
-	if r.EntryKind() != catalog.KindBackend || r.AddonID != "cpu-demo" || r.Alias != "demo" || r.Channel != "latest" ||
+	if r.EntryKind() != catalog.KindBackend || r.ID != "cpu-demo" || r.Alias != "demo" || r.Channel != "latest" ||
 		r.Artifact != "oci://quay.io/example/backends:latest-cpu-demo" || r.Version != "0.0.0-latest.abababababab" ||
 		r.Description != "A demo backend." {
 		t.Fatalf("unexpected entry: %+v", r)

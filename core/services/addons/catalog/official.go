@@ -52,3 +52,19 @@ func OfficialBackendLibrary() Source {
 		},
 	}
 }
+
+const (
+	// OfficialModelLibraryID is the source ID of the model library.
+	OfficialModelLibraryID = "official-models"
+	// OfficialModelLibraryURL is the YAML index of the models, kept in this
+	// repository at gallery/models/index.yaml. It is rendered from
+	// gallery/index.yaml, which stays the source of truth.
+	OfficialModelLibraryURL = "https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/models/index.yaml"
+)
+
+// OfficialModelLibrary is the library of the models of the model gallery. It
+// has no signature policy of its own; the sha256 of each model file is checked
+// on install.
+func OfficialModelLibrary() Source {
+	return Source{ID: OfficialModelLibraryID, Name: "Official model library", URL: OfficialModelLibraryURL, Enabled: true, Kind: KindModel}
+}

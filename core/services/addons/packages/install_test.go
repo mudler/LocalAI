@@ -66,7 +66,7 @@ func fixture(data []byte, edits ...func(*catalog.Release, *catalog.Source)) (*In
 		_, _ = w.Write(data)
 	}))
 	DeferCleanup(artifact.Close)
-	r := catalog.Release{AddonID: "sample", Name: "Sample", Version: "1.2.3", Channel: "latest", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(data)), OS: "linux", Arch: "amd64"}
+	r := catalog.Release{ID: "sample", Name: "Sample", Version: "1.2.3", Channel: "latest", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(data)), OS: "linux", Arch: "amd64"}
 	src := catalog.Source{ID: "test", Name: "Test", Enabled: true, AllowLoopbackHTTP: true}
 	for _, edit := range edits {
 		edit(&r, &src)

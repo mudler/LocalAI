@@ -75,7 +75,7 @@ func ApplyGalleries(store *catalog.Sources, kind catalog.Kind, galleries []confi
 		have[g.URL] = true
 	}
 	for _, e := range store.Entries() {
-		if e.Kind == kind && e.Enabled && !e.Removed && !e.Default && !have[e.URL] && (e.Format == catalog.FormatGallery || kind == catalog.KindModel) {
+		if e.Kind == kind && e.Enabled && !e.Removed && (!e.Default || e.Format != catalog.FormatGallery) && !have[e.URL] && (e.Format == catalog.FormatGallery || kind == catalog.KindModel) {
 			extra = append(extra, e)
 		}
 	}

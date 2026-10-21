@@ -25,8 +25,9 @@ const (
 )
 
 // Defaults returns the sources LocalAI ships: the official add-on library, the
-// model gallery index and the backend gallery index. The pilot backend
-// library is added only when pilot is true. A default can be removed; the
+// pilot backend library, the model library, the model gallery index and the
+// backend gallery index. The add-on library is left out when official is false
+// and the backend library when pilot is false. A default can be removed; the
 // removal is remembered.
 func Defaults(official, pilot bool) []catalog.Source {
 	var out []catalog.Source
@@ -37,6 +38,7 @@ func Defaults(official, pilot bool) []catalog.Source {
 		out = append(out, catalog.OfficialBackendLibrary())
 	}
 	out = append(out,
+		catalog.OfficialModelLibrary(),
 		defaultGallery(catalog.KindModel, DefaultModelSourceID, "Official models", config.DefaultGalleriesJSON),
 		defaultGallery(catalog.KindBackend, DefaultBackendSourceID, "Official backends", config.DefaultBackendGalleriesJSON),
 	)

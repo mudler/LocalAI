@@ -211,10 +211,11 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
 // releases for the owner target platform; an entry's `id` is its key, which the
 // details call resolves exactly as an install would.
 export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
+  // A library entry names its identifier id; addonId is the legacy spelling.
   const toEntry = (release) => ({
-    key: `${release.sourceId}/${release.addonId}/${release.version}`,
-    id: release.addonId,
-    title: release.name || release.addonId,
+    key: `${release.sourceId}/${release.id ?? release.addonId}/${release.version}`,
+    id: release.id ?? release.addonId,
+    title: release.name || (release.id ?? release.addonId),
     description: release.description || release.ui?.description || '',
     version: release.version,
     sourceId: release.sourceId,

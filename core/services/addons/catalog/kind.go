@@ -46,7 +46,7 @@ type SkippedEntry struct {
 	// Position is the zero-based place of the entry in the index list.
 	Position int    `json:"position"`
 	Kind     string `json:"kind"`
-	// ID is the entry's addonId when it is plain text, to help the report.
+	// ID is the entry's id (or legacy addonId) when it is plain text, to help the report.
 	ID string `json:"id,omitempty"`
 }
 

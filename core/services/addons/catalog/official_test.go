@@ -77,10 +77,10 @@ var _ = Describe("official library index", func() {
 		Expect(e).NotTo(HaveOccurred())
 		ids := []string{}
 		for _, r := range releases {
-			ids = append(ids, r.AddonID)
-			Expect(digestPattern.MatchString(r.Digest)).To(BeTrue(), r.AddonID)
-			Expect(versionPattern.MatchString(r.Version)).To(BeTrue(), r.AddonID)
-			Expect(r.Artifact).To(HavePrefix("oci://"), r.AddonID)
+			ids = append(ids, r.ID)
+			Expect(digestPattern.MatchString(r.Digest)).To(BeTrue(), r.ID)
+			Expect(versionPattern.MatchString(r.Version)).To(BeTrue(), r.ID)
+			Expect(r.Artifact).To(HavePrefix("oci://"), r.ID)
 		}
 		Expect(ids).To(ConsistOf("fine-tuning", "quantization", "voice", "face", "studio", "talk", "tables"))
 	})

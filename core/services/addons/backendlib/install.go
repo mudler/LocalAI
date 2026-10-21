@@ -140,7 +140,7 @@ func (i *Installer) plan(r catalog.Release) (*gallery.GalleryBackend, error) {
 		Library:  r.SourceID,
 		MaxBytes: i.limit(),
 	}
-	gb.Name = r.AddonID
+	gb.Name = r.ID
 	gb.Gallery = config.Gallery{Name: "library:" + r.SourceID, URL: r.SourceURL}
 	if r.Policy.RequireSignature {
 		gb.Gallery.Verification = &config.GalleryVerification{
@@ -164,12 +164,12 @@ func (i *Installer) checkCollision(r catalog.Release) error {
 	if err != nil {
 		return err
 	}
-	have, ok := backends.Get(r.AddonID)
+	have, ok := backends.Get(r.ID)
 	if !ok || have.IsSystem {
 		return nil
 	}
 	if have.Metadata == nil || have.Metadata.Library != r.SourceID {
-		return fmt.Errorf("%w: %q", ErrCollision, r.AddonID)
+		return fmt.Errorf("%w: %q", ErrCollision, r.ID)
 	}
 	return nil
 }

@@ -51,6 +51,8 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 		Expect(r.AddonsEnabled).To(BeTrue())
 		Expect(r.AddonsOwnershipMode).To(BeEmpty())
 		Expect(r.AddonsOfficialLibrary).To(BeTrue())
+		// The pilot backend library is a default source too.
+		Expect(r.AddonsBackendLibrary).To(BeTrue())
 		dir := GinkgoT().TempDir()
 		c, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, dir, true)
 		Expect(err).NotTo(HaveOccurred())

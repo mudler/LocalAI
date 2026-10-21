@@ -1,8 +1,8 @@
 # Model library: the models of the model gallery in the library entry shape. The
 # gallery, gallery/index.yaml, stays the source of truth and the default. This
 # file is rendered with scripts/models/cmd/modelcatalog; render it again after
-# the gallery changes and never edit it by hand. The host reads it when
-# you add it as a model source with `local-ai library add`.
+# the gallery changes and never edit it by hand. The host lists it as a default
+# model source.
 - kind: model
   id: adavar-3b-q4
   name: adavar-3b-q4

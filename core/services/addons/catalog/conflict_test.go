@@ -15,7 +15,7 @@ func index(t *testing.T, ids ...string) string {
 	var rs []Release
 	for _, id := range ids {
 		r := release()
-		r.AddonID, r.Name = id, id
+		r.ID, r.Name = id, id
 		rs = append(rs, r)
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _ = WriteIndex(w, rs) }))
@@ -69,7 +69,7 @@ func (f *fixture) listed() []string {
 	}
 	var out []string
 	for _, r := range page.Releases {
-		out = append(out, r.SourceID+"/"+r.AddonID)
+		out = append(out, r.SourceID+"/"+r.ID)
 	}
 	return out
 }

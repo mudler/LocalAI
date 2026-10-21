@@ -68,7 +68,7 @@ var _ = Describe("the packaged add-ons", func() {
 			It("has a catalog template", func() {
 				b, err := os.ReadFile(filepath.Join("..", "..", "..", "gallery", "addons", id+".yaml.tmpl"))
 				Expect(err).ToNot(HaveOccurred())
-				for _, want := range []string{`addonId: "{{addon}}"`, "requireSignature: true"} {
+				for _, want := range []string{`id: "{{addon}}"`, "requireSignature: true"} {
 					Expect(strings.Contains(string(b), want)).To(BeTrue(), "template lacks %q", want)
 				}
 			})

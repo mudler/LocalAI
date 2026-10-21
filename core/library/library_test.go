@@ -29,6 +29,12 @@ func byID(s *catalog.Sources, id string) (catalog.Source, bool) {
 	return catalog.Source{}, false
 }
 
+// modelLibrary is the gallery entry of the shipped model library, which the
+// server reads next to the galleries the flags name.
+func modelLibrary() config.Gallery {
+	return config.Gallery{Name: catalog.OfficialModelLibrary().Name, URL: catalog.OfficialModelLibraryURL, Library: true}
+}
+
 func TestDefaultsFlagsAreUnchanged(t *testing.T) {
 	store := open(t, t.TempDir())
 	models, backends := parse(config.DefaultGalleriesJSON), parse(config.DefaultBackendGalleriesJSON)
@@ -38,8 +44,13 @@ func TestDefaultsFlagsAreUnchanged(t *testing.T) {
 			t.Errorf("%s: the shipped gallery was added as a user source: %v, %v", kind, added, err)
 		}
 		// The same JSON loads, mirrors and policy included.
-		if got := ApplyGalleries(store, kind, in); !reflect.DeepEqual(got, in) {
-			t.Errorf("%s: galleries changed:\n got %+v\nwant %+v", kind, got, in)
+		want := in
+		if kind == catalog.KindModel {
+			// The shipped model library is a default source, read next to the gallery.
+			want = append(append([]config.Gallery(nil), in...), modelLibrary())
+		}
+		if got := ApplyGalleries(store, kind, in); !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: galleries changed:\n got %+v\nwant %+v", kind, got, want)
 		}
 	}
 }
@@ -63,7 +74,7 @@ func TestEachFlagEntryBecomesAUserSourceOfItsKind(t *testing.T) {
 		t.Errorf("backend source = %+v, %v", b, ok)
 	}
 	// The flags still decide the list the server reads.
-	if got := ApplyGalleries(store, catalog.KindModel, models); !reflect.DeepEqual(got, models) {
+	if got := ApplyGalleries(store, catalog.KindModel, models); !reflect.DeepEqual(got, append(append([]config.Gallery(nil), models...), modelLibrary())) {
 		t.Errorf("model galleries = %+v", got)
 	}
 }
@@ -134,6 +145,13 @@ func TestRemovedOrDisabledSourcesLeaveTheGalleryList(t *testing.T) {
 	if err := store.SetEnabled("mine", false); err != nil {
 		t.Fatal(err)
 	}
+	// The shipped model library is listed until the user removes it.
+	if got := ApplyGalleries(store, catalog.KindModel, models); len(got) != 1 || !got[0].Library {
+		t.Errorf("galleries = %+v", got)
+	}
+	if err := store.RemoveSource(catalog.OfficialModelLibraryID); err != nil {
+		t.Fatal(err)
+	}
 	if got := ApplyGalleries(store, catalog.KindModel, models); len(got) != 0 {
 		t.Errorf("galleries = %+v", got)
 	}
@@ -162,7 +180,7 @@ func TestSourcesTheUserAddedReachTheServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	models := ApplyGalleries(store, catalog.KindModel, parse(config.DefaultGalleriesJSON))
-	if len(models) != 2 || !models[1].Library || models[1].URL != "https://example.org/lib.yaml" || models[1].Name != "Model library" {
+	if len(models) != 3 || !models[1].Library || models[1].URL != "https://example.org/lib.yaml" || models[1].Name != "Model library" || !reflect.DeepEqual(models[2], modelLibrary()) {
 		t.Errorf("models = %+v", models)
 	}
 	backends := ApplyGalleries(store, catalog.KindBackend, parse(config.DefaultBackendGalleriesJSON))
@@ -188,7 +206,7 @@ func TestOptionKeepsDefaultDeploymentsAsTheyWere(t *testing.T) {
 	)
 	for i := 0; i < 2; i++ {
 		o := build()
-		if !reflect.DeepEqual(o.Galleries, want.Galleries) || !reflect.DeepEqual(o.BackendGalleries, want.BackendGalleries) {
+		if !reflect.DeepEqual(o.Galleries, append(append([]config.Gallery(nil), want.Galleries...), modelLibrary())) || !reflect.DeepEqual(o.BackendGalleries, want.BackendGalleries) {
 			t.Fatalf("start %d changed the galleries:\n%+v\n%+v", i, o.Galleries, o.BackendGalleries)
 		}
 	}
@@ -197,7 +215,7 @@ func TestOptionKeepsDefaultDeploymentsAsTheyWere(t *testing.T) {
 	for _, e := range open(t, dir).Entries() {
 		ids = append(ids, e.ID)
 	}
-	if got := strings.Join(ids, ","); got != "official,localai-backends,localai" {
+	if got := strings.Join(ids, ","); got != "official,localai-backends,localai,official-models" {
 		t.Errorf("sources = %s", got)
 	}
 }
@@ -229,7 +247,7 @@ func TestCustomFlagsLoadAsBefore(t *testing.T) {
 		config.EnableBackendGalleriesAutoload,
 	)
 	Option(dir, true, false)(o)
-	if !reflect.DeepEqual(o.Galleries, parse(models)) || !reflect.DeepEqual(o.BackendGalleries, parse(backends)) {
+	if !reflect.DeepEqual(o.Galleries, append(parse(models), modelLibrary())) || !reflect.DeepEqual(o.BackendGalleries, parse(backends)) {
 		t.Errorf("galleries changed: %+v %+v", o.Galleries, o.BackendGalleries)
 	}
 	if !o.AutoloadGalleries || !o.AutoloadBackendGalleries {

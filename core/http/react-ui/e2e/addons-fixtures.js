@@ -31,7 +31,7 @@ export function installedAddon(over = {}) {
 
 export function release(id, over = {}) {
   return {
-    addonId: id, name: id[0].toUpperCase() + id.slice(1), description: `${id} add-on`, version: '1.0.0', sourceId: 'main',
+    id, name: id[0].toUpperCase() + id.slice(1), description: `${id} add-on`, version: '1.0.0', sourceId: 'main',
     artifact: 'https://catalog.example/' + id, digest: 'sha256:' + 'a'.repeat(64), os: 'linux', arch: 'amd64',
     policy: { requireSignature: false }, ...over,
   }

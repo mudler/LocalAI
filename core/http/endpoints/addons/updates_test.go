@@ -65,7 +65,7 @@ func (s *updatesStack) publish(content string, requires catalog.Requirements) ca
 	defer s.mu.Unlock()
 	name := fmt.Sprintf("/notes-%x.tar", sha256.Sum256([]byte(content)))
 	s.archives[name] = b.Bytes()
-	r := catalog.Release{AddonID: "notes", Name: "notes", Version: "1.0.0-dev", Channel: "development", Artifact: s.library.URL + name,
+	r := catalog.Release{ID: "notes", Name: "notes", Version: "1.0.0-dev", Channel: "development", Artifact: s.library.URL + name,
 		Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes())), OS: "linux", Arch: "amd64", Requires: requires}
 	s.releases = []catalog.Release{r}
 	return r

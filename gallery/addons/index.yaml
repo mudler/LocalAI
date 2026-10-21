@@ -3,7 +3,7 @@
 # on the master branch). The entries are rendered by the add-on package
 # workflow with `addonpkg catalog`, so the digests pin the published images:
 # regenerate this file from the workflow output, never edit a digest by hand.
-- addonId: "fine-tuning"
+- id: "fine-tuning"
   name: Fine-tuning
   description: "Train an adapter on your own data, then export it as a model you can chat with."
   version: "0.0.0-dev.99d1dca2c869"
@@ -21,7 +21,7 @@
     description: "Train an adapter on your own data, then export it as a model you can chat with."
     mainPage: "jobs"
     icon: "ui/icon.png"
-- addonId: "quantization"
+- id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
   version: "0.0.0-dev.99d1dca2c869"
@@ -39,7 +39,7 @@
     description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
     mainPage: "jobs"
     icon: "ui/icon.png"
-- addonId: "voice"
+- id: "voice"
   name: Voice
   description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
   version: "0.0.0-dev.50f0f3de26d2"
@@ -57,7 +57,7 @@
     description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
     mainPage: "voice"
     icon: "ui/icon.png"
-- addonId: "face"
+- id: "face"
   name: Face
   description: "Find out whose face is in a photo, or whether two photos show the same person."
   version: "0.0.0-dev.99d1dca2c869"
@@ -75,7 +75,7 @@
     description: "Find out whose face is in a photo, or whether two photos show the same person."
     mainPage: "recognition"
     icon: "ui/icon.png"
-- addonId: "studio"
+- id: "studio"
   name: Studio
   description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
   version: "0.0.0-dev.422af83405a3"
@@ -93,7 +93,7 @@
     description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
     mainPage: "studio"
     icon: "ui/icon.png"
-- addonId: "talk"
+- id: "talk"
   name: Talk
   description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
   version: "0.0.0-dev.422af83405a3"
@@ -111,7 +111,7 @@
     description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
     mainPage: "talk"
     icon: "ui/icon.png"
-- addonId: "tables"
+- id: "tables"
   name: Tables
   description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
   version: "0.0.0-dev.4edf30cda051"

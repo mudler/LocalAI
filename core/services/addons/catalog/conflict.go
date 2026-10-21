@@ -58,7 +58,7 @@ func (s *Sources) entryOwners() map[entryKey]*owners {
 		}
 		seen := map[entryKey]bool{}
 		for _, r := range c.releases {
-			k := entryKey{r.EntryKind(), r.AddonID}
+			k := entryKey{r.EntryKind(), r.ID}
 			if seen[k] {
 				continue
 			}
