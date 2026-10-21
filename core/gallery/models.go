@@ -79,8 +79,8 @@ type File struct {
 }
 
 type PromptTemplate struct {
-	Name    string `yaml:"name"`
-	Content string `yaml:"content"`
+	Name    string `yaml:"name" json:"name"`
+	Content string `yaml:"content" json:"content"`
 }
 
 // variantOptions turns an entry's declared variants into selectable options,

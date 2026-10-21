@@ -21,13 +21,13 @@ var (
 )
 
 type VerificationPolicy struct {
-	RequireSignature bool   `json:"requireSignature"`
-	Issuer           string `json:"issuer,omitempty"`
-	Identity         string `json:"identity,omitempty"`
+	RequireSignature bool   `json:"requireSignature" yaml:"requireSignature"`
+	Issuer           string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	Identity         string `json:"identity,omitempty" yaml:"identity,omitempty"`
 	// IdentityRegex is an anchored pattern for the signer identity, used
 	// instead of Identity so that master and tagged builds both verify. Only a
 	// library that serves backends may use it; an add-on install refuses it.
-	IdentityRegex string `json:"identityRegex,omitempty"`
+	IdentityRegex string `json:"identityRegex,omitempty" yaml:"identityRegex,omitempty"`
 }
 
 // EntryUI is optional display metadata a catalog may offer for an entry. It is

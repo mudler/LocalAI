@@ -18,8 +18,9 @@ const (
 	KindAddon Kind = "addon"
 	// KindBackend is a gRPC backend image installed into the backends directory.
 	KindBackend Kind = "backend"
-	// KindModel is reserved by the schema. No reader installs it yet, so a
-	// reader skips it like any other kind it does not know.
+	// KindModel is a model of the model gallery. The add-on library does not
+	// install it, so the add-on reader skips it like any other kind it does
+	// not know. Models have their own index file, read by core/gallery.
 	KindModel Kind = "model"
 )
 
