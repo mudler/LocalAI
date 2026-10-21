@@ -48,7 +48,7 @@ func (i *Installer) byteLimit() int64 {
 	if i.MaxBytes > 0 {
 		return i.MaxBytes
 	}
-	return 512 << 20
+	return catalog.DefaultMaxBytes(catalog.KindAddon)
 }
 func (i *Installer) fileLimit() int {
 	if i.MaxFiles > 0 {

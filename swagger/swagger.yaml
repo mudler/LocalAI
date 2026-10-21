@@ -1551,6 +1551,18 @@ definitions:
       target:
         type: string
     type: object
+  localai.BackendLibraryInstallRequest:
+    properties:
+      name:
+        description: Name is the backend name of the entry.
+        type: string
+      sourceId:
+        description: SourceID is the library the entry comes from.
+        type: string
+      version:
+        description: Version is the version or the channel of the entry.
+        type: string
+    type: object
   localai.BrandingResponse:
     properties:
       favicon_url:
@@ -6398,14 +6410,15 @@ paths:
         a new mutation. Lifecycle actions are install, upgrade, enable, disable and
         uninstall (arguments sourceId and version; enable and disable take the generation
         that was listed). The management reads, all administrator-only and never mutations,
-        are catalog-search (arguments text, sourceId, offset, limit up to 100), catalog-details
-        (addonId plus arguments sourceId and version), catalog-sources and addons-installed.
-        The library changes are catalog-source-save (arguments are one source: id,
-        name, url, enabled, policy, authReference; removed true deletes it and never
-        touches installed addons) and catalog-source-refresh (argument sourceId).
-        A library names a credential only by a reference the owner configured, never
-        a secret. Unknown argument fields are denied. The update actions are update-status
-        and update-check (no arguments; the check fetches the library again and applies
+        are catalog-search (arguments text, kind, sourceId, offset, limit up to 100;
+        kind is addon by default, or backend, or all), catalog-details (addonId plus
+        arguments sourceId and version), catalog-sources and addons-installed. The
+        library changes are catalog-source-save (arguments are one source: id, name,
+        url, enabled, policy, authReference; removed true deletes it and never touches
+        installed addons) and catalog-source-refresh (argument sourceId). A library
+        names a credential only by a reference the owner configured, never a secret.
+        Unknown argument fields are denied. The update actions are update-status and
+        update-check (no arguments; the check fetches the library again and applies
         nothing) and update-upgrade (arguments expectedDigest and candidateDigest,
         the pinned upgrade); each answers with a payload {error: {type, message, status}}
         or {data}, the same from every frontend. The browser pages use the dedicated
@@ -9522,6 +9535,37 @@ paths:
               $ref: '#/definitions/schema.KnownBackend'
             type: array
       summary: List all known Backends (importer registry + curated pref-only + installed-on-disk)
+      tags:
+      - backends
+  /backends/library/install:
+    post:
+      parameters:
+      - description: library, backend name and version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.BackendLibraryInstallRequest'
+      responses:
+        "200":
+          description: installed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: no such entry
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: the name is installed from another origin
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: the image is over the size limit
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Install a backend from a library entry on this node.
       tags:
       - backends
   /backends/upgrade/{name}:

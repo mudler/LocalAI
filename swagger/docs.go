@@ -696,7 +696,7 @@ const docTemplate = `{
         },
         "/api/addons/dispatch": {
             "post": {
-                "description": "Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation. Lifecycle actions are install, upgrade, enable, disable and uninstall (arguments sourceId and version; enable and disable take the generation that was listed). The management reads, all administrator-only and never mutations, are catalog-search (arguments text, sourceId, offset, limit up to 100), catalog-details (addonId plus arguments sourceId and version), catalog-sources and addons-installed. The library changes are catalog-source-save (arguments are one source: id, name, url, enabled, policy, authReference; removed true deletes it and never touches installed addons) and catalog-source-refresh (argument sourceId). A library names a credential only by a reference the owner configured, never a secret. Unknown argument fields are denied. The update actions are update-status and update-check (no arguments; the check fetches the library again and applies nothing) and update-upgrade (arguments expectedDigest and candidateDigest, the pinned upgrade); each answers with a payload {error: {type, message, status}} or {data}, the same from every frontend. The browser pages use the dedicated routes under /api/addons/{id}/update and /api/addons/{id}/upgrade, which accept only an administrator's own browser session.",
+                "description": "Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation. Lifecycle actions are install, upgrade, enable, disable and uninstall (arguments sourceId and version; enable and disable take the generation that was listed). The management reads, all administrator-only and never mutations, are catalog-search (arguments text, kind, sourceId, offset, limit up to 100; kind is addon by default, or backend, or all), catalog-details (addonId plus arguments sourceId and version), catalog-sources and addons-installed. The library changes are catalog-source-save (arguments are one source: id, name, url, enabled, policy, authReference; removed true deletes it and never touches installed addons) and catalog-source-refresh (argument sourceId). A library names a credential only by a reference the owner configured, never a secret. Unknown argument fields are denied. The update actions are update-status and update-check (no arguments; the check fetches the library again and applies nothing) and update-upgrade (arguments expectedDigest and candidateDigest, the pinned upgrade); each answers with a payload {error: {type, message, status}} or {data}, the same from every frontend. The browser pages use the dedicated routes under /api/addons/{id}/update and /api/addons/{id}/upgrade, which accept only an administrator's own browser session.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5702,6 +5702,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/backends/library/install": {
+            "post": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Install a backend from a library entry on this node.",
+                "parameters": [
+                    {
+                        "description": "library, backend name and version",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.BackendLibraryInstallRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "installed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "no such entry",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "the name is installed from another origin",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "the image is over the size limit",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/backends/upgrade/{name}": {
             "post": {
                 "tags": [
@@ -9605,6 +9653,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "target": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.BackendLibraryInstallRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name is the backend name of the entry.",
+                    "type": "string"
+                },
+                "sourceId": {
+                    "description": "SourceID is the library the entry comes from.",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Version is the version or the channel of the entry.",
                     "type": "string"
                 }
             }

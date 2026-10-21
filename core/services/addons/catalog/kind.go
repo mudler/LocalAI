@@ -88,3 +88,20 @@ func (q Query) matchesKind(r Release) bool {
 func validQueryKind(k Kind) bool {
 	return k == "" || k == QueryAllKinds || slices.Contains(ReadableKinds, k)
 }
+
+// Default size limits for one install, by kind. The limit is on the compressed
+// size of the package or image. An add-on is a small package; a backend image
+// can hold a runtime and its libraries, so its default is larger and the owner
+// can change it.
+const (
+	DefaultAddonMaxBytes   int64 = 512 << 20
+	DefaultBackendMaxBytes int64 = 8 << 30
+)
+
+// DefaultMaxBytes is the default size limit of an install of the kind.
+func DefaultMaxBytes(k Kind) int64 {
+	if k == KindBackend {
+		return DefaultBackendMaxBytes
+	}
+	return DefaultAddonMaxBytes
+}
