@@ -24,7 +24,7 @@ export async function load(extra = {}) {
   const controller = new AbortController()
   const { viewer, components, layerSpec, fetch, ...rest } = extra
   const stubs = Object.fromEntries(COMPONENTS.map(n => [n, stub('div')]))
-  stubs.PageHeader = (p) => React.createElement('header', { 'data-stub': 'header' }, p.title, p.supporting, p.actions)
+  stubs.PageHeader = (p) => React.createElement('header', { 'data-stub': 'header' }, p.title ? React.createElement('h1', null, p.title) : null, p.supporting, p.actions)
   const sdk = createHostSDK({
     addonId: 'quantization', generation: 1, signal: controller.signal, pages: ['jobs'],
     host: {

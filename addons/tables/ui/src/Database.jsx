@@ -100,7 +100,7 @@ export function createDatabase(ctx, ui, api, hooks, parts) {
         <header className="tbl-head">
           <div className="tbl-head__main">
             <div>{back}</div>
-            <h2 className="tbl-title" data-testid="tbl-db-name">{name}</h2>
+            <h1 className="tbl-title" data-testid="tbl-db-name">{name}</h1>
             <div className="tbl-db__meta">
               <RoleBadge role={resource.role} />
               {!isOwner && resource.owner ? <span className="tbl-muted">{t('db.sharedBy', { name: resource.owner })}</span> : null}

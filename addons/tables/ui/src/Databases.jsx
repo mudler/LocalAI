@@ -179,7 +179,7 @@ export function createDatabases(ctx, ui, api, hooks) {
       <section className="tbl-page" data-testid="tbl-list-page" aria-labelledby="tbl-list-title">
         <header className="tbl-head">
           <div>
-            <h2 id="tbl-list-title" className="tbl-title">{t('list.heading')}</h2>
+            <h1 id="tbl-list-title" className="tbl-title">{t('list.heading')}</h1>
             <p className="tbl-muted">{t('list.intro')}</p>
           </div>
           {canCreate && data && data.resources.length > 0 ? <Button variant="primary" icon="plus" onClick={create}>{t('list.new')}</Button> : null}

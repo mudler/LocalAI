@@ -58,6 +58,7 @@ test('render: the list, one database and the picker draw their loading state wit
   const addon = await mod.createAddon(sdk)
   const list = renderToString(React.createElement(addon.Component, { page: 'databases', path: '' }))
   assert.match(list, /Your databases/)
+  assert.deepEqual([...list.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1]), ['Your databases'])
   assert.match(list, /data-addon="tables"/)
   const one = renderToString(React.createElement(addon.Component, { page: 'databases', path: 'r0123456789abcdef0123456789abcde' }))
   assert.match(one, /tbl-loading/)

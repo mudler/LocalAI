@@ -28,10 +28,11 @@ test.describe('Studio add-on', () => {
     })
   }
 
-  test('the shell titles the page once, and the page keeps its own words from the media locale', async ({ page }) => {
+  test('the page draws its own title once, and the page keeps its own words from the media locale', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/addons/studio/studio')
     await expect(page.getByTestId('studio-overview')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('h1')).toHaveCount(1)
     await expect(page.locator('h1.page-title', { hasText: /^Studio$/ })).toHaveCount(1)
     await expect(page.getByText('What do you want to make?')).toBeVisible()
     // No raw key is drawn where words belong.

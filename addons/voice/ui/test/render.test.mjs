@@ -22,7 +22,7 @@ export async function load(extra = {}) {
     addonId: 'voice', generation: 1, signal: controller.signal, pages: ['voice', 'recognition', 'library', 'create', 'speech'],
     host: {
       React,
-      components: Object.fromEntries(['Button', 'Spinner', 'EmptyState', 'Badge', 'Stack', 'Text', 'PageHeader', 'ConfirmDialog', 'ErrorWithTraceLink', 'ModelSelector', 'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch'].map(n => [n, stub(n === 'PageHeader' ? 'header' : 'div')])),
+      components: Object.fromEntries(['Button', 'Spinner', 'EmptyState', 'Badge', 'Stack', 'Text', 'PageHeader', 'ConfirmDialog', 'ErrorWithTraceLink', 'ModelSelector', 'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch'].map(n => [n, n === 'PageHeader' ? (p => React.createElement('header', { 'data-stub': 'header' }, p.title ? React.createElement('h1', null, p.title) : null, p.supporting)) : stub('div')])),
       hooks: { useMediaCapture: () => ({}), useObjectUrl: () => null, useDelayedAction: () => ({ pending: null, schedule() {}, undo() {} }) },
       viewer: { isAdmin: () => true, hasFeature: () => true },
       basePath: '',
@@ -82,4 +82,15 @@ test('render: an older page name draws nothing itself; the shell sends it to its
   for (const page of ['recognition', 'library', 'create', 'speech']) {
     assert.equal(renderToString(React.createElement(addon.Component, { page, path: '' })), '', page)
   }
+})
+
+test('render: each tab draws exactly one h1, its own title', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  const h1s = (html) => [...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim())
+  assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: '' }))), ['Voices'])
+  assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recording' }))), ['Voices'])
+  assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'speech' }))), ['Speak text'])
+  assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))), ['Speech voices 0'])
+  assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library/new' }))), ['Add a speech voice'])
 })

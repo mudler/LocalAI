@@ -405,11 +405,11 @@ async function expectVoiceTabs(page, active) {
   await expect(tabs.locator('[aria-selected="true"]')).toHaveAttribute('data-tab', active)
 }
 
-// The add-on shell shows the one title, "Voice"; the Library, Text to speech and
-// From a recording tabs do not repeat it with a heading of their own.
-async function expectOneVoiceTitle(page) {
+// The add-on draws its own title, once: the shell adds none, and each tab has
+// exactly one h1.
+async function expectOneVoiceTitle(page, title) {
   await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
-  await expect(page.getByRole('heading', { name: 'Voice', exact: true, level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible()
 }
 
 test.describe('Add-on navigation: the Voice recognition page', () => {
@@ -420,9 +420,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await mockIdentity(page)
     await page.goto('/app/addons/voice/voice/recognition')
     await expect(page.getByTestId('voices-page')).toBeVisible()
-    // The add-on shell shows the one title; the page does not repeat it.
-    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
-    await expect(page.getByRole('heading', { name: 'Voice', exact: true, level: 1 })).toBeVisible()
+    await expectOneVoiceTitle(page, 'Voices')
     await expectVoiceTabs(page, 'recognition')
     await expect(page.locator('[data-testid="addon-surface"][data-addon="voice"]')).toBeVisible()
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
@@ -472,24 +470,25 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library$/)
     await expect(page.getByTestId('voice-library')).toBeVisible()
     await expectVoiceTabs(page, 'library')
-    await expectOneVoiceTitle(page)
+    await expectOneVoiceTitle(page, /^Speech voices/)
 
     await page.getByTestId('voice-library-new').first().click()
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library\/new$/)
     await expect(page.getByTestId('voice-profile-create')).toBeVisible()
     await expectVoiceTabs(page, 'library')
+    await expectOneVoiceTitle(page, /Add a speech voice/)
 
     await tabs.getByRole('tab', { name: /^Text to speech$/ }).click()
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/speech$/)
     await expect(page.getByTestId('voice-speech')).toBeVisible()
     await expectVoiceTabs(page, 'speech')
-    await expectOneVoiceTitle(page)
+    await expectOneVoiceTitle(page, 'Speak text')
 
     await tabs.getByRole('tab', { name: /^From a recording$/ }).click()
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recording$/)
     await expect(page.getByTestId('recording-tab')).toBeVisible()
     await expectVoiceTabs(page, 'recording')
-    await expectOneVoiceTitle(page)
+    await expectOneVoiceTitle(page, 'Voices')
   })
 
   test('a viewer who is not an administrator gets no Library tab', async ({ page }) => {
@@ -622,8 +621,7 @@ async function asFaceAdmin(page, features = {}) {
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true, face_recognition: true, ...features }) }))
 }
 
-// The core page titles itself "Faces"; inside the add-on shell the shell shows
-// the one title, "Face", and the page does not repeat it.
+// The page draws its own title "Faces", once, in the core and in the add-on.
 async function expectFacesPage(page, title = 'Faces') {
   await expect(page.getByTestId('faces-page')).toBeVisible()
   await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
@@ -637,7 +635,7 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await serveFace(page)
     await mockIdentity(page)
     await page.goto('/app/addons/face/recognition')
-    await expectFacesPage(page, 'Face')
+    await expectFacesPage(page)
     await expect(page.locator('[data-testid="addon-surface"][data-addon="face"]')).toBeVisible()
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
   })

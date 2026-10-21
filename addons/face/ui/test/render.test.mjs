@@ -22,7 +22,7 @@ export async function load(extra = {}) {
     addonId: 'face', generation: 1, signal: controller.signal, pages: ['recognition'],
     host: {
       React,
-      components: Object.fromEntries(['Button', 'Spinner', 'EmptyState', 'Badge', 'Stack', 'Text', 'PageHeader', 'ConfirmDialog', 'ErrorWithTraceLink', 'ModelSelector', 'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch'].map(n => [n, stub(n === 'PageHeader' ? 'header' : 'div')])),
+      components: Object.fromEntries(['Button', 'Spinner', 'EmptyState', 'Badge', 'Stack', 'Text', 'PageHeader', 'ConfirmDialog', 'ErrorWithTraceLink', 'ModelSelector', 'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch'].map(n => [n, n === 'PageHeader' ? (p => React.createElement('header', { 'data-stub': 'header' }, p.title ? React.createElement('h1', null, p.title) : null, p.supporting)) : stub('div')])),
       hooks: { useMediaCapture: () => ({}), useObjectUrl: () => null, useDelayedAction: () => ({ pending: null, schedule() {}, undo() {} }) },
       viewer: { isAdmin: () => true, hasFeature: () => true },
       basePath: '',
@@ -65,4 +65,11 @@ test('render: a registered page is drawn with its path', async () => {
   const { mod, sdk } = await load()
   const addon = await mod.createAddon(sdk, { pages: { recognition: ({ path }) => React.createElement('p', null, `page:${path}`) } })
   assert.equal(renderToString(React.createElement(addon.Component, { page: 'recognition', path: 'abc' })), '<p>page:abc</p>')
+})
+
+test('render: the recognition page draws exactly one h1, its own title', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'recognition', path: '' }))
+  assert.deepEqual([...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1]), ['Faces'])
 })

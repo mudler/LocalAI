@@ -47,4 +47,5 @@ test('render: the jobs page is drawn by the real registration path, which binds 
   assert.match(html, /data-testid="ft-bar"/)
   assert.match(html, /data-testid="ft-jobs"/)
   assert.match(html, /Fine-tune/)
+  assert.equal((html.match(/<h1[ >]/g) || []).length, 1, 'one title')
 })

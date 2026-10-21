@@ -53,3 +53,10 @@ test('render: the manifest declares one page, the main page and SDK 2', () => {
   assert.deepEqual(m.capabilities.ui.sdk, { min: 2, max: 2 })
   assert.deepEqual(m.capabilities.tools ?? [], [])
 })
+
+test('render: the page draws exactly one h1, its own title', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'talk', path: '', search: '' }))
+  assert.deepEqual([...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1]), ['Talk'])
+})

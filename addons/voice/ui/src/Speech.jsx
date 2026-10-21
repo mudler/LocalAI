@@ -56,8 +56,7 @@ export function createSpeech(ctx) {
 
     return (
       <main className="page vc-speech" data-testid="voice-speech">
-        {/* The add-on shell already titles the page. */}
-        <ui.PageHeader supporting={t('speech.lede')} />
+        <ui.PageHeader title={t('speech.title')} supporting={t('speech.lede')} />
         {tabs}
         <label className="vc-field">
           <span>{t('speech.model')}</span>

@@ -64,7 +64,7 @@ test('recognition: the bundle has the face canvas, the face strings and no host 
   const js = readFileSync(join(dir, 'ui/face.js'), 'utf8')
   assert.match(js, /biometrics-bbox/)
   assert.doesNotMatch(js, /from ['"]react(-dom)?/)
-  assert.match(js, /faces\.lede/)
+  assert.match(js, /faces\.title/)
 })
 
 test('recognition: every translation key the sources read is in the Face bundle', async () => {
