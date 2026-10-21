@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,8 +24,14 @@ var _ = Describe("Chat history of the legacy owner", func() {
 	}
 	rootConversation := schema.Conversation{ID: "before-auth", Name: "Before auth", Model: "test-model"}
 
+	// The legacy owner is an admin with the configured e-mail (auth.IsLegacyOwner).
+	asAdmin := func(s *chatHistoryServer, id string) *chatHistoryServer {
+		Expect(s.db.Model(&auth.User{}).Where("id = ?", id).Update("role", auth.RoleAdmin).Error).To(Succeed())
+		return s
+	}
+
 	It("shows the owner the root conversations and stores theirs there", func() {
-		s := newChatHistoryServerWithConfig(ownerConfig("Alice@example.test"))
+		s := asAdmin(newChatHistoryServerWithConfig(ownerConfig("Alice@example.test")), "alice")
 		_, err := s.store.Save("", rootConversation)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -47,8 +54,15 @@ var _ = Describe("Chat history of the legacy owner", func() {
 		Expect(s.do("bob", http.MethodGet, "/api/conversations/before-auth", nil).Code).To(Equal(http.StatusNotFound))
 	})
 
+	It("keeps a non-admin account with the owner's e-mail out of the root conversations", func() {
+		s := newChatHistoryServerWithConfig(ownerConfig("alice@example.test"))
+		_, err := s.store.Save("", rootConversation)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(listedIDs(s.do("alice", http.MethodGet, "/api/conversations", nil))).To(BeEmpty())
+	})
+
 	It("scopes the owner to their own ID when no legacy owner is configured", func() {
-		s := newChatHistoryServerWithConfig(ownerConfig(""))
+		s := asAdmin(newChatHistoryServerWithConfig(ownerConfig("")), "alice")
 		_, err := s.store.Save("", rootConversation)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(listedIDs(s.do("alice", http.MethodGet, "/api/conversations", nil))).To(BeEmpty())

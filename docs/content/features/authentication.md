@@ -145,15 +145,21 @@ one of its API keys) use the root storage area instead of a per-user one, so the
 existing agents, collections, skills, jobs, outputs and chat history stay
 visible and usable, and switching auth off again returns to the same data. Every
 other account keeps its own storage area. The account is matched by e-mail,
-case-insensitively; treat the address like `LOCALAI_ADMIN_EMAIL` and register it
-before anyone else can. Legacy API keys (`LOCALAI_API_KEY`) are not the owner.
+case-insensitively, and must hold the **admin** role: LocalAI grants that role
+only on a verified e-mail, so an OAuth identity that merely reports the owner's
+address without verification keeps its own area. Treat the address like
+`LOCALAI_ADMIN_EMAIL` and register it before anyone else can. Legacy API keys
+(`LOCALAI_API_KEY`) are not the owner, and an owner account that loses the admin
+role loses the root area with it.
 
 The agent pool runs the root agents with its own key (`LOCALAI_AGENT_POOL_API_KEY`).
-When a legacy owner is configured, calls made with that key use the root storage
-area too, unless they name a user with `?user_id=`; this lets knowledge base
-auto-search find the root agents' collections and append their sources. Give the
-account that owns the pool key the `collections` feature, and keep it a regular
-user: it needs no admin rights.
+When a legacy owner is configured, a knowledge base search made with that key
+(`POST /api/agents/collections/<name>/search`) uses the root storage area too,
+unless it names a user with `?user_id=`; this lets knowledge base auto-search find
+the root agents' collections and append their sources. Every other call made with
+the pool key, including chat history, stays in the pool account's own area. Give
+the account that owns the pool key the `collections` feature, and keep it a
+regular user: it needs no admin rights.
 
 ```bash
 LOCALAI_AUTH=true \

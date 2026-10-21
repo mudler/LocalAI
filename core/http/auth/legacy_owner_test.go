@@ -19,9 +19,15 @@ import (
 func newStorageScopeApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo {
 	e := echo.New()
 	e.Use(auth.Middleware(db, appConfig))
-	e.GET("/scope", func(c echo.Context) error {
+	scope := func(c echo.Context) error {
 		return c.String(http.StatusOK, "["+auth.GetStorageUserID(c)+"]")
-	})
+	}
+	e.GET("/scope", scope)
+	// The routes the agent pool exception is about: the one it needs (knowledge
+	// base search) and root data it must never reach (chat history).
+	e.POST("/api/agents/collections/:name/search", scope)
+	e.GET("/api/conversations", scope)
+	e.DELETE("/api/conversations", scope)
 	return e
 }
 
@@ -87,11 +93,26 @@ var _ = Describe("Legacy owner storage scope", func() {
 		Expect(rec.Body.String()).To(Equal("[legacy-api-key]"))
 	})
 
-	It("matches the owner by e-mail only", func() {
-		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test"}, "Owner@Example.test")).To(BeTrue())
-		Expect(auth.IsLegacyOwner(&auth.User{Email: ""}, "")).To(BeFalse())
-		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test.evil"}, "owner@example.test")).To(BeFalse())
+	It("matches the owner by e-mail and the admin role", func() {
+		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test", Role: auth.RoleAdmin}, "Owner@Example.test")).To(BeTrue())
+		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test", Role: auth.RoleUser}, "owner@example.test")).To(BeFalse())
+		Expect(auth.IsLegacyOwner(&auth.User{Email: "", Role: auth.RoleAdmin}, "")).To(BeFalse())
+		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test.evil", Role: auth.RoleAdmin}, "owner@example.test")).To(BeFalse())
 		Expect(auth.IsLegacyOwner(nil, "owner@example.test")).To(BeFalse())
+	})
+
+	It("keeps an OIDC identity with the owner's unverified e-mail in its own area", func() {
+		// The OAuth callback stores the IdP's e-mail even when it is not
+		// verified, but only grants the admin role on a verified one. Such an
+		// identity is an active user with the owner's address and role "user".
+		mallory := createTestUser(db, "owner@example.test", auth.RoleUser, auth.ProviderOIDC)
+		rec := doRequest(appWithOwner("owner@example.test"), http.MethodGet, "/scope",
+			withSessionCookie(session(mallory.ID)))
+		Expect(rec.Body.String()).To(Equal("[" + mallory.ID + "]"))
+		key, _, err := auth.CreateAPIKey(db, mallory.ID, "k", mallory.Role, hmacSecret, nil)
+		Expect(err).NotTo(HaveOccurred())
+		rec = doRequest(appWithOwner("owner@example.test"), http.MethodGet, "/scope", withBearerToken(key))
+		Expect(rec.Body.String()).To(Equal("[" + mallory.ID + "]"))
 	})
 })
 
@@ -123,24 +144,37 @@ var _ = Describe("Agent pool calls for root agents", func() {
 		return newStorageScopeApp(db, appConfig)
 	}
 
-	It("gives the pool's own key the root storage area when a legacy owner is configured", func() {
-		rec := doRequest(app("owner@example.test"), http.MethodGet, "/scope", withBearerToken(poolKey))
+	const search = "/api/agents/collections/kb/search"
+
+	It("gives the pool's own key the root area for a knowledge base search when a legacy owner is configured", func() {
+		rec := doRequest(app("owner@example.test"), http.MethodPost, search, withBearerToken(poolKey))
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(rec.Body.String()).To(Equal("[]"))
 	})
 
+	It("never gives the pool's key the root chat history (read or delete) or any other route", func() {
+		for _, r := range []struct{ method, path string }{
+			{http.MethodGet, "/api/conversations"},
+			{http.MethodDelete, "/api/conversations"},
+			{http.MethodGet, "/scope"},
+		} {
+			rec := doRequest(app("owner@example.test"), r.method, r.path, withBearerToken(poolKey))
+			Expect(rec.Body.String()).To(Equal("["+service.ID+"]"), r.method+" "+r.path)
+		}
+	})
+
 	It("keeps the pool's key in its own area when the call names a user", func() {
-		rec := doRequest(app("owner@example.test"), http.MethodGet, "/scope?user_id=someone", withBearerToken(poolKey))
+		rec := doRequest(app("owner@example.test"), http.MethodPost, search+"?user_id=someone", withBearerToken(poolKey))
 		Expect(rec.Body.String()).To(Equal("[" + service.ID + "]"))
 	})
 
 	It("changes nothing for the pool's key without a legacy owner", func() {
-		rec := doRequest(app(""), http.MethodGet, "/scope", withBearerToken(poolKey))
+		rec := doRequest(app(""), http.MethodPost, search, withBearerToken(poolKey))
 		Expect(rec.Body.String()).To(Equal("[" + service.ID + "]"))
 	})
 
 	It("does not extend the root area to other keys of other accounts", func() {
-		rec := doRequest(app("owner@example.test"), http.MethodGet, "/scope", withBearerToken(bobKey))
+		rec := doRequest(app("owner@example.test"), http.MethodPost, search, withBearerToken(bobKey))
 		Expect(rec.Body.String()).NotTo(Equal("[]"))
 	})
 })
