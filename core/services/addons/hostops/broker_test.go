@@ -7,10 +7,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 func env(addon, op, scope string, exp time.Time) contract.Envelope {
@@ -27,22 +28,18 @@ type fixture struct {
 	seen     *Call
 }
 
-func newFixture(t *testing.T, has func(user, feature string) bool) *fixture {
-	t.Helper()
+func newFixture(has func(user, feature string) bool) *fixture {
 	f := &fixture{inflight: NewInFlight(), seen: &Call{}}
 	f.b = New(f.inflight, has, contract.DefaultLimits())
 	err := f.b.Register(Spec{Op: "finetune.get", Scope: "read", Feature: "fine_tuning", Handler: func(_ context.Context, c Call) (json.RawMessage, error) {
 		*f.seen = c
 		return json.RawMessage(`{"ok":true}`), nil
 	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.b.Register(Spec{Op: "finetune.start", Scope: "apply", Feature: "fine_tuning", Handler: func(context.Context, Call) (json.RawMessage, error) {
+	Expect(err).ToNot(HaveOccurred())
+	err = f.b.Register(Spec{Op: "finetune.start", Scope: "apply", Feature: "fine_tuning", Handler: func(context.Context, Call) (json.RawMessage, error) {
 		return json.RawMessage(`{"id":"j1"}`), nil
-	}}); err != nil {
-		t.Fatal(err)
-	}
+	}})
+	Expect(err).ToNot(HaveOccurred())
 	f.h = f.b.Handler("fine-tuning", "secret", []string{"finetune."})
 	return f
 }
@@ -60,103 +57,100 @@ func (f *fixture) call(credential, operationID, op, body string) (int, contract.
 
 func always(string, string) bool { return true }
 
-func TestAWrongCredentialIsRefused(t *testing.T) {
-	f := newFixture(t, always)
-	if code, _ := f.call("nope", "op1", "finetune.get", `{}`); code != http.StatusUnauthorized {
-		t.Fatalf("got %d", code)
+var _ = Describe("Host operation broker", func() {
+	live := func(f *fixture, scope string) {
+		end := f.inflight.Begin(env("fine-tuning", "op1", scope, time.Now().Add(time.Minute)))
+		DeferCleanup(end)
 	}
-}
 
-func TestACallWithoutALiveEnvelopeIsRefused(t *testing.T) {
-	f := newFixture(t, always)
-	code, out := f.call("secret", "op1", "finetune.get", `{}`)
-	if code != http.StatusForbidden || out.Error == nil || out.Error.Code != "no_live_operation" {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-}
+	It("refuses a wrong credential", func() {
+		f := newFixture(always)
+		code, _ := f.call("nope", "op1", "finetune.get", `{}`)
+		Expect(code).To(Equal(http.StatusUnauthorized))
+	})
 
-func TestAnExpiredAuthorityIsRefused(t *testing.T) {
-	f := newFixture(t, always)
-	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(-time.Second)))
-	defer end()
-	code, out := f.call("secret", "op1", "finetune.get", `{}`)
-	if code != http.StatusForbidden || out.Error.Code != "no_live_operation" {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-}
+	It("refuses a call without a live envelope", func() {
+		f := newFixture(always)
+		code, out := f.call("secret", "op1", "finetune.get", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal("no_live_operation"))
+	})
 
-func TestAReadScopeCannotRunAnApplyOperation(t *testing.T) {
-	f := newFixture(t, always)
-	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
-	defer end()
-	code, out := f.call("secret", "op1", "finetune.start", `{}`)
-	if code != http.StatusForbidden || out.Error.Code != "scope" {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-}
+	It("refuses an expired authority", func() {
+		f := newFixture(always)
+		end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(-time.Second)))
+		DeferCleanup(end)
+		code, out := f.call("secret", "op1", "finetune.get", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal("no_live_operation"))
+	})
 
-func TestTheFeatureOfTheActorIsChecked(t *testing.T) {
-	f := newFixture(t, func(user, feature string) bool { return feature != "fine_tuning" })
-	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
-	defer end()
-	code, out := f.call("secret", "op1", "finetune.get", `{}`)
-	if code != http.StatusForbidden || out.Error.Code != "feature" {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-}
+	It("does not let a read scope run an apply operation", func() {
+		f := newFixture(always)
+		live(f, "read")
+		code, out := f.call("secret", "op1", "finetune.start", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal("scope"))
+	})
 
-func TestTheOperationRunsAsTheActorOfTheEnvelope(t *testing.T) {
-	f := newFixture(t, always)
-	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
-	defer end()
-	// An argument that names a user is refused, whatever the schema says.
-	code, out := f.call("secret", "op1", "finetune.get", `{"userId":"admin"}`)
-	if code != http.StatusBadRequest || out.Error.Code != "bad_request" {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-	if code, _ := f.call("secret", "op1", "finetune.get", `{"jobId":"j1"}`); code != http.StatusOK {
-		t.Fatalf("got %d", code)
-	}
-	if f.seen.Actor.UserID != "u1" || f.seen.AddonID != "fine-tuning" {
-		t.Fatalf("the operation did not run as the envelope's actor: %+v", f.seen)
-	}
-}
+	It("checks the feature of the actor", func() {
+		f := newFixture(func(user, feature string) bool { return feature != "fine_tuning" })
+		live(f, "read")
+		code, out := f.call("secret", "op1", "finetune.get", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal("feature"))
+	})
 
-func TestAnOperationOutsideTheAllowedPrefixIsRefused(t *testing.T) {
-	f := newFixture(t, always)
-	_ = f.b.Register(Spec{Op: "quantize.get", Scope: "read", Feature: "quantization", Handler: func(context.Context, Call) (json.RawMessage, error) { return nil, nil }})
-	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
-	defer end()
-	if code, out := f.call("secret", "op1", "quantize.get", `{}`); code != http.StatusForbidden || out.Error.Code != "unknown_op" {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-}
+	It("runs the operation as the actor of the envelope", func() {
+		f := newFixture(always)
+		live(f, "read")
+		// An argument that names a user is refused, whatever the schema says.
+		code, out := f.call("secret", "op1", "finetune.get", `{"userId":"admin"}`)
+		Expect(code).To(Equal(http.StatusBadRequest))
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal("bad_request"))
+		code, _ = f.call("secret", "op1", "finetune.get", `{"jobId":"j1"}`)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(f.seen.Actor.UserID).To(Equal("u1"), "the operation did not run as the envelope's actor: %+v", f.seen)
+		Expect(f.seen.AddonID).To(Equal("fine-tuning"))
+	})
 
-func TestAnOversizedBodyIsRefused(t *testing.T) {
-	f := newFixture(t, always)
-	end := f.inflight.Begin(env("fine-tuning", "op1", "read", time.Now().Add(time.Minute)))
-	defer end()
-	big := `{"x":"` + string(bytes.Repeat([]byte("a"), int(contract.DefaultLimits().PayloadBytes)+1)) + `"}`
-	if code, out := f.call("secret", "op1", "finetune.get", big); code != http.StatusRequestEntityTooLarge || out.Error.Code != "too_large" {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-}
+	It("refuses an operation outside the allowed prefix", func() {
+		f := newFixture(always)
+		_ = f.b.Register(Spec{Op: "quantize.get", Scope: "read", Feature: "quantization", Handler: func(context.Context, Call) (json.RawMessage, error) { return nil, nil }})
+		live(f, "read")
+		code, out := f.call("secret", "op1", "quantize.get", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal("unknown_op"))
+	})
 
-func TestAnIdempotentOperationRunsOncePerOperationID(t *testing.T) {
-	f := newFixture(t, always)
-	runs := 0
-	_ = f.b.Register(Spec{Op: "finetune.once", Scope: "apply", Feature: "fine_tuning", Idempotent: true, Handler: func(context.Context, Call) (json.RawMessage, error) {
-		runs++
-		return json.RawMessage(`{"id":"j9"}`), nil
-	}})
-	end := f.inflight.Begin(env("fine-tuning", "op1", "apply", time.Now().Add(time.Minute)))
-	defer end()
-	for i := 0; i < 2; i++ {
-		if code, _ := f.call("secret", "op1", "finetune.once", `{}`); code != http.StatusOK {
-			t.Fatalf("call %d: %d", i, code)
+	It("refuses an oversized body", func() {
+		f := newFixture(always)
+		live(f, "read")
+		big := `{"x":"` + string(bytes.Repeat([]byte("a"), int(contract.DefaultLimits().PayloadBytes)+1)) + `"}`
+		code, out := f.call("secret", "op1", "finetune.get", big)
+		Expect(code).To(Equal(http.StatusRequestEntityTooLarge))
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal("too_large"))
+	})
+
+	It("runs an idempotent operation once per operation ID", func() {
+		f := newFixture(always)
+		runs := 0
+		_ = f.b.Register(Spec{Op: "finetune.once", Scope: "apply", Feature: "fine_tuning", Idempotent: true, Handler: func(context.Context, Call) (json.RawMessage, error) {
+			runs++
+			return json.RawMessage(`{"id":"j9"}`), nil
+		}})
+		live(f, "apply")
+		for i := 0; i < 2; i++ {
+			code, _ := f.call("secret", "op1", "finetune.once", `{}`)
+			Expect(code).To(Equal(http.StatusOK), "call %d", i)
 		}
-	}
-	if runs != 1 {
-		t.Fatalf("a repeated operationId must not run the operation twice, ran %d", runs)
-	}
-}
+		Expect(runs).To(Equal(1), "a repeated operationId must not run the operation twice")
+	})
+})

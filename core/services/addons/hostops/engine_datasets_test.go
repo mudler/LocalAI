@@ -3,12 +3,12 @@ package hostops
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
-	"testing"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type fakeDatasets struct {
@@ -37,160 +37,123 @@ func (f *fakeDatasets) Resolve(ref string) (string, bool) {
 	return p, ok
 }
 
-func datasetArgs(t *testing.T, name, content string) string {
-	t.Helper()
+func datasetArgs(name, content string) string {
 	b, err := json.Marshal(map[string]string{"name": name, "content": content})
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	return string(b)
 }
 
-func datasetBroker(t *testing.T, ds DatasetStore) (*Broker, Spec) {
-	t.Helper()
+func datasetBroker(ds DatasetStore) (*Broker, Spec) {
 	b := New(NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
-	if err := RegisterEngineDatasets(b, ds); err != nil {
-		t.Fatal(err)
-	}
+	Expect(RegisterEngineDatasets(b, ds)).To(Succeed())
 	return b, b.specs["finetune.dataset"]
 }
 
-func TestDatasetStoresTheContentAndReturnsARefNotAPath(t *testing.T) {
-	ds := &fakeDatasets{}
-	_, s := datasetBroker(t, ds)
-	raw, err := call(t, s, "named-user", "u1", datasetArgs(t, "train.jsonl", "{\"a\":1}\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var out struct {
-		DatasetRef string `json:"datasetRef"`
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		t.Fatal(err)
-	}
-	if out.DatasetRef == "" || strings.Contains(out.DatasetRef, "/") {
-		t.Fatalf("ref %q", out.DatasetRef)
-	}
-	if ds.gotName != "train.jsonl" || string(ds.gotData) != "{\"a\":1}\n" {
-		t.Fatalf("stored %q %q", ds.gotName, ds.gotData)
-	}
-	if strings.Contains(string(raw), "/srv") {
-		t.Fatalf("a path in the result: %s", raw)
-	}
+type datasetResult struct {
+	DatasetRef string `json:"datasetRef"`
 }
 
-func TestDatasetIsIdempotentAndFineTuningOnly(t *testing.T) {
-	_, s := datasetBroker(t, &fakeDatasets{})
-	if !s.Idempotent || s.Scope != "apply" || s.Feature != "fine_tuning" {
-		t.Fatalf("%+v", s)
-	}
-}
+var _ = Describe("Dataset operation", func() {
+	It("stores the content and returns a ref, not a path", func() {
+		ds := &fakeDatasets{}
+		_, s := datasetBroker(ds)
+		raw, err := call(s, "named-user", "u1", datasetArgs("train.jsonl", "{\"a\":1}\n"))
+		Expect(err).ToNot(HaveOccurred())
+		var out datasetResult
+		Expect(json.Unmarshal(raw, &out)).To(Succeed())
+		Expect(out.DatasetRef).ToNot(BeEmpty())
+		Expect(out.DatasetRef).ToNot(ContainSubstring("/"))
+		Expect(ds.gotName).To(Equal("train.jsonl"))
+		Expect(string(ds.gotData)).To(Equal("{\"a\":1}\n"))
+		Expect(string(raw)).ToNot(ContainSubstring("/srv"), "a path in the result")
+	})
 
-func TestDatasetRefusesAnEmptyOrOversizedContent(t *testing.T) {
-	ds := &fakeDatasets{}
-	_, s := datasetBroker(t, ds)
-	limit := 900 * 1024
-	if _, err := call(t, s, "named-user", "u1", datasetArgs(t, "a.txt", strings.Repeat("x", limit))); err != nil {
-		t.Fatalf("exactly 900 KiB refused: %v", err)
-	}
-	for name, content := range map[string]string{
-		"empty":    "",
-		"one over": strings.Repeat("x", limit+1),
-		"far over": strings.Repeat("x", 2*limit),
-	} {
-		if _, err := call(t, s, "named-user", "u1", datasetArgs(t, "a.txt", content)); !errors.Is(err, ErrBadRequest) {
-			t.Fatalf("%s: want ErrBadRequest, got %v", name, err)
-		}
-	}
-	if ds.puts != 1 {
-		t.Fatalf("a refused dataset was stored: %d puts", ds.puts)
-	}
-}
+	It("is idempotent and fine-tuning only", func() {
+		_, s := datasetBroker(&fakeDatasets{})
+		Expect(s.Idempotent).To(BeTrue())
+		Expect(s.Scope).To(Equal("apply"))
+		Expect(s.Feature).To(Equal("fine_tuning"))
+	})
 
-func TestDatasetRefusesANameWithADirectory(t *testing.T) {
-	ds := &fakeDatasets{}
-	_, s := datasetBroker(t, ds)
-	for _, name := range []string{"../x.jsonl", "a/b.jsonl", "/etc/x.jsonl", `a\b.jsonl`, ".."} {
-		if _, err := call(t, s, "named-user", "u1", datasetArgs(t, name, "[]")); !errors.Is(err, ErrBadRequest) {
-			t.Fatalf("%q: want ErrBadRequest, got %v", name, err)
+	It("refuses an empty or oversized content", func() {
+		ds := &fakeDatasets{}
+		_, s := datasetBroker(ds)
+		limit := 900 * 1024
+		_, err := call(s, "named-user", "u1", datasetArgs("a.txt", strings.Repeat("x", limit)))
+		Expect(err).ToNot(HaveOccurred(), "exactly 900 KiB refused")
+		for name, content := range map[string]string{
+			"empty":    "",
+			"one over": strings.Repeat("x", limit+1),
+			"far over": strings.Repeat("x", 2*limit),
+		} {
+			_, err := call(s, "named-user", "u1", datasetArgs("a.txt", content))
+			Expect(err).To(MatchError(ErrBadRequest), name)
 		}
-	}
-	if ds.puts != 0 {
-		t.Fatalf("a refused name was stored")
-	}
-}
+		Expect(ds.puts).To(Equal(1), "a refused dataset was stored")
+	})
 
-func TestDatasetRefusesAnExtensionThatIsNotATextDataset(t *testing.T) {
-	ds := &fakeDatasets{}
-	_, s := datasetBroker(t, ds)
-	for _, name := range []string{"x.exe", "x.sh", "x", "x.jsonl.exe", ".jsonl.bin"} {
-		if _, err := call(t, s, "named-user", "u1", datasetArgs(t, name, "[]")); !errors.Is(err, ErrBadRequest) {
-			t.Fatalf("%q: want ErrBadRequest, got %v", name, err)
+	It("refuses a name with a directory", func() {
+		ds := &fakeDatasets{}
+		_, s := datasetBroker(ds)
+		for _, name := range []string{"../x.jsonl", "a/b.jsonl", "/etc/x.jsonl", `a\b.jsonl`, ".."} {
+			_, err := call(s, "named-user", "u1", datasetArgs(name, "[]"))
+			Expect(err).To(MatchError(ErrBadRequest), name)
 		}
-	}
-	for _, name := range []string{"x.jsonl", "x.json", "x.csv", "x.txt"} {
-		if _, err := call(t, s, "named-user", "u1", datasetArgs(t, name, "[]")); err != nil {
-			t.Fatalf("%q refused: %v", name, err)
-		}
-	}
-}
+		Expect(ds.puts).To(Equal(0), "a refused name was stored")
+	})
 
-func TestDatasetRefusesContentThatIsNotUTF8(t *testing.T) {
-	ds := &fakeDatasets{}
-	_, s := datasetBroker(t, ds)
-	if _, err := call(t, s, "named-user", "u1", "{\"name\":\"x.csv\",\"content\":\"a,b\\n\xff\xfe,1\\n\"}"); !errors.Is(err, ErrBadRequest) {
-		t.Fatalf("got %v", err)
-	}
-	if ds.puts != 0 {
-		t.Fatalf("non-UTF-8 content was stored")
-	}
-}
+	It("refuses an extension that is not a text dataset", func() {
+		ds := &fakeDatasets{}
+		_, s := datasetBroker(ds)
+		for _, name := range []string{"x.exe", "x.sh", "x", "x.jsonl.exe", ".jsonl.bin"} {
+			_, err := call(s, "named-user", "u1", datasetArgs(name, "[]"))
+			Expect(err).To(MatchError(ErrBadRequest), name)
+		}
+		for _, name := range []string{"x.jsonl", "x.json", "x.csv", "x.txt"} {
+			_, err := call(s, "named-user", "u1", datasetArgs(name, "[]"))
+			Expect(err).ToNot(HaveOccurred(), "%q refused", name)
+		}
+	})
 
-func TestResolveOnlyReturnsAReferenceTheHostIssuedToThatUser(t *testing.T) {
-	ds := &fakeDatasets{}
-	b, s := datasetBroker(t, ds)
-	raw, err := call(t, s, "named-user", "userA", datasetArgs(t, "x.jsonl", "[]"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var out struct {
-		DatasetRef string `json:"datasetRef"`
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := b.resolveDataset("userB", out.DatasetRef); ok {
-		t.Fatal("user B resolved the reference of user A")
-	}
-	if p, ok := b.resolveDataset("userA", out.DatasetRef); !ok || p == "" {
-		t.Fatalf("the issuing user cannot resolve its own reference: %q %v", p, ok)
-	}
-}
+	It("refuses content that is not UTF-8", func() {
+		ds := &fakeDatasets{}
+		_, s := datasetBroker(ds)
+		_, err := call(s, "named-user", "u1", "{\"name\":\"x.csv\",\"content\":\"a,b\\n\xff\xfe,1\\n\"}")
+		Expect(err).To(MatchError(ErrBadRequest))
+		Expect(ds.puts).To(Equal(0), "non-UTF-8 content was stored")
+	})
 
-func TestTheIssuedReferencesAreBoundedTo256(t *testing.T) {
-	ds := &fakeDatasets{}
-	b, s := datasetBroker(t, ds)
-	var first, last string
-	for i := range 257 {
-		raw, err := call(t, s, "named-user", "u1", datasetArgs(t, "x.jsonl", "[]"))
-		if err != nil {
-			t.Fatal(err)
+	It("resolves only a reference the host issued to that user", func() {
+		ds := &fakeDatasets{}
+		b, s := datasetBroker(ds)
+		raw, err := call(s, "named-user", "userA", datasetArgs("x.jsonl", "[]"))
+		Expect(err).ToNot(HaveOccurred())
+		var out datasetResult
+		Expect(json.Unmarshal(raw, &out)).To(Succeed())
+		_, ok := b.resolveDataset("userB", out.DatasetRef)
+		Expect(ok).To(BeFalse(), "user B resolved the reference of user A")
+		p, ok := b.resolveDataset("userA", out.DatasetRef)
+		Expect(ok).To(BeTrue(), "the issuing user cannot resolve its own reference")
+		Expect(p).ToNot(BeEmpty())
+	})
+
+	It("bounds the issued references to 256", func() {
+		ds := &fakeDatasets{}
+		b, s := datasetBroker(ds)
+		var first, last string
+		for i := range 257 {
+			raw, err := call(s, "named-user", "u1", datasetArgs("x.jsonl", "[]"))
+			Expect(err).ToNot(HaveOccurred())
+			var out datasetResult
+			Expect(json.Unmarshal(raw, &out)).To(Succeed())
+			if i == 0 {
+				first = out.DatasetRef
+			}
+			last = out.DatasetRef
 		}
-		var out struct {
-			DatasetRef string `json:"datasetRef"`
-		}
-		if err := json.Unmarshal(raw, &out); err != nil {
-			t.Fatal(err)
-		}
-		if i == 0 {
-			first = out.DatasetRef
-		}
-		last = out.DatasetRef
-	}
-	if _, ok := b.resolveDataset("u1", first); ok {
-		t.Fatal("the oldest reference is still issued after 257 datasets")
-	}
-	if _, ok := b.resolveDataset("u1", last); !ok {
-		t.Fatal("the newest reference is not issued")
-	}
-}
+		_, ok := b.resolveDataset("u1", first)
+		Expect(ok).To(BeFalse(), "the oldest reference is still issued after 257 datasets")
+		_, ok = b.resolveDataset("u1", last)
+		Expect(ok).To(BeTrue(), "the newest reference is not issued")
+	})
+})

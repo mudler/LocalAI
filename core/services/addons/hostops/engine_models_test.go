@@ -5,16 +5,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type fakeExporter struct {
@@ -68,19 +68,15 @@ func newExporter(path string) *fakeExporter {
 	return &fakeExporter{owner: map[string]string{"j1": "u1"}, cps: oneCheckpoint, path: path}
 }
 
-func modelSpecs(t *testing.T, ex Exporter, im Importer) map[string]Spec {
-	t.Helper()
+func modelSpecs(ex Exporter, im Importer) map[string]Spec {
 	b := New(NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
-	if err := RegisterEngineModels(b, ex, im); err != nil {
-		t.Fatal(err)
-	}
+	Expect(RegisterEngineModels(b, ex, im)).To(Succeed())
 	return b.specs
 }
 
 // serveAs runs one operation through the channel handler as the given actor,
 // with a live envelope for it, and returns the status and the answer.
-func serveAs(t *testing.T, b *Broker, op, mode, user, args string) (int, contract.HostResponse) {
-	t.Helper()
+func serveAs(b *Broker, op, mode, user, args string) (int, contract.HostResponse) {
 	end := b.inflight.Begin(contract.Envelope{
 		Request:   contract.Request{AddonID: "fine-tuning", OperationID: "op1", Generation: 1, Action: "start", Arguments: json.RawMessage(`{}`)},
 		Authority: contract.Authority{Actor: contract.Actor{UserID: user, CredentialID: "c1", Mode: mode}, Scope: "apply", ExpiresAt: time.Now().Add(time.Minute)},
@@ -99,214 +95,175 @@ func serveAs(t *testing.T, b *Broker, op, mode, user, args string) (int, contrac
 
 // adminBroker builds a broker where every user holds the feature, and only the
 // user "admin" is an administrator.
-func adminBroker(t *testing.T, ex Exporter, im Importer) *Broker {
-	t.Helper()
+func adminBroker(ex Exporter, im Importer) *Broker {
 	b := New(NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
 	b.SetAdminCheck(func(actor contract.Actor) bool { return actor.UserID == "admin" })
-	if err := RegisterEngineModels(b, ex, im); err != nil {
-		t.Fatal(err)
-	}
+	Expect(RegisterEngineModels(b, ex, im)).To(Succeed())
 	return b
 }
 
-func TestExportRegistersAModelAndReturnsOnlyItsName(t *testing.T) {
-	ex := newExporter("/models/my-model")
-	s := modelSpecs(t, ex, nil)
-	out, err := call(t, s["finetune.export"], "named-user", "u1", `{"jobId":"j1","name":"my-model","exportFormat":"lora"}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(out) != `{"model":"my-model"}` {
-		t.Fatalf("got %s", out)
-	}
-	if strings.Contains(string(out), "/") {
-		t.Fatalf("result carries a path: %s", out)
-	}
-	if ex.user != "u1" || ex.req.Name != "my-model" || ex.req.ExportFormat != "lora" {
-		t.Fatalf("service got user=%q req=%+v", ex.user, ex.req)
-	}
-}
+var _ = Describe("Model export and import operations", func() {
+	It("export registers a model and returns only its name", func() {
+		ex := newExporter("/models/my-model")
+		s := modelSpecs(ex, nil)
+		out, err := call(s["finetune.export"], "named-user", "u1", `{"jobId":"j1","name":"my-model","exportFormat":"lora"}`)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(out)).To(Equal(`{"model":"my-model"}`))
+		Expect(string(out)).ToNot(ContainSubstring("/"), "result carries a path")
+		Expect(ex.user).To(Equal("u1"))
+		Expect(ex.req.Name).To(Equal("my-model"))
+		Expect(ex.req.ExportFormat).To(Equal("lora"))
+	})
 
-func TestExportUsesTheHighestStepCheckpoint(t *testing.T) {
-	ex := newExporter("/models/my-model")
-	ex.cps = []Checkpoint{{Step: 100, Path: "/out/ckpt-100"}, {Step: 300, Path: "/out/ckpt-300"}, {Step: 200, Path: "/out/ckpt-200"}}
-	s := modelSpecs(t, ex, nil)
-	if _, err := call(t, s["finetune.export"], "named-user", "u1", `{"jobId":"j1"}`); err != nil {
-		t.Fatal(err)
-	}
-	if ex.req.CheckpointPath != "/out/ckpt-300" {
-		t.Fatalf("export got checkpoint %q, want the highest step", ex.req.CheckpointPath)
-	}
-}
+	It("export uses the highest step checkpoint", func() {
+		ex := newExporter("/models/my-model")
+		ex.cps = []Checkpoint{{Step: 100, Path: "/out/ckpt-100"}, {Step: 300, Path: "/out/ckpt-300"}, {Step: 200, Path: "/out/ckpt-200"}}
+		s := modelSpecs(ex, nil)
+		_, err := call(s["finetune.export"], "named-user", "u1", `{"jobId":"j1"}`)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ex.req.CheckpointPath).To(Equal("/out/ckpt-300"), "want the highest step")
+	})
 
-func TestExportOfAJobWithNoCheckpointIsAConflictNamingIt(t *testing.T) {
-	ex := newExporter("/models/my-model")
-	ex.cps = nil
-	s := modelSpecs(t, ex, nil)
-	_, err := call(t, s["finetune.export"], "named-user", "u1", `{"jobId":"j1"}`)
-	if !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "checkpoint") {
-		t.Fatalf("got %v, want a conflict naming the checkpoint", err)
-	}
-	if ex.calls != 0 {
-		t.Fatalf("service called %d times for a job with no checkpoint", ex.calls)
-	}
-}
+	It("export of a job with no checkpoint is a conflict naming it", func() {
+		ex := newExporter("/models/my-model")
+		ex.cps = nil
+		s := modelSpecs(ex, nil)
+		_, err := call(s["finetune.export"], "named-user", "u1", `{"jobId":"j1"}`)
+		Expect(err).To(MatchError(ErrConflict))
+		Expect(err.Error()).To(ContainSubstring("checkpoint"))
+		Expect(ex.calls).To(Equal(0), "service called for a job with no checkpoint")
+	})
 
-func TestExportRefusesABadName(t *testing.T) {
-	ex := newExporter("/models/x")
-	s := modelSpecs(t, ex, nil)
-	long := strings.Repeat("a", 65)
-	for _, name := range []string{"../x", "a/b", "   ", long} {
-		args, _ := json.Marshal(map[string]string{"jobId": "j1", "name": name})
-		if _, err := call(t, s["finetune.export"], "named-user", "u1", string(args)); !errors.Is(err, ErrBadRequest) {
-			t.Fatalf("%q: want ErrBadRequest, got %v", name, err)
+	It("export refuses a bad name", func() {
+		ex := newExporter("/models/x")
+		s := modelSpecs(ex, nil)
+		long := strings.Repeat("a", 65)
+		for _, name := range []string{"../x", "a/b", "   ", long} {
+			args, _ := json.Marshal(map[string]string{"jobId": "j1", "name": name})
+			_, err := call(s["finetune.export"], "named-user", "u1", string(args))
+			Expect(err).To(MatchError(ErrBadRequest), "%q", name)
 		}
-	}
-	if ex.calls != 0 {
-		t.Fatalf("service called %d times for a refused name", ex.calls)
-	}
-}
+		Expect(ex.calls).To(Equal(0), "service called for a refused name")
+	})
 
-func TestExportRefusesAnExportFormatThatIsNotListed(t *testing.T) {
-	ex := newExporter("/models/x")
-	s := modelSpecs(t, ex, nil)
-	for _, f := range []string{"adapter", "merged_8bit", "GGUF", "gguf "} {
-		args, _ := json.Marshal(map[string]string{"jobId": "j1", "exportFormat": f})
-		if _, err := call(t, s["finetune.export"], "named-user", "u1", string(args)); !errors.Is(err, ErrBadRequest) {
-			t.Fatalf("%q: want ErrBadRequest, got %v", f, err)
+	It("export refuses an export format that is not listed", func() {
+		ex := newExporter("/models/x")
+		s := modelSpecs(ex, nil)
+		for _, f := range []string{"adapter", "merged_8bit", "GGUF", "gguf "} {
+			args, _ := json.Marshal(map[string]string{"jobId": "j1", "exportFormat": f})
+			_, err := call(s["finetune.export"], "named-user", "u1", string(args))
+			Expect(err).To(MatchError(ErrBadRequest), "%q", f)
 		}
-	}
-	for _, f := range []string{"lora", "merged_16bit", "merged_4bit", "gguf"} {
-		args, _ := json.Marshal(map[string]string{"jobId": "j1", "exportFormat": f})
-		if _, err := call(t, s["finetune.export"], "named-user", "u1", string(args)); err != nil {
-			t.Fatalf("%q: %v", f, err)
+		for _, f := range []string{"lora", "merged_16bit", "merged_4bit", "gguf"} {
+			args, _ := json.Marshal(map[string]string{"jobId": "j1", "exportFormat": f})
+			_, err := call(s["finetune.export"], "named-user", "u1", string(args))
+			Expect(err).ToNot(HaveOccurred(), "%q", f)
 		}
-	}
-}
+	})
 
-func TestExportOfAnotherUsersJobIsNotFound(t *testing.T) {
-	ex := newExporter("/models/x")
-	ex.owner = map[string]string{"j1": "u2"}
-	s := modelSpecs(t, ex, nil)
-	if _, err := call(t, s["finetune.export"], "named-user", "u1", `{"jobId":"j1"}`); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("got %v", err)
-	}
-}
+	It("export of another user's job is not found", func() {
+		ex := newExporter("/models/x")
+		ex.owner = map[string]string{"j1": "u2"}
+		s := modelSpecs(ex, nil)
+		_, err := call(s["finetune.export"], "named-user", "u1", `{"jobId":"j1"}`)
+		Expect(err).To(MatchError(ErrNotFound))
+	})
 
-func TestExportRunsOncePerOperationID(t *testing.T) {
-	ex := newExporter("/models/my-model")
-	b := New(NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
-	if err := RegisterEngineModels(b, ex, nil); err != nil {
-		t.Fatal(err)
-	}
-	spec := b.specs["finetune.export"]
-	c := Call{AddonID: "fine-tuning", OperationID: "op1", Actor: contract.Actor{UserID: "u1", Mode: "named-user"}, Arguments: json.RawMessage(`{"jobId":"j1"}`)}
-	first, err := b.run(context.Background(), spec, c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := b.run(context.Background(), spec, c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ex.calls != 1 || string(first) != string(second) {
-		t.Fatalf("calls=%d first=%s second=%s", ex.calls, first, second)
-	}
-}
+	It("export runs once per operation ID", func() {
+		ex := newExporter("/models/my-model")
+		b := New(NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
+		Expect(RegisterEngineModels(b, ex, nil)).To(Succeed())
+		spec := b.specs["finetune.export"]
+		c := Call{AddonID: "fine-tuning", OperationID: "op1", Actor: contract.Actor{UserID: "u1", Mode: "named-user"}, Arguments: json.RawMessage(`{"jobId":"j1"}`)}
+		first, err := b.run(context.Background(), spec, c)
+		Expect(err).ToNot(HaveOccurred())
+		second, err := b.run(context.Background(), spec, c)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ex.calls).To(Equal(1))
+		Expect(string(first)).To(Equal(string(second)))
+	})
 
-func TestExportRefusesAReturnedPathThatIsNotAModelName(t *testing.T) {
-	ex := newExporter("/models/bad name")
-	s := modelSpecs(t, ex, nil)
-	if _, err := call(t, s["finetune.export"], "named-user", "u1", `{"jobId":"j1"}`); err == nil || errors.Is(err, ErrBadRequest) {
-		t.Fatalf("want an outage error, got %v", err)
-	}
-}
+	It("export refuses a returned path that is not a model name", func() {
+		ex := newExporter("/models/bad name")
+		s := modelSpecs(ex, nil)
+		_, err := call(s["finetune.export"], "named-user", "u1", `{"jobId":"j1"}`)
+		Expect(err).To(HaveOccurred(), "want an outage error")
+		Expect(err).ToNot(MatchError(ErrBadRequest), "want an outage error")
+	})
 
-func TestImportRegistersTheQuantizedModelAndReturnsOnlyItsName(t *testing.T) {
-	im := &fakeImporter{path: "/models/q-model"}
-	s := modelSpecs(t, nil, im)
-	out, err := call(t, s["quantize.import"], "named-user", "u1", `{"jobId":"q1","name":"q-model"}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(out) != `{"model":"q-model"}` {
-		t.Fatalf("got %s", out)
-	}
-}
+	It("import registers the quantized model and returns only its name", func() {
+		im := &fakeImporter{path: "/models/q-model"}
+		s := modelSpecs(nil, im)
+		out, err := call(s["quantize.import"], "named-user", "u1", `{"jobId":"q1","name":"q-model"}`)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(out)).To(Equal(`{"model":"q-model"}`))
+	})
 
-func TestImportOfAJobThatIsNotCompletedIsAConflict(t *testing.T) {
-	im := &fakeImporter{err: fmt.Errorf("%w: job q1 is not completed", ErrConflict)}
-	s := modelSpecs(t, nil, im)
-	if _, err := call(t, s["quantize.import"], "named-user", "u1", `{"jobId":"q1"}`); !errors.Is(err, ErrConflict) {
-		t.Fatalf("got %v", err)
-	}
-}
+	It("import of a job that is not completed is a conflict", func() {
+		im := &fakeImporter{err: fmt.Errorf("%w: job q1 is not completed", ErrConflict)}
+		s := modelSpecs(nil, im)
+		_, err := call(s["quantize.import"], "named-user", "u1", `{"jobId":"q1"}`)
+		Expect(err).To(MatchError(ErrConflict))
+	})
 
-func TestModelOperationsAreApplyAndIdempotentAndAdminOnly(t *testing.T) {
-	s := modelSpecs(t, newExporter("/models/x"), &fakeImporter{})
-	for _, op := range []string{"finetune.export", "quantize.import"} {
-		if s[op].Scope != "apply" || !s[op].Idempotent || !s[op].Admin {
-			t.Fatalf("%s: scope=%q idempotent=%v admin=%v", op, s[op].Scope, s[op].Idempotent, s[op].Admin)
+	It("model operations are apply, idempotent and admin only", func() {
+		s := modelSpecs(newExporter("/models/x"), &fakeImporter{})
+		for _, op := range []string{"finetune.export", "quantize.import"} {
+			Expect(s[op].Scope).To(Equal("apply"), op)
+			Expect(s[op].Idempotent).To(BeTrue(), op)
+			Expect(s[op].Admin).To(BeTrue(), op)
 		}
-	}
-	if s["finetune.export"].Feature != featureFineTuning || s["quantize.import"].Feature != featureQuantization {
-		t.Fatalf("features: %q %q", s["finetune.export"].Feature, s["quantize.import"].Feature)
-	}
-}
+		Expect(s["finetune.export"].Feature).To(Equal(featureFineTuning))
+		Expect(s["quantize.import"].Feature).To(Equal(featureQuantization))
+	})
 
-func TestExportIsRefusedForAFeatureHoldingNonAdmin(t *testing.T) {
-	ex := newExporter("/models/my-model")
-	b := adminBroker(t, ex, nil)
-	code, out := serveAs(t, b, "finetune.export", "named-user", "u1", `{"jobId":"j1"}`)
-	if code != http.StatusForbidden || out.Error == nil || out.Error.Code != contract.HostFeature {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-	if ex.calls != 0 {
-		t.Fatalf("service called %d times for a non-admin", ex.calls)
-	}
-}
+	It("export is refused for a feature-holding non-admin", func() {
+		ex := newExporter("/models/my-model")
+		b := adminBroker(ex, nil)
+		code, out := serveAs(b, "finetune.export", "named-user", "u1", `{"jobId":"j1"}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal(contract.HostFeature))
+		Expect(ex.calls).To(Equal(0), "service called for a non-admin")
+	})
 
-func TestExportIsAllowedForAnAdmin(t *testing.T) {
-	ex := newExporter("/models/my-model")
-	ex.owner = map[string]string{"j1": "admin"}
-	b := adminBroker(t, ex, nil)
-	code, out := serveAs(t, b, "finetune.export", "named-user", "admin", `{"jobId":"j1"}`)
-	if code != http.StatusOK || out.Error != nil {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-}
+	It("export is allowed for an admin", func() {
+		ex := newExporter("/models/my-model")
+		ex.owner = map[string]string{"j1": "admin"}
+		b := adminBroker(ex, nil)
+		code, out := serveAs(b, "finetune.export", "named-user", "admin", `{"jobId":"j1"}`)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(out.Error).To(BeNil())
+	})
 
-func TestImportIsRefusedForAFeatureHoldingNonAdmin(t *testing.T) {
-	im := &fakeImporter{path: "/models/q-model"}
-	b := adminBroker(t, nil, im)
-	code, out := serveAs(t, b, "quantize.import", "named-user", "u1", `{"jobId":"q1"}`)
-	if code != http.StatusForbidden || out.Error == nil || out.Error.Code != contract.HostFeature {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-	if im.calls != 0 {
-		t.Fatalf("service called %d times for a non-admin", im.calls)
-	}
-}
+	It("import is refused for a feature-holding non-admin", func() {
+		im := &fakeImporter{path: "/models/q-model"}
+		b := adminBroker(nil, im)
+		code, out := serveAs(b, "quantize.import", "named-user", "u1", `{"jobId":"q1"}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal(contract.HostFeature))
+		Expect(im.calls).To(Equal(0), "service called for a non-admin")
+	})
 
-func TestImportIsAllowedForAnAdmin(t *testing.T) {
-	im := &fakeImporter{path: "/models/q-model"}
-	b := adminBroker(t, nil, im)
-	code, out := serveAs(t, b, "quantize.import", "named-user", "admin", `{"jobId":"q1"}`)
-	if code != http.StatusOK || out.Error != nil {
-		t.Fatalf("%d %+v", code, out.Error)
-	}
-}
+	It("import is allowed for an admin", func() {
+		im := &fakeImporter{path: "/models/q-model"}
+		b := adminBroker(nil, im)
+		code, out := serveAs(b, "quantize.import", "named-user", "admin", `{"jobId":"q1"}`)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(out.Error).To(BeNil())
+	})
 
-// The broker does not shortcut the local owner: the admin check decides in
-// every mode, so a local-owner actor the check refuses is refused.
-func TestTheAdminCheckDecidesInEveryMode(t *testing.T) {
-	ex := newExporter("/models/my-model")
-	ex.owner = map[string]string{"j1": "u1"}
-	b := adminBroker(t, ex, nil)
-	if code, out := serveAs(t, b, "finetune.export", "local-owner", "u1", `{"jobId":"j1"}`); code != http.StatusForbidden || out.Error.Code != contract.HostFeature {
-		t.Fatalf("local-owner actor the check refuses: %d %+v", code, out.Error)
-	}
-	if ex.calls != 0 {
-		t.Fatalf("service called %d times for a refused actor", ex.calls)
-	}
-}
+	// The broker does not shortcut the local owner: the admin check decides in
+	// every mode, so a local-owner actor the check refuses is refused.
+	It("lets the admin check decide in every mode", func() {
+		ex := newExporter("/models/my-model")
+		ex.owner = map[string]string{"j1": "u1"}
+		b := adminBroker(ex, nil)
+		code, out := serveAs(b, "finetune.export", "local-owner", "u1", `{"jobId":"j1"}`)
+		Expect(code).To(Equal(http.StatusForbidden), "local-owner actor the check refuses")
+		Expect(out.Error).ToNot(BeNil())
+		Expect(out.Error.Code).To(Equal(contract.HostFeature))
+		Expect(ex.calls).To(Equal(0), "service called for a refused actor")
+	})
+})
