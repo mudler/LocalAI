@@ -220,15 +220,8 @@ export default function Sidebar({ isOpen, onClose }) {
             {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
               <Fragment key={item.path}>
                 <NavItem item={item} onClose={onClose} collapsed={collapsed} />
-                {/* The Apps group: the pinned apps in pin order, then the full list
-                    of apps as the last line. Show all has no active style of its
-                    own; the Apps entry above carries it. */}
+                {/* The Apps group: the pinned apps in pin order, under the Apps entry. */}
                 {!legacy && item.addonsEntry && !collapsed && <AppsPinnedLinks onClose={onClose} />}
-                {!legacy && item.addonsEntry && !collapsed && (
-                  <NavLink to={item.path} onClick={onClose} className="nav-item nav-item--sub" data-testid="apps-show-all">
-                    <span className="nav-label">{t('items.showAll')}</span>
-                  </NavLink>
-                )}
               </Fragment>
             ))}
           </div>

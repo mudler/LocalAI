@@ -66,8 +66,7 @@
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
-    "addons": "Apps",
-    "showAll": "Show all"
+    "addons": "Apps"
   },
   "footer": {
     "github": "GitHub",

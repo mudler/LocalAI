@@ -1711,9 +1711,8 @@ reach **Browse**, **Installed** and **Libraries** from the drawer. The tabs are 
 convenience: the owner checks administration again on every call, so a request that skips
 the page is denied the same way (403).
 
-The sidebar has the items **Chat**, **Models** and **Apps**, and below Apps a **Show all**
-link. Both open the add-ons drawer at `/app/addons`. The pinned apps are listed between them,
-in pin order, as indented links with the app icon and title; nothing is listed when no app is
+The sidebar has the items **Chat**, **Models** and **Apps**. **Apps** opens the add-ons drawer at
+`/app/addons`. The pinned apps are listed under it, in pin order, as indented links with the app icon and title; nothing is listed when no app is
 pinned, and the list is hidden when the sidebar is collapsed. The user pins add-ons and changes
 their order with the buttons on a pinned tile in the drawer. Pins belong to the user, follow the user across browsers, and are
 capped at eight. A pin whose add-on is stopped opens the detail view; a pin whose add-on

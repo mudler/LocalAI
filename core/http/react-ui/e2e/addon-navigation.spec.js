@@ -26,12 +26,12 @@ async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true
 }
 
 test.describe('Add-on navigation', () => {
-  test('the sidebar lists the pinned apps under Apps, in pin order, with Show all last', async ({ page }) => {
+  test('the sidebar lists the pinned apps under Apps, in pin order, and no Show all link', async ({ page }) => {
     await setup(page)
     await page.goto('/app')
     const nav = page.getByRole('navigation')
     await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
-    // Apps, then the pinned apps in pin order, then Show all as the last line.
+    // Apps, then the pinned apps in pin order; Apps is the only add-on entry.
     await expect(nav.getByRole('link', { name: 'Apps', exact: true })).toHaveCount(1)
     const pinned = nav.getByTestId('apps-pinned-link')
     await expect(pinned).toHaveCount(2)
@@ -39,10 +39,11 @@ test.describe('Add-on navigation', () => {
     await expect(pinned.nth(0)).toHaveText('Studio')
     await expect(pinned.nth(1)).toHaveAttribute('data-app', 'talk')
     await expect(pinned.nth(1)).toHaveText('Talk')
-    await expect(nav.getByTestId('apps-show-all')).toHaveText('Show all')
+    await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
+    await expect(nav.getByText('Show all')).toHaveCount(0)
     const group = await nav.locator('a.nav-item').evaluateAll(els => els.map(e => e.textContent.trim()))
     const at = group.indexOf('Apps')
-    expect(group.slice(at, at + 4)).toEqual(['Apps', 'Studio', 'Talk', 'Show all'])
+    expect(group.slice(at, at + 4)).toEqual(['Apps', 'Studio', 'Talk'])
     await expect(pinned.nth(0)).toHaveAttribute('href', /\/app\/addons\/studio\//)
     // There is no Pinned section.
     await expect(page.getByTestId('pinned-nav')).toHaveCount(0)
@@ -54,11 +55,12 @@ test.describe('Add-on navigation', () => {
     await page.goto('/app')
     const nav = page.getByRole('navigation')
     await expect(nav.getByTestId('apps-pinned-link')).toHaveText(['Talk', 'Studio'])
-    await expect(nav.getByTestId('apps-show-all')).toBeVisible()
+    await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
     await page.unroute('**/api/addons/pins')
     await page.route('**/api/addons/pins', route => route.fulfill({ json: [] }))
     await page.goto('/app')
-    await expect(nav.getByTestId('apps-show-all')).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Apps', exact: true })).toHaveCount(1)
+    await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
     await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
   })
 

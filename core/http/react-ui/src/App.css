@@ -9693,5 +9693,5 @@ button.lane:hover {
   .lai-icon--beat { animation: none; }
 }
 
-/* The "Show all" line under the Apps entry: its label lines up with the labels above it. */
+/* Pinned apps under the Apps entry: their labels line up with the labels above them. */
 .sidebar-nav .nav-item.nav-item--sub { padding-inline-start: 36px; }
