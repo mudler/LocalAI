@@ -13,6 +13,7 @@ export default defineConfig({
     '**/addons-upgrade.spec.js', '**/tables-acceptance.spec.js', '**/tables-artifacts.spec.js',
     '**/tables-ui.spec.js',
   ],
+  globalSetup: './e2e/global-setup.js',
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   // TEMPORARY: cap parallelism. Playwright's default (cores/2) oversubscribes

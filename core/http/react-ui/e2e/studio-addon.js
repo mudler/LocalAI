@@ -13,8 +13,22 @@ const DIGEST = 'e'.repeat(64)
 const TYPES = { js: 'text/javascript', css: 'text/css', png: 'image/png' }
 const built = new Map()
 
-// Builds the bundle once per worker, so a spec never runs against a stale one.
+// The build empties and rewrites addons/<id>/ui/dist, and every worker serves
+// its files, so two builds at once leave a running spec without its style sheet
+// or module. The run builds once, before any worker starts (global-setup.js),
+// and says so in this variable.
+const BUILT = 'E2E_ADDON_BUNDLES_BUILT'
+
+// Builds the bundles for the whole run. Called by the Playwright global setup.
+export async function buildStudioAddons(ids = ['studio', 'talk']) {
+  for (const id of ids) await import(path.join(addons, id, 'ui/build.mjs')).then(m => m.build())
+  process.env[BUILT] = '1'
+}
+
+// The bundle of one add-on. A run that did not go through the global setup
+// builds it here, once per worker, so a spec never runs against a stale one.
 function build(id) {
+  if (process.env[BUILT]) return Promise.resolve(path.join(addons, id, 'ui/dist'))
   if (!built.has(id)) built.set(id, import(path.join(addons, id, 'ui/build.mjs')).then(m => m.build()))
   return built.get(id)
 }
