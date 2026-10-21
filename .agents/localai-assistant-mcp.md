@@ -116,6 +116,12 @@ example Tables) follow a different, code-enforced rule, documented in
   `tools.Consumers` (`core/services/addons/tools/consumers.go`) as route or
   reject. The matrix test scans the sources and fails for an unclassified file.
 
+One backend route sits outside the add-on surface: `POST /backends/library/install`
+installs a backend (not an add-on) from a library entry. It is exposed as the
+`install_library_backend` tool and is a plain admin mutation under safety
+rule 1. Listing library entries stays on `/api/addons` and has no assistant
+tool, for the reason above.
+
 Do not rewrite the unrelated assistant tools to match this rule.
 
 ## Distributed mode
