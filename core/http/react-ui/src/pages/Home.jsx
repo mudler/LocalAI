@@ -28,6 +28,7 @@ import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
 import { readAttachmentText, renderPdfPages, PdfNoTextError } from '../utils/pdf'
+import { serializeAttachmentSources } from '../utils/attachmentCollection'
 import { greetingKey } from '../utils/greeting'
 import {
   listConversations, setActiveConversation, removeConversation,
@@ -229,7 +230,8 @@ export default function Home() {
           if (err instanceof PdfNoTextError) {
             try {
               const { pages, total } = await renderPdfPages(file)
-              setImageFiles(prev => [...prev, ...pages])
+              const source = { name: file.name, type: file.type, base64 }
+              setImageFiles(prev => [...prev, ...pages.map(p => ({ ...p, source }))])
               addToast(t('input.pdfScannedAsImages', { name: file.name, count: pages.length, total }), 'info')
               continue
             } catch {
@@ -291,7 +293,7 @@ export default function Home() {
     const chatData = {
       message: text,
       model: selectedModel,
-      files: allFiles,
+      ...serializeAttachmentSources(allFiles),
       mcpMode,
       mcpServers: mcpSelectedServers,
       clientMCPServers: clientMCPSelectedIds,

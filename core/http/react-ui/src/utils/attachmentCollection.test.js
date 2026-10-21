@@ -13,6 +13,9 @@ import {
   loadAttachmentCollection,
   saveAttachmentCollection,
   saveAttachmentsToCollection,
+  saveAttachmentsWhenReady,
+  serializeAttachmentSources,
+  restoreAttachmentSources,
 } from './attachmentCollection.js'
 
 function memoryStorage() {
@@ -153,4 +156,42 @@ test('a failed upload becomes a failed status with the reason and does not rejec
     ['bad.csv', UPLOAD_FAILED, 'rejected bad.csv'],
     ['ok.json', UPLOAD_SAVED, ''],
   ])
+})
+
+
+test('Home handoff preserves one original PDF across rendered pages', async () => {
+  const source = { name: 'scan.pdf', type: 'application/pdf', base64: b64('%PDF-original') }
+  const handoff = JSON.parse(JSON.stringify(serializeAttachmentSources([
+    { name: 'scan-page-1.png', type: 'image/png', base64: b64('page1'), source },
+    { name: 'scan-page-2.png', type: 'image/png', base64: b64('page2'), source },
+  ])))
+  assert.equal(handoff.attachmentSources.length, 1)
+  const entries = restoreAttachmentSources(handoff.files, handoff.attachmentSources)
+  const originals = attachmentOriginals(entries)
+  assert.equal(originals.length, 1)
+  assert.equal(originals[0].name, 'scan.pdf')
+  assert.equal(await originals[0].file.text(), '%PDF-original')
+  assert.equal(entries[1].base64, b64('page2'))
+})
+
+test('send waits for collection discovery without dropping its attachments', async () => {
+  let resolve
+  const available = new Promise(r => { resolve = r })
+  const { calls, upload } = recorder()
+  const pending = saveAttachmentsWhenReady({ selected: 'docs', loadAvailable: () => available,
+    entries: [{ name: 'a.txt', base64: b64('original') }], upload })
+  assert.equal(calls.length, 0)
+  resolve(['docs'])
+  const statuses = await pending
+  assert.equal(calls.length, 1)
+  assert.equal(statuses[0].state, UPLOAD_SAVED)
+})
+
+test('failed discovery or revoked access never uploads', async () => {
+  const { calls, upload } = recorder()
+  for (const loadAvailable of [async () => [], async () => { throw new Error('denied') }]) {
+    assert.deepEqual(await saveAttachmentsWhenReady({ selected: 'docs', loadAvailable,
+      entries: [{ name: 'a.txt', base64: b64('original') }], upload }), [])
+  }
+  assert.equal(calls.length, 0)
 })

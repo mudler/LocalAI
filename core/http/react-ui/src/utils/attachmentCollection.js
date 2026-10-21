@@ -108,3 +108,33 @@ export async function saveAttachmentsToCollection({ collection, entries, upload,
   }))
   return statuses
 }
+
+// Keep each original only once in Home's JSON handoff, even for a multi-page scan.
+export function serializeAttachmentSources(entries) {
+  const attachmentSources = []
+  const sources = new Map()
+  const files = entries.map(({ source, ...entry }) => {
+    if (!source) return entry
+    if (!sources.has(source)) {
+      sources.set(source, attachmentSources.length)
+      attachmentSources.push(source)
+    }
+    return { ...entry, sourceIndex: sources.get(source) }
+  })
+  return { files, attachmentSources }
+}
+
+export function restoreAttachmentSources(files, sources = []) {
+  const originals = sources.map(s => base64ToFile(s.base64, s.name, s.type))
+  return files.map(({ sourceIndex, ...entry }) => ({ ...entry, ...(originals[sourceIndex] ? { source: originals[sourceIndex] } : {}) }))
+}
+
+// Resolve the collection for this send, rather than depending on whether the
+// settings list finished loading before Home's automatic submit.
+export async function saveAttachmentsWhenReady({ selected, loadAvailable, ...options }) {
+  if (!selected) return []
+  let available
+  try { available = await loadAvailable() } catch { return [] }
+  const collection = effectiveCollection(selected, available)
+  return saveAttachmentsToCollection({ ...options, collection })
+}

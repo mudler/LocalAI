@@ -47,10 +47,11 @@ import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
+import { apiUrl } from '../utils/basePath'
 import { useHubAuth } from '../components/hub/useHubAuth'
 import {
   canSaveAttachments, collectionNames, effectiveCollection,
-  loadAttachmentCollection, saveAttachmentCollection, saveAttachmentsToCollection,
+  loadAttachmentCollection, saveAttachmentCollection, saveAttachmentsWhenReady, restoreAttachmentSources,
 } from '../utils/attachmentCollection'
 // eslint-disable-next-line no-unused-vars
 import AttachmentUploads from '../components/chat/AttachmentUploads'
@@ -266,16 +267,23 @@ function ChatPage() {
   // never upload the same message twice. Only the latest batch may update
   // the status strip.
   const startAttachmentUploads = useCallback((entries) => {
-    if (!attachmentCollection) return
+    if (!attachmentCollectionChoice) return
     const batch = ++uploadBatchRef.current
-    saveAttachmentsToCollection({
-      collection: attachmentCollection,
+    saveAttachmentsWhenReady({
+      selected: attachmentCollectionChoice,
+      loadAvailable: async () => {
+        const features = hubAuth.features.agents === undefined
+          ? await fetch(apiUrl('/api/features')).then(r => r.json())
+          : hubAuth.features
+        if (!canSaveAttachments({ features, hasFeature: hubAuth.hasFeature })) return []
+        return collectionNames(await agentCollectionsApi.list())
+      },
       entries,
       upload: (name, form) => agentCollectionsApi.upload(name, form),
       idPrefix: `up${batch}`,
       onStatus: (statuses) => { if (uploadBatchRef.current === batch) setAttachmentUploads(statuses) },
     })
-  }, [attachmentCollection])
+  }, [attachmentCollectionChoice, hubAuth.features, hubAuth.hasFeature])
 
   const toggleFocusMode = (next) => {
     setFocusModeEnabled(next)
@@ -565,7 +573,7 @@ function ChatPage() {
           }
           if (hasMessage) {
             setInput(data.message)
-            if (data.files) setFiles(data.files)
+            if (data.files) setFiles(restoreAttachmentSources(data.files, data.attachmentSources))
             setTimeout(() => {
               const submitBtn = document.getElementById('chat-submit-btn')
               submitBtn?.click()
