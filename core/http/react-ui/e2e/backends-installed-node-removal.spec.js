@@ -414,6 +414,10 @@ for (const beforeConfirm of [false, true]) test(`generic deletion blocks targete
       history.pushState({}, '', url); dispatchEvent(new PopStateEvent('popstate'))
     }, ids[0])
   }
+  // The popstate renders the targeted page in a later commit. A click that
+  // lands before it reaches a button that is missing or still disabled and
+  // sends nothing.
+  await expect(reinstall(page)).toBeEnabled()
   await reinstall(page).evaluate(el => el.click())
   await expect.poll(() => s.installs.length).toBe(1)
   if (beforeConfirm) {
