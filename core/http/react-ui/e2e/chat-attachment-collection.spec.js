@@ -117,6 +117,31 @@ test.describe('Chat - save attachments to a collection', () => {
     expect(uploads).toHaveLength(1)
   })
 
+  test('Home auto-send keeps its upload while the collection list is pending', async ({ page }) => {
+    await page.addInitScript(k => {
+      localStorage.setItem(k, 'docs')
+      localStorage.setItem('localai_index_chat_data', JSON.stringify({
+        message: 'Summarize this', model: 'qwen3-8b', newChat: true,
+        files: [{ name: 'notes.txt', type: 'text/plain', base64: btoa('original bytes'), textContent: 'original bytes' }],
+      }))
+    }, STORE_KEY)
+    const { uploads } = await mockCollections(page)
+    let release
+    const ready = new Promise(resolve => { release = resolve })
+    await page.route('**/api/agents/collections', async route => {
+      await ready
+      await route.fulfill({ json: { collections: ['docs'] } })
+    })
+    await answerWith(page, 'Answered before upload.')
+    await openChat(page, chats)
+    await expect(page.getByText('Answered before upload.')).toBeVisible()
+    expect(uploads).toHaveLength(0)
+    release()
+    await expect(page.getByTestId('chat-attachment-upload')).toContainText('saved to docs')
+    expect(uploads).toHaveLength(1)
+    expect(uploads[0].body).toContain('original bytes')
+  })
+
   test('a pasted image is saved under the name the composer gave it', async ({ page }) => {
     await page.addInitScript(([k]) => localStorage.setItem(k, 'docs'), [STORE_KEY])
     const { uploads } = await mockCollections(page)
