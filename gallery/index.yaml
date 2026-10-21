@@ -4,6 +4,123 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: ornith-1.5-122b-ud-q4-k-xl
+  description: |
+    Ornith 1.5 122B is a Qwen3.5 mixture-of-experts model for reasoning,
+    coding, and tool use. This UD-Q4_K_XL GGUF build includes the F16 vision
+    projector for image input and uses an 8,192-token default context.
+  license: mit
+  urls:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-122B
+    - https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - coding
+    - tools
+    - vision
+  files:
+    - filename: llama-cpp/models/ornith-1.5-122b/Ornith-1.5-122B-UD-Q4_K_XL-00001-of-00003.gguf
+      sha256: 7159d31a6a6ce5528500b490880383844c3c9b21fcdaad94e66c9e65233ff359
+      uri: https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF/resolve/3842d003341507c216295c6f28dfcd30349925c6/UD-Q4_K_XL/Ornith-1.5-122B-UD-Q4_K_XL-00001-of-00003.gguf
+    - filename: llama-cpp/models/ornith-1.5-122b/Ornith-1.5-122B-UD-Q4_K_XL-00002-of-00003.gguf
+      sha256: e66952128394bb4c75554c7e10a12a8b63dd1c7f049d876a02885a946e30c1c3
+      uri: https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF/resolve/3842d003341507c216295c6f28dfcd30349925c6/UD-Q4_K_XL/Ornith-1.5-122B-UD-Q4_K_XL-00002-of-00003.gguf
+    - filename: llama-cpp/models/ornith-1.5-122b/Ornith-1.5-122B-UD-Q4_K_XL-00003-of-00003.gguf
+      sha256: 21325ec18a9e3210eeffada0fc327a25a79171918f1d04f8f0a06b61866ac9ba
+      uri: https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF/resolve/3842d003341507c216295c6f28dfcd30349925c6/UD-Q4_K_XL/Ornith-1.5-122B-UD-Q4_K_XL-00003-of-00003.gguf
+    - filename: llama-cpp/mmproj/ornith-1.5-122b/mmproj-F16.gguf
+      sha256: 39db176176a904b101f5173a4f03e785990f9279f94ab373c4fd629ae7011817
+      uri: https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF/resolve/3842d003341507c216295c6f28dfcd30349925c6/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-122b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-122b/Ornith-1.5-122B-UD-Q4_K_XL-00001-of-00003.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: ornith-1.5-122b-q8
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: ornith-1.5-122b-q8
+  description: |
+    Ornith 1.5 122B is a Qwen3.5 mixture-of-experts model for reasoning,
+    coding, and tool use. This Q8_0 GGUF build includes the F16 vision
+    projector for image input and uses an 8,192-token default context.
+  license: mit
+  urls:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-122B
+    - https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - coding
+    - tools
+    - vision
+  files:
+    - filename: llama-cpp/models/ornith-1.5-122b/Ornith-1.5-122B-Q8_0-00001-of-00004.gguf
+      sha256: e9dbc5401757506c6bbb04dba3bf65decc6435aaf0733f1e95cc58a9332166fc
+      uri: https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF/resolve/3842d003341507c216295c6f28dfcd30349925c6/Q8_0/Ornith-1.5-122B-Q8_0-00001-of-00004.gguf
+    - filename: llama-cpp/models/ornith-1.5-122b/Ornith-1.5-122B-Q8_0-00002-of-00004.gguf
+      sha256: c1ea340f63c932895417f7c2e7c4967b4b56f3e5a3f981242d0482c662aae2b8
+      uri: https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF/resolve/3842d003341507c216295c6f28dfcd30349925c6/Q8_0/Ornith-1.5-122B-Q8_0-00002-of-00004.gguf
+    - filename: llama-cpp/models/ornith-1.5-122b/Ornith-1.5-122B-Q8_0-00003-of-00004.gguf
+      sha256: 644c26a3d8cab405186ef545e4071b433a23c2a359e45434c822d9c48884eb4c
+      uri: https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF/resolve/3842d003341507c216295c6f28dfcd30349925c6/Q8_0/Ornith-1.5-122B-Q8_0-00003-of-00004.gguf
+    - filename: llama-cpp/models/ornith-1.5-122b/Ornith-1.5-122B-Q8_0-00004-of-00004.gguf
+      sha256: 43bdc1b0cb764b5531d320816fb6004245256a414bfd55f1fdb69e3db42eaa57
+      uri: https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF/resolve/3842d003341507c216295c6f28dfcd30349925c6/Q8_0/Ornith-1.5-122B-Q8_0-00004-of-00004.gguf
+    - filename: llama-cpp/mmproj/ornith-1.5-122b/mmproj-F16.gguf
+      sha256: 39db176176a904b101f5173a4f03e785990f9279f94ab373c4fd629ae7011817
+      uri: https://huggingface.co/unsloth/Ornith-1.5-122B-GGUF/resolve/3842d003341507c216295c6f28dfcd30349925c6/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-122b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-122b/Ornith-1.5-122B-Q8_0-00001-of-00004.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
