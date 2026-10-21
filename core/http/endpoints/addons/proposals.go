@@ -38,6 +38,8 @@ type ConfirmRequest struct {
 //  2. The request is a same-origin fetch from a page of this host
 //     (Sec-Fetch-Site same-origin, destination empty, mode cors or
 //     same-origin), which a cross-site page or a navigation cannot produce.
+//     Where the browser sends no Sec-Fetch-Site (plain HTTP on a non-local
+//     address), Origin or, failing that, Referer must name this host.
 //  3. It names the proposal in the confirmation header, which a form post or
 //     a link cannot set.
 //  4. It carries no tool, agent or MCP execution marker.
@@ -62,10 +64,22 @@ func humanSurface(c echo.Context, s settings, a contract.Actor, id string) bool 
 			return false
 		}
 	}
-	if h.Get("Sec-Fetch-Site") != "same-origin" || h.Get("Sec-Fetch-Dest") != "empty" {
+	if site := h.Get("Sec-Fetch-Site"); site != "" {
+		if site != "same-origin" || h.Get("Sec-Fetch-Dest") != "empty" {
+			return false
+		}
+		if mode := h.Get("Sec-Fetch-Mode"); mode != "cors" && mode != "same-origin" {
+			return false
+		}
+	} else if !sameHostBrowserRequest(c.Request()) {
+		// Browsers omit Sec-Fetch-* over plain HTTP on an address that is not
+		// localhost. Without Sec-Fetch-Site the request must still name this
+		// host in Origin or, when Origin is absent, Referer. A stray
+		// destination or mode that is present must still be the expected one.
 		return false
-	}
-	if mode := h.Get("Sec-Fetch-Mode"); mode != "cors" && mode != "same-origin" {
+	} else if dest := h.Get("Sec-Fetch-Dest"); dest != "" && dest != "empty" {
+		return false
+	} else if mode := h.Get("Sec-Fetch-Mode"); mode != "" && mode != "cors" && mode != "same-origin" {
 		return false
 	}
 	if id == "" || h.Get(ConfirmHeader) != id {
