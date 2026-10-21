@@ -1,0 +1,21 @@
+- name: moonshine-tiny
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/moonshine-ai/moonshine
+  description: |
+    Moonshine Tiny is a lightweight speech-to-text model optimized for fast transcription. It is designed for efficient on-device ASR with high accuracy relative to its size.
+  license: apache-2.0
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - cpu
+    - gpu
+  size: 108MB
+  overrides:
+    backend: moonshine
+    known_usecases:
+        - transcript
+    parameters:
+        model: moonshine/tiny

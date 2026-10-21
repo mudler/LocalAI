@@ -1,0 +1,29 @@
+- name: aurore-reveil_koto-small-7b-it
+  urls:
+    - https://huggingface.co/Aurore-Reveil/Koto-Small-7B-IT
+    - https://huggingface.co/bartowski/Aurore-Reveil_Koto-Small-7B-IT-GGUF
+  description: |
+    Koto-Small-7B-IT is an instruct-tuned version of Koto-Small-7B-PT, which was trained on MiMo-7B-Base for almost a billion tokens of creative-writing data. This model is meant for roleplaying and instruct usecases.
+  license: mit
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/9Bnn2AnIjfQFWBGkhDNmI.png
+  tags:
+    - koto
+    - 7b
+    - gguf
+    - quantized
+    - llm
+    - text-to-text
+    - chat
+    - creative-writing
+    - roleplay
+    - instruct-tuned
+  last_checked: "2026-04-30"
+  overrides:
+    known_usecases:
+        - chat
+    parameters:
+        model: Aurore-Reveil_Koto-Small-7B-IT-Q4_K_M.gguf
+  files:
+    - filename: Aurore-Reveil_Koto-Small-7B-IT-Q4_K_M.gguf
+      sha256: c5c38bfa5d8d5100e91a2e0050a0b2f3e082cd4bfd423cb527abc3b6f1ae180c
+      uri: huggingface://bartowski/Aurore-Reveil_Koto-Small-7B-IT-GGUF/Aurore-Reveil_Koto-Small-7B-IT-Q4_K_M.gguf
