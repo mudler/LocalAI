@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ADMIN, MEMBER, app, sessionFor, mockAddons } from './addons-fixtures.js'
-import { installStudioAddons, packagedApp } from './studio-addon.js'
+import { buildAddonBundles, installStudioAddons, packagedApp } from './studio-addon.js'
 import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } from './identity-fixtures.js'
 
 // Studio and Talk are packaged add-ons, not built-in tiles: the specs install
@@ -449,14 +449,16 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
 })
 
 // The built Face module, served the same way. dist/ is not committed, so the
-// spec builds it once per run with the builder of the add-on.
+// global setup builds it once per run with the builder of the add-on.
 const FT_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../addons/fine-tuning/ui/dist')
 const FACE_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../addons/face/ui/dist')
 const FACE_BASE = `/api/addons/face/assets/${'e'.repeat(64)}`
 
 test.beforeAll(async () => {
-  const { build } = await import('../../../../addons/face/ui/build.mjs')
-  await build()
+  // The global setup has built the bundles already. A build rewrites the
+  // dist folder that every worker serves, so a worker must not start one.
+  if (process.env.E2E_ADDON_BUNDLES_BUILT) return
+  await buildAddonBundles(['face', 'fine-tuning'])
 })
 
 const faceApp = () => app({

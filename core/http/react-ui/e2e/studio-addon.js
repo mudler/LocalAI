@@ -20,8 +20,14 @@ const built = new Map()
 const BUILT = 'E2E_ADDON_BUNDLES_BUILT'
 
 // Builds the bundles for the whole run. Called by the Playwright global setup.
-export async function buildStudioAddons(ids = ['studio', 'talk']) {
+export async function buildAddonBundles(ids) {
   for (const id of ids) await import(path.join(addons, id, 'ui/build.mjs')).then(m => m.build())
+}
+
+// The add-ons the specs serve from their build output: Studio and Talk through
+// installStudioAddons, Face and Fine-tuning through their own routes.
+export async function buildStudioAddons(ids = ['studio', 'talk', 'face', 'fine-tuning']) {
+  await buildAddonBundles(ids)
   process.env[BUILT] = '1'
 }
 
