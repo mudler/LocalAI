@@ -146,6 +146,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all := []Release{}
+	own := s.entryOwners()
 	for id, src := range s.sources {
 		if !src.readByCatalog() || (q.SourceID != "" && q.SourceID != id) {
 			continue
@@ -159,6 +160,14 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 		}
 		for _, r := range cache.releases {
 			if r.OS != targetOS || r.Arch != targetArch || !q.matchesKind(r) {
+				continue
+			}
+			// A user source wins over a shipped default; a tie between two
+			// user sources is refused, never resolved silently.
+			if err := own[entryKey{r.EntryKind(), r.AddonID}].check(entryKey{r.EntryKind(), r.AddonID}, src.Default); err != nil {
+				if errors.Is(err, ErrConflict) {
+					return Page{}, err
+				}
 				continue
 			}
 			if strings.Contains(strings.ToLower(r.Name+" "+r.AddonID+" "+r.Description), strings.ToLower(q.Text)) {
@@ -204,6 +213,9 @@ func (c Catalog) ResolveKind(ctx context.Context, kind Kind, sourceID, addonID, 
 	}
 	if cache.failed {
 		return Release{}, ErrRefresh
+	}
+	if err := s.entryOwners()[entryKey{kind, addonID}].check(entryKey{kind, addonID}, src.Default); err != nil {
+		return Release{}, err
 	}
 	targetOS, targetArch := c.target()
 	var found *Release

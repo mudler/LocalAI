@@ -292,7 +292,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 }
 
 // denials are authorization, policy and request-level rejections.
-var denials = []error{contract.ErrRefused, ErrForbidden, recovery.ErrForbidden, addons.ErrForbidden, addons.ErrStaleGeneration, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, addons.ErrStaleInstalled, addons.ErrCandidateChanged, addons.ErrTransitionConflict, addons.ErrIncompatible, addons.ErrIntegrity, addons.ErrCheckFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
+var denials = []error{contract.ErrRefused, ErrForbidden, recovery.ErrForbidden, addons.ErrForbidden, addons.ErrStaleGeneration, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, addons.ErrStaleInstalled, addons.ErrCandidateChanged, addons.ErrTransitionConflict, addons.ErrIncompatible, addons.ErrIntegrity, addons.ErrCheckFailed, catalog.ErrNotFound, catalog.ErrConflict, catalog.ErrShadowed, catalog.ErrInvalid, packages.ErrPackage}
 
 // unavailable are operational failures. They say the owner could not serve the
 // request, not that it ran nothing: the owner can return them after it recorded
