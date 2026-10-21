@@ -41,7 +41,7 @@ func New(db *gorm.DB) (*Manager, error) {
 	if db == nil {
 		return nil, ErrInvalidInput
 	}
-	if err := db.AutoMigrate(&leaseRow{}, &toolRow{}); err != nil {
+	if err := db.AutoMigrate(&leaseRow{}, &toolRow{}, &executionRow{}); err != nil {
 		return nil, err
 	}
 	return &Manager{db: db}, nil
