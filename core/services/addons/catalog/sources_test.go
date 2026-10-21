@@ -102,7 +102,10 @@ var _ = Describe("source reads", func() {
 			list, e := s.List(ctx, admin)
 			Expect(e).NotTo(HaveOccurred())
 			Expect(list).To(HaveLen(2))
-			Expect(list[0]).To(Equal(src))
+			// The store names the kind it writes.
+			want := src
+			want.Kind = KindAddon
+			Expect(list[0]).To(Equal(want))
 			encoded, err := json.Marshal(list)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(encoded)).NotTo(ContainSubstring("never-expose-this-secret"))
@@ -110,11 +113,11 @@ var _ = Describe("source reads", func() {
 			list[0].AuthReference = "changed"
 			got, e := s.Get(ctx, admin, "disabled")
 			Expect(e).NotTo(HaveOccurred())
-			Expect(got).To(Equal(src))
+			Expect(got).To(Equal(want))
 			got.Name = "changed"
 			again, e := s.Get(ctx, admin, "disabled")
 			Expect(e).NotTo(HaveOccurred())
-			Expect(again).To(Equal(src))
+			Expect(again).To(Equal(want))
 			_, e = s.Get(ctx, admin, "missing")
 			Expect(e).To(MatchError(ErrNotFound))
 		}

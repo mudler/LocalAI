@@ -103,8 +103,6 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 |-----------|---------|-------------|----------------------|
 | `--galleries` | | JSON list of galleries | `$LOCALAI_GALLERIES`, `$GALLERIES` |
 | `--autoload-galleries` | `true` | Automatically load galleries on startup | `$LOCALAI_AUTOLOAD_GALLERIES`, `$AUTOLOAD_GALLERIES` |
-| `--model-index-source` | `gallery` | File the models of the official gallery are read from: `gallery` or `library`. See [Model library](/features/model-gallery/#model-library-preview) | `$LOCALAI_MODEL_INDEX_SOURCE` |
-| `--model-library-url` | | URL of the model library read with `--model-index-source=library` | `$LOCALAI_MODEL_LIBRARY_URL` |
 | `--vram-persistent-cache` | `true` | Persist successful remote VRAM metadata probes across restarts | `$LOCALAI_VRAM_PERSISTENT_CACHE`, `$VRAM_PERSISTENT_CACHE` |
 | `--preload-models` | | A list of models to apply in JSON at start | `$LOCALAI_PRELOAD_MODELS`, `$PRELOAD_MODELS` |
 | `--models` | | A list of model configuration URLs to load | `$LOCALAI_MODELS`, `$MODELS` |
@@ -240,6 +238,20 @@ distinct from the `1` a failure reports.
 | `--p2ptoken` | | Token for P2P mode (optional) | `$LOCALAI_P2P_TOKEN`, `$P2P_TOKEN`, `$TOKEN` |
 | `--p2p-network-id` | | Network ID for P2P mode, can be set arbitrarily by the user for grouping a set of instances | `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID` |
 | `--federated` | `false` | Enable federated instance | `$LOCALAI_FEDERATED`, `$FEDERATED` |
+
+## Library sources
+
+`local-ai library` manages the sources LocalAI reads add-ons, backends and models from. The sources are stored under the data path (`addons/sources.json`), the file the server reads, so the commands work with the server stopped.
+
+| Command | What it does |
+|---------|--------------|
+| `local-ai library list` | List every source with its kind, id, URL, and whether it is enabled, a shipped default, or removed |
+| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery]` | Add a source of your own |
+| `local-ai library remove <id>` | Remove a source. A removed default leaves a tombstone, so it does not come back at the next start |
+| `local-ai library enable <id>` | Turn a source on. This also brings back a removed default |
+| `local-ai library disable <id>` | Turn a source off without removing it |
+
+When two enabled sources list the same entry (same kind and id), your own source wins over a shipped default. If two of your own sources list it, the entry is refused and the message names both sources: disable or remove one of them. The `--galleries` and `--backend-galleries` flags keep working: each gallery they name is added as a source of your own (kind `model` or `backend`, format `gallery`) at startup, unless it is already a source.
 
 ## Other Commands
 

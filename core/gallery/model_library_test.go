@@ -354,20 +354,8 @@ func TestRuntimeFieldsAreNotPartOfTheEntry(t *testing.T) {
 	}
 }
 
-func TestParseModelIndexSource(t *testing.T) {
-	for in, want := range map[string]ModelIndexSource{"": ModelIndexGallery, "gallery": ModelIndexGallery, " Library ": ModelIndexLibrary} {
-		got, err := ParseModelIndexSource(in)
-		if err != nil || got != want {
-			t.Errorf("ParseModelIndexSource(%q) = %q, %v", in, got, err)
-		}
-	}
-	if _, err := ParseModelIndexSource("other"); err == nil {
-		t.Error("an unknown source was accepted")
-	}
-}
-
-// The setting decides which file is read, and only for the official gallery.
-func TestModelIndexSourceSelectsTheFile(t *testing.T) {
+// A gallery marked as a library is read as a library; any other gallery is read as an index.
+func TestLibraryGalleryReadsTheLibrary(t *testing.T) {
 	library := libraryEntry("  model:\n    files:\n      - filename: m1.gguf\n        sha256: abc\n        uri: https://example.invalid/m1.gguf\n    overrides:\n      backend: llama-cpp\n")
 	var libraryHits, galleryHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -388,7 +376,6 @@ func TestModelIndexSourceSelectsTheFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { SetModelIndex(ModelIndexGallery, "") })
 	names := func(g config.Gallery) []string {
 		t.Helper()
 		models, err := AvailableGalleryModels([]config.Gallery{g}, systemState)
@@ -407,8 +394,9 @@ func TestModelIndexSourceSelectsTheFile(t *testing.T) {
 		t.Errorf("the library was read %d times with the default source", libraryHits)
 	}
 
-	// Library: the official gallery reads the library instead.
-	SetModelIndex(ModelIndexLibrary, srv.URL+"/models/index.yaml")
+	// Library: a gallery marked as a library is read as one.
+	official.Library = true
+	official.URL = srv.URL + "/models/index.yaml"
 	models, err := AvailableGalleryModels([]config.Gallery{official}, systemState)
 	if err != nil {
 		t.Fatal(err)
@@ -416,7 +404,7 @@ func TestModelIndexSourceSelectsTheFile(t *testing.T) {
 	if got := galleryModelNames(models); len(got) != 1 || got[0] != "m1" {
 		t.Errorf("library source gave %v", got)
 	}
-	if models[0].GetGallery().Name != OfficialModelGalleryName || models[0].GetGallery().URL != official.URL {
+	if models[0].GetGallery().Name != OfficialModelGalleryName || models[0].GetGallery().URL != official.URL || !models[0].GetGallery().Library {
 		t.Errorf("the entry should carry the configured gallery, got %+v", models[0].GetGallery())
 	}
 	if len(models[0].AdditionalFiles) != 1 || models[0].Overrides["backend"] != "llama-cpp" {
@@ -430,7 +418,7 @@ func TestModelIndexSourceSelectsTheFile(t *testing.T) {
 	}
 
 	// An unreachable library is an error, not a silent fall back.
-	SetModelIndex(ModelIndexLibrary, srv.URL+"/missing.yaml")
+	official.URL = srv.URL + "/missing.yaml"
 	if _, err := AvailableGalleryModels([]config.Gallery{official}, systemState); err == nil {
 		t.Error("a missing library fell back to the gallery")
 	}

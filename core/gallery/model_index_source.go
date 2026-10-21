@@ -4,74 +4,32 @@ package gallery
 import (
 	"context"
 	"fmt"
-	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/xlog"
 )
 
-// ModelIndexSource says which file the host reads the models of the official
-// gallery from.
-type ModelIndexSource string
-
 const (
-	// ModelIndexGallery reads the model gallery index. It is the default.
-	ModelIndexGallery ModelIndexSource = "gallery"
-	// ModelIndexLibrary reads the model library, the same models in the shared
-	// library entry shape.
-	ModelIndexLibrary ModelIndexSource = "library"
-)
-
-const (
-	// OfficialModelGalleryName is the name of the default gallery. The library
-	// takes the place of this gallery only; a gallery the owner added keeps
-	// its own index.
+	// OfficialModelGalleryName is the name of the default model gallery.
 	OfficialModelGalleryName = "localai"
 	// OfficialModelLibraryURL is the model library, rendered from the model
 	// gallery by scripts/models/cmd/modelcatalog and kept in this repository.
+	// Add it as a model source with `local-ai library add`.
 	OfficialModelLibraryURL = "https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/models/index.yaml"
 )
 
-// ParseModelIndexSource reads the value of --model-index-source. Empty means
-// the gallery.
-func ParseModelIndexSource(s string) (ModelIndexSource, error) {
-	switch ModelIndexSource(strings.ToLower(strings.TrimSpace(s))) {
-	case "", ModelIndexGallery:
-		return ModelIndexGallery, nil
-	case ModelIndexLibrary:
-		return ModelIndexLibrary, nil
-	}
-	return "", fmt.Errorf("unknown model index source %q: use %q or %q", s, ModelIndexGallery, ModelIndexLibrary)
-}
-
-type modelIndexSetting struct {
-	source ModelIndexSource
-	url    string
-}
-
-var modelIndex atomic.Pointer[modelIndexSetting]
-
-// SetModelIndex selects the file the host reads the official gallery's models
-// from. It is set once at start. An empty url means OfficialModelLibraryURL.
-func SetModelIndex(source ModelIndexSource, url string) {
-	if url == "" {
-		url = OfficialModelLibraryURL
-	}
-	modelIndex.Store(&modelIndexSetting{source: source, url: url})
-}
-
-// modelLibraryFor returns the library to read instead of the index of the
-// gallery, or false when the gallery is read as it is.
+// modelLibraryFor returns the library to read for a gallery, or false when the
+// gallery is read as a gallery index. A gallery is a library when its entry
+// says so, which is how a model source added with `local-ai library add` is
+// handed to the reader.
 func modelLibraryFor(g config.Gallery) (config.Gallery, bool) {
-	s := modelIndex.Load()
-	if s == nil || s.source != ModelIndexLibrary || g.Name != OfficialModelGalleryName {
+	if !g.Library {
 		return config.Gallery{}, false
 	}
 	// The library has no mirrors and no artifact policy of its own: the
 	// gallery's would describe another file.
-	return config.Gallery{Name: g.Name, URL: s.url}, true
+	return config.Gallery{Name: g.Name, URL: g.URL}, true
 }
 
 // getModelLibraryElements reads the models of a gallery from the model

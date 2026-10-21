@@ -15,7 +15,6 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
@@ -70,8 +69,6 @@ type RunCMD struct {
 	BackendGalleries          string   `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
 	Galleries                 string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	AutoloadGalleries         bool     `env:"LOCALAI_AUTOLOAD_GALLERIES,AUTOLOAD_GALLERIES" group:"models" default:"true"`
-	ModelIndexSource          string   `name:"model-index-source" env:"LOCALAI_MODEL_INDEX_SOURCE" default:"gallery" enum:"gallery,library" help:"File the models of the official gallery are read from: gallery (the model gallery index, the default) or library (the model library, the same models in the shared library entry shape). Galleries you add keep their own index" group:"models"`
-	ModelLibraryURL           string   `name:"model-library-url" env:"LOCALAI_MODEL_LIBRARY_URL" help:"URL of the model library read with --model-index-source=library. Default: the model library in the LocalAI repository" group:"models"`
 	VRAMPersistentCache       bool     `env:"LOCALAI_VRAM_PERSISTENT_CACHE,VRAM_PERSISTENT_CACHE" group:"models" default:"true" help:"Persist successful remote VRAM metadata probes across restarts"`
 	AutoloadBackendGalleries  bool     `env:"LOCALAI_AUTOLOAD_BACKEND_GALLERIES,AUTOLOAD_BACKEND_GALLERIES" group:"backends" default:"true"`
 	BackendImagesReleaseTag   string   `env:"LOCALAI_BACKEND_IMAGES_RELEASE_TAG,BACKEND_IMAGES_RELEASE_TAG" help:"Fallback release tag for backend images" group:"backends" default:"latest"`
@@ -276,12 +273,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if err := diagnosticOpts.Validate(); err != nil {
 		return err
 	}
-
-	modelIndexSource, err := gallery.ParseModelIndexSource(r.ModelIndexSource)
-	if err != nil {
-		return err
-	}
-	gallery.SetModelIndex(modelIndexSource, r.ModelLibraryURL)
 
 	if ctx.CredentialsFile == "" {
 		if err := LoadCredentials(resolveCredentialsFile("", r.DataPath)); err != nil {

@@ -53,7 +53,11 @@ var _ = Describe("official library default", func() {
 		added, e := reloaded.SeedDefault(OfficialLibrary())
 		Expect(e).NotTo(HaveOccurred())
 		Expect(added).To(BeFalse())
-		Expect(reloaded.sources).To(BeEmpty())
+		// The removal is remembered as a tombstone, and nothing is listed.
+		Expect(reloaded.sources[OfficialLibraryID].IsTombstone()).To(BeTrue())
+		list, e := reloaded.List(ctx, admin)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(list).To(BeEmpty())
 	})
 	It("seeds only once per instance", func() {
 		s := setup()

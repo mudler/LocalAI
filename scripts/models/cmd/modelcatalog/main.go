@@ -33,8 +33,8 @@ import (
 const header = `# Model library: the models of the model gallery in the library entry shape. The
 # gallery, gallery/index.yaml, stays the source of truth and the default. This
 # file is rendered with scripts/models/cmd/modelcatalog; render it again after
-# the gallery changes and never edit it by hand. The host reads it only when
-# --model-index-source=library.
+# the gallery changes and never edit it by hand. The host reads it when
+# you add it as a model source with `local-ai library add`.
 `
 
 // load reads the gallery index the way the host does.

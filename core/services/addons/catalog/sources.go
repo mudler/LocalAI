@@ -37,9 +37,36 @@ type Source struct {
 	Enabled           bool               `json:"enabled"`
 	AuthReference     string             `json:"authReference,omitempty"`
 	Policy            VerificationPolicy `json:"policy"`
-	// Removed is an explicit delete command; persisted records never contain it.
+	// Kind says what the source provides: addon, backend or model. An empty
+	// kind is an add-on source, and the store writes it out.
+	Kind Kind `json:"kind,omitempty"`
+	// Format is empty for a library index (the shared entry shape), or
+	// FormatGallery for a gallery index that the model and backend gallery
+	// readers fetch. A gallery-format source is configuration only: this
+	// catalog never fetches it.
+	Format string `json:"format,omitempty"`
+	// Default marks a source the host ships. A default loses an entry to a
+	// source the user added, and removing it leaves a tombstone.
+	Default bool `json:"default,omitempty"`
+	// Removed is a delete command. For a default source it is also persisted
+	// as a tombstone, so the default is not added again at the next start; a
+	// tombstone is never enabled and never listed by the management view.
 	Removed bool `json:"removed,omitempty"`
 }
+
+// FormatGallery marks a source whose index is a gallery index, as the
+// --galleries and --backend-galleries flags name. See Source.Format.
+const FormatGallery = "gallery"
+
+// readByCatalog reports whether the add-on catalog fetches and lists this
+// source. Model sources and gallery-format sources are read by the gallery
+// readers instead.
+func (s Source) readByCatalog() bool {
+	return s.Enabled && !s.Removed && s.Kind != KindModel && s.Format != FormatGallery
+}
+
+// IsTombstone says the record only remembers that a default was removed.
+func (s Source) IsTombstone() bool { return s.Default && s.Removed }
 type RefreshResult struct {
 	SourceID string `json:"sourceId"`
 	Count    int    `json:"count"`
@@ -99,8 +126,34 @@ var digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 var versionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z][a-z0-9.-]*)?$`)
 
 func validSource(s Source) bool {
-	_, e := safeURL(s.URL)
-	return idPattern.MatchString(s.ID) && len(s.Name) > 0 && len(s.Name) <= 256 && e == nil && validPolicy(s.Policy)
+	if !idPattern.MatchString(s.ID) || len(s.Name) == 0 || len(s.Name) > 256 || !validPolicy(s.Policy) {
+		return false
+	}
+	if s.Kind != "" && s.Kind != KindAddon && s.Kind != KindBackend && s.Kind != KindModel {
+		return false
+	}
+	switch s.Format {
+	case "":
+		_, e := safeURL(s.URL)
+		return e == nil
+	case FormatGallery:
+		// A gallery URL is anything the gallery loader understands: https://,
+		// github:, file://, oci:// or a path. Only the shape is checked here.
+		return validGalleryURL(s.URL) && s.Kind != KindAddon && s.Kind != ""
+	}
+	return false
+}
+
+func validGalleryURL(u string) bool {
+	if u == "" || len(u) > 2048 {
+		return false
+	}
+	for _, r := range u {
+		if r < 0x20 || r == 0x7f || r == ' ' {
+			return false
+		}
+	}
+	return true
 }
 
 // validPolicy accepts a policy that asks for no signature, or one with an
@@ -155,7 +208,7 @@ func NewSources(path string, admin AdminCheck, credentials CredentialResolver) (
 		return nil, ErrInvalid
 	}
 	for id, src := range s.sources {
-		if id != src.ID || src.Removed || !validSource(src) {
+		if id != src.ID || (src.Removed && (!src.Default || src.Enabled)) || !validSource(src) {
 			return nil, ErrInvalid
 		}
 	}
@@ -175,7 +228,9 @@ func (s *Sources) List(ctx context.Context, actor contract.Actor) ([]Source, err
 	defer s.mu.Unlock()
 	sources := make([]Source, 0, len(s.sources))
 	for _, src := range s.sources {
-		sources = append(sources, src)
+		if !src.Removed {
+			sources = append(sources, src)
+		}
 	}
 	sort.Slice(sources, func(i, j int) bool { return sources[i].ID < sources[j].ID })
 	return sources, nil
@@ -233,7 +288,7 @@ func (s *Sources) Get(ctx context.Context, actor contract.Actor, sourceID string
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	src, ok := s.sources[sourceID]
-	if !ok {
+	if !ok || src.Removed {
 		return Source{}, ErrNotFound
 	}
 	return src, nil
@@ -251,14 +306,9 @@ func (s *Sources) Save(ctx context.Context, actor contract.Actor, src Source) er
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	next := map[string]Source{}
-	for id, v := range s.sources {
-		next[id] = v
-	}
-	if src.Removed {
-		delete(next, src.ID)
-	} else {
-		next[src.ID] = src
+	next, e := s.apply(src)
+	if e != nil {
+		return e
 	}
 	if e := s.persist(next); e != nil {
 		return e
@@ -266,6 +316,45 @@ func (s *Sources) Save(ctx context.Context, actor contract.Actor, src Source) er
 	s.sources = next
 	delete(s.cache, src.ID)
 	return nil
+}
+
+// apply returns the configuration after a save or a delete of src. The caller
+// holds s.mu. What marks a source as shipped or as gallery-format is never taken
+// from the caller: a new source is a user source, and an existing one keeps
+// its flags. Deleting a default leaves a tombstone.
+func (s *Sources) apply(src Source) (map[string]Source, error) {
+	next := map[string]Source{}
+	for id, v := range s.sources {
+		next[id] = v
+	}
+	old, had := s.sources[src.ID]
+	if src.Removed {
+		if !had || old.Removed {
+			return next, nil
+		}
+		if old.Default {
+			old.Enabled, old.Removed = false, true
+			next[src.ID] = old
+		} else {
+			delete(next, src.ID)
+		}
+		return next, nil
+	}
+	src.Default, src.Format = false, ""
+	if had {
+		src.Default, src.Format = old.Default, old.Format
+		if src.Kind == "" {
+			src.Kind = old.Kind
+		}
+	}
+	if src.Kind == "" {
+		src.Kind = KindAddon
+	}
+	if !validSource(src) {
+		return nil, ErrInvalid
+	}
+	next[src.ID] = src
+	return next, nil
 }
 
 // persist writes the whole configuration atomically. The caller holds s.mu.
@@ -292,34 +381,58 @@ func (s *Sources) persist(next map[string]Source) error {
 	return nil
 }
 
-// SeedDefault adds a default library on the first start, when the owner has no
-// configuration file yet, and writes the file. The file is the record: once it
-// exists, the admin's choices win, so a default that the admin removes stays
-// removed (the file then holds the remaining libraries, possibly none) and a
-// library the admin edited is not reset. It reports whether it added src.
-// It is trusted startup code and takes no actor; it never runs for a request.
+// SeedDefault adds a default library; see SeedDefaults.
 func (s *Sources) SeedDefault(src Source) (bool, error) { return s.SeedDefaults(src) }
 
-// SeedDefaults is SeedDefault for several libraries, written together.
+// SeedDefaults adds the libraries the host ships. It runs at every start and
+// is additive: on the first start, when there is no configuration file, it
+// writes them; on later starts it adds only a default that has no record yet.
+// A default the admin removed has a tombstone, so it stays removed, and a
+// library the admin edited is not reset. A configuration file that holds no shipped
+// default (an admin wrote it before defaults were tracked) is left alone, as
+// it always was.
+// It reports whether it added a record. It is trusted startup code and takes
+// no actor; it never runs for a request.
 func (s *Sources) SeedDefaults(srcs ...Source) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.fresh {
+	managed := s.fresh
+	for _, v := range s.sources {
+		if v.Default {
+			managed = true
+		}
+	}
+	if !managed {
 		return false, nil
 	}
 	next := map[string]Source{}
+	for id, v := range s.sources {
+		next[id] = v
+	}
+	added := false
 	for _, src := range srcs {
-		if !idPattern.MatchString(src.ID) || src.Removed || !validSource(src) {
+		src.Default, src.Removed = true, false
+		if src.Kind == "" {
+			src.Kind = KindAddon
+		}
+		if !idPattern.MatchString(src.ID) || !validSource(src) {
 			return false, ErrInvalid
 		}
+		if _, ok := next[src.ID]; ok {
+			continue
+		}
 		next[src.ID] = src
+		added = true
+	}
+	if !added && !s.fresh {
+		return false, nil
 	}
 	if e := s.persist(next); e != nil {
 		return false, e
 	}
 	s.sources = next
 	s.fresh = false
-	return true, nil
+	return added, nil
 }
 func decode(data []byte, out any) error {
 	d := json.NewDecoder(bytes.NewReader(data))
@@ -338,7 +451,7 @@ func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	src, ok := s.sources[sourceID]
-	if !ok || !src.Enabled {
+	if !ok || !src.readByCatalog() {
 		return RefreshResult{}, ErrUnavailable
 	}
 	old := s.cache[sourceID]
@@ -486,7 +599,7 @@ func (s *Sources) RefreshEnabled(ctx context.Context) error {
 	s.mu.Lock()
 	ids := make([]string, 0, len(s.sources))
 	for id, src := range s.sources {
-		if src.Enabled {
+		if src.readByCatalog() {
 			ids = append(ids, id)
 		}
 	}

@@ -147,7 +147,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	defer s.mu.Unlock()
 	all := []Release{}
 	for id, src := range s.sources {
-		if !src.Enabled || (q.SourceID != "" && q.SourceID != id) {
+		if !src.readByCatalog() || (q.SourceID != "" && q.SourceID != id) {
 			continue
 		}
 		cache, ok := s.cache[id]
@@ -195,7 +195,7 @@ func (c Catalog) ResolveKind(ctx context.Context, kind Kind, sourceID, addonID, 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	src, ok := s.sources[sourceID]
-	if !ok || !src.Enabled {
+	if !ok || !src.readByCatalog() {
 		return Release{}, ErrUnavailable
 	}
 	cache, ok := s.cache[sourceID]
@@ -244,7 +244,7 @@ func (c Catalog) KindReleases(ctx context.Context, kind Kind, sourceID, addonID 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	src, ok := s.sources[sourceID]
-	if !ok || !src.Enabled {
+	if !ok || !src.readByCatalog() {
 		return nil, ErrUnavailable
 	}
 	cache, ok := s.cache[sourceID]

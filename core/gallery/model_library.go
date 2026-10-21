@@ -18,8 +18,8 @@ import (
 )
 
 // The model library is a second way to publish the model gallery. It is a
-// separate index file, read only when the host asks for it (see
-// SetModelIndex); the gallery index stays the source of truth and the default.
+// separate index file, read only when the owner adds it as a model
+// source (see `local-ai library add`); the gallery index stays the source of truth and the default.
 //
 // An entry is the shared library envelope (catalog.Envelope) plus a body that
 // holds what a gallery entry holds beyond the header. Converting a gallery
