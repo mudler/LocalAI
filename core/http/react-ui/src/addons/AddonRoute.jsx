@@ -154,7 +154,7 @@ export default function AddonRoute() {
   if (registry.status === 'idle' || (registry.status === 'error' && !app)) {
     if (registry.status === 'error') return unavailable('import_failed', reloadButton)
     return (
-      <div className="page ad-page" data-testid="addon-loading"><PageHeader title={title} /><LoadingSpinner /></div>
+      <div className="page ad-page" data-testid="addon-loading"><LoadingSpinner /></div>
     )
   }
   const isStale = Boolean(instance && instance.status === 'stale')
@@ -184,7 +184,6 @@ export default function AddonRoute() {
   if (!instance || instance.status === 'loading') {
     return (
       <div className="page ad-page" data-testid="addon-loading">
-        <PageHeader title={title} />
         <LoadingSpinner />
       </div>
     )
@@ -193,7 +192,7 @@ export default function AddonRoute() {
   // survives the moment it is withdrawn.
   return (
     <div className="page ad-page" data-testid={isStale ? 'addon-stale' : 'addon-page'}>
-      <PageHeader title={title} />
+      {/* The add-on draws its own title; the shell adds none. */}
       {isStale && (
         <div className="ad-banner" role="alert">
           <span>{t('shell.stale', { title })}</span>

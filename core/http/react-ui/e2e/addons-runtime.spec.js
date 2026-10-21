@@ -88,7 +88,8 @@ test.describe('Add-on UI runtime', () => {
     await expect(surface(page)).toBeVisible({ timeout: 20_000 })
     await expect(page.getByTestId('fx-title')).toHaveText('Hello fixture')
     await expect(page.getByTestId('fx-where')).toHaveText('page=home path=')
-    await expect(page.locator('h1.page-title')).toHaveText('UI fixture')
+    // The shell draws no title over the page: the add-on draws its own.
+    await expect(page.locator('h1.page-title')).toHaveCount(0)
     // Every file came from the owner through the asset route, under one digest.
     const js = answers.find(a => a.url.endsWith('/ui.js'))
     const css = answers.find(a => a.url.endsWith('/ui/style.css'))
@@ -142,8 +143,9 @@ test.describe('Add-on UI runtime', () => {
       return {
         sheet: document.querySelector('style[data-addon-style="uifixture"]')?.textContent || '',
         title: style(document.querySelector('[data-testid="fx-title"]')).color,
-        hostTitle: style(document.querySelector('h1.page-title')).color,
-        hostTitleSize: style(document.querySelector('h1.page-title')).fontSize,
+        hostNavColor: style(document.querySelector('.sidebar-nav a, .sidebar-nav button')).color,
+        hostNavSize: style(document.querySelector('.sidebar-nav a, .sidebar-nav button')).fontSize,
+        shellTitles: document.querySelectorAll('h1.page-title').length,
         bodyBackground: style(document.body).backgroundColor,
         token: style(root).getPropertyValue('--fx-token').trim(),
         rootToken: style(document.documentElement).getPropertyValue('--fx-token').trim(),
@@ -151,8 +153,9 @@ test.describe('Add-on UI runtime', () => {
       }
     })
     expect(probe.title).toBe('rgb(1, 2, 3)')
-    expect(probe.hostTitle).not.toBe('rgb(255, 0, 0)')
-    expect(probe.hostTitleSize).not.toBe('11px')
+    expect(probe.shellTitles).toBe(0)
+    expect(probe.hostNavColor).not.toBe('rgb(255, 0, 0)')
+    expect(probe.hostNavSize).not.toBe('11px')
     expect(probe.bodyBackground).not.toBe('rgb(255, 0, 255)')
     expect(probe.token).toBe('1')
     expect(probe.rootToken).toBe('')
@@ -173,8 +176,8 @@ test.describe('Add-on UI runtime', () => {
     await expect(card).toBeVisible({ timeout: 20_000 })
     await expect(card).toContainText('This add-on had a problem')
     await shoot(page, 'esm-error-boundary')
-    // The page header, the sidebar and the other routes are untouched.
-    await expect(page.locator('h1.page-title')).toHaveText('UI fixture')
+    // The sidebar and the other routes are untouched, and the shell adds no title.
+    await expect(page.locator('h1.page-title')).toHaveCount(0)
     await expect(page.locator('.sidebar-nav')).toBeVisible()
     await page.goto('/app/addons/uifixture/home')
     await expect(page.getByTestId('fx-title')).toBeVisible({ timeout: 20_000 })
@@ -328,7 +331,7 @@ test.describe('Add-on UI runtime', () => {
       // The router error page never replaces the host.
       await expect(page.getByText('Unexpected Application Error')).toHaveCount(0)
       await expect(page.locator('.sidebar-nav')).toBeVisible()
-      await expect(page.locator('h1.page-title')).toHaveText('UI fixture')
+      await expect(page.locator('h1.page-title')).toHaveCount(0)
       await layer.getByRole('button', { name: 'Close' }).last().click()
       await expect(layer).toHaveCount(0)
     }

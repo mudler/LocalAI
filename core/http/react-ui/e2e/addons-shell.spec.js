@@ -46,8 +46,10 @@ test.describe('Add-on shell', () => {
     await expect(page.getByTestId('fx-title')).toHaveText('Hello fixture')
     await page.getByRole('button', { name: 'Increment' }).click()
     await expect(surface.getByText('hooks 1')).toBeVisible()
-    // The sheet's `h1` rule never reaches the host's own page title.
-    await expect(page.locator('h1.page-title')).not.toHaveCSS('font-size', '11px')
+    // The shell draws no title over the add-on page, and the sheet's `h1`
+    // rule never reaches the host's own chrome.
+    await expect(page.locator('h1.page-title')).toHaveCount(0)
+    await expect(page.locator('.sidebar-nav a, .sidebar-nav button').first()).not.toHaveCSS('font-size', '11px')
     await expect(page.locator('style[data-addon-style="uifixture"]')).toHaveCount(1)
     // The detail view of the add-on links the declared navigation page.
     await page.goto('/app/addons?detail=uifixture')
