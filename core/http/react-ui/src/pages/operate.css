@@ -434,3 +434,5 @@
   .lg-line { flex-wrap: wrap; gap: 0 var(--dk-space-3); padding-top: 4px; padding-bottom: 4px; }
   .lg-line__text { flex-basis: 100%; }
 }
+
+.bk-library { margin-inline-start: var(--dk-space-2, 8px); font-size: var(--dk-text-12, 12px); vertical-align: middle; }

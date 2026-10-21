@@ -144,3 +144,85 @@ test.describe('Library backends', () => {
     expect(saved.policy).toEqual(POLICY)
   })
 })
+
+// The Backends page (phase 2): a backend that came from a library says so, and
+// a newer build in its library is an update the administrator starts.
+const PINNED = 'sha256:' + 'a1'.repeat(32)
+const NEWER = 'sha256:' + 'b2'.repeat(32)
+
+async function mockBackendsPage(page, { updates = true, phases = ['resolving', 'verifying', 'size', 'fetching', 'writing'] } = {}) {
+  const state = { digest: PINNED, updates: updates ? [{ name: 'cpu-local-store', sourceId: 'official-backends', installedVersion: '0.0.0-latest.0a1056fd8633', installedDigest: PINNED, version: '0.0.0-latest.0b2', digest: NEWER, signed: true }] : [], installs: [], reads: 0 }
+  await page.route('**/api/backends?*', route => route.fulfill({ json: { backends: [] } }))
+  await page.route('**/api/backends/upgrades', route => route.fulfill({ json: { 'llama-cpp': { backend_name: 'llama-cpp', installed_version: '1', available_version: '2' } } }))
+  await page.route(/\/backends$/, route => route.fulfill({
+    json: [
+      { Name: 'cpu-local-store', Metadata: { name: 'cpu-local-store', library: 'official-backends', digest: state.digest, version: '0.0.0-latest.0a1056fd8633' } },
+      { Name: 'llama-cpp', Metadata: { name: 'llama-cpp', gallery_url: 'https://gallery.example/index.yaml', version: '1' } },
+    ],
+  }))
+  await page.route(/\/backends\/library\/updates$/, route => route.fulfill({ json: { updates: state.updates } }))
+  await page.route(/\/backends\/library\/install$/, route => {
+    state.installs.push(route.request().postDataJSON())
+    state.reads = 0
+    return route.fulfill({ json: { id: 'job-2', status_url: '/backends/jobs/job-2' } })
+  })
+  await page.route(/\/backends\/jobs\/job-2$/, route => {
+    const at = state.reads++
+    if (at >= phases.length) {
+      state.digest = NEWER
+      state.updates = []
+      return route.fulfill({ json: { phase: 'done', processed: true, progress: 100, message: 'completed' } })
+    }
+    return route.fulfill({ json: { phase: phases[at], processed: false, progress: 0 } })
+  })
+  return state
+}
+
+test.describe('Backends page and libraries', () => {
+  test('a library backend carries its library and the digest it pinned; a gallery backend does not', async ({ page }) => {
+    await signIn(page)
+    await mockBackendsPage(page)
+    await page.goto('/app/backends?view=installed')
+    const row = page.locator('[data-entity="cpu-local-store"]')
+    await expect(row.getByTestId('backend-library')).toContainText('Library: official-backends')
+    await expect(page.locator('[data-entity="llama-cpp"]').getByTestId('backend-library')).toHaveCount(0)
+    await row.click()
+    const detail = page.getByTestId('backend-detail')
+    await expect(detail.getByTestId('library-id')).toHaveText('official-backends')
+    await expect(detail).toContainText('Pinned digest')
+    await expect(detail).toContainText(PINNED)
+  })
+
+  test('a newer build in the library shows as an update and is installed only on request', async ({ page }) => {
+    await signIn(page)
+    const state = await mockBackendsPage(page)
+    await page.goto('/app/backends?view=installed')
+    const row = page.locator('[data-entity="cpu-local-store"]')
+    await expect(row).toContainText('Update available')
+    // Nothing is installed by looking at the page.
+    expect(state.installs).toHaveLength(0)
+    await row.click()
+    await expect(page.getByTestId('library-update-facts')).toContainText('sha256:b2b2b2b2b2b2')
+    await row.getByTestId('backend-library-update').click()
+    await expect.poll(() => state.installs).toEqual([{ sourceId: 'official-backends', name: 'cpu-local-store', version: '0.0.0-latest.0b2' }])
+    // The steps of the install show in the detail while it runs.
+    await expect(page.getByTestId('backend-detail').getByTestId('install-steps').locator('[data-step]')).toHaveCount(5)
+    // When it ends the row is current and pins the new digest.
+    await expect(row).not.toContainText('Update available', { timeout: 15000 })
+    await expect(page.getByTestId('backend-detail')).toContainText(NEWER)
+    await expect(row.getByTestId('backend-library-update')).toHaveCount(0)
+  })
+
+  test('with no newer build the library backend is current, and gallery upgrades are unchanged', async ({ page }) => {
+    await signIn(page)
+    const state = await mockBackendsPage(page, { updates: false })
+    await page.goto('/app/backends?view=installed')
+    await expect(page.locator('[data-entity="cpu-local-store"]')).toContainText('Current')
+    await expect(page.locator('[data-entity="cpu-local-store"]').getByTestId('backend-library-update')).toHaveCount(0)
+    // The gallery backend keeps the gallery upgrade state and button.
+    const gallery = page.locator('[data-entity="llama-cpp"]')
+    await expect(gallery).toContainText('Update')
+    await expect(gallery.getByRole('button', { name: 'Update llama-cpp' })).toBeVisible()
+    expect(state.installs).toHaveLength(0)
+  })
+})

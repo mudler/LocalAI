@@ -8192,6 +8192,10 @@ const docTemplate = `{
                     "description": "Name is the backend name.",
                     "type": "string"
                 },
+                "signed": {
+                    "description": "Signed says the library requires a signature, so the install of the\nupdate has a verifying step.",
+                    "type": "boolean"
+                },
                 "sourceId": {
                     "description": "SourceID is the library the backend came from.",
                     "type": "string"

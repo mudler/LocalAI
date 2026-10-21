@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { stateChip } from './addonState'
 import { installSteps } from './installSteps'
+import './addons.css'
 
 // The process state of an add-on as a chip. The colour is never the only
 // signal: the text says it and the label names what it is the state of.

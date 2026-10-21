@@ -221,6 +221,21 @@ limit, a library that strict mode refuses. The request itself answers `400` when
 not name an entry and `409` when the same backend is already being installed. Installing
 again from the same library is a reinstall.
 
+### Library backends on the Backends page
+
+The Backends page marks a backend that came from a library with the library ID, and the
+detail view shows the digest that `metadata.json` pinned. A backend of a gallery has no
+mark, and the gallery upgrade check and the Update all button are unchanged.
+
+When the cached index of the library lists a different build than the one installed, the
+backend shows "Update available" and an Update button. The check is
+`GET /backends/library/updates`. It reads the index the last refresh cached, so it does
+not use the network, and it installs nothing. The build to compare is the one in the
+channel of the installed version. If the library no longer lists that version and has
+more than one channel, the check says nothing instead of guessing. The Update button
+starts the same install as above, with the same steps, for the version the check names.
+There is no automatic upgrade.
+
 A library install touches only the node that serves the request. In a distributed
 deployment the backend is installed on that node only; the per-node routes of the backend
 gallery are unchanged.

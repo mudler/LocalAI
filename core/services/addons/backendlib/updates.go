@@ -27,6 +27,9 @@ type Update struct {
 	// an install of the update names.
 	Version string `json:"version"`
 	Digest  string `json:"digest"`
+	// Signed says the library requires a signature, so the install of the
+	// update has a verifying step.
+	Signed bool `json:"signed"`
 }
 
 // Updates compares each installed library backend with the library it came
@@ -105,6 +108,6 @@ func newer(have *gallery.BackendMetadata, name string, releases []catalog.Releas
 	return Update{
 		Name: name, SourceID: have.Library,
 		InstalledVersion: have.Version, InstalledDigest: have.Digest,
-		Version: latest[0].Version, Digest: latest[0].Digest,
+		Version: latest[0].Version, Digest: latest[0].Digest, Signed: latest[0].Policy.RequireSignature,
 	}, true
 }

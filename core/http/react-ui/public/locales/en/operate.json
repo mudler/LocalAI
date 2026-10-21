@@ -420,7 +420,9 @@
       "repository": "Repository",
       "license": "License",
       "tags": "Tags",
-      "links": "Links"
+      "links": "Links",
+      "library": "Library",
+      "pinnedDigest": "Pinned digest"
     },
     "nodeRemoval": {
       "action": "Remove from {{node}}…",
@@ -437,6 +439,12 @@
       "refreshFailed": "Backend data could not be refreshed. Displayed data may be stale. Retry refresh.",
       "stale": "Deletion succeeded, but backend data could not be refreshed. Displayed data may be stale. Retry refresh; do not repeat deletion.",
       "refresh": "Retry backend refresh"
+    },
+    "library": {
+      "from": "Library: {{library}}",
+      "pinned": "Pinned to {{digest}}",
+      "updated": "{{name}} updated from its library.",
+      "updateFailed": "The update failed. {{message}}"
     }
   },
   "logs": {

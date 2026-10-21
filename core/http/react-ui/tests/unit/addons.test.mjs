@@ -13,6 +13,7 @@ import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
+import { backendState, libraryOrigin, shortDigest as shortBackendDigest } from '../../src/utils/backendRows.js'
 import { installSteps, STEP_ORDER } from '../../src/components/addons/installSteps.js'
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
@@ -362,4 +363,35 @@ test('install steps: left steps are done, the reported one runs, the rest wait',
   assert.equal(installSteps({ phase: 'fetching', progress: 41.6 }).find(s => s.id === 'fetching').progress, 42)
   // A library that needs no signature has no verifying step.
   assert.deepEqual(installSteps({ phase: 'size' }, { signed: false }).map(s => s.id), ['resolving', 'size', 'fetching', 'writing'])
+})
+
+test('backends page: a library backend shows its library and the digest it pinned', () => {
+  const d = 'sha256:' + 'ab'.repeat(32)
+  assert.deepEqual(libraryOrigin({ Name: 'cpu-demo', Metadata: { library: 'official-backends', digest: d, version: '1' } }), { id: 'official-backends', digest: d, version: '1' })
+  // A gallery backend, a system backend and one without metadata have no library.
+  assert.equal(libraryOrigin({ Name: 'llama-cpp', Metadata: { gallery_url: 'x' } }), null)
+  assert.equal(libraryOrigin({ Name: 'llama-cpp' }), null)
+  assert.equal(shortBackendDigest(d), 'sha256:abababababab')
+  assert.equal(shortBackendDigest(''), '')
+})
+
+test('backends page: a newer build in the library is an update state, and a running job wins over it', () => {
+  const update = { name: 'cpu-demo', installedVersion: '1', version: '2', digest: 'sha256:b' }
+  assert.deepEqual(backendState({ installed: true, libraryUpdate: update }), { kind: 'update', from: '1', to: '', library: true })
+  // Without the update the backend is current; the gallery upgrade keeps its own state.
+  assert.equal(backendState({ installed: true }).kind, 'current')
+  assert.deepEqual(backendState({ installed: true, upgrade: { installed_version: '1', available_version: '3' } }), { kind: 'update', from: '1', to: '3' })
+  assert.equal(backendState({ installed: true, libraryUpdate: update, op: { progress: 10, jobID: 'j' } }).kind, 'installing')
+})
+
+test('the updates route of the host is read as a list and nothing is sent', async () => {
+  const calls = []
+  const api = createAddonsApi({
+    fetch: async (url, init) => {
+      calls.push({ url, method: init.method })
+      return json(200, { updates: [{ name: 'cpu-demo', sourceId: 'p', version: '2', digest: 'sha256:b', signed: true }] })
+    },
+  })
+  assert.deepEqual(await api.backends.updates(), [{ name: 'cpu-demo', sourceId: 'p', version: '2', digest: 'sha256:b', signed: true }])
+  assert.deepEqual(calls, [{ url: '/backends/library/updates', method: 'GET' }])
 })

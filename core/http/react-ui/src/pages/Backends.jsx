@@ -7,7 +7,8 @@ import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 import { CANCEL_UNDO_MS, useUndoableCancel } from '../hooks/useUndoableCancel'
-import { backendState, opForBackend, sortInstalled, versionLabel } from '../utils/backendRows'
+import { backendState, libraryOrigin, opForBackend, shortDigest, sortInstalled, versionLabel } from '../utils/backendRows'
+import { addonsApi } from '../utils/addonsClient'
 import { backendDependents, recommendedBackend } from '../utils/operateStatus'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
@@ -16,6 +17,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import NodeDistributionChip from '../components/NodeDistributionChip'
 import NodeInstallPicker from '../components/NodeInstallPicker'
 import BackendsTable from '../components/operate/BackendsTable'
+import { InstallSteps } from '../components/addons/AddonBits'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Icon from '../components/Icon'
@@ -92,6 +94,11 @@ export default function Backends() {
   }, [])
   const [models, setModels] = useState([])
   const [upgrades, setUpgrades] = useState({})
+  // Newer builds of library backends, by name, and the library updates the
+  // administrator started from this page: name -> { job } while one runs.
+  const [libUpdates, setLibUpdates] = useState({})
+  const [libWork, setLibWork] = useState({})
+  const [libReload, setLibReload] = useState(0)
   const [upgradingAll, setUpgradingAll] = useState(false)
   const [checking, setChecking] = useState(false)
   const [preferDevLoaded, setPreferDevLoaded] = useState(false)
@@ -217,6 +224,18 @@ export default function Backends() {
     modelsApi.listCapabilities().then(data => setModels(Array.isArray(data?.data) ? data.data : [])).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operations.length])
+
+  // Library backends are checked against the index their library cached. The
+  // route exists only where the add-on owner runs, so a failure is no update.
+  const hasLibraryBackend = installed.some(b => libraryOrigin(b))
+  useEffect(() => {
+    if (!hasLibraryBackend) { setLibUpdates({}); return undefined }
+    const ctl = new AbortController()
+    addonsApi.backends.updates(ctl.signal)
+      .then(list => setLibUpdates(Object.fromEntries(list.map(u => [u.name, u]))))
+      .catch(() => { if (!ctl.signal.aborted) setLibUpdates({}) })
+    return () => ctl.abort()
+  }, [hasLibraryBackend, installed, libReload])
 
   const catalogByName = useMemo(
     () => new Map(allBackends.map(b => [b.name || b.id, b])),
@@ -441,6 +460,31 @@ export default function Backends() {
       setError(name, t('backends.updateFailed', { message: err.message }))
     } finally {
       markPending(name, false)
+    }
+  }
+
+  // Installs the newer build the library lists. It is the administrator's own
+  // action; nothing here runs on its own. The host pins the image by the digest
+  // of the library entry and verifies it as for the first install.
+  const handleLibraryUpdate = async (name) => {
+    const update = libUpdates[name]
+    if (!update) return
+    setError(name, '')
+    setLibWork(w => ({ ...w, [name]: { job: { phase: 'resolving' }, signed: update.signed !== false } }))
+    try {
+      await addonsApi.backends.install(
+        { sourceId: update.sourceId, name, version: update.version }, undefined,
+        { onStatus: job => mounted.current && setLibWork(w => ({ ...w, [name]: { ...w[name], job } })) },
+      )
+      addToast(t('backends.library.updated', { name }), 'info')
+    } catch (err) {
+      if (mounted.current) setError(name, t('backends.library.updateFailed', { message: err.message }))
+    } finally {
+      if (mounted.current) {
+        setLibWork(w => { const next = { ...w }; delete next[name]; return next })
+        fetchInstalled()
+        setLibReload(n => n + 1)
+      }
     }
   }
 
@@ -798,8 +842,14 @@ export default function Backends() {
     const version = b.Metadata?.version || b.Version
     const catalog = catalogByName.get(name)
     const upgrade = upgrades[name]
+    const library = libraryOrigin(b)
+    const libraryUpdate = library ? libUpdates[name] : null
+    const work = libWork[name]
     const op = opForBackend(operations, name)
-    const state = backendState({ installed: true, upgrade, op })
+    // While a library update runs, the row shows its progress like any install.
+    const state = work
+      ? { kind: 'installing', progress: Math.round(work.job?.progress || 0), cancellable: false }
+      : backendState({ installed: true, upgrade, op, libraryUpdate })
     const busy = pending.has(name) || removalPending || state.kind === 'installing' || state.kind === 'queued' || state.kind === 'removing'
     const nodes = b.Nodes || b.nodes || []
 
@@ -818,13 +868,18 @@ export default function Backends() {
               {t('backends.update')}
             </button>
           )}
+          {!upgrade && libraryUpdate && (
+            <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="backend-library-update" disabled={busy} onClick={() => handleLibraryUpdate(name)} aria-label={t('backends.updateLabel', { name })}>
+              {t('backends.update')}
+            </button>
+          )}
           <ActionMenu
             compact
             ariaLabel={t('backends.actionsFor', { name })}
             triggerLabel={t('backends.actionsFor', { name })}
             items={[
-              { key: 'reinstall', icon: 'refresh', label: t('backends.reinstallBackend'), onClick: () => handleReinstall(name), disabled: busy },
-              { divider: true },
+              // A library backend is not in the gallery: a gallery reinstall by name would not find it.
+              ...(library ? [] : [{ key: 'reinstall', icon: 'refresh', label: t('backends.reinstallBackend'), onClick: () => handleReinstall(name), disabled: busy }, { divider: true }]),
               { key: 'delete', icon: 'trash', label: t('backends.deleteBackend'), danger: true, disabled: busy, onClick: () => handleDelete(name, 'installed') },
             ]}
           />
@@ -835,13 +890,16 @@ export default function Backends() {
     const detail = (
       <div className="bk-detail" data-testid="backends-installed-pane">
         {errors[name] && <div className="op-error" role="alert"><Icon name="alert-circle" /> <span>{errors[name]}</span></div>}
+        {work && <InstallSteps job={work.job} signed={work.signed} />}
         {catalog?.description && <p className="bk-detail__desc">{stripMarkdown(catalog.description)}</p>}
         <dl className="dk-kv bk-facts">
           <dt>{t('backends.facts.version')}</dt><dd>{versionLabel(version) || '—'}</dd>
           {upgrade && (<><dt>{t('backends.facts.available')}</dt><dd>{versionLabel(upgrade.available_version) || t('backends.state.update')}</dd></>)}
-          <dt>{t('backends.facts.managed')}</dt><dd>{b.IsSystem ? t('backends.facts.system') : t('backends.facts.gallery')}</dd>
+          {libraryUpdate && (<><dt>{t('backends.facts.available')}</dt><dd data-testid="library-update-facts">{versionLabel(libraryUpdate.version)} <span className="dk-mono">{shortDigest(libraryUpdate.digest)}</span></dd></>)}
+          <dt>{t('backends.facts.managed')}</dt><dd>{b.IsSystem ? t('backends.facts.system') : library ? t('backends.facts.library') : t('backends.facts.gallery')}</dd>
+          {library && (<><dt>{t('backends.facts.library')}</dt><dd className="dk-mono" data-testid="library-id">{library.id}</dd></>)}
           {b.Metadata?.uri && (<><dt>{t('backends.facts.source')}</dt><dd className="bk-wrap-any">{b.Metadata.uri}</dd></>)}
-          {b.Metadata?.digest && (<><dt>{t('backends.facts.digest')}</dt><dd className="bk-wrap-any">{b.Metadata.digest}</dd></>)}
+          {b.Metadata?.digest && (<><dt>{library ? t('backends.facts.pinnedDigest') : t('backends.facts.digest')}</dt><dd className="bk-wrap-any">{b.Metadata.digest}</dd></>)}
           {b.Metadata?.installed_at && (<><dt>{t('backends.facts.installedAt')}</dt><dd>{b.Metadata.installed_at}</dd></>)}
         </dl>
         {distributedEnabled && nodes.length > 0 && (
@@ -868,6 +926,7 @@ export default function Backends() {
       description: stripMarkdown(catalog?.description || '').slice(0, 160),
       version,
       state,
+      library,
       nodes: <NodeDistributionChip nodes={nodes} compactThreshold={2} />,
       action,
       detail,
