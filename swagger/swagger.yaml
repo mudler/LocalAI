@@ -420,6 +420,27 @@ definitions:
       ticket:
         type: string
     type: object
+  backendlib.Update:
+    properties:
+      digest:
+        type: string
+      installedDigest:
+        type: string
+      installedVersion:
+        description: InstalledVersion and InstalledDigest are what metadata.json pins.
+        type: string
+      name:
+        description: Name is the backend name.
+        type: string
+      sourceId:
+        description: SourceID is the library the backend came from.
+        type: string
+      version:
+        description: |-
+          Version and Digest are the build the library lists now. Version is what
+          an install of the update names.
+        type: string
+    type: object
   builtin.Entry:
     properties:
       adminOnly:
@@ -9548,24 +9569,32 @@ paths:
           $ref: '#/definitions/localai.BackendLibraryInstallRequest'
       responses:
         "200":
-          description: installed
+          description: the job; read its status at the status URL
           schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: no such entry
+            $ref: '#/definitions/schema.BackendResponse'
+        "400":
+          description: the request does not name an entry
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
-          description: the name is installed from another origin
-          schema:
-            $ref: '#/definitions/schema.ErrorResponse'
-        "413":
-          description: the image is over the size limit
+          description: the same backend is already being installed
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Install a backend from a library entry on this node.
+      tags:
+      - backends
+  /backends/library/updates:
+    get:
+      responses:
+        "200":
+          description: updates
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/backendlib.Update'
+              type: array
+            type: object
+      summary: List the installed library backends with a newer build in their library.
       tags:
       - backends
   /backends/upgrade/{name}:

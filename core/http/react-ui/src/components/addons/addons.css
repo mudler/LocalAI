@@ -224,3 +224,12 @@
 .nav-item--sub { padding-inline-start: 2.25rem; }
 @media (max-width: 480px) { .ad-tiles { grid-template-columns: minmax(0, 1fr); } }
 .ad-nav-slot { margin-top: var(--dk-space-4, 16px); }
+
+/* ---- Steps of a backend install ------------------------------------------- */
+
+.ad-steps { list-style: none; margin: var(--dk-space-2, 8px) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--dk-space-1, 4px) var(--dk-space-4, 16px); font-size: var(--dk-text-13); }
+.ad-steps__item { display: inline-flex; align-items: center; gap: 6px; color: var(--dk-muted); }
+.ad-steps__item[data-state="active"] { color: var(--dk-text); font-weight: 600; }
+.ad-steps__item[data-state="done"] { color: var(--dk-ok-text); }
+.ad-steps__item[data-state="failed"] { color: var(--dk-error-text); font-weight: 600; }
+.ad-steps__pct { font-weight: 400; color: var(--dk-muted); }

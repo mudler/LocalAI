@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { stateChip } from './addonState'
+import { installSteps } from './installSteps'
 
 // The process state of an add-on as a chip. The colour is never the only
 // signal: the text says it and the label names what it is the state of.
@@ -71,5 +72,26 @@ export function UnknownNotice({ addonId, actions, className = 'ad-entry__note' }
         </button>
       </span>
     </div>
+  )
+}
+
+// The steps of a backend install and where the job is among them. The host
+// names the step; the page marks the ones before it as left, the one it is in
+// as running and the one that failed as failed. The text says it as well as
+// the mark does.
+export function InstallSteps({ job, signed }) {
+  const { t } = useTranslation('addons')
+  const steps = installSteps(job, { signed })
+  return (
+    <ol className="ad-steps" data-testid="install-steps" aria-label={t('install.stepsLabel')}>
+      {steps.map(step => (
+        <li key={step.id} className="ad-steps__item" data-step={step.id} data-state={step.state}>
+          <Icon name={step.state === 'done' ? 'check-circle' : step.state === 'failed' ? 'alert-circle' : step.state === 'active' ? 'spinner' : 'circle'} spin={step.state === 'active'} />
+          <span>{t(`install.step.${step.id}`)}</span>
+          {step.progress !== undefined && <span className="ad-steps__pct dk-mono">{step.progress}%</span>}
+          <span className="dk-sr-only">{t(`install.state.${step.state}`)}</span>
+        </li>
+      ))}
+    </ol>
   )
 }

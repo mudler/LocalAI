@@ -74,6 +74,7 @@ type downloadOptions struct {
 	transferProgress TransferProgressSink
 	stagingDir       string
 	maxBytes         int64
+	stage            StageReporter
 }
 
 // DownloadOption configures DownloadFileWithContext / DownloadFile.
@@ -102,6 +103,30 @@ func WithBearerToken(token string) DownloadOption {
 // download kinds, and n <= 0 sets no limit.
 func WithMaxBytes(n int64) DownloadOption {
 	return func(o *downloadOptions) { o.maxBytes = n }
+}
+
+// The stages of an OCI download, in the order the downloader enters them. A
+// stage is reported only when it runs: verifying needs an ImageVerifier and
+// size needs WithMaxBytes.
+const (
+	StageVerifying = "verifying"
+	StageSize      = "size"
+	StageFetching  = "fetching"
+)
+
+// StageReporter receives the name of each stage as the download enters it.
+type StageReporter func(stage string)
+
+// WithStageReporter reports the stages of an OCI download. It does nothing for
+// other download kinds.
+func WithStageReporter(r StageReporter) DownloadOption {
+	return func(o *downloadOptions) { o.stage = r }
+}
+
+func (o *downloadOptions) enter(stage string) {
+	if o.stage != nil {
+		o.stage(stage)
+	}
 }
 
 func WithStagingDir(dir string) DownloadOption {
@@ -657,6 +682,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		// TOCTOU window in which a registry could swap the underlying
 		// manifest between the two HEADs.
 		if dopts.verifier != nil {
+			dopts.enter(StageVerifying)
 			digest, derr := img.Digest()
 			if derr != nil {
 				return fmt.Errorf("resolving digest for verification of %q: %v", url, derr)
@@ -669,11 +695,13 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		}
 
 		if dopts.maxBytes > 0 {
+			dopts.enter(StageSize)
 			if cerr := checkImageSize(img, dopts.maxBytes); cerr != nil {
 				return fmt.Errorf("image %q: %w", url, cerr)
 			}
 		}
 
+		dopts.enter(StageFetching)
 		return oci.ExtractOCIImage(ctx, img, url, filePath, dopts.stagingDir, downloadStatus)
 	}
 

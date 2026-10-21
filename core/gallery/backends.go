@@ -343,6 +343,9 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	if config.MaxBytes > 0 {
 		downloadOpts = append(downloadOpts, downloader.WithMaxBytes(config.MaxBytes))
 	}
+	if config.Stage != nil {
+		downloadOpts = append(downloadOpts, downloader.WithStageReporter(config.Stage))
+	}
 
 	// PreferDevelopmentBackends installs the development image as the primary URI,
 	// keeping the released image reachable as the first fallback — instead of only
@@ -439,6 +442,10 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	if _, err := os.Stat(stagedRunFile); os.IsNotExist(err) {
 		xlog.Error("Run file not found", "runFile", stagedRunFile)
 		return fmt.Errorf("not a valid backend: run file not found %q", stagedRunFile)
+	}
+
+	if config.Stage != nil {
+		config.Stage(StageWriting)
 	}
 
 	// Create metadata for the backend (written into the staged dir so the

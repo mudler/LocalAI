@@ -7,7 +7,7 @@ import ConfirmDialog from '../ConfirmDialog'
 import SideSheet from '../SideSheet'
 import CatalogView from '../catalog/CatalogView'
 import { paramsToQuery, queryToParams } from '../catalog/catalogState'
-import { AppIcon, Fact, UnknownNotice } from './AddonBits'
+import { AppIcon, Fact, InstallSteps, UnknownNotice } from './AddonBits'
 import { shortDigest } from './addonState'
 import { updateView } from './updateState'
 import { describeError, describeOutcome } from './errors'
@@ -60,12 +60,15 @@ export default function BrowseView({ api, adapter }) {
   const installBackend = async (entry) => {
     setConfirm(null)
     const key = `install:${entry.key}`
-    setBackendWork(w => ({ ...w, [key]: { phase: 'working' } }))
+    setBackendWork(w => ({ ...w, [key]: { phase: 'working', job: { phase: 'resolving' } } }))
     try {
-      await api.backends.install({ sourceId: entry.sourceId, name: entry.id, version: entry.version })
-      setBackendWork(w => ({ ...w, [key]: { phase: 'done' } }))
+      const job = await api.backends.install(
+        { sourceId: entry.sourceId, name: entry.id, version: entry.version }, undefined,
+        { onStatus: status => setBackendWork(w => ({ ...w, [key]: { phase: 'working', job: status } })) },
+      )
+      setBackendWork(w => ({ ...w, [key]: { phase: 'done', job } }))
     } catch (error) {
-      setBackendWork(w => ({ ...w, [key]: { phase: 'failed', error } }))
+      setBackendWork(w => ({ ...w, [key]: { phase: 'failed', error, job: { phase: error.phase, processed: true, error: error.message } } }))
     }
     setReload(n => n + 1)
   }
@@ -119,9 +122,10 @@ export default function BrowseView({ api, adapter }) {
             <p className="ad-entry__note" data-tone="error" role="alert">{describeOutcome(st.outcome, t, st.error)}</p>
           )}
           {st && st.outcome === 'completed' && <p className="ad-entry__note" data-tone="ok" role="status">{t('browse.installedNotEnabled')}</p>}
+          {bw && bw.phase !== 'done' && <InstallSteps job={bw.job} signed={entry.policy.requireSignature} />}
           {bw?.phase === 'failed' && (
             <p className="ad-entry__note" data-tone="error" role="alert">
-              {t('browse.backendFailed')} {bw.error?.status >= 400 && bw.error.message && bw.error.message !== bw.error.kind ? bw.error.message : describeError(bw.error, t)}
+              {t('browse.backendFailed')} {(bw.error?.kind === 'install' || bw.error?.status >= 400) && bw.error.message && bw.error.message !== bw.error.kind ? bw.error.message : describeError(bw.error, t)}
             </p>
           )}
           {bw?.phase === 'done' && <p className="ad-entry__note" data-tone="ok" role="status">{t('browse.installedBackendNote')}</p>}

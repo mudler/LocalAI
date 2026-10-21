@@ -48,7 +48,15 @@ type GalleryBackend struct {
 	// installed backend; MaxBytes bounds the compressed size of the image.
 	Library  string `json:"-" yaml:"-"`
 	MaxBytes int64  `json:"-" yaml:"-"`
+	// Stage, when set, receives the name of each install stage as it starts:
+	// the downloader stages (verifying, size, fetching) and StageWriting. A
+	// caller that shows progress sets it; the gallery never does.
+	Stage func(stage string) `json:"-" yaml:"-"`
 }
+
+// StageWriting is the install stage that writes the metadata of the backend
+// and swaps it into place. It follows the download stages.
+const StageWriting = "writing"
 
 func (backend *GalleryBackend) FindBestBackendFromMeta(systemState *system.SystemState, backends GalleryElements[*GalleryBackend]) *GalleryBackend {
 	if systemState == nil {

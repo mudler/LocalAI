@@ -208,11 +208,18 @@ and the policy, so a request cannot change them. The install:
 4. installs with the same code as the gallery, so the backend lands in the same directory
    with the same `metadata.json`, plus `library`, the ID of the library it came from.
 
-The install runs inside the request and answers when it ends: `200` on success, `404` for
-an unknown entry, `409` when the name is already installed from another origin (a gallery,
-another library or a manual install; nothing changes), `413` over the size limit and `400`
-when strict mode refuses the library. Installing again from the same library is a
-reinstall.
+The request answers at once with a job, the same kind of job the backend gallery uses:
+`{"id": "...", "status_url": ".../backends/jobs/<id>"}`. Read `GET /backends/jobs/<id>` to
+follow it. The `phase` of the job is the step it is in, in this order: `resolving`,
+`verifying` (only when the library requires a signature), `size`, `fetching` (with
+`progress` and the sizes of the fetch) and `writing`. A job that ends has `processed` set.
+It ends with the phase `done` and `message` `completed`, or with `error` set and the
+`phase` of the step that failed. The Browse tab shows these steps. Refusals that depend on
+the entry arrive this way: an unknown entry, a name installed from another origin (a
+gallery, another library or a manual install; nothing changes), an image over the size
+limit, a library that strict mode refuses. The request itself answers `400` when it does
+not name an entry and `409` when the same backend is already being installed. Installing
+again from the same library is a reinstall.
 
 A library install touches only the node that serves the request. In a distributed
 deployment the backend is installed on that node only; the per-node routes of the backend

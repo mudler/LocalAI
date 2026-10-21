@@ -5718,30 +5718,43 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "installed",
+                        "description": "the job; read its status at the status URL",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/schema.BackendResponse"
                         }
                     },
-                    "404": {
-                        "description": "no such entry",
+                    "400": {
+                        "description": "the request does not name an entry",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "409": {
-                        "description": "the name is installed from another origin",
+                        "description": "the same backend is already being installed",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
-                    },
-                    "413": {
-                        "description": "the image is over the size limit",
+                    }
+                }
+            }
+        },
+        "/backends/library/updates": {
+            "get": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "List the installed library backends with a newer build in their library.",
+                "responses": {
+                    "200": {
+                        "description": "updates",
                         "schema": {
-                            "$ref": "#/definitions/schema.ErrorResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/backendlib.Update"
+                                }
+                            }
                         }
                     }
                 }
@@ -8155,6 +8168,33 @@
                     "type": "string"
                 },
                 "ticket": {
+                    "type": "string"
+                }
+            }
+        },
+        "backendlib.Update": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "type": "string"
+                },
+                "installedDigest": {
+                    "type": "string"
+                },
+                "installedVersion": {
+                    "description": "InstalledVersion and InstalledDigest are what metadata.json pins.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the backend name.",
+                    "type": "string"
+                },
+                "sourceId": {
+                    "description": "SourceID is the library the backend came from.",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Version and Digest are the build the library lists now. Version is what\nan install of the update names.",
                     "type": "string"
                 }
             }

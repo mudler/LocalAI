@@ -228,6 +228,12 @@ func (c Catalog) ResolveKind(ctx context.Context, kind Kind, sourceID, addonID, 
 // The update check uses it to tell an entry that exists for another platform
 // from one that does not exist at all. The order is stable.
 func (c Catalog) Releases(ctx context.Context, sourceID, addonID string) ([]Release, error) {
+	return c.KindReleases(ctx, KindAddon, sourceID, addonID)
+}
+
+// KindReleases is Releases for an entry of any one kind. The library check of
+// the installed backends uses it with KindBackend.
+func (c Catalog) KindReleases(ctx context.Context, kind Kind, sourceID, addonID string) ([]Release, error) {
 	if e := ctx.Err(); e != nil {
 		return nil, e
 	}
@@ -250,7 +256,7 @@ func (c Catalog) Releases(ctx context.Context, sourceID, addonID string) ([]Rele
 	}
 	out := []Release{}
 	for _, r := range cache.releases {
-		if r.EntryKind() == KindAddon && r.AddonID == addonID {
+		if r.EntryKind() == kind && r.AddonID == addonID {
 			out = append(out, r)
 		}
 	}

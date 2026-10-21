@@ -13,6 +13,7 @@ import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
+import { installSteps, STEP_ORDER } from '../../src/components/addons/installSteps.js'
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
 
@@ -297,7 +298,7 @@ test('a backend entry keeps its kind and installs through the backend route', as
   assert.equal(page.entries[0].kind, 'backend')
   assert.equal(page.entries[0].alias, 'local-store')
   assert.equal(page.entries[0].key, 'official-backends/cpu-local-store/0.0.0-latest.aaaaaaaaaaaa')
-  assert.deepEqual(await api.backends.installed(), [{ id: 'cpu-local-store', library: 'official-backends' }, { id: 'llama-cpp', library: '' }])
+  assert.deepEqual(await api.backends.installed(), [{ id: 'cpu-local-store', library: 'official-backends', version: '', digest: '' }, { id: 'llama-cpp', library: '', version: '', digest: '' }])
   await assert.rejects(
     api.backends.install({ sourceId: 'official-backends', name: 'cpu-local-store', version: 'v' }),
     e => e instanceof AddonsError && e.kind === 'unavailable' && e.status === 409 && /another origin/.test(e.message),
@@ -314,4 +315,51 @@ test('a library signer is named exactly or by a pattern, never both', () => {
   const wire = draftToSource({ ...ok, identityRegex: ' ^a$ ' })
   assert.deepEqual(wire.policy, { requireSignature: true, issuer: 'i', identityRegex: '^a$' })
   assert.equal(sourceToDraft({ policy: { requireSignature: true, issuer: 'i', identityRegex: '^a$' } }).identityRegex, '^a$')
+})
+
+test('a backend install follows its job through the steps and ends with the result', async () => {
+  const phases = ['resolving', 'size', 'fetching', 'writing']
+  let polls = 0
+  const urls = []
+  const api = createAddonsApi({
+    fetch: async (url) => {
+      urls.push(url)
+      if (url === '/backends/library/install') return json(200, { id: 'job-1', status_url: '/backends/jobs/job-1' })
+      if (url === '/backends/jobs/job-1') {
+        const phase = phases[polls++]
+        return json(200, phase ? { phase, processed: false, progress: phase === 'fetching' ? 40 : 0 } : { phase: 'done', processed: true, progress: 100, message: 'completed' })
+      }
+      return json(404, {})
+    },
+  })
+  const seen = []
+  const done = await api.backends.install({ sourceId: 's', name: 'n', version: 'v' }, undefined, { pollMs: 1, onStatus: st => seen.push(st.phase) })
+  assert.deepEqual(seen, ['resolving', 'size', 'fetching', 'writing', 'done'])
+  assert.equal(done.processed, true)
+  assert.equal(urls.filter(u => u === '/backends/library/install').length, 1)
+})
+
+test('a failed backend install job throws the reason and keeps the step that failed', async () => {
+  const api = createAddonsApi({
+    fetch: async (url) => (url === '/backends/library/install'
+      ? json(200, { id: 'j' })
+      : json(200, { phase: 'size', processed: true, error: 'error: image is larger than the size limit' })),
+  })
+  await assert.rejects(
+    api.backends.install({ sourceId: 's', name: 'n', version: 'v' }, undefined, { pollMs: 1 }),
+    e => e instanceof AddonsError && e.kind === 'install' && e.phase === 'size' && e.message === 'image is larger than the size limit',
+  )
+})
+
+test('install steps: left steps are done, the reported one runs, the rest wait', () => {
+  assert.deepEqual(STEP_ORDER, ['resolving', 'verifying', 'size', 'fetching', 'writing'])
+  const states = job => installSteps(job).map(s => `${s.id}:${s.state}`)
+  assert.deepEqual(states(null), STEP_ORDER.map(id => `${id}:pending`))
+  assert.deepEqual(states({ phase: 'size' }), ['resolving:done', 'verifying:done', 'size:active', 'fetching:pending', 'writing:pending'])
+  assert.deepEqual(states({ phase: 'size', processed: true, error: 'x' }), ['resolving:done', 'verifying:done', 'size:failed', 'fetching:pending', 'writing:pending'])
+  assert.deepEqual(states({ phase: 'done', processed: true }), STEP_ORDER.map(id => `${id}:done`))
+  // The fetch step carries the percentage of the image.
+  assert.equal(installSteps({ phase: 'fetching', progress: 41.6 }).find(s => s.id === 'fetching').progress, 42)
+  // A library that needs no signature has no verifying step.
+  assert.deepEqual(installSteps({ phase: 'size' }, { signed: false }).map(s => s.id), ['resolving', 'size', 'fetching', 'writing'])
 })

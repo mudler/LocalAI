@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 )
@@ -60,9 +61,38 @@ func (i *Installer) limit() int64 {
 	return catalog.DefaultMaxBytes(catalog.KindBackend)
 }
 
+// The steps of an install, in the order they run. A step is reported when it
+// starts. StepVerifying is reported only when the library requires a signature;
+// the others always run.
+const (
+	StepResolving = "resolving"
+	StepVerifying = downloader.StageVerifying
+	StepSize      = downloader.StageSize
+	StepFetching  = downloader.StageFetching
+	StepWriting   = gallery.StageWriting
+)
+
+// Steps lists the steps of an install in order.
+var Steps = []string{StepResolving, StepVerifying, StepSize, StepFetching, StepWriting}
+
+// Progress receives what an install reports. Both fields are optional.
+type Progress struct {
+	// Step is called with the name of each step as it starts.
+	Step func(step string)
+	// Bytes is the byte progress of the image fetch, as the gallery reports it.
+	Bytes func(fileName, current, total string, percentage float64)
+}
+
+func (p Progress) step(s string) {
+	if p.Step != nil {
+		p.Step(s)
+	}
+}
+
 // Install resolves the backend entry and installs it. version is the version
 // or the channel of the entry, as for an add-on.
-func (i *Installer) Install(ctx context.Context, sourceID, backend, version string, status func(string, string, string, float64)) error {
+func (i *Installer) Install(ctx context.Context, sourceID, backend, version string, progress Progress) error {
+	progress.step(StepResolving)
 	r, err := i.Catalog.ResolveKind(ctx, catalog.KindBackend, sourceID, backend, version)
 	if err != nil {
 		return err
@@ -80,7 +110,8 @@ func (i *Installer) Install(ctx context.Context, sourceID, backend, version stri
 	}
 	// With a verification policy the gallery install verifies the signature of
 	// the pinned image before it fetches any layer, then applies the size limit.
-	return install(ctx, i.SystemState, i.ModelLoader, gb, status, i.RequireIntegrity)
+	gb.Stage = progress.Step
+	return install(ctx, i.SystemState, i.ModelLoader, gb, progress.Bytes, i.RequireIntegrity)
 }
 
 var digestForm = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
