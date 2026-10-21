@@ -2,7 +2,6 @@
 export default {
   "voice.adminOnly.title": "Administrators only",
   "voice.adminOnly.text": "Saved voices can be managed by an administrator of this server. Ask one if you need a voice added or removed.",
-  "speech.title": "Speak text",
   "speech.lede": "Turn text into speech with a voice model of this server.",
   "speech.model": "Model",
   "speech.voice": "Voice",
@@ -158,7 +157,6 @@ export default {
   "tts.voiceLibrary.create": "Create one",
   "tts.voiceLibrary.manage": "Manage Personality Library",
   "tts.voiceLibrary.namedVoiceHint": "This model does not accept reference-audio profiles. You can still enter a named speaker supported by its backend.",
-  "voiceLibrary.title": "Speech voices",
   "voiceLibrary.subtitle": "A recording and its exact transcript. Text-to-speech models that accept reference audio can speak with it.",
   "voiceLibrary.loadFailed": "Speech voices could not be loaded",
   "voiceLibrary.loading": "Loading saved personalities…",

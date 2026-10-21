@@ -365,8 +365,9 @@ JSON`
 
     return (
       <main className="page voice-library-page" data-testid="voice-library">
+        {/* The add-on shell already titles the page, so this header carries the
+            supporting line and the actions only. */}
         <ui.PageHeader
-          title={<>{t('voiceLibrary.title')} <span className="dk-hubtab-count">{profiles.length}</span></>}
           supporting={t('voiceLibrary.subtitle')}
           actions={(
             <div className="idn-speech__acts">

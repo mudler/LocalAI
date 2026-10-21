@@ -307,6 +307,13 @@ async function expectVoiceTabs(page, active) {
   await expect(tabs.locator('[aria-selected="true"]')).toHaveAttribute('data-tab', active)
 }
 
+// The add-on shell shows the one title, "Voice"; the Library and Text to speech
+// pages do not repeat it with a heading of their own.
+async function expectOneVoiceTitle(page) {
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  await expect(page.getByRole('heading', { name: 'Voice', exact: true, level: 1 })).toBeVisible()
+}
+
 test.describe('Add-on navigation: the Voice recognition page', () => {
   test('the Voice add-on draws the recognition tab with the core test ids', async ({ page }) => {
     await setup(page, { apps: [voiceApp()] })
@@ -367,6 +374,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library$/)
     await expect(page.getByTestId('voice-library')).toBeVisible()
     await expectVoiceTabs(page, 'library')
+    await expectOneVoiceTitle(page)
 
     await page.getByTestId('voice-library-new').first().click()
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library\/new$/)
@@ -377,6 +385,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/speech$/)
     await expect(page.getByTestId('voice-speech')).toBeVisible()
     await expectVoiceTabs(page, 'speech')
+    await expectOneVoiceTitle(page)
 
     await tabs.getByRole('tab', { name: /^From a recording$/ }).click()
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recording$/)
