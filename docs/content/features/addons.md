@@ -1662,7 +1662,7 @@ sent with `Cache-Control: private, no-store`.
 
 ### Pins
 
-Pins no longer appear in the sidebar. They are used from the add-ons drawer: a pinned tile there has buttons to move it earlier or later.
+Pinned apps are listed in the sidebar under Apps, in pin order. A pinned tile in the add-ons drawer has buttons to move it earlier or later.
 
 `GET /api/addons/pins` returns the caller's pinned add-on IDs as a JSON array, in order.
 `PUT /api/addons/pins` takes a JSON array of add-on IDs, replaces the caller's pins with it
@@ -1712,8 +1712,10 @@ convenience: the owner checks administration again on every call, so a request t
 the page is denied the same way (403).
 
 The sidebar has the items **Chat**, **Models** and **Apps**, and below Apps a **Show all**
-link. Both open the add-ons drawer at `/app/addons`. Pins no longer appear in the sidebar:
-the user pins add-ons and changes their order with the buttons on a pinned tile in the drawer. Pins belong to the user, follow the user across browsers, and are
+link. Both open the add-ons drawer at `/app/addons`. The pinned apps are listed between them,
+in pin order, as indented links with the app icon and title; nothing is listed when no app is
+pinned, and the list is hidden when the sidebar is collapsed. The user pins add-ons and changes
+their order with the buttons on a pinned tile in the drawer. Pins belong to the user, follow the user across browsers, and are
 capped at eight. A pin whose add-on is stopped opens the detail view; a pin whose add-on
 was removed or is hidden is not drawn. Operators who
 need the previous sidebar can set `LOCALAI_LEGACY_NAVIGATION=true` (flag
