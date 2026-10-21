@@ -22,6 +22,11 @@ test.describe('Canonical resource navigation', () => {
   })
 
   test('redirects legacy backend management state including visibility flags', async ({ page }) => {
+    // The Backends page drops a selection that is not installed. Serve the
+    // selected backend so the URL stays stable once the page has loaded.
+    await page.route('**/backends', route => new URL(route.request().url()).pathname === '/backends'
+      ? route.fulfill({ json: [{ Name: 'llama-cpp', IsSystem: false, Version: '1.0.0', Metadata: { version: '1.0.0' } }] })
+      : route.continue())
     await page.goto('/app/manage?tab=backends&sel=llama-cpp&bq=llama&bf=user&bv=1&bd=1')
 
     await expect.poll(() => urlState(page).path).toBe('/app/backends')
