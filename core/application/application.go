@@ -682,7 +682,7 @@ func (a *Application) start() (startErr error) {
 		assistantClient.FallbackUser = a.fallbackUser
 		assistantClient.VoiceProfiles = a.voiceProfileStore
 		if a.backendLibrary != nil {
-			assistantClient.BackendLibrary = a.backendLibrary
+			assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
 		}
 		if a.distributed != nil && a.distributed.Unloader != nil {
 			assistantClient.LoadStopper = a.distributed.Unloader
@@ -964,4 +964,12 @@ func (a *Application) startAddons() error {
 		return err
 	}
 	return nil
+}
+
+// libraryInstallNoProgress adapts the library installer to the assistant's
+// installer interface, which does not report progress.
+type libraryInstallNoProgress struct{ in *backendlib.Installer }
+
+func (l libraryInstallNoProgress) Install(ctx context.Context, sourceID, backend, version string) error {
+	return l.in.Install(ctx, sourceID, backend, version, backendlib.Progress{})
 }
