@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/routes"
+	"github.com/mudler/LocalAI/core/services/addons/builtin"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -33,6 +34,12 @@ var _ = Describe("Add-on navigation routes with real authentication", func() {
 		token string
 	)
 	BeforeEach(func() {
+		// No page is built in today, so the specs make up two ungated entries to
+		// check the list, the pin seed and the pin filter against.
+		DeferCleanup(builtin.SetCatalogForTest([]builtin.Entry{
+			{ID: "studio", Kind: builtin.KindPage, TitleKey: "studio", Icon: "fa-wand-magic-sparkles", MainPath: "/app/studio"},
+			{ID: "talk", Kind: builtin.KindPage, TitleKey: "talk", Icon: "fa-microphone", MainPath: "/app/talk"},
+		}))
 		dir := GinkgoT().TempDir()
 		models, backends := filepath.Join(dir, "models"), filepath.Join(dir, "backends")
 		Expect(os.Mkdir(models, 0750)).To(Succeed())
