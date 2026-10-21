@@ -80,8 +80,9 @@ export function createFaceRecognition(ctx, api, identity) {
 
     return (
       <main className="page idn-page" data-testid="faces-page">
+        {/* The add-on shell already titles the page "Face", so this header
+            carries the supporting line and the model picker only. */}
         <ui.PageHeader
-          title={t('faces.title')}
           supporting={t('faces.lede')}
           actions={!needModel ? (
             <div className="idn-modelpick">

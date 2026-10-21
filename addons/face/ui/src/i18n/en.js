@@ -1,6 +1,5 @@
 // Generated once from the host locale files; edit by hand from here on.
 export default {
-  "faces.title": "Faces",
   "faces.lede": "Find out whose face is in a photo, or whether two photos show the same person. Photos go only to the model running on this server.",
   "tool.aria": "Recognition tool",
   "tool.sameTab": "Same person?",

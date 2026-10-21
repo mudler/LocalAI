@@ -79,8 +79,9 @@ export function createVoiceRecognition(ctx, api, identity) {
 
     return (
       <main className="page idn-page" data-testid="voices-page">
+        {/* The add-on shell already titles the page "Voice", so this header
+            carries the supporting line and the model picker only. */}
         <ui.PageHeader
-          title={t('voices.title')}
           supporting={t('voices.lede')}
           actions={tab === 'speakers' && !needModel ? (
             <div className="idn-modelpick">

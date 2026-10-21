@@ -12,7 +12,6 @@ export default {
   "speech.generate": "Generate speech",
   "speech.result": "Result",
   "speech.noAccess": "Your account has no access to text-to-speech. The server will refuse the request.",
-  "voices.title": "Voices",
   "voices.lede": "Recognise who is speaking, and keep voices that text-to-speech can use.",
   "voices.tabs": "Voices sections",
   "voices.tab.recognition": "Recognition",
