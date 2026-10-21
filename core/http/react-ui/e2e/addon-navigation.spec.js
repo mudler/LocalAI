@@ -160,6 +160,12 @@ test.describe('Add-on navigation', () => {
 
   test('a pin of an add-on that is no longer listed is not drawn and shows no error', async ({ page }) => {
     await setup(page, { pins: ['studio', 'removed-addon'] })
+    // The Home page raises its own alert when the model list or a staging
+    // operation fails. Both come from the shared test server, so a slow answer
+    // or a failed install left there would count as an alert about the pin.
+    // Fix their answers so the alert count tells only about the pin.
+    await page.route('**/v1/models', route => route.fulfill({ json: { object: 'list', data: [] } }))
+    await page.route('**/api/operations', route => route.fulfill({ json: { operations: [] } }))
     // Hold the Apps list back so the assertions run after it has arrived and
     // been drawn from, not before, when a missing pin proves nothing.
     await page.route(/\/api\/addons\/apps$/, async route => {
