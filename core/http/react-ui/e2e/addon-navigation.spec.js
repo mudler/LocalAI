@@ -9,9 +9,9 @@ import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } f
 // Studio and Talk are packaged add-ons, not built-in tiles: the specs install
 // the real packages. No page is built in today, so `builtin` is empty unless a
 // spec makes one up to check the built-in rules.
-async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true } = {}) {
+async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER } = {}) {
   let saved = pins
-  await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons }) }))
+  await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons }) }))
   await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: true } }))
   await page.route('**/api/addons/builtin', route => route.fulfill({ json: { builtin } }))
   // mockAddons installs the Apps routes with the real response shape ({ apps }).
@@ -64,6 +64,27 @@ test.describe('Add-on navigation', () => {
     await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
   })
 
+  test('the icon rail shows Apps only, centred, with no pinned app', async ({ page }) => {
+    await setup(page)
+    for (const size of [{ width: 1280, height: 800, collapsed: true }, { width: 1000, height: 800, collapsed: false }]) {
+      await page.setViewportSize({ width: size.width, height: size.height })
+      await page.addInitScript(collapsed => {
+        try { localStorage.setItem('localai_sidebar_collapsed', String(collapsed)) } catch (_) { /* ignore */ }
+      }, size.collapsed)
+      await page.goto('/app')
+      const nav = page.getByRole('navigation')
+      await expect(nav.locator('a.nav-item[href="/app/addons"]')).toBeVisible()
+      await expect(nav.getByTestId('apps-pinned-link').filter({ visible: true })).toHaveCount(0)
+      const rail = await page.locator('.sidebar').boundingBox()
+      const icons = await nav.locator('a.nav-item:visible .nav-icon').evaluateAll(els => els.map(e => {
+        const r = e.getBoundingClientRect()
+        return (r.left + r.right) / 2
+      }))
+      expect(icons.length).toBeGreaterThan(0)
+      for (const x of icons) expect(Math.abs(x - (rail.x + rail.width / 2))).toBeLessThan(2)
+    }
+  })
+
   test('the Apps entry opens the drawer, where pinned add-ons are shown and their order can be changed', async ({ page }) => {
     const server = await setup(page, { pins: ['studio', 'talk'] })
     await page.goto('/app')
@@ -89,6 +110,33 @@ test.describe('Add-on navigation', () => {
     await page.keyboard.press('Enter')
     await expect(toggle).toHaveAttribute('aria-pressed', 'true')
     expect(server.saved()).toEqual(['notes'])
+  })
+
+  test('the first-run card shows to an administrator with nothing installed and leads to Browse', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [] })
+    await page.goto('/app/addons')
+    const card = page.getByTestId('addons-first-run')
+    await expect(card).toBeVisible()
+    await expect(card.getByRole('listitem')).toHaveCount(3)
+    await expect(card).toContainText('official library is registered by default')
+    await expect(page.getByTestId('addon-tile')).toHaveCount(0)
+    await card.getByTestId('addons-first-run-browse').click()
+    await expect(page).toHaveURL(/tab=browse/)
+    await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+  })
+
+  test('the first-run card is hidden once an add-on is installed', async ({ page }) => {
+    await setup(page, { user: ADMIN, pins: [] })
+    await page.goto('/app/addons')
+    await expect(page.getByTestId('addon-tile').first()).toBeVisible()
+    await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+  })
+
+  test('the first-run card is hidden from a caller who cannot install add-ons', async ({ page }) => {
+    await setup(page, { studio: false, pins: [] })
+    await page.goto('/app/addons')
+    await expect(page.getByRole('heading', { name: 'No apps yet' })).toBeVisible()
+    await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
   })
 
   test('a stopped tile opens the detail view and never the main page', async ({ page }) => {

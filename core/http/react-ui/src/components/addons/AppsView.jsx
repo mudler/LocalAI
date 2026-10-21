@@ -18,7 +18,7 @@ import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
 import { apiUrl } from '../../utils/basePath'
 import { StateChip, AppIcon, UnknownNotice, UpdateChip } from './AddonBits'
-import { appActions, localizedText, toolSummary } from './addonState'
+import { appActions, localizedText, showFirstRun, toolSummary } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 
@@ -159,7 +159,19 @@ export default function AppsView({ api }) {
           </>
         )}
       </div>
-      {shown.length === 0 ? (
+      {showFirstRun({ apps: state.apps, isAdmin, canList }) ? (
+        <section className="ad-card ad-first" data-testid="addons-first-run" aria-labelledby="ad-first-title">
+          <h2 className="ad-card__title" id="ad-first-title">{t('apps.firstRun.title')}</h2>
+          <ol className="ad-first__steps">
+            <li><strong>{t('apps.firstRun.libraryTitle')}</strong> {t('apps.firstRun.libraryBody')}</li>
+            <li><strong>{t('apps.firstRun.browseTitle')}</strong> {t('apps.firstRun.browseBody')}</li>
+            <li><strong>{t('apps.firstRun.startTitle')}</strong> {t('apps.firstRun.startBody')}</li>
+          </ol>
+          <div className="ad-section__acts">
+            <Link className="dk-btn dk-btn--primary" to="/app/addons?tab=browse" data-testid="addons-first-run-browse"><Icon name="store" /> {t('apps.firstRun.browse')}</Link>
+          </div>
+        </section>
+      ) : shown.length === 0 ? (
         <CatalogEmpty icon="puzzle" title={t('apps.emptyTitle')} text={t('apps.emptyBody')} />
       ) : (
         <ul className="ad-tiles" aria-label={t('apps.listLabel')}>

@@ -61,6 +61,8 @@
   border-radius: var(--dk-radius-3);
   background: var(--dk-card);
 }
+.ad-first__steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: var(--dk-space-2); font-size: var(--dk-text-13); line-height: 1.5; }
+.ad-first__steps li::marker { color: var(--dk-muted); font-family: var(--font-mono); }
 .ad-card__head { display: flex; align-items: flex-start; gap: var(--dk-space-3); min-width: 0; }
 .ad-card__chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--dk-space-1); }
 .ad-reasons { margin: var(--dk-space-1) 0 0; padding: 0; list-style: none; }

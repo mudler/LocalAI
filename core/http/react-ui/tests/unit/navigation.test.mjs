@@ -4,6 +4,7 @@ import {
   PIN_CAP, sidebarPinLinks, tileFromApp, tileFromBuiltin, buildTiles, filterTiles, resolvePins, togglePin, movePin,
 } from '../../src/utils/addonTiles.js'
 import { primaryDestinations, visiblePrimary } from '../../src/utils/navigationModel.js'
+import { showFirstRun } from '../../src/components/addons/addonState.js'
 import { createPinsApi } from '../../src/utils/pinsApi.js'
 
 const app = (over = {}) => ({
@@ -142,4 +143,11 @@ test('sidebarPinLinks: a stopped app opens its detail view and is marked stopped
   const [link] = sidebarPinLinks(['notes'], tiles)
   assert.equal(link.to, '/app/addons?detail=notes')
   assert.equal(link.stopped, true)
+})
+
+test('the first-run card shows only to an installer when nothing is installed', () => {
+  assert.equal(showFirstRun({ apps: [], isAdmin: true }), true)
+  assert.equal(showFirstRun({ apps: [app()], isAdmin: true }), false)
+  assert.equal(showFirstRun({ apps: [], isAdmin: false }), false)
+  assert.equal(showFirstRun({ apps: [], isAdmin: true, canList: false }), false)
 })

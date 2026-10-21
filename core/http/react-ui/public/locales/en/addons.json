@@ -35,6 +35,16 @@
   "apps": {
     "emptyBody": "When an administrator installs and enables an add-on, it appears here.",
     "emptyTitle": "No apps yet",
+    "firstRun": {
+      "browse": "Browse add-ons",
+      "browseBody": "Pick an add-on from a library and install it.",
+      "browseTitle": "Browse and install.",
+      "libraryBody": "The official library is registered by default. You can add more under Libraries.",
+      "libraryTitle": "Choose a library.",
+      "startBody": "Start an installed add-on from its tile. Add-ons that were running start again with the server.",
+      "startTitle": "Start it.",
+      "title": "Welcome to Apps"
+    },
     "headless": "Runs in the background and has no page of its own.",
     "listLabel": "Apps",
     "loading": "Loading apps",

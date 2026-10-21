@@ -15,6 +15,12 @@ export function visibleTabs(isAdmin) {
   return TABS.filter(tab => isAdmin || !ADMIN_TABS.has(tab))
 }
 
+// The first-run card: shown to someone who can install add-ons, once the list
+// has loaded and nothing is installed. It goes away with the first install.
+export function showFirstRun({ apps, isAdmin, canList = true }) {
+  return Boolean(isAdmin) && Boolean(canList) && Array.isArray(apps) && apps.length === 0
+}
+
 // The management link of an app opens the Installed tab on that add-on.
 export function resolveManage(params, isAdmin) {
   if (!isAdmin) return ''
