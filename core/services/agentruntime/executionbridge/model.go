@@ -35,8 +35,9 @@ type callFields struct {
 	Binding, Provenance, Projection        [32]byte
 	Revision, AuthRevision, ConfigRevision uint64
 	Codec, TTL                             uint64
-	Mode                                   uint8
-	Tainted                                bool
+	// Mode preserves toolbroker.PolicyMode encoding (0..3); facts grant authority.
+	Mode    uint8
+	Tainted bool
 }
 
 func ownCall(f callFields) Call { return Call{open: func() callFields { return f }} }
@@ -53,7 +54,7 @@ func identifier(s string) bool {
 func number(n uint64) bool { return n > 0 && n <= math.MaxInt64 }
 func (c Call) valid() bool {
 	f := c.fields()
-	return identifier(f.Principal) && identifier(f.Conversation) && identifier(f.Turn) && number(f.Attempt) && number(f.Epoch) && identifier(f.Invocation) && identifier(f.Protocol) && identifier(f.Helper) && identifier(f.Tool) && number(f.Revision) && number(f.AuthRevision) && number(f.ConfigRevision) && number(f.Codec) && number(f.TTL) && f.Mode > 0 && f.Mode <= 2 && f.Binding != [32]byte{} && f.Provenance != [32]byte{} && f.Projection != [32]byte{}
+	return identifier(f.Principal) && identifier(f.Conversation) && identifier(f.Turn) && number(f.Attempt) && number(f.Epoch) && identifier(f.Invocation) && identifier(f.Protocol) && identifier(f.Helper) && identifier(f.Tool) && number(f.Revision) && number(f.AuthRevision) && number(f.ConfigRevision) && number(f.Codec) && number(f.TTL) && f.Mode <= 3 && f.Binding != [32]byte{} && f.Provenance != [32]byte{} && f.Projection != [32]byte{}
 }
 
 var errInvalid = errors.New("execution bridge model: invalid or unavailable")
@@ -341,6 +342,13 @@ func Reduce(s State, event Event) Transition {
 			return result(Claimed{c}, "HB10", ClaimCall)
 		}
 	case Claimed:
+		// ClaimCall can report an already recorded result without a continuation.
+		if k == Replay {
+			if !replayOK(c, f) {
+				return result(Held{c}, "HB24")
+			}
+			return result(Completed{c}, "HB23", ReleaseReplay)
+		}
 		if k == Dispatch {
 			if !authority(c, f) || !unblocked(f) {
 				return result(Held{c}, "HB11")
@@ -455,6 +463,10 @@ func CheckTransition(before State, event Event, r Transition) error {
 		ok = a == "Unmapped" && k == Replay && b == "Completed" && replayOK(c, f) && effects(ReleaseReplay)
 	case "HB16":
 		ok = a == "Unmapped" && k == Replay && b == "Held" && !replayOK(c, f) && effects()
+	case "HB23":
+		ok = a == "Claimed" && k == Replay && b == "Completed" && replayOK(c, f) && effects(ReleaseReplay)
+	case "HB24":
+		ok = a == "Claimed" && k == Replay && b == "Held" && !replayOK(c, f) && effects()
 	case "HB17":
 		ok = a == "Executing" && k == Cancel && b == "Held" && effects()
 	case "HB18":
@@ -472,7 +484,7 @@ func CheckTransition(before State, event Event, r Transition) error {
 		case "Ready":
 			handled = handled || k == Claim
 		case "Claimed":
-			handled = handled || k == Dispatch
+			handled = handled || k == Dispatch || k == Replay
 		case "Executing":
 			handled = handled || k == Finish
 		}

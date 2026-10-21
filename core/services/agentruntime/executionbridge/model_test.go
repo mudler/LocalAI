@@ -33,6 +33,111 @@ func executing(c Call, f Facts) State {
 }
 
 var _ = Describe("Pure host execution contract", func() {
+	It("accepts exactly broker policy modes without granting authority or changing identity", func() {
+		c, f := fixture()
+		for _, mode := range []uint8{0, 1, 2, 3} {
+			x := c.fields()
+			x.Mode = mode
+			call := ownCall(x)
+			Expect(call.valid()).To(BeTrue())
+			id, err := RequestID(call)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(id).To(Equal("he1_7690876db51234c4939b27bcfab79d86d86744ac3b53e4747814cb28ca02737e"))
+			s := step(Unmapped{}, Admit, call, f, "HB03").State
+			Expect(s.payload().fields()).To(Equal(x))
+			for _, other := range []uint8{0, 1, 2, 3} {
+				if other == mode {
+					continue
+				}
+				y := x
+				y.Mode = other
+				r := step(s, Admit, ownCall(y), f, "HB05")
+				Expect(r.State.payload().fields()).To(Equal(x))
+				Expect(r.Effects).To(BeEmpty())
+			}
+			g := f
+			g.Authorized = false
+			step(Unmapped{}, Admit, call, g, "HB06")
+			g = f
+			g.NeedsApproval = true
+			step(s, Begin, call, g, "HB08")
+		}
+		for mode := 4; mode <= 255; mode++ {
+			x := c.fields()
+			x.Mode = uint8(mode)
+			call := ownCall(x)
+			Expect(call.valid()).To(BeFalse())
+			Expect(Invariant(Claimed{call})).To(HaveOccurred())
+			Expect(step(Unmapped{}, Admit, call, f, "HB06").Effects).To(BeEmpty())
+		}
+	})
+	It("releases recorded completion after ordered admission begin and claim without native execution", func() {
+		c, f := fixture()
+		f.Origin = c
+		var s State = Unmapped{}
+		var effects []Effect
+		for _, edge := range []struct {
+			kind EventKind
+			rule string
+		}{{Admit, "HB03"}, {Begin, "HB07"}, {Claim, "HB10"}, {Replay, "HB23"}} {
+			r := step(s, edge.kind, c, f, edge.rule)
+			s = r.State
+			effects = append(effects, r.Effects...)
+		}
+		Expect(s).To(BeAssignableToTypeOf(Completed{}))
+		Expect(effects).To(Equal([]Effect{PersistAdmission, BeginBroker, ClaimCall, ReleaseReplay}))
+		for _, k := range []EventKind{Dispatch, Finish, Replay, Claim} {
+			Expect(step(s, k, c, f, "HB21").Effects).To(BeEmpty())
+		}
+	})
+	It("holds recorded replay on every missing authority or origin guard and rejects forged release", func() {
+		c, f := fixture()
+		f.Origin = c
+		s := step(ready(c, f), Claim, c, f, "HB10").State
+		for _, change := range []func(*Facts){
+			func(x *Facts) { x.Lease = Expired }, func(x *Facts) { x.RevisionCurrent = false },
+			func(x *Facts) { x.TurnCurrent = false }, func(x *Facts) { x.Registered = false },
+			func(x *Facts) { x.Authorized = false }, func(x *Facts) { x.HelperScope = Call{} },
+			func(x *Facts) { x.RegisteredHelper = "forged" }, func(x *Facts) { x.Origin = Call{} },
+			func(x *Facts) { y := c.fields(); y.Turn = "wrong"; x.Origin = ownCall(y) },
+			func(x *Facts) { x.ExactOrigin = false }, func(x *Facts) { x.OriginCompleted = false },
+			func(x *Facts) { x.OriginAuthorized = false }, func(x *Facts) { x.ReleaseAuthorized = false },
+		} {
+			g := f
+			change(&g)
+			r := step(s, Replay, c, g, "HB24")
+			Expect(r.State).To(BeAssignableToTypeOf(Held{}))
+			Expect(r.Effects).To(BeEmpty())
+			Expect(step(r.State, Replay, c, f, "HB20").Effects).To(BeEmpty())
+			for _, rule := range []string{"HB23", "HB15", "HB13"} {
+				Expect(CheckTransition(s, ev(Replay, c, g), result(Completed{c}, rule, ReleaseReplay))).To(HaveOccurred())
+			}
+			Expect(CheckTransition(s, ev(Replay, c, g), result(s, "HB00"))).To(HaveOccurred())
+		}
+	})
+	It("checks recorded replay certificates independently without Ready or Executing shortcuts", func() {
+		c, f := fixture()
+		f.Origin = c
+		s := Claimed{c}
+		e := ev(Replay, c, f)
+		Expect(CheckTransition(s, e, result(Completed{c}, "HB23", ReleaseReplay))).To(Succeed())
+		Expect(CheckTransition(s, e, result(Held{c}, "HB24"))).To(HaveOccurred())
+		for _, effects := range [][]Effect{nil, {Execute}, {ClaimCall}, {Publish}, {ReleaseReplay, Execute}} {
+			Expect(CheckTransition(s, e, result(Completed{c}, "HB23", effects...))).To(HaveOccurred())
+		}
+		for _, before := range []State{Ready{c}, Executing{c}} {
+			Expect(step(before, Replay, c, f, "HB00").Effects).To(BeEmpty())
+			Expect(CheckTransition(before, e, result(Completed{c}, "HB23", ReleaseReplay))).To(HaveOccurred())
+		}
+		x := c.fields()
+		x.Attempt++
+		stale := ev(Replay, ownCall(x), f)
+		Expect(Reduce(s, stale).Rule).To(Equal("HB02"))
+		Expect(CheckTransition(s, stale, result(Completed{ownCall(x)}, "HB23", ReleaseReplay))).To(HaveOccurred())
+		x = c.fields()
+		x.Mode = 3
+		step(s, Replay, ownCall(x), f, "HB05")
+	})
 	It("completes only after normal projected durable completion", func() {
 		c, f := fixture()
 		s := executing(c, f)
