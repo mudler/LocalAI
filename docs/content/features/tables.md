@@ -118,14 +118,25 @@ are not tools.
 ## Model tools and approval cards
 
 A chat can offer the tools of Tables to its model. The person turns it on per
-chat with the `/addons` command of the composer, which appears only when an
-enabled addon offers tools. The chat then sends `metadata.addon_tools` with
-each request, and the server decides what this person may call: the opt-in
-grants nothing by itself.
+chat with the add-ons control in the chat header, which lists each addon that
+offers tools with a switch and shows how many are on. The `/addons` command of
+the composer turns all of them on or off, and it appears only when an enabled
+addon offers tools. The chat then sends `metadata.addon_tools` with each
+request, and the server decides what this person may call: the opt-in grants
+nothing by itself.
 
 ```
 POST /v1/chat/completions
 {"model": "...", "messages": [...], "metadata": {"addon_tools": "true"}}
+```
+
+When only some addons are on, the request adds `metadata.addon_tool_ids`, a
+comma-separated list of addon ids. The model then sees and can call only the
+tools of those addons; a call to any other addon is refused as an unknown tool.
+Without the list, every addon the person may use is offered.
+
+```
+{"metadata": {"addon_tools": "true", "addon_tool_ids": "tables,notes"}}
 ```
 
 ### Names and schemas

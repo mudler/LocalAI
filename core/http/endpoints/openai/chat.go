@@ -404,11 +404,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// and served by the host broker. They are added next to the tools
 		// above; a surface that is not wired for them answers with a typed
 		// error rather than ignoring the opt-in.
-		if mcpTools.AddonToolsFromMetadata(input.Metadata) {
+		if addonOn, addonIDs := mcpTools.AddonToolsSelectionFromMetadata(input.Metadata); addonOn {
 			if addonTools == nil {
 				return mcpTools.RejectAddonTools(c)
 			}
-			addonExec, addonErr := addonTools.ExecutorFor(c)
+			addonExec, addonErr := addonTools.ExecutorForAddons(c, addonIDs)
 			if addonErr != nil {
 				xlog.Warn("Add-on tools refused", "error", addonErr)
 				return mcpTools.AddonToolsHTTPError(addonErr)

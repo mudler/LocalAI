@@ -47,19 +47,57 @@ const ConversationHeader = "X-LocalAI-Conversation-Id"
 // the reserved add-on namespace on any non-broker executor.
 var ErrAddonToolsUnsupported = errors.New("addon tools are not available on this surface")
 
+// MetadataKeyAddonToolIDs narrows addon_tools to some add-ons. Its value is a
+// comma-separated list of add-on ids. Without it, addon_tools offers the tools
+// of every add-on the caller may use, as before. The key is consumed too.
+const MetadataKeyAddonToolIDs = "addon_tool_ids"
+
+// maxAddonToolIDs bounds the list a request can carry.
+const maxAddonToolIDs = 64
+
 // AddonToolsFromMetadata reports whether the request opted into add-on tools.
-// It removes the key whatever its value. Truthy values: 1, true, yes.
+// It removes both add-on keys whatever their value. Truthy values: 1, true,
+// yes. Use AddonToolsSelectionFromMetadata to read the list as well.
 func AddonToolsFromMetadata(metadata map[string]string) bool {
+	on, _ := AddonToolsSelectionFromMetadata(metadata)
+	return on
+}
+
+// AddonToolsSelectionFromMetadata reports whether the request opted into
+// add-on tools and which add-ons it named. A nil list means every add-on. The
+// list counts only with the opt-in, and the keys are removed whatever their
+// value.
+func AddonToolsSelectionFromMetadata(metadata map[string]string) (bool, []string) {
+	rawIDs, hasIDs := metadata[MetadataKeyAddonToolIDs]
+	if hasIDs {
+		delete(metadata, MetadataKeyAddonToolIDs)
+	}
 	raw, ok := metadata[MetadataKeyAddonTools]
 	if !ok {
-		return false
+		return false, nil
 	}
 	delete(metadata, MetadataKeyAddonTools)
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "1", "true", "yes":
-		return true
+	default:
+		return false, nil
 	}
-	return false
+	if !hasIDs {
+		return true, nil
+	}
+	// A list that names no usable id is an empty selection, not "every add-on":
+	// the person turned some off and the request must not widen it.
+	ids := []string{}
+	seen := map[string]bool{}
+	for _, id := range strings.Split(rawIDs, ",") {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] || len(ids) >= maxAddonToolIDs {
+			continue
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	return true, ids
 }
 
 // RejectAddonTools answers a request for add-on tools on a surface that does
@@ -106,6 +144,13 @@ func NewAddonToolProvider(adapter *tools.ToolAdapter, mode string) *AddonToolPro
 // The principal comes from the trusted authentication context only. A request
 // without a named user or key is refused.
 func (p *AddonToolProvider) ExecutorFor(c echo.Context) (ToolExecutor, error) {
+	return p.ExecutorForAddons(c, nil)
+}
+
+// ExecutorForAddons is ExecutorFor limited to the named add-ons. A nil list
+// means every add-on; an empty list means none. Tools of an add-on that is not
+// named are neither offered nor callable.
+func (p *AddonToolProvider) ExecutorForAddons(c echo.Context, addonIDs []string) (ToolExecutor, error) {
 	if p == nil || p.adapter == nil {
 		return nil, ErrAddonToolsUnsupported
 	}
@@ -119,7 +164,11 @@ func (p *AddonToolProvider) ExecutorFor(c echo.Context) (ToolExecutor, error) {
 	if !tools.ValidConversationID(conversation) {
 		conversation = ""
 	}
-	return NewAddonToolExecutorFor(c.Request().Context(), p.adapter, actor, conversation)
+	e, err := NewAddonToolExecutorFor(c.Request().Context(), p.adapter, actor, conversation)
+	if err != nil {
+		return nil, err
+	}
+	return e.Only(addonIDs), nil
 }
 
 // AddonToolExecutor is a ToolExecutor for add-on tools with one immutable
@@ -131,6 +180,30 @@ type AddonToolExecutor struct {
 	// is bound once, like the actor, and arguments cannot change it.
 	conversation string
 	defs         []functions.Function
+	// only limits the executor to some add-ons; nil means all of them.
+	only map[string]bool
+}
+
+// Only returns the executor limited to the named add-ons: it offers and runs
+// only their tools. A nil list leaves the executor as it is, an empty list
+// leaves it without tools.
+func (e *AddonToolExecutor) Only(addonIDs []string) *AddonToolExecutor {
+	if addonIDs == nil {
+		return e
+	}
+	only := make(map[string]bool, len(addonIDs))
+	for _, id := range addonIDs {
+		only[id] = true
+	}
+	out := *e
+	out.only = only
+	out.defs = nil
+	for _, d := range e.defs {
+		if id, _, ok := tools.ParseToolName(d.Name); ok && only[id] {
+			out.defs = append(out.defs, d)
+		}
+	}
+	return &out
 }
 
 // NewAddonToolExecutor discovers the tools actor may use now, for a consumer
@@ -167,6 +240,13 @@ func (e *AddonToolExecutor) HasTools() bool { return len(e.defs) > 0 }
 // ExecuteTool runs one call as the bound actor and returns the host's result
 // document: a read result, a proposal reference or artifact references.
 func (e *AddonToolExecutor) ExecuteTool(ctx context.Context, toolName, arguments string) (string, error) {
+	if e.only != nil {
+		// A call to an add-on the person turned off is refused as an unknown
+		// tool, as if it had never been offered.
+		if id, _, ok := tools.ParseToolName(toolName); !ok || !e.only[id] {
+			return "", tools.ErrUnknownTool
+		}
+	}
 	res, err := e.adapter.ExecuteIn(ctx, e.actor, e.conversation, toolName, json.RawMessage(arguments))
 	if err != nil {
 		return "", err
