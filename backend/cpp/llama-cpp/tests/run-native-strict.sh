@@ -16,5 +16,5 @@ cmake -S "$here/native-strict" -B "$build" -DLLAMA_SOURCE_DIR="$src" \
     -DLLAMA_OPENSSL=OFF -DGGML_CUDA=OFF -DGGML_VULKAN=OFF -DGGML_METAL=OFF \
     -DGGML_SYCL=OFF -DGGML_OPENCL=OFF -DGGML_BLAS=OFF -DGGML_NATIVE=OFF \
     -DGGML_OPENMP=OFF -DLLAMA_BUILD_COMMIT=c0fd78626405c6d9b934efef0ec7291fcc20e3d6
-cmake --build "$build" --target native-strict -j "${JOBS:-4}"
-ctest --test-dir "$build" --output-on-failure -R '^native-strict$'
+cmake --build "$build" --target native-strict native-schema native-edge -j "${JOBS:-4}"
+ctest --test-dir "$build" --output-on-failure -R '^native-(strict|schema|edge)$'

@@ -10,3 +10,18 @@ target_link_libraries(native-strict PRIVATE llama-common llama)
 target_compile_features(native-strict PRIVATE cxx_std_17)
 enable_testing()
 add_test(NAME native-strict COMMAND native-strict)
+
+add_executable(native-schema ../native-schema.cpp)
+target_include_directories(native-schema PRIVATE "${LLAMA_SOURCE_DIR}/src")
+target_link_libraries(native-schema PRIVATE llama-common llama)
+target_compile_features(native-schema PRIVATE cxx_std_17)
+
+add_test(NAME native-schema COMMAND native-schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/../fixtures/sound-schema.json"
+    "${CMAKE_CURRENT_BINARY_DIR}/native-schema-output")
+
+add_executable(native-edge ../native-edge.cpp)
+target_include_directories(native-edge PRIVATE "${LLAMA_SOURCE_DIR}/src")
+target_link_libraries(native-edge PRIVATE llama-common llama)
+target_compile_features(native-edge PRIVATE cxx_std_17)
+add_test(NAME native-edge COMMAND native-edge)

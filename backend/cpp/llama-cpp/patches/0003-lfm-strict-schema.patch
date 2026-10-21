@@ -1,14 +1,329 @@
---- a/common/chat.h
-+++ b/common/chat.h
-@@ -224,4 +224,5 @@
-     std::string name;
-     std::string description;
-     std::string parameters;
-+    bool strict = false;
- };
+diff --git a/common/chat-native-schema.h b/common/chat-native-schema.h
+new file mode 100644
+index 0000000..a678895
+--- /dev/null
++++ b/common/chat-native-schema.h
+@@ -0,0 +1,201 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include "chat-peg-parser.h"
++#include <algorithm>
++#include <stdexcept>
++
++// Deliberately bounded subset for native Python-style strict tool calls. These
++// define canonical generation. Recognition validates decoded values separately;
++// generation order follows the schema's property order.
++class common_native_schema {
++    common_chat_peg_builder & b;
++    std::string prefix;
++
++    [[noreturn]] static void unsupported(const std::string & detail) {
++        throw std::runtime_error("strict native tool schema: " + detail);
++    }
++    static void keys(const common_json & s, const std::set<std::string> & allowed) {
++        if (!s.is_object()) { unsupported("expected a schema object"); }
++        for (const auto & e : s.items()) {
++            if (!allowed.count(e.key())) { unsupported("unsupported keyword " + e.key()); }
++        }
++    }
++    common_peg_parser alternatives(std::vector<std::string> values) {
++        // PEG ordered choice must try longer literals before their prefixes.
++        std::sort(values.begin(), values.end(), [](const std::string & a, const std::string & c) {
++            return a.size() != c.size() ? a.size() > c.size() : a < c;
++        });
++        auto p = b.choice();
++        for (const auto & value : values) { p |= b.literal(value); }
++        return p;
++    }
++    static int bound(const common_json & s, const char * key, int absent, int limit) {
++        if (!s.contains(key)) { return absent; }
++        const auto & n = s[key];
++        // Check type and range before narrowing. The small supported limit is
++        // exactly representable as double. Floats (even
++        // integral-looking ones), negatives and oversized unsigneds fail closed.
++        if (!n.is_number_integer() || n.get<double>() < 0 || n.get<double>() > limit) {
++            unsupported(std::string(key) + " must be a nonnegative integer <= " + std::to_string(limit));
++        }
++        return n.get<int>();
++    }
++    common_peg_parser string(const common_json & s) {
++        int lo = bound(s, "minLength", 0, 100000), hi = bound(s, "maxLength", -1, 100000);
++        if (lo < 0 || hi < -1 || (hi >= 0 && hi < lo) || lo > 100000 || hi > 100000) {
++            unsupported("invalid or excessive string length bounds");
++        }
++        if (s.contains("enum")) {
++            if (!s["enum"].is_array() || s["enum"].empty()) { unsupported("expected nonempty string enum"); }
++            std::vector<std::string> values;
++            for (const auto & v : s["enum"]) {
++                if (!v.is_string()) { unsupported("expected string enum member"); }
++                // The literal parser retains native quote normalization downstream.
++                std::string text = v.get<std::string>();
++                size_t length = 0;
++                for (unsigned char c : text) { if ((c & 0xc0) != 0x80) { ++length; } }
++                if (length < size_t(lo) || (hi >= 0 && length > size_t(hi))) { continue; }
++                values.push_back(v.dump());
++                std::string single = "'";
++                for (char c : text) {
++                    if (c == '\'' || c == '\\') { single += '\\'; }
++                    if (static_cast<unsigned char>(c) < 32) { unsupported("control character in enum"); }
++                    single += c;
++                }
++                values.push_back(single + "'");
++            }
++            if (s.contains("pattern")) { unsupported("enum combined with pattern"); }
++            if (values.empty()) { unsupported("enum has no values within length bounds"); }
++            return alternatives(values);
++        }
++        if (s.contains("pattern")) {
++            if (s["pattern"] != "^(0?[1-9]|[12][0-9]|3[0-2])/(0?[1-9]|[12][0-9]|3[0-2])$" || lo != 0 || hi != -1) {
++                unsupported("only the Sound musical-meter pattern is supported");
++            }
++            std::vector<std::string> values;
++            for (int n = 1; n <= 32; ++n) {
++                values.push_back(std::to_string(n));
++                if (n < 10) { values.push_back("0" + std::to_string(n)); }
++            }
++            auto meter = alternatives(values);
++            return b.choice({b.literal("\"") + meter + "/" + meter + "\"",
++                             b.literal("'") + meter + "/" + meter + "'"});
++        }
++        auto quoted = [&](char q) {
++            // One Unicode scalar or one native escape counts as one character.
++            // A UTF-16 surrogate pair in a Unicode escape is one scalar too.
++            auto hex = b.chars("[0-9a-fA-F]", 1, 1);
++            auto unicode = b.literal("\\u") + b.choice({
++                b.chars("[dD]", 1, 1) + b.chars("[89aAbB]", 1, 1) + b.repeat(hex, 2) +
++                    "\\u" + b.chars("[dD]", 1, 1) + b.chars("[c-fC-F]", 1, 1) + b.repeat(hex, 2),
++                b.chars("[0-9a-cA-Ce-fE-F]", 1, 1) + b.repeat(hex, 3),
++                b.chars("[dD]", 1, 1) + b.chars("[0-7]", 1, 1) + b.repeat(hex, 2)});
++            auto escaped = unicode | (b.literal("\\") + b.chars("[\"'\\\\/bfnrt]", 1, 1));
++            std::string excluded = q == '"' ? "^\"\\\\\\x00-\\x1f" : "^'\\\\\\x00-\\x1f";
++            auto unit = escaped | b.chars("[" + excluded + "]", 1, 1);
++            // The native grammar reader treats upper bounds above 2000 as
++            // unbounded. Keep every emitted repetition below that threshold.
++            auto unit_rule = b.rule(prefix + (q == '"' ? "-double-unit" : "-single-unit"), [&]() { return unit; });
++            auto content = b.literal("");
++            int required = lo;
++            while (required > 0) {
++                int count = std::min(required, 1000);
++                content = content + b.repeat(unit_rule, count, count);
++                required -= count;
++            }
++            if (hi < 0) {
++                content = content + b.zero_or_more(unit_rule);
++            } else {
++                std::function<common_peg_parser(int)> bounded = [&](int n) {
++                    if (n == 0) { return b.literal(""); }
++                    int block = 1;
++                    while (block * 2 <= n) { block *= 2; }
++                    auto exact = b.rule(prefix + (q == '"' ? "-d-exact-" : "-s-exact-") + std::to_string(block), [&]() {
++                        auto part = b.repeat(unit_rule, std::min(block, 1000), std::min(block, 1000));
++                        auto all = part;
++                        int remaining = block - std::min(block, 1000);
++                        while (remaining > 0) { int n = std::min(remaining, 1000); all = all + b.repeat(unit_rule, n, n); remaining -= n; }
++                        return all;
++                    });
++                    return b.rule(prefix + (q == '"' ? "-d-up-to-" : "-s-up-to-") + std::to_string(n), [&]() {
++                        return (exact + bounded(n - block)) | bounded(block - 1);
++                    });
++                };
++                content = content + bounded(hi - lo);
++            }
++            return b.literal(std::string(1,q)) + content + std::string(1,q);
++        };
++        return quoted('"') | quoted('\'');
++    }
++public:
++    common_native_schema(common_chat_peg_builder & builder, std::string name) : b(builder), prefix(std::move(name)) {}
++
++    common_peg_parser value(const common_json & s) {
++        keys(s, {"type", "description", "title", "enum", "minLength", "maxLength", "pattern", "minimum", "maximum"});
++        auto type = s.value("type", std::string());
++        if (type == "string") {
++            if (s.contains("minimum") || s.contains("maximum")) { unsupported("numeric bounds on string"); }
++            return string(s);
++        }
++        if (type != "integer" && type != "number") { unsupported("unsupported value type " + type); }
++        for (auto k : {"enum", "minLength", "maxLength", "pattern"}) {
++            if (s.contains(k)) { unsupported(std::string(k) + " on numeric value"); }
++        }
++        // Enumerating the integral part gives exact finite range enforcement,
++        // without relying on the generic converter (which ignores ranges).
++        if (!s.contains("minimum") || !s.contains("maximum") ||
++            !s["minimum"].is_number_integer() || !s["maximum"].is_number_integer()) {
++            unsupported("numeric values require integral minimum and maximum");
++        }
++        int lo = bound(s, "minimum", 0, 10000), hi = bound(s, "maximum", 0, 10000);
++        if (lo < 0 || hi < lo || hi > 10000) { unsupported("numeric range must satisfy 0 <= minimum <= maximum <= 10000"); }
++        std::vector<std::string> integral;
++        for (int n = hi; n >= lo; --n) { integral.push_back(std::to_string(n)); }
++        auto whole = alternatives(integral);
++        if (type == "integer") { return whole; }
++        // Native decimal spelling, including fractional durations. The upper
++        // endpoint can only have a zero fractional part. Exponents are not
++        // generated; semantic recognition also accepts in-range exponents.
++        std::vector<std::string> below;
++        for (int n = hi - 1; n >= lo; --n) { below.push_back(std::to_string(n)); }
++        auto fractional = b.literal(std::to_string(hi)) + "." + b.chars("[0]");
++        if (!below.empty()) { fractional |= alternatives(below) + "." + b.chars("[0-9]"); }
++        return fractional | whole;
++    }
++
++    common_peg_parser arguments(const common_json & s) {
++        keys(s, {"type", "properties", "required", "additionalProperties", "description", "title"});
++        if (s.value("type", std::string()) != "object" || !s.contains("additionalProperties") || s["additionalProperties"] != false) {
++            unsupported("expected object with additionalProperties:false");
++        }
++        auto props = s.value("properties", common_json::object());
++        if (!props.is_object()) { unsupported("properties must be an object"); }
++        auto required = s.value("required", common_json::array());
++        if (!required.is_array()) { unsupported("required must be an array"); }
++        std::set<std::string> req;
++        for (const auto & r : required) {
++            if (!r.is_string() || !props.contains(r.get<std::string>()) || !req.insert(r.get<std::string>()).second) {
++                unsupported("invalid required property");
++            }
++        }
++        std::vector<common_peg_parser> fields;
++        std::vector<bool> mandatory;
++        for (const auto & e : props.items()) {
++            auto field = b.tool_arg(b.tool_arg_open(b.tool_arg_name(b.literal(e.key())) + "=") +
++                                    b.tool_arg_value(value(e.value())) + b.tool_arg_close(b.eps()));
++            fields.push_back(field);
++            mandatory.push_back(req.count(e.key()) != 0);
++        }
++        // Two suffix states encode whether a comma is needed. Named rules keep
++        // all-optional schemas linear in size rather than expanding subsets.
++        std::function<common_peg_parser(size_t,bool)> suffix = [&](size_t n, bool seen) {
++            if (n == fields.size()) { return b.literal(""); }
++            return b.rule(prefix + "-args-" + std::to_string(n) + (seen ? "-next" : "-first"), [&]() {
++                auto take = (seen ? b.literal(",") + b.space() : b.eps()) + fields[n] + suffix(n+1, true);
++                return mandatory[n] ? take : take | suffix(n+1, seen);
++            });
++        };
++        return suffix(0, false);
++    }
++};
+diff --git a/common/chat-peg-parser.cpp b/common/chat-peg-parser.cpp
+index 74b81dc..42cbbd0 100644
+--- a/common/chat-peg-parser.cpp
++++ b/common/chat-peg-parser.cpp
+@@ -1,4 +1,6 @@
++#include <cmath>
+ #include "chat-peg-parser.h"
++#include "chat-native-schema.h"
+
+ #include "chat-auto-parser.h"
+ #include "ggml.h"
+@@ -119,7 +121,9 @@ static std::string normalize_quotes_to_json(const std::string & input) {
+             }
+
+             if (in_double_quoted) {
+-                // Inside a double-quoted string - pass through escape sequences as-is
++                // Python accepts \' in either quote style; JSON does not.
++                if (next == '\'') { result += '\''; ++i; continue; }
++                // Other double-quoted escapes already have JSON spelling.
+                 result += c;
+                 result += next;
+                 ++i;
+@@ -552,6 +556,72 @@ common_peg_parser common_chat_peg_builder::python_or_json_value() {
+
+ // Python-style tool calls: name(arg1="value1", arg2=123)
+ // Used only by LFM2 for now, so we don't merge it into autoparser
++// Validate the complete native argument list after quote normalization, before
++// any AST can be reported as a successful strict parse. Generation stays ordered.
++static bool validate_native_arguments(const std::string & text, const common_json & schema) {
++    try {
++        common_json args = common_json::object();
++        size_t start = 0;
++        char quote = 0;
++        bool escape = false;
++        auto field = [&](size_t end) {
++            std::string part = text.substr(start, end - start);
++            if (part.find_first_not_of(" \t\r\n") == std::string::npos) { return start == 0; }
++            auto equal = part.find('=');
++            if (equal == std::string::npos) { return false; }
++            std::string name = part.substr(0, equal);
++            auto first = name.find_first_not_of(" \t\r\n");
++            auto last = name.find_last_not_of(" \t\r\n");
++            if (first == std::string::npos) { return false; }
++            name = name.substr(first, last - first + 1);
++            if (args.contains(name) || !schema["properties"].contains(name)) { return false; }
++            args[name] = common_json::parse(normalize_quotes_to_json(part.substr(equal + 1)));
++            return true;
++        };
++        for (size_t i = 0; i < text.size(); ++i) {
++            char c = text[i];
++            if (escape) { escape = false; continue; }
++            if (quote) {
++                if (c == '\\') { escape = true; }
++                else if (c == quote) { quote = 0; }
++            } else if (c == '\'' || c == '"') { quote = c; }
++            else if (c == ',') { if (!field(i)) { return false; } start = i + 1; }
++        }
++        if (quote || !field(text.size())) { return false; }
++        for (const auto & r : schema.value("required", common_json::array())) {
++            if (!args.contains(r.get<std::string>())) { return false; }
++        }
++        for (const auto & e : args.items()) {
++            const auto & def = schema["properties"][e.key()];
++            const auto & value = e.value();
++            if (def["type"] == "string") {
++                if (!value.is_string()) { return false; }
++                const auto str = value.get<std::string>();
++                size_t length = 0;
++                for (unsigned char c : str) { if ((c & 0xc0) != 0x80) { ++length; } }
++                if (length < def.value("minLength", size_t(0)) ||
++                    (def.contains("maxLength") && length > def["maxLength"].get<size_t>())) { return false; }
++                if (def.contains("enum") && std::find(def["enum"].begin(), def["enum"].end(), value) == def["enum"].end()) { return false; }
++                if (def.contains("pattern")) {
++                    auto slash = str.find('/');
++                    auto meter = [](const std::string & v) {
++                        if (v.empty() || v.size() > 2) { return false; }
++                        for (char c : v) { if (c < '0' || c > '9') { return false; } }
++                        int n = std::stoi(v); return n >= 1 && n <= 32;
++                    };
++                    if (slash == std::string::npos || !meter(str.substr(0, slash)) || !meter(str.substr(slash + 1))) { return false; }
++                }
++            } else {
++                if (!value.is_number() || (def["type"] == "integer" && !value.is_number_integer()) ||
++                    !std::isfinite(value.get<double>()) ||
++                    value.get<double>() < def["minimum"].get<double>() ||
++                    value.get<double>() > def["maximum"].get<double>()) { return false; }
++            }
++        }
++        return true;
++    } catch (const std::exception &) { return false; }
++}
++
+ common_peg_parser common_chat_peg_builder::python_style_tool_calls(
+     const ordered_json & tools,
+     bool                 parallel_tool_calls,
+@@ -572,7 +642,17 @@ common_peg_parser common_chat_peg_builder::python_style_tool_calls(
+         ordered_json   params   = common_chat_tool_parameters(function);
+
+         auto args = eps();
+-        if (params.contains("properties") && !params["properties"].empty()) {
++        if (function.value("strict", false)) {
++            auto generation = common_native_schema(*this, "native-tool-" + std::to_string(i)).arguments(params);
++            auto native_string = common_native_schema(*this, "native-recognition-" + std::to_string(i)).value(common_json{{"type", "string"}});
++            auto scalar = native_string | python_number() | python_bool() | python_null() | json_bool() | json_null();
++            auto field = tool_arg(tool_arg_open(tool_arg_name((chars("[a-zA-Z_]", 1, 1) + chars("[a-zA-Z0-9_]", 0, -1))) + "=") +
++                                  tool_arg_value(scalar) + tool_arg_close(eps()));
++            auto recognition = optional(field + zero_or_more("," + space() + field));
++            args = validated(recognition, generation, [params](const std::string & text) {
++                return validate_native_arguments(text, params);
++            });
++        } else if (params.contains("properties") && !params["properties"].empty()) {
+             auto arg_choice = choice();
+             for (const auto & el : params["properties"].items()) {
+                 const std::string & prop_name = el.key();
+diff --git a/common/chat.cpp b/common/chat.cpp
+index 99ed74f..77dfa02 100644
 --- a/common/chat.cpp
 +++ b/common/chat.cpp
-@@ -539,6 +539,10 @@
+@@ -539,6 +539,10 @@ json common_chat_tools_to_json_oaicompat(const std::vector<common_chat_tool> & t
                  { "parameters", json::parse(tool.parameters) },
              }},
          });
@@ -19,7 +334,7 @@
      }
      return result;
  }
-@@ -578,6 +582,7 @@
+@@ -578,6 +582,7 @@ std::vector<common_chat_tool> common_chat_tools_parse_oaicompat(const json & too
                      /* .name = */ function.at("name"),
                      /* .description = */ function.value("description", ""),
                      /* .parameters = */ function.value("parameters", json::object()).dump(),
@@ -27,3 +342,150 @@
                  });
              }
          }
+@@ -1687,6 +1692,19 @@ common_chat_msg common_chat_peg_parse(const common_peg_arena &          src_pars
+         fflush(stderr);
+     }
+
++    // LFM lenient parsing may synthesize missing closing delimiters at EOF.
++    // Streaming may expose partial arguments, but FINAL must never publish a
++    // call until the complete native envelope has been consumed without repair.
++    if (!is_partial && params.require_complete_final_tools && !msg.tool_calls.empty()) {
++        common_chat_input complete_input = input;
++        complete_input.prepend(params.generation_prompt);
++        common_peg_parse_context complete_ctx(std::move(complete_input.text), std::move(complete_input.tokens));
++        auto complete = parser.parse(complete_ctx);
++        if (complete.fail() || complete.end != complete_ctx.input.size()) {
++            throw std::runtime_error("Incomplete FINAL native tool call");
++        }
++    }
++
+     if (!is_partial) {
+         LOG_DBG("Parsed message: %s\n", common_chat_msgs_to_json_oaicompat({ msg }).at(0).dump().c_str());
+     }
+@@ -1710,6 +1728,7 @@ common_chat_session::common_chat_session(const common_chat_templates *        tm
+     thinking_start         = std::move(applied.thinking_start_tag);
+     thinking_ends          = std::move(applied.thinking_end_tags);
+
++    parser_params.require_complete_final_tools = applied.require_complete_final_tools;
+     parser_params.format            = applied.format;
+     parser_params.generation_prompt = vocab ? common_chat_input_tokenize(vocab, applied.generation_prompt)
+                                             : common_chat_input(applied.generation_prompt);
+diff --git a/common/chat.h b/common/chat.h
+index dcff949..b1b93c7 100644
+--- a/common/chat.h
++++ b/common/chat.h
+@@ -224,6 +224,7 @@ struct common_chat_tool {
+     std::string name;
+     std::string description;
+     std::string parameters;
++    bool strict = false;
+ };
+
+ enum common_chat_tool_choice {
+@@ -309,6 +310,7 @@ struct common_chat_params {
+     std::vector<std::string>            additional_stops;
+     common_peg_arena                    parser;
+     common_chat_msg_delimiters          message_delimiters;
++    bool                               require_complete_final_tools = false;
+ };
+
+ struct common_chat_input {
+@@ -341,10 +343,12 @@ common_chat_input common_chat_input_tokenize(const llama_vocab * vocab, const st
+ struct common_chat_parser_params {
+     common_chat_format format = COMMON_CHAT_FORMAT_CONTENT_ONLY;
+     common_chat_input  generation_prompt;
++    bool               require_complete_final_tools = false;
+     bool               debug  = false; // Enable debug output for PEG parser
+     common_peg_arena   parser = {};
+     common_chat_parser_params() = default;
+     common_chat_parser_params(const common_chat_params & chat_params) {
++        require_complete_final_tools = chat_params.require_complete_final_tools;
+         format  = chat_params.format;
+         generation_prompt = common_chat_input(chat_params.generation_prompt);
+     }
+diff --git a/common/parsers/lfm2.cpp b/common/parsers/lfm2.cpp
+index 1bb1e67..41cae3e 100644
+--- a/common/parsers/lfm2.cpp
++++ b/common/parsers/lfm2.cpp
+@@ -15,6 +15,7 @@ common_chat_params common_chat_params_init_lfm2(const common_chat_template &
+                                                        const autoparser::generation_params & inputs,
+                                                        bool tool_list_tokens) {
+     common_chat_params data;
++    data.require_complete_final_tools = true;
+
+     const std::string TOOL_CALL_START = "<|tool_call_start|>";
+     const std::string TOOL_CALL_END   = "<|tool_call_end|>";
+diff --git a/common/peg-parser.cpp b/common/peg-parser.cpp
+index 8033f7e..9c55db3 100644
+--- a/common/peg-parser.cpp
++++ b/common/peg-parser.cpp
+@@ -807,7 +807,11 @@ struct parser_executor {
+     }
+
+     common_peg_parse_result operator()(const common_peg_gbnf_parser & p) {
+-        return arena.parse(p.child, ctx, start_pos);
++        auto result = arena.parse(p.child, ctx, start_pos);
++        if (result.success() && p.validate && !p.validate(ctx.input.substr(start_pos, result.end - start_pos))) {
++            return {COMMON_PEG_PARSE_RESULT_FAIL, start_pos, start_pos, {}};
++        }
++        return result;
+     }
+
+     common_peg_parse_result operator()(const common_peg_ac_parser & p) {
+@@ -884,6 +888,9 @@ void common_peg_arena::resolve_refs() {
+                                  std::is_same_v<T, common_peg_gbnf_parser> ||
+                                  std::is_same_v<T, common_peg_ac_parser>) {
+                 p.child = resolve_ref(p.child);
++                if constexpr (std::is_same_v<T, common_peg_gbnf_parser>) {
++                    if (p.generation != COMMON_PEG_INVALID_PARSER_ID) { p.generation = resolve_ref(p.generation); }
++                }
+             } else if constexpr (std::is_same_v<T, common_peg_rule_parser>) {
+                 p.child = resolve_ref(p.child);
+             } else if constexpr (std::is_same_v<T, common_peg_schema_parser>) {
+@@ -1582,6 +1589,9 @@ static std::set<std::string> collect_reachable_rules(
+                                  std::is_same_v<T, common_peg_ac_parser> ||
+                                  std::is_same_v<T, common_peg_schema_parser>) {
+                 visit(p.child);
++                if constexpr (std::is_same_v<T, common_peg_gbnf_parser>) {
++                    if (p.generation != COMMON_PEG_INVALID_PARSER_ID) { visit(p.generation); }
++                }
+             } else if constexpr (std::is_same_v<T, common_peg_rule_parser>) {
+                 if (visited.find(p.name) == visited.end()) {
+                     visited.insert(p.name);
+@@ -1752,7 +1762,7 @@ void common_peg_arena::build_grammar(const common_grammar_builder & builder, boo
+             } else if constexpr (std::is_same_v<T, common_peg_atomic_parser>) {
+                 return to_gbnf(p.child);
+             } else if constexpr (std::is_same_v<T, common_peg_gbnf_parser>) {
+-                return p.grammar;
++                return p.generation == COMMON_PEG_INVALID_PARSER_ID ? p.grammar : to_gbnf(p.generation);
+             } else if constexpr (std::is_same_v<T, common_peg_ac_parser>) {
+                 return gbnf_including_grammar(builder, "ac-" + std::to_string(id), p.delimiters);
+             } else {
+diff --git a/common/peg-parser.h b/common/peg-parser.h
+index 9255d6e..86d84da 100644
+--- a/common/peg-parser.h
++++ b/common/peg-parser.h
+@@ -298,6 +298,8 @@ struct common_peg_tag_parser {
+ struct common_peg_gbnf_parser {
+     common_peg_parser_id child;
+     std::string grammar;
++    common_peg_parser_id generation = COMMON_PEG_INVALID_PARSER_ID;
++    std::function<bool(const std::string &)> validate;
+ };
+
+ struct common_peg_ac_parser {
+@@ -540,7 +542,13 @@ class common_peg_parser_builder {
+
+     // Wraps a child parser but emits a custom GBNF grammar string instead of
+     // the child's grammar. Parsing delegates entirely to the child.
+-    common_peg_parser gbnf(const common_peg_parser & p, const std::string & grammar) { return add(common_peg_gbnf_parser{p, grammar}); }
++    common_peg_parser gbnf(const common_peg_parser & p, const std::string & grammar) { return add(common_peg_gbnf_parser{p, grammar, COMMON_PEG_INVALID_PARSER_ID, {}}); }
++
++    // Separate canonical generation from semantically validated recognition.
++    common_peg_parser validated(const common_peg_parser & child, const common_peg_parser & generation,
++                               std::function<bool(const std::string &)> validate) {
++        return add(common_peg_gbnf_parser{child, "", generation, std::move(validate)});
++    }
+
+     // Wraps a child parser but emits a GBNF grammar built from the Aho-Corasick
+     // automaton of `delimiters`, matching everything up to and including the
