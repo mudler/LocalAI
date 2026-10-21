@@ -44,6 +44,25 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Ornith 1.5 122B
+
+[Ornith 1.5 122B](https://huggingface.co/ornith-ai/Ornith-1.5-122B)
+supports coding, reasoning, tool use, and image input through llama.cpp.
+The gallery provides Unsloth UD-Q4_K_XL and Q8_0 GGUF builds with an F16
+vision projector. Installation downloads every shard of the selected build.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install ornith-1.5-122b-ud-q4-k-xl
+```
+
+Use `--variant ornith-1.5-122b-ud-q4-k-xl` or
+`--variant ornith-1.5-122b-q8` to select a specific build.
+Both use an 8,192-token default context and the model card's coding sampling
+settings. The model supports up to 262,144 tokens; increasing `context_size`
+requires additional memory.
+
 ### MiniCPM-V 4.7 1B
 
 [MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
