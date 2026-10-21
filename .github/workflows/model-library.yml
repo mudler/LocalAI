@@ -1,0 +1,65 @@
+name: 'model library'
+
+# gallery/models/index.yaml is the model library: the model gallery in the
+# library entry shape. A build from master reads it as the default model
+# source. It is rendered from gallery/index.yaml by scripts/models/cmd/modelcatalog
+# and is never edited by hand, so this workflow fails when it is stale, does
+# not decode, or an entry does not round trip.
+
+on:
+  pull_request:
+    paths:
+      - 'gallery/index.yaml'
+      - 'gallery/models/**'
+      - 'scripts/models/**'
+      - 'core/gallery/**'
+      - '.github/workflows/model-library.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'gallery/index.yaml'
+      - 'gallery/models/**'
+      - 'scripts/models/**'
+      - 'core/gallery/**'
+      - '.github/workflows/model-library.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-library-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  model-library:
+    name: 'Check the model library'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Generate the gRPC stubs the Go packages import
+        # The stubs are not in the tree. Same pinned tools as the test workflow.
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Test the generator and the library shape
+        # The generator is deterministic, the file decodes, it has the library
+        # shape, and every real entry round trips to its gallery entry.
+        run: |
+          go test ./scripts/models/...
+          go test ./core/gallery -run 'TestModelLibrary|TestRenderedModelLibraryIsConsistent|TestDecodeModelIndex'
+      - name: Check that the model library is up to date
+        run: |
+          go run ./scripts/models/cmd/modelcatalog --index gallery/index.yaml --out gallery/models/index.yaml
+          if ! git diff --exit-code -- gallery/models/index.yaml; then
+            echo "::error file=gallery/models/index.yaml::The model library is stale. Run: go run ./scripts/models/cmd/modelcatalog --index gallery/index.yaml --out gallery/models/index.yaml"
+            exit 1
+          fi
