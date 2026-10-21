@@ -17,14 +17,17 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The model library is a second way to publish the model gallery. It is a
-// separate index file, read only when the owner adds it as a model
-// source (see `local-ai library add`); the gallery index stays the source of truth and the default.
+// The model library, gallery/models/index.yaml, is the source of truth for
+// the models. Edits go there. The gallery index, gallery/index.yaml, is a
+// generated copy that stays only so releases before the cutover keep
+// working; scripts/models/cmd/modelcatalog writes it from the library and it
+// is never edited by hand.
 //
 // An entry is the shared library envelope (catalog.Envelope) plus a body that
-// holds what a gallery entry holds beyond the header. Converting a gallery
-// entry to a library entry and back gives the same gallery entry. The tests
-// check that on every entry of the real gallery index.
+// holds what a gallery entry holds beyond the header. Converting a library
+// entry to a gallery entry and back gives the same entry, apart from the
+// header fields a gallery entry has no place for (see GalleryHeaderLoss). The
+// tests check that on every entry of the real library.
 
 const (
 	// MaxModelIndexBytes and MaxModelIndexEntries bound one model library
@@ -391,6 +394,59 @@ func EncodeModelIndex(entries []ModelLibraryEntry) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// galleryFileEntry is a gallery entry as it is written to the gallery file.
+// It has the fields and the order of GalleryModel, but keeps an empty variants
+// list apart from an absent one, as the gallery file did.
+type galleryFileEntry struct {
+	Metadata   `yaml:",inline"`
+	ConfigFile map[string]any `yaml:"config_file,omitempty"`
+	Overrides  map[string]any `yaml:"overrides,omitempty"`
+	Variants   variantList    `yaml:"variants,omitempty"`
+}
+
+// EncodeGalleryIndex writes gallery entries as the gallery file the host
+// reads (gallery/index.yaml). The runtime fields of an entry are not written
+// and a float keeps its form, so the file reads back as the entries it was
+// written from.
+func EncodeGalleryIndex(models []GalleryModel) ([]byte, error) {
+	out := make([]galleryFileEntry, len(models))
+	for i, m := range models {
+		m = stripRuntime(m)
+		out[i] = galleryFileEntry{
+			Metadata:   m.Metadata,
+			ConfigFile: markFloatMap(m.ConfigFile),
+			Overrides:  markFloatMap(m.Overrides),
+			Variants:   variantList(m.Variants),
+		}
+	}
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(out); err != nil {
+		return nil, err
+	}
+	if err := enc.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// GalleryHeaderLoss names the header fields of a library entry that the
+// gallery copy cannot carry and that the entry sets on purpose: a display name
+// that differs from the id, and a signature policy. The version, the channel
+// and the schema version are never carried; the host does not read any of
+// them from a gallery.
+func GalleryHeaderLoss(e ModelLibraryEntry) []string {
+	var lost []string
+	if e.Name != "" && e.Name != e.ID {
+		lost = append(lost, "name")
+	}
+	if !reflect.DeepEqual(e.Policy, catalog.VerificationPolicy{}) {
+		lost = append(lost, "policy")
+	}
+	return lost
 }
 
 // ModelsFromLibrary converts the entries of a model index to gallery entries,

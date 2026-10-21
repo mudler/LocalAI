@@ -57,8 +57,8 @@ const (
 	// OfficialModelLibraryID is the source ID of the model library.
 	OfficialModelLibraryID = "official-models"
 	// OfficialModelLibraryURL is the YAML index of the models, kept in this
-	// repository at gallery/models/index.yaml. It is rendered from
-	// gallery/index.yaml, which stays the source of truth.
+	// repository at gallery/models/index.yaml. It is the source of truth;
+	// gallery/index.yaml is generated from it.
 	OfficialModelLibraryURL = "https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/models/index.yaml"
 )
 

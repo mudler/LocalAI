@@ -1,18 +1,20 @@
-// SPDX-License-Identifier: MIT
-
-// Command modelcatalog renders the model library from the model gallery. The
-// gallery, gallery/index.yaml, stays the source of truth: this command reads
-// it with the same structs the host reads it with and never edits it.
+// Command modelcatalog writes the model gallery from the model library. The
+// library, gallery/models/index.yaml, is the source of truth and is where
+// models are edited. The gallery, gallery/index.yaml, is a generated copy that
+// stays only so releases before the cutover keep working; it is never edited
+// by hand.
 //
-// Every entry is converted to a library entry and back before anything is
-// written, and the command fails when any entry does not come back equal. It
-// can also write the golden files the tests in core/gallery compare against.
+// Every library entry is converted to a gallery entry and back before
+// anything is written, and the command fails when any entry does not come
+// back equal. Fields the gallery cannot carry are dropped, and every run lists
+// them. It can also write the golden files the tests in core/gallery compare
+// against.
 //
 //	go run ./scripts/models/cmd/modelcatalog \
-//	  --index gallery/index.yaml --out gallery/models/index.yaml
+//	  --library gallery/models/index.yaml --out gallery/index.yaml
 //
 //	go run ./scripts/models/cmd/modelcatalog \
-//	  --index gallery/index.yaml --golden core/gallery/testdata/model_library
+//	  --library gallery/models/index.yaml --golden core/gallery/testdata/model_library
 package main
 
 import (
@@ -30,49 +32,61 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const header = `# Model library: the models of the model gallery in the library entry shape. The
-# gallery, gallery/index.yaml, stays the source of truth. This file is rendered
-# with scripts/models/cmd/modelcatalog; render it again after the gallery
-# changes and never edit it by hand. CI fails when it is stale. A build from
-# master reads it as the default model source; a tagged build reads the gallery
-# until the release cutover.
+const header = `# Model gallery: a GENERATED copy of the model library, gallery/models/index.yaml.
+# The library is the source of truth; edit it, not this file. This file is
+# written by scripts/models/cmd/modelcatalog and stays only so releases before
+# the cutover keep working. CI fails when it differs from the generated copy:
+#   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 `
 
-// load reads the gallery index the way the host does.
-func load(src []byte) ([]gallery.GalleryModel, error) {
-	var entries []gallery.GalleryModel
-	if err := yaml.Unmarshal(src, &entries); err != nil {
-		return nil, fmt.Errorf("reading the model gallery: %w", err)
+// droppedGalleryKeys are the keys that the old hand-edited gallery carried
+// and the library does not. The gallery struct does not read them, so the host
+// ignored them on load and dropping them changes nothing it reads. They are
+// listed on every run so a change in this set is noticed.
+var droppedGalleryKeys = []string{"last_checked", "parameters", "Base Model", "Context Length", "License", "Training Data"}
+
+// load reads the model library: strictly, as the host reads it.
+func load(src []byte) ([]gallery.ModelLibraryEntry, error) {
+	res, err := gallery.DecodeModelIndex(src)
+	if err != nil {
+		return nil, fmt.Errorf("reading the model library: %w", err)
 	}
-	return entries, nil
+	if len(res.Entries) == 0 {
+		return nil, fmt.Errorf("the model library has no model entries (%d entries of another kind skipped); is this the library and not a gallery?", len(res.Skipped))
+	}
+	if len(res.Skipped) > 0 {
+		fmt.Fprintf(os.Stderr, "modelcatalog: %d library entries of another kind are not in the gallery copy\n", len(res.Skipped))
+	}
+	return res.Entries, nil
 }
 
-// render converts every entry, checks that each one comes back equal and
-// returns the library entries in gallery order.
-func render(entries []gallery.GalleryModel) ([]gallery.ModelLibraryEntry, error) {
-	out := make([]gallery.ModelLibraryEntry, 0, len(entries))
+// render converts every library entry to its gallery entry, checks that the
+// gallery entry goes back to the library and forward again unchanged, and
+// returns the gallery entries in library order.
+func render(entries []gallery.ModelLibraryEntry) ([]gallery.GalleryModel, error) {
+	out := make([]gallery.GalleryModel, 0, len(entries))
 	var failures []string
-	for _, m := range entries {
-		if err := gallery.VerifyModelRoundTrip(m); err != nil {
-			failures = append(failures, fmt.Sprintf("%s: %v", m.Name, err))
-			continue
-		}
-		e, err := gallery.ModelLibraryEntryFromGallery(m)
+	for _, e := range entries {
+		m, err := e.ToGallery()
 		if err != nil {
-			failures = append(failures, fmt.Sprintf("%s: %v", m.Name, err))
+			failures = append(failures, fmt.Sprintf("%s: %v", e.ID, err))
 			continue
 		}
-		out = append(out, e)
+		if err := gallery.VerifyModelRoundTrip(m); err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", e.ID, err))
+			continue
+		}
+		out = append(out, m)
 	}
 	if len(failures) > 0 {
-		return nil, fmt.Errorf("%d of %d entries do not round trip:\n%s", len(failures), len(entries), strings.Join(failures, "\n"))
+		return nil, fmt.Errorf("%d of %d entries do not convert to the gallery and back:\n%s", len(failures), len(entries), strings.Join(failures, "\n"))
 	}
 	return out, nil
 }
 
-// droppedKeys lists the keys of the raw gallery that the gallery struct does
-// not read, with a count. The host drops them when it loads the index, so the
-// library cannot carry them; they are reported so a new field is noticed.
+// droppedKeys counts the keys of a raw gallery file that the gallery struct
+// does not read. Run on the gallery copy that is about to be replaced, it
+// shows what the replacement drops.
 func droppedKeys(src []byte) (map[string]int, error) {
 	var raw []map[string]any
 	if err := yaml.Unmarshal(src, &raw); err != nil {
@@ -107,6 +121,55 @@ func yamlKeys(t reflect.Type) map[string]bool {
 		}
 	}
 	return keys
+}
+
+// reportDropped writes what the gallery copy drops: the fixed set of gallery
+// keys, how often the copy being replaced still had each, and the library
+// header fields that have no place in a gallery entry.
+func reportDropped(w func(format string, args ...any), library []gallery.ModelLibraryEntry, previous []byte) {
+	w("modelcatalog: the gallery copy drops these gallery keys; the host does not read them: %s\n", strings.Join(droppedGalleryKeys, ", "))
+	if len(previous) > 0 {
+		if dropped, err := droppedKeys(previous); err == nil {
+			keys := make([]string, 0, len(dropped))
+			for k, n := range dropped {
+				keys = append(keys, fmt.Sprintf("%s (%d)", k, n))
+			}
+			sort.Strings(keys)
+			if len(keys) == 0 {
+				keys = []string{"none"}
+			}
+			w("modelcatalog: in the gallery file being replaced: %s\n", strings.Join(keys, ", "))
+			// A key outside the fixed set means the host may now read something
+			// the library cannot carry, or a new unread key appeared.
+			for k := range dropped {
+				if !contains(droppedGalleryKeys, k) {
+					w("modelcatalog: WARNING: %q is not in the known dropped set\n", k)
+				}
+			}
+		}
+	}
+	lost := map[string]int{}
+	for _, e := range library {
+		for _, f := range gallery.GalleryHeaderLoss(e) {
+			lost[f]++
+		}
+	}
+	parts := []string{"version, channel and schemaVersion"}
+	for _, f := range []string{"name", "policy"} {
+		if lost[f] > 0 {
+			parts = append(parts, fmt.Sprintf("%s (%d entries set it)", f, lost[f]))
+		}
+	}
+	w("modelcatalog: library header fields with no place in a gallery entry: %s\n", strings.Join(parts, ", "))
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 // sampleClasses picks readable golden entries: the first gallery entry that
@@ -153,32 +216,12 @@ func hasFloat(v any) bool {
 	return false
 }
 
-// expandAliases copies a node and replaces every alias with a copy of the node
-// it points at. The index uses anchors; a sample is one entry on its own, so it
-// cannot refer to an anchor in another entry.
-func expandAliases(n *yaml.Node) *yaml.Node {
-	if n.Kind == yaml.AliasNode {
-		return expandAliases(n.Alias)
-	}
-	c := *n
-	c.Anchor = ""
-	c.Content = make([]*yaml.Node, len(n.Content))
-	for i, child := range n.Content {
-		c.Content[i] = expandAliases(child)
-	}
-	return &c
-}
-
-// writeGolden writes the digests of every entry and the readable samples.
-func writeGolden(dir string, src []byte, entries []gallery.GalleryModel) error {
-	// The gallery side of a sample is the entry as written in the index, so a
-	// float such as 1.0 keeps its form.
-	var raw []yaml.Node
-	if err := yaml.Unmarshal(src, &raw); err != nil {
-		return err
-	}
-	if len(raw) != len(entries) {
-		return fmt.Errorf("the index has %d entries and %d raw nodes", len(entries), len(raw))
+// writeGolden writes the digests of every library entry and the readable
+// samples: the library entry as it stands in the library, and the gallery
+// entry generated from it.
+func writeGolden(dir string, library []gallery.ModelLibraryEntry, models []gallery.GalleryModel) error {
+	if len(library) != len(models) {
+		return fmt.Errorf("the library has %d entries and %d gallery entries", len(library), len(models))
 	}
 	samples := filepath.Join(dir, "samples")
 	if err := os.RemoveAll(samples); err != nil {
@@ -188,46 +231,41 @@ func writeGolden(dir string, src []byte, entries []gallery.GalleryModel) error {
 		return err
 	}
 	var lines []string
-	for _, m := range entries {
-		g, l, err := gallery.ModelLibraryDigests(m)
+	for _, e := range library {
+		l, g, err := gallery.ModelLibraryDigests(e)
 		if err != nil {
-			return fmt.Errorf("%s: %w", m.Name, err)
+			return fmt.Errorf("%s: %w", e.ID, err)
 		}
-		lines = append(lines, m.Name+"\t"+g+"\t"+l)
+		lines = append(lines, e.ID+"\t"+l+"\t"+g)
 	}
 	sort.Strings(lines)
-	digests := "# name, digest of the gallery entry, digest of the library entry\n# Written by scripts/models/cmd/modelcatalog --golden; do not edit by hand.\n" + strings.Join(lines, "\n") + "\n"
+	digests := "# id, digest of the library entry, digest of the gallery entry generated from it\n# Written by scripts/models/cmd/modelcatalog --golden; do not edit by hand.\n" + strings.Join(lines, "\n") + "\n"
 	if err := os.WriteFile(filepath.Join(dir, "digests.tsv"), []byte(digests), 0o644); err != nil {
 		return err
 	}
 	for _, c := range sampleClasses {
-		var picked *gallery.GalleryModel
-		var pickedRaw *yaml.Node
-		for i := range entries {
-			if c.has(entries[i]) {
-				picked, pickedRaw = &entries[i], &raw[i]
+		picked := -1
+		for i := range models {
+			if c.has(models[i]) {
+				picked = i
 				break
 			}
 		}
-		if picked == nil {
-			return fmt.Errorf("no gallery entry for the sample class %q", c.name)
+		if picked < 0 {
+			return fmt.Errorf("no library entry for the sample class %q", c.name)
 		}
-		g, err := yaml.Marshal([]*yaml.Node{expandAliases(pickedRaw)})
+		l, err := gallery.EncodeModelIndex([]gallery.ModelLibraryEntry{library[picked]})
 		if err != nil {
 			return err
 		}
-		e, err := gallery.ModelLibraryEntryFromGallery(*picked)
+		g, err := gallery.EncodeGalleryIndex([]gallery.GalleryModel{models[picked]})
 		if err != nil {
-			return err
-		}
-		l, err := gallery.EncodeModelIndex([]gallery.ModelLibraryEntry{e})
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(samples, c.name+".gallery.yaml"), g, 0o644); err != nil {
 			return err
 		}
 		if err := os.WriteFile(filepath.Join(samples, c.name+".library.yaml"), l, 0o644); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(samples, c.name+".gallery.yaml"), g, 0o644); err != nil {
 			return err
 		}
 	}
@@ -236,44 +274,51 @@ func writeGolden(dir string, src []byte, entries []gallery.GalleryModel) error {
 
 func run(args []string) error {
 	fs := flag.NewFlagSet("modelcatalog", flag.ContinueOnError)
-	index := fs.String("index", "gallery/index.yaml", "the model gallery")
-	out := fs.String("out", "", "model library file to write")
+	libraryPath := fs.String("library", "gallery/models/index.yaml", "the model library, the source")
+	out := fs.String("out", "", "generated gallery file to write")
 	golden := fs.String("golden", "", "directory to write the golden files to")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *out == "" && *golden == "" {
-		return errors.New("usage: --out file and/or --golden dir [--index file]")
+		return errors.New("usage: --out file and/or --golden dir [--library file]")
 	}
-	src, err := os.ReadFile(*index)
+	src, err := os.ReadFile(*libraryPath)
 	if err != nil {
 		return err
 	}
-	entries, err := load(src)
+	library, err := load(src)
 	if err != nil {
 		return err
 	}
-	library, err := render(entries)
+	models, err := render(library)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "modelcatalog: %d of %d gallery entries round trip\n", len(library), len(entries))
-	if dropped, err := droppedKeys(src); err == nil && len(dropped) > 0 {
-		keys := make([]string, 0, len(dropped))
-		for k := range dropped {
-			keys = append(keys, fmt.Sprintf("%s (%d)", k, dropped[k]))
-		}
-		sort.Strings(keys)
-		fmt.Fprintf(os.Stderr, "modelcatalog: keys the gallery struct does not read, so the host drops them too: %s\n", strings.Join(keys, ", "))
-	}
+	fmt.Fprintf(os.Stderr, "modelcatalog: %d of %d library entries convert to the gallery and back\n", len(models), len(library))
+	var previous []byte
 	if *out != "" {
-		body, err := gallery.EncodeModelIndex(library)
+		previous, _ = os.ReadFile(*out)
+	}
+	reportDropped(func(f string, a ...any) { fmt.Fprintf(os.Stderr, f, a...) }, library, previous)
+	if *out != "" {
+		body, err := gallery.EncodeGalleryIndex(models)
 		if err != nil {
 			return err
 		}
-		// The result must be a valid model index for this host.
-		if _, err := gallery.DecodeModelIndex(body); err != nil {
-			return fmt.Errorf("the rendered index is not valid: %w", err)
+		// The result must load the way the host loads a gallery, and give the
+		// same entries.
+		var loaded []gallery.GalleryModel
+		if err := yaml.Unmarshal(body, &loaded); err != nil {
+			return fmt.Errorf("the generated gallery does not load: %w", err)
+		}
+		if len(loaded) != len(models) {
+			return fmt.Errorf("the generated gallery loads %d entries, the library has %d", len(loaded), len(models))
+		}
+		for i := range loaded {
+			if !reflect.DeepEqual(loaded[i], models[i]) {
+				return fmt.Errorf("the generated gallery entry %q loads differently from the library entry", models[i].Name)
+			}
 		}
 		if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
 			return err
@@ -283,7 +328,7 @@ func run(args []string) error {
 		}
 	}
 	if *golden != "" {
-		if err := writeGolden(*golden, src, entries); err != nil {
+		if err := writeGolden(*golden, library, models); err != nil {
 			return err
 		}
 	}

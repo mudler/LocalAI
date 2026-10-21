@@ -14,9 +14,9 @@ import (
 const (
 	// OfficialModelGalleryName is the name of the default model gallery.
 	OfficialModelGalleryName = "localai"
-	// OfficialModelLibraryURL is the model library, rendered from the model
-	// gallery by scripts/models/cmd/modelcatalog and kept in this repository.
-	// It is a default model source.
+	// OfficialModelLibraryURL is the model library, the source of the models,
+	// kept in this repository. It is a default model source. The gallery
+	// index is generated from it by scripts/models/cmd/modelcatalog.
 	OfficialModelLibraryURL = catalog.OfficialModelLibraryURL
 )
 
