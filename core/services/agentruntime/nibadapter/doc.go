@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 // Package nibadapter provides a bounded contract for github.com/mudler/nib
-// v0.12.2-0.20261020064257-4bdb29c37b09, with Cogito selected at
-// v0.11.1-0.20261002063524-935bd35a9b27. The nib module sum is
-// h1:ZVNhqCw/3gN02yf1mC6dqUf1LAw+ZCYIGxLJk6qQc8U=.
+// v0.12.2-0.20261021094032-bd3e43d930fe, with Cogito selected at
+// v0.11.1-0.20261021091636-d9a2eb016706. The nib module sum is
+// h1:E7hNyq4WeI4BNBgl1CjGks4/1zcDvvSe69wLv4LY9ts=.
 //
 // Source/API evidence in that exact module:
 //   - chat/session.go: NewSession accepts context, types.Config, Callbacks and
@@ -27,6 +27,16 @@
 //     NewCallbacks requires a nonnil host policy, captures immutable host
 //     identity and clones ExternalSources before invoking the policy. Its
 //     default ordinary approval callback denies. RequireSecureTools(nil) fails.
+//   - chat/callbacks.go exposes ToolExecutionBridge with frozen execution calls,
+//     protocol call IDs, and invocation correlation. types/config.go provides
+//     RequireToolExecutionBridge to reject construction without a host bridge.
+//     Cogito supplies mandatory execution interception and single-use native
+//     continuations. These upstream APIs are available, not integrated here.
+//
+// NIB_POLICY remains mandatory. LocalAI toolbroker.Policy still denies native
+// execution through this adapter. No durable host binding or authorized result
+// projection connects the upstream bridge to Broker.Invoke. This repin enables
+// no tools and does not enable production execution.
 //
 // TestNibAdapter restores and exports native checkpoints, validates callback
 // projection and immutable identity, and drives real nib/Cogito/MCP dispatch

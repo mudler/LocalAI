@@ -28,7 +28,7 @@ func PinnedCapabilities() Capabilities {
 	return Capabilities{Version: PinnedVersion, CheckpointRestore: true, HistoryRestore: true, ArtifactRestore: true, PruningRestore: true, Streaming: true, EventProjection: true, MandatoryPolicyInterception: true, Approvals: true, Questions: true, CompactionEvents: true, HelperEvents: true}
 }
 
-const PinnedVersion = "v0.12.2-0.20261020064257-4bdb29c37b09"
+const PinnedVersion = "v0.12.2-0.20261021094032-bd3e43d930fe"
 
 // CheckpointVersion retains the compatible native checkpoint wire format.
 const CheckpointVersion = "nib-v0.12.1/checkpoint-1"
