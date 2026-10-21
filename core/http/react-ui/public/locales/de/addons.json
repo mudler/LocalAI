@@ -168,7 +168,8 @@
       "url": "Gib eine http- oder https-Adresse ein.",
       "urlCredentials": "Die Adresse darf keinen Benutzernamen und kein Passwort enthalten.",
       "urlQuery": "Die Adresse darf keinen Query-String und kein Fragment enthalten.",
-      "either": "Use the exact identity or the pattern, not both."
+      "either": "Use the exact identity or the pattern, not both.",
+      "urlEmpty": "Enter the address of the index."
     },
     "fields": {
       "enabled": "Aktiviert",
@@ -179,13 +180,16 @@
       "reference": "Zugangsdaten-Referenz (optional)",
       "requireSignature": "Signatur verlangen",
       "url": "Katalog-URL",
-      "identityRegex": "Signer identity pattern (optional)"
+      "identityRegex": "Signer identity pattern (optional)",
+      "kind": "Kind",
+      "format": "Index format"
     },
     "hints": {
       "id": "Kleinbuchstaben, Ziffern und Bindestriche. Kann später nicht geändert werden.",
       "reference": "Der Name einer Zugangsdaten-Konfiguration des Betreibers. Füge hier nie ein Token oder Passwort ein.",
       "url": "Eine https-Adresse ohne Zugangsdaten und ohne Query-String.",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
     },
     "lastRefresh": "Aktualisiert {{when}}, {{count}} Einträge",
     "lead": "Eine Bibliothek ist ein Katalogdokument, das Add-ons auflistet. Zugangsdaten werden hier nie eingetippt: Eine private Bibliothek nennt eine Zugangsdaten-Referenz, die der Betreiber eingerichtet hat.",
@@ -203,7 +207,41 @@
     "save": "Speichern",
     "saved": "{{name}} gespeichert.",
     "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
-    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
+    "default": "Default",
+    "emptyKindBody": "Add a library of this kind, or pick another filter.",
+    "emptyKindTitle": "No libraries of this kind",
+    "formats": {
+      "library": "Library index",
+      "gallery": "Gallery index"
+    },
+    "gallery": "Gallery index",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend",
+      "model": "Model"
+    },
+    "kindFilter": "Filter by kind",
+    "kinds": {
+      "all": "All",
+      "addon": "Add-ons",
+      "backend": "Backends",
+      "model": "Models"
+    },
+    "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
+    "removeDefaultBody": "This is a default library that comes with LocalAI. It is removed from the list and stays removed at the next start. You can restore it from the list. Installed items are not touched.",
+    "removedDefault": "Removed {{name}}. It stays removed at the next start; restore it to bring it back.",
+    "restore": "Restore",
+    "state": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "removed": "Removed",
+      "suspended": "Off (official libraries are off)"
+    },
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "turnedOff": "Turned off {{name}}.",
+    "turnedOn": "Turned on {{name}}."
   },
   "manage": {
     "api": "Add-on-API",

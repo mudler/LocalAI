@@ -6,12 +6,13 @@ export default defineConfig({
   // add-on owner and a ready file the matching runner passes in an ADDONS_*
   // variable; each reads it when the file loads, so the default run must not
   // load them. Every one has its own config (playwright.<suite>.config.js) and
-  // is started by scripts/addons/*.sh.
+  // is started by scripts/addons/*.sh. The library sources spec needs a server
+  // started with --library-sources and runs from playwright.library.config.js.
   testIgnore: [
     '**/addons-foundation.spec.js', '**/addons-gallery.spec.js', '**/addons-proposals.spec.js',
     '**/addons-recovery.spec.js', '**/addons-runtime.spec.js', '**/addons-slots.spec.js',
     '**/addons-upgrade.spec.js', '**/tables-acceptance.spec.js', '**/tables-artifacts.spec.js',
-    '**/tables-ui.spec.js',
+    '**/tables-ui.spec.js', '**/library-sources.spec.js',
   ],
   globalSetup: './e2e/global-setup.js',
   timeout: 30_000,

@@ -145,7 +145,7 @@ test('the api sends one dispatch shape and classifies refusals', async () => {
       const body = init.body ? JSON.parse(init.body) : null
       if (body?.action === 'catalog-search') return json(200, { payload: { releases: [{ id: 'notes', name: 'Notes', version: '1.0.0', sourceId: 'main', os: 'linux', arch: 'amd64', digest: 'sha256:a' }], total: 31 } })
       if (body?.action === 'install') return json(503, { error: { type: 'outcome_unknown', operationId: body.operationId } })
-      if (body?.action === 'catalog-sources') return json(403, { error: { type: 'addon_error', message: 'Addon administration required' } })
+      if (url.endsWith('/api/library/sources')) return json(403, { error: { type: 'authorization_error', message: 'Admin access required' } })
       return json(200, { apps: [{ id: 'notes' }] })
     },
   })

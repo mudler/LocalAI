@@ -548,9 +548,9 @@ test.describe('Add-ons: libraries', () => {
     await expect(dialog).toContainText('stay installed and keep running')
     await dialog.getByRole('button', { name: 'Remove' }).click()
     await expect(page.locator('[data-source="main"]')).toHaveCount(0)
-    const removal = state.log.dispatch.find(d => d.action === 'catalog-source-save')
-    expect(removal.arguments.removed).toBe(true)
-    expect(removal.arguments.id).toBe('main')
+    // A removal goes through the library route, the same one the other kinds use.
+    const removal = state.log.library.find(c => c.method === 'DELETE')
+    expect(removal.id).toBe('main')
     await tab(page, 'Installed').click()
     await expect(page.locator('[data-addon="notes"]')).toBeVisible()
     expect(state.installed).toHaveLength(1)

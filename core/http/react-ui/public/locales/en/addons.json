@@ -154,10 +154,13 @@
   "libraries": {
     "add": "Add a library",
     "addTitle": "Add a library",
+    "default": "Default",
     "disabled": "Disabled",
     "edit": "Edit",
     "editTitle": "Edit {{name}}",
-    "emptyBody": "Add a library to browse and install add-ons.",
+    "emptyBody": "Add a library to browse and install add-ons, backends and models.",
+    "emptyKindBody": "Add a library of this kind, or pick another filter.",
+    "emptyKindTitle": "No libraries of this kind",
     "emptyTitle": "No libraries",
     "enabled": "Enabled",
     "errors": {
@@ -168,7 +171,8 @@
       "url": "Enter an http or https address.",
       "urlCredentials": "The address must not contain a user name or password.",
       "urlQuery": "The address must not contain a query string or fragment.",
-      "either": "Use the exact identity or the pattern, not both."
+      "either": "Use the exact identity or the pattern, not both.",
+      "urlEmpty": "Enter the address of the index."
     },
     "fields": {
       "enabled": "Enabled",
@@ -179,31 +183,65 @@
       "reference": "Credential reference (optional)",
       "requireSignature": "Require a signature",
       "url": "Catalog URL",
-      "identityRegex": "Signer identity pattern (optional)"
+      "identityRegex": "Signer identity pattern (optional)",
+      "kind": "Kind",
+      "format": "Index format"
     },
+    "formats": {
+      "library": "Library index",
+      "gallery": "Gallery index"
+    },
+    "gallery": "Gallery index",
     "hints": {
       "id": "Lowercase letters, digits and hyphens. It cannot change later.",
       "reference": "The name of a credential the owner configured. Never paste a token or password here.",
       "url": "An https address without credentials or a query string.",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
+    },
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend",
+      "model": "Model"
+    },
+    "kindFilter": "Filter by kind",
+    "kinds": {
+      "all": "All",
+      "addon": "Add-ons",
+      "backend": "Backends",
+      "model": "Models"
     },
     "lastRefresh": "Refreshed {{when}}, {{count}} entries",
-    "lead": "A library is a catalog document that lists add-ons. Credentials are never typed here: a private library names a credential the owner configured.",
+    "lead": "A library is an index that lists add-ons, backends or models. Credentials are never typed here: a private add-on library names a credential the owner configured.",
     "listLabel": "Libraries",
     "loading": "Loading libraries",
     "notRefreshed": "Not refreshed yet",
+    "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
     "reference": "Credential reference: {{name}}",
     "refresh": "Refresh",
     "refreshFailed": "Last refresh failed",
     "refreshed": "Refreshed {{name}}.",
     "remove": "Remove",
     "removeBody": "The library is removed from this list. Add-ons that were installed from it stay installed and keep running.",
+    "removeDefaultBody": "This is a default library that comes with LocalAI. It is removed from the list and stays removed at the next start. You can restore it from the list. Installed items are not touched.",
     "removeTitle": "Remove {{name}}?",
     "removed": "Removed {{name}}.",
+    "removedDefault": "Removed {{name}}. It stays removed at the next start; restore it to bring it back.",
+    "restore": "Restore",
     "save": "Save",
     "saved": "Saved {{name}}.",
     "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
-    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
+    "state": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "removed": "Removed",
+      "suspended": "Off (official libraries are off)"
+    },
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "turnedOff": "Turned off {{name}}.",
+    "turnedOn": "Turned on {{name}}."
   },
   "manage": {
     "api": "Add-on API",
