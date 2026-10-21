@@ -76,18 +76,7 @@
     "installedSame": "Installiert {{version}}",
     "installedState": "Installiert",
     "installing": "Wird installiert",
-    "search": "Bibliotheken durchsuchen",
-    "kind": {
-      "addon": "Add-on",
-      "backend": "Backend"
-    },
-    "installedBackend": "Installed",
-    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
-    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
-    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
-    "backendFailed": "The backend was not installed.",
-    "alias": "Alias",
-    "kindLabel": "Kind"
+    "search": "Bibliotheken durchsuchen"
   },
   "catalog": {
     "allLibraries": "Alle Bibliotheken",
@@ -167,8 +156,7 @@
       "required": "Erforderlich, wenn eine Signatur verlangt wird.",
       "url": "Gib eine http- oder https-Adresse ein.",
       "urlCredentials": "Die Adresse darf keinen Benutzernamen und kein Passwort enthalten.",
-      "urlQuery": "Die Adresse darf keinen Query-String und kein Fragment enthalten.",
-      "either": "Use the exact identity or the pattern, not both."
+      "urlQuery": "Die Adresse darf keinen Query-String und kein Fragment enthalten."
     },
     "fields": {
       "enabled": "Aktiviert",
@@ -178,14 +166,12 @@
       "name": "Name",
       "reference": "Zugangsdaten-Referenz (optional)",
       "requireSignature": "Signatur verlangen",
-      "url": "Katalog-URL",
-      "identityRegex": "Signer identity pattern (optional)"
+      "url": "Katalog-URL"
     },
     "hints": {
       "id": "Kleinbuchstaben, Ziffern und Bindestriche. Kann später nicht geändert werden.",
       "reference": "Der Name einer Zugangsdaten-Konfiguration des Betreibers. Füge hier nie ein Token oder Passwort ein.",
-      "url": "Eine https-Adresse ohne Zugangsdaten und ohne Query-String.",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
+      "url": "Eine https-Adresse ohne Zugangsdaten und ohne Query-String."
     },
     "lastRefresh": "Aktualisiert {{when}}, {{count}} Einträge",
     "lead": "Eine Bibliothek ist ein Katalogdokument, das Add-ons auflistet. Zugangsdaten werden hier nie eingetippt: Eine private Bibliothek nennt eine Zugangsdaten-Referenz, die der Betreiber eingerichtet hat.",
@@ -201,9 +187,7 @@
     "removeTitle": "{{name}} entfernen?",
     "removed": "{{name}} entfernt.",
     "save": "Speichern",
-    "saved": "{{name}} gespeichert.",
-    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
-    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
+    "saved": "{{name}} gespeichert."
   },
   "manage": {
     "api": "Add-on-API",

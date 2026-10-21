@@ -76,18 +76,7 @@
     "installedSame": "已安装 {{version}}",
     "installedState": "已安装",
     "installing": "正在安装",
-    "search": "搜索库",
-    "kind": {
-      "addon": "Add-on",
-      "backend": "Backend"
-    },
-    "installedBackend": "Installed",
-    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
-    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
-    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
-    "backendFailed": "The backend was not installed.",
-    "alias": "Alias",
-    "kindLabel": "Kind"
+    "search": "搜索库"
   },
   "catalog": {
     "allLibraries": "所有库",
@@ -167,8 +156,7 @@
       "required": "要求签名时必填。",
       "url": "请输入 http 或 https 地址。",
       "urlCredentials": "地址不能包含用户名或密码。",
-      "urlQuery": "地址不能包含查询字符串或片段。",
-      "either": "Use the exact identity or the pattern, not both."
+      "urlQuery": "地址不能包含查询字符串或片段。"
     },
     "fields": {
       "enabled": "已启用",
@@ -178,14 +166,12 @@
       "name": "名称",
       "reference": "凭据引用(可选)",
       "requireSignature": "要求签名",
-      "url": "目录 URL",
-      "identityRegex": "Signer identity pattern (optional)"
+      "url": "目录 URL"
     },
     "hints": {
       "id": "小写字母、数字和连字符,之后不能更改。",
       "reference": "所有者已配置的凭据名称。切勿在此粘贴令牌或密码。",
-      "url": "不含凭据和查询字符串的 https 地址。",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
+      "url": "不含凭据和查询字符串的 https 地址。"
     },
     "lastRefresh": "{{when}} 已刷新,{{count}} 个条目",
     "lead": "库是列出附加组件的目录文档。凭据绝不在此输入:私有库只引用所有者配置的凭据。",
@@ -201,9 +187,7 @@
     "removeTitle": "移除 {{name}}?",
     "removed": "已移除 {{name}}。",
     "save": "保存",
-    "saved": "已保存 {{name}}。",
-    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
-    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
+    "saved": "已保存 {{name}}。"
   },
   "manage": {
     "api": "附加组件 API",

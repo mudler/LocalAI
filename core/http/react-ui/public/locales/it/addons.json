@@ -76,18 +76,7 @@
     "installedSame": "Installato {{version}}",
     "installedState": "Installato",
     "installing": "Installazione",
-    "search": "Cerca nelle librerie",
-    "kind": {
-      "addon": "Add-on",
-      "backend": "Backend"
-    },
-    "installedBackend": "Installed",
-    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
-    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
-    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
-    "backendFailed": "The backend was not installed.",
-    "alias": "Alias",
-    "kindLabel": "Kind"
+    "search": "Cerca nelle librerie"
   },
   "catalog": {
     "allLibraries": "Tutte le librerie",
@@ -167,8 +156,7 @@
       "required": "Obbligatorio quando è richiesta una firma.",
       "url": "Inserisci un indirizzo http o https.",
       "urlCredentials": "L'indirizzo non deve contenere nome utente o password.",
-      "urlQuery": "L'indirizzo non deve contenere una stringa di query o un frammento.",
-      "either": "Use the exact identity or the pattern, not both."
+      "urlQuery": "L'indirizzo non deve contenere una stringa di query o un frammento."
     },
     "fields": {
       "enabled": "Abilitata",
@@ -178,14 +166,12 @@
       "name": "Nome",
       "reference": "Riferimento credenziale (facoltativo)",
       "requireSignature": "Richiedi una firma",
-      "url": "URL del catalogo",
-      "identityRegex": "Signer identity pattern (optional)"
+      "url": "URL del catalogo"
     },
     "hints": {
       "id": "Lettere minuscole, cifre e trattini. Non può cambiare in seguito.",
       "reference": "Il nome di una credenziale configurata dal proprietario. Non incollare mai un token o una password qui.",
-      "url": "Un indirizzo https senza credenziali né stringa di query.",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
+      "url": "Un indirizzo https senza credenziali né stringa di query."
     },
     "lastRefresh": "Aggiornata {{when}}, {{count}} voci",
     "lead": "Una libreria è un documento di catalogo che elenca componenti. Le credenziali non si digitano mai qui: una libreria privata indica una credenziale configurata dal proprietario.",
@@ -201,9 +187,7 @@
     "removeTitle": "Rimuovere {{name}}?",
     "removed": "{{name}} rimossa.",
     "save": "Salva",
-    "saved": "{{name}} salvata.",
-    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
-    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
+    "saved": "{{name}} salvata."
   },
   "manage": {
     "api": "API del componente",

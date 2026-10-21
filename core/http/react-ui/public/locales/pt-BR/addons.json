@@ -76,18 +76,7 @@
     "installedSame": "Instalado {{version}}",
     "installedState": "Instalado",
     "installing": "Instalando",
-    "search": "Pesquisar nas bibliotecas",
-    "kind": {
-      "addon": "Add-on",
-      "backend": "Backend"
-    },
-    "installedBackend": "Installed",
-    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
-    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
-    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
-    "backendFailed": "The backend was not installed.",
-    "alias": "Alias",
-    "kindLabel": "Kind"
+    "search": "Pesquisar nas bibliotecas"
   },
   "catalog": {
     "allLibraries": "Todas as bibliotecas",
@@ -167,8 +156,7 @@
       "required": "Obrigatório quando uma assinatura é exigida.",
       "url": "Informe um endereço http ou https.",
       "urlCredentials": "O endereço não deve conter nome de usuário nem senha.",
-      "urlQuery": "O endereço não deve conter string de consulta nem fragmento.",
-      "either": "Use the exact identity or the pattern, not both."
+      "urlQuery": "O endereço não deve conter string de consulta nem fragmento."
     },
     "fields": {
       "enabled": "Habilitada",
@@ -178,14 +166,12 @@
       "name": "Nome",
       "reference": "Referência de credencial (opcional)",
       "requireSignature": "Exigir assinatura",
-      "url": "URL do catálogo",
-      "identityRegex": "Signer identity pattern (optional)"
+      "url": "URL do catálogo"
     },
     "hints": {
       "id": "Letras minúsculas, dígitos e hifens. Não pode mudar depois.",
       "reference": "O nome de uma credencial que o proprietário configurou. Nunca cole um token ou senha aqui.",
-      "url": "Um endereço https sem credenciais nem string de consulta.",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
+      "url": "Um endereço https sem credenciais nem string de consulta."
     },
     "lastRefresh": "Atualizada {{when}}, {{count}} entradas",
     "lead": "Uma biblioteca é um documento de catálogo que lista complementos. Credenciais nunca são digitadas aqui: uma biblioteca privada indica uma credencial que o proprietário configurou.",
@@ -201,9 +187,7 @@
     "removeTitle": "Remover {{name}}?",
     "removed": "{{name}} removida.",
     "save": "Salvar",
-    "saved": "{{name}} salva.",
-    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
-    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
+    "saved": "{{name}} salva."
   },
   "manage": {
     "api": "API do complemento",

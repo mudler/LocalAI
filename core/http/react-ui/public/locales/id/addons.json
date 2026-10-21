@@ -76,18 +76,7 @@
     "installedSame": "Terpasang {{version}}",
     "installedState": "Terpasang",
     "installing": "Memasang",
-    "search": "Cari di pustaka",
-    "kind": {
-      "addon": "Add-on",
-      "backend": "Backend"
-    },
-    "installedBackend": "Installed",
-    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
-    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
-    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
-    "backendFailed": "The backend was not installed.",
-    "alias": "Alias",
-    "kindLabel": "Kind"
+    "search": "Cari di pustaka"
   },
   "catalog": {
     "allLibraries": "Semua pustaka",
@@ -167,8 +156,7 @@
       "required": "Wajib diisi bila tanda tangan diwajibkan.",
       "url": "Masukkan alamat http atau https.",
       "urlCredentials": "Alamat tidak boleh berisi nama pengguna atau kata sandi.",
-      "urlQuery": "Alamat tidak boleh berisi query string atau fragmen.",
-      "either": "Use the exact identity or the pattern, not both."
+      "urlQuery": "Alamat tidak boleh berisi query string atau fragmen."
     },
     "fields": {
       "enabled": "Aktif",
@@ -178,14 +166,12 @@
       "name": "Nama",
       "reference": "Referensi kredensial (opsional)",
       "requireSignature": "Wajibkan tanda tangan",
-      "url": "URL katalog",
-      "identityRegex": "Signer identity pattern (optional)"
+      "url": "URL katalog"
     },
     "hints": {
       "id": "Huruf kecil, angka, dan tanda hubung. Tidak dapat diubah nanti.",
       "reference": "Nama kredensial yang dikonfigurasi pemilik. Jangan pernah menempelkan token atau kata sandi di sini.",
-      "url": "Alamat https tanpa kredensial dan tanpa query string.",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify."
+      "url": "Alamat https tanpa kredensial dan tanpa query string."
     },
     "lastRefresh": "Disegarkan {{when}}, {{count}} entri",
     "lead": "Pustaka adalah dokumen katalog yang mendaftar add-on. Kredensial tidak pernah diketik di sini: pustaka privat menyebut kredensial yang dikonfigurasi pemilik.",
@@ -201,9 +187,7 @@
     "removeTitle": "Hapus {{name}}?",
     "removed": "{{name}} dihapus.",
     "save": "Simpan",
-    "saved": "{{name}} disimpan.",
-    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
-    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version"
+    "saved": "{{name}} disimpan."
   },
   "manage": {
     "api": "API add-on",
