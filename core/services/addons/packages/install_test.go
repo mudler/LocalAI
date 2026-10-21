@@ -602,3 +602,16 @@ var _ = Describe("trusted signed staging", func() {
 		Expect(external.Load()).To(BeZero())
 	})
 })
+
+var _ = Describe("signer identity pattern", func() {
+	It("is for backend sources only: an add-on install refuses it", func() {
+		i, r := fixture([]byte("x"), func(_ *catalog.Release, s *catalog.Source) {
+			s.Policy = catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", IdentityRegex: `^builder@example\.invalid$`}
+		})
+		_, e := i.Stage(context.Background(), r, nil)
+		Expect(e).To(MatchError(ErrPackage))
+		entries, e := os.ReadDir(i.Root)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(entries).To(BeEmpty())
+	})
+})

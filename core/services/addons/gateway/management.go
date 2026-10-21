@@ -23,15 +23,16 @@ func (g *Gateway) management(ctx context.Context, actor contract.Actor, request 
 	switch request.Action {
 	case "catalog-search":
 		var args struct {
-			Text     string `json:"text"`
-			SourceID string `json:"sourceId"`
-			Offset   int    `json:"offset"`
-			Limit    int    `json:"limit"`
+			Text     string       `json:"text"`
+			Kind     catalog.Kind `json:"kind"`
+			SourceID string       `json:"sourceId"`
+			Offset   int          `json:"offset"`
+			Limit    int          `json:"limit"`
 		}
 		if decode(bytes.NewReader(request.Arguments), &args) != nil {
 			return contract.Result{}, ErrForbidden
 		}
-		out, err = g.Manager.CatalogSearch(ctx, actor, catalog.Query{Text: args.Text, SourceID: args.SourceID, Offset: args.Offset, Limit: args.Limit})
+		out, err = g.Manager.CatalogSearch(ctx, actor, catalog.Query{Kind: args.Kind, Text: args.Text, SourceID: args.SourceID, Offset: args.Offset, Limit: args.Limit})
 	case "catalog-details":
 		var args struct {
 			SourceID string `json:"sourceId"`
