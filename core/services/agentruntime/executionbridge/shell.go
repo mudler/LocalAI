@@ -61,10 +61,6 @@ func (b *Bridge) resolve(ctx context.Context, c HostCandidate) (Registration, er
 	if err != nil || r.Authority.Scope != b.scopeBinding() || r.Authority.Lease != b.scope.Lease || r.Authority.Selection.Scope != b.scopeBinding() || !identifier(r.Helper) || !identifier(r.Registration) || !identifier(r.Agent) || r.Tool == "" || !codecDigest(r.Provenance) || !codecDigest(r.Projection) || r.ApprovalTTL <= 0 || r.ApprovalTTL > ownership.MaxTTL || !number(r.AuthRevision) || !number(r.ConfigRevision) || r.Authority.Policy > toolbroker.AllowAll {
 		return Registration{}, ErrHold
 	}
-	snap, err := b.dep.Reader.Get(ctx, b.scope.Identity.Principal, b.scope.Identity.Conversation)
-	if err != nil || snap.Deleted || snap.Revision != b.scope.Revision || snap.Running == nil || snap.Running.InputID != b.scope.Identity.Turn || b.dep.Manager.Check(ctx, b.scope.Lease, b.dep.Clock()) != nil {
-		return Registration{}, ErrHold
-	}
 	// Resolve is trusted, but availability still uses the same catalog and
 	// parent/helper intersection at policy and final execution boundaries.
 	selection := r.Authority.Selection
@@ -89,6 +85,13 @@ func (b *Bridge) resolve(ctx context.Context, c HostCandidate) (Registration, er
 		}
 	}
 	if !granted || !selected {
+		return Registration{}, ErrHold
+	}
+	snap, err := b.dep.Reader.Get(ctx, b.scope.Identity.Principal, b.scope.Identity.Conversation)
+	if err != nil || snap.Deleted || snap.Revision != b.scope.Revision || snap.Running == nil || snap.Running.InputID != b.scope.Identity.Turn || b.dep.Manager.Check(ctx, b.scope.Lease, b.dep.Clock()) != nil {
+		return Registration{}, ErrHold
+	}
+	if ctx.Err() != nil || !b.live() {
 		return Registration{}, ErrHold
 	}
 	return r, nil
@@ -146,8 +149,42 @@ func (b *Bridge) prepare(ctx context.Context, c HostCandidate) (executionCandida
 	return executionCandidate{candidate: c, registration: r, binding: binding, call: ownCall(f)}, nil
 }
 
-func facts(c executionCandidate) Facts {
-	return Facts{Lease: Live, RevisionCurrent: true, TurnCurrent: true, Registered: true, Authorized: true, Durable: true, Normal: true, Projected: true, ReleaseAuthorized: true, OriginAuthorized: true, ExactOrigin: true, OriginCompleted: true, HelperScope: c.call, RegisteredHelper: c.registration.Helper, Origin: c.call, NeedsApproval: c.registration.Authority.Policy == toolbroker.RequireApproval || c.registration.Authority.ExternalTaintedWrite}
+// shellEvidence is private, ephemeral transition bookkeeping, not a bearer
+// capability or a persisted claim. Facts certify completed host guards/effects;
+// current authority is rebuilt for every reducer guard, never cached here.
+type shellEvidence struct {
+	normal, projected, released, completed, originAuthorized, exact bool
+	origin                                                          Call
+}
+
+func (b *Bridge) facts(ctx context.Context, c executionCandidate, e shellEvidence) Facts {
+	f := Facts{HelperScope: c.call, RegisteredHelper: c.registration.Helper,
+		NeedsApproval: c.registration.Authority.Policy == toolbroker.RequireApproval || c.registration.Authority.ExternalTaintedWrite,
+		Durable:       c.admission.Digest() != "" && c.admission.RequestID() == c.binding.RequestID(), Normal: e.normal, Projected: e.projected,
+		ReleaseAuthorized: e.released, OriginCompleted: e.completed,
+		OriginAuthorized: e.originAuthorized, ExactOrigin: e.exact, Origin: e.origin}
+	if b.publicationCurrent(ctx, c) == nil {
+		f.Lease = Live
+		f.RevisionCurrent = true
+		f.TurnCurrent = true
+		f.Registered = true
+		f.Authorized = true
+	}
+	return f
+}
+
+// Dependencies are finite callbacks, not an atomic external ACL transaction.
+// Recheck actual current dependencies after Release/origin callbacks. No bridge
+// mutex is held across them; cancellation/closure are sampled again at the end.
+func (b *Bridge) publicationCurrent(ctx context.Context, c executionCandidate) error {
+	if ctx == nil || ctx.Err() != nil || !b.live() {
+		return ErrHold
+	}
+	r, err := b.resolve(ctx, c.candidate)
+	if err != nil || !sameRegistration(r, c.registration) || ctx.Err() != nil || !b.live() {
+		return ErrHold
+	}
+	return nil
 }
 func advance(s *State, k EventKind, c executionCandidate, f Facts, want Effect) error {
 	e := NewEvent(k, c.call, f)
@@ -203,12 +240,14 @@ func (b *Bridge) Execution() chat.ToolExecutionBridge {
 			return hold()
 		}
 		var state State = Unmapped{}
-		f := facts(c)
-		if advance(&state, Admit, c, f, PersistAdmission) != nil || b.admit(ctx, &c) != nil {
+		// HB03 is certified only after fenced persistence succeeds. Its effect
+		// names the operation just witnessed, not a second admission request.
+		evidence := shellEvidence{}
+		if b.admit(ctx, &c) != nil || advance(&state, Admit, c, b.facts(ctx, c, evidence), PersistAdmission) != nil {
 			return hold()
 		}
 		replayctx := withOperation(ctx, c, true)
-		if advance(&state, Begin, c, f, BeginBroker) != nil {
+		if advance(&state, Begin, c, b.facts(ctx, c, evidence), BeginBroker) != nil {
 			return hold()
 		}
 		h, view, err := b.broker.Begin(replayctx, toolbroker.BeginRequest{Config: toolbroker.ModelConfig{Binding: c.binding, Policy: c.registration.Authority.Policy, ApprovalTTL: int64(c.registration.ApprovalTTL), ExternalTaintedWrite: c.registration.Authority.ExternalTaintedWrite}})
@@ -248,29 +287,33 @@ func (b *Bridge) Execution() chat.ToolExecutionBridge {
 					return hold()
 				}
 			}
-			if advance(&state, Approve, c, f, 0) != nil {
+			if advance(&state, Approve, c, b.facts(ctx, c, evidence), 0) != nil {
 				return hold()
 			}
 		}
 		if view.Phase != "Authorized" {
 			return hold()
 		}
-		if advance(&state, Claim, c, f, ClaimCall) != nil {
+		if advance(&state, Claim, c, b.facts(ctx, c, evidence), ClaimCall) != nil {
 			return hold()
 		}
 		claim, err := b.broker.ClaimCall(replayctx, h)
 		if errors.Is(err, toolbroker.ErrRecorded) {
 			view, e := b.broker.View(h)
-			if e != nil || view.Phase != "Completed" || advance(&state, Replay, c, f, ReleaseReplay) != nil {
+			if e != nil || view.Phase != "Completed" {
 				return hold()
 			}
 			p, e := b.replay(replayctx, c, view.Result.Bytes())
 			if e != nil {
 				return hold()
 			}
+			evidence = shellEvidence{projected: true, released: true, completed: true, originAuthorized: true, exact: true, origin: c.call}
+			if advance(&state, Replay, c, b.facts(ctx, c, evidence), ReleaseReplay) != nil {
+				return hold()
+			}
 			return chat.ToolExecutionResult{Text: p.Text()}, nil
 		}
-		if err != nil || advance(&state, Dispatch, c, f, Execute) != nil {
+		if err != nil || advance(&state, Dispatch, c, b.facts(ctx, c, evidence), Execute) != nil {
 			return hold()
 		}
 		out, err := b.broker.Invoke(withOperation(ctx, c, false), claim, func(runctx context.Context, e toolbroker.Execution) (toolbroker.ToolOutput, error) {
@@ -281,6 +324,7 @@ func (b *Bridge) Execution() chat.ToolExecutionBridge {
 			if err != nil {
 				return toolbroker.ToolOutput{}, ErrHold
 			}
+			evidence.normal = true
 			text, err := normalizeNativeText(result)
 			if err != nil {
 				return toolbroker.ToolOutput{}, ErrHold
@@ -294,7 +338,10 @@ func (b *Bridge) Execution() chat.ToolExecutionBridge {
 			return hold()
 		}
 		p, err := b.replay(ctx, c, out.Result.Bytes())
-		if err != nil || advance(&state, Finish, c, f, Publish) != nil {
+		evidence.projected = err == nil
+		evidence.released = err == nil
+		evidence.completed = out.Status == "Completed"
+		if err != nil || !evidence.completed || advance(&state, Finish, c, b.facts(ctx, c, evidence), Publish) != nil {
 			return hold()
 		}
 		return chat.ToolExecutionResult{Text: p.Text()}, nil
@@ -324,7 +371,7 @@ func NewOrigin(ref ownership.ExecutionAdmission, call Call, provenance, projecti
 // Recover never calls Begin, claims or invokes a body. The database fences the
 // current target separately from immutable original admission provenance.
 func (b *Bridge) Recover(ctx context.Context, target HostCandidate, origin Origin) (string, error) {
-	if origin.open == nil {
+	if ctx == nil || origin.open == nil {
 		return "", ErrHold
 	}
 	ref, originCall, provenance, projection := origin.open()
@@ -340,8 +387,11 @@ func (b *Bridge) Recover(ctx context.Context, target HostCandidate, origin Origi
 	if err != nil || b.dep.Release(ctx, target, ref) != nil {
 		return "", ErrHold
 	}
-	f := facts(c)
-	f.Origin = originCall
+	// Repeat the origin relation check after Release, then refresh target guards.
+	if b.dep.AuthorizeOrigin(ctx, target, ref) != nil || b.publicationCurrent(ctx, c) != nil {
+		return "", ErrHold
+	}
+	f := b.facts(ctx, c, shellEvidence{projected: true, released: true, completed: true, originAuthorized: true, exact: true, origin: originCall})
 	var state State = Unmapped{}
 	if advance(&state, Replay, c, f, ReleaseReplay) != nil {
 		return "", ErrHold

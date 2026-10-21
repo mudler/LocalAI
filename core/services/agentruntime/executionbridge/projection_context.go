@@ -32,7 +32,7 @@ func (b *Bridge) replay(ctx context.Context, c executionCandidate, wire []byte) 
 	if err != nil {
 		return textProjection{}, ErrHold
 	}
-	if b.dep.Release(ctx, c.candidate, c.admission) != nil {
+	if b.dep.Release(ctx, c.candidate, c.admission) != nil || b.publicationCurrent(ctx, c) != nil {
 		return textProjection{}, ErrHold
 	}
 	return p, nil
@@ -55,7 +55,7 @@ func (b *Bridge) sanitize(ctx context.Context, binding toolbroker.Binding, raw t
 		return toolbroker.Output{}, ErrHold
 	}
 	text, err = b.dep.ProjectText(ctx, c.candidate, text)
-	if err != nil || b.dep.Release(ctx, c.candidate, c.admission) != nil {
+	if err != nil || b.dep.Release(ctx, c.candidate, c.admission) != nil || b.publicationCurrent(ctx, c) != nil {
 		return toolbroker.Output{}, ErrHold
 	}
 	p, err := encodeAuthorizedText(text, c.admission.Digest(), c.registration.Provenance, c.registration.Projection)
