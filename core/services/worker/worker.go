@@ -303,5 +303,6 @@ func (cfg *Config) systemState() (*system.SystemState, error) {
 		system.WithBackendSystemPath(cfg.BackendsSystemPath),
 		system.WithRequireBackendIntegrity(cfg.RequireBackendIntegrity),
 		system.WithPreferDevelopmentBackends(cfg.PreferDevelopmentBackends),
+		system.WithDisableBackendInstall(cfg.DisableBackendInstall),
 	)
 }

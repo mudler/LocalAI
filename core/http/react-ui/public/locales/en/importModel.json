@@ -38,6 +38,7 @@
     "backendHint": "Narrow the list by what the model does, then pick one. Leave it on auto-detect and LocalAI decides. Entries marked \"manual pick\" are never auto-detected.",
     "backendErrorHint": "Could not load the backend list. Auto-detect only.",
     "backendNotInstalled": "This backend isn't installed yet. Submitting import will download it first.",
+    "backendInstallDisabled": "This backend isn't installed, and this server does not install backends. The import will be refused until the backend is installed outside LocalAI.",
     "modelName": "Name",
     "modelNamePlaceholder": "Leave empty to use filename",
     "modelNameHint": "Custom name for the model. If empty, the filename will be used.",

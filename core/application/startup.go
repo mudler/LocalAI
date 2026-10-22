@@ -496,7 +496,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Start background upgrade checker for backends.
 	// In distributed mode, uses PostgreSQL advisory lock so only one frontend
 	// instance runs periodic checks (avoids duplicate upgrades across replicas).
-	if len(options.BackendGalleries) > 0 {
+	if len(options.BackendGalleries) > 0 && !options.DisableBackendInstall {
 		// Pass a lazy getter for the backend manager so the checker always
 		// uses the active one — DistributedBackendManager is swapped in above
 		// and asks workers for their installed backends, which is what
@@ -553,14 +553,21 @@ func New(opts ...config.AppOption) (*Application, error) {
 		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Nats)
 	}
 
+	// Preloads run outside the operation loop, so they do not get the
+	// availability the loop stamps on each op; it comes from the same manager.
+	preloadOptions := []gallery.InstallOption{gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)}
+	if gs := application.GalleryService(); gs != nil {
+		preloadOptions = append(preloadOptions, gallery.WithBackendAvailability(gs.BackendManager().BackendAvailable))
+	}
+
 	if options.PreloadJSONModels != "" {
-		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
+		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity, preloadOptions...); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
+		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity, preloadOptions...); err != nil {
 			return nil, err
 		}
 	}

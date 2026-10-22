@@ -42,6 +42,12 @@ type SystemState struct {
 	// fetch reads it from here because the listing code it runs under never
 	// sees the application config.
 	RequireBackendIntegrity bool
+
+	// DisableBackendInstall refuses every backend install and upgrade —
+	// gallery, OCI/URL/path, automatic — bound to --disable-backend-install /
+	// LOCALAI_DISABLE_BACKEND_INSTALL. Backends then come only from what is
+	// already in BackendsPath or from BackendsSystemPath (packaged installs).
+	DisableBackendInstall bool
 }
 
 type SystemStateOptions func(*SystemState)
@@ -91,6 +97,12 @@ func WithBackendDevSuffix(suffix string) SystemStateOptions {
 func WithRequireBackendIntegrity(require bool) SystemStateOptions {
 	return func(s *SystemState) {
 		s.RequireBackendIntegrity = require
+	}
+}
+
+func WithDisableBackendInstall(disable bool) SystemStateOptions {
+	return func(s *SystemState) {
+		s.DisableBackendInstall = disable
 	}
 }
 

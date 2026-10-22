@@ -64,7 +64,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 		// Edit model page
 		router.GET("/models/edit/:name", localai.GetEditModelPage(cl, appConfig), adminMiddleware)
-		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService, cl)
+		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig, galleryService, cl)
 		router.POST("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint(), adminMiddleware)
 		router.POST("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint(), adminMiddleware)
 
@@ -78,7 +78,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			appConfig.SystemState,
 			galleryService,
 			app.UpgradeChecker())
-		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware)
+		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
 		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
 		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState, ClusterCapabilityProviderFor(app), ClusterInstalledProviderFor(app)), adminMiddleware)
@@ -87,7 +87,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
 		router.GET("/backends/upgrades", backendGalleryEndpointService.GetUpgradesEndpoint(), adminMiddleware)
 		router.POST("/backends/upgrades/check", backendGalleryEndpointService.CheckUpgradesEndpoint(), adminMiddleware)
-		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware)
+		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 		// Custom model import endpoint
 		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig, opcache), adminMiddleware)
 
@@ -460,6 +460,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"config_patch":    true,
 				"vram_estimate":   true,
 				"model_storage":   true,
+				"backend_install": !appConfig.DisableBackendInstall,
 				"mcp":             !appConfig.DisableMCP,
 				"agents":          appConfig.AgentPool.Enabled,
 				"p2p":             appConfig.P2PToken != "",
@@ -481,6 +482,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"fine_tuning":       true,
 			"quantization":      true,
 			"distributed":       appConfig.Distributed.Enabled,
+			"backend_install":   !appConfig.DisableBackendInstall,
 			"localai_assistant": !appConfig.DisableLocalAIAssistant && app.LocalAIAssistant() != nil,
 			"addon_navigation":  !appConfig.LegacyNavigation,
 		})

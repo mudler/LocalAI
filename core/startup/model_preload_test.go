@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	. "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -14,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("Preload test", func() {
@@ -79,5 +81,85 @@ var _ = Describe("Preload test", func() {
 			_, err = os.Stat(resultFile)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("%+v", dirs))
 		})
+	})
+})
+
+// clusterBackendManager answers availability from a fixed set, as the
+// NATS-backed manager would from the workers' listings.
+type clusterBackendManager struct{ available map[string]bool }
+
+func (clusterBackendManager) InstallBackend(context.Context, *galleryop.ManagementOp[gallery.GalleryBackend, any], galleryop.ProgressCallback) error {
+	return nil
+}
+func (clusterBackendManager) DeleteBackend(string) error { return nil }
+func (clusterBackendManager) ListBackends() (gallery.SystemBackends, error) {
+	return gallery.SystemBackends{}, nil
+}
+func (clusterBackendManager) UpgradeBackend(context.Context, *galleryop.ManagementOp[gallery.GalleryBackend, any], galleryop.ProgressCallback) error {
+	return nil
+}
+func (clusterBackendManager) CheckUpgrades(context.Context) (map[string]gallery.UpgradeInfo, error) {
+	return nil, nil
+}
+func (clusterBackendManager) IsDistributed() bool { return true }
+func (m clusterBackendManager) BackendAvailable(name string) (bool, error) {
+	return m.available[name], nil
+}
+
+var _ = Describe("Preload with backend installation disabled", func() {
+	var (
+		tmpdir      string
+		systemState *system.SystemState
+		ml          *model.ModelLoader
+		galleries   []config.Gallery
+	)
+
+	BeforeEach(func() {
+		var err error
+		tmpdir, err = os.MkdirTemp("", "preload-install-disabled-*")
+		Expect(err).ToNot(HaveOccurred())
+		systemState, err = system.GetSystemState(
+			system.WithModelPath(filepath.Join(tmpdir, "models")),
+			system.WithBackendPath(filepath.Join(tmpdir, "backends")),
+			system.WithDisableBackendInstall(true),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.MkdirAll(systemState.Model.ModelsPath, 0o750)).To(Succeed())
+		Expect(os.MkdirAll(systemState.Backend.BackendsPath, 0o750)).To(Succeed())
+		ml = model.NewModelLoader(systemState)
+
+		// The weights already sit in the models path, so the install touches
+		// nothing but the config file and the admission check.
+		Expect(os.WriteFile(filepath.Join(systemState.Model.ModelsPath, "weights.gguf"), []byte("weights"), 0o600)).To(Succeed())
+		entries := []gallery.GalleryModel{{
+			Metadata:   gallery.Metadata{Name: "needs-vllm", Backend: "vllm"},
+			ConfigFile: map[string]any{"backend": "vllm", "parameters": map[string]any{"model": "weights.gguf"}},
+		}}
+		out, err := yaml.Marshal(entries)
+		Expect(err).ToNot(HaveOccurred())
+		galleryPath := filepath.Join(systemState.Model.ModelsPath, "preload.yaml")
+		Expect(os.WriteFile(galleryPath, out, 0o600)).To(Succeed())
+		galleries = []config.Gallery{{Name: "preload", URL: "file://" + galleryPath}}
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(tmpdir)
+	})
+
+	preload := func(workersHave map[string]bool) error {
+		galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{SystemState: systemState, DisableBackendInstall: true}, ml)
+		galleryService.SetBackendManager(clusterBackendManager{available: workersHave})
+		return InstallModels(context.Background(), galleryService, galleries, nil, systemState, ml, false, false, false, nil, "needs-vllm")
+	}
+
+	It("installs a model whose backend a worker has, with no local backends", func() {
+		Expect(preload(map[string]bool{"vllm": true})).To(Succeed())
+		Expect(filepath.Join(systemState.Model.ModelsPath, "needs-vllm.yaml")).To(BeAnExistingFile())
+	})
+
+	It("refuses a model whose backend no worker has", func() {
+		err := preload(map[string]bool{})
+		Expect(err).To(MatchError(gallery.ErrBackendInstallDisabled))
+		Expect(filepath.Join(systemState.Model.ModelsPath, "needs-vllm.yaml")).NotTo(BeAnExistingFile())
 	})
 })

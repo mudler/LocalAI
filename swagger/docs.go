@@ -5581,6 +5581,20 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.BackendResponse"
                         }
+                    },
+                    "403": {
+                        "description": "Backend installation is disabled on this server (code backend_install_disabled)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Hardware-specific build in distributed mode (code concrete_backend_requires_target)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
@@ -5723,6 +5737,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.BackendResponse"
                         }
+                    },
+                    "403": {
+                        "description": "Backend installation is disabled on this server (code backend_install_disabled)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
@@ -5835,6 +5856,13 @@ const docTemplate = `{
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.GalleryResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The model's backend is not installed and backend installation is disabled (code backend_not_installed)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
