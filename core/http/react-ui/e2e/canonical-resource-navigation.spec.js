@@ -1,5 +1,13 @@
 import { test, expect } from './coverage-fixtures.js'
 
+async function backendInventory(page, installed) {
+  await page.route('**/api/backends?*', route => route.fulfill({ json: {
+    backends: [{ id: 'llama-cpp', name: 'llama-cpp', installed: true }],
+  } }))
+  await page.route('**/api/backends/upgrades', route => route.fulfill({ json: {} }))
+  await page.route('**/backends', route => route.fulfill({ json: installed }))
+}
+
 function urlState(page) {
   const url = new URL(page.url())
   return { path: url.pathname, params: url.searchParams }
@@ -22,14 +30,14 @@ test.describe('Canonical resource navigation', () => {
   })
 
   test('redirects legacy backend management state including visibility flags', async ({ page }) => {
-    // The Backends page drops a selection that is not installed. Serve the
-    // selected backend so the URL stays stable once the page has loaded.
-    await page.route('**/backends', route => new URL(route.request().url()).pathname === '/backends'
-      ? route.fulfill({ json: [{ Name: 'llama-cpp', IsSystem: false, Version: '1.0.0', Metadata: { version: '1.0.0' } }] })
-      : route.continue())
+    // The installed view clears selections absent from its inventory.
+    await backendInventory(page, [{ Name: 'llama-cpp', IsSystem: false }])
     await page.goto('/app/manage?tab=backends&sel=llama-cpp&bq=llama&bf=user&bv=1&bd=1')
 
-    await expect.poll(() => urlState(page).path).toBe('/app/backends')
+    const row = page.locator('[data-entity="llama-cpp"]')
+    await expect(row).toBeVisible()
+    await expect(row).toHaveAttribute('data-selected', 'true')
+    await expect(page).toHaveURL('/app/backends?view=installed&backend=llama-cpp&q=llama&state=user&show_all=1&development=1')
     const state = urlState(page)
     expect(state.params.get('view')).toBe('installed')
     expect(state.params.get('backend')).toBe('llama-cpp')
@@ -37,6 +45,14 @@ test.describe('Canonical resource navigation', () => {
     expect(state.params.get('state')).toBe('user')
     expect(state.params.get('show_all')).toBe('1')
     expect(state.params.get('development')).toBe('1')
+  })
+
+  test('clears a missing installed backend selection without losing URL refinements', async ({ page }) => {
+    await backendInventory(page, [])
+    await page.goto('/app/backends?view=installed&backend=llama-cpp&q=llama&state=user&show_all=1&development=1&target=worker-alpha')
+
+    await expect(page).toHaveURL('/app/backends?view=installed&q=llama&state=user&show_all=1&development=1&target=worker-alpha')
+    await expect(page.locator('[data-entity="llama-cpp"]')).toHaveCount(0)
   })
 
   test('defaults legacy management links to Installed Models', async ({ page }) => {
