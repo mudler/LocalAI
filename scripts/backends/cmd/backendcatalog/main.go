@@ -363,11 +363,11 @@ func writeGolden(dir string, rows []catalog.Release, backends []gallery.GalleryB
 	if err := os.RemoveAll(samples); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(samples, 0o755); err != nil {
+	if err := os.MkdirAll(samples, 0o750); err != nil {
 		return err
 	}
 	if len(before) > 0 {
-		if err := os.WriteFile(filepath.Join(dir, "gallery-before.yaml"), before, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "gallery-before.yaml"), before, 0o600); err != nil {
 			return err
 		}
 	}
@@ -378,7 +378,7 @@ func writeGolden(dir string, rows []catalog.Release, backends []gallery.GalleryB
 		}
 	}
 	sort.Strings(pins)
-	if err := os.WriteFile(filepath.Join(dir, "pins.tsv"), []byte("# id, os, arch, digest (empty: not pinned in the library)\n# Written by scripts/backends/cmd/backendcatalog --golden; do not edit by hand.\n"+strings.Join(pins, "\n")+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "pins.tsv"), []byte("# id, os, arch, digest (empty: not pinned in the library)\n# Written by scripts/backends/cmd/backendcatalog --golden; do not edit by hand.\n"+strings.Join(pins, "\n")+"\n"), 0o600); err != nil {
 		return err
 	}
 	var digests []string
@@ -390,7 +390,7 @@ func writeGolden(dir string, rows []catalog.Release, backends []gallery.GalleryB
 		digests = append(digests, b.Name+"\t"+d)
 	}
 	sort.Strings(digests)
-	if err := os.WriteFile(filepath.Join(dir, "digests.tsv"), []byte("# id, digest of the gallery entry generated from the library entries\n# Written by scripts/backends/cmd/backendcatalog --golden; do not edit by hand.\n"+strings.Join(digests, "\n")+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "digests.tsv"), []byte("# id, digest of the gallery entry generated from the library entries\n# Written by scripts/backends/cmd/backendcatalog --golden; do not edit by hand.\n"+strings.Join(digests, "\n")+"\n"), 0o600); err != nil {
 		return err
 	}
 	byID := map[string][]catalog.Release{}
@@ -416,10 +416,10 @@ func writeGolden(dir string, rows []catalog.Release, backends []gallery.GalleryB
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(samples, c.name+".library.yaml"), l, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(samples, c.name+".library.yaml"), l, 0o600); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(samples, c.name+".gallery.yaml"), g, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(samples, c.name+".gallery.yaml"), g, 0o600); err != nil {
 			return err
 		}
 	}
@@ -562,10 +562,10 @@ func run(args []string) error {
 				return fmt.Errorf("the generated gallery entry %q loads differently from the library entry", backends[i].Name)
 			}
 		}
-		if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(*out), 0o750); err != nil {
 			return err
 		}
-		if err := os.WriteFile(*out, append([]byte(galleryHeader), body...), 0o644); err != nil {
+		if err := os.WriteFile(*out, append([]byte(galleryHeader), body...), 0o600); err != nil {
 			return err
 		}
 	}
@@ -581,7 +581,8 @@ func run(args []string) error {
 // is already in the library are replaced where they stand; the rows of a new
 // backend are appended. Every other row is kept as it is, with its digest.
 func mergeLibrary(ctx context.Context, path string, add []gallery.GalleryBackend, p pinner, workers int) error {
-	src, err := os.ReadFile(path)
+	// The path is the tool's own argument: the operator names the library to merge.
+	src, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return err
 	}
@@ -603,7 +604,7 @@ func mergeLibrary(ctx context.Context, path string, add []gallery.GalleryBackend
 		return err
 	}
 	rep.print(os.Stderr)
-	return os.WriteFile(path, body, 0o644)
+	return os.WriteFile(path, body, 0o600)
 }
 
 // mergeRows puts the fresh rows in place of the rows of the same ids and
@@ -647,10 +648,10 @@ func writeLibrary(ctx context.Context, list []gallery.GalleryBackend, p pinner, 
 		return err
 	}
 	rep.print(os.Stderr)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
-	return os.WriteFile(path, body, 0o644)
+	return os.WriteFile(path, body, 0o600)
 }
 
 func main() {

@@ -227,7 +227,7 @@ func writeGolden(dir string, library []gallery.ModelLibraryEntry, models []galle
 	if err := os.RemoveAll(samples); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(samples, 0o755); err != nil {
+	if err := os.MkdirAll(samples, 0o750); err != nil {
 		return err
 	}
 	var lines []string
@@ -240,7 +240,7 @@ func writeGolden(dir string, library []gallery.ModelLibraryEntry, models []galle
 	}
 	sort.Strings(lines)
 	digests := "# id, digest of the library entry, digest of the gallery entry generated from it\n# Written by scripts/models/cmd/modelcatalog --golden; do not edit by hand.\n" + strings.Join(lines, "\n") + "\n"
-	if err := os.WriteFile(filepath.Join(dir, "digests.tsv"), []byte(digests), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "digests.tsv"), []byte(digests), 0o600); err != nil {
 		return err
 	}
 	for _, c := range sampleClasses {
@@ -262,10 +262,10 @@ func writeGolden(dir string, library []gallery.ModelLibraryEntry, models []galle
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(samples, c.name+".library.yaml"), l, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(samples, c.name+".library.yaml"), l, 0o600); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(samples, c.name+".gallery.yaml"), g, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(samples, c.name+".gallery.yaml"), g, 0o600); err != nil {
 			return err
 		}
 	}
@@ -320,10 +320,10 @@ func run(args []string) error {
 				return fmt.Errorf("the generated gallery entry %q loads differently from the library entry", models[i].Name)
 			}
 		}
-		if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(*out), 0o750); err != nil {
 			return err
 		}
-		if err := os.WriteFile(*out, append([]byte(header), body...), 0o644); err != nil {
+		if err := os.WriteFile(*out, append([]byte(header), body...), 0o600); err != nil {
 			return err
 		}
 	}
