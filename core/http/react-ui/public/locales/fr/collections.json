@@ -1,0 +1,43 @@
+{
+  "title": "Base de connaissances",
+  "subtitle": "Gérez des collections de documents pour le RAG des agents",
+  "newPlaceholder": "Nom de la nouvelle collection...",
+  "actions": {
+    "create": "Créer",
+    "creating": "Création...",
+    "details": "Détails",
+    "reset": "Réinitialiser",
+    "delete": "Supprimer",
+    "viewDetails": "Voir les détails",
+    "resetCollection": "Réinitialiser la collection",
+    "deleteCollection": "Supprimer la collection"
+  },
+  "sections": {
+    "yourCollections": "Vos collections",
+    "otherUsersCollections": "Collections des autres utilisateurs"
+  },
+  "empty": {
+    "title": "Aucune collection pour l'instant",
+    "text": "Les collections permettent d'organiser des documents en bases de connaissances que les agents peuvent interroger via RAG (génération augmentée par recherche). Créez une collection ci-dessus pour commencer.",
+    "noPersonal": "Vous n'avez encore aucune collection."
+  },
+  "deleteDialog": {
+    "title": "Supprimer la collection",
+    "message": "Supprimer la collection « {{name}} » ? Toutes les entrées seront supprimées et l'action est irréversible.",
+    "confirm": "Supprimer"
+  },
+  "resetDialog": {
+    "title": "Réinitialiser la collection",
+    "message": "Réinitialiser la collection « {{name}} » ? Toutes les entrées seront supprimées, mais la collection sera conservée.",
+    "confirm": "Réinitialiser"
+  },
+  "toasts": {
+    "loadFailed": "Échec du chargement des collections : {{message}}",
+    "created": "Collection « {{name}} » créée",
+    "createFailed": "Échec de la création de la collection : {{message}}",
+    "deleted": "Collection « {{name}} » supprimée",
+    "deleteFailed": "Échec de la suppression de la collection : {{message}}",
+    "reset": "Collection « {{name}} » réinitialisée",
+    "resetFailed": "Échec de la réinitialisation de la collection : {{message}}"
+  }
+}
