@@ -1,0 +1,101 @@
+{
+  "activity": {
+    "hide": "Masquer",
+    "moveToHistory": "Déplacer vers l'historique",
+    "moreCount": "{{count}} de plus",
+    "waitingForInstaller": "en attente de l'installateur",
+    "progressLabel": "Progression pour {{name}}",
+    "toNode": "vers {{node}}",
+    "nodesDone": "{{done}} nœuds sur {{total}} terminés",
+    "kind": {
+      "model": "modèle",
+      "backend": "backend"
+    },
+    "verb": {
+      "installing": "Installation du {{kind}}",
+      "installed": "{{kind}} installé",
+      "removed": "{{kind}} supprimé",
+      "staged": "Modèle préparé",
+      "failed": "Impossible d'installer le {{kind}}",
+      "queued": "En file",
+      "staging": "Préparation du modèle",
+      "removing": "Suppression du {{kind}}",
+      "failedRemoval": "Impossible de supprimer le {{kind}}",
+      "failedStaging": "Impossible de préparer le modèle"
+    },
+    "phase": {
+      "resolving": "Résolution des fichiers",
+      "downloading": "Téléchargement",
+      "verifying": "Vérification",
+      "committing": "Finalisation",
+      "persisting": "Enregistrement de la configuration"
+    }
+  },
+  "manage": {
+    "title": "Système",
+    "subtitle": "Gérer les modèles et backends installés"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Configurer les paramètres d'exécution de LocalAI",
+    "saved": "Paramètres enregistrés",
+    "saveFailed": "Échec de l'enregistrement : {{message}}",
+    "loadFailed": "Échec du chargement des paramètres : {{message}}",
+    "sections": {
+      "branding": "Image de marque",
+      "watchdog": "Watchdog",
+      "memory": "Mémoire",
+      "backends": "Backends",
+      "performance": "Performance",
+      "tracing": "Traçage",
+      "api": "API et CORS",
+      "p2p": "P2P",
+      "galleries": "Galeries",
+      "apikeys": "Clés d'API",
+      "agents": "Tâches d'agents",
+      "agentpool": "Pool d'agents",
+      "assistant": "Assistant LocalAI",
+      "distributed": "Distribué",
+      "responses": "Réponses"
+    }
+  },
+  "traces": {
+    "title": "Traces",
+    "subtitle": "Consulter les requêtes et réponses d'API enregistrées, ainsi que les opérations des backends"
+  },
+  "users": {
+    "title": "Utilisateurs",
+    "subtitle": "Gérer les utilisateurs enregistrés, les rôles et les invitations"
+  },
+  "usage": {
+    "title": "Utilisation",
+    "subtitle": "Statistiques d'utilisation des jetons d'API",
+    "sources": {
+      "tab": "Sources",
+      "mixTitle": "Répartition des sources",
+      "ribbonAria": "{{apikey}} % clés d'API, {{web}} % interface web, {{legacy}} % hérité",
+      "topSources": "Principales sources dans le temps",
+      "searchPlaceholder": "Rechercher par nom ou préfixe",
+      "sortBy": "Trier",
+      "sortTokens": "Jetons",
+      "sortRequests": "Requêtes",
+      "sortLastUsed": "Dernière utilisation",
+      "sortName": "Nom",
+      "sortUser": "Utilisateur",
+      "webUI": "Interface web",
+      "legacy": "Hérité",
+      "revoked": "révoqué",
+      "filteredTo": "Filtré sur : {{name}}",
+      "clearFilter": "Effacer le filtre",
+      "other": "Autres ({{count}})",
+      "noTrafficShort": "Aucune requête sur cette période.",
+      "noKeysYet": "Dès que des requêtes arriveront, vous les verrez détaillées ici.",
+      "createKey": "Créer votre première clé d'API",
+      "truncatedWarning": "Affichage des 200 principales clés. Appliquez un filtre pour affiner."
+    }
+  },
+  "explorer": {
+    "title": "Explorateur",
+    "subtitle": "Parcourir les fichiers et la configuration"
+  }
+}
