@@ -2,6 +2,8 @@
 package catalog
 
 import (
+	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -145,4 +147,18 @@ func plainText(s string) bool {
 		}
 	}
 	return true
+}
+
+// ErrInvalidEntry is returned for an entry the host would refuse to keep.
+var ErrInvalidEntry = errors.New("library entry is not valid for this host")
+
+// ValidateEntry applies to one entry the checks a host applies to every entry
+// of a library it fetches, so a tool that writes a library can know the host
+// will keep what it writes. The loopback allowance is a per-source setting and
+// is off here.
+func ValidateEntry(r Release) error {
+	if !validFetchedRelease(r, false) || !validKindFields(r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) {
+		return fmt.Errorf("%w: %s %q", ErrInvalidEntry, r.EntryKind(), r.ID)
+	}
+	return nil
 }

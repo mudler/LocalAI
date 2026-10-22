@@ -520,10 +520,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 	seen := map[string]bool{}
 	for i := range releases {
 		r := &releases[i]
-		if !validFetchedRelease(*r, src.AllowLoopbackHTTP) {
-			return nil, IndexResult{}, ErrRefresh
-		}
-		if !validKindFields(*r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) {
+		if !validFetchedRelease(*r, src.AllowLoopbackHTTP) || !validKindFields(*r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) {
 			return nil, IndexResult{}, ErrRefresh
 		}
 		r.Selection = ""

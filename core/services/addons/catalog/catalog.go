@@ -90,7 +90,7 @@ type Release struct {
 	Alias  string             `json:"alias,omitempty"`
 	OS     string             `json:"os"`
 	Arch   string             `json:"arch"`
-	Policy VerificationPolicy `json:"policy"`
+	Policy VerificationPolicy `json:"policy,omitzero"`
 	// UI is the optional display metadata of the entry. It is comparable on
 	// purpose: a release is compared with its trusted resolution at staging.
 	UI EntryUI `json:"ui,omitzero"`
