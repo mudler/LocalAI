@@ -256,6 +256,20 @@ These builds support text chat only: the publisher has no verified vision projec
 They use standard GGUF files without MTP decoding.
 See the [model card](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF) and [Swift Open License v1.0](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/blob/main/LICENSE) for usage terms.
 
+## Spark-X2.6-4B
+
+Install Spark-X2.6-4B for text chat, reasoning, and coding with llama.cpp.
+The gallery groups the publisher's Q4_K_M and Q8_0 GGUF builds as variants:
+
+```bash
+local-ai models install spark-x2.6-4b-q4
+local-ai models install spark-x2.6-4b-q4 --variant spark-x2.6-4b-q8
+```
+
+Both builds use the embedded chat template and a 32,768-token default context.
+They use the same Spark architecture as the existing Spark-X2.5 models.
+See the [publisher's model card](https://huggingface.co/XHToken/Spark-X2.6-4B-GGUF) for model details and the Apache 2.0 license.
+
 ## Sharp-Spark-X2.5-4B
 
 Install `sharp-spark-x2.5-4b` for coding and text chat with llama.cpp.
