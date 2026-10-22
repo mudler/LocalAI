@@ -27,13 +27,13 @@ import (
 var toolToHTTPRoute = map[string]string{
 	// Read-only tools.
 	ToolGallerySearch:        "GET /models/available",
-	ToolListInstalledModels:  "GET / (welcome JSON, ModelsConfig field)",
+	ToolListInstalledModels:  "GET /api/models/capabilities",
 	ToolListGalleries:        "GET /models/galleries",
 	ToolGetJobStatus:         "GET /models/jobs/:uuid",
 	ToolGetModelConfig:       "(none) — no JSON-only REST yet; httpapi.Client returns a documented stub",
 	ToolListBackends:         "GET /backends",
 	ToolListKnownBackends:    "GET /backends/known",
-	ToolSystemInfo:           "GET / (welcome JSON)",
+	ToolSystemInfo:           "GET /version + GET /system (composed)",
 	ToolListNodes:            "GET /api/nodes",
 	ToolListScheduling:       "GET /api/nodes/scheduling",
 	ToolGetScheduling:        "GET /api/nodes/scheduling/:model",

@@ -63,24 +63,34 @@ func fakeLocalAI() *httptest.Server {
 		http.Error(w, "could not find any status for ID", http.StatusInternalServerError)
 	})
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		// LocalAI's welcome JSON.
+	mux.HandleFunc("/version", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"version": "v0.0.0-test"})
+	})
+
+	mux.HandleFunc("/api/models/capabilities", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"Version":      "v0.0.0-test",
-			"LoadedModels": []any{},
-			"InstalledBackends": map[string]bool{
-				"llama-cpp": true,
-				"whisper":   true,
+			"data": []map[string]any{
+				{"id": "qwen2.5-7b-instruct", "backend": "llama-cpp",
+					"capabilities": []string{"FLAG_CHAT", "FLAG_COMPLETION"},
+					"disabled":     false, "pinned": false},
+				{"id": "whisper-large", "backend": "whisper",
+					"capabilities": []string{"FLAG_TRANSCRIPT"},
+					"disabled":     false, "pinned": false},
 			},
-			"ModelsConfig": []map[string]any{
-				{"name": "qwen2.5-7b-instruct", "backend": "llama-cpp"},
-			},
+		})
+	})
+
+	mux.HandleFunc("/system", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"backends":      []string{"llama-cpp", "whisper"},
+			"loaded_models": []map[string]any{{"id": "qwen2.5-7b-instruct"}},
 		})
 	})
 
 	mux.HandleFunc("/backends", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{"name": "llama-cpp", "installed": true, "tags": []string{"chat"}},
+			{"name": "whisper", "installed": true, "tags": []string{"transcript"}},
 		})
 	})
 
@@ -217,11 +227,41 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 	})
 
 	Describe("SystemInfo", func() {
-		It("extracts version and installed-backend names from the welcome JSON", func() {
+		It("composes version, installed backends and loaded models from live routes", func() {
 			info, err := c.SystemInfo(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(info.Version).To(Equal("v0.0.0-test"))
-			Expect(info.InstalledBackends).To(HaveLen(2))
+			// /system.backends carries the installed set; /backends is the
+			// authoritative list. Both are exercised; the test asserts the
+			// union is non-empty and contains the known backends.
+			Expect(info.InstalledBackends).To(ContainElement("llama-cpp"))
+			Expect(info.InstalledBackends).To(ContainElement("whisper"))
+			// loaded_models comes from /system
+			Expect(info.LoadedModels).To(ConsistOf("qwen2.5-7b-instruct"))
+		})
+	})
+
+	Describe("ListInstalledModels", func() {
+		It("returns every installed model with backend and capabilities", func() {
+			out, err := c.ListInstalledModels(ctx, localaitools.CapabilityAny)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(2))
+			Expect(out[0].Name).To(Equal("qwen2.5-7b-instruct"))
+			Expect(out[0].Backend).To(Equal("llama-cpp"))
+			Expect(out[0].Capabilities).To(ConsistOf("CHAT", "COMPLETION"))
+		})
+
+		It("filters by capability", func() {
+			out, err := c.ListInstalledModels(ctx, localaitools.CapabilityTranscript)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].Name).To(Equal("whisper-large"))
+		})
+
+		It("returns an empty slice when no model matches the capability", func() {
+			out, err := c.ListInstalledModels(ctx, localaitools.CapabilityImage)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(BeEmpty())
 		})
 	})
 
@@ -229,9 +269,11 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		It("returns each installed backend with its installed flag", func() {
 			bs, err := c.ListBackends(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bs).To(HaveLen(1))
+			Expect(bs).To(HaveLen(2))
 			Expect(bs[0].Name).To(Equal("llama-cpp"))
 			Expect(bs[0].Installed).To(BeTrue())
+			Expect(bs[1].Name).To(Equal("whisper"))
+			Expect(bs[1].Installed).To(BeTrue())
 		})
 	})
 

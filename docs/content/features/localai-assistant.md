@@ -56,6 +56,8 @@ Useful for hooking LocalAI admin into Claude Desktop, Cursor, or any MCP host. T
 
 **Read-only**: `gallery_search`, `list_installed_models`, `list_galleries`, `list_backends`, `list_known_backends`, `get_job_status`, `get_model_config`, `vram_estimate`, `system_info`, `list_nodes`.
 
+For a remote instance, `list_installed_models` returns model names, backends, capabilities, and disabled and pinned states. Set its optional `capability` argument, such as `tts`, to filter the results. The `system_info` tool returns the instance version, installed backends, and loaded models.
+
 **Mutating** (require user confirmation per the assistant's safety prompt): `install_model`, `import_model_uri`, `delete_model`, `install_backend`, `upgrade_backend`, `edit_model_config`, `reload_models`, `toggle_model_state`, `toggle_model_pinned`.
 
 ## Adding new tools or skills
