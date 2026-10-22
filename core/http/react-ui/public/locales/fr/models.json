@@ -1,0 +1,379 @@
+{
+  "lifecycle": {
+    "title": "Modèles",
+    "navLabel": "Cycle de vie des modèles",
+    "views": {
+      "explore": "Explorer",
+      "installed": "Installés"
+    },
+    "filters": {
+      "all": "Tous",
+      "running": "En cours",
+      "idle": "Inactifs",
+      "disabled": "Désactivés",
+      "pinned": "Épinglés",
+      "distributed": "Distribués"
+    },
+    "installed": {
+      "searchPlaceholder": "Rechercher les modèles installés",
+      "count": "{{shown}} sur {{total}}",
+      "backToAll": "Tous les modèles installés",
+      "eyebrow": "Installés sur cet hôte",
+      "summary": "{{count}} modèles prêts à servir.",
+      "summaryHint": "Sélectionnez un modèle pour inspecter son état d'exécution et ses contrôles."
+    },
+    "states": {
+      "running": "En cours",
+      "idle": "Inactif",
+      "disabled": "Désactivé",
+      "working": "En cours…"
+    },
+    "actions": {
+      "load": "Charger",
+      "loading": "Chargement…",
+      "stop": "Arrêter",
+      "update": "Mettre à jour",
+      "updating": "Mise à jour…",
+      "enable": "Activer le modèle",
+      "disable": "Désactiver le modèle",
+      "pin": "Épingler (empêche le déchargement automatique)",
+      "unpin": "Désépingler (autorise le déchargement automatique)",
+      "edit": "Modifier la configuration",
+      "logs": "Journaux du backend",
+      "delete": "Supprimer le modèle",
+      "forModel": "Actions pour {{model}}",
+      "open": "Ouvrir {{useCase}}",
+      "manageInstallation": "Gérer l'installation"
+    },
+    "actionNames": {
+      "load": "charger",
+      "stop": "arrêter",
+      "enable": "activer",
+      "disable": "désactiver",
+      "pin": "épingler",
+      "unpin": "désépingler",
+      "delete": "supprimer",
+      "update": "mettre à jour"
+    },
+    "toasts": {
+      "loaded": "{{model}} chargé",
+      "stopped": "{{model}} arrêté",
+      "enabled": "{{model}} activé",
+      "disabled": "{{model}} désactivé",
+      "pinned": "{{model}} épinglé",
+      "unpinned": "{{model}} désépinglé",
+      "deleted": "{{model}} supprimé",
+      "updated": "Modèles mis à jour"
+    },
+    "confirm": {
+      "stopTitle": "Arrêter le modèle",
+      "stopMessage": "Arrêter le modèle {{model}} ?",
+      "deleteTitle": "Supprimer le modèle",
+      "deleteMessage": "Supprimer le modèle {{model}} ? Cette action est irréversible."
+    },
+    "errors": {
+      "action": "Impossible de {{action}} {{model}} : {{message}}",
+      "loadList": "Impossible de charger les modèles installés : {{message}}"
+    },
+    "detail": {
+      "title": "Détails",
+      "state": "État",
+      "backend": "Backend",
+      "auto": "Auto",
+      "pinned": "Épinglé",
+      "yes": "oui",
+      "description": "Description",
+      "noDescription": "Aucune description de galerie n'est disponible pour ce modèle.",
+      "license": "Licence",
+      "tags": "Étiquettes",
+      "links": "Liens",
+      "distributed": "Distribué",
+      "source": "Source",
+      "files": "Fichiers",
+      "fileCount": "{{count}} fichier",
+      "fileCount_other": "{{count}} fichiers",
+      "adopted": "Adopté",
+      "adoptedHint": "Découvert sur un worker mais non configuré localement. Enregistrez la configuration pour la rendre permanente.",
+      "alias": "alias → {{target}}",
+      "aliasTitle": "Alias → {{target}}",
+      "chain": "chaîne → {{target}}",
+      "chainTitle": "Chaîne de bascule → {{target}}"
+    },
+    "open": {
+      "title": "Ouvrir",
+      "chat": "Chat",
+      "completion": "Complétion",
+      "image": "Image",
+      "video": "Vidéo",
+      "tts": "TTS",
+      "transcribe": "Transcription",
+      "sound": "Son",
+      "face": "Visage",
+      "voice": "Voix",
+      "embeddings": "Embeddings",
+      "rerank": "Reranking",
+      "vad": "VAD",
+      "score": "Score",
+      "decisions": "Décisions"
+    },
+    "empty": {
+      "title": "Aucun modèle installé",
+      "text": "Parcourez la galerie ou importez un modèle pour commencer.",
+      "explore": "Explorer les modèles",
+      "import": "Importer un modèle",
+      "noMatches": "Aucun modèle installé ne correspond à ces filtres.",
+      "clear": "Effacer les filtres"
+    }
+  },
+  "title": "Modèles",
+  "subtitle": "Parcourez et installez des modèles d'IA depuis la galerie",
+  "models": "Modèles",
+  "recommended": {
+    "title": "Recommandé pour votre matériel",
+    "cpuNote": "Aucun GPU détecté - petits modèles qui restent réactifs sur CPU.",
+    "gpuNote": "Dimensionnés pour tenir dans votre VRAM disponible, avec de la marge pour le contexte.",
+    "install": "Installer",
+    "installing": "Installation",
+    "installStarted": "Installation de {{model}}…",
+    "installFailed": "Échec de l'installation : {{message}}",
+    "dismiss": "Ignorer les recommandations",
+    "summary": "{{n}} modèles suggérés",
+    "bestFit": "Meilleur choix",
+    "alternative": "Convient aussi"
+  },
+  "stats": {
+    "available": "Disponibles",
+    "installed": "Installés"
+  },
+  "actions": {
+    "addModel": "Ajouter un modèle",
+    "importModel": "Importer un modèle",
+    "install": "Installer",
+    "reinstall": "Réinstaller",
+    "delete": "Supprimer"
+  },
+  "filters": {
+    "all": "Tous",
+    "llm": "Chat",
+    "image": "Image",
+    "video": "Vidéo",
+    "threed": "3D",
+    "threedAnimation": "Animation 3D",
+    "multimodal": "Multimodal",
+    "vision": "Vision",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "Diarisation",
+    "soundClassification": "Étiquetage sonore",
+    "soundGen": "Son",
+    "audioTransform": "Effets audio",
+    "realtimeAudio": "Audio temps réel",
+    "embedding": "Embeddings",
+    "rerank": "Reranking",
+    "detection": "Détection",
+    "vad": "VAD",
+    "ner": "NER",
+    "fitsGpu": "Tient dans le GPU",
+    "collapseVariants": "Une ligne par modèle",
+    "allBackends": "Tous les backends",
+    "searchBackends": "Rechercher des backends...",
+    "contextSize": "Contexte :",
+    "useCaseLabel": "Filtrer par cas d'usage",
+    "unavailableForBackend": "Non disponible pour le backend sélectionné",
+    "someSelected": "{{count}} sélectionnés",
+    "refineLabel": "Affiner"
+  },
+  "search": {
+    "placeholder": "Rechercher des modèles...",
+    "clearFilters": "Effacer les filtres"
+  },
+  "table": {
+    "modelName": "Nom du modèle",
+    "description": "Description",
+    "backend": "Backend",
+    "sizeVram": "Taille / VRAM",
+    "status": "État",
+    "actions": "Actions",
+    "size": "Taille : {{size}}",
+    "vram": "VRAM : {{vram}}",
+    "fits": "Tient",
+    "mayNotFit": "Peut ne pas tenir",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "Installation",
+    "installingPct": "Installation · {{percent}} %",
+    "installed": "Installé",
+    "notInstalled": "Non installé"
+  },
+  "detail": {
+    "description": "Description",
+    "gallery": "Galerie",
+    "backend": "Backend",
+    "size": "Taille",
+    "vram": "VRAM",
+    "license": "Licence",
+    "tags": "Étiquettes",
+    "links": "Liens",
+    "warning": "Avertissement",
+    "files": "Fichiers",
+    "fitsGpu": "Tient dans le GPU",
+    "mayNotFitGpu": "Peut ne pas tenir dans le GPU",
+    "requiresTrustRemoteCode": "Nécessite Trust Remote Code",
+    "fileCount_one": "{{count}} fichier",
+    "fileCount_other": "{{count}} fichiers",
+    "filename": "Nom du fichier",
+    "uri": "URI",
+    "sha256": "SHA256",
+    "backToAll": "Tous les modèles",
+    "vramAt": "VRAM à {{context}}",
+    "headroom": "Marge",
+    "headroomOn": "Marge sur {{node}}"
+  },
+  "empty": {
+    "title": "Aucun modèle trouvé",
+    "withFilters": "Aucun modèle ne correspond à votre recherche ou à vos filtres.",
+    "collapsedVariantsHint": "Les variantes déjà proposées par une autre entrée sont masquées. Désactivez « Une ligne par modèle » pour les afficher.",
+    "noFilters": "La galerie de modèles est vide."
+  },
+  "deleteDialog": {
+    "title": "Supprimer le modèle",
+    "message": "Supprimer le modèle {{model}} ?",
+    "confirm": "Supprimer {{model}}",
+    "deletingToast": "Suppression de {{model}}..."
+  },
+  "errors": {
+    "loadFailed": "Échec du chargement des modèles : {{message}}",
+    "installFailed": "Échec de l'installation : {{message}}",
+    "deleteFailed": "Échec de la suppression : {{message}}"
+  },
+  "selector": {
+    "loading": "Chargement des modèles...",
+    "selectModel": "Sélectionner un modèle...",
+    "searchPlaceholder": "Rechercher des modèles...",
+    "noModels": "Aucun modèle disponible"
+  },
+  "variants": {
+    "title": "Variantes",
+    "chooseVariant": "Choisir une variante",
+    "auto": "Auto",
+    "autoSelected": "Sélectionnée automatiquement",
+    "base": "Version de base",
+    "doesNotFit": "Ne tient pas",
+    "unknownSize": "Taille inconnue",
+    "unknownBackend": "Backend inconnu",
+    "loading": "Chargement des variantes...",
+    "installVariant": "Installer {{variant}}",
+    "quantizationTitle": "Format des poids",
+    "unknownQuantization": "Format inconnu",
+    "showDetails": "Afficher tous les détails de {{variant}}",
+    "hideDetails": "Masquer les détails de {{variant}}",
+    "detailsLoading": "Chargement des détails...",
+    "detailsUnavailable": "Les détails de {{variant}} n'ont pas pu être chargés.",
+    "features": {
+      "dflash": "Plus rapide : DFlash",
+      "mtp": "Plus rapide : MTP"
+    }
+  },
+  "rail": {
+    "sortLabel": "Trier les modèles",
+    "downloadingPct": "téléchargement {{percent}} %",
+    "tooLarge": "{{size}} · trop volumineux",
+    "fitsSize": "{{size}} · tient",
+    "previousPage": "Page précédente",
+    "nextPage": "Page suivante",
+    "showingCount": "{{shown}} sur {{total}}",
+    "sizing": "dimensionnement…"
+  },
+  "groups": {
+    "text": "Texte et raisonnement",
+    "vision": "Vision",
+    "audio": "Parole et audio",
+    "visual": "Image et vidéo",
+    "other": "Tout le reste"
+  },
+  "chart": {
+    "title": "VRAM selon la longueur de contexte",
+    "available": "{{vram}} disponible",
+    "barTitle": "Un contexte de {{context}} nécessite {{vram}}",
+    "fitsEverywhere": "Fonctionne à toutes les longueurs de contexte sur cet hôte.",
+    "fitsNowhere": "Ne tiendra pas sur cet hôte, quelle que soit la longueur de contexte.",
+    "fitsUpTo": "Tient jusqu'à un contexte de {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Votre hôte",
+    "heroWithGpu": "{{vram}} de mémoire GPU, {{count}} modèles dans la galerie.",
+    "heroNoGpu": "{{count}} modèles dans la galerie.",
+    "heroHint": "Choisissez un élément à gauche pour voir sa taille, ses variantes et s'il tournera ici.",
+    "browsing": "Parcours",
+    "pickHint": "Sélectionnez un modèle pour voir son détail.",
+    "heroWithRam": "{{ram}} de mémoire système, {{count}} modèles dans la galerie.",
+    "heroWithCluster": "{{vram}} sur {{node}}, le plus grand des {{nodes}} nœuds, {{count}} modèles dans la galerie.",
+    "heroWithNode": "{{vram}} sur {{node}}, {{count}} modèles dans la galerie.",
+    "byUseCase": "Ou commencez par un cas d'usage",
+    "pickText": "Chat, raisonnement, embeddings",
+    "pickVision": "Lire des images et des documents",
+    "pickAudio": "Parole en entrée et en sortie",
+    "pickVisual": "Générer des images et des vidéos"
+  },
+  "failover": {
+    "title": "Chaîne de bascule",
+    "servedBy": "Servi par",
+    "changed": "modifié {{time}}",
+    "pinnedTo": "Épinglé sur {{target}}",
+    "warm": "Chaud",
+    "never": "Jamais",
+    "states": {
+      "primary": "Principal",
+      "fallback": "Repli",
+      "degraded": "Dégradé",
+      "healthy": "Sain",
+      "down": "Indisponible",
+      "recovering": "Récupération",
+      "missing": "Manquant"
+    },
+    "kinds": {
+      "local": "Local",
+      "remote": "Distant"
+    },
+    "columns": {
+      "target": "Cible",
+      "kind": "Type",
+      "warm": "Chaud",
+      "health": "Santé",
+      "lastProbe": "Dernière sonde",
+      "lastError": "Dernière erreur",
+      "actions": "Actions"
+    },
+    "actions": {
+      "pin": "Épingler",
+      "pinning": "Épinglage…",
+      "unpin": "Désépingler",
+      "unpinning": "Désépinglage…"
+    },
+    "confirm": {
+      "pinTitle": "Épingler {{target}} ?",
+      "pinMessage": "Seul {{target}} servira {{chain}} jusqu'au désépinglage. La bascule automatique est suspendue pour cette chaîne.",
+      "unpinTitle": "Désépingler {{chain}} ?",
+      "unpinMessage": "{{chain}} revient à la bascule automatique."
+    },
+    "errors": {
+      "pin": "Échec de l'épinglage : {{error}}",
+      "unpin": "Échec du désépinglage : {{error}}"
+    },
+    "overview": {
+      "title": "Chaînes de bascule",
+      "subtitle": "Santé en direct et cible active pour chaque chaîne de bascule.",
+      "columns": {
+        "chain": "Chaîne",
+        "state": "État",
+        "active": "Cible active",
+        "targets": "Cibles",
+        "changed": "Modifié"
+      },
+      "empty": {
+        "title": "Aucune chaîne de bascule",
+        "text": "Ajoutez une chaîne de bascule pour contourner automatiquement les cibles en mauvaise santé.",
+        "cta": "Créer une chaîne de bascule"
+      }
+    }
+  }
+}

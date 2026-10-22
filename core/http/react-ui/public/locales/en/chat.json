@@ -319,5 +319,12 @@
     "bodyMember": "No chat model is installed on this server yet. Ask an administrator to install one.",
     "gallery": "Browse the gallery",
     "import": "Import a model"
+  },
+  "addons": {
+    "label": "Add-ons",
+    "title": "Add-on tools for this chat",
+    "heading": "Add-on tools",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useContext } from 'react'
 import { API_CONFIG } from '../utils/config'
 import { apiUrl } from '../utils/basePath'
 import { effectiveSystemPrompt } from '../utils/systemPrompt'
@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext'
 import { chatsStorageKey, readChatStore, writeChatStore } from '../utils/chatStore'
 import { storedResult } from '../addons/proposalResult'
 import { chatHeaders } from '../addons/resourceCalls'
+import { RegistryContext } from '../addons/registryContext'
+import { toolAddons, addonRequestMetadata } from '../utils/chatAddons'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
 const openThinkTagRegex = /<thinking>|<think>|<\|channel>thought/
@@ -116,6 +118,8 @@ function serializeChat(chat) {
     mcpResources: chat.mcpResources,
     clientMCPServers: chat.clientMCPServers,
     localaiAssistant: chat.localaiAssistant,
+    addonTools: chat.addonTools,
+    addonToolIds: chat.addonToolIds,
     temperature: chat.temperature,
     topP: chat.topP,
     topK: chat.topK,
@@ -205,6 +209,11 @@ export function useChat(initialModel = '') {
   // hook's lifetime. Without an account there is no server history and the
   // chats stay in the browser only.
   const { user } = useAuth()
+  // The add-ons list decides whether every add-on is on (the boolean form of
+  // the request) or only some (the list form).
+  const registry = useContext(RegistryContext)
+  const registryRef = useRef(registry)
+  registryRef.current = registry
   const accountId = user?.id || ''
   const storageKey = chatsStorageKey(accountId)
   const storedRef = useRef(undefined)
@@ -607,9 +616,9 @@ export function useChat(initialModel = '') {
 
     // Add-on tools: the server binds them to the signed-in person. The chat
     // only opts in; the host decides which tools this person may use.
-    if (activeChat.addonTools) {
-      if (!requestBody.metadata) requestBody.metadata = {}
-      requestBody.metadata.addon_tools = 'true'
+    const addonMeta = addonRequestMetadata(activeChat, toolAddons(registryRef.current?.apps))
+    if (Object.keys(addonMeta).length > 0) {
+      requestBody.metadata = { ...(requestBody.metadata || {}), ...addonMeta }
     }
 
     // Client-side MCP: inject tools into request body

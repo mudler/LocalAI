@@ -73,8 +73,13 @@ test.describe('Add-on shell', () => {
     await mockAddons(page, { apps: [uiApp({ state: 'failed' }), uiApp({ id: 'future', name: 'future', title: 'Future', ui: { ...uiApp().ui, entry: '/api/addons/future/assets/' + DIGEST + '/ui.js', css: [], sdk: { min: 3, max: 3 } } })] })
     await page.goto('/app/addons/uifixture/home')
     await expect(page.getByTestId('addon-unavailable')).toHaveAttribute('data-reason', 'failed')
+    // No add-on page can be drawn here, so the shell names the add-on, once.
+    await expect(page.locator('h1')).toHaveCount(1)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('UI fixture')
     await page.goto('/app/addons/future/home')
     await expect(page.getByTestId('addon-unavailable')).toHaveAttribute('data-reason', 'incompatible_sdk')
+    await expect(page.locator('h1')).toHaveCount(1)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Future')
     expect(requested).toEqual([])
   })
 

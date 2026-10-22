@@ -143,6 +143,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-predownload-scan` | `false` | If true, disables the best-effort security scanner before downloading any files | `$LOCALAI_DISABLE_PREDOWNLOAD_SCAN` |
+| `--disable-backend-install` | `false` | If true, refuse to install or upgrade backends from galleries, OCI images, URLs or paths, including automatic installs, so the running backend set stays exactly what was deployed and tested; only backends already present or provided via `--backends-system-path` are used | `$LOCALAI_DISABLE_BACKEND_INSTALL`, `$DISABLE_BACKEND_INSTALL` |
 | `--opaque-errors` | `false` | If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended | `$LOCALAI_OPAQUE_ERRORS` |
 | `--use-subtle-key-comparison` | `false` | If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resilience against timing attacks | `$LOCALAI_SUBTLE_KEY_COMPARISON` |
 | `--disable-api-key-requirement-for-http-get` | `false` | If true, a valid API key is not required to issue GET requests to portions of the web UI. This should only be enabled in secure testing environments | `$LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET` |

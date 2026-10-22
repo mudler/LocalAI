@@ -629,6 +629,33 @@ async function expectFacesPage(page, title = 'Faces') {
 }
 
 test.describe('Add-on navigation: the Face recognition page', () => {
+  // Where the add-on page mounts, the add-on titles it and the shell adds
+  // nothing; where it cannot mount, the shell names the add-on and nothing
+  // else does. Either way the page has exactly one title.
+  test('the Face page that is not enabled on this server has one title, the add-on\'s', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await mockIdentity(page, { faceModels: [] })
+    await page.goto('/app/addons/face/recognition')
+    await expectFacesPage(page)
+    await expect(page.getByText('Not enabled on this server')).toBeVisible()
+    await expect(page.getByTestId('addon-unavailable')).toHaveCount(0)
+    await expect(page.locator('h1')).toHaveCount(1)
+  })
+
+  test('the Face page of a stopped add-on has one title, the shell\'s, because the add-on cannot draw', async ({ page }) => {
+    await setup(page, { apps: [{ ...faceApp(), enabled: false, state: 'stopped' }] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/face/recognition')
+    await expect(page.getByTestId('addon-unavailable')).toHaveAttribute('data-reason', 'disabled')
+    await expect(page.getByTestId('faces-page')).toHaveCount(0)
+    await expect(page.locator('h1')).toHaveCount(1)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Face')
+  })
+
   test('the Face add-on draws the same page and test ids as the core page', async ({ page }) => {
     await setup(page, { apps: [faceApp()] })
     await asFaceAdmin(page)

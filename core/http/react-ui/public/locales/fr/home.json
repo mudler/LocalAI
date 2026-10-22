@@ -1,0 +1,114 @@
+{
+  "cluster": {
+    "vram": "VRAM du cluster",
+    "ram": "RAM du cluster",
+    "nodesOnline": "{{healthy}}/{{total}} nœuds en ligne"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Bonjour",
+    "afternoon": "Bon après-midi",
+    "evening": "Bonsoir",
+    "night": "Vous travaillez tard"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} modèle chargé",
+    "modelsLoaded_other": "{{count}} modèles chargés",
+    "noModelsLoaded": "Aucun modèle chargé",
+    "nodes_one": "{{count}} nœud",
+    "nodes_other": "{{count}} nœuds",
+    "loadedLabel": "Chargés",
+    "nodesLabel": "Nœuds"
+  },
+  "assistant": {
+    "title": "Gérez LocalAI par la conversation",
+    "description": "Installez des modèles, changez de backend, modifiez la configuration et vérifiez l'état en discutant avec LocalAI.",
+    "open": "Ouvrir l'assistant",
+    "tooltip": "Gérer LocalAI par la conversation"
+  },
+  "input": {
+    "placeholder": "Message...",
+    "attachImage": "Joindre une image",
+    "attachAudio": "Joindre un audio",
+    "attachFile": "Joindre un fichier",
+    "enterToSend": "Entrée pour envoyer",
+    "selectModelFirst": "Sélectionnez d'abord un modèle",
+    "sendMessage": "Envoyer le message",
+    "selectModelToast": "Veuillez d'abord sélectionner un modèle",
+    "pdfReadFailed": "Impossible de lire le texte de {{name}}. Le fichier est peut-être scanné, chiffré ou endommagé."
+  },
+  "quickLinks": {
+    "manageByChat": "Gérer par chat",
+    "installedModels": "Modèles installés",
+    "browseGallery": "Parcourir la galerie",
+    "importModel": "Importer un modèle",
+    "documentation": "Documentation"
+  },
+  "loadedModels": {
+    "heading": "Modèles actifs",
+    "count_one": "{{count}} modèle chargé",
+    "count_other": "{{count}} modèles chargés",
+    "stop": "Arrêter le modèle",
+    "stopAll": "Tout arrêter",
+    "serving": "En service"
+  },
+  "stopDialog": {
+    "title": "Arrêter le modèle",
+    "message": "Arrêter le modèle {{model}} ?",
+    "confirm": "Arrêter {{model}}",
+    "stopAllTitle": "Arrêter tous les modèles",
+    "stopAllMessage": "Arrêter les {{count}} modèles chargés ?",
+    "stopAllConfirm": "Tout arrêter",
+    "stoppedToast": "{{model}} arrêté",
+    "allStoppedToast": "Tous les modèles sont arrêtés",
+    "stopFailed": "Échec de l'arrêt : {{message}}"
+  },
+  "wizard": {
+    "getStarted": "Bien démarrer avec {{name}}",
+    "intro": "Installez votre premier modèle pour commencer. Parcourez la galerie ou importez le vôtre.",
+    "steps": {
+      "step1Title": "Parcourir la galerie de modèles",
+      "step1Body": "Trouvez le modèle adapté à vos besoins dans notre sélection.",
+      "step2Title": "Installer un modèle",
+      "step2Body": "Cliquez sur installer pour le télécharger et le configurer automatiquement.",
+      "step3Title": "Commencer à discuter",
+      "step3Body": "Discutez avec votre modèle depuis le navigateur ou via l'API."
+    },
+    "browseGallery": "Parcourir la galerie",
+    "importModel": "Importer un modèle",
+    "docs": "Docs",
+    "noModelsTitle": "Aucun modèle disponible",
+    "noModelsBody": "Aucun modèle n'est installé pour l'instant. Demandez à votre administrateur de configurer des modèles pour pouvoir discuter."
+  },
+  "starters": {
+    "title": "Recommandé pour votre matériel",
+    "tier": {
+      "cpu": "CPU uniquement",
+      "gpu-small": "GPU",
+      "gpu-mid": "GPU",
+      "gpu-large": "GPU"
+    },
+    "cpuNote": "Aucun GPU détecté — ces petits modèles restent réactifs sur CPU.",
+    "gpuNote": "Sélectionnés pour tenir dans votre VRAM disponible, avec de la marge pour le contexte.",
+    "install": "Installer",
+    "installing": "Installation",
+    "installStarted": "Installation de {{model}}…",
+    "installFailed": "Échec de l'installation : {{message}}"
+  },
+  "connect": {
+    "title": "Un seul point d'accès, toutes les API",
+    "subtitle": "LocalAI expose sa propre API complète — génération d'images et de vidéos, profondeur, détection d'objets, reranking, audio, reconnaissance faciale et vocale, et voix temps réel via WebRTC et WebSocket. En plus, une couche de compatibilité permet à toute application conçue pour OpenAI, Anthropic, Ollama ou OpenAI Responses de lui parler sans modification.",
+    "nativeTitle": "API native",
+    "compatTitle": "Compatibilité directe",
+    "apiReference": "Référence complète de l'API",
+    "copy": "Copier",
+    "copied": "Copié",
+    "browse": "Parcourir l'API",
+    "hide": "Masquer les points d'accès",
+    "dismiss": "Ignorer"
+  },
+  "jump": {
+    "heading": "Reprendre où vous en étiez"
+  }
+}

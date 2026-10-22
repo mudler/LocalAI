@@ -27,4 +27,7 @@ type BackendManager interface {
 	// on /api/backends/apply in distributed mode — a CPU build silently
 	// landing on every GPU node is the footgun this guards against.
 	IsDistributed() bool
+	// BackendAvailable reports whether models naming this backend can run
+	// on the execution target this manager represents.
+	BackendAvailable(name string) (bool, error)
 }

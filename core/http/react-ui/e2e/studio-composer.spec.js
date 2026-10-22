@@ -523,7 +523,8 @@ test.describe('Studio composer: layout', () => {
   test('while installed models load there is a skeleton, not a flash of "nothing installed"', async ({ page }) => {
     await mockStudio(page)
     await page.route('**/api/models/capabilities', async route => {
-      await new Promise(r => setTimeout(r, 800))
+      // Long enough that a slow runner still sees the skeleton before it goes.
+      await new Promise(r => setTimeout(r, 3_000))
       route.fulfill({ json: { data: [] } })
     })
     await page.goto('/app/studio')

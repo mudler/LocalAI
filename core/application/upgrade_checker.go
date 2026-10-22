@@ -16,6 +16,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// The schedule of the periodic upgrade checks. The backend check and the
+// add-on check both follow it.
+const (
+	upgradeInitialDelay  = 10 * time.Second
+	upgradeCheckInterval = 6 * time.Hour
+)
+
 // UpgradeChecker periodically checks for backend upgrades and optionally
 // auto-upgrades them. It caches the last check results for API queries.
 //
@@ -64,7 +71,7 @@ func NewUpgradeChecker(appConfig *config.ApplicationConfig, ml *model.ModelLoade
 		systemState:      appConfig.SystemState,
 		db:               db,
 		backendManagerFn: backendManagerFn,
-		checkInterval:    6 * time.Hour,
+		checkInterval:    upgradeCheckInterval,
 		stop:             make(chan struct{}),
 		done:             make(chan struct{}),
 		triggerCh:        make(chan struct{}, 1),
@@ -84,7 +91,7 @@ func (uc *UpgradeChecker) Run(ctx context.Context) {
 	// Initial delay: don't slow down startup. Short enough that operators
 	// don't stare at an empty upgrade banner for long; long enough that
 	// workers have registered and reported their installed backends.
-	initialDelay := 10 * time.Second
+	initialDelay := upgradeInitialDelay
 	select {
 	case <-ctx.Done():
 		return

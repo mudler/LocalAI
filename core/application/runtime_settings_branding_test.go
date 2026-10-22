@@ -68,6 +68,12 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			Expect(cfg.AutoUpgradeBackends).To(BeTrue())
 		})
 
+		It("loads auto_upgrade_addons", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"auto_upgrade_addons": true}`)}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.AutoUpgradeAddons).To(BeTrue())
+		})
+
 		It("loads prefer_development_backends", func() {
 			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"prefer_development_backends": true}`)}
 			loadRuntimeSettingsFromFile(cfg)

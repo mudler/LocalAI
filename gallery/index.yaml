@@ -554,7 +554,7 @@
     - deepseek
   files:
     - filename: ds4flash.gguf
-      sha256: 35e16f0598b16888b43ad36215ee9811b377cdaf579220856d89e71ef8e8e8d9
+      sha256: 83153243537457b2929d4e0f4030c9d9b6307676c9282641b9847b3c9a4e143b
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   overrides:
     backend: ds4
@@ -35415,7 +35415,7 @@
     - gpu
   files:
     - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q4_K_M.gguf
-      sha256: 588c6c94c82f756b86dba35c42ed9ba9ec187d65824eb52f039c347df563e63d
+      sha256: f18f594747e5317ab490cff9c06339c9cfb89acbe2f02ebc48a4e167bc23576d
       uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q4_K_M.gguf
     - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
       sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
@@ -35454,7 +35454,7 @@
     - gpu
   files:
     - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q5_K_M.gguf
-      sha256: ff7cf8926c8565b8d9e2ebfef8a5dd4cc8a2f34dc8b3c5b3eaa55fdc9e8b0a01
+      sha256: 9e513c61e42e83a1aa271957eab2b06b15335f6f12756465c739da1ea3192bc5
       uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q5_K_M.gguf
     - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
       sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
@@ -35489,7 +35489,7 @@
     - gpu
   files:
     - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q6_K.gguf
-      sha256: ec9b0f9e041e7ca52a93cb2b7d98a439ac8bc70d0247cd33c03a9ae755e6a593
+      sha256: 495b1e7567d976e178f076cea3f774f9a6d6c60d606cedfbdc73cb392b4f08ce
       uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q6_K.gguf
     - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
       sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
@@ -35524,7 +35524,7 @@
     - gpu
   files:
     - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q8_0.gguf
-      sha256: 2b83d8dfcd664c4dd9b9cfbe8dbd160782f2c6c362ca773758edc2dbc31420d7
+      sha256: 32322779352e9c6e7b9748ecbf62c9b8a6570bb8630fa4dddb9d0394528ea7fa
       uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q8_0.gguf
     - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
       sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900

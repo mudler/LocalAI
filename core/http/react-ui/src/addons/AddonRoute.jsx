@@ -131,6 +131,10 @@ export default function AddonRoute() {
 
   const back = <Link className="dk-btn dk-btn--ghost dk-btn--sm" to="/app/addons">{t('page.back')}</Link>
 
+  // The shell names the add-on only where the add-on's page cannot mount (not
+  // enabled, failed, no UI, bundle not loaded, no such page). Once the page
+  // mounts it draws its own title, even to say it is not enabled on this
+  // server, and the shell draws none.
   const unavailable = (reason, extra) => (
     <div className="page ad-page" data-testid="addon-unavailable" data-reason={reason}>
       <PageHeader title={title} />

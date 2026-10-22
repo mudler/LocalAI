@@ -3,6 +3,8 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { modelsApi, backendsApi } from '../utils/api'
+import { apiUrl } from '../utils/basePath'
+import { FEATURE_BACKEND_INSTALL } from '../utils/capabilities'
 import { formatBytes } from '../utils/format'
 import { useResources } from '../hooks/useResources'
 import { detectSource, fitFor, importChecks, importRequest, machineFacts, requestText } from '../utils/tools'
@@ -181,6 +183,14 @@ export default function ImportModel() {
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
   const [backendsError, setBackendsError] = useState(false)
+  const [installEnabled, setInstallEnabled] = useState(true)
+
+  useEffect(() => {
+    fetch(apiUrl('/api/features'))
+      .then(r => r.json())
+      .then(data => setInstallEnabled(data[FEATURE_BACKEND_INSTALL] !== false))
+      .catch(() => {})
+  }, [])
 
   // Wide enough for the reference to sit beside the form. Tracked in state
   // rather than read at render so a resize re-renders the page.
@@ -482,6 +492,14 @@ export default function ImportModel() {
           if (!prefs.backend) return null
           const selected = backends.find(b => b.name === prefs.backend)
           if (!selected || selected.installed) return null
+          if (!installEnabled) {
+            return (
+              <p data-testid="auto-install-note" className="dk-hint import-warn">
+                <Icon name="lock" />
+                {t('form.backendInstallDisabled')}
+              </p>
+            )
+          }
           return (
             <p data-testid="auto-install-note" className="dk-hint import-note">
               <Icon name="download" />

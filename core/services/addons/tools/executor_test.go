@@ -13,8 +13,10 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/tools"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/functions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -146,6 +148,103 @@ var _ = Describe("Add-on tools in the chat executors", func() {
 		}
 		Expect(json.Unmarshal(rec.Body.Bytes(), &body)).To(Succeed())
 		Expect(body.Error.Type).To(Equal("addon_tools_unsupported"))
+	})
+
+	It("reads the list of add-ons next to the opt-in and consumes both keys", func() {
+		md := map[string]string{"addon_tools": "true", "addon_tool_ids": " tables, notes ,tables,,", "mcp_servers": "a"}
+		on, ids := mcpTools.AddonToolsSelectionFromMetadata(md)
+		Expect(on).To(BeTrue())
+		Expect(ids).To(Equal([]string{"tables", "notes"}))
+		Expect(md).To(Equal(map[string]string{"mcp_servers": "a"}))
+		// The boolean form alone means every add-on: a nil list.
+		on, ids = mcpTools.AddonToolsSelectionFromMetadata(map[string]string{"addon_tools": "true"})
+		Expect(on).To(BeTrue())
+		Expect(ids).To(BeNil())
+		// A list without the opt-in opts nothing in, and is still consumed.
+		md = map[string]string{"addon_tool_ids": "tables"}
+		on, ids = mcpTools.AddonToolsSelectionFromMetadata(md)
+		Expect(on).To(BeFalse())
+		Expect(ids).To(BeNil())
+		Expect(md).To(BeEmpty())
+		// A list that names nothing is an empty selection, never every add-on.
+		on, ids = mcpTools.AddonToolsSelectionFromMetadata(map[string]string{"addon_tools": "true", "addon_tool_ids": " , "})
+		Expect(on).To(BeTrue())
+		Expect(ids).NotTo(BeNil())
+		Expect(ids).To(BeEmpty())
+		// The older reader still consumes the list key.
+		md = map[string]string{"addon_tools": "1", "addon_tool_ids": "tables"}
+		Expect(mcpTools.AddonToolsFromMetadata(md)).To(BeTrue())
+		Expect(md).To(BeEmpty())
+	})
+
+	Describe("with several add-ons and a list", func() {
+		var exec *mcpTools.AddonToolExecutor
+		names := func(e mcpTools.ToolExecutor) []string {
+			fns, _ := e.DiscoverTools(context.Background())
+			out := []string{}
+			for _, fn := range fns {
+				out = append(out, fn.Name)
+			}
+			return out
+		}
+		BeforeEach(func() {
+			echo := contract.ToolDefinition{Name: "echo", Kind: "read", Description: "x",
+				InputSchema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"additionalProperties":false}`)}
+			f.list.Apps = append(f.list.Apps, apps.App{ID: "sample", Name: "sample", Generation: 1, Enabled: true, State: "running",
+				Tools: []string{"echo"}, ToolDefinitions: []contract.ToolDefinition{echo}})
+			var e error
+			exec, e = mcpTools.NewAddonToolExecutor(context.Background(), tools.NewToolAdapter(f), member)
+			Expect(e).NotTo(HaveOccurred())
+		})
+
+		It("keeps the boolean form unchanged: a nil list offers every add-on", func() {
+			Expect(names(exec.Only(nil))).To(HaveLen(16))
+			Expect(names(exec)).To(ContainElement("addon__sample__echo"))
+			Expect(names(exec)).To(ContainElement("addon__tables__rows-query"))
+		})
+
+		It("offers only the tools of the listed add-ons", func() {
+			only := exec.Only([]string{"sample"})
+			Expect(names(only)).To(Equal([]string{"addon__sample__echo"}))
+			Expect(only.HasTools()).To(BeTrue())
+			Expect(names(exec.Only([]string{"tables", "missing"}))).To(HaveLen(15))
+			// The original executor is not narrowed by the copy.
+			Expect(names(exec)).To(HaveLen(16))
+		})
+
+		It("offers nothing for an empty list and for ids that match no add-on", func() {
+			Expect(exec.Only([]string{}).HasTools()).To(BeFalse())
+			Expect(exec.Only([]string{"missing"}).HasTools()).To(BeFalse())
+		})
+
+		It("refuses a call to an add-on that is not listed, as an unknown tool, before the owner is reached", func() {
+			only := exec.Only([]string{"sample"})
+			_, e := only.ExecuteTool(context.Background(), "addon__tables__rows-query", `{"resourceId":"db-one","table":"t"}`)
+			Expect(e).To(MatchError(tools.ErrUnknownTool))
+			Expect(f.dispatched).To(BeEmpty())
+			_, e = only.ExecuteTool(context.Background(), "addon__sample__echo", `{"content":"hi"}`)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(f.dispatched).To(HaveLen(1))
+			_, e = only.ExecuteTool(context.Background(), "not-an-addon-name", `{}`)
+			Expect(e).To(MatchError(tools.ErrUnknownTool))
+		})
+
+		It("applies the list through the provider and keeps the actor binding", func() {
+			local := mcpTools.NewAddonToolProvider(tools.NewToolAdapter(f), auth.AddonModeLocalOwner)
+			newContext := func() echo.Context {
+				return echo.New().NewContext(httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil), httptest.NewRecorder())
+			}
+			all, e := local.ExecutorFor(newContext())
+			Expect(e).NotTo(HaveOccurred())
+			Expect(names(all)).To(HaveLen(16))
+			some, e := local.ExecutorForAddons(newContext(), []string{"tables"})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(names(some)).To(HaveLen(15))
+			Expect(names(some)).NotTo(ContainElement("addon__sample__echo"))
+			none, e := local.ExecutorForAddons(newContext(), []string{})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(none.HasTools()).To(BeFalse())
+		})
 	})
 
 	It("takes the actor from the trusted request context only", func() {

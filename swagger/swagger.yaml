@@ -2444,6 +2444,12 @@ definitions:
     type: object
   schema.Conversation:
     properties:
+      addonToolIds:
+        items:
+          type: string
+        type: array
+      addonTools:
+        type: boolean
       clientMCPServers:
         items:
           type: object
@@ -9678,6 +9684,16 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.BackendResponse'
+        "403":
+          description: Backend installation is disabled on this server (code backend_install_disabled)
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Hardware-specific build in distributed mode (code concrete_backend_requires_target)
+          schema:
+            additionalProperties: true
+            type: object
       summary: Install backends to LocalAI.
       tags:
       - backends
@@ -9807,6 +9823,11 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.BackendResponse'
+        "403":
+          description: Backend installation is disabled on this server (code backend_install_disabled)
+          schema:
+            additionalProperties: true
+            type: object
       summary: Upgrade a backend
       tags:
       - backends
@@ -9880,6 +9901,12 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.GalleryResponse'
+        "409":
+          description: The model's backend is not installed and backend installation
+            is disabled (code backend_not_installed)
+          schema:
+            additionalProperties: true
+            type: object
       summary: Install models to LocalAI.
       tags:
       - models

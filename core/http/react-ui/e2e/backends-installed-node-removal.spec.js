@@ -407,21 +407,19 @@ for (const beforeConfirm of [false, true]) test(`generic deletion blocks targete
   if (beforeConfirm) {
     await clearTarget(page); await genericRemove(page).click()
     await expect(page.getByRole('alertdialog')).toBeVisible()
-    // Start the targeted request through its captured React handler while the
-    // existing generic confirmation remains open.
+    // Restore the target while the existing generic confirmation remains open.
     await page.evaluate(id => {
       const url = new URL(location.href); url.searchParams.set('target', id)
       history.pushState({}, '', url); dispatchEvent(new PopStateEvent('popstate'))
     }, ids[0])
   }
-  // The popstate renders the targeted page in a later commit. Until then the
-  // page still draws the generic Reinstall button, which is enabled and has
-  // the same name, so the wait must be for the button of the target node. A
-  // click on the generic one sends no node request.
-  const onTarget = reinstall(page).and(page.getByTitle(`Reinstall on ${ids[0]}`))
-  await expect(onTarget).toBeEnabled()
-  await onTarget.evaluate(el => el.click())
+  // The generic and targeted buttons share a name; the URL can update before
+  // React replaces the generic control. Wait for the exact targeted handler.
+  await expect(reinstall(page)).toHaveAttribute('title', `Reinstall on ${ids[0]}`)
+  await expect(reinstall(page)).toBeEnabled()
+  await reinstall(page).evaluate(el => el.click())
   await expect.poll(() => s.installs.length).toBe(1)
+  expect(s.installs).toEqual([{ id: ids[0], method: 'POST', body: { backend: BUILD } }])
   if (beforeConfirm) {
     await confirm(page).click()
     await expect(page.getByRole('alertdialog')).toBeHidden()

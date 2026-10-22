@@ -462,6 +462,9 @@ func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBac
 	if req.BackendName == "" {
 		return "", errors.New("backend_name is required")
 	}
+	if c.AppConfig.DisableBackendInstall {
+		return "", fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, req.BackendName)
+	}
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return "", fmt.Errorf("generate job id: %w", err)
@@ -494,6 +497,9 @@ func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.Ins
 	if c.BackendLibrary == nil {
 		return nil, errors.New("the backend library is not enabled on this instance")
 	}
+	if c.AppConfig.DisableBackendInstall {
+		return nil, fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, req.Name)
+	}
 	if err := c.BackendLibrary.Install(ctx, req.SourceID, req.Name, req.Version); err != nil {
 		return nil, err
 	}
@@ -503,6 +509,9 @@ func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.Ins
 func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error) {
 	if name == "" {
 		return "", errors.New("name is required")
+	}
+	if c.AppConfig.DisableBackendInstall {
+		return "", fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, name)
 	}
 	id, err := uuid.NewUUID()
 	if err != nil {

@@ -37,6 +37,7 @@ type RunCMD struct {
 	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" default:"fine-tuning=finetune.,quantization=quantize." help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
 	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
 	AddonsOwnershipMode       string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
+	AutoUpgradeAddons         bool   `name:"auto-upgrade-addons" env:"LOCALAI_AUTO_UPGRADE_ADDONS" default:"false" help:"Upgrade installed add-ons on their own when a newer version appears in their library. Off by default; upgrades then stay manual" group:"addons"`
 	AddonsOfficialLibrary     bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
 	AddonsBackendLibrary      bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the pilot backend library on the first start, when the add-on owner has no sources.json yet. The backend gallery stays the source of truth; a library backend is an additional way to install it" group:"addons"`
 	OfficialLibraries         bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of add-ons, backends and models. Off: they stay in the list, shown as off, and are not read. Sources you added are not affected. Also a runtime setting (official_libraries)" group:"addons"`
@@ -99,6 +100,7 @@ type RunCMD struct {
 	DisableRuntimeSettings             bool     `env:"LOCALAI_DISABLE_RUNTIME_SETTINGS,DISABLE_RUNTIME_SETTINGS" default:"false" help:"Disables the runtime settings. When set to true, the server will not load the runtime settings from the runtime_settings.json file" group:"api"`
 	DisablePredownloadScan             bool     `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
 	RequireBackendIntegrity            bool     `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, backend installs without a configured signature verification policy (for OCI URIs) or SHA256 (for tarball/HTTP URIs) are rejected. Default is to warn and install. Set this in production once your gallery's verification: block is populated." group:"hardening" default:"false"`
+	DisableBackendInstall              bool     `env:"LOCALAI_DISABLE_BACKEND_INSTALL,DISABLE_BACKEND_INSTALL" help:"If true, refuse to install or upgrade backends from galleries, OCI images, URLs or paths, including automatic installs, so the running backend set stays exactly what was deployed and tested; only backends already present or provided via --backends-system-path are used." group:"hardening" default:"false"`
 	OpaqueErrors                       bool     `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
 	UseSubtleKeyComparison             bool     `env:"LOCALAI_SUBTLE_KEY_COMPARISON" default:"false" help:"If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resiliancy against timing attacks." group:"hardening"`
 	DisableApiKeyRequirementForHttpGet bool     `env:"LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET" default:"false" help:"If true, a valid API key is not required to issue GET requests to portions of the web ui. This should only be enabled in secure testing environments" group:"hardening"`
@@ -312,6 +314,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		system.WithBackendDevSuffix(r.BackendDevSuffix),
 		system.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends),
 		system.WithRequireBackendIntegrity(r.RequireBackendIntegrity),
+		system.WithDisableBackendInstall(r.DisableBackendInstall),
 	)
 	if err != nil {
 		return err
@@ -820,8 +823,16 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		opts = append(opts, config.WithAutoUpgradeBackends(r.AutoUpgradeBackends))
 	}
 
+	if r.AutoUpgradeAddons {
+		opts = append(opts, config.WithAutoUpgradeAddons(r.AutoUpgradeAddons))
+	}
+
 	if r.RequireBackendIntegrity {
 		opts = append(opts, config.WithRequireBackendIntegrity(r.RequireBackendIntegrity))
+	}
+
+	if r.DisableBackendInstall {
+		opts = append(opts, config.WithDisableBackendInstall(r.DisableBackendInstall))
 	}
 
 	if r.PreferDevelopmentBackends {

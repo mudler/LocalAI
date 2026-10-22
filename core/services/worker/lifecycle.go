@@ -372,6 +372,7 @@ func (s *backendSupervisor) backendList(_ context.Context, _ workerctl.BackendLi
 			IsMeta:   b.IsMeta,
 		}
 		if b.Metadata != nil {
+			info.Alias = b.Metadata.Alias
 			info.InstalledAt = b.Metadata.InstalledAt
 			info.GalleryURL = b.Metadata.GalleryURL
 			info.Version = b.Metadata.Version

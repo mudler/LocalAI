@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/pkg/xsync"
@@ -45,6 +46,12 @@ type ManagementOp[T any, E any] struct {
 	// Set by InstallBackendOnNodeEndpoint so an admin can install a hardware-specific
 	// build on one node without touching the rest of the cluster.
 	TargetNodeID string
+
+	// BackendAvailability is the execution target's view of installed
+	// backends, set by the gallery service when it dispatches a model op so
+	// the install layer does not have to know whether inference is local or
+	// on workers.
+	BackendAvailability gallery.BackendAvailability
 
 	// Variant pins a model install to one of the gallery entry's declared
 	// variants, by that variant's model name. Empty means auto-select: LocalAI

@@ -203,6 +203,7 @@ type ApplicationConfig struct {
 	AutoloadGalleries, AutoloadBackendGalleries bool
 	VRAMPersistentCache                         bool
 	AutoUpgradeBackends                         bool
+	AutoUpgradeAddons                           bool
 	PreferDevelopmentBackends                   bool
 
 	// RequireBackendIntegrity promotes a missing SHA256 (tarball/HTTP URIs)
@@ -211,6 +212,10 @@ type ApplicationConfig struct {
 	// upgrades non-breaking; operators opt in explicitly via
 	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY.
 	RequireBackendIntegrity bool
+
+	// DisableBackendInstall mirrors SystemState.DisableBackendInstall for the
+	// HTTP layer: admission guards and the capability surfaces read it here.
+	DisableBackendInstall bool
 
 	SingleBackend     bool // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
@@ -686,12 +691,20 @@ func WithAutoUpgradeBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
 }
 
+func WithAutoUpgradeAddons(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.AutoUpgradeAddons = v }
+}
+
 func WithVRAMPersistentCache(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.VRAMPersistentCache = v }
 }
 
 func WithRequireBackendIntegrity(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.RequireBackendIntegrity = v }
+}
+
+func WithDisableBackendInstall(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.DisableBackendInstall = v }
 }
 
 func WithPreferDevelopmentBackends(v bool) AppOption {
