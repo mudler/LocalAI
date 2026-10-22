@@ -328,7 +328,7 @@ func TestUnknownModelSourceReadsTheLibrary(t *testing.T) {
 func TestBothModelSourcesAreShippedOneEnabled(t *testing.T) {
 	for _, lib := range []bool{true, false} {
 		var enabled []string
-		for _, s := range defaults(true, false, lib) {
+		for _, s := range defaults(true, false, lib, true) {
 			if s.Kind == catalog.KindModel && s.Enabled {
 				enabled = append(enabled, s.ID)
 			}
@@ -340,5 +340,201 @@ func TestBothModelSourcesAreShippedOneEnabled(t *testing.T) {
 		if len(enabled) != 1 || enabled[0] != want {
 			t.Errorf("library=%v: enabled model sources = %v, want [%s]", lib, enabled, want)
 		}
+	}
+}
+
+// setBackendSource sets the build-time backend source for one test.
+func setBackendSource(t *testing.T, v string) {
+	t.Helper()
+	old := BackendSource
+	BackendSource = v
+	t.Cleanup(func() { BackendSource = old })
+}
+
+// backendLibraryGallery is the gallery entry of the shipped backend library,
+// which the server reads in place of the backend gallery.
+func backendLibraryGallery() config.Gallery {
+	return config.Gallery{Name: catalog.OfficialBackendLibrary().Name, URL: catalog.OfficialBackendLibraryURL, Library: true}
+}
+
+// backendGalleries runs the startup option the way the server runs it, with the
+// default flags and the backend library on, and returns the backend galleries
+// the server would read.
+func backendGalleries(t *testing.T, backendLibrary bool) []config.Gallery {
+	t.Helper()
+	o := config.NewApplicationConfig(
+		config.WithStringGalleries(config.DefaultGalleriesJSON),
+		config.WithBackendGalleries(config.DefaultBackendGalleriesJSON),
+	)
+	Option(t.TempDir(), true, backendLibrary, true)(o)
+	return o.BackendGalleries
+}
+
+// A build from master, and any build that sets no value, reads the backend
+// library. The release workflow passes BackendSource=gallery for a tagged build
+// until it cuts over.
+func TestMasterBuildDefaultsToTheBackendLibrary(t *testing.T) {
+	if BackendSource != BackendSourceLibrary || !UseBackendLibrary() {
+		t.Fatalf("the unset build value is %q; a master build must read the library", BackendSource)
+	}
+	got := backendGalleries(t, true)
+	if len(got) != 1 || !reflect.DeepEqual(got[0], backendLibraryGallery()) {
+		t.Errorf("a master build reads %+v, want only the backend library", got)
+	}
+	for _, g := range got {
+		if g.Name == "localai" {
+			t.Errorf("a master build reads the localai backend gallery by default: %+v", g)
+		}
+	}
+}
+
+func TestTaggedBuildDefaultsToTheBackendGalleryUntilCutover(t *testing.T) {
+	setBackendSource(t, BackendSourceGallery)
+	if UseBackendLibrary() {
+		t.Fatal("a tagged build before the cutover must not read the library")
+	}
+	want := parse(config.DefaultBackendGalleriesJSON)
+	if got := backendGalleries(t, true); !reflect.DeepEqual(got, want) {
+		t.Errorf("a tagged build reads %+v, want only the backend gallery %+v", got, want)
+	}
+	// The cutover: the release workflow passes the library value.
+	setBackendSource(t, BackendSourceLibrary)
+	if got := backendGalleries(t, true); len(got) != 1 || got[0].URL != catalog.OfficialBackendLibraryURL || !got[0].Library {
+		t.Errorf("after the cutover a tagged build reads %+v, want only the backend library", got)
+	}
+}
+
+// Only the exact value "gallery" turns the library off, so a mistyped build
+// value never leaves a build without a backend source.
+func TestUnknownBackendSourceReadsTheLibrary(t *testing.T) {
+	for _, v := range []string{"galery", "", "Gallery", "library"} {
+		setBackendSource(t, v)
+		if !UseBackendLibrary() {
+			t.Errorf("%q must fall back to the library", v)
+		}
+	}
+}
+
+// A deployment that turns the backend library off reads the backend gallery on
+// every build, so it never loses its backend source.
+func TestBackendLibraryOffReadsTheGalleryOnAnyBuild(t *testing.T) {
+	want := parse(config.DefaultBackendGalleriesJSON)
+	for _, v := range []string{BackendSourceLibrary, BackendSourceGallery} {
+		setBackendSource(t, v)
+		if got := backendGalleries(t, false); !reflect.DeepEqual(got, want) {
+			t.Errorf("BackendSource=%s with the library off reads %+v", v, got)
+		}
+	}
+}
+
+// The other default stays shipped and can be turned on by the user.
+func TestBothBackendSourcesAreShippedOneEnabled(t *testing.T) {
+	for _, lib := range []bool{true, false} {
+		var enabled, shipped []string
+		for _, s := range defaults(true, true, true, lib) {
+			if s.Kind == catalog.KindBackend {
+				shipped = append(shipped, s.ID)
+				if s.Enabled {
+					enabled = append(enabled, s.ID)
+				}
+			}
+		}
+		want := catalog.OfficialBackendLibraryID
+		if !lib {
+			want = DefaultBackendSourceID
+		}
+		if len(shipped) != 2 {
+			t.Errorf("library=%v: shipped backend sources = %v, want both", lib, shipped)
+		}
+		if len(enabled) != 1 || enabled[0] != want {
+			t.Errorf("library=%v: enabled backend sources = %v, want [%s]", lib, enabled, want)
+		}
+	}
+	// With the backend library not shipped the gallery is the only source.
+	for _, s := range defaults(true, false, true, true) {
+		if s.ID == catalog.OfficialBackendLibraryID {
+			t.Errorf("the backend library is shipped although it is off: %+v", s)
+		}
+		if s.ID == DefaultBackendSourceID && !s.Enabled {
+			t.Error("the backend gallery must be enabled when the library is off")
+		}
+	}
+}
+
+// The shipped backend library is a backend source in library format, so the
+// server hands it to the gallery reader as a library, and the user can turn the
+// other default on to read both.
+func TestTheBackendLibraryIsAListedBackendSource(t *testing.T) {
+	store, err := Open(t.TempDir(), true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, ok := byID(store, catalog.OfficialBackendLibraryID)
+	if !ok || e.Kind != catalog.KindBackend || !e.Default || !e.Enabled || e.Format != "" {
+		t.Fatalf("backend library source = %+v, %v", e, ok)
+	}
+	if g, ok := byID(store, DefaultBackendSourceID); !ok || g.Enabled || g.Format != catalog.FormatGallery {
+		t.Errorf("the backend gallery is shipped but off on a master build: %+v, %v", g, ok)
+	}
+	if err := store.SetEnabled(DefaultBackendSourceID, true); err != nil {
+		t.Fatal(err)
+	}
+	got := ApplyGalleries(store, catalog.KindBackend, parse(config.DefaultBackendGalleriesJSON))
+	if len(got) != 2 || got[0].Name != "localai" || !reflect.DeepEqual(got[1], backendLibraryGallery()) {
+		t.Errorf("with both on the server reads the gallery and the library: %+v", got)
+	}
+}
+
+// A backend library the user adds, which is not in gallery format, is read by
+// the add-on catalog only, as before: it installs by digest under the signature
+// policy of its library. The shipped backend library is the exception, because
+// it is the backend source of a build.
+func TestAUserBackendLibraryIsLeftToTheCatalog(t *testing.T) {
+	store, err := Open(t.TempDir(), true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(store, catalog.KindBackend, "https://example.org/backends/index.yaml", "", "Team backends", ""); err != nil {
+		t.Fatal(err)
+	}
+	want := parse(config.DefaultBackendGalleriesJSON)
+	if got := ApplyGalleries(store, catalog.KindBackend, want); !reflect.DeepEqual(got, want) {
+		t.Errorf("galleries = %+v", got)
+	}
+	if _, got := Reconcile(store, nil, want); !reflect.DeepEqual(got, want) {
+		t.Errorf("reconciled galleries = %+v", got)
+	}
+}
+
+// A source turned on or off while the server runs changes the backend
+// galleries it reads: the shipped backend library comes and goes as a library.
+func TestReconcileAddsAndDropsTheBackendLibrary(t *testing.T) {
+	store, err := Open(t.TempDir(), true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gallerySet := parse(config.DefaultBackendGalleriesJSON)
+	// On a master build the library is enabled and the gallery is off.
+	if err := store.SetEnabled(DefaultBackendSourceID, true); err != nil {
+		t.Fatal(err)
+	}
+	_, got := Reconcile(store, nil, gallerySet)
+	if len(got) != 2 || !reflect.DeepEqual(got[1], backendLibraryGallery()) {
+		t.Fatalf("both on: %+v", got)
+	}
+	if err := store.SetEnabled(catalog.OfficialBackendLibraryID, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, got = Reconcile(store, nil, got); !reflect.DeepEqual(got, gallerySet) {
+		t.Errorf("the library is off, so only the gallery is read: %+v", got)
+	}
+	if err := store.SetEnabled(DefaultBackendSourceID, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetEnabled(catalog.OfficialBackendLibraryID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, got = Reconcile(store, nil, got); len(got) != 1 || !reflect.DeepEqual(got[0], backendLibraryGallery()) {
+		t.Errorf("only the library is on: %+v", got)
 	}
 }

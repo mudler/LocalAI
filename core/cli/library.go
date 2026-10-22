@@ -19,7 +19,7 @@ import (
 type LibraryFlags struct {
 	DataPath              string `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data. The library sources are stored under it, in addons/sources.json, the file the server reads" group:"storage"`
 	AddonsOfficialLibrary bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"List the official add-on library as a default source" group:"addons"`
-	AddonsBackendLibrary  bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"List the pilot backend library as a default source" group:"addons"`
+	AddonsBackendLibrary  bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"List the backend library as a default source. Turn it off to read the backend gallery only" group:"addons"`
 	OfficialLibraries     bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of every kind. Off: they stay in the list, shown as off" group:"addons"`
 }
 

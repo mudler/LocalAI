@@ -28,23 +28,26 @@ func OfficialLibrary() Source {
 }
 
 const (
-	// OfficialBackendLibraryID is the source ID of the pilot backend library.
+	// OfficialBackendLibraryID is the source ID of the backend library.
 	OfficialBackendLibraryID = "official-backends"
-	// OfficialBackendLibraryURL is the YAML index of the pilot backends, kept
-	// in this repository at gallery/backends/index.yaml. It is rendered from
-	// backend/index.yaml, which stays the source of truth.
+	// OfficialBackendLibraryURL is the YAML index of the backends, kept in this
+	// repository at gallery/backends/index.yaml. It is the source of truth;
+	// backend/index.yaml is generated from it.
 	OfficialBackendLibraryURL = "https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/backends/index.yaml"
 )
 
-// OfficialBackendLibrary is the pilot library of backends. It requires the
-// signature of the backend merge workflow, from master or from a tag, with the
-// same signer pattern the backend gallery uses.
+// OfficialBackendLibrary is the library of the backends of the backend gallery.
+// A backend installed through the library route (the catalog and the backend
+// library installer) must carry the signature of the backend merge workflow,
+// from master or from a tag. A build reads either this library or the backend
+// gallery by default, as the build says (see core/library.BackendSource).
 func OfficialBackendLibrary() Source {
 	return Source{
 		ID:      OfficialBackendLibraryID,
-		Name:    "Official backends (pilot)",
+		Name:    "Official backend library",
 		URL:     OfficialBackendLibraryURL,
 		Enabled: true,
+		Kind:    KindBackend,
 		Policy: VerificationPolicy{
 			RequireSignature: true,
 			Issuer:           "https://token.actions.githubusercontent.com",

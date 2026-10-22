@@ -48,34 +48,74 @@ const (
 // build value cannot leave a build with no model source.
 func UseModelLibrary() bool { return ModelSource != ModelSourceGallery }
 
-// Defaults returns the sources LocalAI ships: the official add-on library, the
-// pilot backend library, the model library, the model gallery index and the
-// backend gallery index. The add-on library is left out when official is false
-// and the backend library when pilot is false. A default can be removed; the
-// removal is remembered.
+// BackendSource says which backend source a build reads by default:
+// BackendSourceLibrary or BackendSourceGallery. It is set at build time like
+// ModelSource, with
 //
-// Both model sources are shipped, but only one is enabled, the one ModelSource
-// names, so every model is listed once. The other can be turned on with
-// `local-ai library enable`.
-func Defaults(official, pilot bool) []catalog.Source {
-	return defaults(official, pilot, UseModelLibrary())
+//	-ldflags "-X github.com/mudler/LocalAI/core/library.BackendSource=gallery"
+//
+// A build from master, and a plain `go build` or `go test`, leaves it
+// unchanged, so it reads the backend library. A tagged build reads the backend
+// gallery until the release workflow cuts over (see the cutover step in
+// .github/workflows/release.yaml and LOCALAI_BACKEND_SOURCE in the Makefile).
+var BackendSource = BackendSourceLibrary
+
+const (
+	// BackendSourceLibrary reads the backend library (official-backends) by
+	// default.
+	BackendSourceLibrary = "library"
+	// BackendSourceGallery reads the gallery named localai-backends by default.
+	BackendSourceGallery = "gallery"
+)
+
+// UseBackendLibrary reports whether this build reads the backend library by
+// default. Only the exact value "gallery" selects the gallery, so a mistyped
+// build value cannot leave a build with no backend source.
+func UseBackendLibrary() bool { return BackendSource != BackendSourceGallery }
+
+// Defaults returns the sources LocalAI ships: the official add-on library, the
+// backend library, the model library, the model gallery index and the backend
+// gallery index. The add-on library is left out when official is false. The
+// backend library is left out when backendLibrary is false, and then the
+// backend gallery is the backend source whatever the build says. A default can
+// be removed; the removal is remembered.
+//
+// Both sources of a kind are shipped, but only one is enabled, the one
+// ModelSource or BackendSource names, so every model and every backend is
+// listed once. The other can be turned on with `local-ai library enable`.
+func Defaults(official, backendLibrary bool) []catalog.Source {
+	return defaults(official, backendLibrary, UseModelLibrary(), UseBackendLibrary())
 }
 
-func defaults(official, pilot, modelLibrary bool) []catalog.Source {
+// backendLibrarySource is the shipped backend library, enabled when the build
+// reads it by default.
+func backendLibrarySource(enabled bool) catalog.Source {
+	lib := catalog.OfficialBackendLibrary()
+	lib.Enabled = enabled
+	return lib
+}
+
+// DefaultBackendLibrary is the backend library as this build ships it: enabled
+// when the build reads the backend library by default, listed but off when it
+// reads the backend gallery.
+func DefaultBackendLibrary() catalog.Source { return backendLibrarySource(UseBackendLibrary()) }
+
+func defaults(official, backendLibrary, modelLibrary, backendSourceLibrary bool) []catalog.Source {
 	var out []catalog.Source
 	if official {
 		out = append(out, catalog.OfficialLibrary())
 	}
-	if pilot {
-		out = append(out, catalog.OfficialBackendLibrary())
+	readBackendLibrary := backendLibrary && backendSourceLibrary
+	if backendLibrary {
+		out = append(out, backendLibrarySource(backendSourceLibrary))
 	}
 	lib := catalog.OfficialModelLibrary()
 	lib.Enabled = modelLibrary
 	gal := defaultGallery(catalog.KindModel, DefaultModelSourceID, "Official models", config.DefaultGalleriesJSON)
 	gal.Enabled = !modelLibrary
-	out = append(out, lib, gal,
-		defaultGallery(catalog.KindBackend, DefaultBackendSourceID, "Official backends", config.DefaultBackendGalleriesJSON),
-	)
+	backends := defaultGallery(catalog.KindBackend, DefaultBackendSourceID, "Official backends", config.DefaultBackendGalleriesJSON)
+	backends.Enabled = !readBackendLibrary
+	out = append(out, lib, gal, backends)
 	return out
 }
 
@@ -91,12 +131,12 @@ func defaultGallery(kind catalog.Kind, id, name, shipped string) catalog.Source 
 
 // Open opens the store under dataPath and adds the shipped defaults that have
 // no record yet.
-func Open(dataPath string, official, pilot bool) (*catalog.Sources, error) {
+func Open(dataPath string, official, backendLibrary bool) (*catalog.Sources, error) {
 	store, err := catalog.OpenStore(catalog.StorePath(dataPath))
 	if err != nil {
 		return nil, err
 	}
-	if _, err = store.SeedDefaults(Defaults(official, pilot)...); err != nil {
+	if _, err = store.SeedDefaults(Defaults(official, backendLibrary)...); err != nil {
 		return nil, fmt.Errorf("library defaults: %w", err)
 	}
 	return store, nil

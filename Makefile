@@ -51,6 +51,13 @@ override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Commit=$(shell git r
 # workflow cuts over by setting LOCALAI_MODEL_SOURCE=library (see release.yaml).
 LOCALAI_MODEL_SOURCE?=$(shell git describe --exact-match --tags >/dev/null 2>&1 && echo gallery || echo library)
 override LD_FLAGS += -X "github.com/mudler/LocalAI/core/library.ModelSource=$(LOCALAI_MODEL_SOURCE)"
+# The backend source follows the same rule: "library" (the backend library,
+# gallery/backends/index.yaml) or "gallery" (the gallery named localai-backends,
+# backend/index.yaml, which is generated from the library). A build from master
+# reads the library; a build of a commit that carries a tag reads the gallery
+# until the release workflow cuts over with LOCALAI_BACKEND_SOURCE=library.
+LOCALAI_BACKEND_SOURCE?=$(shell git describe --exact-match --tags >/dev/null 2>&1 && echo gallery || echo library)
+override LD_FLAGS += -X "github.com/mudler/LocalAI/core/library.BackendSource=$(LOCALAI_BACKEND_SOURCE)"
 
 OPTIONAL_TARGETS?=
 

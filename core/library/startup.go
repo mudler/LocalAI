@@ -75,7 +75,7 @@ func ApplyGalleries(store *catalog.Sources, kind catalog.Kind, galleries []confi
 		have[g.URL] = true
 	}
 	for _, e := range store.Entries() {
-		if e.Kind == kind && e.Enabled && !e.Removed && !e.Suspended && (!e.Default || e.Format != catalog.FormatGallery) && !have[e.URL] && (e.Format == catalog.FormatGallery || kind == catalog.KindModel) {
+		if e.Kind == kind && e.Enabled && !e.Removed && !e.Suspended && (!e.Default || e.Format != catalog.FormatGallery) && readsAsGallery(kind, e) && !have[e.URL] {
 			extra = append(extra, e)
 		}
 	}
@@ -86,14 +86,24 @@ func ApplyGalleries(store *catalog.Sources, kind catalog.Kind, galleries []confi
 	return out
 }
 
+// readsAsGallery says whether the server hands a source to the gallery reader.
+// A model source always is: a model library is read there. A backend source is
+// when it is in gallery format, or when it is the shipped backend library,
+// which is the backend source of a build that reads the library. A backend
+// library the user added is read by the add-on catalog only, which installs
+// its images by digest and holds them to the signature policy of the library.
+func readsAsGallery(kind catalog.Kind, e catalog.Source) bool {
+	return kind == catalog.KindModel || e.Format == catalog.FormatGallery || (kind == catalog.KindBackend && e.Default)
+}
+
 // Option returns the startup option that joins the galleries the flags named
 // with the library sources. It must come after the options that set the
 // galleries. If the store cannot be read or written the galleries stay as the
 // flags set them and a warning says why: the library must never stop a
 // deployment that worked before.
-func Option(dataPath string, official, pilot, useOfficial bool) config.AppOption {
+func Option(dataPath string, official, backendLibrary, useOfficial bool) config.AppOption {
 	return func(o *config.ApplicationConfig) {
-		store, err := Open(dataPath, official, pilot)
+		store, err := Open(dataPath, official, backendLibrary)
 		if err != nil {
 			xlog.Warn("library sources are not applied", "error", err)
 			return
@@ -138,7 +148,7 @@ func reconcileKind(store *catalog.Sources, kind catalog.Kind, current []config.G
 		if e.Kind == kind {
 			known[e.URL] = true
 		}
-		if e.Kind == kind && e.Enabled && !e.Removed && !e.Suspended && (e.Format == catalog.FormatGallery || kind == catalog.KindModel) {
+		if e.Kind == kind && e.Enabled && !e.Removed && !e.Suspended && readsAsGallery(kind, e) {
 			live[e.URL] = e
 		}
 	}
@@ -152,7 +162,7 @@ func reconcileKind(store *catalog.Sources, kind catalog.Kind, current []config.G
 		}
 	}
 	for _, e := range store.Entries() {
-		if _, ok := live[e.URL]; ok && e.Kind == kind && !have[e.URL] {
+		if _, ok := live[e.URL]; ok && e.Kind == kind && readsAsGallery(kind, e) && !have[e.URL] {
 			out = append(out, config.Gallery{Name: e.Name, URL: e.URL, Library: e.Format != catalog.FormatGallery})
 			have[e.URL] = true
 		}

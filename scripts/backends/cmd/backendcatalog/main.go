@@ -28,6 +28,14 @@
 //	go run ./scripts/backends/cmd/backendcatalog \
 //	  --library gallery/backends/index.yaml --repin
 //
+// Add or change backends: write them in the gallery shape, as backend/index.yaml
+// used to hold them, in a scratch file, and merge them into the library. The
+// new backends are pinned from the registry; the other entries are not touched.
+// A backend whose image is not published yet is written unpinned and mutable:
+//
+//	go run ./scripts/backends/cmd/backendcatalog \
+//	  --add my-backends.yaml --library gallery/backends/index.yaml
+//
 // Build the library from a backend gallery, once, pinning every release image
 // by the digest the registry serves for each platform:
 //
@@ -453,6 +461,7 @@ func run(args []string) error {
 	out := fs.String("out", "", "generated gallery file to write")
 	golden := fs.String("golden", "", "directory to write the golden files to")
 	importGallery := fs.String("import-gallery", "", "build the library from this backend gallery, reading the registry")
+	add := fs.String("add", "", "merge the backends of this gallery-shaped file into the library, pinning only those")
 	repin := fs.Bool("repin", false, "pin the release images of the library again, reading the registry")
 	noRegistry := fs.Bool("no-registry", false, "with --import-gallery or --repin: do not read the registry; release images stay unpinned")
 	workers := fs.Int("workers", 16, "registry reads in parallel")
@@ -467,8 +476,20 @@ func run(args []string) error {
 
 	var before []byte
 	switch {
-	case *importGallery != "" && *repin:
-		return errors.New("--import-gallery and --repin are exclusive")
+	case (*importGallery != "" && *repin) || (*add != "" && (*repin || *importGallery != "")):
+		return errors.New("--import-gallery, --add and --repin are exclusive")
+	case *add != "":
+		src, err := os.ReadFile(*add)
+		if err != nil {
+			return err
+		}
+		list, err := readGallery(src)
+		if err != nil {
+			return err
+		}
+		if err := mergeLibrary(ctx, *libraryPath, list, p, *workers); err != nil {
+			return err
+		}
 	case *importGallery != "":
 		src, err := os.ReadFile(*importGallery)
 		if err != nil {
@@ -503,7 +524,7 @@ func run(args []string) error {
 			return err
 		}
 	case *out == "" && *golden == "":
-		return errors.New("usage: --out file and/or --golden dir [--library file], or --import-gallery file, or --repin")
+		return errors.New("usage: --out file and/or --golden dir [--library file], or --add file, or --import-gallery file, or --repin")
 	}
 
 	if *out == "" && *golden == "" {
@@ -554,6 +575,66 @@ func run(args []string) error {
 		}
 	}
 	return nil
+}
+
+// mergeLibrary adds backends to the library file. The rows of a backend that
+// is already in the library are replaced where they stand; the rows of a new
+// backend are appended. Every other row is kept as it is, with its digest.
+func mergeLibrary(ctx context.Context, path string, add []gallery.GalleryBackend, p pinner, workers int) error {
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	existing, err := load(src)
+	if err != nil {
+		return err
+	}
+	fresh, rep, err := build(ctx, add, p, workers)
+	if err != nil {
+		return err
+	}
+	rows := mergeRows(existing, fresh)
+	body, err := encodeLibrary(rows)
+	if err != nil {
+		return err
+	}
+	// The merged library must still convert to the gallery and back.
+	if _, _, err := galleryBackends(rows); err != nil {
+		return err
+	}
+	rep.print(os.Stderr)
+	return os.WriteFile(path, body, 0o644)
+}
+
+// mergeRows puts the fresh rows in place of the rows of the same ids and
+// appends the rows of the ids that are new.
+func mergeRows(existing, fresh []catalog.Release) []catalog.Release {
+	byID := map[string][]catalog.Release{}
+	var order []string
+	for _, r := range fresh {
+		if _, ok := byID[r.ID]; !ok {
+			order = append(order, r.ID)
+		}
+		byID[r.ID] = append(byID[r.ID], r)
+	}
+	var out []catalog.Release
+	placed := map[string]bool{}
+	for _, r := range existing {
+		rows, replaced := byID[r.ID]
+		switch {
+		case !replaced:
+			out = append(out, r)
+		case !placed[r.ID]:
+			out = append(out, rows...)
+			placed[r.ID] = true
+		}
+	}
+	for _, id := range order {
+		if !placed[id] {
+			out = append(out, byID[id]...)
+		}
+	}
+	return out
 }
 
 func writeLibrary(ctx context.Context, list []gallery.GalleryBackend, p pinner, workers int, path string) error {

@@ -358,3 +358,82 @@ func TestRegistryPinnerReadsIndexesAndSingleImages(t *testing.T) {
 		t.Error("an image that is not in the registry cannot be pinned")
 	}
 }
+
+func TestAddMergesNewBackendsAndLeavesTheOtherEntriesAlone(t *testing.T) {
+	dir := t.TempDir()
+	rows, _, err := build(context.Background(), mustGallery(t), demoPins(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := encodeLibrary(rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib := filepath.Join(dir, "lib.yaml")
+	if err := os.WriteFile(lib, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// One new backend, and one that is already in the library, changed.
+	const snippet = `
+- name: cpu-newone
+  alias: newone
+  license: mit
+  uri: quay.io/example/backends:latest-cpu-newone
+- name: metal-demo
+  license: gpl-3.0
+  uri: quay.io/example/backends:latest-metal-darwin-arm64-demo
+`
+	add := filepath.Join(dir, "add.yaml")
+	if err := os.WriteFile(add, []byte(snippet), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// The registry has the new image and not the changed one: the changed
+	// backend keeps no old digest and is written unpinned.
+	p := fakePinner{"quay.io/example/backends:latest-cpu-newone": {{OS: "linux", Arch: "amd64", Digest: sumC}}}
+	if err := mergeLibrary(context.Background(), lib, mustRead(t, add), p, 1); err != nil {
+		t.Fatal(err)
+	}
+	merged, err := os.ReadFile(lib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := load(merged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byKey := map[string]catalog.Release{}
+	var order []string
+	for _, r := range got {
+		byKey[r.ID+" "+r.OS+"/"+r.Arch] = r
+		order = append(order, r.ID)
+	}
+	if r := byKey["cpu-demo linux/amd64"]; r.Digest != sumA {
+		t.Errorf("an entry that was not added is kept with its digest: %+v", r)
+	}
+	if r := byKey["cpu-newone linux/amd64"]; r.Digest != sumC || r.Alias != "newone" {
+		t.Errorf("the new backend is pinned: %+v", r)
+	}
+	if r := byKey["metal-demo darwin/arm64"]; r.License != "gpl-3.0" || !r.Mutable || r.Description != "" {
+		t.Errorf("a backend that is added again is replaced: %+v", r)
+	}
+	if strings.Join(order, ",") != "demo,demo-development,cpu-demo,cpu-demo,cpu-demo-development,metal-demo,cpu-newone" {
+		t.Errorf("a replaced backend keeps its place and a new one goes last: %v", order)
+	}
+	// The merged library still produces a gallery.
+	if err := run([]string{"--library", lib, "--out", filepath.Join(dir, "g.yaml")}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustRead(t *testing.T, path string) []gallery.GalleryBackend {
+	t.Helper()
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := readGallery(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return list
+}

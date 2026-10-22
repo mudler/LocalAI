@@ -660,11 +660,20 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 		}
 	}
 
-	// The model library replaces the index of the official gallery when the
-	// owner selects it. Add-on and backend galleries never take this path.
+	// The model and backend libraries replace the index of the official gallery
+	// when the owner selects them.
 	if lib, ok := modelLibraryFor(gallery); ok {
 		if installed, isModel := any(isInstalledCallback).(func(*GalleryModel) bool); isModel {
 			found, err := getModelLibraryElements(gallery, lib, basePath, requireIntegrity, installed)
+			if err != nil {
+				return models, err
+			}
+			return any(found).([]T), nil
+		}
+	}
+	if lib, ok := backendLibraryFor(gallery); ok {
+		if installed, isBackend := any(isInstalledCallback).(func(*GalleryBackend) bool); isBackend {
+			found, err := getBackendLibraryElements(gallery, lib, basePath, requireIntegrity, installed)
 			if err != nil {
 				return models, err
 			}

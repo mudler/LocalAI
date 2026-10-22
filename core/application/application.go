@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
@@ -886,7 +887,7 @@ func (a *Application) startAddons() error {
 			defaults = append(defaults, catalog.OfficialLibrary())
 		}
 		if c.OfficialBackendLibrary {
-			defaults = append(defaults, catalog.OfficialBackendLibrary())
+			defaults = append(defaults, library.DefaultBackendLibrary())
 		}
 		sources.SetOfficial(a.applicationConfig.OfficialLibraries)
 		if len(defaults) > 0 {
