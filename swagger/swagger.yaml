@@ -2309,6 +2309,12 @@ definitions:
     type: object
   schema.Conversation:
     properties:
+      addonToolIds:
+        items:
+          type: string
+        type: array
+      addonTools:
+        type: boolean
       clientMCPServers:
         items:
           type: object

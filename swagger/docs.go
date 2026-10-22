@@ -10679,6 +10679,15 @@ const docTemplate = `{
         "schema.Conversation": {
             "type": "object",
             "properties": {
+                "addonToolIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "addonTools": {
+                    "type": "boolean"
+                },
                 "clientMCPServers": {
                     "type": "array",
                     "items": {
