@@ -696,7 +696,7 @@ const docTemplate = `{
         },
         "/api/addons/dispatch": {
             "post": {
-                "description": "Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation. Lifecycle actions are install, upgrade, enable, disable and uninstall (arguments sourceId and version; enable and disable take the generation that was listed). The management reads, all administrator-only and never mutations, are catalog-search (arguments text, sourceId, offset, limit up to 100), catalog-details (addonId plus arguments sourceId and version), catalog-sources and addons-installed. The library changes are catalog-source-save (arguments are one source: id, name, url, enabled, policy, authReference; removed true deletes it and never touches installed addons) and catalog-source-refresh (argument sourceId). A library names a credential only by a reference the owner configured, never a secret. Unknown argument fields are denied. The update actions are update-status and update-check (no arguments; the check fetches the library again and applies nothing) and update-upgrade (arguments expectedDigest and candidateDigest, the pinned upgrade); each answers with a payload {error: {type, message, status}} or {data}, the same from every frontend. The browser pages use the dedicated routes under /api/addons/{id}/update and /api/addons/{id}/upgrade, which accept only an administrator's own browser session.",
+                "description": "Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation. Lifecycle actions are install, upgrade, enable, disable and uninstall (arguments sourceId and version; enable and disable take the generation that was listed). The management reads, all administrator-only and never mutations, are catalog-search (arguments text, kind, sourceId, offset, limit up to 100; kind is addon by default, or backend, or all), catalog-details (addonId plus arguments sourceId and version), catalog-sources and addons-installed. The library changes are catalog-source-save (arguments are one source: id, name, url, enabled, policy, authReference; removed true deletes it and never touches installed addons) and catalog-source-refresh (argument sourceId). A library names a credential only by a reference the owner configured, never a secret. Unknown argument fields are denied. The update actions are update-status and update-check (no arguments; the check fetches the library again and applies nothing) and update-upgrade (arguments expectedDigest and candidateDigest, the pinned upgrade); each answers with a payload {error: {type, message, status}} or {data}, the same from every frontend. The browser pages use the dedicated routes under /api/addons/{id}/update and /api/addons/{id}/upgrade, which accept only an administrator's own browser session.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4007,6 +4007,135 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/library/sources": {
+            "get": {
+                "description": "Every library source of the add-on, backend and model kinds, with its state: kind, id, name, url, enabled (what the host does with it), default (shipped), removed (a default the user removed; a tombstone), suspended (a default while the official libraries are off), the conflict message when it clashes with another source, and the last fetch state when there is one. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "library"
+                ],
+                "summary": "List the library sources",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.LibrarySourcesResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. A source with the same kind and URL is refused (409), as is a taken id. Administrators only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "library"
+                ],
+                "summary": "Add a library source",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/library.Info"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/library/sources/{id}": {
+            "delete": {
+                "description": "A source of your own is deleted. A shipped default is not: it stays as a tombstone (removed true), so it does not come back at the next start; enabling it brings it back. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "library"
+                ],
+                "summary": "Remove a library source",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/library/sources/{id}/disable": {
+            "post": {
+                "description": "Enabling a removed default brings it back. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "library"
+                ],
+                "summary": "Turn a library source on or off",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/library.Info"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/library/sources/{id}/enable": {
+            "post": {
+                "description": "Enabling a removed default brings it back. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "library"
+                ],
+                "summary": "Turn a library source on or off",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/library.Info"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/config-json/{name}": {
             "patch": {
                 "description": "Deep-merges the JSON patch body into the existing model config",
@@ -5710,6 +5839,67 @@ const docTemplate = `{
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/schema.KnownBackend"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/library/install": {
+            "post": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Install a backend from a library entry on this node.",
+                "parameters": [
+                    {
+                        "description": "library, backend name and version",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.BackendLibraryInstallRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "the job; read its status at the status URL",
+                        "schema": {
+                            "$ref": "#/definitions/schema.BackendResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "the request does not name an entry",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "the same backend is already being installed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/library/updates": {
+            "get": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "List the installed library backends with a newer build in their library.",
+                "responses": {
+                    "200": {
+                        "description": "updates",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/backendlib.Update"
+                                }
                             }
                         }
                     }
@@ -8142,6 +8332,37 @@ const docTemplate = `{
                 }
             }
         },
+        "backendlib.Update": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "type": "string"
+                },
+                "installedDigest": {
+                    "type": "string"
+                },
+                "installedVersion": {
+                    "description": "InstalledVersion and InstalledDigest are what metadata.json pins.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the backend name.",
+                    "type": "string"
+                },
+                "signed": {
+                    "description": "Signed says the library requires a signature, so the install of the\nupdate has a verifying step.",
+                    "type": "boolean"
+                },
+                "sourceId": {
+                    "description": "SourceID is the library the backend came from.",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Version and Digest are the build the library lists now. Version is what\nan install of the update names.",
+                    "type": "string"
+                }
+            }
+        },
         "builtin.Entry": {
             "type": "object",
             "properties": {
@@ -8177,6 +8398,67 @@ const docTemplate = `{
                 "KindPage"
             ]
         },
+        "catalog.Kind": {
+            "type": "string",
+            "enum": [
+                "addon",
+                "backend",
+                "model",
+                "all"
+            ],
+            "x-enum-varnames": [
+                "KindAddon",
+                "KindBackend",
+                "KindModel",
+                "QueryAllKinds"
+            ]
+        },
+        "catalog.RefreshState": {
+            "type": "object",
+            "properties": {
+                "checkedAt": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "description": "Failed is true when the latest fetch failed; the previous releases are\nnot served in that case.",
+                    "type": "boolean"
+                },
+                "lastSuccess": {
+                    "type": "string"
+                },
+                "skipped": {
+                    "description": "Skipped and SkippedKinds are as in RefreshResult.",
+                    "type": "integer"
+                },
+                "skippedKinds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "catalog.VerificationPolicy": {
+            "type": "object",
+            "properties": {
+                "identity": {
+                    "type": "string"
+                },
+                "identityRegex": {
+                    "description": "IdentityRegex is an anchored pattern for the signer identity, used\ninstead of Identity so that master and tagged builds both verify. Only a\nlibrary that serves backends may use it; an add-on install refuses it.",
+                    "type": "string"
+                },
+                "issuer": {
+                    "type": "string"
+                },
+                "requireSignature": {
+                    "type": "boolean"
+                }
+            }
+        },
         "config.Gallery": {
             "type": "object",
             "properties": {
@@ -8187,6 +8469,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/config.GalleryVerification"
                         }
                     ]
+                },
+                "library": {
+                    "description": "Library says the URL is a model library (the shared library entry\nshape), not a gallery index.",
+                    "type": "boolean"
                 },
                 "mirrors": {
                     "description": "Mirrors are tried in order when URL cannot be fetched. They are a\nfallback for availability, not a load-balancing pool: the primary is\nalways preferred, and a mirror is only consulted after the one before\nit fails. Any URI the gallery loader understands works here\n(https://, github:, file://, oci://).",
@@ -9605,6 +9891,52 @@ const docTemplate = `{
                 }
             }
         },
+        "library.Info": {
+            "type": "object",
+            "properties": {
+                "authReference": {
+                    "type": "string"
+                },
+                "conflict": {
+                    "description": "Conflict explains how this source clashes with another one, when it does.",
+                    "type": "string"
+                },
+                "default": {
+                    "type": "boolean"
+                },
+                "enabled": {
+                    "description": "Enabled is what the host does with the source: false for a source that\nis turned off, removed, or a shipped default while the official\nlibraries are off. Suspended tells the last case apart.",
+                    "type": "boolean"
+                },
+                "format": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/catalog.Kind"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "policy": {
+                    "$ref": "#/definitions/catalog.VerificationPolicy"
+                },
+                "refresh": {
+                    "$ref": "#/definitions/catalog.RefreshState"
+                },
+                "removed": {
+                    "type": "boolean"
+                },
+                "suspended": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.APIInstructionResponse": {
             "type": "object",
             "properties": {
@@ -9633,6 +9965,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "target": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.BackendLibraryInstallRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name is the backend name of the entry.",
+                    "type": "string"
+                },
+                "sourceId": {
+                    "description": "SourceID is the library the entry comes from.",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Version is the version or the channel of the entry.",
                     "type": "string"
                 }
             }
@@ -9767,6 +10116,20 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/gallery.Variant"
+                    }
+                }
+            }
+        },
+        "localai.LibrarySourcesResponse": {
+            "type": "object",
+            "properties": {
+                "officialLibraries": {
+                    "type": "boolean"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/library.Info"
                     }
                 }
             }

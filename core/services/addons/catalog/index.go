@@ -6,14 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	// MaxIndexBytes and MaxIndexReleases bound one library index document.
-	MaxIndexBytes    = 1 << 20
-	MaxIndexReleases = 1000
+	// MaxIndexBytes and MaxIndexReleases bound one library index document. The
+	// backend library lists every backend image of every platform, a few
+	// thousand rows, so the bounds are far above what an add-on index needs.
+	MaxIndexBytes    = 8 << 20
+	MaxIndexReleases = 4000
 )
 
 // DecodeIndex reads a library index: one YAML document that is a list of
@@ -29,49 +32,83 @@ const (
 // The YAML is converted to plain values and read through the JSON field names
 // of Release, so one set of names and one strict decoder serve the whole type.
 func DecodeIndex(data []byte) ([]Release, error) {
+	res, err := ReadIndex(data, ReadableKinds...)
+	if err != nil {
+		return nil, err
+	}
+	return res.Releases, nil
+}
+
+// ReadIndex reads a library index the way DecodeIndex does and applies the
+// reader's kinds. An entry carries an optional "kind". A reader keeps the
+// entries of the kinds it is given and skips every other entry, without
+// reading it any further and without refusing the index; the skipped entries
+// come back in the result so the caller can report them. Without kinds the
+// reader is an add-on reader. A kind that is not plain text, or not a
+// well-formed kind name, makes the index malformed and it is refused.
+func ReadIndex(data []byte, known ...Kind) (IndexResult, error) {
+	if len(known) == 0 {
+		known = []Kind{KindAddon}
+	}
 	if len(data) > MaxIndexBytes {
-		return nil, errors.New("index is too large")
+		return IndexResult{}, errors.New("index is too large")
 	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	var doc yaml.Node
 	if err := dec.Decode(&doc); err != nil {
-		return nil, err
+		return IndexResult{}, err
 	}
 	if err := dec.Decode(new(yaml.Node)); err != io.EOF {
-		return nil, errors.New("index holds more than one document")
+		return IndexResult{}, errors.New("index holds more than one document")
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.SequenceNode {
-		return nil, errors.New("index must be a list of releases")
+		return IndexResult{}, errors.New("index must be a list of releases")
 	}
 	list := doc.Content[0]
 	if list.Style&yaml.FlowStyle != 0 && len(list.Content) > 0 {
-		return nil, errors.New("index must be a YAML block list, not JSON")
+		return IndexResult{}, errors.New("index must be a YAML block list, not JSON")
 	}
 	if len(list.Content) > MaxIndexReleases {
-		return nil, errors.New("index has too many releases")
+		return IndexResult{}, errors.New("index has too many releases")
 	}
 	var plain []any
 	if err := list.Decode(&plain); err != nil {
-		return nil, err
+		return IndexResult{}, err
 	}
-	for _, item := range plain {
+	res := IndexResult{}
+	kept := make([]any, 0, len(plain))
+	for i, item := range plain {
 		entry, ok := item.(map[string]any)
 		if !ok {
-			return nil, errors.New("index entry must be a mapping")
+			return IndexResult{}, errors.New("index entry must be a mapping")
+		}
+		if raw, present := entry["kind"]; present {
+			kind, ok := raw.(string)
+			if !ok || !kindPattern.MatchString(kind) {
+				return IndexResult{}, errors.New("index entry has a malformed kind")
+			}
+			if !slices.Contains(known, Kind(kind)) {
+				id, _ := entry["id"].(string)
+				if id == "" {
+					id, _ = entry[LegacyIDField].(string)
+				}
+				res.Skipped = append(res.Skipped, SkippedEntry{Position: i, Kind: kind, ID: id})
+				continue
+			}
 		}
 		if err := NormalizeLegacyID(entry); err != nil {
-			return nil, err
+			return IndexResult{}, err
 		}
+		kept = append(kept, entry)
 	}
-	b, err := json.Marshal(plain)
+	b, err := json.Marshal(kept)
 	if err != nil {
-		return nil, err
+		return IndexResult{}, err
 	}
-	var releases []Release
-	if err := decode(b, &releases); err != nil {
-		return nil, err
+	if err := decode(b, &res.Releases); err != nil {
+		return IndexResult{}, err
 	}
-	return releases, nil
+	return res, nil
 }
 
 // LegacyIDField is the name the identifier of an entry had before the shared

@@ -135,7 +135,7 @@ var _ = Describe("private catalogs", func() {
 		Expect(hits).To(BeZero())
 		Expect(e.Error()).NotTo(ContainSubstring("hidden"))
 	})
-	It("keeps duplicate names source scoped and excludes disabled sources", func() {
+	It("refuses an entry two of your sources list, and excludes disabled sources", func() {
 		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, []Release{release()}) })
 		s := setup()
 		c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
@@ -144,10 +144,13 @@ var _ = Describe("private catalogs", func() {
 			_, e := s.Refresh(ctx, id)
 			Expect(e).NotTo(HaveOccurred())
 		}
-		page, e := c.Search(ctx, Query{Text: "tables"})
-		Expect(e).NotTo(HaveOccurred())
-		Expect(page.Releases).To(HaveLen(2))
+		// Two sources of your own list "tables": refused, naming both.
+		_, e := c.Search(ctx, Query{Text: "tables"})
+		Expect(e).To(MatchError(ErrConflict))
+		Expect(e.Error()).To(ContainSubstring(`"one"`))
+		Expect(e.Error()).To(ContainSubstring(`"two"`))
 		Expect(s.Save(ctx, admin, Source{ID: "one", Name: "one", URL: server.URL})).To(Succeed())
+		var page Page
 		page, e = c.Search(ctx, Query{})
 		Expect(e).NotTo(HaveOccurred())
 		Expect(page.Releases).To(HaveLen(1))

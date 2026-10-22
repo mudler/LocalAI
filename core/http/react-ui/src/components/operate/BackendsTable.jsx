@@ -48,7 +48,7 @@ export function StateCell({ state }) {
       return <span className="bk-state bk-state--error" title={state.error}><Icon name="alert-circle" /> {t('backends.state.failed')}</span>
     case 'update':
       return (
-        <span className="bk-state bk-state--warn">
+        <span className="bk-state bk-state--warn" data-library={state.library ? '' : undefined}>
           <Icon name="arrow-up" /> {state.to ? t('backends.state.updateTo', { version: state.to }) : t('backends.state.update')}
         </span>
       )
@@ -63,7 +63,8 @@ export function StateCell({ state }) {
 // thing to do about it; the rest opens in a detail row under it. The open row
 // is the selected backend, so it lives in the URL and survives a reload.
 //
-//   rows   [{ name, description, version, state, nodes, badge, action, detail }]
+//   rows   [{ name, description, version, state, nodes, badge, library, action, detail }]
+//   library  { id, digest } of the library a backend came from, when it did.
 export default function BackendsTable({
   rows, expanded, onToggle, showNodes, sort, order, onSort, caption, busy, children,
 }) {
@@ -104,6 +105,11 @@ export default function BackendsTable({
               >
                 <td>
                   <span className="dk-table-name dk-mono">{row.name}</span>
+                  {row.library && (
+                    <span className="dk-badge bk-library" data-testid="backend-library" title={row.library.digest ? t('backends.library.pinned', { digest: row.library.digest }) : undefined}>
+                      <Icon name="book" /> {t('backends.library.from', { library: row.library.id })}
+                    </span>
+                  )}
                   <span className="dk-table-sub" title={row.state.kind === 'failed' ? row.state.error : row.description}>
                     {row.state.kind === 'failed' ? row.state.error : (row.description || ' ')}
                   </span>

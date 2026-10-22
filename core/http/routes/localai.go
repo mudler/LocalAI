@@ -43,6 +43,20 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		c.URLs = []string{"doc.json"}
 	}))
 
+	// Library sources of the add-on, backend and model kinds: the same store
+	// and functions as `local-ai library`. Administrators only.
+	librarySources := localai.LibrarySourcesEndpoints{
+		Store:    app.LibrarySources,
+		Official: func() bool { return appConfig.OfficialLibraries },
+		Applied:  app.ApplyLibraries,
+	}
+	router.GET("/api/library/sources", librarySources.List(), adminMiddleware)
+	router.POST("/api/library/sources", librarySources.Add(), adminMiddleware)
+	router.POST("/api/library/sources/:id/enable", librarySources.SetEnabled(true), adminMiddleware)
+	router.POST("/api/library/sources/:id/disable", librarySources.SetEnabled(false), adminMiddleware)
+	router.PUT("/api/library/sources/:id", librarySources.Update(), adminMiddleware)
+	router.DELETE("/api/library/sources/:id", librarySources.Remove(), adminMiddleware)
+
 	motion := localai.NewMotionEndpoints(app)
 	router.POST("/api/motion/sessions", motion.Create)
 	router.GET("/api/motion/sessions/:id", motion.Get)
@@ -79,6 +93,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			galleryService,
 			app.UpgradeChecker())
 		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
+		if lib := app.BackendLibrary(); lib != nil {
+			router.POST("/backends/library/install", localai.InstallBackendFromLibraryEndpoint(lib, galleryService), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
+			router.GET("/backends/library/updates", localai.BackendLibraryUpdatesEndpoint(lib), adminMiddleware)
+		}
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
 		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
 		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState, ClusterCapabilityProviderFor(app), ClusterInstalledProviderFor(app)), adminMiddleware)

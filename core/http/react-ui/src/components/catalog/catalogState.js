@@ -133,6 +133,13 @@ export function validateSourceDraft(draft = {}) {
   if (!SOURCE_ID.test(draft.id || '')) errors.id = 'id'
   const name = String(draft.name || '').trim()
   if (!name || name.length > 256) errors.name = 'name'
+  // A backend or model source may name a gallery index (a github: or oci:
+  // address, a query string). The server checks the address for its format.
+  if (draft.kind && draft.kind !== 'addon') {
+    if (!String(draft.url || '').trim()) errors.url = 'urlEmpty'
+    if (!mirrorsValid(draft.mirrors)) errors.mirrors = 'mirrors'
+    return errors
+  }
   let url = null
   try { url = new URL(String(draft.url || '').trim()) } catch { url = null }
   if (!url || (url.protocol !== 'https:' && url.protocol !== 'http:')) errors.url = 'url'
@@ -142,7 +149,11 @@ export function validateSourceDraft(draft = {}) {
   if (ref && !REFERENCE.test(ref)) errors.authReference = 'reference'
   if (draft.requireSignature) {
     if (!String(draft.issuer || '').trim()) errors.issuer = 'required'
-    if (!String(draft.identity || '').trim()) errors.identity = 'required'
+    // A signer is named exactly or by a pattern (backend libraries), not both.
+    const exact = String(draft.identity || '').trim()
+    const pattern = String(draft.identityRegex || '').trim()
+    if (!exact && !pattern) errors.identity = 'required'
+    else if (exact && pattern) errors.identityRegex = 'either'
   }
   return errors
 }
@@ -159,7 +170,10 @@ export function draftToSource(draft) {
   }
   if (draft.requireSignature) {
     source.policy.issuer = String(draft.issuer).trim()
-    source.policy.identity = String(draft.identity).trim()
+    const exact = String(draft.identity || '').trim()
+    const pattern = String(draft.identityRegex || '').trim()
+    if (exact) source.policy.identity = exact
+    if (pattern) source.policy.identityRegex = pattern
   }
   const ref = String(draft.authReference || '').trim()
   if (ref) source.authReference = ref
@@ -170,6 +184,8 @@ export function draftToSource(draft) {
 
 export function sourceToDraft(source = {}) {
   return {
+    kind: sourceKind(source),
+    format: source.format === 'gallery' ? 'gallery' : 'library',
     id: source.id || '',
     name: source.name || '',
     url: source.url || '',
@@ -177,7 +193,101 @@ export function sourceToDraft(source = {}) {
     requireSignature: Boolean(source.policy?.requireSignature),
     issuer: source.policy?.issuer || '',
     identity: source.policy?.identity || '',
+    identityRegex: source.policy?.identityRegex || '',
     authReference: source.authReference || '',
     allowLoopbackHTTP: Boolean(source.allowLoopbackHTTP),
+    mirrors: (source.mirrors || []).join('\n'),
   }
+}
+
+// ---- Library sources of all kinds ------------------------------------------
+
+export const SOURCE_KINDS = ['addon', 'backend', 'model']
+
+// The kind of a source as listed. A record with no kind is an add-on source.
+export function sourceKind(source) {
+  return SOURCE_KINDS.includes(source?.kind) ? source.kind : 'addon'
+}
+
+// The sources the add-on catalog searches: on, not removed, and in the library
+// shape. Model sources and gallery-format sources are read by the galleries.
+export function searchableSources(list = []) {
+  return list.filter(s => s.enabled && !s.removed && !s.suspended && sourceKind(s) !== 'model' && s.format !== 'gallery')
+}
+
+// The list the Libraries tab shows for one kind filter ('all' shows every
+// kind). Kind and id order is the server's, so the list does not jump.
+export function filterSources(list = [], kind = 'all') {
+  return kind === 'all' ? list : list.filter(s => sourceKind(s) === kind)
+}
+
+export function countByKind(list = []) {
+  const counts = { all: list.length, addon: 0, backend: 0, model: 0 }
+  for (const s of list) counts[sourceKind(s)] += 1
+  return counts
+}
+
+// What the tab says about a source, from its flags. One state per source:
+//   removed    a shipped default the user removed (a tombstone)
+//   suspended  a shipped default while the official libraries are off
+//   disabled   turned off by the user
+//   enabled    read by the host
+export function sourceState(source) {
+  if (source?.removed) return 'removed'
+  if (source?.suspended) return 'suspended'
+  return source?.enabled ? 'enabled' : 'disabled'
+}
+
+// The sources the host reads a refresh state for: only the add-on catalog
+// fetches an index; a gallery-format source is read by the gallery readers.
+export function canRefresh(source) {
+  return sourceState(source) === 'enabled' && source.format !== 'gallery' && sourceKind(source) !== 'model'
+}
+
+// The body that adds a backend or model source. An add-on source keeps its own
+// form, which carries a policy and a credential reference.
+export function draftToLibrarySource(draft) {
+  const body = {
+    kind: draft.kind,
+    url: String(draft.url).trim(),
+    name: String(draft.name || '').trim(),
+    format: draft.format === 'gallery' ? 'gallery' : 'library',
+  }
+  const id = String(draft.id || '').trim()
+  if (id) body.id = id
+  const mirrors = mirrorList(draft.mirrors)
+  if (mirrors.length) body.mirrors = mirrors
+  return body
+}
+
+// The library a listing row says it comes from: the gallery field of a model
+// or backend row is the library source's name, and a backend installed from a
+// library is named "library:<id>". A row with no such field belongs to no
+// library.
+export function rowInSource(row, source) {
+  if (!source) return true
+  const g = row && row.gallery
+  const name = typeof g === 'string' ? g : g && g.name
+  if (!name) return false
+  return name === source.name || name === source.id || name === `library:${source.id}`
+}
+
+// The rows of one library, or every row when no source is picked.
+export function filterRowsBySource(rows = [], source = null) {
+  return source ? rows.filter(r => rowInSource(r, source)) : rows
+}
+
+// Mirrors are typed one per line. The list drops blank lines and spaces around
+// each address.
+export function mirrorList(text) {
+  return String(text || '').split('\n').map(l => l.trim()).filter(Boolean)
+}
+
+export const MAX_MIRRORS = 8
+const MIRROR_FORM = /^(https?:\/\/|github:|oci:\/\/|file:\/\/)\S+$/i
+
+// The server checks the same forms; this only saves a round trip.
+export function mirrorsValid(text) {
+  const list = mirrorList(text)
+  return list.length <= MAX_MIRRORS && list.every(m => MIRROR_FORM.test(m))
 }

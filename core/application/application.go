@@ -16,7 +16,9 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -80,8 +82,14 @@ type Application struct {
 	addonGateway       *gateway.Gateway
 	addonServer        *http.Server
 	addonSources       *catalog.Sources
+	backendLibrary     *backendlib.Installer
 	addonManager       *addons.Manager
 	addonHostOps       *addonruntime.HostOps
+
+	// libraryStore is the library sources file when no add-on owner runs here.
+	libraryStore   *catalog.Sources
+	libraryStoreMu sync.Mutex
+
 	// The pin store is built once so the routes and the retention sweep share it.
 	addonPinStoreOnce    sync.Once
 	addonPinStore        pins.Store
@@ -679,6 +687,9 @@ func (a *Application) start() (startErr error) {
 		assistantClient.StatsRecorder = a.statsRecorder
 		assistantClient.FallbackUser = a.fallbackUser
 		assistantClient.VoiceProfiles = a.voiceProfileStore
+		if a.backendLibrary != nil {
+			assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
+		}
 		if a.distributed != nil && a.distributed.Unloader != nil {
 			assistantClient.LoadStopper = a.distributed.Unloader
 		}
@@ -824,6 +835,10 @@ func (a *Application) StartAgentPool() {
 // AddonManager is nil unless the deployment explicitly enables addons.
 func (a *Application) AddonManager() *addons.Manager { return a.addonManager }
 
+// BackendLibrary installs backends from the library entries of kind backend.
+// It is nil unless this instance owns the add-on libraries.
+func (a *Application) BackendLibrary() *backendlib.Installer { return a.backendLibrary }
+
 // AddonSources exposes owner-only source administration and explicit live refresh.
 // Forwarders never load source configuration or perform catalog I/O.
 func (a *Application) AddonSources() *catalog.Sources { return a.addonSources }
@@ -867,8 +882,16 @@ func (a *Application) startAddons() error {
 		if err != nil {
 			return err
 		}
+		var defaults []catalog.Source
 		if c.OfficialLibrary {
-			if _, err = sources.SeedDefault(catalog.OfficialLibrary()); err != nil {
+			defaults = append(defaults, catalog.OfficialLibrary())
+		}
+		if c.OfficialBackendLibrary {
+			defaults = append(defaults, library.DefaultBackendLibrary())
+		}
+		sources.SetOfficial(a.applicationConfig.OfficialLibraries)
+		if len(defaults) > 0 {
+			if _, err = sources.SeedDefaults(defaults...); err != nil {
 				return err
 			}
 		}
@@ -936,6 +959,12 @@ func (a *Application) startAddons() error {
 		}
 	}
 	a.addonSources = cat.Sources
+	if cat.Sources != nil {
+		a.backendLibrary = &backendlib.Installer{
+			Catalog: cat, SystemState: a.applicationConfig.SystemState, ModelLoader: a.modelLoader,
+			MaxBytes: c.BackendMaxBytes, RequireIntegrity: a.applicationConfig.RequireBackendIntegrity,
+		}
+	}
 	a.addonManager = m
 	if c.InstanceID == c.OwnerID {
 		go a.runAddonAutoUpgrade(a.applicationConfig.Context, upgradeInitialDelay, upgradeCheckInterval)
@@ -945,4 +974,12 @@ func (a *Application) startAddons() error {
 		return err
 	}
 	return nil
+}
+
+// libraryInstallNoProgress adapts the library installer to the assistant's
+// installer interface, which does not report progress.
+type libraryInstallNoProgress struct{ in *backendlib.Installer }
+
+func (l libraryInstallNoProgress) Install(ctx context.Context, sourceID, backend, version string) error {
+	return l.in.Install(ctx, sourceID, backend, version, backendlib.Progress{})
 }

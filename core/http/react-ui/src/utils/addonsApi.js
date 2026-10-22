@@ -15,6 +15,8 @@ export class AddonsError extends Error {
     this.operationId = info.operationId || ''
     this.blockedBy = info.blockedBy || ''
     this.type = info.type || ''
+    // The step of a backend install that failed, when the host named one.
+    this.phase = info.phase || ''
   }
 }
 
@@ -34,6 +36,15 @@ export function normalizeOperation(payload) {
 
 export function isFinalPhase(phase) {
   return PHASES_DONE.has(phase)
+}
+
+// The library source routes answer 404 (no such source), 409 (the same kind
+// and URL twice, a taken id) and 400 with a reason of their own; the page shows
+// that reason as a refusal of the request.
+export function classifyLibrary(status, body) {
+  const base = classifyResponse(status, body)
+  if (status === 404 || status === 409) return { ...base, kind: 'invalid', status }
+  return base
 }
 
 export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
@@ -128,6 +139,48 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
       prune(id, { operationId }, signal) { return api.recovery.mutate(id, 'recovery/prune', { operationId }, signal) },
       purge(id, body, signal) { return api.recovery.mutate(id, 'purge', body, signal) },
     },
+    // Backends of the libraries. The library entry is resolved by the server;
+    // the request names the entry and nothing else. The install runs as a job
+    // of the host, the same kind the backend gallery uses: the request answers
+    // with the job and GET /backends/jobs/{id} reports the step it is in.
+    backends: {
+      async installed(signal) {
+        const out = await call('/backends', { signal })
+        const list = Array.isArray(out) ? out : (Array.isArray(out?.backends) ? out.backends : [])
+        return list.map(b => ({
+          id: b.Name || b.name || '',
+          library: b.Metadata?.library || '',
+          version: b.Metadata?.version || '',
+          digest: b.Metadata?.digest || '',
+        })).filter(b => b.id)
+      },
+      // Installed library backends that have a newer build in their library.
+      // The host reads its cached index; nothing is installed.
+      async updates(signal) {
+        const out = await call('/backends/library/updates', { signal })
+        return Array.isArray(out?.updates) ? out.updates : []
+      },
+      // Starts the install and follows the job to its end. onStatus gets every
+      // status of the job. It resolves with the final status and throws an
+      // AddonsError for a refusal of the request or a failed job.
+      async install({ sourceId, name, version }, signal, { onStatus, pollMs = 500 } = {}) {
+        const job = await call('/backends/library/install', { method: 'POST', body: { sourceId, name, version }, signal })
+        const id = job && job.id
+        if (!id) return job
+        for (;;) {
+          const status = await call(`/backends/jobs/${encodeURIComponent(id)}`, { signal })
+          if (onStatus) onStatus(status)
+          if (status && status.processed) {
+            if (status.error) throw new AddonsError({ kind: 'install', message: String(status.error).replace(/^error: /, ''), phase: status.phase })
+            return status
+          }
+          await new Promise((resolve, reject) => {
+            const timer = setTimeout(resolve, pollMs)
+            if (signal) signal.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('aborted', 'AbortError')) }, { once: true })
+          })
+        }
+      },
+    },
     // Update detection and the explicit upgrade. The status is the owner's
     // answer and the page never derives it. Check and upgrade are the
     // administrator's own action: the operation ID is also the confirmation
@@ -148,6 +201,30 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
           headers: { 'X-LocalAI-Confirm': body.operationId },
         })
         return normalizeOperation(out?.payload)
+      },
+    },
+    // The library sources of all three kinds: the store `local-ai library`
+    // edits. Administrators only; the host checks that on every call.
+    library: {
+      async list(signal) {
+        const out = await call('/api/library/sources', { signal, classify: classifyLibrary })
+        return {
+          sources: Array.isArray(out?.sources) ? out.sources : [],
+          officialLibraries: out?.officialLibraries !== false,
+        }
+      },
+      add(source, signal) {
+        return call('/api/library/sources', { method: 'POST', body: source, signal, classify: classifyLibrary })
+      },
+      // Replaces the mirrors of a model or backend source.
+      update(id, body, signal) {
+        return call(`/api/library/sources/${encodeURIComponent(id)}`, { method: 'PUT', body, signal, classify: classifyLibrary })
+      },
+      setEnabled(id, enabled, signal) {
+        return call(`/api/library/sources/${encodeURIComponent(id)}/${enabled ? 'enable' : 'disable'}`, { method: 'POST', signal, classify: classifyLibrary })
+      },
+      remove(id, signal) {
+        return call(`/api/library/sources/${encodeURIComponent(id)}`, { method: 'DELETE', signal, classify: classifyLibrary })
       },
     },
     // Reads the original operation by its own identifier. It never submits.
@@ -175,6 +252,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     description: release.description || release.ui?.description || '',
     version: release.version,
     sourceId: release.sourceId,
+    // The kind of the entry: addon when the library does not say.
+    kind: release.kind || 'addon',
+    alias: release.alias || '',
     channel: release.channel || '',
     digest: release.digest || '',
     platform: { os: release.os, arch: release.arch },
@@ -189,7 +269,7 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
       const payload = await api.dispatch({
         operationId: newOperationId(),
         action: 'catalog-search',
-        args: { text: query?.text || '', sourceId: query?.sourceId || '', offset, limit: pageSize },
+        args: { text: query?.text || '', kind: 'all', sourceId: query?.sourceId || '', offset, limit: pageSize },
       }, signal)
       const releases = Array.isArray(payload?.releases) ? payload.releases : []
       return { entries: releases.map(toEntry), total: Number(payload?.total) || 0, offset }
@@ -204,9 +284,22 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
       }, signal)
       return { ...toEntry({ ...payload.release, sourceId: payload.release?.sourceId || sourceId }), installed: payload.installed || null }
     },
+    // Every library source, of the add-on, backend and model kinds, shipped
+    // defaults and removed defaults included.
     async listSources(signal) {
-      const payload = await api.dispatch({ operationId: newOperationId(), action: 'catalog-sources' }, signal)
-      return Array.isArray(payload?.sources) ? payload.sources : []
+      return (await api.library.list(signal)).sources
+    },
+    async addSource(source, signal) {
+      return api.library.add(source, signal)
+    },
+    async setSourceEnabled(id, enabled, signal) {
+      return api.library.setEnabled(id, enabled, signal)
+    },
+    async updateSource(id, body, signal) {
+      return api.library.update(id, body, signal)
+    },
+    async removeSource(id, signal) {
+      return api.library.remove(id, signal)
     },
     // The source is sent as the editor built it: a reference, never a secret.
     // `operationId` is the caller's, kept across retries of one save.

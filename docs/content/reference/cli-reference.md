@@ -240,6 +240,22 @@ distinct from the `1` a failure reports.
 | `--p2p-network-id` | | Network ID for P2P mode, can be set arbitrarily by the user for grouping a set of instances | `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID` |
 | `--federated` | `false` | Enable federated instance | `$LOCALAI_FEDERATED`, `$FEDERATED` |
 
+## Library sources
+
+`local-ai library` manages the sources LocalAI reads add-ons, backends and models from. The sources are stored under the data path (`addons/sources.json`), the file the server reads, so the commands work with the server stopped.
+
+| Command | What it does |
+|---------|--------------|
+| `local-ai library list` | List every source with its kind, id, URL, and whether it is enabled, a shipped default, or removed |
+| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery]` | Add a source of your own |
+| `local-ai library remove <id>` | Remove a source. A removed default leaves a tombstone, so it does not come back at the next start |
+| `local-ai library enable <id>` | Turn a source on. This also brings back a removed default |
+| `local-ai library disable <id>` | Turn a source off without removing it |
+
+All `local-ai library` commands accept `--official-libraries` (`LOCALAI_OFFICIAL_LIBRARIES`, default `true`). With `--official-libraries=false` the list shows the shipped default sources as off. The same switch is the runtime setting `official_libraries` and the toggle "Use official libraries" in Settings. See [Library sources](/features/addons/#library-sources).
+
+When two enabled sources list the same entry (same kind and id), your own source wins over a shipped default. If two of your own sources list it, the entry is refused and the message names both sources: disable or remove one of them. The `--galleries` and `--backend-galleries` flags keep working: each gallery they name is added as a source of your own (kind `model` or `backend`, format `gallery`) at startup, unless it is already a source.
+
 ## Other Commands
 
 LocalAI supports several subcommands beyond `run`:

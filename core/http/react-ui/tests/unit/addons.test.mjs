@@ -13,6 +13,8 @@ import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
+import { backendState, libraryOrigin, shortDigest as shortBackendDigest } from '../../src/utils/backendRows.js'
+import { installSteps, STEP_ORDER } from '../../src/components/addons/installSteps.js'
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
 
@@ -143,7 +145,7 @@ test('the api sends one dispatch shape and classifies refusals', async () => {
       const body = init.body ? JSON.parse(init.body) : null
       if (body?.action === 'catalog-search') return json(200, { payload: { releases: [{ id: 'notes', name: 'Notes', version: '1.0.0', sourceId: 'main', os: 'linux', arch: 'amd64', digest: 'sha256:a' }], total: 31 } })
       if (body?.action === 'install') return json(503, { error: { type: 'outcome_unknown', operationId: body.operationId } })
-      if (body?.action === 'catalog-sources') return json(403, { error: { type: 'addon_error', message: 'Addon administration required' } })
+      if (url.endsWith('/api/library/sources')) return json(403, { error: { type: 'authorization_error', message: 'Admin access required' } })
       return json(200, { apps: [{ id: 'notes' }] })
     },
   })
@@ -153,11 +155,12 @@ test('the api sends one dispatch shape and classifies refusals', async () => {
   assert.equal(calls[0].init.method, 'POST')
   assert.equal(calls[0].init.credentials, 'same-origin')
   const sent = JSON.parse(calls[0].init.body)
-  assert.deepEqual(sent.arguments, { text: 'no', sourceId: 'main', offset: 10, limit: 10 })
+  assert.deepEqual(sent.arguments, { text: 'no', kind: 'all', sourceId: 'main', offset: 10, limit: 10 })
   assert.equal(sent.action, 'catalog-search')
   assert.ok(sent.operationId)
   assert.equal(page.total, 31)
   assert.equal(page.entries[0].key, 'main/notes/1.0.0')
+  assert.equal(page.entries[0].kind, 'addon')
   await assert.rejects(adapter.listSources(), e => e instanceof AddonsError && e.kind === 'denied')
   await assert.rejects(
     adapter.submitLifecycle({ operationId: 'op-1', action: 'install', addonId: 'notes', sourceId: 'main', version: '1.0.0' }),
@@ -277,4 +280,118 @@ test('a refusal shows the server reason and falls back to the generic text', () 
   assert.equal(describeError(invalid, t), 'Bad id')
   // Other kinds keep their own words.
   assert.equal(describeError(new AddonsError(classifyResponse(401, { error: { message: 'x' } })), t), 'T:errors.auth')
+})
+
+test('a backend entry keeps its kind and installs through the backend route', async () => {
+  const calls = []
+  const api = createAddonsApi({
+    fetch: async (url, init) => {
+      calls.push({ url, init })
+      const body = init.body ? JSON.parse(init.body) : null
+      if (body?.action === 'catalog-search') return json(200, { payload: { releases: [{ kind: 'backend', addonId: 'cpu-local-store', alias: 'local-store', name: 'cpu-local-store', version: '0.0.0-latest.aaaaaaaaaaaa', sourceId: 'official-backends', os: 'linux', arch: 'amd64', digest: 'sha256:a' }], total: 1 } })
+      if (url === '/backends/library/install') return json(409, { error: { type: 'backend_library', message: 'backend is already installed from another origin: "cpu-local-store"' } })
+      if (url === '/backends') return json(200, [{ Name: 'cpu-local-store', Metadata: { library: 'official-backends' } }, { Name: 'llama-cpp' }])
+      return json(200, {})
+    },
+  })
+  const adapter = createAddonsCatalogAdapter(api, { pageSize: 10 })
+  const page = await adapter.search({})
+  assert.equal(page.entries[0].kind, 'backend')
+  assert.equal(page.entries[0].alias, 'local-store')
+  assert.equal(page.entries[0].key, 'official-backends/cpu-local-store/0.0.0-latest.aaaaaaaaaaaa')
+  assert.deepEqual(await api.backends.installed(), [{ id: 'cpu-local-store', library: 'official-backends', version: '', digest: '' }, { id: 'llama-cpp', library: '', version: '', digest: '' }])
+  await assert.rejects(
+    api.backends.install({ sourceId: 'official-backends', name: 'cpu-local-store', version: 'v' }),
+    e => e instanceof AddonsError && e.kind === 'unavailable' && e.status === 409 && /another origin/.test(e.message),
+  )
+  const sent = JSON.parse(calls.at(-1).init.body)
+  assert.deepEqual(sent, { sourceId: 'official-backends', name: 'cpu-local-store', version: 'v' })
+})
+
+test('a library signer is named exactly or by a pattern, never both', () => {
+  const ok = { id: 'b', name: 'B', url: 'https://library.example/i.yaml', enabled: true, requireSignature: true, issuer: 'i' }
+  assert.equal(validateSourceDraft({ ...ok }).identity, 'required')
+  assert.deepEqual(validateSourceDraft({ ...ok, identityRegex: '^a$' }), {})
+  assert.equal(validateSourceDraft({ ...ok, identity: 'x', identityRegex: '^a$' }).identityRegex, 'either')
+  const wire = draftToSource({ ...ok, identityRegex: ' ^a$ ' })
+  assert.deepEqual(wire.policy, { requireSignature: true, issuer: 'i', identityRegex: '^a$' })
+  assert.equal(sourceToDraft({ policy: { requireSignature: true, issuer: 'i', identityRegex: '^a$' } }).identityRegex, '^a$')
+})
+
+test('a backend install follows its job through the steps and ends with the result', async () => {
+  const phases = ['resolving', 'size', 'fetching', 'writing']
+  let polls = 0
+  const urls = []
+  const api = createAddonsApi({
+    fetch: async (url) => {
+      urls.push(url)
+      if (url === '/backends/library/install') return json(200, { id: 'job-1', status_url: '/backends/jobs/job-1' })
+      if (url === '/backends/jobs/job-1') {
+        const phase = phases[polls++]
+        return json(200, phase ? { phase, processed: false, progress: phase === 'fetching' ? 40 : 0 } : { phase: 'done', processed: true, progress: 100, message: 'completed' })
+      }
+      return json(404, {})
+    },
+  })
+  const seen = []
+  const done = await api.backends.install({ sourceId: 's', name: 'n', version: 'v' }, undefined, { pollMs: 1, onStatus: st => seen.push(st.phase) })
+  assert.deepEqual(seen, ['resolving', 'size', 'fetching', 'writing', 'done'])
+  assert.equal(done.processed, true)
+  assert.equal(urls.filter(u => u === '/backends/library/install').length, 1)
+})
+
+test('a failed backend install job throws the reason and keeps the step that failed', async () => {
+  const api = createAddonsApi({
+    fetch: async (url) => (url === '/backends/library/install'
+      ? json(200, { id: 'j' })
+      : json(200, { phase: 'size', processed: true, error: 'error: image is larger than the size limit' })),
+  })
+  await assert.rejects(
+    api.backends.install({ sourceId: 's', name: 'n', version: 'v' }, undefined, { pollMs: 1 }),
+    e => e instanceof AddonsError && e.kind === 'install' && e.phase === 'size' && e.message === 'image is larger than the size limit',
+  )
+})
+
+test('install steps: left steps are done, the reported one runs, the rest wait', () => {
+  assert.deepEqual(STEP_ORDER, ['resolving', 'verifying', 'size', 'fetching', 'writing'])
+  const states = job => installSteps(job).map(s => `${s.id}:${s.state}`)
+  assert.deepEqual(states(null), STEP_ORDER.map(id => `${id}:pending`))
+  assert.deepEqual(states({ phase: 'size' }), ['resolving:done', 'verifying:done', 'size:active', 'fetching:pending', 'writing:pending'])
+  assert.deepEqual(states({ phase: 'size', processed: true, error: 'x' }), ['resolving:done', 'verifying:done', 'size:failed', 'fetching:pending', 'writing:pending'])
+  assert.deepEqual(states({ phase: 'done', processed: true }), STEP_ORDER.map(id => `${id}:done`))
+  // The fetch step carries the percentage of the image.
+  assert.equal(installSteps({ phase: 'fetching', progress: 41.6 }).find(s => s.id === 'fetching').progress, 42)
+  // A library that needs no signature has no verifying step.
+  assert.deepEqual(installSteps({ phase: 'size' }, { signed: false }).map(s => s.id), ['resolving', 'size', 'fetching', 'writing'])
+})
+
+test('backends page: a library backend shows its library and the digest it pinned', () => {
+  const d = 'sha256:' + 'ab'.repeat(32)
+  assert.deepEqual(libraryOrigin({ Name: 'cpu-demo', Metadata: { library: 'official-backends', digest: d, version: '1' } }), { id: 'official-backends', digest: d, version: '1' })
+  // A gallery backend, a system backend and one without metadata have no library.
+  assert.equal(libraryOrigin({ Name: 'llama-cpp', Metadata: { gallery_url: 'x' } }), null)
+  assert.equal(libraryOrigin({ Name: 'llama-cpp' }), null)
+  assert.equal(shortBackendDigest(d), 'sha256:abababababab')
+  assert.equal(shortBackendDigest(''), '')
+})
+
+test('backends page: a newer build in the library is an update state, and a running job wins over it', () => {
+  const update = { name: 'cpu-demo', installedVersion: '1', version: '2', digest: 'sha256:b' }
+  assert.deepEqual(backendState({ installed: true, libraryUpdate: update }), { kind: 'update', from: '1', to: '', library: true })
+  // Without the update the backend is current; the gallery upgrade keeps its own state.
+  assert.equal(backendState({ installed: true }).kind, 'current')
+  assert.deepEqual(backendState({ installed: true, upgrade: { installed_version: '1', available_version: '3' } }), { kind: 'update', from: '1', to: '3' })
+  assert.equal(backendState({ installed: true, libraryUpdate: update, op: { progress: 10, jobID: 'j' } }).kind, 'installing')
+})
+
+test('the updates route of the host is read as a list and nothing is sent', async () => {
+  const calls = []
+  const api = createAddonsApi({
+    fetch: async (url, init) => {
+      calls.push({ url, method: init.method })
+      return json(200, { updates: [{ name: 'cpu-demo', sourceId: 'p', version: '2', digest: 'sha256:b', signed: true }] })
+    },
+  })
+  assert.deepEqual(await api.backends.updates(), [{ name: 'cpu-demo', sourceId: 'p', version: '2', digest: 'sha256:b', signed: true }])
+  assert.deepEqual(calls, [{ url: '/backends/library/updates', method: 'GET' }])
 })

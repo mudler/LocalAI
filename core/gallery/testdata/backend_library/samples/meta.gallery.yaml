@@ -1,0 +1,30 @@
+- name: llama-cpp
+  alias: llama-cpp
+  license: mit
+  icon: https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png
+  description: |
+    LLM inference in C/C++
+  urls:
+    - https://github.com/ggerganov/llama.cpp
+  tags:
+    - text-to-text
+    - text-to-speech
+    - TTS
+    - LLM
+    - CPU
+    - GPU
+    - Metal
+    - CUDA
+    - HIP
+  capabilities:
+    amd: rocm-llama-cpp
+    default: cpu-llama-cpp
+    intel: intel-sycl-f16-llama-cpp
+    metal: metal-llama-cpp
+    nvidia: cuda12-llama-cpp
+    nvidia-cuda-12: cuda12-llama-cpp
+    nvidia-cuda-13: cuda13-llama-cpp
+    nvidia-l4t: nvidia-l4t-arm64-llama-cpp
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-llama-cpp
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-llama-cpp
+    vulkan: vulkan-llama-cpp

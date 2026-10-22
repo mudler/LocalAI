@@ -17,6 +17,18 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      # The cutover. A tagged build reads the model gallery (localai) by default
+      # until this step runs; from here the tagged build reads the model library
+      # (official-models, gallery/models/index.yaml) and not the gallery.
+      # .goreleaser.yaml passes the value to the binary with -ldflags.
+      - name: Cut the default model source over to the library
+        run: echo "LOCALAI_MODEL_SOURCE=library" >> "$GITHUB_ENV"
+      # The same cutover for the backends: until this step runs, a tagged build
+      # reads the backend gallery (localai-backends, backend/index.yaml, which
+      # is generated from the backend library). From here it reads the backend
+      # library (official-backends, gallery/backends/index.yaml).
+      - name: Cut the default backend source over to the library
+        run: echo "LOCALAI_BACKEND_SOURCE=library" >> "$GITHUB_ENV"
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:

@@ -162,6 +162,10 @@
 .cat-source__title { margin: 0; font-size: var(--dk-text-15); font-weight: var(--dk-weight-bold); overflow-wrap: anywhere; }
 .cat-source__id { font-weight: var(--dk-weight-regular, 400); font-size: var(--dk-text-12); color: var(--dk-muted); }
 .cat-source__url { margin: 2px 0 0; font-size: var(--dk-text-12); color: var(--dk-muted); overflow-wrap: anywhere; word-break: break-all; }
+.cat-source__conflict { display: flex; align-items: flex-start; gap: var(--dk-space-2); margin: var(--dk-space-2) 0 0; font-size: var(--dk-text-13); color: var(--dk-warn-text); overflow-wrap: anywhere; }
+.cat-source__conflict .lai-icon { flex: none; margin-top: 2px; }
+.cat-source[data-state="removed"] .cat-source__title, .cat-source[data-state="removed"] .cat-source__url { text-decoration: line-through; color: var(--dk-muted); }
+.cat-source[data-state="suspended"] .cat-source__title { color: var(--dk-muted); }
 .cat-source__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--dk-space-2); }
 .cat-form { display: flex; flex-direction: column; gap: var(--dk-space-3); }
 .cat-check { display: flex; align-items: center; gap: var(--dk-space-2); font-size: var(--dk-text-13); }
@@ -224,3 +228,12 @@
 .nav-item--sub { padding-inline-start: 2.25rem; }
 @media (max-width: 480px) { .ad-tiles { grid-template-columns: minmax(0, 1fr); } }
 .ad-nav-slot { margin-top: var(--dk-space-4, 16px); }
+
+/* ---- Steps of a backend install ------------------------------------------- */
+
+.ad-steps { list-style: none; margin: var(--dk-space-2, 8px) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--dk-space-1, 4px) var(--dk-space-4, 16px); font-size: var(--dk-text-13); }
+.ad-steps__item { display: inline-flex; align-items: center; gap: 6px; color: var(--dk-muted); }
+.ad-steps__item[data-state="active"] { color: var(--dk-text); font-weight: 600; }
+.ad-steps__item[data-state="done"] { color: var(--dk-ok-text); }
+.ad-steps__item[data-state="failed"] { color: var(--dk-error-text); font-weight: 600; }
+.ad-steps__pct { font-weight: 400; color: var(--dk-muted); }

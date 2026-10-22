@@ -74,6 +74,23 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 		s = newAppsStack()
 	})
 
+	It("lists add-ons by default, and takes a kind that this host reads", func() {
+		s.each(func(name string, e http.Handler) {
+			admin := bearerOf(s.tokens["alice"])
+			addons := send(e, "POST", "/api/addons/dispatch", dispatchBody("kind-addon-"+name, "", "catalog-search", 0, `{"kind":"addon"}`), admin)
+			Expect(addons.code).To(Equal(200), name)
+			Expect(payloadOf(addons)).To(HaveKeyWithValue("total", BeNumerically("==", 2)), name)
+			backends := send(e, "POST", "/api/addons/dispatch", dispatchBody("kind-backend-"+name, "", "catalog-search", 0, `{"kind":"backend"}`), admin)
+			Expect(backends.code).To(Equal(200), name)
+			Expect(payloadOf(backends)).To(HaveKeyWithValue("total", BeNumerically("==", 0)), name)
+			all := send(e, "POST", "/api/addons/dispatch", dispatchBody("kind-all-"+name, "", "catalog-search", 0, `{"kind":"all"}`), admin)
+			Expect(all.code).To(Equal(200), name)
+			Expect(payloadOf(all)).To(HaveKeyWithValue("total", BeNumerically("==", 2)), name)
+			model := send(e, "POST", "/api/addons/dispatch", dispatchBody("kind-model-"+name, "", "catalog-search", 0, `{"kind":"model"}`), admin)
+			Expect(model.code).To(Equal(403), name+": a kind this host does not read is a denied request")
+		})
+	})
+
 	It("serves catalog search, details and the installed management view to administrators only, the same from every frontend", func() {
 		s.each(func(name string, e http.Handler) {
 			admin := bearerOf(s.tokens["alice"])

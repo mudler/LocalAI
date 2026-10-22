@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	httpapi "github.com/mudler/LocalAI/core/http"
+	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/tests/addons/foundation/cluster"
 	"github.com/mudler/xlog"
@@ -49,6 +50,7 @@ func main() {
 	// acceptance cluster (see tests/addons/foundation/cluster).
 	foundationPath := flag.String("foundation", "", "cluster.json of the add-ons foundation fixture; enables authentication and the add-on carrier")
 	foundationRole := flag.String("foundation-role", "", "instance of the foundation cluster: owner, front-a or front-b")
+	librarySources := flag.Bool("library-sources", false, "start like a normal install for the library sources: default galleries and default sources of every kind")
 	flag.Parse()
 
 	if *mockBackend == "" {
@@ -183,6 +185,16 @@ func main() {
 			os.Exit(1)
 		}
 		appOptions = append(appOptions, opts...)
+	}
+	if *librarySources {
+		// The start of a normal install: the shipped default galleries and, in
+		// the store the library routes read, the default sources of the three
+		// kinds. It stays off by default so the other specs never reach for a
+		// remote gallery.
+		appOptions = append(appOptions,
+			config.WithStringGalleries(config.DefaultGalleriesJSON),
+			config.WithBackendGalleries(config.DefaultBackendGalleriesJSON),
+			library.Option(dataDir, true, false, true))
 	}
 	app, err := application.New(appOptions...)
 	if err != nil {

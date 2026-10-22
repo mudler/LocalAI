@@ -76,7 +76,18 @@
     "installedSame": "{{version}} 설치됨",
     "installedState": "설치됨",
     "installing": "설치 중",
-    "search": "라이브러리 검색"
+    "search": "라이브러리 검색",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind"
   },
   "catalog": {
     "allLibraries": "모든 라이브러리",
@@ -156,7 +167,9 @@
       "required": "서명을 요구할 때는 필수입니다.",
       "url": "http 또는 https 주소를 입력하세요.",
       "urlCredentials": "주소에 사용자 이름이나 비밀번호를 넣을 수 없습니다.",
-      "urlQuery": "주소에 쿼리 문자열이나 프래그먼트를 넣을 수 없습니다."
+      "urlQuery": "주소에 쿼리 문자열이나 프래그먼트를 넣을 수 없습니다.",
+      "either": "Use the exact identity or the pattern, not both.",
+      "urlEmpty": "Enter the address of the index."
     },
     "fields": {
       "enabled": "활성화됨",
@@ -166,12 +179,17 @@
       "name": "이름",
       "reference": "자격 증명 참조(선택)",
       "requireSignature": "서명 요구",
-      "url": "카탈로그 URL"
+      "url": "카탈로그 URL",
+      "identityRegex": "Signer identity pattern (optional)",
+      "kind": "Kind",
+      "format": "Index format"
     },
     "hints": {
       "id": "소문자, 숫자, 하이픈. 나중에 변경할 수 없습니다.",
       "reference": "소유자가 구성한 자격 증명의 이름. 토큰이나 비밀번호를 여기에 붙여넣지 마세요.",
-      "url": "자격 증명과 쿼리 문자열이 없는 https 주소."
+      "url": "자격 증명과 쿼리 문자열이 없는 https 주소.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
     },
     "lastRefresh": "{{when}}에 새로 고침, 항목 {{count}}개",
     "lead": "라이브러리는 애드온을 나열하는 카탈로그 문서입니다. 자격 증명은 여기에 입력하지 않습니다. 비공개 라이브러리는 소유자가 구성한 자격 증명을 이름으로 가리킵니다.",
@@ -187,7 +205,43 @@
     "removeTitle": "{{name}}을(를) 제거할까요?",
     "removed": "{{name}}을(를) 제거했습니다.",
     "save": "저장",
-    "saved": "{{name}}을(를) 저장했습니다."
+    "saved": "{{name}}을(를) 저장했습니다.",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
+    "default": "Default",
+    "emptyKindBody": "Add a library of this kind, or pick another filter.",
+    "emptyKindTitle": "No libraries of this kind",
+    "formats": {
+      "library": "Library index",
+      "gallery": "Gallery index"
+    },
+    "gallery": "Gallery index",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend",
+      "model": "Model"
+    },
+    "kindFilter": "Filter by kind",
+    "kinds": {
+      "all": "All",
+      "addon": "Add-ons",
+      "backend": "Backends",
+      "model": "Models"
+    },
+    "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
+    "removeDefaultBody": "This is a default library that comes with LocalAI. It is removed from the list and stays removed at the next start. You can restore it from the list. Installed items are not touched.",
+    "removedDefault": "Removed {{name}}. It stays removed at the next start; restore it to bring it back.",
+    "restore": "Restore",
+    "state": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "removed": "Removed",
+      "suspended": "Off (official libraries are off)"
+    },
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "turnedOff": "Turned off {{name}}.",
+    "turnedOn": "Turned on {{name}}."
   },
   "manage": {
     "api": "애드온 API",

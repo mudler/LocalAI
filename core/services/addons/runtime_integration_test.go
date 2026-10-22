@@ -202,6 +202,9 @@ var _ = Describe("Restart lifecycle cancellation", func() {
 					_ = catalog.WriteIndex(w, []catalog.Release{release})
 				}))
 				DeferCleanup(library.Close)
+				// Two sources of the owner may not list the same add-on, so the
+				// library the fixture started with goes before the new one comes.
+				Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "test", Removed: true})).To(Succeed())
 				Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "upgrade", Name: "Upgrade", URL: library.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
 				_, e = c.Sources.Refresh(ctx, "upgrade")
 				Expect(e).NotTo(HaveOccurred())

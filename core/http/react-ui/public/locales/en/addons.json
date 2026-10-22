@@ -67,7 +67,7 @@
     "details": "Details",
     "detailsLead": "Library entry for {{id}}",
     "emptyBody": "Add a library on the Libraries tab, then refresh it.",
-    "emptyTitle": "No add-ons found",
+    "emptyTitle": "No library entries found",
     "fromLibrary": "from {{library}}",
     "install": "Install",
     "installedDetail": "Version {{version}}, generation {{generation}}",
@@ -76,7 +76,18 @@
     "installedSame": "Installed {{version}}",
     "installedState": "Installed",
     "installing": "Installing",
-    "search": "Search the libraries"
+    "search": "Search the libraries",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind"
   },
   "catalog": {
     "allLibraries": "All libraries",
@@ -143,10 +154,13 @@
   "libraries": {
     "add": "Add a library",
     "addTitle": "Add a library",
+    "default": "Default",
     "disabled": "Disabled",
     "edit": "Edit",
     "editTitle": "Edit {{name}}",
-    "emptyBody": "Add a library to browse and install add-ons.",
+    "emptyBody": "Add a library to browse and install add-ons, backends and models.",
+    "emptyKindBody": "Add a library of this kind, or pick another filter.",
+    "emptyKindTitle": "No libraries of this kind",
     "emptyTitle": "No libraries",
     "enabled": "Enabled",
     "errors": {
@@ -156,7 +170,10 @@
       "required": "Required when a signature is required.",
       "url": "Enter an http or https address.",
       "urlCredentials": "The address must not contain a user name or password.",
-      "urlQuery": "The address must not contain a query string or fragment."
+      "urlQuery": "The address must not contain a query string or fragment.",
+      "either": "Use the exact identity or the pattern, not both.",
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "Enabled",
@@ -166,28 +183,74 @@
       "name": "Name",
       "reference": "Credential reference (optional)",
       "requireSignature": "Require a signature",
-      "url": "Catalog URL"
+      "url": "Catalog URL",
+      "identityRegex": "Signer identity pattern (optional)",
+      "kind": "Kind",
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
+    "formats": {
+      "library": "Library index",
+      "gallery": "Gallery index"
+    },
+    "gallery": "Gallery index",
     "hints": {
       "id": "Lowercase letters, digits and hyphens. It cannot change later.",
       "reference": "The name of a credential the owner configured. Never paste a token or password here.",
-      "url": "An https address without credentials or a query string."
+      "url": "An https address without credentials or a query string.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
+    },
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend",
+      "model": "Model"
+    },
+    "kindFilter": "Filter by kind",
+    "kinds": {
+      "all": "All",
+      "addon": "Add-ons",
+      "backend": "Backends",
+      "model": "Models"
     },
     "lastRefresh": "Refreshed {{when}}, {{count}} entries",
-    "lead": "A library is a catalog document that lists add-ons. Credentials are never typed here: a private library names a credential the owner configured.",
+    "lead": "A library is an index that lists add-ons, backends or models. Credentials are never typed here: a private add-on library names a credential the owner configured.",
     "listLabel": "Libraries",
     "loading": "Loading libraries",
     "notRefreshed": "Not refreshed yet",
+    "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
     "reference": "Credential reference: {{name}}",
     "refresh": "Refresh",
     "refreshFailed": "Last refresh failed",
     "refreshed": "Refreshed {{name}}.",
     "remove": "Remove",
     "removeBody": "The library is removed from this list. Add-ons that were installed from it stay installed and keep running.",
+    "removeDefaultBody": "This is a default library that comes with LocalAI. It is removed from the list and stays removed at the next start. You can restore it from the list. Installed items are not touched.",
     "removeTitle": "Remove {{name}}?",
     "removed": "Removed {{name}}.",
+    "removedDefault": "Removed {{name}}. It stays removed at the next start; restore it to bring it back.",
+    "restore": "Restore",
     "save": "Save",
-    "saved": "Saved {{name}}."
+    "saved": "Saved {{name}}.",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
+    "state": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "removed": "Removed",
+      "suspended": "Off (official libraries are off)"
+    },
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "turnedOff": "Turned off {{name}}.",
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "Add-on API",
@@ -534,5 +597,27 @@
       "network": "The network is not reachable.",
       "unavailable": "The add-on owner is not available. Try again."
     }
+  },
+  "install": {
+    "stepsLabel": "Install steps",
+    "step": {
+      "resolving": "Resolve the library entry",
+      "verifying": "Verify the signature",
+      "size": "Check the image size",
+      "fetching": "Fetch the image",
+      "writing": "Write the metadata"
+    },
+    "state": {
+      "pending": "Waiting",
+      "active": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
   }
 }

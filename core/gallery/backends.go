@@ -383,6 +383,12 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("backend %q: %w", config.Name, optsErr)
 	}
 	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
+	if config.MaxBytes > 0 {
+		downloadOpts = append(downloadOpts, downloader.WithMaxBytes(config.MaxBytes))
+	}
+	if config.Stage != nil {
+		downloadOpts = append(downloadOpts, downloader.WithStageReporter(config.Stage))
+	}
 
 	// PreferDevelopmentBackends installs the development image as the primary URI,
 	// keeping the released image reachable as the first fallback — instead of only
@@ -481,6 +487,10 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("not a valid backend: run file not found %q", stagedRunFile)
 	}
 
+	if config.Stage != nil {
+		config.Stage(StageWriting)
+	}
+
 	// Create metadata for the backend (written into the staged dir so the
 	// atomic swap brings a complete, self-describing backend into place).
 	metadata := &BackendMetadata{
@@ -489,6 +499,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		InstalledAt: time.Now().Format(time.RFC3339),
 		Version:     config.Version,
 		URI:         string(uri),
+		Library:     config.Library,
 	}
 
 	// Record the OCI digest for upgrade detection (non-fatal on failure)

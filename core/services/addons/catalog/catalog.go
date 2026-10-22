@@ -4,6 +4,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"reflect"
 	"runtime"
 	"sort"
 	"strings"
@@ -21,9 +22,13 @@ var (
 )
 
 type VerificationPolicy struct {
-	RequireSignature bool   `json:"requireSignature"`
-	Issuer           string `json:"issuer,omitempty"`
-	Identity         string `json:"identity,omitempty"`
+	RequireSignature bool   `json:"requireSignature" yaml:"requireSignature"`
+	Issuer           string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	Identity         string `json:"identity,omitempty" yaml:"identity,omitempty"`
+	// IdentityRegex is an anchored pattern for the signer identity, used
+	// instead of Identity so that master and tagged builds both verify. Only a
+	// library that serves backends may use it; an add-on install refuses it.
+	IdentityRegex string `json:"identityRegex,omitempty" yaml:"identityRegex,omitempty"`
 }
 
 // EntryUI is optional display metadata a catalog may offer for an entry. It is
@@ -59,31 +64,93 @@ type Requirements struct {
 }
 
 type Release struct {
+	// Kind says what the entry installs: addon (the default when absent),
+	// backend or model. See ReadIndex for how a reader treats a kind it does
+	// not know.
+	Kind              Kind   `json:"kind,omitempty"`
 	Channel           string `json:"channel,omitempty"`
 	AllowLoopbackHTTP bool   `json:"allowLoopbackHTTP,omitempty"`
 	// Selection is stamped by Resolve, not trusted from remote metadata.
 	Selection string `json:"selection,omitempty"`
 	SourceID  string `json:"sourceId,omitempty"`
 	SourceURL string `json:"sourceUrl,omitempty"`
-	// ID is the identifier of the entry. An index written before the shared
-	// envelope names it addonId; DecodeIndex still reads that name (see
-	// LegacyIDField) and every writer emits id.
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description,omitempty"`
-	Version     string             `json:"version"`
-	Artifact    string             `json:"artifact"`
-	Digest      string             `json:"digest"`
-	OS          string             `json:"os"`
-	Arch        string             `json:"arch"`
-	Policy      VerificationPolicy `json:"policy"`
+	// ID is the identifier of the entry for every kind, the same field the
+	// shared envelope uses. For a backend it is the backend name, which is also
+	// its directory name. An index written before the envelope names it
+	// addonId; ReadIndex still reads that name (see LegacyIDField) and every
+	// writer emits id.
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Version     string `json:"version"`
+	// Artifact and Digest are absent on a meta backend, and Digest is absent on
+	// a mutable entry (see Mutable).
+	Artifact string `json:"artifact,omitempty"`
+	Digest   string `json:"digest,omitempty"`
+	// Alias is the name a model may use to ask for this backend. Only a
+	// backend entry may set it.
+	Alias  string             `json:"alias,omitempty"`
+	OS     string             `json:"os,omitempty"`
+	Arch   string             `json:"arch,omitempty"`
+	Policy VerificationPolicy `json:"policy,omitzero"`
 	// UI is the optional display metadata of the entry. It is comparable on
 	// purpose: a release is compared with its trusted resolution at staging.
 	UI EntryUI `json:"ui,omitzero"`
 	// Requires is the optional compatibility hint of the entry.
 	Requires Requirements `json:"requires,omitzero"`
+
+	// The fields below describe a backend and are refused on any other kind.
+	// They carry what the backend gallery carries beyond the image, so the
+	// library can be the source of the gallery (see core/gallery.BackendsFromLibrary).
+
+	// SchemaVersion is the version of the shared envelope the entry is written
+	// in. Absent means 1. A reader refuses a higher one (see SchemaVersion).
+	SchemaVersion int `json:"schemaVersion,omitempty"`
+	// License, URLs and Tags are display metadata, as in the gallery.
+	License string   `json:"license,omitempty"`
+	URLs    []string `json:"urls,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
+	// Icon is the URL of the icon of the backend, shown by the UI. Unlike
+	// ui.icon of an add-on it is not a path in a package. The host never fetches
+	// it: the browser does, under the content security policy of the UI.
+	Icon string `json:"icon,omitempty"`
+	// Mirrors are fallback artifacts, tried in order when the artifact cannot be
+	// fetched. Each is an oci:// image of the same backend.
+	Mirrors []string `json:"mirrors,omitempty"`
+	// Capabilities maps a host capability (default, nvidia, amd, ...) to the id
+	// of the concrete backend that serves it. An entry with capabilities and no
+	// artifact is a meta backend: it installs nothing itself and names the
+	// backend to install for the host.
+	Capabilities map[string]string `json:"capabilities,omitempty"`
+	// Mutable says the artifact is a moving tag, for example a development
+	// image. It has no digest in the library; the install resolves the tag to a
+	// digest, verifies that image and records the digest it installed.
+	Mutable bool `json:"mutable,omitempty"`
 }
+
+// Equal reports whether two releases are the same entry field by field. A
+// release holds lists and a map since backends were added, so == no longer
+// compiles; the add-on staging uses Equal to compare a caller's release with
+// the trusted resolution.
+func (r Release) Equal(o Release) bool { return reflect.DeepEqual(r, o) }
+
+// matchesPlatform reports whether the entry can be installed on the platform.
+// A meta backend has no image, so it belongs to every platform; the concrete
+// backend it names is chosen for the host.
+func (r Release) matchesPlatform(targetOS, targetArch string) bool {
+	return r.IsMeta() || (r.OS == targetOS && r.Arch == targetArch)
+}
+
+// IsMeta reports whether the entry is a meta backend: a backend that names
+// other backends by capability and has no image of its own.
+func (r Release) IsMeta() bool {
+	return r.EntryKind() == KindBackend && r.Artifact == "" && len(r.Capabilities) > 0
+}
+
 type Query struct {
+	// Kind limits the listing. Empty lists add-ons only; "all" lists every
+	// kind this host reads.
+	Kind           Kind
 	Text, SourceID string
 	Offset, Limit  int
 }
@@ -122,7 +189,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	if c.Sources == nil {
 		return Page{}, ErrUnavailable
 	}
-	if q.Offset < 0 || q.Limit < 0 || q.Limit > 100 {
+	if q.Offset < 0 || q.Limit < 0 || q.Limit > 100 || !validQueryKind(q.Kind) {
 		return Page{}, ErrInvalid
 	}
 	if q.Limit == 0 {
@@ -133,8 +200,9 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all := []Release{}
+	own := s.entryOwners()
 	for id, src := range s.sources {
-		if !src.Enabled || (q.SourceID != "" && q.SourceID != id) {
+		if !src.readByCatalog() || (q.SourceID != "" && q.SourceID != id) {
 			continue
 		}
 		cache, ok := s.cache[id]
@@ -145,7 +213,15 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 			return Page{}, ErrRefresh
 		}
 		for _, r := range cache.releases {
-			if r.OS != targetOS || r.Arch != targetArch {
+			if !r.matchesPlatform(targetOS, targetArch) || !q.matchesKind(r) {
+				continue
+			}
+			// A user source wins over a shipped default; a tie between two
+			// user sources is refused, never resolved silently.
+			if err := own[entryKey{r.EntryKind(), r.ID}].check(entryKey{r.EntryKind(), r.ID}, src.Default); err != nil {
+				if errors.Is(err, ErrConflict) {
+					return Page{}, err
+				}
 				continue
 			}
 			if strings.Contains(strings.ToLower(r.Name+" "+r.ID+" "+r.Description), strings.ToLower(q.Text)) {
@@ -161,9 +237,17 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	return p, nil
 }
 func releaseKey(r Release) string {
-	return r.SourceID + "/" + r.ID + "/" + r.Version + "/" + r.OS + "/" + r.Arch
+	return r.SourceID + "/" + string(r.EntryKind()) + "/" + r.ID + "/" + r.Version + "/" + r.OS + "/" + r.Arch
 }
+
+// Resolve finds one add-on release. A backend release is never returned here,
+// so an add-on install cannot be pointed at a backend image.
 func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string) (Release, error) {
+	return c.ResolveKind(ctx, KindAddon, sourceID, addonID, version)
+}
+
+// ResolveKind finds one release of the given kind.
+func (c Catalog) ResolveKind(ctx context.Context, kind Kind, sourceID, addonID, version string) (Release, error) {
 	if e := ctx.Err(); e != nil {
 		return Release{}, e
 	}
@@ -174,7 +258,7 @@ func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	src, ok := s.sources[sourceID]
-	if !ok || !src.Enabled {
+	if !ok || !src.readByCatalog() {
 		return Release{}, ErrUnavailable
 	}
 	cache, ok := s.cache[sourceID]
@@ -184,10 +268,13 @@ func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string)
 	if cache.failed {
 		return Release{}, ErrRefresh
 	}
+	if err := s.entryOwners()[entryKey{kind, addonID}].check(entryKey{kind, addonID}, src.Default); err != nil {
+		return Release{}, err
+	}
 	targetOS, targetArch := c.target()
 	var found *Release
 	for _, r := range cache.releases {
-		if r.ID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {
+		if r.EntryKind() == kind && r.ID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.matchesPlatform(targetOS, targetArch) {
 			if found != nil {
 				return Release{}, ErrInvalid
 			}
@@ -207,6 +294,12 @@ func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string)
 // The update check uses it to tell an entry that exists for another platform
 // from one that does not exist at all. The order is stable.
 func (c Catalog) Releases(ctx context.Context, sourceID, addonID string) ([]Release, error) {
+	return c.KindReleases(ctx, KindAddon, sourceID, addonID)
+}
+
+// KindReleases is Releases for an entry of any one kind. The library check of
+// the installed backends uses it with KindBackend.
+func (c Catalog) KindReleases(ctx context.Context, kind Kind, sourceID, addonID string) ([]Release, error) {
 	if e := ctx.Err(); e != nil {
 		return nil, e
 	}
@@ -217,7 +310,7 @@ func (c Catalog) Releases(ctx context.Context, sourceID, addonID string) ([]Rele
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	src, ok := s.sources[sourceID]
-	if !ok || !src.Enabled {
+	if !ok || !src.readByCatalog() {
 		return nil, ErrUnavailable
 	}
 	cache, ok := s.cache[sourceID]
@@ -229,7 +322,7 @@ func (c Catalog) Releases(ctx context.Context, sourceID, addonID string) ([]Rele
 	}
 	out := []Release{}
 	for _, r := range cache.releases {
-		if r.ID == addonID {
+		if r.EntryKind() == kind && r.ID == addonID {
 			out = append(out, r)
 		}
 	}

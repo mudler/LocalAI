@@ -36,6 +36,16 @@ type AddonConfig struct {
 	// when the owner has no sources.json yet. A sources.json that exists is
 	// never changed by it, so a library the admin removed stays removed.
 	OfficialLibrary bool
+	// OfficialBackendLibrary also registers the backend library on the first
+	// start, under the same rule: a sources.json that exists is never changed,
+	// so a library the admin removed stays removed. It is on by default, but
+	// whether it is enabled depends on the build (core/library.BackendSource):
+	// a build that reads the backend gallery lists the library and leaves it
+	// off.
+	OfficialBackendLibrary bool
+	// BackendMaxBytes bounds the compressed size of one backend image
+	// installed from a library; zero is 8 GiB. Add-ons keep their own limit.
+	BackendMaxBytes int64
 	Host            contract.HostCompatibility
 	AdminCheck      func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
 	// BackupKeep is how many backups of one add-on the owner keeps; zero is
@@ -61,6 +71,10 @@ func WithAddons(c AddonConfig) AppOption {
 }
 
 type ApplicationConfig struct {
+	// OfficialLibraries is the switch for the shipped default library sources
+	// of every kind. On by default; off keeps them listed but unread.
+	OfficialLibraries bool
+
 	Addons AddonConfig `json:"-" yaml:"-"`
 
 	// AddonHostOps maps an add-on ID to the host operation prefixes it may
@@ -353,6 +367,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		UploadLimitMB:             15,
 		Debug:                     true,
 		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
+		OfficialLibraries:         true,
 		ModelPreloadRenderMode:    "dark",
 		// Capture backend process stdout/stderr into the per-model
 		// BackendLogStore by default so the UI "Backend Logs" page works out
@@ -668,6 +683,10 @@ var EnableGalleriesAutoload = func(o *ApplicationConfig) {
 
 var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadBackendGalleries = true
+}
+
+func WithOfficialLibraries(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.OfficialLibraries = v }
 }
 
 func WithAutoUpgradeBackends(v bool) AppOption {

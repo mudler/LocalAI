@@ -76,6 +76,9 @@ loopback carrier with keys that are made at each start and never written to disk
 | `--addons-enabled` | `LOCALAI_ADDONS_ENABLED` | `true` | Runs the addon owner. `--addons-enabled=false` turns it off completely: no owner starts, no addon runs, and every addon request is refused as unavailable. |
 | `--addons-ownership-mode` | `LOCALAI_ADDONS_OWNERSHIP_MODE` | `local-owner` when authentication is off, `named-user` when it is on | `named-user` gives each account its own access. `local-owner` makes every caller share one owner. A value you set always wins over the default. Any other value stops startup with an error. |
 | `--addons-official-library` | `LOCALAI_ADDONS_OFFICIAL_LIBRARY` | `true` | Registers the [official library](#the-official-library) on the first start. `--addons-official-library=false` does not register it. |
+| `--addons-backend-library` | `LOCALAI_ADDONS_BACKEND_LIBRARY` | `true` | Registers the [backend library](#the-backend-library) on the first start, like the official library. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. `--addons-backend-library=false` starts without it and reads the backend gallery on every build. A library you remove stays removed. |
+| `--official-libraries` | `LOCALAI_OFFICIAL_LIBRARIES` | `true` | Use the default library sources of add-ons, backends and models. `--official-libraries=false` leaves them listed but unread. It is also the runtime setting `official_libraries`. See [Library sources](#library-sources). |
+| `--addons-backend-max-bytes` | `LOCALAI_ADDONS_BACKEND_MAX_BYTES` | `8589934592` (8 GiB) | Largest compressed size of a backend image installed from a library. Add-ons keep their own limit of 512 MiB. |
 
 `named-user` needs authentication. With authentication on and no mode set, LocalAI
 uses `named-user`. With authentication off there are no accounts, so LocalAI uses
@@ -106,7 +109,293 @@ The first start writes `sources.json`, and from then on that file is the record 
 your choices. If you remove the `official` library (in the Add-ons page or through the
 source routes), it stays removed, and a `sources.json` you already have is never
 changed. To start without it, set `--addons-official-library=false` before the first
-start. To get it back, add a source with the URL above.
+start. To get it back, add a source with the URL above, or enable it again (see
+[Library sources](#library-sources)).
+
+## Library sources
+
+A library source is a place LocalAI reads entries from. There are three kinds:
+
+| Kind | What it provides | Read by |
+|---|---|---|
+| `addon` | Add-ons, as a library index | The Add-ons catalog |
+| `backend` | Backends, as a library index or a backend gallery index | The Backends page, and the add-on catalog for a library |
+| `model` | Models, as a library index or a model gallery index | The model gallery |
+
+All sources of all kinds are in one store, `addons/sources.json` under the data path.
+`local-ai library` (see the [CLI reference](/reference/cli-reference/#library-sources)), the
+HTTP routes below and the Libraries tab work on the same store with the same code, so
+a change made in one place shows in the others.
+
+A source can be a default: one that LocalAI ships (the official add-on library, the
+model library and gallery index, and the backend library and gallery index). Of the two
+model sources and the two backend sources only one is on by default, the one the build
+reads (see [Which source a build reads]({{% relref "features/backends#which-source-a-build-reads" %}})). A default is marked `default`. If
+you remove a default, LocalAI keeps a record of the removal (a tombstone, `removed:
+true`), so the default does not come back at the next start. Turn the source on again
+to bring it back. A source you added is deleted when you remove it.
+
+### The Libraries tab
+
+The Libraries tab of the Add-ons page lists the sources of all three kinds. Use the kind
+filter to show only add-ons, backends or models. Each source shows its kind, a Default
+badge for a shipped default, and its state: enabled, disabled, removed or, while the
+official libraries are off, off. Administrators can add a source (kind, format, name and
+address), turn a source on or off, and remove it. A removed default stays in the list
+with a Restore button. An add-on source can also be edited, to set its signature policy
+and credential reference, and refreshed. Backend and model sources have no signature
+policy of their own.
+
+### Conflicts
+
+When two libraries list the same entry, LocalAI does not choose silently:
+
+- A source you added wins over a default. The default is ignored for that entry.
+- Two sources you added that list the same entry are a conflict. LocalAI refuses to
+  install or resolve that entry until you turn one of the sources off or remove it.
+
+The list shows the message next to each source that clashes. Only sources that LocalAI
+fetches as a library index can clash, so gallery-format sources never show a conflict.
+
+### Use official libraries
+
+The setting `official_libraries` (default on) switches all default sources of all
+three kinds at once. In the Settings page it is the toggle **Use official libraries**,
+in the group Backends and galleries. On the command line it is
+`--official-libraries` (`LOCALAI_OFFICIAL_LIBRARIES`).
+
+When it is off, LocalAI does not read the default sources. The default add-on library,
+model gallery index and backend gallery index are not used for search, install or
+update checks. They stay in the store, still marked `default`, and the Libraries tab shows
+them as off (`suspended: true` in the routes). Each source keeps its own enabled state, so turning the
+setting back on restores exactly what was there. Sources you added are not affected. The
+change applies at once, with no restart.
+
+### Source routes
+
+The routes are for administrators. A caller who is not an administrator gets `403`, and a
+caller who is not signed in gets `401` when authentication is on. They are not add-on
+routes, so they do not need the add-ons owner to run.
+
+| Method and path | What it does |
+|---|---|
+| `GET /api/library/sources` | List every source of all kinds, tombstones included |
+| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery"}`. `id`, `name` and `format` are optional. The same kind and URL twice, or a taken id, is `409` |
+| `POST /api/library/sources/{id}/enable` | Turn a source on. This also brings back a removed default |
+| `POST /api/library/sources/{id}/disable` | Turn a source off without removing it |
+| `DELETE /api/library/sources/{id}` | Remove a source. A default leaves a tombstone |
+
+The list answers `{"sources": [...], "officialLibraries": true}`. Each source has `kind`,
+`id`, `name`, `url`, `format`, `enabled` (what LocalAI does with it), `default`, `removed`,
+`suspended`, `conflict` (the message, when there is one), `policy` and, for an add-on
+source, `refresh` (the last fetch). A source that does not exist is `404`. Changes to
+model and backend sources apply to the running server. No MCP tool maps to these
+routes.
+
+## Backends in the library
+
+A library lists more than add-ons. Every entry has one schema and an optional `kind`
+field. The kinds are:
+
+| Kind | What the entry installs | State |
+|---|---|---|
+| `addon` | A supervised add-on package. It is the default: an entry without `kind` is an add-on, so every index written before kinds existed stays valid. | Supported |
+| `backend` | A backend image for the backends directory. | Supported. The backend library is the source of the backends. |
+| `model` | A model. | Reserved. No reader installs it yet. |
+
+The backend library (`gallery/backends/index.yaml`) is the source of truth of the
+backends, the way the model library is for the models. The backend gallery
+(`backend/index.yaml`) is a generated copy of it. A tagged build before the cutover reads
+the gallery by default; a build from master reads the library. See
+[The backend library](#the-backend-library). A library entry of kind `backend` can also be
+installed by digest from the Browse tab, as described below.
+
+### How a reader treats an unknown kind
+
+A reader keeps the entries of the kinds it knows and skips every other entry. It does
+not read the fields of a skipped entry, so a newer kind can carry fields this version has
+never seen. The index is not refused. A skipped entry is reported in two places:
+
+- the refresh result and the state of the library have `skipped` (a count) and
+  `skippedKinds`. The Libraries tab shows them;
+- the refresh writes a warning to the log.
+
+A kind that is not a plain lowercase name, or that is not text, is a malformed entry
+and the index is refused. An unknown field on an entry of a known kind is still refused.
+Search lists add-ons unless the caller asks for a kind: `catalog-search` takes an optional
+`kind` argument (`addon`, `backend` or `all`).
+
+### A backend entry
+
+```yaml
+- kind: backend
+  id: cpu-local-store           # the backend name, also its directory name
+  alias: local-store            # optional: the name a model uses
+  name: cpu-local-store
+  description: Local Store is a local-first vector database.
+  license: MIT
+  icon: https://example.com/local-store.png
+  urls:
+    - https://github.com/mudler/LocalAI
+  tags: [vector-database, CPU]
+  version: 0.0.0-latest.0a1056fd8633
+  channel: latest
+  schemaVersion: 1
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-local-store
+  digest: sha256:0a1056fd863328adf9d1097808aa2b52f68c4ca2e5385100a754755b3ca6218f
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-local-store
+  capabilities:
+    default: cpu-local-store
+    metal: metal-local-store
+  os: linux
+  arch: amd64
+```
+
+One entry is one image for one platform, so a backend built for several platforms has
+several entries with the same `id`. The reader is strict: an unknown field on an entry of
+kind `backend` is refused. These fields are for a backend only and an add-on entry that sets
+one is refused:
+
+| Field | What it holds |
+|---|---|
+| `schemaVersion` | The version of the shared entry header. Absent means 1. A host refuses a higher one. |
+| `license`, `urls`, `tags` | Display text, as in the gallery. `urls` are `http` or `https`. |
+| `icon` | The URL of the icon, `https` only. The add-on `ui.icon` stays a path in the package. LocalAI never fetches the icon: the browser loads it. |
+| `mirrors` | Fallback images of the same backend, tried in order. Each is an `oci://` image. The install pins a mirror with the digest of the artifact. |
+| `capabilities` | A map from a host capability (`default`, `nvidia`, `metal`, ...) to the `id` of the concrete backend that serves it. |
+| `mutable` | The artifact is a moving tag, such as a development image. The entry has no `digest`. |
+
+The `digest` is the digest of the image for the platform. The install uses the image by
+digest and never by tag. A backend entry must use an `oci://` artifact. It has no main
+page or `ui.icon`, and only a backend entry can set `alias`. The backend name is a directory
+name: it has no `/` and no `..`.
+
+**Meta backends.** An entry with `capabilities` and no `artifact` is a meta backend, such
+as `llama-cpp`. It has no `digest`, `os`, `arch` or `mirrors`, and it is listed for every
+platform. Installing it installs the backend its capability names for this host, in the
+same library and the same channel, pinned and verified like any other. A meta backend that
+names nothing for the host, or names a backend the library does not have, is refused.
+
+**Development images.** A `master-` image is rebuilt all the time, so the library cannot
+pin it. Its entry keeps the tag, has `channel: development` and `mutable: true`, and has no
+`digest`. The install resolves the tag to a digest, verifies that image, and records the
+digest it installed in `metadata.json`.
+
+### Signer identity pattern
+
+The signature policy belongs to the library, as for add-ons. A backend library can name
+the signer with `identityRegex` instead of an exact `identity`, so images that the merge
+workflow signed on master and on a tag both verify:
+
+```json
+{
+  "requireSignature": true,
+  "issuer": "https://token.actions.githubusercontent.com",
+  "identityRegex": "^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"
+}
+```
+
+Set `identity` or `identityRegex`, not both. The pattern must be one expression that
+starts with `^` and ends with `$`. A pattern with a top-level alternation, such as
+`^a|b$`, is refused, because one branch would match a part of the identity only. An
+add-on install refuses a library policy that has a pattern: add-on libraries name the
+signer exactly.
+
+### Install a backend from a library
+
+An administrator installs a backend from the Browse tab of the Add-ons page. The entry
+shows its kind. The page sends the install to the backend route, not to the add-on
+lifecycle: an add-on stays disabled until you enable it, a backend is ready to use when
+the install ends.
+
+The route is `POST /backends/library/install`. It is for administrators and exists only
+when the add-on owner runs on this instance:
+
+```bash
+curl -X POST http://localhost:8080/backends/library/install \
+  -H 'Content-Type: application/json' \
+  -d '{"sourceId":"official-backends","name":"cpu-local-store","version":"latest"}'
+```
+
+The request names the entry and nothing else. The library resolves the image, the digest
+and the policy, so a request cannot change them. The install:
+
+1. resolves the entry of kind `backend` for this platform;
+2. refuses it when `--require-backend-integrity` is on and the library does not require a
+   signature;
+3. pins the image by digest, verifies the signature before it fetches any layer and refuses
+   an image over the size limit (the layers are summed from the manifest);
+4. installs with the same code as the gallery, so the backend lands in the same directory
+   with the same `metadata.json`, plus `library`, the ID of the library it came from.
+
+The request answers at once with a job, the same kind of job the backend gallery uses:
+`{"id": "...", "status_url": ".../backends/jobs/<id>"}`. Read `GET /backends/jobs/<id>` to
+follow it. The `phase` of the job is the step it is in, in this order: `resolving`,
+`verifying` (only when the library requires a signature), `size`, `fetching` (with
+`progress` and the sizes of the fetch) and `writing`. A job that ends has `processed` set.
+It ends with the phase `done` and `message` `completed`, or with `error` set and the
+`phase` of the step that failed. The Browse tab shows these steps. Refusals that depend on
+the entry arrive this way: an unknown entry, a name installed from another origin (a
+gallery, another library or a manual install; nothing changes), an image over the size
+limit, a library that strict mode refuses. The request itself answers `400` when it does
+not name an entry and `409` when the same backend is already being installed. Installing
+again from the same library is a reinstall.
+
+### Library backends on the Backends page
+
+The Backends page marks a backend that came from a library with the library ID, and the
+detail view shows the digest that `metadata.json` pinned. A backend of a gallery has no
+mark, and the gallery upgrade check and the Update all button are unchanged.
+
+When the cached index of the library lists a different build than the one installed, the
+backend shows "Update available" and an Update button. The check is
+`GET /backends/library/updates`. It reads the index the last refresh cached, so it does
+not use the network, and it installs nothing. The build to compare is the one in the
+channel of the installed version. If the library no longer lists that version and has
+more than one channel, the check says nothing instead of guessing. The Update button
+starts the same install as above, with the same steps, for the version the check names.
+There is no automatic upgrade.
+
+A library install touches only the node that serves the request. In a distributed
+deployment the backend is installed on that node only; the per-node routes of the backend
+gallery are unchanged.
+
+### Size limits
+
+The limit is on the compressed size of the package or image, by kind:
+
+| Kind | Default | Configure |
+|---|---|---|
+| `addon` | 512 MiB | No |
+| `backend` | 8 GiB | `--addons-backend-max-bytes` |
+
+### The backend library
+
+`gallery/backends/index.yaml` is the backend library. It lists every backend of the
+backend gallery: 1088 backends (934 concrete backends and 154 meta backends) in 1240
+entries, because a backend built for several platforms has one entry for each. LocalAI
+registers it on the first start as the source `official-backends`, next to the backend
+gallery `localai-backends`, and a source you remove stays removed. To add it again later,
+use the Libraries tab with this URL and the policy above:
+
+```
+https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/backends/index.yaml
+```
+
+The library is the source of truth. To add or change a backend, change the library; see
+[Backends]({{% relref "features/backends#the-backend-library-and-the-generated-gallery" %}}).
+The digests are never edited by hand. Pin them again after the backend images are rebuilt;
+this is the only command that reads the registry:
+
+```bash
+go run ./scripts/backends/cmd/backendcatalog \
+  --library gallery/backends/index.yaml --repin
+```
+
+A release image that the registry has no image for when the library is rendered is marked
+`mutable` and has no digest, and the command lists it. It installs by its tag until it is
+pinned.
 
 ## Manifest
 
@@ -371,7 +660,8 @@ A catalog (the library index) is one YAML document: a block list of releases wit
     mainPage: databases
 ```
 
-Unknown fields, a second YAML document and duplicate keys are rejected. A JSON
+An entry may carry a `kind` (see [Backends in the library](#backends-in-the-library));
+without it the entry is an add-on. Unknown fields, a second YAML document and duplicate keys are rejected. A JSON
 array is refused too, even though YAML can read it: write the index as a block
 list. An empty library is `[]`. Package manifests (`manifest.json`) stay JSON; only
 the library index is YAML. Source identity and verification policy always
@@ -464,7 +754,8 @@ duplicate paths, file/directory collisions, and a supplied `receipt.json` are
 rejected. OCI layers cannot overwrite earlier paths: packages are flattened
 application bundles, not general-purpose container root filesystems.
 
-Defaults cap compressed downloads and extracted content at 512 MiB and archive
+Defaults cap compressed downloads and extracted content at 512 MiB (a backend image has its own
+[limit](#size-limits)) and archive
 entries at 10,000; owner configuration may set smaller positive limits. Staging
 is private, cancellation-aware, and removed on failure. Existing packages are
 never replaced or deleted. Commit publishes a unique read-only package directory
@@ -1927,7 +2218,7 @@ writes keep the operation identity and outcome-unknown rule of the lifecycle act
 
 | Action | Kind | Arguments | Payload |
 |---|---|---|---|
-| `catalog-search` | read | `text`, `sourceId`, `offset`, `limit` (at most 100) | `{releases, total}`; only releases for the owner's configured target platform are listed, and `total` counts that set |
+| `catalog-search` | read | `text`, `kind` (`addon` by default, `backend` or `all`), `sourceId`, `offset`, `limit` (at most 100) | `{releases, total}`; only releases for the owner's configured target platform are listed, and `total` counts that set |
 | `catalog-details` | read | request `addonId`; `sourceId`, `version` | `{release, installed}`; `installed` is `null` or `{version, generation, enabled}` |
 | `catalog-sources` | read | none | `{sources}`; each source has `refresh` once the owner fetched it |
 | `addons-installed` | read | none | `{addons}`, the installed view below |

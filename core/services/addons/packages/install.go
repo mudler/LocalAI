@@ -48,7 +48,7 @@ func (i *Installer) byteLimit() int64 {
 	if i.MaxBytes > 0 {
 		return i.MaxBytes
 	}
-	return 512 << 20
+	return catalog.DefaultMaxBytes(catalog.KindAddon)
 }
 func (i *Installer) fileLimit() int {
 	if i.MaxFiles > 0 {
@@ -70,7 +70,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	}
 	// Do not accept a caller's substituted artifact, policy, source or digest.
 	r.Selection = selection
-	if r != trusted || r.Digest == "" || r.OS != i.Host.OS || r.Arch != i.Host.Arch {
+	// An add-on library names its signer exactly. A pattern is for backend
+	// sources only, so an add-on install refuses a policy that carries one.
+	if r.Policy.IdentityRegex != "" || r.EntryKind() != catalog.KindAddon {
+		return out, ErrPackage
+	}
+	if !r.Equal(trusted) || r.Digest == "" || r.OS != i.Host.OS || r.Arch != i.Host.Arch {
 		return out, ErrPackage
 	}
 	root, e := filepath.Abs(i.Root)

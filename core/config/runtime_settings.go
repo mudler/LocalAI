@@ -20,6 +20,7 @@ type RuntimeSettings struct {
 	// Backend management
 	SingleBackend             *bool `json:"single_backend,omitempty"`              // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends         *int  `json:"max_active_backends,omitempty"`         // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	OfficialLibraries         *bool `json:"official_libraries,omitempty"`          // Read the shipped default library sources of add-ons, backends and models
 	AutoUpgradeBackends       *bool `json:"auto_upgrade_backends,omitempty"`       // Automatically upgrade backends when new versions are detected
 	AutoUpgradeAddons         *bool `json:"auto_upgrade_addons,omitempty"`         // Automatically upgrade installed add-ons when their library lists a newer version
 	PreferDevelopmentBackends *bool `json:"prefer_development_backends,omitempty"` // Display/download preference; installed alias resolver changes require restart

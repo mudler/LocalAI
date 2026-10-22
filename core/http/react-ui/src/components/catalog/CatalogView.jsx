@@ -6,7 +6,7 @@ import LoadingSpinner from '../LoadingSpinner'
 import CatalogSearchBox from './CatalogSearchBox'
 import CatalogPager from './CatalogPager'
 import CatalogEmpty from './CatalogEmpty'
-import { PAGE_SIZE, normalizeQuery, queryKey, totalPages } from './catalogState'
+import { PAGE_SIZE, normalizeQuery, queryKey, searchableSources, totalPages } from './catalogState'
 import './catalog.css'
 
 // A searchable, paged listing over a resource adapter. It knows nothing about
@@ -45,7 +45,7 @@ export default function CatalogView({ adapter, query, onQueryChange, renderEntry
     if (!adapter.listSources) return undefined
     const ctl = new AbortController()
     adapter.listSources(ctl.signal)
-      .then(list => setSources(list.filter(s => s.enabled)))
+      .then(list => setSources(searchableSources(list)))
       .catch(() => { if (!ctl.signal.aborted) setSources([]) })
     return () => ctl.abort()
   }, [adapter, reloadToken])

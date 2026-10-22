@@ -51,7 +51,7 @@ export async function mockAddons(page, options = {}) {
     installed: options.installed || [installedAddon()],
     sources: options.sources || [{ id: 'main', name: 'Main', url: 'https://catalog.example/releases.json', enabled: true, policy: { requireSignature: false }, refresh: { checkedAt: new Date().toISOString(), lastSuccess: new Date().toISOString(), count: 2, failed: false } }],
     releases: options.releases || [release('notes'), release('tables', { policy: { requireSignature: true, issuer: 'https://issuer.example', identity: 'release@catalog.example' } })],
-    log: { appsList: 0, start: [], stop: [], dispatch: [], check: [], upgrade: [] },
+    log: { appsList: 0, start: [], stop: [], dispatch: [], check: [], upgrade: [], library: [] },
     // Overrides for the update routes: each takes the parsed body.
     check: options.check || null,
     upgrade: options.upgrade || null,
@@ -115,6 +115,37 @@ export async function mockAddons(page, options = {}) {
     const a = state.installed.find(x => x.id === id)
     if (a && a.update) { a.generation += 1; a.version = a.update.version; a.digest = a.update.digest; delete a.update }
     return route.fulfill(ok({ OperationID: body.operationId, AddonID: id, Phase: 'completed', Generation: a?.generation }))
+  })
+  // The library source routes (all three kinds). The records in state.sources
+  // are listed as they are, with the flags the host adds filled in; a removed
+  // default stays listed as a tombstone, as the host does.
+  await page.route(/\/api\/library\/sources(\/[^/]+(\/(enable|disable))?)?$/, route => {
+    const req = route.request()
+    const parts = new URL(req.url()).pathname.split('/')
+    const id = parts[4] || ''
+    const verb = parts[5] || ''
+    const body = req.postData() ? JSON.parse(req.postData()) : null
+    state.log.library.push({ method: req.method(), id, verb, body })
+    const json = (status, payload) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) })
+    const find = () => state.sources.find(x => x.id === id)
+    if (req.method() === 'GET') {
+      return json(200, { sources: state.sources.map(x => ({ kind: 'addon', default: false, removed: false, suspended: false, ...x })), officialLibraries: !state.sources.some(x => x.suspended) })
+    }
+    if (req.method() === 'POST' && !id) {
+      if (state.sources.some(x => x.kind === body.kind && x.url === body.url)) return json(409, { error: { code: 409, message: `${body.url} is already a ${body.kind} source` } })
+      const added = { kind: body.kind, id: body.id || (body.name || body.url).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), name: body.name || body.id, url: body.url, format: body.format === 'gallery' ? 'gallery' : undefined, enabled: true, policy: { requireSignature: false } }
+      state.sources = [...state.sources, added]
+      return json(201, { default: false, removed: false, suspended: false, ...added })
+    }
+    const source = find()
+    if (!source) return json(404, { error: { code: 404, message: `no source with id ${id}` } })
+    if (req.method() === 'POST') {
+      source.enabled = verb === 'enable'
+      if (source.removed) source.removed = false
+      return json(200, { default: false, removed: false, suspended: false, ...source })
+    }
+    if (source.default) { source.removed = true; source.enabled = false } else state.sources = state.sources.filter(x => x.id !== id)
+    return json(200, { id, default: Boolean(source.default), tombstone: Boolean(source.default) })
   })
   await page.route(/\/api\/addons\/dispatch$/, route => {
     const body = JSON.parse(route.request().postData() || '{}')

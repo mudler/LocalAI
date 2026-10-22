@@ -76,7 +76,18 @@
     "installedSame": "Terpasang {{version}}",
     "installedState": "Terpasang",
     "installing": "Memasang",
-    "search": "Cari di pustaka"
+    "search": "Cari di pustaka",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind"
   },
   "catalog": {
     "allLibraries": "Semua pustaka",
@@ -156,7 +167,9 @@
       "required": "Wajib diisi bila tanda tangan diwajibkan.",
       "url": "Masukkan alamat http atau https.",
       "urlCredentials": "Alamat tidak boleh berisi nama pengguna atau kata sandi.",
-      "urlQuery": "Alamat tidak boleh berisi query string atau fragmen."
+      "urlQuery": "Alamat tidak boleh berisi query string atau fragmen.",
+      "either": "Use the exact identity or the pattern, not both.",
+      "urlEmpty": "Enter the address of the index."
     },
     "fields": {
       "enabled": "Aktif",
@@ -166,12 +179,17 @@
       "name": "Nama",
       "reference": "Referensi kredensial (opsional)",
       "requireSignature": "Wajibkan tanda tangan",
-      "url": "URL katalog"
+      "url": "URL katalog",
+      "identityRegex": "Signer identity pattern (optional)",
+      "kind": "Kind",
+      "format": "Index format"
     },
     "hints": {
       "id": "Huruf kecil, angka, dan tanda hubung. Tidak dapat diubah nanti.",
       "reference": "Nama kredensial yang dikonfigurasi pemilik. Jangan pernah menempelkan token atau kata sandi di sini.",
-      "url": "Alamat https tanpa kredensial dan tanpa query string."
+      "url": "Alamat https tanpa kredensial dan tanpa query string.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
     },
     "lastRefresh": "Disegarkan {{when}}, {{count}} entri",
     "lead": "Pustaka adalah dokumen katalog yang mendaftar add-on. Kredensial tidak pernah diketik di sini: pustaka privat menyebut kredensial yang dikonfigurasi pemilik.",
@@ -187,7 +205,43 @@
     "removeTitle": "Hapus {{name}}?",
     "removed": "{{name}} dihapus.",
     "save": "Simpan",
-    "saved": "{{name}} disimpan."
+    "saved": "{{name}} disimpan.",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
+    "default": "Default",
+    "emptyKindBody": "Add a library of this kind, or pick another filter.",
+    "emptyKindTitle": "No libraries of this kind",
+    "formats": {
+      "library": "Library index",
+      "gallery": "Gallery index"
+    },
+    "gallery": "Gallery index",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend",
+      "model": "Model"
+    },
+    "kindFilter": "Filter by kind",
+    "kinds": {
+      "all": "All",
+      "addon": "Add-ons",
+      "backend": "Backends",
+      "model": "Models"
+    },
+    "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
+    "removeDefaultBody": "This is a default library that comes with LocalAI. It is removed from the list and stays removed at the next start. You can restore it from the list. Installed items are not touched.",
+    "removedDefault": "Removed {{name}}. It stays removed at the next start; restore it to bring it back.",
+    "restore": "Restore",
+    "state": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "removed": "Removed",
+      "suspended": "Off (official libraries are off)"
+    },
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "turnedOff": "Turned off {{name}}.",
+    "turnedOn": "Turned on {{name}}."
   },
   "manage": {
     "api": "API add-on",

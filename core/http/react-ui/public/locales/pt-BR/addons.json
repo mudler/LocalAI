@@ -76,7 +76,18 @@
     "installedSame": "Instalado {{version}}",
     "installedState": "Instalado",
     "installing": "Instalando",
-    "search": "Pesquisar nas bibliotecas"
+    "search": "Pesquisar nas bibliotecas",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind"
   },
   "catalog": {
     "allLibraries": "Todas as bibliotecas",
@@ -156,7 +167,9 @@
       "required": "Obrigatório quando uma assinatura é exigida.",
       "url": "Informe um endereço http ou https.",
       "urlCredentials": "O endereço não deve conter nome de usuário nem senha.",
-      "urlQuery": "O endereço não deve conter string de consulta nem fragmento."
+      "urlQuery": "O endereço não deve conter string de consulta nem fragmento.",
+      "either": "Use the exact identity or the pattern, not both.",
+      "urlEmpty": "Enter the address of the index."
     },
     "fields": {
       "enabled": "Habilitada",
@@ -166,12 +179,17 @@
       "name": "Nome",
       "reference": "Referência de credencial (opcional)",
       "requireSignature": "Exigir assinatura",
-      "url": "URL do catálogo"
+      "url": "URL do catálogo",
+      "identityRegex": "Signer identity pattern (optional)",
+      "kind": "Kind",
+      "format": "Index format"
     },
     "hints": {
       "id": "Letras minúsculas, dígitos e hifens. Não pode mudar depois.",
       "reference": "O nome de uma credencial que o proprietário configurou. Nunca cole um token ou senha aqui.",
-      "url": "Um endereço https sem credenciais nem string de consulta."
+      "url": "Um endereço https sem credenciais nem string de consulta.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
     },
     "lastRefresh": "Atualizada {{when}}, {{count}} entradas",
     "lead": "Uma biblioteca é um documento de catálogo que lista complementos. Credenciais nunca são digitadas aqui: uma biblioteca privada indica uma credencial que o proprietário configurou.",
@@ -187,7 +205,43 @@
     "removeTitle": "Remover {{name}}?",
     "removed": "{{name}} removida.",
     "save": "Salvar",
-    "saved": "{{name}} salva."
+    "saved": "{{name}} salva.",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
+    "default": "Default",
+    "emptyKindBody": "Add a library of this kind, or pick another filter.",
+    "emptyKindTitle": "No libraries of this kind",
+    "formats": {
+      "library": "Library index",
+      "gallery": "Gallery index"
+    },
+    "gallery": "Gallery index",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend",
+      "model": "Model"
+    },
+    "kindFilter": "Filter by kind",
+    "kinds": {
+      "all": "All",
+      "addon": "Add-ons",
+      "backend": "Backends",
+      "model": "Models"
+    },
+    "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
+    "removeDefaultBody": "This is a default library that comes with LocalAI. It is removed from the list and stays removed at the next start. You can restore it from the list. Installed items are not touched.",
+    "removedDefault": "Removed {{name}}. It stays removed at the next start; restore it to bring it back.",
+    "restore": "Restore",
+    "state": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "removed": "Removed",
+      "suspended": "Off (official libraries are off)"
+    },
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "turnedOff": "Turned off {{name}}.",
+    "turnedOn": "Turned on {{name}}."
   },
   "manage": {
     "api": "API do complemento",

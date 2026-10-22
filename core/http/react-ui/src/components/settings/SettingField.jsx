@@ -6,6 +6,7 @@ import {
   FIELD_BY_KEY, getValue, setValue, isChanged, hasDefault, groupOf, OLD_SECTIONS,
 } from '../../utils/settingsSchema'
 import { displayValue } from '../../utils/settingsPending'
+import LibrarySourcesField from './LibrarySourcesField'
 
 // What applying the field does, in words. Only a field the code speaks about
 // has a hint (see settingsSchema.js); the others say nothing.
@@ -27,6 +28,9 @@ function coerceInt(field, text) {
 function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
   const value = getValue(field, settings)
   const set = (v) => onChange(setValue(field, settings, v))
+
+  // The library sources are managed on their own page; this is a view.
+  if (field.readOnlySources) return <LibrarySourcesField kind={field.readOnlySources} id={id} />
 
   switch (field.kind) {
     case 'bool':
