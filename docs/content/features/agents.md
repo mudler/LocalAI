@@ -427,7 +427,7 @@ The SSE stream emits the following event types:
 - `json_message` - agent/user messages
 - `json_message_status` - processing status updates (`processing` / `completed`)
 - `status` - system messages (reasoning steps, action results)
-- `json_error` - error notifications
+- `json_error` - error notifications. A chat always ends with either an agent message or a `json_error`: a run that is cancelled, fails, or finishes with an empty reply is reported as `json_error` rather than as a blank agent message
 
 ## Generated Files and Outputs
 
