@@ -33,6 +33,11 @@ import (
 // and document the deprecation in the help text.
 
 type RunCMD struct {
+	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" default:"fine-tuning=finetune.,quantization=quantize." help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
+	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
+	AddonsOwnershipMode       string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
+	AutoUpgradeAddons         bool   `name:"auto-upgrade-addons" env:"LOCALAI_AUTO_UPGRADE_ADDONS" default:"false" help:"Upgrade installed add-ons on their own when a newer version appears in their library. Off by default; upgrades then stay manual" group:"addons"`
+	AddonsOfficialLibrary     bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
 	Pprof                     bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
 	PprofAddress              string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
 	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
@@ -130,6 +135,8 @@ type RunCMD struct {
 	TracingMaxBodyBytes                int      `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
 	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
 	OpenResponsesStoreTTL              string   `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
+
+	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
 	DisableLocalAIAssistant bool `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
@@ -312,7 +319,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if !r.PreloadBackendOnly {
 		defer cancelRun(nil)
 	}
+	hostOps, err := config.ParseAddonHostOps(r.AddonHostOps)
+	if err != nil {
+		cancelRun(nil)
+		return fmt.Errorf("--addon-host-ops: %w", err)
+	}
 	opts := []config.AppOption{
+		config.WithAddonHostOps(hostOps),
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
 		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
@@ -370,7 +383,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithMLXTunnelCallback(func(tunnels []string) {
 			hostfile := filepath.Join(os.TempDir(), "localai_mlx_hostfile.json")
 			data, _ := json.Marshal(tunnels)
-			os.WriteFile(hostfile, data, 0644)
+			if err := os.WriteFile(hostfile, data, 0600); err != nil {
+				xlog.Error("failed to write MLX hostfile", "path", hostfile, "error", err)
+				return
+			}
 			os.Setenv("MLX_DISTRIBUTED_HOSTFILE", hostfile)
 			xlog.Debug("setting MLX_DISTRIBUTED_HOSTFILE", "value", hostfile, "tunnels", tunnels)
 		}),
@@ -588,6 +604,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if r.AgentPoolDefaultModel != "" {
 		opts = append(opts, config.WithAgentPoolDefaultModel(r.AgentPoolDefaultModel))
 	}
+	if r.LegacyNavigation {
+		opts = append(opts, config.WithLegacyNavigation(true))
+	}
 	if r.DisableLocalAIAssistant {
 		opts = append(opts, config.WithDisableLocalAIAssistant(true))
 	}
@@ -642,6 +661,15 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 
 	// Authentication
 	authEnabled := r.AuthEnabled || r.GitHubClientID != "" || r.OIDCClientID != ""
+	addonCfg, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, r.DataPath, authEnabled)
+	if err != nil {
+		cancelRun(nil)
+		return err
+	}
+	if addonCfg.Enabled {
+		addonCfg.OfficialLibrary = r.AddonsOfficialLibrary
+		opts = append(opts, config.WithAddons(addonCfg))
+	}
 	if authEnabled {
 		opts = append(opts, config.WithAuthEnabled(true))
 
@@ -779,6 +807,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 
 	if r.AutoUpgradeBackends {
 		opts = append(opts, config.WithAutoUpgradeBackends(r.AutoUpgradeBackends))
+	}
+
+	if r.AutoUpgradeAddons {
+		opts = append(opts, config.WithAutoUpgradeAddons(r.AutoUpgradeAddons))
 	}
 
 	if r.RequireBackendIntegrity {

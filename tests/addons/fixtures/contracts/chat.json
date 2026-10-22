@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "sample",
+  "version": "1.2.3",
+  "executable": "bin/sample",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {
+    "min": 1,
+    "max": 2
+  },
+  "api": {
+    "min": 1,
+    "max": 1
+  },
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "dataFormat": {
+    "min": 1,
+    "max": 2
+  },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/main.js",
+      "sdk": {
+        "min": 1,
+        "max": 1
+      },
+      "chatActions": [
+        "open"
+      ]
+    }
+  }
+}

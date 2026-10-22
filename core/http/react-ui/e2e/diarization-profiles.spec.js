@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { test, expect } from './coverage-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 const profiles = { version: 1, encoder: { identity: `sha256:${'a'.repeat(64)}`, dimension: 2 }, speakers: [
   { speaker: 9, clean_duration: 0, intervals: [], unavailable_reason: 'insufficient_clean_speech' },
@@ -21,11 +22,13 @@ const file = { name: 'meeting.wav', mimeType: 'audio/wav', buffer: Buffer.alloc(
 async function setup(page, permission = true, diarizationPermission = true) {
   await page.route('**/api/**', route => {
     const url = route.request().url()
-    const data = url.endsWith('/auth/status') ? { authEnabled: true, user: { role: 'user', permissions: { audio_diarization: diarizationPermission, voice_recognition: permission } } }
+    const data = url.endsWith('/auth/status') ? { authEnabled: true, user: { role: 'user', permissions: { addons: true, audio_diarization: diarizationPermission, voice_recognition: permission } } }
       : url.endsWith('/models/capabilities') ? { data: ['diarizer', 'other'].map(id => ({ id, capabilities: ['FLAG_DIARIZATION'] })) } : {}
     return route.fulfill({ json: data })
   })
   await page.route('**/v1/audio/diarization', route => route.fulfill({ json: result }))
+  // Studio is an add-on. Installed after the catch-all above, so its routes win.
+  await installStudioAddons(page, { ids: ['studio'] })
   await page.goto('/app/diarization')
   if (!diarizationPermission) return
   await expect(page.getByRole('button', { name: 'diarizer', exact: true })).toBeVisible()

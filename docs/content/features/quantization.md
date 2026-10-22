@@ -153,6 +153,16 @@ Earlier jobs are listed below the form, with **Reuse** and **Delete** (after a c
 
 A user needs the quantization permission. Without it, the page says the account cannot quantize.
 
+### Quantization is an add-on
+
+The Quantize page is the `quantization` add-on. It does not ship with LocalAI. An administrator installs it from **Browse add-ons** in the drawer and starts it. Once it runs, it opens from the drawer at `/app/addons/quantization/jobs` and can be pinned. The Build hub no longer has a Quantize tab.
+
+The old link `/app/quantize` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
+
+The API does not change. The page calls `/api/quantization/*` with the signed-in user's own session, and the server checks the quantization permission on every call.
+
+The add-on also offers tools to the chat: list jobs, propose a job, read the status of a job, stop a job and import the result as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or import it. A tool never starts, stops or imports anything by itself: it proposes the action and a person confirms it in an approval card. A model given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `quantize.` prefix, and they run with the permissions of the person in the chat.
+
 ## Architecture
 
 Quantization uses the same gRPC backend architecture as fine-tuning:

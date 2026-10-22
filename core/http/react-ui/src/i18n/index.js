@@ -23,8 +23,6 @@ export const NAMESPACES = [
   'auth',
   'home',
   'chat',
-  'talk',
-  'studio',
   'models',
   'agents',
   'skills',
@@ -39,6 +37,7 @@ export const NAMESPACES = [
   'traffic',
   'usage',
   'explorer',
+  'addons',
 ]
 
 i18n

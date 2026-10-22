@@ -140,3 +140,4 @@ formal-verification/out/
 /backend/go/gemxcpp/build-*/
 /backend/go/gemxcpp/package/
 /backend/go/gemxcpp/gemxcpp
+addons/internal/uibuild/test/*/dist

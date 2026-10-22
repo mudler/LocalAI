@@ -49,7 +49,8 @@ test.describe('Chat - PDF attachments', () => {
       mimeType: 'application/pdf',
       buffer: buildPdf('Quarterly revenue grew 42 percent'),
     })
-    await expect(page.locator('.home-file-tag', { hasText: 'report.pdf' })).toBeVisible()
+    // pdf.js and its worker load on first use, so the tag can take a while.
+    await expect(page.locator('.home-file-tag', { hasText: 'report.pdf' })).toBeVisible({ timeout: 10_000 })
 
     await page.getByTestId('chat-input').fill('Summarize')
     await page.getByTestId('chat-send').click()

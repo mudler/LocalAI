@@ -134,7 +134,8 @@ test.describe('Studio composer: keys', () => {
   test('/ focuses the prompt from anywhere on the page', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/studio')
-    await page.locator('h1.page-title').click()
+    // The add-on shell titles the page; click that title, away from every field.
+    await page.locator('h1.page-title').first().click()
     await page.keyboard.press('/')
     await expect(prompt(page)).toBeFocused()
     // Typing a slash in the prompt is a slash, not a jump.
@@ -162,10 +163,10 @@ test.describe('Studio composer: keys', () => {
     await page.goto('/app/studio')
     await prompt(page).focus()
     await page.keyboard.press('Control+Enter')
-    await expect(page).toHaveURL(/\/app\/studio$/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio$/)
     await prompt(page).fill('a brass orrery')
     await page.keyboard.press('Control+Enter')
-    await expect(page).toHaveURL(/\/app\/studio\/images\?/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/images\?/)
   })
 })
 
@@ -222,7 +223,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await page.locator('[data-testid="studio-size"]').selectOption('768x768')
     await page.locator('[data-testid="studio-count"]').selectOption('3')
     await generate(page).click()
-    await expect(page).toHaveURL(/\/app\/studio\/images\?/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/images\?/)
     await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('A brass orrery on a walnut desk')
     await expect(page.locator('[data-testid="ws-size"]').first()).toHaveValue('768x768')
     await expect(page.locator('[data-testid="ws-count"]').first()).toHaveValue('3')
@@ -238,7 +239,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await prompt(page).fill('Waves rolling onto black sand, drone shot')
     await page.locator('[data-testid="studio-size"]').selectOption('1280x720')
     await generate(page).click()
-    await expect(page).toHaveURL(/\/app\/studio\/video\?/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/video\?/)
     await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('Waves rolling onto black sand, drone shot')
     await expect(page.locator('[data-testid="ws-size"]').first()).toHaveValue('1280x720')
     await expect(page.locator('[data-testid="ws-compose"]')).toContainText('wan2.1-t2v-1.3b')
@@ -250,7 +251,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await pickType(page, 'tts')
     await prompt(page).fill('Welcome to the harbour tour.')
     await generate(page).click()
-    await expect(page).toHaveURL(/\/app\/studio\/tts\?/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/tts\?/)
     await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('Welcome to the harbour tour.')
     await expect(page.locator('[data-testid="ws-compose"]')).toContainText('kokoro-82m')
   })
@@ -261,7 +262,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await pickType(page, 'sound')
     await prompt(page).fill('Wind through pines, no music')
     await generate(page).click()
-    await expect(page).toHaveURL(/\/app\/studio\/sound\?/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/sound\?/)
     await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('Wind through pines, no music')
   })
 
@@ -273,7 +274,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await pickType(page, 'threed')
     await pickSource(page, /ceramic bowls/)
     await generate(page).click()
-    await expect(page).toHaveURL(/\/app\/studio\/threed\?.*from=img-bowls.*edge=to-3d/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/threed\?.*from=img-bowls.*edge=to-3d/)
     const note = page.locator('[data-testid="studio-handoff"]')
     await expect(note).toHaveAttribute('data-status', 'ready')
     await expect(note).toContainText('ceramic bowls')
@@ -291,7 +292,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
       await pickType(page, key)
       await pickSource(page, /Welcome to the harbour tour/)
       await generate(page).click()
-      await expect(page).toHaveURL(new RegExp(`/app/studio/${key}\\?.*edge=${edge}`))
+      await expect(page).toHaveURL(new RegExp(`/app/addons/studio/studio/${key}\\?.*edge=${edge}`))
       await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready')
     }
     // The file reached the Diarization form: its run button is enabled.
@@ -328,8 +329,12 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await stubMedia(page)
     await seedHistory(page, sampleHistory())
     await page.route('**/video', route => route.fulfill({ json: { data: [{ url: '/generated-videos/new.mp4' }] } }))
+    // Both addresses below are cold loads of the Studio bundle: the page
+    // shows "Loading" until its module has run. That takes about two seconds
+    // here and over seven on a loaded machine, so the first assertion after
+    // each load gets a longer budget than the default five seconds.
     await page.goto('/app/studio/video?prompt=Slow%20push-in&from=img-forest&edge=animate&model=wan2.1-t2v-1.3b')
-    await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready')
+    await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready', { timeout: 20_000 })
     await page.getByRole('button', { name: /generate/i }).click()
     await expect(page.locator('[data-testid="media-history-item"]').first()).toBeVisible()
     await expect.poll(async () => (await readStore(page, 'localai_video_history'))?.[0]?.parentId).toBe('img-forest')
@@ -338,7 +343,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     expect(saved.prompt).toBe('Slow push-in')
     // And the front page now stacks the forest picture with its clip.
     await page.goto('/app/studio')
-    await expect(page.locator('[data-testid="work-project"][data-id="img-forest"]')).toHaveAttribute('data-count', '2')
+    await expect(page.locator('[data-testid="work-project"][data-id="img-forest"]')).toHaveAttribute('data-count', '2', { timeout: 20_000 })
   })
 
   test('a result made without a hand-off records no link', async ({ page }) => {
@@ -518,7 +523,8 @@ test.describe('Studio composer: layout', () => {
   test('while installed models load there is a skeleton, not a flash of "nothing installed"', async ({ page }) => {
     await mockStudio(page)
     await page.route('**/api/models/capabilities', async route => {
-      await new Promise(r => setTimeout(r, 800))
+      // Long enough that a slow runner still sees the skeleton before it goes.
+      await new Promise(r => setTimeout(r, 3_000))
       route.fulfill({ json: { data: [] } })
     })
     await page.goto('/app/studio')

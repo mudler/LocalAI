@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { mockStudio, stubMedia } from './studio-fixtures.js'
 
 const VOICE_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -21,6 +22,19 @@ function pcmWav(seconds = 2) {
   return buffer
 }
 
+const TTS_MODELS = [
+  { id: 'qwen-base', capabilities: ['FLAG_TTS'], backend: 'qwen3-tts-cpp', voice_cloning: { reference_transcript_required: true, accepted_audio_formats: ['audio/wav'] } },
+  { id: 'piper-default', capabilities: ['FLAG_TTS'], backend: 'piper' },
+]
+
+// The speech page is a page of the Studio add-on: install it, and serve the
+// same models through the capabilities call it reads.
+async function openStudioSpeech(page, query = '') {
+  await mockStudio(page, { capabilityModels: TTS_MODELS })
+  await stubMedia(page)
+  await page.goto(`/app/studio/tts${query}`)
+}
+
 const profile = {
   id: VOICE_ID,
   name: 'Documentary narrator',
@@ -39,10 +53,7 @@ async function mockVoiceAPIs(page) {
   await page.route('**/api/models/capabilities', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ data: [
-      { id: 'qwen-base', capabilities: ['FLAG_TTS'], backend: 'qwen3-tts-cpp', voice_cloning: { reference_transcript_required: true, accepted_audio_formats: ['audio/wav'] } },
-      { id: 'piper-default', capabilities: ['FLAG_TTS'], backend: 'piper' },
-    ] }),
+    body: JSON.stringify({ data: TTS_MODELS }),
   }))
   await page.route('**/api/voice-profiles', async route => {
     if (route.request().method() === 'POST') {
@@ -135,10 +146,7 @@ test.describe('Speech voices', () => {
     const bar = page.locator('.dk-hubtabs')
     await expect(bar).toBeVisible()
     expect((await bar.boundingBox()).width).toBeLessThanOrEqual(390)
-    const voices = bar.locator('[data-hub-tab="voices"]')
-    await voices.scrollIntoViewIfNeeded()
-    await expect(voices).toBeInViewport()
-    await expect(voices).toHaveAttribute('aria-current', 'page')
+    await expect(bar.locator('[data-hub-tab="voices"]')).toHaveCount(0)
     await expect(page.locator('.idn-tabs').getByRole('tab', { name: /Speech voices/ })).toHaveAttribute('aria-current', 'page')
     await expect(page.locator('.hub-subnav')).toHaveCount(0)
   })
@@ -155,7 +163,7 @@ test.describe('Speech voices', () => {
       })
     })
 
-    await page.goto(`/app/tts?voice=${VOICE_ID}`)
+    await openStudioSpeech(page, `?voice=${VOICE_ID}`)
     await expect(page.locator('#tts-voice')).toHaveValue(VOICE_ID)
     await page.getByPlaceholder('Enter text to synthesize...').fill('Hello from the saved voice.')
     await page.getByRole('button', { name: /Generate$/ }).click()
@@ -179,7 +187,7 @@ test.describe('Speech voices', () => {
       })
     })
 
-    await page.goto('/app/tts')
+    await openStudioSpeech(page)
     await page.getByPlaceholder('Enter text to synthesize...').fill('Read this sentence.')
     // Delivery instructions sit in the Advanced fold of the workspace.
     await page.getByRole('button', { name: /^Instructions/ }).click()

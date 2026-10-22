@@ -30,12 +30,7 @@ test.describe('Hub tabs: the right tab for each route', () => {
     ['/app/skills', 'skills'],
     ['/app/collections', 'memory'],
     ['/app/agent-jobs', 'jobs'],
-    ['/app/fine-tune', 'fine-tune'],
-    ['/app/quantize', 'quantize'],
     ['/app/import-model', 'import'],
-    ['/app/voice', 'voices'],
-    ['/app/voice-library', 'voices'],
-    ['/app/face', 'faces'],
   ]
   for (const [path, id] of build) {
     test(`Build: ${path} highlights ${id}`, async ({ page }) => {
@@ -124,7 +119,7 @@ test.describe('Hub tabs: gating', () => {
     await mockFeatures(page, { agents: false, mcp: false, fine_tuning: false, quantization: false, distributed: false })
     await page.goto('/app/build')
     await expect(tab(page, 'overview')).toBeVisible()
-    for (const id of ['agents', 'skills', 'memory', 'jobs', 'fine-tune', 'quantize']) {
+    for (const id of ['agents', 'skills', 'memory', 'jobs']) {
       await expect(tab(page, id)).toHaveCount(0)
     }
     // The overview lists only what the bar lists.
@@ -140,8 +135,9 @@ test.describe('Hub tabs: gating', () => {
     for (const id of ['skills', 'memory', 'jobs', 'import', 'voices', 'faces']) {
       await expect(tab(page, id)).toHaveCount(0)
     }
-    // Fine-tune and quantize are feature flags with no permission for this user.
+    // The Build hub no longer lists fine-tuning or quantization at all.
     await expect(tab(page, 'fine-tune')).toHaveCount(0)
+    await expect(tab(page, 'quantize')).toHaveCount(0)
   })
 
   test('a non-admin user gets no Operate entry in the sidebar', async ({ page }) => {
@@ -198,12 +194,12 @@ test.describe('Hub tabs: phone', () => {
 
   test('scrolling reaches the last tab and keeps it tappable', async ({ page }) => {
     await page.goto('/app/build')
-    const last = tab(page, 'faces')
+    const last = tab(page, 'import')
     await last.scrollIntoViewIfNeeded()
     await expect(last).toBeInViewport()
     await last.click()
-    await expect(page).toHaveURL(/\/app\/face$/)
-    await expect(tab(page, 'faces')).toHaveAttribute('aria-current', 'page')
+    await expect(page).toHaveURL(/\/app\/import-model$/)
+    await expect(tab(page, 'import')).toHaveAttribute('aria-current', 'page')
   })
 
   test('every tab is at least 36px tall', async ({ page }) => {

@@ -214,6 +214,16 @@ Earlier jobs are listed below the form. **Reuse** puts a job's setup back in the
 
 A user needs the fine-tuning permission. Without it, the page says the account cannot fine-tune and who can change that.
 
+### Fine-tuning is an add-on
+
+The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Browse add-ons** in the drawer and starts it. Once it runs, it opens from the drawer at `/app/addons/fine-tuning/jobs` and can be pinned. The Build hub no longer has a Fine-Tune tab.
+
+The old link `/app/fine-tune` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
+
+The API does not change. The page calls `/api/fine-tuning/*` with the signed-in user's own session, and the server checks the fine-tuning permission on every call, so the add-on never widens what a user may do.
+
+The add-on also offers tools to the chat: list jobs, propose a job, store a small dataset, read the status and the checkpoints of a job, stop a job and export a checkpoint as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or export it. A tool never starts, stops or exports anything by itself: it proposes the action and a person confirms it in an approval card. A model or a dataset given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `finetune.` prefix, and they run with the permissions of the person in the chat.
+
 ## Dataset Formats
 
 Datasets should follow standard HuggingFace formats:

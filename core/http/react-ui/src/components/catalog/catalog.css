@@ -1,0 +1,15 @@
+/* Reusable catalog listing: search bar, library chips, list, pager. The page
+   that uses it adds its own entry markup. Tokens only; no fixed colours. */
+
+.cat-view { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
+
+.cat-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-3); }
+.cat-search { flex: 1 1 260px; min-width: 0; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
+
+.cat-count { margin: 0; min-height: 1.2em; font-size: var(--dk-text-13); color: var(--dk-muted); }
+
+.cat-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--dk-edge); }
+.cat-item { border-bottom: 1px solid var(--dk-edge); min-width: 0; }
+
+.cat-pager { display: flex; align-items: center; justify-content: center; gap: var(--dk-space-3); padding: var(--dk-space-2) 0; }

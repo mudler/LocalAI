@@ -5,6 +5,10 @@ weight = 49
 url = "/features/studio/"
 +++
 
+{{% notice note %}}
+Studio is an add-on. It is not part of the web bundle: install it from **Browse add-ons** in the [Add-ons](../addons/#the-studio-add-on) drawer and start it. Once it is usable, it is in the drawer and can be pinned, and it opens at `/app/addons/studio/studio`. The old links (`/app/studio`, `/app/image` and the other generator links) open it there.
+{{% /notice %}}
+
 Studio is the part of the web UI where you make images, video, 3D objects, speech, sound and transformed audio, and find what you made before. It opens on a front page with a prompt box and your own work. Each type still has its own workspace page (Images, Video, 3D, TTS, Sound, Transform, Diarization) where a run happens.
 
 ## Make something

@@ -19,7 +19,8 @@ test.describe('Build landing', () => {
     await page.goto('/app/build')
     const landing = page.getByTestId('build-landing')
     await expect(landing.getByRole('heading', { name: 'Make a model' })).toBeVisible()
-    await expect(landing.getByRole('heading', { name: 'Recognise' })).toBeVisible()
+    // The Recognise group went with the Faces and Voices tabs: those are add-ons now.
+    await expect(landing.getByRole('heading', { name: 'Recognise' })).toHaveCount(0)
     await expect(landing.getByRole('heading', { name: 'Automate' })).toBeVisible()
     await expect(tool(page, 'import')).toContainText('Bring in a model from Hugging Face')
     await expect(tool(page, 'quantize')).toContainText('Make a model smaller')

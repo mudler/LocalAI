@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { composer, pickType } from './studio-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 // Studio overview (src/pages/StudioOverview.jsx).
 //
@@ -26,6 +27,8 @@ const SOME_MODELS = {
 }
 
 async function mockCapabilities(page, payload = SOME_MODELS) {
+  // Studio is an add-on: install the built bundle before the page opens.
+  await installStudioAddons(page, { ids: ['studio'] })
   await page.route('**/api/models/capabilities', route => route.fulfill({ json: payload }))
 }
 
@@ -111,7 +114,7 @@ test.describe('Studio overview', () => {
     await page.route('**/api/auth/status', route => route.fulfill({
       json: {
         authEnabled: true,
-        user: { name: 'someone', role: 'user', permissions: { images: true, video: true, tts: true, sound: true } },
+        user: { name: 'someone', role: 'user', permissions: { addons: true, images: true, video: true, tts: true, sound: true } },
       },
     }))
     await mockCapabilities(page)
@@ -123,6 +126,7 @@ test.describe('Studio overview', () => {
 
   test('asks the capabilities endpoint once, not once per modality', async ({ page }) => {
     let calls = 0
+    await installStudioAddons(page, { ids: ['studio'] })
     await page.route('**/api/models/capabilities', route => {
       calls += 1
       route.fulfill({ json: SOME_MODELS })
@@ -179,7 +183,7 @@ test.describe('Studio overview', () => {
     // and must land on the canonical URL rather than a second spelling of it.
     await mockCapabilities(page)
     await page.goto('/app/studio?tab=images')
-    await expect(page).toHaveURL(/\/app\/studio\/images$/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/images$/)
     await expect(page.locator('[data-testid="studio-workspace"]')).toBeVisible()
   })
 })

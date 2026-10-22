@@ -2,6 +2,7 @@
 // written to the browser storage the Chat page reads, and a completion stream
 // the spec drives by hand.
 import { mockHome, seedChats, CHATS_KEY } from './home-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 export { CHATS_KEY, seedChats }
 
@@ -106,6 +107,8 @@ export const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAA
 // The Talk page's WebRTC, faked: the page connects as it would, and the spec
 // plays the server's events with window.__talk.emit(event).
 export async function fakeRealtime(page, { pipelines = true, micError = null } = {}) {
+  // Talk is an add-on: install the built bundle that draws the page.
+  await installStudioAddons(page, { ids: ['talk'] })
   await page.route('**/api/pipeline-models', route => route.fulfill({
     json: pipelines
       ? [

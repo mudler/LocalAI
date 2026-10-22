@@ -482,6 +482,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Register auth routes (login, callback, API keys, user management)
 	routes.RegisterAuthRoutes(e, application)
+	routes.RegisterAddonRoutes(e, application)
+	if err := routes.RegisterAddonNavigationRoutes(e, application); err != nil {
+		return nil, fmt.Errorf("register the add-on navigation routes: %w", err)
+	}
 
 	// Register routing-module usage endpoints. Unlike /api/auth/usage
 	// these go through the StatsRecorder and work in no-auth single-user
@@ -560,6 +564,22 @@ func API(application *application.Application) (*echo.Echo, error) {
 		quantStore,
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), application, quantizationMw)
+
+	// The add-on host operations reach the same services as the routes. Only the
+	// owner of an add-on host has a broker, so elsewhere this registers nothing.
+	engineBackends := localai.EngineBackends{AppConfig: application.ApplicationConfig(), Capabilities: routes.ClusterCapabilityProviderFor(application), Installed: routes.ClusterInstalledProviderFor(application)}
+	if err := application.RegisterAddonEngineJobs(localai.FineTuneJobs{Svc: ftService}, localai.QuantizationJobs{Svc: qService}, engineBackends); err != nil {
+		return nil, err
+	}
+	if err := application.RegisterAddonEngineProgress(localai.FineTuneProgress{Svc: ftService}, localai.QuantizationProgress{Svc: qService}); err != nil {
+		return nil, err
+	}
+	if err := application.RegisterAddonEngineModels(localai.FineTuneModels{Svc: ftService}, localai.QuantizationModels{Svc: qService}); err != nil {
+		return nil, err
+	}
+	if err := application.RegisterAddonEngineDatasets(localai.NewFineTuneDatasets(ftService)); err != nil {
+		return nil, err
+	}
 
 	// Node management routes (distributed mode)
 	distCfg := application.ApplicationConfig().Distributed

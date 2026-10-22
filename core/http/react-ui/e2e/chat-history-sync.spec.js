@@ -416,8 +416,12 @@ test.describe('Deletes stay pending until the server confirms them', () => {
     ])
     await openMenu(page)
     // Freeze the debounce: assert the cache produced by the delete itself.
-    await page.clock.install()
-    await page.clock.pauseAt(new Date())
+    // The fake clock runs from install on, so a pause at "now" is already in
+    // the past on a slow runner. Pause a little ahead; timers due before the
+    // delete only save the chats that are open, which is harmless.
+    const t0 = Date.now()
+    await page.clock.install({ time: t0 })
+    await page.clock.pauseAt(t0 + 5_000)
     await page.getByRole('button', { name: 'Clear all' }).click()
     await page.getByRole('button', { name: 'Delete all' }).click()
     const stored = await storedChats(page)

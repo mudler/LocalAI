@@ -63,6 +63,7 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 | `--localai-config-dir-poll-interval` | | Time duration to poll the LocalAI Config Dir if your system has broken fsnotify events (example: `1m`) | `$LOCALAI_CONFIG_DIR_POLL_INTERVAL` |
 
 | `--models-config-file` | | YAML file containing a list of model backend configs (alias: `--config-file`) | `$LOCALAI_MODELS_CONFIG_FILE`, `$CONFIG_FILE` |
+| `--addon-host-ops` | `fine-tuning=finetune.,quantization=quantize.` | Add-ons that may call host operations, as a comma list of `addon-id=operation-prefix`. An add-on that is not listed gets no host operation channel; an empty value lists none. See [Host operations]({{% relref "features/addons" %}}) | `$LOCALAI_ADDON_HOST_OPS` |
 | `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only — a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
 
 Backend processes receive a private scratch directory through `TMPDIR`, `TMP`,

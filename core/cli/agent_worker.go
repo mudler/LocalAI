@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
 	"github.com/mudler/LocalAI/core/config"
@@ -474,7 +475,7 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 	cogitoOpts := modelCfg.BuildCogitoOptions()
 	cogitoOpts = append(cogitoOpts,
 		cogito.WithContext(ctx),
-		cogito.WithMCPs(sessions...),
+		mcpJobSessionOption(sessions),
 		cogito.WithStatusCallback(func(status string) {
 			flushStreamBuf()
 			publishJobTrace(events, jobs.ProgressEvent{
@@ -525,6 +526,19 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 	publishJobResult(events, evt.JobID, "completed", result, "")
 	xlog.Info("MCP CI job completed", "jobID", evt.JobID, "resultLen", len(result))
 	return nil
+}
+
+// mcpJobSessionOption hands the job's MCP sessions to the agent library. A
+// job runs without a request principal, so the add-on tool namespace must
+// never be discovered or executed here; the filter is installed next to the
+// sessions so no caller can have one without the other.
+func mcpJobSessionOption(sessions []*mcp.ClientSession) cogito.Option {
+	withSessions := cogito.WithMCPs(sessions...)
+	withFilter := cogito.WithMCPToolFilter(mcpTools.SessionToolFilter())
+	return func(o *cogito.Options) {
+		withSessions(o)
+		withFilter(o)
+	}
 }
 
 func publishJobStatus(events messaging.Publisher, jobID, status, message string) {

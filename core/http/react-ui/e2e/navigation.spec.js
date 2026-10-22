@@ -20,12 +20,25 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('Create stays an inline tier with Chat, Studio and Talk', async ({ page }) => {
+  test('the sidebar has Chat, Models and Apps, no Settings and no Create tier', async ({ page }) => {
     await page.goto('/app')
-    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chat"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/studio"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/talk"]')).toBeVisible()
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
+    for (const href of ['/app/chat', '/app/models', '/app/addons']) {
+      await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`).first()).toBeVisible()
+    }
+    // Settings lives under the Operate hub, not in the sidebar.
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/settings"]')).toHaveCount(0)
+    await page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' }).click()
+    await expect(page).toHaveURL(/\/app\/operate$/)
+    const settingsTab = page.locator('.dk-hubtabs [data-hub-tab="settings"]')
+    await expect(settingsTab).toBeVisible()
+    await settingsTab.click()
+    await expect(page).toHaveURL(/\/app\/settings/)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"]')).toHaveAttribute('aria-current', 'page')
+    // Studio and Talk are add-ons: the sidebar does not list them; they are in the drawer while installed.
+    for (const href of ['/app/studio', '/app/talk']) {
+      await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toHaveCount(0)
+    }
   })
 
   test('Build and Operate sit under a Workspace label', async ({ page }) => {
@@ -59,11 +72,11 @@ test.describe('Navigation', () => {
     await page.goto('/app/agents')
     const bar = page.locator('.dk-hubtabs')
     await expect(bar).toBeVisible()
-    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'fine-tune', 'quantize', 'import', 'voices', 'faces']) {
+    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'import']) {
       await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
     }
-    await expect(bar.locator('a[href="/app/fine-tune"]')).toBeVisible()
-    await expect(bar.locator('a[href="/app/face"]')).toBeVisible()
+    await expect(bar.locator('[data-hub-tab="fine-tune"], [data-hub-tab="quantize"]')).toHaveCount(0)
+    await expect(bar.locator('[data-hub-tab="faces"]')).toHaveCount(0)
     await expect(bar.locator('[data-hub-tab="agents"]')).toHaveAttribute('aria-current', 'page')
   })
 

@@ -41,6 +41,7 @@
     "saved": "Settings saved successfully",
     "saveFailed": "Save failed: {{message}}",
     "loadFailed": "Failed to load settings: {{message}}",
+    "autoUpgradeAddons": "Upgrade add-ons automatically",
     "sections": {
       "branding": "Branding",
       "watchdog": "Watchdog",

@@ -47,6 +47,11 @@ import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
+import { useAddonToolAddons } from '../addons/useAddonRegistry'
+import AddonToolsMenu from '../components/chat/AddonToolsMenu'
+import { enabledAddonIds, toggleAddonSettings, toggleAllAddonSettings } from '../utils/chatAddons'
+// eslint-disable-next-line no-unused-vars
+import AddonSlot from '../addons/AddonSlot'
 import { useOperations } from '../hooks/useOperations'
 import { useLoadedModels } from '../hooks/useLoadedModels'
 import { copyToClipboard } from '../utils/clipboard'
@@ -208,19 +213,27 @@ function ChatPage() {
   const modelFit = useModelFit({ openCount: fitOpenCount, names: modelNames, contextSize: activeChat?.contextSize })
   const onPickerOpen = useCallback(() => setFitOpenCount(n => n + 1), [])
   const hasThread = (activeChat?.history?.length || 0) > 0
+  const toolAddonList = useAddonToolAddons()
+  const hasAddonTools = toolAddonList.length > 0
   const slashConfig = useMemo(() => ({
-    actions: availableChatActions({ isAdmin, hasModels: chatModels.length > 0, hasThread }),
+    actions: availableChatActions({ isAdmin, hasModels: chatModels.length > 0, hasThread, hasAddonTools }),
     groups: CHAT_SLASH_GROUPS,
     label: (a) => t(`slash.${a.id}.label`),
     desc: (a) => t(`slash.${a.id}.desc`),
     groupLabel: (g) => t(`slash.group.${g}`),
-  }), [isAdmin, chatModels.length, hasThread, t])
+  }), [isAdmin, chatModels.length, hasThread, hasAddonTools, t])
 
   // Focus mode: once a conversation has at least one message we slim the
   // surrounding chrome (collapse the global app rail, fade non-essential
   // header items). Esc gives the user back the full chrome for the rest of
   // this session. The settings drawer offers a persistent opt-out.
   const isInConversation = (activeChat?.history?.length || 0) > 0
+  // What the composer slot of add-ons is told: the conversation and whether
+  // sending is blocked. Never the draft or the history.
+  const composerSlotContext = useMemo(
+    () => ({ conversationId: activeChat?.id, disabled: isStreaming }),
+    [activeChat?.id, isStreaming],
+  )
   const [focusOverride, setFocusOverride] = useState(false)
   const [focusModeEnabled, setFocusModeEnabled] = useState(() => {
     try { return localStorage.getItem(FOCUS_MODE_KEY) !== 'false' } catch (_) { return true }
@@ -1137,6 +1150,12 @@ function ChatPage() {
         break
       }
       case 'assistant': updateChatSettings(activeChat.id, { localaiAssistant: !activeChat.localaiAssistant }); break
+      case 'addon-tools': {
+        const settings = toggleAllAddonSettings(activeChat, toolAddonList)
+        updateChatSettings(activeChat.id, settings)
+        addToast(t(settings.addonTools ? 'toasts.addonToolsOn' : 'toasts.addonToolsOff'), 'success', 2500)
+        break
+      }
       case 'canvas': toggleCanvasMode(); break
       case 'settings': setShowSettings(true); break
       case 'find': openFind(); break
@@ -1180,6 +1199,14 @@ function ChatPage() {
           onSettings={() => setShowSettings(v => !v)}
           settingsOpen={showSettings}
           moreItems={moreItems}
+          addonsMenu={(
+            <AddonToolsMenu
+              addons={toolAddonList}
+              enabledIds={enabledAddonIds(activeChat, toolAddonList)}
+              onToggle={(id) => updateChatSettings(activeChat.id, toggleAddonSettings(activeChat, toolAddonList, id))}
+              onToggleAll={() => updateChatSettings(activeChat.id, toggleAllAddonSettings(activeChat, toolAddonList))}
+            />
+          )}
         />
 
         {find.open && (
@@ -1217,6 +1244,7 @@ function ChatPage() {
                 activityItems={row.activity}
                 getClientForTool={row.activity ? getClientForTool : undefined}
                 actions={messageActions}
+                conversationId={activeChat.id}
                 onOpenImage={openImage}
               />
             )))}
@@ -1268,6 +1296,7 @@ function ChatPage() {
               picker={picker}
               mcp={mcp}
               chips={composerChips}
+              extras={<AddonSlot slot="chat.composer.actions" context={composerSlotContext} />}
               files={files}
               onRemoveFile={(f) => setFiles(prev => prev.filter(x => x !== f))}
               onAttach={attachFiles}

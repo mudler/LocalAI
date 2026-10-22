@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "talk",
+  "version": "0.1.0",
+  "executable": "talk",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": { "min": 1, "max": 1 },
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/talk.js",
+      "css": ["ui/talk.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["talk"],
+      "navigation": ["talk"],
+      "mainPage": "talk",
+      "icon": "ui/icon.png",
+      "title": "Talk",
+      "description": "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+    }
+  }
+}

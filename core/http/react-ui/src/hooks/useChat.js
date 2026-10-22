@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useContext } from 'react'
 import { API_CONFIG } from '../utils/config'
 import { apiUrl } from '../utils/basePath'
 import { effectiveSystemPrompt } from '../utils/systemPrompt'
@@ -6,6 +6,10 @@ import { useDebouncedEffect } from './useDebounce'
 import { chatHistoryApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { chatsStorageKey, readChatStore, writeChatStore } from '../utils/chatStore'
+import { storedResult } from '../addons/proposalResult'
+import { chatHeaders } from '../addons/resourceCalls'
+import { RegistryContext } from '../addons/registryContext'
+import { toolAddons, addonRequestMetadata } from '../utils/chatAddons'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
 const openThinkTagRegex = /<thinking>|<think>|<\|channel>thought/
@@ -114,6 +118,8 @@ function serializeChat(chat) {
     mcpResources: chat.mcpResources,
     clientMCPServers: chat.clientMCPServers,
     localaiAssistant: chat.localaiAssistant,
+    addonTools: chat.addonTools,
+    addonToolIds: chat.addonToolIds,
     temperature: chat.temperature,
     topP: chat.topP,
     topK: chat.topK,
@@ -203,6 +209,11 @@ export function useChat(initialModel = '') {
   // hook's lifetime. Without an account there is no server history and the
   // chats stay in the browser only.
   const { user } = useAuth()
+  // The add-ons list decides whether every add-on is on (the boolean form of
+  // the request) or only some (the list form).
+  const registry = useContext(RegistryContext)
+  const registryRef = useRef(registry)
+  registryRef.current = registry
   const accountId = user?.id || ''
   const storageKey = chatsStorageKey(accountId)
   const storedRef = useRef(undefined)
@@ -603,6 +614,13 @@ export function useChat(initialModel = '') {
       requestBody.metadata.localai_assistant = 'true'
     }
 
+    // Add-on tools: the server binds them to the signed-in person. The chat
+    // only opts in; the host decides which tools this person may use.
+    const addonMeta = addonRequestMetadata(activeChat, toolAddons(registryRef.current?.apps))
+    if (Object.keys(addonMeta).length > 0) {
+      requestBody.metadata = { ...(requestBody.metadata || {}), ...addonMeta }
+    }
+
     // Client-side MCP: inject tools into request body
     if (options.clientMCPTools && options.clientMCPTools.length > 0) {
       requestBody.tools = [...(requestBody.tools || []), ...options.clientMCPTools]
@@ -636,7 +654,7 @@ export function useChat(initialModel = '') {
         const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 min timeout
         const response = await fetchWithModelLoadWait(apiUrl(endpoint), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...chatHeaders(activeChat) },
           body: JSON.stringify(requestBody),
           signal: controller.signal,
         }, requestBody.model, setModelLoading, controller.signal)
@@ -782,7 +800,7 @@ export function useChat(initialModel = '') {
         try {
           const response = await fetchWithModelLoadWait(apiUrl(endpoint), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...chatHeaders(activeChat) },
             body: JSON.stringify(loopBody),
             signal: controller.signal,
           }, loopBody.model, setModelLoading, controller.signal)
@@ -829,6 +847,17 @@ export function useChat(initialModel = '') {
                     name: parsed.name || 'tool',
                     result: parsed.result || '',
                   })
+                  // An add-on proposal is kept in the history as its
+                  // reference only. The card loads the record from the host,
+                  // and a stored chat never holds rows or previews.
+                  const kept = storedResult(parsed.name, parsed.result)
+                  if (kept) {
+                    newMessages.push({
+                      role: 'tool_result',
+                      content: JSON.stringify({ type: 'tool_result', name: parsed.name, result: kept }, null, 2),
+                      expanded: false,
+                    })
+                  }
                   setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
                   continue
                 }

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import PageHeader from '../components/PageHeader'
 import Icon from '../components/Icon'
-import { buildHub, isTabVisible, visibleItems } from '../components/hub/hubConfig'
+import { buildHub, buildOverviewTools, isTabVisible, visibleItems } from '../components/hub/hubConfig'
 import { useHubAuth } from '../components/hub/useHubAuth'
 import { fineTuneApi, quantizationApi, resourcesApi } from '../utils/api'
 import { formatBytes } from '../utils/format'
@@ -19,7 +19,7 @@ import '../components/tools/tools.css'
 const GROUPS = [
   { id: 'make', tools: ['import', 'quantize', 'fine-tune'] },
   { id: 'recognise', tools: ['voices', 'faces'] },
-  { id: 'automate', tools: ['agents', 'skills', 'memory', 'jobs'] },
+  { id: 'automate', tools: ['agents', 'skills', 'memory', 'jobs', 'addons'] },
 ]
 const EXPERIMENTAL = new Set(['quantize', 'fine-tune'])
 const CHECKED = new Set(['import', 'quantize', 'fine-tune'])
@@ -39,7 +39,7 @@ export default function BuildOverview() {
   const { t: tn } = useTranslation('nav')
   const auth = useHubAuth()
   const visible = useMemo(
-    () => buildHub.tabs.filter(tab => tab.id !== 'overview' && isTabVisible(tab, auth)),
+    () => [...buildHub.tabs, ...buildOverviewTools].filter(tab => tab.id !== 'overview' && isTabVisible(tab, auth)),
     [auth],
   )
   const ids = useMemo(() => new Set(visible.map(tab => tab.id)), [visible])

@@ -93,6 +93,12 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			funcs, shouldUseFn = convertORToolsToFunctions(input, cfg)
 		}
 
+		// Add-on tools need a per-request actor and the host broker; this
+		// surface does not serve them and says so.
+		if mcpTools.AddonToolsFromMetadata(input.Metadata) {
+			return mcpTools.RejectAddonTools(c)
+		}
+
 		// MCP injection: prompts, resources, and tools
 		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
 		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)
@@ -242,7 +248,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				defer bgCancel()
 
 				// Update status to in_progress
-				store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)
+				_ = store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)
 
 				var finalResponse *schema.ORResponseResource
 				var bgErr error
@@ -258,13 +264,13 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				if bgErr != nil {
 					xlog.Error("Background response failed", "response_id", responseID, "error", bgErr)
 					now := time.Now().Unix()
-					store.UpdateStatus(responseID, schema.ORStatusFailed, &now)
+					_ = store.UpdateStatus(responseID, schema.ORStatusFailed, &now)
 					return
 				}
 
 				// Update final response in store
 				if finalResponse != nil {
-					store.UpdateResponse(responseID, finalResponse)
+					_ = store.UpdateResponse(responseID, finalResponse)
 				}
 			}()
 

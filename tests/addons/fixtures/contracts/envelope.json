@@ -1,0 +1,1 @@
+{"request":{"addonId":"sample","resourceId":"resource-1","operationId":"operation-1","generation":1,"action":"query","arguments":{"limit":1}},"authority":{"actor":{"userId":"user-1","credentialId":"key-1","mode":"named-user"},"scope":"read","expiresAt":"2030-01-01T00:00:00Z"}}
