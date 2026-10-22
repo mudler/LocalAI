@@ -75,7 +75,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if r.Policy.IdentityRegex != "" || r.EntryKind() != catalog.KindAddon {
 		return out, ErrPackage
 	}
-	if r != trusted || r.Digest == "" || r.OS != i.Host.OS || r.Arch != i.Host.Arch {
+	if !r.Equal(trusted) || r.Digest == "" || r.OS != i.Host.OS || r.Arch != i.Host.Arch {
 		return out, ErrPackage
 	}
 	root, e := filepath.Abs(i.Root)

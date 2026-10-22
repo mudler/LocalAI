@@ -520,11 +520,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 	seen := map[string]bool{}
 	for i := range releases {
 		r := &releases[i]
-		u, e := url.Parse(r.Artifact)
-		if e != nil || !validArtifactScheme(u, src.AllowLoopbackHTTP) || u.Host == "" || u.Path == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !validEntryID(*r) || !versionPattern.MatchString(r.Version) || !digestPattern.MatchString(r.Digest) || r.Name == "" || !idPattern.MatchString(r.OS) || !idPattern.MatchString(r.Arch) {
-			return nil, IndexResult{}, ErrRefresh
-		}
-		if r.Channel != "" && (!channelPattern.MatchString(r.Channel) || versionPattern.MatchString(r.Channel)) {
+		if !validFetchedRelease(*r, src.AllowLoopbackHTTP) {
 			return nil, IndexResult{}, ErrRefresh
 		}
 		if !validKindFields(*r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) {
@@ -561,7 +557,15 @@ func validEntryID(r Release) bool {
 // always an OCI image, pinned by digest. Only a backend may set an alias.
 func validKindFields(r Release) bool {
 	if r.EntryKind() != KindBackend {
-		return r.Alias == ""
+		return r.Alias == "" && !r.hasBackendOnlyFields()
+	}
+	if !validBackendFields(r) {
+		return false
+	}
+	if r.IsMeta() {
+		// A meta backend has no image, so it has no UI path or requirements
+		// either; its alias follows the same rule as any backend.
+		return r.UI == (EntryUI{}) && r.Requires == (Requirements{}) && (r.Alias == "" || (backendNamePattern.MatchString(r.Alias) && !strings.Contains(r.Alias, "..")))
 	}
 	if !strings.HasPrefix(r.Artifact, "oci://") || r.UI.MainPage != "" || r.UI.Icon != "" || r.UI.LaunchMode != "" || r.Requires != (Requirements{}) {
 		return false

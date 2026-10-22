@@ -4,6 +4,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"reflect"
 	"runtime"
 	"sort"
 	"strings"
@@ -95,7 +96,55 @@ type Release struct {
 	UI EntryUI `json:"ui,omitzero"`
 	// Requires is the optional compatibility hint of the entry.
 	Requires Requirements `json:"requires,omitzero"`
+
+	// The fields below describe a backend and are refused on any other kind.
+	// They carry what the backend gallery carries beyond the image, so the
+	// library can be the source of the gallery (see core/gallery.BackendsFromLibrary).
+
+	// SchemaVersion is the version of the shared envelope the entry is written
+	// in. Absent means 1. A reader refuses a higher one (see SchemaVersion).
+	SchemaVersion int `json:"schemaVersion,omitempty"`
+	// License, URLs and Tags are display metadata, as in the gallery.
+	License string   `json:"license,omitempty"`
+	URLs    []string `json:"urls,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
+	// Icon is the URL of the icon of the backend, shown by the UI. Unlike
+	// ui.icon of an add-on it is not a path in a package. The host never fetches
+	// it: the browser does, under the content security policy of the UI.
+	Icon string `json:"icon,omitempty"`
+	// Mirrors are fallback artifacts, tried in order when the artifact cannot be
+	// fetched. Each is an oci:// image of the same backend.
+	Mirrors []string `json:"mirrors,omitempty"`
+	// Capabilities maps a host capability (default, nvidia, amd, ...) to the id
+	// of the concrete backend that serves it. An entry with capabilities and no
+	// artifact is a meta backend: it installs nothing itself and names the
+	// backend to install for the host.
+	Capabilities map[string]string `json:"capabilities,omitempty"`
+	// Mutable says the artifact is a moving tag, for example a development
+	// image. It has no digest in the library; the install resolves the tag to a
+	// digest, verifies that image and records the digest it installed.
+	Mutable bool `json:"mutable,omitempty"`
 }
+
+// Equal reports whether two releases are the same entry field by field. A
+// release holds lists and a map since backends were added, so == no longer
+// compiles; the add-on staging uses Equal to compare a caller's release with
+// the trusted resolution.
+func (r Release) Equal(o Release) bool { return reflect.DeepEqual(r, o) }
+
+// matchesPlatform reports whether the entry can be installed on the platform.
+// A meta backend has no image, so it belongs to every platform; the concrete
+// backend it names is chosen for the host.
+func (r Release) matchesPlatform(targetOS, targetArch string) bool {
+	return r.IsMeta() || (r.OS == targetOS && r.Arch == targetArch)
+}
+
+// IsMeta reports whether the entry is a meta backend: a backend that names
+// other backends by capability and has no image of its own.
+func (r Release) IsMeta() bool {
+	return r.EntryKind() == KindBackend && r.Artifact == "" && len(r.Capabilities) > 0
+}
+
 type Query struct {
 	// Kind limits the listing. Empty lists add-ons only; "all" lists every
 	// kind this host reads.
@@ -162,7 +211,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 			return Page{}, ErrRefresh
 		}
 		for _, r := range cache.releases {
-			if r.OS != targetOS || r.Arch != targetArch || !q.matchesKind(r) {
+			if !r.matchesPlatform(targetOS, targetArch) || !q.matchesKind(r) {
 				continue
 			}
 			// A user source wins over a shipped default; a tie between two
@@ -223,7 +272,7 @@ func (c Catalog) ResolveKind(ctx context.Context, kind Kind, sourceID, addonID, 
 	targetOS, targetArch := c.target()
 	var found *Release
 	for _, r := range cache.releases {
-		if r.EntryKind() == kind && r.ID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {
+		if r.EntryKind() == kind && r.ID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.matchesPlatform(targetOS, targetArch) {
 			if found != nil {
 				return Release{}, ErrInvalid
 			}

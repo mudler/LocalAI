@@ -12,9 +12,11 @@ import (
 )
 
 const (
-	// MaxIndexBytes and MaxIndexReleases bound one library index document.
-	MaxIndexBytes    = 1 << 20
-	MaxIndexReleases = 1000
+	// MaxIndexBytes and MaxIndexReleases bound one library index document. The
+	// backend library lists every backend image of every platform, a few
+	// thousand rows, so the bounds are far above what an add-on index needs.
+	MaxIndexBytes    = 8 << 20
+	MaxIndexReleases = 4000
 )
 
 // DecodeIndex reads a library index: one YAML document that is a list of

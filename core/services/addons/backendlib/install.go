@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/system"
 )
 
@@ -36,6 +37,9 @@ var (
 	ErrIntegrity = errors.New("strict integrity: the library does not require a signature")
 	// ErrInvalid is returned for an entry that cannot be installed as given.
 	ErrInvalid = errors.New("invalid backend library entry")
+	// ErrNoCapability is returned when a meta backend has no backend for the
+	// capability of this host.
+	ErrNoCapability = errors.New("the meta backend has no backend for this host")
 )
 
 // Installer installs library backends on the local node.
@@ -52,6 +56,16 @@ type Installer struct {
 	RequireIntegrity bool
 	// install is the gallery install; tests replace it.
 	install func(context.Context, *system.SystemState, *model.ModelLoader, *gallery.GalleryBackend, func(string, string, string, float64), bool) error
+	// lookup resolves an image reference to the manifest digest for a platform.
+	// It pins a mutable entry at install; tests replace it.
+	lookup func(ctx context.Context, image, platform string) (string, error)
+}
+
+func (i *Installer) digestOf(ctx context.Context, image, platform string) (string, error) {
+	if i.lookup != nil {
+		return i.lookup(ctx, image, platform)
+	}
+	return oci.GetImageDigest(image, platform, nil, nil)
 }
 
 func (i *Installer) limit() int64 {
@@ -97,7 +111,15 @@ func (i *Installer) Install(ctx context.Context, sourceID, backend, version stri
 	if err != nil {
 		return err
 	}
-	gb, err := i.plan(r)
+	if r.IsMeta() {
+		// A meta backend installs nothing itself: the host picks the backend
+		// that serves its capability and that one is installed, pinned and
+		// verified like any other.
+		if r, err = i.concrete(ctx, sourceID, r); err != nil {
+			return err
+		}
+	}
+	gb, err := i.plan(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -114,12 +136,37 @@ func (i *Installer) Install(ctx context.Context, sourceID, backend, version stri
 	return install(ctx, i.SystemState, i.ModelLoader, gb, progress.Bytes, i.RequireIntegrity)
 }
 
+// concrete returns the release a meta backend names for this host, in the same
+// library and the same channel.
+func (i *Installer) concrete(ctx context.Context, sourceID string, meta catalog.Release) (catalog.Release, error) {
+	if i.SystemState == nil || meta.Channel == "" {
+		return catalog.Release{}, ErrInvalid
+	}
+	id := meta.Capabilities[i.SystemState.Capability(meta.Capabilities)]
+	if id == "" || id == meta.ID {
+		return catalog.Release{}, fmt.Errorf("%w: %q", ErrNoCapability, meta.ID)
+	}
+	r, err := i.Catalog.ResolveKind(ctx, catalog.KindBackend, sourceID, id, meta.Channel)
+	if err != nil {
+		return catalog.Release{}, fmt.Errorf("meta backend %q names %q: %w", meta.ID, id, err)
+	}
+	if r.IsMeta() {
+		return catalog.Release{}, ErrInvalid
+	}
+	return r, nil
+}
+
 var digestForm = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 
 // plan turns a trusted resolution into the backend the gallery install takes.
 // The image is named by digest, never by tag.
-func (i *Installer) plan(r catalog.Release) (*gallery.GalleryBackend, error) {
-	if r.EntryKind() != catalog.KindBackend || !strings.HasPrefix(r.Artifact, "oci://") || !digestForm.MatchString(r.Digest) {
+//
+// A mutable entry (a development image) has no digest in the library. Its tag
+// is resolved to a digest here, at install, and the install then goes through
+// the same pinned path: the signature is verified against that digest and the
+// metadata records it, so an update check can compare it later.
+func (i *Installer) plan(ctx context.Context, r catalog.Release) (*gallery.GalleryBackend, error) {
+	if r.EntryKind() != catalog.KindBackend || !strings.HasPrefix(r.Artifact, "oci://") || (r.Mutable != (r.Digest == "")) || (!r.Mutable && !digestForm.MatchString(r.Digest)) {
 		return nil, ErrInvalid
 	}
 	target, arch := i.Catalog.Target()
@@ -133,12 +180,30 @@ func (i *Installer) plan(r catalog.Release) (*gallery.GalleryBackend, error) {
 	if err != nil {
 		return nil, ErrInvalid
 	}
+	digest, version := r.Digest, r.Version
+	if r.Mutable {
+		d, err := i.digestOf(ctx, ref.Name(), r.OS+"/"+r.Arch)
+		if err != nil || !digestForm.MatchString(d) {
+			return nil, fmt.Errorf("%w: resolving %s: %v", ErrInvalid, ref.Name(), err)
+		}
+		digest = d
+		version = r.Version + "." + strings.TrimPrefix(d, "sha256:")[:12]
+	}
 	gb := &gallery.GalleryBackend{
-		URI:      "oci://" + ref.Context().Digest(r.Digest).Name(),
-		Version:  r.Version,
+		URI:      "oci://" + ref.Context().Digest(digest).Name(),
+		Version:  version,
 		Alias:    r.Alias,
 		Library:  r.SourceID,
 		MaxBytes: i.limit(),
+	}
+	// A mirror is a copy of the same image in another registry, so the digest
+	// that pins the artifact pins the mirror too.
+	for _, m := range r.Mirrors {
+		mref, err := name.ParseReference(strings.TrimPrefix(m, "oci://"))
+		if err != nil {
+			return nil, ErrInvalid
+		}
+		gb.Mirrors = append(gb.Mirrors, "oci://"+mref.Context().Digest(digest).Name())
 	}
 	gb.Name = r.ID
 	gb.Gallery = config.Gallery{Name: "library:" + r.SourceID, URL: r.SourceURL}

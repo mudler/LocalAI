@@ -98,16 +98,16 @@ var _ = Describe("library index document (YAML)", func() {
 	})
 	It("enforces the release count and the size limit", func() {
 		var many strings.Builder
-		for i := 0; i < 1000; i++ {
+		for i := 0; i < MaxIndexReleases; i++ {
 			many.WriteString(strings.Replace(yamlEntry, "version: 1.0.0", fmt.Sprintf("version: 1.0.%d", i), 1))
 		}
 		r, e, _ := refreshBody(many.String())
 		Expect(e).NotTo(HaveOccurred())
-		Expect(r.Count).To(Equal(1000))
+		Expect(r.Count).To(Equal(MaxIndexReleases))
 		many.WriteString(strings.Replace(yamlEntry, "version: 1.0.0", "version: 2.0.0", 1))
 		_, e, _ = refreshBody(many.String())
 		Expect(e).To(MatchError(ErrRefresh))
-		_, e, _ = refreshBody(yamlEntry + "# " + strings.Repeat("x", 1<<20) + "\n")
+		_, e, _ = refreshBody(yamlEntry + "# " + strings.Repeat("x", MaxIndexBytes) + "\n")
 		Expect(e).To(MatchError(ErrRefresh))
 	})
 })
