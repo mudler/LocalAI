@@ -1009,6 +1009,7 @@ Agent/autonomous agent configuration:
 | `agent.enable_planning` | bool | Enable planning capabilities |
 | `agent.enable_mcp_prompts` | bool | Enable MCP prompts |
 | `agent.enable_plan_re_evaluator` | bool | Enable plan re-evaluation |
+| `agent.max_generation_tokens` | int | Output-token cap for each completion in the agent loop (agent jobs, `/api/agent/jobs`). Bounds a single completion that keeps generating, which `max_iterations` and `loop_detection` do not. A request that already carries a cap keeps it, so a length retry can still raise it. `0` (default) keeps the client default of 16384 |
 
 ## Reasoning Configuration
 
