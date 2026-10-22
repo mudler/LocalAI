@@ -375,7 +375,7 @@ To use a gallery that needs authentication, such as a private GitHub repository 
 
 The model library lists the models in the shared library entry shape. Each entry has the common header (`kind`, `id`, `name`, `version`, `description`, `license`, `urls`, `tags`, `icon`, `channel`, `policy`, `schemaVersion`) and a `model` body with `url`, `backend`, `size`, `files`, `configFile`, `overrides`, `variants` and `promptTemplates`. It is the file `gallery/models/index.yaml`, and it is the source of truth for the models: to add, change or remove a model, edit this file.
 
-The old gallery file, `gallery/index.yaml`, is a generated copy of the library. It stays only so that releases from before the cutover, which read the gallery, keep working. Never edit it by hand; CI fails when it differs from the generated copy.
+The old gallery file, `gallery/index.yaml`, is a generated copy of the library. It stays only so that releases from before the cutover, which read the gallery, keep working. The cutover release switches the default to the library, and the old gallery file is removed in that release. Never edit it by hand; CI fails when it differs from the generated copy.
 
 LocalAI lists the library as a default model source, `official-models`, next to the `localai` gallery, so a standard install has it without a flag. To start without it, remove it; a source you remove stays removed:
 
@@ -383,7 +383,7 @@ LocalAI lists the library as a default model source, `official-models`, next to 
 local-ai library remove official-models
 ```
 
-The gallery named `localai` keeps its own index. A source you add with `local-ai library add` is added to the defaults. If the library cannot be fetched or read, listing the models fails with an error; LocalAI does not fall back to the gallery, so the problem is never silent. Entries of another kind are skipped. The library has no mirrors and no signature policy of its own. The sha256 of each model file is still checked on install.
+The gallery named `localai` keeps its own index. A source you add with `local-ai library add` is added to the defaults. If the library cannot be fetched or read, listing the models fails with an error; LocalAI does not fall back to the gallery, so the problem is never silent. Entries of another kind are skipped. The shipped `official-models` library has no mirrors, and the library has no signature policy of its own. A source you add can list mirrors (see below). The sha256 of each model file is still checked on install.
 
 ### Edit the library, generate the gallery
 
@@ -424,7 +424,7 @@ Each attempt is bounded by a 120 second timeout, and a source that fails — a c
 
 The key is optional: a gallery without `mirrors` behaves exactly as before.
 
-A library source carries the same list. Set it in the **Manage libraries** panel (one address per line, at most 8), with `PUT /api/library/sources/{id}` (`{"mirrors": [...]}`) or with `mirrors` in the body of `POST /api/library/sources`. A source accepts `https://`, `http://`, `github:`, `oci://` and `file://` mirrors, and an add-on source takes none. When a source lists mirrors, they replace the ones a gallery of the same address got from the flags.
+A library source carries the same list. Set it in the **Manage libraries** panel (one address per line, at most 8), with `PUT /api/library/sources/{id}` (`{"mirrors": [...]}`) or with `mirrors` in the body of `POST /api/library/sources`. A source accepts `https://`, `http://`, `github:`, `oci://` and `file://` mirrors, and an add-on source takes none. When a source lists mirrors, they replace the ones a gallery of the same address got from the flags. Clearing a source's mirrors does not change a gallery that is already listed until LocalAI restarts.
 
 ## Offline gallery listings
 
