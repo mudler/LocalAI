@@ -4,6 +4,51 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: flint
+  description: |
+    Recursive Flint
+
+    Blog |
+    Hugging Face |
+    Local engine |
+    Documentation
+
+    Flint is Recursive’s mixture-of-experts language model for coding agents, with 39.8 billion total parameters and approximately 2.5 billion active per token. It is designed to investigate codebases, fix bugs, implement features, and write tests.
+
+    Flint supports text input and output, reasoning, and multi-turn tool use. In our release evaluations, it scores 54.9% on Terminal-Bench 2.1, 89.7% on SWE-bench Pro v2, and 74.2% on SWE-bench Verified.
+
+    This repository contains the BF16 checkpoint, model configuration, tokenizer, chat template, and an SGLang serving kit. Quantized variants are prepared separately for NVIDIA and Apple Silicon runtimes.
+
+    ## Evaluation
+
+    Flint results use temperature 1.0, top-p 0.95, and top-k 20. Terminal-Bench uses Terminus 2; SWE-bench uses mini-swe-agent. Agentic scores report average pass@1 over at least five attempts. † marks scores measured by Recursive; other comparison scores are developer-reported.
+
+    ...
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/unsloth/flint-GGUF
+  tags:
+    - llm
+    - gguf
+  files:
+    - filename: llama-cpp/models/flint-UD-Q6_K_XL/flint-UD-Q6_K_XL.gguf
+      sha256: 086231093581c67f8bf2964f8b49198889c4f0775b39857ba63b4c37041279c2
+      uri: https://huggingface.co/unsloth/flint-GGUF/resolve/main/flint-UD-Q6_K_XL.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/flint-UD-Q6_K_XL/flint-UD-Q6_K_XL.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
