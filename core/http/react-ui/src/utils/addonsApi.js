@@ -216,6 +216,10 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
       add(source, signal) {
         return call('/api/library/sources', { method: 'POST', body: source, signal, classify: classifyLibrary })
       },
+      // Replaces the mirrors of a model or backend source.
+      update(id, body, signal) {
+        return call(`/api/library/sources/${encodeURIComponent(id)}`, { method: 'PUT', body, signal, classify: classifyLibrary })
+      },
       setEnabled(id, enabled, signal) {
         return call(`/api/library/sources/${encodeURIComponent(id)}/${enabled ? 'enable' : 'disable'}`, { method: 'POST', signal, classify: classifyLibrary })
       },
@@ -290,6 +294,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     },
     async setSourceEnabled(id, enabled, signal) {
       return api.library.setEnabled(id, enabled, signal)
+    },
+    async updateSource(id, body, signal) {
+      return api.library.update(id, body, signal)
     },
     async removeSource(id, signal) {
       return api.library.remove(id, signal)

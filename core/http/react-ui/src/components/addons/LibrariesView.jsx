@@ -7,5 +7,5 @@ import { describeError } from './errors'
 // this only supplies the add-ons adapter and the add-ons wording.
 export default function LibrariesView({ adapter }) {
   const { t } = useTranslation('addons')
-  return <SourcesView adapter={adapter} describeError={e => describeError(e, t)} />
+  return <SourcesView kind="addon" adapter={adapter} describeError={e => describeError(e, t)} />
 }

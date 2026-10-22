@@ -137,6 +137,7 @@ export function validateSourceDraft(draft = {}) {
   // address, a query string). The server checks the address for its format.
   if (draft.kind && draft.kind !== 'addon') {
     if (!String(draft.url || '').trim()) errors.url = 'urlEmpty'
+    if (!mirrorsValid(draft.mirrors)) errors.mirrors = 'mirrors'
     return errors
   }
   let url = null
@@ -195,6 +196,7 @@ export function sourceToDraft(source = {}) {
     identityRegex: source.policy?.identityRegex || '',
     authReference: source.authReference || '',
     allowLoopbackHTTP: Boolean(source.allowLoopbackHTTP),
+    mirrors: (source.mirrors || []).join('\n'),
   }
 }
 
@@ -253,5 +255,39 @@ export function draftToLibrarySource(draft) {
   }
   const id = String(draft.id || '').trim()
   if (id) body.id = id
+  const mirrors = mirrorList(draft.mirrors)
+  if (mirrors.length) body.mirrors = mirrors
   return body
+}
+
+// The library a listing row says it comes from: the gallery field of a model
+// or backend row is the library source's name, and a backend installed from a
+// library is named "library:<id>". A row with no such field belongs to no
+// library.
+export function rowInSource(row, source) {
+  if (!source) return true
+  const g = row && row.gallery
+  const name = typeof g === 'string' ? g : g && g.name
+  if (!name) return false
+  return name === source.name || name === source.id || name === `library:${source.id}`
+}
+
+// The rows of one library, or every row when no source is picked.
+export function filterRowsBySource(rows = [], source = null) {
+  return source ? rows.filter(r => rowInSource(r, source)) : rows
+}
+
+// Mirrors are typed one per line. The list drops blank lines and spaces around
+// each address.
+export function mirrorList(text) {
+  return String(text || '').split('\n').map(l => l.trim()).filter(Boolean)
+}
+
+export const MAX_MIRRORS = 8
+const MIRROR_FORM = /^(https?:\/\/|github:|oci:\/\/|file:\/\/)\S+$/i
+
+// The server checks the same forms; this only saves a round trip.
+export function mirrorsValid(text) {
+  const list = mirrorList(text)
+  return list.length <= MAX_MIRRORS && list.every(m => MIRROR_FORM.test(m))
 }

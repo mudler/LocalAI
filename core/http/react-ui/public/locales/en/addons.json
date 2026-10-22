@@ -172,7 +172,8 @@
       "urlCredentials": "The address must not contain a user name or password.",
       "urlQuery": "The address must not contain a query string or fragment.",
       "either": "Use the exact identity or the pattern, not both.",
-      "urlEmpty": "Enter the address of the index."
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "Enabled",
@@ -185,7 +186,8 @@
       "url": "Catalog URL",
       "identityRegex": "Signer identity pattern (optional)",
       "kind": "Kind",
-      "format": "Index format"
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
     "formats": {
       "library": "Library index",
@@ -197,7 +199,8 @@
       "reference": "The name of a credential the owner configured. Never paste a token or password here.",
       "url": "An https address without credentials or a query string.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
-      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "kind": {
       "addon": "Add-on",
@@ -241,7 +244,13 @@
     "turnOff": "Turn off",
     "turnOn": "Turn on",
     "turnedOff": "Turned off {{name}}.",
-    "turnedOn": "Turned on {{name}}."
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "Add-on API",
@@ -604,5 +613,11 @@
       "done": "Done",
       "failed": "Failed"
     }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
   }
 }

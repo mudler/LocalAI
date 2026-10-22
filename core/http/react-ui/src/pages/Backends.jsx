@@ -1,4 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import KindLibraries from '../components/catalog/KindLibraries'
+import { rowInSource } from '../components/catalog/catalogState'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -84,6 +86,7 @@ export default function Backends() {
   const [manualError, setManualError] = useState('')
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [allBackends, setAllBackends] = useState([])
+  const [librarySource, setLibrarySource] = useState(null)
   const [installed, setInstalled] = useState([])
   const [inventories, setInventories] = useState({})
   const [nodeErrors, setNodeErrors] = useState({})
@@ -658,6 +661,7 @@ export default function Backends() {
     // all" is on. Standalone backends stay visible.
     if (!showAll) result = result.filter(b => b.isMeta || !b.isAlias)
     if (!showDevelopment) result = result.filter(b => !b.isDevelopment)
+    if (librarySource) result = result.filter(b => rowInSource(b, librarySource))
     if (catalogFilter) {
       const f = catalogFilter.toLowerCase()
       result = result.filter(b => {
@@ -666,7 +670,7 @@ export default function Backends() {
       })
     }
     return result
-  }, [allBackends, showAll, showDevelopment, catalogFilter])
+  }, [allBackends, showAll, showDevelopment, catalogFilter, librarySource])
   const totalPages = Math.max(1, Math.ceil(catalogList.length / ITEMS_PER_PAGE))
   const catalogPage = catalogList.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
@@ -834,6 +838,9 @@ export default function Backends() {
     const f = flagsFor(b)
     if (f.variant && !showAll) return false
     if (f.development && !showDevelopment) return false
+    // A library backend pins the library id; any other falls back to the
+    // gallery name its catalog row carries.
+    if (librarySource && libraryOrigin(b)?.id !== librarySource.id && !rowInSource(catalogByName.get(b.Name), librarySource)) return false
     return true
   })
   const hiddenVariants = showAll ? 0 : installed.filter(b => flagsFor(b).variant).length
@@ -975,6 +982,8 @@ export default function Backends() {
   return (
     <div className="page page--wide op-page op-runtime" data-testid="backends">
       <h1 className="dk-sr-only">{t('backends.title')}</h1>
+
+      <KindLibraries kind="backend" onSelect={setLibrarySource} />
 
       <div className="bk-bar">
         <div className="dk-segmented" role="group" aria-label={t('backends.lifecycle')}>
@@ -1137,7 +1146,7 @@ export default function Backends() {
             <Link className="dk-btn dk-btn--primary" to={hrefForView('catalog')}>{t('backends.openCatalog')}</Link>
           </CatalogEmpty>
         ) : installedRows.length === 0 ? (
-          <CatalogEmpty icon="filter" text={t('backends.noMatches')}>
+          <CatalogEmpty icon="filter" text={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : t('backends.noMatches')}>
             <button
               type="button"
               className="dk-btn dk-btn--ghost"
@@ -1161,7 +1170,7 @@ export default function Backends() {
           />
         )
       ) : catalogRows.length === 0 ? (
-        <CatalogEmpty icon="server" title={t('backends.noneFound')} text={search || catalogFilter ? t('backends.noneFoundFiltered') : t('backends.noneFoundBody')} />
+        <CatalogEmpty icon="server" title={t('backends.noneFound')} text={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : search || catalogFilter ? t('backends.noneFoundFiltered') : t('backends.noneFoundBody')} />
       ) : (
         <>
           <BackendsTable

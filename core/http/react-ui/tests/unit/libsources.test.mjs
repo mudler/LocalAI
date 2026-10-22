@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   SOURCE_KINDS, canRefresh, countByKind, draftToLibrarySource, filterSources, searchableSources,
-  sourceKind, sourceState, sourceToDraft, validateSourceDraft,
+  sourceKind, sourceState, mirrorList, mirrorsValid, sourceToDraft, validateSourceDraft,
 } from '../../src/components/catalog/catalogState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError, classifyLibrary } from '../../src/utils/addonsApi.js'
 
@@ -90,4 +90,51 @@ test('the library routes carry the kind, the toggle and the removal, and refusal
   assert.equal(calls.at(-1).method, 'DELETE')
   assert.equal(classifyLibrary(409, null).kind, 'invalid')
   assert.equal(classifyLibrary(403, null).kind, 'denied')
+})
+
+test('a page of one kind lists only its own sources, and an add-ons list has no model or backend source', () => {
+  for (const kind of ['model', 'backend', 'addon']) {
+    const shown = filterSources(SOURCES, kind)
+    assert.ok(shown.length > 0)
+    assert.ok(shown.every(s => sourceKind(s) === kind), `${kind} page shows only ${kind} sources`)
+  }
+  assert.deepEqual(filterSources(SOURCES, 'addon').map(s => s.id), ['official', 'mine', 'legacy'])
+  assert.deepEqual(filterSources(SOURCES, 'model').map(s => s.id), ['localai', 'team'])
+})
+
+test('a library chip keeps only the rows of that library, and All keeps every row', async () => {
+  const { filterRowsBySource, rowInSource } = await import('../../src/components/catalog/catalogState.js')
+  const rows = [
+    { name: 'a', gallery: 'Official models' },
+    { name: 'b', gallery: 'Team' },
+    { name: 'c', gallery: { name: 'Team' } },
+    { name: 'd', gallery: 'library:team-id' },
+    { name: 'e' },
+  ]
+  assert.equal(filterRowsBySource(rows, null).length, 5)
+  assert.deepEqual(filterRowsBySource(rows, { id: 'team-id', name: 'Team' }).map(r => r.name), ['b', 'c', 'd'])
+  assert.deepEqual(filterRowsBySource(rows, { id: 'none', name: 'Nobody' }), [])
+  assert.equal(rowInSource(undefined, { id: 'x', name: 'X' }), false)
+  assert.deepEqual(filterRowsBySource(undefined, null), [])
+})
+
+test('the gallery settings are read-only views of the library sources', async () => {
+  const { FIELD_BY_KEY } = await import('../../src/utils/settingsSchema.js')
+  assert.equal(FIELD_BY_KEY.galleries.readOnlySources, 'model')
+  assert.equal(FIELD_BY_KEY.backend_galleries.readOnlySources, 'backend')
+  assert.equal(FIELD_BY_KEY.galleries.group, 'backends')
+})
+
+test('mirrors are typed one per line, travel with a new source and are checked before the request', () => {
+  assert.deepEqual(mirrorList(' https://a.example/i.yaml \n\n github:o/r/i.yaml@main\n'), ['https://a.example/i.yaml', 'github:o/r/i.yaml@main'])
+  assert.equal(mirrorsValid(''), true)
+  assert.equal(mirrorsValid('oci://r.example/x\nfile:///srv/i.yaml'), true)
+  assert.equal(mirrorsValid('ftp://x.example/i.yaml'), false)
+  assert.equal(mirrorsValid('https://a b'), false)
+  assert.equal(mirrorsValid(Array.from({ length: 9 }, (_, i) => `https://m${i}.example/i.yaml`).join('\n')), false)
+  const base = { kind: 'model', format: 'gallery', id: 'team', name: 'Team', url: 'https://t.example/i.yaml' }
+  assert.deepEqual(draftToLibrarySource({ ...base, mirrors: 'https://m.example/i.yaml' }).mirrors, ['https://m.example/i.yaml'])
+  assert.equal('mirrors' in draftToLibrarySource({ ...base, mirrors: '' }), false)
+  assert.deepEqual(validateSourceDraft({ ...base, mirrors: 'nope' }), { mirrors: 'mirrors' })
+  assert.equal(sourceToDraft({ kind: 'model', id: 'a', name: 'A', url: 'u', mirrors: ['x', 'y'] }).mirrors, 'x\ny')
 })

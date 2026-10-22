@@ -6,11 +6,11 @@ import LoadingSpinner from '../LoadingSpinner'
 import ConfirmDialog from '../ConfirmDialog'
 import SideSheet from '../SideSheet'
 import CatalogEmpty from './CatalogEmpty'
-import { SOURCE_KINDS, canRefresh, countByKind, createOperationBook, draftToLibrarySource, draftToSource, filterSources, slugify, sourceKind, sourceState, sourceToDraft, validateSourceDraft } from './catalogState'
+import { SOURCE_KINDS, canRefresh, countByKind, createOperationBook, draftToLibrarySource, draftToSource, filterSources, mirrorList, slugify, sourceKind, sourceState, sourceToDraft, validateSourceDraft } from './catalogState'
 import './catalog.css'
 import '../addons/addons.css'
 
-const BLANK = { kind: 'addon', format: 'library', id: '', name: '', url: '', enabled: true, requireSignature: false, issuer: '', identity: '', identityRegex: '', authReference: '', allowLoopbackHTTP: false }
+const BLANK = { mirrors: '', kind: 'addon', format: 'library', id: '', name: '', url: '', enabled: true, requireSignature: false, issuer: '', identity: '', identityRegex: '', authReference: '', allowLoopbackHTTP: false }
 
 function seen(iso) {
   const d = new Date(iso)
@@ -31,13 +31,15 @@ function seen(iso) {
 //
 // A library is saved with a credential REFERENCE by name. The form has no field
 // for a secret, and the server refuses anything that is not a reference.
-export default function SourcesView({ adapter, describeError, onChanged }) {
+export default function SourcesView({ adapter, describeError, onChanged, kind: fixedKind, sourceId }) {
   const { t, i18n } = useTranslation('addons')
   const [state, setState] = useState({ status: 'loading', sources: [], error: null })
   const [reload, setReload] = useState(0)
   const [editing, setEditing] = useState(null)
   const [removing, setRemoving] = useState(null)
-  const [kind, setKind] = useState('all')
+  const [pickedKind, setKind] = useState('all')
+  // A fixed kind scopes the whole view: the list, the counts and the add form.
+  const kind = fixedKind || pickedKind
   const [busy, setBusy] = useState({})
   const [notice, setNotice] = useState(null)
   const book = useRef(null)
@@ -83,8 +85,11 @@ export default function SourcesView({ adapter, describeError, onChanged }) {
   const save = async (draft) => {
     // A backend or model source is added through the library route; an
     // add-on source keeps its form with a policy and a credential reference.
-    const write = draft.isNew && draft.kind !== 'addon'
-      ? (operationId, signal) => adapter.addSource(draftToLibrarySource(draft), signal)
+    // A saved backend or model source changes only its mirrors.
+    const write = draft.kind !== 'addon'
+      ? (draft.isNew
+        ? (operationId, signal) => adapter.addSource(draftToLibrarySource(draft), signal)
+        : (operationId, signal) => adapter.updateSource(draft.id, { mirrors: mirrorList(draft.mirrors) }, signal))
       : (operationId, signal) => adapter.saveSource(draftToSource(draft), signal, operationId)
     const ok = await act(`save:${draft.id || draft.url}`, write, t('libraries.saved', { name: draft.name || draft.url }))
     if (ok) setEditing(null)
@@ -100,7 +105,8 @@ export default function SourcesView({ adapter, describeError, onChanged }) {
   const refresh = (source) => act(`refresh:${source.id}`, (operationId, signal) => adapter.refreshSource(source.id, signal, operationId), t('libraries.refreshed', { name: source.name }))
 
   const counts = countByKind(state.sources)
-  const shown = filterSources(state.sources, kind)
+  const shown = filterSources(state.sources, kind).filter(s => !sourceId || s.id === sourceId)
+  const scoped = fixedKind ? filterSources(state.sources, fixedKind) : state.sources
 
   if (state.status === 'loading') return <div className="op-loading" role="status" aria-label={t('libraries.loading')}><LoadingSpinner size="lg" /></div>
   if (state.status === 'error') {
@@ -119,7 +125,7 @@ export default function SourcesView({ adapter, describeError, onChanged }) {
     <div className="cat-sources">
       <div className="cat-sources__bar">
         <p className="op-note op-note--quiet">{t('libraries.lead')}</p>
-        <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => setEditing({ ...BLANK, isNew: true })}>
+        <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => setEditing({ ...BLANK, ...(fixedKind ? { kind: fixedKind } : {}), isNew: true })}>
           <Icon name="plus" /> {t('libraries.add')}
         </button>
       </div>
@@ -129,10 +135,10 @@ export default function SourcesView({ adapter, describeError, onChanged }) {
           <span>{notice.text}</span>
         </div>
       )}
-      {state.sources.some(x => x.suspended) && (
+      {scoped.some(x => x.suspended) && (
         <p className="op-note op-note--quiet" data-testid="official-off">{t('libraries.officialOff')}</p>
       )}
-      {state.sources.length > 0 && (
+      {!fixedKind && state.sources.length > 0 && (
         <div className="cat-chips" role="group" aria-label={t('libraries.kindFilter')}>
           {['all', ...SOURCE_KINDS].map(k => (
             <button key={k} type="button" className="dk-chip" data-kind-filter={k} aria-pressed={kind === k} onClick={() => setKind(k)}>
@@ -141,7 +147,7 @@ export default function SourcesView({ adapter, describeError, onChanged }) {
           ))}
         </div>
       )}
-      {state.sources.length === 0 ? (
+      {scoped.length === 0 ? (
         <CatalogEmpty icon="store" title={t('libraries.emptyTitle')} text={t('libraries.emptyBody')} />
       ) : shown.length === 0 ? (
         <CatalogEmpty icon="store" title={t('libraries.emptyKindTitle')} text={t('libraries.emptyKindBody')} />
@@ -190,11 +196,9 @@ export default function SourcesView({ adapter, describeError, onChanged }) {
                       <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={working || !canRefresh(source)} onClick={() => refresh(source)}>
                         <Icon name="refresh" spin={Boolean(busy[`refresh:${source.id}`])} /> {t('libraries.refresh')}
                       </button>
-                      {sk === 'addon' && (
-                        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={working} onClick={() => setEditing(sourceToDraft(source))}>
-                          <Icon name="pencil" /> {t('libraries.edit')}
-                        </button>
-                      )}
+                      <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" data-action="edit" disabled={working} onClick={() => setEditing(sourceToDraft(source))}>
+                        <Icon name="pencil" /> {t('libraries.edit')}
+                      </button>
                       <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" data-action="remove" disabled={working} onClick={() => setRemoving(source)}>
                         <Icon name="trash" /> {t('libraries.remove')}
                       </button>
@@ -206,7 +210,7 @@ export default function SourcesView({ adapter, describeError, onChanged }) {
           })}
         </ul>
       )}
-      {editing && <SourceEditor draft={editing} onSave={save} onClose={() => setEditing(null)} saving={Boolean(busy[`save:${editing.id}`])} t={t} />}
+      {editing && <SourceEditor kinds={fixedKind ? [fixedKind] : SOURCE_KINDS} draft={editing} onSave={save} onClose={() => setEditing(null)} saving={Boolean(busy[`save:${editing.id}`])} t={t} />}
       <ConfirmDialog
         open={Boolean(removing)}
         danger
@@ -220,11 +224,13 @@ export default function SourcesView({ adapter, describeError, onChanged }) {
   )
 }
 
-function SourceEditor({ draft, onSave, onClose, saving, t }) {
+function SourceEditor({ kinds, draft, onSave, onClose, saving, t }) {
   const [form, setForm] = useState(draft)
   const [touched, setTouched] = useState(false)
   const isNew = Boolean(draft.isNew)
   const addon = form.kind === 'addon'
+  // A saved backend or model source changes only its mirrors.
+  const lockedIdentity = !isNew && !addon
   const errors = touched ? validateSourceDraft(form) : {}
   const set = (patch) => setForm(f => ({ ...f, ...patch }))
   const submit = (e) => {
@@ -257,11 +263,11 @@ function SourceEditor({ draft, onSave, onClose, saving, t }) {
       )}
     >
       <form id="source-editor-form" className="cat-form" onSubmit={submit} noValidate>
-        {isNew && (
+        {isNew && kinds.length > 1 && (
           <div className="dk-field">
             <label className="dk-label" htmlFor="src-kind">{t('libraries.fields.kind')}</label>
             <select id="src-kind" className="dk-select" value={form.kind} onChange={e => set({ kind: e.target.value })}>
-              {SOURCE_KINDS.map(k => <option key={k} value={k}>{t(`libraries.kind.${k}`)}</option>)}
+              {kinds.map(k => <option key={k} value={k}>{t(`libraries.kind.${k}`)}</option>)}
             </select>
           </div>
         )}
@@ -275,9 +281,18 @@ function SourceEditor({ draft, onSave, onClose, saving, t }) {
             <p className="dk-field-hint">{t('libraries.hints.format')}</p>
           </div>
         )}
-        {field('name', t('libraries.fields.name'), { autoComplete: 'off', onChange: e => set({ name: e.target.value, ...(isNew && !form.idTouched ? { id: slugify(e.target.value) } : {}) }) })}
+        {field('name', t('libraries.fields.name'), { autoComplete: 'off', readOnly: lockedIdentity, onChange: e => set({ name: e.target.value, ...(isNew && !form.idTouched ? { id: slugify(e.target.value) } : {}) }) })}
         {field('id', t('libraries.fields.id'), { autoComplete: 'off', readOnly: !isNew, onChange: e => set({ id: e.target.value, idTouched: true }) }, t('libraries.hints.id'))}
-        {field('url', t('libraries.fields.url'), { type: 'url', autoComplete: 'off', inputMode: 'url', placeholder: 'https://' }, t('libraries.hints.url'))}
+        {field('url', t('libraries.fields.url'), { type: 'url', autoComplete: 'off', inputMode: 'url', placeholder: 'https://', readOnly: lockedIdentity }, t('libraries.hints.url'))}
+        {!addon && (
+          <div className="dk-field">
+            <label className="dk-label" htmlFor="src-mirrors">{t('libraries.fields.mirrors')}</label>
+            <textarea id="src-mirrors" className="dk-textarea dk-input--mono" rows={3} value={form.mirrors || ''} spellCheck={false} autoComplete="off"
+              aria-invalid={errors.mirrors ? 'true' : undefined} onChange={e => set({ mirrors: e.target.value })} />
+            {!errors.mirrors && <p className="dk-field-hint">{t('libraries.hints.mirrors')}</p>}
+            {errors.mirrors && <p className="dk-field-error" role="alert">{t('libraries.errors.mirrors')}</p>}
+          </div>
+        )}
         {addon && (
           <label className="cat-check">
             <input type="checkbox" checked={form.enabled} onChange={e => set({ enabled: e.target.checked })} />

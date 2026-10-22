@@ -376,6 +376,7 @@
     "clear": "Clear",
     "clearFilters": "Clear filters",
     "noMatches": "No installed backends match the current search and filters.",
+    "libraryEmpty": "The library {{name}} has no backends here.",
     "emptyTitle": "No backends installed yet",
     "emptyBody": "Install a backend from the Catalog to give this host a runtime for models.",
     "openCatalog": "Open the catalog",

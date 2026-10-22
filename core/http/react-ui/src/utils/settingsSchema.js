@@ -130,11 +130,13 @@ export const FIELDS = [
     desc: 'Load backend galleries when LocalAI starts.', default: true },
   { key: 'vram_persistent_cache', group: 'backends', was: 'galleries', kind: 'bool', label: 'Persist remote VRAM estimates',
     desc: 'Reuse successful remote model metadata probes across restarts. Off when gallery autoload is off.', default: true },
-  { key: 'galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Model galleries (JSON)',
-    desc: 'A list of galleries: url, name and optional mirrors.', apply: 'live',
+  { key: 'galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Model galleries',
+    desc: 'The model library sources, read-only here. Add, turn on or off, refresh, edit or remove them in the Manage libraries panel on the Models page.', apply: 'live',
+    readOnlySources: 'model',
     placeholder: '[\n  { "url": "https://...", "name": "my-gallery", "mirrors": ["https://fallback/..."] }\n]' },
-  { key: 'backend_galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Backend galleries (JSON)',
-    desc: 'The same shape, for backends.', apply: 'live',
+  { key: 'backend_galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Backend galleries',
+    desc: 'The backend library sources, read-only here. Manage them in the Manage libraries panel on the Backends page.', apply: 'live',
+    readOnlySources: 'backend',
     placeholder: '[\n  { "url": "https://...", "name": "my-backends", "mirrors": ["https://fallback/..."] }\n]' },
 
   // ---- Access and security -------------------------------------------------

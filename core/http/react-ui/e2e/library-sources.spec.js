@@ -1,6 +1,8 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// The Libraries tab for library sources of all three kinds, against a real
+// Library sources of all three kinds: add-ons on the Add-ons Libraries tab,
+// models on the Models page and backends on the Backends page, each in the
+// panel its "Manage libraries" button opens, against a real
 // server that starts like a normal install (playwright.library.config.js): the
 // default sources of the add-on, backend and model kinds are in the store, and
 // the routes change the store the `local-ai library` command edits. The specs
@@ -18,8 +20,11 @@ const ROW = (page, id) => page.locator(`[data-source="${id}"]`)
 // listed turned off.
 const OFFICIAL = { addon: 'official', backend: 'localai-backends', model: 'official-models' }
 
-async function openLibraries(page) {
-  await page.goto('/app/addons?tab=libraries')
+const PAGES = { addon: '/app/addons?tab=libraries', model: '/app/models', backend: '/app/backends' }
+
+async function openLibraries(page, kind = 'addon') {
+  await page.goto(PAGES[kind])
+  if (kind !== 'addon') await page.getByRole('button', { name: 'Manage libraries' }).click()
   await expect(page.getByRole('list', { name: 'Libraries' })).toBeVisible()
 }
 
@@ -30,41 +35,29 @@ async function sources(page) {
 }
 
 test.describe('Library sources: all three kinds', () => {
-  test('lists the add-on, backend and model sources with a Default badge and a kind filter', async ({ page }) => {
-    await openLibraries(page)
-    for (const [kind, id] of Object.entries(OFFICIAL)) {
-      const row = ROW(page, id)
-      await expect(row).toBeVisible()
-      await expect(row).toHaveAttribute('data-kind', kind)
-      await expect(row.getByTestId('source-default')).toHaveText('Default')
-      await expect(row.getByTestId('source-state')).toHaveText('Enabled')
+  test('each page lists only its own kind, with a Default badge and no kind filter', async ({ page }) => {
+    const expected = { addon: ['official'], backend: ['localai-backends'], model: ['official-models', 'localai'] }
+    for (const [kind, ids] of Object.entries(expected)) {
+      await openLibraries(page, kind)
+      await expect(page.locator('[data-source]')).toHaveCount(ids.length)
+      for (const id of ids) {
+        const row = ROW(page, id)
+        await expect(row).toBeVisible()
+        await expect(row).toHaveAttribute('data-kind', kind)
+        await expect(row.getByTestId('source-default')).toHaveText('Default')
+      }
+      await expect(ROW(page, OFFICIAL[kind]).getByTestId('source-state')).toHaveText('Enabled')
+      await expect(page.getByRole('group', { name: 'Filter by kind' })).toHaveCount(0)
     }
-    await expect(page.locator('[data-source]')).toHaveCount(4)
-    await expect(ROW(page, 'localai')).toHaveAttribute('data-kind', 'model')
-    await expect(ROW(page, 'localai').getByTestId('source-default')).toHaveText('Default')
+    await openLibraries(page, 'model')
     await expect(ROW(page, 'localai').getByTestId('source-state')).toHaveText('Disabled')
-
-    const filter = page.getByRole('group', { name: 'Filter by kind' })
-    await expect(filter.getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true')
-    await filter.getByRole('button', { name: /^Backends/ }).click()
-    await expect(page.locator('[data-source]')).toHaveCount(1)
-    await expect(ROW(page, 'localai-backends')).toBeVisible()
-    await filter.getByRole('button', { name: /^Models/ }).click()
-    await expect(page.locator('[data-source]')).toHaveCount(2)
-    await expect(ROW(page, 'official-models')).toBeVisible()
-    await expect(ROW(page, 'localai')).toBeVisible()
-    await filter.getByRole('button', { name: /^Add-ons/ }).click()
-    await expect(ROW(page, 'official')).toBeVisible()
-    await expect(page.locator('[data-source]')).toHaveCount(1)
-    await filter.getByRole('button', { name: /^All/ }).click()
-    await expect(page.locator('[data-source]')).toHaveCount(4)
   })
 
   test('adds a model source of your own, which has no Default badge and stays after a reload', async ({ page }) => {
-    await openLibraries(page)
+    await openLibraries(page, 'model')
     await page.getByRole('button', { name: 'Add a library' }).click()
     const sheet = page.getByTestId('source-editor')
-    await sheet.getByLabel('Kind').selectOption('model')
+    await expect(sheet.getByLabel('Kind')).toHaveCount(0)
     await sheet.getByLabel('Index format').selectOption('gallery')
     await sheet.getByLabel('Name').fill('Team models')
     await sheet.getByLabel('Catalog URL').fill('https://models.example.org/index.yaml')
@@ -78,12 +71,12 @@ test.describe('Library sources: all three kinds', () => {
     const stored = (await sources(page)).sources.find(s => s.id === 'team-models')
     expect(stored).toMatchObject({ kind: 'model', format: 'gallery', default: false, enabled: true, url: 'https://models.example.org/index.yaml' })
     await page.reload()
+    await page.getByRole('button', { name: 'Manage libraries' }).click()
     await expect(ROW(page, 'team-models')).toBeVisible()
 
     // The same address twice is refused with the reason.
     await page.getByRole('button', { name: 'Add a library' }).click()
     const again = page.getByTestId('source-editor')
-    await again.getByLabel('Kind').selectOption('model')
     await again.getByLabel('Name').fill('Same address')
     await again.getByLabel('Catalog URL').fill('https://models.example.org/index.yaml')
     await again.getByRole('button', { name: 'Save' }).click()
@@ -91,7 +84,7 @@ test.describe('Library sources: all three kinds', () => {
   })
 
   test('turns a default off and removes it: it stays listed as removed, and restoring brings it back', async ({ page }) => {
-    await openLibraries(page)
+    await openLibraries(page, 'model')
     const row = ROW(page, 'official-models')
     await row.locator('[data-action="disable"]').click()
     await expect(row.getByTestId('source-state')).toHaveText('Disabled')
@@ -108,6 +101,7 @@ test.describe('Library sources: all three kinds', () => {
     // The tombstone is in the store the CLI reads, not only on the page.
     expect((await sources(page)).sources.find(s => s.id === 'official-models')).toMatchObject({ removed: true, enabled: false, default: true })
     await page.reload()
+    await page.getByRole('button', { name: 'Manage libraries' }).click()
     await expect(ROW(page, 'official-models')).toHaveAttribute('data-state', 'removed')
 
     await ROW(page, 'official-models').locator('[data-action="restore"]').click()
@@ -177,13 +171,14 @@ test.describe('Library sources: Use official libraries', () => {
     expect(off.backend_galleries).toEqual([])
 
     // The Libraries tab lists the defaults, shown as off; the source of your own is on.
-    await openLibraries(page)
-    await expect(page.getByTestId('official-off')).toBeVisible()
-    for (const id of Object.values(OFFICIAL)) {
+    for (const [kind, id] of Object.entries(OFFICIAL)) {
+      await openLibraries(page, kind)
+      await expect(page.getByTestId('official-off')).toBeVisible()
       await expect(ROW(page, id)).toHaveAttribute('data-state', 'suspended')
       await expect(ROW(page, id).getByTestId('source-default')).toBeVisible()
       await expect(ROW(page, id).getByTestId('source-state')).toContainText('Off')
     }
+    await openLibraries(page, 'model')
     await expect(ROW(page, 'mine')).toHaveAttribute('data-state', 'enabled')
 
     await setOfficial(page, true)
@@ -191,9 +186,11 @@ test.describe('Library sources: Use official libraries', () => {
     expect(back.official_libraries).toBe(true)
     expect(back.galleries.map(g => g.url)).toEqual(expect.arrayContaining([...on.galleries.map(g => g.url), 'https://mine.example.org/index.yaml']))
     expect(back.backend_galleries.map(g => g.url)).toEqual(on.backend_galleries.map(g => g.url))
-    await openLibraries(page)
-    await expect(page.getByTestId('official-off')).toHaveCount(0)
-    for (const id of Object.values(OFFICIAL)) await expect(ROW(page, id)).toHaveAttribute('data-state', 'enabled')
+    for (const [kind, id] of Object.entries(OFFICIAL)) {
+      await openLibraries(page, kind)
+      await expect(page.getByTestId('official-off')).toHaveCount(0)
+      await expect(ROW(page, id)).toHaveAttribute('data-state', 'enabled')
+    }
     await page.request.delete('/api/library/sources/mine')
   })
 })
