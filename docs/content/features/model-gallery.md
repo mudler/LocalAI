@@ -1112,3 +1112,27 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+## LFM2.5 Turbo Brilliance
+
+The gallery includes DavidAU's LFM2.5-24B-A2B Turbo Brilliance build for
+text chat and reasoning through llama.cpp. The IQ4_XS entry links to a
+Q8_0 MAX variant. Both use the embedded Turbo Brilliance chat template.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install lfm2.5-24b-a2b-turbo-brilliance-iq4-xs
+```
+
+Select Q8_0 MAX explicitly:
+
+```bash
+local-ai models install lfm2.5-24b-a2b-turbo-brilliance-iq4-xs --variant lfm2.5-24b-a2b-turbo-brilliance-q8
+```
+
+Both entries default to a 32,768-token context, temperature 0.1, top-k 50,
+and repetition penalty 1.05. The weights support up to 131,072 tokens;
+increase `context_size` in the installed configuration if needed.
+See the [publisher's model card](https://huggingface.co/DavidAU/LFM2.5-24B-A2B-Turbo-Brilliance-50X-NEO-MAX-Imatrix-GGUF)
+for the template's prompt controls and Liquid's LFM license.
