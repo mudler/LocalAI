@@ -76,7 +76,7 @@ loopback carrier with keys that are made at each start and never written to disk
 | `--addons-enabled` | `LOCALAI_ADDONS_ENABLED` | `true` | Runs the addon owner. `--addons-enabled=false` turns it off completely: no owner starts, no addon runs, and every addon request is refused as unavailable. |
 | `--addons-ownership-mode` | `LOCALAI_ADDONS_OWNERSHIP_MODE` | `local-owner` when authentication is off, `named-user` when it is on | `named-user` gives each account its own access. `local-owner` makes every caller share one owner. A value you set always wins over the default. Any other value stops startup with an error. |
 | `--addons-official-library` | `LOCALAI_ADDONS_OFFICIAL_LIBRARY` | `true` | Registers the [official library](#the-official-library) on the first start. `--addons-official-library=false` does not register it. |
-| `--addons-backend-library` | `LOCALAI_ADDONS_BACKEND_LIBRARY` | `true` | Registers the pilot [backend library](#backends-in-the-library) on the first start, like the official library. `--addons-backend-library=false` starts without it. A library you remove stays removed. |
+| `--addons-backend-library` | `LOCALAI_ADDONS_BACKEND_LIBRARY` | `true` | Registers the [backend library](#the-backend-library) on the first start, like the official library. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. `--addons-backend-library=false` starts without it and reads the backend gallery on every build. A library you remove stays removed. |
 | `--official-libraries` | `LOCALAI_OFFICIAL_LIBRARIES` | `true` | Use the default library sources of add-ons, backends and models. `--official-libraries=false` leaves them listed but unread. It is also the runtime setting `official_libraries`. See [Library sources](#library-sources). |
 | `--addons-backend-max-bytes` | `LOCALAI_ADDONS_BACKEND_MAX_BYTES` | `8589934592` (8 GiB) | Largest compressed size of a backend image installed from a library. Add-ons keep their own limit of 512 MiB. |
 
@@ -119,7 +119,7 @@ A library source is a place LocalAI reads entries from. There are three kinds:
 | Kind | What it provides | Read by |
 |---|---|---|
 | `addon` | Add-ons, as a library index | The Add-ons catalog |
-| `backend` | Backends, as a library index or a backend gallery index | The Backends page and the backend library |
+| `backend` | Backends, as a library index or a backend gallery index | The Backends page, and the add-on catalog for a library |
 | `model` | Models, as a library index or a model gallery index | The model gallery |
 
 All sources of all kinds are in one store, `addons/sources.json` under the data path.
@@ -128,7 +128,9 @@ HTTP routes below and the Libraries tab work on the same store with the same cod
 a change made in one place shows in the others.
 
 A source can be a default: one that LocalAI ships (the official add-on library, the
-model gallery index and the backend gallery index). A default is marked `default`. If
+model library and gallery index, and the backend library and gallery index). Of the two
+model sources and the two backend sources only one is on by default, the one the build
+reads (see [Which source a build reads]({{% relref "features/backends#which-source-a-build-reads" %}})). A default is marked `default`. If
 you remove a default, LocalAI keeps a record of the removal (a tombstone, `removed:
 true`), so the default does not come back at the next start. Turn the source on again
 to bring it back. A source you added is deleted when you remove it.
@@ -198,12 +200,15 @@ field. The kinds are:
 | Kind | What the entry installs | State |
 |---|---|---|
 | `addon` | A supervised add-on package. It is the default: an entry without `kind` is an add-on, so every index written before kinds existed stays valid. | Supported |
-| `backend` | A backend image for the backends directory. | Supported (phase 1, pilot) |
+| `backend` | A backend image for the backends directory. | Supported. The backend library is the source of the backends. |
 | `model` | A model. | Reserved. No reader installs it yet. |
 
-The backend gallery (`backend/index.yaml`) stays the source of truth and its install
-path does not change. A library entry of kind `backend` is one more way to see and
-install a backend that the gallery already lists.
+The backend library (`gallery/backends/index.yaml`) is the source of truth of the
+backends, the way the model library is for the models. The backend gallery
+(`backend/index.yaml`) is a generated copy of it. A tagged build before the cutover reads
+the gallery by default; a build from master reads the library. See
+[The backend library](#the-backend-library). A library entry of kind `backend` can also be
+installed by digest from the Browse tab, as described below.
 
 ### How a reader treats an unknown kind
 
@@ -224,22 +229,58 @@ Search lists add-ons unless the caller asks for a kind: `catalog-search` takes a
 
 ```yaml
 - kind: backend
-  addonId: cpu-local-store      # the backend name, also its directory name
+  id: cpu-local-store           # the backend name, also its directory name
   alias: local-store            # optional: the name a model uses
   name: cpu-local-store
   description: Local Store is a local-first vector database.
+  license: MIT
+  icon: https://example.com/local-store.png
+  urls:
+    - https://github.com/mudler/LocalAI
+  tags: [vector-database, CPU]
   version: 0.0.0-latest.0a1056fd8633
   channel: latest
+  schemaVersion: 1
   artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-local-store
   digest: sha256:0a1056fd863328adf9d1097808aa2b52f68c4ca2e5385100a754755b3ca6218f
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-local-store
+  capabilities:
+    default: cpu-local-store
+    metal: metal-local-store
   os: linux
   arch: amd64
 ```
 
+One entry is one image for one platform, so a backend built for several platforms has
+several entries with the same `id`. The reader is strict: an unknown field on an entry of
+kind `backend` is refused. These fields are for a backend only and an add-on entry that sets
+one is refused:
+
+| Field | What it holds |
+|---|---|
+| `schemaVersion` | The version of the shared entry header. Absent means 1. A host refuses a higher one. |
+| `license`, `urls`, `tags` | Display text, as in the gallery. `urls` are `http` or `https`. |
+| `icon` | The URL of the icon, `https` only. The add-on `ui.icon` stays a path in the package. LocalAI never fetches the icon: the browser loads it. |
+| `mirrors` | Fallback images of the same backend, tried in order. Each is an `oci://` image. The install pins a mirror with the digest of the artifact. |
+| `capabilities` | A map from a host capability (`default`, `nvidia`, `metal`, ...) to the `id` of the concrete backend that serves it. |
+| `mutable` | The artifact is a moving tag, such as a development image. The entry has no `digest`. |
+
 The `digest` is the digest of the image for the platform. The install uses the image by
 digest and never by tag. A backend entry must use an `oci://` artifact. It has no main
-page or icon, and only a backend entry can set `alias`. The backend name is a directory
+page or `ui.icon`, and only a backend entry can set `alias`. The backend name is a directory
 name: it has no `/` and no `..`.
+
+**Meta backends.** An entry with `capabilities` and no `artifact` is a meta backend, such
+as `llama-cpp`. It has no `digest`, `os`, `arch` or `mirrors`, and it is listed for every
+platform. Installing it installs the backend its capability names for this host, in the
+same library and the same channel, pinned and verified like any other. A meta backend that
+names nothing for the host, or names a backend the library does not have, is refused.
+
+**Development images.** A `master-` image is rebuilt all the time, so the library cannot
+pin it. Its entry keeps the tag, has `channel: development` and `mutable: true`, and has no
+`digest`. The install resolves the tag to a digest, verifies that image, and records the
+digest it installed in `metadata.json`.
 
 ### Signer identity pattern
 
@@ -329,30 +370,32 @@ The limit is on the compressed size of the package or image, by kind:
 | `addon` | 512 MiB | No |
 | `backend` | 8 GiB | `--addons-backend-max-bytes` |
 
-### The pilot backend library
+### The backend library
 
-`gallery/backends/index.yaml` lists a pilot: the CPU build of `local-store` for
-`linux/amd64`. LocalAI registers it on the first start, like the official add-on library, and a
-library you remove stays removed. To add it again later, use the Libraries tab with this
-URL and the policy above:
+`gallery/backends/index.yaml` is the backend library. It lists every backend of the
+backend gallery: 1088 backends (934 concrete backends and 154 meta backends) in 1240
+entries, because a backend built for several platforms has one entry for each. LocalAI
+registers it on the first start as the source `official-backends`, next to the backend
+gallery `localai-backends`, and a source you remove stays removed. To add it again later,
+use the Libraries tab with this URL and the policy above:
 
 ```
 https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/backends/index.yaml
 ```
 
-The entries are rendered from the backend gallery. The command reads the registry, so the
-digests are never edited by hand. Render the file again after the backend images are
-rebuilt:
+The library is the source of truth. To add or change a backend, change the library; see
+[Backends]({{% relref "features/backends#the-backend-library-and-the-generated-gallery" %}}).
+The digests are never edited by hand. Pin them again after the backend images are rebuilt;
+this is the only command that reads the registry:
 
 ```bash
 go run ./scripts/backends/cmd/backendcatalog \
-  --index backend/index.yaml \
-  --backends cpu-local-store \
-  --out gallery/backends/index.yaml
+  --library gallery/backends/index.yaml --repin
 ```
 
-Phase 1 does not include models, the other backends, distributed install from a library,
-or a change to the gallery.
+A release image that the registry has no image for when the library is rendered is marked
+`mutable` and has no digest, and the command lists it. It installs by its tag until it is
+pinned.
 
 ## Manifest
 

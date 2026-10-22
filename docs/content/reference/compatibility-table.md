@@ -12,7 +12,7 @@ Besides llama based models, LocalAI is compatible also with other architectures.
 
 LocalAI will attempt to automatically load models which are not explicitly configured for a specific backend. You can specify the backend to use by configuring a model with a YAML file. See [the advanced section]({{%relref "advanced" %}}) for more details.
 
-All backends listed here can be installed on demand from the [Backend Gallery]({{%relref "features/backends" %}}). The exact set of acceleration variants published for each backend is defined in [`backend/index.yaml`](https://github.com/mudler/LocalAI/blob/master/backend/index.yaml).
+All backends listed here can be installed on demand from the [Backend Gallery]({{%relref "features/backends" %}}). The exact set of acceleration variants published for each backend is defined in the backend library, [`gallery/backends/index.yaml`](https://github.com/mudler/LocalAI/blob/master/gallery/backends/index.yaml). [`backend/index.yaml`](https://github.com/mudler/LocalAI/blob/master/backend/index.yaml) is generated from it.
 
  {{% /notice %}}
 
