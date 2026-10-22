@@ -80,6 +80,7 @@ var _ = Describe("Library source routes", func() {
 		app.POST("/api/library/sources", e.Add(), admin)
 		app.POST("/api/library/sources/:id/enable", e.SetEnabled(true), admin)
 		app.POST("/api/library/sources/:id/disable", e.SetEnabled(false), admin)
+		app.PUT("/api/library/sources/:id", e.Update(), admin)
 		app.DELETE("/api/library/sources/:id", e.Remove(), admin)
 	})
 
@@ -226,5 +227,32 @@ var _ = Describe("Library source routes", func() {
 			Expect(msg).To(ContainSubstring("two of your library sources"))
 		}
 		Expect(find("first")).NotTo(BeNil())
+	})
+
+	It("stores mirrors on add, returns them in the list and replaces them with a PUT", func() {
+		rec := call(auth.RoleAdmin, http.MethodPost, "/api/library/sources", `{"kind":"model","format":"gallery","id":"team","url":"https://example.org/m.yaml","mirrors":[" https://mirror.example/m.yaml ","github:org/repo/m.yaml@main",""]}`)
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		Expect(find("team")["mirrors"]).To(Equal([]any{"https://mirror.example/m.yaml", "github:org/repo/m.yaml@main"}))
+		rec = call(auth.RoleAdmin, http.MethodPut, "/api/library/sources/team", `{"mirrors":["oci://registry.example/m"]}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(find("team")["mirrors"]).To(Equal([]any{"oci://registry.example/m"}))
+		rec = call(auth.RoleAdmin, http.MethodPut, "/api/library/sources/team", `{"mirrors":[]}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(find("team")).NotTo(HaveKey("mirrors"))
+	})
+
+	It("refuses a mirror that is not an accepted address, and mirrors on an add-on source", func() {
+		for _, body := range []string{
+			`{"kind":"model","url":"https://example.org/m.yaml","mirrors":["ftp://x/m.yaml"]}`,
+			`{"kind":"model","url":"https://example.org/m.yaml","mirrors":["https://a b/m.yaml"]}`,
+			`{"kind":"model","url":"https://example.org/m.yaml","mirrors":["1","2","3","4","5","6","7","8","9"]}`,
+			`{"kind":"addon","url":"https://example.org/a.yaml","mirrors":["https://mirror.example/a.yaml"]}`,
+		} {
+			rec := call(auth.RoleAdmin, http.MethodPost, "/api/library/sources", body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body+" "+rec.Body.String())
+		}
+		Expect(call(auth.RoleAdmin, http.MethodPut, "/api/library/sources/localai-backends", `{"mirrors":["file"]}`).Code).To(Equal(http.StatusBadRequest))
+		Expect(call(auth.RoleAdmin, http.MethodPut, "/api/library/sources/nope", `{"mirrors":[]}`).Code).To(Equal(http.StatusNotFound))
+		Expect(find("localai-backends")).NotTo(HaveKey("mirrors"))
 	})
 })

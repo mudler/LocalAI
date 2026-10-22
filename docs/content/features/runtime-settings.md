@@ -111,8 +111,8 @@ Changes to P2P settings automatically restart the P2P stack with the new configu
 
 Manage model and backend galleries:
 
-- **Model Galleries**: JSON array of gallery objects with `url` and `name` fields, plus an optional `mirrors` list of fallback URLs (see [Gallery mirrors]({{%relref "features/model-gallery#gallery-mirrors" %}}))
-- **Backend Galleries**: JSON array of backend gallery objects, which accept the same `mirrors` key
+- **Model Galleries**: a read-only list of the model library sources, with name, id, address, state, whether it is a default, and its mirrors. Change them in the **Manage libraries** panel of the Models page (see [Gallery mirrors]({{%relref "features/model-gallery#gallery-mirrors" %}}))
+- **Backend Galleries**: the same read-only list for backend library sources; change them in the **Manage libraries** panel of the Backends page
 - **Load and pre-warm galleries on boot**: Load model galleries and pre-warm their remote size and VRAM estimates when LocalAI starts. Disable this setting to skip both startup operations.
 - **Autoload Backend Galleries**: Automatically load backend galleries on startup
 

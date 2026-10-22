@@ -54,6 +54,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.POST("/api/library/sources", librarySources.Add(), adminMiddleware)
 	router.POST("/api/library/sources/:id/enable", librarySources.SetEnabled(true), adminMiddleware)
 	router.POST("/api/library/sources/:id/disable", librarySources.SetEnabled(false), adminMiddleware)
+	router.PUT("/api/library/sources/:id", librarySources.Update(), adminMiddleware)
 	router.DELETE("/api/library/sources/:id", librarySources.Remove(), adminMiddleware)
 
 	motion := localai.NewMotionEndpoints(app)

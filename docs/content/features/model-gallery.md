@@ -357,7 +357,7 @@ for other task prefixes. These gallery entries support text input only.
 
 You can add other galleries by:
 
-1. **Using the Web UI**: Navigate to the [Runtime Settings]({{%relref "features/runtime-settings#gallery-settings" %}}) page and configure galleries through the interface.
+1. **Using the Web UI**: Open the **Manage libraries** panel on the Models page (or the Backends page for backend galleries) to add, turn on or off, refresh, edit or remove a source. The [Runtime Settings]({{%relref "features/runtime-settings#gallery-settings" %}}) page lists them read-only.
 
 2. **Using Environment Variables**: Set the `GALLERIES` environment variable. The `GALLERIES` environment variable is a list of JSON objects, where each object has a `name` and a `url` field. The `name` field is the name of the gallery, and the `url` field is the URL of the gallery's index file, for example:
 
@@ -423,6 +423,8 @@ Each attempt is bounded by a 120 second timeout, and a source that fails — a c
 {{% /notice %}}
 
 The key is optional: a gallery without `mirrors` behaves exactly as before.
+
+A library source carries the same list. Set it in the **Manage libraries** panel (one address per line, at most 8), with `PUT /api/library/sources/{id}` (`{"mirrors": [...]}`) or with `mirrors` in the body of `POST /api/library/sources`. A source accepts `https://`, `http://`, `github:`, `oci://` and `file://` mirrors, and an add-on source takes none. When a source lists mirrors, they replace the ones a gallery of the same address got from the flags.
 
 ## Offline gallery listings
 

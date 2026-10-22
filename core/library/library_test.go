@@ -538,3 +538,62 @@ func TestReconcileAddsAndDropsTheBackendLibrary(t *testing.T) {
 		t.Errorf("only the library is on: %+v", got)
 	}
 }
+
+func TestMirrorsReachTheGalleryAndTheSourceWinsWhenTheyChange(t *testing.T) {
+	store := open(t, t.TempDir())
+	if _, err := AddWithMirrors(store, catalog.KindModel, "https://example.org/team.yaml", "team", "Team", catalog.FormatGallery, []string{"https://m1.example/team.yaml"}); err != nil {
+		t.Fatal(err)
+	}
+	models, _ := Reconcile(store, nil, nil)
+	var got []string
+	for _, g := range models {
+		if g.URL == "https://example.org/team.yaml" {
+			got = g.Mirrors
+		}
+	}
+	if !reflect.DeepEqual(got, []string{"https://m1.example/team.yaml"}) {
+		t.Fatalf("an appended gallery carries the source's mirrors, got %v", got)
+	}
+	// A gallery already listed keeps its mirrors while the source lists none.
+	if err := store.SetMirrors("team", nil); err != nil {
+		t.Fatal(err)
+	}
+	kept, _ := Reconcile(store, []config.Gallery{{Name: "Team", URL: "https://example.org/team.yaml", Mirrors: []string{"https://flag.example/t.yaml"}}}, nil)
+	for _, g := range kept {
+		if g.URL == "https://example.org/team.yaml" && !reflect.DeepEqual(g.Mirrors, []string{"https://flag.example/t.yaml"}) {
+			t.Fatalf("a listed gallery keeps its mirrors, got %v", g.Mirrors)
+		}
+	}
+	// A changed list wins over the listed gallery's.
+	if err := store.SetMirrors("team", []string{"https://m2.example/team.yaml"}); err != nil {
+		t.Fatal(err)
+	}
+	won, _ := Reconcile(store, []config.Gallery{{Name: "Team", URL: "https://example.org/team.yaml", Mirrors: []string{"https://flag.example/t.yaml"}}}, nil)
+	for _, g := range won {
+		if g.URL == "https://example.org/team.yaml" && !reflect.DeepEqual(g.Mirrors, []string{"https://m2.example/team.yaml"}) {
+			t.Fatalf("the source's changed mirrors win, got %v", g.Mirrors)
+		}
+	}
+}
+
+func TestMapGalleriesKeepsTheMirrorsOfAFlagGallery(t *testing.T) {
+	store := open(t, t.TempDir())
+	added, err := MapGalleries(store, catalog.KindModel, []config.Gallery{{Name: "Mine", URL: "https://mine.example/i.yaml", Mirrors: []string{"https://mirror.example/i.yaml"}}})
+	if err != nil || len(added) != 1 {
+		t.Fatalf("%v %v", added, err)
+	}
+	e, _ := byID(store, added[0].ID)
+	if !reflect.DeepEqual(e.Mirrors, []string{"https://mirror.example/i.yaml"}) {
+		t.Fatalf("got %v", e.Mirrors)
+	}
+	info := List(store)
+	found := false
+	for _, in := range info {
+		if in.ID == e.ID {
+			found = reflect.DeepEqual(in.Mirrors, e.Mirrors)
+		}
+	}
+	if !found {
+		t.Fatal("the info lists the mirrors")
+	}
+}

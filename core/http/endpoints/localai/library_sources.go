@@ -35,6 +35,12 @@ type addLibrarySourceRequest struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Format string `json:"format"`
+	// Mirrors are fallback addresses of a model or backend source.
+	Mirrors []string `json:"mirrors,omitempty"`
+}
+
+type updateLibrarySourceRequest struct {
+	Mirrors []string `json:"mirrors"`
 }
 
 func librarySourceError(c echo.Context, code int, message string) error {
@@ -97,6 +103,67 @@ func (e LibrarySourcesEndpoints) List() echo.HandlerFunc {
 	}
 }
 
+// cleanMirrors trims the mirrors and checks them as a gallery address is
+// checked. An add-on source takes none.
+func cleanMirrors(kind string, in []string) ([]string, error) {
+	var out []string
+	for _, m := range in {
+		if m = strings.TrimSpace(m); m != "" {
+			out = append(out, m)
+		}
+	}
+	if len(out) > 0 && kind == string(catalog.KindAddon) {
+		return nil, errors.New("an add-on source takes no mirrors")
+	}
+	if err := catalog.ValidateMirrors(out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Update godoc
+// @Summary Change the mirrors of a library source
+// @Description Replaces the mirrors of a model or backend source; an empty list clears them. Each mirror is an http(s), github:, oci:// or file:// address. Administrators only.
+// @Tags library
+// @Accept json
+// @Produce json
+// @Param id path string true "Source id"
+// @Success 200 {object} library.Info
+// @Router /api/library/sources/{id} [put]
+func (e LibrarySourcesEndpoints) Update() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		var req updateLibrarySourceRequest
+		if err := c.Bind(&req); err != nil {
+			return librarySourceError(c, http.StatusBadRequest, "the request is not valid JSON")
+		}
+		store, err := e.open(c)
+		if store == nil {
+			return err
+		}
+		kind := ""
+		for _, in := range library.List(store) {
+			if in.ID == id {
+				kind = string(in.Kind)
+			}
+		}
+		mirrors, err := cleanMirrors(kind, req.Mirrors)
+		if err != nil {
+			return librarySourceError(c, http.StatusBadRequest, err.Error())
+		}
+		if err := store.SetMirrors(id, mirrors); err != nil {
+			return storeError(c, err, id)
+		}
+		e.applied()
+		for _, in := range library.List(store) {
+			if in.ID == id {
+				return c.JSON(http.StatusOK, in)
+			}
+		}
+		return c.NoContent(http.StatusNoContent)
+	}
+}
+
 // Add godoc
 // @Summary Add a library source
 // @Description Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. A source with the same kind and URL is refused (409), as is a taken id. Administrators only.
@@ -128,11 +195,15 @@ func (e LibrarySourcesEndpoints) Add() echo.HandlerFunc {
 		if req.URL == "" {
 			return librarySourceError(c, http.StatusBadRequest, "url is required")
 		}
+		mirrors, err := cleanMirrors(req.Kind, req.Mirrors)
+		if err != nil {
+			return librarySourceError(c, http.StatusBadRequest, err.Error())
+		}
 		store, err := e.open(c)
 		if store == nil {
 			return err
 		}
-		src, err := library.Add(store, catalog.Kind(req.Kind), req.URL, req.ID, req.Name, format)
+		src, err := library.AddWithMirrors(store, catalog.Kind(req.Kind), req.URL, req.ID, req.Name, format, mirrors)
 		if err != nil {
 			return storeError(c, err, req.ID)
 		}

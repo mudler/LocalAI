@@ -87,6 +87,35 @@ func (s *Sources) AddUser(src Source) error {
 	return nil
 }
 
+// SetMirrors replaces the mirrors of a source. An empty list clears them. A
+// removed default has no mirrors to change.
+func (s *Sources) SetMirrors(id string, mirrors []string) error {
+	if err := ValidateMirrors(mirrors); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old, ok := s.sources[id]
+	if !ok || old.Removed {
+		return fmt.Errorf("%w: %q", ErrNotFound, id)
+	}
+	if len(mirrors) == 0 {
+		mirrors = nil
+	}
+	old.Mirrors = mirrors
+	next := map[string]Source{}
+	for k, v := range s.sources {
+		next[k] = v
+	}
+	next[id] = old
+	if err := s.persist(next); err != nil {
+		return err
+	}
+	s.sources = next
+	s.fresh = false
+	return nil
+}
+
 // RemoveSource deletes a user source. A default is not deleted: it becomes a
 // tombstone, so it does not come back at the next start.
 func (s *Sources) RemoveSource(id string) error {

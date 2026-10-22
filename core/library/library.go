@@ -184,6 +184,11 @@ func freeID(taken map[string]bool, id string) string {
 // URL. A source with the same kind and URL is refused, so the same index is
 // not listed twice.
 func Add(store *catalog.Sources, kind catalog.Kind, url, id, name, format string) (catalog.Source, error) {
+	return AddWithMirrors(store, kind, url, id, name, format, nil)
+}
+
+// AddWithMirrors is Add for a source that also lists mirrors.
+func AddWithMirrors(store *catalog.Sources, kind catalog.Kind, url, id, name, format string, mirrors []string) (catalog.Source, error) {
 	for _, e := range store.Entries() {
 		if e.Kind == kind && e.URL == url && !e.IsTombstone() {
 			return catalog.Source{}, fmt.Errorf("%w: %s is already a %s source (%s)", ErrDuplicate, url, kind, e.ID)
@@ -199,7 +204,7 @@ func Add(store *catalog.Sources, kind catalog.Kind, url, id, name, format string
 	if name == "" {
 		name = id
 	}
-	src := catalog.Source{ID: id, Name: name, URL: url, Enabled: true, Kind: kind, Format: format}
+	src := catalog.Source{ID: id, Name: name, URL: url, Enabled: true, Kind: kind, Format: format, Mirrors: mirrors}
 	if err := store.AddUser(src); err != nil {
 		return catalog.Source{}, err
 	}

@@ -45,6 +45,10 @@ type Source struct {
 	// readers fetch. A gallery-format source is configuration only: this
 	// catalog never fetches it.
 	Format string `json:"format,omitempty"`
+	// Mirrors are fallback addresses of a model or backend source, tried in
+	// order when URL cannot be fetched. They mean what config.Gallery.Mirrors
+	// means. A file written before this field existed has none.
+	Mirrors []string `json:"mirrors,omitempty"`
 	// Default marks a source the host ships. A default loses an entry to a
 	// source the user added, and removing it leaves a tombstone.
 	Default bool `json:"default,omitempty"`
@@ -134,7 +138,7 @@ var digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 var versionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z][a-z0-9.-]*)?$`)
 
 func validSource(s Source) bool {
-	if !idPattern.MatchString(s.ID) || len(s.Name) == 0 || len(s.Name) > 256 || !validPolicy(s.Policy) {
+	if !idPattern.MatchString(s.ID) || len(s.Name) == 0 || len(s.Name) > 256 || !validPolicy(s.Policy) || ValidateMirrors(s.Mirrors) != nil {
 		return false
 	}
 	if s.Kind != "" && s.Kind != KindAddon && s.Kind != KindBackend && s.Kind != KindModel {
@@ -150,6 +154,31 @@ func validSource(s Source) bool {
 		return validGalleryURL(s.URL) && s.Kind != KindAddon && s.Kind != ""
 	}
 	return false
+}
+
+// MaxMirrors is the most mirrors one source carries.
+const MaxMirrors = 8
+
+// ValidateMirrors checks the mirrors of a source the way a gallery address is
+// checked: http(s), github:, oci:// or file://, with no spaces or control
+// characters. The error names the first bad mirror.
+func ValidateMirrors(mirrors []string) error {
+	if len(mirrors) > MaxMirrors {
+		return fmt.Errorf("a source takes at most %d mirrors", MaxMirrors)
+	}
+	for _, m := range mirrors {
+		lower := strings.ToLower(m)
+		ok := false
+		for _, p := range []string{"http://", "https://", "github:", "oci://", "file://"} {
+			if strings.HasPrefix(lower, p) {
+				ok = true
+			}
+		}
+		if !ok || !validGalleryURL(m) {
+			return fmt.Errorf("mirror %q must be an http(s), github:, oci:// or file:// address", m)
+		}
+	}
+	return nil
 }
 
 func validGalleryURL(u string) bool {
@@ -352,6 +381,9 @@ func (s *Sources) apply(src Source) (map[string]Source, error) {
 	if had {
 		src.Suspended = old.Suspended
 		src.Default, src.Format = old.Default, old.Format
+		if src.Mirrors == nil {
+			src.Mirrors = old.Mirrors
+		}
 		if src.Kind == "" {
 			src.Kind = old.Kind
 		}

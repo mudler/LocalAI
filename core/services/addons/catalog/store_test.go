@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -76,5 +77,29 @@ func TestSaveCannotClaimDefault(t *testing.T) {
 	got, e := s.Get(ctx, admin, "mine")
 	if e != nil || got.Default || got.Format != "" {
 		t.Fatalf("got %+v, %v", got, e)
+	}
+}
+
+// A sources.json written before mirrors existed still loads, without mirrors.
+func TestOldSourcesFileLoadsWithoutMirrors(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sources.json")
+	old := `{"team":{"id":"team","name":"Team","url":"https://example.org/m.yaml","enabled":true,"policy":{},"kind":"model","format":"gallery"}}`
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := openStore(t, path)
+	e, ok := find(s, "team")
+	if !ok || e.Mirrors != nil || !e.Enabled {
+		t.Fatalf("got %+v %v", e, ok)
+	}
+	if err := s.SetMirrors("team", []string{"https://m.example/m.yaml"}); err != nil {
+		t.Fatal(err)
+	}
+	e, _ = find(openStore(t, path), "team")
+	if len(e.Mirrors) != 1 {
+		t.Fatalf("mirrors persist: %+v", e)
+	}
+	if err := s.SetMirrors("team", []string{"ftp://x"}); err == nil {
+		t.Fatal("a bad mirror is refused")
 	}
 }

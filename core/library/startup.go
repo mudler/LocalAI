@@ -3,6 +3,7 @@ package library
 
 import (
 	"encoding/json"
+	"slices"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
@@ -40,6 +41,10 @@ func MapGalleries(store *catalog.Sources, kind catalog.Kind, galleries []config.
 			name = id
 		}
 		src := catalog.Source{ID: id, Name: name, URL: g.URL, Enabled: true, Kind: kind, Format: catalog.FormatGallery}
+		// A flag gallery that carries mirrors keeps them as the source's.
+		if catalog.ValidateMirrors(g.Mirrors) == nil {
+			src.Mirrors = g.Mirrors
+		}
 		if err := store.AddUser(src); err != nil {
 			return added, err
 		}
@@ -71,6 +76,9 @@ func ApplyGalleries(store *catalog.Sources, kind catalog.Kind, galleries []confi
 		if e, ok := state[g.URL]; ok && (!e.Enabled || e.Removed || e.Suspended) {
 			continue
 		}
+		if e, ok := state[g.URL]; ok && len(e.Mirrors) > 0 {
+			g.Mirrors = e.Mirrors
+		}
 		out = append(out, g)
 		have[g.URL] = true
 	}
@@ -80,7 +88,7 @@ func ApplyGalleries(store *catalog.Sources, kind catalog.Kind, galleries []confi
 		}
 	}
 	for _, e := range extra {
-		out = append(out, config.Gallery{Name: e.Name, URL: e.URL, Library: e.Format != catalog.FormatGallery})
+		out = append(out, config.Gallery{Name: e.Name, URL: e.URL, Mirrors: e.Mirrors, Library: e.Format != catalog.FormatGallery})
 		have[e.URL] = true
 	}
 	return out
@@ -156,14 +164,19 @@ func reconcileKind(store *catalog.Sources, kind catalog.Kind, current []config.G
 	have := map[string]bool{}
 	for _, g := range current {
 		// A gallery the store does not know is not the store's to drop.
-		if _, ok := live[g.URL]; ok || !known[g.URL] {
+		if e, ok := live[g.URL]; ok || !known[g.URL] {
+			// The source's mirrors win when it lists any and they differ; a
+			// gallery keeps the mirrors it has when the source lists none.
+			if ok && len(e.Mirrors) > 0 && !slices.Equal(e.Mirrors, g.Mirrors) {
+				g.Mirrors = e.Mirrors
+			}
 			out = append(out, g)
 			have[g.URL] = true
 		}
 	}
 	for _, e := range store.Entries() {
 		if _, ok := live[e.URL]; ok && e.Kind == kind && readsAsGallery(kind, e) && !have[e.URL] {
-			out = append(out, config.Gallery{Name: e.Name, URL: e.URL, Library: e.Format != catalog.FormatGallery})
+			out = append(out, config.Gallery{Name: e.Name, URL: e.URL, Mirrors: e.Mirrors, Library: e.Format != catalog.FormatGallery})
 			have[e.URL] = true
 		}
 	}

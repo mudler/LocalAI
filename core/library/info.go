@@ -22,7 +22,9 @@ type Info struct {
 	Removed   bool `json:"removed"`
 	Suspended bool `json:"suspended"`
 	// Conflict explains how this source clashes with another one, when it does.
-	Conflict      string                      `json:"conflict,omitempty"`
+	Conflict string `json:"conflict,omitempty"`
+	// Mirrors are the fallback addresses of the source, in order.
+	Mirrors       []string                    `json:"mirrors,omitempty"`
 	AuthReference string                      `json:"authReference,omitempty"`
 	Policy        *catalog.VerificationPolicy `json:"policy,omitempty"`
 	Refresh       *catalog.RefreshState       `json:"refresh,omitempty"`
@@ -38,7 +40,7 @@ func List(store *catalog.Sources) []Info {
 			Kind: e.Kind, ID: e.ID, Name: e.Name, URL: e.URL, Format: e.Format,
 			Enabled: e.Enabled && !e.Removed && !e.Suspended,
 			Default: e.Default, Removed: e.Removed, Suspended: e.Suspended && !e.Removed,
-			Conflict: conflicts[e.ID], AuthReference: e.AuthReference,
+			Conflict: conflicts[e.ID], AuthReference: e.AuthReference, Mirrors: e.Mirrors,
 		}
 		p := e.Policy
 		in.Policy = &p
