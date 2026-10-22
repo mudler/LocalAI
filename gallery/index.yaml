@@ -3,6 +3,72 @@
 # written by scripts/models/cmd/modelcatalog and stays only so releases before
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
+- url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  name: qwen3.8-27b-defiance-iq4
+  description: |
+    Defiance combines HauhauCS's uncensored Qwen3.8-27B weights with a
+    customized Turbo Brilliance chat template for reasoning and roleplay.
+    This IQ4_XS GGUF build uses llama.cpp and the embedded template,
+    with a 32,768-token context. Text input only; MTP is not enabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/ttindall/Qwen3.8-27B-Defiance-Uncensored-MTP-GGUF
+    - https://huggingface.co/HauhauCS/Qwen3.8-27B-Uncensored-HauhauCS-Aggressive-MTP-GGUF
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - text-generation
+  files:
+    - filename: Qwen3.8-27B-Defiance-Uncensored-IQ4_XS.gguf
+      sha256: d48cdb6e627b4e74b862938daf5ac2bfb7b82c5f02627a02a3b4927e7bb35f2f
+      uri: https://huggingface.co/ttindall/Qwen3.8-27B-Defiance-Uncensored-MTP-GGUF/resolve/1e664931451831589ce16389a55e0d5605dd4bc5/Qwen3.8-27B-Defiance-Uncensored-IQ4_XS.gguf
+  overrides:
+    context_size: 32768
+    parameters:
+      min_p: 0.05
+      model: Qwen3.8-27B-Defiance-Uncensored-IQ4_XS.gguf
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 64
+      top_p: 0.95
+  variants:
+    - model: qwen3.8-27b-defiance-q6
+- url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  name: qwen3.8-27b-defiance-q6
+  description: |
+    Defiance combines HauhauCS's uncensored Qwen3.8-27B weights with a
+    customized Turbo Brilliance chat template for reasoning and roleplay.
+    This Q6_K_P GGUF build uses llama.cpp and the embedded template,
+    with a 32,768-token context. Text input only; MTP is not enabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/ttindall/Qwen3.8-27B-Defiance-Uncensored-MTP-GGUF
+    - https://huggingface.co/HauhauCS/Qwen3.8-27B-Uncensored-HauhauCS-Aggressive-MTP-GGUF
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - text-generation
+  files:
+    - filename: Qwen3.8-27B-Defiance-Uncensored-Q6_K_P.gguf
+      sha256: 0ce1abf7e488a5efbd4408af763f18e21bdc220c93106f658d95607dc97868a3
+      uri: https://huggingface.co/ttindall/Qwen3.8-27B-Defiance-Uncensored-MTP-GGUF/resolve/1e664931451831589ce16389a55e0d5605dd4bc5/Qwen3.8-27B-Defiance-Uncensored-Q6_K_P.gguf
+  overrides:
+    context_size: 32768
+    parameters:
+      min_p: 0.05
+      model: Qwen3.8-27B-Defiance-Uncensored-Q6_K_P.gguf
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 64
+      top_p: 0.95
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |

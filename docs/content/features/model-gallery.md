@@ -606,6 +606,29 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml)).
 
+### Defiance 27B
+
+[Defiance](https://huggingface.co/ttindall/Qwen3.8-27B-Defiance-Uncensored-MTP-GGUF)
+combines HauhauCS's Qwen3.8-27B weights with a customized Turbo Brilliance chat
+template. The gallery offers IQ4_XS and Q6_K_P GGUF builds for llama.cpp.
+Both use the embedded template and a default context of 32,768 tokens.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-defiance-iq4
+```
+
+To select the Q6_K_P build explicitly:
+
+```bash
+local-ai models install qwen3.8-27b-defiance-iq4 --variant qwen3.8-27b-defiance-q6
+```
+
+These entries support text input and ordinary decoding. They do not install a
+vision projector or enable MTP. They use the template embedded in the GGUF,
+which predates the publisher's separate template updates.
+
 ### Model variants
 
 Some gallery entries offer several builds of the same model: different
