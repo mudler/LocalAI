@@ -14,7 +14,7 @@ import (
 
 // AutoUpgradeActor is the actor the journal records for an upgrade the owner
 // started on its own setting. It is not an account and cannot read operations.
-var AutoUpgradeActor = contract.Actor{UserID: "system:auto-upgrade", CredentialID: "system:auto-upgrade", Mode: "system"}
+var AutoUpgradeActor = contract.Actor{UserID: "system:auto-upgrade", CredentialID: "system:auto-upgrade", Mode: "system"} // #nosec G101 -- an actor label for system-started upgrades, not a credential
 
 // AutoUpgradeResult is the outcome for one add-on in one pass.
 type AutoUpgradeResult struct {
