@@ -83,13 +83,15 @@ type Release struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Version     string `json:"version"`
-	Artifact    string `json:"artifact"`
-	Digest      string `json:"digest"`
+	// Artifact and Digest are absent on a meta backend, and Digest is absent on
+	// a mutable entry (see Mutable).
+	Artifact string `json:"artifact,omitempty"`
+	Digest   string `json:"digest,omitempty"`
 	// Alias is the name a model may use to ask for this backend. Only a
 	// backend entry may set it.
 	Alias  string             `json:"alias,omitempty"`
-	OS     string             `json:"os"`
-	Arch   string             `json:"arch"`
+	OS     string             `json:"os,omitempty"`
+	Arch   string             `json:"arch,omitempty"`
 	Policy VerificationPolicy `json:"policy,omitzero"`
 	// UI is the optional display metadata of the entry. It is comparable on
 	// purpose: a release is compared with its trusted resolution at staging.

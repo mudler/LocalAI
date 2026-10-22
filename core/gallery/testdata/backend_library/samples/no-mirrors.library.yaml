@@ -1,0 +1,36 @@
+- alias: stablediffusion-ggml
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-stablediffusion-ggml
+  capabilities:
+    amd: rocm-stablediffusion-ggml
+    default: cpu-stablediffusion-ggml
+    intel: intel-sycl-f16-stablediffusion-ggml
+    metal: metal-stablediffusion-ggml
+    nvidia: cuda12-stablediffusion-ggml
+    nvidia-cuda-12: cuda12-stablediffusion-ggml
+    nvidia-cuda-13: cuda13-stablediffusion-ggml
+    nvidia-l4t: nvidia-l4t-arm64-stablediffusion-ggml
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-stablediffusion-ggml
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-stablediffusion-ggml
+    vulkan: vulkan-stablediffusion-ggml
+  channel: latest
+  description: |
+    Stable Diffusion and Flux in pure C/C++
+  digest: sha256:b3e306c0b628e830ae92c94f50afb9aebe48186a0c42ab68858c6a3afc1b9984
+  icon: https://github.com/leejet/stable-diffusion.cpp/raw/master/assets/cat_with_sd_cpp_42.png
+  id: intel-sycl-f32-stablediffusion-ggml
+  kind: backend
+  license: mit
+  name: intel-sycl-f32-stablediffusion-ggml
+  os: linux
+  schemaVersion: 1
+  tags:
+    - image-generation
+    - CPU
+    - GPU
+    - Metal
+    - CUDA
+    - HIP
+  urls:
+    - https://github.com/leejet/stable-diffusion.cpp
+  version: 0.0.0-latest.b3e306c0b628
