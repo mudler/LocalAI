@@ -43,7 +43,7 @@ export default function KindLibraries({ kind, adapter = addonsCatalog, onSelect,
 
   return (
     <div className="cat-bar" data-testid={`kind-libraries-${kind}`}>
-      {chips.length > 1 && (
+      {chips.length > 0 && (
         <div className="cat-chips" role="group" aria-label={t('catalog.libraries')}>
           <button type="button" className="dk-chip" aria-pressed={!current} onClick={() => pick('')}>
             {t('catalog.allLibraries')}
