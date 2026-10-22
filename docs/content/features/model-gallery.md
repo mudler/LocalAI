@@ -60,6 +60,20 @@ local-ai models install nemotron-3.5-bolt-e4b-q4
 To select a build explicitly, use `--variant nemotron-3.5-bolt-e4b-q4`
 or `--variant nemotron-3.5-bolt-e4b-q8`.
 
+### Sage-A1.5
+
+[Sage-A1.5](https://huggingface.co/InternScience/Sage-A1.5) supports text chat
+and image understanding through llama.cpp. The gallery includes the publisher's
+Q4_K_M and Q8_0 GGUF builds with the vision projector and a 32,768-token default context.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install sage-a1.5-q4
+```
+
+Use `--variant sage-a1.5-q4` or `--variant sage-a1.5-q8` to select a specific build.
+
 ### MiniCPM-V 4.7 1B
 
 [MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
