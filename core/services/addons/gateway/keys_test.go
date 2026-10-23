@@ -3,6 +3,7 @@ package gateway
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -71,6 +72,17 @@ var _ = Describe("carrier key set", func() {
 		list, e := frontend(dir, address).Apps(context.Background(), keyActor)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(list.Apps).NotTo(BeEmpty())
+	})
+
+	It("gives the owner no signing key and the frontend its own", func() {
+		dir := generate()
+		owner, e := LoadCarrierConfig(dir, "owner", "https://owner.example:8443")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(owner.SigningKey).To(BeEmpty())
+		Expect(owner.VerificationKeys).To(HaveKey(FrontendIdentity))
+		front, e := LoadCarrierConfig(dir, "frontend", "https://owner.example:8443")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(front.SigningKey).To(HaveLen(ed25519.PrivateKeySize))
 	})
 
 	It("accepts two frontends made from the same set", func() {

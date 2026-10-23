@@ -212,12 +212,7 @@ func LoadCarrierConfig(dir, role, ownerAddress string) (*CarrierConfig, error) {
 			return nil, fmt.Errorf("%s: %w", carrierFrontendVerify, err)
 		}
 		cfg.VerificationKeys = map[string]ed25519.PublicKey{FrontendIdentity: pub}
-		// NewCarrier requires a signing key of every instance. The owner never
-		// forwards, so it never signs; it gets a throwaway key in memory rather
-		// than the frontends' private key.
-		if _, cfg.SigningKey, err = ed25519.GenerateKey(rand.Reader); err != nil {
-			return nil, err
-		}
+		// The owner never signs an outbound request, so it holds no signing key.
 		return cfg, nil
 	}
 	cfg.InstanceID = FrontendIdentity

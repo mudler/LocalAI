@@ -48,6 +48,17 @@ type OutcomeUnknown struct {
 
 func (e *OutcomeUnknown) Error() string { return "addon mutation outcome unknown" }
 func (e *OutcomeUnknown) Unwrap() error { return ErrUnavailable }
+
+// validSigningKey reports whether the signing key fits the role. A frontend
+// signs every request it forwards and needs a full key. The owner never signs
+// outbound requests, so it needs none; a key it has must still be well formed.
+func validSigningKey(c CarrierConfig) bool {
+	if len(c.SigningKey) == 0 {
+		return c.InstanceID == c.OwnerID
+	}
+	return len(c.SigningKey) == ed25519.PrivateKeySize
+}
+
 func NewCarrier(c CarrierConfig) (*Carrier, error) {
 	limits, e := c.Limits.resolved()
 	if e != nil {
@@ -55,7 +66,7 @@ func NewCarrier(c CarrierConfig) (*Carrier, error) {
 	}
 	c.Limits = limits
 	u, e := url.Parse(c.OwnerAddress)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.Roots == nil || len(c.Certificate.Certificate) == 0 || len(c.SigningKey) != ed25519.PrivateKeySize {
+	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.Roots == nil || len(c.Certificate.Certificate) == 0 || !validSigningKey(c) {
 		return nil, ErrForbidden
 	}
 	if _, ok := c.Pins[c.OwnerID]; !ok {
@@ -444,6 +455,10 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	var nonce [32]byte
 	if _, e = rand.Read(nonce[:]); e != nil {
 		return nil, ErrUnavailable
+	}
+	if len(c.config.SigningKey) != ed25519.PrivateKeySize {
+		// Only an owner can lack a key, and an owner never forwards.
+		return nil, ErrForbidden
 	}
 	m := ForwardedRequest{PeerID: c.config.InstanceID, Audience: audience, Actor: a, OperationID: wire.Request.OperationID, Nonce: hex.EncodeToString(nonce[:]), ExpiresAt: time.Now().Add(30 * time.Second), Body: body}
 	m.Sign(c.config.SigningKey)
