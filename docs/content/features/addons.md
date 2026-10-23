@@ -163,15 +163,13 @@ state in files under one root, as before. Frontends keep none and scale freely.
 - **A local volume.** The root needs a local file system with working `flock`,
   atomic rename and directory `fsync`. A network block volume that one node mounts
   at a time is fine. A shared network file system is not supported.
-- **A stable owner address.** The owner stores `--addons-owner-address` in its
-  identity file and refuses to start when it changes. Use a stable service name,
-  never a pod address.
+- **A stable owner address.** Frontends reach the owner at `--addons-owner-address`.
+  The owner does not store it, so you can change it between starts. Use a stable
+  service name, never a pod address.
 - **Frontends have no add-on volume.** A frontend (`--addons-role=frontend`) does
   not create or open the `addons` folder. Give it no volume for it.
-- **Start a new root.** A root that a single node made stores a loopback address
-  in its identity file, so the owner role refuses it. Start the owner on an empty
-  volume. Moving the add-ons of a single node to an owner workload is not supported
-  yet.
+- **Start a new root.** Moving the add-ons of a single node to an owner workload is
+  not supported yet. Start the owner on an empty volume.
 
 {{% notice warning %}}
 The owner is a node-bound singleton. If the owner is down, add-ons are down: the

@@ -413,3 +413,48 @@ var _ = Describe("cancellable operation observation", func() {
 		Eventually(done).Should(Receive(Equal(context.Canceled)))
 	})
 })
+
+var _ = Describe("owner identity file", func() {
+	acquire := func(cfg OwnerConfig) error {
+		release, e := (OwnerGuard{Config: cfg}).Acquire(ctx)
+		if e == nil {
+			Expect(release()).To(Succeed())
+		}
+		return e
+	}
+	identityPath := func(cfg OwnerConfig) string { return filepath.Join(cfg.Root, "identity.json") }
+
+	It("writes the owner and storage only, with no address", func() {
+		cfg, _, _ := fixture()
+		Expect(acquire(cfg)).To(Succeed())
+		b, e := os.ReadFile(identityPath(cfg))
+		Expect(e).NotTo(HaveOccurred())
+		var fields map[string]any
+		Expect(json.Unmarshal(b, &fields)).To(Succeed())
+		Expect(fields).To(Equal(map[string]any{"OwnerID": "owner", "StorageID": "disk-one"}))
+	})
+	It("loads a file written in the old format with an address", func() {
+		cfg, _, _ := fixture()
+		Expect(os.MkdirAll(cfg.Root, 0700)).To(Succeed())
+		Expect(os.WriteFile(identityPath(cfg), []byte(`{"OwnerID":"owner","Address":"https://old.example","StorageID":"disk-one"}`), 0600)).To(Succeed())
+		Expect(acquire(cfg)).To(Succeed())
+	})
+	It("loads when only the address changed", func() {
+		cfg, _, _ := fixture()
+		Expect(acquire(cfg)).To(Succeed())
+		cfg.OwnerAddress = "https://moved.example:8443"
+		Expect(acquire(cfg)).To(Succeed())
+	})
+	It("refuses a changed owner ID", func() {
+		cfg, _, _ := fixture()
+		Expect(acquire(cfg)).To(Succeed())
+		cfg.OwnerID, cfg.InstanceID = "owner-two", "owner-two"
+		Expect(acquire(cfg)).To(MatchError(ErrConfiguration))
+	})
+	It("refuses a changed storage ID", func() {
+		cfg, _, _ := fixture()
+		Expect(acquire(cfg)).To(Succeed())
+		cfg.StorageID = "disk-two"
+		Expect(acquire(cfg)).To(MatchError(ErrConfiguration))
+	})
+})
