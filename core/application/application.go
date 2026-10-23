@@ -990,3 +990,19 @@ type libraryInstallNoProgress struct{ in *backendlib.Installer }
 func (l libraryInstallNoProgress) Install(ctx context.Context, sourceID, backend, version string) error {
 	return l.in.Install(ctx, sourceID, backend, version, backendlib.Progress{})
 }
+
+func (l libraryInstallNoProgress) Updates(ctx context.Context) ([]localaitools.BackendLibraryUpdate, error) {
+	found, err := l.in.Updates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.BackendLibraryUpdate, 0, len(found))
+	for _, u := range found {
+		out = append(out, localaitools.BackendLibraryUpdate{
+			Name: u.Name, SourceID: u.SourceID,
+			InstalledVersion: u.InstalledVersion, InstalledDigest: u.InstalledDigest,
+			Version: u.Version, Digest: u.Digest, Signed: u.Signed,
+		})
+	}
+	return out, nil
+}

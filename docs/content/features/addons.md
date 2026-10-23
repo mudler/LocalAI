@@ -646,6 +646,10 @@ more than one channel, the check says nothing instead of guessing. The Update bu
 starts the same install as above, with the same steps, for the version the check names.
 There is no automatic upgrade.
 
+The LocalAI Assistant and `local-ai mcp-server` expose this check as the read-only
+`list_backend_library_updates` tool. Taking an update stays a confirmed
+`install_library_backend` call.
+
 A library install touches only the node that serves the request. In a distributed
 deployment the backend is installed on that node only; the per-node routes of the backend
 gallery are unchanged.
