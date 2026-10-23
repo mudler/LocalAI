@@ -101,9 +101,10 @@ var _ = Describe("Secure launcher launch", func() {
 		Expect(d.Env()).To(Equal([]string{"CUDA_VISIBLE_DEVICES=2"}))
 		Expect(d.Dir()).To(BeEmpty())
 	})
-	It("fails closed at the existing start entry point", func() {
-		l := &Launcher{config: c}
-		Expect(l.StartLocalAI()).To(MatchError(ContainSubstring("not available")))
+	It("does not start a worker without an installed, verified runtime", func() {
+		l := &Launcher{config: c, releaseManager: &ReleaseManager{BinaryPath: GinkgoT().TempDir(), ChecksumsPath: GinkgoT().TempDir(), MetadataPath: GinkgoT().TempDir()}}
+		Expect(l.StartLocalAI()).NotTo(Succeed())
+		Expect(l.IsRunning()).To(BeFalse())
 	})
 	It("requires explicit plaintext acknowledgement", func() {
 		c.Worker.Connection.FrontendURL = "http://frontend.example"

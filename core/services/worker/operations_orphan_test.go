@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/workerledger"
 	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -114,9 +115,9 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 		Expect(ledger.add("model#0", pid)).To(Succeed()) // recorded with a start time, as on Linux
 		ledger.corruptStartTimeForTest("model#0")
 
-		real := readStartTime
-		readStartTime = func(int) string { return "" } // no /proc
-		DeferCleanup(func() { readStartTime = real })
+		real := workerledger.ReadStartTime
+		workerledger.ReadStartTime = func(int) string { return "" } // no /proc
+		DeferCleanup(func() { workerledger.ReadStartTime = real })
 
 		killed, err := ledger.sweepStale()
 		Expect(err).To(HaveOccurred(), "ownership of a live group that cannot be identified blocks startup")

@@ -66,10 +66,13 @@ accordingly. Masked editing controls are not part of this storage migration.
 
 ## Launch validation and logs
 
-Worker startup is still disabled in the launcher. The internal launch builder
-now validates the saved worker profile, but does not bypass the forthcoming
-runtime compatibility, status and descendant-ownership gates. Editing JSON does
-not enable worker startup, and worker errors never fall back to standalone.
+The launch builder validates the saved worker profile before any start. A worker
+starts only through the lifecycle controller described in
+[Lifecycle and ownership](#lifecycle-and-ownership), which adds the runtime
+compatibility, status and descendant-ownership gates. The settings window for
+choosing a mode is not part of this change: a worker starts only when the saved
+mode is `worker` and the profile validates, and worker errors never fall back to
+standalone.
 
 The worker profile requires an explicit frontend URL (prefer
 `https://controller.example/prefix`), one NATS endpoint (prefer
@@ -117,9 +120,10 @@ or root.
 
 ## Private worker status contract (runtime support)
 
-Worker startup in the launcher remains disabled until ownership and lifecycle
-controls are implemented. This runtime support does not enable the settings UI
-or start a worker automatically.
+The launcher starts a worker only after the lifecycle controller has confirmed
+that no process of an earlier run is still owned (see
+[Lifecycle and ownership](#lifecycle-and-ownership)). This runtime support does
+not enable the settings UI or start a worker automatically.
 
 Compatible runtimes implement `local-ai worker-status-capability`, which prints
 `localai-worker-status-v1` and exits without starting a worker. The launcher
@@ -208,3 +212,41 @@ The approval route is not registered when the controller has no registration
 token, and renewal-only requests are refused in that configuration. Missing or
 incorrect bearer tokens are rejected before registry access. These worker
 self-service operations do not use admin feature permissions or MCP tools.
+
+## Lifecycle and ownership
+
+One lifecycle controller owns the launcher's runtime child. It allows one
+operation at a time: while a runtime is running, starting or stopping, another
+start or stop is refused. Work tagged with an older run is discarded.
+
+A per-user lock file (`~/.localai/launcher.lock`, owner-only, not inherited by
+the runtime) stops a second launcher from starting an overlapping role. The
+operating system drops it when the holder exits or crashes.
+
+**Start.** The launcher first reads the worker's backend process ledger
+(`worker-processes.json`, next to the models directory under `data/`). It kills
+and confirms every group that provably belongs to an earlier run, and drops
+records whose group is gone or whose process id now belongs to something else.
+A record it cannot resolve (identity unverifiable, group that survives the
+kill, unreadable ledger) blocks the start and nothing unverified is signalled.
+A worker additionally needs a runtime that answers
+`worker-status-capability`; an older runtime gives an upgrade-required error and
+never falls back to log parsing.
+
+**Stop.** The launcher sends `SIGTERM` and allows 30 seconds for draining,
+deregistration and backend cleanup. It then kills the runtime's process group,
+allows 5 more seconds, and kills every recorded backend group. It reports
+**Stopped** only after it has verified that the runtime group and all recorded
+backend groups are empty. Otherwise it shows **Failed: shutdown incomplete**,
+keeps the lock, blocks every start, and leaves **Stop** available to retry.
+An unexpected runtime exit runs the same cleanup, because a parent exit does
+not prove its backends stopped. Quit uses the same stop path and does not
+release the lock when shutdown is incomplete.
+
+A forced stop can interrupt active inference. A failure to deregister from the
+frontend is a warning and does not decide whether another role may start.
+Local ownership does.
+
+Worker state shown by the launcher comes from the private status snapshot, not
+from log text. Process liveness alone shows **Connection problem: status
+unavailable**, never **Ready**.

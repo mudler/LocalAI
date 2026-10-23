@@ -21,7 +21,16 @@ import (
 type launchDescription struct {
 	args, env, secrets []string
 	dir, credentials   string
+	// role is roleStandalone or roleWorker.
+	role string
+	// ledger is the backend process ledger a worker writes; empty otherwise.
+	ledger string
 }
+
+const (
+	roleStandalone = "standalone"
+	roleWorker     = "worker"
+)
 
 func (d launchDescription) Args() []string         { return append([]string(nil), d.args...) }
 func (d launchDescription) Env() []string          { return append([]string(nil), d.env...) }
@@ -131,9 +140,13 @@ func buildLaunch(input *Config, dataPath string, inherited []string, plaintextAc
 		}
 		env[k] = v
 	}
+	d.role = roleStandalone
 	if !worker {
 		d.args = standaloneArgs(c, dataPath)
 	} else {
+		d.role = roleWorker
+		// The worker keeps its ledger next to its models directory.
+		d.ledger = filepath.Join(filepath.Clean(filepath.Join(c.ModelsPath, "..")), "data", "worker-processes.json")
 		w := c.Worker
 		a := w.Connection
 		n := w.NATS

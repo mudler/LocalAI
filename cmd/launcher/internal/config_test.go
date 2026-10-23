@@ -125,7 +125,8 @@ var _ = Describe("Secure launcher configuration", func() {
 		Expect(l.SetConfig(&c)).To(Succeed())
 		Expect(l.Initialize()).To(Succeed())
 		Expect(l.ShouldAutoStartServer()).To(BeFalse())
-		Expect(l.StartLocalAI()).To(MatchError(ContainSubstring("worker launch is not available")))
+		Expect(l.StartLocalAI()).NotTo(Succeed(), "no runtime is installed here, so nothing may start")
+		Expect(l.IsRunning()).To(BeFalse())
 		worker := l.GetConfig().Worker
 		for _, mode := range []string{"standalone", "worker", "standalone"} {
 			draft := l.GetConfig()

@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,13 +12,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/mudler/LocalAI/pkg/workerstatus"
 )
 
 // Launcher represents the main launcher application
@@ -32,12 +34,25 @@ type Launcher struct {
 	window         fyne.Window
 	app            fyne.App
 
-	// Process management
-	localaiCmd    *exec.Cmd
-	isRunning     bool
-	logBuffer     *strings.Builder
-	logMutex      sync.RWMutex
-	statusChannel chan string
+	// Process management: one serialized lifecycle owns the child.
+	life      *lifecycle
+	lifeOnce  sync.Once
+	lock      *userLock
+	lockDir   string
+	lockMu    sync.Mutex
+	statusMu  sync.Mutex
+	statusMsg string
+	// statusPath and statusGeneration identify the current worker's private
+	// status snapshot; tracker measures its freshness.
+	statusPath       string
+	statusGeneration string
+	statusTracker    *workerstatus.Tracker
+	// statusFromLogs is true only for a standalone runtime: a worker's state
+	// comes from its status snapshot, never from log text.
+	statusFromLogs bool
+	logBuffer      *strings.Builder
+	logMutex       sync.RWMutex
+	statusChannel  chan string
 
 	// Logging
 	logFile  *os.File
@@ -181,15 +196,15 @@ func (l *Launcher) autoStartServer() {
 	}()
 }
 
-// StartLocalAI starts the LocalAI server
+// StartLocalAI starts the LocalAI runtime for the selected mode.
 func (l *Launcher) StartLocalAI() error {
 	if l.configError != nil {
 		return l.configError
 	}
-	if l.config == nil || (l.config.Mode != "" && l.config.Mode != "standalone") {
-		return fmt.Errorf("worker launch is not available yet; select standalone in launcher settings")
+	if l.config == nil {
+		return fmt.Errorf("launcher settings are missing")
 	}
-	if l.isRunning {
+	if l.IsRunning() {
 		return fmt.Errorf("LocalAI is already running")
 	}
 
@@ -208,114 +223,268 @@ func (l *Launcher) StartLocalAI() error {
 		return fmt.Errorf("LocalAI binary not found. Please download a release first")
 	}
 
+	// Plaintext acknowledgement is a settings-UI decision that is not stored
+	// yet, so a plaintext worker connection stays refused.
 	description, err := buildLaunch(l.config, l.GetDataPath(), os.Environ(), false)
 	if err != nil {
 		return err
 	}
-	l.localaiCmd = exec.CommandContext(l.ctx, binaryPath, description.Args()...)
-	l.localaiCmd.Env = description.Env()
-	l.localaiCmd.Dir = description.Dir()
+	return l.launchRuntime(binaryPath, description)
+}
 
-	// Setup logging
-	stdout, err := l.localaiCmd.StdoutPipe()
+func (l *Launcher) runtimeContext() context.Context {
+	if l.ctx == nil {
+		return context.Background()
+	}
+	return l.ctx
+}
+
+func (l *Launcher) lifecycleController() *lifecycle {
+	l.lifeOnce.Do(func() {
+		if l.life == nil {
+			l.life = newLifecycle()
+		}
+	})
+	return l.life
+}
+
+// runUI runs f on the UI thread when an application exists.
+func (l *Launcher) runUI(f func()) {
+	if l.app == nil {
+		f()
+		return
+	}
+	fyne.Do(f)
+}
+
+// ensureLock takes the per-user launcher lock once and keeps it until
+// Shutdown completes. A second launcher cannot start an overlapping role.
+func (l *Launcher) ensureLock() error {
+	l.lockMu.Lock()
+	defer l.lockMu.Unlock()
+	if l.lock != nil {
+		return nil
+	}
+	dir := l.lockDir
+	if dir == "" {
+		d, err := configDirectory()
+		if err != nil {
+			return err
+		}
+		d.Close()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		dir = filepath.Join(home, ".localai")
+	}
+	lock, err := acquireUserLock(dir)
 	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
+		return err
+	}
+	l.lock = lock
+	return nil
+}
+
+func (l *Launcher) releaseLock() {
+	l.lockMu.Lock()
+	defer l.lockMu.Unlock()
+	if l.lock != nil {
+		_ = l.lock.Release()
+		l.lock = nil
+	}
+}
+
+// launchRuntime starts one validated launch. A worker additionally needs a
+// runtime that speaks the status contract and a private status channel; an
+// older runtime is an upgrade error and never a log-parsing fallback.
+func (l *Launcher) launchRuntime(binary string, d launchDescription) error {
+	if err := l.ensureLock(); err != nil {
+		return err
+	}
+	worker := d.role == roleWorker
+	env := d.Env()
+	var statusDir string
+	if worker {
+		if err := checkWorkerRuntime(l.runtimeContext(), binary); err != nil {
+			return err
+		}
+		parent := filepath.Join(d.Dir(), "launcher-run")
+		if err := os.MkdirAll(parent, 0o700); err != nil {
+			return fmt.Errorf("cannot create the worker status directory: %w", err)
+		}
+		path, generation, err := workerstatus.NewSession(parent)
+		if err != nil {
+			return err
+		}
+		statusDir = filepath.Dir(path)
+		env = append(env, workerstatus.PathEnv+"="+path, workerstatus.GenerationEnv+"="+generation)
+		l.statusMu.Lock()
+		l.statusPath, l.statusGeneration = path, generation
+		l.statusMu.Unlock()
 	}
 
-	stderr, err := l.localaiCmd.StderrPipe()
+	filter := newLogFilter(d.secrets)
+	spec := launchSpec{
+		Binary:     binary,
+		Args:       d.Args(),
+		Env:        env,
+		Dir:        d.Dir(),
+		LedgerPath: d.ledger,
+		Attach: func(cmd *exec.Cmd) error {
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				return fmt.Errorf("failed to create stdout pipe: %w", err)
+			}
+			stderr, err := cmd.StderrPipe()
+			if err != nil {
+				return fmt.Errorf("failed to create stderr pipe: %w", err)
+			}
+			go l.monitorFilteredLogs(stdout, "STDOUT", filter)
+			go l.monitorFilteredLogs(stderr, "STDERR", newLogFilter(d.secrets))
+			return nil
+		},
+		OnExit: func(generation uint64, err error) { l.runtimeExited(generation, err, statusDir) },
+	}
+	l.statusMu.Lock()
+	l.statusFromLogs = !worker
+	l.statusMu.Unlock()
+	generation, err := l.lifecycleController().Start(spec)
 	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
+		if statusDir != "" {
+			_ = os.RemoveAll(statusDir)
+		}
+		return err
 	}
 
-	// Start the process
-	if err := l.localaiCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start LocalAI: %w", err)
+	if worker {
+		l.statusMu.Lock()
+		l.statusTracker = &workerstatus.Tracker{Generation: l.statusGeneration, ExpectedPID: l.life.PID(), Started: time.Now()}
+		l.statusMu.Unlock()
+		go l.pollWorkerStatus(generation)
 	}
-
-	l.isRunning = true
-
-	fyne.Do(func() {
-		l.updateStatus("LocalAI is starting...")
+	l.runUI(func() {
+		if worker {
+			l.updateStatus("Starting worker...")
+		} else {
+			l.updateStatus("LocalAI is starting...")
+		}
 		l.updateRunningState(true)
 	})
+	return nil
+}
 
-	// Start log monitoring
-	go l.monitorFilteredLogs(stdout, "STDOUT", newLogFilter(description.secrets))
-	go l.monitorFilteredLogs(stderr, "STDERR", newLogFilter(description.secrets))
+// runtimeExited is called once per run after cleanup finished or failed.
+func (l *Launcher) runtimeExited(generation uint64, err error, statusDir string) {
+	if errors.Is(err, errShutdownIncomplete) {
+		l.runUI(func() { l.updateStatus("Failed: shutdown incomplete. Stop again to retry.") })
+		return // keep the status directory: ownership is not resolved
+	}
+	if statusDir != "" {
+		_ = os.RemoveAll(statusDir)
+	}
+	l.runUI(func() {
+		l.updateRunningState(false)
+		if err != nil {
+			l.updateStatus(fmt.Sprintf("LocalAI stopped with error: %v", err))
+		} else {
+			l.updateStatus("LocalAI stopped")
+		}
+	})
+}
 
-	// Monitor process with startup timeout
-	go func() {
-		// Wait for process to start or fail
-		err := l.localaiCmd.Wait()
-		l.isRunning = false
-		fyne.Do(func() {
-			l.updateRunningState(false)
-			if err != nil {
-				l.updateStatus(fmt.Sprintf("LocalAI stopped with error: %v", err))
-			} else {
-				l.updateStatus("LocalAI stopped")
+// pollWorkerStatus shows the worker's evidence-backed state every two seconds
+// while this generation is the live run. Results of older runs are dropped.
+func (l *Launcher) pollWorkerStatus(generation uint64) {
+	ticker := time.NewTicker(workerstatus.PollInterval)
+	defer ticker.Stop()
+	for range ticker.C {
+		if !l.lifecycleController().Running(generation) {
+			return
+		}
+		text := l.WorkerStatus()
+		l.runUI(func() {
+			if l.lifecycleController().Running(generation) {
+				l.updateStatus(text)
 			}
 		})
-	}()
-
-	// Add startup timeout detection
-	go func() {
-		time.Sleep(10 * time.Second) // Wait 10 seconds for startup
-		if l.isRunning {
-			// Check if process is still alive
-			if l.localaiCmd.Process != nil {
-				if err := l.localaiCmd.Process.Signal(syscall.Signal(0)); err != nil {
-					// Process is dead, mark as not running
-					l.isRunning = false
-					fyne.Do(func() {
-						l.updateRunningState(false)
-						l.updateStatus("LocalAI failed to start properly")
-					})
-				}
-			}
-		}
-	}()
-
-	return nil
+	}
 }
 
-// StopLocalAI stops the LocalAI server
+// WorkerStatus classifies the current worker snapshot into display text.
+func (l *Launcher) WorkerStatus() string {
+	l.statusMu.Lock()
+	defer l.statusMu.Unlock()
+	if l.statusTracker == nil || l.statusPath == "" {
+		return "Starting worker..."
+	}
+	s, err := workerstatus.Read(l.statusPath, l.statusGeneration)
+	if err != nil {
+		return workerStateText("status_unavailable")
+	}
+	return workerStateText(l.statusTracker.Classify(s, time.Now()))
+}
+
+func workerStateText(state string) string {
+	switch state {
+	case "ready":
+		return "Ready - waiting for work"
+	case "starting":
+		return "Starting worker..."
+	case "pending":
+		return "Waiting for approval"
+	case "stopping":
+		return "Stopping..."
+	case "registration":
+		return "Connection problem: registration"
+	case "credentials":
+		return "Connection problem: credentials"
+	case "nats":
+		return "Connection problem: message bus"
+	case "subscriptions":
+		return "Connection problem: lifecycle subscriptions"
+	case "readiness":
+		return "Connection problem: local readiness checks"
+	case "heartbeat":
+		return "Connection problem: heartbeat"
+	default:
+		return "Connection problem: status unavailable"
+	}
+}
+
+// StopLocalAI runs the bounded stop sequence. It returns only after the
+// runtime and its owned backend groups are confirmed gone, or reports that
+// shutdown is incomplete and keeps further starts blocked.
 func (l *Launcher) StopLocalAI() error {
-	if !l.isRunning || l.localaiCmd == nil {
-		return fmt.Errorf("LocalAI is not running")
+	if l.lifecycleController().State() == lifecycleStopped {
+		return fmt.Errorf("LocalAI is not running: %w", errNotRunning)
 	}
-
-	// Gracefully terminate the process
-	if err := l.localaiCmd.Process.Signal(os.Interrupt); err != nil {
-		// If graceful termination fails, force kill
-		if killErr := l.localaiCmd.Process.Kill(); killErr != nil {
-			return fmt.Errorf("failed to kill LocalAI process: %w", killErr)
-		}
+	l.runUI(func() { l.updateStatus("Stopping...") })
+	err := l.lifecycleController().Stop()
+	if err != nil {
+		l.runUI(func() { l.updateStatus("Failed: shutdown incomplete. Stop again to retry.") })
 	}
-
-	l.isRunning = false
-	fyne.Do(func() {
-		l.updateRunningState(false)
-		l.updateStatus("LocalAI stopped")
-	})
-	return nil
+	return err
 }
 
-// IsRunning returns whether LocalAI is currently running
+// IsRunning reports whether a runtime, or unresolved ownership of one, exists.
+// Stop stays available until shutdown is confirmed.
 func (l *Launcher) IsRunning() bool {
-	return l.isRunning
+	return l.lifecycleController().State() != lifecycleStopped
 }
 
-// Shutdown performs cleanup when the application is closing
+// Shutdown stops the runtime before the launcher exits. It does not claim
+// success, and keeps the lock, when shutdown cannot be confirmed.
 func (l *Launcher) Shutdown() error {
 	log.Printf("Launcher shutting down, stopping LocalAI...")
 
-	// Stop LocalAI if it's running
-	if l.isRunning {
-		if err := l.StopLocalAI(); err != nil {
+	if l.IsRunning() {
+		if err := l.StopLocalAI(); err != nil && !errors.Is(err, errNotRunning) {
 			log.Printf("Error stopping LocalAI during shutdown: %v", err)
+			return err
 		}
 	}
+	l.releaseLock()
 
 	// Close log file if open
 	if l.logFile != nil {
@@ -452,13 +621,20 @@ func (l *Launcher) GetCurrentVersion() string {
 	return l.releaseManager.GetInstalledVersion()
 }
 
+// StatusText is the last status shown, without consuming it.
+func (l *Launcher) StatusText() string {
+	l.statusMu.Lock()
+	defer l.statusMu.Unlock()
+	return l.statusMsg
+}
+
 // GetCurrentStatus returns the current status
 func (l *Launcher) GetCurrentStatus() string {
 	select {
 	case status := <-l.statusChannel:
 		return status
 	default:
-		if l.isRunning {
+		if l.IsRunning() {
 			return "LocalAI is running"
 		}
 		return "Ready"
@@ -467,7 +643,7 @@ func (l *Launcher) GetCurrentStatus() string {
 
 // GetLastStatus returns the last known status without consuming from channel
 func (l *Launcher) GetLastStatus() string {
-	if l.isRunning {
+	if l.IsRunning() {
 		return "LocalAI is running"
 	}
 
@@ -651,7 +827,7 @@ func (l *Launcher) showDownloadProgress(version, title string) {
 				}
 				// A fresh install should end with a running server, not with
 				// the user hunting for a start button in the tray (#11673).
-				if l.ShouldAutoStartServer() && !l.isRunning {
+				if l.ShouldAutoStartServer() && !l.IsRunning() {
 					l.autoStartServer()
 				}
 			}, win)
@@ -806,8 +982,12 @@ func (l *Launcher) monitorFilteredLogs(reader io.Reader, prefix string, filter l
 				l.ui.OnLogUpdate(logLine)
 			}
 
-			// Check for startup completion
-			if strings.Contains(line, "API server listening") {
+			// Check for startup completion. A worker never takes its state from
+			// log text.
+			l.statusMu.Lock()
+			fromLogs := l.statusFromLogs
+			l.statusMu.Unlock()
+			if fromLogs && strings.Contains(line, "API server listening") {
 				l.updateStatus("LocalAI is running")
 			}
 		})
@@ -816,6 +996,9 @@ func (l *Launcher) monitorFilteredLogs(reader io.Reader, prefix string, filter l
 
 // updateStatus updates the status and notifies UI
 func (l *Launcher) updateStatus(status string) {
+	l.statusMu.Lock()
+	l.statusMsg = status
+	l.statusMu.Unlock()
 	select {
 	case l.statusChannel <- status:
 	default:

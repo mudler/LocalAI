@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/workerledger"
 	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,16 +60,16 @@ var _ = Describe("Durable backend process ownership", func() {
 
 	Describe("start time identity", func() {
 		It("falls back to ps where /proc does not exist, as on macOS", func() {
-			real := procRoot
-			procRoot = filepath.Join(GinkgoT().TempDir(), "no-proc")
-			DeferCleanup(func() { procRoot = real })
-			first := readStartTime(os.Getpid())
+			real := workerledger.ProcRoot
+			workerledger.ProcRoot = filepath.Join(GinkgoT().TempDir(), "no-proc")
+			DeferCleanup(func() { workerledger.ProcRoot = real })
+			first := workerledger.ReadStartTime(os.Getpid())
 			Expect(first).ToNot(BeEmpty())
-			Expect(readStartTime(os.Getpid())).To(Equal(first), "stable for one process")
+			Expect(workerledger.ReadStartTime(os.Getpid())).To(Equal(first), "stable for one process")
 			_, pid := sleeper()
-			other := readStartTime(pid)
+			other := workerledger.ReadStartTime(pid)
 			Expect(other).ToNot(BeEmpty())
-			Expect(readStartTime(1<<30)).To(BeEmpty(), "a pid that does not exist has no start time")
+			Expect(workerledger.ReadStartTime(1<<30)).To(BeEmpty(), "a pid that does not exist has no start time")
 		})
 	})
 
@@ -112,10 +113,10 @@ var _ = Describe("Durable backend process ownership", func() {
 			ledger := newProcessLedger(path)
 			Expect(ledger.add("model#0", pid)).To(Succeed())
 
-			realKill, realWait := killGroup, reapTimeout
-			killGroup = func(int) error { return nil } // the signal never lands
-			reapTimeout = 300 * time.Millisecond
-			DeferCleanup(func() { killGroup, reapTimeout = realKill, realWait })
+			realKill, realWait := workerledger.KillGroup, workerledger.ReapTimeout
+			workerledger.KillGroup = func(int) error { return nil } // the signal never lands
+			workerledger.ReapTimeout = 300 * time.Millisecond
+			DeferCleanup(func() { workerledger.KillGroup, workerledger.ReapTimeout = realKill, realWait })
 
 			Expect(ledger.release("model#0")).ToNot(Succeed())
 			data, _ := os.ReadFile(path)
@@ -173,10 +174,10 @@ var _ = Describe("Durable backend process ownership", func() {
 			pid, _ := strconv.Atoi(proc.CurrentPID())
 			Expect(newProcessLedger(path).add("model#0", pid)).To(Succeed())
 
-			realKill, realWait := killGroup, reapTimeout
-			killGroup = func(int) error { return nil }
-			reapTimeout = 300 * time.Millisecond
-			DeferCleanup(func() { killGroup, reapTimeout = realKill, realWait })
+			realKill, realWait := workerledger.KillGroup, workerledger.ReapTimeout
+			workerledger.KillGroup = func(int) error { return nil }
+			workerledger.ReapTimeout = 300 * time.Millisecond
+			DeferCleanup(func() { workerledger.KillGroup, workerledger.ReapTimeout = realKill, realWait })
 
 			killed, err := newProcessLedger(path).sweepStale()
 			Expect(err).To(HaveOccurred())

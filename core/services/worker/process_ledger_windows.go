@@ -8,6 +8,3 @@ import "errors"
 // in process groups, and the ledger never holds a start time (it is read from
 // /proc), so no entry is ever swept.
 func killProcessGroup(int) error { return errors.New("process groups are not supported on windows") }
-
-// groupAlive is always false: there are no process groups to own on Windows.
-func groupAlive(int) bool { return false }
