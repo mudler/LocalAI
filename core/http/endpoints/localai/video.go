@@ -41,19 +41,11 @@ const (
 	videoRefFrameNameFormat = "%06d"
 )
 
+// Media CDNs commonly redirect; WithExternalOnly validates every hop and the
+// dialled address, and the shared redirect policy bounds the chain and strips
+// credentials on cross-origin hops.
 func newVideoDownloadClient() *http.Client {
-	client := httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects())
-	checkRedirect := client.CheckRedirect
-	// Media CDNs commonly redirect, so validate every hop rather than trusting
-	// only the URL supplied by the caller. Keep the shared redirect policy too;
-	// it bounds the chain and strips credentials on cross-origin hops.
-	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if err := utils.ValidateExternalURL(req.URL.String()); err != nil {
-			return fmt.Errorf("redirect URL validation failed: %w", err)
-		}
-		return checkRedirect(req, via)
-	}
-	return client
+	return httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects(), httpclient.WithExternalOnly())
 }
 
 var videoDownloadClient = newVideoDownloadClient()
