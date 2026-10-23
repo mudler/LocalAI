@@ -191,7 +191,7 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 			Expect(c.ListenAddress).To(Equal("127.0.0.1:9443"))
 		})
 
-		It("gives the frontend role no root, no listener and no addons directory", func() {
+		It("gives the frontend role no listener and creates no addons directory", func() {
 			dir := GinkgoT().TempDir()
 			c, err := resolve(dir, "--addons-role=frontend", "--addons-owner-address="+ownerAddress, "--addons-carrier-dir="+keys)
 			Expect(err).NotTo(HaveOccurred())
@@ -199,7 +199,8 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 			Expect(c.InstanceID).To(Equal("frontend"))
 			Expect(c.OwnerID).To(Equal("local"))
 			Expect(c.OwnerAddress).To(Equal(ownerAddress))
-			Expect(c.Root).To(BeEmpty())
+			// The root is only a name: the manager needs an absolute path.
+			Expect(c.Root).To(Equal(filepath.Join(dir, "addons")))
 			Expect(c.ListenAddress).To(BeEmpty())
 			Expect(c.Transport).NotTo(BeNil())
 			Expect(c.Transport.SigningKey).NotTo(BeEmpty())

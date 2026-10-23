@@ -16,7 +16,6 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
-	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
@@ -361,7 +360,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		// The galleries the flags named also become library sources, and the
 		// library sources decide which galleries are read. This must stay
 		// after the two options above.
-		library.Option(r.DataPath, r.AddonsOfficialLibrary, r.AddonsBackendLibrary, r.OfficialLibraries),
+		libraryOptionFor(r),
 		config.WithVRAMPersistentCache(r.VRAMPersistentCache),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
@@ -679,6 +678,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if err != nil {
 		cancelRun(nil)
 		return err
+	}
+	if addonCfg.Enabled && r.AddonsRole == addonRoleFrontend && !authEnabled {
+		xlog.Warn("This add-on frontend has no account database, so its add-on pins are kept in this process only and differ between frontends")
 	}
 	if addonCfg.Enabled {
 		addonCfg.OfficialLibrary = r.AddonsOfficialLibrary

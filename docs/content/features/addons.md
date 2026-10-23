@@ -98,6 +98,22 @@ role does not create or open the `addons` folder of the data path. The key set f
 both roles comes from `local-ai util addons-carrier-keys`; see
 [Running the owner as its own workload](#running-the-owner-as-its-own-workload).
 
+### Frontend limits
+
+A process with `--addons-role=frontend` holds no add-on state. This has three
+consequences:
+
+- **Library sources are managed on the owner.** The frontend does not open the
+  `sources.json` file of the data path. It reads only the galleries named by
+  `--galleries` and `--backend-galleries`. Manage library sources on the owner.
+- **Backend library routes are not served by frontends.** The routes that list or
+  install backends from a library, and the library update checks, need the owner's
+  sources, so a frontend does not serve them.
+- **Pins are per frontend without an account database.** With an account database,
+  the pins of the Apps entry are shared by all frontends. Without one, each
+  frontend keeps its own pins in a file in its own data path, so two frontends can
+  show different pins. A frontend logs a warning at start when it has no account database.
+
 ## The official library
 
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,

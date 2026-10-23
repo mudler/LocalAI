@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/xlog"
 )
@@ -105,7 +106,7 @@ func addonConfigFor(enabled bool, mode, dataPath string, authEnabled bool, roleF
 
 // splitAddonConfig builds the configuration of the owner role or the frontend
 // role. Both use the fixed carrier identities, so a root made by a single node
-// keeps passing the owner identity check. The frontend has no root: it never
+// keeps passing the owner identity check. The frontend never
 // creates or opens the owner's files.
 func splitAddonConfig(role, mode, dataPath string, f addonRoleFlags) (config.AddonConfig, error) {
 	if f.OwnerAddress == "" {
@@ -127,12 +128,15 @@ func splitAddonConfig(role, mode, dataPath string, f addonRoleFlags) (config.Add
 		InstanceID: transport.InstanceID, OwnerID: gateway.OwnerIdentity, OwnerAddress: f.OwnerAddress,
 		StorageID: "local", Transport: transport, OwnershipMode: mode,
 	}
-	if role == addonRoleFrontend {
-		return c, nil
-	}
+	// The add-on manager rejects a relative root even when it never opens it,
+	// so the frontend names the path where an owner would keep its state. The
+	// frontend never creates, opens or reads it.
 	c.Root, err = filepath.Abs(filepath.Join(dataPath, "addons"))
 	if err != nil {
 		return config.AddonConfig{}, err
+	}
+	if role == addonRoleFrontend {
+		return c, nil
 	}
 	c.ListenAddress = f.OwnerListen
 	if c.ListenAddress == "" {
@@ -153,4 +157,17 @@ func ownerAddressPort(address string) (string, error) {
 		return "", fmt.Errorf("--addons-owner-address: %q must name a port, like https://host:port", address)
 	}
 	return port, nil
+}
+
+// libraryOptionFor returns the startup option that joins the galleries the
+// flags named with the library sources. The sources live in the owner's root,
+// and the option writes to them, so the frontend role must not apply it: it
+// reads only the galleries the flags named. Library sources are managed on the
+// owner.
+func libraryOptionFor(r *RunCMD) config.AppOption {
+	if r.AddonsRole == addonRoleFrontend {
+		xlog.Info("Add-on frontend: library sources are managed on the add-on owner; reading only --galleries and --backend-galleries")
+		return func(*config.ApplicationConfig) {}
+	}
+	return library.Option(r.DataPath, r.AddonsOfficialLibrary, r.AddonsBackendLibrary, r.OfficialLibraries)
 }
