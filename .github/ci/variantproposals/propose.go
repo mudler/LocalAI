@@ -407,25 +407,6 @@ func buildFamily(ix *Index, members []int, evidenceFor map[[2]int]Evidence, clai
 		return nil, &Refusal{Members: names, Reason: fmt.Sprintf("the natural parent %q is already proposed as a variant of %q; proposing it as a parent would nest variants", parentEntry.Name, owner)}
 	}
 
-	// Adding a variants key to an anchor is inherited by every entry that
-	// merges it, silently grouping models nobody proposed. Handling that means
-	// editing each merging child too, which is a larger change than this job
-	// should make unsupervised, so it refuses and hands the reviewer the list.
-	if parentEntry.AnchorName != "" {
-		children := ix.MergeChildren(parentEntry.AnchorName)
-		if len(children) > 0 {
-			childNames := make([]string, 0, len(children))
-			for _, c := range children {
-				childNames = append(childNames, c.Name)
-			}
-			return nil, &Refusal{
-				Members: names,
-				Reason: fmt.Sprintf("the parent %q defines YAML anchor &%s, and a variants key added there is inherited by the %d entries that merge it (%s). Grouping this family by hand also means adding an explicit `variants: []` to each of those entries",
-					parentEntry.Name, parentEntry.AnchorName, len(children), strings.Join(childNames, ", ")),
-			}
-		}
-	}
-
 	existing := map[string]struct{}{}
 	for _, v := range parentEntry.Variants {
 		existing[strings.ToLower(v.Model)] = struct{}{}
@@ -445,7 +426,7 @@ func buildFamily(ix *Index, members []int, evidenceFor map[[2]int]Evidence, clai
 			return nil, &Refusal{Members: names, Reason: fmt.Sprintf("%q already offers variants of its own, so it cannot itself be a variant target", target.Name)}
 		}
 		if !target.Installable() {
-			return nil, &Refusal{Members: names, Reason: fmt.Sprintf("%q has no url, config_file, overrides or files, so it is not independently installable", target.Name)}
+			return nil, &Refusal{Members: names, Reason: fmt.Sprintf("%q has no url, configFile, overrides or files, so it is not independently installable", target.Name)}
 		}
 		if owner, claimed := claimedBy[lower]; claimed && owner != parentName {
 			return nil, &Refusal{Members: names, Reason: fmt.Sprintf("%q is already a variant of %q; a target claimed by two parents is not something the gallery resolves predictably", target.Name, owner)}

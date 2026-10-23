@@ -24,46 +24,50 @@ type VariantRef struct {
 	Model string `yaml:"model"`
 }
 
-// GalleryEntry is one gallery entry, carrying both the semantics the heuristics need
-// and the text range the editor needs.
+// GalleryEntry is one model library entry, carrying both the semantics the
+// heuristics need and the text range the editor needs. The name is the id of
+// the entry, which is the name the gallery knows the model by.
 //
 // The two views are kept together deliberately. The editor must not round-trip
-// the index through a YAML marshaller: the gallery is 40,000 lines and a
+// the index through a YAML marshaller: the library is 40,000 lines and a
 // reflowed diff cannot be reviewed, which defeats the entire point of a job
 // whose output is a human decision.
 type GalleryEntry struct {
-	Name       string         `yaml:"name"`
-	URL        string         `yaml:"url"`
-	ConfigFile map[string]any `yaml:"config_file"`
-	Overrides  map[string]any `yaml:"overrides"`
-	Files      []File         `yaml:"files"`
-	Variants   []VariantRef   `yaml:"variants"`
+	Name       string
+	URL        string
+	ConfigFile map[string]any
+	Overrides  map[string]any
+	Files      []File
+	Variants   []VariantRef
 
-	// Index is the entry's position in gallery order.
-	Index int `yaml:"-"`
+	// Index is the entry's position in library order.
+	Index int
 	// StartLine and EndLine bound the entry's lines, zero based and half open.
-	StartLine int `yaml:"-"`
-	EndLine   int `yaml:"-"`
-	// AnchorName is set when the entry defines a YAML anchor. Adding a variants
-	// key to such an entry is inherited by everything that merges it, which is
-	// why proposals involving anchors get special treatment.
-	AnchorName string `yaml:"-"`
-	// MergesFrom is the anchor this entry pulls in with "!!merge <<:".
-	MergesFrom string `yaml:"-"`
+	StartLine int
+	EndLine   int
 }
 
-// Index is a parsed gallery index: entries plus the exact lines they came from.
+// libraryEntry is the subset of a model library entry the proposer decodes.
+// Everything but the id lives under model: in the library.
+type libraryEntry struct {
+	Kind  string `yaml:"kind"`
+	ID    string `yaml:"id"`
+	Model struct {
+		URL        string         `yaml:"url"`
+		ConfigFile map[string]any `yaml:"configFile"`
+		Overrides  map[string]any `yaml:"overrides"`
+		Files      []File         `yaml:"files"`
+		Variants   []VariantRef   `yaml:"variants"`
+	} `yaml:"model"`
+}
+
+// Index is a parsed model library: entries plus the exact lines they came from.
 type Index struct {
 	Lines   []string
 	Entries []*GalleryEntry
 }
 
-var (
-	anchorStart = regexp.MustCompile(`^- &(\S+)`)
-	mergeStart  = regexp.MustCompile(`^- !!merge <<: \*(\S+)`)
-)
-
-// LoadIndex reads and parses a gallery index file.
+// LoadIndex reads and parses a model library file.
 func LoadIndex(path string) (*Index, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -72,53 +76,49 @@ func LoadIndex(path string) (*Index, error) {
 	return ParseIndex(string(data))
 }
 
-// ParseIndex builds an Index from the raw text of a gallery index.
+// ParseIndex builds an Index from the raw text of a model library.
 //
 // The YAML decode and the textual scan are cross checked against each other: if
 // they disagree on how many entries there are, every line number the editor
 // would use is suspect, so the run fails rather than editing the wrong entry.
 func ParseIndex(text string) (*Index, error) {
-	var entries []*GalleryEntry
-	if err := yaml.Unmarshal([]byte(text), &entries); err != nil {
-		return nil, fmt.Errorf("decoding gallery index: %w", err)
+	var decoded []*libraryEntry
+	if err := yaml.Unmarshal([]byte(text), &decoded); err != nil {
+		return nil, fmt.Errorf("decoding model library: %w", err)
 	}
 
 	lines, starts := galleryedit.Scan(text)
-	if len(starts) != len(entries) {
-		return nil, fmt.Errorf("gallery index has %d decoded entries but %d top level list items; refusing to edit by line number", len(entries), len(starts))
+	if len(starts) != len(decoded) {
+		return nil, fmt.Errorf("model library has %d decoded entries but %d top level list items; refusing to edit by line number", len(decoded), len(starts))
 	}
 
-	for i, e := range entries {
-		if e == nil {
-			return nil, fmt.Errorf("gallery index list item %d is empty; refusing to edit by line number", i)
+	entries := make([]*GalleryEntry, 0, len(decoded))
+	for i, d := range decoded {
+		if d == nil {
+			return nil, fmt.Errorf("model library list item %d is empty; refusing to edit by line number", i)
 		}
-		e.Index = i
-		e.StartLine = starts[i]
+		if d.Kind != "model" {
+			return nil, fmt.Errorf("model library list item %d is of kind %q; this job only reads model entries", i, d.Kind)
+		}
+		e := &GalleryEntry{
+			Name:       d.ID,
+			URL:        d.Model.URL,
+			ConfigFile: d.Model.ConfigFile,
+			Overrides:  d.Model.Overrides,
+			Files:      d.Model.Files,
+			Variants:   d.Model.Variants,
+			Index:      i,
+			StartLine:  starts[i],
+		}
 		if i+1 < len(starts) {
 			e.EndLine = starts[i+1]
 		} else {
 			e.EndLine = len(lines)
 		}
-		if m := anchorStart.FindStringSubmatch(lines[e.StartLine]); m != nil {
-			e.AnchorName = m[1]
-		}
-		if m := mergeStart.FindStringSubmatch(lines[e.StartLine]); m != nil {
-			e.MergesFrom = m[1]
-		}
+		entries = append(entries, e)
 	}
 
 	return &Index{Lines: lines, Entries: entries}, nil
-}
-
-// MergeChildren lists the entries that pull in the given anchor.
-func (ix *Index) MergeChildren(anchor string) []*GalleryEntry {
-	var out []*GalleryEntry
-	for _, e := range ix.Entries {
-		if e.MergesFrom == anchor {
-			out = append(out, e)
-		}
-	}
-	return out
 }
 
 // ByName indexes entries by lowercased name. A name appearing twice keeps the
