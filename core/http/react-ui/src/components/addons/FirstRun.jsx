@@ -4,10 +4,10 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
-import ConfirmDialog from '../ConfirmDialog'
 import { AppIcon } from './AddonBits'
 import FlowStatus from './InstallFlow'
-import { featuredEntries, shortDigest } from './addonState'
+import InstallDialog from './InstallDialog'
+import { featuredEntries } from './addonState'
 import { describeError } from './errors'
 
 // Nothing is installed yet. An administrator sees three add-ons from the
@@ -49,7 +49,7 @@ export default function FirstRun({ adapter, actions }) {
               </div>
               {entry.description && <p className="ad-card__text">{entry.description}</p>}
               {entry.ui && entry.ui.mainPage && <p className="ad-tile__adds"><span className="ad-tile__add"><Icon name="file" aria-hidden="true" /> {t('card.addsPage')}</span></p>}
-              <FlowStatus flow={flowOf(entry)} name={entry.title} onRetry={flowOf(entry)?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flowOf(entry).failedStep === 'turn-on' }) : undefined} />
+              <FlowStatus flow={confirm && confirm.key === entry.key ? undefined : flowOf(entry)} name={entry.title} onRetry={flowOf(entry)?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flowOf(entry).failedStep === 'turn-on' }) : undefined} />
               <div className="ad-card__acts">
                 <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={busy(entry)} onClick={() => setConfirm(entry)}>
                   <Icon name={busy(entry) ? 'spinner' : 'download'} spin={busy(entry)} /> {t('flow.installAndTurnOn')}
@@ -65,22 +65,7 @@ export default function FirstRun({ adapter, actions }) {
           <Link className="dk-btn dk-btn--ghost dk-btn--sm" to="/app/addons?tab=libraries">{t('tabs.libraries')}</Link>
         )}
       </div>
-      <ConfirmDialog
-        open={Boolean(confirm)}
-        title={confirm ? t('flow.confirmTitle', { name: confirm.title }) : ''}
-        message={confirm ? (
-          <div className="ad-confirm">
-            <p>{t('flow.confirmBody', { version: confirm.version, library: confirm.sourceId })}</p>
-            <dl className="dk-kv">
-              <dt>{t('trust.digest')}</dt><dd className="dk-mono">{shortDigest(confirm.digest)}</dd>
-              <dt>{t('trust.verification')}</dt><dd>{confirm.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}</dd>
-            </dl>
-          </div>
-        ) : null}
-        confirmLabel={t('flow.installAndTurnOn')}
-        onConfirm={() => { const e = confirm; setConfirm(null); actions.installAndTurnOn(e) }}
-        onCancel={() => setConfirm(null)}
-      />
+      <InstallDialog entry={confirm} flow={confirm ? actions.flows[`flow:${confirm.key}`] : undefined} actions={actions} onClose={() => setConfirm(null)} />
     </section>
   )
 }

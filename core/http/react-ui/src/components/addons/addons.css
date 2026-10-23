@@ -283,3 +283,4 @@
 .ad-entry__details > summary:hover { color: var(--dk-text); }
 .ad-entry__details > summary:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
 .ad-entry__details[open] > summary { margin-bottom: var(--dk-space-2, 8px); }
+.ad-steps--stack { flex-direction: column; flex-wrap: nowrap; gap: var(--dk-space-2, 8px); margin: 0; }

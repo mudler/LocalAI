@@ -17,6 +17,7 @@ import { runLifecycle, settleOperation } from '../../src/components/addons/lifec
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
 import { backendState, libraryOrigin, shortDigest as shortBackendDigest } from '../../src/utils/backendRows.js'
+import { runInstallAndTurnOn } from '../../src/components/addons/installFlow.js'
 import { installSteps, STEP_ORDER } from '../../src/components/addons/installSteps.js'
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
@@ -458,4 +459,48 @@ test('featured add-ons are the first three add-on entries that are not installed
   assert.deepEqual(featuredEntries(entries).map(e => e.id), ['a', 'c', 'd'])
   assert.deepEqual(featuredEntries(entries, ['a']).map(e => e.id), ['c', 'd', 'e'])
   assert.deepEqual(featuredEntries(null), [])
+})
+
+test('install and turn on runs the install, then the turn on, each as its own action', async () => {
+  const entry = { key: 'main/tables/1.0.0', id: 'tables', sourceId: 'main', version: '1.0.0' }
+  const marks = []
+  const calls = []
+  const sent = []
+  const adapter = { submitLifecycle: async (c) => { sent.push(c); return {} } }
+  const api = { installed: async () => [{ id: 'tables', enabled: true }] }
+  const run = async (key, { addonId, submit, verify }) => {
+    calls.push(key)
+    await submit('op-' + key, undefined)
+    assert.equal(await verify(), true)
+    return { outcome: 'completed', operationId: 'op-' + key }
+  }
+  await runInstallAndTurnOn({ run, api, adapter, mark: m => marks.push(m.step) }, entry)
+  assert.deepEqual(calls, ['install:main/tables/1.0.0', 'enable:tables:0'])
+  assert.deepEqual(marks, ['install', 'turn-on', 'done'])
+  assert.deepEqual(sent.map(c => [c.action, c.sourceId || '', c.version || '', c.generation || 0]), [['install', 'main', '1.0.0', 0], ['enable', '', '', 0]])
+})
+
+test('install and turn on stops at a failed install and retries only the turn on', async () => {
+  const entry = { key: 'main/tables/1.0.0', id: 'tables', sourceId: 'main', version: '1.0.0' }
+  const adapter = { submitLifecycle: async () => ({}) }
+  const api = { installed: async () => [] }
+  const marks = []
+  const failing = async (key) => (key.startsWith('install') ? { outcome: 'denied', error: { message: 'no' } } : { outcome: 'completed' })
+  const calls = []
+  const run = (fn) => async (key, o) => { calls.push(key); return fn(key, o) }
+  await runInstallAndTurnOn({ run: run(failing), api, adapter, mark: m => marks.push(m) }, entry)
+  assert.deepEqual(calls, ['install:main/tables/1.0.0'])
+  assert.deepEqual(marks.map(m => m.step), ['install', 'failed'])
+  assert.equal(marks[1].failedStep, 'install')
+  // The turn on failed after a good install: a retry skips the install.
+  calls.length = 0
+  marks.length = 0
+  const turnOnFails = async (key) => (key.startsWith('enable') ? { outcome: 'unknown' } : { outcome: 'completed' })
+  await runInstallAndTurnOn({ run: run(turnOnFails), api, adapter, mark: m => marks.push(m) }, entry)
+  assert.deepEqual(marks.map(m => `${m.step}:${m.failedStep || ''}:${m.outcome || ''}`), ['install::', 'turn-on::', 'failed:turn-on:unknown'])
+  calls.length = 0
+  marks.length = 0
+  await runInstallAndTurnOn({ run: run(async () => ({ outcome: 'completed' })), api, adapter, mark: m => marks.push(m) }, entry, { skipInstall: true })
+  assert.deepEqual(calls, ['enable:tables:0'])
+  assert.deepEqual(marks.map(m => m.step), ['turn-on', 'done'])
 })

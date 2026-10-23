@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createActionBook, effectOutcome } from './actionBook'
 import { runLifecycle, settleOperation } from './lifecycleFlow'
+import { runInstallAndTurnOn } from './installFlow'
 
 // Runs user actions that change an add-on, one operation identity per action.
 //
@@ -131,29 +132,9 @@ export function useAddonActions(api, { onSettled, adapter } = {}) {
   // or 'turn-on' while it runs, 'done' at the end, or 'failed' with the step
   // that failed and the outcome. `skipInstall` turns on an add-on that is
   // already installed (the retry after a failed turn on).
-  const installAndTurnOn = useCallback(async (entry, { skipInstall = false } = {}) => {
+  const installAndTurnOn = useCallback((entry, options = {}) => {
     const flow = `flow:${entry.key}`
-    const mark = (value) => setFlows(f => ({ ...f, [flow]: value }))
-    if (!skipInstall) {
-      mark({ step: 'install' })
-      const installed = await run(`install:${entry.key}`, {
-        addonId: entry.id,
-        submit: (operationId, signal) => adapter.submitLifecycle({ operationId, action: 'install', addonId: entry.id, sourceId: entry.sourceId, version: entry.version }, signal),
-        verify: async (signal) => (await api.installed(signal)).some(a => a.id === entry.id),
-      })
-      if (!installed) return null
-      if (installed.outcome !== 'completed') { mark({ step: 'failed', failedStep: 'install', outcome: installed.outcome, error: installed.error }); return installed }
-    }
-    mark({ step: 'turn-on' })
-    // Generation 0 sets no precondition: the add-on was just installed.
-    const on = await run(`enable:${entry.id}:0`, {
-      addonId: entry.id,
-      submit: (operationId, signal) => adapter.submitLifecycle({ operationId, action: 'enable', addonId: entry.id, generation: 0 }, signal),
-      verify: async (signal) => (await api.installed(signal)).some(a => a.id === entry.id && a.enabled === true),
-    })
-    if (!on) return null
-    mark(on.outcome === 'completed' ? { step: 'done' } : { step: 'failed', failedStep: 'turn-on', outcome: on.outcome, error: on.error })
-    return on
+    return runInstallAndTurnOn({ run, api, adapter, mark: (value) => setFlows(f => ({ ...f, [flow]: value })) }, entry, options)
   }, [run, api, adapter])
 
   const clearFlow = useCallback((entry) => {

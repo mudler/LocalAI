@@ -8,6 +8,7 @@ import CatalogView from '../catalog/CatalogView'
 import { paramsToQuery, queryToParams } from '../catalog/catalogState'
 import { AppIcon, Fact, InstallSteps, UnknownNotice } from './AddonBits'
 import FlowStatus from './InstallFlow'
+import InstallDialog from './InstallDialog'
 import { shortDigest } from './addonState'
 import { updateView } from './updateState'
 import { describeError, describeOutcome } from './errors'
@@ -27,6 +28,7 @@ export default function BrowseView({ api, adapter }) {
   const [backendWork, setBackendWork] = useState({})
   const [reload, setReload] = useState(0)
   const [confirm, setConfirm] = useState(null)
+  const [dialog, setDialog] = useState(null)
   const query = paramsToQuery(k => params.get(k))
 
   const onQueryChange = useCallback((next) => {
@@ -73,11 +75,10 @@ export default function BrowseView({ api, adapter }) {
     setReload(n => n + 1)
   }
 
-  const install = (entry) => {
-    if (entry.kind === 'backend') return installBackend(entry)
-    setConfirm(null)
-    return actions.installAndTurnOn(entry)
-  }
+  // A backend has its own job and its own confirmation. An add-on goes through
+  // the one dialog of Install and turn on, which stays open for the steps.
+  const install = (entry) => installBackend(entry)
+  const openInstall = (entry) => { if (entry.kind === 'backend') setConfirm(entry); else setDialog(entry) }
 
   const renderEntry = (entry) => {
     const isBackend = entry.kind === 'backend'
@@ -111,8 +112,8 @@ export default function BrowseView({ api, adapter }) {
           </div>
           <EntryFacts entry={entry} have={have} isBackend={isBackend} />
           {pending && <UnknownNotice addonId={entry.id} actions={actions} />}
-          {!pending && <FlowStatus flow={flow} name={entry.title} onRetry={flow?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flow.failedStep === 'turn-on' }) : undefined} />}
-          {flow && flow.step === 'done' && <p className="ad-entry__note" data-tone="ok" role="status">{t('browse.installedOn', { name: entry.title })}</p>}
+          {!pending && !(dialog && dialog.key === entry.key) && <FlowStatus flow={flow} name={entry.title} onRetry={flow?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flow.failedStep === 'turn-on' }) : undefined} />}
+          {flow && flow.step === 'done' && !(dialog && dialog.key === entry.key) && <p className="ad-entry__note" data-tone="ok" role="status">{t('browse.installedOn', { name: entry.title })}</p>}
           {bw && bw.phase !== 'done' && <InstallSteps job={bw.job} signed={entry.policy.requireSignature} />}
           {bw?.phase === 'failed' && (
             <p className="ad-entry__note" data-tone="error" role="alert">
@@ -128,7 +129,7 @@ export default function BrowseView({ api, adapter }) {
             </button>
           )}
           {!isBackend && !have && (
-            <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={working || pending} onClick={() => setConfirm(entry)}>
+            <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={working || pending} onClick={() => openInstall(entry)}>
               <Icon name={working ? 'spinner' : 'download'} spin={working} /> {t('flow.installAndTurnOn')}
             </button>
           )}
@@ -155,21 +156,22 @@ export default function BrowseView({ api, adapter }) {
         emptyTitle={t('browse.emptyTitle')}
         emptyText={t('browse.emptyBody')}
       />
+      <InstallDialog entry={dialog} flow={dialog ? actions.flows[`flow:${dialog.key}`] : undefined} actions={actions} onClose={() => setDialog(null)} />
       <ConfirmDialog
         open={Boolean(confirm)}
-        title={confirm ? t(confirm.kind === 'backend' ? 'browse.confirmTitle' : 'flow.confirmTitle', { name: confirm.title }) : ''}
+        title={confirm ? t('browse.confirmTitle', { name: confirm.title }) : ''}
         message={confirm ? (
           <div className="ad-confirm">
-            <p>{confirm.kind === 'backend' ? t('browse.confirmBackendBody', { version: confirm.version, library: confirm.sourceId }) : t('flow.confirmBody', { version: confirm.version, library: confirm.sourceId })}</p>
+            <p>{t('browse.confirmBackendBody', { version: confirm.version, library: confirm.sourceId })}</p>
             <dl className="dk-kv">
               <dt>{t('trust.digest')}</dt><dd className="dk-mono">{shortDigest(confirm.digest)}</dd>
               <dt>{t('trust.verification')}</dt><dd>{confirm.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}</dd>
             </dl>
-            {confirm.kind === 'backend' && <p>{t('browse.confirmBackendNote')}</p>}
+            <p>{t('browse.confirmBackendNote')}</p>
           </div>
         ) : null}
-        confirmLabel={confirm && confirm.kind === 'backend' ? t('browse.install') : t('flow.installAndTurnOn')}
-        onConfirm={() => install(confirm)}
+        confirmLabel={t('browse.install')}
+        onConfirm={() => { const e = confirm; setConfirm(null); install(e) }}
         onCancel={() => setConfirm(null)}
       />
     </>

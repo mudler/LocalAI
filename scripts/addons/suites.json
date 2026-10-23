@@ -1998,6 +1998,7 @@
       "apps: a viewer without the add-ons feature never requests the list",
       "browse: searches the libraries, pages and shows trust and platform facts",
       "browse: Install and turn on asks once, installs and turns the add-on on",
+      "browse: a failed turn on keeps the install, says why in the dialog and can be tried again",
       "browse: an add-on that is installed but off offers Turn on and nothing else",
       "installed: health is separate from enabled and the details show trust, compatibility and storage",
       "installed: an update is shown only from the owner update field and upgrade sends that version",

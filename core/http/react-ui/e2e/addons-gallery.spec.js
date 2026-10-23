@@ -333,7 +333,7 @@ test.describe('Add-ons: browse', () => {
     await expect(page).toHaveURL(/page=2/)
     await expect(page.locator('.cat-item')).toHaveCount(7)
     expect(state.log.dispatch.filter(d => d.action === 'catalog-search').at(-1).arguments.offset).toBe(24)
-    await page.getByRole('searchbox').or(page.getByLabel('Search the libraries')).first().fill('tables')
+    await page.getByRole('searchbox').or(page.getByLabel('Search add-ons in your sources')).first().fill('tables')
     await expect(page.locator('.cat-item')).toHaveCount(1)
     await expect(page).toHaveURL(/q=tables/)
     expect(state.log.dispatch.filter(d => d.action === 'catalog-search').at(-1).arguments.text).toBe('tables')
@@ -355,6 +355,13 @@ test.describe('Add-ons: browse', () => {
     await expect(dialog).toContainText('sha256:aaaaaaaaaaaa')
     expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(0)
     await dialog.getByRole('button', { name: 'Install and turn on' }).click()
+    // The same dialog stays open and shows the two steps, then the result.
+    await expect(dialog.getByTestId('flow-steps').getByRole('listitem')).toHaveCount(2)
+    await expect(dialog).toContainText('Tables is installed and on.')
+    await expect(dialog.getByTestId('flow-steps').locator('[data-step="install"]')).toHaveAttribute('data-state', 'done')
+    await expect(dialog.getByTestId('flow-steps').locator('[data-step="turn-on"]')).toHaveAttribute('data-state', 'done')
+    await dialog.getByRole('button', { name: 'Close' }).click()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
     await expect(row.getByText('Tables is installed and on.')).toBeVisible()
     const install = state.log.dispatch.filter(d => d.action === 'install')
     expect(install).toHaveLength(1)
@@ -365,6 +372,33 @@ test.describe('Add-ons: browse', () => {
     expect(enable[0].operationId).toMatch(UUID)
     expect(enable[0].operationId).not.toBe(install[0].operationId)
     expect(state.installed.find(a => a.id === 'tables').enabled).toBe(true)
+  })
+
+  test('browse: a failed turn on keeps the install, says why in the dialog and can be tried again', async ({ page }) => {
+    await signIn(page, ADMIN)
+    let attempts = 0
+    const state = await mockAddons(page, {
+      installed: [],
+      releases: [release('tables', { name: 'Tables' })],
+      dispatch: (body) => {
+        if (body.action !== 'enable') return null
+        attempts += 1
+        return attempts === 1 ? fail(403, 'addon_error') : null
+      },
+    })
+    await page.goto('/app/addons?tab=browse')
+    const row = page.locator('.cat-item', { hasText: 'Tables' })
+    await row.getByRole('button', { name: 'Install and turn on' }).click()
+    const dialog = page.getByRole('alertdialog')
+    await dialog.getByRole('button', { name: 'Install and turn on' }).click()
+    await expect(dialog.getByTestId('install-dialog-failed')).toContainText('Tables is installed but did not turn on.')
+    await expect(dialog.getByTestId('flow-steps').locator('[data-step="install"]')).toHaveAttribute('data-state', 'done')
+    await expect(dialog.getByTestId('flow-steps').locator('[data-step="turn-on"]')).toHaveAttribute('data-state', 'failed')
+    // Trying again turns it on; it does not install a second time.
+    await dialog.getByRole('button', { name: 'Try again' }).click()
+    await expect(dialog).toContainText('Tables is installed and on.')
+    expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(1)
+    expect(state.log.dispatch.filter(d => d.action === 'enable')).toHaveLength(2)
   })
 
   test('browse: an add-on that is installed but off offers Turn on and nothing else', async ({ page }) => {
