@@ -13,7 +13,7 @@ export function opForBackend(operations, ...names) {
 // The state of one backend, in the order it matters to a person: something is
 // happening to it now, then the last attempt failed, then it has an update,
 // then it is simply there, then it is not.
-export function backendState({ installed = false, upgrade = null, op = null } = {}) {
+export function backendState({ installed = false, upgrade = null, op = null, libraryUpdate = null } = {}) {
   if (op && !op.error) {
     return {
       kind: op.isDeletion ? 'removing' : op.isQueued ? 'queued' : 'installing',
@@ -26,6 +26,9 @@ export function backendState({ installed = false, upgrade = null, op = null } = 
   if (upgrade) {
     return { kind: 'update', from: upgrade.installed_version || '', to: upgrade.available_version || '' }
   }
+  // A library backend has its own newer-build check. It says only that there is
+  // one; the build is named in the detail, so `to` stays empty.
+  if (libraryUpdate) return { kind: 'update', from: libraryUpdate.installedVersion || '', to: '', library: true }
   if (installed) return { kind: 'current' }
   return { kind: 'absent' }
 }
@@ -40,6 +43,22 @@ export function sortInstalled(list, upgrades) {
     if (ua !== ub) return ua - ub
     return a.Name.localeCompare(b.Name)
   })
+}
+
+// The library a backend was installed from, as its metadata pins it, or null
+// for a backend of a gallery, a system backend or one installed by hand.
+export function libraryOrigin(backend) {
+  const m = backend && backend.Metadata
+  if (!m || !m.library) return null
+  return { id: m.library, digest: m.digest || '', version: m.version || '' }
+}
+
+// A digest as people read it: the algorithm and the first twelve characters.
+export function shortDigest(digest) {
+  const d = String(digest || '')
+  const [algo, hex] = d.includes(':') ? d.split(':') : ['', d]
+  if (!hex) return ''
+  return `${algo ? algo + ':' : ''}${hex.slice(0, 12)}`
 }
 
 // "v1.2.0" or "1.2.0" the same way, and nothing for an empty version.

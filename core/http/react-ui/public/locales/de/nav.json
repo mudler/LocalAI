@@ -13,7 +13,6 @@
   "account": "Konto",
   "accountFor": "Konto: {{name}}",
   "sections": {
-    "create": "Erstellen",
     "recognition": "Erkennung",
     "build": "Entwickeln",
     "operate": "Betrieb",
@@ -33,8 +32,6 @@
     "home": "Start",
     "models": "Models",
     "chat": "Chat",
-    "studio": "Studio",
-    "talk": "Sprechen",
     "fineTune": "Fine-Tuning (Experimentell)",
     "quantize": "Quantisierung (Experimentell)",
     "faces": "Gesichter",
@@ -63,7 +60,13 @@
     "overview": "Übersicht",
     "thisMachine": "Dieser Rechner",
     "failover": "Failover",
-    "p2p": "P2P"
+    "p2p": "P2P",
+    "addons": "Add-ons",
+    "voiceLibrary": "Voice Library",
+    "logs": "Logs",
+    "trafficModels": "Models",
+    "gpuHost": "GPU and host",
+    "prometheus": "Prometheus"
   },
   "footer": {
     "github": "GitHub",
@@ -73,7 +76,9 @@
   },
   "console": {
     "automation": "Automatisierung",
-    "training": "Training"
+    "training": "Training",
+    "expandNavigation": "Expand {{section}} navigation",
+    "collapseNavigation": "Collapse {{section}} navigation"
   },
   "hub": {
     "status": "Status",
@@ -93,7 +98,8 @@
       "quantize": "Verkleinere ein Modell, damit es auf kleinerer Hardware läuft.",
       "import": "Füge ein Modell aus einer Datei, einer URL oder einem Hugging-Face-Repository hinzu.",
       "voices": "Erkenne Sprecher und verwalte eine Bibliothek von Stimmprofilen.",
-      "faces": "Gesichter erkennen, vergleichen und zuordnen."
+      "faces": "Gesichter erkennen, vergleichen und zuordnen.",
+      "addons": "Add-ons installieren und die Apps öffnen, die sie bereitstellen."
     }
   }
 }

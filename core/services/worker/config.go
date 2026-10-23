@@ -36,6 +36,7 @@ type Config struct {
 	Galleries                 string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of model galleries (used to resolve --prefetch-models on boot)" group:"server" default:"${galleries}"`
 	ModelsPath                string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models" group:"server"`
 	RequireBackendIntegrity   bool   `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, reject backend installs without a configured signature verification policy (OCI URIs) or SHA256 (tarball/HTTP URIs)." group:"hardening" default:"false"`
+	DisableBackendInstall     bool   `env:"LOCALAI_DISABLE_BACKEND_INSTALL,DISABLE_BACKEND_INSTALL" help:"If true, this worker refuses to install or upgrade backends, including installs requested by the frontend when a model is loaded; only backends already present or provided via LOCALAI_BACKENDS_SYSTEM_PATH are used." group:"hardening" default:"false"`
 
 	// PrefetchModels lets a worker download gallery model artifacts (GGUFs, etc.)
 	// from its own outbound internet at boot, instead of waiting for the master to

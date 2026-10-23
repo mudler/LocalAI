@@ -136,6 +136,32 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(*rs.AutoUpgradeBackends).To(BeTrue())
 		})
 
+		It("should include official_libraries in both states", func() {
+			for _, on := range []bool{true, false} {
+				rs := (&ApplicationConfig{OfficialLibraries: on}).ToRuntimeSettings()
+				Expect(rs.OfficialLibraries).ToNot(BeNil())
+				Expect(*rs.OfficialLibraries).To(Equal(on))
+			}
+		})
+
+		It("should default official_libraries to on and take it from a persisted file", func() {
+			Expect(NewApplicationConfig().OfficialLibraries).To(BeTrue())
+			Expect(DefaultRuntimeBaseline().OfficialLibraries).To(BeTrue())
+			cfg := NewApplicationConfig()
+			off := false
+			cfg.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{OfficialLibraries: &off})
+			Expect(cfg.OfficialLibraries).To(BeFalse())
+		})
+
+		It("should include auto_upgrade_addons, off by default", func() {
+			Expect((&ApplicationConfig{}).AutoUpgradeAddons).To(BeFalse())
+			rs := (&ApplicationConfig{}).ToRuntimeSettings()
+			Expect(rs.AutoUpgradeAddons).ToNot(BeNil())
+			Expect(*rs.AutoUpgradeAddons).To(BeFalse())
+			rs = (&ApplicationConfig{AutoUpgradeAddons: true}).ToRuntimeSettings()
+			Expect(*rs.AutoUpgradeAddons).To(BeTrue())
+		})
+
 		It("should use default timeouts when not set", func() {
 			appConfig := &ApplicationConfig{}
 
@@ -512,6 +538,30 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			rs := &RuntimeSettings{AutoUpgradeBackends: &v}
 			appConfig.ApplyRuntimeSettings(rs)
 			Expect(appConfig.AutoUpgradeBackends).To(BeTrue())
+		})
+
+		It("should apply official_libraries setting", func() {
+			appConfig := &ApplicationConfig{}
+			for _, v := range []bool{true, false} {
+				v := v
+				appConfig.ApplyRuntimeSettings(&RuntimeSettings{OfficialLibraries: &v})
+				Expect(appConfig.OfficialLibraries).To(Equal(v))
+			}
+		})
+
+		It("should apply auto_upgrade_addons setting", func() {
+			appConfig := &ApplicationConfig{}
+			v := true
+			appConfig.ApplyRuntimeSettings(&RuntimeSettings{AutoUpgradeAddons: &v})
+			Expect(appConfig.AutoUpgradeAddons).To(BeTrue())
+			v = false
+			appConfig.ApplyRuntimeSettings(&RuntimeSettings{AutoUpgradeAddons: &v})
+			Expect(appConfig.AutoUpgradeAddons).To(BeFalse())
+			// A settings object that does not mention it leaves it alone.
+			v = true
+			appConfig.ApplyRuntimeSettings(&RuntimeSettings{AutoUpgradeAddons: &v})
+			appConfig.ApplyRuntimeSettings(&RuntimeSettings{})
+			Expect(appConfig.AutoUpgradeAddons).To(BeTrue())
 		})
 
 		It("should apply agent settings", func() {

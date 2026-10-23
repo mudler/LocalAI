@@ -628,6 +628,11 @@
   font-size: 1rem;
 }
 
+/* The pinned apps under Apps have no room in the rail. */
+.sidebar.collapsed .nav-item--sub {
+  display: none;
+}
+
 .sidebar.collapsed .sidebar-footer {
   justify-content: center;
   flex-direction: column;
@@ -4055,6 +4060,8 @@ button.collapsible-header:focus-visible {
     margin-inline: calc((var(--sidebar-width-collapsed) - var(--control-h)) / 2);
   }
   .sidebar:not(.open) .nav-icon { width: auto; font-size: 1rem; }
+  /* The pinned apps under Apps have no room in the rail. */
+  .sidebar:not(.open) .nav-item--sub { display: none; }
   .sidebar:not(.open) .sidebar-nav .nav-item.active::after { display: none; }
   .sidebar:not(.open) .sidebar-footer {
     justify-content: center;
@@ -9692,3 +9699,6 @@ button.lane:hover {
 @media (prefers-reduced-motion: reduce) {
   .lai-icon--beat { animation: none; }
 }
+
+/* Pinned apps under the Apps entry: their labels line up with the labels above them. */
+.sidebar-nav .nav-item.nav-item--sub { padding-inline-start: 36px; }

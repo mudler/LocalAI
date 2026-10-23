@@ -280,6 +280,10 @@ test.describe('Talk session settings', () => {
     await page.getByTestId('talk-settings-button').click()
     await page.getByTestId('talk-pipeline').getByRole('button', { name: 'Edit pipeline' }).click()
     await expect(page).toHaveURL(/\/app\/model-editor\/voice-assistant/)
+    // The editor's Back button reads the way back from the navigation state: the
+    // add-on page, labelled Talk.
+    const state = await page.evaluate(() => window.history.state?.usr)
+    expect(state).toEqual({ from: '/app/addons/talk/talk', fromLabel: 'Talk' })
   })
 })
 

@@ -63,6 +63,7 @@ Returns the instance version, all available endpoint URLs (flat and categorized)
     "config_patch": true,
     "vram_estimate": true,
     "model_storage": true,
+    "backend_install": true,
     "mcp": true,
     "agents": false,
     "p2p": false
@@ -70,7 +71,7 @@ Returns the instance version, all available endpoint URLs (flat and categorized)
 }
 ```
 
-The `capabilities` object reflects the current runtime configuration - for example, `mcp` is only `true` if MCP is enabled, and `agents` is `true` only if the agent pool is running.
+The `capabilities` object reflects the current runtime configuration - for example, `mcp` is only `true` if MCP is enabled, `agents` is `true` only if the agent pool is running, and `backend_install` is `false` when the server runs with `--disable-backend-install` (backend install and upgrade endpoints then answer 403).
 
 ## Instructions API
 

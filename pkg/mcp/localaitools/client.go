@@ -62,6 +62,9 @@ type LocalAIClient interface {
 	// ListKnownBackends returns the same shape as REST /backends/known.
 	ListKnownBackends(ctx context.Context) ([]schema.KnownBackend, error)
 	InstallBackend(ctx context.Context, req InstallBackendRequest) (jobID string, err error)
+	// InstallLibraryBackend installs a backend from a library entry. It
+	// returns when the install is done.
+	InstallLibraryBackend(ctx context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error)
 	UpgradeBackend(ctx context.Context, name string) (jobID string, err error)
 
 	// ---- System ----

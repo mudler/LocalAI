@@ -2,7 +2,9 @@
 # This scripts needs yq and huggingface_hub to be installed
 # to install hugingface_hub run pip install huggingface_hub
 
-# Path to the input YAML file
+# Path to the input YAML file: the model library, gallery/models/index.yaml.
+# Its entries keep the files under .model.files. The caller regenerates the
+# gallery copy, gallery/index.yaml, after this script ran.
 input_yaml=$1
 
 # Function to download file and check checksum using Python
@@ -34,11 +36,11 @@ function check_and_update_checksum() {
     
     if [[ $result -eq 2 ]]; then
         echo "File not found, deleting entry for $file_name..."
-        # yq eval -i "del(.[$idx].files[] | select(.filename == \"$file_name\"))" "$input_yaml"
+        # yq eval -i "del(.[$idx].model.files[] | select(.filename == \"$file_name\"))" "$input_yaml"
     elif [[ "$old_checksum" != "$new_checksum" ]]; then
         echo "Checksum mismatch for $file_name. Updating..."
-        yq eval -i "del(.[$idx].files[] | select(.filename == \"$file_name\").sha256)" "$input_yaml"
-        yq eval -i "(.[$idx].files[] | select(.filename == \"$file_name\")).sha256 = \"$new_checksum\"" "$input_yaml"
+        yq eval -i "del(.[$idx].model.files[] | select(.filename == \"$file_name\").sha256)" "$input_yaml"
+        yq eval -i "(.[$idx].model.files[] | select(.filename == \"$file_name\")).sha256 = \"$new_checksum\"" "$input_yaml"
     elif [[ $result -ne 0 ]]; then
         echo "Error downloading file $file_name. Skipping..."
     else
@@ -51,12 +53,12 @@ len=$(yq eval '. | length' "$input_yaml")
 for ((i=0; i<$len; i++))
 do
     name=$(yq eval ".[$i].name" "$input_yaml")
-    files_len=$(yq eval ".[$i].files | length" "$input_yaml")
+    files_len=$(yq eval ".[$i].model.files | length" "$input_yaml")
     for ((j=0; j<$files_len; j++))
     do
-        filename=$(yq eval ".[$i].files[$j].filename" "$input_yaml")
-        uri=$(yq eval ".[$i].files[$j].uri" "$input_yaml")
-        checksum=$(yq eval ".[$i].files[$j].sha256" "$input_yaml")
+        filename=$(yq eval ".[$i].model.files[$j].filename" "$input_yaml")
+        uri=$(yq eval ".[$i].model.files[$j].uri" "$input_yaml")
+        checksum=$(yq eval ".[$i].model.files[$j].sha256" "$input_yaml")
         echo "Checking model $name, file $filename. URI = $uri, Checksum = $checksum"
         check_and_update_checksum "$name" "$filename" "$uri" "$checksum" "$i"
     done

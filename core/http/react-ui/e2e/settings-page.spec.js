@@ -34,9 +34,9 @@ test.describe('Settings: groups and search', () => {
         seen.add(key)
       }
     }
-    // 53 settings plus the three branding images.
-    expect(seen.size).toBe(56)
-    await expect(page.getByLabel(/Search all 56 settings/)).toBeVisible()
+    // 55 settings plus the three branding images.
+    expect(seen.size).toBe(58)
+    await expect(page.getByLabel(/Search all 58 settings/)).toBeVisible()
   })
 
   test('a group lists its settings, and the memory group shows memory use now', async ({ page }) => {
@@ -284,17 +284,13 @@ test.describe('Settings: fields with a different wire form', () => {
     await expect(hist.getByRole('button', { name: 'Revert' })).toHaveCount(0)
   })
 
-  test('a gallery list is parsed, and bad JSON stops Apply', async ({ page }) => {
+  test('the gallery lists are read-only views with a link to the Manage libraries panel', async ({ page }) => {
     await group(page, 'Backends and galleries').click()
-    const box = row(page, 'galleries').getByRole('textbox')
-    await box.fill('{oops')
-    await page.getByRole('button', { name: 'Show diff' }).click()
-    await expect(page.getByLabel('Checks')).toContainText('this must be a JSON list')
-    await expect(page.getByRole('button', { name: 'Apply' })).toBeDisabled()
-    await box.fill('[{"url":"https://example.org/models","name":"mine"}]')
-    await page.getByRole('button', { name: 'Apply' }).click()
-    await expect(page.getByTestId('settings-undo-toast')).toBeVisible()
-    expect(state.posts[0]).toEqual({ galleries: [{ url: 'https://example.org/models', name: 'mine' }] })
+    const models = row(page, 'galleries')
+    await expect(models.getByRole('textbox')).toHaveCount(0)
+    await expect(models.getByTestId('settings-sources-model')).toBeVisible()
+    await expect(models.getByRole('link', { name: 'Manage libraries' })).toHaveAttribute('href', '/app/models?libraries=1')
+    await expect(row(page, 'backend_galleries').getByRole('link', { name: 'Manage libraries' })).toHaveAttribute('href', '/app/backends?libraries=1')
   })
 
   test('the GPU memory budget is checked the way the server checks it', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ThemeToggle from './ThemeToggle'
@@ -8,25 +8,26 @@ import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { hubs, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
-import { topDestinations, createDestinations } from '../utils/destinations'
+import { topDestinations } from '../utils/destinations'
+import { primaryDestinations, visiblePrimary } from '../utils/navigationModel'
+import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
+import AppsPinnedLinks from './AppsPinnedLinks'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
-// Create stays inline (frequent, one-click creative destinations). Build and
-// Operate sit under Workspace as single entries; each opens a hub whose tab
-// bar lives in hub/hubConfig.js (shared with HubLayout). The inline entries
-// are shared with the 404 page, which lists the same destinations.
+// The sidebar has two layouts. The four-item layout shows Home, Chat, Models
+// and Apps (the entry for the add-ons drawer), and Build and Operate under
+// Workspace. Pinned apps are listed under Apps. With the legacy switch on (features.addon_navigation === false)
+// it shows Home, Models and Chat, and Workspace. Build and Operate are single
+// entries; each opens a hub whose tab bar lives in hub/hubConfig.js (shared
+// with HubLayout). The legacy entries are shared with the 404 page, which
+// lists the same destinations.
 const topItems = topDestinations
 
 const sections = [
-  {
-    id: 'create',
-    titleKey: 'sections.create',
-    items: createDestinations,
-  },
   // Items come from the hubs (hubConfig.js) and carry their own gating.
   { id: 'workspace', titleKey: 'sections.workspace', hubs: true },
 ]
@@ -84,6 +85,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const [openSections, setOpenSections] = useState(loadSectionState)
   const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
   const { operations } = useOperations()
+  const { builtin } = useNavigation()
   const branding = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
@@ -161,6 +163,11 @@ export default function Sidebar({ isOpen, onClose }) {
   const visibleTopItems = topItems.filter(filterItem)
   // Shared shape for the hub gating helpers (hubConfig.js).
   const auth = { isAdmin, authEnabled, hasFeature, features }
+  // The previous sidebar returns when the operator sets the legacy switch.
+  const legacy = features.addon_navigation === false
+  const hasBuiltin = builtin.length > 0
+  const navAuth = { isAdmin, hasFeature, hasBuiltin }
+  const primary = visiblePrimary(primaryDestinations, navAuth)
 
   // One badge, on the always-visible sidebar entry. The Operate tab bar only
   // exists while the user is on an Operate route, so badging a tab instead
@@ -168,8 +175,8 @@ export default function Sidebar({ isOpen, onClose }) {
   const failedOps = operations.filter((op) => op.error).length
   const activeOps = operations.length
 
-  // Create carries no gating beyond filterItem. Workspace lists one entry per
-  // hub the viewer can use; its target is the hub's overview.
+  // Workspace lists one entry per hub the viewer can use; its target is the
+  // hub's overview.
   const getVisibleSectionItems = (section) => {
     if (!section.hubs) return section.items.filter(filterItem)
     return hubs.flatMap(hub => {
@@ -210,13 +217,17 @@ export default function Sidebar({ isOpen, onClose }) {
         <nav className="sidebar-nav">
           {/* Top-level items */}
           <div className="sidebar-section">
-            {visibleTopItems.map(item => (
-              <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
+            {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
+              <Fragment key={item.path}>
+                <NavItem item={item} onClose={onClose} collapsed={collapsed} />
+                {/* The Apps group: the pinned apps in pin order, under the Apps entry. */}
+                {!legacy && item.addonsEntry && !collapsed && <AppsPinnedLinks onClose={onClose} />}
+              </Fragment>
             ))}
           </div>
 
           {/* Collapsible sections */}
-          {sections.map(section => {
+          {(legacy ? sections : sections.filter(s => s.hubs)).map(section => {
             const visibleItems = getVisibleSectionItems(section)
             if (visibleItems.length === 0) return null
 
@@ -242,7 +253,7 @@ export default function Sidebar({ isOpen, onClose }) {
                         item={item}
                         onClose={onClose}
                         collapsed={collapsed}
-                        active={item.hub ? hubOwnsPath(item.hub, location.pathname) : undefined}
+                        active={item.hub ? hubOwnsPath(item.hub, location.pathname, auth) : undefined}
                         badge={item.hub?.id === 'operate' && activeOps > 0 ? (
                           <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
                             {failedOps > 0 ? failedOps : activeOps}

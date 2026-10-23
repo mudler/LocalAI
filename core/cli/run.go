@@ -16,6 +16,7 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
+	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
@@ -33,6 +34,14 @@ import (
 // and document the deprecation in the help text.
 
 type RunCMD struct {
+	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" default:"fine-tuning=finetune.,quantization=quantize." help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
+	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
+	AddonsOwnershipMode       string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
+	AutoUpgradeAddons         bool   `name:"auto-upgrade-addons" env:"LOCALAI_AUTO_UPGRADE_ADDONS" default:"false" help:"Upgrade installed add-ons on their own when a newer version appears in their library. Off by default; upgrades then stay manual" group:"addons"`
+	AddonsOfficialLibrary     bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
+	AddonsBackendLibrary      bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the backend library on the first start, when the add-on owner has no sources.json yet. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. Turn it off to read the backend gallery only" group:"addons"`
+	OfficialLibraries         bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of add-ons, backends and models. Off: they stay in the list, shown as off, and are not read. Sources you added are not affected. Also a runtime setting (official_libraries)" group:"addons"`
+	AddonsBackendMaxBytes     int64  `name:"addons-backend-max-bytes" env:"LOCALAI_ADDONS_BACKEND_MAX_BYTES" default:"8589934592" help:"Largest compressed size, in bytes, of a backend image installed from a library. Add-ons keep their own limit of 512 MiB" group:"addons"`
 	Pprof                     bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
 	PprofAddress              string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
 	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
@@ -91,6 +100,7 @@ type RunCMD struct {
 	DisableRuntimeSettings             bool     `env:"LOCALAI_DISABLE_RUNTIME_SETTINGS,DISABLE_RUNTIME_SETTINGS" default:"false" help:"Disables the runtime settings. When set to true, the server will not load the runtime settings from the runtime_settings.json file" group:"api"`
 	DisablePredownloadScan             bool     `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
 	RequireBackendIntegrity            bool     `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, backend installs without a configured signature verification policy (for OCI URIs) or SHA256 (for tarball/HTTP URIs) are rejected. Default is to warn and install. Set this in production once your gallery's verification: block is populated." group:"hardening" default:"false"`
+	DisableBackendInstall              bool     `env:"LOCALAI_DISABLE_BACKEND_INSTALL,DISABLE_BACKEND_INSTALL" help:"If true, refuse to install or upgrade backends from galleries, OCI images, URLs or paths, including automatic installs, so the running backend set stays exactly what was deployed and tested; only backends already present or provided via --backends-system-path are used." group:"hardening" default:"false"`
 	OpaqueErrors                       bool     `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
 	UseSubtleKeyComparison             bool     `env:"LOCALAI_SUBTLE_KEY_COMPARISON" default:"false" help:"If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resiliancy against timing attacks." group:"hardening"`
 	DisableApiKeyRequirementForHttpGet bool     `env:"LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET" default:"false" help:"If true, a valid API key is not required to issue GET requests to portions of the web ui. This should only be enabled in secure testing environments" group:"hardening"`
@@ -130,6 +140,8 @@ type RunCMD struct {
 	TracingMaxBodyBytes                int      `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
 	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
 	OpenResponsesStoreTTL              string   `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
+
+	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
 	DisableLocalAIAssistant bool `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
@@ -302,6 +314,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		system.WithBackendDevSuffix(r.BackendDevSuffix),
 		system.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends),
 		system.WithRequireBackendIntegrity(r.RequireBackendIntegrity),
+		system.WithDisableBackendInstall(r.DisableBackendInstall),
 	)
 	if err != nil {
 		return err
@@ -312,7 +325,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if !r.PreloadBackendOnly {
 		defer cancelRun(nil)
 	}
+	hostOps, err := config.ParseAddonHostOps(r.AddonHostOps)
+	if err != nil {
+		cancelRun(nil)
+		return fmt.Errorf("--addon-host-ops: %w", err)
+	}
 	opts := []config.AppOption{
+		config.WithAddonHostOps(hostOps),
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
 		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
@@ -335,6 +354,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
 		config.WithBackendGalleries(r.BackendGalleries),
+		// The galleries the flags named also become library sources, and the
+		// library sources decide which galleries are read. This must stay
+		// after the two options above.
+		library.Option(r.DataPath, r.AddonsOfficialLibrary, r.AddonsBackendLibrary, r.OfficialLibraries),
 		config.WithVRAMPersistentCache(r.VRAMPersistentCache),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
@@ -370,7 +393,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithMLXTunnelCallback(func(tunnels []string) {
 			hostfile := filepath.Join(os.TempDir(), "localai_mlx_hostfile.json")
 			data, _ := json.Marshal(tunnels)
-			os.WriteFile(hostfile, data, 0644)
+			if err := os.WriteFile(hostfile, data, 0600); err != nil {
+				xlog.Error("failed to write MLX hostfile", "path", hostfile, "error", err)
+				return
+			}
 			os.Setenv("MLX_DISTRIBUTED_HOSTFILE", hostfile)
 			xlog.Debug("setting MLX_DISTRIBUTED_HOSTFILE", "value", hostfile, "tunnels", tunnels)
 		}),
@@ -588,6 +614,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if r.AgentPoolDefaultModel != "" {
 		opts = append(opts, config.WithAgentPoolDefaultModel(r.AgentPoolDefaultModel))
 	}
+	if r.LegacyNavigation {
+		opts = append(opts, config.WithLegacyNavigation(true))
+	}
 	if r.DisableLocalAIAssistant {
 		opts = append(opts, config.WithDisableLocalAIAssistant(true))
 	}
@@ -642,6 +671,17 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 
 	// Authentication
 	authEnabled := r.AuthEnabled || r.GitHubClientID != "" || r.OIDCClientID != ""
+	addonCfg, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, r.DataPath, authEnabled)
+	if err != nil {
+		cancelRun(nil)
+		return err
+	}
+	if addonCfg.Enabled {
+		addonCfg.OfficialLibrary = r.AddonsOfficialLibrary
+		addonCfg.OfficialBackendLibrary = r.AddonsBackendLibrary
+		addonCfg.BackendMaxBytes = r.AddonsBackendMaxBytes
+		opts = append(opts, config.WithAddons(addonCfg))
+	}
 	if authEnabled {
 		opts = append(opts, config.WithAuthEnabled(true))
 
@@ -777,12 +817,22 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		opts = append(opts, config.EnableBackendGalleriesAutoload)
 	}
 
+	opts = append(opts, config.WithOfficialLibraries(r.OfficialLibraries))
+
 	if r.AutoUpgradeBackends {
 		opts = append(opts, config.WithAutoUpgradeBackends(r.AutoUpgradeBackends))
 	}
 
+	if r.AutoUpgradeAddons {
+		opts = append(opts, config.WithAutoUpgradeAddons(r.AutoUpgradeAddons))
+	}
+
 	if r.RequireBackendIntegrity {
 		opts = append(opts, config.WithRequireBackendIntegrity(r.RequireBackendIntegrity))
+	}
+
+	if r.DisableBackendInstall {
+		opts = append(opts, config.WithDisableBackendInstall(r.DisableBackendInstall))
 	}
 
 	if r.PreferDevelopmentBackends {

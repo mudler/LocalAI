@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -14,7 +16,72 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// AddonConfig is startup-only deployment configuration. Authority is injected
+// by the embedding host and cannot be loaded from runtime settings.
+type AddonConfig struct {
+	Transport     *gateway.CarrierConfig `json:"-" yaml:"-"`
+	ListenAddress string
+
+	Enabled                                            bool
+	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
+	SharedStorage                                      bool
+	// OwnershipMode is "named-user" (the default when empty) or "local-owner".
+	// Local-owner mode is never inferred from a request. The CLI sets it as the
+	// documented default when authentication is off and the operator chose no
+	// mode. Every caller that reaches the addon routes shares one authority and
+	// sharing is disabled.
+	// Every frontend of a deployment must use the same value.
+	OwnershipMode string
+	// OfficialLibrary registers the official add-on library on the first start,
+	// when the owner has no sources.json yet. A sources.json that exists is
+	// never changed by it, so a library the admin removed stays removed.
+	OfficialLibrary bool
+	// OfficialBackendLibrary also registers the backend library on the first
+	// start, under the same rule: a sources.json that exists is never changed,
+	// so a library the admin removed stays removed. It is on by default, but
+	// whether it is enabled depends on the build (core/library.BackendSource):
+	// a build that reads the backend gallery lists the library and leaves it
+	// off.
+	OfficialBackendLibrary bool
+	// BackendMaxBytes bounds the compressed size of one backend image
+	// installed from a library; zero is 8 GiB. Add-ons keep their own limit.
+	BackendMaxBytes int64
+	Host            contract.HostCompatibility
+	AdminCheck      func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
+	// BackupKeep is how many backups of one add-on the owner keeps; zero is
+	// three. BackupMaxAge removes older ones; zero keeps them by count only.
+	// The newest verified backup and the recovery copy of an upgrade are
+	// never removed by either.
+	BackupKeep   int
+	BackupMaxAge time.Duration
+	// UpdateCacheTTL is how long an answer of the update check, and the
+	// library data under it, counts as fresh; zero is 15 minutes.
+	// UpdateRefreshInterval is the least time between two explicit refreshes
+	// of one add-on and of one library; zero is 15 seconds.
+	UpdateCacheTTL        time.Duration
+	UpdateRefreshInterval time.Duration
+	// ArtifactExpiry is how long a private file result stays downloadable;
+	// zero is the contract default of one hour. It is a programmatic option
+	// that no flag sets: the acceptance fixture shortens it to test expiry.
+	ArtifactExpiry time.Duration
+}
+
+func WithAddons(c AddonConfig) AppOption {
+	return func(o *ApplicationConfig) { o.Addons = c }
+}
+
 type ApplicationConfig struct {
+	// OfficialLibraries is the switch for the shipped default library sources
+	// of every kind. On by default; off keeps them listed but unread.
+	OfficialLibraries bool
+
+	Addons AddonConfig `json:"-" yaml:"-"`
+
+	// AddonHostOps maps an add-on ID to the host operation prefixes it may
+	// call. It is startup-only. Nil or empty means no add-on gets a host
+	// operation endpoint.
+	AddonHostOps map[string][]string `json:"-" yaml:"-"`
+
 	// DiagnosticsRecorder is startup-only and local to this frontend process.
 	DiagnosticsRecorder *diagnostics.Recorder `json:"-" yaml:"-"`
 
@@ -138,6 +205,7 @@ type ApplicationConfig struct {
 	AutoloadGalleries, AutoloadBackendGalleries bool
 	VRAMPersistentCache                         bool
 	AutoUpgradeBackends                         bool
+	AutoUpgradeAddons                           bool
 	PreferDevelopmentBackends                   bool
 
 	// RequireBackendIntegrity promotes a missing SHA256 (tarball/HTTP URIs)
@@ -146,6 +214,10 @@ type ApplicationConfig struct {
 	// upgrades non-breaking; operators opt in explicitly via
 	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY.
 	RequireBackendIntegrity bool
+
+	// DisableBackendInstall mirrors SystemState.DisableBackendInstall for the
+	// HTTP layer: admission guards and the capability surfaces read it here.
+	DisableBackendInstall bool
 
 	SingleBackend     bool // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
@@ -218,6 +290,9 @@ type ApplicationConfig struct {
 	// LocalAI Assistant chat modality. Hard-disable the in-process admin MCP
 	// server with this flag; runtime-toggleable via /api/settings.
 	DisableLocalAIAssistant bool
+
+	// LegacyNavigation shows the previous sidebar. See WithLegacyNavigation.
+	LegacyNavigation bool
 
 	// Branding / whitelabeling — runtime-mutable via /api/settings (text) and
 	// /api/branding/asset/:kind (binary uploads). All values optional; empty
@@ -292,6 +367,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		UploadLimitMB:             15,
 		Debug:                     true,
 		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
+		OfficialLibraries:         true,
 		ModelPreloadRenderMode:    "dark",
 		// Capture backend process stdout/stderr into the per-model
 		// BackendLogStore by default so the UI "Backend Logs" page works out
@@ -609,8 +685,16 @@ var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadBackendGalleries = true
 }
 
+func WithOfficialLibraries(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.OfficialLibraries = v }
+}
+
 func WithAutoUpgradeBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
+}
+
+func WithAutoUpgradeAddons(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.AutoUpgradeAddons = v }
 }
 
 func WithVRAMPersistentCache(v bool) AppOption {
@@ -619,6 +703,10 @@ func WithVRAMPersistentCache(v bool) AppOption {
 
 func WithRequireBackendIntegrity(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.RequireBackendIntegrity = v }
+}
+
+func WithDisableBackendInstall(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.DisableBackendInstall = v }
 }
 
 func WithPreferDevelopmentBackends(v bool) AppOption {
@@ -1127,6 +1215,15 @@ func WithAuthAPIKeyHMACSecret(secret string) AppOption {
 func WithAuthDefaultAPIKeyExpiry(expiry string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Auth.DefaultAPIKeyExpiry = expiry
+	}
+}
+
+// WithLegacyNavigation brings the old sidebar back without a rebuild. The UI
+// reads it from /api/features. It is a rollback switch and is removed one
+// release after the add-on navigation ships.
+func WithLegacyNavigation(on bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LegacyNavigation = on
 	}
 }
 

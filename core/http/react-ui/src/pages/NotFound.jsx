@@ -2,7 +2,8 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useHubAuth } from '../components/hub/useHubAuth'
-import { destinationsFor } from '../utils/destinations'
+import { destinationsFor, destinationsForNavigation } from '../utils/destinations'
+import { useNavigation } from '../context/NavigationContext'
 import Icon from '../components/Icon'
 import './notfound.css'
 
@@ -13,8 +14,10 @@ export default function NotFound() {
   const { t } = useTranslation('auth')
   const { t: tn } = useTranslation('nav')
   const { pathname } = useLocation()
-  const auth = useHubAuth()
-  const places = destinationsFor(auth)
+  const hubAuth = useHubAuth()
+  const { builtin } = useNavigation()
+  const auth = { ...hubAuth, hasBuiltin: builtin.length > 0 }
+  const places = hubAuth.features.addon_navigation !== false ? destinationsForNavigation(auth) : destinationsFor(auth)
 
   return (
     <div className="page page--narrow nf" data-testid="not-found">

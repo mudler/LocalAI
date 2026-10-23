@@ -31,8 +31,9 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `install_model` — Install a model from a gallery. Returns a job id; poll with `get_job_status`.
 - `import_model_uri` — Install a model from an arbitrary URI (HuggingFace, OCI, http(s), file://). May return `ambiguous_backend` when several backends apply; call again with `backend_preference` to disambiguate.
 - `delete_model` — Delete an installed model.
-- `install_backend` — Install a backend.
-- `upgrade_backend` — Upgrade an installed backend by name.
+- `install_backend` — Install a backend. Fails with "backend installation is disabled" on servers that manage backends outside LocalAI; report that rather than retrying.
+- `install_library_backend` — Install a backend from an add-on library entry by `source_id`, `name` and `version`. The call returns when the install is done, with no job id. The backend gallery is not changed.
+- `upgrade_backend` — Upgrade an installed backend by name. Same refusal as `install_backend` on such servers.
 - `edit_model_config` — Patch (deep-merge) JSON into an installed model's config.
 - `reload_models` — Reload all model configs from disk.
 - `cancel_model_load` — Cancel one distributed load by the exact job_id from load-status. `stopping` means pending, not proof the work stopped.

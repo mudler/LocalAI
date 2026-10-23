@@ -56,6 +56,9 @@ type Client struct {
 	// stopper the HTTP endpoint uses, so both paths stop work the same way.
 	LoadStopper   nodes.LoadAttemptStopper
 	VoiceProfiles *voiceprofile.Store
+	// BackendLibrary backs install_library_backend. nil when the add-on
+	// library is off; the tool then reports it is not enabled.
+	BackendLibrary LibraryBackendInstaller
 
 	// StatsRecorder and FallbackUser are optional — they back the
 	// get_usage_stats tool. nil StatsRecorder makes the tool return an
@@ -459,6 +462,9 @@ func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBac
 	if req.BackendName == "" {
 		return "", errors.New("backend_name is required")
 	}
+	if c.AppConfig.DisableBackendInstall {
+		return "", fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, req.BackendName)
+	}
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return "", fmt.Errorf("generate job id: %w", err)
@@ -478,9 +484,34 @@ func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBac
 	return id.String(), nil
 }
 
+// LibraryBackendInstaller installs a backend from a library entry. It is the
+// installer the REST route uses, so both paths share one code path.
+type LibraryBackendInstaller interface {
+	Install(ctx context.Context, sourceID, backend, version string) error
+}
+
+func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {
+	if req.SourceID == "" || req.Name == "" || req.Version == "" {
+		return nil, errors.New("source_id, name and version are required")
+	}
+	if c.BackendLibrary == nil {
+		return nil, errors.New("the backend library is not enabled on this instance")
+	}
+	if c.AppConfig.DisableBackendInstall {
+		return nil, fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, req.Name)
+	}
+	if err := c.BackendLibrary.Install(ctx, req.SourceID, req.Name, req.Version); err != nil {
+		return nil, err
+	}
+	return &localaitools.InstallLibraryBackendResult{Status: "installed", Name: req.Name, SourceID: req.SourceID}, nil
+}
+
 func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error) {
 	if name == "" {
 		return "", errors.New("name is required")
+	}
+	if c.AppConfig.DisableBackendInstall {
+		return "", fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, name)
 	}
 	id, err := uuid.NewUUID()
 	if err != nil {

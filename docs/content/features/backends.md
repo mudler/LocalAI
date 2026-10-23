@@ -12,7 +12,7 @@ LocalAI supports a variety of backends that can be used to run different types o
 
 LocalAI ships **60+ backends** covering text generation, speech-to-text, text-to-speech, music and sound generation, image and video generation, vision and object detection, audio processing, reranking, fine-tuning, and more. Each one is published as an on-demand OCI image with the appropriate acceleration variants (CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T).
 
-For the complete list of backends, the model families they support, and their acceleration targets, see the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}). The authoritative source is [`backend/index.yaml`](https://github.com/mudler/LocalAI/blob/master/backend/index.yaml), and the same catalog is browsable in the web UI under the **Backends** section.
+For the complete list of backends, the model families they support, and their acceleration targets, see the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}). The authoritative source is the backend library, [`gallery/backends/index.yaml`](https://github.com/mudler/LocalAI/blob/master/gallery/backends/index.yaml) (see [The backend library and the generated gallery](#the-backend-library-and-the-generated-gallery)), and the same catalog is browsable in the web UI under the **Backends** section.
 
 ## Prefer installed development backends
 
@@ -208,6 +208,92 @@ the repository, so upgrade every node, workers included, before you rely on it:
   }
 }
 ```
+
+### Disabling backend installation
+
+Some deployments must not acquire executable code at runtime: production
+systems that run only the backend set they were tested with, locked-down or
+air-gapped hosts, images that are built once and then promoted unchanged, and
+hosts where backends come from a package manager (placed under
+`--backends-system-path`, `LOCALAI_BACKENDS_SYSTEM_PATH`). For all of these,
+`--disable-backend-install` (`LOCALAI_DISABLE_BACKEND_INSTALL=1`) tells
+LocalAI never to install or upgrade a backend itself:
+
+```bash
+export LOCALAI_DISABLE_BACKEND_INSTALL=1
+local-ai run
+```
+
+What is refused:
+
+- installs from the backend gallery, from OCI images, URLs or local paths —
+  from the Backends page, `POST /backends/apply`, the `/api/backends/...`
+  install routes, the LocalAI Assistant's `install_backend` tool and the
+  `LOCALAI_EXTERNAL_BACKENDS` boot-time list;
+- upgrades — manual, "update all", the Assistant's `upgrade_backend` tool and
+  the background auto-upgrader, which is not started at all (upgrade checks
+  stop too, so no registry is polled for versions nobody can apply);
+- installing a model whose backend is not present: refused before anything
+  is downloaded, naming the backend, on every install path (gallery, import,
+  preload, the Assistant's tools).
+
+What still works: backends already installed, backends provided under the
+system path, listing and browsing the backend galleries, and deleting a
+backend. In distributed mode a model counts as installable when a healthy
+worker has its backend, under its own name or an alias — availability is
+judged where inference runs, not on the frontend, which keeps no backends of
+its own.
+
+How clients can tell: install and upgrade endpoints answer `403` with
+`"code": "backend_install_disabled"`; installing a gallery model whose
+backend is not present answers `409` with `"code": "backend_not_installed"`
+and the backend's name. `GET /api/features` and the capabilities object in
+`GET /.well-known/localai.json` report `"backend_install": false`, and the
+Backends page shows a notice and offers no install or upgrade actions.
+
+The switch is read at start-up only; it is not a runtime setting. In
+[distributed mode]({{% relref "features/distributed-mode#disabling-backend-installation-on-workers" %}})
+each worker enforces it for its own backends, so set it on every frontend
+and every worker. The standalone `local-ai worker ...` subcommands honour
+the same variable: they start with the backend already present under their
+backends or system path and exit with an error instead of installing one.
+
+## The backend library and the generated gallery
+
+The backend library, `gallery/backends/index.yaml`, is the **source of truth** of the backends, the way the model library is for the models. Edits go there. The backend gallery, `backend/index.yaml`, is a **generated copy** of it. It stays only so that releases from before the cutover, which read the gallery, keep working. Never edit it by hand; CI fails when it differs from the generated copy.
+
+An entry of the library is one backend image for one platform, pinned by a digest. It carries what the gallery carried: the name, `alias`, `description`, `license`, `urls`, `tags`, an `icon` URL, the ordered `mirrors` and the `capabilities` map of a meta backend. A development image (a `master-` tag) keeps its tag and has no digest in the library; the install pins it. The [Add-ons page]({{% relref "features/addons#a-backend-entry" %}}) lists every field.
+
+### Which source a build reads
+
+A build reads one of the two by default, and the other stays listed so you can turn it on with `local-ai library enable`:
+
+| Build | Default backend source |
+|---|---|
+| From master, or a plain `go build` | The library (`official-backends`) |
+| From a tag, before the cutover | The gallery (`localai-backends`) |
+| From a tag, after the release workflow cuts over | The library |
+
+The value is set at build time with `-X github.com/mudler/LocalAI/core/library.BackendSource=library` (or `gallery`), through `LOCALAI_BACKEND_SOURCE` in the Makefile and GoReleaser. The Makefile picks `gallery` when the commit carries a tag. The release workflow has a step that sets `LOCALAI_BACKEND_SOURCE=library`, so a release build cuts over by itself. Any other value reads the library, so a build never has no backend source. `--addons-backend-library=false` removes the library and every build reads the gallery.
+
+When the library is the source, LocalAI reads it as a gallery in library format. A backend installs by the tag and the mirrors of its entry, the way the gallery installs it, and the Backends page lists the same backends. If the library cannot be fetched or read, listing the backends fails with an error; LocalAI does not fall back to the gallery, so the problem is never silent. The library has no mirrors of its own. A backend library you add with `local-ai library add` is read by the add-on catalog only, which installs its images by digest.
+
+### Edit the library, generate the gallery
+
+To add a backend, write its entries in the gallery shape in a scratch file (see [Adding a new backend](https://github.com/mudler/LocalAI/blob/master/.agents/adding-backends.md)) and merge them into the library. Then generate the gallery:
+
+```bash
+go run ./scripts/backends/cmd/backendcatalog --add my-backend.yaml --library gallery/backends/index.yaml
+go run ./scripts/backends/cmd/backendcatalog --library gallery/backends/index.yaml --out backend/index.yaml
+```
+
+The first command pins the `latest-` images that are in the registry to the digest of each platform. An image that is not published yet is written unpinned and `mutable`, and installs by its tag until a maintainer pins it with `--repin`. The second command reads the library with the same strict reader the host uses, converts every backend to a gallery entry and back, loads its own output the way the host loads a gallery, and fails if one backend does not come back equal. It does not use the network.
+
+CI (the `backend library` workflow) checks the library file itself. It decodes, every entry passes the checks a host applies, every backend round trips, every meta backend names backends the library has, and the gallery reader loads the generated gallery and sees the same backends as the library. It then generates the gallery again and fails with a message to regenerate, not to edit by hand, when `backend/index.yaml` differs. The tests in `core/gallery` run the same checks on every entry of the real backend gallery from before the library became the source, kept as golden files in `core/gallery/testdata/backend_library`, and log how many entries they covered.
+
+## Installing from a library
+
+A library of the [Add-ons page]({{% relref "features/addons" %}}) can list backends too, and the backend library is one of them. A library entry installs with a pinned image digest, the signature check of the library and a size limit (8 GiB by default). The Browse tab of the Add-ons page shows each entry with its kind. See [Backends in the library]({{% relref "features/addons#backends-in-the-library" %}}) for the entry format, the signer pattern and the install route.
 
 ## Pre-installing Backends
 

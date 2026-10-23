@@ -1,13 +1,11 @@
 import { lazy } from 'react'
-import { createBrowserRouter, Navigate, useLocation, useParams } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { routerBasename } from './utils/basePath'
 import App from './App'
 import RequireAdmin from './components/RequireAdmin'
 import RequireAuth from './components/RequireAuth'
 import RequireAuthEnabled from './components/RequireAuthEnabled'
 import RequireFeature from './components/RequireFeature'
-import FeatureOff from './components/identity/FeatureOff'
-import ToolOff from './components/tools/ToolOff'
 
 // Pages are code-split: each becomes its own chunk loaded on demand, so a route
 // no longer drags every other page (and its heavy deps — CodeMirror, the MCP
@@ -82,14 +80,6 @@ const Home = page('', () => import('./pages/Home'))
 const Chat = page('chat', () => import('./pages/Chat'))
 const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
-const ImageGen = page('image', () => import('./pages/ImageGen'))
-const VideoGen = page('video', () => import('./pages/VideoGen'))
-const ThreeDGen = page('3d', () => import('./pages/ThreeDGen'))
-const TTS = page('tts', () => import('./pages/TTS'))
-const Sound = page('sound', () => import('./pages/Sound'))
-const Diarization = page('diarization', () => import('./pages/Diarization'))
-const AudioTransform = page('transform', () => import('./pages/AudioTransform'))
-const Talk = page('talk', () => import('./pages/Talk'))
 // Referenced only from JSX below — same blind spot as Activity further down.
 // eslint-disable-next-line no-unused-vars
 const OperateOverview = page('operate', () => import('./pages/OperateOverview'))
@@ -124,12 +114,6 @@ const ImportModel = page(null, () => import('./pages/ImportModel'))
 const BackendLogs = page(null, () => import('./pages/BackendLogs'))
 const Explorer = page(null, () => import('./pages/Explorer'))
 const Login = page(null, () => import('./pages/Login'))
-const FineTune = page('fine-tune', () => import('./pages/FineTune'))
-const Quantize = page('quantize', () => import('./pages/Quantize'))
-const Studio = page('studio', () => import('./pages/Studio'))
-const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
-const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
-const VoiceProfileCreate = page(null, () => import('./pages/VoiceProfileCreate'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
 const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
@@ -154,12 +138,23 @@ const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Failover = page('failover', () => import('./pages/Failover'))
 const Account = page('account', () => import('./pages/Account'))
+const Addons = page('addons', () => import('./pages/Addons'))
+// Only referenced from JSX below, which eslint cannot see.
+// eslint-disable-next-line no-unused-vars
+const AddonRoute = page(null, () => import('./addons/AddonRoute'))
 // Only referenced from JSX below, which eslint cannot see.
 // eslint-disable-next-line no-unused-vars
 const BuildOverview = page('build', () => import('./pages/BuildOverview'))
 
 import HubLayout from './components/hub/HubLayout'
+// Only referenced from JSX below, which eslint cannot see.
+// eslint-disable-next-line no-unused-vars
+import { AddonRegistryProvider } from './addons/registry'
+import { useAuth } from './context/AuthContext'
+import { NavigationProvider, useNavigation } from './context/NavigationContext'
+import { addonPageAddress, studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
 import { buildHub, operateHub } from './components/hub/hubConfig'
+import { useHubAuth } from './components/hub/useHubAuth'
 
 // The Agent chat page became the agent's own page and its runs. An old chat
 // link opens the agent page and keeps the user in the query.
@@ -170,14 +165,67 @@ function AgentChatRedirect() {
   return <Navigate to={`/app/agents/${encodeURIComponent(name)}${search}`} replace />
 }
 
+// An old generator link opens the same generator inside the Studio add-on. The
+// model, the query string and the hash are kept.
+function StudioTabRedirect({ legacy }) {
+  const { model } = useParams()
+  const { search, hash } = useLocation()
+  return <Navigate to={studioRedirect(legacy, model, search, hash)} replace />
+}
+
+// /app/studio[/tab[/model]] is a page of the Studio add-on now.
+function StudioRedirect() {
+  const { tab, model } = useParams()
+  const { search, hash } = useLocation()
+  return <Navigate to={studioAddress({ tab, model, search, hash })} replace />
+}
+
+// /app/talk is a page of the Talk add-on now.
+function TalkRedirect() {
+  const { search, hash } = useLocation()
+  return <Navigate to={talkAddress({ search, hash })} replace />
+}
+
 function BrowseRedirect() {
   const { '*': splat } = useParams()
   return <Navigate to={`/app/${splat || ''}`} replace />
 }
 
 
+// The pages of Face, Voice, Fine-tuning and Quantization live only in their
+// add-ons. The old address opens the add-on page; when the add-on is not
+// installed or not ready, the add-on shell says so. withModel carries the
+// :model segment of the old route as ?model=<id>: an add-on path segment
+// refuses "/", ":" and "%" and long ids (resolveSubpath), so a model id cannot
+// travel in the path.
+function AddonRedirect({ addon, page, withModel }) {
+  const { search, hash } = useLocation()
+  const { model } = useParams()
+  return <Navigate to={addonPageAddress({ addon, page, model: withModel ? model : undefined, search, hash })} replace />
+}
+
 function Admin({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>
+}
+
+// The layout of the add-on routes: the Build hub bar under the legacy switch,
+// the bare page otherwise.
+function AddonsShell() {
+  const { features } = useHubAuth()
+  const outletContext = useOutletContext()
+  if (features.addon_navigation === false) return <HubLayout config={buildHub} />
+  return <Outlet context={outletContext} />
+}
+
+function DrawerGate({ children }) {
+  const { features } = useHubAuth()
+  const legacy = features.addon_navigation === false
+  const { isAdmin, hasFeature, loading } = useAuth()
+  const { builtin, status } = useNavigation()
+  if (legacy) return <Feature feature="addons">{children}</Feature>
+  if (loading || status === 'idle' || status === 'loading') return null
+  if (!isAdmin && !hasFeature('addons') && builtin.length === 0) return <Navigate to="/app" replace />
+  return children
 }
 
 function Feature({ feature, disabled, children }) {
@@ -188,26 +236,39 @@ const appChildren = [
   { index: true, element: <Home /> },
   { path: 'chat', element: <Chat /> },
   { path: 'chat/:model', element: <Chat /> },
-  { path: 'image', element: <ImageGen /> },
-  { path: 'image/:model', element: <ImageGen /> },
-  { path: 'video', element: <VideoGen /> },
-  { path: 'video/:model', element: <VideoGen /> },
-  { path: '3d', element: <Feature feature="3d"><ThreeDGen /></Feature> },
-  { path: '3d/:model', element: <Feature feature="3d"><ThreeDGen /></Feature> },
-  { path: 'tts', element: <TTS /> },
-  { path: 'tts/:model', element: <TTS /> },
-  { path: 'sound', element: <Sound /> },
-  { path: 'sound/:model', element: <Sound /> },
-  { path: 'diarization', element: <Feature feature="audio_diarization"><Diarization /></Feature> },
-  { path: 'diarization/:model', element: <Feature feature="audio_diarization"><Diarization /></Feature> },
-  { path: 'transform', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
-  { path: 'transform/:model', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
-  { path: 'studio', element: <Studio /> },
-  // Tabs are path segments, not a query parameter: switching generator is
-  // navigation, and ?tab= reads like a filter. Legacy ?tab= links redirect.
-  { path: 'studio/:tab', element: <Studio /> },
-  { path: 'talk', element: <Talk /> },
+  { path: 'image', element: <StudioTabRedirect legacy="image" /> },
+  { path: 'image/:model', element: <StudioTabRedirect legacy="image" /> },
+  { path: 'video', element: <StudioTabRedirect legacy="video" /> },
+  { path: 'video/:model', element: <StudioTabRedirect legacy="video" /> },
+  { path: '3d', element: <Feature feature="3d"><StudioTabRedirect legacy="3d" /></Feature> },
+  { path: '3d/:model', element: <Feature feature="3d"><StudioTabRedirect legacy="3d" /></Feature> },
+  { path: 'tts', element: <StudioTabRedirect legacy="tts" /> },
+  { path: 'tts/:model', element: <StudioTabRedirect legacy="tts" /> },
+  { path: 'sound', element: <StudioTabRedirect legacy="sound" /> },
+  { path: 'sound/:model', element: <StudioTabRedirect legacy="sound" /> },
+  { path: 'diarization', element: <Feature feature="audio_diarization"><StudioTabRedirect legacy="diarization" /></Feature> },
+  { path: 'diarization/:model', element: <Feature feature="audio_diarization"><StudioTabRedirect legacy="diarization" /></Feature> },
+  { path: 'transform', element: <Feature feature="audio_transform"><StudioTabRedirect legacy="transform" /></Feature> },
+  { path: 'transform/:model', element: <Feature feature="audio_transform"><StudioTabRedirect legacy="transform" /></Feature> },
+  // Studio and Talk are add-ons; the old addresses open them. When the add-on
+  // is not installed the add-on page says so.
+  { path: 'studio', element: <StudioRedirect /> },
+  { path: 'studio/:tab', element: <StudioRedirect /> },
+  // A generator opened on one model: /app/studio/images/<model>.
+  { path: 'studio/:tab/:model', element: <StudioRedirect /> },
+  { path: 'talk', element: <TalkRedirect /> },
   { path: 'account', element: <Account /> },
+  // The Add-ons drawer. A viewer without the addons feature still reaches it
+  // when a built-in tile is theirs to open (the built-in list is empty today).
+  // With the legacy switch on, both routes sit in the Build hub again, under
+  // its Add-ons tab, and need the addons feature as they did before.
+  {
+    element: <AddonsShell />,
+    children: [
+      { path: 'addons', element: <DrawerGate><Addons /></DrawerGate> },
+      { path: 'addons/:addonId/*', element: <Feature feature="addons"><AddonRoute /></Feature> },
+    ],
+  },
 
   // Build hub: one tab bar over the tool landing pages. Deep create/edit/chat
   // flows below render full-width, without the bar.
@@ -223,13 +284,13 @@ const appChildren = [
       { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
       { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
       { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-      { path: 'fine-tune', element: <Feature feature="fine_tuning" disabled={<ToolOff tool="fineTune" />}><FineTune /></Feature> },
-      { path: 'quantize', element: <Feature feature="quantization" disabled={<ToolOff tool="quantize" />}><Quantize /></Feature> },
-      { path: 'face', element: <Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature> },
-      { path: 'face/:model', element: <Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature> },
-      { path: 'voice', element: <Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature> },
-      { path: 'voice/:model', element: <Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature> },
-      { path: 'voice-library', element: <Admin><VoiceRecognition tab="speech" /></Admin> },
+      { path: 'fine-tune', element: <AddonRedirect addon="fine-tuning" page="jobs" /> },
+      { path: 'quantize', element: <AddonRedirect addon="quantization" page="jobs" /> },
+      { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
+      { path: 'face/:model', element: <AddonRedirect addon="face" page="recognition" withModel /> },
+      { path: 'voice', element: <AddonRedirect addon="voice" page="voice/recognition" /> },
+      { path: 'voice/:model', element: <AddonRedirect addon="voice" page="voice/recognition" withModel /> },
+      { path: 'voice-library', element: <AddonRedirect addon="voice" page="voice/library" /> },
       { path: 'import-model', element: <Admin><ImportModel /></Admin> },
     ],
   },
@@ -284,7 +345,7 @@ const appChildren = [
     children: [{ path: ':id', element: <ModelPage /> }],
   },
   { path: 'manage', element: <Admin><ManageRedirect /></Admin> },
-  { path: 'voice-library/new', element: <Admin><VoiceProfileCreate /></Admin> },
+  { path: 'voice-library/new', element: <AddonRedirect addon="voice" page="voice/library/new" /> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: '*', element: <NotFound /> },
@@ -305,7 +366,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/app',
-    element: <RequireAuth><App /></RequireAuth>,
+    element: <RequireAuth><AddonRegistryProvider><NavigationProvider><App /></NavigationProvider></AddonRegistryProvider></RequireAuth>,
     children: appChildren,
   },
   // Backward compatibility: redirect /browse/* to /app/*

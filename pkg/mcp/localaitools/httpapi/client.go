@@ -428,6 +428,19 @@ func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBac
 	return resp.ID, nil
 }
 
+func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {
+	body := map[string]any{"sourceId": req.SourceID, "name": req.Name, "version": req.Version}
+	var resp struct {
+		Status   string `json:"status"`
+		Name     string `json:"name"`
+		SourceID string `json:"sourceId"`
+	}
+	if err := c.do(ctx, http.MethodPost, routeBackendsLibraryInstall, body, &resp); err != nil {
+		return nil, err
+	}
+	return &localaitools.InstallLibraryBackendResult{Status: resp.Status, Name: resp.Name, SourceID: resp.SourceID}, nil
+}
+
 func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error) {
 	var resp struct {
 		ID string `json:"uuid"`

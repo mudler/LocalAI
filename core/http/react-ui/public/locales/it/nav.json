@@ -13,7 +13,6 @@
   "account": "Account",
   "accountFor": "Account: {{name}}",
   "sections": {
-    "create": "Crea",
     "recognition": "Riconoscimento",
     "build": "Costruisci",
     "operate": "Gestione",
@@ -33,8 +32,6 @@
     "home": "Home",
     "models": "Models",
     "chat": "Chat",
-    "studio": "Studio",
-    "talk": "Conversazione",
     "fineTune": "Fine-Tuning (Sperimentale)",
     "quantize": "Quantizzazione (Sperimentale)",
     "faces": "Volti",
@@ -63,7 +60,13 @@
     "overview": "Panoramica",
     "thisMachine": "Questa macchina",
     "failover": "Failover",
-    "p2p": "P2P"
+    "p2p": "P2P",
+    "addons": "Componenti aggiuntivi",
+    "voiceLibrary": "Voice Library",
+    "logs": "Logs",
+    "trafficModels": "Models",
+    "gpuHost": "GPU and host",
+    "prometheus": "Prometheus"
   },
   "footer": {
     "github": "GitHub",
@@ -73,7 +76,9 @@
   },
   "console": {
     "automation": "Automazione",
-    "training": "Addestramento"
+    "training": "Addestramento",
+    "expandNavigation": "Expand {{section}} navigation",
+    "collapseNavigation": "Collapse {{section}} navigation"
   },
   "hub": {
     "status": "Stato",
@@ -93,7 +98,8 @@
       "quantize": "Riduci un modello per farlo girare su hardware più piccolo.",
       "import": "Aggiungi un modello da un file, un URL o un repository Hugging Face.",
       "voices": "Identifica chi parla e gestisci una libreria di profili vocali.",
-      "faces": "Rileva, confronta e abbina volti."
+      "faces": "Rileva, confronta e abbina volti.",
+      "addons": "Installa componenti aggiuntivi e apri le app che offrono."
     }
   }
 }

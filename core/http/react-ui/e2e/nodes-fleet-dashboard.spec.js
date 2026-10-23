@@ -389,14 +389,16 @@ test.describe('Swarm nodes: first run, errors and a phone', () => {
   })
 
   test('keeps the last list and says so when a refresh fails', async ({ page }) => {
-    let calls = 0
+    // Serve the list until the page shows it, then fail every refresh. A call
+    // count would break when another part of the shell reads the list first.
+    let failing = false
     await page.route('**/api/nodes', route => {
-      calls += 1
-      if (calls === 1) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(baseNodes) })
+      if (!failing) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(baseNodes) })
       return route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"database unavailable"}' })
     })
     await page.goto('/app/nodes')
     await expect(rows(page)).toHaveCount(3, { timeout: 15_000 })
+    failing = true
     await expect(page.getByRole('alert')).toContainText('could not be refreshed', { timeout: 15_000 })
     await expect(rows(page)).toHaveCount(3)
   })

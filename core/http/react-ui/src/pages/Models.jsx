@@ -34,6 +34,8 @@ import { groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
 import Icon from '../components/Icon'
+import KindLibraries from '../components/catalog/KindLibraries'
+import { filterRowsBySource } from '../components/catalog/catalogState'
 import './models-ledger.css'
 
 
@@ -211,6 +213,7 @@ export default function Models() {
   // Bumped when a removal finishes, so the Installed table and the cleanup
   // sheet read the list again.
   const [refreshToken, setRefreshToken] = useState(0)
+  const [librarySource, setLibrarySource] = useState(null)
   const searchRef = useRef(null)
   // True once any listing has come back. Distinguishes a cold start, which has
   // nothing to keep on screen, from a refetch, which does.
@@ -588,7 +591,8 @@ export default function Models() {
     ready: activeView === 'explore' && statsLoaded,
   })
 
-  const visibleModels = models.filter((model) => {
+  // The gallery field of a row is the library it comes from.
+  const visibleModels = filterRowsBySource(models, librarySource).filter((model) => {
     if (!fitsFilter) return true
     const name = model.name || model.id
     const vramBytes = estimates[name]?.estimates?.[String(contextSize)]?.vramBytes
@@ -851,6 +855,8 @@ export default function Models() {
         {headerActions}
       </div>
 
+      <KindLibraries kind="model" onSelect={setLibrarySource} onChanged={() => setRefreshToken(n => n + 1)} />
+
       {/* Filters, in two bands.
           1. Query scope: free-text search, the backend select, and the
              refinements that narrow a listing the user is already reading
@@ -1006,7 +1012,7 @@ export default function Models() {
               <div className="dk-empty-icon"><Icon name="search" /></div>
               <h2 className="dk-empty-title">{t('empty.title')}</h2>
               <p className="dk-empty-text">
-                {filtersActive ? t('empty.withFilters') : t('empty.noFilters')}
+                {librarySource ? t('empty.library', { name: librarySource.name }) : filtersActive ? t('empty.withFilters') : t('empty.noFilters')}
               </p>
               {/* Only the fits filter can leave the collapse to blame. The term,
                   the chips and the backend are applied server-side over every build

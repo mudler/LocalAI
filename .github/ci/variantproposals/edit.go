@@ -7,7 +7,7 @@ import (
 	"github.com/mudler/LocalAI/.github/ci/galleryedit"
 )
 
-// ApplyFamilies writes the proposed variant lists into the index text.
+// ApplyFamilies writes the proposed variant lists into the library text.
 //
 // The line editing itself lives in galleryedit, shared with the apexentries
 // generator. Both jobs add variants to entries the gallery already ships, and a
@@ -38,5 +38,5 @@ func ApplyFamilies(ix *Index, families []Family) ([]string, error) {
 		})
 	}
 
-	return galleryedit.Apply(ix.Lines, inserts)
+	return galleryedit.ApplyLibrary(ix.Lines, inserts)
 }

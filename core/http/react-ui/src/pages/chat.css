@@ -622,6 +622,11 @@
 .cx-hdr { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
 .cx-icobtn--lg { width: 36px; height: 36px; font-size: 18px; }
 .cx-icobtn[aria-pressed="true"] { background: var(--dk-hover); color: var(--dk-text); }
+.chat-addons-menu { min-width: 21rem; max-width: calc(100vw - 32px); }
+@media (max-width: 640px) { .chat-addons-menu { left: auto; right: 0; min-width: 0; width: max-content; } }
+.chat-addons-note { margin: 0; padding: var(--spacing-xs, 4px) var(--spacing-md, 12px); font-size: 0.75rem; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border-divider); }
+.chat-addons-menu .chat-mcp-server-item { align-items: center; }
+.chat-addons-menu .ad-icon { width: 20px; height: 20px; font-size: 12px; }
 .cx-hdr .action-menu__trigger { width: 36px; height: 36px; color: var(--color-text-secondary); }
 .cx-hdr .action-menu__trigger:hover { color: var(--dk-text); }
 

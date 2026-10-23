@@ -1,0 +1,970 @@
+import { test, expect } from '@playwright/test'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { ADMIN, MEMBER, app, installedAddon, release, sessionFor, mockAddons } from './addons-fixtures.js'
+import { buildAddonBundles, installStudioAddons, packagedApp } from './studio-addon.js'
+import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } from './identity-fixtures.js'
+
+// Studio and Talk are packaged add-ons, not built-in tiles: the specs install
+// the real packages. No page is built in today, so `builtin` is empty unless a
+// spec makes one up to check the built-in rules.
+async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed, releases } = {}) {
+  let saved = pins
+  await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons }) }))
+  await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: true } }))
+  await page.route('**/api/addons/builtin', route => route.fulfill({ json: { builtin } }))
+  // mockAddons installs the Apps routes with the real response shape ({ apps }).
+  // The packages are served from the build output, so a page that opens one runs it.
+  let mocked = null
+  if (studio) mocked = await installStudioAddons(page, { apps: [packagedApp('studio'), packagedApp('talk'), ...apps] })
+  else mocked = await mockAddons(page, { apps, installed, releases })
+  await page.route('**/api/addons/pins', async route => {
+    if (route.request().method() === 'PUT') saved = route.request().postDataJSON()
+    await route.fulfill({ json: saved })
+  })
+  return { saved: () => saved, dispatchLog: () => (mocked ? mocked.log.dispatch : []), mocked: () => mocked }
+}
+
+test.describe('Add-on navigation', () => {
+  test('the sidebar lists the pinned apps under Add-ons, in pin order, and no Show all link', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app')
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
+    // Apps, then the pinned apps in pin order; Apps is the only add-on entry.
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
+    const pinned = nav.getByTestId('apps-pinned-link')
+    await expect(pinned).toHaveCount(2)
+    await expect(pinned.nth(0)).toHaveAttribute('data-app', 'studio')
+    await expect(pinned.nth(0)).toHaveText('Studio')
+    await expect(pinned.nth(1)).toHaveAttribute('data-app', 'talk')
+    await expect(pinned.nth(1)).toHaveText('Talk')
+    await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
+    await expect(nav.getByText('Show all')).toHaveCount(0)
+    const group = await nav.locator('a.nav-item').evaluateAll(els => els.map(e => e.textContent.trim()))
+    const at = group.indexOf('Add-ons')
+    expect(group.slice(at, at + 4)).toEqual(['Add-ons', 'Studio', 'Talk'])
+    await expect(pinned.nth(0)).toHaveAttribute('href', /\/app\/addons\/studio\//)
+    // There is no Pinned section.
+    await expect(page.getByTestId('pinned-nav')).toHaveCount(0)
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Pinned' })).toHaveCount(0)
+  })
+
+  test('the sidebar follows the pin order and shows no pinned app when none is pinned', async ({ page }) => {
+    await setup(page, { pins: ['talk', 'studio', 'missing'] })
+    await page.goto('/app')
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByTestId('apps-pinned-link')).toHaveText(['Talk', 'Studio'])
+    await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
+    await page.unroute('**/api/addons/pins')
+    await page.route('**/api/addons/pins', route => route.fulfill({ json: [] }))
+    await page.goto('/app')
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
+    await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
+    await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
+  })
+
+  test('the icon rail shows Add-ons only, centred, with no pinned app', async ({ page }) => {
+    await setup(page)
+    for (const size of [{ width: 1280, height: 800, collapsed: true }, { width: 1000, height: 800, collapsed: false }]) {
+      await page.setViewportSize({ width: size.width, height: size.height })
+      await page.addInitScript(collapsed => {
+        try { localStorage.setItem('localai_sidebar_collapsed', String(collapsed)) } catch (_) { /* ignore */ }
+      }, size.collapsed)
+      await page.goto('/app')
+      const nav = page.getByRole('navigation')
+      await expect(nav.locator('a.nav-item[href="/app/addons"]')).toBeVisible()
+      await expect(nav.getByTestId('apps-pinned-link').filter({ visible: true })).toHaveCount(0)
+      const rail = await page.locator('.sidebar').boundingBox()
+      const icons = await nav.locator('a.nav-item:visible .nav-icon').evaluateAll(els => els.map(e => {
+        const r = e.getBoundingClientRect()
+        return (r.left + r.right) / 2
+      }))
+      expect(icons.length).toBeGreaterThan(0)
+      for (const x of icons) expect(Math.abs(x - (rail.x + rail.width / 2))).toBeLessThan(2)
+    }
+  })
+
+  test('the Add-ons entry opens the drawer, where pinned add-ons are shown and their order can be changed', async ({ page }) => {
+    const server = await setup(page, { pins: ['studio', 'talk'] })
+    await page.goto('/app')
+    await page.getByRole('navigation').getByRole('link', { name: 'Add-ons', exact: true }).click()
+    await expect(page).toHaveURL(/\/app\/addons$/)
+    await expect(page.getByTestId('addon-tile')).toHaveCount(2)
+    // A bare pin button or pair of arrows is gone: each card has one overflow menu.
+    await expect(page.getByTestId('pin-toggle')).toHaveCount(0)
+    await expect(page.getByTestId('pin-later')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Actions for / })).toHaveCount(2)
+    const studio = page.locator('[data-testid="addon-tile"][data-app="studio"]')
+    await studio.getByRole('button', { name: /^Actions for / }).click()
+    await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
+    await page.getByRole('menuitem', { name: /^Move .* later$/ }).click()
+    await expect.poll(() => server.saved()).toEqual(['talk', 'studio'])
+  })
+
+  test('the card menu offers Show in sidebar, Details and Remove, and pins from the keyboard', async ({ page }) => {
+    const server = await setup(page, { pins: [], user: ADMIN, apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
+    await page.goto('/app/addons')
+    await expect(page.getByTestId('addon-tile')).toHaveCount(3)
+    await page.getByTestId('addon-search').fill('note')
+    await expect(page.getByTestId('addon-tile')).toHaveCount(1)
+    const menu = page.getByRole('button', { name: 'Actions for Notes' })
+    await menu.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('menuitem')).toHaveText(['Show in sidebar', 'Details', 'Remove'])
+    await page.keyboard.press('Enter')
+    await expect.poll(() => server.saved()).toEqual(['notes'])
+    await menu.click()
+    await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
+  })
+
+  test('a reader sees no Remove in the card menu', async ({ page }) => {
+    await setup(page, { pins: [], apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
+    await page.goto('/app/addons')
+    await page.getByRole('button', { name: 'Actions for Notes' }).click()
+    await expect(page.getByRole('menuitem', { name: 'Show in sidebar' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Remove', exact: true })).toHaveCount(0)
+  })
+
+  test('the card says what the add-on does and what it adds', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes', description: 'Keep notes.', state: 'running', mainPage: '/app/addons/notes/home', tools: ['add', 'list'], toolCount: 2 }), app({ id: 'quiet', title: 'Quiet', description: 'Works in the background.', hasUI: false, mainPage: undefined, tools: [], toolCount: 0 })] })
+    await page.goto('/app/addons')
+    const notes = page.locator('[data-testid="addon-tile"][data-app="notes"]')
+    await expect(notes).toContainText('Keep notes.')
+    await expect(notes.getByTestId('tile-adds')).toContainText('Adds a page')
+    await expect(notes.getByTestId('tile-adds')).toContainText('2 chat tools')
+    await expect(page.locator('[data-testid="addon-tile"][data-app="quiet"]').getByTestId('tile-adds')).toHaveCount(0)
+  })
+
+  test('pinned apps come first in the grid, in pin order', async ({ page }) => {
+    await setup(page, {
+      pins: ['notes'],
+      apps: [app({ id: 'zeta', title: 'Zeta', enabled: false, state: 'stopped' }), app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })],
+    })
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto('/app/addons')
+    const tiles = page.getByTestId('addon-tile')
+    await expect(tiles.first()).toHaveAttribute('data-app', 'notes')
+    await tiles.first().getByRole('button', { name: /^Actions for / }).click()
+    await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
+  })
+
+  test('selecting a card opens the preview pane with what the add-on is, adds and offers', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [app({ id: 'indexer', title: 'Indexer', description: 'Indexes your files.', enabled: false, state: 'stopped', hasUI: false, mainPage: undefined, tools: ['query', 'export'], toolCount: 2, version: '0.4.0', admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })], installed: [installedAddon({ id: 'indexer', title: 'Indexer', sourceId: 'main', enabled: false, state: 'stopped', version: '0.4.0' })] })
+    await page.setViewportSize({ width: 1360, height: 860 })
+    await page.goto('/app/addons')
+    await expect(page.getByTestId('addon-detail')).toHaveCount(0)
+    await page.getByRole('button', { name: /^Indexer, Off/ }).click()
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane).toBeVisible()
+    await expect(page).toHaveURL(/detail=indexer/)
+    await expect(pane.getByRole('heading', { name: 'Indexer' })).toBeVisible()
+    await expect(pane.getByRole('img', { name: 'State: Off' })).toBeVisible()
+    await expect(pane).toContainText('Indexes your files.')
+    await expect(pane.getByTestId('app-tools')).toContainText('2 chat tools')
+    await expect(pane.getByTestId('app-tools')).toContainText('query, export')
+    await expect(pane).toContainText('Runs in the background')
+    await expect(pane.getByTestId('preview-facts')).toContainText('0.4.0')
+    await expect(pane.getByTestId('preview-source')).toHaveText('main')
+    await expect(pane.getByRole('button', { name: 'Turn on' })).toBeVisible()
+    await expect(pane.getByRole('button', { name: 'Remove' })).toBeVisible()
+    // No screenshot slot unless the add-on provides images.
+    await expect(pane.getByTestId('addon-shots')).toHaveCount(0)
+    await pane.getByRole('button', { name: 'Close' }).click()
+    await expect(page.getByTestId('addon-detail')).toHaveCount(0)
+  })
+
+  test('the preview pane shows screenshot slots only for an add-on that ships images', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes', screenshots: ['/api/addons/apps/notes/icon?generation=3'] })] })
+    await page.goto('/app/addons?detail=notes')
+    await expect(page.getByTestId('addon-detail').getByTestId('addon-shots').getByRole('listitem')).toHaveCount(1)
+  })
+
+  test('a member sees the pane without Remove and without the source', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes' })] })
+    await page.goto('/app/addons?detail=notes')
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane.getByRole('heading', { name: 'Notes' })).toBeVisible()
+    await expect(pane.getByRole('button', { name: 'Remove' })).toHaveCount(0)
+    await expect(pane.getByTestId('preview-source')).toHaveCount(0)
+  })
+
+  test('the pane menu is the same sidebar control as the card menu', async ({ page }) => {
+    const server = await setup(page, { pins: ['notes'], studio: false, apps: [app({ id: 'notes', title: 'Notes' }), app({ id: 'zeta', title: 'Zeta', enabled: false, state: 'stopped' })] })
+    await page.setViewportSize({ width: 1360, height: 860 })
+    await page.goto('/app/addons?detail=zeta')
+    const detail = page.getByTestId('addon-detail')
+    await detail.getByRole('button', { name: 'Actions for Zeta' }).click()
+    await page.getByRole('menuitem', { name: 'Show in sidebar' }).click()
+    await expect.poll(() => server.saved()).toEqual(['notes', 'zeta'])
+    await detail.getByRole('button', { name: 'Actions for Zeta' }).click()
+    await page.getByRole('menuitem', { name: 'Remove from sidebar' }).click()
+    await expect.poll(() => server.saved()).toEqual(['notes'])
+  })
+
+  test('the first-run card offers three featured add-ons and a way to find more', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], releases: ['notes', 'tables', 'voice', 'extra'].map(id => release(id, { description: `${id} does a thing.`, ui: id === 'notes' ? { mainPage: '/app/addons/notes/home' } : undefined })) })
+    await page.goto('/app/addons')
+    const card = page.getByTestId('addons-first-run')
+    await expect(card).toBeVisible()
+    await expect(card.getByRole('heading', { name: 'Add your first add-on' })).toBeVisible()
+    const featured = card.getByTestId('featured').getByRole('listitem')
+    await expect(featured).toHaveCount(3)
+    await expect(featured.first()).toContainText('does a thing.')
+    await expect(featured.first()).toContainText('Adds a page')
+    await expect(card.getByRole('button', { name: 'Install and turn on' })).toHaveCount(3)
+    // One way into Find add-ons while the card shows: the bar's button waits.
+    await expect(page.getByRole('link', { name: 'Find add-ons' })).toHaveCount(1)
+    await expect(page.getByTestId('addons-add')).toHaveCount(0)
+    await expect(page.getByTestId('addon-tile')).toHaveCount(0)
+    await card.getByTestId('addons-first-run-browse').click()
+    await expect(page).toHaveURL(/tab=browse/)
+    await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+  })
+
+  test('Install and turn on asks once, installs, then turns the add-on on', async ({ page }) => {
+    const state = await setup(page, { user: ADMIN, studio: false, pins: [], releases: [release('notes', { name: 'Notes' })] })
+    await page.goto('/app/addons')
+    await page.getByRole('button', { name: 'Install and turn on' }).click()
+    const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'))
+    await expect(dialog).toContainText('Install and turn on Notes?')
+    await dialog.getByRole('button', { name: 'Install and turn on' }).click()
+    await expect.poll(() => state.dispatchLog().filter(d => ['install', 'enable'].includes(d.action)).map(d => d.action)).toEqual(['install', 'enable'])
+  })
+
+  test('a search with no result says no add-on matches, not that none are installed', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'notes', title: 'Notes' })] })
+    await page.goto('/app/addons')
+    await page.getByTestId('addon-search').fill('zzz')
+    await expect(page.getByRole('heading', { name: 'No add-on matches' })).toBeVisible()
+    await expect(page.getByText('No add-ons yet')).toHaveCount(0)
+    await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Clear search' }).click()
+    await expect(page.getByTestId('addon-tile')).toHaveCount(1)
+  })
+
+  test('the first-run card is hidden once an add-on is installed', async ({ page }) => {
+    await setup(page, { user: ADMIN, pins: [] })
+    await page.goto('/app/addons')
+    await expect(page.getByTestId('addon-tile').first()).toBeVisible()
+    await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+    await expect(page.getByTestId('addons-add')).toBeVisible()
+  })
+
+  test('the first-run card is hidden from a caller who cannot install add-ons', async ({ page }) => {
+    await setup(page, { studio: false, pins: [] })
+    await page.goto('/app/addons')
+    await expect(page.getByRole('heading', { name: 'No add-ons yet' })).toBeVisible()
+    await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+  })
+
+  test('a stopped tile opens the detail view and never the main page', async ({ page }) => {
+    await setup(page, { apps: [app({ id: 'notes', title: 'Notes', enabled: false, state: 'stopped', mainPage: undefined })] })
+    await page.goto('/app/addons')
+    await page.getByTestId('addon-tile').filter({ hasText: 'Notes' }).getByRole('button', { name: /^Notes,/ }).click()
+    await expect(page.getByTestId('addon-detail')).toBeVisible()
+    expect(page.url()).toContain('/app/addons?detail=notes')
+  })
+
+  test('a pinned tile can be moved later and the new order is saved', async ({ page }) => {
+    const server = await setup(page, { pins: ['studio', 'talk'] })
+    await page.goto('/app/addons')
+    await page.getByTestId('addon-tile').filter({ hasText: 'Studio' }).getByRole('button', { name: /^Actions for / }).click()
+    await page.getByRole('menuitem', { name: /^Move .* later$/ }).click()
+    await expect.poll(() => server.saved()).toEqual(['talk', 'studio'])
+  })
+
+  test('the ninth pin asks the user to unpin one', async ({ page }) => {
+    const nine = Array.from({ length: 9 }, (_, i) => app({ id: `a${i}`, title: `App ${i}`, state: 'running', mainPage: `/app/addons/a${i}/home` }))
+    const eight = nine.slice(0, 8).map(a => a.id)
+    await setup(page, { apps: nine, pins: eight })
+    await page.goto('/app/addons')
+    await page.getByTestId('addon-tile').filter({ hasText: 'App 8' }).getByRole('button', { name: /^Actions for / }).click()
+    await page.getByRole('menuitem', { name: 'Show in sidebar' }).click()
+    await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toContainText(/unpin/i)
+  })
+
+  test('member without the add-ons feature sees the built-in tiles and no error', async ({ page }) => {
+    let appsCalled = false
+    // No page is built in today, so the spec makes one up.
+    await setup(page, { addons: false, builtin: [{ id: 'guide', kind: 'page', titleKey: 'items.chat', icon: 'chat', mainPath: '/app/chat' }] })
+    // Registered after setup, so it wins over the mocked Apps route.
+    await page.route(/\/api\/addons\/apps$/, route => { appsCalled = true; return route.fulfill({ status: 403, json: {} }) })
+    await page.goto('/app/addons')
+    await expect(page.getByTestId('addon-tile')).toHaveCount(1)
+    await expect(page.getByTestId('addons-add')).toHaveCount(0)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    expect(appsCalled).toBe(false)
+  })
+
+  // The icon of a built-in tile sat in the top-left corner of its 40px box, at the
+  // size of the page text, because only the empty-icon box was laid out as a grid.
+  test('a built-in tile draws its icon centred in the icon box', async ({ page }) => {
+    await setup(page, { builtin: [{ id: 'guide', kind: 'page', titleKey: 'items.chat', icon: 'palette', mainPath: '/app/chat' }], studio: false })
+    await page.goto('/app/addons')
+    const box = page.locator('.ad-icon').first()
+    await expect(box.locator('svg[data-icon="palette"]')).toBeVisible()
+    const offsets = await box.evaluate(el => {
+      const outer = el.getBoundingClientRect()
+      const inner = el.querySelector('svg').getBoundingClientRect()
+      return { dx: (inner.left + inner.width / 2) - (outer.left + outer.width / 2), dy: (inner.top + inner.height / 2) - (outer.top + outer.height / 2), width: inner.width, box: outer.width }
+    })
+    expect(Math.abs(offsets.dx)).toBeLessThan(1)
+    expect(Math.abs(offsets.dy)).toBeLessThan(1)
+    expect(offsets.width).toBeGreaterThan(16)
+    expect(offsets.box).toBe(40)
+  })
+
+  test('member without the add-ons feature and with no built-in tile goes home, and Studio and Talk are not built in', async ({ page }) => {
+    await setup(page, { addons: false })
+    await page.goto('/app/addons')
+    await expect(page).toHaveURL(/\/app$/)
+    await expect(page.getByRole('navigation').locator('a.nav-item[href="/app/addons"]')).toHaveCount(0)
+  })
+
+  test('the legacy flag brings the old sidebar back', async ({ page }) => {
+    await setup(page)
+    await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: false } }))
+    await page.goto('/app')
+    await expect(page.getByTestId('apps-show-all')).toHaveCount(0)
+    // Home, Models and Chat head the old sidebar; Studio and Talk are add-ons and are not in it.
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Studio' })).toHaveCount(0)
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
+  })
+
+  test('the layout holds at phone width', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 700 })
+    await setup(page)
+    await page.goto('/app/addons')
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+    expect(overflow).toBe(false)
+  })
+
+  test("the server's admin block is what shows a Start action for a stopped add-on in the detail view", async ({ page }) => {
+    await setup(page, { apps: [app({ id: 'notes', title: 'Notes', enabled: false, state: 'stopped', admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=notes' } })] })
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor({ ...MEMBER, role: 'admin' }, { addons: true }) }))
+    await page.goto('/app/addons?detail=notes')
+    await expect(page.getByTestId('addon-detail').getByRole('button', { name: 'Turn on' })).toBeVisible()
+  })
+
+  test('the card menu has a visible focus state and a name', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/addons')
+    const trigger = page.getByRole('button', { name: /^Actions for / }).first()
+    await trigger.focus()
+    await expect(trigger).toBeFocused()
+    await expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    await expect(trigger).toHaveAccessibleName(/^Actions for .+/)
+  })
+
+  test('a pin of an add-on that is no longer listed is not drawn in the drawer and shows no error', async ({ page }) => {
+    await setup(page, { pins: ['studio', 'removed-addon'] })
+    // The Home page raises its own alert when the model list or a staging
+    // operation fails. Both come from the shared test server, so a slow answer
+    // or a failed install left there would count as an alert about the pin.
+    // Fix their answers so the alert count tells only about the pin.
+    await page.route('**/v1/models', route => route.fulfill({ json: { object: 'list', data: [] } }))
+    await page.route('**/api/operations', route => route.fulfill({ json: { operations: [] } }))
+    // Hold the Apps list back so the assertions run after it has arrived and
+    // been drawn from, not before, when a missing pin proves nothing.
+    await page.route(/\/api\/addons\/apps$/, async route => {
+      await new Promise(resolve => setTimeout(resolve, 4000))
+      await route.fulfill({ json: { apps: [packagedApp('studio')] } })
+    })
+    const listed = page.waitForResponse(res => /\/api\/addons\/apps$/.test(res.url()))
+    await page.goto('/app/addons')
+    await listed
+    // Two frames: the list reaches React and the drawer redraws from it.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    await expect(page.getByTestId('addon-tile')).toHaveCount(1)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+  })
+
+  test('a stopped pinned add-on in the drawer opens the detail view', async ({ page }) => {
+    await setup(page, { pins: ['notes'], apps: [app({ id: 'notes', title: 'Notes', enabled: false, state: 'stopped' })] })
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor({ ...MEMBER, role: 'admin' }, { addons: true }) }))
+    await page.goto('/app/addons')
+    const tile = page.locator('[data-testid="addon-tile"][data-app="notes"]')
+    await expect(tile).toHaveAttribute('data-state', 'stopped')
+    await tile.locator('.ad-tile__open').click()
+    await expect(page).toHaveURL(/\/app\/addons\?detail=notes$/)
+    await expect(page.getByTestId('addon-detail')).toBeVisible()
+  })
+
+  test('core pages that share a primitive with the SDK draw the same header', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/addons')
+    const header = page.locator('header.page-header').first()
+    await expect(header.locator('h1.page-title')).toHaveText('Add-ons')
+    expect(await header.getAttribute('class')).toBe('page-header page-header--editorial')
+  })
+})
+
+test.describe('Add-on navigation: the Add-ons hub tab and the route in both layouts', () => {
+  test('the new layout has no Add-ons hub tab and serves the drawer at /app/addons', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/build')
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveCount(0)
+    await page.goto('/app/addons')
+    await expect(page.getByTestId('addon-tile')).toHaveCount(2)
+    await expect(page.locator('.dk-hubtabs')).toHaveCount(0)
+  })
+
+  test('the legacy flag brings the Add-ons hub tab back and /app/addons opens under it', async ({ page }) => {
+    await setup(page, { apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
+    await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: false } }))
+    await page.goto('/app/build')
+    const hubTab = page.locator('.dk-hubtabs [data-hub-tab="addons"]')
+    await expect(hubTab).toHaveAttribute('href', '/app/addons')
+    await hubTab.click()
+    await expect(page).toHaveURL(/\/app\/addons$/)
+    await expect(hubTab).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByTestId('addon-tile').filter({ hasText: 'Notes' })).toBeVisible()
+    await page.goto('/app/addons')
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('an old generator link keeps its model, query and hash', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/image/stable%2Fdiffusion?x=1#top')
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/images\?x=1&model=stable%2Fdiffusion#top$/)
+  })
+
+  test('the legacy ?tab= link of Studio still works', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/studio?tab=tts')
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/tts$/)
+  })
+
+  test('a viewer without the 3d feature still ends on the app home', async ({ page }) => {
+    await setup(page)
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, '3d': false }) }))
+    await page.goto('/app/3d')
+    await expect(page).toHaveURL(/\/app$/)
+  })
+})
+
+// The built Voice module, served the way the owner serves it (addons-shell.spec.js
+// does the same for the uifixture module).
+const VOICE_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../addons/voice/ui/dist')
+const VOICE_DIGEST = 'd'.repeat(64)
+const VOICE_BASE = `/api/addons/voice/assets/${VOICE_DIGEST}`
+
+// dist/ is not committed and CI does not build it, so the spec builds the
+// bundle itself, once per run, with the builder of the add-on.
+test.beforeAll(async () => {
+  const { build } = await import('../../../../addons/voice/ui/build.mjs')
+  await build()
+})
+
+const voiceApp = () => app({
+  id: 'voice', name: 'voice', title: 'Voice', icon: undefined, generation: 1, version: '0.1.0', mainPage: '/app/addons/voice/voice',
+  ui: { entry: `${VOICE_BASE}/ui/voice.js`, css: [`${VOICE_BASE}/ui/voice.css`], sdk: { min: 2, max: 2 }, pages: ['voice', 'recognition', 'library', 'create', 'speech'], navigation: ['voice'], chatActions: [] },
+})
+
+async function serveVoice(page) {
+  await page.route(/\/api\/addons\/voice\/assets\//, route => {
+    const file = new URL(route.request().url()).pathname.split('/').slice(6).join('/')
+    const known = { 'ui/voice.js': 'text/javascript', 'ui/voice.css': 'text/css' }
+    if (!known[file]) return route.fulfill({ status: 403, json: { error: { type: 'addon_error', message: 'Addon request denied' } } })
+    return route.fulfill({ status: 200, contentType: known[file], headers: { 'cache-control': 'no-store' }, body: fs.readFileSync(path.join(VOICE_DIST, file)) })
+  })
+}
+
+async function asAdmin(page, features = {}) {
+  await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true, voice_recognition: true, ...features }) }))
+}
+
+// The tabs of the one Voice page. An administrator sees all four.
+async function expectVoiceTabs(page, active) {
+  const tabs = page.getByTestId('voice-tabs')
+  await expect(tabs).toBeVisible()
+  for (const name of [/^Recognition/, /^Library/, /^Text to speech$/, /^From a recording$/]) {
+    await expect(tabs.getByRole('tab', { name })).toBeVisible()
+  }
+  await expect(tabs.locator('[aria-selected="true"]')).toHaveAttribute('data-tab', active)
+}
+
+// The add-on draws its own title, once: the shell adds none, and each tab has
+// exactly one h1.
+async function expectOneVoiceTitle(page, title) {
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible()
+}
+
+test.describe('Add-on navigation: the Voice recognition page', () => {
+  test('the Voice add-on draws the recognition tab with the core test ids', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/voice/voice/recognition')
+    await expect(page.getByTestId('voices-page')).toBeVisible()
+    await expectOneVoiceTitle(page, 'Voices')
+    await expectVoiceTabs(page, 'recognition')
+    await expect(page.locator('[data-testid="addon-surface"][data-addon="voice"]')).toBeVisible()
+    await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
+    // With nobody saved there is one enrol button, in the empty state.
+    await expect(page.getByRole('button', { name: /Enrol a speaker/ })).toHaveCount(1)
+  })
+
+  test('an add-on that is installed but off says it is off, by its name, and offers Turn on', async ({ page }) => {
+    const server = await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', enabled: false, state: 'stopped', mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=fine-tuning' } })] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state).toHaveAttribute('data-state', 'off')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fine-tuning')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is off' })).toBeVisible()
+    await expect(state).not.toContainText('fine-tuning')
+    await state.getByRole('button', { name: 'Turn on' }).click()
+    await expect.poll(() => server.mocked().log.start.length).toBe(1)
+    expect(server.mocked().log.start[0].id).toBe('fine-tuning')
+  })
+
+  test('an off add-on shows a reader who can turn it on, and no button', async ({ page }) => {
+    await setup(page, { studio: false, pins: [], apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', enabled: false, state: 'stopped', mainPage: undefined })] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is off' })).toBeVisible()
+    await expect(state).toContainText('An administrator can turn it on.')
+    await expect(state.getByRole('button', { name: 'Turn on' })).toHaveCount(0)
+  })
+
+  test('an add-on that is not installed says so and sends an administrator to Find add-ons', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state).toHaveAttribute('data-state', 'not-installed')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fine-tuning')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is not installed' })).toBeVisible()
+    await expect(state.getByRole('link', { name: 'Find add-ons' })).toHaveAttribute('href', '/app/addons?tab=browse&q=fine-tuning')
+  })
+
+  test('a reader of an add-on that is not installed gets no link to Find add-ons', async ({ page }) => {
+    await setup(page, { studio: false, pins: [], apps: [] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is not installed' })).toBeVisible()
+    await expect(state).toContainText('An administrator can install it.')
+    await expect(state.getByRole('link', { name: 'Find add-ons' })).toHaveCount(0)
+  })
+
+  test('a failed add-on shows its reason and, for an administrator, a link to its details', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', state: 'failed', mainPage: undefined, ui: { entry: '/x.js', sdk: { min: 1, max: 1 }, pages: ['jobs'] } })] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state).toHaveAttribute('data-state', 'failed')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning failed to start' })).toBeVisible()
+    await expect(state).toContainText('stopped responding')
+    await expect(state.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/app/addons?detail=fine-tuning')
+  })
+
+  test('the page names a headless add-on by a capitalised id, not the bare identifier', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'indexer', title: 'indexer', enabled: false, state: 'stopped', mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })] })
+    await page.goto('/app/addons/indexer/home')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Indexer')
+  })
+
+  test('an old Voice link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asAdmin(page)
+    await page.goto('/app/voice')
+    await expect(page).toHaveURL(/\/app\/addons\/voice\//)
+    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
+  })
+
+  test('an old model link ends in the add-on with the model in the query', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    await page.goto('/app/voice/org%2Fname')
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recognition\?model=org%2Fname$/)
+    await expect(page.getByTestId('voices-page')).toBeVisible()
+  })
+
+  test('a viewer without voice_recognition gets the off notice in the add-on', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    // An administrator holds every feature, so the viewer is a member.
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, voice_recognition: false }) }))
+    await serveVoice(page)
+    await page.goto('/app/addons/voice/voice/recognition')
+    await expect(page.getByTestId('voice-off')).toBeVisible()
+    await expect(page.getByTestId('voices-page')).toHaveCount(0)
+  })
+
+  test('the sections are tabs of one page and each tab keeps its address', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/voice/voice')
+    // No tab in the address opens the default tab.
+    await expect(page.getByTestId('voices-page')).toBeVisible()
+    await expectVoiceTabs(page, 'recognition')
+
+    const tabs = page.getByTestId('voice-tabs')
+    await tabs.getByRole('tab', { name: /^Library/ }).click()
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library$/)
+    await expect(page.getByTestId('voice-library')).toBeVisible()
+    await expectVoiceTabs(page, 'library')
+    await expectOneVoiceTitle(page, 'Voices')
+
+    await page.getByTestId('voice-library-new').first().click()
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library\/new$/)
+    await expect(page.getByTestId('voice-profile-create')).toBeVisible()
+    await expectVoiceTabs(page, 'library')
+    await expectOneVoiceTitle(page, /Add a speech voice/)
+
+    await tabs.getByRole('tab', { name: /^Text to speech$/ }).click()
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/speech$/)
+    await expect(page.getByTestId('voice-speech')).toBeVisible()
+    await expectVoiceTabs(page, 'speech')
+    await expectOneVoiceTitle(page, 'Voices')
+
+    await tabs.getByRole('tab', { name: /^From a recording$/ }).click()
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recording$/)
+    await expect(page.getByTestId('recording-tab')).toBeVisible()
+    await expectVoiceTabs(page, 'recording')
+    await expectOneVoiceTitle(page, 'Voices')
+  })
+
+  test('the Text to speech tab says where to get a model when none is installed', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    // Registered last, so it wins over the fixture's model list.
+    await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [] } }))
+    await page.goto('/app/addons/voice/voice/speech')
+    const hint = page.getByTestId('speech-no-models')
+    await expect(hint).toBeVisible({ timeout: 15_000 })
+    await expect(hint.getByRole('link', { name: /model gallery/ })).toHaveAttribute('href', /\/app\/models$/)
+    await expectOneVoiceTitle(page, 'Voices')
+  })
+
+  test('a viewer who is not an administrator gets no Library tab', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, voice_recognition: true }) }))
+    await serveVoice(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/voice/voice/recognition')
+    const tabs = page.getByTestId('voice-tabs')
+    await expect(tabs.getByRole('tab', { name: /^Recognition/ })).toBeVisible()
+    await expect(tabs.getByRole('tab', { name: /^Text to speech$/ })).toBeVisible()
+    await expect(tabs.getByRole('tab', { name: /^Library/ })).toHaveCount(0)
+    await page.goto('/app/addons/voice/voice/library')
+    await expect(page.getByTestId('voice-admin-only')).toBeVisible()
+    await expect(page.getByTestId('voice-library')).toHaveCount(0)
+  })
+
+  test('the older page addresses of the add-on open the matching tab', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    const cases = [
+      ['/app/addons/voice/recognition', /\/voice\/voice\/recognition$/, 'recognition'],
+      ['/app/addons/voice/recognition?model=wespeaker-resnet34', /\/voice\/voice\/recognition\?model=wespeaker-resnet34$/, 'recognition'],
+      ['/app/addons/voice/recognition?tab=recording', /\/voice\/voice\/recording$/, 'recording'],
+      ['/app/addons/voice/library?selected=prof-1', /\/voice\/voice\/library\?selected=prof-1$/, 'library'],
+      ['/app/addons/voice/create', /\/voice\/voice\/library\/new$/, 'library'],
+      ['/app/addons/voice/speech?voice=prof-1', /\/voice\/voice\/speech\?voice=prof-1$/, 'speech'],
+    ]
+    for (const [from, to, active] of cases) {
+      await page.goto(from)
+      await expect(page, from).toHaveURL(to)
+      await expectVoiceTabs(page, active)
+    }
+  })
+
+  test('the Build hub has no Voices tab', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asAdmin(page)
+    await page.goto('/app/build')
+    await expect(page.locator('.dk-hubtabs')).toBeVisible()
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="voices"]')).toHaveCount(0)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
+  })
+
+  test('the add-on page identifies, enrols from a side panel and holds a removal behind Undo', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    const calls = await mockIdentity(page, { stored: people, identify: { matches: [match('v-marta', 'Marta Rossi', 0.18), match('v-jonas', 'Jonas Weber', 0.41)] } })
+    await page.goto('/app/addons/voice/voice/recognition')
+    await expect(page.getByTestId('voices-page')).toBeVisible()
+
+    await page.locator('#voice-probe-audio-file').setInputFiles(clipFile())
+    await expect(page.getByTestId('voice-probe-clip')).toHaveAttribute('data-state', 'filled')
+    await page.getByTestId('identify-go').click()
+    await expect(page.getByTestId('verdict')).toContainText('Probably Marta Rossi')
+    await expect(page.getByTestId('distance-scale')).toBeVisible()
+    expect(calls.identify).toHaveLength(1)
+    expect(calls.identify[0].model).toBe('wespeaker-resnet34')
+
+    await page.getByTestId('enrol-open').click()
+    const sheet = page.getByTestId('enrol-sheet')
+    await expect(sheet).toBeVisible()
+    await sheet.locator('#voice-enrol-audio-file').setInputFiles(clipFile('new.wav', 6))
+    await sheet.locator('#voice-enrol-name').fill('Ada Byron')
+    await sheet.getByLabel(/This person agreed/).check()
+    await sheet.getByRole('button', { name: /^Enrol/ }).click()
+    await expect.poll(() => calls.register.length).toBe(1)
+    expect(calls.register[0].name).toBe('Ada Byron')
+    await expect(sheet).toHaveCount(0)
+    await expect(page.getByTestId('known-list')).toContainText('Ada Byron')
+
+    await page.clock.install()
+    await page.getByRole('button', { name: 'Remove Jonas Weber' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Jonas Weber' })).toBeVisible()
+    await page.getByRole('button', { name: 'Undo' }).first().click()
+    // Past the 10 second delay: a cancelled removal must send nothing.
+    await page.clock.fastForward(15000)
+    await page.waitForTimeout(300)
+    expect(calls.forget).toHaveLength(0)
+    await expect(page.getByTestId('known-list')).toContainText('Jonas Weber')
+  })
+})
+
+// The built Face module, served the same way. dist/ is not committed, so the
+// global setup builds it once per run with the builder of the add-on.
+const FT_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../addons/fine-tuning/ui/dist')
+const FACE_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../addons/face/ui/dist')
+const FACE_BASE = `/api/addons/face/assets/${'e'.repeat(64)}`
+
+test.beforeAll(async () => {
+  // The global setup has built the bundles already. A build rewrites the
+  // dist folder that every worker serves, so a worker must not start one.
+  if (process.env.E2E_ADDON_BUNDLES_BUILT) return
+  await buildAddonBundles(['face', 'fine-tuning'])
+})
+
+const faceApp = () => app({
+  id: 'face', name: 'face', title: 'Face', icon: undefined, generation: 1, version: '0.1.0', mainPage: '/app/addons/face/recognition',
+  ui: { entry: `${FACE_BASE}/ui/face.js`, css: [`${FACE_BASE}/ui/face.css`], sdk: { min: 2, max: 2 }, pages: ['recognition'], navigation: [], chatActions: [] },
+})
+
+const FT_BASE = `/api/addons/fine-tuning/assets/${'f'.repeat(64)}`
+const ftApp = () => app({
+  id: 'fine-tuning', name: 'fine-tuning', title: 'Fine-tuning', icon: undefined, generation: 1, version: '0.1.0', mainPage: '/app/addons/fine-tuning/jobs',
+  ui: { entry: `${FT_BASE}/ui/fine-tuning.js`, css: [`${FT_BASE}/ui/fine-tuning.css`], sdk: { min: 2, max: 2 }, pages: ['jobs'], navigation: [], chatActions: [] },
+})
+
+async function serveFineTuning(page) {
+  await page.route(/\/api\/addons\/fine-tuning\/assets\//, route => {
+    const file = new URL(route.request().url()).pathname.split('/').slice(6).join('/')
+    const known = { 'ui/fine-tuning.js': 'text/javascript', 'ui/fine-tuning.css': 'text/css' }
+    if (!known[file]) return route.fulfill({ status: 403, json: { error: { type: 'addon_error', message: 'Addon request denied' } } })
+    return route.fulfill({ status: 200, contentType: known[file], headers: { 'cache-control': 'no-store' }, body: fs.readFileSync(path.join(FT_DIST, file)) })
+  })
+}
+
+async function serveFace(page) {
+  await page.route(/\/api\/addons\/face\/assets\//, route => {
+    const file = new URL(route.request().url()).pathname.split('/').slice(6).join('/')
+    const known = { 'ui/face.js': 'text/javascript', 'ui/face.css': 'text/css' }
+    if (!known[file]) return route.fulfill({ status: 403, json: { error: { type: 'addon_error', message: 'Addon request denied' } } })
+    return route.fulfill({ status: 200, contentType: known[file], headers: { 'cache-control': 'no-store' }, body: fs.readFileSync(path.join(FACE_DIST, file)) })
+  })
+}
+
+async function asFaceAdmin(page, features = {}) {
+  await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true, face_recognition: true, ...features }) }))
+}
+
+// The page draws its own title "Faces", once, in the core and in the add-on.
+async function expectFacesPage(page, title = 'Faces') {
+  await expect(page.getByTestId('faces-page')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  await expect(page.getByRole('heading', { name: title, exact: true, level: 1 })).toBeVisible()
+}
+
+test.describe('Add-on navigation: the Face recognition page', () => {
+  // Where the add-on page mounts, the add-on titles it and the shell adds
+  // nothing; where it cannot mount, the shell names the add-on and nothing
+  // else does. Either way the page has exactly one title.
+  test('the Face page that is not enabled on this server has one title, the add-on\'s', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await mockIdentity(page, { faceModels: [] })
+    await page.goto('/app/addons/face/recognition')
+    await expectFacesPage(page)
+    await expect(page.getByText('Not enabled on this server')).toBeVisible()
+    await expect(page.getByTestId('addon-unavailable')).toHaveCount(0)
+    await expect(page.locator('h1')).toHaveCount(1)
+  })
+
+  test('the Face page of a stopped add-on has one title, the shell\'s, because the add-on cannot draw', async ({ page }) => {
+    await setup(page, { apps: [{ ...faceApp(), enabled: false, state: 'stopped' }] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/face/recognition')
+    await expect(page.getByTestId('addon-unavailable')).toHaveAttribute('data-reason', 'disabled')
+    await expect(page.getByTestId('faces-page')).toHaveCount(0)
+    await expect(page.locator('h1')).toHaveCount(1)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Face')
+  })
+
+  test('the Face add-on draws the same page and test ids as the core page', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/face/recognition')
+    await expectFacesPage(page)
+    await expect(page.locator('[data-testid="addon-surface"][data-addon="face"]')).toBeVisible()
+    await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
+  })
+
+  test('an old Face link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asAdmin(page)
+    await page.goto('/app/face')
+    await expect(page).toHaveURL(/\/app\/addons\/face\//)
+    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
+  })
+
+  test('an old model link ends in the add-on with the model in the query', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await mockIdentity(page)
+    await page.goto('/app/face/org%2Fname')
+    await expect(page).toHaveURL(/\/app\/addons\/face\/recognition\?model=org%2Fname$/)
+    await expect(page.getByTestId('faces-page')).toBeVisible()
+  })
+
+  test('a viewer without face_recognition gets the off notice in the add-on', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    // An administrator holds every feature, so the viewer is a member.
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, face_recognition: false }) }))
+    await serveFace(page)
+    await page.goto('/app/addons/face/recognition')
+    await expect(page.getByTestId('face-off')).toBeVisible()
+    await expect(page.getByTestId('faces-page')).toHaveCount(0)
+  })
+
+  test('a member without fine_tuning sees the off notice inside the add-on, and the core call answers 403', async ({ page }) => {
+    await setup(page, { apps: [ftApp()] })
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, fine_tuning: false }) }))
+    await page.route('**/api/fine-tuning/jobs', route => route.fulfill({ status: 403, json: { error: 'forbidden' } }))
+    await serveFineTuning(page)
+    await page.goto('/app/addons/fine-tuning/jobs')
+    await expect(page.getByTestId('tool-off')).toBeVisible()
+  })
+
+  test('Fine-tune titles itself with its name and keeps the Experimental badge out of the h1', async ({ page }) => {
+    await setup(page, { apps: [ftApp()] })
+    await asAdmin(page, { fine_tuning: true })
+    await page.route('**/api/fine-tuning/jobs', route => route.fulfill({ json: [] }))
+    await serveFineTuning(page)
+    await page.goto('/app/addons/fine-tuning/jobs')
+    await expect(page.getByTestId('fine-tune-page')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fine-tune')
+    await expect(page.locator('h1 .bt-experimental')).toHaveCount(0)
+    await expect(page.locator('.bt-experimental')).toBeVisible()
+  })
+
+  test('an old fine-tuning link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asAdmin(page)
+    await page.goto('/app/fine-tune')
+    await expect(page).toHaveURL(/\/app\/addons\/fine-tuning\//)
+    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
+  })
+
+  test('an old fine-tuning link opens the add-on when it is installed and running', async ({ page }) => {
+    await setup(page, { apps: [ftApp()] })
+    await serveFineTuning(page)
+    await page.goto('/app/fine-tune')
+    await expect(page).toHaveURL(/\/app\/addons\/fine-tuning\/jobs$/)
+  })
+
+  test('an old quantization link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asAdmin(page)
+    await page.goto('/app/quantize')
+    await expect(page).toHaveURL(/\/app\/addons\/quantization\//)
+    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
+  })
+
+  test('an old quantization link opens the add-on when it is installed and running', async ({ page }) => {
+    await setup(page, { apps: [app({ id: 'quantization', name: 'quantization', title: 'Quantization', icon: undefined, mainPage: '/app/addons/quantization/jobs', ui: { entry: `/api/addons/quantization/assets/${'a'.repeat(64)}/ui/quantization.js`, css: [], sdk: { min: 2, max: 2 }, pages: ['jobs'], navigation: [], chatActions: [] } })] })
+    await page.goto('/app/quantize')
+    await expect(page).toHaveURL(/\/app\/addons\/quantization\/jobs$/)
+  })
+
+  test('the Build hub has no fine-tuning or quantization tab', async ({ page }) => {
+    await setup(page)
+    await asFaceAdmin(page)
+    await page.goto('/app/build')
+    await expect(page.locator('.dk-hubtabs')).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Fine-tun/ })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: /Quantiz/ })).toHaveCount(0)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="fine-tune"], .dk-hubtabs [data-hub-tab="quantize"]')).toHaveCount(0)
+  })
+
+  test('the Build hub shows no Faces tab', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asFaceAdmin(page)
+    await page.goto('/app/build')
+    await expect(page.locator('.dk-hubtabs')).toBeVisible()
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
+  })
+
+  test('the add-on page identifies, enrols from a side panel and holds a removal behind Undo', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    const calls = await mockIdentity(page, { storedFaces: faces, faceIdentify: { matches: [match('f-anna', 'Anna Kowalski', 0.21), match('f-tomas', 'Tomas Ribeiro', 0.52)] } })
+    await page.goto('/app/addons/face/recognition')
+    await expect(page.getByTestId('faces-page')).toBeVisible()
+
+    await page.locator('#face-probe-image-file').setInputFiles(photoFile())
+    await page.getByTestId('identify-go').click()
+    await expect(page.getByTestId('verdict')).toContainText('Probably Anna Kowalski')
+    expect(calls.faceIdentify).toHaveLength(1)
+    expect(calls.faceIdentify[0].model).toBe(FACE_MODEL)
+    expect(calls.faceIdentify[0].img).toMatch(/^data:image\//)
+
+    await page.getByTestId('enrol-open').click()
+    const sheet = page.getByTestId('enrol-sheet')
+    await expect(sheet).toBeVisible()
+    await sheet.locator('#face-enrol-image-file').setInputFiles(photoFile('new.png'))
+    await sheet.locator('#face-enrol-name').fill('Ada Byron')
+    await sheet.getByLabel(/This person agreed/).check()
+    await sheet.getByRole('button', { name: /^Enrol/ }).click()
+    await expect.poll(() => calls.faceRegister.length).toBe(1)
+    expect(calls.faceRegister[0]).toMatchObject({ model: FACE_MODEL, name: 'Ada Byron' })
+    await expect(sheet).toHaveCount(0)
+    await expect(page.getByTestId('known-list')).toContainText('Ada Byron')
+
+    await page.clock.install()
+    await page.getByRole('button', { name: 'Remove Anna Kowalski' }).click()
+    await expect(page.locator('.vc-undo').filter({ hasText: 'Anna Kowalski' })).toBeVisible()
+    await page.getByRole('button', { name: 'Undo' }).first().click()
+    // Past the 10 second delay: a cancelled removal must send nothing.
+    await page.clock.fastForward(15000)
+    await page.waitForTimeout(300)
+    expect(calls.forget).toHaveLength(0)
+    await expect(page.getByTestId('known-list')).toContainText('Anna Kowalski')
+  })
+
+  test('with the removal left to run, the add-on sends the face forget call', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await page.clock.install()
+    const calls = await mockIdentity(page, { storedFaces: faces })
+    await page.goto('/app/addons/face/recognition')
+    await page.getByRole('button', { name: 'Remove Anna Kowalski' }).click()
+    await page.clock.runFor(11000)
+    await expect.poll(() => calls.forget.length).toBe(1)
+    expect(calls.forget[0]).toMatchObject({ face: true, id: 'f-anna' })
+  })
+})

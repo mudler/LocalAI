@@ -180,6 +180,7 @@
   "empty": {
     "title": "No models found",
     "withFilters": "No models match your current search or filters.",
+    "library": "The library {{name}} has no models on this page.",
     "collapsedVariantsHint": "Alternative builds that another entry already offers are hidden. Turn off \"One row per model\" to include them.",
     "noFilters": "The model gallery is empty."
   },

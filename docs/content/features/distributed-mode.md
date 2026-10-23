@@ -386,6 +386,22 @@ local-ai worker \
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /notice %}}
 
+### Disabling backend installation on workers
+
+A worker installs a backend the first time the frontend schedules a model
+that needs it. On workers that must run only pre-installed or system-path
+backends, set `LOCALAI_DISABLE_BACKEND_INSTALL=1` on the worker: it then
+refuses frontend install and upgrade requests for backends it does not have,
+and a model that needs a missing backend fails to load on that node with a
+clear error instead of pulling an image. Set the same variable on the
+frontend so its own install and upgrade endpoints refuse as well — each
+process enforces the switch for the backends it owns. Model installs on the
+frontend are judged against the workers' backends, so a model whose backend
+is installed on any healthy worker, under its own name or an alias, is still
+accepted; a worker marked unhealthy does not count until its heartbeat
+returns. See
+[Disabling backend installation]({{% relref "features/backends#disabling-backend-installation" %}}).
+
 ### Ephemeral request-input storage
 
 Workers reserve local capacity before accepting per-request audio, image, and other ephemeral inputs. The limit covers both direct HTTP staging and the worker's S3 download cache. A request is rejected before inference when accepting its input would exceed the byte limit or the configured free-space headroom. One request-scoped cleanup operation releases all exact input keys and their reservations after inference, while a one-hour recovery sweep removes abandoned files after crashes. The sweep runs at startup and every 15 minutes, preserves active requests, and considers the newest file in each request directory.

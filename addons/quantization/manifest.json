@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "id": "quantization",
+  "version": "0.1.0",
+  "executable": "quantization",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {
+    "min": 1,
+    "max": 1
+  },
+  "api": {
+    "min": 1,
+    "max": 1
+  },
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "dataFormat": {
+    "min": 1,
+    "max": 1
+  },
+  "capabilities": {
+    "tools": [
+      "resource-exists",
+      "quantize-list",
+      "quantize-start",
+      "quantize-status",
+      "quantize-stop",
+      "quantize-import"
+    ],
+    "toolDefinitions": [
+      {
+        "name": "quantize-list",
+        "kind": "read",
+        "description": "List the quantization jobs of the person you are talking to, newest first, including jobs started in the web page. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "quantize-start",
+        "kind": "create",
+        "description": "Propose a new quantization job. A person confirms it in the approval card; nothing starts before that. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A label for the job, 1 to 80 characters.",
+              "maxLength": 80
+            },
+            "model": {
+              "type": "string",
+              "description": "Model to quantize as a gallery or Hugging Face ID. A local path is refused.",
+              "maxLength": 256
+            },
+            "backend": {
+              "type": "string",
+              "description": "Quantization backend. The default is llama-cpp-quantization.",
+              "maxLength": 64
+            },
+            "quantizationType": {
+              "type": "string",
+              "description": "Quantization type, such as q4_k_m (lowercase letters, digits and underscores). The default is q4_k_m.",
+              "maxLength": 32
+            }
+          },
+          "required": [
+            "name",
+            "model"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "quantize-status",
+        "kind": "read",
+        "description": "Show the status of a quantization job that a tool started. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the quantization job, as returned by a job start. Only a job that a tool started has one."
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "quantize-stop",
+        "kind": "write",
+        "description": "Propose stopping a quantization job that a tool started. A person confirms it. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the quantization job, as returned by a job start. Only a job that a tool started has one."
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "quantize-import",
+        "kind": "write",
+        "description": "Propose registering the result of a quantization job that a tool started as a model. Administrators only. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the quantization job, as returned by a job start. Only a job that a tool started has one."
+            },
+            "name": {
+              "type": "string",
+              "description": "Name of the model, 1 to 64 letters, digits, dots, dashes or underscores. Leave out to let the engine choose.",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ],
+    "resources": {
+      "noun": "quantization job",
+      "create": "quantize-start",
+      "inspect": "quantize-status"
+    },
+    "ui": {
+      "entry": "ui/quantization.js",
+      "css": [
+        "ui/quantization.css"
+      ],
+      "sdk": {
+        "min": 2,
+        "max": 2
+      },
+      "pages": [
+        "jobs"
+      ],
+      "navigation": [],
+      "mainPage": "jobs",
+      "icon": "ui/icon.png",
+      "title": "Quantization",
+      "description": "Shrink a model to a smaller quantized file, then import it so you can chat with it."
+    }
+  }
+}

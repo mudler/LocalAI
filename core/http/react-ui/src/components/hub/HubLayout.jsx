@@ -8,6 +8,9 @@ import { resolveTabs, visibleItems } from './hubConfig'
 import { useHubAuth } from './useHubAuth'
 import { OperateSummaryProvider, useOperateSummary } from '../../contexts/OperateSummaryContext'
 import Icon from '../Icon'
+import { useAddonNavigation, useSlotContributions } from '../../addons/useAddonRegistry'
+// eslint-disable-next-line no-unused-vars
+import AddonSlot from '../../addons/AddonSlot'
 
 // Signals come from the Operate summary and only exist inside Operate. They
 // are never the only place a fact appears: the Status page states the same
@@ -53,13 +56,18 @@ function HubTab({ tab, current, auth, summary, t }) {
 // bar above stays the only strong navigation.
 function SubNav({ tab, auth, pathname, t }) {
   const items = visibleItems(tab, auth)
-  if (items.length < 2) return null
+  // Add-on components in the app.nav slot join the second row of the hub that
+  // lists add-on navigation; the slot draws nothing when none is contributed.
+  const navSlot = useSlotContributions('app.nav', Boolean(tab.addonNavigation))
+  if (items.length < 2 && navSlot.length === 0) return null
   return (
     <nav className="hub-subnav" aria-label={t(tab.labelKey)}>
       {items.map(item => {
         // An item marked `exact` is the hub's own landing page: the pages under
         // it have items of their own, so a prefix match would light two links.
         const active = item.exact ? pathname === item.path : (pathname === item.path || pathname.startsWith(item.path + '/'))
+        // An add-on page link carries its own title, not an interface key.
+        const label = item.label || t(item.labelKey)
         return (
           <Link
             key={item.path}
@@ -69,17 +77,22 @@ function SubNav({ tab, auth, pathname, t }) {
             onMouseEnter={() => preloadRoute(item.path)}
             onFocus={() => preloadRoute(item.path)}
           >
-            {t(item.labelKey)}
+            {label}
           </Link>
         )
       })}
+      {tab.addonNavigation && <AddonSlot slot="app.nav" context={null} />}
     </nav>
   )
 }
 
 function HubLayoutInner({ config }) {
   const { t } = useTranslation('nav')
-  const auth = useHubAuth()
+  const hubAuth = useHubAuth()
+  // Add-on navigation is read only on the hub that lists it, so the registry
+  // does not poll on pages that never show it.
+  const addonNavigation = useAddonNavigation(config.id === 'build')
+  const auth = config.id === 'build' ? { ...hubAuth, addonNavigation } : hubAuth
   const location = useLocation()
   const summary = useOperateSummary()
   // Forward the App-level outlet context (e.g. addToast): a nested bare

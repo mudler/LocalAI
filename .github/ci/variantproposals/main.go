@@ -16,10 +16,10 @@ import (
 )
 
 func main() {
-	index := flag.String("index", "gallery/index.yaml", "path to the gallery index")
+	index := flag.String("index", "gallery/models/index.yaml", "path to the model library")
 	ledger := flag.String("ledger", "gallery/variant-exclusions.yaml", "path to the rejection ledger")
 	bodyOut := flag.String("body-out", "", "write the pull request body here")
-	apply := flag.Bool("apply", false, "write the proposed groupings back into the index")
+	apply := flag.Bool("apply", false, "write the proposed groupings back into the library")
 	flag.Parse()
 
 	if err := run(*index, *ledger, *bodyOut, *apply); err != nil {

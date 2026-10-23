@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "sample",
+  "version": "1.2.3",
+  "executable": "bin/sample",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {
+    "min": 1,
+    "max": 2
+  },
+  "api": {
+    "min": 1,
+    "max": 1
+  },
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "dataFormat": {
+    "min": 1,
+    "max": 2
+  },
+  "launchMode": "always",
+  "capabilities": {
+    "service": true,
+    "tools": [
+      "query"
+    ],
+    "ui": {
+      "entry": "ui/main.js",
+      "css": [
+        "ui/main.css"
+      ],
+      "sdk": {
+        "min": 1,
+        "max": 1
+      },
+      "pages": [
+        "home",
+        "settings"
+      ],
+      "navigation": [
+        "home"
+      ],
+      "mainPage": "home",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Sample",
+        "it": "Esempio"
+      },
+      "description": "A sample addon."
+    }
+  }
+}

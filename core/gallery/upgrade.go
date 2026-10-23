@@ -257,6 +257,9 @@ func summarizeNodeDrift(nodes []NodeBackendRef) (majority struct{ version, diges
 // UpgradeBackend upgrades a single backend to the latest gallery version using
 // an atomic swap with backup-based rollback on failure.
 func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, galleries []config.Gallery, backendName string, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
+	if systemState.DisableBackendInstall {
+		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, backendName)
+	}
 	// Look up the installed backend
 	installedBackends, err := ListSystemBackends(systemState)
 	if err != nil {

@@ -11,6 +11,7 @@ import SettingField from '../components/settings/SettingField'
 import PendingBar from '../components/settings/PendingBar'
 import HistorySheet from '../components/settings/HistorySheet'
 import Icon from '../components/Icon'
+import AddonSlot from '../addons/AddonSlot'
 import { formatBytes } from '../utils/format'
 import {
   FIELDS, GROUPS, OLD_SECTIONS, FIELD_BY_KEY, getValue, setValue, isChanged, hasDefault, searchFields, normalizeLoaded,
@@ -318,6 +319,8 @@ export default function Settings() {
           )}
         </div>
       </div>
+
+      <AddonSlot slot="settings.sections" context={null} />
 
       {isDirty && (
         <PendingBar

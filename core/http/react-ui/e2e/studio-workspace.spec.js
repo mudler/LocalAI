@@ -26,14 +26,16 @@ test.describe('Workspace frame (Images)', () => {
     await expect(page.locator('[data-testid="studio-workspace"]')).toHaveAttribute('data-type', 'images')
     await expect(page.locator('.studio-tab')).toHaveCount(8)
     await page.locator('.studio-tab[data-tab="tts"]').click()
-    await expect(page).toHaveURL(/\/app\/studio\/tts$/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/tts$/)
     await expect(page.locator('[data-testid="studio-workspace"]')).toHaveAttribute('data-type', 'tts')
   })
 
   test('the compose card has the model chip, the essentials, an estimate and one action', async ({ page }) => {
     await setup(page)
     await page.goto('/app/studio/images')
-    await expect(compose(page).getByRole('heading', { level: 1 })).toContainText('Image')
+    // The page title is Studio's own h1 above the tabs; the card heading is a section.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Studio')
+    await expect(compose(page).getByRole('heading', { level: 2 })).toContainText('Image')
     await expect(compose(page).getByRole('button', { name: 'flux.1-schnell' })).toBeVisible()
     await expect(page.locator('[data-testid="ws-size"]')).toHaveValue('512x512')
     await expect(page.locator('[data-testid="ws-count"]')).toHaveValue('1')
@@ -146,7 +148,7 @@ test.describe('Workspace frame (Images)', () => {
     await expect(page.locator('[data-testid="use-in-to-3d"]')).toBeEnabled()
     await expect(page.locator('[data-testid="use-in-variation"]')).toBeEnabled()
     await page.locator('[data-testid="use-in-animate"]').click()
-    await expect(page).toHaveURL(/\/app\/studio\/video\?.*from=img-forest.*edge=animate/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/video\?.*from=img-forest.*edge=animate/)
     await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready')
   })
 
@@ -175,7 +177,7 @@ test.describe('Workspace frame (Images)', () => {
     await page.goto('/app/studio/images')
     await tile(page).filter({ hasText: 'Misty pine forest' }).locator('.ws-tile__open').click()
     await page.locator('[data-testid="ws-lineage"]').click()
-    await expect(page).toHaveURL(/\/app\/studio\?work=img-forest/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\?work=img-forest/)
     await expect(page.locator('[data-testid="studio-lineage"]')).toBeVisible()
   })
 
@@ -187,7 +189,7 @@ test.describe('Workspace frame (Images)', () => {
     const from = page.locator('[data-testid="ws-from"]')
     await expect(from).toContainText('animate')
     await from.getByRole('link').click()
-    await expect(page).toHaveURL(/\/app\/studio\?work=img-harbour$/)
+    await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\?work=img-harbour$/)
   })
 
   test('Re-run with edits loads the take, outlines and lists what changed, and runs the edited values', async ({ page }) => {

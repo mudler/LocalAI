@@ -138,6 +138,8 @@ func (mgs *BackendEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 // @Tags backends
 // @Param request body GalleryBackend true "query params"
 // @Success 200 {object} schema.BackendResponse "Response"
+// @Failure 403 {object} map[string]interface{} "Backend installation is disabled on this server (code backend_install_disabled)"
+// @Failure 409 {object} map[string]interface{} "Hardware-specific build in distributed mode (code concrete_backend_requires_target)"
 // @Router /backends/apply [post]
 func (mgs *BackendEndpointService) ApplyBackendEndpoint(systemState *system.SystemState) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -330,6 +332,7 @@ func (mgs *BackendEndpointService) CheckUpgradesEndpoint() echo.HandlerFunc {
 // @Tags backends
 // @Param name path string true "Backend name"
 // @Success 200 {object} schema.BackendResponse "Response"
+// @Failure 403 {object} map[string]interface{} "Backend installation is disabled on this server (code backend_install_disabled)"
 // @Router /backends/upgrade/{name} [post]
 func (mgs *BackendEndpointService) UpgradeBackendEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {

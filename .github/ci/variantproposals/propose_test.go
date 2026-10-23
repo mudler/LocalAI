@@ -8,20 +8,23 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// entryYAML writes one gallery entry with a single weight file, which is the
+// entryYAML writes one library entry with a single weight file, which is the
 // shape almost every real entry has. Specs that need something else write the
 // YAML out by hand.
 func entryYAML(name, repo, filename, sha string) string {
-	return fmt.Sprintf(`- name: %s
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  overrides:
-    parameters:
-      model: %s
-  files:
-    - filename: %s
-      uri: huggingface://%s/%s
-      sha256: %s
-`, name, filename, filename, repo, filename, sha)
+	return fmt.Sprintf(`- kind: model
+  id: %s
+  name: %s
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    overrides:
+      parameters:
+        model: %s
+    files:
+      - filename: %s
+        uri: huggingface://%s/%s
+        sha256: %s
+`, name, name, filename, filename, repo, filename, sha)
 }
 
 func indexOf(entries ...string) *Index {
@@ -103,24 +106,30 @@ var _ = Describe("Propose", func() {
 			// Both entries ship the same text encoder. That is a packaging
 			// convention, not evidence of shared weights: this is how an
 			// earlier sweep linked four wan-2.1 entries to each other.
-			ix := indexOf(`- name: wan-2.1-t2v
-  url: u
-  files:
-    - filename: wan-2.1-t2v-Q4_K_M.gguf
-      uri: huggingface://acme/wan/wan-2.1-t2v-Q4_K_M.gguf
-      sha256: aa
-    - filename: umt5-xxl-encoder-Q8_0.gguf
-      uri: huggingface://acme/wan/umt5-xxl-encoder-Q8_0.gguf
-      sha256: cc
-`, `- name: z-image-turbo
-  url: u
-  files:
-    - filename: z-image-turbo-Q4_K_M.gguf
-      uri: huggingface://acme/wan/z-image-turbo-Q4_K_M.gguf
-      sha256: bb
-    - filename: umt5-xxl-encoder-Q8_0.gguf
-      uri: huggingface://acme/wan/umt5-xxl-encoder-Q8_0.gguf
-      sha256: cc
+			ix := indexOf(`- kind: model
+  id: wan-2.1-t2v
+  name: wan-2.1-t2v
+  model:
+    url: u
+    files:
+      - filename: wan-2.1-t2v-Q4_K_M.gguf
+        uri: huggingface://acme/wan/wan-2.1-t2v-Q4_K_M.gguf
+        sha256: aa
+      - filename: umt5-xxl-encoder-Q8_0.gguf
+        uri: huggingface://acme/wan/umt5-xxl-encoder-Q8_0.gguf
+        sha256: cc
+`, `- kind: model
+  id: z-image-turbo
+  name: z-image-turbo
+  model:
+    url: u
+    files:
+      - filename: z-image-turbo-Q4_K_M.gguf
+        uri: huggingface://acme/wan/z-image-turbo-Q4_K_M.gguf
+        sha256: bb
+      - filename: umt5-xxl-encoder-Q8_0.gguf
+        uri: huggingface://acme/wan/umt5-xxl-encoder-Q8_0.gguf
+        sha256: cc
 `)
 			r := Propose(ix, nil)
 			Expect(familyNames(r)).To(BeEmpty())
@@ -162,16 +171,17 @@ var _ = Describe("Propose", func() {
 		It("does not group entries with a byte-identical install payload", func() {
 			// whisper-1 exists so OpenAI-compatible clients can send that name.
 			// Folding it under whisper-base would hide the name they send.
-			payload := `  url: github:mudler/LocalAI/gallery/whisper-base.yaml@master
-  overrides:
-    parameters:
-      model: ggml-whisper-base.bin
-  files:
-    - filename: ggml-whisper-base.bin
-      uri: huggingface://ggerganov/whisper.cpp/ggml-base.bin
-      sha256: aa
+			payload := `  model:
+    url: github:mudler/LocalAI/gallery/whisper-base.yaml@master
+    overrides:
+      parameters:
+        model: ggml-whisper-base.bin
+    files:
+      - filename: ggml-whisper-base.bin
+        uri: huggingface://ggerganov/whisper.cpp/ggml-base.bin
+        sha256: aa
 `
-			ix := indexOf("- name: whisper-base\n"+payload, "- name: whisper-1\n"+payload)
+			ix := indexOf("- kind: model\n  id: whisper-base\n"+payload, "- kind: model\n  id: whisper-1\n"+payload)
 			r := Propose(ix, nil)
 			Expect(familyNames(r)).To(BeEmpty())
 			Expect(r.AliasSkipped).To(HaveLen(1))
@@ -256,17 +266,20 @@ var _ = Describe("Propose", func() {
 		It("refuses to nest: a target that already offers variants of its own", func() {
 			ix := indexOf(
 				entryYAML("nest-model", "acme/repo", "nest-model-Q4_K_M.gguf", "aa"),
-				`- name: nest-model-q8_0
-  url: u
-  variants:
-    - model: nest-model-q8_0-mtp
-  overrides:
-    parameters:
-      model: nest-model-Q8_0.gguf
-  files:
-    - filename: nest-model-Q8_0.gguf
-      uri: huggingface://acme/repo/nest-model-Q8_0.gguf
-      sha256: bb
+				`- kind: model
+  id: nest-model-q8_0
+  name: nest-model-q8_0
+  model:
+    url: u
+    variants:
+      - model: nest-model-q8_0-mtp
+    overrides:
+      parameters:
+        model: nest-model-Q8_0.gguf
+    files:
+      - filename: nest-model-Q8_0.gguf
+        uri: huggingface://acme/repo/nest-model-Q8_0.gguf
+        sha256: bb
 `,
 				entryYAML("nest-model-q8_0-mtp", "other/repo", "nest-model-mtp.gguf", "cc"),
 			)
@@ -277,17 +290,20 @@ var _ = Describe("Propose", func() {
 
 		It("refuses to nest: a parent that is already somebody else's variant", func() {
 			ix := indexOf(
-				`- name: outer
-  url: u
-  variants:
-    - model: middle
-  overrides:
-    parameters:
-      model: outer-Q4_K_M.gguf
-  files:
-    - filename: outer-Q4_K_M.gguf
-      uri: huggingface://acme/repo/outer-Q4_K_M.gguf
-      sha256: aa
+				`- kind: model
+  id: outer
+  name: outer
+  model:
+    url: u
+    variants:
+      - model: middle
+    overrides:
+      parameters:
+        model: outer-Q4_K_M.gguf
+    files:
+      - filename: outer-Q4_K_M.gguf
+        uri: huggingface://acme/repo/outer-Q4_K_M.gguf
+        sha256: aa
 `,
 				entryYAML("middle", "acme/other", "middle-Q4_K_M.gguf", "bb"),
 				entryYAML("middle-q8_0", "acme/other", "middle-Q8_0.gguf", "cc"),
@@ -299,17 +315,20 @@ var _ = Describe("Propose", func() {
 
 		It("refuses to let two parents claim one target", func() {
 			ix := indexOf(
-				`- name: claimant
-  url: u
-  variants:
-    - model: contested-q8_0
-  overrides:
-    parameters:
-      model: claimant-Q4_K_M.gguf
-  files:
-    - filename: claimant-Q4_K_M.gguf
-      uri: huggingface://acme/repo/claimant-Q4_K_M.gguf
-      sha256: aa
+				`- kind: model
+  id: claimant
+  name: claimant
+  model:
+    url: u
+    variants:
+      - model: contested-q8_0
+    overrides:
+      parameters:
+        model: claimant-Q4_K_M.gguf
+    files:
+      - filename: claimant-Q4_K_M.gguf
+        uri: huggingface://acme/repo/claimant-Q4_K_M.gguf
+        sha256: aa
 `,
 				entryYAML("contested", "acme/other", "contested-Q4_K_M.gguf", "bb"),
 				entryYAML("contested-q8_0", "acme/other", "contested-Q8_0.gguf", "cc"),
@@ -322,44 +341,11 @@ var _ = Describe("Propose", func() {
 		It("refuses a target that is not independently installable", func() {
 			ix := indexOf(
 				entryYAML("stub-model", "acme/repo", "stub-model-Q4_K_M.gguf", "aa"),
-				"- name: stub-model-q8_0\n  description: a stanza nobody finished\n",
+				"- kind: model\n  id: stub-model-q8_0\n  name: stub-model-q8_0\n  description: a stanza nobody finished\n  model: {}\n",
 			)
 			r := Propose(ix, nil)
 			Expect(familyNames(r)).To(BeEmpty())
 			Expect(refusalReasons(r)).To(ContainSubstring("not independently installable"))
-		})
-
-		It("refuses a family whose parent defines a merge anchor, naming the entries that would inherit", func() {
-			ix := indexOf(
-				`- &anchored
-  name: anchored-model
-  url: u
-  overrides:
-    parameters:
-      model: anchored-Q4_K_M.gguf
-  files:
-    - filename: anchored-Q4_K_M.gguf
-      uri: huggingface://acme/repo/anchored-Q4_K_M.gguf
-      sha256: aa
-`,
-				`- !!merge <<: *anchored
-  name: anchored-child
-  variants: []
-  overrides:
-    parameters:
-      model: unrelated-child-Q4_K_M.gguf
-  files:
-    - filename: unrelated-child-Q4_K_M.gguf
-      uri: huggingface://other/repo/unrelated-child-Q4_K_M.gguf
-      sha256: cc
-`,
-				entryYAML("anchored-model-q8_0", "acme/repo", "anchored-Q8_0.gguf", "bb"),
-			)
-			r := Propose(ix, nil)
-			Expect(familyNames(r)).To(BeEmpty())
-			Expect(refusalReasons(r)).To(ContainSubstring("defines YAML anchor &anchored"))
-			Expect(refusalReasons(r)).To(ContainSubstring("anchored-child"))
-			Expect(refusalReasons(r)).To(ContainSubstring("variants: []"))
 		})
 
 		It("refuses an entry whose name is not unique in the gallery", func() {
@@ -375,17 +361,20 @@ var _ = Describe("Propose", func() {
 
 		It("says nothing about a pair that is already grouped", func() {
 			ix := indexOf(
-				`- name: settled
-  url: u
-  variants:
-    - model: settled-q8_0
-  overrides:
-    parameters:
-      model: settled-Q4_K_M.gguf
-  files:
-    - filename: settled-Q4_K_M.gguf
-      uri: huggingface://acme/repo/settled-Q4_K_M.gguf
-      sha256: aa
+				`- kind: model
+  id: settled
+  name: settled
+  model:
+    url: u
+    variants:
+      - model: settled-q8_0
+    overrides:
+      parameters:
+        model: settled-Q4_K_M.gguf
+    files:
+      - filename: settled-Q4_K_M.gguf
+        uri: huggingface://acme/repo/settled-Q4_K_M.gguf
+        sha256: aa
 `,
 				entryYAML("settled-q8_0", "acme/repo", "settled-Q8_0.gguf", "bb"),
 			)
@@ -397,17 +386,20 @@ var _ = Describe("Propose", func() {
 
 		It("adds only the missing members to a family that already exists", func() {
 			ix := indexOf(
-				`- name: partial
-  url: u
-  variants:
-    - model: partial-q8_0
-  overrides:
-    parameters:
-      model: partial-Q4_K_M.gguf
-  files:
-    - filename: partial-Q4_K_M.gguf
-      uri: huggingface://acme/repo/partial-Q4_K_M.gguf
-      sha256: aa
+				`- kind: model
+  id: partial
+  name: partial
+  model:
+    url: u
+    variants:
+      - model: partial-q8_0
+    overrides:
+      parameters:
+        model: partial-Q4_K_M.gguf
+    files:
+      - filename: partial-Q4_K_M.gguf
+        uri: huggingface://acme/repo/partial-Q4_K_M.gguf
+        sha256: aa
 `,
 				entryYAML("partial-q8_0", "acme/repo", "partial-Q8_0.gguf", "bb"),
 				entryYAML("partial-f16", "acme/repo", "partial-f16.gguf", "cc"),

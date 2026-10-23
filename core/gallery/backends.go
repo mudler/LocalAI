@@ -23,8 +23,14 @@ import (
 	cp "github.com/otiai10/copy"
 )
 
-// ErrBackendNotFound is returned when a backend is not found in the system.
-var ErrBackendNotFound = errors.New("backend not found")
+var (
+	// ErrBackendNotFound is returned when a backend is not found in the system.
+	ErrBackendNotFound = errors.New("backend not found")
+	// ErrBackendInstallDisabled is returned by every install/upgrade path when
+	// the server runs with --disable-backend-install. Callers that install a
+	// backend as a side effect (model installs) treat it as a skip.
+	ErrBackendInstallDisabled = errors.New("backend installation is disabled on this server (--disable-backend-install)")
+)
 
 // lookupImageDigest asks a registry for the digest of an image reference. It
 // is what install and upgrade record for upgrade detection.
@@ -228,6 +234,9 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 	if name == "" {
 		return fmt.Errorf("backend name is empty")
 	}
+	if systemState.DisableBackendInstall {
+		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, name)
+	}
 
 	xlog.Debug("Installing backend from gallery", "galleries", galleries, "name", name)
 
@@ -282,7 +291,41 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 	return InstallBackend(ctx, systemState, modelLoader, backend, downloadStatus, requireIntegrity)
 }
 
+// RequiredBackendInstalled reports which backend the gallery entry `name`
+// would be installed with — the one variant selection picks, or the entry's
+// own — and whether `available` says it can serve models. A nil `available`
+// means the local backend directory. An entry that names no backend reports
+// "" and true: nothing to check.
+func RequiredBackendInstalled(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, name, pin string, available BackendAvailability) (string, bool, error) {
+	models, err := AvailableGalleryModels(galleries, systemState)
+	if err != nil {
+		return "", false, err
+	}
+	entry := FindGalleryElement(models, name)
+	if entry == nil {
+		return "", false, fmt.Errorf("no model found with name %q", name)
+	}
+	if entry.HasVariants() {
+		resolved, _, err := ResolveVariant(models, entry, HostResolveEnv(ctx, systemState), pin)
+		if err != nil {
+			return "", false, err
+		}
+		entry = resolved
+	}
+	if entry.Backend == "" {
+		return "", true, nil
+	}
+	if available == nil {
+		available = LocalBackendAvailability(systemState)
+	}
+	ok, err := available(entry.Backend)
+	return entry.Backend, ok, err
+}
+
 func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
+	if systemState.DisableBackendInstall {
+		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, config.Name)
+	}
 	// Get configurable fallback tag values from SystemState
 	latestTag, masterTag, devSuffix := getFallbackTagValues(systemState)
 
@@ -340,6 +383,12 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("backend %q: %w", config.Name, optsErr)
 	}
 	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
+	if config.MaxBytes > 0 {
+		downloadOpts = append(downloadOpts, downloader.WithMaxBytes(config.MaxBytes))
+	}
+	if config.Stage != nil {
+		downloadOpts = append(downloadOpts, downloader.WithStageReporter(config.Stage))
+	}
 
 	// PreferDevelopmentBackends installs the development image as the primary URI,
 	// keeping the released image reachable as the first fallback — instead of only
@@ -438,6 +487,10 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("not a valid backend: run file not found %q", stagedRunFile)
 	}
 
+	if config.Stage != nil {
+		config.Stage(StageWriting)
+	}
+
 	// Create metadata for the backend (written into the staged dir so the
 	// atomic swap brings a complete, self-describing backend into place).
 	metadata := &BackendMetadata{
@@ -446,6 +499,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		InstalledAt: time.Now().Format(time.RFC3339),
 		Version:     config.Version,
 		URI:         string(uri),
+		Library:     config.Library,
 	}
 
 	// Record the OCI digest for upgrade detection (non-fatal on failure)
@@ -573,6 +627,50 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 	}
 
 	return os.RemoveAll(backendDirectory)
+}
+
+// BackendAvailability answers whether a backend can serve models for this
+// server: installed and runnable on a single node, or installed on a healthy
+// worker when inference runs on a cluster.
+type BackendAvailability func(name string) (bool, error)
+
+// LocalBackendAvailability reports the backends installed on this host.
+func LocalBackendAvailability(systemState *system.SystemState) BackendAvailability {
+	return func(name string) (bool, error) {
+		backends, err := ListSystemBackends(systemState)
+		if err != nil {
+			return false, err
+		}
+		b, ok := backends.Get(name)
+		return ok && isBackendRunnable(b), nil
+	}
+}
+
+// AvailableOnCluster reports whether a cluster-wide listing shows the backend
+// on at least one healthy node. Such entries describe workers, not local
+// files, so presence is the test, and only nodes the router may place a load
+// on count. Workers list only concrete backends and keep alias resolution to
+// themselves, so a name is also matched against each entry's alias: a model
+// naming the alias runs on the worker that holds the concrete.
+func AvailableOnCluster(backends SystemBackends, name string) bool {
+	if b, ok := backends.Get(name); ok && servedByHealthyNode(b) {
+		return true
+	}
+	for _, b := range backends {
+		if b.Metadata != nil && b.Metadata.Alias == name && servedByHealthyNode(b) {
+			return true
+		}
+	}
+	return false
+}
+
+func servedByHealthyNode(b SystemBackend) bool {
+	for _, n := range b.Nodes {
+		if n.NodeStatus == "healthy" {
+			return true
+		}
+	}
+	return false
 }
 
 // isBackendRunnable reports whether the given backend entry can actually be

@@ -365,6 +365,9 @@
     "actionsFor": "Actions for {{name}}",
     "protected": "Protected",
     "protectedTitle": "System backends are managed outside the gallery",
+    "installDisabled": "Backend installation is disabled on this server. Backends are provided by the system and installed outside LocalAI.",
+    "installDisabledTitle": "Backend installation is disabled on this server",
+    "installDisabledShort": "Install disabled",
     "logs": "Logs",
     "usedBy_one": "Used by {{count}} model:",
     "usedBy_other": "Used by {{count}} models:",
@@ -373,6 +376,7 @@
     "clear": "Clear",
     "clearFilters": "Clear filters",
     "noMatches": "No installed backends match the current search and filters.",
+    "libraryEmpty": "The library {{name}} has no backends here.",
     "emptyTitle": "No backends installed yet",
     "emptyBody": "Install a backend from the Catalog to give this host a runtime for models.",
     "openCatalog": "Open the catalog",
@@ -420,7 +424,9 @@
       "repository": "Repository",
       "license": "License",
       "tags": "Tags",
-      "links": "Links"
+      "links": "Links",
+      "library": "Library",
+      "pinnedDigest": "Pinned digest"
     },
     "nodeRemoval": {
       "action": "Remove from {{node}}…",
@@ -437,6 +443,12 @@
       "refreshFailed": "Backend data could not be refreshed. Displayed data may be stale. Retry refresh.",
       "stale": "Deletion succeeded, but backend data could not be refreshed. Displayed data may be stale. Retry refresh; do not repeat deletion.",
       "refresh": "Retry backend refresh"
+    },
+    "library": {
+      "from": "Library: {{library}}",
+      "pinned": "Pinned to {{digest}}",
+      "updated": "{{name}} updated from its library.",
+      "updateFailed": "The update failed. {{message}}"
     }
   },
   "logs": {

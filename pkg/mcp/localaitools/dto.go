@@ -76,6 +76,21 @@ type InstallBackendRequest struct {
 	BackendName string `json:"backend_name"           jsonschema:"Backend identifier (e.g. llama-cpp)."`
 }
 
+// InstallLibraryBackendRequest is the input for install_library_backend.
+type InstallLibraryBackendRequest struct {
+	SourceID string `json:"source_id" jsonschema:"The library the entry comes from, as shown in the Add-ons library list."`
+	Name     string `json:"name"      jsonschema:"The backend name of the library entry."`
+	Version  string `json:"version"   jsonschema:"The version or the channel of the library entry."`
+}
+
+// InstallLibraryBackendResult is the output of install_library_backend. The
+// install runs to the end before the call returns, so there is no job id.
+type InstallLibraryBackendResult struct {
+	Status   string `json:"status"`
+	Name     string `json:"name"`
+	SourceID string `json:"source_id"`
+}
+
 // Backend is the LLM-facing summary returned by list_backends. We don't
 // expose gallery.SystemBackend directly because it carries filesystem
 // paths (RunFile, IsSystem, IsMeta, the full Metadata) the LLM doesn't

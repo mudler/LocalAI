@@ -1,0 +1,10 @@
+/* Selectors that collide with host classes on purpose. The host scopes this
+   sheet to the add-on root, so none of them may reach a host node. */
+.cx-acts { display: none !important; }
+.home-attach-btn { background: red !important; width: 1px !important; }
+.dk-btn { background: red !important; color: yellow !important; }
+.page-title, h1, h2 { color: red !important; font-size: 48px !important; }
+.hub-subnav__link { display: none !important; }
+body { background: red !important; }
+.fx-chip { color: rgb(1, 2, 3); font-weight: 700; }
+.fx-card { border: 2px solid rgb(4, 5, 6); padding: 4px; }

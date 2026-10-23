@@ -110,9 +110,15 @@ type BackendListReply struct {
 
 // NodeBackendInfo describes a backend installed on a worker node.
 type NodeBackendInfo struct {
-	Name        string `json:"name"`
-	IsSystem    bool   `json:"is_system"`
-	IsMeta      bool   `json:"is_meta"`
+	Name     string `json:"name"`
+	IsSystem bool   `json:"is_system"`
+	IsMeta   bool   `json:"is_meta"`
+	// Alias is the alternative name a model config may use for this
+	// backend. The worker resolves it on its own disk when it loads the
+	// model; the frontend needs it only to judge whether such a model can
+	// run anywhere in the cluster. It rides on the concrete's own row, so
+	// upgrade detection still sees one row per installed backend.
+	Alias       string `json:"alias,omitempty"`
 	InstalledAt string `json:"installed_at,omitempty"`
 	GalleryURL  string `json:"gallery_url,omitempty"`
 	// Version, URI and Digest enable cluster-wide upgrade detection:

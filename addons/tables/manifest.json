@@ -1,0 +1,638 @@
+{
+  "schemaVersion": 1,
+  "id": "tables",
+  "version": "0.1.0",
+  "executable": "tables",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {
+    "min": 1,
+    "max": 1
+  },
+  "api": {
+    "min": 1,
+    "max": 1
+  },
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "dataFormat": {
+    "min": 1,
+    "max": 1
+  },
+  "capabilities": {
+    "tools": [
+      "resource-exists",
+      "databases-create",
+      "databases-rename",
+      "databases-inspect",
+      "tables-create",
+      "tables-rename",
+      "tables-drop",
+      "columns-add",
+      "columns-rename",
+      "columns-drop",
+      "rows-query",
+      "rows-aggregate",
+      "rows-export",
+      "rows-insert",
+      "rows-update",
+      "rows-delete"
+    ],
+    "toolDefinitions": [
+      {
+        "name": "databases-inspect",
+        "description": "Show the name, revision, tables and columns of a database.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "rows-query",
+        "description": "Select rows of one table with an optional filter, sort and page size. Pass the returned cursor to read the next page.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "columns": {
+              "type": "array",
+              "description": "Column labels to return. Empty returns all columns.",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 64
+            },
+            "filter": {
+              "type": "object",
+              "description": "Row filter. A node is exactly one of: {\"and\":[nodes]}, {\"or\":[nodes]} or a leaf {\"column\":label,\"op\":op,\"value\":v} with op eq, ne, lt, lte, gt, gte, contains, starts-with, ends-with, or {\"column\":label,\"op\":\"in\",\"values\":[v]}, or op is-null and is-not-null with no value."
+            },
+            "sort": {
+              "type": "array",
+              "description": "Sort keys: {\"column\":label,\"desc\":bool}.",
+              "items": {
+                "type": "object"
+              },
+              "maxItems": 4
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Rows per page, 1 to 1000.",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "cursor": {
+              "type": "string",
+              "description": "Cursor returned by the previous page.",
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "resourceId",
+            "table"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "rows-aggregate",
+        "description": "Count, sum, avg, min or max over the rows a filter selects, with an optional group-by column.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "filter": {
+              "type": "object",
+              "description": "Row filter. A node is exactly one of: {\"and\":[nodes]}, {\"or\":[nodes]} or a leaf {\"column\":label,\"op\":op,\"value\":v} with op eq, ne, lt, lte, gt, gte, contains, starts-with, ends-with, or {\"column\":label,\"op\":\"in\",\"values\":[v]}, or op is-null and is-not-null with no value."
+            },
+            "aggregates": {
+              "type": "array",
+              "description": "Aggregations: {\"fn\":\"count|sum|avg|min|max\",\"column\":label}. count needs no column.",
+              "items": {
+                "type": "object"
+              },
+              "minItems": 1,
+              "maxItems": 8
+            },
+            "groupBy": {
+              "type": "string",
+              "description": "Column label to group by.",
+              "maxLength": 80
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Groups to return, at most 500.",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "required": [
+            "resourceId",
+            "table",
+            "aggregates"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "rows-export",
+        "description": "Export the rows of one table, with an optional filter and sort, to a CSV file for the person to download. The result is a private file with a name, size and expiry; the rows themselves are not returned. Use rows-query to read rows.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "columns": {
+              "type": "array",
+              "description": "Column labels to export, in order. Empty exports all columns. \"_id\" adds the row ID.",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 64
+            },
+            "filter": {
+              "type": "object",
+              "description": "Row filter. A node is exactly one of: {\"and\":[nodes]}, {\"or\":[nodes]} or a leaf {\"column\":label,\"op\":op,\"value\":v} with op eq, ne, lt, lte, gt, gte, contains, starts-with, ends-with, or {\"column\":label,\"op\":\"in\",\"values\":[v]}, or op is-null and is-not-null with no value."
+            },
+            "sort": {
+              "type": "array",
+              "description": "Sort keys: {\"column\":label,\"desc\":bool}.",
+              "items": {
+                "type": "object"
+              },
+              "maxItems": 4
+            },
+            "maxRows": {
+              "type": "integer",
+              "description": "Most rows to export. Empty exports every row up to the export limit; past the limit nothing is exported.",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "resourceId",
+            "table"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "databases-create",
+        "description": "Propose a new database with the given name. A person confirms it in the approval card; nothing exists before that.",
+        "kind": "create",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Database name, 1 to 80 characters.",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "databases-rename",
+        "description": "Propose a new name for a database. Needs the owner role and a person's confirmation.",
+        "kind": "schema",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "name": {
+              "type": "string",
+              "description": "New database name, 1 to 80 characters.",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "resourceId",
+            "name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "tables-create",
+        "description": "Propose a new empty table. Needs the owner role and a person's confirmation.",
+        "kind": "schema",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "resourceId",
+            "table"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "tables-rename",
+        "description": "Propose a new name for a table. Needs the owner role and a person's confirmation.",
+        "kind": "schema",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "newName": {
+              "type": "string",
+              "description": "New table name.",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "resourceId",
+            "table",
+            "newName"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "tables-drop",
+        "description": "Propose dropping a table and all of its rows. Needs the owner role and a person's confirmation.",
+        "kind": "schema",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "resourceId",
+            "table"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "columns-add",
+        "description": "Propose a new column. Needs the owner role and a person's confirmation.",
+        "kind": "schema",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "column": {
+              "type": "string",
+              "description": "New column label.",
+              "maxLength": 80
+            },
+            "type": {
+              "type": "string",
+              "description": "Column type.",
+              "enum": [
+                "text",
+                "integer",
+                "real",
+                "boolean",
+                "datetime"
+              ]
+            },
+            "required": {
+              "type": "boolean",
+              "description": "Values must not be null."
+            },
+            "unique": {
+              "type": "boolean",
+              "description": "Values must be distinct."
+            },
+            "default": {
+              "description": "Default value of the column, a JSON literal of the column type."
+            }
+          },
+          "required": [
+            "resourceId",
+            "table",
+            "column",
+            "type"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "columns-rename",
+        "description": "Propose a new label for a column. Needs the owner role and a person's confirmation.",
+        "kind": "schema",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "column": {
+              "type": "string",
+              "description": "Current column label.",
+              "maxLength": 80
+            },
+            "newName": {
+              "type": "string",
+              "description": "New column label.",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "resourceId",
+            "table",
+            "column",
+            "newName"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "columns-drop",
+        "description": "Propose dropping a column and its values. Needs the owner role and a person's confirmation.",
+        "kind": "schema",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "column": {
+              "type": "string",
+              "description": "Column label.",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "resourceId",
+            "table",
+            "column"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "rows-insert",
+        "description": "Propose inserting 1 to 100 rows. Each row maps column labels to values. Needs the editor role and a person's confirmation.",
+        "kind": "write",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "rows": {
+              "type": "array",
+              "description": "Rows to insert: objects of column label to value.",
+              "items": {
+                "type": "object"
+              },
+              "minItems": 1,
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "resourceId",
+            "table",
+            "rows"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "rows-update",
+        "description": "Propose setting column values on rows named by ids or a filter. Needs the editor role and a person's confirmation.",
+        "kind": "write",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "set": {
+              "type": "object",
+              "description": "Column label to new value."
+            },
+            "ids": {
+              "type": "array",
+              "description": "Distinct positive row IDs.",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "maxItems": 1000
+            },
+            "filter": {
+              "type": "object",
+              "description": "Row filter. A node is exactly one of: {\"and\":[nodes]}, {\"or\":[nodes]} or a leaf {\"column\":label,\"op\":op,\"value\":v} with op eq, ne, lt, lte, gt, gte, contains, starts-with, ends-with, or {\"column\":label,\"op\":\"in\",\"values\":[v]}, or op is-null and is-not-null with no value."
+            }
+          },
+          "required": [
+            "resourceId",
+            "table",
+            "set"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "rows-delete",
+        "description": "Propose deleting rows named by ids or a filter. Needs the editor role and a person's confirmation.",
+        "kind": "write",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "ids": {
+              "type": "array",
+              "description": "Distinct positive row IDs.",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "maxItems": 1000
+            },
+            "filter": {
+              "type": "object",
+              "description": "Row filter. A node is exactly one of: {\"and\":[nodes]}, {\"or\":[nodes]} or a leaf {\"column\":label,\"op\":op,\"value\":v} with op eq, ne, lt, lte, gt, gte, contains, starts-with, ends-with, or {\"column\":label,\"op\":\"in\",\"values\":[v]}, or op is-null and is-not-null with no value."
+            }
+          },
+          "required": [
+            "resourceId",
+            "table"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ],
+    "adminTools": [
+      "databases-delete"
+    ],
+    "resources": {
+      "noun": "database",
+      "create": "databases-create",
+      "rename": "databases-rename",
+      "inspect": "databases-inspect",
+      "delete": "databases-delete"
+    },
+    "ui": {
+      "entry": "ui/tables.js",
+      "css": [
+        "ui/tables.css"
+      ],
+      "sdk": {
+        "min": 1,
+        "max": 2
+      },
+      "pages": [
+        "databases"
+      ],
+      "navigation": [
+        "databases"
+      ],
+      "mainPage": "databases",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Tables",
+        "it": "Tabelle",
+        "de": "Tabellen",
+        "es": "Tablas",
+        "id": "Tabel",
+        "ko": "테이블",
+        "pt-BR": "Tabelas",
+        "zh-CN": "数据表"
+      },
+      "description": {
+        "en": "Databases of tables you own or share: typed rows, filters, schema and sharing.",
+        "it": "Database di tabelle tuoi o condivisi: righe tipizzate, filtri, schema e condivisione.",
+        "de": "Datenbanken mit Tabellen, die Ihnen gehören oder geteilt wurden: typisierte Zeilen, Filter, Schema und Freigabe.",
+        "es": "Bases de datos de tablas propias o compartidas: filas tipadas, filtros, esquema y uso compartido.",
+        "id": "Basis data tabel milik Anda atau yang dibagikan: baris bertipe, filter, skema, dan berbagi.",
+        "ko": "내가 소유하거나 공유받은 테이블 데이터베이스: 형식이 있는 행, 필터, 스키마, 공유.",
+        "pt-BR": "Bancos de dados de tabelas próprios ou compartilhados: linhas tipadas, filtros, esquema e compartilhamento.",
+        "zh-CN": "你拥有或被共享的数据表数据库：带类型的行、筛选、结构和共享。"
+      },
+      "chatActions": [
+        {
+          "id": "select-database",
+          "label": {
+            "en": "Select database",
+            "it": "Seleziona database",
+            "de": "Datenbank auswählen",
+            "es": "Seleccionar base de datos",
+            "id": "Pilih basis data",
+            "ko": "데이터베이스 선택",
+            "pt-BR": "Selecionar banco de dados",
+            "zh-CN": "选择数据库"
+          },
+          "icon": "database",
+          "placement": "composer",
+          "target": {
+            "component": "SelectDatabase"
+          }
+        }
+      ]
+    }
+  }
+}

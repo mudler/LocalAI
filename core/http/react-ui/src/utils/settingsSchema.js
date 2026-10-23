@@ -116,8 +116,12 @@ export const FIELDS = [
     desc: 'Use 16-bit floating point for reduced memory use.', default: false },
 
   // ---- Backends and galleries ----------------------------------------------
+  { key: 'official_libraries', group: 'backends', was: 'backends', kind: 'bool', label: 'Use official libraries',
+    desc: 'Read the default library sources of add-ons, backends and models. Off hides them from search and from the model and backend lists; they stay on the Libraries tab, shown as off, and come back when this is on. Libraries you added are not affected.', default: true },
   { key: 'auto_upgrade_backends', group: 'backends', was: 'backends', kind: 'bool', label: 'Upgrade backends automatically',
     desc: 'Upgrade backends when a new version is found.', default: false },
+  { key: 'auto_upgrade_addons', group: 'backends', was: 'backends', kind: 'bool', label: 'Upgrade add-ons automatically',
+    desc: 'Upgrade installed add-ons when their library lists a newer version. Each upgrade runs the same checks as an upgrade you start by hand, including the backup.', default: false },
   { key: 'prefer_development_backends', group: 'backends', was: 'backends', kind: 'bool', label: 'Prefer development backends',
     desc: 'Show development backend versions first in the backends gallery.', default: false },
   { key: 'autoload_galleries', group: 'backends', was: 'galleries', kind: 'bool', label: 'Load and pre-warm galleries on boot',
@@ -126,11 +130,13 @@ export const FIELDS = [
     desc: 'Load backend galleries when LocalAI starts.', default: true },
   { key: 'vram_persistent_cache', group: 'backends', was: 'galleries', kind: 'bool', label: 'Persist remote VRAM estimates',
     desc: 'Reuse successful remote model metadata probes across restarts. Off when gallery autoload is off.', default: true },
-  { key: 'galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Model galleries (JSON)',
-    desc: 'A list of galleries: url, name and optional mirrors.', apply: 'live',
+  { key: 'galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Model galleries',
+    desc: 'The model library sources, read-only here. Add, turn on or off, refresh, edit or remove them in the Manage libraries panel on the Models page.', apply: 'live',
+    readOnlySources: 'model',
     placeholder: '[\n  { "url": "https://...", "name": "my-gallery", "mirrors": ["https://fallback/..."] }\n]' },
-  { key: 'backend_galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Backend galleries (JSON)',
-    desc: 'The same shape, for backends.', apply: 'live',
+  { key: 'backend_galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Backend galleries',
+    desc: 'The backend library sources, read-only here. Manage them in the Manage libraries panel on the Backends page.', apply: 'live',
+    readOnlySources: 'backend',
     placeholder: '[\n  { "url": "https://...", "name": "my-backends", "mirrors": ["https://fallback/..."] }\n]' },
 
   // ---- Access and security -------------------------------------------------

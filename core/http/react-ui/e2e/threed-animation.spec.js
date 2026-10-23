@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 const animationOperation = {
   id: 'animate', endpoint: '/3d/animate', output: 'skeleton_animation',
@@ -32,6 +33,8 @@ function animationGlb(change = () => {}) {
 }
 
 test.beforeEach(async ({ page }) => {
+  // Studio is an add-on: the page opens inside it.
+  await installStudioAddons(page, { ids: ['studio'] })
   await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [
     { id: 'trellis-test', capabilities: ['FLAG_3D'] },
     { id: 'kimodo-test', capabilities: ['FLAG_3D_ANIMATION'], three_d_operations: [animationOperation] },

@@ -24,6 +24,8 @@ type Conversation struct {
 	// LocalAIAssistant wires the chat to the in-process admin MCP server
 	// (the LocalAI Assistant mode of the Chat page).
 	LocalAIAssistant bool     `json:"localaiAssistant,omitempty"`
+	AddonTools       bool     `json:"addonTools,omitempty"`
+	AddonToolIDs     []string `json:"addonToolIds,omitempty"`
 	Temperature      *float64 `json:"temperature,omitempty"`
 	TopP             *float64 `json:"topP,omitempty"`
 	TopK             *float64 `json:"topK,omitempty"`

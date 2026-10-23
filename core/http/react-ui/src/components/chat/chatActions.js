@@ -13,6 +13,7 @@ export const CHAT_SLASH_ACTIONS = [
   { id: 'chats', cmd: '/chats', icon: 'history', group: 'chat' },
   { id: 'assistant', cmd: '/assistant', icon: 'user-shield', group: 'chat', needs: 'admin' },
   { id: 'effort', cmd: '/effort', icon: 'brain', group: 'chat' },
+  { id: 'addon-tools', cmd: '/addons', icon: 'puzzle', group: 'chat', needs: 'addon-tools' },
   { id: 'canvas', cmd: '/canvas', icon: 'columns', group: 'view' },
   { id: 'find', cmd: '/find', icon: 'search', group: 'view', needs: 'thread' },
   { id: 'settings', cmd: '/settings', icon: 'sliders', group: 'view' },
@@ -20,12 +21,13 @@ export const CHAT_SLASH_ACTIONS = [
   { id: 'clear', cmd: '/clear', icon: 'eraser', group: 'view', needs: 'thread' },
 ]
 
-// `ctx`: { isAdmin, hasModels, hasThread }
+// `ctx`: { isAdmin, hasModels, hasThread, hasAddonTools }
 export function availableChatActions(ctx) {
   return CHAT_SLASH_ACTIONS.filter(a => {
     if (a.needs === 'admin') return ctx.isAdmin
     if (a.needs === 'models') return ctx.hasModels
     if (a.needs === 'thread') return ctx.hasThread
+    if (a.needs === 'addon-tools') return !!ctx.hasAddonTools
     return true
   })
 }

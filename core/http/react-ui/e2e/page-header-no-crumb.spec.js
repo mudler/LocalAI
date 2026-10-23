@@ -4,7 +4,6 @@ import { test, expect } from './coverage-fixtures.js'
 // not repeated above the title as a small crumb: the sidebar and the hub tab
 // bar already say where the page lives.
 const PAGES = [
-  ['/app/studio', 'Studio'],
   ['/app/agents', 'Agents'],
   ['/app/activity', 'Activity'],
 ]

@@ -81,6 +81,7 @@ func (r *DS4Distributed) Run(ctx *cliContext.Context) error {
 	systemState, err := system.GetSystemState(
 		system.WithBackendPath(r.BackendsPath),
 		system.WithBackendSystemPath(r.BackendsSystemPath),
+		system.WithDisableBackendInstall(r.DisableBackendInstall),
 	)
 	if err != nil {
 		return err

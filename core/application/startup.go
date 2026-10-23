@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
@@ -54,6 +55,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// full restart. Env/CLI values win over the file (see
 	// ApplyRuntimeSettingsAtStartup).
 	loadStartupSettings(options)
+	applyOfficialLibrariesAtStartup(options)
 
 	// WithThreads no longer eagerly resolves 0 (so the settings merge can
 	// tell "unset" from "env-set"); resolve the physical-core default now
@@ -69,7 +71,26 @@ func New(opts ...config.AppOption) (*Application, error) {
 	xlog.Info("Starting LocalAI", "threads", options.Threads, "modelsPath", options.SystemState.Model.ModelsPath)
 	xlog.Info("LocalAI version", "version", internal.PrintableVersion())
 
+	// The account database is opened before the services start: the add-on
+	// owner checks its callers against it in named-user mode, and has no
+	// identity to check them with when it starts first.
+	if options.Auth.Enabled {
+		if err := ensureAuthDBDirs(options); err != nil {
+			return nil, err
+		}
+		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
+		}
+		application.authDB = authDB
+	}
+
 	if err := application.start(); err != nil {
+		if application.authDB != nil {
+			if sqlDB, e := application.authDB.DB(); e == nil {
+				_ = sqlDB.Close()
+			}
+		}
 		return nil, err
 	}
 
@@ -148,11 +169,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			options.Auth.APIKeyHMACSecret = secret
 		}
 
-		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
-		}
-		application.authDB = authDB
+		authDB := application.authDB
 		xlog.Info("Auth enabled", "database", sanitize.URL(options.Auth.DatabaseURL))
 
 		// Start session and expired API key cleanup goroutine
@@ -480,7 +497,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Start background upgrade checker for backends.
 	// In distributed mode, uses PostgreSQL advisory lock so only one frontend
 	// instance runs periodic checks (avoids duplicate upgrades across replicas).
-	if len(options.BackendGalleries) > 0 {
+	if len(options.BackendGalleries) > 0 && !options.DisableBackendInstall {
 		// Pass a lazy getter for the backend manager so the checker always
 		// uses the active one — DistributedBackendManager is swapped in above
 		// and asks workers for their installed backends, which is what
@@ -488,6 +505,13 @@ func New(opts ...config.AppOption) (*Application, error) {
 		bmFn := func() galleryop.BackendManager { return application.GalleryService().BackendManager() }
 		uc := NewUpgradeChecker(options, application.ModelLoader(), application.distributedDB(), bmFn)
 		application.upgradeChecker = uc
+		// Library backends follow the same auto_upgrade_backends switch.
+		uc.SetLibraryBackends(func() libraryUpgrader {
+			if l := application.BackendLibrary(); l != nil {
+				return l
+			}
+			return nil
+		})
 		// A request that proves a backend is older than the server marks it
 		// stale; refresh the upgrade cache so /backends/upgrades shows it.
 		gallery.SetStaleBackendNotifier(uc.TriggerCheck)
@@ -537,14 +561,21 @@ func New(opts ...config.AppOption) (*Application, error) {
 		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Nats)
 	}
 
+	// Preloads run outside the operation loop, so they do not get the
+	// availability the loop stamps on each op; it comes from the same manager.
+	preloadOptions := []gallery.InstallOption{gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)}
+	if gs := application.GalleryService(); gs != nil {
+		preloadOptions = append(preloadOptions, gallery.WithBackendAvailability(gs.BackendManager().BackendAvailable))
+	}
+
 	if options.PreloadJSONModels != "" {
-		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
+		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity, preloadOptions...); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
+		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity, preloadOptions...); err != nil {
 			return nil, err
 		}
 	}
@@ -714,7 +745,7 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 // loadOrGenerateHMACSecret loads an HMAC secret from the given file path,
 // or generates a random 32-byte secret and persists it if the file doesn't exist.
 func loadOrGenerateHMACSecret(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err == nil {
 		secret := string(data)
 		if len(secret) >= 32 {
@@ -791,4 +822,34 @@ func (a *Application) registerFailoverMetrics() {
 func loadStartupSettings(options *config.ApplicationConfig) {
 	loadRuntimeSettingsFromFile(options)
 	options.SystemState.PreferDevelopmentBackends = options.PreferDevelopmentBackends || options.SystemState.PreferDevelopmentBackends
+}
+
+// ensureAuthDBDirs creates the directories the auth database file lives in.
+// The database opens before the general directory setup, and its default
+// location is inside the data directory, which may not exist on first start.
+// Directories keep the 0750 mode of the later setup. PostgreSQL URLs and
+// in-memory databases have no directory.
+func ensureAuthDBDirs(options *config.ApplicationConfig) error {
+	if options.DataPath != "" {
+		if err := os.MkdirAll(options.DataPath, 0o750); err != nil {
+			return fmt.Errorf("unable to create DataPath: %q", err)
+		}
+	}
+	u := options.Auth.DatabaseURL
+	if strings.HasPrefix(u, "postgres://") || strings.HasPrefix(u, "postgresql://") {
+		return nil
+	}
+	if i := strings.IndexByte(u, '?'); i >= 0 {
+		u = u[:i]
+	}
+	u = strings.TrimPrefix(u, "file:")
+	if u == "" || u == ":memory:" || strings.HasPrefix(u, ":memory:") {
+		return nil
+	}
+	if dir := filepath.Dir(u); dir != "." {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return fmt.Errorf("unable to create the auth database directory: %w", err)
+		}
+	}
+	return nil
 }

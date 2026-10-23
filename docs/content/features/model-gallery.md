@@ -357,7 +357,7 @@ for other task prefixes. These gallery entries support text input only.
 
 You can add other galleries by:
 
-1. **Using the Web UI**: Navigate to the [Runtime Settings]({{%relref "features/runtime-settings#gallery-settings" %}}) page and configure galleries through the interface.
+1. **Using the Web UI**: Open the **Manage libraries** panel on the Models page (or the Backends page for backend galleries) to add, turn on or off, refresh, edit or remove a source. The [Runtime Settings]({{%relref "features/runtime-settings#gallery-settings" %}}) page lists them read-only.
 
 2. **Using Environment Variables**: Set the `GALLERIES` environment variable. The `GALLERIES` environment variable is a list of JSON objects, where each object has a `name` and a `url` field. The `name` field is the name of the gallery, and the `url` field is the URL of the gallery's index file, for example:
 
@@ -370,6 +370,41 @@ GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 The models in the gallery will be automatically indexed and available for installation.
 
 To use a gallery that needs authentication, such as a private GitHub repository or an internal server, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}).
+
+## Model library (preview)
+
+The model library lists the models in the shared library entry shape. Each entry has the common header (`kind`, `id`, `name`, `version`, `description`, `license`, `urls`, `tags`, `icon`, `channel`, `policy`, `schemaVersion`) and a `model` body with `url`, `backend`, `size`, `files`, `configFile`, `overrides`, `variants` and `promptTemplates`. It is the file `gallery/models/index.yaml`, and it is the source of truth for the models: to add, change or remove a model, edit this file.
+
+The old gallery file, `gallery/index.yaml`, is a generated copy of the library. It stays only so that releases from before the cutover, which read the gallery, keep working. The cutover release switches the default to the library, and the old gallery file is removed in that release. Never edit it by hand; CI fails when it differs from the generated copy.
+
+LocalAI lists the library as a default model source, `official-models`, next to the `localai` gallery, so a standard install has it without a flag. To start without it, remove it; a source you remove stays removed:
+
+```bash
+local-ai library remove official-models
+```
+
+The gallery named `localai` keeps its own index. A source you add with `local-ai library add` is added to the defaults. If the library cannot be fetched or read, listing the models fails with an error; LocalAI does not fall back to the gallery, so the problem is never silent. Entries of another kind are skipped. The shipped `official-models` library has no mirrors, and the library has no signature policy of its own. A source you add can list mirrors (see below). The sha256 of each model file is still checked on install.
+
+### Edit the library, generate the gallery
+
+All edits go to `gallery/models/index.yaml`. After an edit, generate the gallery copy and commit both files:
+
+```bash
+go run ./scripts/models/cmd/modelcatalog \
+  --library gallery/models/index.yaml \
+  --out gallery/index.yaml
+```
+
+The command reads the library with the same strict reader the host uses. It converts every library entry to a gallery entry and back, loads its own output the way the host loads a gallery, and fails if one entry does not come back equal.
+
+The gallery copy cannot carry everything a library entry or the old gallery file could hold. The command lists what it drops on every run:
+
+- The keys `last_checked`, `parameters`, `Base Model`, `Context Length`, `License` and `Training Data` are not in the library. The gallery reader has no field for any of them, so the host ignored them on load, and dropping them changes no entry the host reads.
+- The library header fields `version`, `channel` and `schemaVersion` have no place in a gallery entry. The host does not read them from a gallery.
+
+CI (the `model library` workflow) checks the library file itself. It decodes, every entry has the library shape, every entry converts to a gallery entry and back, and the gallery reader loads the generated gallery and sees the same names, file URIs and digests. It then generates the gallery copy again and fails with a message to regenerate, not to edit by hand, when `gallery/index.yaml` differs from it.
+
+The tests in `core/gallery` run the same checks on every entry of the real library, and compare the result with golden files in `core/gallery/testdata/model_library`, which are written from the library. After you change the library shape on purpose, write the golden files again with `--golden core/gallery/testdata/model_library`.
 
 ## Gallery mirrors
 
@@ -388,6 +423,8 @@ Each attempt is bounded by a 120 second timeout, and a source that fails — a c
 {{% /notice %}}
 
 The key is optional: a gallery without `mirrors` behaves exactly as before.
+
+A library source carries the same list. Set it in the **Manage libraries** panel (one address per line, at most 8), with `PUT /api/library/sources/{id}` (`{"mirrors": [...]}`) or with `mirrors` in the body of `POST /api/library/sources`. A source accepts `https://`, `http://`, `github:`, `oci://` and `file://` mirrors, and an add-on source takes none. When a source lists mirrors, they replace the ones a gallery of the same address got from the flags. Clearing a source's mirrors does not change a gallery that is already listed until LocalAI restarts.
 
 ## Offline gallery listings
 
