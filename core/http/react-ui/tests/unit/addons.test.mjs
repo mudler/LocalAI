@@ -10,7 +10,7 @@ import {
 } from '../../src/components/catalog/catalogState.js'
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
-  shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey,
+  shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, screenshotsOf,
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
@@ -424,4 +424,20 @@ test('the add-on labels use one name and one verb pair', () => {
   assert.deepEqual([en.apps.start, en.apps.stop, en.installed.enable, en.installed.disable], ['Turn on', 'Turn off', 'Turn on', 'Turn off'])
   assert.ok(!/owner/i.test(en.supporting), 'the subtitle does not name the owner')
   assert.ok(!/\bapps?\b/i.test(JSON.stringify([...Object.values(en.tabs), en.supporting, nav.items.addons])), 'no label says Apps')
+})
+
+test('what an add-on adds comes from its page and its tools, and nothing is guessed', () => {
+  assert.deepEqual(addedByAddon({ hasUI: true, tools: ['add', 'list'], toolCount: 2 }), { page: true, tools: 2, toolNames: ['add', 'list'], toolsMore: 0 })
+  assert.deepEqual(addedByAddon({ hasUI: false, tools: [], toolCount: 0 }), { page: false, tools: 0, toolNames: [], toolsMore: 0 })
+  assert.equal(addedByAddon({ mainPage: '/app/addons/x/home' }).page, true)
+  const many = addedByAddon({ tools: ['a', 'b', 'c', 'd'], toolCount: 9 })
+  assert.deepEqual([many.tools, many.toolNames.length, many.toolsMore], [9, 4, 5])
+  assert.deepEqual(addedByAddon(null), { page: false, tools: 0, toolNames: [], toolsMore: 0 })
+})
+
+test('screenshots appear only when the host lists them and they are served by the host', () => {
+  assert.deepEqual(screenshotsOf({}), [])
+  assert.deepEqual(screenshotsOf({ screenshots: [] }), [])
+  assert.deepEqual(screenshotsOf({ screenshots: ['/api/addons/apps/x/shot/0', 'https://elsewhere.example/a.png', '//elsewhere.example/b.png', 7] }), ['/api/addons/apps/x/shot/0'])
+  assert.equal(screenshotsOf({ screenshots: Array.from({ length: 12 }, (_, i) => `/s/${i}`) }).length, 6)
 })

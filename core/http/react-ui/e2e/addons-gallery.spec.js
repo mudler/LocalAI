@@ -50,7 +50,7 @@ test.describe('Add-ons: apps', () => {
     await mockAddons(page, { apps: [HEADLESS] })
     await page.goto('/app/addons?detail=indexer')
     const card = detail(page, 'indexer')
-    await expect(card.getByTestId('app-tools')).toContainText('3 tools')
+    await expect(card.getByTestId('app-tools')).toContainText('3 chat tools')
     await expect(card.getByTestId('app-tools')).toContainText('query, export, reindex')
     await expect(card.getByText('Runs in the background')).toBeVisible()
     await expect(card.getByRole('link')).toHaveCount(0)
@@ -65,7 +65,7 @@ test.describe('Add-ons: apps', () => {
     await expect(page.getByRole('button', { name: /^Turn (on|off)$/ })).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
     await expect(page.getByText('Add a library')).toHaveCount(0)
-    // The detail sheet offers the reader nothing to start, stop or manage either.
+    // The preview pane offers the reader nothing to turn on, turn off or manage either.
     await page.goto('/app/addons?detail=notes')
     await expect(detail(page, 'notes')).toBeVisible()
     await expect(page.getByRole('button', { name: /^Turn (on|off)$/ })).toHaveCount(0)
@@ -78,7 +78,6 @@ test.describe('Add-ons: apps', () => {
     await page.goto('/app/addons?detail=indexer')
     const card = detail(page, 'indexer')
     await expect(card.getByRole('img', { name: 'State: Off' })).toBeVisible()
-    await expect(card.getByRole('link', { name: 'Manage' })).toHaveAttribute('href', '/app/addons?manage=indexer')
     await card.getByRole('button', { name: 'Turn on' }).click()
     await expect(card.getByRole('img', { name: 'State: On' })).toBeVisible()
     expect(state.log.start).toHaveLength(1)
@@ -225,7 +224,7 @@ test.describe('Add-ons: apps', () => {
     await page.goto('/app/addons?detail=indexer')
     const before = state.log.appsList
     await detail(page, 'indexer').getByRole('button', { name: 'Turn on' }).click()
-    await expect(page.getByRole('alert').filter({ hasText: 'The server refused this' })).toBeVisible()
+    await expect(page.getByRole('alert').filter({ hasText: 'addon_error' })).toBeVisible()
     await expect.poll(() => state.log.appsList).toBeGreaterThan(before)
   })
 
@@ -508,7 +507,7 @@ test.describe('Add-ons: installed', () => {
     await signIn(page, ADMIN)
     await mockAddons(page, { dispatch: (body) => (body.action === 'addons-installed' ? fail(403, 'addon_error') : null) })
     await page.goto('/app/addons?tab=installed')
-    await expect(page.getByRole('alert').filter({ hasText: 'The server refused this' })).toBeVisible()
+    await expect(page.getByRole('alert').filter({ hasText: 'addon_error' })).toBeVisible()
     await expect(page.locator('[data-addon]')).toHaveCount(0)
   })
 })

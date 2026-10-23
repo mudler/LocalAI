@@ -12,7 +12,7 @@ import { describeOutcome } from './errors'
 // The preview of one add-on, beside the list: what it is, what it adds, and
 // what to do with it. It uses what the list already carries. `children` hold
 // the operator facts an administrator may open (health, trust, updates).
-export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, children }) {
+export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, links = [], children }) {
   const { t } = useTranslation('addons')
   const ref = useRef(null)
   const app = tile.app
@@ -22,6 +22,7 @@ export default function AddonPreview({ tile, language, title, pinned, onPin, onM
   }
   return (
     <aside className="ad-pane" ref={ref} tabIndex={-1} data-testid="addon-detail" aria-labelledby="ad-pane-title" onKeyDown={onKeyDown}>
+      <div className="ad-pane__inner" data-app={tile.id}>
       <div className="ad-pane__head">
         {tile.source === 'builtin'
           ? <span className="ad-icon ad-icon--empty" aria-hidden="true"><Icon name={tile.iconName} /></span>
@@ -38,12 +39,13 @@ export default function AddonPreview({ tile, language, title, pinned, onPin, onM
         <AddonMenu name={title} pinned={pinned} onPin={onPin} onMove={pinned ? onMove : undefined} onRemove={onRemove} />
         <button type="button" className="ad-pane__close" aria-label={t('drawer.close')} onClick={onClose}><Icon name="close" /></button>
       </div>
-      {app ? <PreviewBody app={app} language={language} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source}>{children}</PreviewBody> : <p className="ad-pane__text">{t('drawer.builtinDetail')}</p>}
+      {app ? <PreviewBody app={app} language={language} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} links={links}>{children}</PreviewBody> : <p className="ad-pane__text">{t('drawer.builtinDetail')}</p>}
+      </div>
     </aside>
   )
 }
 
-function PreviewBody({ app, language, actions, onStartStop, onRemove, isAdmin, source, children }) {
+function PreviewBody({ app, language, actions, onStartStop, onRemove, isAdmin, source, links, children }) {
   const { t } = useTranslation('addons')
   const description = localizedText(app, 'description', language)
   const added = addedByAddon(app)
@@ -58,7 +60,7 @@ function PreviewBody({ app, language, actions, onStartStop, onRemove, isAdmin, s
   const stopResult = actions.state[stopKey]?.phase !== 'working' ? actions.state[stopKey] : null
   const outcome = result || stopResult
   return (
-    <div className="ad-pane__body" data-app={app.id}>
+    <div className="ad-pane__body">
       {description && <p className="ad-pane__text">{description}</p>}
       {shots.length > 0 && (
         <ul className="ad-shots" data-testid="addon-shots" aria-label={t('preview.screenshots')}>
@@ -81,6 +83,11 @@ function PreviewBody({ app, language, actions, onStartStop, onRemove, isAdmin, s
           {!added.page && added.tools === 0 && <li className="ad-quiet">{t('preview.addsNothing')}</li>}
         </ul>
         {!added.page && <p className="ad-quiet">{t('apps.headless')}</p>}
+        {links.length > 0 && (
+          <div className="ad-pane__acts">
+            {links.map(link => <Link key={link.path} className="dk-btn dk-btn--ghost dk-btn--sm" to={link.path}>{link.label}</Link>)}
+          </div>
+        )}
       </section>
       <div className="ad-pane__acts">
         {app.mainPage && (
@@ -112,7 +119,7 @@ function PreviewBody({ app, language, actions, onStartStop, onRemove, isAdmin, s
         )}
       <dl className="dk-kv ad-kv ad-pane__facts" data-testid="preview-facts">
         <dt>{t('preview.version')}</dt><dd>{app.version}</dd>
-        {isAdmin && <><dt>{t('trust.library')}</dt><dd data-testid="preview-source">{source ? `${source.sourceId || '—'}${source.channel ? ` · ${source.channel}` : ''}` : t('preview.sourceLoading')}</dd></>}
+        {isAdmin && <><dt>{t('trust.library')}</dt><dd data-testid="preview-source">{source ? `${source.sourceId || '—'}${source.channel ? ` · ${source.channel}` : ''}` : t('preview.sourceUnknown')}</dd></>}
         <dt>{t('preview.id')}</dt><dd className="dk-mono">{app.id}</dd>
       </dl>
       {children}

@@ -632,5 +632,14 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+  },
+  "preview": {
+    "screenshots": "Screenshots",
+    "adds": "What it adds",
+    "page": "A page of its own in LocalAI",
+    "addsNothing": "Nothing you can see. It works in the background.",
+    "version": "Version",
+    "id": "Identifier",
+    "sourceUnknown": "Not known"
   }
 }

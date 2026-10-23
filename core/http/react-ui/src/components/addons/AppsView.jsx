@@ -11,15 +11,15 @@ import { navigationItems } from '../../addons/registryState'
 import { useAuth } from '../../context/AuthContext'
 import { FEATURE_ADDONS } from '../../utils/capabilities'
 import SideSheet from '../SideSheet'
+import AddonPreview from './AddonPreview'
 import AddonSlot from '../../addons/AddonSlot'
 import { useHubAuth } from '../hub/useHubAuth'
 import AddonTile from './AddonTile'
 import ConfirmDialog from '../ConfirmDialog'
 import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
-import { apiUrl } from '../../utils/basePath'
-import { StateChip, AppIcon, UnknownNotice, UpdateChip } from './AddonBits'
-import { appActions, localizedText, showFirstRun, toolSummary } from './addonState'
+import { UnknownNotice } from './AddonBits'
+import { showFirstRun } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 
@@ -129,6 +129,19 @@ export default function AppsView({ api, adapter }) {
   }, [tiles, query, titleOf, pinOrder])
   const detail = tiles.find(x => x.id === detailId) || null
 
+  // The source of an add-on is not in the apps list. An administrator's pane
+  // reads it once from the installed list the host already serves.
+  const [installedInfo, setInstalledInfo] = useState({})
+  const detailApp = detail ? detail.app : null
+  useEffect(() => {
+    if (!isAdmin || !detailApp) return undefined
+    const ctl = new AbortController()
+    api.installed(ctl.signal)
+      .then(list => setInstalledInfo(Object.fromEntries(list.map(a => [a.id, a]))))
+      .catch(() => { /* the pane says the source is not known */ })
+    return () => ctl.abort()
+  }, [api, isAdmin, detailApp && detailApp.id, detailApp && detailApp.generation])
+
   const onPin = async (id) => {
     if (pinnedIds.has(id)) { await nav.unpin(id); return }
     const result = await nav.pin(id)
@@ -167,58 +180,65 @@ export default function AppsView({ api, adapter }) {
       {Object.keys(actions.unknown).filter(id => actions.unknown[id].key.startsWith('uninstall:')).map(id => (
         <UnknownNotice key={id} addonId={id} actions={actions} className="ad-card__note" />
       ))}
-      <div className="ad-drawer__bar">
-        <input
-          type="search"
-          className="dk-input ad-drawer__search"
-          data-testid="addon-search"
-          aria-label={t('drawer.search')}
-          placeholder={t('drawer.search')}
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-        />
-        {/* One way into Browse per screen: the first-run card carries it while
-            nothing is installed, and the bar carries it afterwards. */}
-        {isAdmin && !firstRun && (
-          <Link className="dk-btn dk-btn--primary dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-add"><Icon name="plus" /> {t('drawer.add')}</Link>
+      <div className="ad-split" data-open={detail ? 'true' : 'false'}>
+        <div className="ad-split__list">
+        <div className="ad-drawer__bar">
+          <input
+            type="search"
+            className="dk-input ad-drawer__search"
+            data-testid="addon-search"
+            aria-label={t('drawer.search')}
+            placeholder={t('drawer.search')}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+          {/* One way into Browse per screen: the first-run card carries it while
+              nothing is installed, and the bar carries it afterwards. */}
+          {isAdmin && !firstRun && (
+            <Link className="dk-btn dk-btn--primary dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-add"><Icon name="plus" /> {t('drawer.add')}</Link>
+          )}
+        </div>
+        {firstRun ? (
+          <section className="ad-card ad-first" data-testid="addons-first-run" aria-labelledby="ad-first-title">
+            <h2 className="ad-card__title" id="ad-first-title">{t('apps.firstRun.title')}</h2>
+            <ol className="ad-first__steps">
+              <li><strong>{t('apps.firstRun.libraryTitle')}</strong> {t('apps.firstRun.libraryBody')}</li>
+              <li><strong>{t('apps.firstRun.browseTitle')}</strong> {t('apps.firstRun.browseBody')}</li>
+              <li><strong>{t('apps.firstRun.startTitle')}</strong> {t('apps.firstRun.startBody')}</li>
+            </ol>
+            <div className="ad-section__acts">
+              <Link className="dk-btn dk-btn--primary" to="/app/addons?tab=browse" data-testid="addons-first-run-browse"><Icon name="store" /> {t('apps.firstRun.browse')}</Link>
+            </div>
+          </section>
+        ) : shown.length === 0 ? (
+          <CatalogEmpty icon="puzzle" title={t('apps.emptyTitle')} text={t('apps.emptyBody')} />
+        ) : (
+          <ul className="ad-tiles" aria-label={t('apps.listLabel')}>
+            {shown.map(tile => (
+              <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} selected={tile.id === detailId} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} onRemove={isAdmin ? setRemoving : undefined} />
+            ))}
+          </ul>
+        )}
+        </div>
+        {detail && (
+          <AddonPreview
+            tile={detail}
+            title={titleOf(detail)}
+            language={i18n.language}
+            pinned={pinnedIds.has(detail.id)}
+            onPin={() => onPin(detail.id)}
+            onMove={(delta) => nav.move(detail.id, delta)}
+            onClose={closeDetail}
+            actions={actions}
+            onStartStop={startStop}
+            onRemove={isAdmin && detail.app ? () => setRemoving(detail) : undefined}
+            isAdmin={isAdmin}
+            source={installedInfo[detail.id]}
+            links={detail.app ? navigationItems([detail.app], { language: i18n.language }) : []}
+          />
         )}
       </div>
-      {firstRun ? (
-        <section className="ad-card ad-first" data-testid="addons-first-run" aria-labelledby="ad-first-title">
-          <h2 className="ad-card__title" id="ad-first-title">{t('apps.firstRun.title')}</h2>
-          <ol className="ad-first__steps">
-            <li><strong>{t('apps.firstRun.libraryTitle')}</strong> {t('apps.firstRun.libraryBody')}</li>
-            <li><strong>{t('apps.firstRun.browseTitle')}</strong> {t('apps.firstRun.browseBody')}</li>
-            <li><strong>{t('apps.firstRun.startTitle')}</strong> {t('apps.firstRun.startBody')}</li>
-          </ol>
-          <div className="ad-section__acts">
-            <Link className="dk-btn dk-btn--primary" to="/app/addons?tab=browse" data-testid="addons-first-run-browse"><Icon name="store" /> {t('apps.firstRun.browse')}</Link>
-          </div>
-        </section>
-      ) : shown.length === 0 ? (
-        <CatalogEmpty icon="puzzle" title={t('apps.emptyTitle')} text={t('apps.emptyBody')} />
-      ) : (
-        <ul className="ad-tiles" aria-label={t('apps.listLabel')}>
-          {shown.map(tile => (
-            <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} selected={tile.id === detailId} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} onRemove={isAdmin ? setRemoving : undefined} />
-          ))}
-        </ul>
-      )}
       {!legacy && <div className="ad-nav-slot"><AddonSlot slot="app.nav" context={null} /></div>}
-      {detail && (
-        <SideSheet title={titleOf(detail)} onClose={closeDetail} closeLabel={t('drawer.close')} testId="addon-detail">
-          {detail.app
-            ? (
-              <>
-                <ul className="ad-grid"><AppCard app={detail.app} t={t} language={i18n.language} actions={actions} onStartStop={startStop} /></ul>
-                {navigationItems([detail.app], { language: i18n.language }).map(link => (
-                  <Link key={link.path} className="dk-btn dk-btn--ghost dk-btn--sm" to={link.path}>{link.label}</Link>
-                ))}
-              </>
-            )
-            : <p>{t('drawer.builtinDetail')}</p>}
-        </SideSheet>
-      )}
       <ConfirmDialog
         open={Boolean(removing)}
         danger
@@ -235,84 +255,4 @@ export default function AppsView({ api, adapter }) {
       )}
     </div>
   )
-}
-
-function AppCard({ app, t, language, actions, onStartStop }) {
-  const title = localizedText(app, 'title', language)
-  const description = localizedText(app, 'description', language)
-  const control = appActions(app)
-  const tools = toolSummary(app)
-  const startKey = `start:${app.id}:${app.generation}`
-  const stopKey = `stop:${app.id}:${app.generation}`
-  const pending = Boolean(actions.unknown[app.id])
-  const working = actions.state[startKey]?.phase === 'working' || actions.state[stopKey]?.phase === 'working'
-  const locked = working || pending
-  const result = actions.state[startKey]?.phase !== 'working' ? actions.state[startKey] : null
-  const stopResult = actions.state[stopKey]?.phase !== 'working' ? actions.state[stopKey] : null
-  const outcome = result || stopResult
-  const titleId = `app-${app.id}`
-  return (
-    <li className="ad-card" data-app={app.id} aria-labelledby={titleId}>
-      <div className="ad-card__head">
-        <AppIcon src={app.icon ? apiUrl(app.icon) : ''} />
-        <div className="ad-card__lead">
-          <h3 className="ad-card__title" id={titleId}>{title}</h3>
-          <p className="ad-card__meta">
-            <span className="dk-mono">{app.id}</span>
-            <span aria-hidden="true">·</span>
-            <span>{t('apps.version', { version: app.version })}</span>
-          </p>
-        </div>
-        <div className="ad-card__chips">
-          <StateChip app={app} />
-          {app.update === 'update-pending' && <UpdateChip />}
-        </div>
-      </div>
-      {description && <p className="ad-card__text">{description}</p>}
-      {!app.mainPage && tools.count > 0 && (
-        <p className="ad-card__tools" data-testid="app-tools">
-          <Icon name="wrench" aria-hidden="true" />
-          <span>
-            {t('apps.tools', { count: tools.count })}
-            {': '}
-            <span className="dk-mono">{tools.shown.join(', ')}</span>
-            {tools.more > 0 ? ` ${t('apps.toolsMore', { count: tools.more })}` : ''}
-          </span>
-        </p>
-      )}
-      {!app.mainPage && !app.hasUI && <p className="ad-card__quiet">{t('apps.headless')}</p>}
-      <div className="ad-card__acts">
-        {app.mainPage && (
-          <Link className="dk-btn dk-btn--primary dk-btn--sm" to={app.mainPage}>
-            <Icon name="external-link" /> {t('apps.open')}
-          </Link>
-        )}
-        {control.start && (
-          <button type="button" className="dk-btn dk-btn--sm" disabled={locked} onClick={() => onStartStop(app, 'start')}>
-            <Icon name={working ? 'spinner' : 'toggle-on'} spin={working} /> {t('apps.start')}
-          </button>
-        )}
-        {control.stop && (
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={locked} onClick={() => onStartStop(app, 'stop')}>
-            <Icon name={working ? 'spinner' : 'toggle-off'} spin={working} /> {t('apps.stop')}
-          </button>
-        )}
-        {control.manage && (
-          <Link className="dk-btn dk-btn--ghost dk-btn--sm" to={control.manage}>
-            <Icon name="settings" /> {t('apps.manage')}
-          </Link>
-        )}
-      </div>
-      {working && <p className="ad-card__note" role="status">{t('apps.working')}</p>}
-      {pending
-        ? <UnknownNotice addonId={app.id} actions={actions} className="ad-card__note" />
-        : outcome && outcome.outcome && <ActionResult outcome={outcome} t={t} />}
-    </li>
-  )
-}
-
-function ActionResult({ outcome, t }) {
-  const text = describeOutcome(outcome.outcome, t, outcome.error)
-  if (!text) return null
-  return <p className="ad-card__note" data-tone="error" role="alert">{text}</p>
 }

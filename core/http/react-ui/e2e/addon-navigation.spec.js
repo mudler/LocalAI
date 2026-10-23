@@ -2,14 +2,14 @@ import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ADMIN, MEMBER, app, sessionFor, mockAddons } from './addons-fixtures.js'
+import { ADMIN, MEMBER, app, installedAddon, sessionFor, mockAddons } from './addons-fixtures.js'
 import { buildAddonBundles, installStudioAddons, packagedApp } from './studio-addon.js'
 import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } from './identity-fixtures.js'
 
 // Studio and Talk are packaged add-ons, not built-in tiles: the specs install
 // the real packages. No page is built in today, so `builtin` is empty unless a
 // spec makes one up to check the built-in rules.
-async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER } = {}) {
+async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed } = {}) {
   let saved = pins
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons }) }))
   await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: true } }))
@@ -17,7 +17,7 @@ async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true
   // mockAddons installs the Apps routes with the real response shape ({ apps }).
   // The packages are served from the build output, so a page that opens one runs it.
   if (studio) await installStudioAddons(page, { apps: [packagedApp('studio'), packagedApp('talk'), ...apps] })
-  else await mockAddons(page, { apps })
+  else await mockAddons(page, { apps, installed })
   await page.route('**/api/addons/pins', async route => {
     if (route.request().method() === 'PUT') saved = route.request().postDataJSON()
     await route.fulfill({ json: saved })
@@ -147,6 +147,59 @@ test.describe('Add-on navigation', () => {
     await expect(tiles.first()).toHaveAttribute('data-app', 'notes')
     await tiles.first().getByRole('button', { name: /^Actions for / }).click()
     await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
+  })
+
+  test('selecting a card opens the preview pane with what the add-on is, adds and offers', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [app({ id: 'indexer', title: 'Indexer', description: 'Indexes your files.', enabled: false, state: 'stopped', hasUI: false, mainPage: undefined, tools: ['query', 'export'], toolCount: 2, version: '0.4.0', admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })], installed: [installedAddon({ id: 'indexer', title: 'Indexer', sourceId: 'main', enabled: false, state: 'stopped', version: '0.4.0' })] })
+    await page.setViewportSize({ width: 1360, height: 860 })
+    await page.goto('/app/addons')
+    await expect(page.getByTestId('addon-detail')).toHaveCount(0)
+    await page.getByRole('button', { name: /^Indexer, Off/ }).click()
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane).toBeVisible()
+    await expect(page).toHaveURL(/detail=indexer/)
+    await expect(pane.getByRole('heading', { name: 'Indexer' })).toBeVisible()
+    await expect(pane.getByRole('img', { name: 'State: Off' })).toBeVisible()
+    await expect(pane).toContainText('Indexes your files.')
+    await expect(pane.getByTestId('app-tools')).toContainText('2 chat tools')
+    await expect(pane.getByTestId('app-tools')).toContainText('query, export')
+    await expect(pane).toContainText('Runs in the background')
+    await expect(pane.getByTestId('preview-facts')).toContainText('0.4.0')
+    await expect(pane.getByTestId('preview-source')).toHaveText('main')
+    await expect(pane.getByRole('button', { name: 'Turn on' })).toBeVisible()
+    await expect(pane.getByRole('button', { name: 'Remove' })).toBeVisible()
+    // No screenshot slot unless the add-on provides images.
+    await expect(pane.getByTestId('addon-shots')).toHaveCount(0)
+    await pane.getByRole('button', { name: 'Close' }).click()
+    await expect(page.getByTestId('addon-detail')).toHaveCount(0)
+  })
+
+  test('the preview pane shows screenshot slots only for an add-on that ships images', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes', screenshots: ['/api/addons/apps/notes/icon?generation=3'] })] })
+    await page.goto('/app/addons?detail=notes')
+    await expect(page.getByTestId('addon-detail').getByTestId('addon-shots').getByRole('listitem')).toHaveCount(1)
+  })
+
+  test('a member sees the pane without Remove and without the source', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes' })] })
+    await page.goto('/app/addons?detail=notes')
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane.getByRole('heading', { name: 'Notes' })).toBeVisible()
+    await expect(pane.getByRole('button', { name: 'Remove' })).toHaveCount(0)
+    await expect(pane.getByTestId('preview-source')).toHaveCount(0)
+  })
+
+  test('the pane menu is the same sidebar control as the card menu', async ({ page }) => {
+    const server = await setup(page, { pins: ['notes'], studio: false, apps: [app({ id: 'notes', title: 'Notes' }), app({ id: 'zeta', title: 'Zeta', enabled: false, state: 'stopped' })] })
+    await page.setViewportSize({ width: 1360, height: 860 })
+    await page.goto('/app/addons?detail=zeta')
+    const detail = page.getByTestId('addon-detail')
+    await detail.getByRole('button', { name: 'Actions for Zeta' }).click()
+    await page.getByRole('menuitem', { name: 'Show in sidebar' }).click()
+    await expect.poll(() => server.saved()).toEqual(['notes', 'zeta'])
+    await detail.getByRole('button', { name: 'Actions for Zeta' }).click()
+    await page.getByRole('menuitem', { name: 'Remove from sidebar' }).click()
+    await expect.poll(() => server.saved()).toEqual(['notes'])
   })
 
   test('the first-run card shows to an administrator with nothing installed and leads to Browse', async ({ page }) => {
