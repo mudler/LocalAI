@@ -2808,6 +2808,79 @@
         use_tokenizer_template: true
     variants: []
 - kind: model
+  id: qwen3.8-flash-next-turbo-brilliance-iq3-s
+  name: qwen3.8-flash-next-turbo-brilliance-iq3-s
+  version: 0.0.0-gallery.e69b0c67b3e4
+  description: |
+    DavidAU's Turbo Brilliance build of Qwen3.8 Flash Next uses GSQ-RCO
+    IQ3_S mixed quantization and the publisher's embedded chat template.
+    Includes both GGUF shards and the BF16 vision projector for text chat
+    and image input, with a 32K default context. See the model card for
+    the publisher's reasoning and instruction modes.
+  license: other
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+    - https://huggingface.co/DavidAU/Qwen3.8-Flash-Next-Turbo-Brilliance-50x-Reasoning-Instruct-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/qwen3.8-flash-next-turbo-brilliance-iq3-s/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+        sha256: 8a14ab07ca7b54619e6b250cd1d83f97f79ab7eef3caf8ee9e6543bc9ac6a193
+        uri: https://huggingface.co/DavidAU/Qwen3.8-Flash-Next-Turbo-Brilliance-50x-Reasoning-Instruct-GSQ-RCO-GGUF/resolve/8d09a8a84cc067203d2903db831c8aa8713a5f3f/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+      - filename: llama-cpp/models/qwen3.8-flash-next-turbo-brilliance-iq3-s/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+        sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+        uri: https://huggingface.co/DavidAU/Qwen3.8-Flash-Next-Turbo-Brilliance-50x-Reasoning-Instruct-GSQ-RCO-GGUF/resolve/8d09a8a84cc067203d2903db831c8aa8713a5f3f/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+      - filename: llama-cpp/mmproj/qwen3.8-flash-next-turbo-brilliance-iq3-s/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/DavidAU/Qwen3.8-Flash-Next-Turbo-Brilliance-50x-Reasoning-Instruct-GSQ-RCO-GGUF/resolve/8d09a8a84cc067203d2903db831c8aa8713a5f3f/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+        - vision
+      mlock: false
+      mmap: true
+      mmproj: llama-cpp/mmproj/qwen3.8-flash-next-turbo-brilliance-iq3-s/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - use_jinja:true
+        - fit:false
+      parameters:
+        min_p: 0
+        model: llama-cpp/models/qwen3.8-flash-next-turbo-brilliance-iq3-s/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+        presence_penalty: 0
+        repeat_penalty: 1
+        temperature: 1
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: qwen3.8-flash-next-gsq-rco-q2-0
   name: qwen3.8-flash-next-gsq-rco-q2-0
   version: 0.0.0-gallery.ae1c96b3e415

@@ -951,6 +951,20 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 ## Examples
 
+### Qwen3.8 Flash Next Turbo Brilliance
+
+Install the [publisher's GSQ-RCO IQ3_S build](https://huggingface.co/DavidAU/Qwen3.8-Flash-Next-Turbo-Brilliance-50x-Reasoning-Instruct-GSQ-RCO-GGUF) with:
+
+```bash
+local-ai models install qwen3.8-flash-next-turbo-brilliance-iq3-s
+```
+
+This llama.cpp entry downloads both GGUF shards and the BF16 vision projector
+for text chat and image input. It uses the embedded chat template and a
+32,768-token default context. The downloads total about 84.5 GB; allow additional
+memory for inference. The publisher currently provides one quantization of this
+build. See its model card for the reasoning and instruction modes.
+
 ### Image generation: Stable diffusion
 
 URL: https://github.com/EdVince/Stable-Diffusion-NCNN
