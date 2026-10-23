@@ -201,7 +201,8 @@ export function createSchema(ctx, ui, fields, hooks) {
   }
 
   function ColumnList({ table, actions }) {
-    if (table.columns.length === 0) return <p className="tbl-muted">{t('grid.noColumns.title')}</p>
+    // The grid above already says the table has no columns; saying it again here only repeats it.
+    if (table.columns.length === 0) return null
     return (
       <ul className="tbl-columns" data-testid="tbl-columns">
         {table.columns.map(c => (

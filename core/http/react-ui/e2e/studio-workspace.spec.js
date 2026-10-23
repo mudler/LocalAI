@@ -33,7 +33,9 @@ test.describe('Workspace frame (Images)', () => {
   test('the compose card has the model chip, the essentials, an estimate and one action', async ({ page }) => {
     await setup(page)
     await page.goto('/app/studio/images')
-    await expect(compose(page).getByRole('heading', { level: 1 })).toContainText('Image')
+    // The page title is Studio's own h1 above the tabs; the card heading is a section.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Studio')
+    await expect(compose(page).getByRole('heading', { level: 2 })).toContainText('Image')
     await expect(compose(page).getByRole('button', { name: 'flux.1-schnell' })).toBeVisible()
     await expect(page.locator('[data-testid="ws-size"]')).toHaveValue('512x512')
     await expect(page.locator('[data-testid="ws-count"]')).toHaveValue('1')

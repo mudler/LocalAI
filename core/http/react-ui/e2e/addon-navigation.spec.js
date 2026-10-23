@@ -149,6 +149,9 @@ test.describe('Add-on navigation', () => {
     await expect(card).toBeVisible()
     await expect(card.getByRole('listitem')).toHaveCount(3)
     await expect(card).toContainText('official library is registered by default')
+    // One way into Browse while the card shows: the bar's button waits.
+    await expect(page.getByRole('link', { name: 'Browse add-ons' })).toHaveCount(1)
+    await expect(page.getByTestId('addons-add')).toHaveCount(0)
     await expect(page.getByTestId('addon-tile')).toHaveCount(0)
     await card.getByTestId('addons-first-run-browse').click()
     await expect(page).toHaveURL(/tab=browse/)
@@ -160,6 +163,7 @@ test.describe('Add-on navigation', () => {
     await page.goto('/app/addons')
     await expect(page.getByTestId('addon-tile').first()).toBeVisible()
     await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+    await expect(page.getByTestId('addons-add')).toBeVisible()
   })
 
   test('the first-run card is hidden from a caller who cannot install add-ons', async ({ page }) => {
@@ -201,7 +205,7 @@ test.describe('Add-on navigation', () => {
     await page.route(/\/api\/addons\/apps$/, route => { appsCalled = true; return route.fulfill({ status: 403, json: {} }) })
     await page.goto('/app/addons')
     await expect(page.getByTestId('addon-tile')).toHaveCount(1)
-    await expect(page.getByTestId('addons-browse')).toHaveCount(0)
+    await expect(page.getByTestId('addons-add')).toHaveCount(0)
     await expect(page.getByRole('alert')).toHaveCount(0)
     expect(appsCalled).toBe(false)
   })
@@ -416,6 +420,8 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expectVoiceTabs(page, 'recognition')
     await expect(page.locator('[data-testid="addon-surface"][data-addon="voice"]')).toBeVisible()
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
+    // With nobody saved there is one enrol button, in the empty state.
+    await expect(page.getByRole('button', { name: /Enrol a speaker/ })).toHaveCount(1)
   })
 
   test('an old Voice link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
@@ -461,7 +467,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library$/)
     await expect(page.getByTestId('voice-library')).toBeVisible()
     await expectVoiceTabs(page, 'library')
-    await expectOneVoiceTitle(page, /^Speech voices/)
+    await expectOneVoiceTitle(page, 'Voices')
 
     await page.getByTestId('voice-library-new').first().click()
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library\/new$/)
@@ -473,12 +479,26 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/speech$/)
     await expect(page.getByTestId('voice-speech')).toBeVisible()
     await expectVoiceTabs(page, 'speech')
-    await expectOneVoiceTitle(page, 'Speak text')
+    await expectOneVoiceTitle(page, 'Voices')
 
     await tabs.getByRole('tab', { name: /^From a recording$/ }).click()
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recording$/)
     await expect(page.getByTestId('recording-tab')).toBeVisible()
     await expectVoiceTabs(page, 'recording')
+    await expectOneVoiceTitle(page, 'Voices')
+  })
+
+  test('the Text to speech tab says where to get a model when none is installed', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    // Registered last, so it wins over the fixture's model list.
+    await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [] } }))
+    await page.goto('/app/addons/voice/voice/speech')
+    const hint = page.getByTestId('speech-no-models')
+    await expect(hint).toBeVisible({ timeout: 15_000 })
+    await expect(hint.getByRole('link', { name: /model gallery/ })).toHaveAttribute('href', /\/app\/models$/)
     await expectOneVoiceTitle(page, 'Voices')
   })
 
@@ -693,6 +713,18 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await serveFineTuning(page)
     await page.goto('/app/addons/fine-tuning/jobs')
     await expect(page.getByTestId('tool-off')).toBeVisible()
+  })
+
+  test('Fine-tune titles itself with its name and keeps the Experimental badge out of the h1', async ({ page }) => {
+    await setup(page, { apps: [ftApp()] })
+    await asAdmin(page, { fine_tuning: true })
+    await page.route('**/api/fine-tuning/jobs', route => route.fulfill({ json: [] }))
+    await serveFineTuning(page)
+    await page.goto('/app/addons/fine-tuning/jobs')
+    await expect(page.getByTestId('fine-tune-page')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fine-tune')
+    await expect(page.locator('h1 .bt-experimental')).toHaveCount(0)
+    await expect(page.locator('.bt-experimental')).toBeVisible()
   })
 
   test('an old fine-tuning link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {

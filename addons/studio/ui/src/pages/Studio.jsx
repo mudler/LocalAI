@@ -16,6 +16,7 @@ import {
 } from '../utils/capabilities'
 import { upscaleModels } from '../utils/upscale'
 import Icon from '../components/Icon'
+import PageHeader from '../components/PageHeader'
 import '../components/studio/studio.css'
 
 // One table for the six generators: the capability that makes a modality
@@ -33,6 +34,14 @@ const MODALITIES = [
 ]
 
 const OVERVIEW_TAB = { key: 'overview', icon: 'compass' }
+
+// Short addresses people type or older links carry, and the tab each opens.
+// The 3D tab is keyed `threed`, but /studio/3d is the address anyone expects.
+const TAB_ALIASES = { '3d': 'threed', image: 'images' }
+export function resolveTab(pathTab, keys) {
+  const key = TAB_ALIASES[pathTab] || pathTab
+  return keys.includes(key) ? key : 'overview'
+}
 
 const TAB_COMPONENTS = {
   diarization: Diarization,
@@ -82,7 +91,7 @@ export default function Studio() {
 
   // Overview is the fallback for anything unrecognised or gated off. Landing on
   // Images was never a decision, only the first entry in an array.
-  const activeTab = tabs.some(tab => tab.key === pathTab) ? pathTab : 'overview'
+  const activeTab = resolveTab(pathTab, tabs.map(tab => tab.key))
 
   const setTab = (key) => navigate(key === 'overview' ? '/app/studio' : `/app/studio/${key}`)
 
@@ -101,6 +110,15 @@ export default function Studio() {
 
   return (
     <div>
+      {/* One page title for every tab, at the size of every other add-on page.
+          The card of a generator below it is a section, not a second title. */}
+      <div className="studio-head">
+        <PageHeader
+          title={t('studio.overview.title')}
+          supporting={activeTab === 'overview' ? t('studio.overview.subtitle') : undefined}
+          actions={activeTab === 'overview' ? <span className="studio-key-hint"><kbd className="dk-kbd">/</kbd> {t('studio.composer.startTyping')}</span> : undefined}
+        />
+      </div>
       <div className="studio-tabs">
         {tabs.map(tab => {
           const dot = dotFor(tab)

@@ -66,6 +66,14 @@ export function localizedText(app, field, language) {
   return fallback || ''
 }
 
+// The name to show for an add-on the list does not carry (not installed, or
+// not usable by this viewer): its identifier with a capital first letter, so
+// the page says "Voice" and not "voice".
+export function addonDisplayName(id) {
+  const text = String(id || '').trim()
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : ''
+}
+
 // Tool summary of a headless add-on: the names the server sent and how many
 // more there are.
 export function toolSummary(app, limit = 4) {

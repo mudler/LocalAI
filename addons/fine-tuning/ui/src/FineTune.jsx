@@ -918,8 +918,8 @@ export function createFineTune(ctx, api, shared) {
     return (
       <div className="page page--medium bt-page" data-testid="fine-tune-page">
         <ui.PageHeader
-          title={<>{t('fineTune.title')} <span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span></>}
-          supporting={t('fineTune.lede')}
+          title={t('fineTune.title')}
+          supporting={<><span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span> {t('fineTune.lede')}</>}
           actions={(
             <div className="bt-head-acts">
               {selectedJob && (
