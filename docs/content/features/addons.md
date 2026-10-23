@@ -64,6 +64,17 @@ store and forward the typed operation to the owner. The consequences are by desi
 A deployment with one instance is the owner and has no frontend; everything above
 still holds.
 
+The `--addons-role` flag chooses how a process takes part. `combined` is the
+default and is both the owner and the only frontend. `owner` and `frontend` split
+them, as described in [Running the owner as its own workload](#running-the-owner-as-its-own-workload).
+
+**Distributed state.** In [distributed mode]({{% relref "features/distributed-mode" %}}),
+the owner is a single runner by design: the operator runs one owner replica, and the
+lock file in its root is the guard against a mistake, not a way to scale. The
+frontends are stateless for add-ons. The one exception is the add-on pins of a
+frontend that has no account database, which are per-instance state (see
+[Frontend limits](#frontend-limits)).
+
 ## Turning the owner on or off
 
 A normal `local-ai run` starts the addon owner, so Apps, Add-ons and Tables work
@@ -97,6 +108,158 @@ The `owner` and `frontend` roles split the owner from the frontends. The `fronte
 role does not create or open the `addons` folder of the data path. The key set for
 both roles comes from `local-ai util addons-carrier-keys`; see
 [Running the owner as its own workload](#running-the-owner-as-its-own-workload).
+
+## Running the owner as its own workload
+
+A normal `local-ai run` is both the owner and the only frontend (the `combined`
+role). In a deployment with several frontend replicas, run the owner as one
+separate workload and let the frontends forward to it. The owner keeps all its
+state in files under one root, as before. Frontends keep none and scale freely.
+
+- **One owner, one volume.** Run exactly one owner replica (`--addons-role=owner`)
+  with its own volume for the data path. Use a recreate-style rollout, so two
+  owner processes never overlap: the old one must stop before the new one starts.
+  A second owner on the same root stops at once with "addon storage already owned"
+  and the process exits with an error. It does not wait.
+- **Fixed mount path.** The journal stores absolute paths. Mount the volume at the
+  same path on every start. If the data path or the mount point changes, every
+  installed add-on points at a directory that does not exist.
+- **A local volume.** The root needs a local file system with working `flock`,
+  atomic rename and directory `fsync`. A network block volume that one node mounts
+  at a time is fine. A shared network file system is not supported.
+- **A stable owner address.** The owner stores `--addons-owner-address` in its
+  identity file and refuses to start when it changes. Use a stable service name,
+  never a pod address.
+- **Frontends have no add-on volume.** A frontend (`--addons-role=frontend`) does
+  not create or open the `addons` folder. Give it no volume for it.
+- **Start a new root.** A root that a single node made stores a loopback address
+  in its identity file, so the owner role refuses it. Start the owner on an empty
+  volume. Moving the add-ons of a single node to an owner workload is not supported
+  yet.
+
+{{% notice warning %}}
+The owner is a node-bound singleton. If the owner is down, add-ons are down: the
+frontends stay up and answer `503` for every add-on request. Failover is manual.
+There is no election and no standby owner.
+{{% /notice %}}
+
+### Make the carrier keys
+
+The frontends and the owner trust each other through a static key set. Make it
+once, anywhere you can run `local-ai`:
+
+```bash
+local-ai util addons-carrier-keys --out ./carrier-keys --owner-host owner.example
+```
+
+`--owner-host` is the name the frontends dial, and it must match the host in
+`--addons-owner-address`. The command prints which files go where:
+
+| Role | Mounts |
+|---|---|
+| Owner | `ca.pem`, `owner.pem`, `owner.key`, `frontend.pem`, `frontend-sign.pub` |
+| Frontend | `ca.pem`, `owner.pem`, `frontend.pem`, `frontend.key`, `frontend-sign.key` |
+
+Store the set as a secret and mount only the files of each role. Point
+`--addons-carrier-dir` at the mount. LocalAI refuses key files that group or other
+users can read, so give them mode `0600` or tighter.
+
+All frontend replicas share one identity and one signing key, so a new or
+rescheduled frontend is accepted at once and the owner needs no list of replicas.
+Anyone who holds the frontend files can act as a frontend. A forwarded request
+still carries the user, and the owner checks that user against the account
+database, so the key set does not give a user any authority on its own. The command
+does not keep the CA key, so nobody can make a third certificate from the set.
+
+{{% notice note %}}
+Rotation is a coordinated restart. The frontends pin the exact certificate of the
+owner and the owner pins the one of the frontends. To change the key set, make a
+new one, update the secret, and restart the owner and every frontend. There is no
+overlap window and no automatic renewal.
+{{% /notice %}}
+
+### Example
+
+This Docker Compose file shows the add-on flags of one owner and two frontends.
+Add the other flags of your deployment (the database, NATS and the rest of
+[distributed mode]({{% relref "features/distributed-mode" %}})) to each service as
+usual.
+
+```yaml
+services:
+  owner:
+    image: localai/localai:latest
+    command: run
+    hostname: owner.example
+    environment:
+      LOCALAI_ADDONS_ROLE: owner
+      LOCALAI_ADDONS_OWNER_ADDRESS: https://owner.example:8443
+      LOCALAI_ADDONS_CARRIER_DIR: /run/addon-keys
+      LOCALAI_ADDONS_OWNERSHIP_MODE: named-user
+      LOCALAI_DATA_PATH: /data
+      LOCALAI_AUTH: "true"
+      LOCALAI_AUTH_DATABASE_URL: postgres://localai:secret@db.example:5432/localai
+    volumes:
+      - owner-data:/data
+      - ./carrier-keys-owner:/run/addon-keys:ro
+    deploy:
+      replicas: 1
+      update_config:
+        order: stop-first
+
+  frontend:
+    image: localai/localai:latest
+    command: run
+    environment:
+      LOCALAI_ADDONS_ROLE: frontend
+      LOCALAI_ADDONS_OWNER_ADDRESS: https://owner.example:8443
+      LOCALAI_ADDONS_CARRIER_DIR: /run/addon-keys
+      LOCALAI_ADDONS_OWNERSHIP_MODE: named-user
+      LOCALAI_AUTH: "true"
+      LOCALAI_AUTH_DATABASE_URL: postgres://localai:secret@db.example:5432/localai
+    volumes:
+      - ./carrier-keys-frontend:/run/addon-keys:ro
+    deploy:
+      replicas: 2
+
+volumes:
+  owner-data:
+```
+
+`./carrier-keys-owner` holds the owner files and `./carrier-keys-frontend` holds the
+frontend files from the table above.
+
+### Settings every role shares
+
+- **The same ownership mode.** Every role of a deployment must use the same
+  `--addons-ownership-mode`.
+- **The same account database.** In `named-user` mode all roles must use the same
+  account database. The owner checks the user of each forwarded request against it.
+- `--addons-enabled=false` keeps its meaning in every role.
+
+### What a restart looks like
+
+When the owner stops, the kernel drops its lock and its add-on processes end with
+it. The new owner takes the lock, checks its identity file, and reads the journal:
+operations that had only started are marked failed, and operations that were
+already prepared or applied are finished. Recovery journals and pending proposals
+finish or wait for an administrator. Then the add-ons that were enabled start again.
+
+While this happens, the frontends answer `503`. A frontend that starts while the
+owner is down starts normally and answers `503` until the owner is up. Some state
+is in memory only and is lost: an upgrade that was being canceled becomes failed,
+and the memory of failed automatic upgrades is cleared. A mutation whose reply was
+lost is reported as `outcome_unknown` with its operation ID, and relays that were
+in progress (progress, file and asset) are cut. The owner picks a new audience at
+each start. A request signed for the old owner is refused, and the frontend gets
+the new audience on its next call without any action.
+
+### The models path
+
+Fine-tuning and quantization export models into the models path of the owner. In
+distributed mode, set the models path of the owner to the shared models storage.
+Otherwise the exported models are not visible to the frontends and the workers.
+LocalAI does not check this.
 
 ### Frontend limits
 
