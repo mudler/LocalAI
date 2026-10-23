@@ -25,6 +25,12 @@ function addonAddress(base, { tab, model, search = '', hash = '' } = {}) {
   return `${base}${tab ? `/${encodeURIComponent(tab)}` : ''}${query ? `?${query}` : ''}${hash}`
 }
 
+// Where an old address of a page that moved to an add-on opens now: the page
+// path is kept as is (it may hold "/"), the model travels as ?model=<id>.
+export function addonPageAddress({ addon, page, model, search = '', hash = '' }) {
+  return addonAddress(`/app/addons/${addon}/${page}`, { model, search, hash })
+}
+
 // Where an old /app/studio[/tab[/model]] link opens now. The model, the query
 // string and the hash are kept.
 export function studioAddress(args) {

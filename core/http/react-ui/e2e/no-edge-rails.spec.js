@@ -12,7 +12,7 @@ const ROUTES = [
   '/app', '/app/chat', '/app/models', '/app/models?view=installed', '/app/studio',
   '/app/talk', '/app/agents', '/app/skills', '/app/collections', '/app/agent-jobs',
   '/app/backends', '/app/activity', '/app/operate', '/app/build', '/app/settings',
-  '/app/traces', '/app/usage', '/app/nodes', '/app/p2p', '/app/voice-library',
+  '/app/traces', '/app/usage', '/app/nodes', '/app/p2p',
   '/app/account',
 ]
 

@@ -28,7 +28,6 @@ export const NAMESPACES = [
   'skills',
   'collections',
   'library',
-  'biometrics',
   'media',
   'tools',
   'admin',
