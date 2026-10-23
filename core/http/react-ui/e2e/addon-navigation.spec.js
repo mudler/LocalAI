@@ -2,27 +2,28 @@ import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ADMIN, MEMBER, app, installedAddon, sessionFor, mockAddons } from './addons-fixtures.js'
+import { ADMIN, MEMBER, app, installedAddon, release, sessionFor, mockAddons } from './addons-fixtures.js'
 import { buildAddonBundles, installStudioAddons, packagedApp } from './studio-addon.js'
 import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } from './identity-fixtures.js'
 
 // Studio and Talk are packaged add-ons, not built-in tiles: the specs install
 // the real packages. No page is built in today, so `builtin` is empty unless a
 // spec makes one up to check the built-in rules.
-async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed } = {}) {
+async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed, releases } = {}) {
   let saved = pins
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons }) }))
   await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: true } }))
   await page.route('**/api/addons/builtin', route => route.fulfill({ json: { builtin } }))
   // mockAddons installs the Apps routes with the real response shape ({ apps }).
   // The packages are served from the build output, so a page that opens one runs it.
-  if (studio) await installStudioAddons(page, { apps: [packagedApp('studio'), packagedApp('talk'), ...apps] })
-  else await mockAddons(page, { apps, installed })
+  let mocked = null
+  if (studio) mocked = await installStudioAddons(page, { apps: [packagedApp('studio'), packagedApp('talk'), ...apps] })
+  else mocked = await mockAddons(page, { apps, installed, releases })
   await page.route('**/api/addons/pins', async route => {
     if (route.request().method() === 'PUT') saved = route.request().postDataJSON()
     await route.fulfill({ json: saved })
   })
-  return { saved: () => saved }
+  return { saved: () => saved, dispatchLog: () => (mocked ? mocked.log.dispatch : []) }
 }
 
 test.describe('Add-on navigation', () => {
@@ -202,20 +203,45 @@ test.describe('Add-on navigation', () => {
     await expect.poll(() => server.saved()).toEqual(['notes'])
   })
 
-  test('the first-run card shows to an administrator with nothing installed and leads to Browse', async ({ page }) => {
-    await setup(page, { user: ADMIN, studio: false, pins: [] })
+  test('the first-run card offers three featured add-ons and a way to find more', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], releases: ['notes', 'tables', 'voice', 'extra'].map(id => release(id, { description: `${id} does a thing.`, ui: id === 'notes' ? { mainPage: '/app/addons/notes/home' } : undefined })) })
     await page.goto('/app/addons')
     const card = page.getByTestId('addons-first-run')
     await expect(card).toBeVisible()
-    await expect(card.getByRole('listitem')).toHaveCount(3)
-    await expect(card).toContainText('official source is added by default')
-    // One way into Browse while the card shows: the bar's button waits.
+    await expect(card.getByRole('heading', { name: 'Add your first add-on' })).toBeVisible()
+    const featured = card.getByTestId('featured').getByRole('listitem')
+    await expect(featured).toHaveCount(3)
+    await expect(featured.first()).toContainText('does a thing.')
+    await expect(featured.first()).toContainText('Adds a page')
+    await expect(card.getByRole('button', { name: 'Install and turn on' })).toHaveCount(3)
+    // One way into Find add-ons while the card shows: the bar's button waits.
     await expect(page.getByRole('link', { name: 'Find add-ons' })).toHaveCount(1)
     await expect(page.getByTestId('addons-add')).toHaveCount(0)
     await expect(page.getByTestId('addon-tile')).toHaveCount(0)
     await card.getByTestId('addons-first-run-browse').click()
     await expect(page).toHaveURL(/tab=browse/)
     await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+  })
+
+  test('Install and turn on asks once, installs, then turns the add-on on', async ({ page }) => {
+    const state = await setup(page, { user: ADMIN, studio: false, pins: [], releases: [release('notes', { name: 'Notes' })] })
+    await page.goto('/app/addons')
+    await page.getByRole('button', { name: 'Install and turn on' }).click()
+    const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'))
+    await expect(dialog).toContainText('Install and turn on Notes?')
+    await dialog.getByRole('button', { name: 'Install and turn on' }).click()
+    await expect.poll(() => state.dispatchLog().filter(d => ['install', 'enable'].includes(d.action)).map(d => d.action)).toEqual(['install', 'enable'])
+  })
+
+  test('a search with no result says no add-on matches, not that none are installed', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'notes', title: 'Notes' })] })
+    await page.goto('/app/addons')
+    await page.getByTestId('addon-search').fill('zzz')
+    await expect(page.getByRole('heading', { name: 'No add-on matches' })).toBeVisible()
+    await expect(page.getByText('No add-ons yet')).toHaveCount(0)
+    await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Clear search' }).click()
+    await expect(page.getByTestId('addon-tile')).toHaveCount(1)
   })
 
   test('the first-run card is hidden once an add-on is installed', async ({ page }) => {

@@ -10,7 +10,7 @@ import {
 } from '../../src/components/catalog/catalogState.js'
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
-  shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, screenshotsOf,
+  shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, screenshotsOf, listState, featuredEntries,
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
@@ -440,4 +440,22 @@ test('screenshots appear only when the host lists them and they are served by th
   assert.deepEqual(screenshotsOf({ screenshots: [] }), [])
   assert.deepEqual(screenshotsOf({ screenshots: ['/api/addons/apps/x/shot/0', 'https://elsewhere.example/a.png', '//elsewhere.example/b.png', 7] }), ['/api/addons/apps/x/shot/0'])
   assert.equal(screenshotsOf({ screenshots: Array.from({ length: 12 }, (_, i) => `/s/${i}`) }).length, 6)
+})
+
+test('the list says first run, no match or none, and a search never claims that nothing is installed', () => {
+  const one = [{ id: 'notes' }]
+  assert.equal(listState({ apps: [], shownCount: 0, query: '', isAdmin: true }), 'first-run')
+  assert.equal(listState({ apps: [], shownCount: 0, query: '', isAdmin: false }), 'none')
+  assert.equal(listState({ apps: [], shownCount: 0, query: '', isAdmin: true, canList: false }), 'none')
+  assert.equal(listState({ apps: one, shownCount: 1, query: 'no', isAdmin: true }), 'list')
+  assert.equal(listState({ apps: one, shownCount: 0, query: ' zzz ', isAdmin: true }), 'no-match')
+  assert.equal(listState({ apps: one, shownCount: 0, query: 'zzz', isAdmin: false }), 'no-match')
+  assert.equal(listState({ apps: one, shownCount: 0, query: '', isAdmin: false }), 'none')
+})
+
+test('featured add-ons are the first three add-on entries that are not installed', () => {
+  const entries = [{ id: 'a', kind: 'addon' }, { id: 'b', kind: 'backend' }, { id: 'c', kind: 'addon' }, { id: 'd', kind: 'addon' }, { id: 'e', kind: 'addon' }]
+  assert.deepEqual(featuredEntries(entries).map(e => e.id), ['a', 'c', 'd'])
+  assert.deepEqual(featuredEntries(entries, ['a']).map(e => e.id), ['c', 'd', 'e'])
+  assert.deepEqual(featuredEntries(null), [])
 })

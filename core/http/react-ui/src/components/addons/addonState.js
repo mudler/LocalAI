@@ -21,6 +21,24 @@ export function showFirstRun({ apps, isAdmin, canList = true }) {
   return Boolean(isAdmin) && Boolean(canList) && Array.isArray(apps) && apps.length === 0
 }
 
+// What the My add-ons list shows. Nothing installed is a first run for someone
+// who can install, and plain emptiness for anyone else. A search that finds
+// nothing says so: it never claims that nothing is installed.
+export function listState({ apps, shownCount, query, isAdmin, canList = true }) {
+  if (showFirstRun({ apps, isAdmin, canList })) return 'first-run'
+  if (shownCount > 0) return 'list'
+  if (String(query || '').trim() && Array.isArray(apps) && apps.length > 0) return 'no-match'
+  return 'none'
+}
+
+// The add-ons to offer when nothing is installed: the first entries of the
+// sources that install as add-ons and are not installed yet. The sources do
+// not mark any entry as featured, so this is their own order.
+export function featuredEntries(entries, installedIds = [], limit = 3) {
+  const have = new Set(installedIds)
+  return (Array.isArray(entries) ? entries : []).filter(e => e && e.kind === 'addon' && !have.has(e.id)).slice(0, limit)
+}
+
 // The management link of an app opens the Installed tab on that add-on.
 export function resolveManage(params, isAdmin) {
   if (!isAdmin) return ''

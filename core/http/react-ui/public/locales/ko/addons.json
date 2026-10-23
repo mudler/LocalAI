@@ -37,13 +37,11 @@
     "emptyTitle": "아직 앱이 없습니다",
     "firstRun": {
       "browse": "Browse add-ons",
-      "browseBody": "Pick an add-on from a library and install it.",
-      "browseTitle": "Browse and install.",
-      "libraryBody": "The official library is registered by default. You can add more under Libraries.",
-      "libraryTitle": "Choose a library.",
-      "startBody": "Start an installed add-on from its tile. Add-ons that were running start again with the server.",
-      "startTitle": "Start it.",
-      "title": "Welcome to Apps"
+      "title": "Welcome to Apps",
+      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
+      "featuredLabel": "Featured add-ons",
+      "featuredFailed": "The list of add-ons could not be read.",
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
     },
     "headless": "백그라운드에서 실행되며 자체 페이지가 없습니다.",
     "listLabel": "앱",
@@ -58,7 +56,10 @@
     "tools_one": "{{count}} tool",
     "tools_other": "도구 {{count}}개",
     "version": "버전 {{version}}",
-    "working": "소유자의 확인을 기다리는 중입니다."
+    "working": "소유자의 확인을 기다리는 중입니다.",
+    "noMatchTitle": "No add-on matches",
+    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
+    "clearSearch": "Clear search"
   },
   "browse": {
     "confirmBody": "라이브러리 {{library}}의 {{version}} 버전을 내려받아 검증한 뒤 설치합니다.",
@@ -641,5 +642,14 @@
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known"
+  },
+  "flow": {
+    "installAndTurnOn": "설치하고 켜기",
+    "installing": "Installing {{name}}...",
+    "turningOn": "Turning on {{name}}...",
+    "installFailed": "{{name}} was not installed.",
+    "turnOnFailed": "{{name}} is installed but did not turn on.",
+    "confirmTitle": "Install and turn on {{name}}?",
+    "confirmBody": "Version {{version}} from the source {{library}} is downloaded and verified, installed, and turned on."
   }
 }

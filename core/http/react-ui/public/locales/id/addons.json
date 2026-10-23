@@ -37,13 +37,11 @@
     "emptyTitle": "Belum ada aplikasi",
     "firstRun": {
       "browse": "Browse add-ons",
-      "browseBody": "Pick an add-on from a library and install it.",
-      "browseTitle": "Browse and install.",
-      "libraryBody": "The official library is registered by default. You can add more under Libraries.",
-      "libraryTitle": "Choose a library.",
-      "startBody": "Start an installed add-on from its tile. Add-ons that were running start again with the server.",
-      "startTitle": "Start it.",
-      "title": "Welcome to Apps"
+      "title": "Welcome to Apps",
+      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
+      "featuredLabel": "Featured add-ons",
+      "featuredFailed": "The list of add-ons could not be read.",
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
     },
     "headless": "Berjalan di latar belakang dan tidak punya halaman sendiri.",
     "listLabel": "Aplikasi",
@@ -58,7 +56,10 @@
     "tools_one": "{{count}} alat",
     "tools_other": "{{count}} alat",
     "version": "Versi {{version}}",
-    "working": "Menunggu konfirmasi pemilik."
+    "working": "Menunggu konfirmasi pemilik.",
+    "noMatchTitle": "No add-on matches",
+    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
+    "clearSearch": "Clear search"
   },
   "browse": {
     "confirmBody": "Versi {{version}} dari pustaka {{library}} akan diunduh dan diverifikasi sebelum dipasang.",
@@ -641,5 +642,14 @@
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known"
+  },
+  "flow": {
+    "installAndTurnOn": "Pasang dan aktifkan",
+    "installing": "Installing {{name}}...",
+    "turningOn": "Turning on {{name}}...",
+    "installFailed": "{{name}} was not installed.",
+    "turnOnFailed": "{{name}} is installed but did not turn on.",
+    "confirmTitle": "Install and turn on {{name}}?",
+    "confirmBody": "Version {{version}} from the source {{library}} is downloaded and verified, installed, and turned on."
   }
 }

@@ -19,7 +19,8 @@ import ConfirmDialog from '../ConfirmDialog'
 import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
 import { UnknownNotice } from './AddonBits'
-import { showFirstRun } from './addonState'
+import FirstRun from './FirstRun'
+import { listState } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 
@@ -82,7 +83,7 @@ export default function AppsView({ api, adapter }) {
     return () => { alive = false; ctl.abort(); clearTimeout(timer) }
   }, [api, reload, canList])
 
-  const actions = useAddonActions(api, { onSettled: () => reloadRef.current() })
+  const actions = useAddonActions(api, { onSettled: () => reloadRef.current(), adapter })
 
   const startStop = useCallback((app, verb) => {
     actions.run(`${verb}:${app.id}:${app.generation}`, {
@@ -165,7 +166,8 @@ export default function AppsView({ api, adapter }) {
     )
   }
 
-  const firstRun = showFirstRun({ apps: state.apps, isAdmin, canList })
+  const view = listState({ apps: state.apps, shownCount: shown.length, query, isAdmin, canList })
+  const firstRun = view === 'first-run'
   return (
     <div className="ad-apps">
       {state.stale && (
@@ -198,21 +200,18 @@ export default function AppsView({ api, adapter }) {
             <Link className="dk-btn dk-btn--primary dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-add"><Icon name="plus" /> {t('drawer.add')}</Link>
           )}
         </div>
-        {firstRun ? (
-          <section className="ad-card ad-first" data-testid="addons-first-run" aria-labelledby="ad-first-title">
-            <h2 className="ad-card__title" id="ad-first-title">{t('apps.firstRun.title')}</h2>
-            <ol className="ad-first__steps">
-              <li><strong>{t('apps.firstRun.libraryTitle')}</strong> {t('apps.firstRun.libraryBody')}</li>
-              <li><strong>{t('apps.firstRun.browseTitle')}</strong> {t('apps.firstRun.browseBody')}</li>
-              <li><strong>{t('apps.firstRun.startTitle')}</strong> {t('apps.firstRun.startBody')}</li>
-            </ol>
-            <div className="ad-section__acts">
-              <Link className="dk-btn dk-btn--primary" to="/app/addons?tab=browse" data-testid="addons-first-run-browse"><Icon name="store" /> {t('apps.firstRun.browse')}</Link>
-            </div>
-          </section>
-        ) : shown.length === 0 ? (
-          <CatalogEmpty icon="puzzle" title={t('apps.emptyTitle')} text={t('apps.emptyBody')} />
-        ) : (
+          {view === 'first-run' ? (
+            <FirstRun adapter={adapter} actions={actions} />
+          ) : view === 'no-match' ? (
+            <CatalogEmpty icon="search" title={t('apps.noMatchTitle')} text={t('apps.noMatchBody', { query: query.trim() })} role="status">
+              <div className="ad-section__acts">
+                <button type="button" className="dk-btn dk-btn--sm" onClick={() => setQuery('')}>{t('apps.clearSearch')}</button>
+                {isAdmin && <Link className="dk-btn dk-btn--ghost dk-btn--sm" to="/app/addons?tab=browse">{t('drawer.browse')}</Link>}
+              </div>
+            </CatalogEmpty>
+          ) : view === 'none' ? (
+            <CatalogEmpty icon="puzzle" title={t('apps.emptyTitle')} text={t('apps.emptyBody')} />
+          ) : (
           <ul className="ad-tiles" aria-label={t('apps.listLabel')}>
             {shown.map(tile => (
               <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} selected={tile.id === detailId} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} onRemove={isAdmin ? setRemoving : undefined} />

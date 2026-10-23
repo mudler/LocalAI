@@ -37,13 +37,11 @@
     "emptyTitle": "No add-ons yet",
     "firstRun": {
       "browse": "Find add-ons",
-      "browseBody": "Pick an add-on from a source and install it.",
-      "browseTitle": "Find and install.",
-      "libraryBody": "The official source is added by default. You can add more under Sources.",
-      "libraryTitle": "Choose a source.",
-      "startBody": "Turn an installed add-on on from its card. Add-ons that were on start again with the server.",
-      "startTitle": "Turn it on.",
-      "title": "Welcome to Add-ons"
+      "title": "Add your first add-on",
+      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
+      "featuredLabel": "Featured add-ons",
+      "featuredFailed": "The list of add-ons could not be read.",
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
     },
     "headless": "Runs in the background and has no page of its own.",
     "listLabel": "My add-ons",
@@ -58,7 +56,10 @@
     "tools_one": "{{count}} tool",
     "tools_other": "{{count}} tools",
     "version": "Version {{version}}",
-    "working": "Waiting for the owner to confirm."
+    "working": "Waiting for the owner to confirm.",
+    "noMatchTitle": "No add-on matches",
+    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
+    "clearSearch": "Clear search"
   },
   "browse": {
     "confirmBody": "Version {{version}} from the library {{library}} will be downloaded and verified before it is installed.",
@@ -641,5 +642,14 @@
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known"
+  },
+  "flow": {
+    "installAndTurnOn": "Install and turn on",
+    "installing": "Installing {{name}}...",
+    "turningOn": "Turning on {{name}}...",
+    "installFailed": "{{name}} was not installed.",
+    "turnOnFailed": "{{name}} is installed but did not turn on.",
+    "confirmTitle": "Install and turn on {{name}}?",
+    "confirmBody": "Version {{version}} from the source {{library}} is downloaded and verified, installed, and turned on."
   }
 }

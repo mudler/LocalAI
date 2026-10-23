@@ -37,13 +37,11 @@
     "emptyTitle": "Aucune application pour le moment",
     "firstRun": {
       "browse": "Parcourir les modules",
-      "browseBody": "Choisissez un module dans une bibliothèque et installez-le.",
-      "browseTitle": "Parcourir et installer.",
-      "libraryBody": "La bibliothèque officielle est enregistrée par défaut. Vous pouvez en ajouter d'autres dans Bibliothèques.",
-      "libraryTitle": "Choisir une bibliothèque.",
-      "startBody": "Démarrez un module installé depuis sa vignette. Les modules qui étaient en cours d'exécution redémarrent avec le serveur.",
-      "startTitle": "Le démarrer.",
-      "title": "Bienvenue dans Applications"
+      "title": "Bienvenue dans Applications",
+      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
+      "featuredLabel": "Featured add-ons",
+      "featuredFailed": "The list of add-ons could not be read.",
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
     },
     "headless": "S'exécute en arrière-plan et n'a pas de page propre.",
     "listLabel": "Applications",
@@ -60,7 +58,10 @@
     "tools_many": "{{count}} d'outils",
     "tools_other": "{{count}} outils",
     "version": "Version {{version}}",
-    "working": "En attente de la confirmation du propriétaire."
+    "working": "En attente de la confirmation du propriétaire.",
+    "noMatchTitle": "No add-on matches",
+    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
+    "clearSearch": "Clear search"
   },
   "browse": {
     "confirmBody": "La version {{version}} de la bibliothèque {{library}} sera téléchargée et vérifiée avant d'être installée.",
@@ -645,5 +646,14 @@
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known"
+  },
+  "flow": {
+    "installAndTurnOn": "Installer et activer",
+    "installing": "Installing {{name}}...",
+    "turningOn": "Turning on {{name}}...",
+    "installFailed": "{{name}} was not installed.",
+    "turnOnFailed": "{{name}} is installed but did not turn on.",
+    "confirmTitle": "Install and turn on {{name}}?",
+    "confirmBody": "Version {{version}} from the source {{library}} is downloaded and verified, installed, and turned on."
   }
 }
