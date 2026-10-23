@@ -35,7 +35,13 @@ type Gateway struct {
 	// Resources is the owner's UI-only resource management: listing,
 	// creation, grants, rename, deletion and conversation selections.
 	// Frontends leave it nil and forward through Forward.
-	Resources  ResourceManager
+	Resources ResourceManager
+	// Libraries is the owner's library administration. Frontends leave it nil
+	// and forward through Forward.
+	Libraries LibraryAdmin
+	// OS and Arch are the platform the owner resolves libraries for. Empty
+	// means the platform of this process.
+	OS, Arch   string
 	streamsMu  sync.Mutex
 	streams    int
 	Revalidate func(context.Context, contract.Actor) error

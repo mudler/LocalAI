@@ -41,6 +41,7 @@ type CarrierConfig struct {
 type Carrier struct {
 	config CarrierConfig
 	client *http.Client
+	caps   capsCache
 }
 type OutcomeUnknown struct {
 	OperationID string `json:"operationId"`
@@ -133,6 +134,9 @@ type wireRequest struct {
 	// grants, rename, deletion and conversation selections. Such a call is
 	// never a typed dispatch.
 	Resource *ResourceCall `json:"resource,omitempty"`
+	// Library marks a library call: a change of the library sources, or the
+	// owner's half of a backend install. Such a call is never a typed dispatch.
+	Library *LibraryCall `json:"library,omitempty"`
 }
 
 func decode(r io.Reader, dst any) error {
@@ -172,6 +176,25 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			}{v.Audience()})
 			return
 		}
+		if r.Method == "GET" && r.URL.Path == "/addons/capabilities" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(g.capabilities())
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/addons/library/snapshot" {
+			if g.Libraries == nil {
+				typedError(w, ErrUnavailable)
+				return
+			}
+			raw, e := g.Libraries.Snapshot(r.Context(), r.URL.Query().Get("known"))
+			if e != nil {
+				typedError(w, e)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(raw)
+			return
+		}
 		if r.Method != "POST" || r.URL.Path != "/addons/forward" {
 			http.Error(w, "not found", 404)
 			return
@@ -192,9 +215,19 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			http.Error(w, "invalid binding", 400)
 			return
 		}
+		if wire.Library != nil {
+			call := *wire.Library
+			// The owner classifies by the call, not by the action the peer wrote.
+			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Resource != nil || !call.valid() || wire.Request.Action != call.wireAction() {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			g.libraryLocal(r.Context(), w, actor, call)
+			return
+		}
 		if wire.Resource != nil {
 			call := *wire.Resource
-			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Request.Action != call.wireAction() {
+			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Library != nil || wire.Request.Action != call.wireAction() {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -574,7 +607,7 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action]
+	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})

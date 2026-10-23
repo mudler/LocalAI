@@ -82,10 +82,12 @@ type Application struct {
 	addonGateway       *gateway.Gateway
 	addonServer        *http.Server
 	addonSources       *catalog.Sources
-	backendLibrary     *backendlib.Installer
-	addonManager       *addons.Manager
-	addonHostOps       *addonruntime.HostOps
-	addonsProbe        addonsProbeState
+	// addonAdminCheck is the owner's administrator check, the one the manager gets.
+	addonAdminCheck func(context.Context, contract.Actor) error
+	backendLibrary  *backendlib.Installer
+	addonManager    *addons.Manager
+	addonHostOps    *addonruntime.HostOps
+	addonsProbe     addonsProbeState
 
 	// libraryStore is the library sources file when no add-on owner runs here.
 	libraryStore   *catalog.Sources
@@ -871,6 +873,7 @@ func (a *Application) startAddons() error {
 			}
 		}
 	}
+	a.addonAdminCheck = c.AdminCheck
 	owner := addons.OwnerConfig{InstanceID: c.InstanceID, OwnerID: c.OwnerID, OwnerAddress: c.OwnerAddress, StorageID: c.StorageID, Root: c.Root, SharedStorage: c.SharedStorage}
 	var cat catalog.Catalog
 	var installer *packages.Installer

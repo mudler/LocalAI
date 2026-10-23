@@ -301,6 +301,12 @@ func (a *Application) startAddonGateway() error {
 	}
 	manage := resources.New(resourceOpts)
 	g.Resources = manage
+	// The owner serves the library calls of the frontends. A node with no
+	// source store (no catalog) has nothing to serve.
+	if a.addonSources != nil {
+		g.Libraries = a.newLibraryOwner()
+		g.OS, g.Arch = cfg.Host.OS, cfg.Host.Arch
+	}
 	loop := policy.NewReconcileLoop(p, exists, a.addonReconcileTick)
 	loop.Resume = manage.Resume
 	loop.Report = func(r policy.ReconcileReport, err error) {
