@@ -49,12 +49,26 @@ func (a *Application) newLibraryOwner() *libraryOwner {
 // Library runs one verb. The administrator check comes first; a missing check
 // denies everything.
 func (o *libraryOwner) Library(ctx context.Context, actor contract.Actor, call gateway.LibraryCall) (json.RawMessage, error) {
+	// A system call has no actor and is the one call that skips the
+	// administrator check. It is read-only and the carrier lets it through for
+	// backend-releases alone; any other call, with or without an actor, takes
+	// the check below.
+	if call.System {
+		if call.Op != gateway.LibraryBackendReleases {
+			return nil, gateway.ErrForbidden
+		}
+		return o.marshal(ctx, call)
+	}
 	if o.adminOnly == nil {
 		return nil, gateway.ErrForbidden
 	}
 	if err := o.adminOnly(ctx, actor); err != nil {
 		return nil, gateway.ClassifyCheck(err)
 	}
+	return o.marshal(ctx, call)
+}
+
+func (o *libraryOwner) marshal(ctx context.Context, call gateway.LibraryCall) (json.RawMessage, error) {
 	v, err := o.run(ctx, call)
 	if err != nil {
 		return nil, ownerLibraryError(err)

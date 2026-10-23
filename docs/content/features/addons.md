@@ -358,6 +358,11 @@ consequences:
   path, verifies the signature there, and applies its own size limit and
   `--require-backend-integrity`. The owner's backends path stays unchanged. The
   update check compares the local backends with the releases the owner lists.
+  The background update check has no user, so it works in named-user mode through
+  one read-only system call (`POST /addons/library/system`, capability
+  `library-system`). The owner accepts it only from a pinned frontend, only for the
+  release lookup, and without an actor. Every call a user starts still needs the
+  administrator check on the owner.
 - **The owner and the frontends must run on the same OS and architecture.** The
   owner resolves entries for its own platform, so a frontend checks the platform the
   owner reports (`GET /addons/capabilities`) and refuses every library call to an owner

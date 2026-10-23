@@ -125,6 +125,34 @@ func (a *Application) forwardLibrary(ctx context.Context, call gateway.LibraryCa
 	return raw, err
 }
 
+// releasesCall sends a backend-releases call. A call with a request actor is a
+// user-facing call and goes the usual way. A call with none is the background
+// update check: it uses the read-only system call, which the owner accepts from
+// this pinned frontend without an actor, so it works in named-user mode.
+func (a *Application) releasesCall(ctx context.Context, call gateway.LibraryCall) (json.RawMessage, error) {
+	if _, ok := library.ActorFrom(ctx); ok {
+		return a.forwardLibrary(ctx, call)
+	}
+	c, err := a.ownerCarrier()
+	if err != nil {
+		return nil, err
+	}
+	if err := a.libraryOwnerReady(ctx, c); err != nil {
+		return nil, err
+	}
+	if caps, err := c.Capabilities(ctx); err != nil {
+		return nil, err
+	} else if !caps.Supports(gateway.CallLibrarySystem) {
+		return nil, &gateway.UnavailableError{Reason: gateway.ReasonLibraryUnsupported}
+	}
+	raw, err := c.LibrarySystem(ctx, call)
+	var le *gateway.LibraryError
+	if errors.As(err, &le) {
+		return nil, fromLibraryError(le)
+	}
+	return raw, err
+}
+
 // remoteLibrary is the library.Admin of a frontend: it keeps no store and
 // forwards every call to the owner, which is the only writer.
 type remoteLibrary struct{ a *Application }
@@ -230,7 +258,7 @@ func (r remoteBackends) Releases(ctx context.Context, refs []backendlib.Ref) (ma
 			c.Refs = append(c.Refs, gateway.LibraryRef{SourceID: ref.SourceID, Name: ref.Name})
 		}
 		refs = refs[n:]
-		raw, err := r.a.forwardLibrary(ctx, c)
+		raw, err := r.a.releasesCall(ctx, c)
 		if err != nil {
 			return nil, err
 		}

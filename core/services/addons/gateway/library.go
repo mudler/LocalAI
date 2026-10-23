@@ -30,6 +30,10 @@ const (
 	LibraryBackendReleases = "backend-releases"
 )
 
+// CallLibrarySystem is the capability of an owner that serves the system call
+// of the library: the background check for newer backend builds.
+const CallLibrarySystem = "library-system"
+
 // maxLibraryRefs bounds the backends of one backend-releases call.
 const maxLibraryRefs = 256
 
@@ -64,11 +68,20 @@ type LibraryCall struct {
 	Capability string `json:"capability,omitempty"`
 	// Refs are the backends of backend-releases, at most 256.
 	Refs []LibraryRef `json:"refs,omitempty"`
+	// System marks a call of the frontend itself, with no user behind it: the
+	// background check for newer backend builds. The owner accepts it only on
+	// the peer-authenticated system route and only for backend-releases, and it
+	// runs no administrator check because it reads and changes nothing a user
+	// owns. A call from /addons/forward never carries it.
+	System bool `json:"system,omitempty"`
 }
 
 func (c LibraryCall) wireAction() string { return "library-" + c.Op }
 
 func (c LibraryCall) valid() bool {
+	if c.System && c.Op != LibraryBackendReleases {
+		return false
+	}
 	switch c.Op {
 	case LibraryList, LibraryAdd, LibraryUpdate, LibraryEnable, LibraryDisable, LibraryRemove, LibraryBackendResolve:
 		return len(c.Refs) == 0
@@ -176,10 +189,24 @@ func (g *Gateway) capabilities() Capabilities {
 	if g.Libraries != nil {
 		c.Calls = append(c.Calls, "library")
 	}
+	if g.Libraries != nil {
+		c.Calls = append(c.Calls, CallLibrarySystem)
+	}
 	if g.ModelsProbe != nil {
 		c.Calls = append(c.Calls, "models-probe")
 	}
 	return c
+}
+
+// librarySystemLocal runs the system call on the owner. It has no actor. The
+// call is read-only by construction: valid() lets System through for
+// backend-releases only.
+func (g *Gateway) librarySystemLocal(ctx context.Context, w http.ResponseWriter, call LibraryCall) {
+	if !call.System || call.Op != LibraryBackendReleases || !call.valid() {
+		http.Error(w, "invalid binding", 400)
+		return
+	}
+	g.libraryLocal(ctx, w, contract.Actor{}, call)
 }
 
 // libraryLocal runs a library call on the owner and writes the reply envelope.
@@ -305,4 +332,44 @@ func (c *Carrier) LibrarySnapshot(ctx context.Context, known string) (json.RawMe
 		return nil, ErrUnavailable
 	}
 	return raw, nil
+}
+
+// LibrarySystem sends a system call to the owner on its peer-authenticated
+// route. It carries no actor: the owner trusts the pinned carrier identity of
+// this frontend, and accepts only a read-only verb. The caller checks
+// Capabilities first.
+func (c *Carrier) LibrarySystem(ctx context.Context, call LibraryCall) (json.RawMessage, error) {
+	call.System = true
+	if !call.valid() {
+		return nil, ErrForbidden
+	}
+	if _, e := c.audience(ctx); e != nil {
+		return nil, e
+	}
+	body, e := json.Marshal(call)
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	req, e := http.NewRequestWithContext(ctx, "POST", c.config.OwnerAddress+"/addons/library/system", bytes.NewReader(body))
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, e := c.client.Do(req)
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, ErrUnavailable
+	}
+	raw, e := io.ReadAll(io.LimitReader(resp.Body, 2<<20+1))
+	var reply libraryReply
+	if e != nil || len(raw) > 2<<20 || decode(bytes.NewReader(raw), &reply) != nil {
+		return nil, ErrUnavailable
+	}
+	if reply.Error != nil {
+		return nil, reply.Error
+	}
+	return reply.Data, nil
 }

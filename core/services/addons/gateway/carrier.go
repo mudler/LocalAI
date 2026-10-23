@@ -210,6 +210,16 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			_, _ = w.Write(raw)
 			return
 		}
+		if r.Method == "POST" && r.URL.Path == "/addons/library/system" {
+			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+			var call LibraryCall
+			if decode(r.Body, &call) != nil {
+				http.Error(w, "invalid request", 400)
+				return
+			}
+			g.librarySystemLocal(r.Context(), w, call)
+			return
+		}
 		if r.Method != "POST" || r.URL.Path != "/addons/forward" {
 			http.Error(w, "not found", 404)
 			return
@@ -233,7 +243,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		if wire.Library != nil {
 			call := *wire.Library
 			// The owner classifies by the call, not by the action the peer wrote.
-			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Resource != nil || !call.valid() || wire.Request.Action != call.wireAction() {
+			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Resource != nil || !call.valid() || call.System || wire.Request.Action != call.wireAction() {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
