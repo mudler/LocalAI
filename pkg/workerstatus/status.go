@@ -101,6 +101,9 @@ func directory(path string) (*os.File, error) {
 	}
 	return f, nil
 }
+
+// A replaced snapshot has no links left (Nlink 0) and is still our complete
+// file; only an extra hard link is refused.
 func openSnapshot(dir *os.File) (*os.File, error) {
 	fd, err := unix.Openat(int(dir.Fd()), "status.json", unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
 	if err != nil {
@@ -108,7 +111,7 @@ func openSnapshot(dir *os.File) (*os.File, error) {
 	}
 	f := os.NewFile(uintptr(fd), "worker status")
 	var st unix.Stat_t
-	if unix.Fstat(fd, &st) != nil || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Mode&07777 != 0600 || st.Nlink != 1 || st.Size > MaxSize {
+	if unix.Fstat(fd, &st) != nil || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Mode&07777 != 0600 || st.Nlink > 1 || st.Size > MaxSize {
 		f.Close()
 		return nil, ErrUnavailable
 	}
