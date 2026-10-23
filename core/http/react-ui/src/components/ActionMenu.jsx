@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback, useId } from 'react'
 import Popover from './Popover'
+import Icon from './Icon'
 
 // ActionMenu renders a kebab (three-dot) button that opens a popover with a
 // list of row actions. Replaces the inline cluster of icon buttons that made
@@ -92,7 +93,7 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
         onClick={(e) => { e.stopPropagation(); setOpen(v => !v) }}
         onKeyDown={handleTriggerKeyDown}
       >
-        <i className="fas fa-ellipsis-vertical" />
+        <Icon name="more-vertical" />
       </button>
       <Popover anchor={triggerRef} open={open} onClose={close} ariaLabel={ariaLabel}>
         <div
@@ -115,7 +116,7 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
             if (item.type === 'badge') {
               return (
                 <div key={item.key || `b-${i}`} className="action-menu__badge" role="presentation">
-                  {item.icon && <i className={`fas ${item.icon}`} aria-hidden="true" />}
+                  {item.icon && <Icon name={item.icon} />}
                   <span>{item.label}</span>
                 </div>
               )
@@ -139,7 +140,7 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
                   item.onClick?.(triggerRef.current)
                 }}
               >
-                {item.icon && <i className={`fas ${item.icon} action-menu__icon`} aria-hidden="true" />}
+                {item.icon && <Icon name={item.icon} className="action-menu__icon" />}
                 <span className="action-menu__label">{item.label}</span>
                 {item.shortcut && <span className="action-menu__shortcut">{item.shortcut}</span>}
               </button>

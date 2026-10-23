@@ -33,3 +33,21 @@ func BuildUsecaseFilterFn(usecases ModelConfigUsecase) ModelConfigFilterFn {
 		return config.HasUsecases(usecases)
 	}
 }
+
+// FilterMayMatchLooseFiles reports whether filter can accept a model file that
+// has no configuration. A nil filter means "no filtering" and accepts them.
+// Usecase filters need a configuration, so they never match loose files and a
+// directory scan cannot add results for them. Arbitrary filters cannot be
+// inspected, so the answer comes from probing with typical file names; any
+// accepted probe keeps the directory scan.
+func FilterMayMatchLooseFiles(filter ModelConfigFilterFn) bool {
+	if filter == nil {
+		return true
+	}
+	for _, name := range []string{"", "model", "model.gguf", "model.bin", "model.safetensors", "a/b"} {
+		if filter(name, nil) {
+			return true
+		}
+	}
+	return false
+}

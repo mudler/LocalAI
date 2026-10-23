@@ -10,7 +10,7 @@ test.describe('Installed model backend logs link', () => {
 
     const logsItem = page.getByRole('menuitem', { name: 'Backend logs' })
     await expect(logsItem).toBeVisible()
-    await expect(logsItem.locator('i.fa-terminal')).toBeVisible()
+    await expect(logsItem.locator('svg[data-icon="terminal"]')).toBeVisible()
   })
 
   test('Backend logs navigates to the selected model logs', async ({ page }) => {

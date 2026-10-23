@@ -1,6 +1,7 @@
 #include "generation_request.h"
 
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -135,6 +136,13 @@ build_tts_request(const backend::TTSRequest &request,
         task.options["language"] = request.language();
     }
 
+    // Saved voice profiles send ref_text; Fish Audio reads reference_text.
+    // Derive the alias before copying params so an explicit canonical key wins.
+    const auto reference_text = request.params().find("ref_text");
+    if (reference_text != request.params().end()) {
+        task.options["reference_text"] = reference_text->second;
+    }
+
     // LAST, so an explicit params entry wins over anything derived above. That
     // matters for "caption": a caller who sets params[caption] has named the
     // exact string they want, and it must not be overwritten by `instructions`.
@@ -146,7 +154,8 @@ build_tts_request(const backend::TTSRequest &request,
 
 engine::runtime::TaskRequest
 build_sound_generation_request(const backend::SoundGenerationRequest &request,
-                               std::optional<engine::runtime::AudioBuffer> source_audio) {
+                               std::optional<engine::runtime::AudioBuffer> source_audio,
+                               const std::string &family) {
     engine::runtime::TaskRequest task;
 
     engine::runtime::Transcript transcript;
@@ -161,6 +170,17 @@ build_sound_generation_request(const backend::SoundGenerationRequest &request,
     // inpaint_audio; heartmula refuses it outright.
     if (source_audio.has_value()) {
         task.audio_input = std::move(*source_audio);
+    }
+
+    // Generic options are copied first so typed request fields remain authoritative
+    // when callers provide the same key in both places.
+    for (const auto &param : request.params()) {
+        // src is reserved for trusted, decoded source audio and must not cross
+        // the generic option boundary as a caller-controlled filesystem path.
+        if (param.first == "src") {
+            continue;
+        }
+        task.options[param.first] = param.second;
     }
 
     // WHAT LANDS AND WHAT DOES NOT. Three families advertise AudioGeneration in
@@ -214,9 +234,12 @@ build_sound_generation_request(const backend::SoundGenerationRequest &request,
         task.options["think"] = bool_option(request.think());
     }
     if (request.has_caption()) {
-        // Read only by irodori_tts, which advertises Tts/VoiceCloning/VoiceDesign
-        // and not AudioGeneration, so it is unreachable from this RPC: DEAD here.
         task.options["caption"] = request.caption();
+        // YuE2 calls the musical caption "style". Preserve explicit options,
+        // including an empty style, while accepting Studio's caption field.
+        if (!request.caption().empty()) {
+            task.options.emplace("style", request.caption());
+        }
     }
     if (request.has_lyrics()) {
         // Read by ace_step and heartmula.
@@ -244,6 +267,27 @@ build_sound_generation_request(const backend::SoundGenerationRequest &request,
         // Alias again: the Transcript above is what ace_step reads as
         // vocal_language. No AudioGeneration family reads a "language" option.
         task.options["language"] = request.language();
+    }
+    if (request.expanded()) {
+        if (family != "yue2" && family != "heartmula" &&
+            family != "ace_step" && family != "stable_audio") {
+            throw std::invalid_argument(
+                "audio-cpp: prompt expansion is unsupported for family '" + family + "'");
+        }
+        if (family == "heartmula" &&
+            (request.instrumental() || request.lyrics().empty())) {
+            throw std::invalid_argument(
+                "audio-cpp: heartmula prompt expansion requires non-empty lyrics and does not support instrumental requests");
+        }
+        // Expanded fields are authoritative even when empty. In particular,
+        // YuE2 falls back from empty lyrics to transcript text upstream.
+        task.options["lyrics"] = request.lyrics();
+        if (family == "yue2" || family == "heartmula") {
+            task.options[family == "yue2" ? "style" : "tags"] = request.caption();
+            task.text_input.reset();
+        } else if (family == "ace_step" || task.text_input->text.empty()) {
+            task.text_input->text = request.caption();
+        }
     }
     return task;
 }

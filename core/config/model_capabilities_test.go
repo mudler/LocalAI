@@ -145,6 +145,21 @@ var _ = Describe("Model capabilities derivation", func() {
 			Expect(cfg.OutputModalities()).To(Equal([]string{"text"}))
 		})
 
+		It("serves speaker recognition on parakeet-cpp only when the model declares it", func() {
+			declared := &ModelConfig{KnownUsecases: usecaseBits(FLAG_TRANSCRIPT | FLAG_SPEAKER_RECOGNITION), Backend: "parakeet-cpp"}
+			Expect(declared.HasUsecases(FLAG_SPEAKER_RECOGNITION)).To(BeTrue())
+			Expect(declared.Capabilities()).To(ContainElements(UsecaseTranscript, UsecaseSpeakerRecognition))
+
+			// Most parakeet models have no speaker encoder, so nothing is guessed.
+			plain := &ModelConfig{Backend: "parakeet-cpp"}
+			Expect(plain.HasUsecases(FLAG_SPEAKER_RECOGNITION)).To(BeFalse())
+
+			info := BackendCapabilities["parakeet-cpp"]
+			Expect(info.GRPCMethods).To(ContainElements(MethodVoiceEmbed, MethodVoiceVerify))
+			Expect(info.PossibleUsecases).To(ContainElement(UsecaseSpeakerRecognition))
+			Expect(info.DefaultUsecases).ToNot(ContainElement(UsecaseSpeakerRecognition))
+		})
+
 		It("an image-generation model reads text and writes an image", func() {
 			// stablediffusion-ggml is image-only; plain "stablediffusion" is also
 			// in GuessUsecases' video-backend list, so it would report video too.
@@ -190,5 +205,19 @@ var _ = Describe("Model capabilities derivation", func() {
 			Expect(cfg.InputModalities()).To(Equal([]string{"text"}))
 			Expect(cfg.OutputModalities()).To(Equal([]string{"audio"}))
 		})
+	})
+})
+
+var _ = Describe("Upscale capabilities", func() {
+	It("keeps dedicated upscalers image-only without guessing generation", func() {
+		for _, backend := range []string{"stablediffusion-ggml", "llama-cpp", ""} {
+			cfg := &ModelConfig{Backend: backend, KnownUsecases: GetUsecasesFromYAML([]string{"upscale"})}
+			Expect(cfg.Capabilities()).To(Equal([]string{UsecaseUpscale}))
+			Expect(cfg.InputModalities()).To(Equal([]string{ModalityImage}))
+			Expect(cfg.OutputModalities()).To(Equal([]string{ModalityImage}))
+			Expect(cfg.HasUsecases(FLAG_IMAGE)).To(BeFalse())
+			Expect((&ModelConfig{Backend: backend}).HasUsecases(FLAG_UPSCALE)).To(BeFalse())
+		}
+		Expect(*GetUsecasesFromYAML([]string{"FLAG_UPSCALE"})).To(Equal(FLAG_UPSCALE))
 	})
 })

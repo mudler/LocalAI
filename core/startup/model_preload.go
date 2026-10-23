@@ -35,7 +35,10 @@ func InstallModelsWithOptions(ctx context.Context, galleryService *galleryop.Gal
 	var err error
 	installOptions := slices.Clone(extraOptions)
 	if galleryService != nil {
-		installOptions = append(installOptions, gallery.WithArtifactMaterializer(galleryService.ModelArtifactMaterializer()))
+		installOptions = append(installOptions,
+			gallery.WithArtifactMaterializer(galleryService.ModelArtifactMaterializer()),
+			gallery.WithBackendAvailability(galleryService.BackendManager().BackendAvailable),
+		)
 	}
 	for _, url := range models {
 		// Check if it's a model gallery, or print a warning

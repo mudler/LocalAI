@@ -93,6 +93,12 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			funcs, shouldUseFn = convertORToolsToFunctions(input, cfg)
 		}
 
+		// Add-on tools need a per-request actor and the host broker; this
+		// surface does not serve them and says so.
+		if mcpTools.AddonToolsFromMetadata(input.Metadata) {
+			return mcpTools.RejectAddonTools(c)
+		}
+
 		// MCP injection: prompts, resources, and tools
 		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
 		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)
@@ -108,11 +114,11 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				if !hasMCPRequest {
 					enabledServers = nil // backward compat: auto-activate all servers
 				}
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, cfg.Name, remote, stdio, enabledServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, cfg.MCPSessionKey(), remote, stdio, enabledServers)
 
 				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
 				if hasMCPRequest {
-					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
+					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.MCPSessionKey(), remote, stdio, mcpServers)
 					if sessErr == nil && len(namedSessions) > 0 {
 						mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
 						if mcpCtx != nil {
@@ -242,7 +248,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				defer bgCancel()
 
 				// Update status to in_progress
-				store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)
+				_ = store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)
 
 				var finalResponse *schema.ORResponseResource
 				var bgErr error
@@ -258,13 +264,13 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				if bgErr != nil {
 					xlog.Error("Background response failed", "response_id", responseID, "error", bgErr)
 					now := time.Now().Unix()
-					store.UpdateStatus(responseID, schema.ORStatusFailed, &now)
+					_ = store.UpdateStatus(responseID, schema.ORStatusFailed, &now)
 					return
 				}
 
 				// Update final response in store
 				if finalResponse != nil {
-					store.UpdateResponse(responseID, finalResponse)
+					_ = store.UpdateResponse(responseID, finalResponse)
 				}
 			}()
 
@@ -276,7 +282,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			return handleOpenResponsesStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpExecutor, evaluator)
 		}
 
-		return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpExecutor, evaluator, 0)
+		return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpExecutor, evaluator, 0, nil)
 	}
 }
 
@@ -647,6 +653,7 @@ func convertOROutputItemsToMessages(outputItems []schema.ORItemField) ([]schema.
 			messages = append(messages, schema.Message{
 				Role:          "tool",
 				Name:          item.CallID,
+				ToolCallID:    item.CallID,
 				Content:       outputStr,
 				StringContent: outputStr,
 			})
@@ -1400,7 +1407,7 @@ func bufferEvent(store *ResponseStore, responseID string, event *schema.ORStream
 }
 
 // handleOpenResponsesNonStream handles non-streaming responses
-func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator, mcpIteration int) error {
+func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator, mcpIteration int, mcpTrail []schema.ORItemField) error {
 	mcpMaxIterations := 10
 	if cfg.Agent.MaxIterations > 0 {
 		mcpMaxIterations = cfg.Agent.MaxIterations
@@ -1447,8 +1454,13 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	// Extract reasoning from result before cleaning
 	reasoningContent, cleanedResult := reason.ExtractReasoningComplete(result, thinkingStartToken, cfg.ReasoningConfig)
 
-	// Parse tool calls if using functions
-	var outputItems []schema.ORItemField
+	// Parse tool calls if using functions.
+	// Start from the items of earlier MCP iterations: each iteration recurses,
+	// so without carrying them over the final response (and the stored copy
+	// that previous_response_id replays) would hold only the last answer and
+	// the follow-up turn would no longer see which tools ran and what they
+	// returned. The background path keeps them the same way.
+	outputItems := append([]schema.ORItemField(nil), mcpTrail...)
 	var toolCalls []schema.ToolCall
 
 	// Add reasoning item if reasoning was found (reasoning comes first per spec)
@@ -1557,7 +1569,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 
 				// Re-template and re-run inference
 				predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
-				return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpExecutor, evaluator, mcpIteration+1)
+				return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpExecutor, evaluator, mcpIteration+1, outputItems)
 			}
 		}
 
@@ -1743,6 +1755,13 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	// Collect all output items for storage
 	var collectedOutputItems []schema.ORItemField
+	// Items of finished MCP iterations (reasoning, function_call,
+	// function_call_output) in the order they happened. They are streamed as
+	// output_item events, but response.completed and the stored response are
+	// rebuilt from the last iteration only, so they would otherwise be lost
+	// for clients that rebuild history from the completed response and for
+	// previous_response_id replay.
+	var mcpTrailItems []schema.ORItemField
 
 	if shouldUseFn {
 		mcpStreamMaxIterations := 10
@@ -2193,6 +2212,15 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					assistantMsg := schema.Message{Role: "assistant", Content: result, ToolCalls: schemaToolCalls}
 					openAIReq.Messages = append(openAIReq.Messages, assistantMsg)
 
+					if currentReasoningID != "" && finalReasoning != "" {
+						mcpTrailItems = append(mcpTrailItems, schema.ORItemField{
+							Type:    "reasoning",
+							ID:      currentReasoningID,
+							Status:  "completed",
+							Content: []schema.ORContentPart{makeOutputTextPart(finalReasoning)},
+						})
+					}
+
 					for idx, tc := range toolCalls {
 						tcID := schemaToolCalls[idx].ID
 
@@ -2213,6 +2241,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 						})
 						sequenceNumber++
 						collectedOutputItems = append(collectedOutputItems, *functionCallItem)
+						mcpTrailItems = append(mcpTrailItems, *functionCallItem)
 
 						if mcpExecutor == nil || !mcpExecutor.IsTool(tc.Name) {
 							continue
@@ -2248,9 +2277,15 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 						})
 						sequenceNumber++
 						collectedOutputItems = append(collectedOutputItems, *outputItem)
+						mcpTrailItems = append(mcpTrailItems, *outputItem)
 					}
 					c.Response().Flush()
 					xlog.Debug("MCP streaming tools executed, re-running inference", "iteration", mcpStreamIter)
+					// These items are already in the trail. The loop can end at
+					// the iteration limit without another inference to reset them.
+					toolCalls = nil
+					currentReasoningID, finalReasoning = "", ""
+					currentMessageID, textContent = "", ""
 					continue // next MCP stream iteration
 				}
 			}
@@ -2347,8 +2382,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			break // no MCP tools to execute, exit loop
 		} // end MCP stream iteration loop
 
-		// Build final response with all items (include reasoning first, then messages, then tool calls)
-		var allOutputItems []schema.ORItemField
+		// Build final response with all items: the MCP trail of earlier
+		// iterations first, then this iteration's reasoning, message and tool calls.
+		allOutputItems := append([]schema.ORItemField(nil), mcpTrailItems...)
 		// Add reasoning item if it exists
 		if currentReasoningID != "" && finalReasoning != "" {
 			allOutputItems = append(allOutputItems, schema.ORItemField{

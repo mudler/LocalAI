@@ -45,17 +45,17 @@ var _ = Describe("Control payload wire format", func() {
 
 		Entry("BackendListReply, every field set", workerctl.BackendListReply{
 			Backends: []workerctl.NodeBackendInfo{{
-				Name: "n", IsSystem: true, IsMeta: true, InstalledAt: "t", GalleryURL: "gu",
+				Name: "n", IsSystem: true, IsMeta: true, Alias: "a", InstalledAt: "t", GalleryURL: "gu",
 				Version: "v", URI: "u", Digest: "d",
 			}},
 			Error: "e",
-		}, `{"backends":[{"name":"n","is_system":true,"is_meta":true,"installed_at":"t","gallery_url":"gu","version":"v","uri":"u","digest":"d"}],"error":"e"}`),
+		}, `{"backends":[{"name":"n","is_system":true,"is_meta":true,"alias":"a","installed_at":"t","gallery_url":"gu","version":"v","uri":"u","digest":"d"}],"error":"e"}`),
 		Entry("BackendListReply, zero value", workerctl.BackendListReply{}, `{"backends":null}`),
 
 		Entry("NodeBackendInfo, every field set", workerctl.NodeBackendInfo{
-			Name: "n", IsSystem: true, IsMeta: true, InstalledAt: "t", GalleryURL: "gu",
+			Name: "n", IsSystem: true, IsMeta: true, Alias: "a", InstalledAt: "t", GalleryURL: "gu",
 			Version: "v", URI: "u", Digest: "d",
-		}, `{"name":"n","is_system":true,"is_meta":true,"installed_at":"t","gallery_url":"gu","version":"v","uri":"u","digest":"d"}`),
+		}, `{"name":"n","is_system":true,"is_meta":true,"alias":"a","installed_at":"t","gallery_url":"gu","version":"v","uri":"u","digest":"d"}`),
 		Entry("NodeBackendInfo, zero value", workerctl.NodeBackendInfo{}, `{"name":"","is_system":false,"is_meta":false}`),
 
 		Entry("BackendStopRequest, every field set", workerctl.BackendStopRequest{Backend: "b", Force: true},

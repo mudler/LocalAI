@@ -1,3 +1,4 @@
+import Icon from '../Icon'
 // MatchGauge — distance vs threshold as a single horizontal meter.
 // distance, threshold numeric (cosine distance, lower = closer).
 // Scale is 0 → max (default 2× threshold or 1.0) so the threshold sits near the middle.
@@ -13,7 +14,7 @@ export default function MatchGauge({ distance, threshold, confidence, verified, 
       aria-label={`${label || 'Match'}: ${verified ? 'match' : 'no match'} at distance ${distance?.toFixed?.(3) ?? '?'} (threshold ${threshold?.toFixed?.(3) ?? '?'})`}>
       <div className="biometrics-gauge__head">
         <div className="biometrics-gauge__verdict">
-          <i className={`fas ${verified ? 'fa-circle-check' : 'fa-circle-xmark'}`} aria-hidden="true" />
+          <Icon name={verified ? 'check-circle' : 'close-circle'} />
           <span>{verified ? 'Match' : 'No match'}</span>
         </div>
         {confidence != null && (

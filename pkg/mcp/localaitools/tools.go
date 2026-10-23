@@ -30,25 +30,27 @@ const (
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).
-	ToolInstallModel       = "install_model"
-	ToolImportModelURI     = "import_model_uri"
-	ToolDeleteModel        = "delete_model"
-	ToolEditModelConfig    = "edit_model_config"
-	ToolReloadModels       = "reload_models"
-	ToolLoadModel          = "load_model"
-	ToolInstallBackend     = "install_backend"
-	ToolUpgradeBackend     = "upgrade_backend"
-	ToolToggleModelState   = "toggle_model_state"
-	ToolToggleModelPinned  = "toggle_model_pinned"
-	ToolSetBranding        = "set_branding"
-	ToolSetAlias           = "set_alias"
-	ToolSeedRouterCorpus   = "seed_router_corpus"
-	ToolClearRouterCorpus  = "clear_router_corpus"
-	ToolCreateVoiceProfile = "create_voice_profile"
-	ToolDeleteVoiceProfile = "delete_voice_profile"
-	ToolSetNodeVRAMBudget  = "set_node_vram_budget"
-	ToolSetScheduling      = "set_scheduling"
-	ToolDeleteScheduling   = "delete_scheduling"
+	ToolInstallModel          = "install_model"
+	ToolImportModelURI        = "import_model_uri"
+	ToolDeleteModel           = "delete_model"
+	ToolEditModelConfig       = "edit_model_config"
+	ToolReloadModels          = "reload_models"
+	ToolCancelModelLoad       = "cancel_model_load"
+	ToolLoadModel             = "load_model"
+	ToolInstallBackend        = "install_backend"
+	ToolUpgradeBackend        = "upgrade_backend"
+	ToolInstallLibraryBackend = "install_library_backend"
+	ToolToggleModelState      = "toggle_model_state"
+	ToolToggleModelPinned     = "toggle_model_pinned"
+	ToolSetBranding           = "set_branding"
+	ToolSetAlias              = "set_alias"
+	ToolSeedRouterCorpus      = "seed_router_corpus"
+	ToolClearRouterCorpus     = "clear_router_corpus"
+	ToolCreateVoiceProfile    = "create_voice_profile"
+	ToolDeleteVoiceProfile    = "delete_voice_profile"
+	ToolSetNodeVRAMBudget     = "set_node_vram_budget"
+	ToolSetScheduling         = "set_scheduling"
+	ToolDeleteScheduling      = "delete_scheduling"
 	// ToolPinFailoverTarget and ToolUnpinFailoverTarget live here (rather
 	// than grouped with ToolListFailoverChains below) so mutatingToolNames
 	// stays a contiguous scan of this block.
@@ -78,9 +80,11 @@ var mutatingToolNames = []string{
 	ToolDeleteModel,
 	ToolEditModelConfig,
 	ToolReloadModels,
+	ToolCancelModelLoad,
 	ToolLoadModel,
 	ToolInstallBackend,
 	ToolUpgradeBackend,
+	ToolInstallLibraryBackend,
 	ToolToggleModelState,
 	ToolToggleModelPinned,
 	ToolSetBranding,

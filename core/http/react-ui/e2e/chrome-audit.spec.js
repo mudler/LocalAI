@@ -1,9 +1,10 @@
 import { test, expect } from './coverage-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 // A standing guard against the two defects an earlier automated edit left
-// scattered through the pages: icons stripped of their fa-* class (which render
-// nothing at all), and controls left with the user agent's own chrome, which is
-// a pale grey button on a dark ground.
+// scattered through the pages: icons that render nothing at all (here, an svg
+// whose sprite target is missing or that has no size), and controls left with
+// the user agent's own chrome, which is a pale grey button on a dark ground.
 const ROUTES = [
   '/app', '/app/chat', '/app/models', '/app/studio', '/app/talk',
   '/app/agents', '/app/skills', '/app/collections', '/app/agent-jobs',
@@ -14,6 +15,8 @@ const ROUTES = [
 ]
 
 test('no page renders a dead icon or a default-chrome control', async ({ page }) => {
+  // Studio and Talk are add-ons; /app/studio and /app/talk open them.
+  await installStudioAddons(page)
   // One test walks every route, so its budget has to scale with the list rather
   // than sit on Playwright's per-test default of 30s. At 25 routes that default
   // allows ~1.2s per navigation, which holds on a developer machine and does
@@ -37,10 +40,16 @@ test('no page renders a dead icon or a default-chrome control', async ({ page })
           out.push(`default-chrome: "${(el.textContent || '').trim().slice(0, 24)}" [${el.className}]`)
         }
       }
-      for (const i of document.querySelectorAll('i')) {
-        if (!/\bfa-/.test((i.className || '').toString())) {
-          out.push(`dead-icon: [${i.className}]`)
-        }
+      for (const svg of document.querySelectorAll('svg[data-icon]')) {
+        const use = svg.querySelector('use')
+        const target = use && document.querySelector(use.getAttribute('href'))
+        const box = svg.getBoundingClientRect()
+        if (use && !target) out.push(`dead-icon: no sprite symbol for [${svg.dataset.icon}]`)
+        if (box.width > 0 && (box.width < 4 || box.height < 4)) out.push(`dead-icon: [${svg.dataset.icon}] is ${box.width}x${box.height}`)
+      }
+      // A leftover icon-font element draws nothing now that the font is gone.
+      for (const i of document.querySelectorAll('i[class*="fa-"], .fas, .far, .fab')) {
+        out.push(`dead-icon: font class left on [${i.className}]`)
       }
       return [...new Set(out)]
     })

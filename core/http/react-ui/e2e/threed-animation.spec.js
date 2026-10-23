@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 const animationOperation = {
   id: 'animate', endpoint: '/3d/animate', output: 'skeleton_animation',
@@ -32,6 +33,8 @@ function animationGlb(change = () => {}) {
 }
 
 test.beforeEach(async ({ page }) => {
+  // Studio is an add-on: the page opens inside it.
+  await installStudioAddons(page, { ids: ['studio'] })
   await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [
     { id: 'trellis-test', capabilities: ['FLAG_3D'] },
     { id: 'kimodo-test', capabilities: ['FLAG_3D_ANIMATION'], three_d_operations: [animationOperation] },
@@ -139,7 +142,8 @@ test('keeps the 3D Studio category available with only an animation model', asyn
 })
 
 test('validates the prompt byte limit before submitting', async ({ page }) => {
-  await page.goto('/app/studio/threed?model=kimodo-test')
+  // The model query is now read as a hand-off, so pick the model in the page as a person would.
+  await page.goto('/app/studio/threed')
   await page.getByRole('button', { name: 'trellis-test', exact: true }).click()
   await page.getByRole('option', { name: 'kimodo-test', exact: true }).click()
   await page.getByLabel('Motion prompt').fill('🦊'.repeat(1025))

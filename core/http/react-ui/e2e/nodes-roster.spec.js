@@ -13,10 +13,11 @@ test.describe('Nodes fleet roster', () => {
       { id: 'a1', name: 'agent-1', node_type: 'agent', address: '10.0.0.9:50051', status: 'draining', model_count: 0 },
     ])
     await page.goto('/app/nodes')
-    await expect(page.getByRole('table', { name: 'Fleet nodes' })).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByRole('tab', { name: 'Nodes' })).toHaveAttribute('aria-selected', 'true')
-    await page.getByRole('tab', { name: 'Nodes' }).click()
+    await expect(page.getByRole('table', { name: /Nodes with their state/ })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('radio', { name: /List/ })).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByRole('row', { name: /alpha/ })).toContainText('3')
+    // An agent worker runs jobs, not models, so its Models cell stays empty.
+    await expect(page.getByRole('row', { name: /agent-1/ })).toContainText('—')
     expect(requests.some(url => url.includes('/api/nodes/models'))).toBe(false)
     expect(requests.some(url => /\/api\/nodes\/[^/]+\/backends/.test(url))).toBe(false)
   })
@@ -25,6 +26,7 @@ test.describe('Nodes fleet roster', () => {
     await mockCluster(page, [])
     await page.goto('/app/nodes')
     await expect(page.getByText('No workers registered yet')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('add-node')).toBeVisible()
   })
 
   // A single-node server does not register the cluster routes at all, so the
@@ -38,7 +40,7 @@ test.describe('Nodes fleet roster', () => {
       await expect(page.getByTestId('local-machine')).toBeVisible({ timeout: 15_000 })
       await expect(page.getByText('No workers registered yet')).toHaveCount(0)
       await expect(page.getByTestId('scale-out')).toHaveCount(0)
-      await page.getByRole('button', { name: 'Add machines' }).click()
+      await page.getByRole('button', { name: 'Add a machine' }).click()
       await expect(page.getByTestId('scale-out')).toContainText('Distributed mode is not enabled')
     })
   }

@@ -4,8 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -57,6 +60,9 @@ type TTSVoice struct {
 type ModelConfig struct {
 	modelConfigFile string `yaml:"-" json:"-"`
 	modelTemplate   string `yaml:"-" json:"-"`
+	// evidenceCheck is set only from a profile alias's block, so a plain
+	// model config cannot switch it on by a top-level key.
+	evidenceCheck EvidenceCheckConfig `yaml:"-" json:"-"`
 	// persistedConfigRevision is the revision of this model's persisted
 	// configuration, stamped when the loader materializes it and therefore
 	// before any per-request override is merged in. The request pipeline
@@ -65,16 +71,30 @@ type ModelConfig struct {
 	// the only way the controller sees one revision per configuration rather
 	// than one per request body. Unexported, so it never enters the hash it
 	// describes and never reaches YAML or JSON.
-	persistedConfigRevision  string `yaml:"-" json:"-"`
+	persistedConfigRevision string `yaml:"-" json:"-"`
+	// mcpSessionKey keys the MCP session cache when it must differ from Name.
+	// A profile alias that brings its own MCP servers resolves to its target's
+	// config (so Name, and with it the backend process, stays the target's),
+	// but its sessions must not share a cache slot with the target's: the
+	// slot is invalidated on every config change, so two server sets under one
+	// key would tear each other's sessions down. Unexported: never persisted.
+	mcpSessionKey            string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Name                     string                `yaml:"name,omitempty" json:"name,omitempty"`
 	Artifacts                []modelartifacts.Spec `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
 
 	// Alias, when set, makes this config a pure redirect: every request for
-	// Name is served by the model named here. All other fields are ignored.
-	// The target must be an existing, non-alias model (enforced at load and
-	// at create/swap time). See docs/content for Model Aliases.
+	// Name is served by the model named here. All other fields are ignored,
+	// except the opt-in Profile block. The target must be an existing,
+	// non-alias model (enforced at load and at create/swap time). See
+	// docs/content for Model Aliases.
 	Alias string `yaml:"alias,omitempty" json:"alias,omitempty"`
+
+	// Profile is only valid on an alias. Its fields are applied on top of the
+	// target's config for requests to the alias, while the request still runs
+	// on the target's backend process. Explicit block rather than honouring
+	// top-level fields so existing aliases keep behaving as pure redirects.
+	Profile ProfileConfig `yaml:"profile,omitempty" json:"profile,omitempty"`
 
 	// Failover makes this config a failover chain over other models. Like an
 	// alias it has no backend of its own.
@@ -166,7 +186,13 @@ type ModelConfig struct {
 
 	MCP   MCPConfig   `yaml:"mcp,omitempty" json:"mcp,omitempty"`
 	Agent AgentConfig `yaml:"agent,omitempty" json:"agent,omitempty"`
-	PII   PIIConfig   `yaml:"pii,omitempty" json:"pii,omitempty"`
+
+	// ClientTools controls tools and functions sent by the client. Empty keeps
+	// them (default). "drop" discards them, together with tool_choice, before
+	// the request is merged, so only the model's own MCP tools are offered.
+	ClientTools string `yaml:"client_tools,omitempty" json:"client_tools,omitempty"`
+
+	PII PIIConfig `yaml:"pii,omitempty" json:"pii,omitempty"`
 	// PIIDetection is the detection policy when THIS model is used as a
 	// PII detector (a token_classify model named in another model's
 	// pii.detectors). Ignored on models that aren't referenced as
@@ -595,6 +621,84 @@ func (c *ModelConfig) HasRouter() bool {
 // Value receiver so it is callable on non-addressable config values too.
 func (c ModelConfig) IsAlias() bool { return c.Alias != "" }
 
+// ClientToolsDrop is the client_tools value that discards client-sent tools.
+const ClientToolsDrop = "drop"
+
+// DropsClientTools reports whether tools sent by the client are discarded.
+func (c ModelConfig) DropsClientTools() bool { return c.ClientTools == ClientToolsDrop }
+
+// MCPSessionKey is the name the MCP session cache uses for this config. It is
+// Name unless a profile alias replaced the MCP servers of its target.
+func (c ModelConfig) MCPSessionKey() string {
+	if c.mcpSessionKey != "" {
+		return c.mcpSessionKey
+	}
+	return c.Name
+}
+
+// @Description Profile overlay of a model alias
+type ProfileConfig struct {
+	// SystemPrompt replaces the target's system prompt.
+	SystemPrompt string `yaml:"system_prompt,omitempty" json:"system_prompt,omitempty"`
+	// MCP replaces the target's MCP servers when it lists any; MCP.Auto
+	// enables automatic activation either way.
+	MCP MCPConfig `yaml:"mcp,omitempty" json:"mcp,omitempty"`
+	// ClientTools overrides the target's client_tools policy.
+	ClientTools string `yaml:"client_tools,omitempty" json:"client_tools,omitempty"`
+	// EvidenceCheck marks answers whose numbers have no evidence in the request.
+	EvidenceCheck EvidenceCheckConfig `yaml:"evidence_check,omitempty" json:"evidence_check,omitempty"`
+}
+
+// DefaultEvidenceNote is appended when evidence_check.note is empty.
+const DefaultEvidenceNote = "_Note: this answer contains numbers that no tool returned in this turn — not verified._"
+
+// @Description Output check of a profile alias
+type EvidenceCheckConfig struct {
+	// Numbers enables the check for numbers in the final answer.
+	Numbers bool `yaml:"numbers,omitempty" json:"numbers,omitempty"`
+	// Note replaces DefaultEvidenceNote.
+	Note string `yaml:"note,omitempty" json:"note,omitempty"`
+}
+
+// EvidenceCheck returns the evidence check a profile alias applied to this
+// resolved config; it is zero for every other config.
+func (c ModelConfig) EvidenceCheck() EvidenceCheckConfig { return c.evidenceCheck }
+
+// EvidenceNote returns the configured note or the default one.
+func (e EvidenceCheckConfig) EvidenceNote() string {
+	if e.Note != "" {
+		return e.Note
+	}
+	return DefaultEvidenceNote
+}
+
+// IsZero reports whether the block sets nothing.
+func (p ProfileConfig) IsZero() bool { return p == ProfileConfig{} }
+
+// applyProfileOverlay merges an alias's profile block into a copy of its
+// target. Name, Model, Backend and the persisted revision stay the target's:
+// they form the loader key, so the alias keeps sharing the target's backend
+// process instead of loading the weights a second time. Only the profile block
+// is read; any other field on the alias stays ignored, as for a plain alias.
+func (c *ModelConfig) applyProfileOverlay(alias *ModelConfig) {
+	p := alias.Profile
+	if p.SystemPrompt != "" {
+		c.SystemPrompt = p.SystemPrompt
+	}
+	if p.MCP.HasMCPServers() {
+		c.MCP.Servers = p.MCP.Servers
+		c.MCP.Stdio = p.MCP.Stdio
+		c.mcpSessionKey = alias.Name
+	}
+	if p.MCP.Auto {
+		c.MCP.Auto = true
+	}
+	if p.ClientTools != "" {
+		c.ClientTools = p.ClientTools
+	}
+	c.evidenceCheck = p.EvidenceCheck
+}
+
 // @Description PII filtering configuration. PII redaction is per-model so
 // that local models don't pay the latency or behaviour change of regex
 // scanning, while cloud-bound traffic (cloud-proxy backend) can default to
@@ -619,11 +723,19 @@ type PIIConfig struct {
 	ReversibleRedactions  bool   `yaml:"reversible_redactions,omitempty" json:"reversible_redactions,omitempty"`
 	ReversibleTokenPrefix string `yaml:"reversible_token_prefix,omitempty" json:"reversible_token_prefix,omitempty"`
 	ReversibleTokenSuffix string `yaml:"reversible_token_suffix,omitempty" json:"reversible_token_suffix,omitempty"`
+
+	// BlockUnscannedMedia rejects requests that carry content the text
+	// detectors cannot inspect (images, audio, video, files) instead of
+	// forwarding it unchecked. Only applies while PII is enabled for the
+	// model. Meant for egress policies where "not inspectable" must mean
+	// "not sent", e.g. cloud-proxy models.
+	BlockUnscannedMedia bool `yaml:"block_unscanned_media,omitempty" json:"block_unscanned_media,omitempty"`
 }
 
 func (c ModelConfig) PIIReversibleRedactions() bool    { return c.PII.ReversibleRedactions }
 func (c ModelConfig) PIIReversibleTokenPrefix() string { return c.PII.ReversibleTokenPrefix }
 func (c ModelConfig) PIIReversibleTokenSuffix() string { return c.PII.ReversibleTokenSuffix }
+func (c ModelConfig) PIIBlockUnscannedMedia() bool     { return c.PII.BlockUnscannedMedia }
 
 // @Description Detection policy for a token-classification (NER) model
 // used as a PII detector. Lives on the detector model's own config so the
@@ -653,6 +765,25 @@ type PIIDetectionConfig struct {
 	// subset (validated at load). Each match is reported under its Name as the
 	// entity group, so EntityActions/DefaultAction apply by Name.
 	Patterns []PIIPattern `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	// ExtendToNextWord lists entity groups (e.g. "ZIPCODE") whose accepted
+	// detections also cover the word right after them on the same line,
+	// with the same action - for a neighbour the model scores unreliably,
+	// such as the town after a postal code.
+	ExtendToNextWord []string `yaml:"extend_to_next_word,omitempty" json:"extend_to_next_word,omitempty"`
+	// ExtendToPreviousWord lists entity groups (e.g. "LASTNAME") whose accepted
+	// detections also cover the word right before them on the same line, when
+	// that word consists of letters only - for a neighbour the model scores
+	// unreliably, such as the first name before a recognised surname.
+	ExtendToPreviousWord []string `yaml:"extend_to_previous_word,omitempty" json:"extend_to_previous_word,omitempty"`
+	// ProtectedTerms are values that must pass the filter unchanged even
+	// when the model tags them (e.g. known business names read as
+	// surnames). They are hidden from the detector behind a placeholder and
+	// restored afterwards. Matched whole-word and case-insensitively.
+	ProtectedTerms []string `yaml:"protected_terms,omitempty" json:"protected_terms,omitempty"`
+	// ProtectedTermsFiles adds terms from files (one per line, '#' comments),
+	// resolved inside the models path and re-read when they change, so an
+	// external process can keep the list current without a restart.
+	ProtectedTermsFiles []string `yaml:"protected_terms_files,omitempty" json:"protected_terms_files,omitempty"`
 }
 
 // PIIPattern is one operator-defined pattern on a pattern detector model. Name
@@ -732,6 +863,31 @@ func (c *ModelConfig) PIIDetectionEntityActions() map[string]string {
 	return out
 }
 
+// PIIDetectionExtendToNextWord returns the entity groups whose detections
+// are stretched over the following word (a fresh copy).
+func (c *ModelConfig) PIIDetectionExtendToNextWord() []string {
+	if len(c.PIIDetection.ExtendToNextWord) == 0 {
+		return nil
+	}
+	return append([]string(nil), c.PIIDetection.ExtendToNextWord...)
+}
+
+// PIIDetectionExtendToPreviousWord returns the entity groups whose detections
+// are stretched over the preceding word (a fresh copy).
+func (c *ModelConfig) PIIDetectionExtendToPreviousWord() []string {
+	if len(c.PIIDetection.ExtendToPreviousWord) == 0 {
+		return nil
+	}
+	return append([]string(nil), c.PIIDetection.ExtendToPreviousWord...)
+}
+
+// PIIDetectionProtectedTerms returns the inline protected terms and the
+// configured term files (fresh copies). The files are read by the pii
+// package (pii.LoadProtectedTerms), relative to the models path.
+func (c *ModelConfig) PIIDetectionProtectedTerms() (terms, files []string) {
+	return slices.Clone(c.PIIDetection.ProtectedTerms), slices.Clone(c.PIIDetection.ProtectedTermsFiles)
+}
+
 // IsPatternDetector reports whether this detector model matches secrets with
 // regex patterns (built-in and/or operator-defined) rather than a neural NER
 // model. Such a model runs entirely in-process (no backend / GGUF / VRAM); the
@@ -745,6 +901,11 @@ func (c *ModelConfig) IsPatternDetector() bool {
 type MCPConfig struct {
 	Servers string `yaml:"remote,omitempty" json:"remote,omitempty"`
 	Stdio   string `yaml:"stdio,omitempty" json:"stdio,omitempty"`
+	// Auto enables every configured server on /v1/chat/completions when the
+	// request does not select servers via metadata.mcp_servers. Off by
+	// default: plain OpenAI clients cannot send that metadata, so without it
+	// they never reach the model's server-side tools.
+	Auto bool `yaml:"auto,omitempty" json:"auto,omitempty"`
 }
 
 // @Description Agent configuration
@@ -766,6 +927,24 @@ func (c MCPConfig) HasMCPServers() bool {
 	return c.Servers != "" || c.Stdio != ""
 }
 
+// ServerNames returns the names of all configured remote and stdio servers,
+// sorted so the enabled set does not depend on map iteration order.
+func (c *MCPConfig) ServerNames() ([]string, error) {
+	remote, stdio, err := c.MCPConfigFromYAML()
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(remote.Servers)+len(stdio.Servers))
+	for name := range remote.Servers {
+		names = append(names, name)
+	}
+	for name := range stdio.Servers {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names, nil
+}
+
 func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCPGenericConfig[MCPSTDIOServers], error) {
 	var remote MCPGenericConfig[MCPRemoteServers]
 	var stdio MCPGenericConfig[MCPSTDIOServers]
@@ -776,6 +955,11 @@ func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCP
 
 	if err := yaml.Unmarshal([]byte(c.Stdio), &stdio); err != nil {
 		return remote, stdio, err
+	}
+	for name, server := range remote.Servers {
+		if err := server.Validate(); err != nil {
+			return remote, stdio, fmt.Errorf("remote MCP server %q: %w", name, err)
+		}
 	}
 	return remote, stdio, nil
 }
@@ -793,6 +977,97 @@ type (
 type MCPRemoteServer struct {
 	URL   string `json:"url,omitempty"`
 	Token string `json:"token,omitempty"`
+	// OAuth2 makes LocalAI obtain short-lived access tokens with the
+	// client_credentials grant instead of sending a static Token. The two are
+	// mutually exclusive.
+	OAuth2 *MCPOAuth2Config `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
+}
+
+// @Description OAuth2 client_credentials settings for a remote MCP server
+type MCPOAuth2Config struct {
+	TokenURL string `yaml:"token_url,omitempty" json:"token_url,omitempty"`
+	// ClientID / ClientSecret may be given literally, or by naming an
+	// environment variable (*_env) so the secret stays out of the model YAML.
+	// Exactly one of the two forms must be set for each.
+	ClientID        string   `yaml:"client_id,omitempty" json:"client_id,omitempty"`
+	ClientIDEnv     string   `yaml:"client_id_env,omitempty" json:"client_id_env,omitempty"`
+	ClientSecret    string   `yaml:"client_secret,omitempty" json:"client_secret,omitempty"`
+	ClientSecretEnv string   `yaml:"client_secret_env,omitempty" json:"client_secret_env,omitempty"`
+	Scopes          []string `yaml:"scopes,omitempty" json:"scopes,omitempty"`
+	// EndpointParams are extra form parameters for the token request, e.g.
+	// "audience" (Auth0/Keycloak) or "resource" (RFC 8707).
+	EndpointParams map[string]string `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
+}
+
+// Validate checks the static shape of a remote server entry. Environment
+// variables are deliberately not resolved here: in distributed mode the
+// connection is made on an agent worker, whose environment may differ from
+// the frontend that loads the YAML.
+func (s MCPRemoteServer) Validate() error {
+	if s.OAuth2 == nil {
+		return nil
+	}
+	if s.Token != "" {
+		return errors.New("token and oauth2 are mutually exclusive")
+	}
+	o := s.OAuth2
+	if o.TokenURL == "" {
+		return errors.New("oauth2.token_url is required")
+	}
+	if err := validateTokenURL(o.TokenURL); err != nil {
+		return err
+	}
+	if err := exactlyOne("client_id", o.ClientID, o.ClientIDEnv); err != nil {
+		return err
+	}
+	return exactlyOne("client_secret", o.ClientSecret, o.ClientSecretEnv)
+}
+
+// validateTokenURL requires https for the token endpoint so the client
+// secret is not sent in clear text. Loopback hosts are exempt to allow
+// local identity providers and tests.
+func validateTokenURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("oauth2.token_url %q is not a valid absolute URL", raw)
+	}
+	switch u.Scheme {
+	case "https":
+		return nil
+	case "http":
+		switch u.Hostname() {
+		case "localhost", "127.0.0.1", "::1":
+			return nil
+		}
+	}
+	return errors.New("oauth2.token_url must use https (http is allowed only for localhost, 127.0.0.1 and ::1)")
+}
+
+func exactlyOne(field, literal, env string) error {
+	switch {
+	case literal != "" && env != "":
+		return fmt.Errorf("oauth2.%s and oauth2.%s_env are mutually exclusive", field, field)
+	case literal == "" && env == "":
+		return fmt.Errorf("oauth2 requires %s or %s_env", field, field)
+	}
+	return nil
+}
+
+// String redacts credentials when server entries are formatted as text.
+func (s MCPRemoteServer) String() string {
+	auth := "none"
+	switch {
+	case s.OAuth2 != nil:
+		auth = "oauth2(" + s.OAuth2.TokenURL + ")"
+	case s.Token != "":
+		auth = "token([redacted])"
+	}
+	return fmt.Sprintf("{url: %s, auth: %s}", s.URL, auth)
+}
+
+// LogValue also redacts credentials in structured JSON logs, which bypass String.
+func (s MCPRemoteServer) LogValue() slog.Value {
+	return slog.StringValue(s.String())
 }
 
 // @Description MCP STDIO server configuration
@@ -1053,8 +1328,8 @@ type PipelineStreaming struct {
 	// ClauseChunking splits the streamed LLM reply into speakable clauses and
 	// synthesizes each as soon as it completes, instead of buffering the whole
 	// message before TTS. Script-aware (CJK/Thai), so it does not rely on
-	// whitespace sentence boundaries. Requires LLM streaming; unset buffers the
-	// whole message (today's default).
+	// whitespace sentence boundaries. Requires explicit true; unset and false
+	// retain whole-reply synthesis for engines without native live text input.
 	ClauseChunking *bool `yaml:"clause_chunking,omitempty" json:"clause_chunking,omitempty"`
 }
 
@@ -1716,7 +1991,14 @@ func (c *ModelConfig) Validate() (bool, error) {
 		if c.Backend != "" || c.Model != "" {
 			return false, fmt.Errorf("alias config %q must not set backend or parameters.model: an alias is a pure redirect", c.Name)
 		}
+		if err := c.validateProfileFields(); err != nil {
+			return false, err
+		}
 		return true, nil
+	}
+
+	if err := c.validateProfileFields(); err != nil {
+		return false, err
 	}
 
 	downloadedFileNames := []string{}
@@ -1967,6 +2249,33 @@ func (c *ModelConfig) GetModelConfigFile() string {
 	return c.modelConfigFile
 }
 
+// validateProfileFields checks client_tools and the profile block. It runs for
+// aliases too, which otherwise skip validation: their profile is used.
+func (c *ModelConfig) validateProfileFields() error {
+	for key, value := range map[string]string{"client_tools": c.ClientTools, "profile.client_tools": c.Profile.ClientTools} {
+		switch value {
+		case "", ClientToolsDrop:
+		default:
+			return fmt.Errorf("%s: unknown value %q (allowed: %q)", key, value, ClientToolsDrop)
+		}
+	}
+	if c.Profile.IsZero() {
+		return nil
+	}
+	if !c.IsAlias() {
+		return fmt.Errorf("profile is only valid on an alias config (model %q has no alias)", c.Name)
+	}
+	if c.Profile.MCP.HasMCPServers() {
+		if _, _, err := c.Profile.MCP.MCPConfigFromYAML(); err != nil {
+			return fmt.Errorf("profile: invalid MCP configuration: %w", err)
+		}
+	}
+	if ec := c.Profile.EvidenceCheck; ec.Note != "" && !ec.Numbers {
+		return fmt.Errorf("profile.evidence_check.note has no effect without numbers: true")
+	}
+	return nil
+}
+
 // PersistedConfigRevision returns the revision stamped when this configuration
 // was loaded, or "" when it was never stamped (a config synthesized outside the
 // loader). Callers that need a revision for a request must prefer this over
@@ -2088,6 +2397,14 @@ const (
 	// pickers it cannot serve.
 	FLAG_DECISIONS ModelConfigUsecase = 1 << 25
 
+	// Marks a model as an image upscaler served by the UpscaleImage RPC.
+	FLAG_UPSCALE ModelConfigUsecase = 1 << 26
+
+	// Marks a model as a motion-capture backend (GEM-X pose streaming).
+	// Keep every usecase flag a distinct bit: the "Usecase flags" spec
+	// guards against two flags silently sharing one.
+	FLAG_MOTION ModelConfigUsecase = 1 << 27
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -2097,7 +2414,7 @@ const (
 // both text/language). A model is multimodal when its usecases span 2+ groups.
 var ModalityGroups = []ModelConfigUsecase{
 	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                           // text/language
-	FLAG_VISION | FLAG_DETECTION,                                      // visual understanding
+	FLAG_VISION | FLAG_DETECTION | FLAG_MOTION,                        // visual understanding
 	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
 	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
 	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
@@ -2151,6 +2468,8 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_3D":                   FLAG_3D,
 		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
 		"FLAG_DECISIONS":            FLAG_DECISIONS,
+		"FLAG_UPSCALE":              FLAG_UPSCALE,
+		"FLAG_MOTION":               FLAG_MOTION,
 	}
 }
 
@@ -2179,7 +2498,7 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 //
 // Declared known_usecases are normally additive — the guessing heuristic
 // still adds whatever it can infer from backend/templates. The exceptions
-// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY and FLAG_DECISIONS: when the operator
+// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY, FLAG_DECISIONS and FLAG_UPSCALE: when the operator
 // declared any of them, they reserved the model for a direct-decode primitive
 // (the router classifier, the PII NER tier, or a decision head). Letting GuessUsecases
 // paint chat/completion/embeddings on top would surface it in pickers it
@@ -2191,7 +2510,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_DECISIONS)) != 0 {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_DECISIONS | FLAG_UPSCALE)) != 0 {
 			return false
 		}
 	}
@@ -2202,6 +2521,16 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 // In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
+	// Upscaling requires a dedicated model declaration, not just an image backend.
+	if u&FLAG_UPSCALE != 0 {
+		return false
+	}
+	if u&FLAG_MOTION != 0 {
+		// Motion is declared by the backend registry, never inferred from templates.
+		if cap := GetBackendCapability(c.Backend); cap == nil || !slices.Contains(cap.PossibleUsecases, UsecaseMotion) {
+			return false
+		}
+	}
 	// Backends that are clearly not text-generation
 	nonTextGenBackends := []string{
 		"whisper", "piper", "kokoro",

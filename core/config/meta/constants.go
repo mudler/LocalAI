@@ -62,6 +62,7 @@ var UsecaseOptions = []FieldOption{
 	{Value: "rerank", Label: "Rerank"},
 	{Value: "score", Label: "Score (Router Classifier)"},
 	{Value: "image", Label: "Image"},
+	{Value: "upscale", Label: "Image upscaling"},
 	{Value: "vision", Label: "Vision"},
 	{Value: "detection", Label: "Detection"},
 	{Value: "depth", Label: "Depth"},

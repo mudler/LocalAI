@@ -17,11 +17,22 @@ type ArtifactMaterializer interface {
 }
 
 type installOptions struct {
-	materializer ArtifactMaterializer
-	variant      string
+	materializer        ArtifactMaterializer
+	variant             string
+	backendAvailability BackendAvailability
 }
 
 type InstallOption func(*installOptions)
+
+// WithBackendAvailability supplies the execution target's view of installed
+// backends; absent, the local host's.
+func WithBackendAvailability(available BackendAvailability) InstallOption {
+	return func(options *installOptions) {
+		if available != nil {
+			options.backendAvailability = available
+		}
+	}
+}
 
 func WithArtifactMaterializer(materializer ArtifactMaterializer) InstallOption {
 	return func(options *installOptions) {

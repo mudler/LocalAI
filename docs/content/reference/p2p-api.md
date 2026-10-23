@@ -7,7 +7,7 @@ url = "/features/p2p/"
 
 LocalAI supports peer-to-peer (P2P) networking for distributed inference. The P2P API endpoints allow you to monitor connected worker and federated nodes, retrieve the P2P network token, and get cluster statistics.
 
-For an overview of distributed inference setup, see [Distributed Inference](/features/distributed_inferencing/).
+For an overview of distributed inference setup, see [Distributed Inference](/features/distribute/).
 
 ## Endpoints
 

@@ -18,8 +18,9 @@ type fieldSpec struct {
 	// jsonNames this spec owns; a single entry except for composite rows
 	// (max_active_backends + its deprecated alias single_backend).
 	jsonNames []string
-	// requiresRestart marks fields whose live change makes
-	// ApplyRuntimeSettings report a restart to the settings endpoint.
+	// requiresRestart is the legacy service-reconfiguration marker consumed
+	// by the settings endpoint as a watchdog restart signal. Server-only
+	// restart notifications must not use this marker.
 	requiresRestart bool
 	// fileAuthoritative: at startup/watch time the persisted value applies
 	// unconditionally - either no env/CLI source exists (branding) or the
@@ -162,10 +163,18 @@ var runtimeSettingsFields = []fieldSpec{
 			return cur.MaxActiveBackends != base.MaxActiveBackends || cur.SingleBackend != base.SingleBackend
 		},
 	},
+	field("official_libraries",
+		func(s *RuntimeSettings) **bool { return &s.OfficialLibraries },
+		func(o *ApplicationConfig) bool { return o.OfficialLibraries },
+		func(o *ApplicationConfig, v bool) { o.OfficialLibraries = v }),
 	field("auto_upgrade_backends",
 		func(s *RuntimeSettings) **bool { return &s.AutoUpgradeBackends },
 		func(o *ApplicationConfig) bool { return o.AutoUpgradeBackends },
 		func(o *ApplicationConfig, v bool) { o.AutoUpgradeBackends = v }),
+	field("auto_upgrade_addons",
+		func(s *RuntimeSettings) **bool { return &s.AutoUpgradeAddons },
+		func(o *ApplicationConfig) bool { return o.AutoUpgradeAddons },
+		func(o *ApplicationConfig, v bool) { o.AutoUpgradeAddons = v }),
 	field("prefer_development_backends",
 		func(s *RuntimeSettings) **bool { return &s.PreferDevelopmentBackends },
 		func(o *ApplicationConfig) bool { return o.PreferDevelopmentBackends },

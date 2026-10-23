@@ -23,6 +23,33 @@ model, see [Model Configuration]({{% relref "advanced/model-configuration" %}}).
 | `--credentials-file` | | YAML file with credentials for private registries, galleries and download hosts. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}) | `$LOCALAI_CREDENTIALS_FILE` |
 | `--debug` | `false` | **DEPRECATED** - Use `--log-level=debug` instead. Enable debug logging | `$LOCALAI_DEBUG`, `$DEBUG` |
 
+## Diagnostics flags
+
+See [Profiling and request diagnostics]({{% relref "features/diagnostics" %}}) for sampling semantics, phase boundaries, and protected pod captures.
+
+These options apply only to `local-ai run`, including distributed frontends.
+Diagnostics state is per-instance, not shared between replicas. Debug logging enables neither feature.
+The profiling listener is separate from the public API and accepts only numeric loopback addresses with explicit ports.
+`--preload-backend-only` validates these options but does not start profiling or sampling.
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--pprof` | `false` | Enable the private loopback profiling listener | `$LOCALAI_PPROF` |
+| `--pprof-address` | `127.0.0.1:6060` | Numeric loopback IP and port (1–65535), including bracketed IPv6; validated even when disabled | `$LOCALAI_PPROF_ADDRESS` |
+| `--pprof-mutex-profile-fraction` | `0` | Nonnegative mutex sampling fraction; nonzero requires pprof | `$LOCALAI_PPROF_MUTEX_PROFILE_FRACTION` |
+| `--pprof-block-profile-rate` | `0` | Nonnegative block sampling rate in nanoseconds; nonzero requires pprof | `$LOCALAI_PPROF_BLOCK_PROFILE_RATE` |
+| `--request-phase-timing` | `false` | Emit sanitized phase timing at Info, independently of pprof; warn/error filtering suppresses events | `$LOCALAI_REQUEST_PHASE_TIMING` |
+
+Sampling adds overhead. The process applies configured rates once and resets them to zero on shutdown.
+There is no runtime toggle, continuous capture, or public API route for diagnostics.
+The private listener has no authentication: other processes in the same network namespace can access profiles.
+Profiles can contain secrets; protect captured files. The `/debug/pprof/cmdline` endpoint is unavailable.
+Shutdown allows five seconds for cleanup, then force-closes profiling connections.
+Existing application initialization operations may not promptly observe cancellation.
+The signal callback still returns after its cleanup budget expires.
+If initialization fails without returning an application handle, this lifecycle cannot shut down resources created inside that failed initialization.
+Application shutdown has no context parameter; work that ignores cancellation can outlive the cleanup budget.
+
 ## Storage Flags
 
 | Parameter | Default | Description | Environment Variable |
@@ -36,6 +63,7 @@ model, see [Model Configuration]({{% relref "advanced/model-configuration" %}}).
 | `--localai-config-dir-poll-interval` | | Time duration to poll the LocalAI Config Dir if your system has broken fsnotify events (example: `1m`) | `$LOCALAI_CONFIG_DIR_POLL_INTERVAL` |
 
 | `--models-config-file` | | YAML file containing a list of model backend configs (alias: `--config-file`) | `$LOCALAI_MODELS_CONFIG_FILE`, `$CONFIG_FILE` |
+| `--addon-host-ops` | `fine-tuning=finetune.,quantization=quantize.` | Add-ons that may call host operations, as a comma list of `addon-id=operation-prefix`. An add-on that is not listed gets no host operation channel; an empty value lists none. See [Host operations]({{% relref "features/addons" %}}) | `$LOCALAI_ADDON_HOST_OPS` |
 | `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only — a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
 
 Backend processes receive a private scratch directory through `TMPDIR`, `TMP`,
@@ -115,6 +143,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-predownload-scan` | `false` | If true, disables the best-effort security scanner before downloading any files | `$LOCALAI_DISABLE_PREDOWNLOAD_SCAN` |
+| `--disable-backend-install` | `false` | If true, refuse to install or upgrade backends from galleries, OCI images, URLs or paths, including automatic installs, so the running backend set stays exactly what was deployed and tested; only backends already present or provided via `--backends-system-path` are used | `$LOCALAI_DISABLE_BACKEND_INSTALL`, `$DISABLE_BACKEND_INSTALL` |
 | `--opaque-errors` | `false` | If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended | `$LOCALAI_OPAQUE_ERRORS` |
 | `--use-subtle-key-comparison` | `false` | If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resilience against timing attacks | `$LOCALAI_SUBTLE_KEY_COMPARISON` |
 | `--disable-api-key-requirement-for-http-get` | `false` | If true, a valid API key is not required to issue GET requests to portions of the web UI. This should only be enabled in secure testing environments | `$LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET` |
@@ -210,6 +239,22 @@ distinct from the `1` a failure reports.
 | `--p2ptoken` | | Token for P2P mode (optional) | `$LOCALAI_P2P_TOKEN`, `$P2P_TOKEN`, `$TOKEN` |
 | `--p2p-network-id` | | Network ID for P2P mode, can be set arbitrarily by the user for grouping a set of instances | `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID` |
 | `--federated` | `false` | Enable federated instance | `$LOCALAI_FEDERATED`, `$FEDERATED` |
+
+## Library sources
+
+`local-ai library` manages the sources LocalAI reads add-ons, backends and models from. The sources are stored under the data path (`addons/sources.json`), the file the server reads, so the commands work with the server stopped.
+
+| Command | What it does |
+|---------|--------------|
+| `local-ai library list` | List every source with its kind, id, URL, and whether it is enabled, a shipped default, or removed |
+| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery]` | Add a source of your own |
+| `local-ai library remove <id>` | Remove a source. A removed default leaves a tombstone, so it does not come back at the next start |
+| `local-ai library enable <id>` | Turn a source on. This also brings back a removed default |
+| `local-ai library disable <id>` | Turn a source off without removing it |
+
+All `local-ai library` commands accept `--official-libraries` (`LOCALAI_OFFICIAL_LIBRARIES`, default `true`). With `--official-libraries=false` the list shows the shipped default sources as off. The same switch is the runtime setting `official_libraries` and the toggle "Use official libraries" in Settings. See [Library sources](/features/addons/#library-sources).
+
+When two enabled sources list the same entry (same kind and id), your own source wins over a shipped default. If two of your own sources list it, the entry is refused and the message names both sources: disable or remove one of them. The `--galleries` and `--backend-galleries` flags keep working: each gallery they name is added as a source of your own (kind `model` or `backend`, format `gallery`) at startup, unless it is already a source.
 
 ## Other Commands
 

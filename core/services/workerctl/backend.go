@@ -29,6 +29,17 @@ type BackendInstallRequest struct {
 	// running, debounced to roughly 250ms. Empty means the caller is a
 	// reconciler-driven retry that does not need progress streamed.
 	OpID string `json:"op_id,omitempty"`
+	// OperationID names the load this install belongs to (the load job
+	// generation). With it the worker tracks the load as an operation it can
+	// bound: it kills the backend when renewals stop or the deadline passes.
+	// Workers older than this field ignore it. Empty means a controller older
+	// than this field: the worker then tracks an anonymous operation.
+	OperationID string `json:"operation_id,omitempty"`
+	// DeadlineMs is the longest the load may run, as a duration in
+	// milliseconds, not a timestamp, so worker clock skew does not matter. The
+	// worker converts it to its own monotonic deadline when the request
+	// arrives. Zero means the worker's default.
+	DeadlineMs int64 `json:"deadline_ms,omitempty"`
 }
 
 // BackendInstallReply is the response from a backend.install control request.
@@ -36,6 +47,15 @@ type BackendInstallReply struct {
 	Success bool   `json:"success"`
 	Address string `json:"address,omitempty"` // gRPC address of the backend process (host:port)
 	Error   string `json:"error,omitempty"`
+	// ProcessInstance identifies this incarnation of the backend process, so a
+	// later stop cannot hit a replacement that took the same port.
+	ProcessInstance string `json:"process_instance,omitempty"`
+	// ReportsOperations is true on a worker that tracks load operations. A reply
+	// without it comes from a worker that predates them: it cannot confirm a
+	// stop, so the controller stops its process by exact address and holds the
+	// model for the load deadline. The capability belongs to the worker, not to
+	// the transport.
+	ReportsOperations bool `json:"reports_operations,omitempty"`
 }
 
 // BackendUpgradeRequest is the payload for a backend.upgrade control request.
@@ -90,9 +110,15 @@ type BackendListReply struct {
 
 // NodeBackendInfo describes a backend installed on a worker node.
 type NodeBackendInfo struct {
-	Name        string `json:"name"`
-	IsSystem    bool   `json:"is_system"`
-	IsMeta      bool   `json:"is_meta"`
+	Name     string `json:"name"`
+	IsSystem bool   `json:"is_system"`
+	IsMeta   bool   `json:"is_meta"`
+	// Alias is the alternative name a model config may use for this
+	// backend. The worker resolves it on its own disk when it loads the
+	// model; the frontend needs it only to judge whether such a model can
+	// run anywhere in the cluster. It rides on the concrete's own row, so
+	// upgrade detection still sees one row per installed backend.
+	Alias       string `json:"alias,omitempty"`
 	InstalledAt string `json:"installed_at,omitempty"`
 	GalleryURL  string `json:"gallery_url,omitempty"`
 	// Version, URI and Digest enable cluster-wide upgrade detection:

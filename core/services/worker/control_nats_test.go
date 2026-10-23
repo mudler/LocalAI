@@ -129,7 +129,7 @@ var _ = Describe("Worker control verbs over NATS", func() {
 		s = newLifecycleTestSupervisor(sigCh)
 	})
 
-	It("subscribes exactly the ten lifecycle subjects of the node", func() {
+	It("subscribes exactly the eleven lifecycle subjects of the node", func() {
 		Expect(registerLifecycleForTest(s, bus)).To(Succeed())
 		Expect(bus.subscribed()).To(ConsistOf(
 			messaging.SubjectNodeBackendInstall("n1"),
@@ -140,6 +140,7 @@ var _ = Describe("Worker control verbs over NATS", func() {
 			messaging.SubjectNodeModelsRunning("n1"),
 			messaging.SubjectNodeModelUnload("n1"),
 			messaging.SubjectNodeModelStop("n1"),
+			messaging.SubjectNodeModelOp("n1"),
 			messaging.SubjectNodeModelDelete("n1"),
 			messaging.SubjectNodeStop("n1"),
 		))
@@ -175,7 +176,7 @@ var _ = Describe("Worker control verbs over NATS", func() {
 			Eventually(replies).Should(Receive(Equal(want)))
 		},
 		Entry("backend.list", messaging.SubjectNodeBackendList, `{"backends":null}`),
-		Entry("models.running", messaging.SubjectNodeModelsRunning, `{"models":[]}`),
+		Entry("models.running", messaging.SubjectNodeModelsRunning, `{"models":[],"reports_operations":true}`),
 	)
 
 	It("signals shutdown on node.stop without replying, and never blocks on a repeat", func() {

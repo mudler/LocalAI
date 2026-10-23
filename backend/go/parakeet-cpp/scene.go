@@ -120,6 +120,9 @@ func (p *ParakeetCpp) sceneBegin(voices []*pb.KnownVoice) sceneStreamHandle {
 		opts.SpeakerMargin = p.speakerMargin
 		s := CppSceneStreamBeginSpeaker(0, diar, tag, p.spkCtx, reg, &opts)
 		if s == 0 {
+			// The library also refuses a registry from another encoder (or without a
+			// fingerprint under speaker_strict) here and says why on the speaker context.
+			xlog.Warn("parakeet-cpp: could not start a live session with speaker names", "error", CppLastError(p.spkCtx))
 			p.freeSpeakerRegistry(reg)
 			return sceneStreamHandle{}
 		}
@@ -169,6 +172,18 @@ func (p *ParakeetCpp) sceneFeed(h sceneStreamHandle, pcm []float32, isLast bool)
 		return sceneFeedJSON{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 
+	doc, err := sceneFeedLocked(h.s, pcm, isLast)
+	if err != nil {
+		return sceneFeedJSON{}, err
+	}
+	translateNames(doc.Names, h.names)
+	return doc, nil
+}
+
+// sceneFeedLocked runs one scene_stream_feed_json call and decodes its
+// document. The caller holds engineMu and has already checked that the
+// contexts the stream borrows are still loaded.
+func sceneFeedLocked(stream uintptr, pcm []float32, isLast bool) (sceneFeedJSON, error) {
 	var last int32
 	if isLast {
 		last = 1
@@ -177,11 +192,11 @@ func (p *ParakeetCpp) sceneFeed(h sceneStreamHandle, pcm []float32, isLast bool)
 	if len(pcm) > 0 {
 		ptr = &pcm[0]
 	}
-	ret := CppSceneStreamFeedJSON(h.s, ptr, int32(len(pcm)), last)
+	ret := CppSceneStreamFeedJSON(stream, ptr, int32(len(pcm)), last)
 	if ret == 0 {
 		msg := ""
 		if CppSceneStreamLastError != nil {
-			msg = CppSceneStreamLastError(h.s)
+			msg = CppSceneStreamLastError(stream)
 		}
 		if msg == "" {
 			msg = "unknown error"
@@ -194,7 +209,6 @@ func (p *ParakeetCpp) sceneFeed(h sceneStreamHandle, pcm []float32, isLast bool)
 	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 		return sceneFeedJSON{}, fmt.Errorf("parakeet-cpp: decode scene json: %w", err)
 	}
-	translateNames(doc.Names, h.names)
 	return doc, nil
 }
 

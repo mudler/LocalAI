@@ -9,6 +9,7 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/chathistory"
 	compressionservice "github.com/mudler/LocalAI/core/services/compression"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
@@ -33,13 +34,35 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	app *application.Application,
 	adminMiddleware echo.MiddlewareFunc,
 	mcpJobsMw echo.MiddlewareFunc,
-	mcpMw echo.MiddlewareFunc) {
+	mcpMw echo.MiddlewareFunc,
+	chatHistoryMw echo.MiddlewareFunc) {
 
 	// Themed index first, then the library's wildcard for its own assets.
 	RegisterSwaggerTheme(router)
 	router.GET("/swagger/*", echoswagger.EchoWrapHandler(func(c *echoswagger.Config) {
 		c.URLs = []string{"doc.json"}
 	}))
+
+	// Library sources of the add-on, backend and model kinds: the same store
+	// and functions as `local-ai library`. Administrators only.
+	librarySources := localai.LibrarySourcesEndpoints{
+		Store:    app.LibrarySources,
+		Official: func() bool { return appConfig.OfficialLibraries },
+		Applied:  app.ApplyLibraries,
+	}
+	router.GET("/api/library/sources", librarySources.List(), adminMiddleware)
+	router.POST("/api/library/sources", librarySources.Add(), adminMiddleware)
+	router.POST("/api/library/sources/:id/enable", librarySources.SetEnabled(true), adminMiddleware)
+	router.POST("/api/library/sources/:id/disable", librarySources.SetEnabled(false), adminMiddleware)
+	router.PUT("/api/library/sources/:id", librarySources.Update(), adminMiddleware)
+	router.DELETE("/api/library/sources/:id", librarySources.Remove(), adminMiddleware)
+
+	motion := localai.NewMotionEndpoints(app)
+	router.POST("/api/motion/sessions", motion.Create)
+	router.GET("/api/motion/sessions/:id", motion.Get)
+	router.DELETE("/api/motion/sessions/:id", motion.Delete)
+	router.GET("/api/motion/sessions/:id/poses", motion.Poses)
+	router.POST("/api/motion/sessions/:id/tickets", motion.Ticket)
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
@@ -55,7 +78,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 		// Edit model page
 		router.GET("/models/edit/:name", localai.GetEditModelPage(cl, appConfig), adminMiddleware)
-		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService, cl)
+		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig, galleryService, cl)
 		router.POST("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint(), adminMiddleware)
 		router.POST("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint(), adminMiddleware)
 
@@ -69,7 +92,11 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			appConfig.SystemState,
 			galleryService,
 			app.UpgradeChecker())
-		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware)
+		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
+		if lib := app.BackendLibrary(); lib != nil {
+			router.POST("/backends/library/install", localai.InstallBackendFromLibraryEndpoint(lib, galleryService), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
+			router.GET("/backends/library/updates", localai.BackendLibraryUpdatesEndpoint(lib), adminMiddleware)
+		}
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
 		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
 		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState, ClusterCapabilityProviderFor(app), ClusterInstalledProviderFor(app)), adminMiddleware)
@@ -78,9 +105,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
 		router.GET("/backends/upgrades", backendGalleryEndpointService.GetUpgradesEndpoint(), adminMiddleware)
 		router.POST("/backends/upgrades/check", backendGalleryEndpointService.CheckUpgradesEndpoint(), adminMiddleware)
-		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware)
+		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 		// Custom model import endpoint
-		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig), adminMiddleware)
+		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig, opcache), adminMiddleware)
 
 		// URI model import endpoint
 		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache), adminMiddleware)
@@ -170,6 +197,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		}
 		return nil
 	}))
+
+	// Cancel one load attempt. Admin only. It is deliberately not in the auth
+	// RouteFeatureRegistry: that registry meters modality use, and a cancel is
+	// management, not inference.
+	router.POST("/api/models/:id/load-cancel", localai.ModelLoadCancelEndpoint(func() *nodes.LoadCancelService {
+		if d := app.Distributed(); d != nil && d.Registry != nil {
+			return &nodes.LoadCancelService{Registry: d.Registry, Stopper: d.Unloader}
+		}
+		return nil
+	}, func(id string) bool {
+		_, ok := cl.GetModelConfig(id)
+		return ok
+	}), adminMiddleware)
 
 	// Failover chains: reads and the event stream use standard auth (any
 	// authenticated caller may watch chain health); pin/unpin are admin-only
@@ -343,7 +383,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"config_patch":        "/api/models/config-json/:name",
 				"autocomplete":        "/api/models/config-metadata/autocomplete/:provider",
 				"vram_estimate":       "/api/models/vram-estimate",
+				"model_storage":       "/api/models/storage",
 				"model_load_status":   "/api/models/:id/load-status",
+				"model_load_cancel":   "/api/models/:id/load-cancel",
 				"tts":                 "/tts",
 				"tts_voices":          "/v1/audio/voices",
 				"voice_profiles":      "/api/voice-profiles",
@@ -375,6 +417,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				},
 				"model_management": map[string]string{
 					"list_gallery": "/models/available",
+					"storage":      "/api/models/storage",
 					"install":      "/models/apply",
 					"delete":       "/models/delete/:name",
 					"edit":         "/models/edit/:name",
@@ -382,7 +425,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"reload":       "/models/reload",
 					"list_aliases": "/api/aliases",
 					"load_status":  "/api/models/:id/load-status",
+					"load_cancel":  "/api/models/:id/load-cancel",
 				},
+				// #nosec G101 -- route paths, not credentials.
 				"ai_functions": map[string]string{
 					"tts":            "/tts",
 					"tts_voices":     "/v1/audio/voices",
@@ -393,6 +438,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"detection":      "/v1/detection",
 					"tokenize":       "/v1/tokenize",
 					"detokenize":     "/v1/detokenize",
+					"slots_save":     "/v1/slots/save",
+					"slots_restore":  "/v1/slots/restore",
 				},
 				"monitoring": monitoringRoutes,
 				"mcp": map[string]string{
@@ -401,6 +448,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"prompts":          "/v1/mcp/prompts/:model",
 					"resources":        "/v1/mcp/resources/:model",
 				},
+				// #nosec G101 -- route paths, not credentials.
 				"p2p": map[string]string{
 					"nodes": "/api/p2p",
 					"token": "/api/p2p/token",
@@ -429,6 +477,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"config_metadata": true,
 				"config_patch":    true,
 				"vram_estimate":   true,
+				"model_storage":   true,
+				"backend_install": !appConfig.DisableBackendInstall,
 				"mcp":             !appConfig.DisableMCP,
 				"agents":          appConfig.AgentPool.Enabled,
 				"p2p":             appConfig.P2PToken != "",
@@ -450,7 +500,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"fine_tuning":       true,
 			"quantization":      true,
 			"distributed":       appConfig.Distributed.Enabled,
+			"backend_install":   !appConfig.DisableBackendInstall,
 			"localai_assistant": !appConfig.DisableLocalAIAssistant && app.LocalAIAssistant() != nil,
+			"addon_navigation":  !appConfig.LegacyNavigation,
 		})
 	})
 
@@ -468,6 +520,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		detokenizeHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetokenizeRequest) }))
+
+	// Slot prompt-cache save and restore (llama-cpp). Admin only: it writes
+	// files on the host that runs the backend.
+	router.POST("/v1/slots/save",
+		localai.SlotCacheSaveEndpoint(ml, appConfig),
+		adminMiddleware,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.SlotCacheRequest) }))
+	router.POST("/v1/slots/restore",
+		localai.SlotCacheRestoreEndpoint(ml, appConfig),
+		adminMiddleware,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.SlotCacheRequest) }))
 
 	// MCP endpoint - supports both streaming and non-streaming modes
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
@@ -532,4 +597,25 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/api/agent/tasks/:name/execute", localai.ExecuteTaskByNameEndpoint(app), mcpJobsMw)
 	}
 
+	// Chat history persistence (#9432). Skipped entirely when the store is
+	// nil (WebUI disabled or no auth database) — registering routes that
+	// could only ever fail adds surface area for nothing.
+	if app != nil {
+		RegisterChatHistoryRoutes(router, app.ChatHistoryStore(), chatHistoryMw)
+	}
+}
+
+// RegisterChatHistoryRoutes wires the per-user conversation endpoints. A nil
+// store registers nothing, so the React UI sees 404 and stays on localStorage.
+func RegisterChatHistoryRoutes(router *echo.Echo, store *chathistory.Store, chatHistoryMw echo.MiddlewareFunc) {
+	if store == nil {
+		return
+	}
+	router.GET("/api/conversations", localai.ListConversationsEndpoint(store), chatHistoryMw)
+	router.POST("/api/conversations", localai.SaveConversationEndpoint(store), chatHistoryMw)
+	router.DELETE("/api/conversations", localai.DeleteAllConversationsEndpoint(store), chatHistoryMw)
+	router.PUT("/api/conversations/bulk", localai.BulkReplaceConversationsEndpoint(store), chatHistoryMw)
+	router.GET("/api/conversations/:id", localai.GetConversationEndpoint(store), chatHistoryMw)
+	router.PUT("/api/conversations/:id", localai.SaveConversationByIDEndpoint(store), chatHistoryMw)
+	router.DELETE("/api/conversations/:id", localai.DeleteConversationEndpoint(store), chatHistoryMw)
 }

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
@@ -72,6 +73,8 @@ type downloadOptions struct {
 	bearerToken      string
 	transferProgress TransferProgressSink
 	stagingDir       string
+	maxBytes         int64
+	stage            StageReporter
 }
 
 // DownloadOption configures DownloadFileWithContext / DownloadFile.
@@ -92,6 +95,38 @@ func WithImageVerifier(v ImageVerifier) DownloadOption {
 // The token is stripped if a request redirects to a different origin.
 func WithBearerToken(token string) DownloadOption {
 	return func(o *downloadOptions) { o.bearerToken = token }
+}
+
+// WithMaxBytes refuses an OCI image whose compressed layers add up to more
+// than n bytes. The check reads the manifest and runs after signature
+// verification and before any layer is fetched. It does nothing for other
+// download kinds, and n <= 0 sets no limit.
+func WithMaxBytes(n int64) DownloadOption {
+	return func(o *downloadOptions) { o.maxBytes = n }
+}
+
+// The stages of an OCI download, in the order the downloader enters them. A
+// stage is reported only when it runs: verifying needs an ImageVerifier and
+// size needs WithMaxBytes.
+const (
+	StageVerifying = "verifying"
+	StageSize      = "size"
+	StageFetching  = "fetching"
+)
+
+// StageReporter receives the name of each stage as the download enters it.
+type StageReporter func(stage string)
+
+// WithStageReporter reports the stages of an OCI download. It does nothing for
+// other download kinds.
+func WithStageReporter(r StageReporter) DownloadOption {
+	return func(o *downloadOptions) { o.stage = r }
+}
+
+func (o *downloadOptions) enter(stage string) {
+	if o.stage != nil {
+		o.stage(stage)
+	}
 }
 
 func WithStagingDir(dir string) DownloadOption {
@@ -667,12 +702,21 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			pinned = pinnedImageRef(url, digest.String())
 		}
 		if dopts.verifier != nil {
+			dopts.enter(StageVerifying)
 			if verr := dopts.verifier.VerifyImage(ctx, pinned); verr != nil {
 				return fmt.Errorf("image verification failed for %q: %w", url, verr)
 			}
 			xlog.Info("Image signature verified", "ref", pinned)
 		}
 
+		if dopts.maxBytes > 0 {
+			dopts.enter(StageSize)
+			if cerr := checkImageSize(img, dopts.maxBytes); cerr != nil {
+				return fmt.Errorf("image %q: %w", url, cerr)
+			}
+		}
+
+		dopts.enter(StageFetching)
 		if isModelPack {
 			return fetchModelPackViaLlmman(ctx, pinned, filePath, requestedPath, downloadStatus)
 		}
@@ -999,4 +1043,27 @@ func CalculateSHA(filePath string) (string, error) {
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+// ErrImageTooLarge is returned when an image is over the limit of WithMaxBytes.
+var ErrImageTooLarge = errors.New("image is larger than the size limit")
+
+// checkImageSize sums the compressed layer sizes the manifest declares.
+func checkImageSize(img v1.Image, limit int64) error {
+	layers, err := img.Layers()
+	if err != nil {
+		return fmt.Errorf("reading layers: %w", err)
+	}
+	var total int64
+	for _, l := range layers {
+		size, err := l.Size()
+		if err != nil || size < 0 {
+			return fmt.Errorf("reading layer size: %w", err)
+		}
+		if size > limit-total {
+			return fmt.Errorf("%w (limit %d bytes)", ErrImageTooLarge, limit)
+		}
+		total += size
+	}
+	return nil
 }

@@ -28,16 +28,171 @@ GPT and text generation models might have a license which is not permissive for 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
 lifecycle and has two views:
 
-- **Explore** browses configured galleries, compares hardware fit and variants,
-  and installs models. This is the default view.
-- **Installed** lists local model configurations and their running, idle,
-  disabled, pinned, and distributed state. Select a model to load or stop it,
-  edit its configuration, open a supported use case, inspect backend logs, or
-  remove it.
+- **Explore** browses configured galleries and installs models. It is one
+  dense table: each row shows the model's size, a bar for the memory it needs at
+  the chosen context length, and the headroom in words ("3.7 free", "+1.5 on
+  CPU", "0.9 over"). Capability chips show how many models each one matches.
+  Select a row to open the details beside the table: the fit on this machine,
+  VRAM by context length, variants, files, links, tags and licence. This is the
+  default view.
+- **Installed** lists local model configurations in the same table, with their
+  running, idle, disabled, pinned, and distributed state and their size on disk.
+  Load or stop a model from its row, or select it to edit its configuration,
+  open a supported use case, inspect backend logs, or remove it.
 
-Both views use the same model selection and store the view, search, filter, and
-selection in the URL. Installing from Explore does not move you away from the
-catalog; the entry updates in place when the operation finishes.
+Both views store the view, search, filter, and selection in the URL. Installing
+from Explore does not move you away from the catalog; the entry updates in place
+when the operation finishes.
+
+### MiniCPM-V 4.7 1B
+
+[MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
+supports text chat and image understanding through the llama.cpp backend.
+The gallery includes official Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds.
+Each build includes the F16 vision projector and uses an 8,192-token default context.
+
+Install the family with automatic variant selection:
+
+```bash
+local-ai models install minicpm-v-4_7-1b-q4
+```
+
+Select a specific build with `--variant minicpm-v-4_7-1b-q4`,
+`--variant minicpm-v-4_7-1b-q5`, `--variant minicpm-v-4_7-1b-q6`,
+or `--variant minicpm-v-4_7-1b-q8`.
+
+### Repairing an existing model configuration
+
+Gallery template updates do not rewrite YAML files for already installed models.
+If an older installation puts `context_size`, `f16`, or `mmap` under
+`parameters`, move those fields to the YAML root. LocalAI reads them at the
+root; nested copies are ignored. Keep `model` and sampling options under
+`parameters`.
+
+For example, the relevant fields in `models/qwen3-vl-4b-thinking.yaml` should be:
+
+```yaml
+context_size: 8192
+f16: true
+mmap: true
+parameters:
+  model: Qwen3-VL-4B-Thinking-Q4_K_M.gguf
+```
+
+Back up the installed YAML before editing it, preserve its other settings, and
+remove the misplaced nested copies. Use your configured models directory if it
+is not `models`. Preserve model-specific context values: `supra2-100m-instruct`
+uses `2048`, while `shieldstral-1.0-3b` and `shieldstral-1.0-3b-q8` use `32768`.
+Restart LocalAI after editing so it reads the repaired configuration and reloads
+the model. You do not need to download the weights again.
+
+### A model's own page
+
+Every model also has a page of its own at `/app/models/<name>`, so it can be
+linked. Open it with the arrow at the end of a row, a double click on the row,
+or `o` on the selected row. On a phone, a tap on a row opens it. The details
+beside the table stay as the quick look.
+
+The title block names the model and holds the main action: **Install**, with a
+chevron to choose which build to install, or **Load** and **Stop** with a menu
+for an installed model (disable, pin, edit configuration, logs, delete). A strip
+under it answers three questions: whether the model fits this machine, what it
+does, and what installing leaves free on the models disk (or its state, when it
+is installed). The tabs are:
+
+- **Overview**: the description, backend, licence, largest context, tags, links
+  and a memory bar. For an installed model it also shows its state, the pages it
+  opens in, and which agents, agent tasks, failover chains and aliases name it.
+- **Fit and memory**: the verdict in words, a context size selector, the memory
+  bar split into weights and the part that grows with context, and a chart of the
+  memory needed at each context size against the memory this machine offers.
+  When a model has several builds, pick the build to see its own figures.
+- **Variants and files**: the builds with their size and fit, and the files the
+  chosen build downloads. Install any build from its row.
+- **Usage and history**, **Configuration** and **Logs**, for installed models.
+  LocalAI does not record requests, timings, loads or configuration changes for
+  each model, so the usage tab lists what it cannot show yet instead of an empty
+  chart. The same tab lists the files the model uses on disk, with their size,
+  the other models that use them, and any file the configuration names that is
+  not on disk (see [Disk and cleanup](#disk-and-cleanup)). Configuration holds the [Placement](/advanced/model-configuration/#placement)
+  section. Logs is the backend log viewer of the Operate section.
+
+The page reads the same lists as the table, so it works for a model the gallery
+does not list (it has no variants or files tab) and for a gallery model that is
+not installed (it has no usage, configuration or logs tab). If the gallery cannot
+be reached, an installed model keeps working and Install says why it is off.
+
+Going back with `Esc`, `Backspace` or the **Models** button returns to the list
+with its view, search, filters, selection and scroll as you left them. The
+previous and next buttons step through the rows of the list you came from, in
+the order you saw them.
+
+### Keyboard
+
+On the Models page, `/` jumps to the search field, the up and down arrows move
+the selection, `Enter` installs the selected model in Explore, `d` switches
+between comfortable and compact rows, `o` opens the selected model's page, and
+`Esc` closes the details.
+
+On a model's page, `1` to `6` switch tabs, `[` and `]` (or `k` and `j`) step to
+the previous and next model of the list, and `Esc` goes back to the list.
+
+### Disk and cleanup
+
+When the server reports the disk that holds the models directory, a strip in the
+page header shows how much of it is free. It turns amber when less than 10
+percent, or less than 20 GB, is free. In Explore, the details of a model say how
+much disk an install leaves free. The strip is hidden when the disk cannot be
+read, and on a distributed controller, where the models live on the workers.
+
+Select the strip to open the cleanup review. LocalAI does not record when a
+model was last used or how often, so the review says so and ranks installed
+models only by what it can see:
+
+- **Safe to remove**: another build of the same gallery model is installed, and
+  the build LocalAI would pick on this host is the one that stays.
+- **Probably safe**: disabled, unused, and available in the gallery to download
+  again.
+- **Your call**: not loaded and not used by anything, but with nothing more
+  known. A model that is not in the gallery cannot be downloaded again, and the
+  review says so.
+- **Protected**: loaded, pinned, or named by an agent, an agent task, a failover
+  chain or an alias. These are never suggested. If an agent or task cannot be
+  read, nothing is marked safe.
+
+For an admin, sizes are what each model uses on disk, read from
+`GET /api/models/storage`. A file that another installed model also uses stays
+on disk when you remove one of the two, so the review counts only the files a
+model does not share. It says which models share files, and the amount freed
+by a selection counts a shared file only when every model that uses it is in
+the selection. A configuration that names files that are not on disk (a download
+that did not finish, or files removed by hand) is listed as a finding. If the
+report cannot be read, for example because the user is not an admin, sizes fall
+back to the sizes of the files the gallery lists. A model that is not in the
+gallery then shows no size and is not counted in what a removal frees. Before you
+confirm, the review checks again and lists what will go, why, and how much it
+frees. Removal then waits 30 seconds, during which you can undo it; the delete
+request is sent only when that time ends. If you leave the page during the wait,
+nothing is deleted.
+
+## LFM2.5-24B-A2B
+
+[LiquidAI LFM2.5-24B-A2B](https://huggingface.co/LiquidAI/LFM2.5-24B-A2B)
+is a text-only reasoning model with 24B total parameters and 2.45B active
+parameters. The gallery provides the official Q4_K_M, Q5_K_M, Q6_K, and Q8_0
+GGUF builds through the `llama-cpp` backend.
+
+Install the model with automatic variant selection:
+
+```bash
+local-ai models install lfm2.5-24b-a2b
+```
+
+To select a specific quantization, use `--variant` with `lfm2.5-24b-a2b`
+(Q4_K_M), `lfm2.5-24b-a2b-q5`, `lfm2.5-24b-a2b-q6`, or
+`lfm2.5-24b-a2b-q8`. The entries use the embedded tokenizer template, a
+131,072-token context, and LiquidAI's recommended sampling settings.
+The weights use the [Liquid AI LFM Open License](https://huggingface.co/LiquidAI/LFM2.5-24B-A2B/blob/main/LICENSE).
 
 ## Cyber-Ornith 1.5 9B
 
@@ -171,10 +326,28 @@ This removal does not delete previously installed models. Remove that configurat
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
 
-- **Where they appear**: In the model gallery table (Size / VRAM column), in the model detail modal, and after starting an import from URI (in the success message).
-- **How they are computed**: GGUF models use file size (HTTP HEAD or local stat) and optional GGUF metadata (HTTP Range) for KV cache and overhead; other formats use Hugging Face file sizes and optional config when available. If metadata is unavailable, a size-only heuristic is used.
-- **Hardware fit indicator**: When your system reports GPU or RAM capacity, the gallery shows whether the estimated VRAM fits (green) or may not fit (red) using a 95% headroom rule.
+- **Where they appear**: In the model gallery table (Size and Fit columns), in the model inspector beside it, and after starting an import from URI (in the success message).
+- **How they are computed**: GGUF models use file size (HTTP HEAD or local stat) and optional GGUF metadata (HTTP Range) for KV cache and overhead; other formats use Hugging Face file sizes and optional config when available. If metadata is unavailable, a size-only heuristic is used. GGUF metadata lengths that exceed the file size are rejected before allocation; these files also use the size-only estimate.
+- **Hardware fit indicator**: When your system reports GPU or RAM capacity, each row shows whether the estimated memory at the chosen context length fits, using a 95% headroom rule. A model that is too big for the GPU but would run from system RAM is marked as spilling to the CPU, with how much; a model too big for both is marked as over by the shortfall.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
+
+## EmbeddingGemma 2
+
+The `embeddinggemma-2` family serves text embeddings through `llama-cpp`.
+It offers Q8_0 and BF16 weights, plus smaller Unsloth UD-Q4_K_XL,
+UD-Q5_K_XL, and UD-Q6_K_XL variants. These entries use the 270M-parameter
+text backbone with an 8192-token context and 768-dimensional output.
+
+To select a smaller build explicitly:
+
+```sh
+local-ai models install embeddinggemma-2 --variant embeddinggemma-2-ud-q4-k-xl
+```
+
+Send text to `/v1/embeddings`. For retrieval, prefix queries with
+`task: search result | query: ` and documents with `title: {title} | text: `.
+See the [model card](https://huggingface.co/google/embeddinggemma-2)
+for other task prefixes. These gallery entries support text input only.
 
 ## Useful Links and resources
 
@@ -184,7 +357,7 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 
 You can add other galleries by:
 
-1. **Using the Web UI**: Navigate to the [Runtime Settings]({{%relref "features/runtime-settings#gallery-settings" %}}) page and configure galleries through the interface.
+1. **Using the Web UI**: Open the **Manage libraries** panel on the Models page (or the Backends page for backend galleries) to add, turn on or off, refresh, edit or remove a source. The [Runtime Settings]({{%relref "features/runtime-settings#gallery-settings" %}}) page lists them read-only.
 
 2. **Using Environment Variables**: Set the `GALLERIES` environment variable. The `GALLERIES` environment variable is a list of JSON objects, where each object has a `name` and a `url` field. The `name` field is the name of the gallery, and the `url` field is the URL of the gallery's index file, for example:
 
@@ -197,6 +370,41 @@ GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 The models in the gallery will be automatically indexed and available for installation.
 
 To use a gallery that needs authentication, such as a private GitHub repository or an internal server, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}).
+
+## Model library (preview)
+
+The model library lists the models in the shared library entry shape. Each entry has the common header (`kind`, `id`, `name`, `version`, `description`, `license`, `urls`, `tags`, `icon`, `channel`, `policy`, `schemaVersion`) and a `model` body with `url`, `backend`, `size`, `files`, `configFile`, `overrides`, `variants` and `promptTemplates`. It is the file `gallery/models/index.yaml`, and it is the source of truth for the models: to add, change or remove a model, edit this file.
+
+The old gallery file, `gallery/index.yaml`, is a generated copy of the library. It stays only so that releases from before the cutover, which read the gallery, keep working. The cutover release switches the default to the library, and the old gallery file is removed in that release. Never edit it by hand; CI fails when it differs from the generated copy.
+
+LocalAI lists the library as a default model source, `official-models`, next to the `localai` gallery, so a standard install has it without a flag. To start without it, remove it; a source you remove stays removed:
+
+```bash
+local-ai library remove official-models
+```
+
+The gallery named `localai` keeps its own index. A source you add with `local-ai library add` is added to the defaults. If the library cannot be fetched or read, listing the models fails with an error; LocalAI does not fall back to the gallery, so the problem is never silent. Entries of another kind are skipped. The shipped `official-models` library has no mirrors, and the library has no signature policy of its own. A source you add can list mirrors (see below). The sha256 of each model file is still checked on install.
+
+### Edit the library, generate the gallery
+
+All edits go to `gallery/models/index.yaml`. After an edit, generate the gallery copy and commit both files:
+
+```bash
+go run ./scripts/models/cmd/modelcatalog \
+  --library gallery/models/index.yaml \
+  --out gallery/index.yaml
+```
+
+The command reads the library with the same strict reader the host uses. It converts every library entry to a gallery entry and back, loads its own output the way the host loads a gallery, and fails if one entry does not come back equal.
+
+The gallery copy cannot carry everything a library entry or the old gallery file could hold. The command lists what it drops on every run:
+
+- The keys `last_checked`, `parameters`, `Base Model`, `Context Length`, `License` and `Training Data` are not in the library. The gallery reader has no field for any of them, so the host ignored them on load, and dropping them changes no entry the host reads.
+- The library header fields `version`, `channel` and `schemaVersion` have no place in a gallery entry. The host does not read them from a gallery.
+
+CI (the `model library` workflow) checks the library file itself. It decodes, every entry has the library shape, every entry converts to a gallery entry and back, and the gallery reader loads the generated gallery and sees the same names, file URIs and digests. It then generates the gallery copy again and fails with a message to regenerate, not to edit by hand, when `gallery/index.yaml` differs from it.
+
+The tests in `core/gallery` run the same checks on every entry of the real library, and compare the result with golden files in `core/gallery/testdata/model_library`, which are written from the library. After you change the library shape on purpose, write the golden files again with `--golden core/gallery/testdata/model_library`.
 
 ## Gallery mirrors
 
@@ -215,6 +423,8 @@ Each attempt is bounded by a 120 second timeout, and a source that fails — a c
 {{% /notice %}}
 
 The key is optional: a gallery without `mirrors` behaves exactly as before.
+
+A library source carries the same list. Set it in the **Manage libraries** panel (one address per line, at most 8), with `PUT /api/library/sources/{id}` (`{"mirrors": [...]}`) or with `mirrors` in the body of `POST /api/library/sources`. A source accepts `https://`, `http://`, `github:`, `oci://` and `file://` mirrors, and an add-on source takes none. When a source lists mirrors, they replace the ones a gallery of the same address got from the flags. Clearing a source's mirrors does not change a gallery that is already listed until LocalAI restarts.
 
 ## Offline gallery listings
 

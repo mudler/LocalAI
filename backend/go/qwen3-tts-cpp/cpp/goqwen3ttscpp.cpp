@@ -189,3 +189,35 @@ int qt3_n_speakers(void) { return g_ctx ? qt_n_speakers(g_ctx) : 0; }
 const char *qt3_speaker_name(int i) {
     return g_ctx ? qt_speaker_name(g_ctx, i) : nullptr;
 }
+
+namespace {
+struct live_callbacks {
+    qt3_text_cb text;
+    qt3_chunk_cb audio;
+    void *user;
+};
+static int live_next_text(void *opaque, const char **text, size_t *n_bytes) {
+    auto *callbacks = static_cast<live_callbacks *>(opaque);
+    return callbacks->text(callbacks->user, text, n_bytes);
+}
+static bool live_audio_chunk(const float *samples, int n_samples, void *opaque) {
+    auto *callbacks = static_cast<live_callbacks *>(opaque);
+    return callbacks->audio(samples, n_samples, callbacks->user) != 0;
+}
+}
+
+int qt3_tts_live(const char *lang, const char *instruct, const char *speaker,
+                const float *ref_samples, int ref_n, const char *ref_text,
+                long long seed, float temperature, int top_k, float top_p,
+                float repetition_penalty, int max_new_tokens,
+                qt_text_input_cb next_text, qt3_chunk_cb cb, void *user_data) {
+    if (!g_ctx || !cb || !next_text) return 1;
+    qt_tts_params tp;
+    fill_params(&tp, nullptr, lang, instruct, speaker, ref_samples, ref_n,
+                ref_text, seed, temperature, top_k, top_p, repetition_penalty,
+                max_new_tokens);
+    live_callbacks callbacks{next_text, cb, user_data};
+    tp.on_chunk = live_audio_chunk;
+    tp.on_chunk_user_data = &callbacks;
+    return (int) qt_synthesize_incremental(g_ctx, &tp, live_next_text, &callbacks);
+}

@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"testing"
+	"unsafe"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -101,6 +103,22 @@ var _ = Describe("parseSampling", func() {
 	})
 	It("reads an explicit seed override", func() {
 		Expect(parseSampling(map[string]string{"seed": "123"}, -1).seed).To(Equal(int64(123)))
+	})
+})
+
+var _ = Describe("TTS request sampling", func() {
+	It("forwards a request generation bound to the native synthesizer", func() {
+		original := CppTTS
+		DeferCleanup(func() { CppTTS = original })
+		var received int
+		CppTTS = func(_, _, _, _ string, _ unsafe.Pointer, _ int, _ string, _ int64, _ float32, _ int, _, _ float32, maxNew int, _ unsafe.Pointer) uintptr {
+			received = maxNew
+			return 0
+		}
+		b := &Qwen3TtsCpp{}
+		err := b.TTS(&pb.TTSRequest{Text: "Bounded synthesis", Dst: "unused.wav", Params: map[string]string{"max_new_tokens": "128"}})
+		Expect(err).To(MatchError("qwen3-tts: synthesis failed"))
+		Expect(received).To(Equal(128))
 	})
 })
 

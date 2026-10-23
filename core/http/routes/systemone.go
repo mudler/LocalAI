@@ -14,7 +14,9 @@ import (
 // one NER pass; POST /v1/systemone/permute re-runs one choice question
 // under n_perm option orders; POST /v1/systemone/separate answers each
 // question in its own NER pass.
+// POST /v1/decisions adapts the OpenAI contract to the same execution path.
 func RegisterSystemOneRoutes(e *echo.Echo, app *application.Application) {
+	e.POST("/v1/decisions", localai.DecisionsEndpoint(app), middleware.UsageMiddleware(app.StatsRecorder(), app.FallbackUser()))
 	e.POST("/v1/systemone", localai.SystemOneEndpoint(app), middleware.UsageMiddleware(app.StatsRecorder(), app.FallbackUser()))
 	e.POST("/v1/systemone/permute", localai.SystemOnePermuteEndpoint(app))
 	e.POST("/v1/systemone/separate", localai.SystemOneSeparateEndpoint(app))

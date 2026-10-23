@@ -15,10 +15,12 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/mcptransport"
 	"github.com/mudler/LocalAI/pkg/signals"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -228,14 +230,17 @@ func SessionsFromMCPConfig(
 	// Get the list of all the tools that the Agent will be esposed to
 	for _, server := range remote.Servers {
 		xlog.Debug("[MCP remote server] Configuration", "server", server)
-		// Create HTTP client with custom roundtripper for bearer token injection
+		authTransport, err := newRemoteServerTransport(server, httpclient.HardenedTransport())
+		if err != nil {
+			xlog.Error("Invalid MCP server authentication", "error", err, "url", server.URL)
+			continue
+		}
 		httpClient := httpclient.New(
 			httpclient.WithTimeout(config.DefaultMCPToolTimeout),
-			httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+			httpclient.WithTransport(authTransport),
 		)
 
-		transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
-		mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
+		mcpSession, err := mcptransport.Connect(ctx, client, server.URL, httpClient, config.DefaultMCPDiscoveryTimeout)
 		if err != nil {
 			xlog.Error("Failed to connect to MCP server", "error", err, "url", server.URL)
 			continue
@@ -247,7 +252,7 @@ func SessionsFromMCPConfig(
 
 	for _, server := range stdio.Servers {
 		xlog.Debug("[MCP stdio server] Configuration", "server", server)
-		command := exec.Command(server.Command, server.Args...)
+		command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
 		command.Env = os.Environ()
 		for key, value := range server.Env {
 			command.Env = append(command.Env, key+"="+value)
@@ -339,13 +344,22 @@ func NamedSessionsFromMCPConfig(
 
 		for serverName, server := range remote.Servers {
 			xlog.Debug("[MCP remote server] Configuration", "name", serverName, "server", server)
+			authTransport, err := newRemoteServerTransport(server, httpclient.HardenedTransport())
+			if err != nil {
+				xlog.Error("Invalid MCP server authentication", "error", err, "name", serverName, "url", server.URL)
+				allSessions = append(allSessions, NamedSession{
+					Name:  serverName,
+					Type:  "remote",
+					Error: fmt.Sprintf("authentication setup failed: %v", err),
+				})
+				continue
+			}
 			httpClient := httpclient.New(
 				httpclient.WithTimeout(config.DefaultMCPToolTimeout),
-				httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+				httpclient.WithTransport(authTransport),
 			)
 
-			transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
-			mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
+			mcpSession, err := mcptransport.Connect(ctx, client, server.URL, httpClient, config.DefaultMCPDiscoveryTimeout)
 			if err != nil {
 				xlog.Error("Failed to connect to MCP server", "error", err, "name", serverName, "url", server.URL)
 				allSessions = append(allSessions, NamedSession{
@@ -365,7 +379,7 @@ func NamedSessionsFromMCPConfig(
 
 		for serverName, server := range stdio.Servers {
 			xlog.Debug("[MCP stdio server] Configuration", "name", serverName, "server", server)
-			command := exec.Command(server.Command, server.Args...)
+			command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
 			command.Env = os.Environ()
 			for key, value := range server.Env {
 				command.Env = append(command.Env, key+"="+value)
@@ -430,6 +444,13 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 			if seen[tool.Name] {
 				continue
 			}
+			// The add-on namespace belongs to the broker. A session is shared
+			// by every user of its model, so a tool it publishes under that
+			// namespace is never offered: it could pass for a brokered call.
+			if addontools.IsToolName(tool.Name) {
+				xlog.Warn("Ignoring MCP tool in the reserved add-on namespace", "tool", tool.Name, "server", ns.Name)
+				continue
+			}
 			seen[tool.Name] = true
 
 			f := functions.Function{
@@ -469,6 +490,9 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 
 // ExecuteMCPToolCall finds the matching tool and executes it.
 func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName string, arguments string) (string, error) {
+	if addontools.IsToolName(toolName) {
+		return "", ErrAddonToolsUnsupported
+	}
 	var toolInfo *MCPToolInfo
 	for i := range tools {
 		if tools[i].ToolName == toolName {
@@ -524,6 +548,9 @@ func ExecuteMCPToolCallRemote(
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 	toolName, arguments string,
 ) (string, error) {
+	if addontools.IsToolName(toolName) {
+		return "", ErrAddonToolsUnsupported
+	}
 	if agentControl == nil {
 		return "", fmt.Errorf("agent control not configured for distributed MCP")
 	}
@@ -776,7 +803,7 @@ func MCPPromptFromMetadata(metadata map[string]string) (string, map[string]strin
 
 	var args map[string]string
 	if raw, ok := metadata["mcp_prompt_args"]; ok && raw != "" {
-		json.Unmarshal([]byte(raw), &args)
+		_ = json.Unmarshal([]byte(raw), &args)
 		delete(metadata, "mcp_prompt_args")
 	}
 	return name, args
@@ -814,7 +841,7 @@ func CloseMCPSessions(modelName string) {
 	cache.mu.Lock()
 	if sessions, ok := cache.cache[modelName]; ok {
 		for _, s := range sessions {
-			s.Close()
+			_ = s.Close()
 		}
 		delete(cache.cache, modelName)
 	}
@@ -852,7 +879,7 @@ func CloseAllMCPSessions() {
 	cache.mu.Lock()
 	for name, sessions := range cache.cache {
 		for _, s := range sessions {
-			s.Close()
+			_ = s.Close()
 		}
 		if cancel, ok := cache.cancels[name]; ok {
 			cancel()

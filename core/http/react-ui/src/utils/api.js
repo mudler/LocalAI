@@ -118,6 +118,7 @@ export const modelsApi = {
     return handleResponse(response)
   },
   getJobStatus: (uid) => fetchJSON(API_CONFIG.endpoints.modelsJobStatus(uid)),
+  getStorage: () => fetchJSON(API_CONFIG.endpoints.modelsStorage),
   getEditConfig: (name) => fetchJSON(API_CONFIG.endpoints.modelEditGet(name)),
   editConfig: (name, body) => postJSON(API_CONFIG.endpoints.modelEdit(name), body),
   toggleState: (name, action) => fetchJSON(API_CONFIG.endpoints.modelToggleState(name, action), { method: 'PUT' }),
@@ -154,6 +155,25 @@ export const backendsApi = {
 export const chatApi = {
   complete: (body) => postJSON(API_CONFIG.endpoints.chatCompletions, body),
   mcpComplete: (body) => postJSON(API_CONFIG.endpoints.mcpChatCompletions, body),
+}
+
+// Chat History API — server-side conversation persistence (#9432).
+// Endpoints return 404 when the WebUI's chat history feature is disabled, so
+// every call here is best-effort: callers should fall back to localStorage on
+// failure rather than surfacing a user-visible error.
+export const chatHistoryApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.conversations),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id)),
+  save: (conv) => fetchJSON(API_CONFIG.endpoints.conversation(conv.id), {
+    method: 'PUT',
+    body: JSON.stringify(conv),
+  }),
+  bulkReplace: (conversations) => fetchJSON(API_CONFIG.endpoints.conversationsBulk, {
+    method: 'PUT',
+    body: JSON.stringify({ conversations }),
+  }),
+  delete: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id), { method: 'DELETE' }),
+  deleteAll: () => fetchJSON(API_CONFIG.endpoints.conversations, { method: 'DELETE' }),
 }
 
 // MCP API
@@ -234,12 +254,27 @@ async function fetchTracePage(endpoint, { limit = DEFAULT_TRACE_PAGE_SIZE, offse
 export const tracesApi = {
   get: (opts) => fetchTracePage(API_CONFIG.endpoints.traces, opts),
   // Counted totals, so a dashboard does not fetch the whole list to size it.
-  summary: () => fetchJSON(API_CONFIG.endpoints.tracesSummary),
+  // `hours` picks the window the server counts over (1 to 168).
+  summary: (hours) => fetchJSON(hours ? `${API_CONFIG.endpoints.tracesSummary}?hours=${hours}` : API_CONFIG.endpoints.tracesSummary),
   getOne: (id) => fetchJSON(API_CONFIG.endpoints.trace(id)),
   clear: () => postJSON(API_CONFIG.endpoints.clearTraces, {}),
   getBackend: (opts) => fetchTracePage(API_CONFIG.endpoints.backendTraces, opts),
   getBackendOne: (id) => fetchJSON(API_CONFIG.endpoints.backendTrace(id)),
   clearBackend: () => postJSON(API_CONFIG.endpoints.clearBackendTraces, {}),
+}
+
+// Prometheus exposition text from /metrics (admin only). Returns the status and
+// the text, so a page can tell a route that is off (404) from one that refused
+// the caller (401, 403) and from a network failure (status 0).
+export const metricsApi = {
+  scrape: async () => {
+    try {
+      const response = await fetch(apiUrl('/metrics'))
+      return { status: response.status, text: response.ok ? await response.text() : '' }
+    } catch {
+      return { status: 0, text: '' }
+    }
+  },
 }
 
 // P2P API
@@ -266,10 +301,27 @@ export const agentJobsApi = {
   getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
   cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
   executeJob: (body) => postJSON(API_CONFIG.endpoints.executeAgentJob, body),
+  // Run a finished job's task again with the parameters and media it had. There
+  // is no retry call, so this is a new job.
+  rerunJob: (job) => postJSON(API_CONFIG.endpoints.executeAgentJob, {
+    task_id: job.task_id,
+    parameters: job.parameters || {},
+    ...(job.images?.length ? { images: job.images } : {}),
+    ...(job.videos?.length ? { videos: job.videos } : {}),
+    ...(job.audios?.length ? { audios: job.audios } : {}),
+    ...(job.files?.length ? { files: job.files } : {}),
+  }),
 }
 
 // Image generation
 export const imageApi = {
+  upscale: async ({ model, image, scale }) => {
+    const form = new FormData()
+    form.append('model', model)
+    form.append('image', image)
+    form.append('scale', String(scale))
+    return handleResponse(await fetch(apiUrl('/v1/images/upscale'), { method: 'POST', body: form }))
+  },
   generate: (body) => postJSON(API_CONFIG.endpoints.imageGenerations, body),
 }
 
@@ -565,8 +617,15 @@ export const adminInvitesApi = {
 // API Keys
 export const apiKeysApi = {
   list: () => fetchJSON('/api/auth/api-keys'),
-  create: (name) => postJSON('/api/auth/api-keys', { name }),
+  // expiresIn is "30d", "90d" or "1y"; without it the server applies its own default.
+  create: (name, expiresIn) => postJSON('/api/auth/api-keys', expiresIn ? { name, expiresIn } : { name }),
   revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // pausedUntil is an RFC3339 string or null; disabled pauses until resumed.
+  setPause: (id, disabled, pausedUntil = null) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ disabled, paused_until: pausedUntil }),
+  }),
 }
 
 // Fine-tuning API

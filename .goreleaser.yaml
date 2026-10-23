@@ -17,6 +17,12 @@ builds:
       - -s -w
       - -X "github.com/mudler/LocalAI/internal.Version={{ .Tag }}"
       - -X "github.com/mudler/LocalAI/internal.Commit={{ .FullCommit }}"
+      # A tagged build reads the gallery until the release workflow sets
+      # LOCALAI_MODEL_SOURCE=library (the cutover step in release.yaml).
+      - -X "github.com/mudler/LocalAI/core/library.ModelSource={{ envOrDefault "LOCALAI_MODEL_SOURCE" "gallery" }}"
+      # The same for the backends: a tagged build reads the backend gallery
+      # until the release workflow sets LOCALAI_BACKEND_SOURCE=library.
+      - -X "github.com/mudler/LocalAI/core/library.BackendSource={{ envOrDefault "LOCALAI_BACKEND_SOURCE" "gallery" }}"
     goos:
       - linux
       - darwin

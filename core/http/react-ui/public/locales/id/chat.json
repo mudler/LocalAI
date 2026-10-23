@@ -103,7 +103,8 @@
   "toasts": {
     "selectModel": "Silahkan pilih model",
     "copied": "Berhasil disalin ke papan klip",
-    "copyFailed": "Gagal menyalin ke papan klip"
+    "copyFailed": "Gagal menyalin ke papan klip",
+    "pdfScannedAsImages": "{{name}} tidak memiliki lapisan teks (pindaian). {{count}} dari {{total}} halaman dilampirkan sebagai gambar untuk model visi."
   },
   "menu": {
     "trigger": "Obrolan",

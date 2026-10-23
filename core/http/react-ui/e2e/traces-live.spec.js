@@ -17,8 +17,8 @@ test('marks an API trace with no response status as in progress', async ({ page 
 
   const row = page.locator('tbody tr').filter({ hasText: '/v1/chat/completions' })
   await expect(row.getByText('Running', { exact: true })).toBeVisible()
-  await expect(row.locator('[title="In progress"]')).toBeVisible()
-  await expect(row.locator('.fa-check-circle')).toHaveCount(0)
+  await expect(row.getByRole('img', { name: 'In progress' })).toBeVisible()
+  await expect(row.locator('svg[data-icon="check-circle"]')).toHaveCount(0)
 })
 
 test('shows a running backend trace and exposes its logs immediately', async ({ page }) => {
@@ -47,7 +47,7 @@ test('shows a running backend trace and exposes its logs immediately', async ({ 
   await page.goto('/app/traces?tab=backend')
   await page.getByRole('button', { name: /Backend Traces/ }).click()
   const row = page.locator('tbody tr').filter({ hasText: 'generating a reply' })
-  await expect(row.locator('[title="Running"]')).toBeVisible()
+  await expect(row.getByRole('img', { name: 'Running' })).toBeVisible()
   await row.click()
   await expect(page.getByRole('link', { name: 'View backend logs' })).toHaveAttribute('href', /\/app\/backend-logs\/slow-model/)
   await expect(page.getByText(/running/, { exact: false })).toBeVisible()

@@ -137,6 +137,27 @@ var _ = Describe("router_factories lazy config resolution", func() {
 			Expect(updated).NotTo(Equal(replaced))
 		})
 
+		It("stays stable when a chat request persists probed reasoning slots", func() {
+			// A chat completion sent to an embedding model whose config sets
+			// use_tokenizer_template runs the thinking probe, and
+			// persistProbedReasoning writes the probed reasoning slots back into
+			// the shared config. Reasoning never changes the embedding space, so
+			// the fingerprint must not move — otherwise every knn router built
+			// on this embedder fails with ErrLiveEmbeddingMismatch until restart.
+			writeCfg("emb-probe", "llama-cpp")
+			before, err := app.EmbedderFingerprint("emb-probe")
+			Expect(err).NotTo(HaveOccurred())
+
+			disable, prefill := true, false
+			app.backendLoader.UpdateModelConfig("emb-probe", func(c *config.ModelConfig) {
+				c.ReasoningConfig.DisableReasoning = &disable
+				c.ReasoningConfig.DisableReasoningTagPrefill = &prefill
+			})
+			after, err := app.EmbedderFingerprint("emb-probe")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(after).To(Equal(before))
+		})
+
 		It("rejects an unknown model", func() {
 			_, err := app.EmbedderFingerprint("missing")
 			Expect(err).To(HaveOccurred())

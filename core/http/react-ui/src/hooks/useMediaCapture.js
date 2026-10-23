@@ -61,6 +61,9 @@ export function useMediaCapture(mode) {
   const [active, setActive] = useState(false)
   const [recording, setRecording] = useState(false)
   const [error, setError] = useState(null)
+  // 'denied' when the person or the browser refused the device, 'missing' when
+  // there is none, 'other' for anything else.
+  const [errorKind, setErrorKind] = useState(null)
   const [elapsed, setElapsed] = useState(0)
 
   const streamRef = useRef(null)
@@ -95,6 +98,7 @@ export function useMediaCapture(mode) {
       return
     }
     setError(null)
+    setErrorKind(null)
     try {
       const constraints = mode === 'audio'
         ? { audio: true }
@@ -107,6 +111,7 @@ export function useMediaCapture(mode) {
       setActive(true)
     } catch (e) {
       setError(e?.message || 'Could not access device')
+      setErrorKind(e?.name === 'NotAllowedError' || e?.name === 'SecurityError' ? 'denied' : e?.name === 'NotFoundError' ? 'missing' : 'other')
       stopStream()
     }
   }, [mode, supported, stopStream])
@@ -207,7 +212,7 @@ export function useMediaCapture(mode) {
   useEffect(() => () => stopStream(), [stopStream])
 
   return {
-    supported, active, recording, error, elapsed,
+    supported, active, recording, error, errorKind, elapsed,
     videoRef, start, stop: stopStream, snap, startRecording, stopRecording,
   }
 }

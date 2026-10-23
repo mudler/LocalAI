@@ -23,6 +23,18 @@ func OllamaChat() pii.Adapter {
 			}
 			return out
 		},
+		Unscanned: func(parsed any) []string {
+			req, ok := parsed.(*schema.OllamaChatRequest)
+			if !ok || req == nil {
+				return nil
+			}
+			for i := range req.Messages {
+				if len(req.Messages[i].Images) > 0 {
+					return []string{"images"}
+				}
+			}
+			return nil
+		},
 		Apply: func(parsed any, updates []pii.ScannedText) {
 			req, ok := parsed.(*schema.OllamaChatRequest)
 			if !ok || req == nil {

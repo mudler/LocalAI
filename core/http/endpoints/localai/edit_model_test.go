@@ -183,7 +183,7 @@ var _ = Describe("Edit Model test", func() {
 			app := echo.New()
 			// Set up a simple renderer for the test
 			app.Renderer = &testRenderer{}
-			app.POST("/import-model", ImportModelEndpoint(modelConfigLoader, nil, applicationConfig))
+			app.POST("/import-model", ImportModelEndpoint(modelConfigLoader, nil, applicationConfig, nil))
 			app.GET("/edit-model/:name", GetEditModelPage(modelConfigLoader, applicationConfig))
 
 			requestBody := bytes.NewBufferString(`{"name": "foo", "backend": "foo", "model": "foo"}`)

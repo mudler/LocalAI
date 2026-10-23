@@ -91,3 +91,57 @@ test('server-list request errors are shown in the MCP menu', async ({ page }) =>
   await page.getByRole('button', { name: 'Servers', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('invalid MCP configuration: missing mcpServers map')
 })
+
+// Non-admin users cannot read /api/models/config-json (admin-only). Their MCP
+// availability comes from the `mcp` flag of /api/models/capabilities plus the
+// user's `mcp` feature permission.
+async function mockNonAdmin(page, permissions) {
+  await page.route('**/api/auth/status', route => route.fulfill({
+    json: {
+      authEnabled: true,
+      staticApiKeyRequired: false,
+      providers: ['local'],
+      hasUsers: true,
+      user: { id: 'u-member', name: 'Member', email: 'member@example.com', role: 'user', permissions },
+    },
+  }))
+  let configJsonRequests = 0
+  await page.route('**/api/models/config-json/**', route => {
+    configJsonRequests++
+    return route.fulfill({ status: 403, json: { error: 'admin access required' } })
+  })
+  await page.route('**/api/models/capabilities', route => route.fulfill({
+    json: { data: [{ id: 'test-model', capabilities: ['FLAG_CHAT'], mcp: true }] },
+  }))
+  await page.route('**/v1/mcp/servers/test-model', route => route.fulfill({
+    json: { model: 'test-model', servers: [{ name: 'weather', type: 'remote', tools: ['get_weather'] }] },
+  }))
+  return () => configJsonRequests
+}
+
+test('non-admin user with the mcp feature can select model MCP servers', async ({ page }) => {
+  await seedModelChat(page)
+  const configJsonRequests = await mockNonAdmin(page, { chat: true, mcp: true })
+
+  await page.goto('/app/chat')
+  await expect(page.getByRole('button', { name: 'test-model' })).toBeVisible({ timeout: 10_000 })
+
+  await page.locator('.chat-mcp-dropdown > button').click()
+  await page.getByRole('button', { name: 'Servers', exact: true }).click()
+  const server = page.locator('.chat-mcp-server-item', { hasText: 'weather' })
+  await expect(server).toBeVisible()
+  await expect(server.getByRole('checkbox')).toBeEnabled()
+  expect(configJsonRequests()).toBe(0)
+})
+
+test('non-admin user without the mcp feature gets no model MCP servers', async ({ page }) => {
+  await seedModelChat(page)
+  await mockNonAdmin(page, { chat: true, mcp: false })
+
+  await page.goto('/app/chat')
+  await expect(page.getByRole('button', { name: 'test-model' })).toBeVisible({ timeout: 10_000 })
+
+  await page.locator('.chat-mcp-dropdown > button').click()
+  await expect(page.getByRole('button', { name: 'Client', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Servers', exact: true })).toHaveCount(0)
+})

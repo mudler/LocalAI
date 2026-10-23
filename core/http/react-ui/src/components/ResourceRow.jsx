@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import Icon from './Icon'
 
 // ResourceRow renders the visible row + its conditional detail row as a pair
 // of <tr>s, so the existing .table styling keeps applying and the Manage page
@@ -46,7 +47,7 @@ export function ChevronCell({ expanded }) {
   return (
     <td className="resource-row__chevron-cell">
       <span className={`row-chevron${expanded ? ' is-expanded' : ''}`} aria-hidden="true">
-        <i className="fas fa-chevron-right" />
+        <Icon name="chevron-right" />
       </span>
     </td>
   )
@@ -54,16 +55,16 @@ export function ChevronCell({ expanded }) {
 
 // IconCell renders the 48px brand icon shell — the same one the Install
 // gallery uses. `icon` is the image URL (from gallery metadata); when absent
-// or broken we fall back to a FontAwesome glyph so custom-imported items
+// or broken we fall back to an icon so custom-imported items
 // still get a placeholder instead of an empty square.
-export function IconCell({ icon, fallback = 'fa-cube', alt = '' }) {
+export function IconCell({ icon, fallback = 'cube', alt = '' }) {
   return (
     <td className="resource-row__icon-cell">
       <div className="resource-row__icon">
         {icon ? (
           <img src={icon} alt={alt} loading="lazy" />
         ) : (
-          <i className={`fas ${fallback}`} />
+          <Icon name={fallback} />
         )}
       </div>
     </td>

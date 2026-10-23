@@ -445,3 +445,29 @@ var _ = Describe("AllBackendNames", func() {
 		Expect(slices.IsSorted(names)).To(BeTrue())
 	})
 })
+
+var _ = Describe("Upscale backend declaration", func() {
+	It("maps upscale to its dedicated RPC and advertises SD GGML support", func() {
+		info := UsecaseInfoMap[UsecaseUpscale]
+		Expect(info.Flag).To(Equal(FLAG_UPSCALE))
+		Expect(info.GRPCMethod).To(Equal(MethodUpscaleImage))
+		cap := GetBackendCapability("stablediffusion-ggml")
+		Expect(cap.GRPCMethods).To(ContainElement(MethodUpscaleImage))
+		Expect(cap.PossibleUsecases).To(ContainElement(UsecaseUpscale))
+		Expect(cap.DefaultUsecases).NotTo(ContainElement(UsecaseUpscale))
+	})
+})
+
+var _ = Describe("GEM-X motion capability", func() {
+	It("discovers motion without advertising animation generation", func() {
+		Expect(DefaultUsecasesForBackendCap("gemxcpp")).To(Equal([]string{UsecaseMotion}))
+		cfg := &ModelConfig{Backend: "gemxcpp"}
+		Expect(cfg.HasUsecases(FLAG_MOTION)).To(BeTrue())
+		Expect(cfg.HasUsecases(FLAG_3D_ANIMATION)).To(BeFalse())
+		Expect(cfg.HasUsecases(FLAG_DECISIONS)).To(BeFalse())
+		decisions := FLAG_DECISIONS
+		Expect((&ModelConfig{Backend: "vllm-cpp", KnownUsecases: &decisions}).HasUsecases(FLAG_MOTION)).To(BeFalse())
+		Expect(FLAG_MOTION & FLAG_DECISIONS).To(BeZero())
+		Expect((&ModelConfig{Backend: "llama-cpp"}).HasUsecases(FLAG_MOTION)).To(BeFalse())
+	})
+})

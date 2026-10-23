@@ -2,8 +2,8 @@ import { test, expect } from './coverage-fixtures.js'
 
 // Single-page PDF with a real text layer, built byte by byte so the xref
 // offsets are valid and the spec needs no binary fixture.
-function buildPdf(text) {
-  const stream = `BT /F1 18 Tf 20 100 Td (${text}) Tj ET`
+function buildPdf(text, { stream: rawStream } = {}) {
+  const stream = rawStream ?? `BT /F1 18 Tf 20 100 Td (${text}) Tj ET`
   const objs = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -32,7 +32,7 @@ async function openChat(page) {
     })
   })
   await page.goto('/app/chat')
-  await expect(page.getByRole('button', { name: 'test-model' })).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('button', { name: /test-model/ })).toBeVisible({ timeout: 10_000 })
 }
 
 test.describe('Chat - PDF attachments', () => {
@@ -44,15 +44,16 @@ test.describe('Chat - PDF attachments', () => {
     })
     await openChat(page)
 
-    await page.locator('input[type=file]').setInputFiles({
+    await page.locator('input[type=file][accept*="pdf"]').setInputFiles({
       name: 'report.pdf',
       mimeType: 'application/pdf',
       buffer: buildPdf('Quarterly revenue grew 42 percent'),
     })
-    await expect(page.locator('.chat-file-name', { hasText: 'report.pdf' })).toBeVisible()
+    // pdf.js and its worker load on first use, so the tag can take a while.
+    await expect(page.locator('.home-file-tag', { hasText: 'report.pdf' })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.chat-input').fill('Summarize')
-    await page.locator('.chat-send-btn').click()
+    await page.getByTestId('chat-input').fill('Summarize')
+    await page.getByTestId('chat-send').click()
 
     await expect.poll(() => requestBody).toContain('Quarterly revenue grew 42 percent')
     expect(requestBody).toContain('File: report.pdf')
@@ -62,14 +63,50 @@ test.describe('Chat - PDF attachments', () => {
   test('rejects a PDF that cannot be parsed instead of attaching garbage', async ({ page }) => {
     await openChat(page)
 
-    await page.locator('input[type=file]').setInputFiles({
+    await page.locator('input[type=file][accept*="pdf"]').setInputFiles({
       name: 'broken.pdf',
       mimeType: 'application/pdf',
       buffer: Buffer.from('%PDF-1.4 this is not a real document'),
     })
 
     await expect(page.getByText('Could not read text from broken.pdf')).toBeVisible({ timeout: 10_000 })
-    await expect(page.locator('.chat-file-name', { hasText: 'broken.pdf' })).toHaveCount(0)
+    await expect(page.locator('.home-file-tag', { hasText: 'broken.pdf' })).toHaveCount(0)
+  })
+})
+
+// A page that only paints a filled rectangle: what a scan looks like to pdf.js
+// (an image, no text layer).
+const scannedPdf = () => buildPdf('', { stream: '0 0 1 rg 20 20 200 120 re f' })
+
+test.describe('Chat - scanned PDF attachments', () => {
+  test('sends the pages of a PDF without text layer as images', async ({ page }) => {
+    let requestBody = ''
+    await page.route('**/v1/chat/completions', (route) => {
+      requestBody = route.request().postData() || ''
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { message: 'stop' } }) })
+    })
+    await openChat(page)
+
+    await page.locator('input[type=file][accept*="pdf"]').setInputFiles({
+      name: 'scan.pdf', mimeType: 'application/pdf', buffer: scannedPdf(),
+    })
+    await expect(page.getByText('scan.pdf has no text layer')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.home-file-tag', { hasText: 'scan-page-1.png' })).toBeVisible()
+
+    await page.getByTestId('chat-input').fill('What does this say?')
+    await page.getByTestId('chat-send').click()
+
+    await expect.poll(() => requestBody).toContain('data:image/png;base64,')
+    expect(requestBody).not.toContain('%PDF')
+  })
+
+  test('still rejects a PDF that cannot be parsed at all', async ({ page }) => {
+    await openChat(page)
+    await page.locator('input[type=file][accept*="pdf"]').setInputFiles({
+      name: 'broken.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 this is not a real document'),
+    })
+    await expect(page.getByText('Could not read text from broken.pdf')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.home-file-tag', { hasText: 'broken' })).toHaveCount(0)
   })
 })
 

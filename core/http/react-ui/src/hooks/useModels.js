@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { modelsApi } from '../utils/api'
 
-export function useModels(capability) {
+// `enabled: false` skips the request, for a caller that already holds the list.
+export function useModels(capability, { enabled = true } = {}) {
   const [models, setModels] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -39,8 +40,9 @@ export function useModels(capability) {
   const refetch = useCallback(() => fetchModels({ silent: true }), [fetchModels])
 
   useEffect(() => {
+    if (!enabled) { setLoading(false); return }
     fetchModels()
-  }, [fetchModels])
+  }, [fetchModels, enabled])
 
   return { models, loading, error, refetch }
 }

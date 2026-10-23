@@ -23,17 +23,17 @@ test.describe('Models Explore - searching keeps the view', () => {
     })
 
     await page.goto('/app/models')
-    const search = page.locator('.filter-bar-group__search input')
+    const search = page.getByTestId('models-search')
     await expect(search).toBeVisible({ timeout: 10_000 })
 
     await search.click()
     await search.fill('alpha')
 
     // Mid-refetch: the field is still mounted, still focused, still holding
-    // what was typed, and the rail is marked busy rather than replaced.
+    // what was typed, and the table is kept rather than replaced.
     await expect(search).toBeFocused()
     await expect(search).toHaveValue('alpha')
-    await expect(page.locator('.entity-rail')).toBeVisible()
+    await expect(page.locator('.ledger-wrap')).toBeVisible()
 
     await page.waitForTimeout(900)
     await expect(search).toBeFocused()
@@ -42,11 +42,18 @@ test.describe('Models Explore - searching keeps the view', () => {
 
   test('the first load still shows a skeleton, not an empty shell', async ({ page }) => {
     // Nothing to keep on a cold start, so the skeleton is still right there.
+    // The answer waits until the skeleton has been seen: a fixed delay is a
+    // window the polling of the assertion can step over on a slow machine.
+    let answer
+    const answered = new Promise((resolve) => { answer = resolve })
     await page.route('**/api/models*', async (route) => {
-      await new Promise((r) => setTimeout(r, 800))
+      await answered
       await route.fulfill({ contentType: 'application/json', body: JSON.stringify(MOCK) })
     })
     await page.goto('/app/models')
-    await expect(page.getByTestId('gallery-loader')).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByTestId('gallery-loader')).toBeVisible({ timeout: 10_000 })
+    answer()
+    await expect(page.getByTestId('gallery-loader')).toHaveCount(0)
+    await expect(page.getByTestId('models-search')).toBeVisible()
   })
 })

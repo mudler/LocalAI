@@ -28,7 +28,7 @@ The Model Context Protocol is a standard for connecting AI models to external to
 - **Real-time Tool Access**: Connect to external MCP servers for live data
 - **Multiple Server Support**: Configure both remote HTTP and local stdio servers
 - **Cached Connections**: Efficient tool caching for better performance
-- **Secure Authentication**: Support for bearer token authentication
+- **Secure Authentication**: Static bearer tokens or OAuth2 `client_credentials` with automatic token refresh
 - **Multi-endpoint Support**: Works with OpenAI Chat, Anthropic Messages, and Open Responses APIs
 - **Selective Server Activation**: Use `metadata.mcp_servers` to enable only specific servers per request
 - **Server-side Tool Execution**: Tools are executed on the server and results fed back to the model automatically
@@ -93,9 +93,58 @@ In the interactive model editor, **Remote MCP Servers** and **MCP STDIO Servers*
 Configure HTTP-based MCP servers:
 
 - **`url`**: The MCP server endpoint URL
-- **`token`**: Bearer token for authentication (optional)
+- **`token`**: Static bearer token for authentication (optional)
+- **`oauth2`**: OAuth2 `client_credentials` settings (optional, mutually exclusive with `token`); see [OAuth2 client credentials](#oauth2-client-credentials-for-remote-servers)
+
+LocalAI automatically selects the transport for remote model MCP servers. It tries Streamable HTTP first, including servers that do not assign session IDs. If the initial POST returns HTTP 400, 404, or 405, LocalAI retries with legacy SSE. Both attempts share the discovery timeout and use the configured bearer token. Authentication failures and redirects do not trigger fallback.
+
+Use the endpoint URL published by your server: usually `/mcp` for Streamable HTTP or `/sse` for legacy SSE. Legacy SSE servers must advertise a message endpoint on the same origin (scheme, host, and port). No transport setting is required.
 
 Remote model MCP connections originate from the LocalAI process. If LocalAI runs in Docker, the URL must therefore resolve and be reachable **from the LocalAI container**, not only from the host browser. For another service in the same Compose project, use its Compose service name and container port. Host-only DNS names, VPN DNS, and private routes must also be made available inside the container.
+
+#### OAuth2 client credentials for remote servers
+
+When an MCP server sits behind an OpenID Connect / OAuth2 provider (for example authentik, Keycloak, Entra ID or Auth0), LocalAI can obtain short-lived access tokens with the `client_credentials` grant instead of using a long-lived static `token`:
+
+```yaml
+mcp:
+  remote: |
+    {
+      "mcpServers": {
+        "internal-tools": {
+          "url": "https://mcp.example.com/mcp",
+          "oauth2": {
+            "token_url": "https://auth.example.com/application/o/token/",
+            "client_id": "localai",
+            "client_secret_env": "MCP_INTERNAL_TOOLS_SECRET",
+            "scopes": ["mcp:tools"],
+            "endpoint_params": {"audience": "mcp-gateway"}
+          }
+        }
+      }
+    }
+```
+
+| Field | Description |
+|---|---|
+| `token_url` | Token endpoint of the identity provider (required). Must use `https`; plain `http` is accepted only for `localhost`, `127.0.0.1` and `::1` |
+| `client_id` / `client_id_env` | Client ID, literally or as the name of an environment variable (exactly one is required) |
+| `client_secret` / `client_secret_env` | Client secret, literally or as the name of an environment variable (exactly one is required). Use `client_secret_env` instead of a literal `client_secret` so the secret is not stored in the model YAML or the server configuration |
+| `scopes` | Scopes to request (optional) |
+| `endpoint_params` | Extra form parameters for the token request, e.g. `audience` or `resource` (RFC 8707) (optional) |
+
+Behaviour:
+
+- The token is fetched on the first request to the server, cached, and sent as `Authorization: Bearer <token>` on every request, for both streamable HTTP and SSE transports.
+- It is refreshed proactively once **half** of its lifetime (`expires_in`) has elapsed. If the provider omits `expires_in`, a lifetime of 5 minutes is assumed.
+- If a refresh fails, the current token keeps being used until 30 seconds before it expires (retries wait at least 5 seconds after a failed fetch, including the first fetch). After that, requests to the MCP server fail with an error; LocalAI never falls back to an unauthenticated request.
+- Configuring both `token` and `oauth2` for the same server is rejected when the model configuration is loaded, as are missing or duplicated `client_id`/`client_secret` sources. An environment variable named in `*_env` that is unset or empty makes the connection to that server fail, and the server is reported with an error in the server listing.
+- Debug logs of remote server entries redact static tokens and OAuth2 client secrets in both text and JSON formats.
+- Token caches and retry timers are local to each connection-owning process. Workers obtain and refresh their own tokens; this cache is not shared across the cluster.
+- The environment variables are read by the process that connects to the MCP server. In distributed mode that is the agent worker, so set them there.
+- Sessions and cached tokens are keyed by the server configuration, not by the value of an environment variable. After you rotate a secret that is referenced by `client_secret_env` (or `client_id_env`), restart the process that connects to the MCP server so it picks up the new value.
+
+Servers configured with a static `token` behave exactly as before.
 
 #### STDIO Servers (`stdio`)
 Configure local command-based MCP servers:
@@ -103,6 +152,41 @@ Configure local command-based MCP servers:
 - **`command`**: The executable command to run
 - **`args`**: Array of command-line arguments
 - **`env`**: Environment variables (optional)
+
+#### Automatic activation (`auto`)
+
+`/v1/chat/completions` only runs a model's MCP servers when the request selects
+them through `metadata.mcp_servers`. Plain OpenAI clients cannot send that field.
+Set `auto: true` in the `mcp:` block to enable every configured server when the
+request names none:
+
+```yaml
+mcp:
+  auto: true
+  remote: |
+    {"mcpServers": {"weather-api": {"url": "https://weather.example.com/mcp"}}}
+```
+
+A request that does send `metadata.mcp_servers` still gets exactly the servers it
+names. `/v1/responses` already enables all servers when the request sends no
+`tools`, and `/mcp/v1/chat/completions` always does; `auto` does not change them.
+
+`auto` only applies when MCP is enabled on the instance (not disabled with
+`LOCALAI_DISABLE_MCP`) and, with authentication on, the caller has the `mcp`
+permission. Otherwise the request is answered as a plain chat: no server is
+contacted and no tools are added. It is not rejected, because the client did not
+ask for MCP.
+
+#### Client tools (`client_tools`)
+
+`client_tools: drop` (a top-level model config key) discards the `tools`,
+`functions` and `tool_choice` a client sends, so the model is offered only its own
+MCP tools. Use it when a front end attaches tools of its own that should not
+reach this model. Empty (the default) keeps client tools.
+
+On a [model alias]({{%relref "features/model-aliases" %}}#profile-aliases) these
+keys go inside the alias's `profile` block, which lets several assistants with
+different tools share one loaded model.
 
 #### Agent Configuration (`agent`)
 
@@ -176,6 +260,19 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+The tools LocalAI runs server-side are part of the response: `output` lists a
+`function_call` item and its `function_call_output` item for every MCP tool call,
+in the order they ran, before the final `message`. Replayed tool results retain
+the `call_id` association with their calls. If the streaming iteration limit is
+reached, each executed tool round appears once in the final output. This holds for streaming
+(`response.completed`) and non-streaming requests and for the stored response.
+A follow-up request with `previous_response_id` therefore replays the earlier
+tool calls and results to the model, and a client that keeps the `output` items
+and sends them back as input does the same. Without this trail, models tend to
+answer follow-up questions from the earlier text instead of calling the tool
+again. Chat completions (`/v1/chat/completions`) return only the final answer,
+so a client cannot carry the tool trail over to the next turn there.
+
 ### Server Listing Endpoint
 
 You can list available MCP servers and their tools for a given model:
@@ -206,6 +303,8 @@ Returns a model wrapper and one status entry for every configured server:
 ```
 
 The Chat **MCP → Servers** tab uses this endpoint. A configured server remains listed when it is unavailable, shows the discovery error, and cannot be selected until a later discovery attempt succeeds. Reopening the dropdown or returning to the Servers tab retries discovery.
+
+When authentication is enabled, the Servers tab is offered to admins and to every user holding the `mcp` feature (on by default for new users). Chat learns that a model has MCP servers from the `mcp` flag of `GET /api/models/capabilities`, so non-admin users do not need access to the model configuration. With `LOCALAI_DISABLE_MCP=true` the flag is never set.
 
 ### MCP Prompts
 
@@ -558,7 +657,7 @@ In addition to server-side MCP (where the backend connects to MCP servers), Loca
 
 ### How It Works
 
-1. **Add servers in the UI**: Click **MCP** in the chat header, open the **Client** tab, and add MCP server URLs
+1. **Add servers in the UI**: Click the **MCP** chip above the message box, open the **Client** tab, and add MCP server URLs
 2. **Browser connects directly**: The browser uses the MCP TypeScript SDK (`StreamableHTTPClientTransport` or `SSEClientTransport`) to connect to MCP servers
 3. **Tool discovery**: Connected servers' tools are sent as `tools` in the chat request body
 4. **Browser-side execution**: When the LLM calls a client-side tool, the browser executes it against the MCP server and sends the result back in a follow-up request

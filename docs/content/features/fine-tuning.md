@@ -203,12 +203,26 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs \
 
 ## Web UI
 
-When fine-tuning is enabled, a "Fine-Tune" page appears in the sidebar under the Agents section. The UI provides:
+**Build → Fine-Tune** is one page that follows the job from set-up to result. A line at the top shows where you are: set up, check, run, result.
 
-1. **Job Configuration** - Select backend, model, training method, adapter type, and hyperparameters
-2. **Dataset Upload** - Upload local datasets or reference HuggingFace datasets
-3. **Training Monitor** - Real-time loss chart, progress bar, metrics display
-4. **Export** - Export trained models in various formats
+1. **Set up** - Choose the base model, the dataset (a Hugging Face id or an uploaded file), the kind of training (an adapter, or the full model) and the epochs, batch size and learning rate. Method, backend, adapter settings, optimizer, evaluation, reward functions (GRPO) and extra options are under **More options**.
+2. **Check before you start** - A list of what is known before the job starts, redrawn as you change the form: whether the model and dataset are set, whether a fine-tuning backend is installed, how much GPU memory (or RAM, when there is no GPU) is free, how much space is free on the models disk, and whether a token is set. LocalAI does not estimate how much memory a job needs or how long it takes, because the server cannot know that before the job starts, so the page says so. A missing model or dataset blocks the start. A warning, such as a missing backend or no GPU, does not.
+3. **Run** - Percent, step, epoch, the server's time estimate and tokens per second, the stages the job passes through, a chart of loss (with the evaluation loss as hollow dots), learning rate and gradient norm, and a log of what the job reported since the page opened. **Stop** asks whether to keep a checkpoint.
+4. **Result** - A failed job shows the server's message. When the message says memory ran out, the page offers two changes (a batch size of 1 and gradient checkpointing) that are applied to a copy of the setup and start nothing until you press Start. A finished job lists its checkpoints and exports the result as a model, then links to a chat with it and to Models.
+
+Earlier jobs are listed below the form. **Reuse** puts a job's setup back in the form.
+
+A user needs the fine-tuning permission. Without it, the page says the account cannot fine-tune and who can change that.
+
+### Fine-tuning is an add-on
+
+The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Browse add-ons** in the drawer and starts it. Once it runs, it opens from the drawer at `/app/addons/fine-tuning/jobs` and can be pinned. The Build hub no longer has a Fine-Tune tab.
+
+The old link `/app/fine-tune` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
+
+The API does not change. The page calls `/api/fine-tuning/*` with the signed-in user's own session, and the server checks the fine-tuning permission on every call, so the add-on never widens what a user may do.
+
+The add-on also offers tools to the chat: list jobs, propose a job, store a small dataset, read the status and the checkpoints of a job, stop a job and export a checkpoint as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or export it. A tool never starts, stops or exports anything by itself: it proposes the action and a person confirms it in an approval card. A model or a dataset given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `finetune.` prefix, and they run with the permissions of the person in the chat.
 
 ## Dataset Formats
 

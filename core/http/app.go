@@ -193,6 +193,8 @@ func setModelLoadingRetryAfter(loadErr *nodes.ModelLoadingError, c echo.Context)
 // @tag.description Document reranking
 // @tag.name instructions
 // @tag.description API instruction discovery — browse instruction areas and get endpoint guides
+// @tag.name chat-history
+// @tag.description Server-side persistence of WebUI chat conversations
 
 func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
@@ -374,7 +376,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Build auth middleware: use the new auth.Middleware when auth is enabled or
 	// as a unified replacement for the legacy key-auth middleware.
-	authMiddleware := auth.Middleware(application.AuthDB(), application.ApplicationConfig())
+	authMiddleware := auth.WithWebSocketTickets(application.WebSocketTickets(),
+		auth.Middleware(application.AuthDB(), application.ApplicationConfig()))
 
 	// Favicon handler
 	e.GET("/favicon.svg", func(c echo.Context) error {
@@ -479,6 +482,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Register auth routes (login, callback, API keys, user management)
 	routes.RegisterAuthRoutes(e, application)
+	routes.RegisterAddonRoutes(e, application)
+	if err := routes.RegisterAddonNavigationRoutes(e, application); err != nil {
+		return nil, fmt.Errorf("register the add-on navigation routes: %w", err)
+	}
 
 	// Register routing-module usage endpoints. Unlike /api/auth/usage
 	// these go through the StatsRecorder and work in no-auth single-user
@@ -488,7 +495,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterSystemOneRoutes(e, application)
 	routes.RegisterMiddlewareRoutes(e, application)
 
-	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB())
 
 	// Create opcache for tracking UI operations (used by both UI and LocalAI routes)
 	var opcache *galleryop.OpCache
@@ -511,7 +518,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
-	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw)
+	chatHistoryMw := auth.RequireFeature(application.AuthDB(), auth.FeatureChatHistory)
+	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw, chatHistoryMw)
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	// Fine-tuning routes
 	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
@@ -556,6 +564,22 @@ func API(application *application.Application) (*echo.Echo, error) {
 		quantStore,
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), application, quantizationMw)
+
+	// The add-on host operations reach the same services as the routes. Only the
+	// owner of an add-on host has a broker, so elsewhere this registers nothing.
+	engineBackends := localai.EngineBackends{AppConfig: application.ApplicationConfig(), Capabilities: routes.ClusterCapabilityProviderFor(application), Installed: routes.ClusterInstalledProviderFor(application)}
+	if err := application.RegisterAddonEngineJobs(localai.FineTuneJobs{Svc: ftService}, localai.QuantizationJobs{Svc: qService}, engineBackends); err != nil {
+		return nil, err
+	}
+	if err := application.RegisterAddonEngineProgress(localai.FineTuneProgress{Svc: ftService}, localai.QuantizationProgress{Svc: qService}); err != nil {
+		return nil, err
+	}
+	if err := application.RegisterAddonEngineModels(localai.FineTuneModels{Svc: ftService}, localai.QuantizationModels{Svc: qService}); err != nil {
+		return nil, err
+	}
+	if err := application.RegisterAddonEngineDatasets(localai.NewFineTuneDatasets(ftService)); err != nil {
+		return nil, err
+	}
 
 	// Node management routes (distributed mode)
 	distCfg := application.ApplicationConfig().Distributed

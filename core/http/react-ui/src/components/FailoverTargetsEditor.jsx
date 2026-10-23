@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useFormContext } from '../contexts/FormContext'
 import SearchableModelSelect from './SearchableModelSelect'
 import Toggle from './Toggle'
+import Icon from './Icon'
 
 // FailoverTargetsEditor renders the ordered member list of a failover
 // chain. Each row binds a downstream model plus a warm flag that keeps a
@@ -64,7 +65,7 @@ export default function FailoverTargetsEditor({ value, onChange }) {
 
       {items.length === 1 && (
         <div className="fte-warning">
-          <i className="fas fa-triangle-exclamation icon-before" />
+          <Icon name="warning" className="icon-before" />
           Add at least one more target — a chain with a single target has nothing to fail over to.
         </div>
       )}
@@ -88,7 +89,7 @@ export default function FailoverTargetsEditor({ value, onChange }) {
         className="btn btn-secondary btn-sm self-start"
         onClick={add}
       >
-        <i className="fas fa-plus" /> Add target
+        <Icon name="plus" /> Add target
       </button>
     </div>
   )
@@ -112,7 +113,7 @@ function TargetRow({ index, total, row, duplicate, isOwnName, onChange, onRemove
           disabled={index === 0}
           title="Move up (tried earlier)"
         >
-          <i className="fas fa-arrow-up" />
+          <Icon name="arrow-up" />
         </button>
         <button
           type="button"
@@ -121,7 +122,7 @@ function TargetRow({ index, total, row, duplicate, isOwnName, onChange, onRemove
           disabled={index === total - 1}
           title="Move down"
         >
-          <i className="fas fa-arrow-down" />
+          <Icon name="arrow-down" />
         </button>
         <span className="ml-auto text-meta">
           {index === 0 ? 'served first' : 'fallback'}
@@ -144,13 +145,13 @@ function TargetRow({ index, total, row, duplicate, isOwnName, onChange, onRemove
           onClick={onRemove}
           title="Remove target"
         >
-          <i className="fas fa-trash" />
+          <Icon name="trash" />
         </button>
       </div>
 
       {error && (
         <div className="text-error text-xs">
-          <i className="fas fa-triangle-exclamation icon-before" />
+          <Icon name="warning" className="icon-before" />
           {error}
         </div>
       )}

@@ -93,7 +93,7 @@ export default function Popover({ anchor, open, onClose, children, ariaLabel }) 
       ref={popoverRef}
       role="dialog"
       aria-label={ariaLabel}
-      className="popover card"
+      className={`popover card${pos.flipped ? ' popover--up' : ''}`}
       style={{ top: pos.top, left: pos.left }}
     >
       {children}

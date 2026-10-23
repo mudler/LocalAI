@@ -346,6 +346,7 @@ COPY ./.git ./.git
 
 # Some of the Go backends use libs from the main src, we could further optimize the caching by building the CPP backends before here
 COPY ./pkg/grpc ./pkg/grpc
+COPY ./pkg/motion ./pkg/motion
 COPY ./pkg/utils ./pkg/utils
 
 RUN ls -l ./

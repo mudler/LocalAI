@@ -247,7 +247,9 @@ func (cfg *Config) registrationBody() map[string]any {
 // used", while reporting total-as-available lies to the scheduler about
 // free capacity.
 func (cfg *Config) heartbeatBody() map[string]any {
-	body := map[string]any{}
+	// The incarnation lets the controller learn that this worker restarted, and
+	// so that every load operation of the previous process ended.
+	body := map[string]any{"worker_incarnation": workerIncarnation}
 	aggregate := getGPUAggregateInfo()
 	if aggregate.TotalVRAM > 0 {
 		body["available_vram"] = aggregate.FreeVRAM

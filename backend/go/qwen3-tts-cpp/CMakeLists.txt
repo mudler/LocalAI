@@ -4,6 +4,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(QWENTTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/sources/qwentts.cpp)
+# Upstream uses the top-level source directory for this cache default.
+set(GGML_SOURCE_DIR ${QWENTTS_DIR}/ggml CACHE PATH "ggml source tree" FORCE)
 
 # Override upstream's CMAKE_CUDA_ARCHITECTURES before add_subdirectory.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)

@@ -201,6 +201,15 @@ impl Backend for KokorosService {
         }
     }
 
+    type TTSLiveStream = ReceiverStream<Result<backend::Reply, Status>>;
+
+    async fn tts_live(
+        &self,
+        _req: Request<tonic::Streaming<backend::TtsRequest>>,
+    ) -> Result<Response<Self::TTSLiveStream>, Status> {
+        Err(Status::unimplemented("incremental text TTS is not supported"))
+    }
+
     type TTSStreamStream = ReceiverStream<Result<backend::Reply, Status>>;
 
     async fn tts_stream(
@@ -301,6 +310,22 @@ impl Backend for KokorosService {
     }
 
     // --- Unimplemented RPCs ---
+
+    type MotionStreamStream = ReceiverStream<Result<backend::MotionResponse, Status>>;
+
+    async fn motion_stream(
+        &self,
+        _: Request<tonic::Streaming<backend::MotionRequest>>,
+    ) -> Result<Response<Self::MotionStreamStream>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn slot_cache(
+        &self,
+        _: Request<backend::SlotCacheRequest>,
+    ) -> Result<Response<backend::SlotCacheResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
 
     async fn predict(
         &self,

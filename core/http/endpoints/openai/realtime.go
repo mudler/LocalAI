@@ -238,10 +238,15 @@ type commitSlot struct {
 	// this commit's item append waits on it, and its slot release waits on it
 	// too (on every exit path).
 	prevDone chan struct{}
-	// done is closed when this commit has fully finished — appended its user
-	// item or aborted (error, empty transcript, teardown) — AND the
-	// predecessor has finished, so the next commit is released in order.
+	// done is closed when the commit function has returned — it appended its
+	// user item or aborted (error, empty transcript, teardown), and generated
+	// its own response unless that was cancelled — AND the predecessor has
+	// finished, so the next commit is released in order.
 	done chan struct{}
+	// appended records that this commit appended its user item to the
+	// conversation. It is written by the commit goroutine before done closes
+	// and must only be read after done is closed.
+	appended bool
 }
 
 // nextCommitSlot claims the next position in the commit order. It is called
@@ -285,8 +290,100 @@ func (session *Session) issueCommit(parent context.Context, source respcoord.Sou
 	session.commitOrderMu.Lock()
 	defer session.commitOrderMu.Unlock()
 	slot := session.nextCommitSlotLocked()
-	session.respSink.issue(parent, source, func(ctx context.Context) {
+	// A non-interrupting VAD commit must not supersede a response at speech end.
+	ifIdle := source == respcoord.SourceVAD && !session.interruptResponseEnabled()
+	session.respSink.issueWithPolicy(parent, source, ifIdle, func(ctx context.Context) {
 		run(ctx, slot)
+	})
+}
+
+// issueClientCommit issues a client commit (input_audio_buffer.commit) through
+// the shared commit-ordering boundary, so slot order == issue order across the
+// client and VAD producers.
+func (session *Session) issueClientCommit(allAudio []byte, conv *Conversation, t Transport) {
+	session.issueCommit(context.Background(), respcoord.SourceClient, func(ctx context.Context, slot *commitSlot) {
+		commitUtterance(ctx, allAudio, session, conv, t, slot)
+	})
+}
+
+// issueClientResponse issues a client response (response.create). With
+// client-driven turns the commit and response.create are sent back-to-back, so
+// the response waits for the newest commit (client or VAD) to finish before the
+// LLM starts: the LLM must answer the real transcript, not an empty one
+// (client-commit LLM/STT race). Reading the commit tail and issuing the
+// response happen under the same lock as issueCommit, so the response is
+// ordered after every commit issued before it and before any issued later.
+func (session *Session) issueClientResponse(resp types.ResponseCreateParams, conv *Conversation, t Transport) {
+	session.commitOrderMu.Lock()
+	defer session.commitOrderMu.Unlock()
+	tail := session.commitTail
+	pending := false
+	if tail != nil {
+		select {
+		case <-tail.done:
+		default:
+			pending = true
+		}
+	}
+	session.respSink.issue(context.Background(), respcoord.SourceClient, func(ctx context.Context) {
+		if pending {
+			select {
+			case <-tail.done:
+			case <-ctx.Done():
+			}
+			if ctx.Err() != nil {
+				// Cancelled, superseded or torn down while waiting: close the
+				// response the way a cancelled one is closed, so the client is
+				// never left without a terminal event.
+				sendUnstartedResponse(t, &resp, types.ResponseStatusCancelled, nil)
+				return
+			}
+			if !tail.appended {
+				// The commit this response waited for produced no user item
+				// (transcription error, empty transcript, voice gate
+				// rejection; the commit already reported the cause). Do not
+				// run the LLM on a history that lacks the turn.
+				sendUnstartedResponse(t, &resp, types.ResponseStatusFailed, &types.StatusDetail{
+					Type: "failed",
+					Error: &types.Error{
+						Type:    "invalid_request_error",
+						Code:    "input_not_committed",
+						Message: "the committed input audio produced no transcript, so no response was generated",
+					},
+				})
+				return
+			}
+		}
+		triggerResponse(ctx, session, conv, t, &resp)
+	})
+}
+
+// sendUnstartedResponse emits the response.created / response.done pair for a
+// response that ended before the LLM started, so the client sees a complete
+// lifecycle with the given terminal status.
+func sendUnstartedResponse(t Transport, overrides *types.ResponseCreateParams, status types.ResponseStatus, details *types.StatusDetail) {
+	r := &liveResponse{id: generateUniqueID()}
+	if overrides != nil {
+		r.metadata = overrides.Metadata
+	}
+	sendEvent(t, types.ResponseCreatedEvent{
+		ServerEventBase: types.ServerEventBase{},
+		Response: types.Response{
+			ID:       r.id,
+			Object:   "realtime.response",
+			Status:   types.ResponseStatusInProgress,
+			Metadata: r.metadata,
+		},
+	})
+	sendEvent(t, types.ResponseDoneEvent{
+		ServerEventBase: types.ServerEventBase{},
+		Response: types.Response{
+			ID:            r.id,
+			Object:        "realtime.response",
+			Status:        status,
+			StatusDetails: details,
+			Metadata:      r.metadata,
+		},
 	})
 }
 
@@ -1036,12 +1133,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				ItemID:          generateItemID(),
 			})
 
-			// Issue through the shared commit-ordering boundary (slot claim +
-			// issue under one lock, shared with the VAD commit path) so slot
-			// order == issue order across both producers (issue #12445).
-			session.issueCommit(context.Background(), respcoord.SourceClient, func(ctx context.Context, slot *commitSlot) {
-				commitUtterance(ctx, allAudio, session, conversation, t, slot)
-			})
+			// Issue through the shared commit-ordering boundary and record the
+			// in-flight commit so the back-to-back response.create waits for the
+			// STT before the LLM starts (client-commit LLM/STT race).
+			session.issueClientCommit(allAudio, conversation, t)
 
 		case types.InputAudioBufferClearEvent:
 			xlog.Debug("recv", "message", string(msg))
@@ -1178,10 +1273,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				conversation.Lock.Unlock()
 			}
 
-			resp := e.Response
-			session.respSink.issue(context.Background(), respcoord.SourceClient, func(ctx context.Context) {
-				triggerResponse(ctx, session, conversation, t, &resp)
-			})
+			// With client-driven turns the commit and this response.create are
+			// sent back-to-back; the response waits for the in-flight commit's
+			// STT (and user-item append) to finish so the LLM answers the real
+			// transcript, not an empty one (client-commit LLM/STT race).
+			session.issueClientResponse(e.Response, conversation, t)
 
 		case types.ResponseCancelEvent:
 			xlog.Debug("recv", "message", string(msg))
@@ -2092,7 +2188,10 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	// committed window and emit its scored AudioSet tags as a separate event.
 	// A failure here is logged but must never abort the turn.
 	if session.SoundDetectionEnabled {
-		if sderr := emitSoundDetection(ctx, t, session, generateItemID(), f.Name()); sderr != nil {
+		// Session context, like the transcription: a turn whose response
+		// context is already cancelled (a skipped overlapping turn, a barge-in)
+		// still gets its sound events.
+		if sderr := emitSoundDetection(sctx, t, session, generateItemID(), f.Name()); sderr != nil {
 			xlog.Error("sound detection failed", "error", sderr)
 		}
 	}
@@ -2173,9 +2272,11 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		// when the session context was cancelled.)
 		if ctx.Err() != nil {
 			xlog.Debug("skipping response: turn context cancelled during transcription (barge-in); committing user item only")
+			slot.appended = true
 			appendUserItem(conv, t, utt, transcript, speaker)
 			return
 		}
+		slot.appended = true
 		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
 	}
 }

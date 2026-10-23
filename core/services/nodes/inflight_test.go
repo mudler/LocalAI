@@ -182,6 +182,9 @@ func (f *fakeGRPCBackend) Rerank(_ context.Context, _ *pb.RerankRequest, _ ...gg
 	return &pb.RerankResult{}, nil
 }
 
+func (f *fakeGRPCBackend) SlotCache(_ context.Context, _ *pb.SlotCacheRequest, _ ...ggrpc.CallOption) (*pb.SlotCacheResponse, error) {
+	return &pb.SlotCacheResponse{}, nil
+}
 func (f *fakeGRPCBackend) GetTokenMetrics(_ context.Context, _ *pb.MetricsRequest, _ ...ggrpc.CallOption) (*pb.MetricsResponse, error) {
 	return &pb.MetricsResponse{}, nil
 }
@@ -216,6 +219,10 @@ func (f *fakeGRPCBackend) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallO
 
 func (f *fakeGRPCBackend) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
 	return nil, nil
+}
+
+func (f *fakeGRPCBackend) MotionStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.MotionStreamClient, error) {
+	return nil, fmt.Errorf("motion streaming not implemented by in-flight fake")
 }
 
 func (f *fakeGRPCBackend) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {

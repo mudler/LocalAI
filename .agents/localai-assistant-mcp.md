@@ -92,6 +92,38 @@ The in-process MCP server runs inside the same LocalAI binary that serves chat. 
 
 The user chose KISS. Every mutating tool has a safety rule (`prompts/10_safety.md` rule 1) that requires the LLM to summarise the action and wait for explicit user confirmation before calling it. There is no `plan_*`/`apply_*` two-step in code. If you add a mutating tool, do **not** add per-tool confirmation logic in Go — instead, list the new tool name in `prompts/10_safety.md` so the LLM knows it falls under the confirmation rule.
 
+## Scoped exception: add-on tools are not assistant tools
+
+The prompt-only confirmation above applies to the admin catalog in
+`pkg/mcp/localaitools/` and to nothing else. Tools of installed add-ons (for
+example Tables) follow a different, code-enforced rule, documented in
+[docs/content/features/tables.md](../docs/content/features/tables.md):
+
+- They are never registered in this catalog and no `/api/addons` route appears
+  in `toolToHTTPRoute`. `TestToolHTTPRouteMappingComplete` stays unchanged, and
+  the consumer matrix test (`core/services/addons/tools`) fails if a tool name
+  or route of the add-on surface appears here.
+- A change proposed by an add-on tool is a stored proposal. Only the proposer's
+  own browser session confirms it, with the digest of what the host card showed.
+  A model's "yes" or an argument named `approved` is never authority.
+- REST-to-MCP parity is intentionally partial for add-ons: the lifecycle
+  mutations (install, enable, disable, upgrade, uninstall, library changes) are
+  deliberately **not** exposed as assistant tools, because the assistant is one
+  process-wide server with no per-call principal and would inherit prompt-only
+  authorization. Do not add them without a per-call actor and a host approval
+  card.
+- New code that discovers or executes tools must be classified in
+  `tools.Consumers` (`core/services/addons/tools/consumers.go`) as route or
+  reject. The matrix test scans the sources and fails for an unclassified file.
+
+One backend route sits outside the add-on surface: `POST /backends/library/install`
+installs a backend (not an add-on) from a library entry. It is exposed as the
+`install_library_backend` tool and is a plain admin mutation under safety
+rule 1. Listing library entries stays on `/api/addons` and has no assistant
+tool, for the reason above.
+
+Do not rewrite the unrelated assistant tools to match this rule.
+
 ## Distributed mode
 
 The in-memory MCP server runs only on the head node (where the chat handler runs). `inproc.Client` wraps services that are already distributed-aware (`GalleryService` coordinates with workers; `ListNodes` reads the NATS-populated registry). No NATS routing of MCP tools — the admin surface lives on the head, period.

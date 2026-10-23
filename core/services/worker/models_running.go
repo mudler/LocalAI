@@ -49,9 +49,11 @@ func (s *backendSupervisor) runningModels() []workerctl.RunningModelInfo {
 			continue
 		}
 		running = append(running, workerctl.RunningModelInfo{
-			ModelID:      modelID,
-			ReplicaIndex: replicaIndex,
-			Address:      bp.addr,
+			ModelID:         modelID,
+			ReplicaIndex:    replicaIndex,
+			Address:         bp.addr,
+			OperationID:     bp.operationID,
+			ProcessInstance: bp.instance,
 		})
 	}
 	return running
@@ -62,5 +64,5 @@ func (s *backendSupervisor) runningModels() []workerctl.RunningModelInfo {
 func (s *backendSupervisor) modelsRunning(_ context.Context, _ workerctl.ModelsRunningRequest) workerctl.ModelsRunningReply {
 	running := s.runningModels()
 	xlog.Debug("Answering models.running", "nodeID", s.nodeID, "count", len(running))
-	return workerctl.ModelsRunningReply{Models: running}
+	return workerctl.ModelsRunningReply{Models: running, ReportsOperations: true}
 }

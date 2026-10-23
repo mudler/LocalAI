@@ -1,78 +1,77 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from 'react'
 import { useOutletContext, Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
 import { fromState } from '../utils/editorNav'
 import { settingsApi, modelsApi } from '../utils/api'
+import { cssVars } from '../utils/modelLedger'
 import LoadingSpinner from '../components/LoadingSpinner'
-import Toggle from '../components/Toggle'
-import PageHeader from '../components/PageHeader'
+import Icon from '../components/Icon'
+import './traffic.css'
 
-// Middleware admin page. Three tabs:
-//   - Filtering: per-model resolved PII state + per-model detector list
-//     (detection policy lives on each detector model's pii_detection block).
-//   - Routing: placeholder until subsystem 2 lands. Renders the note
-//     from /api/router/status so admins see "not yet implemented" rather
-//     than an empty page.
-//   - Events: recent PIIEvent rows from /api/pii/events. The page
-//     intentionally NEVER displays the redacted content (the redactor
-//     never stores it); only pattern_id, byte_offset, length, and an
-//     8-char sha256 prefix admins can use to dedupe recurring leaks.
+// Middleware: what a request passes through, in the order the server runs it.
+//   Proxy      an optional TLS proxy for clients that cannot be pointed at the API
+//   Admission  rate limits and quotas, which refuse a request before a model sees it
+//   Filtering  PII detection, per model, on the request
+//   Routing    a classifier that picks the model
+//   Model      the backend runs it
+// The order is fixed by the server. Selecting a step shows only that step's
+// rules; the events below are shared by the proxy, the filters and admission.
+// The page never shows redacted content: the redactor does not store it, only
+// a pattern id, an offset, a length and a short hash to dedupe a recurring leak.
 //
-// Wiring is admin-only: RequireAdmin in router.jsx already redirects
-// non-admin viewers; in single-user no-auth mode the local user has
-// admin role so the page works without --auth.
+// Wiring is admin-only: RequireAdmin in router.jsx redirects other viewers. In
+// single-user no-auth mode the local user is an admin, so it works without
+// --auth.
 
-const TABS = [
-  { id: 'filtering', label: 'Filtering', icon: 'fa-shield-halved' },
-  { id: 'routing', label: 'Routing', icon: 'fa-route' },
-  { id: 'proxy', label: 'MITM Proxy', icon: 'fa-shield' },
-  { id: 'events', label: 'Events', icon: 'fa-list-ul' },
-]
+const STEPS = ['proxy', 'admission', 'filtering', 'routing']
 
-function actionBadge(action) {
-  const colors = {
-    mask: 'var(--color-primary)',
-    block: 'var(--color-error)',
-    allow: 'var(--color-warning)',
-  }
+function Switch({ checked, onChange, disabled, label }) {
   return (
-    <span className="mw-badge" style={{ background: colors[action] || 'var(--color-bg-tertiary)' }}>
-      {action}
-    </span>
+    <button
+      type="button"
+      className="dk-switch"
+      role="switch"
+      aria-checked={!!checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+    />
   )
 }
 
-function enabledBadge(enabled) {
-  return (
-    <span
-      className={`mw-badge${enabled ? '' : ' mw-badge--off'}`}
-      style={{ background: enabled ? 'var(--color-success)' : 'var(--color-bg-tertiary)' }}
-    >
-      {enabled ? 'on' : 'off'}
-    </span>
-  )
+function StateWord({ on }) {
+  const { t } = useTranslation('traffic')
+  return <span className="tf-onoff" data-on={on ? '' : undefined}>{on ? t('middleware.on') : t('middleware.off')}</span>
+}
+
+function eventKind(e) {
+  return e.kind || 'pii'
 }
 
 export default function Middleware() {
-  const { addToast } = useOutletContext()
+  const { addToast } = useOutletContext() || {}
+  const { t } = useTranslation('traffic')
   const [status, setStatus] = useState(null)
   const [events, setEvents] = useState([])
   const [decisions, setDecisions] = useState([])
   const [loading, setLoading] = useState(true)
-  // The active tab lives in the URL (?tab=) so deep links and the model-editor
-  // Back button (which captures location.search) return to the same tab; a
-  // localStorage fallback restores it on a bare visit. Mirrors the Manage page.
+  // The step lives in the URL (?tab=) so deep links and the model editor's Back
+  // button, which captures location.search, return to the same step; a stored
+  // value restores it on a bare visit. "events" is the old name of the events
+  // tab, which now sits under every step.
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialTab = searchParams.get('tab') || localStorage.getItem('middleware-tab') || 'filtering'
-  const [activeTab, setActiveTab] = useState(TABS.some(t => t.id === initialTab) ? initialTab : 'filtering')
-  const selectTab = (id) => {
-    setActiveTab(id)
-    localStorage.setItem('middleware-tab', id)
+  const stored = (() => { try { return localStorage.getItem('middleware-tab') } catch { return null } })()
+  const wanted = searchParams.get('tab') || stored || 'filtering'
+  const step = STEPS.includes(wanted) ? wanted : 'filtering'
+  const selectStep = (id) => {
+    try { localStorage.setItem('middleware-tab', id) } catch { /* ignore */ }
     setSearchParams({ tab: id })
   }
 
-  // silent=true on background polls: skips the loading spinner and
-  // suppresses toast spam if the server is briefly unreachable.
+  // silent=true on background polls: no spinner, and no toast spam if the
+  // server is briefly unreachable.
   const fetchAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
@@ -82,575 +81,451 @@ export default function Middleware() {
         fetch(apiUrl('/api/router/decisions?limit=100')),
       ])
       if (!statusRes.ok) throw new Error(`status: HTTP ${statusRes.status}`)
-      const statusData = await statusRes.json()
-      setStatus(statusData)
-      if (eventsRes.ok) {
-        const data = await eventsRes.json()
-        setEvents(data.events || [])
-      }
-      if (decisionsRes.ok) {
-        const data = await decisionsRes.json()
-        setDecisions(data.decisions || [])
-      }
+      setStatus(await statusRes.json())
+      if (eventsRes.ok) setEvents((await eventsRes.json()).events || [])
+      if (decisionsRes.ok) setDecisions((await decisionsRes.json()).decisions || [])
     } catch (err) {
-      if (!silent) addToast(`Failed to load middleware status: ${err.message}`, 'error')
+      if (!silent) addToast?.(t('middleware.loadFailed', { message: err.message }), 'error')
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [addToast])
+  }, [addToast, t])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  // Auto-refresh every 5s so admins watching the Events / Routing tabs
-  // see new rows without manual refresh. Matches the Traces page cadence.
-  // ProxyTab guards against clobbering mid-typed config via its own
-  // `dirty` check, so the poll is safe while the form is in use.
+  // Every 5 s so an admin watching sees new rows without a refresh. The proxy
+  // form guards against clobbering a half-typed address with its own `dirty`
+  // check, so the poll is safe while it is in use.
   const refreshRef = useRef(null)
   useEffect(() => {
     refreshRef.current = setInterval(() => fetchAll(true), 5000)
     return () => clearInterval(refreshRef.current)
   }, [fetchAll])
 
-  return (
-    <div className="page page--wide">
-      <PageHeader
-        title="Middleware"
-        supporting="Inspect and configure routing-module middleware: PII filtering and intelligent routing."
-      />
+  const summaries = stepSummaries(status, events, t)
 
-      {/* Tab bar */}
-      <div className="hstack hstack--xs mb-md">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            className={`btn btn-sm ${activeTab === tab.id ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => selectTab(tab.id)}
-          >
-            <i className={`fas ${tab.icon} icon-before`} />
-            {tab.label}
+  return (
+    <div className="page page--wide tf-page" data-testid="middleware-page">
+      <header className="tf-head">
+        <div className="tf-head__lead">
+          <h1 className="tf-title">{t('middleware.title')}</h1>
+          <p className="tf-lede">{t('middleware.lede')}</p>
+        </div>
+        <div className="tf-head__acts">
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--icon" aria-label={t('refresh')} onClick={() => fetchAll()} disabled={loading}>
+            <Icon name="refresh" spin={Boolean(loading)} />
           </button>
+        </div>
+      </header>
+
+      <div className="tf-pipeline" role="group" aria-label={t('middleware.pipeline')} data-testid="pipeline">
+        {STEPS.map((id, i) => (
+          <Fragment key={id}>
+            {i > 0 && <Icon name="arrow-right" className="tf-pipeline__arrow" />}
+            <button type="button" className="tf-step" aria-pressed={step === id} data-step={id} onClick={() => selectStep(id)}>
+              <span className="tf-step__name"><span className="tf-step__n">{i + 1}</span> {t(`middleware.steps.${id}`)}</span>
+              <span className="tf-step__sum">{summaries[id]}</span>
+            </button>
+          </Fragment>
         ))}
-        <div className="flex-1" />
-        <button className="btn btn-secondary btn-sm" onClick={fetchAll} disabled={loading}>
-          <i className={`fas fa-rotate${loading ? ' fa-spin' : ''}`} /> Refresh
-        </button>
+        <Icon name="arrow-right" className="tf-pipeline__arrow" />
+        <div className="tf-step tf-step--end" data-step="model">
+          <span className="tf-step__name"><span className="tf-step__n">5</span> {t('middleware.steps.model')}</span>
+          <span className="tf-step__sum">{t('middleware.sum.model')}</span>
+        </div>
       </div>
+      <p className="tf-note-line">{t('middleware.orderNote')}</p>
 
       {loading && !status ? (
-        <div className="loading-center">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : activeTab === 'filtering' ? (
-        <FilteringTab status={status} addToast={addToast} onChanged={fetchAll} />
-      ) : activeTab === 'routing' ? (
-        <RoutingTab status={status} decisions={decisions} />
-      ) : activeTab === 'proxy' ? (
-        <ProxyTab status={status} addToast={addToast} onChanged={fetchAll} />
+        <div className="tf-loading"><LoadingSpinner size="lg" /></div>
       ) : (
-        <EventsTab events={events} />
+        <>
+          {step === 'filtering' && <FilteringStep status={status} addToast={addToast} onChanged={fetchAll} />}
+          {step === 'routing' && <RoutingStep status={status} decisions={decisions} />}
+          {step === 'proxy' && <ProxyStep status={status} addToast={addToast} onChanged={fetchAll} />}
+          {step === 'admission' && <AdmissionStep events={events} />}
+          {step !== 'routing' && <EventsSection events={events} />}
+        </>
       )}
     </div>
   )
 }
 
-function FilteringTab({ status, addToast, onChanged }) {
-  const location = useLocation()
-  // Rows mid-save, so just that model's toggle disables while the PATCH
-  // round-trips (and the 5s background poll re-syncs the resolved state).
-  const [piiBusy, setPiiBusy] = useState(() => new Set())
+// One line under each step's name: how it stands now, from the status endpoint.
+function stepSummaries(status, events, t) {
+  const mitm = status?.mitm
+  const models = status?.pii?.models || []
+  const routers = status?.router?.models || []
+  const refused = events.filter(e => eventKind(e) === 'admission').length
+  return {
+    proxy: !status ? '' : mitm?.running ? t('middleware.sum.proxyOn', { addr: mitm.listen_addr }) : t('middleware.sum.proxyOff'),
+    admission: refused > 0 ? t('middleware.sum.refused', { count: refused }) : t('middleware.sum.limits'),
+    filtering: !status ? '' : t('middleware.sum.filtering', { on: models.filter(m => m.enabled).length, total: models.length }),
+    routing: !status ? '' : routers.length ? t('middleware.sum.routers', { count: routers.length }) : t('middleware.sum.noRouters'),
+  }
+}
 
-  // Toggling the PII column writes an explicit pii.enabled to the model YAML
-  // via PATCH /api/models/config-json/:name (a deep-merge that preserves
-  // pii.detectors and every other field). This makes the resolved state
-  // explicit: a cloud-proxy model shown ON by backend default becomes
-  // pii.enabled:true; toggling it OFF writes pii.enabled:false.
-  const togglePII = async (name, on) => {
-    setPiiBusy(prev => new Set(prev).add(name))
+function FilteringStep({ status, addToast, onChanged }) {
+  const { t } = useTranslation('traffic')
+  const location = useLocation()
+  // Rows mid-save, so only that model's switch is disabled while the PATCH
+  // round-trips (and the 5 s poll re-syncs the resolved state).
+  const [busy, setBusy] = useState(() => new Set())
+
+  // The switch writes an explicit pii.enabled to the model YAML through
+  // PATCH /api/models/config-json/:name, a deep merge that keeps pii.detectors
+  // and every other field. That makes the resolved state explicit: a cloud-proxy
+  // model shown ON by backend default becomes pii.enabled:true, and turning it
+  // OFF writes pii.enabled:false.
+  const toggle = async (name, on) => {
+    setBusy(prev => new Set(prev).add(name))
     try {
       await modelsApi.patchConfig(name, { pii: { enabled: on } })
-      addToast?.(on ? `PII filtering enabled for ${name}` : `PII filtering disabled for ${name}`, 'success')
+      addToast?.(on ? t('middleware.piiOn', { name }) : t('middleware.piiOff', { name }), 'success')
       onChanged?.()
     } catch (err) {
-      addToast?.(`Failed to update ${name}: ${err.message}`, 'error')
+      addToast?.(t('middleware.updateFailed', { name, message: err.message }), 'error')
     } finally {
-      setPiiBusy(prev => { const n = new Set(prev); n.delete(name); return n })
+      setBusy(prev => { const n = new Set(prev); n.delete(name); return n })
     }
   }
 
   if (!status?.pii) return null
   const pii = status.pii
+  const models = pii.models || []
 
   return (
-    <>
-      {/* Default rule banner */}
-      <div className="card pad-md mb-md">
-        <div className="hstack hstack--top hstack--nowrap">
-          <i className="fas fa-info-circle text-muted mt-xs" />
-          <div>
-            <div className="fw-semibold mb-xs">NER-based PII redaction</div>
-            <div className="text-sub">
-              Redaction is per-model and runs request-side. It is OFF by default; backends matching <code>{(pii.default_enabled_for_backends || []).join(', ')}</code> default to ON (cloud passthroughs). A model opts in with <code>pii: {'{'} enabled: true, detectors: [&hellip;] {'}'}</code>; each detector is a <code>token_classify</code> model whose <code>pii_detection</code> block defines the policy (which entities, what action, min score). Edit a detector model to change its policy.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Detector models + instance-wide default policy (per-row toggle) */}
-      <DetectorModels pii={pii} addToast={addToast} onChanged={onChanged} />
-
-      {/* Per-model resolved state */}
-      <div className="card pad-md">
-        <div className="hstack hstack--between mb-sm">
-          <span className="text-base fw-semibold">Per-model state</span>
-          <span className="text-meta">
-            Toggle PII inline; edit a row for detectors and policy.
-          </span>
-        </div>
-        <div className="table-container">
-          <table className="table">
+    <div className="tf-stack" data-testid="step-filtering">
+      <section className="tf-section">
+        <h2 className="tf-h2">{t('middleware.rules')}</h2>
+        <p className="tf-note-line">
+          {t('middleware.piiIntro')} <code>{(pii.default_enabled_for_backends || []).join(', ')}</code>. {t('middleware.piiIntro2')}
+        </p>
+        <div className="dk-table-wrap">
+          <table className="dk-table tf-table">
+            <caption className="dk-sr-only">{t('middleware.perModel')}</caption>
             <thead>
               <tr>
-                <th>Model</th>
-                <th className="col-w-120">Backend</th>
-                <th className="col-w-120">PII</th>
-                <th className="col-w-110">Source</th>
-                <th>Detectors</th>
-                <th className="col-w-80">Edit</th>
+                <th scope="col">{t('table.model')}</th>
+                <th scope="col" className="dk-hide-phone">{t('middleware.backend')}</th>
+                <th scope="col">PII</th>
+                <th scope="col" className="dk-hide-phone">{t('middleware.source')}</th>
+                <th scope="col" className="dk-hide-phone">{t('middleware.detectors')}</th>
+                <th scope="col" className="dk-table-actions"><span className="dk-sr-only">{t('middleware.edit')}</span></th>
               </tr>
             </thead>
             <tbody>
-              {(pii.models || []).map(m => (
-                <tr key={m.name}>
-                  <td className="text-mono text-sm">{m.name}</td>
-                  <td className="text-mono text-meta">{m.backend || '—'}</td>
+              {models.map(m => (
+                <tr key={m.name} data-row data-entity={m.name}>
                   <td>
-                    <span className="hstack hstack--xs">
-                      <Toggle
-                        checked={!!m.enabled}
-                        disabled={piiBusy.has(m.name)}
-                        onChange={(v) => togglePII(m.name, v)}
-                      />
-                      {m.enabled && (!m.detectors || m.detectors.length === 0) && (
-                        <span
-                          title="Enabled but no detector resolved — nothing is scanned. Toggle a detector's Default on above, or add pii.detectors to the model."
-                          className="mw-noop"
-                        >
-                          <i className="fas fa-triangle-exclamation icon-before" />no-op
-                        </span>
-                      )}
+                    <span className="dk-table-name dk-mono">{m.name}</span>
+                    {m.enabled && (!m.detectors || m.detectors.length === 0) && (
+                      <span className="tf-noop" title={t('middleware.noopTitle')}>
+                        <Icon name="warning" /> {t('middleware.noop')}
+                      </span>
+                    )}
+                  </td>
+                  <td className="dk-hide-phone dk-mono tf-sub">{m.backend || '-'}</td>
+                  <td>
+                    <span className="tf-switchcell">
+                      <Switch checked={!!m.enabled} disabled={busy.has(m.name)} onChange={v => toggle(m.name, v)} label={t('middleware.piiFor', { name: m.name })} />
+                      <StateWord on={m.enabled} />
                     </span>
                   </td>
-                  <td className="text-meta">
-                    {m.explicit ? 'YAML' : (m.default_for_backend ? 'backend default' : 'default off')}
-                  </td>
-                  <td className="cell-mono text-xs">
+                  <td className="dk-hide-phone tf-sub">{m.explicit ? t('middleware.srcYaml') : (m.default_for_backend ? t('middleware.srcBackend') : t('middleware.srcOff'))}</td>
+                  <td className="dk-hide-phone dk-mono tf-sub">
                     {m.detectors && m.detectors.length > 0
-                      ? <>{m.detectors.join(', ')}{m.detectors_from_default && <span className="text-muted"> (default)</span>}</>
-                      : <span className="text-muted">—</span>}
+                      ? <>{m.detectors.join(', ')}{m.detectors_from_default && <span> ({t('middleware.default')})</span>}</>
+                      : '-'}
                   </td>
-                  <td>
+                  <td className="dk-table-actions">
                     <Link
                       to={`/app/model-editor/${encodeURIComponent(m.name)}`}
                       state={fromState(location, 'Middleware')}
-                      className="btn btn-secondary btn-sm pill-xs"
-                      title={`Edit ${m.name}.yaml`}
+                      className="dk-btn dk-btn--ghost dk-btn--sm"
+                      title={t('middleware.editFile', { name: m.name })}
                     >
-                      <i className="fas fa-pen-to-square" /> Edit
+                      <Icon name="edit" /> {t('middleware.edit')}
                     </Link>
                   </td>
                 </tr>
               ))}
-              {(!pii.models || pii.models.length === 0) && (
-                <tr>
-                  <td colSpan={6} className="inline-empty">
-                    No models loaded.
-                  </td>
-                </tr>
+              {models.length === 0 && (
+                <tr className="dk-table-empty"><td colSpan={6}><p className="tf-note-line">{t('middleware.noModels')}</p></td></tr>
               )}
             </tbody>
           </table>
         </div>
-      </div>
-    </>
+      </section>
+
+      <DetectorModels pii={pii} addToast={addToast} onChanged={onChanged} />
+    </div>
   )
 }
 
-// detectorTypeBadge labels a detector model by how it matches: a neural NER
-// token-classifier vs an in-process restricted-regex pattern matcher. `unknown`
-// is a default that names a model no longer loaded.
-function detectorTypeBadge(type) {
-  const map = {
-    ner: { label: 'NER', color: 'var(--color-primary)' },
-    pattern: { label: 'pattern', color: 'var(--color-data-2, var(--color-warning))' },
-    unknown: { label: 'not loaded', color: 'var(--color-text-muted)' },
-  }
-  const t = map[type] || map.unknown
-  return (
-    <span className="mw-badge" style={{ background: t.color }}>
-      {t.label}
-    </span>
-  )
-}
-
-// DetectorModels lists the token_classify "filter" models (NER + in-process
-// pattern matchers) and, via a per-row toggle, manages the instance-wide
-// default detector set (RuntimeSettings.pii_default_detectors, saved via POST
-// /api/settings). A detector toggled on is applied to any PII-enabled model
-// that names none of its own — chiefly cloud-proxy / MITM models, which are
-// PII-enabled by default but carry no detector list. Per-model `pii.detectors`
-// always overrides. This replaces the old model-multiselect chooser: the table
-// shows every available detector, so admins toggle defaults instead of retyping
-// names, and link straight to each detector's config to edit its policy.
 function DetectorModels({ pii, addToast, onChanged }) {
+  const { t } = useTranslation('traffic')
   const navigate = useNavigate()
   const location = useLocation()
   const rows = useMemo(() => pii.detector_models || [], [pii.detector_models])
-  // Names currently in the default set; the toggle adds/removes against this.
+  // Names in the instance-wide default set (pii_default_detectors, saved with
+  // POST /api/settings). A detector switched on applies to any PII-enabled model
+  // that names none of its own, chiefly cloud-proxy and TLS-proxy models.
+  // A model's own pii.detectors always overrides.
   const defaults = useMemo(() => pii.default_detectors || [], [pii.default_detectors])
-  // Track which rows are mid-save to disable just that toggle (optimistic).
   const [busy, setBusy] = useState(() => new Set())
+  const [open, setOpen] = useState(true)
 
   const toggleDefault = async (name, on) => {
-    const next = on
-      ? [...new Set([...defaults, name])]
-      : defaults.filter(d => d !== name)
+    const next = on ? [...new Set([...defaults, name])] : defaults.filter(d => d !== name)
     setBusy(prev => new Set(prev).add(name))
     try {
       const body = await settingsApi.save({ pii_default_detectors: next })
       if (body && body.success === false) throw new Error(body.error || 'unknown error')
-      addToast?.(on ? `${name} added to default detectors` : `${name} removed from default detectors`, 'success')
+      addToast?.(on ? t('middleware.defaultAdded', { name }) : t('middleware.defaultRemoved', { name }), 'success')
       onChanged?.()
     } catch (err) {
-      addToast?.(`Failed to save: ${err.message}`, 'error')
+      addToast?.(t('middleware.saveFailed', { message: err.message }), 'error')
     } finally {
       setBusy(prev => { const n = new Set(prev); n.delete(name); return n })
     }
   }
 
   return (
-    <div className="card pad-md mb-md">
-      <div className="hstack hstack--between mb-sm">
-        <span className="text-base fw-semibold">Detector models</span>
+    <section className="tf-section">
+      <div className="tf-section__head">
+        <h2 className="tf-h2">
+          <button type="button" className="tf-disclose" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+            <Icon name={open ? 'chevron-down' : 'chevron-right'} /> {t('middleware.detectorsTitle')}
+          </button>
+        </h2>
         <button
-          className="btn btn-secondary btn-sm"
+          type="button"
+          className="dk-btn dk-btn--secondary dk-btn--sm"
           onClick={() => navigate('/app/model-editor?template=secret-filter', { state: fromState(location, 'Middleware') })}
-          title="Add a NER or pattern detector model"
+          title={t('middleware.addDetectorTitle')}
         >
-          <i className="fas fa-plus" /> Add detector model
+          <Icon name="plus" /> {t('middleware.addDetector')}
         </button>
       </div>
-      <div className="text-sub mb-sm">
-        These token_classify models do the scanning. Toggle <strong>Default</strong> on to apply a
-        detector to any PII-enabled model that names none of its own (chiefly cloud-proxy / MITM models).
-        Per-model <code>pii.detectors</code> always overrides. Edit a detector to change which entities it
-        flags and what action it takes.
-      </div>
-
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Detector model</th>
-              <th className="col-w-110">Type</th>
-              <th className="col-w-120">Backend</th>
-              <th className="col-w-110">Default</th>
-              <th className="col-w-80">Edit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(d => (
-              <tr key={d.name}>
-                <td className="text-mono text-sm fw-semibold">
-                  {d.missing
-                    ? <span title="This default detector names a model that is not loaded.">{d.name}</span>
-                    : <Link to={`/app/model-editor/${encodeURIComponent(d.name)}`} state={fromState(location, 'Middleware')} title={`Edit ${d.name}.yaml`}>{d.name}</Link>}
-                </td>
-                <td>{detectorTypeBadge(d.type)}</td>
-                <td className="text-mono text-meta">{d.backend || '—'}</td>
-                <td>
-                  <Toggle
-                    checked={!!d.default}
-                    disabled={busy.has(d.name)}
-                    onChange={(v) => toggleDefault(d.name, v)}
-                  />
-                </td>
-                <td>
-                  {d.missing ? (
-                    <span className="text-meta">—</span>
-                  ) : (
-                    <Link
-                      to={`/app/model-editor/${encodeURIComponent(d.name)}`}
-                      state={fromState(location, 'Middleware')}
-                      className="btn btn-secondary btn-sm pill-xs"
-                      title={`Edit ${d.name}.yaml`}
-                    >
-                      <i className="fas fa-pen-to-square" /> Edit
-                    </Link>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="inline-empty">
-                  No detector models loaded. Add one with the button above (a token_classify NER model
-                  or a built-in secret pattern model).
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      {open && (
+        <>
+          <p className="tf-note-line">{t('middleware.detectorsIntro')}</p>
+          <div className="dk-table-wrap">
+            <table className="dk-table tf-table">
+              <caption className="dk-sr-only">{t('middleware.detectorsTitle')}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t('middleware.detectorCol')}</th>
+                  <th scope="col">{t('middleware.type')}</th>
+                  <th scope="col" className="dk-hide-phone">{t('middleware.backend')}</th>
+                  <th scope="col">{t('middleware.default')}</th>
+                  <th scope="col" className="dk-table-actions"><span className="dk-sr-only">{t('middleware.edit')}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(d => (
+                  <tr key={d.name} data-row data-entity={d.name}>
+                    <td className="dk-mono">
+                      {d.missing
+                        ? <span className="dk-table-name" title={t('middleware.missingDetector')}>{d.name}</span>
+                        : <Link className="dk-table-name tf-name" to={`/app/model-editor/${encodeURIComponent(d.name)}`} state={fromState(location, 'Middleware')} title={t('middleware.editFile', { name: d.name })}>{d.name}</Link>}
+                    </td>
+                    <td><span className="dk-chip dk-chip--sm" data-type={d.type}>{d.type === 'ner' ? 'NER' : d.type === 'pattern' ? 'pattern' : t('middleware.notLoaded')}</span></td>
+                    <td className="dk-hide-phone dk-mono tf-sub">{d.backend || '-'}</td>
+                    <td><Switch checked={!!d.default} disabled={busy.has(d.name)} onChange={v => toggleDefault(d.name, v)} label={t('middleware.defaultFor', { name: d.name })} /></td>
+                    <td className="dk-table-actions">
+                      {!d.missing && (
+                        <Link to={`/app/model-editor/${encodeURIComponent(d.name)}`} state={fromState(location, 'Middleware')} className="dk-btn dk-btn--ghost dk-btn--sm" title={t('middleware.editFile', { name: d.name })}>
+                          <Icon name="edit" /> {t('middleware.edit')}
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {rows.length === 0 && (
+                  <tr className="dk-table-empty"><td colSpan={5}><p className="tf-note-line">{t('middleware.noDetectors')}</p></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
   )
 }
 
-// decisionActiveSet rebuilds the Set of active labels from a
-// DecisionRecord's comma-joined `label` column. Used by both the
-// collapsed-row score suffix and the expanded-row bar rendering.
+// The labels that fired for one routing decision, from its comma-joined
+// `label` column.
 function decisionActiveSet(d) {
   return new Set((d?.label || '').split(',').filter(Boolean))
 }
 
-// formatDecisionScoreSuffix renders the top active label's score
-// next to the label cell so operators can spot uncertain calls at a
-// glance without expanding the row. Empty when the decision came from
-// the cache or fallback — both cases lack per-label scores.
-function formatDecisionScoreSuffix(d, activeSet) {
+// The top active label's score, shown in the collapsed row so uncertain calls
+// can be spotted without opening it. Empty for a cached or fallback decision,
+// which has no per-label scores.
+function scoreSuffix(d, active) {
   if (!d?.label_scores?.length) return ''
-  const top = d.label_scores
-    .filter(ls => activeSet.has(ls.label))
-    .sort((a, b) => b.score - a.score)[0]
-  if (!top) return ''
-  return ` ${(top.score * 100).toFixed(0)}%`
+  const top = d.label_scores.filter(ls => active.has(ls.label)).sort((a, b) => b.score - a.score)[0]
+  return top ? ` ${(top.score * 100).toFixed(0)}%` : ''
 }
 
-// LabelBar is one row in the expanded decision view — a horizontal
-// score bar with a vertical marker at the activation threshold so
-// operators can see how close inactive labels got to firing.
-function LabelBar({ label, score, threshold, active }) {
+// A score bar with a marker at the activation threshold, so a label that
+// stayed just under it can be seen.
+function LabelBar({ label, score, threshold, active, t }) {
   const scorePct = Math.max(0, Math.min(100, score * 100))
   const thresholdPct = Math.max(0, Math.min(100, (threshold || 0) * 100))
   return (
-    <div className="mw-score">
-      <div className={`mw-score__label${active ? ' mw-score__label--active' : ''}`} title={label}>
-        {label}
-      </div>
-      <div className="mw-score__track">
-        <div className={`mw-score__fill${active ? ' mw-score__fill--active' : ''}`} style={{ width: `${scorePct}%` }} />
+    <div className="tf-score">
+      <div className={`tf-score__label${active ? ' tf-score__label--active' : ''}`} title={label}>{label}</div>
+      <div className="tf-score__track">
+        <div className={`tf-score__fill${active ? ' tf-score__fill--active' : ''}`} style={cssVars({ width: `${scorePct}%` })} />
         {threshold > 0 && (
-          <div
-            title={`Activation threshold ${thresholdPct.toFixed(0)}%`}
-            className="mw-score__threshold" style={{ left: `${thresholdPct}%` }}
-          />
+          <div title={t('middleware.threshold', { value: thresholdPct.toFixed(0) })} className="tf-score__mark" style={cssVars({ left: `${thresholdPct}%` })} />
         )}
       </div>
-      <div className="mw-score__value">
-        {scorePct.toFixed(1)}%
-      </div>
+      <div className="tf-score__value dk-mono">{scorePct.toFixed(1)}%</div>
     </div>
   )
 }
 
-// DecisionDetail renders the per-label bar breakdown for one decision.
-// Empty-state messaging covers cached and fallback rows where the
-// classifier never produced per-label scores.
 function DecisionDetail({ d }) {
+  const { t } = useTranslation('traffic')
   if (!d.label_scores?.length) {
     return (
-      <div className="text-meta text-italic">
+      <p className="tf-note-line">
         {d.cached
-          ? 'Cached decision — per-label scores not recorded (the cache stores only the resulting label set).'
+          ? t('middleware.cachedDecision')
           : d.nearest_similarity
-            ? `Out-of-corpus fallback — the nearest labelled corpus entry was at similarity ${d.nearest_similarity.toFixed(2)}, below the router's gate. Seed exemplars near this kind of prompt to route it.`
-            : 'No per-label scores recorded for this decision (likely a fallback row).'}
-      </div>
+            ? t('middleware.fallbackDecision', { value: d.nearest_similarity.toFixed(2) })
+            : t('middleware.noScores')}
+      </p>
     )
   }
   const threshold = d.activation_threshold || 0
   const active = decisionActiveSet(d)
   return (
-    <div className="stack stack--xs" style={{ maxWidth: 720 }}>
-      <div className="text-meta">
-        Activation threshold:&nbsp;
-        <span className="text-warning fw-semibold">
-          {(threshold * 100).toFixed(0)}%
-        </span>
-        &nbsp;(orange marker on each bar)
-      </div>
+    <div className="tf-scores">
+      <p className="tf-note-line">{t('middleware.activation', { value: (threshold * 100).toFixed(0) })}</p>
       {d.label_scores.map(ls => (
-        <LabelBar
-          key={ls.label}
-          label={ls.label}
-          score={ls.score}
-          threshold={threshold}
-          active={active.has(ls.label)}
-        />
+        <LabelBar key={ls.label} label={ls.label} score={ls.score} threshold={threshold} active={active.has(ls.label)} t={t} />
       ))}
     </div>
   )
 }
 
-function RoutingTab({ status, decisions }) {
+function RoutingStep({ status, decisions }) {
+  const { t } = useTranslation('traffic')
   const navigate = useNavigate()
   const location = useLocation()
   const router = status?.router || { configured: false }
   const [expanded, setExpanded] = useState(() => new Set())
 
-  // Precompute per-row formatter strings once per decisions update.
-  // The score suffix is shown in the collapsed row so operators can
-  // scan top-label confidence without expanding everything.
-  const decisionRows = useMemo(() => (decisions || []).map(d => {
-    const active = decisionActiveSet(d)
-    return {
-      ...d,
-      _scoreSuffix: formatDecisionScoreSuffix(d, active),
-    }
-  }), [decisions])
-
-  const toggleExpanded = useCallback(id => {
+  const rows = useMemo(() => (decisions || []).map(d => ({ ...d, _suffix: scoreSuffix(d, decisionActiveSet(d)) })), [decisions])
+  const toggle = useCallback(id => {
     setExpanded(prev => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
   }, [])
 
   if (!router.configured || !router.models || router.models.length === 0) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon"><i className="fas fa-route" /></div>
-        <h2 className="empty-state-title">No routers configured</h2>
-        <p className="empty-state-text">
-          {router.note || 'Add a `router:` block to a model YAML to enable intelligent routing. The classifier picks one of the listed candidates per request and the standard model-resolution path runs against the chosen target.'}
-        </p>
-        <button
-          className="btn btn-primary mt-md"
-          onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}
-        >
-          <i className="fas fa-plus" /> Create routing model
-        </button>
+      <div className="dk-empty tf-empty" data-testid="step-routing">
+        <Icon name="route" className="dk-empty-icon" />
+        <h2 className="dk-empty-title">{t('middleware.noRoutersTitle')}</h2>
+        <p className="dk-empty-text">{router.note || t('middleware.noRoutersText')}</p>
+        <div className="tf-empty__acts">
+          <button type="button" className="dk-btn dk-btn--primary" onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}>
+            <Icon name="plus" /> {t('middleware.createRouter')}
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <>
-      {/* Configured router models */}
-      <div className="card pad-md mb-md">
-        <div className="hstack hstack--between mb-sm">
-          <span className="text-base fw-semibold">Active routers</span>
-          <div className="hstack">
-            <span className="text-meta">
-              Edit the router model YAML to change candidates or rules.
-            </span>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}
-              title="Open the model editor with the Routing Model template pre-selected"
-            >
-              <i className="fas fa-plus" /> Add routing model
-            </button>
-          </div>
+    <div className="tf-stack" data-testid="step-routing">
+      <section className="tf-section">
+        <div className="tf-section__head">
+          <h2 className="tf-h2">{t('middleware.activeRouters')}</h2>
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })} title={t('middleware.addRouterTitle')}>
+            <Icon name="plus" /> {t('middleware.addRouter')}
+          </button>
         </div>
-        <div className="table-container">
-          <table className="table">
+        <p className="tf-note-line">{t('middleware.routersNote')}</p>
+        <div className="dk-table-wrap">
+          <table className="dk-table tf-table">
+            <caption className="dk-sr-only">{t('middleware.activeRouters')}</caption>
             <thead>
               <tr>
-                <th className="w-160">Model</th>
-                <th className="col-w-110">Classifier</th>
-                <th>Candidates</th>
-                <th className="col-w-200">Cache / corpus</th>
-                <th className="col-w-140">Fallback</th>
+                <th scope="col">{t('table.model')}</th>
+                <th scope="col" className="dk-hide-phone">{t('middleware.classifier')}</th>
+                <th scope="col">{t('middleware.candidates')}</th>
+                <th scope="col" className="dk-hide-phone">{t('middleware.cache')}</th>
+                <th scope="col" className="dk-hide-phone">{t('middleware.fallback')}</th>
               </tr>
             </thead>
             <tbody>
               {router.models.map(m => (
-                <tr key={m.name}>
-                  <td className="text-mono text-sm fw-semibold">
-                    <Link to={`/app/model-editor/${encodeURIComponent(m.name)}`} state={fromState(location, 'Middleware')} title="Edit this router model's config">{m.name}</Link>
-                  </td>
-                  <td className="text-mono text-xs">{m.classifier}</td>
-                  <td className="text-xs">
+                <tr key={m.name} data-row data-entity={m.name}>
+                  <td className="dk-mono"><Link className="dk-table-name tf-name" to={`/app/model-editor/${encodeURIComponent(m.name)}`} state={fromState(location, 'Middleware')} title={t('middleware.editRouter')}>{m.name}</Link></td>
+                  <td className="dk-hide-phone dk-mono tf-sub">{m.classifier}</td>
+                  <td>
                     {(m.candidates || []).map((c, i) => (
-                      <div key={i} className="hstack hstack--xs text-mono">
-                        <span className="min-w-100 text-primary">{(c.labels || []).join(', ') || '—'}</span>
-                        <span className="text-muted">→</span>
+                      <div key={i} className="tf-candidate dk-mono">
+                        <span>{(c.labels || []).join(', ') || '-'}</span>
+                        <Icon name="arrow-right" />
                         <span>{c.model}</span>
                       </div>
                     ))}
                   </td>
-                  <td className="text-xs">
-                    {m.knn ? <RouterKNNCell knn={m.knn} /> : <RouterCacheCell cache={m.embedding_cache} />}
-                  </td>
-                  <td className="text-mono text-meta">
-                    {m.fallback || '—'}
-                  </td>
+                  <td className="dk-hide-phone">{m.knn ? <RouterKNNCell knn={m.knn} /> : <RouterCacheCell cache={m.embedding_cache} />}</td>
+                  <td className="dk-hide-phone dk-mono tf-sub">{m.fallback || '-'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      {/* Recent decisions */}
-      <div className="card pad-md">
-        <div className="hstack hstack--between mb-sm">
-          <span className="text-base fw-semibold">Recent decisions</span>
-          <span className="text-meta">
-            Newest first, capped at 100.
-          </span>
-        </div>
-        {(!decisions || decisions.length === 0) ? (
-          <div className="inline-empty text-sm">
-            No routing decisions yet. Send a request to a router model to populate this log.
-          </div>
+      <section className="tf-section">
+        <h2 className="tf-h2">{t('middleware.decisions')} <span className="tf-sub">{t('middleware.decisionsSub')}</span></h2>
+        {rows.length === 0 ? (
+          <p className="tf-note-line">{t('middleware.noDecisions')}</p>
         ) : (
-          <div className="table-container">
-            <table className="table">
+          <div className="dk-table-wrap">
+            <table className="dk-table dk-table--compact tf-table">
+              <caption className="dk-sr-only">{t('middleware.decisions')}</caption>
               <thead>
                 <tr>
-                  <th className="col-w-170">Time</th>
-                  <th className="col-w-130">Router</th>
-                  <th className="col-w-80">Label</th>
-                  <th className="col-w-130">Served</th>
-                  <th className="col-w-90">Latency</th>
-                  <th>Correlation</th>
+                  <th scope="col" className="dk-table-toggle-cell"><span className="dk-sr-only">{t('table.open')}</span></th>
+                  <th scope="col">{t('middleware.time')}</th>
+                  <th scope="col" className="dk-hide-phone">{t('middleware.router')}</th>
+                  <th scope="col">{t('middleware.label')}</th>
+                  <th scope="col" className="dk-hide-phone">{t('middleware.served')}</th>
+                  <th scope="col" className="dk-num dk-hide-phone">{t('traces.col.latency')}</th>
+                  <th scope="col" className="dk-hide-phone">{t('middleware.correlation')}</th>
                 </tr>
               </thead>
               <tbody>
-                {decisionRows.map(d => {
-                  const isExpanded = expanded.has(d.id)
+                {rows.map(d => {
+                  const isOpen = expanded.has(d.id)
                   return (
                     <Fragment key={d.id}>
-                      <tr
-                        onClick={() => toggleExpanded(d.id)}
-                        className="clickable"
-                        title={isExpanded ? 'Click to collapse' : 'Click to see per-label score breakdown'}
-                      >
-                        <td className="text-mono text-meta">
-                          <span className="d-block text-muted w-12">
-                            {isExpanded ? '▼' : '▶'}
-                          </span>
-                          {d.created_at}
-                        </td>
-                        <td className="text-mono text-xs">{d.router_model}</td>
-                        <td className="cell-mono text-xs fw-semibold">
-                          {d.label}
-                          {d._scoreSuffix}
-                        </td>
-                        <td className="text-mono text-xs">{d.served_model}</td>
-                        <td className="text-mono text-meta">{d.latency_ms}ms</td>
-                        <td className="text-mono text-meta">
-                          {d.correlation_id || '—'}
-                        </td>
+                      <tr data-row data-clickable onClick={() => toggle(d.id)} title={isOpen ? t('middleware.collapse') : t('middleware.expand')}>
+                        <td className="dk-table-toggle-cell"><Icon name={isOpen ? 'chevron-down' : 'chevron-right'} className="dk-icon" /></td>
+                        <td className="dk-mono tf-sub">{d.created_at}</td>
+                        <td className="dk-hide-phone dk-mono">{d.router_model}</td>
+                        <td className="dk-mono"><strong>{d.label}{d._suffix}</strong></td>
+                        <td className="dk-hide-phone dk-mono">{d.served_model}</td>
+                        <td className="dk-num dk-hide-phone">{d.latency_ms}ms</td>
+                        <td className="dk-hide-phone dk-mono tf-sub">{d.correlation_id || '-'}</td>
                       </tr>
-                      {isExpanded && (
-                        <tr>
-                          <td colSpan={6} className="bg-muted pad-md">
-                            <DecisionDetail d={d} />
-                          </td>
+                      {isOpen && (
+                        <tr className="dk-table-detail">
+                          <td colSpan={7}><div className="dk-table-detail-body"><DecisionDetail d={d} /></div></td>
                         </tr>
                       )}
                     </Fragment>
@@ -660,24 +535,23 @@ function RoutingTab({ status, decisions }) {
             </table>
           </div>
         )}
-      </div>
-    </>
+      </section>
+    </div>
   )
 }
 
-function ProxyTab({ status, addToast, onChanged }) {
+function ProxyStep({ status, addToast, onChanged }) {
+  const { t } = useTranslation('traffic')
   const navigate = useNavigate()
   const location = useLocation()
   const mitm = status?.mitm
   const serverListen = mitm?.configured_addr || ''
-
   const [listen, setListen] = useState(serverListen)
   const [saving, setSaving] = useState(false)
-
+  const [setup, setSetup] = useState(false)
   const dirty = listen !== serverListen
 
-  // Refresh local state from the server only when the user has no
-  // pending edits to clobber.
+  // Take the server's value only when there is no pending edit to clobber.
   useEffect(() => {
     if (dirty) return
     setListen(serverListen)
@@ -688,13 +562,11 @@ function ProxyTab({ status, addToast, onChanged }) {
     setSaving(true)
     try {
       const body = await settingsApi.save({ mitm_listen: listen })
-      if (body && body.success === false) {
-        throw new Error(body.error || 'unknown error')
-      }
-      addToast('MITM proxy settings updated', 'success')
+      if (body && body.success === false) throw new Error(body.error || 'unknown error')
+      addToast?.(t('middleware.proxyUpdated'), 'success')
       onChanged?.()
     } catch (err) {
-      addToast(`Failed to save: ${err.message}`, 'error')
+      addToast?.(t('middleware.saveFailed', { message: err.message }), 'error')
     } finally {
       setSaving(false)
     }
@@ -702,232 +574,186 @@ function ProxyTab({ status, addToast, onChanged }) {
 
   if (!mitm) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon"><i className="fas fa-shield" /></div>
-        <h2 className="empty-state-title">MITM proxy status unavailable</h2>
-        <p className="empty-state-text">The status endpoint did not return a mitm section.</p>
+      <div className="dk-empty tf-empty" data-testid="step-proxy">
+        <Icon name="shield" className="dk-empty-icon" />
+        <h2 className="dk-empty-title">{t('middleware.proxyUnavailable')}</h2>
+        <p className="dk-empty-text">{t('middleware.proxyUnavailableText')}</p>
       </div>
     )
   }
 
   const conflicts = mitm.host_conflicts || {}
-  const owners = mitm.host_owners || {}
   const conflictHosts = Object.keys(conflicts)
-  const ownerEntries = Object.entries(owners)
+  const ownerEntries = Object.entries(mitm.host_owners || {})
   const mitmModels = mitm.models || []
 
   return (
-    <div className="stack">
+    <div className="tf-stack" data-testid="step-proxy">
       {conflictHosts.length > 0 && (
-        <div className="card mw-alert">
-          <div className="hstack mb-xs">
-            <i className="fas fa-triangle-exclamation text-error" />
-            <span className="fw-semibold">MITM listener disabled — duplicate host claims</span>
-          </div>
-          <p className="text-sub m-0">
-            Each MITM intercept host must be owned by exactly one model config. Resolve by editing the conflicting model YAMLs.
-          </p>
-          <ul className="mw-list text-sm mt-xs">
-            {conflictHosts.map(h => (
-              <li key={h}>
-                <code className="text-mono">{h}</code>
-                {' claimed by: '}
-                {(conflicts[h] || []).map(name => (
-                  <Link key={name} to={`/app/model-editor/${encodeURIComponent(name)}`} state={fromState(location, 'Middleware')} className="icon-before text-mono">
-                    {name}
-                  </Link>
-                ))}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="card pad-lg">
-        <div className="hstack hstack--md mb-md">
-          <h2 className="text-lg fw-semibold m-0">State</h2>
-          {enabledBadge(mitm.running)}
-          {mitm.running && (
-            <span className="text-mono text-sub">
-              listening on {mitm.listen_addr}
-            </span>
-          )}
-        </div>
-        <p className="text-sub mb-sm">
-          The MITM proxy terminates TLS for allowlisted hosts so PII redaction
-          can run on traffic from clients that authenticate via OAuth /
-          subscription (Claude Code, Codex CLI). Non-allowlisted hosts get a
-          plain CONNECT tunnel — no inspection, no CA-trust required.
-        </p>
-        {ownerEntries.length > 0 ? (
-          <div className="text-meta mb-sm">
-            <div className="mb-xs">Hosts claimed by model configs (PII settings flow from the owning config):</div>
-            <ul className="mw-list mw-list--mono">
-              {ownerEntries.map(([host, name]) => (
-                <li key={host}>
-                  {host} → <Link to={`/app/model-editor/${encodeURIComponent(name)}`} state={fromState(location, 'Middleware')}>{name}</Link>
+        <div className="tf-error" role="alert">
+          <Icon name="alert-circle" />
+          <div>
+            <strong>{t('middleware.conflictTitle')}</strong>
+            <p className="tf-note-line">{t('middleware.conflictText')}</p>
+            <ul className="tf-list">
+              {conflictHosts.map(h => (
+                <li key={h}>
+                  <code>{h}</code> {t('middleware.claimedBy')}{' '}
+                  {(conflicts[h] || []).map(name => (
+                    <Link key={name} className="dk-link dk-mono" to={`/app/model-editor/${encodeURIComponent(name)}`} state={fromState(location, 'Middleware')}>{name}</Link>
+                  ))}
                 </li>
               ))}
             </ul>
           </div>
+        </div>
+      )}
+
+      <section className="tf-section">
+        <h2 className="tf-h2">{t('middleware.state')} <StateWord on={mitm.running} />{mitm.running && <span className="dk-mono tf-sub">{t('middleware.listeningOn', { addr: mitm.listen_addr })}</span>}</h2>
+        <p className="tf-note-line">{t('middleware.proxyIntro')}</p>
+        {ownerEntries.length > 0 ? (
+          <>
+            <p className="tf-note-line">{t('middleware.hostsClaimed')}</p>
+            <ul className="tf-list dk-mono">
+              {ownerEntries.map(([host, name]) => (
+                <li key={host}>{host} <Icon name="arrow-right" /> <Link className="dk-link" to={`/app/model-editor/${encodeURIComponent(name)}`} state={fromState(location, 'Middleware')}>{name}</Link></li>
+              ))}
+            </ul>
+          </>
         ) : (
-          <div className="text-meta mb-sm">
-            No model config declares an MITM intercept host. Without one, every CONNECT tunnels through unmodified. Create one from the Add Model page using the MITM Intercept template.
-          </div>
+          <p className="tf-note-line">{t('middleware.noHosts')}</p>
         )}
         {mitm.ca_available ? (
-          <a
-            className="btn btn-secondary btn-sm"
-            href={apiUrl(mitm.ca_cert_url)}
-            download="localai-mitm-ca.crt"
-          >
-            <i className="fas fa-download" /> Download CA cert
+          <a className="dk-btn dk-btn--secondary dk-btn--sm" href={apiUrl(mitm.ca_cert_url)} download="localai-mitm-ca.crt">
+            <Icon name="download" /> {t('middleware.downloadCa')}
           </a>
         ) : (
-          <span className="text-meta">
-            CA not generated yet — start the listener to generate it.
-          </span>
+          <p className="tf-note-line">{t('middleware.noCa')}</p>
         )}
-      </div>
+      </section>
 
-      <div className="card pad-lg">
-        <div className="hstack hstack--between mb-sm">
-          <h2 className="text-lg fw-semibold m-0">MITM Models</h2>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => navigate('/app/model-editor?template=mitm', { state: fromState(location, 'Middleware') })}
-            title="Open the model editor with the MITM Intercept template pre-selected"
-          >
-            <i className="fas fa-plus" /> Add MITM model
+      <section className="tf-section">
+        <div className="tf-section__head">
+          <h2 className="tf-h2">{t('middleware.proxyModels')}</h2>
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => navigate('/app/model-editor?template=mitm', { state: fromState(location, 'Middleware') })} title={t('middleware.addProxyModelTitle')}>
+            <Icon name="plus" /> {t('middleware.addProxyModel')}
           </button>
         </div>
         {mitmModels.length === 0 ? (
-          <div className="text-note">
-            No model config declares <code>mitm.hosts</code>. Use the Add MITM model button above — the template defaults to <code>api.anthropic.com</code> with PII filtering on.
-          </div>
+          <p className="tf-note-line">{t('middleware.noProxyModels')}</p>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th>Hosts</th>
-                <th className="col-w-80">PII</th>
-                <th className="col-w-80">Edit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mitmModels.map(m => (
-                <tr key={m.name}>
-                  <td className="text-mono text-sm fw-semibold">{m.name}</td>
-                  <td className="text-mono text-xs">
-                    {(m.hosts || []).join(', ')}
-                  </td>
-                  <td>{enabledBadge(m.pii_enabled)}</td>
-                  <td>
-                    <Link
-                      to={`/app/model-editor/${encodeURIComponent(m.name)}`}
-                      state={fromState(location, 'Middleware')}
-                      className="btn btn-secondary btn-sm pill-xs"
-                    >
-                      <i className="fas fa-pen-to-square" /> Edit
-                    </Link>
-                  </td>
+          <div className="dk-table-wrap">
+            <table className="dk-table tf-table">
+              <caption className="dk-sr-only">{t('middleware.proxyModels')}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t('table.model')}</th>
+                  <th scope="col">{t('middleware.hosts')}</th>
+                  <th scope="col">PII</th>
+                  <th scope="col" className="dk-table-actions"><span className="dk-sr-only">{t('middleware.edit')}</span></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <div className="card pad-lg">
-        <h2 className="text-lg fw-semibold mb-md mt-0">Configuration</h2>
-
-        <label className="d-block mb-md">
-          <div className="text-base fw-medium mb-xs">Listen address</div>
-          <input
-            type="text"
-            value={listen}
-            onChange={e => setListen(e.target.value)}
-            placeholder=":8443  (leave empty to disable)"
-            className="mw-field-input"
-          />
-          <div className="text-meta mt-xs">
-            Bind address for the proxy listener. Empty disables it. Bind to <code>127.0.0.1:port</code> unless the listener is reachable only from clients you control — there is no auth on the CONNECT port. Clients connect to the proxy over plain HTTP (use <code>http://</code>, even for the <code>HTTPS_PROXY</code> env var); the proxy terminates TLS for allowlisted hosts inside the CONNECT tunnel.
+              </thead>
+              <tbody>
+                {mitmModels.map(m => (
+                  <tr key={m.name} data-row data-entity={m.name}>
+                    <td className="dk-table-name dk-mono">{m.name}</td>
+                    <td className="dk-mono tf-sub">{(m.hosts || []).join(', ')}</td>
+                    <td><StateWord on={m.pii_enabled} /></td>
+                    <td className="dk-table-actions">
+                      <Link to={`/app/model-editor/${encodeURIComponent(m.name)}`} state={fromState(location, 'Middleware')} className="dk-btn dk-btn--ghost dk-btn--sm">
+                        <Icon name="edit" /> {t('middleware.edit')}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        )}
+      </section>
+
+      <section className="tf-section">
+        <h2 className="tf-h2">{t('middleware.config')}</h2>
+        <label className="dk-field tf-field">
+          <span className="dk-label">{t('middleware.listenAddress')}</span>
+          <input type="text" className="dk-input dk-input--mono" value={listen} onChange={e => setListen(e.target.value)} placeholder={t('middleware.listenPlaceholder')} />
+          <span className="dk-hint">{t('middleware.listenHint')}</span>
         </label>
-
-        <div className="text-sub mb-md">
-          Intercept hosts are declared per-model in the model YAML's
-          {' '}<code className="text-mono">mitm.hosts:</code>{' '}
-          block. Each host is owned by exactly one model config; PII filtering and
-          pattern overrides flow from the owning config when the host is intercepted.
-        </div>
-
-        <div className="hstack">
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={save}
-            disabled={!dirty || saving}
-          >
-            <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-save'}`} /> {saving ? 'Saving…' : 'Apply'}
+        <p className="tf-note-line">{t('middleware.interceptNote')}</p>
+        <div className="tf-actions">
+          <button type="button" className="dk-btn dk-btn--primary" onClick={save} disabled={!dirty || saving}>
+            <Icon name={saving ? 'spinner' : 'save'} spin={Boolean(saving)} /> {saving ? t('traces.settings.saving') : t('middleware.apply')}
           </button>
           {dirty && (
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setListen(mitm.configured_addr || '')}
-              disabled={saving}
-            >
-              Discard changes
-            </button>
+            <button type="button" className="dk-btn dk-btn--ghost" onClick={() => setListen(mitm.configured_addr || '')} disabled={saving}>{t('middleware.discard')}</button>
           )}
         </div>
-      </div>
+      </section>
 
-      <div className="card pad-md bg-secondary">
-        <h2 className="text-base fw-semibold mb-sm mt-0">Client setup</h2>
-        <ol className="mw-list text-sub">
-          <li>Download the CA cert (button above).</li>
-          <li>Trust it on the client. For Node-based CLIs (Claude Code, Codex): <code className="text-mono">export NODE_EXTRA_CA_CERTS=$(pwd)/localai-mitm-ca.crt</code></li>
-          <li>Point the client at the proxy: <code className="text-mono">export HTTPS_PROXY=http://&lt;host&gt;:&lt;port&gt;</code> (yes, <code>http://</code> — clients speak plain HTTP to the proxy, which then terminates TLS for allowlisted hosts on the inner connection).</li>
-        </ol>
-      </div>
+      <section className="tf-section">
+        <h2 className="tf-h2">
+          <button type="button" className="tf-disclose" aria-expanded={setup} onClick={() => setSetup(v => !v)}>
+            <Icon name={setup ? 'chevron-down' : 'chevron-right'} /> {t('middleware.clientSetup')}
+          </button>
+        </h2>
+        {setup && (
+          <ol className="tf-list tf-list--num">
+            <li>{t('middleware.setup1')}</li>
+            <li>{t('middleware.setup2')} <code>export NODE_EXTRA_CA_CERTS=$(pwd)/localai-mitm-ca.crt</code></li>
+            <li>{t('middleware.setup3')} <code>export HTTPS_PROXY=http://&lt;host&gt;:&lt;port&gt;</code> {t('middleware.setup3b')}</li>
+          </ol>
+        )}
+      </section>
     </div>
   )
 }
 
-const EVENT_KINDS = [
-  { id: '', label: 'All' },
-  { id: 'pii', label: 'PII' },
-  { id: 'proxy_connect', label: 'Proxy connect' },
-  { id: 'proxy_traffic', label: 'Proxy traffic' },
-  { id: 'admission', label: 'Admission' },
-]
-
-function eventKind(e) {
-  return e.kind || 'pii'
+function AdmissionStep({ events }) {
+  const { t } = useTranslation('traffic')
+  const refused = events.filter(e => eventKind(e) === 'admission')
+  return (
+    <div className="tf-stack" data-testid="step-admission">
+      <section className="tf-section">
+        <h2 className="tf-h2">{t('middleware.admissionTitle')}</h2>
+        <p className="tf-note-line">{t('middleware.admissionText')}</p>
+        <div className="tf-actions">
+          <Link className="dk-btn dk-btn--secondary dk-btn--sm" to="/app/users"><Icon name="users" /> {t('middleware.admissionUsers')}</Link>
+        </div>
+        <p className="tf-note-line" data-testid="admission-count">{refused.length > 0 ? t('middleware.admissionRecent', { count: refused.length }) : t('middleware.admissionNone')}</p>
+      </section>
+    </div>
+  )
 }
+
+const EVENT_KINDS = ['', 'pii', 'proxy_connect', 'proxy_traffic', 'admission']
 
 function eventSubject(e) {
   switch (eventKind(e)) {
     case 'proxy_connect':
     case 'proxy_traffic':
     case 'admission':
-      return e.host || '—'
+      return e.host || '-'
     default:
-      return e.pattern_id || '—'
+      return e.pattern_id || '-'
   }
 }
 
-function eventDetails(e) {
+function bytesShort(n) {
+  if (!n) return '0B'
+  if (n < 1024) return `${n}B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}KB`
+  return `${(n / (1024 * 1024)).toFixed(1)}MB`
+}
+
+function eventDetails(e, t) {
   switch (eventKind(e)) {
     case 'proxy_connect':
-      return e.intercepted ? 'intercepted (TLS terminated)' : 'tunneled (passthrough)'
+      return e.intercepted ? t('middleware.intercepted') : t('middleware.tunneled')
     case 'proxy_traffic': {
-      const status = e.status_code ? `HTTP ${e.status_code}` : 'no upstream'
-      const sent = formatBytes(e.bytes_sent)
-      const recv = formatBytes(e.bytes_received)
+      const status = e.status_code ? `HTTP ${e.status_code}` : t('middleware.noUpstream')
       const dur = e.duration_ms != null ? `${e.duration_ms}ms` : ''
-      return `${status} · ↑${sent} ↓${recv} · ${dur}`
+      return `${status} · ↑${bytesShort(e.bytes_sent)} ↓${bytesShort(e.bytes_received)} · ${dur}`
     }
     case 'admission': {
       const retry = e.duration_ms != null ? `retry-after ${Math.round(e.duration_ms / 1000)}s` : ''
@@ -937,146 +763,92 @@ function eventDetails(e) {
     default: {
       const len = e.length != null ? `len ${e.length}` : ''
       const hash = e.hash_prefix ? `hash ${e.hash_prefix}` : ''
-      return [len, hash].filter(Boolean).join(' · ') || '—'
+      return [len, hash].filter(Boolean).join(' · ') || '-'
     }
   }
 }
 
-function formatBytes(n) {
-  if (!n) return '0B'
-  if (n < 1024) return `${n}B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}KB`
-  return `${(n / (1024 * 1024)).toFixed(1)}MB`
-}
-
-function kindBadge(kind) {
-  const colors = {
-    pii: 'var(--color-warning)',
-    proxy_connect: 'var(--color-primary)',
-    proxy_traffic: 'var(--color-text-muted)',
-    admission: 'var(--color-error)',
-  }
+function EventsSection({ events }) {
+  const { t } = useTranslation('traffic')
+  const [kind, setKind] = useState('')
+  const filtered = kind ? events.filter(e => eventKind(e) === kind) : events
   return (
-    <span className="mw-badge mw-badge--nowrap" style={{ background: colors[kind] || 'var(--color-bg-tertiary)' }}>
-      {kind.replace(/_/g, ' ')}
-    </span>
-  )
-}
-
-function EventsTab({ events }) {
-  const [kindFilter, setKindFilter] = useState('')
-  const filtered = kindFilter ? events.filter(e => eventKind(e) === kindFilter) : events
-
-  return (
-    <div className="card pad-md">
-      <div className="hstack hstack--between mb-sm">
-        <div className="hstack hstack--xs">
-          <span className="text-base fw-semibold">Recent events</span>
-          <span className="text-meta">
-            shared by PII filter and MITM proxy · newest first · capped at 100
-          </span>
-        </div>
-        <div className="hstack hstack--xs">
+    <section className="tf-section" data-testid="events-section">
+      <div className="tf-section__head">
+        <h2 className="tf-h2">{t('middleware.events')} <span className="tf-sub">{t('middleware.eventsSub')}</span></h2>
+        <div className="tf-chips" role="group" aria-label={t('middleware.eventKinds')}>
           {EVENT_KINDS.map(k => (
-            <button
-              key={k.id || 'all'}
-              className={`btn btn-sm ${kindFilter === k.id ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setKindFilter(k.id)}
-            >
-              {k.label}
+            <button key={k || 'all'} type="button" className="dk-chip dk-chip--sm" aria-pressed={kind === k} onClick={() => setKind(k)}>
+              {k === '' ? t('middleware.kindAll') : k === 'pii' ? 'PII' : t(`middleware.kind.${k}`)}
             </button>
           ))}
         </div>
       </div>
       {filtered.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-list-ul" /></div>
-          <h2 className="empty-state-title">No events</h2>
-          <p className="empty-state-text">
-            Events appear here when a PII detector flags an entity, when the MITM proxy decides whether
-            to intercept a hostname, or when an intercepted request finishes. Request bodies are never
-            stored — use the API and backend traces for that.
-          </p>
+        <div className="dk-empty tf-empty">
+          <Icon name="list" className="dk-empty-icon" />
+          <h3 className="dk-empty-title">{t('middleware.noEvents')}</h3>
+          <p className="dk-empty-text">{t('middleware.noEventsText')}</p>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="table">
+        <div className="dk-table-wrap">
+          <table className="dk-table dk-table--compact tf-table">
+            <caption className="dk-sr-only">{t('middleware.events')}</caption>
             <thead>
               <tr>
-                <th className="col-w-170">Time</th>
-                <th className="col-w-130">Kind</th>
-                <th className="col-w-200">Subject</th>
-                <th>Details</th>
-                <th className="col-w-110">Action</th>
-                <th>Correlation</th>
+                <th scope="col">{t('middleware.time')}</th>
+                <th scope="col">Kind</th>
+                <th scope="col">{t('middleware.subject')}</th>
+                <th scope="col" className="dk-hide-phone">{t('middleware.details')}</th>
+                <th scope="col">{t('middleware.action')}</th>
+                <th scope="col" className="dk-hide-phone">{t('middleware.correlation')}</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(e => (
-                <tr key={e.id}>
-                  <td className="text-mono text-meta">
-                    {e.created_at}
-                  </td>
-                  <td>{kindBadge(eventKind(e))}</td>
-                  <td className="text-mono text-sm fw-semibold">
-                    {eventSubject(e)}
-                  </td>
-                  <td className="text-mono text-meta">
-                    {eventDetails(e)}
-                  </td>
-                  <td>{e.action ? actionBadge(e.action) : '—'}</td>
-                  <td className="text-mono text-meta">
-                    {e.correlation_id || '—'}
-                  </td>
+                <tr key={e.id} data-row>
+                  <td className="dk-mono tf-sub">{e.created_at}</td>
+                  <td><span className="dk-chip dk-chip--sm tf-kind">{eventKind(e).replace(/_/g, ' ')}</span></td>
+                  <td className="dk-mono"><strong>{eventSubject(e)}</strong></td>
+                  <td className="dk-hide-phone dk-mono tf-sub">{eventDetails(e, t)}</td>
+                  <td>{e.action ? <span className="tf-action" data-action={e.action}>{e.action}</span> : '-'}</td>
+                  <td className="dk-hide-phone dk-mono tf-sub">{e.correlation_id || '-'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+    </section>
   )
 }
 
-// RouterCacheCell renders the L2 embedding-cache state for one router
-// model. Shows nothing for routers without an embedding_cache: block;
-// for configured caches, shows hit/miss/near-miss counters plus a
-// similarity histogram with a marker at the configured threshold so
-// admins can tell at a glance whether the threshold is well-placed.
-// RouterKNNCell summarises a knn router's corpus for the Active
-// routers table: embedding model, corpus size, per-label exemplar
-// counts, and the epistemic-gate threshold. Counts only — corpus
-// texts never reach the UI (the status endpoint doesn't send them,
-// by design; seeding/curation is API-only).
+// The L2 embedding-cache state of one router: hit, near-miss and miss counts
+// and a similarity histogram with the hit zone marked, so an admin can tell
+// whether the threshold sits in the right place. Nothing for a router without
+// an embedding_cache block.
 function RouterKNNCell({ knn }) {
-  if (!knn) {
-    return <span className="text-muted">—</span>
-  }
+  const { t } = useTranslation('traffic')
+  if (!knn) return <span className="tf-sub">-</span>
   const corpus = knn.corpus || {}
   const total = corpus.total || 0
   const counts = corpus.label_counts || {}
   const k = knn.k || 3
   const sim = knn.similarity_threshold || 0.80
   return (
-    <div className="mw-knn">
-      <div className="mw-knn__model">{knn.embedding_model}</div>
-      <div className="mw-knn__meta">
+    <div className="tf-knn dk-mono">
+      <div><strong>{knn.embedding_model}</strong></div>
+      <div className="tf-sub">
         {total === 0 ? (
-          <span title="Seed labelled example prompts via POST /api/router/{name}/corpus — every request falls back until the corpus has entries near it">
-            empty corpus — seed via API
-          </span>
+          <span title={t('middleware.knnEmptyTitle')}>{t('middleware.knnEmpty')}</span>
         ) : (
-          <span title={`${total} labelled exemplars; ${k} nearest vote; entries below similarity ${sim} cannot vote (out-of-corpus prompts use the fallback)`}>
-            {total} exemplars · k={k} · sim ≥ {sim}
-          </span>
+          <span title={t('middleware.knnTitle', { total, k, sim })}>{total} exemplars · k={k} · sim ≥ {sim}</span>
         )}
       </div>
       {total > 0 && (
-        <div className="mw-knn__labels">
+        <div className="tf-sub tf-knn__labels">
           {Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([label, n]) => (
-            <span key={label}>
-              <span className="mw-knn__label">{label}</span>: {n}
-            </span>
+            <span key={label}>{label}: {n}</span>
           ))}
         </div>
       )}
@@ -1085,55 +857,49 @@ function RouterKNNCell({ knn }) {
 }
 
 function RouterCacheCell({ cache }) {
-  if (!cache) {
-    return <span className="text-muted">—</span>
-  }
+  const { t } = useTranslation('traffic')
+  if (!cache) return <span className="tf-sub">-</span>
   const stats = cache.stats || {}
   const hits = stats.hits || 0
   const misses = stats.misses || 0
   const nearMisses = stats.near_misses || 0
   const lowConf = stats.low_confidence || 0
-  const totalLookups = hits + misses + nearMisses
-  const hitRate = totalLookups > 0 ? Math.round((hits / totalLookups) * 100) : null
+  const lookups = hits + misses + nearMisses
+  const hitRate = lookups > 0 ? Math.round((hits / lookups) * 100) : null
   const errors = (stats.embedder_errors || 0) + (stats.store_errors || 0)
   const buckets = stats.similarity_buckets || []
   const bucketMax = buckets.length ? Math.max(...buckets, 1) : 1
   const threshold = cache.similarity_threshold || 0.80
   const thresholdBucket = Math.max(0, Math.min(9, Math.floor(threshold * 10)))
   return (
-    <div className="text-mono text-xs">
-      <div className="fw-semibold">{cache.embedding_model}</div>
-      <div className="text-muted">
-        {totalLookups === 0 ? (
-          <span>no traffic yet</span>
+    <div className="tf-knn dk-mono">
+      <div><strong>{cache.embedding_model}</strong></div>
+      <div className="tf-sub">
+        {lookups === 0 ? (
+          <span>{t('middleware.noTraffic')}</span>
         ) : (
           <>
-            <span className={hitRate >= 50 ? 'text-success' : 'text-muted'}>
-              {hitRate}% hit
-            </span>
+            <span>{hitRate}% hit</span>
             <span> · {hits}h/{nearMisses}n/{misses}m</span>
             {lowConf > 0 && <span> · {lowConf} skipped</span>}
-            {errors > 0 && <span className="text-warning"> · {errors} err</span>}
+            {errors > 0 && <span> · {errors} err</span>}
           </>
         )}
       </div>
       {buckets.length === 10 && buckets.some(v => v > 0) && (
-        <div title={`Cosine similarity histogram, threshold=${threshold}`}
-             className="mw-hist">
+        <div title={t('middleware.histTitle', { value: threshold })} className="tf-hist">
           {buckets.map((count, i) => {
             const h = bucketMax > 0 ? Math.max(2, Math.round((count / bucketMax) * 18)) : 2
-            const inHitZone = i >= thresholdBucket
             return (
               <div
                 key={i}
-                title={`[${(i/10).toFixed(1)}, ${((i+1)/10).toFixed(1)}): ${count}`}
-                className={`mw-hist__bar${count === 0 ? '' : inHitZone ? ' mw-hist__bar--hit' : ' mw-hist__bar--miss'}`} style={{ height: h }}
+                title={`[${(i / 10).toFixed(1)}, ${((i + 1) / 10).toFixed(1)}): ${count}`}
+                className={`tf-hist__bar${count === 0 ? '' : i >= thresholdBucket ? ' tf-hist__bar--hit' : ' tf-hist__bar--miss'}`}
+                style={cssVars({ height: h })}
               />
             )
           })}
-          <div className="ml-xs text-meta">
-            sim ≥ {threshold}
-          </div>
+          <div className="tf-sub tf-hist__note">sim ≥ {threshold}</div>
         </div>
       )}
     </div>

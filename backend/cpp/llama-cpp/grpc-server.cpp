@@ -62,7 +62,9 @@
 #include "model_load_error.h"
 #include "thread_params.h"
 #include "parallel_params.h"
+#include "slot_cache.h"
 #include "message_content.h"
+#include "moe_cache_option.h"
 #include "passthrough_options.h"
 #include "stream_peer.h"
 #include "tts_request_options.h"
@@ -77,10 +79,12 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <list>
 #include <map>
+#include <ctime>
 #include <mutex>
 #include <signal.h>
 #include <thread>
@@ -108,6 +112,12 @@ using grpc::Status;
 // requests without a matching "authorization: Bearer <token>" metadata header.
 
 // Cached auth token — empty means auth is disabled.
+// Newer llama.cpp returns common_chat_params::prompt as a common_chat_prompt
+// (use .str()); older forks such as turboquant still return std::string.
+static inline std::string chat_prompt_str(const std::string & p) { return p; }
+template <typename T>
+static inline std::string chat_prompt_str(const T & p) { return p.str(); }
+
 static std::string g_grpc_auth_token;
 
 // Minimal constant-time comparison (avoids OpenSSL dependency)
@@ -671,6 +681,35 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, keep the default value
                 }
             }
+        } else if (!strcmp(optname, "slot_save_path")) {
+            // Directory for SlotCache save/restore files. Take everything after
+            // the first ':' so a path that contains one is kept whole. Without
+            // this option the RPC stays disabled, as in llama-server.
+            const size_t sep = opt.find(':');
+            const std::string dir = (sep == std::string::npos) ? "" : opt.substr(sep + 1);
+            if (!dir.empty()) {
+                // A missing directory is created with mode 0700. An existing
+                // one is left as it is, with a warning when others can read it.
+                std::string warn, derr;
+#ifdef _WIN32
+                std::error_code ec;
+                std::filesystem::create_directories(std::filesystem::u8path(dir), ec);
+                const bool dir_ok = !ec && std::filesystem::is_directory(std::filesystem::u8path(dir));
+#else
+                const bool dir_ok = llama_grpc::slot_ensure_private_dir(dir, warn, derr);
+#endif
+                if (!warn.empty()) {
+                    fprintf(stderr, "slot_save_path: %s\n", warn.c_str());
+                }
+                if (!dir_ok) {
+                    fprintf(stderr, "slot_save_path %s is not a usable directory (%s), slot save/restore stays disabled\n", dir.c_str(), derr.c_str());
+                } else {
+                    params.slot_save_path = dir;
+                    if (params.slot_save_path.back() != '/' && params.slot_save_path.back() != '\\') {
+                        params.slot_save_path += DIRECTORY_SEPARATOR;
+                    }
+                }
+            }
         } else if (!strcmp(optname, "parallel") || !strcmp(optname, "n_parallel")) {
             if (optval != NULL) {
                 try {
@@ -1158,6 +1197,39 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             if (enable) {
                 params.tensor_buft_overrides.push_back(llm_ffn_exps_cpu_override());
             }
+        } else if (!strcmp(optname, "moe_cache_mib")) {
+            // GPU cache for MoE experts kept in host memory (upstream --moe-cache-mib).
+            // Whole MiB, off (0) by default; invalid values keep the default.
+            if (optval != NULL) {
+                const auto bytes = llama_grpc::parse_moe_cache_bytes(optval_str);
+                if (!bytes) {
+                    SRV_WRN("moe_cache_mib: ignoring invalid value '%s' (expected a non-negative integer in MiB)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_MOE_CACHE
+                    params.moe_cache_size = *bytes;
+#else
+                    SRV_WRN("%s", "moe_cache_mib: this llama.cpp build has no MoE cache, ignoring\n");
+#endif
+                }
+            }
+        } else if (!strcmp(optname, "lazy_mode") || !strcmp(optname, "lazy-mode") || !strcmp(optname, "lzm")) {
+            // On-demand reading of large tensors such as per-layer embeddings
+            // (upstream -lzm / --lazy-mode). Accepts on, auto or off; "on" needs mmap.
+#if LOCALAI_HAS_LAZY_MODE
+            if (optval != NULL) {
+                if (optval_str == "on") {
+                    params.lazy_mode = LLAMA_LAZY_MODE_ON;
+                } else if (optval_str == "auto") {
+                    params.lazy_mode = LLAMA_LAZY_MODE_AUTO;
+                } else if (optval_str == "off") {
+                    params.lazy_mode = LLAMA_LAZY_MODE_OFF;
+                } else {
+                    SRV_WRN("lazy_mode: ignoring invalid value '%s' (expected on, auto or off)\n", optval_str.c_str());
+                }
+            }
+#else
+            SRV_WRN("%s", "lazy_mode: this llama.cpp build has no lazy mode, ignoring\n");
+#endif
         } else if (!strcmp(optname, "n_cpu_moe")) {
             if (optval != NULL) {
                 try {
@@ -1783,6 +1855,9 @@ public:
 
             std::string prompt_str;
             std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
+#if LOCALAI_HAS_CHAT_SESSION
+            common_chat_session chat_session;
+#endif
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
             if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_params.tmpls != nullptr) {
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
@@ -2038,7 +2113,12 @@ public:
                     }
                 }
 
+#if LOCALAI_HAS_CHAT_SESSION
+                json parsed_data = oaicompat_chat_params_parse(
+                        ctx_server.impl->vocab, body_json, ctx_server.impl->chat_params, files, chat_session);
+#else
                 json parsed_data = oaicompat_chat_params_parse(body_json, ctx_server.impl->chat_params, files);
+#endif
 
                 // Debug: Log tools after template processing
                 if (parsed_data.contains("tools")) {
@@ -2158,6 +2238,10 @@ public:
                         ctx_server.get_meta().logit_bias_eog,
                         data);
 #endif
+#if LOCALAI_HAS_CHAT_SESSION
+                // The parser now keeps grammar, stops and message spans in the session.
+                task.apply_chat_session(chat_session);
+#endif
                 task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat: enable autoparser (PEG-based chat parsing) so that
@@ -2171,7 +2255,11 @@ public:
                 tasks.push_back(std::move(task));
             }
 
+#if LOCALAI_HAS_CHAT_SESSION
+            rd.post_tasks(std::move(tasks), chat_session);
+#else
             rd.post_tasks(std::move(tasks));
+#endif
         } catch (const std::exception & e) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, e.what());
         }
@@ -2368,6 +2456,9 @@ public:
 
             std::string prompt_str;
             std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
+#if LOCALAI_HAS_CHAT_SESSION
+            common_chat_session chat_session;
+#endif
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
             if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_params.tmpls != nullptr) {
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
@@ -2624,7 +2715,12 @@ public:
                     }
                 }
 
+#if LOCALAI_HAS_CHAT_SESSION
+                json parsed_data = oaicompat_chat_params_parse(
+                        ctx_server.impl->vocab, body_json, ctx_server.impl->chat_params, files, chat_session);
+#else
                 json parsed_data = oaicompat_chat_params_parse(body_json, ctx_server.impl->chat_params, files);
+#endif
 
                 // Debug: Log tools after template processing
                 if (parsed_data.contains("tools")) {
@@ -2747,6 +2843,10 @@ public:
                         ctx_server.get_meta().logit_bias_eog,
                         data);
 #endif
+#if LOCALAI_HAS_CHAT_SESSION
+                // The parser now keeps grammar, stops and message spans in the session.
+                task.apply_chat_session(chat_session);
+#endif
                 task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat: enable autoparser (PEG-based chat parsing) so that
@@ -2758,7 +2858,11 @@ public:
                 tasks.push_back(std::move(task));
             }
 
+#if LOCALAI_HAS_CHAT_SESSION
+            rd.post_tasks(std::move(tasks), chat_session);
+#else
             rd.post_tasks(std::move(tasks));
+#endif
         } catch (const std::exception & e) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, e.what());
         }
@@ -3688,6 +3792,157 @@ public:
         return grpc::Status::OK;
     }
 
+    // slotStatusToGrpc maps a slot cache helper status to a gRPC status.
+    static grpc::Status slotStatusToGrpc(llama_grpc::SlotStatus s, const std::string& msg) {
+        switch (s) {
+            case llama_grpc::SlotStatus::NotFound: return grpc::Status(grpc::StatusCode::NOT_FOUND, msg);
+            case llama_grpc::SlotStatus::Invalid:  return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, msg);
+            case llama_grpc::SlotStatus::Corrupt:  return grpc::Status(grpc::StatusCode::DATA_LOSS, msg);
+            default:                               return grpc::Status(grpc::StatusCode::INTERNAL, msg);
+        }
+    }
+
+    // SlotCache saves or restores the prompt cache of one slot. It reuses the
+    // task the llama-server /slots endpoint posts, so the file format is the
+    // same. The caller never names a file. A save writes
+    // <slot_save_path>/<hash of the model identity>/<id> with an ID the backend
+    // generates, and records it in that directory's manifest.json. A restore
+    // takes an ID, looks it up in the manifest and builds the path from the
+    // manifest entry (see slot_cache.h for the checks and their limits).
+    grpc::Status SlotCache(ServerContext* context, const backend::SlotCacheRequest* request, backend::SlotCacheResponse* response) override {
+#ifdef _WIN32
+        (void)context; (void)request; (void)response;
+        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "slot save/restore is not supported on Windows");
+#else
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+        // Same rule as checkModelIdentity; written out because this request
+        // names the field model_identity, so it has no modelidentity().
+        if (!request->model_identity().empty() && !loaded_model_identity.empty() &&
+            loaded_model_identity != request->model_identity()) {
+            return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                                "llama-cpp: model identity mismatch: loaded \"" + loaded_model_identity +
+                                "\", requested \"" + request->model_identity() + "\"");
+        }
+        if (params_base.model.path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        if (params_base.slot_save_path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+                "slot save/restore is disabled: set the slot_save_path option for this model");
+        }
+
+        const bool is_save = request->action() == backend::SLOT_CACHE_ACTION_SAVE;
+        if (!is_save && request->action() != backend::SLOT_CACHE_ACTION_RESTORE) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "action must be save or restore");
+        }
+        if (request->slot() < 0) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "slot must not be negative");
+        }
+
+        // The identity that names the directory and is written to the manifest.
+        std::string model_id = !loaded_model_identity.empty() ? loaded_model_identity : request->model_identity();
+        if (model_id.empty()) {
+            model_id = params_base.model.path;
+        }
+
+        std::string err, dir, id, filepath;
+        llama_grpc::SlotEntry entry;
+        if (is_save) {
+            if (!request->id().empty()) {
+                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "id must be empty on save: the backend issues it");
+            }
+            auto s = llama_grpc::slot_identity_dir(params_base.slot_save_path, model_id, true, dir, err);
+            if (s != llama_grpc::SlotStatus::Ok) return slotStatusToGrpc(s, err);
+            // Fail before writing a large file if the manifest is unusable.
+            std::vector<llama_grpc::SlotEntry> existing;
+            {
+                std::lock_guard<std::mutex> lock(llama_grpc::slot_cache_mutex());
+                s = llama_grpc::slot_manifest_load(dir, existing, err);
+            }
+            if (s != llama_grpc::SlotStatus::Ok) return slotStatusToGrpc(s, err);
+            s = llama_grpc::slot_reserve_id(dir, id, filepath, err);
+            if (s != llama_grpc::SlotStatus::Ok) return slotStatusToGrpc(s, err);
+        } else {
+            auto s = llama_grpc::slot_lookup_restore(params_base.slot_save_path, model_id, request->id(), entry, filepath, err);
+            if (s != llama_grpc::SlotStatus::Ok) return slotStatusToGrpc(s, err);
+            id = entry.id;
+        }
+
+        // On a failed save the reserved (empty or partial) file is removed.
+        auto drop_reserved = [&]() { if (is_save) { std::error_code rec; std::filesystem::remove(std::filesystem::u8path(filepath), rec); } };
+
+        server_task task(is_save ? SERVER_TASK_TYPE_SLOT_SAVE : SERVER_TASK_TYPE_SLOT_RESTORE);
+        auto rd = ctx_server.get_response_reader();
+        task.id = rd.get_new_id();
+        task.slot_action.id_slot  = request->slot();
+        task.slot_action.filename = id;
+        task.slot_action.filepath = filepath;
+        rd.post_task(std::move(task));
+
+        auto res = rd.next([context]() { return context->IsCancelled(); });
+        if (!res) {
+            drop_reserved();
+            return grpc::Status(grpc::StatusCode::CANCELLED, "slot cache request cancelled");
+        }
+        if (res->is_error()) {
+            drop_reserved();
+            return grpc::Status(grpc::StatusCode::INTERNAL, res->to_json().dump());
+        }
+        auto * slot_res = dynamic_cast<server_task_result_slot_save_load *>(res.get());
+        if (slot_res == nullptr) {
+            drop_reserved();
+            return grpc::Status(grpc::StatusCode::INTERNAL, "unexpected result type for a slot cache task");
+        }
+
+        uint64_t n_bytes = slot_res->n_bytes;
+        std::string message;
+        if (is_save) {
+            // The size is only known after llama.cpp wrote the file. Use the
+            // size on disk: restore compares against it.
+            std::error_code sec;
+            const auto on_disk = std::filesystem::file_size(std::filesystem::u8path(filepath), sec);
+            if (sec) {
+                drop_reserved();
+                return grpc::Status(grpc::StatusCode::INTERNAL, "cannot read the size of the saved file");
+            }
+            n_bytes = static_cast<uint64_t>(on_disk);
+            if (n_bytes > llama_grpc::SLOT_CACHE_MAX_FILE_BYTES) {
+                drop_reserved();
+                return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED,
+                    "the saved state is larger than the " + std::to_string(llama_grpc::SLOT_CACHE_MAX_FILE_BYTES) +
+                    " byte limit and was deleted");
+            }
+            entry.id = id;
+            entry.model_identity = model_id;
+            entry.slot = request->slot();
+            entry.n_tokens = slot_res->n_tokens;
+            entry.n_bytes = n_bytes;
+            entry.created_unix = static_cast<int64_t>(std::time(nullptr));
+            std::vector<std::string> pruned;
+            auto s = llama_grpc::slot_commit_save(dir, entry, pruned, err);
+            if (s != llama_grpc::SlotStatus::Ok) {
+                drop_reserved();
+                return slotStatusToGrpc(s, err);
+            }
+            if (!pruned.empty()) {
+                message = "pruned the oldest saved state to keep at most " +
+                          std::to_string(llama_grpc::SLOT_CACHE_MAX_ENTRIES) + ":";
+                for (const auto & p : pruned) message += " " + p;
+            }
+        }
+
+        response->set_success(true);
+        response->set_message(message);
+        response->set_slot(slot_res->id_slot);
+        response->set_id(id);
+        response->set_n_tokens(slot_res->n_tokens);
+        response->set_n_bytes(n_bytes);
+        response->set_duration_ms(slot_res->t_ms);
+        return grpc::Status::OK;
+#endif
+    }
+
     grpc::Status Detokenize(ServerContext* context, const backend::DetokenizeRequest* request, backend::DetokenizeResponse* response) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
@@ -3791,7 +4046,7 @@ public:
             dummy_inputs.use_jinja = params_base.use_jinja;
             
             const auto rendered = common_chat_templates_apply(ctx_server.impl->chat_params.tmpls.get(), dummy_inputs);
-            rendered_template = rendered.prompt;
+            rendered_template = chat_prompt_str(rendered.prompt);
         }
         
         response->set_rendered_template(rendered_template);

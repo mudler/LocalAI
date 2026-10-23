@@ -40,6 +40,9 @@ type LocalAIClient interface {
 	// it down). For a realtime pipeline model every configured sub-model is
 	// loaded; it returns the model names that became resident.
 	LoadModel(ctx context.Context, model string) ([]string, error)
+	// CancelModelLoad cancels one distributed load attempt, named by the job id
+	// that load-status reports. It never cancels a replacement attempt.
+	CancelModelLoad(ctx context.Context, model, jobID string) (LoadCancelResult, error)
 	ImportModelURI(ctx context.Context, req ImportModelURIRequest) (*ImportModelURIResponse, error)
 
 	// ---- Model aliases ----
@@ -59,6 +62,9 @@ type LocalAIClient interface {
 	// ListKnownBackends returns the same shape as REST /backends/known.
 	ListKnownBackends(ctx context.Context) ([]schema.KnownBackend, error)
 	InstallBackend(ctx context.Context, req InstallBackendRequest) (jobID string, err error)
+	// InstallLibraryBackend installs a backend from a library entry. It
+	// returns when the install is done.
+	InstallLibraryBackend(ctx context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error)
 	UpgradeBackend(ctx context.Context, name string) (jobID string, err error)
 
 	// ---- System ----

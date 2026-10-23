@@ -79,8 +79,8 @@ type File struct {
 }
 
 type PromptTemplate struct {
-	Name    string `yaml:"name"`
-	Content string `yaml:"content"`
+	Name    string `yaml:"name" json:"name"`
+	Content string `yaml:"content" json:"content"`
 }
 
 // variantOptions turns an entry's declared variants into selectable options,
@@ -671,6 +671,20 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 
 		if valid, err := modelConfig.Validate(); !valid {
 			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
+		}
+
+		if systemState.DisableBackendInstall && modelConfig.Backend != "" {
+			available := installOptions.backendAvailability
+			if available == nil {
+				available = LocalBackendAvailability(systemState)
+			}
+			ok, err := available(modelConfig.Backend)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("%w: model %q needs backend %q, which is not installed", ErrBackendInstallDisabled, name, modelConfig.Backend)
+			}
 		}
 
 		if len(config.Files) == 0 {

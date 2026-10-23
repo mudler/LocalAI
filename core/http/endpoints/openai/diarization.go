@@ -41,7 +41,7 @@ import (
 // (NIST RTTM, the standard interchange format used by pyannote/dscore).
 //
 // @Summary Identify speakers in audio (who spoke when).
-// @Description JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles and response_format. Profiles require voice-recognition permission and json or verbose_json; unsupported backends return 501.
+// @Description JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles, include_sounds and response_format. Profiles require voice-recognition permission and json or verbose_json; unsupported backends return 501.
 // @Tags audio
 // @accept multipart/form-data,json
 // @Param model formData string true "model"
@@ -55,6 +55,7 @@ import (
 // @Param language formData string false "audio language hint (only meaningful for backends that bundle ASR)"
 // @Param include_speaker_profiles formData boolean false "export portable biometric profiles (voice-recognition permission; JSON formats only)"
 // @Param include_text formData boolean false "include per-segment transcript when the backend supports it"
+// @Param include_sounds formData boolean false "include closed sound events (start, end, label, confidence) when the model has a sound_model companion; otherwise 501 include_sounds_unsupported (JSON formats only)"
 // @Param response_format formData string false "json (default), verbose_json, or rttm"
 // @Success 200 {object} schema.DiarizationResult
 // @Router /v1/audio/diarization [post]
@@ -74,6 +75,7 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 			Language:               input.Language,
 			IncludeText:            parseFormBool(c, "include_text", input.IncludeText),
 			IncludeSpeakerProfiles: parseFormBool(c, "include_speaker_profiles", input.IncludeSpeakerProfiles),
+			IncludeSounds:          parseFormBool(c, "include_sounds", input.IncludeSounds),
 		}
 		if req.IncludeSpeakerProfiles {
 			var db *gorm.DB
@@ -117,6 +119,9 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 
 		if req.IncludeSpeakerProfiles && responseFormat == schema.DiarizationResponseFormatRTTM {
 			return echo.NewHTTPError(http.StatusBadRequest, "speaker_profiles requires json or verbose_json")
+		}
+		if req.IncludeSounds && responseFormat == schema.DiarizationResponseFormatRTTM {
+			return echo.NewHTTPError(http.StatusBadRequest, "include_sounds requires json or verbose_json")
 		}
 		var sourceName = "audio.wav"
 		var reader io.ReadCloser
@@ -211,25 +216,31 @@ func warnOnce(key string) bool {
 }
 
 // selectKnownVoices returns the registered voices a backend may use to name
-// speakers, or nil when the model has no speaker_model, there is no registry,
-// or the registry cannot be read. It never fails the caller: unnamed speakers
+// speakers, or nil when the model names no speaker encoder (speaker_model: or,
+// for a bundle file, speaker_component:), there is no registry, or the
+// registry cannot be read. It never fails the caller: unnamed speakers
 // are the fallback. feature only prefixes the log messages.
 func selectKnownVoices(ctx context.Context, feature string, options []string, registry voicerecognition.Registry) []voicerecognition.KnownVoice {
-	sm := voicerecognition.SpeakerModelFromOptions(options)
-	if sm == "" || registry == nil {
+	enc := voicerecognition.SpeakerEncoderFromOptions(options)
+	if enc.Ref == "" || registry == nil {
 		return nil
 	}
-	sel, err := voicerecognition.KnownVoicesFor(ctx, registry, sm)
+	sm := enc.Ref
+	// A speaker_component names a part of the bundle, not an encoder file, so
+	// enc.File is empty then: voices with a hash or family identity and
+	// untagged voices reach the backend, and a file-name tag matches only
+	// through the speaker_tag alias.
+	sel, err := voicerecognition.KnownVoicesFor(ctx, registry, enc.File, enc.Tags...)
 	if err != nil {
 		xlog.Warn(feature+": could not read the voice registry; speakers stay unnamed", "error", err)
 		return nil
 	}
 	if len(sel.Voices) == 0 && sel.OtherEncoder > 0 {
-		msg := feature + ": registered voices were made with a different encoder than this model's speaker_model; speakers stay unnamed"
+		msg := feature + ": registered voices were made with a different encoder than this model's speaker_model or speaker_component; speakers stay unnamed"
 		if warnOnce(feature + "|" + sm) {
-			xlog.Warn(msg, "speaker_model", sm, "voices_from_other_encoder", sel.OtherEncoder)
+			xlog.Warn(msg, "speaker", sm, "voices_from_other_encoder", sel.OtherEncoder)
 		} else {
-			xlog.Debug(msg, "speaker_model", sm, "voices_from_other_encoder", sel.OtherEncoder)
+			xlog.Debug(msg, "speaker", sm, "voices_from_other_encoder", sel.OtherEncoder)
 		}
 	}
 	return sel.Voices

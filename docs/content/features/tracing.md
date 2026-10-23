@@ -22,3 +22,9 @@ Each history remains independently bounded by `tracing_max_items`. When a
 history reaches that limit, LocalAI removes its oldest records from memory and
 disk. The existing clear actions on the Traces page remove both the in-memory
 history and its persisted records.
+
+Opening an API request on the Traces page shows the request as its own page, at
+`/app/traces/<id>`: the status, the error LocalAI recorded, a timeline with the
+backend operations that ran while the request was open, and the request and
+response bodies. Bodies stay closed until revealed, and request headers are not
+listed. See [Traffic]({{% relref "operations/traffic" %}}).

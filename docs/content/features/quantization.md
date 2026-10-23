@@ -142,12 +142,26 @@ The UI also supports entering a custom quantization type string for any format s
 
 ## Web UI
 
-A "Quantize" page appears in the sidebar under the Tools section. The UI provides:
+**Build → Quantize** uses the same page pattern as fine-tuning: set up, check, run, result.
 
-1. **Job Configuration** - Select model, quantization type (dropdown with presets or custom input), backend, and HuggingFace token
-2. **Progress Monitor** - Real-time progress bar and log output via SSE
-3. **Jobs List** - View all quantization jobs with status, stop/delete actions
-4. **Output** - Download the quantized GGUF file or import it directly into LocalAI for immediate use
+1. **Set up** - Choose the model and the quantization type (a preset, or a custom type). The backend and the Hugging Face token are under **More options**.
+2. **Check before you start** - Whether a model and type are set, whether a quantization backend is installed, the free RAM and the free space on the models disk. The server reports no model size before the job starts, so the page does not estimate one.
+3. **Run** - Percent, the stage (downloading, converting, quantizing), and a log of what the job reported since the page opened. **Stop** ends the job.
+4. **Result** - A failed job shows the server's message. A finished job shows the output file, downloads it, or imports it into LocalAI under a name you choose, then links to a chat with it and to Models.
+
+Earlier jobs are listed below the form, with **Reuse** and **Delete** (after a confirmation).
+
+A user needs the quantization permission. Without it, the page says the account cannot quantize.
+
+### Quantization is an add-on
+
+The Quantize page is the `quantization` add-on. It does not ship with LocalAI. An administrator installs it from **Browse add-ons** in the drawer and starts it. Once it runs, it opens from the drawer at `/app/addons/quantization/jobs` and can be pinned. The Build hub no longer has a Quantize tab.
+
+The old link `/app/quantize` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
+
+The API does not change. The page calls `/api/quantization/*` with the signed-in user's own session, and the server checks the quantization permission on every call.
+
+The add-on also offers tools to the chat: list jobs, propose a job, read the status of a job, stop a job and import the result as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or import it. A tool never starts, stops or imports anything by itself: it proposes the action and a person confirms it in an approval card. A model given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `quantize.` prefix, and they run with the permissions of the person in the chat.
 
 ## Architecture
 

@@ -16,12 +16,12 @@ import (
 var (
 	// omni_load(model_path, codec_path, use_fa, clamp_fp16) int
 	CppLoad func(modelPath, codecPath string, useFA, clampFP16 int) int
-	// omni_tts(text, lang, instruct, ref_samples, ref_n, ref_text, seed, denoise, out_n) -> float* (uintptr)
+	// omni_tts(text, lang, instruct, ref_samples, ref_n, ref_text, seed, denoise, duration_frames, postprocess, out_n) -> float* (uintptr)
 	CppTTS func(text, lang, instruct string, refSamples unsafe.Pointer, refN int,
-		refText string, seed int64, denoise int, outN unsafe.Pointer) uintptr
-	// omni_tts_stream(text, lang, instruct, ref_samples, ref_n, ref_text, seed, denoise, cb, user) int
+		refText string, seed int64, denoise int, durationFrames, postprocess int32, outN unsafe.Pointer) uintptr
+	// omni_tts_stream(text, lang, instruct, ref_samples, ref_n, ref_text, seed, denoise, duration_frames, postprocess, cb, user) int
 	CppTTSStream func(text, lang, instruct string, refSamples unsafe.Pointer, refN int,
-		refText string, seed int64, denoise int, cb uintptr, user uintptr) int
+		refText string, seed int64, denoise int, durationFrames, postprocess int32, cb uintptr, user uintptr) int
 	CppPCMFree func(ptr uintptr)
 	CppUnload  func()
 )
@@ -150,6 +150,10 @@ func optStr(p *string) string {
 }
 
 func (o *OmnivoiceCpp) TTS(req *pb.TTSRequest) error {
+	controls, err := parseRequestControls(req.Params, false)
+	if err != nil {
+		return err
+	}
 	if req.Dst == "" {
 		return fmt.Errorf("omnivoice: TTS requires a destination path")
 	}
@@ -169,7 +173,7 @@ func (o *OmnivoiceCpp) TTS(req *pb.TTSRequest) error {
 
 	var n int32
 	ptr := CppTTS(req.Text, lang, instruct, refPtr, len(ref), refText, seed,
-		boolToInt(o.opts.denoise), unsafe.Pointer(&n))
+		boolToInt(o.opts.denoise), controls.durationFrames, controls.postprocess, unsafe.Pointer(&n))
 	runtimeKeepAlive(ref)
 	if ptr == 0 || n <= 0 {
 		return fmt.Errorf("omnivoice: synthesis failed")
@@ -206,6 +210,10 @@ func streamCallback(samples *float32, nSamples int32, _ uintptr) uintptr {
 
 func (o *OmnivoiceCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	defer close(results)
+	controls, err := parseRequestControls(req.Params, true)
+	if err != nil {
+		return err
+	}
 	if req.Text == "" {
 		return fmt.Errorf("omnivoice: TTSStream requires text")
 	}
@@ -234,7 +242,7 @@ func (o *OmnivoiceCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error 
 	streamMu.Lock()
 	streamChan = results
 	rc := CppTTSStream(req.Text, lang, instruct, refPtr, len(ref), refText, seed,
-		boolToInt(o.opts.denoise), streamCbPtr, 0)
+		boolToInt(o.opts.denoise), controls.durationFrames, controls.postprocess, streamCbPtr, 0)
 	streamChan = nil
 	streamMu.Unlock()
 	runtimeKeepAlive(ref)

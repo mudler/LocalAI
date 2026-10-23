@@ -85,7 +85,7 @@ var _ = Describe("Subject rules", func() {
 			messaging.SubjectCacheInvalidateCollection("c1"), messaging.SubjectSyncStateDelta("s1"),
 			messaging.SubjectNodeBackendInstall(id), messaging.SubjectNodeBackendUpgrade(id),
 			messaging.SubjectNodeBackendList(id), messaging.SubjectNodeBackendStop(id),
-			messaging.SubjectNodeModelStop(id), messaging.SubjectNodeBackendDelete(id),
+			messaging.SubjectNodeModelStop(id), messaging.SubjectNodeModelOp(id), messaging.SubjectNodeBackendDelete(id),
 			messaging.SubjectNodeModelUnload(id), messaging.SubjectNodeModelDelete(id),
 			messaging.SubjectNodeModelsRunning(id), messaging.SubjectNodeStop(id),
 			messaging.SubjectNodeFilesEnsure(id), messaging.SubjectNodeFilesStage(id),

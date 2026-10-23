@@ -17,7 +17,7 @@ body {
   font-weight: var(--font-weight-regular);
   line-height: var(--leading-normal);
   font-feature-settings: "ss01", "ss03", "cv11";
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
   min-height: 100%;
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -53,10 +53,10 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-text-primary);
   line-height: var(--leading-tight);
 }
-h1 { font-family: var(--font-sans); font-size: clamp(1.75rem, 1.2rem + 2.4vw, var(--text-4xl)); font-weight: 600; letter-spacing: -0.02em; }
-h2 { font-family: var(--font-sans); font-size: clamp(1.4rem, 1.05rem + 1.6vw, var(--text-3xl)); font-weight: 600; letter-spacing: -0.015em; }
-h3 { font-size: var(--text-xl);  font-weight: var(--font-weight-medium); letter-spacing: -0.01em; }
-h4 { font-size: var(--text-lg);  font-weight: var(--font-weight-medium); letter-spacing: -0.005em; }
+h1 { font-family: var(--font-sans); font-size: clamp(1.75rem, 1.2rem + 2.4vw, var(--text-4xl)); font-weight: var(--font-weight-bold); letter-spacing: -0.03em; }
+h2 { font-family: var(--font-sans); font-size: clamp(1.4rem, 1.05rem + 1.6vw, var(--text-3xl)); font-weight: var(--font-weight-bold); letter-spacing: -0.02em; }
+h3 { font-size: var(--text-xl);  font-weight: var(--font-weight-bold); letter-spacing: -0.015em; }
+h4 { font-size: var(--text-lg);  font-weight: var(--font-weight-semibold); letter-spacing: -0.01em; }
 h5 { font-size: var(--text-base);font-weight: var(--font-weight-semibold); }
 h6 {
   font-size: var(--text-xs); font-weight: var(--font-weight-semibold);

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '../contexts/ThemeContext'
+import Icon from './Icon'
 
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useTheme()
@@ -14,7 +15,7 @@ export default function ThemeToggle() {
       aria-label={label}
     >
       {/* key on theme so the icon remounts and replays the rotate/fade */}
-      <i key={theme} className={`fas ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} theme-toggle__icon`} aria-hidden="true" />
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} className="theme-toggle__icon" key={theme} />
     </button>
   )
 }

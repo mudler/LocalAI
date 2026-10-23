@@ -52,12 +52,12 @@ test.describe('Chat - /api/operations polling (#9904)', () => {
     const { getOperationsHits } = await setupChatPage(page)
 
     await page.goto('/app/chat')
-    await expect(page.getByRole('button', { name: 'test-model' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: /test-model/ })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.chat-input').fill('Hi')
-    await page.locator('.chat-send-btn').click()
+    await page.getByTestId('chat-input').fill('Hi')
+    await page.getByTestId('chat-send').click()
 
-    const assistantContent = page.locator('.chat-message-assistant .chat-message-content').first()
+    const assistantContent = page.locator('[data-role="assistant"] .cx-prose').first()
     await expect(assistantContent).toContainText('Hello world', { timeout: 10_000 })
 
     // Sanity check: the polling we're regressing against is actually firing.
@@ -114,12 +114,12 @@ test.describe('Chat - copy button (#9904)', () => {
     })
 
     await page.goto('/app/chat')
-    await expect(page.getByRole('button', { name: 'test-model' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: /test-model/ })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.chat-input').fill('Hi')
-    await page.locator('.chat-send-btn').click()
+    await page.getByTestId('chat-input').fill('Hi')
+    await page.getByTestId('chat-send').click()
 
-    const assistantBubble = page.locator('.chat-message-assistant .chat-message-bubble').first()
+    const assistantBubble = page.locator('[data-role="assistant"]').first()
     await expect(assistantBubble).toContainText('Hello world', { timeout: 10_000 })
 
     // Spy on document.execCommand so we can confirm the fallback path ran.
@@ -135,7 +135,7 @@ test.describe('Chat - copy button (#9904)', () => {
       }
     })
 
-    await assistantBubble.locator('.chat-message-actions button').first().click()
+    await assistantBubble.getByTestId('message-actions').locator('button').first().click()
 
     const execCommandCalls = await page.evaluate(() => window.__execCommandCalls)
     expect(execCommandCalls).toContain('copy')

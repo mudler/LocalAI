@@ -109,4 +109,46 @@ var _ = Describe("attachKnownVoices", func() {
 			fakeVoiceRegistry{entries: []voicerecognition.Entry{ada}})
 		Expect(req.KnownVoices).To(BeEmpty())
 	})
+
+	Context("with a bundle model", func() {
+		const hash = "sha256:72040372aa"
+		hashed := voicerecognition.Entry{Metadata: voicerecognition.Metadata{ID: "h", Name: "Hashed", Model: hash}, Embedding: []float32{1, 0}}
+		legacy := voicerecognition.Entry{Metadata: voicerecognition.Metadata{ID: "l", Name: "Legacy", Model: "voice-detect-wespeaker-resnet34.gguf"}, Embedding: []float32{1, 0}}
+		other := voicerecognition.Entry{Metadata: voicerecognition.Metadata{ID: "o", Name: "Other", Model: "voice-detect-ecapa-tdnn-voxceleb.gguf"}, Embedding: []float32{1, 0}}
+		reg := fakeVoiceRegistry{entries: []voicerecognition.Entry{hashed, legacy, other}}
+		names := func(options ...string) []string {
+			var out []string
+			for _, v := range selectKnownVoices(context.Background(), "test", options, reg) {
+				out = append(out, v.Name)
+			}
+			return out
+		}
+
+		It("sends only the hash-tagged voice for a speaker_component", func() {
+			Expect(names("diar_component:diar", "speaker_component:voice")).To(Equal([]string{"Hashed"}))
+		})
+		It("adds the voices tagged with the speaker_tag alias", func() {
+			Expect(names("speaker_component:voice", "speaker_tag:voice-detect-wespeaker-resnet34.gguf")).
+				To(Equal([]string{"Hashed", "Legacy"}))
+		})
+		It("does not guess a tag from the bundle file for a speaker_component", func() {
+			Expect(names("speaker_component:voice", "speaker_tag:bundle.gguf")).To(Equal([]string{"Hashed"}))
+		})
+		It("keeps speaker_model pointing at the bundle file working", func() {
+			Expect(names("speaker_model:parakeet-cpp/bundle.gguf")).To(Equal([]string{"Hashed"}))
+		})
+		It("lets speaker_model win over speaker_component", func() {
+			Expect(names("speaker_component:voice", "speaker_model:voice-detect-ecapa-tdnn-voxceleb.gguf")).
+				To(Equal([]string{"Hashed", "Other"}))
+		})
+		It("names nothing for a bare speaker_tag", func() {
+			Expect(names("speaker_tag:voice-detect-wespeaker-resnet34.gguf")).To(BeEmpty())
+		})
+		It("fills a diarization request", func() {
+			req := backend.DiarizationRequest{}
+			attachKnownVoices(context.Background(), &req, []string{"speaker_component:voice"}, reg)
+			Expect(req.KnownVoices).To(HaveLen(1))
+			Expect(req.KnownVoices[0].Name).To(Equal("Hashed"))
+		})
+	})
 })

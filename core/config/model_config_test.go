@@ -52,6 +52,25 @@ parameters:
 		Expect(valid).To(BeTrue())
 	})
 
+	It("parses upscale backend options and explicit usecase from YAML", func() {
+		raw := []byte(`
+name: realesrgan
+backend: stablediffusion-ggml
+known_usecases: [upscale]
+options:
+  - upscale_scale:4
+  - upscale_tile_size:128
+parameters:
+  model: realesrgan-x4plus.gguf
+`)
+		var cfg ModelConfig
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.Options).To(Equal([]string{"upscale_scale:4", "upscale_tile_size:128"}))
+		Expect(cfg.KnownUsecases).NotTo(BeNil())
+		Expect(*cfg.KnownUsecases & FLAG_UPSCALE).To(Equal(FLAG_UPSCALE))
+		Expect(cfg.KnownUsecaseStrings).To(ContainElement("FLAG_UPSCALE"))
+	})
+
 	It("round-trips context compression settings", func() {
 		raw := []byte(`
 name: compressed-chat
@@ -789,6 +808,38 @@ var _ = Describe("PII config accessors", func() {
 		Expect(cfg.PIIDetectors()).To(Equal([]string{"pf"}))
 		Expect(cfg.PIIDetectionDefaultAction()).To(Equal("mask"))
 		Expect(cfg.PIIDetectionEntityActions()).To(HaveKeyWithValue("PASSWORD", "block"))
+	})
+
+	It("unmarshals pii_detection.extend_to_next_word from YAML", func() {
+		var cfg ModelConfig
+		raw := []byte("name: pf\npii_detection:\n  extend_to_next_word: [ZIPCODE]\n")
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.PIIDetectionExtendToNextWord()).To(Equal([]string{"ZIPCODE"}))
+		got := cfg.PIIDetectionExtendToNextWord()
+		got[0] = "CITY"
+		Expect(cfg.PIIDetection.ExtendToNextWord[0]).To(Equal("ZIPCODE"), "accessor must return a fresh slice")
+	})
+
+	It("unmarshals pii_detection.extend_to_previous_word from YAML", func() {
+		var cfg ModelConfig
+		raw := []byte("name: pf\npii_detection:\n  extend_to_previous_word: [LASTNAME]\n")
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.PIIDetectionExtendToPreviousWord()).To(Equal([]string{"LASTNAME"}))
+		Expect(cfg.PIIDetectionExtendToNextWord()).To(BeNil(), "the two directions are independent")
+		got := cfg.PIIDetectionExtendToPreviousWord()
+		got[0] = "FIRSTNAME"
+		Expect(cfg.PIIDetection.ExtendToPreviousWord[0]).To(Equal("LASTNAME"), "accessor must return a fresh slice")
+	})
+
+	It("unmarshals pii_detection.protected_terms and protected_terms_files from YAML", func() {
+		var cfg ModelConfig
+		raw := []byte("name: pf\npii_detection:\n  protected_terms: [Hotel Seeblick]\n  protected_terms_files: [pf/terms.txt]\n")
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		terms, files := cfg.PIIDetectionProtectedTerms()
+		Expect(terms).To(Equal([]string{"Hotel Seeblick"}))
+		Expect(files).To(Equal([]string{"pf/terms.txt"}))
+		terms[0] = "changed"
+		Expect(cfg.PIIDetection.ProtectedTerms[0]).To(Equal("Hotel Seeblick"), "accessor must return a fresh slice")
 	})
 })
 

@@ -39,12 +39,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return fmt.Errorf("registration auth is required (LOCALAI_REGISTRATION_REQUIRE_AUTH or LOCALAI_DISTRIBUTED_REQUIRE_AUTH) but LOCALAI_REGISTRATION_TOKEN is empty — refusing to start an unauthenticated file-transfer server")
 	}
 
-	systemState, err := system.GetSystemState(
-		system.WithModelPath(cfg.ModelsPath),
-		system.WithBackendPath(cfg.BackendsPath),
-		system.WithBackendSystemPath(cfg.BackendsSystemPath),
-		system.WithRequireBackendIntegrity(cfg.RequireBackendIntegrity),
-	)
+	systemState, err := cfg.systemState()
 	if err != nil {
 		return fmt.Errorf("getting system state: %w", err)
 	}
@@ -257,6 +252,16 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}),
 	))
 
+	// A previous worker that was killed left its backends running. Kill them
+	// now, before this worker hands out ports or reports an incarnation.
+	supervisor.ledger = newProcessLedger(filepath.Join(dataDir, "worker-processes.json"))
+	if n := supervisor.ledger.sweepStale(); n > 0 {
+		xlog.Warn("Killed backend process groups left behind by a previous worker", "count", n)
+	}
+
+	// The watchdog stops load operations the controller no longer renews.
+	go supervisor.runOperationWatchdog(shutdownCtx)
+
 	control := newNATSControlServer(natsClient, nodeID)
 	if err := supervisor.registerLifecycleVerbs(control); err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)
@@ -289,4 +294,15 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
 	return runErr
+}
+
+func (cfg *Config) systemState() (*system.SystemState, error) {
+	return system.GetSystemState(
+		system.WithModelPath(cfg.ModelsPath),
+		system.WithBackendPath(cfg.BackendsPath),
+		system.WithBackendSystemPath(cfg.BackendsSystemPath),
+		system.WithRequireBackendIntegrity(cfg.RequireBackendIntegrity),
+		system.WithPreferDevelopmentBackends(cfg.PreferDevelopmentBackends),
+		system.WithDisableBackendInstall(cfg.DisableBackendInstall),
+	)
 }

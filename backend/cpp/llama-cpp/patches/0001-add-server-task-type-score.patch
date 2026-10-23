@@ -367,7 +367,7 @@ index edb8e2d..9c88feb 100644
 
                      // make a checkpoint of the parts of the memory that cannot be rolled back.
                      // checkpoints are created only if:
-@@ -3670,13 +3944,46 @@ private:
+@@ -3806,16 +4080,49 @@ private:
                          // embedding requires all tokens in the batch to be output;
                          // MTP also wants logits at every prompt position so the
                          // streaming hook can mirror t_h_nextn into ctx_dft.
@@ -384,6 +384,9 @@ index edb8e2d..9c88feb 100644
 -                            /* output    = */ slot.need_embd(),
 +                            /* output    = */ slot.need_embd() || need_score_logit,
                              /* is_prompt = */ true);
+                         if (!slot.task->decision.order.empty()) {
+                             batch.set_decision_order(batch.size() - 1, slot.task->decision.order[slot.prompt.n_tokens()]);
+                         }
                          slot.prompt.tokens.push_back(cur_tok);
 
 +                        // score tasks: break at the shared-prompt boundary so the checkpoint

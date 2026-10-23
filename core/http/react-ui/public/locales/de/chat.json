@@ -103,7 +103,8 @@
   "toasts": {
     "selectModel": "Bitte wählen Sie ein Modell",
     "copied": "In die Zwischenablage kopiert",
-    "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen"
+    "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen",
+    "pdfScannedAsImages": "{{name}} hat keine Textebene (Scan). {{count}} von {{total}} Seiten als Bilder für ein Bildmodell angehängt."
   },
   "menu": {
     "trigger": "Chats",

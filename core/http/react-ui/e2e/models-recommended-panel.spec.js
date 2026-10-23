@@ -1,11 +1,11 @@
 import { test, expect } from "./coverage-fixtures.js";
+import { mockLedger, stubRecommendations, PROFILES } from "./ledger-fixtures.js";
 
-// The "Recommended for your hardware" strip defaults its own prominence off the
-// installed-model count and remembers both the collapse choice and a dismissal,
-// so every assertion here is about state that must survive a reload.
-
-const DISMISS_KEY = "localai-models-recommended-dismissed";
-const COLLAPSE_KEY = "localai-models-recommended-collapsed";
+// The "Best for this machine" shelf sits in the empty inspector of Models
+// Explore. There is no recommendation endpoint: it ranks the chat gallery
+// against /api/resources and /api/models/estimate. With nothing installed it
+// lists every fit; once something is installed it narrows to the best fit and
+// offers the rest behind a toggle.
 
 const REC_MODELS = [
   { name: "tiny-chat", description: "Tiny", backend: "llama-cpp", installed: false, tags: ["chat"] },
@@ -148,3 +148,79 @@ for (const view of ["models", "home"]) {
     await expect(section).toHaveCount(0, { timeout: 15_000 });
   });
 }
+
+// The same shelf against the shared ledger fixture, which has the shape of the
+// real gallery: long model ids in a 400 px pane, and a machine profile.
+test.describe("Best for this machine shelf (ledger fixture)", () => {
+  async function open(page, options = {}) {
+    await mockLedger(page, options);
+    await stubRecommendations(page);
+    await page.goto("/app/models");
+    await expect(panel(page)).toBeVisible({ timeout: 20_000 });
+  }
+
+  test("ranks what fits the machine, best fit first, with a size and an install button each", async ({ page }) => {
+    await open(page, { installed: [], loaded: [] });
+    await expect(panel(page).getByRole("heading", { name: "Best for this machine" })).toBeVisible();
+    const rows = grid(page).locator(".lane");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.first().locator(".lane__tag--evidence")).toHaveText("Best fit");
+    await expect(rows.nth(1).locator(".lane__tag")).toHaveText("Also fits");
+    for (let i = 0; i < 4; i++) {
+      await expect(rows.nth(i).getByRole("button", { name: "Install" })).toBeVisible();
+      await expect(rows.nth(i)).toContainText(/\d+\.\d+ GB/);
+      await expect(rows.nth(i)).toContainText(/VRAM/);
+    }
+    // Every model that is listed fits the 24 GB card.
+    await expect(panel(page)).not.toContainText("gpt-oss-120b");
+  });
+
+  test("a long model id wraps inside its row and never runs under the install button", async ({ page }) => {
+    await open(page, { installed: [], loaded: [] });
+    const row = grid(page).locator(".lane").first();
+    const name = await row.locator(".lane__name").boundingBox();
+    const button = await row.getByRole("button", { name: "Install" }).boundingBox();
+    expect(name.x + name.width).toBeLessThanOrEqual(button.x);
+    const pane = await page.getByTestId("discover-pane").boundingBox();
+    expect(button.x + button.width).toBeLessThanOrEqual(pane.x + pane.width);
+  });
+
+  test("with a model installed it narrows to the best fit and the rest opens on request", async ({ page }) => {
+    await open(page);
+    const rows = grid(page).locator(".lane");
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first().locator(".lane__tag--evidence")).toHaveText("Best fit");
+    const more = toggle(page);
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await expect(more).toHaveText("3 more that fit");
+    await more.click();
+    await expect(rows).toHaveCount(4);
+    await expect(more).toHaveAttribute("aria-expanded", "true");
+    await more.click();
+    await expect(rows).toHaveCount(1);
+  });
+
+  test("renders nothing when the machine is too small for any candidate", async ({ page }) => {
+    await mockLedger(page, { installed: [], loaded: [], resources: { ...PROFILES.laptop, aggregate: { ...PROFILES.laptop.aggregate, total_memory: 0.5 * 1024 ** 3 }, gpus: [{ vendor: "nvidia", total_vram: 0.5 * 1024 ** 3 }] } });
+    await stubRecommendations(page);
+    await page.goto("/app/models");
+    await expect(page.getByTestId("discover-pane")).toContainText("Your host", { ignoreCase: true, timeout: 20_000 });
+    await expect(panel(page)).toHaveCount(0);
+  });
+
+  test("install posts the model that was named", async ({ page }) => {
+    await mockLedger(page, { installed: [], loaded: [] });
+    await stubRecommendations(page);
+    let named = null;
+    await page.route("**/api/models/install/*", (route) => {
+      named = decodeURIComponent(new URL(route.request().url()).pathname.split("/").pop());
+      return route.fulfill({ json: { jobID: "job-1" } });
+    });
+    await page.goto("/app/models");
+    await expect(panel(page)).toBeVisible({ timeout: 20_000 });
+    const first = grid(page).locator(".lane").first();
+    const id = (await first.locator(".lane__name").textContent()).trim();
+    await first.getByRole("button", { name: "Install" }).click();
+    await expect.poll(() => named).toBe(id);
+  });
+});

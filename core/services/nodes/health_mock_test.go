@@ -233,6 +233,9 @@ func (c *fakeBackendClient) Rerank(_ context.Context, _ *pb.RerankRequest, _ ...
 func (c *fakeBackendClient) GetTokenMetrics(_ context.Context, _ *pb.MetricsRequest, _ ...ggrpc.CallOption) (*pb.MetricsResponse, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) SlotCache(_ context.Context, _ *pb.SlotCacheRequest, _ ...ggrpc.CallOption) (*pb.SlotCacheResponse, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) VAD(_ context.Context, _ *pb.VADRequest, _ ...ggrpc.CallOption) (*pb.VADResponse, error) {
 	return nil, nil
 }
@@ -257,6 +260,10 @@ func (c *fakeBackendClient) AudioToAudioStream(_ context.Context, _ ...ggrpc.Cal
 func (c *fakeBackendClient) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) MotionStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.MotionStreamClient, error) {
+	return nil, fmt.Errorf("motion streaming not implemented by health fake")
+}
+
 func (c *fakeBackendClient) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {
 	return nil, nil
 }

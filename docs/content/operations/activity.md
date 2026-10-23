@@ -58,7 +58,7 @@ each shown only when it has something in it.
 
 ### In progress
 
-One card per running or queued operation, each naming what is being done and to
+One row per running or queued operation, each naming what is being done and to
 what. A percentage and progress bar appear only once the operation is running
 and has reported progress, so a queued operation and a removal show none.
 Artifact-backed gallery models also report the phase, downloaded and total
@@ -88,7 +88,8 @@ worker finishes.
 ### Needs attention
 
 Model and backend operations that failed and have not been acknowledged yet,
-each card carrying the error returned by the installer. Cluster staging never
+each row carrying the error returned by the installer, with **Retry** and
+**Dismiss**. Cluster staging never
 appears here: a staging job reports no error to the page, so a staging failure
 has to be read from the logs.
 
@@ -96,7 +97,11 @@ has to be read from the logs.
 
 What finished, newest first, one row each: the name, what happened
 (`installed in 1m 12s`, `removed`, `cancelled`, or `failed:` with the error),
-the time of day it finished, and a link into Models or Backends. Model and
+the time of day it finished, and a link into Models or Backends. A cancelled
+install also has **Start again**, which installs the same target again: a
+download that was paused continues where it stopped, and one that was cancelled
+starts over. The record does not say which of the two it was, so the button
+says what it does in both cases. A cancelled removal has no such button. Model and
 backend installs and removals are recorded; cluster staging is not, so a
 staging run leaves nothing behind here once it finishes.
 
@@ -110,10 +115,13 @@ finished fan-out install is filed under Models or Backends, not under Cluster.
 
 ## Cancelling, retrying and dismissing
 
-These are on the operation cards. **Cancel** and **Retry** are labelled
-buttons; dismissing is the **X** at the end of a failed card. The strip has no
-cancel button; the page is the only place work is stopped or restarted.
+These are on the operation rows. **Pause**, **Cancel**, **Retry** and
+**Dismiss** are labelled buttons. The strip has no cancel button; the page is
+the only place work is stopped or restarted. The Backends page also shows the
+progress of a backend install in the backend's own row, with its **Cancel**.
 
+- **Pause** stops a running download and keeps the bytes already fetched, so
+  installing the same model or backend again continues from there.
 - **Cancel** is offered while an operation is queued, whatever it is, and while
   an install is running. It is not offered once a removal has started: a
   removal in progress cannot be interrupted, so the window to call one off is
@@ -121,13 +129,21 @@ cancel button; the page is the only place work is stopped or restarted.
   anything is touched. For artifact-backed gallery models, cancelling an active
   download leaves its partial files in place so a later install resumes rather
   than starting over. A cancelled operation leaves the live sections
-  immediately and is not held on the strip the way a completed one is; it
-  appears in the record as `cancelled`.
+  and is not held on the strip the way a completed one is; it appears in the
+  record as `cancelled`.
+
+  **Cancel waits for 8 seconds before it is sent.** The row says "Cancelling
+  unless you undo" and a toast offers **Undo**. The server cannot take a cancel
+  back, so the wait in the browser is the whole undo: while it runs nothing has
+  been stopped and the download carries on. Closing the toast cancels at once,
+  asking to cancel a second download ends the first one's wait, and leaving the
+  page sends a cancel that is still waiting. A job that finishes during the wait
+  is left alone.
 - **Retry** is offered on a failed model or backend install. It acknowledges
   the failure, which moves it into the record, and installs the same target
   again. It is not offered on a failed removal, which is not restarted by
   reinstalling.
-- **Dismiss**, the **X** on a failed card, acknowledges the failure without
+- **Dismiss** acknowledges the failure without
   retrying. The operation moves into the record with a `failed` outcome; it is
   not deleted. This is why the same failure can be found either under **Needs
   attention** or in the **Record**, depending on whether it has been

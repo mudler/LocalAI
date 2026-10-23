@@ -375,6 +375,23 @@ var _ = Describe("audio methods", func() {
 			Expect(res.Segments[1].Speaker).To(Equal("SPEAKER_01"))
 			Expect(res.Segments[1].Start).To(BeNumerically("==", 1.5))
 			Expect(res.Segments[1].Id).To(Equal(int32(1)))
+			Expect(res.SoundsIncluded).To(BeFalse(), "an upstream that sends no sounds field reports none")
+		})
+
+		It("forwards include_sounds and keeps the upstream's sound events", func() {
+			p := loadProxy(up, nil)
+			up.replyJSON("/v1/audio/diarization", map[string]any{
+				"task": "diarize", "duration": 3.0, "num_speakers": 1,
+				"segments": []any{map[string]any{"id": 0, "speaker": "SPEAKER_00", "start": 0.0, "end": 3.0}},
+				"sounds":   []any{map[string]any{"start": 1.0, "end": 2.0, "label": "Dog", "confidence": 0.75}},
+			})
+			res, err := p.Diarize(&pb.DiarizeRequest{Dst: writeInput("talk.wav", "RIFF-talk"), IncludeSounds: true})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(up.last().Fields).To(HaveKeyWithValue("include_sounds", "true"))
+			Expect(res.SoundsIncluded).To(BeTrue())
+			Expect(res.Sounds).To(HaveLen(1))
+			Expect(res.Sounds[0].Label).To(Equal("Dog"))
+			Expect(res.Sounds[0].Confidence).To(BeNumerically("==", 0.75))
 		})
 	})
 

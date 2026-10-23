@@ -2,22 +2,27 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
 import { useRecommendedModels, isNvfp4Name } from '../hooks/useRecommendedModels'
+import Icon from './Icon'
 
 const CONTENT_ID = 'rec-models-content'
 
-// "Recommended for your hardware" at the top of Models Explore's zero state. Shares
-// the hardware-fit ranking with the empty-state starter widget via
+// "Best for this machine": a short shelf in the Models page's empty inspector.
+// It shares the hardware-fit ranking with the empty-state starter widget via
 // useRecommendedModels.
 //
-// It is a section rather than a dismissable card. This is the one thing the
-// page has to say about the machine it is running on: hiding it behind a close
-// button treated it as an interruption, and a box with its own border read as
-// something bolted onto a pane that is otherwise hairline sections. The
-// collapse and dismissal state, and their storage keys, are gone with it.
-export default function RecommendedModels({ addToast }) {
+// There is no recommendation endpoint. The hook ranks the chat gallery against
+// the host's resources and the per-model estimate, so the shelf is only as
+// good as those two reads and renders nothing when they give no fit.
+//
+// It is a section rather than a dismissable card: the one thing the page has
+// to say about the machine it runs on is not an interruption to be closed.
+// Once something is installed the person has started, so the shelf narrows to
+// the best fit and keeps the rest one click away (progressive disclosure).
+export default function RecommendedModels({ addToast, installedCount = 0 }) {
   const { t } = useTranslation('models')
   const { recommended, tier, loading } = useRecommendedModels({ count: 4 })
   const [installing, setInstalling] = useState(() => new Set())
+  const [expanded, setExpanded] = useState(false)
 
   if (loading) return null
   if (!recommended || recommended.length === 0) return null
@@ -38,51 +43,62 @@ export default function RecommendedModels({ addToast }) {
   }
 
   const isGpu = tier.id !== 'cpu'
+  const narrowed = installedCount > 0 && recommended.length > 1
+  const visible = narrowed && !expanded ? recommended.slice(0, 1) : recommended
 
   return (
-    // A section, not a card. This sits inside a pane that is otherwise hairline
-    // sections, so a bordered, dismissable box read as something bolted on —
-    // and the one thing the page has to say about this host is not an
-    // interruption to be closed.
     <section className="rec-models" data-testid="recommended-models">
-      <div className="zero-pane__shelf-head">
-        <h3 className="zero-pane__shelf-title">
-          <i className={`fas ${isGpu ? 'fa-microchip' : 'fa-memory'}`} aria-hidden="true" /> {t('recommended.title')}
-        </h3>
-        <span className="zero-pane__shelf-meta">
+      <div className="rec-models__head">
+        <h3 className="zero-pane__shelf-title">{t('recommended.title')}</h3>
+        <p className="rec-models__note">
           {isGpu ? t('recommended.gpuNote') : t('recommended.cpuNote')}
-        </span>
+        </p>
       </div>
       <ul className="lanes lanes--recommended" id={CONTENT_ID}>
-        {recommended.map((m, i) => {
+        {visible.map((m, i) => {
           const busy = installing.has(m.name)
+          const vram = isGpu && m.vramDisplay ? m.vramDisplay : ''
           return (
             <li key={m.name} className="lane">
-              <span className={`lane__tag${i === 0 ? ' lane__tag--evidence' : ''}`}>
-                {i === 0 ? t('recommended.bestFit') : t('recommended.alternative')}
-              </span>
-              <span className="lane__name lane__name--id">{m.name}</span>
-              <span className="lane__num">
-                {isNvfp4Name(m.name) && <span className="badge badge-info">NVFP4</span>}
-                {m.sizeDisplay}
-              </span>
-              <span className="lane__num">
-                {isGpu && m.vramDisplay ? m.vramDisplay : ''}
-              </span>
+              <div className="lane__main">
+                <span className={`lane__tag${i === 0 ? ' lane__tag--evidence' : ''}`}>
+                  {i === 0 ? t('recommended.bestFit') : t('recommended.alternative')}
+                </span>
+                <span className="lane__name lane__name--id">{m.name}</span>
+                <span className="lane__num rec-models__facts">
+                  {isNvfp4Name(m.name) && <span className="badge badge-info">NVFP4</span>}
+                  <span>{m.sizeDisplay}</span>
+                  {vram && <span>{t('recommended.needs', { vram })}</span>}
+                </span>
+              </div>
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className={i === 0 ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
                 disabled={busy}
                 onClick={() => install(m.name)}
               >
                 {busy
-                  ? (<><i className="fas fa-spinner fa-spin" aria-hidden="true" /> {t('recommended.installing')}</>)
-                  : (<><i className="fas fa-download" aria-hidden="true" /> {t('recommended.install')}</>)}
+                  ? (<><Icon name="spinner" spin /> {t('recommended.installing')}</>)
+                  : (<><Icon name="download" /> {t('recommended.install')}</>)}
               </button>
             </li>
           )
         })}
       </ul>
+      {narrowed && (
+        <button
+          type="button"
+          className="rec-models__more"
+          data-testid="recommended-models-toggle"
+          aria-expanded={expanded}
+          aria-controls={CONTENT_ID}
+          onClick={() => setExpanded(v => !v)}
+        >
+          {expanded
+            ? t('recommended.fewer')
+            : t('recommended.more', { count: recommended.length - 1 })}
+        </button>
+      )}
     </section>
   )
 }

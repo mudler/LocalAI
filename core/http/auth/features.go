@@ -10,6 +10,51 @@ type RouteFeature struct {
 // RouteFeatureRegistry is the single source of truth for endpoint -> feature mappings.
 // To gate a new endpoint, add an entry here -- no other file changes needed.
 var RouteFeatureRegistry = []RouteFeature{
+	{"POST", "/api/motion/sessions", FeatureMotion},
+	{"GET", "/api/motion/sessions/:id", FeatureMotion},
+	{"DELETE", "/api/motion/sessions/:id", FeatureMotion},
+	{"GET", "/api/motion/sessions/:id/poses", FeatureMotion},
+	{"POST", "/api/motion/sessions/:id/tickets", FeatureMotion},
+	{"POST", "/api/addons/dispatch", FeatureAddons},
+	{"POST", "/api/addons/relay", FeatureAddons},
+	{"POST", "/api/addons/proposals", FeatureAddons},
+	{"GET", "/api/addons/proposals", FeatureAddons},
+	{"GET", "/api/addons/proposals/:id", FeatureAddons},
+	{"POST", "/api/addons/proposals/:id/confirm", FeatureAddons},
+	{"POST", "/api/addons/proposals/:id/cancel", FeatureAddons},
+	{"POST", "/api/addons/proposals/:id/reconcile", FeatureAddons},
+	{"POST", "/api/addons/proposals/:id/resolve", FeatureAddons},
+	{"GET", "/api/addons/resources/:resourceId/proposals", FeatureAddons},
+	{"GET", "/api/addons/resources", FeatureAddons},
+	{"POST", "/api/addons/resources", FeatureAddons},
+	{"GET", "/api/addons/resources/:resourceId/grants", FeatureAddons},
+	{"PUT", "/api/addons/resources/:resourceId/grants/:userId", FeatureAddons},
+	{"DELETE", "/api/addons/resources/:resourceId/grants/:userId", FeatureAddons},
+	{"GET", "/api/addons/resources/:resourceId/users", FeatureAddons},
+	{"POST", "/api/addons/resources/:resourceId/rename", FeatureAddons},
+	{"POST", "/api/addons/resources/:resourceId/delete", FeatureAddons},
+	{"POST", "/api/addons/resources/:resourceId/apply", FeatureAddons},
+	{"GET", "/api/addons/resources/:resourceId/operations/:operationId", FeatureAddons},
+	{"GET", "/api/addons/conversations/:conversationId/selection/:addonId", FeatureAddons},
+	{"PUT", "/api/addons/conversations/:conversationId/selection/:addonId", FeatureAddons},
+	{"DELETE", "/api/addons/conversations/:conversationId/selection/:addonId", FeatureAddons},
+	{"GET", "/api/addons/artifacts/:id", FeatureAddons},
+	{"GET", "/api/addons/artifacts/:id/download", FeatureAddons},
+	{"GET", "/api/addons/apps", FeatureAddons},
+	{"GET", "/api/addons/apps/:id/icon", FeatureAddons},
+	{"POST", "/api/addons/apps/:id/start", FeatureAddons},
+	{"POST", "/api/addons/apps/:id/stop", FeatureAddons},
+	{"GET", "/api/addons/:id/assets/:digest/*", FeatureAddons},
+	{"GET", "/api/addons/:id/recovery", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/backup", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/verify", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/restore", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/delete-backup", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/prune", FeatureAddons},
+	{"POST", "/api/addons/:id/purge", FeatureAddons},
+	{"GET", "/api/addons/:id/update", FeatureAddons},
+	{"POST", "/api/addons/:id/update/check", FeatureAddons},
+	{"POST", "/api/addons/:id/upgrade", FeatureAddons},
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},
@@ -71,7 +116,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	// Detection
 	{"POST", "/v1/detection", FeatureDetection},
 
-	// Decisions API (SystemOne wire contract)
+	// Decisions API (OpenAI and SystemOne wire contracts)
+	{"POST", "/v1/decisions", FeatureDecisions},
 	{"POST", "/v1/systemone", FeatureDecisions},
 	{"POST", "/v1/systemone/permute", FeatureDecisions},
 	{"POST", "/v1/systemone/separate", FeatureDecisions},
@@ -152,6 +198,15 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/pii/analyze", FeaturePIIFilter},
 	{"POST", "/api/pii/redact", FeaturePIIFilter},
 
+	// Chat History (server-side persistence of WebUI conversations, #9432)
+	{"GET", "/api/conversations", FeatureChatHistory},
+	{"DELETE", "/api/conversations", FeatureChatHistory},
+	{"POST", "/api/conversations", FeatureChatHistory},
+	{"PUT", "/api/conversations/bulk", FeatureChatHistory},
+	{"GET", "/api/conversations/:id", FeatureChatHistory},
+	{"PUT", "/api/conversations/:id", FeatureChatHistory},
+	{"DELETE", "/api/conversations/:id", FeatureChatHistory},
+
 	// Quantization
 	{"POST", "/api/quantization/jobs", FeatureQuantization},
 	{"GET", "/api/quantization/jobs", FeatureQuantization},
@@ -184,6 +239,7 @@ func AgentFeatureMetas() []FeatureMeta {
 // GeneralFeatureMetas returns metadata for general features.
 func GeneralFeatureMetas() []FeatureMeta {
 	return []FeatureMeta{
+		{FeatureAddons, "Addons", false},
 		{FeatureFineTuning, "Fine-Tuning", false},
 		{FeatureQuantization, "Quantization", false},
 	}
@@ -202,6 +258,7 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureDetection, "Detection", true},
 		{FeatureVideo, "Video Generation", true},
 		{Feature3D, "3D Generation", true},
+		{FeatureMotion, "Motion Capture", true},
 		{FeatureEmbeddings, "Embeddings", true},
 		{FeatureSound, "Sound Generation", true},
 		{FeatureRealtime, "Realtime", true},
@@ -215,5 +272,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureAudioTransform, "Audio Transform", true},
 		{FeaturePIIFilter, "PII Analyze / Redact", true},
 		{FeatureDecisions, "Decisions", true},
+		{FeatureChatHistory, "Chat History", true},
 	}
 }

@@ -1,8 +1,9 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// Backends admin page (src/pages/Backends.jsx).
-const PANE = '[data-testid="backends-pane"]'
-const railItem = (page, name) => page.locator(`[data-entity="${name}"]`)
+// Backends admin page (src/pages/Backends.jsx): one list with an Installed and
+// a Catalog view. A row is a name, a version, a state and the one action; it
+// opens in place into the rest.
+const row = (page, name) => page.locator(`[data-entity="${name}"]`)
 
 test.describe('Backends management page', () => {
   test.beforeEach(async ({ page }) => {
@@ -12,7 +13,7 @@ test.describe('Backends management page', () => {
   test('renders the management header and gallery tabs', async ({ page }) => {
     await expect(page).toHaveURL(/\/app\/backends$/)
     await expect(page.getByRole('heading', { name: 'Backend Management' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Manual Install' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'From URL' })).toBeVisible()
     await expect(page.getByRole('button').filter({ hasText: /^All$/ })).toBeVisible()
     await expect(page.getByRole('button').filter({ hasText: /^Image$/ })).toBeVisible()
   })
@@ -24,8 +25,8 @@ test.describe('Backends management page', () => {
     await expect(search).toHaveValue('whisper')
   })
 
-  test('Manual Install reveals the OCI install form', async ({ page }) => {
-    await page.getByRole('button', { name: 'Manual Install' }).click()
+  test('From URL reveals the OCI install form', async ({ page }) => {
+    await page.getByRole('button', { name: 'From URL' }).click()
     await expect(page.getByPlaceholder('oci://quay.io/example/backend:latest')).toBeVisible()
   })
 })
@@ -52,14 +53,11 @@ test.describe('Backends management page - Markdown descriptions', () => {
       })
     })
     await page.goto('/app/backends')
-    // Rendered means the rail has entries. The old gate waited on a column
-    // header, and there are no columns now.
-    await expect(railItem(page, 'markdown-backend')).toBeVisible({ timeout: 10_000 })
+    await expect(row(page, 'markdown-backend')).toBeVisible({ timeout: 10_000 })
   })
 
-  test('the pane lede shows the description as clean text, not raw Markdown', async ({ page }) => {
-    await railItem(page, 'markdown-backend').click()
-    const cell = page.locator('.detail-pane__lede')
+  test('the row shows the description as clean text, not raw Markdown', async ({ page }) => {
+    const cell = row(page, 'markdown-backend').locator('.dk-table-sub')
 
     await expect(cell).toHaveText(STRIPPED_DESCRIPTION)
     // The syntax itself must be gone, not merely rendered somewhere.
@@ -71,23 +69,27 @@ test.describe('Backends management page - Markdown descriptions', () => {
     await expect(cell.locator('h1')).toHaveCount(0)
   })
 
-  test("the lede's tooltip carries the stripped text, not raw Markdown", async ({ page }) => {
-    await railItem(page, 'markdown-backend').click()
-    await expect(page.locator('.detail-pane__lede')).toHaveAttribute('title', STRIPPED_DESCRIPTION)
+  test("the row's tooltip carries the stripped text, not raw Markdown", async ({ page }) => {
+    await expect(row(page, 'markdown-backend').locator('.dk-table-sub')).toHaveAttribute('title', STRIPPED_DESCRIPTION)
   })
 
-  test('a backend with no description renders no lede rather than a blank one', async ({ page }) => {
-    // The table needed a placeholder because an empty cell in a grid of full
-    // ones reads as a fault. The pane has no grid to keep aligned, so it omits
-    // the line - but must never print "undefined".
-    await railItem(page, 'plain-backend').click()
-    await expect(page.locator(PANE)).toContainText('plain-backend')
-    await expect(page.locator('.detail-pane__lede')).toHaveCount(0)
-    await expect(page.locator(PANE)).not.toContainText('undefined')
+  test('opening the row renders the Markdown, with its link', async ({ page }) => {
+    await row(page, 'markdown-backend').click()
+    const detail = page.getByTestId('backend-detail')
+    await expect(detail.locator('.bk-detail__desc h1')).toHaveText('InsightFace')
+    await expect(detail.locator('.bk-detail__desc a[href="https://example.com/docs"]')).toBeVisible()
+  })
+
+  test('a backend with no description renders no blank line and never "undefined"', async ({ page }) => {
+    await expect(row(page, 'plain-backend')).toContainText('plain-backend')
+    await expect(row(page, 'plain-backend')).not.toContainText('undefined')
+    await row(page, 'plain-backend').click()
+    await expect(page.getByTestId('backend-detail')).not.toContainText('undefined')
+    await expect(page.locator('.bk-detail__desc')).toHaveCount(0)
   })
 })
 
-test.describe('Backends gallery - split view', () => {
+test.describe('Backends gallery - list', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/api/backends*', (route) => {
       route.fulfill({
@@ -102,46 +104,50 @@ test.describe('Backends gallery - split view', () => {
       })
     })
     await page.goto('/app/backends')
-    await expect(railItem(page, 'llama-cpp')).toBeVisible({ timeout: 10_000 })
+    await expect(row(page, 'llama-cpp')).toBeVisible({ timeout: 10_000 })
   })
 
-  test('the gallery renders no table', async ({ page }) => {
+  test('is a table with columns, not a rail and a pane', async ({ page }) => {
     await expect(page.locator('[data-testid="backends"]')).toBeVisible()
-    await expect(page.locator('table thead th')).toHaveCount(0)
+    await expect(page.locator('table thead th').first()).toBeVisible()
+    await expect(page.locator('[data-testid="backends-pane"]')).toHaveCount(0)
   })
 
-  test('with nothing selected the pane describes the host', async ({ page }) => {
-    await expect(page.locator(PANE)).toContainText('This host')
-    await expect(page.locator('[data-testid="backends-back"]')).toHaveCount(0)
+  test('opening a row shows its facts, and the chevron closes it', async ({ page }) => {
+    await row(page, 'llama-cpp').click()
+    const detail = page.getByTestId('backend-detail')
+    await expect(detail).toContainText('MIT')
+    await expect(detail).toContainText('chat')
+    await row(page, 'llama-cpp').getByRole('button', { name: /Hide details for llama-cpp/ }).click()
+    await expect(page.getByTestId('backend-detail')).toHaveCount(0)
   })
 
-  test('choosing a backend turns the pane into its detail, and back returns', async ({ page }) => {
-    await railItem(page, 'llama-cpp').click()
-    await expect(page.locator(PANE)).toContainText('llama-cpp')
-    await expect(page.locator(PANE)).toContainText('MIT')
-    await expect(page.locator(PANE)).not.toContainText('This host')
-
-    await page.locator('[data-testid="backends-back"]').click()
-    await expect(page.locator(PANE)).toContainText('This host')
+  test('only one row is open at a time', async ({ page }) => {
+    await row(page, 'llama-cpp').click()
+    await row(page, 'whisper').click()
+    await expect(page.getByTestId('backend-detail')).toHaveCount(1)
+    await expect(page.getByTestId('backend-detail')).toContainText('transcript')
+    await expect(page).toHaveURL(/[?&]backend=whisper/)
   })
 
-  test('the selection lives in the URL and survives a reload', async ({ page }) => {
-    await railItem(page, 'whisper').click()
+  test('the open row lives in the URL and survives a reload', async ({ page }) => {
+    await row(page, 'whisper').click()
     await expect(page).toHaveURL(/[?&]backend=whisper/)
     await page.reload()
-    await expect(railItem(page, 'whisper')).toBeVisible({ timeout: 10_000 })
-    await expect(page.locator('[data-testid="backends-back"]')).toBeVisible()
+    await expect(row(page, 'whisper')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('backend-detail')).toContainText('transcript')
   })
 
-
-  test('the rail groups while browsing and flattens on a query', async ({ page }) => {
-    await expect(page.locator('[data-testid^="backends-rail-group-"]').first()).toBeVisible()
-    await page.locator('input[placeholder*="Search backends"]').fill('llama')
-    await expect(page.locator('[data-testid^="backends-rail-group-"]')).toHaveCount(0)
+  test('a filter chip narrows the list', async ({ page }) => {
+    await page.getByRole('button', { name: 'Image', exact: true }).click()
+    await expect(page).toHaveURL(/[?&]state=image/)
+    await expect(row(page, 'diffusers')).toBeVisible()
+    await expect(row(page, 'llama-cpp')).toHaveCount(0)
   })
 
   test('an installed backend states its version, an absent one says so', async ({ page }) => {
-    await expect(railItem(page, 'llama-cpp')).toContainText('v1.52.0')
-    await expect(railItem(page, 'diffusers')).toContainText('not installed')
+    await expect(row(page, 'llama-cpp')).toContainText('v1.52.0')
+    await expect(row(page, 'llama-cpp')).toContainText('Current')
+    await expect(row(page, 'diffusers')).toContainText('Not installed')
   })
 })

@@ -18,16 +18,19 @@ int omni_load(const char *model_path, const char *codec_path, int use_fa,
 // ref_samples != null && ref_n > 0 => voice cloning (ref_text optional).
 // instruct != null && non-empty => voice design. seed < 0 keeps the default
 // MaskGIT seed. denoise toggles the <|denoise|> marker (only with a reference).
+// duration_frames: 0 keeps defaults; 1..750 overrides generation frames.
+// postprocess: -1 keeps defaults; 0 disables, 1 enables post filtering.
+// The frame cap is wrapper resource policy, not a success guarantee.
 // Writes the sample count to *out_n. Returns NULL on failure (out_n set to 0).
 float *omni_tts(const char *text, const char *lang, const char *instruct,
                 const float *ref_samples, int ref_n, const char *ref_text,
-                long long seed, int denoise, int *out_n);
+                long long seed, int denoise, int duration_frames, int postprocess, int *out_n);
 
 // Streaming synthesis: cb is invoked per PCM chunk as audio is produced.
-// Same reference/design/seed semantics as omni_tts. Returns 0 on success.
+// Same semantics as omni_tts, but postprocess=0 is rejected. Returns 0 on success.
 int omni_tts_stream(const char *text, const char *lang, const char *instruct,
                     const float *ref_samples, int ref_n, const char *ref_text,
-                    long long seed, int denoise, omni_pcm_chunk_cb cb,
+                    long long seed, int denoise, int duration_frames, int postprocess, omni_pcm_chunk_cb cb,
                     void *user_data);
 
 // Free a buffer returned by omni_tts.

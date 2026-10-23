@@ -48,8 +48,11 @@ type Gallery struct {
 	// always preferred, and a mirror is only consulted after the one before
 	// it fails. Any URI the gallery loader understands works here
 	// (https://, github:, file://, oci://).
-	Mirrors      []string             `json:"mirrors,omitempty" yaml:"mirrors,omitempty"`
-	Name         string               `json:"name" yaml:"name"`
+	Mirrors []string `json:"mirrors,omitempty" yaml:"mirrors,omitempty"`
+	Name    string   `json:"name" yaml:"name"`
+	// Library says the URL is a model library (the shared library entry
+	// shape), not a gallery index.
+	Library      bool                 `json:"library,omitempty" yaml:"library,omitempty"`
 	Verification *GalleryVerification `json:"verification,omitempty" yaml:"verification,omitempty"`
 	// ArtifactVerification overrides Verification only for the gallery OCI artifact.
 	// Backend images keep their separate Verification policy.

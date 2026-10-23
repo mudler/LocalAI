@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LocalAI Launcher
+Comment=Download and manage your local LocalAI server
+Exec=local-ai-launcher
+Icon=local-ai-launcher
+Terminal=false
+Categories=Development;Utility;

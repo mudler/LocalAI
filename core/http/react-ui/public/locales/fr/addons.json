@@ -1,0 +1,542 @@
+{
+  "actions": {
+    "blocked": "Une action précédente sur ce module n'est pas encore confirmée. Vérifiez son état ou ignorez-la d'abord.",
+    "checkStatus": "Vérifier l'état",
+    "dismiss": "Ignorer",
+    "failed": "Le propriétaire n'a pas terminé l'action. Rien n'a été modifié. Réessayez pour lancer une nouvelle tentative.",
+    "notApplied": "Le propriétaire a signalé l'action comme terminée, mais le module n'a pas changé. Réessayez pour lancer une nouvelle tentative.",
+    "unknown": "Le propriétaire n'a pas encore confirmé l'action. Elle est peut-être déjà appliquée. Vérifiez son état, ou ignorez-la avant de lancer une autre action."
+  },
+  "approval": {
+    "title": "Approbation requise",
+    "from": "De {{addon}}",
+    "loading": "Chargement de la demande",
+    "failed": "Cette demande n'est pas disponible.",
+    "rejected": "La demande n'a pas pu être menée à terme. Vérifiez son état et réessayez.",
+    "changes": "Modifications",
+    "expires": "Expire",
+    "state": "État",
+    "expired": "Cette demande a expiré. Faites-la de nouveau.",
+    "confirm": "Confirmer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "states": {
+      "pending": "En attente de votre décision",
+      "applied": "Appliquée",
+      "cancelled": "Annulée",
+      "expired": "Expirée",
+      "executing": "Application en cours",
+      "rejected": "Rejetée",
+      "outcome-unknown": "Résultat inconnu",
+      "abandoned-unknown": "Résultat inconnu",
+      "unknown": "Inconnu"
+    }
+  },
+  "apps": {
+    "emptyBody": "Lorsqu'un administrateur installe et active un module, il apparaît ici.",
+    "emptyTitle": "Aucune application pour le moment",
+    "firstRun": {
+      "browse": "Parcourir les modules",
+      "browseBody": "Choisissez un module dans une bibliothèque et installez-le.",
+      "browseTitle": "Parcourir et installer.",
+      "libraryBody": "La bibliothèque officielle est enregistrée par défaut. Vous pouvez en ajouter d'autres dans Bibliothèques.",
+      "libraryTitle": "Choisir une bibliothèque.",
+      "startBody": "Démarrez un module installé depuis sa vignette. Les modules qui étaient en cours d'exécution redémarrent avec le serveur.",
+      "startTitle": "Le démarrer.",
+      "title": "Bienvenue dans Applications"
+    },
+    "headless": "S'exécute en arrière-plan et n'a pas de page propre.",
+    "listLabel": "Applications",
+    "loading": "Chargement des applications",
+    "manage": "Gérer",
+    "open": "Ouvrir",
+    "stale": "La liste n'a pas pu être actualisée. Ce que vous voyez est peut-être périmé.",
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "toolsMore_one": "et {{count}} de plus",
+    "toolsMore_many": "et {{count}} de plus",
+    "toolsMore_other": "et {{count}} de plus",
+    "tools_one": "{{count}} outil",
+    "tools_many": "{{count}} d'outils",
+    "tools_other": "{{count}} outils",
+    "version": "Version {{version}}",
+    "working": "En attente de la confirmation du propriétaire."
+  },
+  "browse": {
+    "confirmBody": "La version {{version}} de la bibliothèque {{library}} sera téléchargée et vérifiée avant d'être installée.",
+    "confirmNotEnabled": "L'installation ne démarre pas le module. Vous l'activez dans une étape distincte.",
+    "confirmTitle": "Installer {{name}} ?",
+    "details": "Détails",
+    "detailsLead": "Entrée de bibliothèque pour {{id}}",
+    "emptyBody": "Ajoutez une bibliothèque dans l'onglet Bibliothèques, puis actualisez-la.",
+    "emptyTitle": "Aucun module trouvé",
+    "fromLibrary": "depuis {{library}}",
+    "install": "Installer",
+    "installedDetail": "Version {{version}}, génération {{generation}}",
+    "installedNotEnabled": "Installé. Il n'est pas activé : activez-le dans l'onglet Installés quand vous êtes prêt.",
+    "installedOther": "{{version}} installée (autre version)",
+    "installedSame": "{{version}} installée",
+    "installedState": "Installé",
+    "installing": "Installation en cours",
+    "search": "Rechercher dans les bibliothèques"
+  },
+  "catalog": {
+    "allLibraries": "Toutes les bibliothèques",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "count_one": "{{count}} résultat",
+    "count_many": "{{count}} de résultats",
+    "count_other": "{{count}} résultats",
+    "emptyBody": "Cette liste est vide.",
+    "emptyFiltered": "Aucun résultat pour cette recherche. Changez les mots ou la bibliothèque.",
+    "emptyTitle": "Rien à afficher",
+    "libraries": "Bibliothèques",
+    "loading": "Chargement des résultats",
+    "next": "Page suivante",
+    "previous": "Page précédente",
+    "retry": "Réessayer",
+    "search": "Rechercher"
+  },
+  "drawer": {
+    "add": "Ajouter un nouveau module",
+    "browse": "Parcourir les modules",
+    "builtinDetail": "Ce module est livré avec LocalAI.",
+    "close": "Fermer",
+    "limitBody": "La barre latérale affiche au plus huit modules épinglés. Désépinglez-en un d'abord.",
+    "limitTitle": "Huit modules sont épinglés",
+    "moveEarlier": "Déplacer {{name}} plus tôt",
+    "moveLater": "Déplacer {{name}} plus tard",
+    "pin": "Épingler {{name}}",
+    "pinLabel": "Épingler",
+    "pinned": "Épinglé",
+    "running": "En cours d'exécution",
+    "search": "Rechercher des modules",
+    "status": {
+      "failed": "en échec",
+      "starting": "démarrage"
+    },
+    "stopped": "Arrêté",
+    "unpin": "Désépingler {{name}}"
+  },
+  "errors": {
+    "auth": "Vous êtes déconnecté. Reconnectez-vous.",
+    "denied": "Le serveur a refusé cette demande. Vous n'avez peut-être pas la permission, ou le module a changé. La liste a été actualisée.",
+    "invalid": "Le serveur n'a pas pu accepter cette demande.",
+    "network": "Le serveur est injoignable. Vérifiez votre connexion.",
+    "unavailable": "Le propriétaire du module n'est pas disponible pour le moment. Réessayez dans un instant.",
+    "unknownOutcome": "Le résultat n'a pas pu être confirmé. Vérifiez l'état avant de réessayer."
+  },
+  "installed": {
+    "disable": "Désactiver",
+    "disabled": "Désactivé",
+    "emptyBody": "Installez un module depuis l'onglet Parcourir.",
+    "emptyTitle": "Rien n'est installé",
+    "enable": "Activer",
+    "enabled": "Activé",
+    "generation": "Génération {{generation}}",
+    "listLabel": "Modules installés",
+    "loading": "Chargement des modules installés",
+    "manage": "Détails",
+    "manageLead": "Vue de gestion de {{id}}",
+    "missing": "{{id}} n'est pas installé.",
+    "uninstall": "Désinstaller",
+    "uninstallBody": "Le module s'arrête et son paquet n'est plus utilisé. Ses données, son identité et ses autorisations sont conservées : le réinstaller les retrouve. Rien n'est supprimé.",
+    "uninstallTitle": "Désinstaller {{name}} ?"
+  },
+  "libraries": {
+    "add": "Ajouter une bibliothèque",
+    "addTitle": "Ajouter une bibliothèque",
+    "disabled": "Désactivée",
+    "edit": "Modifier",
+    "editTitle": "Modifier {{name}}",
+    "emptyBody": "Ajoutez une bibliothèque pour parcourir et installer des modules.",
+    "emptyTitle": "Aucune bibliothèque",
+    "enabled": "Activée",
+    "errors": {
+      "id": "Utilisez des minuscules, des chiffres et des traits d'union, en commençant par une lettre.",
+      "name": "Saisissez un nom de 256 caractères au maximum.",
+      "reference": "Ceci ne ressemble pas à un nom de référence. Utilisez le nom d'un identifiant configuré, pas le secret.",
+      "required": "Obligatoire lorsqu'une signature est exigée.",
+      "url": "Saisissez une adresse http ou https.",
+      "urlCredentials": "L'adresse ne doit contenir ni nom d'utilisateur ni mot de passe.",
+      "urlQuery": "L'adresse ne doit contenir ni chaîne de requête ni fragment."
+    },
+    "fields": {
+      "enabled": "Activée",
+      "id": "Identifiant",
+      "identity": "Identité du signataire",
+      "issuer": "Émetteur du signataire",
+      "name": "Nom",
+      "reference": "Référence d'identifiant (facultatif)",
+      "requireSignature": "Exiger une signature",
+      "url": "URL du catalogue"
+    },
+    "hints": {
+      "id": "Minuscules, chiffres et traits d'union. Il ne peut plus changer ensuite.",
+      "reference": "Le nom d'un identifiant configuré par le propriétaire. Ne collez jamais un jeton ou un mot de passe ici.",
+      "url": "Une adresse https sans identifiants ni chaîne de requête."
+    },
+    "lastRefresh": "Actualisée {{when}}, {{count}} entrées",
+    "lead": "Une bibliothèque est un document de catalogue qui liste des modules. Les identifiants ne se saisissent jamais ici : une bibliothèque privée nomme un identifiant configuré par le propriétaire.",
+    "listLabel": "Bibliothèques",
+    "loading": "Chargement des bibliothèques",
+    "notRefreshed": "Pas encore actualisée",
+    "reference": "Référence d'identifiant : {{name}}",
+    "refresh": "Actualiser",
+    "refreshFailed": "La dernière actualisation a échoué",
+    "refreshed": "{{name}} actualisée.",
+    "remove": "Retirer",
+    "removeBody": "La bibliothèque est retirée de cette liste. Les modules installés depuis elle restent installés et continuent de fonctionner.",
+    "removeTitle": "Retirer {{name}} ?",
+    "removed": "{{name}} retirée.",
+    "save": "Enregistrer",
+    "saved": "{{name}} enregistrée."
+  },
+  "manage": {
+    "api": "API des modules",
+    "atLeast": "ou plus",
+    "compatibility": "Compatibilité",
+    "data": "Données conservées",
+    "dataFormat": "Format des données",
+    "desired": "État voulu",
+    "failedNote_one": "Le processus ne répond pas après {{count}} tentative de redémarrage.",
+    "failedNote_many": "Le processus ne répond pas après {{count}} de tentatives de redémarrage.",
+    "failedNote_other": "Le processus ne répond pas après {{count}} tentatives de redémarrage.",
+    "generations": "Générations conservées",
+    "hasUI": "A des pages",
+    "headless": "Sans interface, aucune page",
+    "health": "Santé",
+    "host": "API de l'hôte",
+    "interface": "Interface",
+    "logs": "Journaux",
+    "logsNone": "La sortie des processus des modules n'est pas collectée dans cette version. La santé et les tentatives de redémarrage ci-dessus sont ce que le propriétaire peut signaler.",
+    "observed": "État observé",
+    "protocol": "Protocole",
+    "restarts": "Tentatives de redémarrage",
+    "storage": "Stockage",
+    "tools": "Outils",
+    "trust": "Confiance"
+  },
+  "page": {
+    "back": "Retour aux modules",
+    "body": "Cette version ne peut pas encore ouvrir les pages des modules. Le module continue de fonctionner.",
+    "title": "Cette page n'est pas encore disponible"
+  },
+  "shell": {
+    "loading": "Chargement de {{title}}",
+    "unavailable": {
+      "title": "Ce module n'est pas disponible"
+    },
+    "reasons": {
+      "disabled": "Le module a été arrêté. Redémarrez-le depuis la page Modules.",
+      "removed": "Le module n'est pas installé, ou vous ne pouvez plus l'utiliser.",
+      "failed": "Le module a cessé de répondre. Il est redémarré automatiquement ; rechargez pour réessayer.",
+      "updated": "Le module a été mis à jour. Rechargez pour utiliser la nouvelle version.",
+      "no-ui": "Cette version du module n'a pas de pages.",
+      "incompatible_sdk": "Ce module a besoin d'une autre version de l'interface LocalAI que celle fournie par cette page.",
+      "untrusted_asset": "Le module pointait vers un fichier extérieur à son propre paquet, il n'a donc pas été chargé.",
+      "invalid_module": "Le module ne respecte pas le contrat d'interface, il n'a donc pas été chargé.",
+      "import_failed": "Le module n'a pas pu être chargé.",
+      "create_failed": "Le module a échoué pendant son démarrage.",
+      "timeout": "Le module a mis trop de temps à se charger.",
+      "css_failed": "La feuille de style du module n'a pas pu être chargée.",
+      "aborted": "Le chargement a été annulé."
+    },
+    "reload": "Recharger",
+    "reloading": "Rechargement",
+    "stale": "{{title}} a changé pendant votre modification. Vos modifications sont toujours à l'écran mais ne peuvent pas être enregistrées. Copiez ce dont vous avez besoin, puis rechargez.",
+    "discard": {
+      "title": "Abandonner les modifications non enregistrées ?",
+      "body": "Le rechargement remplace cette page, et les modifications non enregistrées sont perdues.",
+      "confirm": "Abandonner et recharger",
+      "cancel": "Continuer la modification"
+    },
+    "leave": {
+      "title": "Quitter cette page ?",
+      "body": "Vous avez des modifications non enregistrées. Elles sont perdues si vous quittez.",
+      "leave": "Quitter",
+      "stay": "Rester"
+    },
+    "pageMissing": {
+      "title": "Cette page n'existe pas",
+      "body": "{{title}} n'a pas de page nommée « {{page}} »."
+    },
+    "noComponent": {
+      "title": "Rien à afficher ici",
+      "body": "Ce module ajoute des actions à d'autres pages et n'a pas de page propre."
+    },
+    "error": {
+      "title": "Ce module a rencontré un problème",
+      "text": "Il a échoué pendant l'affichage de cette page. Le reste de LocalAI n'est pas affecté.",
+      "retry": "Réessayer"
+    },
+    "layer": {
+      "close": "Fermer"
+    }
+  },
+  "slots": {
+    "unavailable": "Indisponible",
+    "composerMore": "Actions des modules",
+    "actionFailed": "{{label}} n'a pas pu être menée à terme."
+  },
+  "state": {
+    "failed": "En échec",
+    "label": "État : {{state}}",
+    "running": "En cours d'exécution",
+    "starting": "Démarrage",
+    "stopped": "Arrêté",
+    "update-pending": "Mise à jour en attente"
+  },
+  "supporting": "Les applications que votre propriétaire exécute pour vous, et les bibliothèques dont elles proviennent.",
+  "tabs": {
+    "apps": "Applications",
+    "browse": "Parcourir",
+    "installed": "Installés",
+    "label": "Sections des modules",
+    "libraries": "Bibliothèques"
+  },
+  "title": "Modules",
+  "trust": {
+    "channel": "Canal",
+    "digest": "Empreinte",
+    "digestOnly": "Empreinte seule",
+    "identity": "Identité du signataire",
+    "issuer": "Émetteur du signataire",
+    "library": "Bibliothèque",
+    "mode": {
+      "digest": "Empreinte vérifiée",
+      "signed": "Signé et empreinte vérifiée"
+    },
+    "platform": "Plateforme",
+    "selection": "Sélectionné comme",
+    "signatureRequired": "Signature exigée",
+    "verification": "Vérification",
+    "version": "Version"
+  },
+  "proposal": {
+    "title": "Modification du module",
+    "loading": "Chargement de la demande",
+    "withdrawn": "Cette demande n'est plus disponible pour vous.",
+    "unavailable": "Cette demande n'est pas disponible.",
+    "addon": "Module",
+    "database": "Base de données",
+    "operation": "Opération",
+    "effects": "Modifications",
+    "sample": "Aperçu fourni par l'hôte",
+    "blocked": "Une autre modification de cette base de données n'est pas encore réglée. Réglez-la d'abord.",
+    "expired": "Cette demande a expiré. Faites-la de nouveau.",
+    "rejectedState": "Les données ont changé ou la demande a été refusée. Rien n'a été appliqué. Redemandez un nouvel aperçu.",
+    "unknown": "Le résultat n'est pas encore connu. Il a peut-être été appliqué. Vérifiez son état avant de redemander.",
+    "refresh": "Vérifier l'état"
+  },
+  "artifact": {
+    "title": "Fichier prêt",
+    "loading": "Chargement du fichier",
+    "withdrawn": "Ce fichier n'est plus disponible pour vous.",
+    "unavailable": "Ce fichier n'est pas disponible.",
+    "name": "Fichier",
+    "size": "Taille",
+    "expires": "Disponible jusqu'au",
+    "state": "État",
+    "preparing": "Le fichier est en cours de préparation.",
+    "failed": "Le fichier n'a pas pu être finalisé. Rien ne peut être téléchargé. Exportez à nouveau.",
+    "expired": "Ce fichier a expiré et a été supprimé. Les données dont il provient n'ont pas changé. Exportez à nouveau.",
+    "download": "Télécharger",
+    "states": {
+      "loading": "Chargement",
+      "withdrawn": "Indisponible",
+      "unavailable": "Indisponible",
+      "transferring": "Préparation",
+      "complete": "Prêt",
+      "failed": "En échec",
+      "cancelled": "Annulé",
+      "expired": "Expiré",
+      "unknown": "Inconnu"
+    },
+    "downloadDenied": "Ce fichier ne peut plus être téléchargé. Votre accès à sa source a changé ou le fichier a expiré.",
+    "downloadFailed": "Le téléchargement ne s'est pas terminé. Réessayez."
+  },
+  "recovery": {
+    "title": "Récupération des données",
+    "loading": "Lecture de l'état de récupération",
+    "done": "Terminé.",
+    "backup": "Sauvegarder maintenant",
+    "backingUp": "Sauvegarde en cours…",
+    "backedUp": "La sauvegarde {{id}} a été effectuée et vérifiée.",
+    "retention": "Conserve les {{count}} sauvegardes les plus récentes. La sauvegarde vérifiée la plus récente et la copie de récupération d'une mise à niveau ne sont jamais supprimées.",
+    "none": "Il n'existe pas encore de sauvegarde des données de ce module.",
+    "listLabel": "Sauvegardes de ce module",
+    "verify": "Vérifier",
+    "verified": "La sauvegarde {{id}} a été lue entièrement et a réussi la vérification.",
+    "restore": "Restaurer",
+    "restored": "La sauvegarde a été restaurée.",
+    "delete": "Supprimer",
+    "deleted": "La sauvegarde {{id}} a été supprimée.",
+    "pinned": "Copie de récupération",
+    "pinnedWhy": "Ceci est la copie de récupération de la dernière mise à niveau. Elle est conservée jusqu'à l'existence d'une sauvegarde vérifiée plus récente.",
+    "lastRestore": "Dernière restauration, {{when}}",
+    "purge": "Purger…",
+    "purged": "Les données conservées ont été purgées.",
+    "purgeLead": "La purge supprime définitivement les données conservées de ce module. Ce n'est ni la suppression d'une base de données, ni une désinstallation.",
+    "purgeTitle": "Purger les données conservées",
+    "purgeBody": "Cette action supprime ce que vous sélectionnez ci-dessous et ne peut pas être annulée. Le module doit être désinstallé ou désactivé.",
+    "scope": "Ce qu'il faut supprimer",
+    "scopeData": "Les données et chaque partage de ce module",
+    "scopeBackups": "Toutes les sauvegardes ({{count}})",
+    "scopeCopies": "Copies de données mises de côté par les restaurations ({{count}})",
+    "scopeNone": "Sélectionnez ce qu'il faut supprimer.",
+    "restoreTitle": "Restaurer une sauvegarde",
+    "restoreBody": "Les données reviennent à l'état de {{when}}.",
+    "warnLost": "Les modifications faites après la sauvegarde sont perdues. Les données du module sont remplacées.",
+    "warnAccess": "Les partages sont revérifiés : personne ne retrouve un accès retiré depuis la sauvegarde, ou dont le compte n'existe plus.",
+    "warnProposals": "Les propositions en attente sont annulées. Les opérations au résultat inconnu sont recherchées et jamais réappliquées.",
+    "warnCopy": "Les données remplacées sont conservées comme copie de récupération jusqu'à ce que vous les purgiez.",
+    "stopFirst": "Arrêtez d'abord le module : désactivez-le, puis restaurez.",
+    "mapping": "Cette sauvegarde a été faite en mode propriétaire local. Identifiant du compte qui reprend ses données",
+    "typeToConfirm": "Saisissez {{id}} pour confirmer",
+    "typeToConfirmLabel": "Saisissez l'identifiant du module pour confirmer",
+    "phase": "Étape {{index}} sur {{total}} : {{step}}",
+    "steps": {
+      "begin": "démarrage",
+      "backed-up": "sauvegardé",
+      "staged": "paquet publié",
+      "migrating": "migration des données",
+      "healthy": "vérifié",
+      "publishing": "publication"
+    },
+    "state": {
+      "ready": "Prêt",
+      "upgrading": "Mise à niveau",
+      "restoring": "Restauration",
+      "needs-recovery": "Récupération nécessaire",
+      "purging": "Purge"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "Les données de ce module nécessitent une récupération",
+        "body": "Le module n'est pas démarré. Le paquet précédent est conservé, mais il ne peut pas lire les données qu'une migration échouée a commencé à modifier.",
+        "hint": "Restaurez la copie de récupération vérifiée ci-dessous, ou purgez les données.",
+        "hintNone": "Aucune sauvegarde vérifiée n'est disponible. Purgez les données pour repartir de zéro."
+      },
+      "upgrading": {
+        "title": "Une mise à niveau est en cours",
+        "body": "Le module est arrêté pendant la sauvegarde et la migration de ses données."
+      },
+      "restoring": {
+        "title": "Une restauration est en cours",
+        "body": "Le module reste arrêté jusqu'à la fin de la restauration."
+      },
+      "purging": {
+        "title": "Une purge est en cours",
+        "body": "Les données conservées sont en cours de suppression."
+      }
+    },
+    "verification": {
+      "verified": "Vérifiée",
+      "failed": "Vérification échouée",
+      "unverified": "Pas encore vérifiée"
+    },
+    "reason": {
+      "manual": "Faite par vous",
+      "upgrade": "Avant une mise à niveau",
+      "restore": "Avant une restauration"
+    },
+    "errors": {
+      "needs_recovery": "Les données nécessitent d'abord une récupération : restaurez une sauvegarde vérifiée ou purgez-les.",
+      "addon_running": "Arrêtez d'abord le module.",
+      "busy": "Une autre opération de récupération est en cours pour ce module.",
+      "backup_not_found": "Cette sauvegarde n'existe plus.",
+      "not_installed": "Le module n'est pas installé.",
+      "backup_corrupt": "La sauvegarde a échoué à la vérification et n'a pas été utilisée.",
+      "incompatible_format": "Le format des données ne correspond pas au paquet installé.",
+      "identity_changed": "Le paquet installé provient d'une autre source de confiance que les données.",
+      "mapping_required": "Nommez le compte qui reprend les données de cette sauvegarde.",
+      "mapping_invalid": "Ce compte n'est pas valide.",
+      "downgrade_unsupported": "Les données d'utilisateurs nommés ne peuvent pas être restaurées en mode propriétaire local.",
+      "sole_recovery_copy": "Ceci est la seule copie de récupération vérifiée, elle est conservée.",
+      "confirmation_mismatch": "L'identifiant saisi ne correspond pas.",
+      "operation_conflict": "Cet identifiant d'opération a servi pour une autre demande. Rien n'a été fait.",
+      "invalid_request": "La demande ne peut pas être exécutée telle quelle.",
+      "insufficient_storage": "L'espace de stockage libre est insuffisant pour une sauvegarde. Rien n'a été modifié.",
+      "unknownOutcome": "Le résultat n'est pas connu. Relisez l'état : la même action n'est pas envoyée deux fois.",
+      "auth": "Reconnectez-vous.",
+      "denied": "Seuls les administrateurs peuvent le faire, depuis leur propre session de navigateur.",
+      "network": "Le propriétaire est injoignable.",
+      "unavailable": "Le propriétaire n'est pas disponible."
+    }
+  },
+  "updates": {
+    "title": "Mises à jour",
+    "checkNow": "Rechercher des mises à jour",
+    "checking": "Vérification...",
+    "checkedAt": "Vérifié {{when}}",
+    "neverChecked": "Pas encore vérifié",
+    "lastSuccess": "Bibliothèque lue pour la dernière fois {{when}}",
+    "stale": "Cette réponse est peut-être périmée. Vérifiez à nouveau.",
+    "throttled": "Une vérification vient d'avoir lieu. Voici son résultat.",
+    "badge": {
+      "available": "Mise à jour {{version}}",
+      "incompatible": "Mise à jour {{version}} incompatible",
+      "failed": "Échec de la recherche de mise à jour",
+      "integrity": "Erreur d'intégrité"
+    },
+    "state": {
+      "unknown": "L'état des mises à jour n'est pas connu. Recherchez des mises à jour pour interroger la bibliothèque.",
+      "up-to-date": "Ce module est à jour.",
+      "update-available": "La version {{version}} est disponible.",
+      "incompatible": "La version {{version}} ne peut pas s'exécuter sur cet hôte. Elle n'est pas proposée.",
+      "check-failed": "La recherche de mise à jour a échoué, on ne sait donc pas si une mise à jour existe.",
+      "integrity-error": "La bibliothèque liste la version installée avec un contenu différent. Rien n'a été modifié et aucune mise à jour n'est proposée."
+    },
+    "reason": {
+      "platform": "La plateforme n'est pas proposée",
+      "host-version": "La version de l'hôte ne convient pas",
+      "api-version": "L'API des modules ne convient pas",
+      "protocol-version": "La version du protocole ne convient pas",
+      "sdk-version": "La version du SDK d'interface ne convient pas",
+      "data-format": "Le format des données ne convient pas",
+      "digest-changed": "L'empreinte de cette version a changé"
+    },
+    "class": {
+      "source-unavailable": "La bibliothèque est injoignable.",
+      "refresh-failed": "La bibliothèque n'a pas pu être lue.",
+      "credential-unavailable": "L'identifiant de la bibliothèque n'est pas disponible.",
+      "not-listed": "La bibliothèque ne liste plus ce module.",
+      "ambiguous-release": "La bibliothèque liste cette version plusieurs fois.",
+      "canceled": "La vérification a été annulée.",
+      "internal": "La vérification a échoué."
+    },
+    "installed": "Installée",
+    "candidate": "Disponible",
+    "reasons": "Pourquoi elle ne convient pas",
+    "upgrade": "Mettre à niveau",
+    "confirm": {
+      "title": "Mettre {{name}} à niveau vers {{version}} ?",
+      "body": "Le module s'arrête pendant la sauvegarde et la migration de ses données, puis la nouvelle version démarre. Si la nouvelle version ne démarre pas, la version actuelle continue de fonctionner.",
+      "data": "Ses données sont sauvegardées avant tout changement.",
+      "action": "Mettre à niveau",
+      "library": "Bibliothèque",
+      "channel": "Canal",
+      "from": "De",
+      "to": "Vers"
+    },
+    "progress": "Mise à niveau de {{name}}. Ses données sont d'abord sauvegardées.",
+    "done": "Mis à niveau vers la version {{version}}.",
+    "browseUpdate": "La mise à jour {{version}} est disponible. Gérez-la dans Installés.",
+    "errors": {
+      "stale_installed": "La version installée a changé depuis la vérification. Recherchez à nouveau des mises à jour.",
+      "candidate_changed": "La bibliothèque ne propose plus la version que vous avez vérifiée. Recherchez à nouveau des mises à jour.",
+      "upgrade_conflict": "Cette mise à niveau est déjà enregistrée sous une autre opération. Elle n'a pas été appliquée deux fois.",
+      "incompatible": "La nouvelle version n'est pas compatible avec cet hôte. Rien n'a été modifié.",
+      "integrity_error": "La bibliothèque liste la version installée avec un contenu différent. Rien n'a été modifié.",
+      "upgrade_failed": "La mise à niveau ne s'est pas terminée et la version installée est conservée. Vous pouvez réessayer.",
+      "operation_conflict": "L'opération ne correspond pas à l'état actuel. Rien n'a été appliqué.",
+      "check_failed": "La bibliothèque n'a pas pu être lue, la mise à niveau n'a donc pas démarré. Rien n'a été modifié.",
+      "unknownOutcome": "Le résultat de la mise à niveau n'est pas connu. Relisez son état ; n'en lancez pas une autre.",
+      "auth": "Reconnectez-vous pour continuer.",
+      "denied": "Seul un administrateur peut le faire depuis sa propre session de navigateur.",
+      "network": "Le réseau est injoignable.",
+      "unavailable": "Le propriétaire du module n'est pas disponible. Réessayez."
+    }
+  }
+}

@@ -135,6 +135,83 @@ options:
 
 Reach for this when the decode fails but sampling completed, which the backend log shows as `sampling completed` followed by a VAE allocation error. Two cases hit it: cards without the VRAM for a full-frame decode, and drivers that cap a single allocation regardless of free memory (Mesa RADV reports a 4 GiB `maxMemoryAllocationSize`, so a large decode fails there even with tens of GB free). Lowering the output resolution avoids it too, at the cost of the resolution.
 
+#### ESRGAN image upscaling
+
+The `stablediffusion-ggml` backend supports standalone ESRGAN upscaling through
+`POST /v1/images/upscale`. This is a separate, upscale-only model, not a diffusion
+pipeline. Image generation does **not** automatically upscale its results.
+
+Install the gallery model:
+
+```bash
+local-ai models install realesrgan-x4plus-anime-6b
+```
+
+This uses the official [RealESRGAN_x4plus_anime_6B.pth release](https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.2.2.4),
+a six-block model for anime images with a native **4x** scale. The PyTorch `.pth`
+checkpoint is supported directly by [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp/blob/f89d9b13d730eabeede7314ce49dacd18d3c90c2/docs/esrgan.md);
+no GGUF conversion is needed. The upstream project is licensed under
+[BSD-3-Clause](https://github.com/xinntao/Real-ESRGAN/blob/v0.2.2.4/LICENSE).
+
+For manual installation, download that checkpoint into your models directory and
+save the following as `realesrgan-x4plus-anime-6b.yaml` alongside it (the gallery
+installer configures these settings for you):
+
+```yaml
+name: realesrgan-x4plus-anime-6b
+backend: stablediffusion-ggml
+parameters:
+  model: RealESRGAN_x4plus_anime_6B.pth
+known_usecases: [upscale]
+options:
+  - upscale_scale:4
+  - upscale_tile_size:128
+```
+
+`upscale_scale` and `upscale_tile_size` are backend options, expressed as
+`key:value` strings in `options`, not root-level configuration fields.
+`upscale_scale` must be a positive integer. Keep `known_usecases` explicitly
+set to `[upscale]`: do not add `image` or `diffusion_model` options to this
+configuration. Options are forwarded unchanged; the backend rejects invalid
+or duplicate recognized settings.
+
+The multipart fields `model`, `image`, and **`scale` are required**. The HTTP
+endpoint accepts only integer scales from **1 through 16**, rejecting missing,
+malformed, zero, negative, or larger values with HTTP 400. This range is not a
+promise that each model supports every scale: for ESRGAN, the configured
+`upscale_scale`, the loaded model's detected native scale, and the request's
+`scale` must all match exactly. Mismatches fail rather than silently resizing or
+running multiple passes. For this model, always request `scale=4`.
+
+```bash
+curl http://localhost:8080/v1/images/upscale \
+  -F model=realesrgan-x4plus-anime-6b \
+  -F scale=4 \
+  -F image=@input.png
+```
+
+The response follows the image-generation response format, with the output URL
+in `data[0].url` under `/generated-images`. A successful 4x upscale multiplies
+both width and height by four.
+
+`upscale_tile_size` controls ESRGAN tiling in pixels: omit it or set it to
+`0` for stable-diffusion.cpp full-frame processing; set a positive value (such
+as the gallery entry's `128`) to enable tiling. Smaller tiles reduce working
+memory at the cost of more tile work. Full-frame processing can use much more
+memory. `upscale_direct` is a separate convolution-algorithm flag, not a tile
+control. Tile settings apply to ESRGAN, not the diffusion model's separate VAE
+tiling settings.
+
+In **Studio**, open an existing image, choose **Upscale**, select an installed
+upscaler, and submit. The scale is read-only and comes from the selected model's
+configured scale. A successful result becomes an **Upscale child node** of the
+source image, leaving the original intact. Open that child to continue the
+workflow with the available image actions, including another upscale or image
+editing; each upscale is an explicit operation, not a post-generation default.
+
+Unlike the Diffusers upscaling described below, this path uses ESRGAN inference
+and does not fall back to Lanczos resizing.
+
 #### Distributed inference (RPC workers)
 
 The `stablediffusion-ggml` backend can offload computation to remote `ggml` RPC workers, sharding a model that does not fit on a single machine. It reuses the **same backend-agnostic `rpc-server` workers as the llama.cpp backend**, so one worker pool can serve both.
@@ -166,8 +243,10 @@ By default the RPC devices join the pool and participate in placement; combine w
 
 #### Image upscaling
 
-LocalAI can upscale an uploaded image by a factor of 2 or 4 through
-`POST /v1/images/upscale`. Install the included Stable Diffusion x4 upscaler
+The Diffusers backend can upscale an uploaded image through
+`POST /v1/images/upscale`. The multipart `scale` field is required and must be an
+integer from 1 through 16 at the HTTP boundary; actual scaling behavior depends
+on the selected pipeline. Install the included Stable Diffusion x4 upscaler
 gallery model first:
 
 ```bash
@@ -186,7 +265,12 @@ curl http://localhost:8080/v1/images/upscale \
 The response uses the same format as image generation and returns the generated
 image under `/generated-images`. The `diffusers` backend uses a loaded
 `StableDiffusionUpscalePipeline` or `StableDiffusionLatentUpscalePipeline` when
-configured. Other diffusers pipelines fall back to Lanczos resizing.
+configured. Other diffusers pipelines fall back to Lanczos resizing. Upscale
+routes select models with `known_usecases: [upscale]`, not ordinary image
+generation models. If you installed the x4 upscaler before it declared this
+usecase, update its model YAML to `known_usecases: [upscale]` or reinstall the
+gallery entry. Custom Diffusers configurations intended for upscaling should
+also explicitly declare the `upscale` usecase.
 
 #### Model setup
 

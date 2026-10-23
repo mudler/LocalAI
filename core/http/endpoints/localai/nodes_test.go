@@ -495,7 +495,7 @@ var _ = Describe("Node HTTP handlers", func() {
 				ID: "lifecycle", Name: "lifecycle", Address: "10.0.0.10:50051",
 			}, true)).To(Succeed())
 
-			Expect(request(DrainNodeEndpoint(registry), "lifecycle").Code).To(Equal(http.StatusOK))
+			Expect(request(DrainNodeEndpoint(registry, nil), "lifecycle").Code).To(Equal(http.StatusOK))
 			Expect(request(ResumeNodeEndpoint(registry), "lifecycle").Code).To(Equal(http.StatusOK))
 		})
 
@@ -504,12 +504,12 @@ var _ = Describe("Node HTTP handlers", func() {
 				ID: "pending-lifecycle", Name: "pending-lifecycle", Address: "10.0.0.11:50051",
 			}, false)).To(Succeed())
 
-			Expect(request(DrainNodeEndpoint(registry), "pending-lifecycle").Code).To(Equal(http.StatusConflict))
+			Expect(request(DrainNodeEndpoint(registry, nil), "pending-lifecycle").Code).To(Equal(http.StatusConflict))
 			Expect(request(ResumeNodeEndpoint(registry), "pending-lifecycle").Code).To(Equal(http.StatusConflict))
 		})
 
 		It("returns not found for missing nodes", func() {
-			Expect(request(DrainNodeEndpoint(registry), "missing").Code).To(Equal(http.StatusNotFound))
+			Expect(request(DrainNodeEndpoint(registry, nil), "missing").Code).To(Equal(http.StatusNotFound))
 			Expect(request(ResumeNodeEndpoint(registry), "missing").Code).To(Equal(http.StatusNotFound))
 		})
 	})

@@ -85,3 +85,15 @@ var _ = Describe("Decisions router metadata", func() {
 		}
 	})
 })
+
+var _ = Describe("backend-only upscale options", func() {
+	It("does not expose scale or tile size as generic root configuration", func() {
+		reg := meta.DefaultRegistry()
+		Expect(reg).NotTo(HaveKey("upscale_scale"))
+		Expect(reg).NotTo(HaveKey("upscale_tile_size"))
+		md := meta.BuildForTest(reflect.TypeOf(config.ModelConfig{}), reg)
+		for _, field := range md.Fields {
+			Expect(field.Path).NotTo(BeElementOf("upscale_scale", "upscale_tile_size"))
+		}
+	})
+})

@@ -1,0 +1,69 @@
+name: 'model library'
+
+# gallery/models/index.yaml is the model library and the source of the models:
+# edits go there. gallery/index.yaml is a generated copy of it, kept only so
+# releases before the cutover keep working; scripts/models/cmd/modelcatalog
+# writes it and it is never edited by hand. This workflow fails when the
+# library does not decode, an entry does not have the library shape or does
+# not round trip, the gallery reader does not load the generated gallery, or
+# gallery/index.yaml differs from the generated copy.
+
+on:
+  pull_request:
+    paths:
+      - 'gallery/index.yaml'
+      - 'gallery/models/**'
+      - 'scripts/models/**'
+      - 'core/gallery/**'
+      - '.github/workflows/model-library.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'gallery/index.yaml'
+      - 'gallery/models/**'
+      - 'scripts/models/**'
+      - 'core/gallery/**'
+      - '.github/workflows/model-library.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-library-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  model-library:
+    name: 'Check the model library'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Generate the gRPC stubs the Go packages import
+        # The stubs are not in the tree. Same pinned tools as the test workflow.
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Test the library, the generator and the gallery copy
+        # The library decodes and every entry has the library shape. The
+        # generator is deterministic. Every real entry round trips through the
+        # generator to a gallery entry and back, and the gallery reader loads
+        # the generated gallery and sees the same names, uris and digests.
+        run: |
+          go test ./scripts/models/...
+          go test ./core/gallery -run 'TestModelLibrary|TestRealModelLibraryHasTheLibraryShape|TestGeneratedGalleryLoadsWithTheSameEntries|TestCheckedInGalleryIsTheGeneratedCopy|TestDecodeModelIndex'
+      - name: Check that the gallery copy is the generated copy of the library
+        run: |
+          go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
+          if ! git diff --exit-code -- gallery/index.yaml; then
+            echo "::error file=gallery/index.yaml::gallery/index.yaml is generated from gallery/models/index.yaml and must not be edited by hand. Edit the library file, then regenerate: go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml"
+            exit 1
+          fi

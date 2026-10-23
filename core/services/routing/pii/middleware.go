@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -107,7 +108,21 @@ type ScannedText struct {
 type Adapter struct {
 	Scan  func(parsed any) []ScannedText
 	Apply func(parsed any, updates []ScannedText)
+	// Unscanned lists the kinds of content in the request that Scan does
+	// not return as text (e.g. "image_url", "input_file"). Optional; used
+	// only when the model sets pii.block_unscanned_media.
+	Unscanned func(parsed any) []string
 }
+
+// unscannedMediaPolicy is the duck-typed view of pii.block_unscanned_media
+// (satisfied by config.ModelConfig).
+type unscannedMediaPolicy interface {
+	PIIBlockUnscannedMedia() bool
+}
+
+// unscannedMediaPattern is the sentinel PatternID recorded when a request is
+// blocked because it carries content the detectors cannot inspect.
+const unscannedMediaPattern = "__unscanned_media__"
 
 // RequestMiddleware applies the regex PII tier to incoming chat
 // requests. If the parsed request is not a MessageScanner (e.g.,
@@ -159,6 +174,15 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 			parsed := c.Get(ctxKeyParsedRequest)
 			if parsed == nil {
 				return next(c)
+			}
+
+			// Content the text detectors cannot read (images, audio, files)
+			// would otherwise pass unchecked. When the model asks for it,
+			// refuse such requests before any detector runs.
+			if pol, ok := rawCfg.(unscannedMediaPolicy); ok && pol.PIIBlockUnscannedMedia() && adapter.Unscanned != nil {
+				if kinds := adapter.Unscanned(parsed); len(kinds) > 0 {
+					return blockUnscannedMedia(c, store, kinds, fallbackUser)
+				}
 			}
 
 			// A PII-enabled model with no detectors (or no resolver wired)
@@ -305,6 +329,46 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 			return err
 		}
 	}
+}
+
+// blockUnscannedMedia records an audit event and rejects the request with the
+// same 400 pii_blocked shape as a content block: from the client's point of
+// view the request carried something the policy does not let through.
+func blockUnscannedMedia(c echo.Context, store EventStore, kinds []string, fallbackUser *auth.User) error {
+	user := auth.GetUser(c)
+	if user == nil {
+		user = fallbackUser
+	}
+	userID := ""
+	if user != nil {
+		userID = user.ID
+	}
+	correlationID, _ := c.Get(ctxKeyCorrelationID).(string)
+	ev := PIIEvent{
+		ID:            newEventID(),
+		Kind:          KindPII,
+		Origin:        OriginMiddleware,
+		CorrelationID: correlationID,
+		UserID:        userID,
+		Direction:     DirectionIn,
+		PatternID:     unscannedMediaPattern,
+		Action:        ActionBlock,
+		CreatedAt:     time.Now().UTC(),
+	}
+	if store != nil {
+		if err := store.Record(context.Background(), ev); err != nil {
+			xlog.Error("pii: failed to record event", "error", err, "pattern", unscannedMediaPattern)
+		}
+	}
+	xlog.Info("pii: request blocked, content cannot be inspected", "kinds", kinds)
+	return c.JSON(http.StatusBadRequest, map[string]any{
+		"error": map[string]string{
+			"message": "request blocked by content policy (content that cannot be inspected: " + strings.Join(kinds, ", ") + ")",
+			"type":    "pii_blocked",
+		},
+		"correlation_id": correlationID,
+		"pii_event_id":   ev.ID,
+	})
 }
 
 // nerUnavailablePattern is the sentinel PatternID recorded on the

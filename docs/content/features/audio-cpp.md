@@ -221,6 +221,13 @@ unaffected.
 
 ## Pinned tasks
 
+The upstream `turn` task performs turn detection. LocalAI has no RPC for this
+task, so requests to a model that only advertises `turn` are refused. It is not
+routed through voice activity detection (`vad`).
+The upstream `wake` (wake-word detection) and `cls` (audio classification) tasks
+are reported in capability diagnostics. They cannot serve LocalAI audio RPCs,
+including VAD, even when selected with the `task` option.
+
 Two routes are unreachable by auto-routing and need `task:` in the model config, because
 nothing in a request distinguishes them from a task the same family also advertises:
 
@@ -233,6 +240,17 @@ voice conversion from the same weights.
 
 ## Family notes
 
+- **Fish Audio voice cloning**: save a reference clip with its transcript in the
+  Voice Library (**Build → Voices → Speech voices**), then select **Use in Text to Speech**. The backend accepts
+  `params.ref_text` as an alias for `params.reference_text` in both ordinary and
+  streaming speech requests. If you supply both parameters, `reference_text`
+  takes precedence. For direct requests with a reference file in `voice`, supply
+  its transcript in one of these parameters.
+- **YuE2**: the `audio-cpp-yue2-3b` gallery entry installs a model
+  directory containing the Q8_0 main model, the F16 VAE, and four required
+  sidecar files. Each request requires a non-empty `params.style` string. Set
+  the `params.cot` string to `off`, `melody`, or `full`. The model and GGUF
+  package are licensed under CC-BY-NC-4.0 for non-commercial use.
 - **Supertonic**: use the `orig` GGUF package, whose weights are f32. The f16 package was
   observed to reach `ggml_concat` with mismatched operand types and take the backend
   process down with `SIGABRT` on the first request, rather than returning an error.

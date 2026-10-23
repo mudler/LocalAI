@@ -54,6 +54,9 @@ func (stubClient) ReloadModels(_ context.Context) error { return nil }
 func (stubClient) LoadModel(_ context.Context, model string) ([]string, error) {
 	return []string{model}, nil
 }
+func (stubClient) CancelModelLoad(_ context.Context, model, jobID string) (localaitools.LoadCancelResult, error) {
+	return localaitools.LoadCancelResult{Model: model, JobID: jobID, State: "stopping"}, nil
+}
 func (stubClient) SetAlias(_ context.Context, _, _ string) error {
 	return nil
 }

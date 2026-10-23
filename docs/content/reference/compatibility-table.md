@@ -12,7 +12,7 @@ Besides llama based models, LocalAI is compatible also with other architectures.
 
 LocalAI will attempt to automatically load models which are not explicitly configured for a specific backend. You can specify the backend to use by configuring a model with a YAML file. See [the advanced section]({{%relref "advanced" %}}) for more details.
 
-All backends listed here can be installed on demand from the [Backend Gallery]({{%relref "features/backends" %}}). The exact set of acceleration variants published for each backend is defined in [`backend/index.yaml`](https://github.com/mudler/LocalAI/blob/master/backend/index.yaml).
+All backends listed here can be installed on demand from the [Backend Gallery]({{%relref "features/backends" %}}). The exact set of acceleration variants published for each backend is defined in the backend library, [`gallery/backends/index.yaml`](https://github.com/mudler/LocalAI/blob/master/gallery/backends/index.yaml). [`backend/index.yaml`](https://github.com/mudler/LocalAI/blob/master/backend/index.yaml) is generated from it.
 
  {{% /notice %}}
 
@@ -129,6 +129,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [privacy-filter.cpp](https://github.com/localai-org/privacy-filter.cpp) | Standalone GGML engine for the openai-privacy-filter PII/NER token-classification model family (powers LocalAI's PII redaction tier) | CPU, CUDA 13, Vulkan |
 | [local-store](https://github.com/mudler/LocalAI) | Local-first vector database for embeddings | CPU, Metal |
 | [valkey-store](https://github.com/mudler/LocalAI) | Durable vector store for embeddings backed by Valkey Search (FLAT or HNSW) | CPU, Metal |
+| [qdrant-store](https://github.com/mudler/LocalAI) | Durable vector store for embeddings backed by Qdrant (HNSW; self-hosted, clustered or Qdrant Cloud) | CPU, Metal |
 | [TRL](https://github.com/huggingface/trl) | Fine-tuning (SFT, DPO, GRPO, RLOO, KTO, ORPO) | CPU, CUDA 12/13 |
 | [llama.cpp quantization](https://github.com/ggml-org/llama.cpp) | HuggingFace → GGUF model conversion and quantization | CPU, Metal |
 

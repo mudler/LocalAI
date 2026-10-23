@@ -1,65 +1,169 @@
-import { CapacityGauge } from './ClusterOverview'
-import { formatBytes } from './nodeStatus'
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useTranslation } from 'react-i18next'
+import { formatBytes, formatCapacity } from './nodeStatus'
+import { cssVars, gbLabel } from '../../utils/modelLedger'
 
-// The single-node counterpart of ClusterOverview: the same four capacity
-// gauges, fed from this host instead of summed across workers. The lead cell
-// trades fleet health, which has nothing to say about one machine, for where
-// the machine's memory is going: one bar segment per running model.
+// The single-node view of capacity: where the GPU memory stands, what the
+// running models hold in host memory, and the four readings of the machine
+// (VRAM, RAM, CPU, models disk). The numbers are the host's own, read through
+// the same fleet maths a cluster uses, so the two never disagree.
+//
+// LocalAI reports GPU memory per device and resident memory per model process.
+// It does not report GPU memory per model, so no model is shown with a GPU size.
 
-const SEGMENTS = 5
-const MIN_SEGMENT = 0.8
-// The legend grid has three columns: three models, or two and a count.
-const LEGEND_COLUMNS = 3
+const SERIES = 6
+// The legend lists three models, or two and a count.
+const LEGEND_MAX = 3
+
+function GpuStrip({ resources, summary }) {
+  const { t } = useTranslation('operate')
+  const gpus = Array.isArray(resources?.gpus) ? resources.gpus : []
+  const reading = summary.vram
+  if (resources && !(reading.reportingCount > 0)) {
+    return (
+      <div className="op-strip" data-testid="gpu-strip">
+        <span className="dk-eyebrow">{t('machine.gpuMemory')}</span>
+        <p className="op-strip__line">{t('machine.noGpu')}</p>
+      </div>
+    )
+  }
+  if (!resources) return null
+  const pct = Math.round(reading.usagePercent)
+  return (
+    <div className="op-strip" data-testid="gpu-strip">
+      <span className="dk-eyebrow">{t('machine.gpuMemoryUsed', { used: gbLabel(reading.used), total: gbLabel(reading.total) })}</span>
+      <div
+        className="dk-meter"
+        role="img"
+        aria-label={t('machine.gpuMeter', { used: gbLabel(reading.used), total: gbLabel(reading.total), percent: pct })}
+      >
+        <span
+          className={`dk-meter-seg${pct >= 97 ? ' dk-meter-seg--error' : pct >= 90 ? ' dk-meter-seg--warn' : ''}`}
+          style={cssVars({ '--dk-w': `${Math.min(100, reading.usagePercent).toFixed(1)}%` })}
+        />
+      </div>
+      <p className="op-strip__line">
+        <strong>{t('machine.gpuFree', { free: gbLabel(reading.available) })}</strong> {t('machine.gpuFreeHint')}
+      </p>
+      {gpus.length > 1 && (
+        <ul className="op-gpus" aria-label={t('machine.gpus')}>
+          {gpus.map((gpu, index) => {
+            const used = Math.max(0, Number(gpu.used_vram) || 0)
+            const total = Math.max(0, Number(gpu.total_vram) || 0)
+            return (
+              <li key={gpu.index ?? index}>
+                <span className="op-gpus__name">{gpu.name || t('machine.gpuN', { n: index + 1 })}</span>
+                <span className="dk-meter op-gpus__meter" aria-hidden="true">
+                  <span className="dk-meter-seg" style={cssVars({ '--dk-w': `${total ? Math.min(100, (used / total) * 100).toFixed(1) : 0}%` })} />
+                </span>
+                <span className="dk-mono op-gpus__fig">{gbLabel(used)} / {gbLabel(total)}</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 function MemoryShare({ models, ramTotal }) {
+  const { t } = useTranslation('operate')
   const measured = models
     .filter(model => model.rss_bytes != null && model.rss_bytes > 0)
     .sort((left, right) => right.rss_bytes - left.rss_bytes)
   const modelBytes = measured.reduce((sum, model) => sum + model.rss_bytes, 0)
   const scale = ramTotal > 0 ? ramTotal : modelBytes
-  const named = measured.length > LEGEND_COLUMNS ? LEGEND_COLUMNS - 1 : measured.length
-  let cursor = 0
+  const named = measured.length > LEGEND_MAX ? LEGEND_MAX - 1 : measured.length
 
   return (
-    <div className="fleet-health fleet-overview__cell host-memory" aria-label="Running models summary" aria-live="polite">
-      <span className="fleet-kicker">This machine</span>
-      <div className="fleet-health__headline">
-        <strong>{models.length} running</strong>
-        <span>{modelBytes > 0 ? `${formatBytes(modelBytes)} resident${ramTotal > 0 ? ` of ${formatBytes(ramTotal)} RAM` : ''}` : 'no memory readings yet'}</span>
-      </div>
-      <svg className="fleet-health__bar host-memory__bar" viewBox="0 0 100 4" preserveAspectRatio="none" role="img"
-        aria-label={measured.map(model => `${model.model_name} ${formatBytes(model.rss_bytes)}`).join(', ') || 'No models using memory'}>
-        <rect className="host-memory__track" x="0" y="0" width="100" height="4" />
-        {scale > 0 && measured.map((model, index) => {
-          const start = cursor
-          // A floor so a model that is small next to the host still shows
-          // up as a sliver rather than vanishing; the label carries the size.
-          const width = Math.max(MIN_SEGMENT, model.rss_bytes / scale * 100)
-          cursor += width
-          return <rect key={model.model_name} className={`host-memory__segment host-memory__segment--${index % SEGMENTS}`} x={start} y="0" width={width} height="4"><title>{`${model.model_name}: ${formatBytes(model.rss_bytes)}`}</title></rect>
-        })}
-      </svg>
-      <div className="fleet-health__legend">
-        {measured.slice(0, named).map((model, index) => (
-          <div key={model.model_name}>
-            <span title={model.model_name}><i className={`fleet-health__dot host-memory__dot--${index % SEGMENTS}`} /><span className="host-memory__name">{model.model_name}</span></span>
-            <strong>{formatBytes(model.rss_bytes)}</strong>
-          </div>
+    <div className="op-strip" aria-label={t('machine.summaryLabel')} aria-live="polite">
+      <span className="dk-eyebrow">{t('machine.inMemory')}</span>
+      <p className="op-strip__line op-strip__line--lead">
+        <strong>{t('machine.runningCount', { count: models.length })}</strong>{' '}
+        <span>
+          {modelBytes > 0
+            ? `${formatBytes(modelBytes)} ${t('machine.resident')}${ramTotal > 0 ? ` ${t('machine.ofRam', { total: formatBytes(ramTotal) })}` : ''}`
+            : t('machine.noReadings')}
+        </span>
+      </p>
+      <div
+        className="dk-meter"
+        role="img"
+        aria-label={measured.map(model => `${model.model_name} ${formatBytes(model.rss_bytes)}`).join(', ') || t('machine.noneInMemory')}
+      >
+        {scale > 0 && measured.map((model, index) => (
+          <span
+            key={model.model_name}
+            className={`dk-meter-seg op-share__seg op-share__seg--${index % SERIES}`}
+            // A floor so a model that is small next to the host still shows up
+            // as a sliver; the legend carries the size.
+            style={cssVars({ '--dk-w': `${Math.max(0.8, (model.rss_bytes / scale) * 100).toFixed(2)}%` })}
+            title={`${model.model_name}: ${formatBytes(model.rss_bytes)}`}
+          />
         ))}
-        {measured.length > named && <div><span>Others</span><strong>{measured.length - named} more</strong></div>}
       </div>
+      {measured.length > 0 && (
+        <ul className="dk-meter-legend">
+          {measured.slice(0, named).map((model, index) => (
+            <li key={model.model_name} title={model.model_name}>
+              <span className={`dk-swatch op-share__swatch op-share__swatch--${index % SERIES}`} aria-hidden="true" />
+              <span className="op-share__name">{model.model_name}</span> <span className="dk-mono">{formatBytes(model.rss_bytes)}</span>
+            </li>
+          ))}
+          {measured.length > named && <li>{t('machine.othersCount', { count: measured.length - named })}</li>}
+        </ul>
+      )}
     </div>
   )
 }
 
-export default function HostOverview({ summary, models, ramTotal }) {
+function Fact({ label, metric, cpu = false, noDataText }) {
+  const { t } = useTranslation('operate')
+  const reporting = metric.reportingCount > 0
+  const percent = reporting ? Math.round(metric.usagePercent) : 0
+  const value = cpu
+    ? `${Number(metric.busyCoreEquivalents.toFixed(1))} busy / ${metric.totalLogicalCores} cores`
+    : formatCapacity(metric.used, metric.total)
+  const detail = cpu
+    ? `${Number(metric.idleCoreEquivalents.toFixed(1))} idle · load ${metric.load1.toFixed(2)}`
+    : reporting ? `${formatCapacity(metric.available, metric.total).split(' / ')[0]} ${t('machine.available')}` : noDataText
   return (
-    <section className="fleet-overview host-overview" aria-label="Host overview" data-testid="host-overview">
-      <MemoryShare models={models} ramTotal={ramTotal} />
-      <CapacityGauge label="VRAM" metric={summary.vram} tone="vram" single noDataText="No GPU detected" />
-      <CapacityGauge label="RAM" metric={summary.ram} tone="ram" single />
-      <CapacityGauge label="CPU" metric={summary.cpu} cpu tone="cpu" single />
-      <CapacityGauge label="Models disk" metric={summary.disk} tone="disk" single />
+    <li className="op-fact" aria-label={`${label} capacity`}>
+      <span className="op-fact__label">{label}</span>
+      <div className="dk-meter op-fact__meter" aria-hidden="true">
+        {reporting && (
+          <span
+            className={`dk-meter-seg${percent >= 97 ? ' dk-meter-seg--error' : percent >= 90 ? ' dk-meter-seg--warn' : ''}`}
+            style={cssVars({ '--dk-w': `${Math.min(100, metric.usagePercent).toFixed(1)}%` })}
+          />
+        )}
+      </div>
+      <strong className="op-fact__pct dk-mono">{reporting ? `${percent}%` : '—'}</strong>
+      <div className="op-fact__text">
+        <span className="op-fact__value dk-mono">{reporting ? value : t('machine.noData')}</span>
+        <span className="op-fact__detail">{detail}</span>
+      </div>
+    </li>
+  )
+}
+
+export default function HostOverview({ summary, models, ramTotal, resources }) {
+  const { t } = useTranslation('operate')
+  return (
+    <section className="op-host" aria-label={t('machine.hostOverview')} data-testid="host-overview">
+      <div className="op-host__left">
+        <GpuStrip resources={resources} summary={summary} />
+        <MemoryShare models={models} ramTotal={ramTotal} />
+      </div>
+      <div className="op-host__right">
+        <span className="dk-eyebrow">{t('machine.theMachine')}</span>
+        <ul className="op-facts">
+          <Fact label="VRAM" metric={summary.vram} noDataText={t('machine.noGpu')} />
+          <Fact label="RAM" metric={summary.ram} />
+          <Fact label="CPU" metric={summary.cpu} cpu />
+          <Fact label="Models disk" metric={summary.disk} />
+        </ul>
+      </div>
     </section>
   )
 }

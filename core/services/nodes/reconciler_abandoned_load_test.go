@@ -21,8 +21,8 @@ import (
 // the next request failed with "no replica slot ... all models busy".
 //
 // Elapsed time alone cannot decide this: staging a large checkpoint legitimately
-// runs for tens of minutes. The load job's LastProgress heartbeat is the
-// discriminator, the same signal job takeover already trusts.
+// runs for tens of minutes. The load job's lease is the
+// discriminator: a row names its attempt, and the attempt is alive while its job is.
 var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 	var (
 		db       *gorm.DB
@@ -56,16 +56,27 @@ var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 		}).Error).To(Succeed())
 	}
 
-	seedJob := func(model, state string, sinceProgress time.Duration) {
+	// seedJob writes a job row directly. leaseSecs and stopSecs are offsets from
+	// the database clock; a nil stop deadline means the job is still running.
+	seedJob := func(model, state, generation string, leaseSecs int, stopSecs *int) {
 		Expect(db.Create(&ModelLoadJob{
 			TrackingKey:  model,
+			Generation:   generation,
 			State:        state,
 			OwnerReplica: "someone",
-			LastProgress: time.Now().Add(-sinceProgress),
-			CreatedAt:    time.Now().Add(-sinceProgress),
-			UpdatedAt:    time.Now().Add(-sinceProgress),
+			LastProgress: time.Now(),
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		}).Error).To(Succeed())
+		Expect(db.Exec("UPDATE model_load_jobs SET lease_until = now() + make_interval(secs => ?) WHERE tracking_key = ?", leaseSecs, model).Error).To(Succeed())
+		if stopSecs != nil {
+			Expect(db.Exec("UPDATE model_load_jobs SET stop_deadline = now() + make_interval(secs => ?) WHERE tracking_key = ?", *stopSecs, model).Error).To(Succeed())
+		}
 	}
+	tag := func(model, generation string) {
+		Expect(db.Model(&NodeModel{}).Where("model_name = ?", model).Update("load_generation", generation).Error).To(Succeed())
+	}
+	secs := func(n int) *int { return &n }
 
 	rowExists := func(model string) bool {
 		var count int64
@@ -73,13 +84,33 @@ var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 		return count > 0
 	}
 
-	It("reclaims a staging row whose load job has stopped heartbeating", func() {
+	It("reclaims a staging row once the job of its attempt has been released", func() {
 		seedReplica("abandoned", "staging", time.Hour)
-		seedJob("abandoned", LoadJobStateStaging, 30*time.Minute)
+		tag("abandoned", "gen-1")
 
 		rc.reclaimAbandonedLoads(context.Background())
 
 		Expect(rowExists("abandoned")).To(BeFalse())
+	})
+
+	It("reclaims a row whose attempt was replaced by another generation", func() {
+		seedReplica("replaced", "staging", time.Hour)
+		tag("replaced", "gen-1")
+		seedJob("replaced", LoadJobStateStaging, "gen-2", 30, nil)
+
+		rc.reclaimAbandonedLoads(context.Background())
+
+		Expect(rowExists("replaced")).To(BeFalse())
+	})
+
+	It("holds the slot while the failed job of its attempt waits out the stop window", func() {
+		seedReplica("holding", "staging", time.Hour)
+		tag("holding", "gen-1")
+		seedJob("holding", LoadJobStateFailed, "gen-1", -10, secs(100))
+
+		rc.reclaimAbandonedLoads(context.Background())
+
+		Expect(rowExists("holding")).To(BeTrue(), "remote work may still run until the stop deadline")
 	})
 
 	It("reclaims a jobless row once its node is gone", func() {
@@ -91,32 +122,41 @@ var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 		Expect(rowExists("orphan")).To(BeFalse())
 	})
 
-	// Only the request path creates load jobs. The reconciler's own scale-up
-	// loads a replica without one, so treating a missing job as abandonment
-	// deleted healthy transfers the moment they outran the grace period, which
-	// for a multi-gigabyte checkpoint is every time. That is what made a replica
-	// appear to hop between nodes instead of finishing anywhere.
-	It("keeps a jobless row while its node is still healthy", func() {
+	// A row with no generation and no job may be a healthy load an older binary
+	// drives. Treating a missing job as abandonment deleted healthy transfers the
+	// moment they outran the grace period. That is what made a replica appear to
+	// hop between nodes instead of finishing anywhere.
+	It("keeps an untagged jobless row while its node is still healthy", func() {
 		seedReplica("scaling-up", "staging", time.Hour)
 
 		rc.reclaimAbandonedLoads(context.Background())
 
 		Expect(rowExists("scaling-up")).To(BeTrue(),
-			"a reconciler-driven load has no job row and must not be reclaimed for it")
+			"nothing proves the load stopped")
 	})
 
-	It("keeps a long transfer whose job is still heartbeating", func() {
+	It("reclaims an untagged row when the job of its model is released", func() {
+		seedReplica("legacy", "staging", time.Hour)
+		seedJob("legacy", LoadJobStateFailed, "gen-1", -10, secs(-1))
+
+		rc.reclaimAbandonedLoads(context.Background())
+
+		Expect(rowExists("legacy")).To(BeFalse())
+	})
+
+	It("keeps a long transfer whose job still holds a live lease", func() {
 		// The row itself is old, because staging does not touch it. Only the
 		// job proves the transfer is alive.
 		seedReplica("big-model", "staging", time.Hour)
-		seedJob("big-model", LoadJobStateStaging, time.Second)
+		tag("big-model", "gen-1")
+		seedJob("big-model", LoadJobStateStaging, "gen-1", 30, nil)
 
 		rc.reclaimAbandonedLoads(context.Background())
 
 		Expect(rowExists("big-model")).To(BeTrue(), "a live transfer must never be reclaimed")
 	})
 
-	It("leaves a freshly created row alone while its job row is still being written", func() {
+	It("leaves a freshly created untagged row alone while its job row is still being written", func() {
 		seedReplica("just-started", "loading", time.Second)
 
 		rc.reclaimAbandonedLoads(context.Background())
@@ -126,6 +166,7 @@ var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 
 	It("does not touch loaded replicas, which the other sweeps own", func() {
 		seedReplica("serving", "loaded", time.Hour)
+		tag("serving", "gen-1")
 
 		rc.reclaimAbandonedLoads(context.Background())
 
@@ -134,7 +175,8 @@ var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 
 	It("frees the slot so the model can be scheduled on that node again", func() {
 		seedReplica("wedged", "staging", time.Hour)
-		seedJob("wedged", LoadJobStateFailed, time.Minute)
+		tag("wedged", "gen-1")
+		seedJob("wedged", LoadJobStateFailed, "gen-1", -60, secs(-1))
 
 		_, err := registry.NextFreeReplicaIndex(context.Background(), node.ID, "wedged", 1)
 		Expect(err).To(MatchError(ErrNoFreeSlot), "precondition: the stuck row holds the only slot")

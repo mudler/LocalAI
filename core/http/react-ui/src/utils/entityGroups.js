@@ -14,7 +14,7 @@ const GROUPS = [
   {
     id: 'audio',
     labelKey: 'groups.audio',
-    icon: 'fa-wave-square',
+    icon: 'waveform',
     tags: ['tts', 'stt', 'asr', 'transcript', 'transcription', 'audio-transcription',
       'speech', 'speech-to-text', 'text-to-speech', 'audio', 'voice', 'voice-cloning',
       'whisper', 'diarization', 'sound', 'music', 'vad'],
@@ -24,7 +24,7 @@ const GROUPS = [
   {
     id: 'visual',
     labelKey: 'groups.visual',
-    icon: 'fa-image',
+    icon: 'image',
     tags: ['image', 'image-generation', 'text-to-image', 'video', 'text-to-video', '3d',
       'sd', 'diffusion', 'stable-diffusion', 'flux'],
     backends: ['stablediffusion', 'diffusers', 'flux'],
@@ -32,20 +32,20 @@ const GROUPS = [
   {
     id: 'vision',
     labelKey: 'groups.vision',
-    icon: 'fa-eye',
+    icon: 'eye',
     tags: ['vision', 'multimodal', 'vlm', 'image-to-text', 'detection', 'ocr'],
     backends: [],
   },
   {
     id: 'text',
     labelKey: 'groups.text',
-    icon: 'fa-brain',
+    icon: 'brain',
     tags: ['llm', 'text-to-text', 'text-generation', 'chat', 'completion', 'coding',
       'reasoning', 'thinking', 'agent', 'tool-use', 'embeddings', 'rerank'],
     backends: ['llama', 'vllm', 'sglang', 'ds4', 'bonsai', 'transformers', 'exllama',
       'mlx', 'rerankers', 'bert'],
   },
-  { id: 'other', labelKey: 'groups.other', icon: 'fa-cube', tags: [], backends: [] },
+  { id: 'other', labelKey: 'groups.other', icon: 'cube', tags: [], backends: [] },
 ]
 
 export const ENTITY_GROUPS = GROUPS

@@ -2,7 +2,12 @@ package openai
 
 import (
 	"context"
+	"fmt"
+	proto "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -67,4 +72,51 @@ var _ = Describe("emitSpeech", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(1))
 	})
+})
+
+type unsupportedStreamingSpeech struct {
+	fakeModel
+	emitBeforeError bool
+	unaryCalls      int
+}
+
+func (m *unsupportedStreamingSpeech) TTSStream(_ context.Context, _, _, _ string, onAudio func([]byte, int) error) error {
+	if m.emitBeforeError {
+		if err := onAudio([]byte{1, 2}, 24000); err != nil {
+			return err
+		}
+	}
+	return status.Error(codes.Unimplemented, "streaming unavailable")
+}
+func (m *unsupportedStreamingSpeech) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
+	m.unaryCalls++
+	return m.fakeModel.TTS(ctx, text, voice, language)
+}
+
+var _ = Describe("TTS streaming capability fallback", func() {
+	for _, partial := range []bool{false, true} {
+		It(fmt.Sprintf("replays only unsupported streams without committed PCM (partial=%t)", partial), func() {
+			path := filepath.Join(GinkgoT().TempDir(), "speech.wav")
+			f, err := os.Create(path)
+			Expect(err).NotTo(HaveOccurred())
+			header := laudio.NewWAVHeader(2)
+			Expect(header.Write(f)).To(Succeed())
+			_, err = f.Write([]byte{3, 4})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+			model := &unsupportedStreamingSpeech{fakeModel: fakeModel{ttsFile: path}, emitBeforeError: partial}
+			on := true
+			session := &Session{OutputSampleRate: 24000, ModelInterface: model, ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{Streaming: config.PipelineStreaming{TTS: &on}}}}
+			transport := &fakeTransport{}
+			_, err = emitSpeech(context.Background(), transport, session, "response", "item", "Hello")
+			if partial {
+				Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+				Expect(model.unaryCalls).To(BeZero())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(model.unaryCalls).To(Equal(1))
+			}
+			Expect(transport.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(1))
+		})
+	}
 })

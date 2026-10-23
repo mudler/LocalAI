@@ -451,3 +451,21 @@ var _ = Describe("effectiveThreads", func() {
 		Expect(effectiveThreads(config.ModelConfig{}, 0)).To(Equal(1))
 	})
 })
+
+var _ = Describe("grpcModelOpts option forwarding", func() {
+	It("preserves explicit upscale backend options exactly", func() {
+		threads := 1
+		options := []string{"upscale_scale:2", "upscale_scale:8", "upscale_tile_size:-1", "backend:CPU"}
+		cfg := config.ModelConfig{Threads: &threads, Backend: "stablediffusion-ggml", KnownUsecases: config.GetUsecasesFromYAML([]string{"upscale", "image"}), Options: options}
+		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(options))
+		Expect(cfg.Options).To(Equal(options))
+	})
+
+	It("leaves generic SD options unchanged", func() {
+		threads := 1
+		cfg := config.ModelConfig{Threads: &threads, Backend: "stablediffusion-ggml", Options: []string{"backend:CPU", "diffusion_model:model.gguf"}}
+		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(cfg.Options))
+		cfg.KnownUsecases = config.GetUsecasesFromYAML([]string{"image"})
+		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(cfg.Options))
+	})
+})

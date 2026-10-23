@@ -14,6 +14,8 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type rtSource map[string]config.ModelConfig
@@ -42,6 +44,22 @@ var _ = Describe("realtime failover", func() {
 		return &wrappedModel{stageRouter: stageRouter{failover: fm, stageChains: map[string]string{config.PipelineStageTTS: "chain"},
 			stageTargetConfig: func(name string) (*config.ModelConfig, error) { return &config.ModelConfig{Name: name}, nil }}}
 	}
+
+	It("checks streaming support on resolved chain targets before backend loading", func() {
+		m := chainModel()
+		m.TTSConfig = &config.ModelConfig{Backend: "sherpa-onnx"}
+		var resolved []string
+		m.stageTargetConfig = func(name string) (*config.ModelConfig, error) {
+			resolved = append(resolved, name)
+			return &config.ModelConfig{Name: name, Backend: "piper"}, nil
+		}
+		Expect(m.SupportsTTSStream()).To(BeTrue())
+		err := m.TTSStream(context.Background(), "Hello", "", "", func([]byte, int) error { return nil })
+		Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+		Expect(resolved).To(Equal([]string{"a", "b"}))
+		m.TTSConfig.Backend = "piper"
+		Expect(m.SupportsTTSStream()).To(BeTrue())
+	})
 
 	It("routes a chain stage through the plan and retries before commit", func() {
 		m := chainModel()

@@ -395,7 +395,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if not request.dst:
             return backend_pb2.Result(success=False, message="request.dst is required")
 
-        use_simple = bool(request.text)
+        use_simple = bool(request.text) and not request.expanded
         if use_simple:
             payload = {
                 "sample_query": request.text or "",

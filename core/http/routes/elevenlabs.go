@@ -7,13 +7,14 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
+	"gorm.io/gorm"
 )
 
 func RegisterElevenLabsRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
 	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
-	appConfig *config.ApplicationConfig) {
+	appConfig *config.ApplicationConfig, authDB *gorm.DB) {
 
 	// Elevenlabs
 	ttsHandler := elevenlabs.TTSEndpoint(cl, ml, appConfig)
@@ -22,7 +23,7 @@ func RegisterElevenLabsRoutes(app *echo.Echo,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.ElevenLabsTTSRequest) }))
 
-	soundGenHandler := elevenlabs.SoundGenerationEndpoint(cl, ml, appConfig)
+	soundGenHandler := elevenlabs.SoundGenerationEndpoint(cl, ml, appConfig, authDB)
 	app.POST("/v1/sound-generation",
 		soundGenHandler,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_SOUND_GENERATION)),

@@ -195,7 +195,10 @@ func (m *fakeModel) Transcribe(_ context.Context, _, _ string, _, diarize bool, 
 	return m.transcribeFinal, m.transcribeErr
 }
 
-func (m *fakeModel) SoundDetection(context.Context, string, int, float32) (*schema.SoundClassificationResult, error) {
+func (m *fakeModel) SoundDetection(ctx context.Context, _ string, _ int, _ float32) (*schema.SoundClassificationResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if m.soundDetectionErr != nil {
 		return nil, m.soundDetectionErr
 	}

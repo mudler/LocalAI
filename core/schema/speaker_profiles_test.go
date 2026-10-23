@@ -31,6 +31,12 @@ var _ = Describe("Portable speaker profiles", func() {
 		p.Encoder.Dimension = 3
 		Expect(p.Validate(trusted)).To(HaveOccurred())
 	})
+	It("matches on identity and dimension, not on the family only the server knows", func() {
+		trusted.Family = "voicedetect:ecapa_tdnn:ecapa:192"
+		Expect(p.Validate(trusted)).To(Succeed())
+		_, err := p.Select(3, trusted)
+		Expect(err).NotTo(HaveOccurred())
+	})
 	It("round trips the backend JSON including unavailable profiles without embeddings", func() {
 		raw := `{"version":1,"encoder":{"identity":"` + trusted.Identity + `","dimension":2},"speakers":[{"speaker":3,"clean_duration":3,"intervals":[{"start":0,"end":3}],"unavailable_reason":null,"embedding":[0.6,0.8]},{"speaker":4,"clean_duration":1,"intervals":[{"start":4,"end":5}],"unavailable_reason":"insufficient_clean_speech"}]}`
 		Expect(json.Unmarshal([]byte(raw), &p)).To(Succeed())

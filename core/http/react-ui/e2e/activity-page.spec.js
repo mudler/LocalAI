@@ -40,7 +40,139 @@ test('lists live operations and cancels one from a labelled button', async ({ pa
   await expect(card).toContainText('22%')
 
   await card.locator('.operation-card__cancel').click()
-  expect(cancelledPath).toBe('/api/operations/job-gemma/cancel')
+  // A cancel waits for its undo window. Nothing has been stopped yet.
+  await expect(page.getByTestId('activity-undo-toast')).toContainText('Cancelling gemma-3-27b-it')
+  await expect(card).toContainText('Cancelling unless you undo')
+  expect(cancelledPath).toBe('')
+  await expect.poll(() => cancelledPath, { timeout: 15_000 }).toBe('/api/operations/job-gemma/cancel')
+})
+
+const download = (id, over = {}) => ({
+  id,
+  name: id,
+  jobID: `job-${id}`,
+  progress: 22,
+  taskType: 'installation',
+  isBackend: false,
+  isQueued: false,
+  isDeletion: false,
+  cancellable: true,
+  phase: 'downloading',
+  ...over,
+})
+
+test('undoing a cancel keeps the download running and never calls the server', async ({ page }) => {
+  await stub(page, { operations: [download('gemma-3-27b-it')] })
+  const calls = []
+  await page.route('**/api/operations/job-gemma-3-27b-it/*', (route) => {
+    calls.push(new URL(route.request().url()).pathname)
+    return route.fulfill({ contentType: 'application/json', body: '{}' })
+  })
+  await page.goto('/app/activity')
+
+  const card = page.locator('.operation-card').filter({ hasText: 'gemma-3-27b-it' })
+  await card.locator('.operation-card__cancel').click()
+  await page.getByTestId('activity-undo-toast').getByRole('button', { name: 'Undo' }).click()
+
+  await expect(page.getByTestId('activity-undo-toast')).toHaveCount(0)
+  await expect(card.locator('.operation-card__cancel')).toBeVisible()
+  await expect(card).not.toContainText('Cancelling unless you undo')
+  // The window is 8 seconds; wait it out to be sure nothing was queued.
+  await page.waitForTimeout(9_000)
+  expect(calls).toEqual([])
+})
+
+test('closing the undo toast cancels at once', async ({ page }) => {
+  await stub(page, { operations: [download('gemma-3-27b-it')] })
+  const calls = []
+  await page.route('**/api/operations/job-gemma-3-27b-it/cancel', (route) => {
+    calls.push('cancel')
+    return route.fulfill({ contentType: 'application/json', body: '{}' })
+  })
+  await page.goto('/app/activity')
+  await page.locator('.operation-card__cancel').click()
+  await page.getByTestId('activity-undo-toast').getByRole('button', { name: 'Cancel now' }).click()
+  await expect.poll(() => calls).toEqual(['cancel'])
+})
+
+test('cancelling a second download ends the first one\'s window', async ({ page }) => {
+  await stub(page, { operations: [download('alpha'), download('beta')] })
+  const calls = []
+  await page.route('**/api/operations/*/cancel', (route) => {
+    calls.push(new URL(route.request().url()).pathname)
+    return route.fulfill({ contentType: 'application/json', body: '{}' })
+  })
+  await page.goto('/app/activity')
+  await page.locator('.operation-card').filter({ hasText: 'alpha' }).locator('.operation-card__cancel').click()
+  await page.locator('.operation-card').filter({ hasText: 'beta' }).locator('.operation-card__cancel').click()
+  // One toast at a time, and the first cancel went through.
+  await expect(page.getByTestId('activity-undo-toast')).toHaveCount(1)
+  await expect(page.getByTestId('activity-undo-toast')).toContainText('Cancelling beta')
+  await expect.poll(() => calls).toEqual(['/api/operations/job-alpha/cancel'])
+})
+
+test('leaving the page runs a cancel that was still waiting', async ({ page }) => {
+  await stub(page, { operations: [download('gemma-3-27b-it')] })
+  const calls = []
+  await page.route('**/api/operations/job-gemma-3-27b-it/cancel', (route) => {
+    calls.push('cancel')
+    return route.fulfill({ contentType: 'application/json', body: '{}' })
+  })
+  await page.goto('/app/activity')
+  await page.locator('.operation-card__cancel').click()
+  await expect(page.getByTestId('activity-undo-toast')).toBeVisible()
+  await page.getByRole('link', { name: 'Backends', exact: true }).first().click()
+  await expect.poll(() => calls).toEqual(['cancel'])
+})
+
+test('a download shows its progress, its size and the time left', async ({ page }) => {
+  await stub(page, {
+    operations: [download('gemma-3-27b-it', { progress: 38, currentBytes: 1.4 * 1024 ** 3, totalBytes: 3.8 * 1024 ** 3 })],
+  })
+  await page.goto('/app/activity')
+  const card = page.locator('.operation-card').filter({ hasText: 'gemma-3-27b-it' })
+  await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '38')
+  await expect(card).toContainText('1.4 GB / 3.8 GB')
+  await expect(card.getByRole('button', { name: 'Pause gemma-3-27b-it and keep downloaded data' })).toBeVisible()
+})
+
+test('a cancelled install can be started again from the record', async ({ page }) => {
+  await stub(page, {
+    history: [{
+      id: 'whisper-large-v3', name: 'whisper-large-v3', jobID: 'job-w', isBackend: false, taskType: 'installation',
+      outcome: 'cancelled', startedAt: '2026-07-28T13:40:00Z', finishedAt: '2026-07-28T13:41:00Z',
+    }, {
+      id: 'piper', name: 'piper', jobID: 'job-p', isBackend: true, taskType: 'deletion',
+      outcome: 'cancelled', startedAt: '2026-07-28T13:40:00Z', finishedAt: '2026-07-28T13:41:00Z',
+    }],
+  })
+  const calls = []
+  await page.route('**/api/models/install/**', (route) => {
+    calls.push(new URL(route.request().url()).pathname)
+    return route.fulfill({ contentType: 'application/json', body: '{}' })
+  })
+  await page.goto('/app/activity')
+  // A cancelled removal is not an install, so it offers nothing to start.
+  await expect(page.locator('.activity-row__resume')).toHaveCount(1)
+  await page.locator('.activity-row').filter({ hasText: 'whisper-large-v3' }).locator('.activity-row__resume').click()
+  await expect.poll(() => calls).toEqual(['/api/models/install/whisper-large-v3'])
+})
+
+test('the empty state names the next step', async ({ page }) => {
+  await stub(page)
+  await page.goto('/app/activity')
+  await expect(page.locator('.activity-empty')).toContainText('No operations since startup')
+  await expect(page.locator('.activity-empty').getByRole('link', { name: 'Browse models' })).toHaveAttribute('href', '/app/models')
+})
+
+test('fits a phone, with the actions under the name', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 })
+  await stub(page, { operations: [download('gemma-3-27b-it')] })
+  await page.goto('/app/activity')
+  const card = page.locator('.operation-card').filter({ hasText: 'gemma-3-27b-it' })
+  await expect(card.locator('.operation-card__cancel')).toBeVisible()
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(1)
 })
 
 test('pauses a model download without invoking destructive cancel', async ({ page }) => {

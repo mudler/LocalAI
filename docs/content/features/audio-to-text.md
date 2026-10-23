@@ -32,6 +32,19 @@ For instance, with cURL:
 curl http://localhost:8080/v1/audio/transcriptions -H "Content-Type: multipart/form-data" -F file="@<FILE_PATH>" -F model="<MODEL_NAME>"
 ```
 
+When usage statistics are enabled, successful requests to `/v1/audio/transcriptions`
+and `/audio/transcriptions` contribute request counts and elapsed time for the
+requested model name, including an alias. This includes streaming responses. Token counts remain zero
+because transcription results do not provide canonical token usage. Failed
+transcriptions, including errors reported within a stream, do not count as
+successful usage.
+
+When API tracing is enabled, multipart transcription requests appear in Traces
+with the model name, response, status, and elapsed time. The captured request
+body contains metadata marked `multipart upload omitted`; API traces do not
+store the uploaded audio. Response capture follows the configured trace size
+limit. Backend traces have their own payload capture behavior.
+
 ## Example
 
 Download one of the models from [here](https://huggingface.co/ggerganov/whisper.cpp/tree/main) in the `models` folder,
@@ -200,11 +213,13 @@ The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classifi
 |---|---|---|
 | `asr_model:<path>` | a diarization model | `include_text` on `/v1/audio/diarization` |
 | `diarization_model:<path>` | an ASR model | a `speaker` on transcript segments (and words), and speaker segments during realtime live transcription |
-| `sound_model:<path>` | an ASR model | sound events during realtime live transcription |
+| `sound_model:<path>` | an ASR or diarization model | sound events during realtime live transcription, `sounds` on `/v1/audio/diarization` with `include_sounds=true`, and `/v1/audio/classification` on the loaded model |
 | `diarization_latency:<model\|low\|very_low\|ultra_low>` | a model with a diarization companion | latency mode for the live speaker stream; default `low` |
-| `speaker_model:<path>` | a model with a diarization model | names registered speakers (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
+| `speaker_model:<path>` | a model with a diarization model | names registered speakers; a bundle can use `speaker_component:<name>` instead (see [Bundle GGUF files](#bundle-gguf-files-several-models-in-one-file)) (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
+| `speaker_tag:<tag>` | a model with `speaker_component` | extra encoder tag for registered voices that carry only a file-name tag (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-from-a-bundle)) |
 | `speaker_threshold:<float>` | a model with `speaker_model` | distance (1 minus cosine similarity) under which a speaker is named, in (0, 2); default `0.5` |
 | `speaker_margin:<float>` | a model with `speaker_model` | how much the best match must beat the runner-up, in [0, 1); default `0.05` |
+| `speaker_strict:<bool>` | a model with `speaker_model` | do not use registered voices that have no encoder fingerprint (see [Voice Recognition]({{% relref "voice-recognition" %}}#encoder-fingerprint)); default `false` |
 
 With a `diarization_model` companion, `/v1/audio/transcriptions` labels each segment with its `speaker` (`"0"`, `"1"`, ... in order of first appearance) and splits segments where the speaker changes; with `timestamp_granularities[]=word` each word carries its speaker too. With `stream=true` the closing `transcript.text.done` event lists the segments with their speakers. Pass `-F diarize=false` to skip diarization for one request. The diarization GGUF can also be imported directly: `local-ai models import https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/nemotron-3-diarization-f16.gguf`.
 
@@ -305,8 +320,27 @@ The segmenter options below apply to both `vad:true` and `vad_model`. Each is op
 | `vad_min_pause` | seconds | A silence this long separates two pieces |
 | `vad_min_speech` | seconds | Shorter speech runs are dropped |
 | `vad_max_segment` | seconds | Cap on the length of a piece (default 30) |
+| `vad_trim` | seconds | Each piece shrinks to its first and last speech frame plus this much. Default `0.3`; `0` keeps the whole cuts, as before this option existed |
 
 `vad_speech_pad` (seconds) pads each region and only affects the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}). `vad_model` needs a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_vad_with`; an older library fails the load with a message that names it.
+
+### Dropping noise words (`guard_*`)
+
+A decode of noise or silence can contain words that no one said. An opt-in filter removes the words that stand alone or sit among low-confidence words, and the words that are only punctuation. It runs on the finished decode. It is off unless one of these options is set, and a bad value fails the load:
+
+| Option | Unit | Meaning |
+|---|---|---|
+| `guard_min_local_conf` | 0 to 1 | A word is dropped when the mean confidence of the words that start within `guard_local_radius` seconds of it, itself included, is below this. `0` is off. `0.5` is a good start; higher values also drop real words on some models |
+| `guard_local_radius` | seconds, above 0 | The window of that mean. Default `5` |
+| `guard_drop_punct_only` | `true` or `false` | Drop words that are only punctuation. A CTC model can emit a lone `.` on noise. Default `false` |
+
+```yaml
+options:
+- guard_min_local_conf:0.5
+- guard_drop_punct_only:true
+```
+
+The filter applies to offline transcription, and with `vad:true` or `vad_model` to each piece on its own. It bypasses dynamic batching, like `vad:true`. Streaming is not affected. Speech with confident words comes out the same as without the filter. The number of dropped words is written to the backend log at debug level; the transcription response has no field for it. The options need a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_with`; an older library fails the load with a message that names it.
 
 ### Bundle GGUF files (several models in one file)
 
@@ -329,6 +363,9 @@ The component that each role uses, and the option that picks another one:
 | Diarization | the `diar` component, only when asked for | `diar_component:<name>` |
 | Sound events | the `ced` component, only when asked for | `sound_component:<name>` |
 | Speaker naming | the `voice` component, only when asked for | `speaker_component:<name>` (needs a diarization component) |
+| Voice embedding and verification (`/v1/voice/*`, the realtime `voice_recognition` stage) | the `voice` component, only when asked for | `speaker_component:<name>`; declare `speaker_recognition` in `known_usecases`. Needs a libparakeet.so with `parakeet_capi_speaker_embed_pcm`. See [Voice Recognition]({{% relref "voice-recognition#a-parakeet-cpp-bundle-as-the-embedding-model" %}}) |
+
+`speaker_component:` also names registered speakers: LocalAI sends the voices from `/v1/voice/register` to the bundle's speaker component, as it does for `speaker_model:`. This works in `/v1/audio/diarization` and in realtime live transcription, and it needs no `speaker_model:`. `speaker_threshold`, `speaker_margin` and `speaker_strict` apply too. Only voices that carry an encoder fingerprint (voices enrolled from `speaker_profiles`) and voices with no tag at all are used by default. A voice registered with a tag only matches through `speaker_tag:`. See [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-from-a-bundle).
 
 A `*_component` option without the matching companion option takes the component from the model file itself. The companion options (`diarization_model:`, `sound_model:`, `speaker_model:`, `vad_model:`, `asr_model:`) can also name a bundle file, even the same file as the model: the only component of the wanted kind is used, and the `*_component` option picks one when there are several. This YAML loads the same file for four roles:
 

@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 function mockCapabilities(page, capabilities) {
   return page.route('**/api/models/capabilities', (route) => {
@@ -95,6 +96,8 @@ function makeToneWav(name, freq = 1000, seconds = 0.4, sampleRate = 16000) {
 
 test.describe('Audio Transform', () => {
   test.beforeEach(async ({ page }) => {
+    // Studio is an add-on: the page opens inside it.
+    await installStudioAddons(page, { ids: ['studio'] })
     await mockCapabilities(page, [
       { id: 'localvqe', capabilities: ['FLAG_AUDIO_TRANSFORM'] },
     ])
@@ -143,6 +146,8 @@ test.describe('Audio Transform', () => {
     await expect(page.getByText('mic.wav')).toBeVisible()
 
     // Set a backend tuning param so the form posts params[noise_gate]=true.
+    // The key=value box lives in the Advanced fold.
+    await page.getByRole('button', { name: /Advanced parameters/ }).click()
     await page.locator('.textarea').fill('noise_gate=true')
 
     await page.getByRole('button', { name: /Transform/ }).last().click()

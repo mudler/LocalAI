@@ -406,6 +406,28 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 			Expect(segs[1].(map[string]any)["text"]).To(Equal("general kenobi"))
 		})
 
+		It("returns closed sound events only when include_sounds is set", func() {
+			resp, data := postDiarize(map[string]string{"response_format": "verbose_json", "include_sounds": "true"})
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var got map[string]any
+			Expect(json.Unmarshal(data, &got)).To(Succeed())
+			sounds, ok := got["sounds"].([]any)
+			Expect(ok).To(BeTrue(), "include_sounds must add a sounds array")
+			Expect(sounds).To(HaveLen(2))
+			first := sounds[0].(map[string]any)
+			Expect(first["label"]).To(Equal("Door"))
+			Expect(first["start"]).To(BeNumerically("~", 0.5, 0.001))
+			Expect(first["end"]).To(BeNumerically("~", 1.25, 0.001))
+			Expect(first["confidence"]).To(BeNumerically("~", 0.8, 0.001))
+
+			resp, data = postDiarize(map[string]string{"response_format": "verbose_json"})
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(string(data)).ToNot(ContainSubstring(`"sounds"`))
+
+			resp, _ = postDiarize(map[string]string{"response_format": "rttm", "include_sounds": "true"})
+			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+		})
+
 		It("rttm response_format returns NIST RTTM rows", func() {
 			resp, data := postDiarize(map[string]string{"response_format": "rttm"})
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))

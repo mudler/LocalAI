@@ -234,6 +234,17 @@ var _ = Describe("tool policy settings", func() {
 		})
 	})
 
+	Describe("add-on tool namespace", func() {
+		It("is never offered to an agent run, with or without a tool policy", func() {
+			for _, f := range []*toolFilter{nil, newToolFilter(nil, nil), newToolFilter([]string{"addon__tables__rows-delete"}, nil)} {
+				filter := f.mcpToolFilter()
+				Expect(filter(nil, "addon__tables__rows-delete")).To(BeFalse())
+				Expect(filter(nil, "addon__tables__rows-query")).To(BeFalse())
+			}
+			Expect((*toolFilter)(nil).mcpToolFilter()(nil, "search")).To(BeTrue())
+		})
+	})
+
 	Describe("ExecuteChatWithLLM", func() {
 		var fx *mcpFixture
 

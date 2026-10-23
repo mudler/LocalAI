@@ -6,6 +6,7 @@ import subprocess
 import time
 import os
 import tempfile
+from unittest import mock
 import backend_pb2
 import backend_pb2_grpc
 
@@ -139,3 +140,33 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("TTS service with default voice failed")
         finally:
             self.tearDown()
+
+
+class TestLanguageOption(unittest.TestCase):
+    """
+    Checks that the language option reaches TTSModel.load_model without
+    downloading any weights.
+    """
+    def _load_model(self, options):
+        import backend
+
+        fake_model = mock.MagicMock()
+        fake_model.sample_rate = 24000
+        with mock.patch.object(backend.TTSModel, "load_model", return_value=fake_model) as load_model:
+            response = backend.BackendServicer().LoadModel(
+                backend_pb2.ModelOptions(Options=options), None
+            )
+        self.assertTrue(response.success, response.message)
+        return load_model
+
+    def test_language_option_selects_model(self):
+        load_model = self._load_model(["language:french"])
+        load_model.assert_called_once_with(language="french")
+
+    def test_versioned_language_option(self):
+        load_model = self._load_model(["language:english_2026-04"])
+        load_model.assert_called_once_with(language="english_2026-04")
+
+    def test_no_language_keeps_library_default(self):
+        load_model = self._load_model(["default_voice:azelma"])
+        load_model.assert_called_once_with()

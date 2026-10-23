@@ -13,6 +13,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'id', name: 'Bahasa Indonesia', flag: 'ID' },
   { code: 'ko', name: '한국어', flag: 'KO' },
   { code: 'pt-BR', name: 'Português (Brasil)', flag: 'BR' },
+  { code: 'fr', name: 'Français', flag: 'FR' },
 ]
 
 export const NAMESPACES = [
@@ -22,17 +23,21 @@ export const NAMESPACES = [
   'auth',
   'home',
   'chat',
-  'studio',
   'models',
   'agents',
   'skills',
   'collections',
+  'library',
   'biometrics',
   'media',
   'tools',
   'admin',
+  'operate',
+  'swarm',
+  'traffic',
   'usage',
   'explorer',
+  'addons',
 ]
 
 i18n

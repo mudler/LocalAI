@@ -32,7 +32,7 @@ For Rust backends, you'll typically need (see `backend/rust/kokoros/` as a refer
 
 The build matrix is data-only YAML at `.github/backend-matrix.yml` (not inside `backend.yml` itself). `backend.yml` (master push) and `backend_pr.yml` (PR) load it via `scripts/changed-backends.js`, which also handles per-file path filtering so only touched backends rebuild on PRs and master pushes alike. Add build matrix entries to `.github/backend-matrix.yml` for each platform/GPU type you want to support. Look at similar backends for reference — `chatterbox`/`faster-whisper` for Python, `piper`/`silero-vad` for Go, `kokoros` for Rust.
 
-**Without an entry here no image is ever built or pushed, and the gallery entry in `backend/index.yaml` will point at a tag that does not exist.** The `dockerfile:` field must point at `./backend/Dockerfile.<lang>` matching the language bucket from step 1 (e.g. `Dockerfile.python`, `Dockerfile.golang`, `Dockerfile.rust`). The `tag-suffix` must match the `uri:` in the corresponding `backend/index.yaml` image entry exactly.
+**Without an entry here no image is ever built or pushed, and the library entry in `gallery/backends/index.yaml` will point at a tag that does not exist.** The `dockerfile:` field must point at `./backend/Dockerfile.<lang>` matching the language bucket from step 1 (e.g. `Dockerfile.python`, `Dockerfile.golang`, `Dockerfile.rust`). The `tag-suffix` must match the `uri:` of the entry you give to `backendcatalog --add` (step 3) exactly.
 
 **Path-filter registration — REQUIRED for any new dockerfile suffix.** This is the single most common omission, because it has no effect on the PR that adds the backend (when no prior path filter could catch it anyway) — it only breaks the *next* PR that touches your backend's directory, which then gets zero CI jobs and looks broken for unrelated reasons. Edit `scripts/lib/backend-filter.mjs:inferBackendPath` and add a branch BEFORE the more-generic suffixes:
 
@@ -116,21 +116,32 @@ Entries whose `dockerfile` is `./backend/Dockerfile.{llama-cpp,ik-llama-cpp,turb
 Wiring a backend into `includeDarwin:` is more than the matrix entry:
 
 1. **`includeDarwin:` entry** — `tag-suffix: "-metal-darwin-arm64-<backend>"`, `build-type: "metal"`, `lang: "go"` for go+ggml backends; omit `build-type` for the bespoke C++ ones (llama-cpp / ds4 / privacy-filter). Match an existing entry of the same shape.
-2. **`backend/index.yaml`** — add `metal:` to the backend's `capabilities` map (main and `-development`) and concrete `metal-<backend>` / `metal-<backend>-development` image entries pointing at the `-metal-darwin-arm64-<backend>` images.
+2. **The backend library** (step 3) — add `metal:` to the backend's `capabilities` map (main and `-development`) and concrete `metal-<backend>` / `metal-<backend>-development` image entries pointing at the `-metal-darwin-arm64-<backend>` images.
 3. **C/C++ backends only** — add an `inferBackendPathDarwin` case in `scripts/lib/backend-filter.mjs` returning `backend/cpp/<backend>/` (the generic fallthrough assumes `backend/<lang>/`, which is wrong for a C++ source tree driven with `lang: go`), and give `run.sh` a Darwin branch that exports `DYLD_LIBRARY_PATH` instead of `LD_LIBRARY_PATH`. If the build is bespoke (single `grpc-server` + dylib bundling), model it on `scripts/build/ds4-darwin.sh` and add a `backends/<backend>-darwin` make target plus a gated step in `.github/workflows/backend_build_darwin.yml`.
 4. **C++ proto gotcha** — if the backend compiles the generated gRPC/protobuf in a separate CMake target (e.g. `hw_grpc_proto`), that target must link `protobuf::libprotobuf` + `gRPC::grpc++` so the Homebrew include dirs propagate; otherwise macOS fails with `google/protobuf/runtime_version.h not found` (Linux hides this because apt headers sit in `/usr/include`).
 
 The CI path filter only builds a backend on a PR when a file under its directory changes, so a darwin-only YAML edit builds nothing — touch a file under `backend/<lang>/<backend>/` (a one-line comment is enough) in the same PR.
 
-## 3. Add Backend Metadata to `backend/index.yaml`
+## 3. Add Backend Metadata to the Backend Library
 
-**Step 3a: Add Meta Definition**
+`gallery/backends/index.yaml` is the **backend library** and the source of truth for the backends. `backend/index.yaml` is the backend gallery: a **generated copy** that stays only so releases before the library cutover keep working. **Never edit `backend/index.yaml`**; CI (`.github/workflows/backend-library.yml`) fails when it differs from the generated copy.
 
-Add a YAML anchor definition in the `## metas` section (around line 2-300). Look for similar backends to use as a template such as `diffusers` or `chatterbox`
+You do not write library entries by hand. A library entry is one backend image for one platform, pinned by a digest, so a backend with ten variants has dozens of them. Write the backend the way the gallery shaped it, in a scratch file, and let `scripts/backends/cmd/backendcatalog` convert it. Put the scratch file under `assets/work/` or the system temp directory, not in the repository.
 
-**Step 3b: Add Image Entries**
+**Step 3a: Write the entries in gallery shape**
 
-Add image entries at the end of the file, following the pattern of similar backends such as `diffusers` or `chatterbox`. Include both `latest` (production) and `master` (development) tags.
+Use a YAML anchor for the meta definition and `<<: *anchor` for the image entries, as in the old `backend/index.yaml` (a similar backend such as `diffusers` or `chatterbox` is in `core/gallery/testdata/backend_library/gallery-before.yaml`, which keeps the whole gallery as it was before the library). A meta backend has `capabilities` and no `uri`. An image entry has `uri` (no `oci://` prefix), `mirrors` and, if you keep them, the same `capabilities`. Include both `latest-` (production) and `master-` (development) tags, and name the development entries `<name>-development`.
+
+**Step 3b: Merge them into the library**
+
+```bash
+go run ./scripts/backends/cmd/backendcatalog --add my-backend.yaml --library gallery/backends/index.yaml
+go run ./scripts/backends/cmd/backendcatalog --library gallery/backends/index.yaml --out backend/index.yaml
+```
+
+The first command converts the entries, pins every `latest-` image that is already in the registry to the digest of each platform, and merges the result into the library. Entries of other backends are not touched. An image that is not published yet (the usual case for a new backend, because CI builds it after the merge) is written unpinned and `mutable: true`: it installs by its tag, and a maintainer pins it with `--repin` once the image exists. A `master-` image is always `mutable`; the install pins it. The second command regenerates `backend/index.yaml`. Commit both files.
+
+To change a backend that is already there, put its new entries in the scratch file and run `--add` again: the entries of that backend are replaced where they stand. To pin every `latest-` image again after a release, run `go run ./scripts/backends/cmd/backendcatalog --library gallery/backends/index.yaml --repin`; this is the only mode that reads the registry, and a digest is never edited by hand.
 
 **Note on integrity:** OCI backends installed from a gallery whose `verification:` block is set are verified against a keyless-cosign policy before extraction; tarball/HTTP backends use the optional `sha256:` field. New backends do not need any extra YAML — the gallery-level `verification:` block covers every entry. See [.agents/backend-signing.md](backend-signing.md) for the producer-side CI step.
 
@@ -308,10 +319,9 @@ After adding a new backend, verify:
 
 - [ ] Backend directory structure is complete with all necessary files
 - [ ] Build configurations added to `.github/backend-matrix.yml` for all desired platforms (per-arch entries with `platform-tag` for multi-arch; `builder-base-image` for llama-cpp / ik-llama-cpp / turboquant)
-- [ ] **OS coverage considered**: added to `includeDarwin:` (macOS/Apple Silicon) if the backend can build there — with the `backend/index.yaml` `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD branch and `inferBackendPathDarwin` case (in `scripts/lib/backend-filter.mjs`) for C++ backends — or the PR explains why an OS is unsupported. Do not ship Linux-only by default.
-- [ ] Meta definition added to `backend/index.yaml` in the `## metas` section
-- [ ] Image entries added to `backend/index.yaml` for all build variants (latest + development)
-- [ ] Tag suffixes match between workflow file and index.yaml
+- [ ] **OS coverage considered**: added to `includeDarwin:` (macOS/Apple Silicon) if the backend can build there — with the `metal:` capability in the backend library + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD branch and `inferBackendPathDarwin` case (in `scripts/lib/backend-filter.mjs`) for C++ backends — or the PR explains why an OS is unsupported. Do not ship Linux-only by default.
+- [ ] Meta definition and image entries added to the backend library with `backendcatalog --add`, for all build variants (latest + development), and `backend/index.yaml` regenerated (never edited by hand)
+- [ ] Tag suffixes match between the workflow file and the library entries
 - [ ] Makefile updated with all 6 required changes (`.NOTPARALLEL`, `prepare-test-extra`, `test-extra`, backend definition, docker-build target eval, `docker-build-backends`)
 - [ ] No YAML syntax errors (check with linter)
 - [ ] No Makefile syntax errors (check with linter)

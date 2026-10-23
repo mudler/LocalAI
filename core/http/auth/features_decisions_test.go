@@ -7,7 +7,7 @@ import (
 )
 
 var _ = Describe("Decisions feature registration", func() {
-	It("gates the three decision routes behind one default-on API feature", func() {
+	It("gates the four decision routes behind one default-on API feature", func() {
 		Expect(APIFeatures).To(ContainElement(FeatureDecisions))
 
 		patterns := []string{}
@@ -17,7 +17,7 @@ var _ = Describe("Decisions feature registration", func() {
 				patterns = append(patterns, route.Pattern)
 			}
 		}
-		Expect(patterns).To(ConsistOf("/v1/systemone", "/v1/systemone/permute", "/v1/systemone/separate"))
+		Expect(patterns).To(ConsistOf("/v1/decisions", "/v1/systemone", "/v1/systemone/permute", "/v1/systemone/separate"))
 
 		Expect(APIFeatureMetas()).To(ContainElement(FeatureMeta{Key: FeatureDecisions, Label: "Decisions", DefaultValue: true}))
 	})

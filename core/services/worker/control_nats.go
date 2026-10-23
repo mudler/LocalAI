@@ -36,6 +36,8 @@ func (n *natsControlServer) subject(v controlVerb) (string, error) {
 		return messaging.SubjectNodeModelUnload(n.nodeID), nil
 	case verbModelStop:
 		return messaging.SubjectNodeModelStop(n.nodeID), nil
+	case verbModelOp:
+		return messaging.SubjectNodeModelOp(n.nodeID), nil
 	case verbModelDelete:
 		return messaging.SubjectNodeModelDelete(n.nodeID), nil
 	case verbNodeStop:

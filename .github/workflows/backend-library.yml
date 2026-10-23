@@ -1,0 +1,85 @@
+name: 'backend library'
+
+# gallery/backends/index.yaml is the backend library and the source of the
+# backends: edits go there. backend/index.yaml is a generated copy of it, kept
+# only so releases before the cutover keep working;
+# scripts/backends/cmd/backendcatalog writes it and it is never edited by hand.
+# This workflow fails when the library does not decode, an entry does not have
+# the library shape or does not round trip, the gallery reader does not load
+# the generated gallery, or backend/index.yaml differs from the generated copy.
+# It never reads the image registry: digests are pinned by hand-run
+# backendcatalog --repin, not by CI.
+
+on:
+  pull_request:
+    paths:
+      - 'backend/index.yaml'
+      - 'gallery/backends/**'
+      - 'scripts/backends/**'
+      - 'core/gallery/**'
+      - 'core/library/**'
+      - 'core/services/addons/catalog/**'
+      - 'core/services/addons/backendlib/**'
+      - '.github/workflows/backend-library.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'backend/index.yaml'
+      - 'gallery/backends/**'
+      - 'scripts/backends/**'
+      - 'core/gallery/**'
+      - 'core/library/**'
+      - 'core/services/addons/catalog/**'
+      - 'core/services/addons/backendlib/**'
+      - '.github/workflows/backend-library.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-library-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend-library:
+    name: 'Check the backend library'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Generate the gRPC stubs the Go packages import
+        # The stubs are not in the tree. Same pinned tools as the test workflow.
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Test the library, the generator and the gallery copy
+        # The library decodes and every entry has the library shape and passes
+        # the checks a host applies. The generator is deterministic. Every real
+        # gallery entry round trips through the library and back, a meta
+        # backend names backends the library has, and the gallery reader loads
+        # the generated gallery and sees the same backends as the library.
+        run: |
+          go test ./scripts/backends/...
+          go test ./core/services/addons/catalog/... ./core/services/addons/backendlib/...
+          go test ./core/gallery -run 'TestBackendLibrary|TestRealBackendLibrary|TestCheckedInBackendGalleryIsTheGeneratedCopy|TestLibraryGalleryReadsTheBackendLibrary|TestBackendRoundTrip|TestBackendsFromLibrary|TestToGalleryBackend|TestEncodeBackendGallery' -v
+      - name: Check that the gallery copy is the generated copy of the library
+        run: |
+          go run ./scripts/backends/cmd/backendcatalog --library gallery/backends/index.yaml --out backend/index.yaml
+          if ! git diff --exit-code -- backend/index.yaml; then
+            echo "::error file=backend/index.yaml::backend/index.yaml is generated from gallery/backends/index.yaml and must not be edited by hand. Edit the library file, then regenerate: go run ./scripts/backends/cmd/backendcatalog --library gallery/backends/index.yaml --out backend/index.yaml"
+            exit 1
+          fi
+      - name: Report the release entries that are not pinned
+        # A release image the registry had no image for when the library was
+        # rendered is marked mutable and has no digest. It installs, but it is
+        # not pinned. List them so a release does not ship them unnoticed.
+        run: |
+          go test ./core/gallery -run TestRealBackendLibraryHasTheLibraryShape -v | grep -E 'not pinned' | sed 's/^ *//; s/^/::warning::/' || true

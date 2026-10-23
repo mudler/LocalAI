@@ -30,6 +30,16 @@ type DiarizationSpeaker struct {
 	SegmentCount        int     `json:"segment_count"`
 }
 
+// DiarizationSound is one closed sound event found over the whole clip. Times
+// are in seconds. Label is an AudioSet class name and Confidence the peak score
+// of the event (0 to 1).
+type DiarizationSound struct {
+	Start      float64 `json:"start"`
+	End        float64 `json:"end"`
+	Label      string  `json:"label"`
+	Confidence float32 `json:"confidence"`
+}
+
 // DiarizationResult is the JSON payload returned by /v1/audio/diarization.
 // Speakers and segment text are omitted when empty so the default `json`
 // response stays minimal; verbose_json keeps both populated.
@@ -41,6 +51,10 @@ type DiarizationResult struct {
 	NumSpeakers     int                  `json:"num_speakers"`
 	Segments        []DiarizationSegment `json:"segments"`
 	Speakers        []DiarizationSpeaker `json:"speakers,omitempty"`
+	// Sounds is present only when the request set include_sounds. An empty
+	// list then means the model ran and heard no event; omitzero keeps a nil
+	// list (not requested) out of the payload while an empty one stays.
+	Sounds []DiarizationSound `json:"sounds,omitzero"`
 }
 
 // DiarizationResponseFormatType mirrors transcription's response_format

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	processManager "github.com/mudler/go-processmanager"
@@ -29,11 +30,20 @@ var Aliases = map[string]string{
 	"ik-llama":               IKLLamaCPP,
 	"embedded-store":         LocalStoreBackend,
 	"valkey":                 ValkeyStoreBackend,
+	"qdrant":                 QdrantStoreBackend,
 	"huggingface-embeddings": TransformersBackend,
 	"transformers-musicgen":  TransformersBackend,
 	"sentencetransformers":   TransformersBackend,
 	"mamba":                  TransformersBackend,
 	"stablediffusion":        StableDiffusionGGMLBackend,
+}
+
+func CanonicalBackend(name string) string {
+	b := strings.ToLower(name)
+	if real, ok := Aliases[b]; ok {
+		return real
+	}
+	return b
 }
 
 var TypeAlias = map[string]string{
@@ -51,6 +61,7 @@ const (
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
 	ValkeyStoreBackend  = "valkey-store"
+	QdrantStoreBackend  = "qdrant-store"
 
 	// Proxy backends serve a model by forwarding to another server instead
 	// of loading weights. Core special-cases both (credentials, failover
@@ -74,7 +85,17 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		ml.mu.Unlock()
 		if router != nil {
 			xlog.Info("Routing model to remote node via ModelRouter", "modelID", modelID, "backend", backend)
-			return router(o.context, backend, modelID, modelName, modelFile, o.configRevision, o.gRPCOptions, o.parallelRequests)
+			// This measures the callback, not transport or worker execution.
+			end := diagnostics.Begin(o.context, diagnostics.PhaseModelRouterCallback)
+			model, err := router(o.context, backend, modelID, modelName, modelFile, o.configRevision, o.gRPCOptions, o.parallelRequests)
+			outcome := diagnostics.OutcomeOK
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				outcome = diagnostics.OutcomeCanceled
+			} else if err != nil {
+				outcome = diagnostics.OutcomeError
+			}
+			end(outcome, 0)
+			return model, err
 		}
 
 		uri := ml.GetAllExternalBackends(o)[backend]
@@ -326,17 +347,9 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 			"f16", opt.F16Memory)
 	}
 
-	backend := strings.ToLower(o.backendString)
-	if realBackend, exists := Aliases[backend]; exists {
-		typeAlias, exists := TypeAlias[backend]
-		if exists {
-			xlog.Debug("alias is a type alias", "alias", backend, "realBackend", realBackend, "type", typeAlias)
-			o.gRPCOptions.Type = typeAlias
-		} else {
-			xlog.Debug("alias", "alias", backend, "realBackend", realBackend)
-		}
-
-		backend = realBackend
+	backend := CanonicalBackend(o.backendString)
+	if typeAlias, ok := TypeAlias[strings.ToLower(o.backendString)]; ok {
+		o.gRPCOptions.Type = typeAlias
 	}
 
 	modelFileName := o.modelFile
@@ -352,7 +365,14 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 		if stopErr := ml.StopGRPC(only(o.modelID)); stopErr != nil {
 			xlog.Debug("cleanup stop after failed load", "error", stopErr, "model", o.modelID)
 		}
-		xlog.Error("Failed to load model", "modelID", o.modelID, "error", err, "backend", o.backendString)
+		// A model held by a failed distributed load, or still loading, is an
+		// answer to retry later, not a fault of this request.
+		var retry interface{ RetryLater() bool }
+		if errors.As(err, &retry) && retry.RetryLater() {
+			xlog.Info("Model is not available yet", "modelID", o.modelID, "reason", err)
+		} else {
+			xlog.Error("Failed to load model", "modelID", o.modelID, "error", err, "backend", o.backendString)
+		}
 		return nil, err
 	}
 
@@ -437,6 +457,7 @@ func (ml *ModelLoader) updateModelLastUsed(m *Model) {
 
 func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	o := NewOptions(opts...)
+	diagnostics.Mark(o.context, diagnostics.PhaseModelInit)
 
 	ml.mu.Lock()
 	distributed := ml.modelRouter != nil

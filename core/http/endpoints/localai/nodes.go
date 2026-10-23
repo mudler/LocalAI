@@ -356,11 +356,33 @@ func provisionAgentWorkerKey(ctx context.Context, authDB *gorm.DB, registry *nod
 	return plaintext, nil
 }
 
+// loadCancelService builds the cancel path unload, drain and deregister share
+// with the load-cancel endpoint. A sender that cannot stop operations still
+// gets the cancel recorded; the worker's watchdog and the stop window then
+// bound the work.
+func loadCancelService(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender) *nodes.LoadCancelService {
+	svc := &nodes.LoadCancelService{Registry: registry}
+	if unloader != nil {
+		svc.Stopper = unloader
+	}
+	return svc
+}
+
+// cancelNodeLoads cancels the loads placed on a node before its rows go. It
+// logs and carries on: a node being removed must not stay because a cancel
+// failed.
+func cancelNodeLoads(ctx context.Context, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, nodeID string) {
+	if err := loadCancelService(registry, unloader).CancelNodeLoads(ctx, nodeID); err != nil {
+		xlog.Warn("Failed to cancel the loads placed on a node", "node", nodeID, "error", err)
+	}
+}
+
 // DeregisterNodeEndpoint removes a backend node permanently (admin use).
-func DeregisterNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+func DeregisterNodeEndpoint(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
+		cancelNodeLoads(ctx, registry, unloader, id)
 		if err := registry.Deregister(ctx, id); err != nil {
 			xlog.Error("Failed to deregister node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to deregister node"))
@@ -400,6 +422,11 @@ func HeartbeatEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		}
 
 		ctx := c.Request().Context()
+		// A new incarnation means the worker restarted and every load operation of
+		// the previous process ended. Failures here must not fail the heartbeat.
+		if err := registry.ObserveWorkerIncarnation(ctx, id, update.WorkerIncarnation); err != nil {
+			xlog.Warn("Failed to record worker incarnation", "id", id, "error", err)
+		}
 		if err := registry.Heartbeat(ctx, id, updatePtr); err != nil {
 			xlog.Warn("Heartbeat failed for node", "id", id, "error", err)
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
@@ -440,10 +467,11 @@ func ListAllNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 }
 
 // DrainNodeEndpoint sets a node to draining status (no new requests).
-func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+func DrainNodeEndpoint(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
+		cancelNodeLoads(ctx, registry, unloader, id)
 		if err := registry.MarkDraining(ctx, id); err != nil {
 			if errors.Is(err, nodes.ErrNodeNotFound) {
 				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
@@ -699,6 +727,12 @@ func UnloadModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 		}
 		if err := c.Bind(&req); err != nil || req.ModelName == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "model_name required"))
+		}
+		// A load of this model on this node (or one not placed yet) is cancelled
+		// through the same stop path first. The unload of a loaded replica then
+		// proceeds as usual: it is no longer swallowed by the load.
+		if _, err := loadCancelService(registry, unloader).CancelModelOnNode(c.Request().Context(), nodeID, req.ModelName); err != nil {
+			xlog.Warn("Failed to cancel the load before unloading", "node", nodeID, "model", req.ModelName, "error", err)
 		}
 		if err := unloader.UnloadModelOnNode(nodeID, req.ModelName); err != nil {
 			xlog.Error("Failed to unload model on node", "node", nodeID, "model", req.ModelName, "error", err)

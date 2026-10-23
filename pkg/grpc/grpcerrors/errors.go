@@ -125,3 +125,18 @@ func IsUnimplemented(err error) bool {
 func StreamTranscriptionUnsupported(backend, reason string) error {
 	return status.Errorf(codes.Unimplemented, "%s: streaming transcription unsupported: %s", backend, reason)
 }
+
+// SoundEventsUnsupportedCode is the stable code carried in the message of the
+// error a diarization request gets when it asks for include_sounds and the
+// model cannot produce sound events. Clients match on this string, so it is
+// part of the API contract.
+const SoundEventsUnsupportedCode = "include_sounds_unsupported"
+
+// SoundEventsUnsupported returns the canonical error a backend returns when a
+// diarization request sets include_sounds but the loaded model has no sound
+// (CED) companion. It carries codes.Unimplemented, which the HTTP layer maps to
+// 501, so the caller learns the capability is missing instead of reading an
+// empty sound list as "nothing was heard".
+func SoundEventsUnsupported(backend, reason string) error {
+	return status.Errorf(codes.Unimplemented, "%s: %s: %s", backend, SoundEventsUnsupportedCode, reason)
+}
