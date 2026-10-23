@@ -30,6 +30,7 @@ func RegisterFineTuningRoutes(e *echo.Echo, ftService *finetune.FineTuneService,
 	}
 
 	ft := e.Group("/api/fine-tuning", httpMiddleware.RequireAddonsFeature(app), readyMw, fineTuningMw)
+	ft.GET("/status", localai.ModelExportsStatusEndpoint(app))
 	ft.GET("/backends", localai.ListFineTuneBackendsEndpoint(appConfig, ClusterCapabilityProviderFor(app), ClusterInstalledProviderFor(app)))
 	ft.POST("/jobs", localai.StartFineTuneJobEndpoint(ftService))
 	ft.GET("/jobs", localai.ListFineTuneJobsEndpoint(ftService))

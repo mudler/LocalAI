@@ -1803,6 +1803,15 @@ definitions:
           $ref: '#/definitions/library.Info'
         type: array
     type: object
+  localai.ModelExportsStatus:
+    properties:
+      model_exports:
+        description: |-
+          ModelExports is false only when this instance does not see the models
+          path of the add-on owner. It is the same value as the model_exports key
+          of GET /api/features.
+        type: boolean
+    type: object
   localai.ModelResponse:
     properties:
       config: {}
@@ -8451,6 +8460,27 @@ paths:
       summary: Stream failover events (server-sent events)
       tags:
       - failover
+  /api/fine-tuning/status:
+    get:
+      description: Returns model_exports=false when this instance does not share the
+        models path of the add-on owner. The value is the same as the model_exports
+        key of GET /api/features.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ModelExportsStatus'
+        "503":
+          description: add-ons are off or the owner is not reachable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Report whether model exports are allowed
+      tags:
+      - fine-tuning
+      - quantization
   /api/instructions:
     get:
       description: Returns a compact list of instruction areas with descriptions and
@@ -9190,6 +9220,27 @@ paths:
       summary: Redact PII in a string by applying the configured policy.
       tags:
       - pii
+  /api/quantization/status:
+    get:
+      description: Returns model_exports=false when this instance does not share the
+        models path of the add-on owner. The value is the same as the model_exports
+        key of GET /api/features.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ModelExportsStatus'
+        "503":
+          description: add-ons are off or the owner is not reachable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Report whether model imports are allowed
+      tags:
+      - fine-tuning
+      - quantization
   /api/router/{name}/corpus:
     delete:
       parameters:

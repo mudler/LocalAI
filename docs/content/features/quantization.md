@@ -69,6 +69,9 @@ curl -X POST http://localhost:8080/api/quantization/jobs/{job_id}/import \
 | `POST` | `/api/quantization/jobs/:id/import` | Import quantized model into LocalAI |
 | `GET` | `/api/quantization/jobs/:id/download` | Download quantized GGUF file |
 | `GET` | `/api/quantization/backends` | List available quantization backends |
+| `GET` | `/api/quantization/status` | Whether model imports are allowed on this instance |
+
+`GET /api/fine-tuning/status` and `GET /api/quantization/status` return `{"model_exports": true|false}`. The value is `false` only when this instance does not see the models path of the add-on owner; it is the same value as the `model_exports` key of `GET /api/features`. The Web UI disables the import controls while it is `false`. Both routes need an authenticated user and answer `503` when add-ons are off.
 
 ### Job Request Fields
 

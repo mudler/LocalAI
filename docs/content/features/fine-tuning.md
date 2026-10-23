@@ -78,6 +78,7 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs/{job_id}/export \
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/api/fine-tuning/status` | Whether model exports are allowed on this instance (`{"model_exports": bool}`) |
 | `POST` | `/api/fine-tuning/jobs` | Start a fine-tuning job |
 | `GET` | `/api/fine-tuning/jobs` | List all jobs |
 | `GET` | `/api/fine-tuning/jobs/:id` | Get job details |
@@ -86,6 +87,8 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs/{job_id}/export \
 | `GET` | `/api/fine-tuning/jobs/:id/checkpoints` | List checkpoints |
 | `POST` | `/api/fine-tuning/jobs/:id/export` | Export model |
 | `POST` | `/api/fine-tuning/datasets` | Upload dataset file |
+
+`GET /api/fine-tuning/status` and `GET /api/quantization/status` return `{"model_exports": true|false}`. The value is `false` only when this instance does not see the models path of the add-on owner; it is the same value as the `model_exports` key of `GET /api/features`. The Web UI disables the export controls while it is `false`. Both routes need an authenticated user and answer `503` when add-ons are off.
 
 ### Job Request Fields
 

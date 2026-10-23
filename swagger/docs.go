@@ -3941,6 +3941,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/fine-tuning/status": {
+            "get": {
+                "description": "Returns model_exports=false when this instance does not share the models path of the add-on owner. The value is the same as the model_exports key of GET /api/features.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "fine-tuning",
+                    "quantization"
+                ],
+                "summary": "Report whether model exports are allowed",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelExportsStatus"
+                        }
+                    },
+                    "503": {
+                        "description": "add-ons are off or the owner is not reachable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/instructions": {
             "get": {
                 "description": "Returns a compact list of instruction areas with descriptions and URLs for detailed guides",
@@ -4981,6 +5009,34 @@ const docTemplate = `{
                         "description": "Redacted text + entities",
                         "schema": {
                             "$ref": "#/definitions/schema.PIIRedactResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/quantization/status": {
+            "get": {
+                "description": "Returns model_exports=false when this instance does not share the models path of the add-on owner. The value is the same as the model_exports key of GET /api/features.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "fine-tuning",
+                    "quantization"
+                ],
+                "summary": "Report whether model imports are allowed",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelExportsStatus"
+                        }
+                    },
+                    "503": {
+                        "description": "add-ons are off or the owner is not reachable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10216,6 +10272,15 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/library.Info"
                     }
+                }
+            }
+        },
+        "localai.ModelExportsStatus": {
+            "type": "object",
+            "properties": {
+                "model_exports": {
+                    "description": "ModelExports is false only when this instance does not see the models\npath of the add-on owner. It is the same value as the model_exports key\nof GET /api/features.",
+                    "type": "boolean"
                 }
             }
         },
