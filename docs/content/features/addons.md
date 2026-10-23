@@ -303,9 +303,13 @@ LocalAI does not check this.
 A process with `--addons-role=frontend` holds no add-on state. This has three
 consequences:
 
-- **Library sources are managed on the owner.** The frontend does not open the
-  `sources.json` file of the data path. It reads only the galleries named by
-  `--galleries` and `--backend-galleries`. Manage library sources on the owner.
+- **Library sources are managed only on the owner.** The frontend never opens,
+  creates or writes `sources.json` or anything else under the `addons` folder of
+  the data path. It reads only the galleries named by `--galleries` and
+  `--backend-galleries`. Every `/api/library/sources` route, reads included,
+  answers `503` with the same body as the other add-on routes when the owner
+  cannot be used, and an `X-LocalAI-Reason` header says that library sources are
+  managed on the add-on owner. Use the owner to list or change them.
 - **Backend library routes are not served by frontends.** The routes that list or
   install backends from a library, and the library update checks, need the owner's
   sources, so a frontend does not serve them.

@@ -38,3 +38,14 @@ func AddonsUnavailable() echo.HandlerFunc {
 		return nil
 	}
 }
+
+// LibrarySourcesOnOwner is the handler of the library-source routes on a
+// frontend. The body is the add-on unavailable response; the header names the
+// reason, because that body carries no text.
+func LibrarySourcesOnOwner() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		c.Response().Header().Set("X-LocalAI-Reason", "library sources are managed on the add-on owner")
+		gateway.WriteUnavailable(c.Response())
+		return nil
+	}
+}

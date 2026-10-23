@@ -2,11 +2,13 @@ package application
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/xlog"
 )
 
@@ -16,6 +18,9 @@ import (
 // otherwise the store file under the data path is opened once. It is the file
 // `local-ai library` edits.
 func (a *Application) LibrarySources() (*catalog.Sources, error) {
+	if a.AddonFrontend() {
+		return nil, fmt.Errorf("%w: library sources are managed on the add-on owner", gateway.ErrUnavailable)
+	}
 	if a.addonSources != nil {
 		return a.addonSources, nil
 	}
@@ -40,6 +45,10 @@ func (a *Application) LibrarySources() (*catalog.Sources, error) {
 // It is called after the HTTP routes change a
 // source and after the official_libraries setting changes.
 func (a *Application) ApplyLibraries(dropped ...string) error {
+	if a.AddonFrontend() {
+		// A frontend reads only the galleries of its flags and keeps no store.
+		return nil
+	}
 	store, err := a.LibrarySources()
 	if err != nil {
 		return err
@@ -64,7 +73,7 @@ func (a *Application) ApplyLibraries(dropped ...string) error {
 // libraries off. The command line default is on, so this only acts on a saved
 // setting.
 func applyOfficialLibrariesAtStartup(cfg *config.ApplicationConfig) {
-	if cfg.OfficialLibraries || cfg.DataPath == "" {
+	if cfg.OfficialLibraries || cfg.DataPath == "" || cfg.Addons.IsFrontend() {
 		return
 	}
 	store, err := catalog.OpenStore(catalog.StorePath(cfg.DataPath))
@@ -74,4 +83,10 @@ func applyOfficialLibrariesAtStartup(cfg *config.ApplicationConfig) {
 	}
 	store.SetOfficial(false)
 	cfg.Galleries, cfg.BackendGalleries = library.Reconcile(store, cfg.Galleries, cfg.BackendGalleries)
+}
+
+// AddonFrontend says whether this process is an add-on frontend. It keeps no
+// owner state: nothing under the add-ons folder of the data path is opened.
+func (a *Application) AddonFrontend() bool {
+	return a != nil && a.applicationConfig != nil && a.applicationConfig.Addons.IsFrontend()
 }

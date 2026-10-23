@@ -679,6 +679,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		cancelRun(nil)
 		return err
 	}
+	addonCfg.Frontend = r.AddonsRole == addonRoleFrontend
 	if addonCfg.Enabled && r.AddonsRole == addonRoleFrontend && !authEnabled {
 		xlog.Warn("This add-on frontend has no account database, so its add-on pins are kept in this process only and differ between frontends")
 	}
@@ -687,6 +688,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		addonCfg.OfficialBackendLibrary = r.AddonsBackendLibrary
 		addonCfg.BackendMaxBytes = r.AddonsBackendMaxBytes
 		opts = append(opts, config.WithAddons(addonCfg))
+	} else if addonCfg.Frontend {
+		// Add-ons are off, but the role still forbids owner state.
+		opts = append(opts, config.WithAddons(config.AddonConfig{Frontend: true}))
 	}
 	if authEnabled {
 		opts = append(opts, config.WithAuthEnabled(true))

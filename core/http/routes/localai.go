@@ -23,6 +23,34 @@ import (
 	echoswagger "github.com/swaggo/echo-swagger"
 )
 
+// RegisterLibrarySourceRoutes registers the library-source routes. A frontend
+// registers refusals instead, so it never touches the owner's store.
+func RegisterLibrarySourceRoutes(router *echo.Echo, app *application.Application, appConfig *config.ApplicationConfig, adminMiddleware echo.MiddlewareFunc) {
+	librarySources := localai.LibrarySourcesEndpoints{
+		Store:    app.LibrarySources,
+		Official: func() bool { return appConfig.OfficialLibraries },
+		Applied:  app.ApplyLibraries,
+	}
+	if app.AddonFrontend() {
+		// Owner state lives on the owner only. A frontend refuses every
+		// library route, reads included, with the add-on unavailable body.
+		refuse := middleware.LibrarySourcesOnOwner()
+		router.GET("/api/library/sources", refuse, adminMiddleware)
+		router.POST("/api/library/sources", refuse, adminMiddleware)
+		router.POST("/api/library/sources/:id/enable", refuse, adminMiddleware)
+		router.POST("/api/library/sources/:id/disable", refuse, adminMiddleware)
+		router.PUT("/api/library/sources/:id", refuse, adminMiddleware)
+		router.DELETE("/api/library/sources/:id", refuse, adminMiddleware)
+	} else {
+		router.GET("/api/library/sources", librarySources.List(), adminMiddleware)
+		router.POST("/api/library/sources", librarySources.Add(), adminMiddleware)
+		router.POST("/api/library/sources/:id/enable", librarySources.SetEnabled(true), adminMiddleware)
+		router.POST("/api/library/sources/:id/disable", librarySources.SetEnabled(false), adminMiddleware)
+		router.PUT("/api/library/sources/:id", librarySources.Update(), adminMiddleware)
+		router.DELETE("/api/library/sources/:id", librarySources.Remove(), adminMiddleware)
+	}
+}
+
 func RegisterLocalAIRoutes(router *echo.Echo,
 	requestExtractor *middleware.RequestExtractor,
 	cl *config.ModelConfigLoader,
@@ -45,17 +73,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// Library sources of the add-on, backend and model kinds: the same store
 	// and functions as `local-ai library`. Administrators only.
-	librarySources := localai.LibrarySourcesEndpoints{
-		Store:    app.LibrarySources,
-		Official: func() bool { return appConfig.OfficialLibraries },
-		Applied:  app.ApplyLibraries,
-	}
-	router.GET("/api/library/sources", librarySources.List(), adminMiddleware)
-	router.POST("/api/library/sources", librarySources.Add(), adminMiddleware)
-	router.POST("/api/library/sources/:id/enable", librarySources.SetEnabled(true), adminMiddleware)
-	router.POST("/api/library/sources/:id/disable", librarySources.SetEnabled(false), adminMiddleware)
-	router.PUT("/api/library/sources/:id", librarySources.Update(), adminMiddleware)
-	router.DELETE("/api/library/sources/:id", librarySources.Remove(), adminMiddleware)
+	RegisterLibrarySourceRoutes(router, app, appConfig, adminMiddleware)
 
 	motion := localai.NewMotionEndpoints(app)
 	router.POST("/api/motion/sessions", motion.Create)
