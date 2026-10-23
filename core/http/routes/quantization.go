@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	httpMiddleware "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services/quantization"
 )
 
@@ -28,7 +29,7 @@ func RegisterQuantizationRoutes(e *echo.Echo, qService *quantization.Quantizatio
 		}
 	}
 
-	q := e.Group("/api/quantization", readyMw, quantizationMw)
+	q := e.Group("/api/quantization", httpMiddleware.RequireAddonsFeature(app), readyMw, quantizationMw)
 	q.GET("/backends", localai.ListQuantizationBackendsEndpoint(appConfig, ClusterCapabilityProviderFor(app), ClusterInstalledProviderFor(app)))
 	q.POST("/jobs", localai.StartQuantizationJobEndpoint(qService))
 	q.GET("/jobs", localai.ListQuantizationJobsEndpoint(qService))
