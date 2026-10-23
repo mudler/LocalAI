@@ -1,6 +1,7 @@
 package model_test
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -45,6 +46,48 @@ func (m *mockProcessManager) ShutdownModelForce(modelName string) error {
 		return err
 	}
 	return nil
+}
+
+// setShutdownError and clearShutdownError are safe to call while a running
+// watchdog is shutting models down.
+func (m *mockProcessManager) setShutdownError(modelName string, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.shutdownErrors[modelName] = err
+}
+
+func (m *mockProcessManager) clearShutdownError(modelName string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.shutdownErrors, modelName)
+}
+
+// residencyProcessManager also answers whether the loader still holds a model,
+// like ModelLoader.HasModelAtAddress. It lets a test model a shutdown that
+// returns an error after the loader already dropped the model.
+type residencyProcessManager struct {
+	*mockProcessManager
+	resMu    sync.Mutex
+	resident map[string]bool // keyed by model+"@"+address
+}
+
+func newResidencyProcessManager() *residencyProcessManager {
+	return &residencyProcessManager{
+		mockProcessManager: newMockProcessManager(),
+		resident:           map[string]bool{},
+	}
+}
+
+func (r *residencyProcessManager) setResident(modelName, address string, resident bool) {
+	r.resMu.Lock()
+	defer r.resMu.Unlock()
+	r.resident[modelName+"@"+address] = resident
+}
+
+func (r *residencyProcessManager) HasModelAtAddress(modelName, address string) bool {
+	r.resMu.Lock()
+	defer r.resMu.Unlock()
+	return r.resident[modelName+"@"+address]
 }
 
 func (m *mockProcessManager) getShutdownCalls() []string {
@@ -759,6 +802,60 @@ var _ = Describe("WatchDog", func() {
 			Expect(pm.getShutdownCalls()).To(ContainElement("stuckModel"))
 			Expect(pm.getGracefulShutdownCalls()).To(BeEmpty())
 		})
+
+		It("keeps tracking a stuck model whose force shutdown failed", func() {
+			pm.setShutdownError("stuckModel", errors.New("waiting to shut down model: context deadline exceeded"))
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithBusyTimeout(10*time.Millisecond),
+				model.WithBusyCheck(true),
+				model.WithWatchdogInterval(20*time.Millisecond),
+			)
+
+			wd.AddAddressModelMap("addr1", "stuckModel")
+			wd.Mark("addr1")
+
+			go wd.Run()
+			defer wd.Shutdown()
+
+			Eventually(func() []string {
+				return pm.getForceShutdownCalls()
+			}, "300ms", "10ms").Should(ContainElement("stuckModel"))
+			// The backend still runs: the watchdog must not forget it.
+			Consistently(func() map[string]string {
+				return wd.GetState().AddressModelMap
+			}, "100ms", "10ms").Should(HaveKeyWithValue("addr1", "stuckModel"))
+		})
+	})
+
+	Context("Idle shutdown failure", func() {
+		It("keeps tracking an idle model that could not be stopped, then stops it once it can", func() {
+			pm.setShutdownError("idleModel", errors.New("waiting to shut down model: context deadline exceeded"))
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithIdleTimeout(10*time.Millisecond),
+				model.WithIdleCheck(true),
+				model.WithWatchdogInterval(20*time.Millisecond),
+			)
+
+			wd.AddAddressModelMap("addr1", "idleModel")
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+
+			go wd.Run()
+			defer wd.Shutdown()
+
+			Eventually(func() []string {
+				return pm.getShutdownCalls()
+			}, "300ms", "10ms").Should(ContainElement("idleModel"))
+			Expect(wd.GetState().AddressModelMap).To(HaveKeyWithValue("addr1", "idleModel"),
+				"the backend still runs, the watchdog must still know it")
+
+			pm.clearShutdownError("idleModel") // the lifecycle lock is released
+			Eventually(func() map[string]string {
+				return wd.GetState().AddressModelMap
+			}, "500ms", "10ms").ShouldNot(HaveKey("addr1"))
+		})
 	})
 
 	Context("Concurrency Groups", func() {
@@ -935,6 +1032,111 @@ var _ = Describe("WatchDog", func() {
 				Expect(pm.getShutdownCalls()).To(ConsistOf("a"))
 			})
 		})
+
+		Describe("a failed shutdown", func() {
+			// Reproduces a production incident: the eviction of a model timed out
+			// waiting for its lifecycle lock, the model kept running and kept its
+			// VRAM, but it had already been dropped from the watchdog. The next
+			// load saw no conflict and ran out of memory.
+			BeforeEach(func() {
+				wd = model.NewWatchDog(model.WithProcessManager(pm), model.WithLRULimit(1))
+				wd.ReplaceModelGroups(map[string][]string{
+					"a": {"heavy"},
+					"b": {"heavy"},
+				})
+				pm.shutdownErrors["a"] = errors.New("waiting to shut down model: context deadline exceeded")
+				wd.AddAddressModelMap("addrA", "a")
+				wd.Mark("addrA")
+				wd.UnMark("addrA")
+			})
+
+			It("keeps tracking a model a group eviction could not stop", func() {
+				result := wd.EnforceGroupExclusivity("b")
+
+				Expect(result.EvictedCount).To(Equal(0), "nothing was actually stopped")
+				Expect(result.NeedMore).To(BeTrue(), "the conflict is unresolved, the caller must keep waiting")
+				Expect(wd.GetLoadedModelCount()).To(Equal(1), "a is still running, it must stay tracked")
+			})
+
+			It("still sees the model as a conflict on the next attempt", func() {
+				Expect(wd.EnforceGroupExclusivity("b").NeedMore).To(BeTrue())
+
+				delete(pm.shutdownErrors, "a") // the lock is free this time
+				result := wd.EnforceGroupExclusivity("b")
+				Expect(result.EvictedCount).To(Equal(1))
+				Expect(result.NeedMore).To(BeFalse())
+				Expect(wd.GetLoadedModelCount()).To(Equal(0))
+			})
+
+			It("keeps tracking a model an LRU eviction could not stop", func() {
+				wd.AddAddressModelMap("addrB", "b")
+				wd.Mark("addrB")
+				wd.UnMark("addrB")
+
+				// Limit 1 with two models loaded: both must go to make room.
+				// a refuses to stop, b stops normally.
+				result := wd.EnforceLRULimit(0)
+
+				Expect(result.EvictedCount).To(Equal(1), "only b was really stopped")
+				Expect(result.NeedMore).To(BeTrue(), "a still holds its memory, the room does not exist yet")
+				Expect(wd.GetLoadedModelCount()).To(Equal(1), "the model that would not stop is still tracked")
+				Expect(wd.GetState().AddressModelMap).To(HaveKeyWithValue("addrA", "a"))
+			})
+
+			It("untracks a model that really was stopped", func() {
+				delete(pm.shutdownErrors, "a")
+				Expect(wd.EnforceGroupExclusivity("b").EvictedCount).To(Equal(1))
+				Expect(wd.GetLoadedModelCount()).To(Equal(0))
+			})
+
+			It("treats a model that is already gone as stopped", func() {
+				pm.shutdownErrors["a"] = model.ErrModelNotFound
+				Expect(wd.EnforceGroupExclusivity("b").EvictedCount).To(Equal(1))
+				Expect(wd.GetLoadedModelCount()).To(Equal(0))
+			})
+		})
+
+		Describe("a shutdown error after the loader dropped the model", func() {
+			// deleteProcess removes the store entry before it returns an error
+			// for a failed remote unload (or the remote half of a local+remote
+			// placement). Tracking such a model again would leave a phantom
+			// entry that is counted as loaded and as a group conflict.
+			var rpm *residencyProcessManager
+
+			BeforeEach(func() {
+				rpm = newResidencyProcessManager()
+				wd = model.NewWatchDog(model.WithProcessManager(rpm), model.WithLRULimit(1))
+				wd.ReplaceModelGroups(map[string][]string{
+					"a": {"heavy"},
+					"b": {"heavy"},
+				})
+				rpm.shutdownErrors["a"] = errors.New("unloading remote placements for model \"a\": node unreachable")
+				wd.AddAddressModelMap("addrA", "a")
+				wd.Mark("addrA")
+				wd.UnMark("addrA")
+			})
+
+			It("does not track it again when the loader no longer holds it", func() {
+				rpm.setResident("a", "addrA", false)
+
+				result := wd.EnforceGroupExclusivity("b")
+
+				Expect(result.NeedMore).To(BeTrue(), "the stop did report an error")
+				Expect(wd.GetLoadedModelCount()).To(Equal(0), "the loader dropped a, no phantom entry may remain")
+			})
+
+			It("still tracks it again when the loader still holds it", func() {
+				rpm.setResident("a", "addrA", true)
+
+				result := wd.EnforceGroupExclusivity("b")
+
+				Expect(result.EvictedCount).To(Equal(0))
+				Expect(result.NeedMore).To(BeTrue())
+				Expect(wd.GetState().AddressModelMap).To(HaveKeyWithValue("addrA", "a"),
+					"a is still held by the loader and may still run")
+			})
+		})
+
 	})
 
 	Context("Functional Options", func() {

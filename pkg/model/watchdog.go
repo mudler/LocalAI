@@ -471,6 +471,98 @@ type evictionTarget struct {
 	address string
 	model   string
 	wasBusy bool
+
+	// tracked is what untrack removed for this address, kept so a shutdown that
+	// fails can put it back. Every eviction path captures it before untrack;
+	// nil only when the address was not tracked.
+	tracked *trackedState
+}
+
+// trackedState is a snapshot of everything the watchdog knows about one backend
+// address. An eviction untracks the backend before it is stopped, so a stop that
+// fails (typically a lifecycle lock held by a long model load) would otherwise
+// leave a backend that is still running and still holding its VRAM invisible to
+// the group and LRU checks: the next load sees no conflict and runs out of memory.
+type trackedState struct {
+	model          string
+	process        *process.Process
+	busyTime       time.Time
+	hasBusy        bool
+	inFlight       int
+	requestStarts  map[uint64]time.Time
+	legacyRequests []uint64
+	idleTime       time.Time
+	hasIdle        bool
+	lastUsed       time.Time
+	hasLastUsed    bool
+	size           int64
+	hasSize        bool
+}
+
+// snapshotLocked captures the tracking state of an address. Must be called with
+// wd.Lock() held, before untrack.
+func (wd *WatchDog) snapshotLocked(address string) *trackedState {
+	model, ok := wd.addressModelMap[address]
+	if !ok {
+		return nil
+	}
+	s := &trackedState{model: model, process: wd.addressMap[address], inFlight: wd.inFlight[address]}
+	s.busyTime, s.hasBusy = wd.busyTime[address]
+	s.idleTime, s.hasIdle = wd.idleTime[address]
+	s.lastUsed, s.hasLastUsed = wd.lastUsed[address]
+	s.size, s.hasSize = wd.modelSizes[model]
+	if starts := wd.requestStarts[address]; starts != nil {
+		s.requestStarts = make(map[uint64]time.Time, len(starts))
+		for id, t := range starts {
+			s.requestStarts[id] = t
+		}
+	}
+	s.legacyRequests = slices.Clone(wd.legacyRequests[address])
+	return s
+}
+
+// restoreTracked puts a snapshot back after the backend it describes could not
+// be stopped. It does nothing when the address was re-registered in the
+// meantime: a replacement backend already owns the address and must win.
+func (wd *WatchDog) restoreTracked(address string, s *trackedState) {
+	if s == nil {
+		return
+	}
+	wd.Lock()
+	defer wd.Unlock()
+	if _, taken := wd.addressModelMap[address]; taken {
+		return
+	}
+	wd.addressModelMap[address] = s.model
+	if s.process != nil {
+		wd.addressMap[address] = s.process
+	}
+	if s.hasBusy {
+		wd.busyTime[address] = s.busyTime
+	}
+	if s.inFlight > 0 {
+		wd.inFlight[address] = s.inFlight
+	}
+	if len(s.requestStarts) > 0 {
+		wd.requestStarts[address] = s.requestStarts
+	}
+	if len(s.legacyRequests) > 0 {
+		wd.legacyRequests[address] = s.legacyRequests
+	}
+	if s.hasIdle {
+		wd.idleTime[address] = s.idleTime
+	}
+	if s.hasLastUsed {
+		wd.lastUsed[address] = s.lastUsed
+	}
+	if s.hasSize {
+		// untrack dropped the estimate only when no other address served this
+		// model; never overwrite one a replacement has registered since.
+		if _, ok := wd.modelSizes[s.model]; !ok {
+			wd.modelSizes[s.model] = s.size
+		}
+	}
+	xlog.Warn("[WatchDog] model could not be stopped, tracking it again", "model", s.model, "address", address)
 }
 
 // EnforceLRULimitResult contains the result of LRU enforcement
@@ -544,14 +636,19 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 	// Now shutdown models without holding the watchdog lock to prevent
 	// deadlock. Busy targets go through the force path so the loader doesn't
 	// wait on their stuck in-flight call (which would re-deadlock here).
-	wd.shutdownEvicted(modelsToShutdown, "LRU eviction")
+	stopped := wd.shutdownEvictedStopped(modelsToShutdown, "LRU eviction")
+	if stopped < len(modelsToShutdown) {
+		// A backend that would not stop is still running and still holds its
+		// memory, so the room asked for does not exist yet.
+		needMore = true
+	}
 
 	if needMore {
-		xlog.Warn("[WatchDog] LRU eviction incomplete", "evicted", len(modelsToShutdown), "needed", modelsToEvict, "skippedBusy", skippedBusyCount, "reason", "some models are busy with active API calls")
+		xlog.Warn("[WatchDog] LRU eviction incomplete", "evicted", stopped, "needed", modelsToEvict, "skippedBusy", skippedBusyCount, "reason", "some models are busy with active API calls or could not be stopped")
 	}
 
 	return EnforceLRULimitResult{
-		EvictedCount: len(modelsToShutdown),
+		EvictedCount: stopped,
 		NeedMore:     needMore,
 	}
 }
@@ -576,7 +673,7 @@ func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvi
 			continue
 		}
 		xlog.Info("[WatchDog] evicting model", "model", m.model, "busy", isBusy)
-		evicted = append(evicted, evictionTarget{address: m.address, model: m.model, wasBusy: isBusy})
+		evicted = append(evicted, evictionTarget{address: m.address, model: m.model, wasBusy: isBusy, tracked: wd.snapshotLocked(m.address)})
 		wd.untrack(m.address)
 	}
 	return evicted, skippedBusy
@@ -586,13 +683,48 @@ func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvi
 // that were busy at selection time so a stuck in-flight call does not consume
 // the graceful shutdown deadline.
 func (wd *WatchDog) shutdownEvicted(targets []evictionTarget, label string) {
+	wd.shutdownEvictedStopped(targets, label)
+}
+
+// shutdownEvictedStopped is shutdownEvicted that also reports how many models
+// were really stopped. A model that failed to stop is still running, so it is
+// tracked again and not counted: callers use the count to decide whether the
+// room they asked for exists, and counting a backend that still holds its VRAM
+// would let the next load start next to it.
+func (wd *WatchDog) shutdownEvictedStopped(targets []evictionTarget, label string) (stopped int) {
 	for _, t := range targets {
 		err := wd.shutdownTarget(t)
-		if err != nil {
+		if err != nil && !errors.Is(err, ErrModelNotFound) {
 			xlog.Error("[WatchDog] error shutting down model during "+label, "error", err, "model", t.model, "busy", t.wasBusy)
+			if wd.stillResident(t) {
+				wd.restoreTracked(t.address, t.tracked)
+			} else {
+				// The loader already dropped the model before the error was
+				// returned (a failed remote unload, or the remote half of a
+				// local+remote placement). Tracking it again would leave a
+				// phantom entry that inflates LRU counts and group conflicts.
+				xlog.Warn("[WatchDog] model was already removed by the loader despite the shutdown error, not tracking it again", "model", t.model, "address", t.address)
+			}
+			continue
 		}
+		stopped++
 		xlog.Debug("[WatchDog] "+label+" complete", "model", t.model, "busy", t.wasBusy)
 	}
+	return stopped
+}
+
+// stillResident reports whether the backend an eviction target describes is
+// still held by the loader. A process manager that cannot answer is assumed to
+// still hold it: after a failed stop, tracking a backend that may still run is
+// the safe default, since forgetting it is what lets the next load run out of
+// memory.
+func (wd *WatchDog) stillResident(t evictionTarget) bool {
+	if pm, ok := wd.pm.(interface {
+		HasModelAtAddress(string, string) bool
+	}); ok {
+		return pm.HasModelAtAddress(t.model, t.address)
+	}
+	return true
 }
 
 // shutdownTarget retains the address selected under the watchdog lock. The
@@ -659,14 +791,19 @@ func (wd *WatchDog) EnforceGroupExclusivity(requestedModel string) EnforceLRULim
 	needMore := len(modelsToShutdown) < len(conflicts)
 	wd.Unlock()
 
-	wd.shutdownEvicted(modelsToShutdown, "group eviction")
+	stopped := wd.shutdownEvictedStopped(modelsToShutdown, "group eviction")
+	if stopped < len(modelsToShutdown) {
+		// A conflict that would not stop is still running and still holds its
+		// memory: report it as unresolved so the loader keeps waiting.
+		needMore = true
+	}
 
 	if needMore {
-		xlog.Warn("[WatchDog] Group eviction incomplete", "requested", requestedModel, "evicted", len(modelsToShutdown), "needed", len(conflicts), "skippedBusy", skippedBusyCount, "reason", "some conflicts are busy or pinned")
+		xlog.Warn("[WatchDog] Group eviction incomplete", "requested", requestedModel, "evicted", stopped, "needed", len(conflicts), "skippedBusy", skippedBusyCount, "reason", "some conflicts are busy, pinned or could not be stopped")
 	}
 
 	return EnforceLRULimitResult{
-		EvictedCount: len(modelsToShutdown),
+		EvictedCount: stopped,
 		NeedMore:     needMore,
 	}
 }
@@ -735,7 +872,7 @@ func (wd *WatchDog) checkIdle() {
 					continue
 				}
 				xlog.Warn("[WatchDog] Address is idle for too long, killing it", "address", address, "model", model)
-				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address})
+				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address, tracked: wd.snapshotLocked(address)})
 			} else {
 				xlog.Warn("[WatchDog] Address unresolvable", "address", address)
 			}
@@ -760,7 +897,7 @@ func (wd *WatchDog) checkBusy() {
 			model, ok := wd.addressModelMap[address]
 			if ok {
 				xlog.Warn("[WatchDog] Model is busy for too long, killing it", "model", model)
-				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address, wasBusy: true})
+				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address, wasBusy: true, tracked: wd.snapshotLocked(address)})
 			} else {
 				xlog.Warn("[WatchDog] Address unresolvable", "address", address)
 			}
@@ -891,9 +1028,19 @@ func (wd *WatchDog) evictLRUModel() {
 
 	wd.Unlock()
 
-	// Shutdown the model
-	if err := wd.shutdownTarget(evictionTarget{model: lruModel.model, address: lruModel.address, wasBusy: wasBusy}); err != nil && !errors.Is(err, ErrModelNotFound) {
+	// Shutdown the model. This path never untracks before the stop, so a
+	// failed stop of a backend that still runs keeps it tracked on its own.
+	target := evictionTarget{model: lruModel.model, address: lruModel.address, wasBusy: wasBusy}
+	if err := wd.shutdownTarget(target); err != nil && !errors.Is(err, ErrModelNotFound) {
 		xlog.Error("[WatchDog] error shutting down model during memory reclamation", "error", err, "model", lruModel.model)
+		if !wd.stillResident(target) {
+			// Same rule as shutdownEvictedStopped: the loader dropped the model
+			// before returning the error, so keeping the entry would leave a
+			// phantom that is counted as loaded.
+			wd.Lock()
+			wd.untrack(lruModel.address)
+			wd.Unlock()
+		}
 	} else {
 		// Untrack the model
 		wd.Lock()
