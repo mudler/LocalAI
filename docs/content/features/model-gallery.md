@@ -60,6 +60,20 @@ local-ai models install nemotron-3.5-bolt-e4b-q4
 To select a build explicitly, use `--variant nemotron-3.5-bolt-e4b-q4`
 or `--variant nemotron-3.5-bolt-e4b-q8`.
 
+### Flint INT4 GGUF
+
+[Recursive's official Flint Q4_1 build](https://huggingface.co/RecursiveSI/flint-int4-gguf)
+is available as a variant of `flint` for the llama.cpp backend.
+The 26 GB GGUF preserves the trained INT4 codes and includes the chat template.
+The publisher recommends at least 48 GB of unified memory on Apple Silicon.
+This entry uses a 32,768-token default context.
+
+Install this build explicitly:
+
+```bash
+local-ai models install flint --variant flint-int4-q4-1
+```
+
 ### MiniCPM-V 4.7 1B
 
 [MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
