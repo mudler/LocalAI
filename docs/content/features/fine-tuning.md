@@ -222,6 +222,8 @@ The old link `/app/fine-tune` keeps working. It opens the add-on page while the 
 
 The API does not change. The page calls `/api/fine-tuning/*` with the signed-in user's own session, and the server checks the fine-tuning permission on every call, so the add-on never widens what a user may do.
 
+With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/fine-tune` leads back to `/app`, and every path under `/api/fine-tuning` answers `503`. See [The addons feature gate](../addons/#the-addons-feature-gate).
+
 The add-on also offers tools to the chat: list jobs, propose a job, store a small dataset, read the status and the checkpoints of a job, stop a job and export a checkpoint as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or export it. A tool never starts, stops or exports anything by itself: it proposes the action and a person confirms it in an approval card. A model or a dataset given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `finetune.` prefix, and they run with the permissions of the person in the chat.
 
 ## Dataset Formats

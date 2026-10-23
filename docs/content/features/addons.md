@@ -84,7 +84,7 @@ loopback carrier with keys that are made at each start and never written to disk
 
 | Flag | Environment variable | Default | What it does |
 |---|---|---|---|
-| `--addons-enabled` | `LOCALAI_ADDONS_ENABLED` | `true` | Runs the addon owner. `--addons-enabled=false` turns it off completely: no owner starts, no addon runs, and every addon request is refused as unavailable. |
+| `--addons-enabled` | `LOCALAI_ADDONS_ENABLED` | `true` | Runs the addon owner. `--addons-enabled=false` turns it off completely: no owner starts, no addon runs, the UI hides the add-on entries, and every add-on, fine-tuning and quantization route answers `503`. See [The addons feature gate](#the-addons-feature-gate). |
 | `--addons-ownership-mode` | `LOCALAI_ADDONS_OWNERSHIP_MODE` | `local-owner` when authentication is off, `named-user` when it is on | `named-user` gives each account its own access. `local-owner` makes every caller share one owner. A value you set always wins over the default. Any other value stops startup with an error. |
 | `--addons-official-library` | `LOCALAI_ADDONS_OFFICIAL_LIBRARY` | `true` | Registers the [official library](#the-official-library) on the first start. `--addons-official-library=false` does not register it. |
 | `--addons-backend-library` | `LOCALAI_ADDONS_BACKEND_LIBRARY` | `true` | Registers the [backend library](#the-backend-library) on the first start, like the official library. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. `--addons-backend-library=false` starts without it and reads the backend gallery on every build. A library you remove stays removed. |
@@ -108,6 +108,42 @@ The `owner` and `frontend` roles split the owner from the frontends. The `fronte
 role does not create or open the `addons` folder of the data path. The key set for
 both roles comes from `local-ai util addons-carrier-keys`; see
 [Running the owner as its own workload](#running-the-owner-as-its-own-workload).
+
+### The addons feature gate
+
+Fine-tuning and quantization are add-ons, so `--addons-enabled=false` turns off all
+three. `GET /api/features` reports one key, `addons`, and the keys `fine_tuning`
+and `quantization` carry the same value. The key is `true` when add-ons are
+available on this instance:
+
+- In the `combined` and `owner` roles it is `true` when add-ons are enabled.
+- In the `frontend` role it is `true` when add-ons are enabled and the owner
+  answered a reachability call within 2 seconds. The answer is kept for 10 seconds,
+  so `/api/features` does not contact the owner on every request.
+
+While the key is `false`:
+
+- The UI shows no Add-ons entry, no pinned apps, and no fine-tuning or
+  quantization entry. `/app/addons`, `/app/fine-tune` and `/app/quantize` lead back
+  to `/app`. The UI does not call `/api/addons/pins` or `/api/addons/builtin`. A
+  server that sends no `addons` key counts as `true` in the UI.
+- Every path under `/api/addons`, `/api/fine-tuning` and `/api/quantization`
+  answers `503` with the same body, also for a path that does not exist. The
+  answer does not show which routes exist.
+- With `--addons-enabled=false` the handlers of these routes are not registered at
+  all. A `frontend` with `--addons-enabled=false` needs no `--addons-owner-address`
+  and no `--addons-carrier-dir`. It loads no keys and builds no carrier. If you set
+  `--addons-role`, `--addons-owner-address`, `--addons-owner-listen` or
+  `--addons-carrier-dir`, LocalAI ignores them and logs one line.
+
+This gate is for the whole instance. It does not replace the permission of each
+user: the `addons`, fine-tuning and quantization permissions of a user are checked
+after the gate.
+
+The reachability answer of a frontend is a per-instance observation and is not
+shared. Two frontends can disagree for up to 10 seconds after the owner goes up or
+down. A request through a frontend that still reports `true` gets the `503` of the
+carrier while the owner is down.
 
 ## Running the owner as its own workload
 
