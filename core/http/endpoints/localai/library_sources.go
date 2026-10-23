@@ -77,6 +77,7 @@ func storeError(c echo.Context, err error, id string) error {
 // @Tags library
 // @Produce json
 // @Success 200 {object} localai.LibrarySourcesResponse
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources [get]
 func (e LibrarySourcesEndpoints) List() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -96,6 +97,7 @@ func (e LibrarySourcesEndpoints) List() echo.HandlerFunc {
 // @Produce json
 // @Param id path string true "Source id"
 // @Success 200 {object} library.Info
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources/{id} [put]
 func (e LibrarySourcesEndpoints) Update() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -122,6 +124,7 @@ func (e LibrarySourcesEndpoints) Update() echo.HandlerFunc {
 // @Accept json
 // @Produce json
 // @Success 201 {object} library.Info
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources [post]
 func (e LibrarySourcesEndpoints) Add() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -144,6 +147,7 @@ func (e LibrarySourcesEndpoints) Add() echo.HandlerFunc {
 // @Produce json
 // @Param id path string true "Source id"
 // @Success 200 {object} library.Info
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources/{id}/enable [post]
 // @Router /api/library/sources/{id}/disable [post]
 func (e LibrarySourcesEndpoints) SetEnabled(enabled bool) echo.HandlerFunc {
@@ -167,6 +171,7 @@ func (e LibrarySourcesEndpoints) SetEnabled(enabled bool) echo.HandlerFunc {
 // @Produce json
 // @Param id path string true "Source id"
 // @Success 200 {object} map[string]any
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources/{id} [delete]
 func (e LibrarySourcesEndpoints) Remove() echo.HandlerFunc {
 	return func(c echo.Context) error {

@@ -1631,6 +1631,11 @@ definitions:
         type: string
       kind:
         $ref: '#/definitions/catalog.Kind'
+      mirrors:
+        description: Mirrors are the fallback addresses of the source, in order.
+        items:
+          type: string
+        type: array
       name:
         type: string
       policy:
@@ -8507,6 +8512,11 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/localai.LibrarySourcesResponse'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: List the library sources
       tags:
       - library
@@ -8524,6 +8534,11 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/library.Info'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Add a library source
       tags:
       - library
@@ -8546,7 +8561,39 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Remove a library source
+      tags:
+      - library
+    put:
+      consumes:
+      - application/json
+      description: Replaces the mirrors of a model or backend source; an empty list
+        clears them. Each mirror is an http(s), github:, oci:// or file:// address.
+        Administrators only.
+      parameters:
+      - description: Source id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/library.Info'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Change the mirrors of a library source
       tags:
       - library
   /api/library/sources/{id}/disable:
@@ -8565,6 +8612,11 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/library.Info'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Turn a library source on or off
       tags:
       - library
@@ -8584,6 +8636,11 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/library.Info'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Turn a library source on or off
       tags:
       - library
@@ -9793,6 +9850,11 @@ paths:
           description: the same backend is already being installed
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Install a backend from a library entry on this node.
       tags:
       - backends
@@ -9807,6 +9869,11 @@ paths:
                 $ref: '#/definitions/backendlib.Update'
               type: array
             type: object
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: List the installed library backends with a newer build in their library.
       tags:
       - backends
