@@ -51,8 +51,8 @@
     "manage": "Gestionar",
     "open": "Abrir",
     "stale": "No se pudo actualizar la lista. Lo que ves puede estar desactualizado.",
-    "start": "Iniciar",
-    "stop": "Detener",
+    "start": "Activar",
+    "stop": "Desactivar",
     "toolsMore_one": "y {{count}} más",
     "toolsMore_other": "y {{count}} más",
     "tools_one": "{{count}} herramienta",
@@ -117,13 +117,13 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Running",
+    "running": "Activado",
     "search": "Search add-ons",
     "status": {
       "failed": "failed",
       "starting": "starting"
     },
-    "stopped": "Stopped",
+    "stopped": "Desactivado",
     "unpin": "Unpin {{name}}"
   },
   "errors": {
@@ -135,12 +135,12 @@
     "unknownOutcome": "No se pudo confirmar el resultado. Comprueba el estado antes de volver a intentarlo."
   },
   "installed": {
-    "disable": "Deshabilitar",
-    "disabled": "Deshabilitado",
+    "disable": "Desactivar",
+    "disabled": "Desactivado",
     "emptyBody": "Instala un complemento desde la pestaña Explorar.",
     "emptyTitle": "No hay nada instalado",
-    "enable": "Habilitar",
-    "enabled": "Habilitado",
+    "enable": "Activar",
+    "enabled": "Activado",
     "generation": "Generación {{generation}}",
     "listLabel": "Complementos instalados",
     "loading": "Cargando complementos instalados",
@@ -169,7 +169,8 @@
       "urlCredentials": "La dirección no debe contener usuario ni contraseña.",
       "urlQuery": "La dirección no debe contener cadena de consulta ni fragmento.",
       "either": "Use the exact identity or the pattern, not both.",
-      "urlEmpty": "Enter the address of the index."
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "Habilitada",
@@ -182,14 +183,16 @@
       "url": "URL del catálogo",
       "identityRegex": "Signer identity pattern (optional)",
       "kind": "Kind",
-      "format": "Index format"
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
     "hints": {
       "id": "Letras minúsculas, dígitos y guiones. No se puede cambiar después.",
       "reference": "El nombre de una credencial que configuró el propietario. Nunca pegues aquí un token ni una contraseña.",
       "url": "Una dirección https sin credenciales ni cadena de consulta.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
-      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Actualizada {{when}}, {{count}} entradas",
     "lead": "Una biblioteca es un documento de catálogo que enumera complementos. Las credenciales nunca se escriben aquí: una biblioteca privada nombra una credencial que configuró el propietario.",
@@ -241,7 +244,13 @@
     "turnOff": "Turn off",
     "turnOn": "Turn on",
     "turnedOff": "Turned off {{name}}.",
-    "turnedOn": "Turned on {{name}}."
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "API del complemento",
@@ -332,18 +341,18 @@
   "state": {
     "failed": "Con error",
     "label": "Estado: {{state}}",
-    "running": "En ejecución",
+    "running": "Activado",
     "starting": "Iniciando",
-    "stopped": "Detenido",
+    "stopped": "Desactivado",
     "update-pending": "Actualización pendiente"
   },
   "supporting": "Las apps que tu propietario ejecuta por ti y las bibliotecas de las que provienen.",
   "tabs": {
-    "apps": "Apps",
-    "browse": "Explorar",
+    "apps": "Mis complementos",
+    "browse": "Buscar complementos",
     "installed": "Instalados",
     "label": "Secciones de complementos",
-    "libraries": "Bibliotecas"
+    "libraries": "Fuentes"
   },
   "title": "Complementos",
   "trust": {
@@ -588,5 +597,27 @@
       "network": "No se puede acceder a la red.",
       "unavailable": "El propietario del complemento no está disponible. Inténtalo de nuevo."
     }
+  },
+  "install": {
+    "stepsLabel": "Install steps",
+    "step": {
+      "resolving": "Resolve the library entry",
+      "verifying": "Verify the signature",
+      "size": "Check the image size",
+      "fetching": "Fetch the image",
+      "writing": "Write the metadata"
+    },
+    "state": {
+      "pending": "Waiting",
+      "active": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
   }
 }

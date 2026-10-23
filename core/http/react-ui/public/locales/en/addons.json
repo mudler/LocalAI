@@ -33,26 +33,26 @@
     }
   },
   "apps": {
-    "emptyBody": "When an administrator installs and enables an add-on, it appears here.",
-    "emptyTitle": "No apps yet",
+    "emptyBody": "When an administrator installs and turns on an add-on, it appears here.",
+    "emptyTitle": "No add-ons yet",
     "firstRun": {
-      "browse": "Browse add-ons",
-      "browseBody": "Pick an add-on from a library and install it.",
-      "browseTitle": "Browse and install.",
-      "libraryBody": "The official library is registered by default. You can add more under Libraries.",
-      "libraryTitle": "Choose a library.",
-      "startBody": "Start an installed add-on from its tile. Add-ons that were running start again with the server.",
-      "startTitle": "Start it.",
-      "title": "Welcome to Apps"
+      "browse": "Find add-ons",
+      "browseBody": "Pick an add-on from a source and install it.",
+      "browseTitle": "Find and install.",
+      "libraryBody": "The official source is added by default. You can add more under Sources.",
+      "libraryTitle": "Choose a source.",
+      "startBody": "Turn an installed add-on on from its card. Add-ons that were on start again with the server.",
+      "startTitle": "Turn it on.",
+      "title": "Welcome to Add-ons"
     },
     "headless": "Runs in the background and has no page of its own.",
-    "listLabel": "Apps",
-    "loading": "Loading apps",
+    "listLabel": "My add-ons",
+    "loading": "Loading add-ons",
     "manage": "Manage",
     "open": "Open",
     "stale": "The list could not be refreshed. What you see may be out of date.",
-    "start": "Start",
-    "stop": "Stop",
+    "start": "Turn on",
+    "stop": "Turn off",
     "toolsMore_one": "and {{count}} more",
     "toolsMore_other": "and {{count}} more",
     "tools_one": "{{count}} tool",
@@ -62,16 +62,16 @@
   },
   "browse": {
     "confirmBody": "Version {{version}} from the library {{library}} will be downloaded and verified before it is installed.",
-    "confirmNotEnabled": "Installing does not start the add-on. You enable it as a separate step.",
+    "confirmNotEnabled": "Installing does not turn the add-on on. You turn it on as a separate step.",
     "confirmTitle": "Install {{name}}?",
     "details": "Details",
     "detailsLead": "Library entry for {{id}}",
-    "emptyBody": "Add a library on the Libraries tab, then refresh it.",
+    "emptyBody": "Add a source on the Sources tab, then refresh it.",
     "emptyTitle": "No library entries found",
     "fromLibrary": "from {{library}}",
     "install": "Install",
     "installedDetail": "Version {{version}}, generation {{generation}}",
-    "installedNotEnabled": "Installed. It is not enabled: enable it on the Installed tab when you are ready.",
+    "installedNotEnabled": "Installed. It is off: turn it on from My add-ons when you are ready.",
     "installedOther": "Installed {{version}} (another version)",
     "installedSame": "Installed {{version}}",
     "installedState": "Installed",
@@ -106,8 +106,8 @@
     "search": "Search"
   },
   "drawer": {
-    "add": "Add a new add-on",
-    "browse": "Browse add-ons",
+    "add": "Find add-ons",
+    "browse": "Find add-ons",
     "builtinDetail": "This add-on ships with LocalAI.",
     "close": "Close",
     "limitBody": "The sidebar shows at most eight pinned add-ons. Unpin one first.",
@@ -117,13 +117,13 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Running",
+    "running": "On",
     "search": "Search add-ons",
     "status": {
       "failed": "failed",
       "starting": "starting"
     },
-    "stopped": "Stopped",
+    "stopped": "Off",
     "unpin": "Unpin {{name}}"
   },
   "errors": {
@@ -135,12 +135,12 @@
     "unknownOutcome": "The result could not be confirmed. Check the status before you try again."
   },
   "installed": {
-    "disable": "Disable",
-    "disabled": "Disabled",
-    "emptyBody": "Install an add-on from the Browse tab.",
+    "disable": "Turn off",
+    "disabled": "Off",
+    "emptyBody": "Install an add-on from the Find add-ons tab.",
     "emptyTitle": "Nothing is installed",
-    "enable": "Enable",
-    "enabled": "Enabled",
+    "enable": "Turn on",
+    "enabled": "On",
     "generation": "Generation {{generation}}",
     "listLabel": "Installed add-ons",
     "loading": "Loading installed add-ons",
@@ -236,8 +236,8 @@
     "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
     "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
     "state": {
-      "enabled": "Enabled",
-      "disabled": "Disabled",
+      "enabled": "On",
+      "disabled": "Off",
       "removed": "Removed",
       "suspended": "Off (official libraries are off)"
     },
@@ -287,7 +287,7 @@
       "title": "This add-on is not available"
     },
     "reasons": {
-      "disabled": "The add-on was stopped. Start it again from the Add-ons page.",
+      "disabled": "The add-on is off. Turn it on from the Add-ons page.",
       "removed": "The add-on is not installed, or you can no longer use it.",
       "failed": "The add-on stopped responding. It is restarted automatically; reload to try again.",
       "updated": "The add-on was updated. Reload to use the new version.",
@@ -341,18 +341,18 @@
   "state": {
     "failed": "Failed",
     "label": "State: {{state}}",
-    "running": "Running",
+    "running": "On",
     "starting": "Starting",
-    "stopped": "Stopped",
+    "stopped": "Off",
     "update-pending": "Update pending"
   },
-  "supporting": "Apps your owner runs for you, and the libraries they come from.",
+  "supporting": "Add-ons extend LocalAI with pages and chat tools. Find one, turn it on, and use it.",
   "tabs": {
-    "apps": "Apps",
-    "browse": "Browse",
+    "apps": "My add-ons",
+    "browse": "Find add-ons",
     "installed": "Installed",
     "label": "Add-ons sections",
-    "libraries": "Libraries"
+    "libraries": "Sources"
   },
   "title": "Add-ons",
   "trust": {
@@ -438,7 +438,7 @@
     "purged": "The retained data was purged.",
     "purgeLead": "Purging removes retained data of this add-on for good. It is not the deletion of a database and not an uninstall.",
     "purgeTitle": "Purge retained data",
-    "purgeBody": "This removes what you select below and cannot be undone. The add-on must be uninstalled or disabled.",
+    "purgeBody": "This removes what you select below and cannot be undone. The add-on must be uninstalled or off.",
     "scope": "What to remove",
     "scopeData": "The data and every share of this add-on",
     "scopeBackups": "All backups ({{count}})",
@@ -450,7 +450,7 @@
     "warnAccess": "Shares are checked again: nobody gets back access that was taken away since the backup, or whose account is gone.",
     "warnProposals": "Proposals that were waiting are cancelled. Operations with an unknown outcome are looked up and never applied again.",
     "warnCopy": "The data that is replaced is kept as a recovery copy until you purge it.",
-    "stopFirst": "Stop the add-on first: disable it, then restore.",
+    "stopFirst": "Turn the add-on off first, then restore.",
     "mapping": "This backup was made in local-owner mode. Account ID that takes its data",
     "typeToConfirm": "Type {{id}} to confirm",
     "typeToConfirmLabel": "Type the add-on ID to confirm",
@@ -502,7 +502,7 @@
     },
     "errors": {
       "needs_recovery": "The data needs recovery first: restore a verified backup or purge it.",
-      "addon_running": "Stop the add-on first.",
+      "addon_running": "Turn the add-on off first.",
       "busy": "Another recovery operation is running for this add-on.",
       "backup_not_found": "That backup does not exist any more.",
       "not_installed": "The add-on is not installed.",

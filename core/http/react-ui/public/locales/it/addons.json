@@ -51,8 +51,8 @@
     "manage": "Gestisci",
     "open": "Apri",
     "stale": "Non è stato possibile aggiornare l'elenco. Quanto vedi potrebbe non essere aggiornato.",
-    "start": "Avvia",
-    "stop": "Ferma",
+    "start": "Attiva",
+    "stop": "Disattiva",
     "toolsMore_one": "e altri {{count}}",
     "toolsMore_other": "e altri {{count}}",
     "tools_one": "{{count}} strumento",
@@ -117,13 +117,13 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Running",
+    "running": "Attivo",
     "search": "Search add-ons",
     "status": {
       "failed": "failed",
       "starting": "starting"
     },
-    "stopped": "Stopped",
+    "stopped": "Disattivato",
     "unpin": "Unpin {{name}}"
   },
   "errors": {
@@ -135,12 +135,12 @@
     "unknownOutcome": "Non è stato possibile confermare il risultato. Controlla lo stato prima di riprovare."
   },
   "installed": {
-    "disable": "Disabilita",
-    "disabled": "Disabilitato",
+    "disable": "Disattiva",
+    "disabled": "Disattivato",
     "emptyBody": "Installa un componente dalla scheda Sfoglia.",
     "emptyTitle": "Nulla è installato",
-    "enable": "Abilita",
-    "enabled": "Abilitato",
+    "enable": "Attiva",
+    "enabled": "Attivo",
     "generation": "Generazione {{generation}}",
     "listLabel": "Componenti installati",
     "loading": "Caricamento dei componenti installati",
@@ -169,7 +169,8 @@
       "urlCredentials": "L'indirizzo non deve contenere nome utente o password.",
       "urlQuery": "L'indirizzo non deve contenere una stringa di query o un frammento.",
       "either": "Use the exact identity or the pattern, not both.",
-      "urlEmpty": "Enter the address of the index."
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "Abilitata",
@@ -182,14 +183,16 @@
       "url": "URL del catalogo",
       "identityRegex": "Signer identity pattern (optional)",
       "kind": "Kind",
-      "format": "Index format"
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
     "hints": {
       "id": "Lettere minuscole, cifre e trattini. Non può cambiare in seguito.",
       "reference": "Il nome di una credenziale configurata dal proprietario. Non incollare mai un token o una password qui.",
       "url": "Un indirizzo https senza credenziali né stringa di query.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
-      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Aggiornata {{when}}, {{count}} voci",
     "lead": "Una libreria è un documento di catalogo che elenca componenti. Le credenziali non si digitano mai qui: una libreria privata indica una credenziale configurata dal proprietario.",
@@ -241,7 +244,13 @@
     "turnOff": "Turn off",
     "turnOn": "Turn on",
     "turnedOff": "Turned off {{name}}.",
-    "turnedOn": "Turned on {{name}}."
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "API del componente",
@@ -332,18 +341,18 @@
   "state": {
     "failed": "Errore",
     "label": "Stato: {{state}}",
-    "running": "In esecuzione",
+    "running": "Attivo",
     "starting": "In avvio",
-    "stopped": "Fermo",
+    "stopped": "Disattivato",
     "update-pending": "Aggiornamento in attesa"
   },
   "supporting": "Le app che il proprietario esegue per te e le librerie da cui provengono.",
   "tabs": {
-    "apps": "App",
-    "browse": "Sfoglia",
+    "apps": "I miei componenti",
+    "browse": "Trova componenti",
     "installed": "Installati",
     "label": "Sezioni dei componenti aggiuntivi",
-    "libraries": "Librerie"
+    "libraries": "Fonti"
   },
   "title": "Componenti aggiuntivi",
   "trust": {
@@ -588,5 +597,27 @@
       "network": "La rete non è raggiungibile.",
       "unavailable": "Il proprietario del componente non è disponibile. Riprova."
     }
+  },
+  "install": {
+    "stepsLabel": "Install steps",
+    "step": {
+      "resolving": "Resolve the library entry",
+      "verifying": "Verify the signature",
+      "size": "Check the image size",
+      "fetching": "Fetch the image",
+      "writing": "Write the metadata"
+    },
+    "state": {
+      "pending": "Waiting",
+      "active": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
   }
 }

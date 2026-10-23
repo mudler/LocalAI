@@ -51,8 +51,8 @@
     "manage": "Gérer",
     "open": "Ouvrir",
     "stale": "La liste n'a pas pu être actualisée. Ce que vous voyez est peut-être périmé.",
-    "start": "Démarrer",
-    "stop": "Arrêter",
+    "start": "Activer",
+    "stop": "Désactiver",
     "toolsMore_one": "et {{count}} de plus",
     "toolsMore_many": "et {{count}} de plus",
     "toolsMore_other": "et {{count}} de plus",
@@ -78,7 +78,18 @@
     "installedSame": "{{version}} installée",
     "installedState": "Installé",
     "installing": "Installation en cours",
-    "search": "Rechercher dans les bibliothèques"
+    "search": "Rechercher dans les bibliothèques",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind"
   },
   "catalog": {
     "allLibraries": "Toutes les bibliothèques",
@@ -109,13 +120,13 @@
     "pin": "Épingler {{name}}",
     "pinLabel": "Épingler",
     "pinned": "Épinglé",
-    "running": "En cours d'exécution",
+    "running": "Activé",
     "search": "Rechercher des modules",
     "status": {
       "failed": "en échec",
       "starting": "démarrage"
     },
-    "stopped": "Arrêté",
+    "stopped": "Désactivé",
     "unpin": "Désépingler {{name}}"
   },
   "errors": {
@@ -159,7 +170,10 @@
       "required": "Obligatoire lorsqu'une signature est exigée.",
       "url": "Saisissez une adresse http ou https.",
       "urlCredentials": "L'adresse ne doit contenir ni nom d'utilisateur ni mot de passe.",
-      "urlQuery": "L'adresse ne doit contenir ni chaîne de requête ni fragment."
+      "urlQuery": "L'adresse ne doit contenir ni chaîne de requête ni fragment.",
+      "either": "Use the exact identity or the pattern, not both.",
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "Activée",
@@ -169,12 +183,19 @@
       "name": "Nom",
       "reference": "Référence d'identifiant (facultatif)",
       "requireSignature": "Exiger une signature",
-      "url": "URL du catalogue"
+      "url": "URL du catalogue",
+      "identityRegex": "Signer identity pattern (optional)",
+      "kind": "Kind",
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
     "hints": {
       "id": "Minuscules, chiffres et traits d'union. Il ne peut plus changer ensuite.",
       "reference": "Le nom d'un identifiant configuré par le propriétaire. Ne collez jamais un jeton ou un mot de passe ici.",
-      "url": "Une adresse https sans identifiants ni chaîne de requête."
+      "url": "Une adresse https sans identifiants ni chaîne de requête.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Actualisée {{when}}, {{count}} entrées",
     "lead": "Une bibliothèque est un document de catalogue qui liste des modules. Les identifiants ne se saisissent jamais ici : une bibliothèque privée nomme un identifiant configuré par le propriétaire.",
@@ -190,7 +211,49 @@
     "removeTitle": "Retirer {{name}} ?",
     "removed": "{{name}} retirée.",
     "save": "Enregistrer",
-    "saved": "{{name}} enregistrée."
+    "saved": "{{name}} enregistrée.",
+    "default": "Default",
+    "emptyKindBody": "Add a library of this kind, or pick another filter.",
+    "emptyKindTitle": "No libraries of this kind",
+    "formats": {
+      "library": "Library index",
+      "gallery": "Gallery index"
+    },
+    "gallery": "Gallery index",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend",
+      "model": "Model"
+    },
+    "kindFilter": "Filter by kind",
+    "kinds": {
+      "all": "All",
+      "addon": "Add-ons",
+      "backend": "Backends",
+      "model": "Models"
+    },
+    "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
+    "removeDefaultBody": "This is a default library that comes with LocalAI. It is removed from the list and stays removed at the next start. You can restore it from the list. Installed items are not touched.",
+    "removedDefault": "Removed {{name}}. It stays removed at the next start; restore it to bring it back.",
+    "restore": "Restore",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
+    "state": {
+      "enabled": "On",
+      "disabled": "Off",
+      "removed": "Removed",
+      "suspended": "Off (official libraries are off)"
+    },
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "turnedOff": "Turned off {{name}}.",
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "API des modules",
@@ -282,18 +345,18 @@
   "state": {
     "failed": "En échec",
     "label": "État : {{state}}",
-    "running": "En cours d'exécution",
+    "running": "Activé",
     "starting": "Démarrage",
-    "stopped": "Arrêté",
+    "stopped": "Désactivé",
     "update-pending": "Mise à jour en attente"
   },
   "supporting": "Les applications que votre propriétaire exécute pour vous, et les bibliothèques dont elles proviennent.",
   "tabs": {
-    "apps": "Applications",
-    "browse": "Parcourir",
+    "apps": "Mes add-ons",
+    "browse": "Trouver des add-ons",
     "installed": "Installés",
     "label": "Sections des modules",
-    "libraries": "Bibliothèques"
+    "libraries": "Sources"
   },
   "title": "Modules",
   "trust": {
@@ -538,5 +601,27 @@
       "network": "Le réseau est injoignable.",
       "unavailable": "Le propriétaire du module n'est pas disponible. Réessayez."
     }
+  },
+  "install": {
+    "stepsLabel": "Install steps",
+    "step": {
+      "resolving": "Resolve the library entry",
+      "verifying": "Verify the signature",
+      "size": "Check the image size",
+      "fetching": "Fetch the image",
+      "writing": "Write the metadata"
+    },
+    "state": {
+      "pending": "Waiting",
+      "active": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
   }
 }

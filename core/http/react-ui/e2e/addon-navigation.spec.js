@@ -26,13 +26,13 @@ async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true
 }
 
 test.describe('Add-on navigation', () => {
-  test('the sidebar lists the pinned apps under Apps, in pin order, and no Show all link', async ({ page }) => {
+  test('the sidebar lists the pinned apps under Add-ons, in pin order, and no Show all link', async ({ page }) => {
     await setup(page)
     await page.goto('/app')
     const nav = page.getByRole('navigation')
     await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
     // Apps, then the pinned apps in pin order; Apps is the only add-on entry.
-    await expect(nav.getByRole('link', { name: 'Apps', exact: true })).toHaveCount(1)
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
     const pinned = nav.getByTestId('apps-pinned-link')
     await expect(pinned).toHaveCount(2)
     await expect(pinned.nth(0)).toHaveAttribute('data-app', 'studio')
@@ -42,8 +42,8 @@ test.describe('Add-on navigation', () => {
     await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
     await expect(nav.getByText('Show all')).toHaveCount(0)
     const group = await nav.locator('a.nav-item').evaluateAll(els => els.map(e => e.textContent.trim()))
-    const at = group.indexOf('Apps')
-    expect(group.slice(at, at + 4)).toEqual(['Apps', 'Studio', 'Talk'])
+    const at = group.indexOf('Add-ons')
+    expect(group.slice(at, at + 4)).toEqual(['Add-ons', 'Studio', 'Talk'])
     await expect(pinned.nth(0)).toHaveAttribute('href', /\/app\/addons\/studio\//)
     // There is no Pinned section.
     await expect(page.getByTestId('pinned-nav')).toHaveCount(0)
@@ -59,12 +59,12 @@ test.describe('Add-on navigation', () => {
     await page.unroute('**/api/addons/pins')
     await page.route('**/api/addons/pins', route => route.fulfill({ json: [] }))
     await page.goto('/app')
-    await expect(nav.getByRole('link', { name: 'Apps', exact: true })).toHaveCount(1)
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
     await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
     await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
   })
 
-  test('the icon rail shows Apps only, centred, with no pinned app', async ({ page }) => {
+  test('the icon rail shows Add-ons only, centred, with no pinned app', async ({ page }) => {
     await setup(page)
     for (const size of [{ width: 1280, height: 800, collapsed: true }, { width: 1000, height: 800, collapsed: false }]) {
       await page.setViewportSize({ width: size.width, height: size.height })
@@ -85,10 +85,10 @@ test.describe('Add-on navigation', () => {
     }
   })
 
-  test('the Apps entry opens the drawer, where pinned add-ons are shown and their order can be changed', async ({ page }) => {
+  test('the Add-ons entry opens the drawer, where pinned add-ons are shown and their order can be changed', async ({ page }) => {
     const server = await setup(page, { pins: ['studio', 'talk'] })
     await page.goto('/app')
-    await page.getByRole('navigation').getByRole('link', { name: 'Apps' }).click()
+    await page.getByRole('navigation').getByRole('link', { name: 'Add-ons', exact: true }).click()
     await expect(page).toHaveURL(/\/app\/addons$/)
     await expect(page.getByTestId('addon-tile')).toHaveCount(2)
     await expect(page.getByTestId('pin-toggle')).toHaveCount(2)
@@ -148,9 +148,9 @@ test.describe('Add-on navigation', () => {
     const card = page.getByTestId('addons-first-run')
     await expect(card).toBeVisible()
     await expect(card.getByRole('listitem')).toHaveCount(3)
-    await expect(card).toContainText('official library is registered by default')
+    await expect(card).toContainText('official source is added by default')
     // One way into Browse while the card shows: the bar's button waits.
-    await expect(page.getByRole('link', { name: 'Browse add-ons' })).toHaveCount(1)
+    await expect(page.getByRole('link', { name: 'Find add-ons' })).toHaveCount(1)
     await expect(page.getByTestId('addons-add')).toHaveCount(0)
     await expect(page.getByTestId('addon-tile')).toHaveCount(0)
     await card.getByTestId('addons-first-run-browse').click()
@@ -169,7 +169,7 @@ test.describe('Add-on navigation', () => {
   test('the first-run card is hidden from a caller who cannot install add-ons', async ({ page }) => {
     await setup(page, { studio: false, pins: [] })
     await page.goto('/app/addons')
-    await expect(page.getByRole('heading', { name: 'No apps yet' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'No add-ons yet' })).toBeVisible()
     await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
   })
 
@@ -258,7 +258,7 @@ test.describe('Add-on navigation', () => {
     await setup(page, { apps: [app({ id: 'notes', title: 'Notes', enabled: false, state: 'stopped', admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=notes' } })] })
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor({ ...MEMBER, role: 'admin' }, { addons: true }) }))
     await page.goto('/app/addons?detail=notes')
-    await expect(page.getByTestId('addon-detail').getByRole('button', { name: 'Start' })).toBeVisible()
+    await expect(page.getByTestId('addon-detail').getByRole('button', { name: 'Turn on' })).toBeVisible()
   })
 
   test('the pin control has a visible focus state and a name', async ({ page }) => {

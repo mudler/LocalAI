@@ -51,8 +51,8 @@
     "manage": "管理",
     "open": "打开",
     "stale": "无法刷新列表,当前显示的内容可能已过时。",
-    "start": "启动",
-    "stop": "停止",
+    "start": "打开",
+    "stop": "关闭",
     "toolsMore_one": "and {{count}} more",
     "toolsMore_other": "另有 {{count}} 个",
     "tools_one": "{{count}} tool",
@@ -117,13 +117,13 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Running",
+    "running": "已打开",
     "search": "Search add-ons",
     "status": {
       "failed": "failed",
       "starting": "starting"
     },
-    "stopped": "Stopped",
+    "stopped": "已关闭",
     "unpin": "Unpin {{name}}"
   },
   "errors": {
@@ -135,12 +135,12 @@
     "unknownOutcome": "无法确认结果。请先检查状态,再重试。"
   },
   "installed": {
-    "disable": "禁用",
-    "disabled": "已禁用",
+    "disable": "关闭",
+    "disabled": "已关闭",
     "emptyBody": "请在“浏览”标签页安装附加组件。",
     "emptyTitle": "尚未安装任何内容",
-    "enable": "启用",
-    "enabled": "已启用",
+    "enable": "打开",
+    "enabled": "已打开",
     "generation": "第 {{generation}} 代",
     "listLabel": "已安装的附加组件",
     "loading": "正在加载已安装的附加组件",
@@ -169,7 +169,8 @@
       "urlCredentials": "地址不能包含用户名或密码。",
       "urlQuery": "地址不能包含查询字符串或片段。",
       "either": "Use the exact identity or the pattern, not both.",
-      "urlEmpty": "Enter the address of the index."
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "已启用",
@@ -182,14 +183,16 @@
       "url": "目录 URL",
       "identityRegex": "Signer identity pattern (optional)",
       "kind": "Kind",
-      "format": "Index format"
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
     "hints": {
       "id": "小写字母、数字和连字符,之后不能更改。",
       "reference": "所有者已配置的凭据名称。切勿在此粘贴令牌或密码。",
       "url": "不含凭据和查询字符串的 https 地址。",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
-      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "{{when}} 已刷新,{{count}} 个条目",
     "lead": "库是列出附加组件的目录文档。凭据绝不在此输入:私有库只引用所有者配置的凭据。",
@@ -241,7 +244,13 @@
     "turnOff": "Turn off",
     "turnOn": "Turn on",
     "turnedOff": "Turned off {{name}}.",
-    "turnedOn": "Turned on {{name}}."
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "附加组件 API",
@@ -332,18 +341,18 @@
   "state": {
     "failed": "失败",
     "label": "状态:{{state}}",
-    "running": "运行中",
+    "running": "已打开",
     "starting": "启动中",
-    "stopped": "已停止",
+    "stopped": "已关闭",
     "update-pending": "等待更新"
   },
   "supporting": "所有者为你运行的应用,以及它们的来源库。",
   "tabs": {
-    "apps": "应用",
-    "browse": "浏览",
+    "apps": "我的附加组件",
+    "browse": "查找附加组件",
     "installed": "已安装",
     "label": "附加组件分区",
-    "libraries": "库"
+    "libraries": "来源"
   },
   "title": "附加组件",
   "trust": {
@@ -588,5 +597,27 @@
       "network": "无法连接到网络。",
       "unavailable": "附加组件所有者不可用。请重试。"
     }
+  },
+  "install": {
+    "stepsLabel": "Install steps",
+    "step": {
+      "resolving": "Resolve the library entry",
+      "verifying": "Verify the signature",
+      "size": "Check the image size",
+      "fetching": "Fetch the image",
+      "writing": "Write the metadata"
+    },
+    "state": {
+      "pending": "Waiting",
+      "active": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
   }
 }

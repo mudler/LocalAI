@@ -2171,7 +2171,7 @@
       "regression: process adapter specs (pkg/model)",
       "foundation: a member opens the add-on through each non-owner frontend and its module comes from the owner by digest",
       "foundation: the owner and both frontends list the same add-on to the same account",
-      "foundation: a member sees the Apps list only and the server refuses every management request",
+      "foundation: a member sees the add-on list only and the server refuses every management request",
       "foundation: an account without the add-ons feature gets no apps and no code on any node",
       "foundation: an administrator manages through a frontend and the change is the owner's",
       "foundation: deep links of the add-on page work behind a proxy path prefix on a non-owner frontend",

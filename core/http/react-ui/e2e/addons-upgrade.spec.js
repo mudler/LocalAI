@@ -138,7 +138,7 @@ test.describe('Add-on updates and the explicit upgrade through the real owner', 
     await state.memberPage.goto('/app/addons')
     const card = state.memberPage.locator('[data-app="tables"]')
     await expect(card.getByTestId('update-chip')).toBeVisible({ timeout: 25_000 })
-    await expect(card.getByRole('img', { name: 'State: Running' })).toBeVisible()
+    await expect(card.getByRole('img', { name: 'State: On' })).toBeVisible()
     await shoot(state.memberPage, 'updates-pending-chip-1280', 'update-chip')
     const read = await pageFetch(state.memberPage, '/api/addons/tables/update')
     expect(read.status).toBe(200)

@@ -51,8 +51,8 @@
     "manage": "관리",
     "open": "열기",
     "stale": "목록을 새로 고칠 수 없습니다. 표시된 내용이 오래되었을 수 있습니다.",
-    "start": "시작",
-    "stop": "중지",
+    "start": "켜기",
+    "stop": "끄기",
     "toolsMore_one": "and {{count}} more",
     "toolsMore_other": "외 {{count}}개",
     "tools_one": "{{count}} tool",
@@ -117,13 +117,13 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Running",
+    "running": "켜짐",
     "search": "Search add-ons",
     "status": {
       "failed": "failed",
       "starting": "starting"
     },
-    "stopped": "Stopped",
+    "stopped": "꺼짐",
     "unpin": "Unpin {{name}}"
   },
   "errors": {
@@ -135,12 +135,12 @@
     "unknownOutcome": "결과를 확인할 수 없습니다. 다시 시도하기 전에 상태를 확인하세요."
   },
   "installed": {
-    "disable": "비활성화",
-    "disabled": "비활성화됨",
+    "disable": "끄기",
+    "disabled": "꺼짐",
     "emptyBody": "찾아보기 탭에서 애드온을 설치하세요.",
     "emptyTitle": "설치된 항목이 없습니다",
-    "enable": "활성화",
-    "enabled": "활성화됨",
+    "enable": "켜기",
+    "enabled": "켜짐",
     "generation": "세대 {{generation}}",
     "listLabel": "설치된 애드온",
     "loading": "설치된 애드온을 불러오는 중",
@@ -169,7 +169,8 @@
       "urlCredentials": "주소에 사용자 이름이나 비밀번호를 넣을 수 없습니다.",
       "urlQuery": "주소에 쿼리 문자열이나 프래그먼트를 넣을 수 없습니다.",
       "either": "Use the exact identity or the pattern, not both.",
-      "urlEmpty": "Enter the address of the index."
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "활성화됨",
@@ -182,14 +183,16 @@
       "url": "카탈로그 URL",
       "identityRegex": "Signer identity pattern (optional)",
       "kind": "Kind",
-      "format": "Index format"
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
     "hints": {
       "id": "소문자, 숫자, 하이픈. 나중에 변경할 수 없습니다.",
       "reference": "소유자가 구성한 자격 증명의 이름. 토큰이나 비밀번호를 여기에 붙여넣지 마세요.",
       "url": "자격 증명과 쿼리 문자열이 없는 https 주소.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
-      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "{{when}}에 새로 고침, 항목 {{count}}개",
     "lead": "라이브러리는 애드온을 나열하는 카탈로그 문서입니다. 자격 증명은 여기에 입력하지 않습니다. 비공개 라이브러리는 소유자가 구성한 자격 증명을 이름으로 가리킵니다.",
@@ -241,7 +244,13 @@
     "turnOff": "Turn off",
     "turnOn": "Turn on",
     "turnedOff": "Turned off {{name}}.",
-    "turnedOn": "Turned on {{name}}."
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "애드온 API",
@@ -332,18 +341,18 @@
   "state": {
     "failed": "실패",
     "label": "상태: {{state}}",
-    "running": "실행 중",
+    "running": "켜짐",
     "starting": "시작 중",
-    "stopped": "중지됨",
+    "stopped": "꺼짐",
     "update-pending": "업데이트 대기 중"
   },
   "supporting": "소유자가 대신 실행하는 앱과 그 출처 라이브러리입니다.",
   "tabs": {
-    "apps": "앱",
-    "browse": "찾아보기",
+    "apps": "내 애드온",
+    "browse": "애드온 찾기",
     "installed": "설치됨",
     "label": "애드온 섹션",
-    "libraries": "라이브러리"
+    "libraries": "소스"
   },
   "title": "애드온",
   "trust": {
@@ -588,5 +597,27 @@
       "network": "네트워크에 연결할 수 없습니다.",
       "unavailable": "애드온 소유자를 사용할 수 없습니다. 다시 시도하세요."
     }
+  },
+  "install": {
+    "stepsLabel": "Install steps",
+    "step": {
+      "resolving": "Resolve the library entry",
+      "verifying": "Verify the signature",
+      "size": "Check the image size",
+      "fetching": "Fetch the image",
+      "writing": "Write the metadata"
+    },
+    "state": {
+      "pending": "Waiting",
+      "active": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
   }
 }

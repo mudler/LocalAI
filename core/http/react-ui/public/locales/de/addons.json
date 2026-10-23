@@ -51,8 +51,8 @@
     "manage": "Verwalten",
     "open": "Öffnen",
     "stale": "Die Liste konnte nicht aktualisiert werden. Die Anzeige ist möglicherweise veraltet.",
-    "start": "Starten",
-    "stop": "Stoppen",
+    "start": "Einschalten",
+    "stop": "Ausschalten",
     "toolsMore_one": "und {{count}} weiteres",
     "toolsMore_other": "und {{count}} weitere",
     "tools_one": "{{count}} Werkzeug",
@@ -117,13 +117,13 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Running",
+    "running": "An",
     "search": "Search add-ons",
     "status": {
       "failed": "failed",
       "starting": "starting"
     },
-    "stopped": "Stopped",
+    "stopped": "Aus",
     "unpin": "Unpin {{name}}"
   },
   "errors": {
@@ -135,12 +135,12 @@
     "unknownOutcome": "Das Ergebnis konnte nicht bestätigt werden. Prüfe den Status, bevor du es erneut versuchst."
   },
   "installed": {
-    "disable": "Deaktivieren",
-    "disabled": "Deaktiviert",
+    "disable": "Ausschalten",
+    "disabled": "Aus",
     "emptyBody": "Installiere ein Add-on über den Tab Durchsuchen.",
     "emptyTitle": "Nichts ist installiert",
-    "enable": "Aktivieren",
-    "enabled": "Aktiviert",
+    "enable": "Einschalten",
+    "enabled": "An",
     "generation": "Generation {{generation}}",
     "listLabel": "Installierte Add-ons",
     "loading": "Installierte Add-ons werden geladen",
@@ -169,7 +169,8 @@
       "urlCredentials": "Die Adresse darf keinen Benutzernamen und kein Passwort enthalten.",
       "urlQuery": "Die Adresse darf keinen Query-String und kein Fragment enthalten.",
       "either": "Use the exact identity or the pattern, not both.",
-      "urlEmpty": "Enter the address of the index."
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "Aktiviert",
@@ -182,14 +183,16 @@
       "url": "Katalog-URL",
       "identityRegex": "Signer identity pattern (optional)",
       "kind": "Kind",
-      "format": "Index format"
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
     "hints": {
       "id": "Kleinbuchstaben, Ziffern und Bindestriche. Kann später nicht geändert werden.",
       "reference": "Der Name einer Zugangsdaten-Konfiguration des Betreibers. Füge hier nie ein Token oder Passwort ein.",
       "url": "Eine https-Adresse ohne Zugangsdaten und ohne Query-String.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
-      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Aktualisiert {{when}}, {{count}} Einträge",
     "lead": "Eine Bibliothek ist ein Katalogdokument, das Add-ons auflistet. Zugangsdaten werden hier nie eingetippt: Eine private Bibliothek nennt eine Zugangsdaten-Referenz, die der Betreiber eingerichtet hat.",
@@ -241,7 +244,13 @@
     "turnOff": "Turn off",
     "turnOn": "Turn on",
     "turnedOff": "Turned off {{name}}.",
-    "turnedOn": "Turned on {{name}}."
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "Add-on-API",
@@ -332,18 +341,18 @@
   "state": {
     "failed": "Fehlgeschlagen",
     "label": "Zustand: {{state}}",
-    "running": "Läuft",
+    "running": "An",
     "starting": "Startet",
-    "stopped": "Gestoppt",
+    "stopped": "Aus",
     "update-pending": "Update ausstehend"
   },
   "supporting": "Apps, die dein Betreiber für dich ausführt, und die Bibliotheken, aus denen sie stammen.",
   "tabs": {
-    "apps": "Apps",
-    "browse": "Durchsuchen",
+    "apps": "Meine Add-ons",
+    "browse": "Add-ons finden",
     "installed": "Installiert",
     "label": "Bereiche der Add-ons",
-    "libraries": "Bibliotheken"
+    "libraries": "Quellen"
   },
   "title": "Add-ons",
   "trust": {
@@ -588,5 +597,27 @@
       "network": "Das Netzwerk ist nicht erreichbar.",
       "unavailable": "Der Add-on-Eigentümer ist nicht verfügbar. Bitte erneut versuchen."
     }
+  },
+  "install": {
+    "stepsLabel": "Install steps",
+    "step": {
+      "resolving": "Resolve the library entry",
+      "verifying": "Verify the signature",
+      "size": "Check the image size",
+      "fetching": "Fetch the image",
+      "writing": "Write the metadata"
+    },
+    "state": {
+      "pending": "Waiting",
+      "active": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
   }
 }

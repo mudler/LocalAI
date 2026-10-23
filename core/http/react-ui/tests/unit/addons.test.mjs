@@ -1,4 +1,7 @@
 import test from 'node:test'
+import { readFileSync, readdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import {
   normalizeQuery, queryKey, queryToParams, paramsToQuery, totalPages, queryToOffset,
@@ -394,4 +397,31 @@ test('the updates route of the host is read as a list and nothing is sent', asyn
   })
   assert.deepEqual(await api.backends.updates(), [{ name: 'cpu-demo', sourceId: 'p', version: '2', digest: 'sha256:b', signed: true }])
   assert.deepEqual(calls, [{ url: '/backends/library/updates', method: 'GET' }])
+})
+
+const localesDir = join(dirname(fileURLToPath(import.meta.url)), '../../public/locales')
+const leafKeys = (o, p = '') => Object.entries(o).flatMap(([k, v]) => (v && typeof v === 'object' ? leafKeys(v, `${p}${k}.`) : [`${p}${k}`]))
+// A plural form is spelled per language (_one, _many, ...), so compare the stem.
+const stems = (o) => new Set(leafKeys(o).map(k => k.replace(/_(zero|one|two|few|many|other)$/, '')))
+
+test('every locale carries the add-on and navigation keys of English', () => {
+  for (const file of ['addons', 'nav']) {
+    const en = stems(JSON.parse(readFileSync(join(localesDir, 'en', `${file}.json`), 'utf8')))
+    assert.ok(en.size > 20)
+    for (const lang of readdirSync(localesDir)) {
+      const have = stems(JSON.parse(readFileSync(join(localesDir, lang, `${file}.json`), 'utf8')))
+      const missing = [...en].filter(k => !have.has(k))
+      assert.deepEqual(missing, [], `${lang}/${file}.json lacks keys of English`)
+    }
+  }
+})
+
+test('the add-on labels use one name and one verb pair', () => {
+  const en = JSON.parse(readFileSync(join(localesDir, 'en', 'addons.json'), 'utf8'))
+  const nav = JSON.parse(readFileSync(join(localesDir, 'en', 'nav.json'), 'utf8'))
+  assert.equal(nav.items.addons, 'Add-ons')
+  assert.deepEqual([en.tabs.apps, en.tabs.browse, en.tabs.libraries], ['My add-ons', 'Find add-ons', 'Sources'])
+  assert.deepEqual([en.apps.start, en.apps.stop, en.installed.enable, en.installed.disable], ['Turn on', 'Turn off', 'Turn on', 'Turn off'])
+  assert.ok(!/owner/i.test(en.supporting), 'the subtitle does not name the owner')
+  assert.ok(!/\bapps?\b/i.test(JSON.stringify([...Object.values(en.tabs), en.supporting, nav.items.addons])), 'no label says Apps')
 })

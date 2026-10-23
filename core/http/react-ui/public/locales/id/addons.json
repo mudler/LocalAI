@@ -51,8 +51,8 @@
     "manage": "Kelola",
     "open": "Buka",
     "stale": "Daftar tidak dapat diperbarui. Yang Anda lihat mungkin sudah usang.",
-    "start": "Mulai",
-    "stop": "Hentikan",
+    "start": "Aktifkan",
+    "stop": "Nonaktifkan",
     "toolsMore_one": "dan {{count}} lagi",
     "toolsMore_other": "dan {{count}} lagi",
     "tools_one": "{{count}} alat",
@@ -117,13 +117,13 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Running",
+    "running": "Aktif",
     "search": "Search add-ons",
     "status": {
       "failed": "failed",
       "starting": "starting"
     },
-    "stopped": "Stopped",
+    "stopped": "Nonaktif",
     "unpin": "Unpin {{name}}"
   },
   "errors": {
@@ -169,7 +169,8 @@
       "urlCredentials": "Alamat tidak boleh berisi nama pengguna atau kata sandi.",
       "urlQuery": "Alamat tidak boleh berisi query string atau fragmen.",
       "either": "Use the exact identity or the pattern, not both.",
-      "urlEmpty": "Enter the address of the index."
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "Aktif",
@@ -182,14 +183,16 @@
       "url": "URL katalog",
       "identityRegex": "Signer identity pattern (optional)",
       "kind": "Kind",
-      "format": "Index format"
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
     "hints": {
       "id": "Huruf kecil, angka, dan tanda hubung. Tidak dapat diubah nanti.",
       "reference": "Nama kredensial yang dikonfigurasi pemilik. Jangan pernah menempelkan token atau kata sandi di sini.",
       "url": "Alamat https tanpa kredensial dan tanpa query string.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
-      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it."
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Disegarkan {{when}}, {{count}} entri",
     "lead": "Pustaka adalah dokumen katalog yang mendaftar add-on. Kredensial tidak pernah diketik di sini: pustaka privat menyebut kredensial yang dikonfigurasi pemilik.",
@@ -241,7 +244,13 @@
     "turnOff": "Turn off",
     "turnOn": "Turn on",
     "turnedOff": "Turned off {{name}}.",
-    "turnedOn": "Turned on {{name}}."
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "API add-on",
@@ -332,18 +341,18 @@
   "state": {
     "failed": "Gagal",
     "label": "Status: {{state}}",
-    "running": "Berjalan",
+    "running": "Aktif",
     "starting": "Memulai",
-    "stopped": "Berhenti",
+    "stopped": "Nonaktif",
     "update-pending": "Pembaruan tertunda"
   },
   "supporting": "Aplikasi yang dijalankan pemilik untuk Anda, beserta pustaka asalnya.",
   "tabs": {
-    "apps": "Aplikasi",
-    "browse": "Jelajahi",
+    "apps": "Add-on saya",
+    "browse": "Cari add-on",
     "installed": "Terpasang",
     "label": "Bagian add-on",
-    "libraries": "Pustaka"
+    "libraries": "Sumber"
   },
   "title": "Add-on",
   "trust": {
@@ -588,5 +597,27 @@
       "network": "Jaringan tidak dapat dijangkau.",
       "unavailable": "Pemilik add-on tidak tersedia. Coba lagi."
     }
+  },
+  "install": {
+    "stepsLabel": "Install steps",
+    "step": {
+      "resolving": "Resolve the library entry",
+      "verifying": "Verify the signature",
+      "size": "Check the image size",
+      "fetching": "Fetch the image",
+      "writing": "Write the metadata"
+    },
+    "state": {
+      "pending": "Waiting",
+      "active": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
   }
 }
