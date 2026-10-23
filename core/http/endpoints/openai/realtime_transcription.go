@@ -12,8 +12,9 @@ import (
 // whose transcript already exists (semantic_vad's live stream, or the
 // retranscribe gate's batch decode): optional delta replays followed by the
 // completed event — the same contract emitTranscription produces, sharing
-// one itemID — without running the backend again.
-func emitPrecomputedTranscription(t Transport, itemID string, deltas []string, transcript string) error {
+// one itemID — without running the backend again. beforeCompleted, when not
+// nil, runs just before the completed event is sent.
+func emitPrecomputedTranscription(t Transport, itemID string, deltas []string, transcript string, beforeCompleted func()) error {
 	for _, d := range deltas {
 		if d == "" {
 			continue
@@ -26,6 +27,9 @@ func emitPrecomputedTranscription(t Transport, itemID string, deltas []string, t
 		}); err != nil {
 			return err
 		}
+	}
+	if beforeCompleted != nil {
+		beforeCompleted()
 	}
 	return t.SendEvent(types.ConversationItemInputAudioTranscriptionCompletedEvent{
 		ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
@@ -41,7 +45,8 @@ func emitPrecomputedTranscription(t Transport, itemID string, deltas []string, t
 // a conversation.item.input_audio_transcription.delta as the backend produces it,
 // then a completed event; otherwise it transcribes the whole utterance and emits
 // a single completed event. delta and completed events share itemID.
-func emitTranscription(ctx context.Context, t Transport, session *Session, itemID, audioPath string) (string, error) {
+// beforeCompleted, when not nil, runs just before the completed event is sent.
+func emitTranscription(ctx context.Context, t Transport, session *Session, itemID, audioPath string, beforeCompleted func()) (string, error) {
 	cfg := session.InputAudioTranscription
 	diarize := session.ModelConfig != nil && session.ModelConfig.Pipeline.Diarization
 
@@ -66,6 +71,9 @@ func emitTranscription(ctx context.Context, t Transport, session *Session, itemI
 				}
 			}
 		}
+		if beforeCompleted != nil {
+			beforeCompleted()
+		}
 		if err := t.SendEvent(types.ConversationItemInputAudioTranscriptionCompletedEvent{
 			ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
 			ItemID:          itemID,
@@ -89,6 +97,9 @@ func emitTranscription(ctx context.Context, t Transport, session *Session, itemI
 		if err := emitSpeakerSegments(t, itemID, tr); err != nil {
 			return "", err
 		}
+	}
+	if beforeCompleted != nil {
+		beforeCompleted()
 	}
 	if err := t.SendEvent(types.ConversationItemInputAudioTranscriptionCompletedEvent{
 		ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
