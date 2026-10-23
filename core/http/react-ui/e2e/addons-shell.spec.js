@@ -83,6 +83,14 @@ test.describe('Add-on shell', () => {
     expect(requested).toEqual([])
   })
 
+  test('an add-on that is not listed is titled with its name, not the raw identifier', async ({ page }) => {
+    await serve(page)
+    await mockAddons(page, { apps: [uiApp()] })
+    await page.goto('/app/addons/voice/home')
+    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Voice')
+  })
+
   test('a withdrawn add-on is unmounted on the next list and Reload brings it back', async ({ page }) => {
     await serve(page)
     const state = await mockAddons(page, { apps: [uiApp()] })

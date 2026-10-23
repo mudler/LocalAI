@@ -52,7 +52,11 @@ test.describe('Library backends', () => {
     await mockBackends(page)
     await page.goto('/app/addons?tab=browse')
     await expect(page.locator('.cat-item')).toHaveCount(2)
-    await expect(page.locator('.cat-item', { hasText: 'Tables' }).getByTestId('entry-kind')).toHaveText('Add-on')
+    // A backend says what it is on the entry; an add-on is the default and says it under Details.
+    const tables = page.locator('.cat-item', { hasText: 'Tables' })
+    await expect(tables.getByTestId('entry-kind')).toHaveCount(0)
+    await tables.getByText('Details', { exact: true }).click()
+    await expect(tables.getByTestId('details-kind')).toHaveText('Add-on')
     const row = page.locator('.cat-item', { hasText: 'cpu-local-store' })
     await expect(row.getByTestId('entry-kind')).toHaveText('Backend')
     await expect(row.getByTestId('entry-kind')).toHaveAttribute('data-kind', 'backend')
@@ -83,7 +87,7 @@ test.describe('Library backends', () => {
     expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(0)
     // Once installed the entry says so and offers no second install.
     await expect(row.getByText('Installed', { exact: true })).toBeVisible()
-    await expect(row.getByRole('button', { name: 'Install' })).toBeDisabled()
+    await expect(row.getByRole('button', { name: 'Install' })).toHaveCount(0)
   })
 
   test('browse: a refusal of the host is shown with its own reason', async ({ page }) => {
@@ -121,7 +125,7 @@ test.describe('Library backends', () => {
     await mockAddons(page, { installed: [], releases: [backend()] })
     await mockBackends(page)
     await page.goto('/app/addons?tab=browse')
-    await page.locator('.cat-item', { hasText: 'cpu-local-store' }).getByRole('button', { name: 'Details' }).click()
+    await page.locator('.cat-item', { hasText: 'cpu-local-store' }).getByText('Details', { exact: true }).click()
     await expect(page.getByTestId('details-kind')).toHaveText('Backend')
     await expect(page.getByText('local-store', { exact: true })).toBeVisible()
     await expect(page.getByText('workflows/w', { exact: false })).toBeVisible()

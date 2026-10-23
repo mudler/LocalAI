@@ -71,12 +71,12 @@ func (stubClient) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, e
 	return []schema.KnownBackend{}, nil
 }
 
-func (stubClient) InstallBackend(_ context.Context, _ localaitools.InstallBackendRequest) (string, error) {
-	return "stub-backend-job", nil
+func (stubClient) InstallLibraryBackend(_ context.Context, _ localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {
+	return &localaitools.InstallLibraryBackendResult{Status: "installed", Name: "stub-backend"}, nil
 }
 
-func (stubClient) InstallLibraryBackend(_ context.Context, _ localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {
-	return &localaitools.InstallLibraryBackendResult{Status: "installed", Name: "stub-backend", SourceID: "stub-source"}, nil
+func (stubClient) InstallBackend(_ context.Context, _ localaitools.InstallBackendRequest) (string, error) {
+	return "stub-backend-job", nil
 }
 
 func (stubClient) UpgradeBackend(_ context.Context, _ string) (string, error) {
