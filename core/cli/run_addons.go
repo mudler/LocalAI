@@ -47,6 +47,11 @@ type addonRoleFlags struct {
 // server.
 func addonConfigFor(enabled bool, mode, dataPath string, authEnabled bool, roleFlags addonRoleFlags) (config.AddonConfig, error) {
 	if !enabled {
+		// Add-ons off means no carrier, no keys and no owner address, so a role
+		// flag cannot matter. A frontend with add-ons off starts without them.
+		if roleFlags.Role != "" || roleFlags.OwnerAddress != "" || roleFlags.OwnerListen != "" || roleFlags.CarrierDir != "" {
+			xlog.Info("Add-ons are off: the --addons-role, --addons-owner-address, --addons-owner-listen and --addons-carrier-dir flags are ignored")
+		}
 		return config.AddonConfig{}, nil
 	}
 	if mode == "" {

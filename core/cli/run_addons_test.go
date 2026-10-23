@@ -185,6 +185,19 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 			Expect(c.Transport.VerificationKeys).To(HaveKey("frontend"))
 		})
 
+		It("builds no carrier for a frontend with add-ons off, whatever the role flags say", func() {
+			c, err := resolve(GinkgoT().TempDir(), "--addons-enabled=false", "--addons-role=frontend")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(c.Enabled).To(BeFalse())
+			Expect(c.Transport).To(BeNil())
+			Expect(c).To(Equal(config.AddonConfig{}))
+			// A set flag is ignored, and a key directory that does not exist is
+			// never read.
+			c, err = resolve(GinkgoT().TempDir(), "--addons-enabled=false", "--addons-role=frontend", "--addons-owner-address="+ownerAddress, "--addons-carrier-dir=/does/not/exist")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(c).To(Equal(config.AddonConfig{}))
+		})
+
 		It("lets the owner listen on another address", func() {
 			c, err := resolve(GinkgoT().TempDir(), "--addons-role=owner", "--addons-owner-address="+ownerAddress, "--addons-carrier-dir="+keys, "--addons-owner-listen=127.0.0.1:9443")
 			Expect(err).NotTo(HaveOccurred())
