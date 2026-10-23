@@ -1,17 +1,19 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { AppIcon } from '../addons/AddonBits'
 import { apiUrl } from '../../utils/basePath'
 
-// The add-ons that offer tools, as a list with one switch each, in the chat
-// header. It reuses the MCP dropdown's button, badge and menu (see
-// UnifiedMCPDropdown). `addons` holds only add-ons that ship tools; the page
-// renders nothing when there are none.
+// The add-ons that offer tools, as a list with one switch each, next to the MCP
+// control of the composer. It reuses the MCP dropdown's button, badge and menu
+// (see UnifiedMCPDropdown). `addons` holds only add-ons that ship tools; the
+// control renders nothing when there are none. One line says what an add-on
+// that is off does in this chat.
 export default function AddonToolsMenu({ addons, enabledIds, onToggle, onToggleAll }) {
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const noteId = useId()
 
   useEffect(() => {
     if (!open) return undefined
@@ -37,6 +39,7 @@ export default function AddonToolsMenu({ addons, enabledIds, onToggle, onToggleA
         title={t('addons.title')}
         aria-haspopup="true"
         aria-expanded={open}
+        aria-describedby={open ? noteId : undefined}
         data-testid="chat-addons-button"
         onClick={() => setOpen(v => !v)}
       >
@@ -51,6 +54,7 @@ export default function AddonToolsMenu({ addons, enabledIds, onToggle, onToggleA
               {all ? t('addons.deselectAll') : t('addons.selectAll')}
             </button>
           </div>
+          <p className="chat-addons-note" id={noteId} data-testid="chat-addons-note">{t('addons.note')}</p>
           {addons.map(a => (
             <label key={a.id} className="chat-mcp-server-item" data-testid="chat-addon-item" data-addon={a.id}>
               <input type="checkbox" checked={enabledIds.includes(a.id)} onChange={() => onToggle(a.id)} aria-label={a.title} />

@@ -420,6 +420,16 @@ test('every locale carries the add-on and navigation keys of English', () => {
   }
 })
 
+test('every locale carries the chat tools control keys of English, with the one-line note', () => {
+  const read = (lang) => JSON.parse(readFileSync(join(localesDir, lang, 'chat.json'), 'utf8')).addons
+  const en = read('en')
+  assert.ok(en.note && !en.note.includes('\n'))
+  for (const lang of readdirSync(localesDir)) {
+    const have = read(lang)
+    for (const key of Object.keys(en)) assert.ok(have && have[key], `${lang}/chat.json lacks addons.${key}`)
+  }
+})
+
 test('the add-on labels use one name and one verb pair', () => {
   const en = JSON.parse(readFileSync(join(localesDir, 'en', 'addons.json'), 'utf8'))
   const nav = JSON.parse(readFileSync(join(localesDir, 'en', 'nav.json'), 'utf8'))
