@@ -62,17 +62,13 @@
     "clearSearch": "Clear search"
   },
   "browse": {
-    "confirmBody": "Version {{version}} from the library {{library}} will be downloaded and verified before it is installed.",
-    "confirmNotEnabled": "Installing does not turn the add-on on. You turn it on as a separate step.",
     "confirmTitle": "Install {{name}}?",
     "details": "Details",
-    "detailsLead": "Library entry for {{id}}",
     "emptyBody": "Add a source on the Sources tab, then refresh it.",
     "emptyTitle": "No library entries found",
     "fromLibrary": "from {{library}}",
     "install": "Install",
     "installedDetail": "Version {{version}}, generation {{generation}}",
-    "installedNotEnabled": "Installed. It is off: turn it on from My add-ons when you are ready.",
     "installedOther": "Installed {{version}} (another version)",
     "installedSame": "Installed {{version}}",
     "installedState": "Installed",
@@ -88,7 +84,8 @@
     "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
-    "kindLabel": "Kind"
+    "kindLabel": "Kind",
+    "installedOn": "{{name}} is installed and on."
   },
   "catalog": {
     "allLibraries": "All libraries",

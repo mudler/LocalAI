@@ -278,3 +278,8 @@
 .ad-featured__item { display: flex; flex-direction: column; gap: var(--dk-space-2, 8px); min-width: 0; padding: var(--dk-space-3, 12px); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-2, 8px); background: var(--dk-surface, transparent); }
 .ad-flow { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2, 8px); font-size: var(--dk-text-13, 0.8125rem); color: var(--dk-muted); }
 .ad-flow--failed { color: var(--dk-error-text); }
+.ad-entry__details { margin-top: var(--dk-space-2, 8px); font-size: var(--dk-text-13, 0.8125rem); }
+.ad-entry__details > summary { cursor: pointer; color: var(--dk-muted); width: fit-content; }
+.ad-entry__details > summary:hover { color: var(--dk-text); }
+.ad-entry__details > summary:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+.ad-entry__details[open] > summary { margin-bottom: var(--dk-space-2, 8px); }

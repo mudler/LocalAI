@@ -64,17 +64,13 @@
     "clearSearch": "Clear search"
   },
   "browse": {
-    "confirmBody": "La version {{version}} de la bibliothèque {{library}} sera téléchargée et vérifiée avant d'être installée.",
-    "confirmNotEnabled": "L'installation ne démarre pas le module. Vous l'activez dans une étape distincte.",
     "confirmTitle": "Installer {{name}} ?",
     "details": "Détails",
-    "detailsLead": "Entrée de bibliothèque pour {{id}}",
     "emptyBody": "Ajoutez une bibliothèque dans l'onglet Bibliothèques, puis actualisez-la.",
     "emptyTitle": "Aucun module trouvé",
     "fromLibrary": "depuis {{library}}",
     "install": "Installer",
     "installedDetail": "Version {{version}}, génération {{generation}}",
-    "installedNotEnabled": "Installé. Il n'est pas activé : activez-le dans l'onglet Installés quand vous êtes prêt.",
     "installedOther": "{{version}} installée (autre version)",
     "installedSame": "{{version}} installée",
     "installedState": "Installé",
@@ -90,7 +86,8 @@
     "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
-    "kindLabel": "Kind"
+    "kindLabel": "Kind",
+    "installedOn": "{{name}} is installed and on."
   },
   "catalog": {
     "allLibraries": "Toutes les bibliothèques",

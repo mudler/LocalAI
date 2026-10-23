@@ -62,17 +62,13 @@
     "clearSearch": "Clear search"
   },
   "browse": {
-    "confirmBody": "La versione {{version}} della libreria {{library}} verrà scaricata e verificata prima dell'installazione.",
-    "confirmNotEnabled": "L'installazione non avvia il componente. Lo abiliti in un passaggio separato.",
     "confirmTitle": "Installare {{name}}?",
     "details": "Dettagli",
-    "detailsLead": "Voce di libreria per {{id}}",
     "emptyBody": "Aggiungi una libreria nella scheda Librerie, poi aggiornala.",
     "emptyTitle": "Nessun componente trovato",
     "fromLibrary": "da {{library}}",
     "install": "Installa",
     "installedDetail": "Versione {{version}}, generazione {{generation}}",
-    "installedNotEnabled": "Installato. Non è abilitato: abilitalo nella scheda Installati quando sei pronto.",
     "installedOther": "Installato {{version}} (altra versione)",
     "installedSame": "Installato {{version}}",
     "installedState": "Installato",
@@ -88,7 +84,8 @@
     "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
-    "kindLabel": "Kind"
+    "kindLabel": "Kind",
+    "installedOn": "{{name}} is installed and on."
   },
   "catalog": {
     "allLibraries": "Tutte le librerie",

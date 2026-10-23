@@ -62,17 +62,13 @@
     "clearSearch": "Clear search"
   },
   "browse": {
-    "confirmBody": "라이브러리 {{library}}의 {{version}} 버전을 내려받아 검증한 뒤 설치합니다.",
-    "confirmNotEnabled": "설치해도 애드온은 시작되지 않습니다. 활성화는 별도의 단계입니다.",
     "confirmTitle": "{{name}}을(를) 설치할까요?",
     "details": "자세히",
-    "detailsLead": "{{id}}의 라이브러리 항목",
     "emptyBody": "라이브러리 탭에서 라이브러리를 추가한 다음 새로 고치세요.",
     "emptyTitle": "애드온을 찾을 수 없습니다",
     "fromLibrary": "{{library}}에서",
     "install": "설치",
     "installedDetail": "버전 {{version}}, 세대 {{generation}}",
-    "installedNotEnabled": "설치되었습니다. 아직 활성화되지 않았습니다. 준비되면 설치됨 탭에서 활성화하세요.",
     "installedOther": "{{version}} 설치됨(다른 버전)",
     "installedSame": "{{version}} 설치됨",
     "installedState": "설치됨",
@@ -88,7 +84,8 @@
     "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
-    "kindLabel": "Kind"
+    "kindLabel": "Kind",
+    "installedOn": "{{name}} is installed and on."
   },
   "catalog": {
     "allLibraries": "모든 라이브러리",

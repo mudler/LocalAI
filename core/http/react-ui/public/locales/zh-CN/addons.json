@@ -62,17 +62,13 @@
     "clearSearch": "Clear search"
   },
   "browse": {
-    "confirmBody": "将从库 {{library}} 下载 {{version}} 版本,并在安装前进行验证。",
-    "confirmNotEnabled": "安装不会启动附加组件,启用是单独的一步。",
     "confirmTitle": "安装 {{name}}?",
     "details": "详情",
-    "detailsLead": "{{id}} 的库条目",
     "emptyBody": "在“库”标签页添加一个库,然后刷新它。",
     "emptyTitle": "未找到附加组件",
     "fromLibrary": "来自 {{library}}",
     "install": "安装",
     "installedDetail": "版本 {{version}},第 {{generation}} 代",
-    "installedNotEnabled": "已安装,但尚未启用:准备好后请在“已安装”标签页启用。",
     "installedOther": "已安装 {{version}}(其他版本)",
     "installedSame": "已安装 {{version}}",
     "installedState": "已安装",
@@ -88,7 +84,8 @@
     "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
-    "kindLabel": "Kind"
+    "kindLabel": "Kind",
+    "installedOn": "{{name}} is installed and on."
   },
   "catalog": {
     "allLibraries": "所有库",

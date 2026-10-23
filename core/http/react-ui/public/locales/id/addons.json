@@ -62,17 +62,13 @@
     "clearSearch": "Clear search"
   },
   "browse": {
-    "confirmBody": "Versi {{version}} dari pustaka {{library}} akan diunduh dan diverifikasi sebelum dipasang.",
-    "confirmNotEnabled": "Pemasangan tidak menjalankan add-on. Anda mengaktifkannya sebagai langkah terpisah.",
     "confirmTitle": "Pasang {{name}}?",
     "details": "Detail",
-    "detailsLead": "Entri pustaka untuk {{id}}",
     "emptyBody": "Tambahkan pustaka di tab Pustaka, lalu segarkan.",
     "emptyTitle": "Add-on tidak ditemukan",
     "fromLibrary": "dari {{library}}",
     "install": "Pasang",
     "installedDetail": "Versi {{version}}, generasi {{generation}}",
-    "installedNotEnabled": "Terpasang. Belum diaktifkan: aktifkan di tab Terpasang saat Anda siap.",
     "installedOther": "Terpasang {{version}} (versi lain)",
     "installedSame": "Terpasang {{version}}",
     "installedState": "Terpasang",
@@ -88,7 +84,8 @@
     "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
-    "kindLabel": "Kind"
+    "kindLabel": "Kind",
+    "installedOn": "{{name}} is installed and on."
   },
   "catalog": {
     "allLibraries": "Semua pustaka",
