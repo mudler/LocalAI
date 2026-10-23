@@ -664,3 +664,170 @@ class TestReasoningParserConstruction(unittest.TestCase):
         self.assertIsInstance(
             s._new_reasoning_parser({"enable_thinking": False}), _Old,
         )
+
+
+class TestStreamingReasoningSplit(unittest.TestCase):
+    """With a reasoning parser, streaming must split reasoning from content.
+
+    The stream used to send each raw text delta as ChatDelta.content, so with
+    thinking on the reasoning text arrived as delta.content and the final
+    chunk repeated it as reasoning_content. These tests replace the engine
+    and vLLM's composed parser (ParserManager.get_parser) with fakes; no GPU,
+    model or server needed.
+    """
+
+    THINK = ["Let me ", "count the ", "primes.", "</think>"]
+    ANSWER = ["There are ", "37 primes."]
+
+    class _DeltaMsg:
+        def __init__(self, content=None, reasoning=None, tool_calls=None):
+            self.content = content
+            self.reasoning = reasoning
+            self.tool_calls = tool_calls or []
+
+    @classmethod
+    def _parser_cls(cls, seen=None, fail_after=None):
+        delta_msg = cls._DeltaMsg
+
+        class _Parser:
+            """Stands in for vLLM's DelegatingParser: reasoning until the
+            end tag, then content, then a tool call between <tool_call> tags
+            (name first, arguments as they arrive)."""
+            def __init__(self, tokenizer, tools=None, **kwargs):
+                if seen is not None:
+                    seen.update(kwargs, tools=tools)
+                self._state = "reasoning"
+                self._calls = 0
+
+            def parse_delta(self, delta_text, delta_token_ids, request,
+                            prompt_token_ids=None, *, finished):
+                from types import SimpleNamespace
+                self._calls += 1
+                if fail_after is not None and self._calls > fail_after:
+                    raise RuntimeError("simulated parser bug")
+                if self._state == "reasoning":
+                    if "</think>" in delta_text:
+                        self._state = "content"
+                        before = delta_text.split("</think>", 1)[0]
+                        return delta_msg(reasoning=before) if before else None
+                    return delta_msg(reasoning=delta_text)
+                if delta_text == "<tool_call>":
+                    self._state = "tool"
+                    fn = SimpleNamespace(name="search", arguments="")
+                    return delta_msg(tool_calls=[SimpleNamespace(index=0, id="call_1", function=fn)])
+                if self._state == "tool":
+                    if delta_text == "</tool_call>":
+                        return None
+                    fn = SimpleNamespace(name=None, arguments=delta_text)
+                    return delta_msg(tool_calls=[SimpleNamespace(index=0, id=None, function=fn)])
+                return delta_msg(content=delta_text)
+        return _Parser
+
+    class _ToolParser:
+        """Full-text tool extraction used after a streaming parser failure."""
+        def __init__(self, tokenizer, tools=None):
+            pass
+
+        def extract_tool_calls(self, text, request=None):
+            from types import SimpleNamespace
+            if "<tool_call>" not in text:
+                return SimpleNamespace(tools_called=False, content=text, tool_calls=[])
+            before, rest = text.split("<tool_call>", 1)
+            args = rest.split("</tool_call>", 1)[0]
+            call = SimpleNamespace(id="call_1", function=SimpleNamespace(name="search", arguments=args))
+            return SimpleNamespace(tools_called=True, content=before, tool_calls=[call])
+
+    class _ReasoningParser:
+        """Full-text split used after the loop (BaseThinkingReasoningParser shape)."""
+        start_token = "<think>"
+        end_token = "</think>"
+
+        def __init__(self, tokenizer, **kwargs):
+            pass
+
+        def extract_reasoning(self, text, request=None):
+            if "</think>" in text:
+                r, c = text.split("</think>", 1)
+                return r, c
+            return text, None
+
+    def _servicer(self, stream_parser_cls, pieces=None):
+        import sys, os
+        from types import SimpleNamespace
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        s = BackendServicer()
+        s.tokenizer = None
+        s.tool_parser_cls = self._ToolParser
+        s.reasoning_parser_cls = self._ReasoningParser
+        s.stream_parser_cls = stream_parser_cls
+        s.llm = SimpleNamespace(generate=TestStreamingToolParser._make_generate(
+            self._cumulative(pieces or (self.THINK + self.ANSWER))))
+        return s
+
+    @staticmethod
+    def _cumulative(pieces):
+        out, acc = [], ""
+        for p in pieces:
+            acc += p
+            out.append(acc)
+        return out
+
+    @staticmethod
+    def _joined(replies, field):
+        return "".join(getattr(cd, field) for r in replies for cd in r.chat_deltas)
+
+    def test_reasoning_is_not_streamed_as_content(self):
+        s = self._servicer(self._parser_cls())
+        replies = TestStreamingToolParser._collect(s, backend_pb2.PredictOptions(Prompt="x"))
+        self.assertEqual(self._joined(replies, "content"), "There are 37 primes.")
+        self.assertEqual(self._joined(replies, "reasoning_content"), "Let me count the primes.")
+        # Progressive: reasoning and content arrive before the final chunk.
+        self.assertTrue(any(cd.reasoning_content for r in replies[:-1] for cd in r.chat_deltas))
+        self.assertTrue(any(cd.content for r in replies[:-1] for cd in r.chat_deltas))
+        # The final chunk carries no text, otherwise LocalAI repeats it.
+        final = replies[-1].chat_deltas[0]
+        self.assertEqual((final.content, final.reasoning_content), ("", ""))
+
+    def test_parser_error_mid_stream_sends_the_rest_once(self):
+        s = self._servicer(self._parser_cls(fail_after=2))
+        replies = TestStreamingToolParser._collect(s, backend_pb2.PredictOptions(Prompt="x"))
+        self.assertEqual(self._joined(replies, "content"), "There are 37 primes.")
+        self.assertEqual(self._joined(replies, "reasoning_content"), "Let me count the primes.")
+
+    def test_without_stream_parser_streams_raw_deltas(self):
+        """vLLM without ParserManager: previous behaviour."""
+        s = self._servicer(None)
+        replies = TestStreamingToolParser._collect(s, backend_pb2.PredictOptions(Prompt="x"))
+        intermediate = "".join(cd.content for r in replies[:-1] for cd in r.chat_deltas)
+        self.assertEqual(intermediate, "".join(self.THINK + self.ANSWER))
+
+    def test_parser_gets_chat_template_kwargs_and_tools(self):
+        seen = {}
+        s = self._servicer(self._parser_cls(seen=seen))
+        tools = '[{"type":"function","function":{"name":"calc","parameters":{}}}]'
+        parser, parser_request = s._new_stream_parser(
+            backend_pb2.PredictOptions(Prompt="x", Tools=tools),
+            {"tokenize": False, "add_generation_prompt": True, "enable_thinking": False,
+             "tools": [{}]},
+        )
+        self.assertIsNotNone(parser)
+        self.assertEqual(seen["chat_template_kwargs"], {"enable_thinking": False})
+        self.assertEqual([t.function.name for t in seen["tools"]], ["calc"])
+
+    def test_parser_error_after_partial_tool_arguments(self):
+        """The rest of the arguments follows on the same index; no raw
+        tool-call markup reaches content."""
+        pieces = self.THINK + ["Checking.", "<tool_call>", '{"q": ', '"primes"}', "</tool_call>"]
+        tools = '[{"type":"function","function":{"name":"search","parameters":{}}}]'
+        for fail_after in (6, 7):  # after the name / after part of the arguments
+            with self.subTest(fail_after=fail_after):
+                s = self._servicer(self._parser_cls(fail_after=fail_after), pieces)
+                replies = TestStreamingToolParser._collect(
+                    s, backend_pb2.PredictOptions(Prompt="x", Tools=tools))
+                self.assertEqual(self._joined(replies, "content"), "Checking.")
+                self.assertEqual(self._joined(replies, "reasoning_content"), "Let me count the primes.")
+                calls = [tc for r in replies for cd in r.chat_deltas for tc in cd.tool_calls]
+                self.assertEqual({tc.index for tc in calls}, {0})
+                self.assertEqual([tc.name for tc in calls if tc.name], ["search"])
+                self.assertEqual("".join(tc.arguments for tc in calls), '{"q": "primes"}')
