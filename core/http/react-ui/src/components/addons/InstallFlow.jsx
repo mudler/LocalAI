@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { describeOutcome } from './errors'

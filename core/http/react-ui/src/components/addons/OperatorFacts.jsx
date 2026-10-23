@@ -77,7 +77,7 @@ export function OperatorFacts({ addon, api, language, actions, check, upgraded, 
   )
 }
 
-export function busy(actions, addon, verbs) {
+function busy(actions, addon, verbs) {
   if (actions.unknown[addon.id]) return true
   return verbs.some(v => actions.state[`${v}:${addon.id}:${addon.generation}`]?.phase === 'working')
 }

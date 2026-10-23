@@ -191,14 +191,16 @@ export default function AppsView({ api, adapter }) {
   const detail = tiles.find(x => x.id === detailId) || null
 
   const detailApp = detail ? detail.app : null
+  const detailAppId = detailApp ? detailApp.id : ''
+  const detailAppGeneration = detailApp ? detailApp.generation : 0
   useEffect(() => {
-    if (!isAdmin || !detailApp) return undefined
+    if (!isAdmin || !detailAppId) return undefined
     const ctl = new AbortController()
     api.installed(ctl.signal)
       .then(list => setInstalledInfo(Object.fromEntries(list.map(a => [a.id, a]))))
       .catch(() => { /* the pane says the source is not known */ })
     return () => ctl.abort()
-  }, [api, isAdmin, detailApp && detailApp.id, detailApp && detailApp.generation, installedReload])
+  }, [api, isAdmin, detailAppId, detailAppGeneration, installedReload])
 
   const onPin = async (id) => {
     if (pinnedIds.has(id)) { await nav.unpin(id); return }
