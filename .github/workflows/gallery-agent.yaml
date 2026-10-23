@@ -38,7 +38,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: go.mod
       - name: Proto Dependencies
         run: |
           # Install protoc
@@ -131,19 +131,25 @@ jobs:
           MAX_MODELS: ${{ github.event.inputs.max_models || '1' }}
           EXTRA_SKIP_URLS: ${{ steps.open_prs.outputs.urls }}
         run: |
-          export GALLERY_INDEX_PATH=$PWD/gallery/index.yaml
+          # The agent reads and appends to the model library, the source.
+          export GALLERY_INDEX_PATH=$PWD/gallery/models/index.yaml
           go run ./.github/gallery-agent
+
+      - name: Regenerate the gallery copy from the library
+        # gallery/index.yaml is generated from the library; the model library
+        # check fails the PR when they disagree.
+        run: go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 
       - name: Check for changes
         id: check_changes
         run: |
-          if git diff --quiet gallery/index.yaml; then
+          if git diff --quiet gallery/models/index.yaml gallery/index.yaml; then
             echo "changes=false" >> $GITHUB_OUTPUT
-            echo "No changes detected in gallery/index.yaml"
+            echo "No changes detected in the model library"
           else
             echo "changes=true" >> $GITHUB_OUTPUT
-            echo "Changes detected in gallery/index.yaml"
-            git diff gallery/index.yaml
+            echo "Changes detected in the model library"
+            git diff gallery/models/index.yaml gallery/index.yaml
           fi
 
       - name: Read gallery agent summary

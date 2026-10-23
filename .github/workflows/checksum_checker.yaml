@@ -16,6 +16,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pip wget
           pip install huggingface_hub
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Generate the gRPC stubs the Go packages import
+        # modelcatalog imports them and they are not in the tree. Same pinned
+        # tools as the model library workflow.
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: 'Setup yq'
         uses: dcarbone/install-yq-action@v1.3.1
         with:
@@ -28,14 +41,19 @@ jobs:
           export HF_HOME=/hf_cache
           sudo mkdir /hf_cache
           sudo chmod 777 /hf_cache
-          bash .github/checksum_checker.sh gallery/index.yaml
+          # The model library is the source. The checker edits it.
+          bash .github/checksum_checker.sh gallery/models/index.yaml
+      - name: Regenerate the gallery copy from the library
+        # gallery/index.yaml is generated; the model library check fails the
+        # PR when it differs from the generated copy.
+        run: go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
-          commit-message: ':arrow_up: Checksum updates in gallery/index.yaml'
+          commit-message: ':arrow_up: Checksum updates in the model library'
           title: 'chore(model-gallery): :arrow_up: update checksum'
           branch: "update/checksum"
-          body: Updating checksums in gallery/index.yaml
+          body: Updating checksums in gallery/models/index.yaml and regenerating gallery/index.yaml
           signoff: true
