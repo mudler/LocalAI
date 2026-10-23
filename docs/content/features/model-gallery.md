@@ -25,6 +25,11 @@ GPT and text generation models might have a license which is not permissive for 
 
 ## How it works
 
+When LocalAI reads a gallery index or model configuration over HTTP(S), it
+checks each redirect target against the external URL policy. Redirects to
+loopback, private, link-local, and cloud metadata addresses are rejected.
+This redirect check does not apply to model weight downloads in `files[].uri`.
+
 Open **Models** in the WebUI. It is the canonical page for a model's complete
 lifecycle and has two views:
 
