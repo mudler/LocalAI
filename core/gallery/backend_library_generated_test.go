@@ -104,8 +104,12 @@ func TestLibraryGalleryReadsTheBackendLibrary(t *testing.T) {
 	official.Library = true
 	official.URL = srv.URL + "/backends/index.yaml"
 	backends := names(official)
-	if len(backends) != goldenGalleryNames {
-		t.Fatalf("the library gave %d backends, want %d", len(backends), goldenGalleryNames)
+	expected, err := BackendsFromLibrary(loadRealBackendLibrary(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(backends) != len(expected) {
+		t.Fatalf("the library gave %d backends, want %d", len(backends), len(expected))
 	}
 	llama := backends.FindByName("llama-cpp")
 	if llama == nil || !llama.IsMeta() || llama.CapabilitiesMap["nvidia"] != "cuda12-llama-cpp" || llama.Alias != "llama-cpp" {
