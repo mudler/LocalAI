@@ -84,13 +84,13 @@ test('render: an older page name draws nothing itself; the shell sends it to its
   }
 })
 
-test('render: each tab draws exactly one h1, its own title', async () => {
+test('render: each tab draws exactly one h1, the one Voice title (the add form keeps its own)', async () => {
   const { mod, sdk } = await load()
   const addon = await mod.createAddon(sdk)
   const h1s = (html) => [...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim())
   assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: '' }))), ['Voices'])
   assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recording' }))), ['Voices'])
-  assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'speech' }))), ['Speak text'])
-  assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))), ['Speech voices 0'])
+  assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'speech' }))), ['Voices'])
+  assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))), ['Voices'])
   assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library/new' }))), ['Add a speech voice'])
 })

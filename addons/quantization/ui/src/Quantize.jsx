@@ -417,8 +417,8 @@ export function createQuantize(ctx, api, shared) {
     return (
       <div className="page page--medium bt-page quantize-page" data-testid="quantize-page">
         <ui.PageHeader
-          title={<>{t('quantize.title')} <span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span></>}
-          supporting={t('quantize.lede')}
+          title={t('quantize.title')}
+          supporting={<><span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span> {t('quantize.lede')}</>}
           actions={selectedJob && (
             <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setSelectedJob(null)} data-testid="job-back">
               <Icon name="plus" /> {t('quantize.newJob')}

@@ -122,5 +122,13 @@
   },
   "message": {
     "you": "You"
+  },
+  "addons": {
+    "note": "An add-on that is off here does nothing in this chat.",
+    "label": "Add-ons",
+    "title": "Add-on tools for this chat",
+    "heading": "Add-on tools",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
   }
 }

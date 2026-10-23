@@ -1,4 +1,7 @@
 import test from 'node:test'
+import { readFileSync, readdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import {
   normalizeQuery, queryKey, queryToParams, paramsToQuery, totalPages, queryToOffset,
@@ -7,13 +10,14 @@ import {
 } from '../../src/components/catalog/catalogState.js'
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
-  shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey,
+  shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, screenshotsOf, listState, featuredEntries,
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
 import { backendState, libraryOrigin, shortDigest as shortBackendDigest } from '../../src/utils/backendRows.js'
+import { runInstallAndTurnOn } from '../../src/components/addons/installFlow.js'
 import { installSteps, STEP_ORDER } from '../../src/components/addons/installSteps.js'
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
@@ -90,7 +94,10 @@ test('library drafts accept references and refuse secrets before sending', () =>
 
 test('tabs: the server decides, the page only avoids showing what it will refuse', () => {
   assert.deepEqual(visibleTabs(false), ['apps'])
-  assert.deepEqual(visibleTabs(true), ['apps', 'browse', 'installed', 'libraries'])
+  assert.deepEqual(visibleTabs(true), ['apps', 'browse', 'libraries'])
+  // The Installed tab is folded into My add-ons; an old address lands there.
+  assert.equal(resolveTab('installed', true), 'apps')
+  assert.equal(resolveTab('installed', false), 'apps')
   assert.equal(resolveTab('libraries', false), 'apps')
   assert.equal(resolveTab('libraries', true), 'libraries')
   assert.equal(resolveTab('nope', true), 'apps')
@@ -394,4 +401,119 @@ test('the updates route of the host is read as a list and nothing is sent', asyn
   })
   assert.deepEqual(await api.backends.updates(), [{ name: 'cpu-demo', sourceId: 'p', version: '2', digest: 'sha256:b', signed: true }])
   assert.deepEqual(calls, [{ url: '/backends/library/updates', method: 'GET' }])
+})
+
+const localesDir = join(dirname(fileURLToPath(import.meta.url)), '../../public/locales')
+const leafKeys = (o, p = '') => Object.entries(o).flatMap(([k, v]) => (v && typeof v === 'object' ? leafKeys(v, `${p}${k}.`) : [`${p}${k}`]))
+// A plural form is spelled per language (_one, _many, ...), so compare the stem.
+const stems = (o) => new Set(leafKeys(o).map(k => k.replace(/_(zero|one|two|few|many|other)$/, '')))
+
+test('every locale carries the add-on and navigation keys of English', () => {
+  for (const file of ['addons', 'nav']) {
+    const en = stems(JSON.parse(readFileSync(join(localesDir, 'en', `${file}.json`), 'utf8')))
+    assert.ok(en.size > 20)
+    for (const lang of readdirSync(localesDir)) {
+      const have = stems(JSON.parse(readFileSync(join(localesDir, lang, `${file}.json`), 'utf8')))
+      const missing = [...en].filter(k => !have.has(k))
+      assert.deepEqual(missing, [], `${lang}/${file}.json lacks keys of English`)
+    }
+  }
+})
+
+test('every locale carries the chat tools control keys of English, with the one-line note', () => {
+  const read = (lang) => JSON.parse(readFileSync(join(localesDir, lang, 'chat.json'), 'utf8')).addons
+  const en = read('en')
+  assert.ok(en.note && !en.note.includes('\n'))
+  for (const lang of readdirSync(localesDir)) {
+    const have = read(lang)
+    for (const key of Object.keys(en)) assert.ok(have && have[key], `${lang}/chat.json lacks addons.${key}`)
+  }
+})
+
+test('the add-on labels use one name and one verb pair', () => {
+  const en = JSON.parse(readFileSync(join(localesDir, 'en', 'addons.json'), 'utf8'))
+  const nav = JSON.parse(readFileSync(join(localesDir, 'en', 'nav.json'), 'utf8'))
+  assert.equal(nav.items.addons, 'Add-ons')
+  assert.deepEqual([en.tabs.apps, en.tabs.browse, en.tabs.libraries], ['My add-ons', 'Find add-ons', 'Sources'])
+  assert.deepEqual([en.apps.start, en.apps.stop], ['Turn on', 'Turn off'])
+  assert.ok(!/owner/i.test(en.supporting), 'the subtitle does not name the owner')
+  assert.ok(!/\bapps?\b/i.test(JSON.stringify([...Object.values(en.tabs), en.supporting, nav.items.addons])), 'no label says Apps')
+})
+
+test('what an add-on adds comes from its page and its tools, and nothing is guessed', () => {
+  assert.deepEqual(addedByAddon({ hasUI: true, tools: ['add', 'list'], toolCount: 2 }), { page: true, tools: 2, toolNames: ['add', 'list'], toolsMore: 0 })
+  assert.deepEqual(addedByAddon({ hasUI: false, tools: [], toolCount: 0 }), { page: false, tools: 0, toolNames: [], toolsMore: 0 })
+  assert.equal(addedByAddon({ mainPage: '/app/addons/x/home' }).page, true)
+  const many = addedByAddon({ tools: ['a', 'b', 'c', 'd'], toolCount: 9 })
+  assert.deepEqual([many.tools, many.toolNames.length, many.toolsMore], [9, 4, 5])
+  assert.deepEqual(addedByAddon(null), { page: false, tools: 0, toolNames: [], toolsMore: 0 })
+})
+
+test('screenshots appear only when the host lists them and they are served by the host', () => {
+  assert.deepEqual(screenshotsOf({}), [])
+  assert.deepEqual(screenshotsOf({ screenshots: [] }), [])
+  assert.deepEqual(screenshotsOf({ screenshots: ['/api/addons/apps/x/shot/0', 'https://elsewhere.example/a.png', '//elsewhere.example/b.png', 7] }), ['/api/addons/apps/x/shot/0'])
+  assert.equal(screenshotsOf({ screenshots: Array.from({ length: 12 }, (_, i) => `/s/${i}`) }).length, 6)
+})
+
+test('the list says first run, no match or none, and a search never claims that nothing is installed', () => {
+  const one = [{ id: 'notes' }]
+  assert.equal(listState({ apps: [], shownCount: 0, query: '', isAdmin: true }), 'first-run')
+  assert.equal(listState({ apps: [], shownCount: 0, query: '', isAdmin: false }), 'none')
+  assert.equal(listState({ apps: [], shownCount: 0, query: '', isAdmin: true, canList: false }), 'none')
+  assert.equal(listState({ apps: one, shownCount: 1, query: 'no', isAdmin: true }), 'list')
+  assert.equal(listState({ apps: one, shownCount: 0, query: ' zzz ', isAdmin: true }), 'no-match')
+  assert.equal(listState({ apps: one, shownCount: 0, query: 'zzz', isAdmin: false }), 'no-match')
+  assert.equal(listState({ apps: one, shownCount: 0, query: '', isAdmin: false }), 'none')
+})
+
+test('featured add-ons are the first three add-on entries that are not installed', () => {
+  const entries = [{ id: 'a', kind: 'addon' }, { id: 'b', kind: 'backend' }, { id: 'c', kind: 'addon' }, { id: 'd', kind: 'addon' }, { id: 'e', kind: 'addon' }]
+  assert.deepEqual(featuredEntries(entries).map(e => e.id), ['a', 'c', 'd'])
+  assert.deepEqual(featuredEntries(entries, ['a']).map(e => e.id), ['c', 'd', 'e'])
+  assert.deepEqual(featuredEntries(null), [])
+})
+
+test('install and turn on runs the install, then the turn on, each as its own action', async () => {
+  const entry = { key: 'main/tables/1.0.0', id: 'tables', sourceId: 'main', version: '1.0.0' }
+  const marks = []
+  const calls = []
+  const sent = []
+  const adapter = { submitLifecycle: async (c) => { sent.push(c); return {} } }
+  const api = { installed: async () => [{ id: 'tables', enabled: true }] }
+  const run = async (key, { addonId, submit, verify }) => {
+    calls.push(key)
+    await submit('op-' + key, undefined)
+    assert.equal(await verify(), true)
+    return { outcome: 'completed', operationId: 'op-' + key }
+  }
+  await runInstallAndTurnOn({ run, api, adapter, mark: m => marks.push(m.step) }, entry)
+  assert.deepEqual(calls, ['install:main/tables/1.0.0', 'enable:tables:0'])
+  assert.deepEqual(marks, ['install', 'turn-on', 'done'])
+  assert.deepEqual(sent.map(c => [c.action, c.sourceId || '', c.version || '', c.generation || 0]), [['install', 'main', '1.0.0', 0], ['enable', '', '', 0]])
+})
+
+test('install and turn on stops at a failed install and retries only the turn on', async () => {
+  const entry = { key: 'main/tables/1.0.0', id: 'tables', sourceId: 'main', version: '1.0.0' }
+  const adapter = { submitLifecycle: async () => ({}) }
+  const api = { installed: async () => [] }
+  const marks = []
+  const failing = async (key) => (key.startsWith('install') ? { outcome: 'denied', error: { message: 'no' } } : { outcome: 'completed' })
+  const calls = []
+  const run = (fn) => async (key, o) => { calls.push(key); return fn(key, o) }
+  await runInstallAndTurnOn({ run: run(failing), api, adapter, mark: m => marks.push(m) }, entry)
+  assert.deepEqual(calls, ['install:main/tables/1.0.0'])
+  assert.deepEqual(marks.map(m => m.step), ['install', 'failed'])
+  assert.equal(marks[1].failedStep, 'install')
+  // The turn on failed after a good install: a retry skips the install.
+  calls.length = 0
+  marks.length = 0
+  const turnOnFails = async (key) => (key.startsWith('enable') ? { outcome: 'unknown' } : { outcome: 'completed' })
+  await runInstallAndTurnOn({ run: run(turnOnFails), api, adapter, mark: m => marks.push(m) }, entry)
+  assert.deepEqual(marks.map(m => `${m.step}:${m.failedStep || ''}:${m.outcome || ''}`), ['install::', 'turn-on::', 'failed:turn-on:unknown'])
+  calls.length = 0
+  marks.length = 0
+  await runInstallAndTurnOn({ run: run(async () => ({ outcome: 'completed' })), api, adapter, mark: m => marks.push(m) }, entry, { skipInstall: true })
+  assert.deepEqual(calls, ['enable:tables:0'])
+  assert.deepEqual(marks.map(m => m.step), ['turn-on', 'done'])
 })

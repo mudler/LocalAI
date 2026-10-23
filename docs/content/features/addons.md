@@ -124,7 +124,7 @@ A library source is a place LocalAI reads entries from. There are three kinds:
 
 All sources of all kinds are in one store, `addons/sources.json` under the data path.
 `local-ai library` (see the [CLI reference](/reference/cli-reference/#library-sources)), the
-HTTP routes below and the Libraries tab work on the same store with the same code, so
+HTTP routes below and the Sources tab work on the same store with the same code, so
 a change made in one place shows in the others.
 
 A source can be a default: one that LocalAI ships (the official add-on library, the
@@ -135,9 +135,9 @@ you remove a default, LocalAI keeps a record of the removal (a tombstone, `remov
 true`), so the default does not come back at the next start. Turn the source on again
 to bring it back. A source you added is deleted when you remove it.
 
-### The Libraries tab
+### The Sources tab
 
-The Libraries tab of the Add-ons page lists the sources of all three kinds. Use the kind
+The Sources tab of the Add-ons page lists the sources of all three kinds. Use the kind
 filter to show only add-ons, backends or models. Each source shows its kind, a Default
 badge for a shipped default, and its state: enabled, disabled, removed or, while the
 official libraries are off, off. Administrators can add a source (kind, format, name and
@@ -166,7 +166,7 @@ in the group Backends and galleries. On the command line it is
 
 When it is off, LocalAI does not read the default sources. The default add-on library,
 model gallery index and backend gallery index are not used for search, install or
-update checks. They stay in the store, still marked `default`, and the Libraries tab shows
+update checks. They stay in the store, still marked `default`, and the Sources tab shows
 them as off (`suspended: true` in the routes). Each source keeps its own enabled state, so turning the
 setting back on restores exactly what was there. Sources you added are not affected. The
 change applies at once, with no restart.
@@ -208,7 +208,7 @@ backends, the way the model library is for the models. The backend gallery
 (`backend/index.yaml`) is a generated copy of it. A tagged build before the cutover reads
 the gallery by default; a build from master reads the library. See
 [The backend library](#the-backend-library). A library entry of kind `backend` can also be
-installed by digest from the Browse tab, as described below.
+installed by digest from the Find add-ons tab, as described below.
 
 ### How a reader treats an unknown kind
 
@@ -217,7 +217,7 @@ not read the fields of a skipped entry, so a newer kind can carry fields this ve
 never seen. The index is not refused. A skipped entry is reported in two places:
 
 - the refresh result and the state of the library have `skipped` (a count) and
-  `skippedKinds`. The Libraries tab shows them;
+  `skippedKinds`. The Sources tab shows them;
 - the refresh writes a warning to the log.
 
 A kind that is not a plain lowercase name, or that is not text, is a malformed entry
@@ -304,10 +304,11 @@ signer exactly.
 
 ### Install a backend from a library
 
-An administrator installs a backend from the Browse tab of the Add-ons page. The entry
+An administrator installs a backend from the Find add-ons tab of the Add-ons page. The entry
 shows its kind. The page sends the install to the backend route, not to the add-on
-lifecycle: an add-on stays disabled until you enable it, a backend is ready to use when
-the install ends.
+lifecycle. The page installs an add-on and turns it on in one action (Install and turn
+on); the install itself leaves an add-on disabled. A backend has no on or off: it is
+ready to use when the install ends, and its button says Install.
 
 The route is `POST /backends/library/install`. It is for administrators and exists only
 when the add-on owner runs on this instance:
@@ -335,7 +336,7 @@ follow it. The `phase` of the job is the step it is in, in this order: `resolvin
 `verifying` (only when the library requires a signature), `size`, `fetching` (with
 `progress` and the sizes of the fetch) and `writing`. A job that ends has `processed` set.
 It ends with the phase `done` and `message` `completed`, or with `error` set and the
-`phase` of the step that failed. The Browse tab shows these steps. Refusals that depend on
+`phase` of the step that failed. The Find add-ons tab shows these steps. Refusals that depend on
 the entry arrive this way: an unknown entry, a name installed from another origin (a
 gallery, another library or a manual install; nothing changes), an image over the size
 limit, a library that strict mode refuses. The request itself answers `400` when it does
@@ -377,7 +378,7 @@ backend gallery: 1088 backends (934 concrete backends and 154 meta backends) in 
 entries, because a backend built for several platforms has one entry for each. LocalAI
 registers it on the first start as the source `official-backends`, next to the backend
 gallery `localai-backends`, and a source you remove stays removed. To add it again later,
-use the Libraries tab with this URL and the policy above:
+use the Sources tab with this URL and the policy above:
 
 ```
 https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/backends/index.yaml
@@ -1940,7 +1941,7 @@ are a later task and will have their own review.
 ### Built-in add-ons
 
 `GET /api/addons/builtin` lists the page add-ons that ship inside the web bundle, so the
-Add-ons drawer can show them next to the installed apps. The answer is
+My add-ons page can show them next to the installed add-ons. The answer is
 `{"builtin": [...]}`, and each entry has an `id`, a `kind` (always `page`), a `titleKey`,
 an `icon` and a `mainPath`, plus a `feature` or `adminOnly` when the entry has a gate.
 Today the list is empty: Studio and Talk, which used to be built in, are packaged
@@ -1953,7 +1954,7 @@ sent with `Cache-Control: private, no-store`.
 
 ### Pins
 
-Pinned apps are listed in the sidebar under Apps, in pin order. A pinned tile in the add-ons drawer has buttons to move it earlier or later.
+Pinned add-ons are listed in the sidebar under Add-ons, in pin order. The menu of a pinned card in My add-ons has **Move earlier** and **Move later**.
 
 `GET /api/addons/pins` returns the caller's pinned add-on IDs as a JSON array, in order.
 `PUT /api/addons/pins` takes a JSON array of add-on IDs, replaces the caller's pins with it
@@ -1994,26 +1995,28 @@ serves `/api/addons/builtin` and `/api/addons/pins`.
 
 ## Add-ons page and management
 
-The web UI serves one page for add-ons at `/app/addons`, the **Add-ons drawer**. It is
+The web UI serves one page for add-ons at `/app/addons`, called **Add-ons**. It is
 shown to a caller who holds the `addons` feature, and to anyone who can open a built-in
-tile (none today). Studio and Talk are add-ons: they are in the drawer only while they
-are installed. Administrators also
-reach **Browse**, **Installed** and **Libraries** from the drawer. The tabs are a
+tile (none today). Studio and Talk are add-ons: they are listed only while they
+are installed. The first tab is **My add-ons**. Administrators also
+reach **Find add-ons** and **Sources**. The tabs are a
 convenience: the owner checks administration again on every call, so a request that skips
 the page is denied the same way (403).
 
-The sidebar has the items **Chat**, **Models** and **Apps**. **Apps** opens the add-ons drawer at
-`/app/addons`. The pinned apps are listed under it, in pin order, as indented links with the app icon and title; nothing is listed when no app is
-pinned, and the list is hidden when the sidebar is collapsed. The user pins add-ons and changes
-their order with the buttons on a pinned tile in the drawer. Pins belong to the user, follow the user across browsers, and are
+The sidebar has the items **Chat**, **Models** and **Add-ons**. **Add-ons** opens the page at
+`/app/addons`. The add-ons a user shows in the sidebar are listed under it, in order, as indented links with the add-on icon and title; nothing is listed when none is
+shown, and the list is hidden when the sidebar is collapsed. The user adds an add-on to the sidebar with **Show in sidebar** in the menu of its card, and
+changes the order with **Move earlier** and **Move later** in the same menu. Pins belong to the user, follow the user across browsers, and are
 capped at eight. A pin whose add-on is stopped opens the detail view; a pin whose add-on
 was removed or is hidden is not drawn. Operators who
 need the previous sidebar can set `LOCALAI_LEGACY_NAVIGATION=true` (flag
 `--legacy-navigation`); it also brings back the Add-ons tab of the Build hub, which then opens `/app/addons`. The switch is a rollback aid and is removed one release after the
 new navigation ships; the UI reads it from the `addon_navigation` key of `/api/features`.
 
-A tab is addressed as `/app/addons?tab=browse|installed|libraries`. The management link of
-an app (`/app/addons?manage=ID`) opens the Installed tab with that addon's details open.
+A tab is addressed as `/app/addons?tab=browse|libraries`; My add-ons has no `tab`. What the
+former Installed tab showed is the **More details** section of an add-on in My add-ons, so
+`?tab=installed` opens My add-ons. The management link of an app
+(`/app/addons?manage=ID`) opens My add-ons with the details of that add-on open.
 
 ### Old links
 
@@ -2054,13 +2057,13 @@ A link with a model (`/app/image/<model>`) opens `/app/addons/studio/studio/imag
 The legacy switch (`LOCALAI_LEGACY_NAVIGATION`) restores the old sidebar and the Add-ons
 tab of the Build hub only. These redirects do not depend on it: with the switch on, the
 old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, Chat and
-the hubs; Studio and Talk are in the drawer, as add-ons.
+the hubs; Studio and Talk are in My add-ons, as add-ons.
 
 ### The Studio add-on
 
 The Studio add-on (`studio`) is a packaged add-on. It is not shipped with LocalAI: install
-it from **Browse add-ons** in the drawer and start it. Once it is usable, it appears in
-the drawer and can be pinned. Until then the sidebar, the drawer and the Home `/studio`
+it from **Find add-ons** with **Install and turn on**. Once it is usable, it appears in
+My add-ons and can be shown in the sidebar. Until then the sidebar, My add-ons and the Home `/studio`
 command do not list it, and the old Studio links open the add-on page, which says the
 add-on is not available.
 
@@ -2086,7 +2089,7 @@ the `media` locale files of the web UI, in every language the web UI has.
 ### The Talk add-on
 
 The Talk add-on (`talk`) is a packaged add-on, separate from Studio. Install it from
-**Browse add-ons** and start it. It adds the page `/app/addons/talk/talk` (main page) for
+**Find add-ons** with **Install and turn on**. It adds the page `/app/addons/talk/talk` (main page) for
 users with the `addons` feature. The page opens a WebRTC session to a realtime pipeline
 through `/v1/realtime/calls` and reads the pipeline list from `/api/pipeline-models`, with
 the signed-in user's own session; the core keeps both routes. The page uses the MCP servers
@@ -2096,10 +2099,10 @@ file of the web UI; other languages read the English text.
 ### The Voice add-on
 
 The Voice add-on (`voice`) is a packaged add-on. It is not shipped with LocalAI: install it
-from **Browse add-ons** in the drawer and start it. Once it is usable, it appears in the
-drawer and can be pinned. The Build hub has no Voices tab.
+from **Find add-ons** with **Install and turn on**. Once it is usable, it appears in
+My add-ons and can be shown in the sidebar. The Build hub has no Voices tab.
 
-The add-on has one page, `/app/addons/voice/voice`, and one entry in the drawer. Its
+The add-on has one page, `/app/addons/voice/voice`, and one entry in My add-ons. Its
 sections are tabs of that page, and the tab is the next segment of the address:
 
 | Tab | Path | Who sees it |
@@ -2130,8 +2133,8 @@ views, built from one source directory into each add-on.
 ### The Face add-on
 
 The Face add-on (`face`) is a packaged add-on, separate from the Voice add-on. It is not
-shipped with LocalAI: install it from **Browse add-ons** in the drawer and start it. Once it
-is usable, it appears in the drawer and can be pinned. The Build hub has no Faces tab.
+shipped with LocalAI: install it from **Find add-ons** with **Install and turn on**. Once it
+is usable, it appears in My add-ons and can be shown in the sidebar. The Build hub has no Faces tab.
 
 | Page | Path | Who sees it |
 |---|---|---|
@@ -2151,8 +2154,8 @@ same views, built from one source directory into each add-on.
 ### The Fine-tuning and Quantization add-ons
 
 The Fine-tuning add-on (`fine-tuning`) and the Quantization add-on (`quantization`) are
-packaged add-ons. They are not shipped with LocalAI: install them from **Browse add-ons**
-in the drawer and start them. Once usable, they appear in the drawer and can be pinned.
+packaged add-ons. They are not shipped with LocalAI: install them from **Find add-ons**
+with **Install and turn on**. Once usable, they appear in My add-ons and can be shown in the sidebar.
 The Build hub has no Fine-Tune or Quantize tab.
 
 | Add-on | Page | Path | Who sees it |
@@ -2169,31 +2172,43 @@ reach the engine through [Host operations](#host-operations), and a tool can con
 a job that a tool started. See [Fine-tuning](../fine-tuning/#fine-tuning-is-an-add-on) and
 [Quantization](../quantization/#quantization-is-an-add-on).
 
-### The drawer
+### My add-ons
 
-The drawer is a grid of tiles with a search box. The built-in tiles (none today) come
-first, then the installed add-ons by identifier. Each tile has a pin control, a real
-button with a name and a pressed state, so it works from the keyboard; a pinned tile also
-has buttons to move it earlier or later. Pinning a ninth add-on opens a dialog that asks
-the user to unpin one first. A running tile opens the add-on; every other tile opens a
-detail view (`/app/addons?detail=ID`) and never the main page, because the main page
-needs a live process. Administrators also see **Browse add-ons** and **Add a new add-on**.
-A caller without the `addons` feature sees only the built-in tiles (none today), and the page does not
+My add-ons is a grid of cards with a search box. The built-in cards (none today) come
+first, then the installed add-ons by identifier. A card shows the icon, the name, the state
+(**On**, **Off**, or the state the host observed, such as **Starting** or **Failed**), the
+description, **Adds a page** when the add-on has a page and the number of **chat tools** when
+it has tools. A running add-on with a page also has an **Open** link. Each card has one
+overflow menu with **Show in sidebar** (or **Remove from sidebar**), **Details**, and, for an
+administrator, **Remove**. A pinned add-on also has **Move earlier** and **Move later** in the
+menu. Showing a ninth add-on in the sidebar opens a dialog that asks the user to remove one
+first. Selecting a card, or **Details**, opens the preview pane beside the list
+(`/app/addons?detail=ID`) and never the main page, because the main page needs a live
+process. The pane shows the name and state, the description, screenshots only when the host
+lists images for the add-on (it lists none today, so no slot is drawn), what the add-on adds
+(its page and its chat tools), **Turn on** or **Turn off**, **Remove** and the version and
+source. For an administrator it also has **More details**: health, trust, compatibility,
+storage, data recovery and updates. Administrators also see **Find add-ons**.
+A caller without the `addons` feature sees only the built-in cards (none today), and the page does not
 call `GET /api/addons/apps` for that caller.
 
-The detail view shows the entry as described next, and the pages the add-on names in
-`ui.navigation`. The drawer draws `GET /api/addons/apps`: the icon from the host's icon route, the
+With nothing installed, an administrator sees three add-ons from the sources, each with
+**Install and turn on**, and a link to **Find add-ons**. A search that matches nothing says
+that no add-on matches it.
+
+The pane also lists the pages the add-on names in
+`ui.navigation`. The page draws `GET /api/addons/apps`: the icon from the host's icon route, the
 title in the interface language (falling back to the default text and then to the
 identifier), the description, a state chip (`running`, `starting`, `failed`, `stopped`),
 an **update pending** chip when the owner's cached check reports one, an **Open** link only when the entry
-has a `mainPage`, and for an add-on without pages a short tool summary. Icons always
+has a `mainPage`, and a tool summary. Icons always
 come from the same origin; the page never loads an image from a manifest or a library.
 
 The list is read again every 5 seconds (30 seconds in a hidden tab). A failed read
 doubles the wait up to 60 seconds, keeps the last list on screen and says it may be
-out of date. Leaving the page cancels the pending read. Administrators see **Start**,
-**Stop** and **Manage** on an entry that carries the `admin` object. A start or stop
-sends a fresh operation ID with the generation that was listed and keeps that ID for
+out of date. Leaving the page cancels the pending read. Administrators see **Turn on** and
+**Turn off** on an entry that carries the `admin` object. They send
+a fresh operation ID with the generation that was listed and keep that ID for
 retries of that one action: once the operation is final (completed, failed or refused)
 the ID is dropped, so the next click is a new operation and is never answered from an
 old one. After `outcome_unknown` the page reads the original
@@ -2925,7 +2940,7 @@ Voice, Face, fine-tuning, quantization, Studio and Talk enable all four. A test 
 platform is enabled without a recorded check.
 
 Each package also has a catalog template in `gallery/addons/<id>.yaml.tmpl`, so it can be
-listed in Browse add-ons once a maintainer renders and publishes its entries. See
+listed in Find add-ons once a maintainer renders and publishes its entries. See
 `gallery/addons/README.md` for the commands.
 
 Every add-on has its own repository. Tables publishes to `ADDON_OCI_REPOSITORY`. Each

@@ -154,7 +154,7 @@ export default function LineageView({
           <Icon name="arrow-left" /> {t('studio.lineage.back')}
         </button>
         <div>
-          <h1 className="studio-lineage__title" title={root.title || undefined}>{clip(root.title, 72) || label(root.type)}</h1>
+          <h2 className="studio-lineage__title" title={root.title || undefined}>{clip(root.title, 72) || label(root.type)}</h2>
           <p className="studio-lineage__sub">
             {members.length > 1 ? t('studio.lineage.sub', { count: members.length }) : t('studio.lineage.subOne')}
             {' · '}{relativeTime(members[members.length - 1].createdAt)}

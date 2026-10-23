@@ -919,10 +919,9 @@ test.describe('Tables UI', () => {
     await page.getByTestId('tbl-name-dialog').getByLabel('Name').fill('Local notes')
     await page.getByTestId('tbl-name-dialog').getByRole('button', { name: 'Create database' }).click()
     await expect(page.getByTestId('tbl-db-name')).toHaveText('Local notes', { timeout: 25_000 })
-    await page.getByRole('button', { name: 'Share' }).click()
-    const off = page.getByTestId('tbl-sharing-disabled')
-    await expect(off).toBeVisible({ timeout: 25_000 })
-    await expect(off).toContainText('one local owner')
+    // Nobody to share with, so the page does not offer the button at all.
+    await expect(page.getByRole('button', { name: 'Rename' })).toBeVisible({ timeout: 25_000 })
+    await expect(page.getByRole('button', { name: 'Share' })).toHaveCount(0)
     await shoot(page, 'tables-ui-local-sharing')
     // No grant or picker request is ever made, and the host says the same.
     expect(requests.filter(r => /\/grants|\/users/.test(r))).toEqual([])

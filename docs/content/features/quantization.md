@@ -155,7 +155,7 @@ A user needs the quantization permission. Without it, the page says the account 
 
 ### Quantization is an add-on
 
-The Quantize page is the `quantization` add-on. It does not ship with LocalAI. An administrator installs it from **Browse add-ons** in the drawer and starts it. Once it runs, it opens from the drawer at `/app/addons/quantization/jobs` and can be pinned. The Build hub no longer has a Quantize tab.
+The Quantize page is the `quantization` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/quantization/jobs` and can be shown in the sidebar. The Build hub no longer has a Quantize tab.
 
 The old link `/app/quantize` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
 

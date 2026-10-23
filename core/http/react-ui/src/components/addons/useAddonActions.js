@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createActionBook, effectOutcome } from './actionBook'
 import { runLifecycle, settleOperation } from './lifecycleFlow'
+import { runInstallAndTurnOn } from './installFlow'
 
 // Runs user actions that change an add-on, one operation identity per action.
 //
@@ -18,7 +19,7 @@ import { runLifecycle, settleOperation } from './lifecycleFlow'
 // unknown[addonId] is set while an outcome is unknown: the earlier operation
 // may still be applied, so no other action on that add-on is submitted until
 // `checkStatus(addonId)` reads it as final or the user calls `dismiss(addonId)`.
-export function useAddonActions(api, { onSettled } = {}) {
+export function useAddonActions(api, { onSettled, adapter } = {}) {
   const book = useRef(null)
   if (book.current === null) book.current = createActionBook()
   const abort = useRef(null)
@@ -26,6 +27,7 @@ export function useAddonActions(api, { onSettled } = {}) {
   settled.current = onSettled
   const [state, setState] = useState({})
   const [unknown, setUnknown] = useState({})
+  const [flows, setFlows] = useState({})
 
   useEffect(() => {
     abort.current = new AbortController()
@@ -124,6 +126,25 @@ export function useAddonActions(api, { onSettled } = {}) {
     })
   }, [setUnknownFor])
 
+  // Install an add-on and turn it on as one action of the user. Each step is
+  // an ordinary action with its own operation identity, so an unknown outcome
+  // keeps the rules above. flows[entry.key] says where it is: step 'install'
+  // or 'turn-on' while it runs, 'done' at the end, or 'failed' with the step
+  // that failed and the outcome. `skipInstall` turns on an add-on that is
+  // already installed (the retry after a failed turn on).
+  const installAndTurnOn = useCallback((entry, options = {}) => {
+    const flow = `flow:${entry.key}`
+    return runInstallAndTurnOn({ run, api, adapter, mark: (value) => setFlows(f => ({ ...f, [flow]: value })) }, entry, options)
+  }, [run, api, adapter])
+
+  const clearFlow = useCallback((entry) => {
+    setFlows(f => {
+      const next = { ...f }
+      delete next[`flow:${entry.key}`]
+      return next
+    })
+  }, [])
+
   const clear = useCallback((key) => {
     setState(s => {
       const next = { ...s }
@@ -132,5 +153,5 @@ export function useAddonActions(api, { onSettled } = {}) {
     })
   }, [])
 
-  return { state, unknown, run, checkStatus, dismiss, clear, book: book.current }
+  return { state, unknown, flows, run, installAndTurnOn, clearFlow, checkStatus, dismiss, clear, book: book.current }
 }
