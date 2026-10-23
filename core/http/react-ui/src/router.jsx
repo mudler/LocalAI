@@ -1,15 +1,11 @@
-import { lazy, useEffect } from 'react'
+import { lazy } from 'react'
 import { createBrowserRouter, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { routerBasename } from './utils/basePath'
-import { useAddonRegistry } from './addons/useAddonRegistry'
-import { appStatus } from './addons/registryState'
 import App from './App'
 import RequireAdmin from './components/RequireAdmin'
 import RequireAuth from './components/RequireAuth'
 import RequireAuthEnabled from './components/RequireAuthEnabled'
 import RequireFeature from './components/RequireFeature'
-import FeatureOff from './components/identity/FeatureOff'
-import ToolOff from './components/tools/ToolOff'
 
 // Pages are code-split: each becomes its own chunk loaded on demand, so a route
 // no longer drags every other page (and its heavy deps — CodeMirror, the MCP
@@ -118,11 +114,6 @@ const ImportModel = page(null, () => import('./pages/ImportModel'))
 const BackendLogs = page(null, () => import('./pages/BackendLogs'))
 const Explorer = page(null, () => import('./pages/Explorer'))
 const Login = page(null, () => import('./pages/Login'))
-const FineTune = page('fine-tune', () => import('./pages/FineTune'))
-const Quantize = page('quantize', () => import('./pages/Quantize'))
-const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
-const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
-const VoiceProfileCreate = page(null, () => import('./pages/VoiceProfileCreate'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
 const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
@@ -161,7 +152,7 @@ import HubLayout from './components/hub/HubLayout'
 import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
-import { studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
+import { addonPageAddress, studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
 import { buildHub, operateHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
@@ -201,25 +192,16 @@ function BrowseRedirect() {
 }
 
 
-// A moved biometric page opens in its add-on while the add-on is usable and in
-// the core page otherwise, so a user who has not installed the add-on loses
-// nothing. withModel carries the :model segment of the old route to the
-// add-on as ?model=<id>: an add-on path segment refuses "/", ":" and "%" and
-// long ids (resolveSubpath), so a model id cannot travel in the path.
-function MovedPage({ addon, page, withModel, children }) {
-  const { apps, acquire, allowed } = useAddonRegistry()
+// The pages of Face, Voice, Fine-tuning and Quantization live only in their
+// add-ons. The old address opens the add-on page; when the add-on is not
+// installed or not ready, the add-on shell says so. withModel carries the
+// :model segment of the old route as ?model=<id>: an add-on path segment
+// refuses "/", ":" and "%" and long ids (resolveSubpath), so a model id cannot
+// travel in the path.
+function AddonRedirect({ addon, page, withModel }) {
   const { search, hash } = useLocation()
   const { model } = useParams()
-  // The list is read only for a user the server lets see add-ons.
-  useEffect(() => (allowed ? acquire() : undefined), [acquire, allowed])
-  const app = apps.find(a => a.id === addon)
-  if (appStatus(app) === 'ready' && app.ui.pages.includes(page.split('/')[0])) {
-    const params = new URLSearchParams(search)
-    if (withModel && model) params.set('model', model)
-    const query = params.toString()
-    return <Navigate to={`/app/addons/${addon}/${page}${query ? `?${query}` : ''}${hash}`} replace />
-  }
-  return children
+  return <Navigate to={addonPageAddress({ addon, page, model: withModel ? model : undefined, search, hash })} replace />
 }
 
 function Admin({ children }) {
@@ -302,13 +284,13 @@ const appChildren = [
       { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
       { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
       { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-      { path: 'fine-tune', element: <MovedPage addon="fine-tuning" page="jobs"><Feature feature="fine_tuning" disabled={<ToolOff tool="fineTune" />}><FineTune /></Feature></MovedPage> },
-      { path: 'quantize', element: <MovedPage addon="quantization" page="jobs"><Feature feature="quantization" disabled={<ToolOff tool="quantize" />}><Quantize /></Feature></MovedPage> },
-      { path: 'face', element: <MovedPage addon="face" page="recognition"><Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature></MovedPage> },
-      { path: 'face/:model', element: <MovedPage addon="face" page="recognition" withModel><Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature></MovedPage> },
-      { path: 'voice', element: <MovedPage addon="voice" page="voice/recognition"><Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature></MovedPage> },
-      { path: 'voice/:model', element: <MovedPage addon="voice" page="voice/recognition" withModel><Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature></MovedPage> },
-      { path: 'voice-library', element: <Admin><MovedPage addon="voice" page="voice/library"><VoiceRecognition tab="speech" /></MovedPage></Admin> },
+      { path: 'fine-tune', element: <AddonRedirect addon="fine-tuning" page="jobs" /> },
+      { path: 'quantize', element: <AddonRedirect addon="quantization" page="jobs" /> },
+      { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
+      { path: 'face/:model', element: <AddonRedirect addon="face" page="recognition" withModel /> },
+      { path: 'voice', element: <AddonRedirect addon="voice" page="voice/recognition" /> },
+      { path: 'voice/:model', element: <AddonRedirect addon="voice" page="voice/recognition" withModel /> },
+      { path: 'voice-library', element: <AddonRedirect addon="voice" page="voice/library" /> },
       { path: 'import-model', element: <Admin><ImportModel /></Admin> },
     ],
   },
@@ -363,7 +345,7 @@ const appChildren = [
     children: [{ path: ':id', element: <ModelPage /> }],
   },
   { path: 'manage', element: <Admin><ManageRedirect /></Admin> },
-  { path: 'voice-library/new', element: <Admin><MovedPage addon="voice" page="voice/library/new"><VoiceProfileCreate /></MovedPage></Admin> },
+  { path: 'voice-library/new', element: <AddonRedirect addon="voice" page="voice/library/new" /> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: '*', element: <NotFound /> },

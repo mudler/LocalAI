@@ -207,14 +207,6 @@ test('plural: the job count picks the singular and the plural key', async () => 
   assert.equal(ctx.plural('jobs.count', 3), '3 kept on this server')
 })
 
-test('parity: every data-testid of the core page and chart is in the add-on or the shared views', () => {
-  const core = ['pages/FineTune.jsx', 'components/tools/LossChart.jsx'].map(f => read(join(hostUi, 'src', f))).join('\n')
-  const ids = new Set([...core.matchAll(/(?:data-testid|testId)="([^"]+)"/g)].map(m => m[1]))
-  assert.ok(ids.size >= 20, `found only ${ids.size} test ids in the core sources`)
-  const mine = ownText + sharedText
-  for (const id of ids) assert.ok(mine.includes(`"${id}"`) || mine.includes(`'${id}'`), `missing data-testid ${id}`)
-})
-
 test('i18n: every literal key the add-on and the shared views read is in en.js', () => {
   const keys = new Set()
   for (const text of [ownText, sharedText]) for (const m of text.matchAll(/\bt\(\s*'([A-Za-z0-9_.]+)'/g)) keys.add(m[1])

@@ -2040,10 +2040,9 @@ query string and the hash:
 | `/app/voice-library` | `/app/addons/voice/voice/library` |
 | `/app/voice-library/new` | `/app/addons/voice/voice/library/new` |
 
-The two face links and the four voice links open their add-on only while it is installed and usable. Without
-it, they open the same pages in the core web UI, so nobody loses a page they can open today.
-The Studio and Talk links have no core page to fall back to: without the add-on they open
-the add-on page, which says the add-on is not available.
+None of these links has a core page behind it: the face, voice, Studio and Talk pages exist
+only in their add-ons. Without the add-on, a link opens the add-on page, which says the
+add-on is not available.
 A model id can hold `/` or `:`, which an add-on path segment refuses, so the model travels
 as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/voice/recognition?model=org%2Fname`; the face links and the
 Studio links do the same).
@@ -2161,8 +2160,8 @@ The Build hub has no Fine-Tune or Quantize tab.
 | `fine-tuning` | Fine-Tune | `/app/addons/fine-tuning/jobs` | users with the `fine_tuning` feature; the page shows an off notice for anyone else |
 | `quantization` | Quantize | `/app/addons/quantization/jobs` | users with the `quantization` feature; the page shows an off notice for anyone else |
 
-The old links `/app/fine-tune` and `/app/quantize` open the add-on page while the add-on
-is installed and usable, and the same page in the core web UI otherwise. The pages call
+The old links `/app/fine-tune` and `/app/quantize` open the add-on page. Without the add-on,
+they show the add-on page that says the add-on is not available. The pages call
 `/api/fine-tuning/*` and `/api/quantization/*` with the signed-in user's own session (see
 "Core routes from add-ons"); the core keeps these routes and checks every call again.
 Both add-ons offer chat tools that propose a job and wait for a person to confirm. They

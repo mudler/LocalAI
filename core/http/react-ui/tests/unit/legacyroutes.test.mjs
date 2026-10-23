@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { STUDIO_TABS, studioAddress, studioRedirect, talkAddress, MIGRATION_ROUTES } from '../../src/utils/legacyRoutes.js'
+import { addonPageAddress, STUDIO_TABS, studioAddress, studioRedirect, talkAddress, MIGRATION_ROUTES } from '../../src/utils/legacyRoutes.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const router = readFileSync(join(here, '../../src/router.jsx'), 'utf8')
@@ -65,13 +65,20 @@ test('the same-path routes need no redirect', () => {
   for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'same')) assert.equal(r.from, r.to)
 })
 
-test('moved biometric routes are wrapped in MovedPage in the router', () => {
-  // Studio and Talk have no core page to fall back to; they redirect (see above).
+test('moved routes redirect to their add-on page, with no built-in page behind them', () => {
+  // Studio and Talk have their own redirects (see above).
   for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'addon-page' && !['/app/studio', '/app/talk'].includes(x.from))) {
     const [, , , addon, ...rest] = r.to.split('/')
     const page = rest.join('/')
-    assert.ok(router.includes(`<MovedPage addon="${addon}" page="${page}">`) || router.includes(`<MovedPage addon="${addon}" page="${page}" withModel>`), `router.jsx does not wrap ${r.from}`)
+    assert.ok(router.includes(`<AddonRedirect addon="${addon}" page="${page}" />`) || router.includes(`<AddonRedirect addon="${addon}" page="${page}" withModel />`), `router.jsx does not redirect ${r.from}`)
   }
+  assert.ok(!router.includes('MovedPage'))
+  assert.ok(!/pages\/(FaceRecognition|VoiceRecognition|VoiceLibrary|VoiceProfileCreate|FineTune|Quantize)'/.test(router))
+})
+
+test('addonPageAddress keeps the page path, the model, the query and the hash', () => {
+  assert.equal(addonPageAddress({ addon: 'voice', page: 'voice/recognition' }), '/app/addons/voice/voice/recognition')
+  assert.equal(addonPageAddress({ addon: 'face', page: 'recognition', model: 'org/name', search: '?x=1', hash: '#h' }), '/app/addons/face/recognition?x=1&model=org%2Fname#h')
 })
 
 test('a moved route with a :model segment carries the model as ?model=, not in the path', () => {
@@ -84,8 +91,8 @@ test('the face route and the face model route both open the Face add-on, the mod
   const lines = router.split('\n')
   const plain = lines.find(l => l.includes("{ path: 'face', element:"))
   const withModel = lines.find(l => l.includes("{ path: 'face/:model', element:"))
-  assert.ok(plain?.includes('<MovedPage addon="face" page="recognition">'), 'face is not wrapped')
-  assert.ok(withModel?.includes('<MovedPage addon="face" page="recognition" withModel>'), 'face/:model is not wrapped with withModel')
+  assert.ok(plain?.includes('<AddonRedirect addon="face" page="recognition" />'), 'face does not redirect')
+  assert.ok(withModel?.includes('<AddonRedirect addon="face" page="recognition" withModel />'), 'face/:model does not redirect with withModel')
 })
 
 test('the Build hub has no Faces tab', async () => {
@@ -93,7 +100,7 @@ test('the Build hub has no Faces tab', async () => {
   assert.ok(!buildHub.tabs.some(t => t.id === 'faces' || t.id === 'voices'))
 })
 
-test('the fine-tune and quantize routes open their add-on pages, around the existing Feature and ToolOff', () => {
+test('the fine-tune and quantize routes redirect to their add-on pages', () => {
   const lines = router.split('\n')
   const rows = [
     { from: '/app/fine-tune', to: '/app/addons/fine-tuning/jobs', addon: 'fine-tuning', tool: 'fineTune', feature: 'fine_tuning', path: 'fine-tune' },
@@ -102,8 +109,7 @@ test('the fine-tune and quantize routes open their add-on pages, around the exis
   for (const r of rows) {
     assert.ok(MIGRATION_ROUTES.some(m => m.from === r.from && m.to === r.to && m.kind === 'addon-page'), `no row for ${r.from}`)
     const entry = lines.find(l => l.includes(`{ path: '${r.path}', element:`))
-    assert.ok(entry?.includes(`<MovedPage addon="${r.addon}" page="jobs">`), `${r.path} is not wrapped`)
-    assert.ok(entry.includes(`<Feature feature="${r.feature}" disabled={<ToolOff tool="${r.tool}" />}>`), `${r.path} lost its Feature and ToolOff`)
+    assert.ok(entry?.includes(`<AddonRedirect addon="${r.addon}" page="jobs" />`), `${r.path} does not redirect`)
   }
 })
 
