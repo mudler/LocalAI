@@ -90,6 +90,23 @@ func (r *residencyProcessManager) HasModelAtAddress(modelName, address string) b
 	return r.resident[modelName+"@"+address]
 }
 
+// hookProcessManager runs a hook inside the stop, then fails it, so a test can
+// drive request lifecycle events while an eviction is pending.
+type hookProcessManager struct {
+	hook func()
+	err  error
+}
+
+func (h *hookProcessManager) ShutdownModel(string) error {
+	h.hook()
+	return h.err
+}
+
+func (h *hookProcessManager) ShutdownModelForce(string) error {
+	h.hook()
+	return h.err
+}
+
 func (m *mockProcessManager) getShutdownCalls() []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -818,13 +835,13 @@ var _ = Describe("WatchDog", func() {
 			go wd.Run()
 			defer wd.Shutdown()
 
-			Eventually(func() []string {
-				return pm.getForceShutdownCalls()
-			}, "300ms", "10ms").Should(ContainElement("stuckModel"))
-			// The backend still runs: the watchdog must not forget it.
-			Consistently(func() map[string]string {
-				return wd.GetState().AddressModelMap
-			}, "100ms", "10ms").Should(HaveKeyWithValue("addr1", "stuckModel"))
+			// The backend still runs: the watchdog must not forget it. The busy
+			// check only stops a tracked model, so a second stop attempt proves
+			// it was tracked again. Sampling the map instead would race with
+			// the short window in which the eviction is pending.
+			Eventually(func() int {
+				return len(pm.getForceShutdownCalls())
+			}, "1s", "10ms").Should(BeNumerically(">=", 2))
 		})
 	})
 
@@ -845,10 +862,11 @@ var _ = Describe("WatchDog", func() {
 			go wd.Run()
 			defer wd.Shutdown()
 
-			Eventually(func() []string {
-				return pm.getShutdownCalls()
-			}, "300ms", "10ms").Should(ContainElement("idleModel"))
-			Expect(wd.GetState().AddressModelMap).To(HaveKeyWithValue("addr1", "idleModel"),
+			// The idle check only stops a tracked model: a second attempt proves
+			// the backend that still runs was tracked again.
+			Eventually(func() int {
+				return len(pm.getShutdownCalls())
+			}, "1s", "10ms").Should(BeNumerically(">=", 2),
 				"the backend still runs, the watchdog must still know it")
 
 			pm.clearShutdownError("idleModel") // the lifecycle lock is released
@@ -1093,6 +1111,53 @@ var _ = Describe("WatchDog", func() {
 				pm.shutdownErrors["a"] = model.ErrModelNotFound
 				Expect(wd.EnforceGroupExclusivity("b").EvictedCount).To(Equal(1))
 				Expect(wd.GetLoadedModelCount()).To(Equal(0))
+			})
+		})
+
+		Describe("request lifecycle during a stop that fails", func() {
+			// Requests keep completing and starting while a busy backend is
+			// being force-stopped. When the stop fails, the watchdog must keep
+			// what happened meanwhile instead of replaying pre-stop state.
+			var hpm *hookProcessManager
+
+			BeforeEach(func() {
+				hpm = &hookProcessManager{err: errors.New("waiting to shut down model: context deadline exceeded")}
+				wd = model.NewWatchDog(
+					model.WithProcessManager(hpm),
+					model.WithLRULimit(1),
+					model.WithForceEvictionWhenBusy(true),
+				)
+				wd.AddAddressModelMap("addrA", "a")
+			})
+
+			It("does not resurrect a request that completed during the stop", func() {
+				done := wd.TrackRequest("addrA")
+				hpm.hook = done
+
+				result := wd.EnforceLRULimit(0)
+
+				Expect(result.EvictedCount).To(Equal(0))
+				state := wd.GetState()
+				Expect(state.AddressModelMap).To(HaveKeyWithValue("addrA", "a"))
+				Expect(state.InFlight).ToNot(HaveKey("addrA"), "the request completed during the stop")
+				Expect(state.BusyTime).ToNot(HaveKey("addrA"), "the backend is idle, not busy")
+			})
+
+			It("keeps a request that started during the stop", func() {
+				first := wd.TrackRequest("addrA")
+				var second func()
+				hpm.hook = func() { second = wd.TrackRequest("addrA") }
+
+				wd.EnforceLRULimit(0)
+				first()
+
+				state := wd.GetState()
+				Expect(state.AddressModelMap).To(HaveKeyWithValue("addrA", "a"))
+				Expect(state.InFlight).To(HaveKeyWithValue("addrA", 1), "the request started during the stop is still running")
+				Expect(state.BusyTime).To(HaveKey("addrA"), "the backend must stay busy so it is not evicted unsafely")
+
+				second()
+				Expect(wd.GetState().BusyTime).ToNot(HaveKey("addrA"))
 			})
 		})
 

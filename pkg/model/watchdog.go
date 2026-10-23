@@ -34,6 +34,12 @@ type WatchDog struct {
 	idleTime       map[string]time.Time
 	lastUsed       map[string]time.Time // LRU tracking: when each model was last used
 
+	// pendingEvictions counts, per address, the evictions detached from the
+	// model registry whose stop has not returned yet. Idle and busy checks
+	// skip these addresses so they neither re-evict nor wipe live request
+	// state while the stop is in progress.
+	pendingEvictions map[string]int
+
 	timeout, idletimeout time.Duration
 	addressMap           map[string]*process.Process
 	addressModelMap      map[string]string
@@ -100,6 +106,7 @@ func NewWatchDog(opts ...WatchDogOption) *WatchDog {
 		legacyRequests:           make(map[string][]uint64),
 		idleTime:                 make(map[string]time.Time),
 		lastUsed:                 make(map[string]time.Time),
+		pendingEvictions:         make(map[string]int),
 		addressMap:               make(map[string]*process.Process),
 		busyCheck:                o.busyCheck,
 		idleCheck:                o.idleCheck,
@@ -472,97 +479,78 @@ type evictionTarget struct {
 	model   string
 	wasBusy bool
 
-	// tracked is what untrack removed for this address, kept so a shutdown that
-	// fails can put it back. Every eviction path captures it before untrack;
-	// nil only when the address was not tracked.
-	tracked *trackedState
+	// detached is what the eviction removed from the model registry for this
+	// address, kept so a shutdown that fails can register it again. nil only
+	// when the address was not tracked.
+	detached *detachedBackend
 }
 
-// trackedState is a snapshot of everything the watchdog knows about one backend
-// address. An eviction untracks the backend before it is stopped, so a stop that
-// fails (typically a lifecycle lock held by a long model load) would otherwise
-// leave a backend that is still running and still holding its VRAM invisible to
-// the group and LRU checks: the next load sees no conflict and runs out of memory.
-type trackedState struct {
-	model          string
-	process        *process.Process
-	busyTime       time.Time
-	hasBusy        bool
-	inFlight       int
-	requestStarts  map[uint64]time.Time
-	legacyRequests []uint64
-	idleTime       time.Time
-	hasIdle        bool
-	lastUsed       time.Time
-	hasLastUsed    bool
-	size           int64
-	hasSize        bool
+// detachedBackend is the identity of a backend whose eviction is pending. An
+// eviction removes the backend from the model registry before it is stopped,
+// so that concurrent LRU/group checks do not select it twice. A stop that fails
+// (typically a lifecycle lock held by a long model load) leaves a backend that
+// still runs and still holds its VRAM, so it must be registered again, or the
+// next load sees no conflict and runs out of memory.
+//
+// Only the identity is detached. Request lifecycle state (in-flight requests,
+// busy/idle/last-used times) stays live during the stop, so a request that
+// completes or starts meanwhile updates it normally. Replaying a snapshot of
+// that state after a failed stop would resurrect completed requests or erase
+// requests started during the stop.
+type detachedBackend struct {
+	model   string
+	process *process.Process
+	size    int64
+	hasSize bool
 }
 
-// snapshotLocked captures the tracking state of an address. Must be called with
-// wd.Lock() held, before untrack.
-func (wd *WatchDog) snapshotLocked(address string) *trackedState {
+// detachForEvictionLocked removes the backend at address from the model
+// registry and marks its eviction as pending. Must be called with wd.Lock()
+// held.
+func (wd *WatchDog) detachForEvictionLocked(address string) *detachedBackend {
 	model, ok := wd.addressModelMap[address]
 	if !ok {
 		return nil
 	}
-	s := &trackedState{model: model, process: wd.addressMap[address], inFlight: wd.inFlight[address]}
-	s.busyTime, s.hasBusy = wd.busyTime[address]
-	s.idleTime, s.hasIdle = wd.idleTime[address]
-	s.lastUsed, s.hasLastUsed = wd.lastUsed[address]
-	s.size, s.hasSize = wd.modelSizes[model]
-	if starts := wd.requestStarts[address]; starts != nil {
-		s.requestStarts = make(map[uint64]time.Time, len(starts))
-		for id, t := range starts {
-			s.requestStarts[id] = t
-		}
-	}
-	s.legacyRequests = slices.Clone(wd.legacyRequests[address])
-	return s
+	d := &detachedBackend{model: model, process: wd.addressMap[address]}
+	d.size, d.hasSize = wd.modelSizes[model]
+	wd.untrackModelLocked(address)
+	wd.pendingEvictions[address]++
+	return d
 }
 
-// restoreTracked puts a snapshot back after the backend it describes could not
-// be stopped. It does nothing when the address was re-registered in the
-// meantime: a replacement backend already owns the address and must win.
-func (wd *WatchDog) restoreTracked(address string, s *trackedState) {
-	if s == nil {
-		return
-	}
+// finishEviction settles a pending eviction. keep registers the backend again
+// because it is still running; otherwise the request state left for the
+// address is cleared. Nothing is touched when a replacement backend registered
+// the address in the meantime: it owns the address and its request state.
+func (wd *WatchDog) finishEviction(t evictionTarget, keep bool) {
 	wd.Lock()
 	defer wd.Unlock()
-	if _, taken := wd.addressModelMap[address]; taken {
+	if wd.pendingEvictions[t.address] <= 1 {
+		delete(wd.pendingEvictions, t.address)
+	} else {
+		wd.pendingEvictions[t.address]--
+	}
+	if _, taken := wd.addressModelMap[t.address]; taken {
 		return
 	}
-	wd.addressModelMap[address] = s.model
-	if s.process != nil {
-		wd.addressMap[address] = s.process
+	if !keep || t.detached == nil {
+		wd.clearRequestStateLocked(t.address)
+		return
 	}
-	if s.hasBusy {
-		wd.busyTime[address] = s.busyTime
+	d := t.detached
+	wd.addressModelMap[t.address] = d.model
+	if d.process != nil {
+		wd.addressMap[t.address] = d.process
 	}
-	if s.inFlight > 0 {
-		wd.inFlight[address] = s.inFlight
-	}
-	if len(s.requestStarts) > 0 {
-		wd.requestStarts[address] = s.requestStarts
-	}
-	if len(s.legacyRequests) > 0 {
-		wd.legacyRequests[address] = s.legacyRequests
-	}
-	if s.hasIdle {
-		wd.idleTime[address] = s.idleTime
-	}
-	if s.hasLastUsed {
-		wd.lastUsed[address] = s.lastUsed
-	}
-	if s.hasSize {
-		// untrack dropped the estimate only when no other address served this
+	if d.hasSize {
+		// The estimate was dropped only when no other address served this
 		// model; never overwrite one a replacement has registered since.
-		if _, ok := wd.modelSizes[s.model]; !ok {
-			wd.modelSizes[s.model] = s.size
+		if _, ok := wd.modelSizes[d.model]; !ok {
+			wd.modelSizes[d.model] = d.size
 		}
 	}
-	xlog.Warn("[WatchDog] model could not be stopped, tracking it again", "model", s.model, "address", address)
+	xlog.Warn("[WatchDog] model could not be stopped, tracking it again", "model", d.model, "address", t.address)
 }
 
 // EnforceLRULimitResult contains the result of LRU enforcement
@@ -673,8 +661,7 @@ func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvi
 			continue
 		}
 		xlog.Info("[WatchDog] evicting model", "model", m.model, "busy", isBusy)
-		evicted = append(evicted, evictionTarget{address: m.address, model: m.model, wasBusy: isBusy, tracked: wd.snapshotLocked(m.address)})
-		wd.untrack(m.address)
+		evicted = append(evicted, evictionTarget{address: m.address, model: m.model, wasBusy: isBusy, detached: wd.detachForEvictionLocked(m.address)})
 	}
 	return evicted, skippedBusy
 }
@@ -697,16 +684,18 @@ func (wd *WatchDog) shutdownEvictedStopped(targets []evictionTarget, label strin
 		if err != nil && !errors.Is(err, ErrModelNotFound) {
 			xlog.Error("[WatchDog] error shutting down model during "+label, "error", err, "model", t.model, "busy", t.wasBusy)
 			if wd.stillResident(t) {
-				wd.restoreTracked(t.address, t.tracked)
+				wd.finishEviction(t, true)
 			} else {
 				// The loader already dropped the model before the error was
 				// returned (a failed remote unload, or the remote half of a
 				// local+remote placement). Tracking it again would leave a
 				// phantom entry that inflates LRU counts and group conflicts.
 				xlog.Warn("[WatchDog] model was already removed by the loader despite the shutdown error, not tracking it again", "model", t.model, "address", t.address)
+				wd.finishEviction(t, false)
 			}
 			continue
 		}
+		wd.finishEviction(t, false)
 		stopped++
 		xlog.Debug("[WatchDog] "+label+" complete", "model", t.model, "busy", t.wasBusy)
 	}
@@ -864,6 +853,10 @@ func (wd *WatchDog) checkIdle() {
 	var modelsToShutdown []evictionTarget
 	for address, t := range wd.idleTime {
 		xlog.Debug("[WatchDog] idle connection", "address", address)
+		if wd.pendingEvictions[address] > 0 {
+			// Its stop is in progress; the eviction settles its state.
+			continue
+		}
 		if time.Since(t) > wd.idletimeout {
 			model, ok := wd.addressModelMap[address]
 			if ok {
@@ -872,11 +865,11 @@ func (wd *WatchDog) checkIdle() {
 					continue
 				}
 				xlog.Warn("[WatchDog] Address is idle for too long, killing it", "address", address, "model", model)
-				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address, tracked: wd.snapshotLocked(address)})
+				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address, detached: wd.detachForEvictionLocked(address)})
 			} else {
 				xlog.Warn("[WatchDog] Address unresolvable", "address", address)
+				wd.untrack(address)
 			}
-			wd.untrack(address)
 		}
 	}
 	wd.Unlock()
@@ -892,16 +885,20 @@ func (wd *WatchDog) checkBusy() {
 	var modelsToShutdown []evictionTarget
 	for address, t := range wd.busyTime {
 		xlog.Debug("[WatchDog] active connection", "address", address)
+		if wd.pendingEvictions[address] > 0 {
+			// Its stop is in progress; the eviction settles its state.
+			continue
+		}
 
 		if time.Since(t) > wd.timeout {
 			model, ok := wd.addressModelMap[address]
 			if ok {
 				xlog.Warn("[WatchDog] Model is busy for too long, killing it", "model", model)
-				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address, wasBusy: true, tracked: wd.snapshotLocked(address)})
+				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address, wasBusy: true, detached: wd.detachForEvictionLocked(address)})
 			} else {
 				xlog.Warn("[WatchDog] Address unresolvable", "address", address)
+				wd.untrack(address)
 			}
-			wd.untrack(address)
 		}
 	}
 	wd.Unlock()
@@ -1051,6 +1048,12 @@ func (wd *WatchDog) evictLRUModel() {
 }
 
 func (wd *WatchDog) untrack(address string) {
+	wd.untrackModelLocked(address)
+	wd.clearRequestStateLocked(address)
+}
+
+// untrackModelLocked removes the backend identity registered at address.
+func (wd *WatchDog) untrackModelLocked(address string) {
 	if modelID, ok := wd.addressModelMap[address]; ok {
 		// A stale address can coexist with the replacement's registration.
 		// Its cleanup must not erase the replacement's size estimate.
@@ -1065,14 +1068,18 @@ func (wd *WatchDog) untrack(address string) {
 			delete(wd.modelSizes, modelID)
 		}
 	}
+	delete(wd.addressModelMap, address)
+	delete(wd.addressMap, address)
+}
+
+// clearRequestStateLocked removes the request lifecycle state of address.
+func (wd *WatchDog) clearRequestStateLocked(address string) {
 	delete(wd.busyTime, address)
 	delete(wd.inFlight, address)
 	delete(wd.requestStarts, address)
 	delete(wd.legacyRequests, address)
 	delete(wd.idleTime, address)
 	delete(wd.lastUsed, address)
-	delete(wd.addressModelMap, address)
-	delete(wd.addressMap, address)
 }
 
 // Untrack removes request and eviction state after a backend is removed.
