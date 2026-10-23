@@ -659,7 +659,7 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: ds4flash.gguf
-        sha256: 83153243537457b2929d4e0f4030c9d9b6307676c9282641b9847b3c9a4e143b
+        sha256: b1f1528d3be5886819d6b637d733ad6e6e3b908cc16bfa491130c4d25e2862a9
         uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
     overrides:
       backend: ds4
