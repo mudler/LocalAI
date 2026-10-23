@@ -14,12 +14,15 @@ import (
 func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfig, app *application.Application) {
 	router.GET("/api/features", func(c echo.Context) error {
 		addons := app.AddonsFeature(c.Request().Context())
+		// model_exports is false only when this instance does not see the
+		// owner's models path; an unknown check leaves it true.
 		return c.JSON(200, map[string]bool{
 			"agents":            appConfig.AgentPool.Enabled,
 			"mcp":               !appConfig.DisableMCP,
 			"addons":            addons,
 			"fine_tuning":       addons,
 			"quantization":      addons,
+			"model_exports":     addons && app.ModelExportsAllowed(c.Request().Context()),
 			"distributed":       appConfig.Distributed.Enabled,
 			"backend_install":   !appConfig.DisableBackendInstall,
 			"localai_assistant": !appConfig.DisableLocalAIAssistant && app.LocalAIAssistant() != nil,

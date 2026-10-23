@@ -85,6 +85,10 @@ curl -X POST http://localhost:8080/api/quantization/jobs/{job_id}/import \
 |-----|-------------|
 | `hf_token` | HuggingFace token for gated models |
 
+{{% notice note %}}
+In a split deployment (`--addons-role=owner` and `--addons-role=frontend`), the export writes into the models path. That path must be the shared models storage. See [The models path](../addons/#the-models-path).
+{{% /notice %}}
+
 ### Import Request Fields
 
 | Field | Type | Description |

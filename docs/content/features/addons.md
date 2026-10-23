@@ -296,10 +296,27 @@ the new audience on its next call without any action.
 
 ### The models path
 
-Fine-tuning and quantization export models into the models path of the owner. In
-distributed mode, set the models path of the owner to the shared models storage.
-Otherwise the exported models are not visible to the frontends and the workers.
-LocalAI does not check this.
+Fine-tuning and quantization export models into the models path of the owner.
+The owner and every frontend must mount the same models storage at the same
+absolute `--models-path`. LocalAI checks this with a probe file:
+
+- At start, the owner writes `.localai-addons-probe.json` into its models path.
+  It holds a random nonce that changes at every start. Do not delete it, and do
+  not exclude it from the shared volume. LocalAI does not list it as a model.
+- Each frontend checks at start, and then every 60 seconds, that it sees the
+  same file with the same nonce at the same absolute path. If it does not, the
+  frontend logs an error, reports `model_exports: false` in `/api/features`,
+  and answers the export and import routes with `503`.
+- The owner refuses an export or import while its own probe file is missing,
+  also for the add-on host operations. If the owner cannot write the probe at
+  start, it keeps running and refuses exports.
+- If the owner is unreachable, or is an older version without the probe, the
+  state is `unknown`. LocalAI logs a warning and leaves exports on. The state
+  clears within 60 seconds after the owner is back.
+
+The `/api/fine-tuning` and `/api/quantization` routes of a frontend still write
+to the models path of that frontend. The probe is what blocks them when that
+path is not the shared storage.
 
 ### Frontend limits
 

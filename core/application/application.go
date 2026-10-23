@@ -89,6 +89,7 @@ type Application struct {
 	addonManager    *addons.Manager
 	addonHostOps    *addonruntime.HostOps
 	addonsProbe     addonsProbeState
+	modelsProbe     modelsProbeState
 
 	// libraryStore is the library sources file when no add-on owner runs here.
 	libraryStore   *catalog.Sources
@@ -951,6 +952,7 @@ func (a *Application) startAddons() error {
 	}
 	if c.InstanceID == c.OwnerID {
 		limits := contract.DefaultLimits()
+		a.writeModelsProbe()
 		a.addonHostOps = a.newAddonHostOps(m, limits)
 		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
 		if err != nil {

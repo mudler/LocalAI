@@ -37,6 +37,6 @@ func RegisterQuantizationRoutes(e *echo.Echo, qService *quantization.Quantizatio
 	q.POST("/jobs/:id/stop", localai.StopQuantizationJobEndpoint(qService))
 	q.DELETE("/jobs/:id", localai.DeleteQuantizationJobEndpoint(qService))
 	q.GET("/jobs/:id/progress", localai.QuantizationProgressEndpoint(qService))
-	q.POST("/jobs/:id/import", localai.ImportQuantizedModelEndpoint(qService))
+	q.POST("/jobs/:id/import", localai.ImportQuantizedModelEndpoint(qService), httpMiddleware.RequireModelExports(app))
 	q.GET("/jobs/:id/download", localai.DownloadQuantizedModelEndpoint(qService))
 }

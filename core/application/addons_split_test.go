@@ -18,10 +18,14 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/library"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
+	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -37,12 +41,14 @@ var _ = Describe("split owner and frontends", func() {
 		ownerPort    string
 		sourceURL    string
 		stops        map[*Application]func()
+		nextModels   string
 		actor        = contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner}
 	)
 
 	BeforeEach(func() {
 		requireAddonRuntime()
 		stops = map[*Application]func(){}
+		nextModels = ""
 		keys = filepath.Join(realTempDir(), "keys")
 		Expect(gateway.GenerateCarrierKeys(keys, []string{"127.0.0.1"})).To(Succeed())
 		ownerData = realTempDir()
@@ -94,6 +100,9 @@ var _ = Describe("split owner and frontends", func() {
 		Expect(e).NotTo(HaveOccurred())
 		ctx, cancel := context.WithCancel(context.Background())
 		a := &Application{applicationConfig: &config.ApplicationConfig{Context: ctx, DataPath: dataPath}}
+		if nextModels != "" {
+			a.applicationConfig.SystemState = &system.SystemState{Model: system.Model{ModelsPath: nextModels}}
+		}
 		c := config.AddonConfig{
 			Enabled:    true,
 			InstanceID: transport.InstanceID, OwnerID: gateway.OwnerIdentity, OwnerAddress: ownerAddress,
@@ -212,6 +221,103 @@ var _ = Describe("split owner and frontends", func() {
 		// The audience is new, and the frontend's next call fetches it.
 		Expect(installed(frontend)).To(ContainSubstring("sample"))
 	})
+	Describe("shared models path", func() {
+		startWith := func(role, data, models string) *Application {
+			nextModels = models
+			defer func() { nextModels = "" }()
+			return startOK(role, data)
+		}
+
+		It("reports shared when the frontend sees the owner's probe", func() {
+			models := realTempDir()
+			owner := startWith("owner", ownerData, models)
+			frontend := startWith("frontend", realTempDir(), models)
+			frontend.checkModelsProbe(context.Background())
+			Expect(frontend.AddonModelExports(context.Background())).To(Equal(ModelExportsShared))
+			Expect(owner.AddonModelExports(context.Background())).To(Equal(ModelExportsShared))
+			p, e := modelsprobe.Read(models)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(p.Nonce).To(Equal(owner.modelsProbe.own.Load().Nonce))
+		})
+
+		It("reports a mismatch for a different directory and blocks exports there", func() {
+			startWith("owner", ownerData, realTempDir())
+			frontend := startWith("frontend", realTempDir(), realTempDir())
+			frontend.checkModelsProbe(context.Background())
+			Expect(frontend.AddonModelExports(context.Background())).To(Equal(ModelExportsMismatch))
+			Expect(frontend.ModelExportsAllowed(context.Background())).To(BeFalse())
+		})
+
+		It("reports a mismatch when the same storage is reached through another path", func() {
+			models := realTempDir()
+			startWith("owner", ownerData, models)
+			link := filepath.Join(realTempDir(), "models")
+			Expect(os.Symlink(models, link)).To(Succeed())
+			frontend := startWith("frontend", realTempDir(), link)
+			frontend.checkModelsProbe(context.Background())
+			Expect(frontend.AddonModelExports(context.Background())).To(Equal(ModelExportsMismatch))
+		})
+
+		It("follows a new nonce after the owner restarts", func() {
+			models := realTempDir()
+			owner := startWith("owner", ownerData, models)
+			frontend := startWith("frontend", realTempDir(), models)
+			frontend.checkModelsProbe(context.Background())
+			Expect(frontend.AddonModelExports(context.Background())).To(Equal(ModelExportsShared))
+			first := owner.modelsProbe.own.Load().Nonce
+			stops[owner]()
+			var again *Application
+			Eventually(func() error {
+				var e error
+				nextModels = models
+				again, e = start("owner", ownerData)
+				return e
+			}).Should(Succeed())
+			Expect(again.modelsProbe.own.Load().Nonce).NotTo(Equal(first))
+			frontend.checkModelsProbe(context.Background())
+			Expect(frontend.AddonModelExports(context.Background())).To(Equal(ModelExportsShared))
+		})
+
+		It("reports unknown, and keeps exports on, while the owner is down", func() {
+			frontend := startWith("frontend", realTempDir(), realTempDir())
+			frontend.checkModelsProbe(context.Background())
+			Expect(frontend.AddonModelExports(context.Background())).To(Equal(ModelExportsUnknown))
+			Expect(frontend.ModelExportsAllowed(context.Background())).To(BeTrue())
+		})
+
+		It("reports unknown for an owner without the probe endpoint", func() {
+			owner := startWith("owner", ownerData, realTempDir())
+			owner.addonGateway.ModelsProbe = nil
+			frontend := startWith("frontend", realTempDir(), realTempDir())
+			frontend.checkModelsProbe(context.Background())
+			Expect(frontend.AddonModelExports(context.Background())).To(Equal(ModelExportsUnknown))
+		})
+
+		It("refuses an export and an import on the owner when its probe is missing", func() {
+			models := realTempDir()
+			owner := startWith("owner", ownerData, models)
+			ex := &countingModels{}
+			gx := guardedExporter{Exporter: ex, ok: owner.ownerProbeCurrent}
+			gi := guardedImporter{Importer: ex, ok: owner.ownerProbeCurrent}
+			_, e := gx.ExportModel(context.Background(), "u", "j", schema.ExportRequest{})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(os.Remove(filepath.Join(models, modelsprobe.FileName))).To(Succeed())
+			_, e = gx.ExportModel(context.Background(), "u", "j", schema.ExportRequest{})
+			Expect(e).To(MatchError(modelsprobe.ErrNotShared))
+			_, e = gi.ImportModel(context.Background(), "u", "j", schema.QuantizationImportRequest{})
+			Expect(e).To(MatchError(modelsprobe.ErrNotShared))
+			Expect(ex.calls).To(Equal(1))
+			Expect(owner.AddonModelExports(context.Background())).To(Equal(ModelExportsMismatch))
+		})
+
+		It("keeps the owner running and refuses exports when it cannot write the probe", func() {
+			owner := startWith("owner", ownerData, filepath.Join(realTempDir(), "missing"))
+			Expect(owner.modelsProbe.own.Load()).To(BeNil())
+			Expect(owner.ownerProbeCurrent()).To(BeFalse())
+			Expect(owner.AddonsFeature(context.Background())).To(BeTrue())
+		})
+	})
+
 	Describe("library operations", func() {
 		libCtx := func() context.Context { return library.WithActor(context.Background(), actor) }
 
@@ -275,3 +381,18 @@ var _ = Describe("split owner and frontends", func() {
 		})
 	})
 })
+
+// countingModels is an exporter and importer that counts the calls it gets.
+type countingModels struct{ calls int }
+
+func (c *countingModels) Checkpoints(context.Context, string, string) ([]hostops.Checkpoint, error) {
+	return nil, nil
+}
+func (c *countingModels) ExportModel(context.Context, string, string, schema.ExportRequest) (string, error) {
+	c.calls++
+	return "m", nil
+}
+func (c *countingModels) ImportModel(context.Context, string, string, schema.QuantizationImportRequest) (string, error) {
+	c.calls++
+	return "m", nil
+}

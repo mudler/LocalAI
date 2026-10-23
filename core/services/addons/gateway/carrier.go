@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"io"
 	"net/http"
 	"net/url"
@@ -179,6 +180,20 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		if r.Method == "GET" && r.URL.Path == "/addons/capabilities" {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(g.capabilities())
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/addons/models-probe" {
+			var p modelsprobe.Probe
+			ok := false
+			if g.ModelsProbe != nil {
+				p, ok = g.ModelsProbe()
+			}
+			if !ok {
+				typedError(w, ErrUnavailable)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(p)
 			return
 		}
 		if r.Method == "GET" && r.URL.Path == "/addons/library/snapshot" {
@@ -369,11 +384,12 @@ func StatusFor(e error) int {
 // Reasons that WriteUnavailable puts in the body, so a client can tell a
 // disabled feature from an absent owner.
 const (
-	ReasonAddonsOff      = "add-ons are turned off on this instance"
-	ReasonOwnerUnreached = "the add-on owner is not reachable"
-	ReasonLibraryOnOwner = "library sources are managed on the owner"
-	unavailableErrorType = "server_error"
-	unavailableErrorCode = "unavailable"
+	ReasonAddonsOff       = "add-ons are turned off on this instance"
+	ReasonOwnerUnreached  = "the add-on owner is not reachable"
+	ReasonLibraryOnOwner  = "library sources are managed on the owner"
+	ReasonModelsNotShared = "the models path of this instance is not the shared models storage of the add-on owner; model exports are blocked"
+	unavailableErrorType  = "server_error"
+	unavailableErrorCode  = "unavailable"
 )
 
 // unavailableBody has the shape of the LocalAI error envelope
@@ -489,6 +505,27 @@ func (c *Carrier) audience(ctx context.Context) (string, error) {
 		return "", ErrUnavailable
 	}
 	return bootstrap.Audience, nil
+}
+
+// ModelsProbe asks the owner for the probe it wrote into its models path. An
+// owner that has none, or that does not know the call, gives ErrUnavailable.
+func (c *Carrier) ModelsProbe(ctx context.Context) (modelsprobe.Probe, error) {
+	ctx, cancel := context.WithTimeout(ctx, ReachableTimeout)
+	defer cancel()
+	req, e := http.NewRequestWithContext(ctx, "GET", c.config.OwnerAddress+"/addons/models-probe", nil)
+	if e != nil {
+		return modelsprobe.Probe{}, ErrUnavailable
+	}
+	resp, e := c.client.Do(req)
+	if e != nil {
+		return modelsprobe.Probe{}, ErrUnavailable
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var p modelsprobe.Probe
+	if resp.StatusCode != http.StatusOK || decode(io.LimitReader(resp.Body, 4096), &p) != nil || !p.Valid() {
+		return modelsprobe.Probe{}, ErrUnavailable
+	}
+	return p, nil
 }
 
 // ReachableTimeout bounds one reachability probe of the owner.

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/addons"
@@ -39,6 +40,9 @@ type Gateway struct {
 	// Libraries is the owner's library administration. Frontends leave it nil
 	// and forward through Forward.
 	Libraries LibraryAdmin
+	// ModelsProbe returns the probe the owner wrote into its models path, or
+	// false when it has none. Frontends leave it nil.
+	ModelsProbe func() (modelsprobe.Probe, bool)
 	// OS and Arch are the platform the owner resolves libraries for. Empty
 	// means the platform of this process.
 	OS, Arch   string

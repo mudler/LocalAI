@@ -63,3 +63,24 @@ func LibrarySourcesOnOwner() echo.HandlerFunc {
 		return nil
 	}
 }
+
+// ModelExportsGate answers whether this instance may write an exported model.
+// Application.ModelExportsAllowed answers it.
+type ModelExportsGate interface {
+	ModelExportsAllowed(ctx context.Context) bool
+}
+
+// RequireModelExports blocks the export and import routes while the shared
+// models path check fails. An unknown check does not block (the owner may be
+// older or briefly down). A nil gate allows, for hosts without the add-on side.
+func RequireModelExports(app ModelExportsGate) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if app != nil && !app.ModelExportsAllowed(c.Request().Context()) {
+				gateway.WriteUnavailable(c.Response(), gateway.ReasonModelsNotShared)
+				return nil
+			}
+			return next(c)
+		}
+	}
+}

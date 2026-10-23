@@ -176,6 +176,9 @@ func (g *Gateway) capabilities() Capabilities {
 	if g.Libraries != nil {
 		c.Calls = append(c.Calls, "library")
 	}
+	if g.ModelsProbe != nil {
+		c.Calls = append(c.Calls, "models-probe")
+	}
 	return c
 }
 
