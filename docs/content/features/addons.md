@@ -79,6 +79,10 @@ loopback carrier with keys that are made at each start and never written to disk
 | `--addons-backend-library` | `LOCALAI_ADDONS_BACKEND_LIBRARY` | `true` | Registers the [backend library](#the-backend-library) on the first start, like the official library. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. `--addons-backend-library=false` starts without it and reads the backend gallery on every build. A library you remove stays removed. |
 | `--official-libraries` | `LOCALAI_OFFICIAL_LIBRARIES` | `true` | Use the default library sources of add-ons, backends and models. `--official-libraries=false` leaves them listed but unread. It is also the runtime setting `official_libraries`. See [Library sources](#library-sources). |
 | `--addons-backend-max-bytes` | `LOCALAI_ADDONS_BACKEND_MAX_BYTES` | `8589934592` (8 GiB) | Largest compressed size of a backend image installed from a library. Add-ons keep their own limit of 512 MiB. |
+| `--addons-role` | `LOCALAI_ADDONS_ROLE` | `combined` | `combined` is the single node described above. `owner` runs only the owner and serves the carrier on the network. `frontend` runs no owner and forwards every add-on request to it. Any other value stops startup with an error. |
+| `--addons-owner-address` | `LOCALAI_ADDONS_OWNER_ADDRESS` | empty | `https://host:port` of the owner carrier, with no path. Use a stable service name, never a pod address. Required for `owner` and `frontend`; an error with `combined`. |
+| `--addons-owner-listen` | `LOCALAI_ADDONS_OWNER_LISTEN` | empty | `owner` only. The address the carrier listens on. Empty listens on all interfaces, on the port of `--addons-owner-address`. |
+| `--addons-carrier-dir` | `LOCALAI_ADDONS_CARRIER_DIR` | empty | Directory with the carrier key set made by `local-ai util addons-carrier-keys`. Required for `owner` and `frontend`; an error with `combined`. |
 
 `named-user` needs authentication. With authentication on and no mode set, LocalAI
 uses `named-user`. With authentication off there are no accounts, so LocalAI uses
@@ -88,6 +92,11 @@ can install, run and remove add-ons. See
 add-ons off on a server without authentication, set
 `--addons-enabled=false`, or set `--addons-ownership-mode=named-user`; with
 authentication off, `named-user` leaves the owner off and LocalAI logs a warning.
+
+The `owner` and `frontend` roles split the owner from the frontends. The `frontend`
+role does not create or open the `addons` folder of the data path. The key set for
+both roles comes from `local-ai util addons-carrier-keys`; see
+[Running the owner as its own workload](#running-the-owner-as-its-own-workload).
 
 ## The official library
 
