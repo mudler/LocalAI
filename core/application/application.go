@@ -85,6 +85,7 @@ type Application struct {
 	backendLibrary     *backendlib.Installer
 	addonManager       *addons.Manager
 	addonHostOps       *addonruntime.HostOps
+	addonsProbe        addonsProbeState
 
 	// libraryStore is the library sources file when no add-on owner runs here.
 	libraryStore   *catalog.Sources

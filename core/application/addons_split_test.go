@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -166,6 +167,22 @@ var _ = Describe("split owner and frontends", func() {
 		startOK("owner", ownerData)
 		_, e = frontend.AddonGateway().Apps(context.Background(), actor)
 		Expect(e).NotTo(HaveOccurred())
+	})
+
+	It("reports the addons feature of a frontend from the reachability of its owner, cached", func() {
+		ctx := context.Background()
+		now := time.Now()
+		frontend := startOK("frontend", realTempDir())
+		frontend.addonsProbe.now = func() time.Time { return now }
+		Expect(frontend.AddonsFeature(ctx)).To(BeFalse())
+		// The owner starts, but the frontend keeps its cached answer.
+		owner := startOK("owner", ownerData)
+		Expect(owner.AddonsFeature(ctx)).To(BeTrue())
+		now = now.Add(5 * time.Second)
+		Expect(frontend.AddonsFeature(ctx)).To(BeFalse())
+		// Once the cache expires the frontend asks again.
+		now = now.Add(6 * time.Second)
+		Expect(frontend.AddonsFeature(ctx)).To(BeTrue())
 	})
 
 	It("refuses a second owner on the same root", func() {

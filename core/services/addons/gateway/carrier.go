@@ -322,6 +322,12 @@ func StatusFor(e error) int {
 	return http.StatusServiceUnavailable
 }
 
+// WriteUnavailable writes the response of an add-on request that no owner can
+// serve: the typed failure of an absent owner, with the status StatusFor gives
+// ErrUnavailable. The add-on feature gate uses it so a disabled add-on side and
+// an unreachable owner look the same to a client.
+func WriteUnavailable(w http.ResponseWriter) { typedError(w, ErrUnavailable) }
+
 // typedError writes the owner's typed failure response.
 func typedError(w http.ResponseWriter, e error) {
 	if e = Refused(e); errors.Is(e, ErrInvalidRequest) {
@@ -392,14 +398,16 @@ func (c *Carrier) relayBudget(kind string) (int64, error) {
 	}
 	return 0, ErrForbidden
 }
-func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) (*http.Response, error) {
+
+// audience asks the owner for the audience its envelopes must name.
+func (c *Carrier) audience(ctx context.Context) (string, error) {
 	req, e := http.NewRequestWithContext(ctx, "GET", c.config.OwnerAddress+"/addons/audience", nil)
 	if e != nil {
-		return nil, ErrUnavailable
+		return "", ErrUnavailable
 	}
 	resp, e := c.client.Do(req)
 	if e != nil {
-		return nil, ErrUnavailable
+		return "", ErrUnavailable
 	}
 	var bootstrap struct {
 		Audience string `json:"audience"`
@@ -407,7 +415,27 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	e = decode(io.LimitReader(resp.Body, 4096), &bootstrap)
 	_ = resp.Body.Close()
 	if e != nil || resp.StatusCode != 200 || len(bootstrap.Audience) != 64 {
-		return nil, ErrUnavailable
+		return "", ErrUnavailable
+	}
+	return bootstrap.Audience, nil
+}
+
+// ReachableTimeout bounds one reachability probe of the owner.
+const ReachableTimeout = 2 * time.Second
+
+// Reachable reports whether the owner answered the audience call. It signs
+// nothing and changes nothing, and it has its own timeout.
+func (c *Carrier) Reachable(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, ReachableTimeout)
+	defer cancel()
+	_, e := c.audience(ctx)
+	return e
+}
+
+func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) (*http.Response, error) {
+	audience, e := c.audience(ctx)
+	if e != nil {
+		return nil, e
 	}
 	body, e := json.Marshal(wire)
 	if e != nil || len(body) > 2<<20 {
@@ -417,15 +445,15 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	if _, e = rand.Read(nonce[:]); e != nil {
 		return nil, ErrUnavailable
 	}
-	m := ForwardedRequest{PeerID: c.config.InstanceID, Audience: bootstrap.Audience, Actor: a, OperationID: wire.Request.OperationID, Nonce: hex.EncodeToString(nonce[:]), ExpiresAt: time.Now().Add(30 * time.Second), Body: body}
+	m := ForwardedRequest{PeerID: c.config.InstanceID, Audience: audience, Actor: a, OperationID: wire.Request.OperationID, Nonce: hex.EncodeToString(nonce[:]), ExpiresAt: time.Now().Add(30 * time.Second), Body: body}
 	m.Sign(c.config.SigningKey)
 	b, _ := json.Marshal(m)
-	req, e = http.NewRequestWithContext(ctx, "POST", c.config.OwnerAddress+"/addons/forward", bytes.NewReader(b))
+	req, e := http.NewRequestWithContext(ctx, "POST", c.config.OwnerAddress+"/addons/forward", bytes.NewReader(b))
 	if e != nil {
 		return nil, e
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, e = c.client.Do(req)
+	resp, e := c.client.Do(req)
 	if e != nil {
 		if wire.Proposal != nil {
 			return nil, uncertainProposal(*wire.Proposal, wire.Request.OperationID)

@@ -493,18 +493,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.GET("/api/instructions", localai.ListAPIInstructionsEndpoint())
 	router.GET("/api/instructions/:name", localai.GetAPIInstructionEndpoint())
 
-	router.GET("/api/features", func(c echo.Context) error {
-		return c.JSON(200, map[string]bool{
-			"agents":            appConfig.AgentPool.Enabled,
-			"mcp":               !appConfig.DisableMCP,
-			"fine_tuning":       true,
-			"quantization":      true,
-			"distributed":       appConfig.Distributed.Enabled,
-			"backend_install":   !appConfig.DisableBackendInstall,
-			"localai_assistant": !appConfig.DisableLocalAIAssistant && app.LocalAIAssistant() != nil,
-			"addon_navigation":  !appConfig.LegacyNavigation,
-		})
-	})
+	RegisterFeatureRoutes(router, appConfig, app)
 
 	router.GET("/system", localai.SystemInformations(cl, ml, appConfig, monitoring.NewLocalProcessSampler()), adminMiddleware)
 
