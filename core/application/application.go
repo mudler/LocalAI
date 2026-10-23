@@ -84,6 +84,7 @@ type Application struct {
 	addonSources       *catalog.Sources
 	// addonAdminCheck is the owner's administrator check, the one the manager gets.
 	addonAdminCheck func(context.Context, contract.Actor) error
+	librarySnap     librarySnapshot
 	backendLibrary  *backendlib.Installer
 	addonManager    *addons.Manager
 	addonHostOps    *addonruntime.HostOps

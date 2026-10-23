@@ -15,6 +15,7 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/artifacts"
+	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
@@ -209,6 +210,13 @@ func (a *Application) startAddonGateway() error {
 	if cfg.InstanceID != cfg.OwnerID {
 		g.Forward = carrier
 		a.addonGateway = g
+		// The frontend installs backends on its own node and takes the
+		// resolved plan from the owner.
+		a.backendLibrary = &backendlib.Installer{
+			Remote: remoteBackends{a}, SystemState: a.applicationConfig.SystemState, ModelLoader: a.modelLoader,
+			MaxBytes: cfg.BackendMaxBytes, RequireIntegrity: a.applicationConfig.RequireBackendIntegrity,
+		}
+		go a.runLibraryRefresh(a.applicationConfig.Context)
 		return nil
 	}
 	// Only the owner holds the policy store. Other frontends reach it through the

@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -46,8 +47,18 @@ func (a *Application) LibrarySources() (*catalog.Sources, error) {
 // source and after the official_libraries setting changes.
 func (a *Application) ApplyLibraries(dropped ...string) error {
 	if a.AddonFrontend() {
-		// A frontend reads only the galleries of its flags and keeps no store.
-		return nil
+		// A frontend keeps no store. It follows the owner's list instead, and
+		// with add-ons off there is no owner to follow.
+		if !a.AddonsEnabled() {
+			return nil
+		}
+		parent := a.applicationConfig.Context
+		if parent == nil {
+			parent = context.Background()
+		}
+		ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+		defer cancel()
+		return a.RefreshLibraries(ctx)
 	}
 	store, err := a.LibrarySources()
 	if err != nil {

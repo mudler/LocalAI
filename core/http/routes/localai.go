@@ -23,32 +23,33 @@ import (
 	echoswagger "github.com/swaggo/echo-swagger"
 )
 
-// RegisterLibrarySourceRoutes registers the library-source routes. A frontend
-// registers refusals instead, so it never touches the owner's store.
+// RegisterLibrarySourceRoutes registers the library-source routes. On a
+// combined or owner process they work on the local store. On a frontend with
+// add-ons on they forward to the owner, which is the only writer, after the
+// actor middleware. On a frontend with add-ons off there is no owner to reach,
+// and they answer unavailable.
 func RegisterLibrarySourceRoutes(router *echo.Echo, app *application.Application, appConfig *config.ApplicationConfig, adminMiddleware echo.MiddlewareFunc) {
-	librarySources := localai.LibrarySourcesEndpoints{
-		Store:    app.LibrarySources,
-		Official: func() bool { return appConfig.OfficialLibraries },
-		Applied:  app.ApplyLibraries,
-	}
+	librarySources := localai.LibrarySourcesEndpoints{Admin: app.LibraryAdmin()}
+	mws := []echo.MiddlewareFunc{adminMiddleware}
 	if app.AddonFrontend() {
-		// Owner state lives on the owner only. A frontend refuses every
-		// library route, reads included, with the add-on unavailable body.
-		refuse := middleware.LibrarySourcesOnOwner()
-		router.GET("/api/library/sources", refuse, adminMiddleware)
-		router.POST("/api/library/sources", refuse, adminMiddleware)
-		router.POST("/api/library/sources/:id/enable", refuse, adminMiddleware)
-		router.POST("/api/library/sources/:id/disable", refuse, adminMiddleware)
-		router.PUT("/api/library/sources/:id", refuse, adminMiddleware)
-		router.DELETE("/api/library/sources/:id", refuse, adminMiddleware)
-	} else {
-		router.GET("/api/library/sources", librarySources.List(), adminMiddleware)
-		router.POST("/api/library/sources", librarySources.Add(), adminMiddleware)
-		router.POST("/api/library/sources/:id/enable", librarySources.SetEnabled(true), adminMiddleware)
-		router.POST("/api/library/sources/:id/disable", librarySources.SetEnabled(false), adminMiddleware)
-		router.PUT("/api/library/sources/:id", librarySources.Update(), adminMiddleware)
-		router.DELETE("/api/library/sources/:id", librarySources.Remove(), adminMiddleware)
+		if !app.AddonsEnabled() {
+			refuse := middleware.LibrarySourcesOnOwner()
+			router.GET("/api/library/sources", refuse, adminMiddleware)
+			router.POST("/api/library/sources", refuse, adminMiddleware)
+			router.POST("/api/library/sources/:id/enable", refuse, adminMiddleware)
+			router.POST("/api/library/sources/:id/disable", refuse, adminMiddleware)
+			router.PUT("/api/library/sources/:id", refuse, adminMiddleware)
+			router.DELETE("/api/library/sources/:id", refuse, adminMiddleware)
+			return
+		}
+		mws = append(mws, localai.LibraryActor(app))
 	}
+	router.GET("/api/library/sources", librarySources.List(), mws...)
+	router.POST("/api/library/sources", librarySources.Add(), mws...)
+	router.POST("/api/library/sources/:id/enable", librarySources.SetEnabled(true), mws...)
+	router.POST("/api/library/sources/:id/disable", librarySources.SetEnabled(false), mws...)
+	router.PUT("/api/library/sources/:id", librarySources.Update(), mws...)
+	router.DELETE("/api/library/sources/:id", librarySources.Remove(), mws...)
 }
 
 func RegisterLocalAIRoutes(router *echo.Echo,
@@ -112,8 +113,18 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			app.UpgradeChecker())
 		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 		if lib := app.BackendLibrary(); lib != nil {
-			router.POST("/backends/library/install", localai.InstallBackendFromLibraryEndpoint(lib, galleryService), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
-			router.GET("/backends/library/updates", localai.BackendLibraryUpdatesEndpoint(lib), adminMiddleware)
+			// On a frontend the owner resolves the entry and this node installs
+			// it, so the request carries the actor that the owner checks.
+			libMws := []echo.MiddlewareFunc{adminMiddleware}
+			if app.AddonFrontend() {
+				libMws = append(libMws, localai.LibraryActor(app))
+			}
+			router.POST("/backends/library/install", localai.InstallBackendFromLibraryEndpoint(lib, galleryService), append(libMws, middleware.RequireBackendInstallEnabled(appConfig))...)
+			router.GET("/backends/library/updates", localai.BackendLibraryUpdatesEndpoint(lib), libMws...)
+		} else if app.AddonFrontend() {
+			refuse := middleware.LibrarySourcesOnOwner()
+			router.POST("/backends/library/install", refuse, adminMiddleware)
+			router.GET("/backends/library/updates", refuse, adminMiddleware)
 		}
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
 		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
