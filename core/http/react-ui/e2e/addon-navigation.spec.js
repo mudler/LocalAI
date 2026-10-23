@@ -23,7 +23,7 @@ async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true
     if (route.request().method() === 'PUT') saved = route.request().postDataJSON()
     await route.fulfill({ json: saved })
   })
-  return { saved: () => saved, dispatchLog: () => (mocked ? mocked.log.dispatch : []) }
+  return { saved: () => saved, dispatchLog: () => (mocked ? mocked.log.dispatch : []), mocked: () => mocked }
 }
 
 test.describe('Add-on navigation', () => {
@@ -508,6 +508,63 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
     // With nobody saved there is one enrol button, in the empty state.
     await expect(page.getByRole('button', { name: /Enrol a speaker/ })).toHaveCount(1)
+  })
+
+  test('an add-on that is installed but off says it is off, by its name, and offers Turn on', async ({ page }) => {
+    const server = await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', enabled: false, state: 'stopped', mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=fine-tuning' } })] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state).toHaveAttribute('data-state', 'off')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fine-tuning')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is off' })).toBeVisible()
+    await expect(state).not.toContainText('fine-tuning')
+    await state.getByRole('button', { name: 'Turn on' }).click()
+    await expect.poll(() => server.mocked().log.start.length).toBe(1)
+    expect(server.mocked().log.start[0].id).toBe('fine-tuning')
+  })
+
+  test('an off add-on shows a reader who can turn it on, and no button', async ({ page }) => {
+    await setup(page, { studio: false, pins: [], apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', enabled: false, state: 'stopped', mainPage: undefined })] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is off' })).toBeVisible()
+    await expect(state).toContainText('An administrator can turn it on.')
+    await expect(state.getByRole('button', { name: 'Turn on' })).toHaveCount(0)
+  })
+
+  test('an add-on that is not installed says so and sends an administrator to Find add-ons', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state).toHaveAttribute('data-state', 'not-installed')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fine-tuning')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is not installed' })).toBeVisible()
+    await expect(state.getByRole('link', { name: 'Find add-ons' })).toHaveAttribute('href', '/app/addons?tab=browse&q=fine-tuning')
+  })
+
+  test('a reader of an add-on that is not installed gets no link to Find add-ons', async ({ page }) => {
+    await setup(page, { studio: false, pins: [], apps: [] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is not installed' })).toBeVisible()
+    await expect(state).toContainText('An administrator can install it.')
+    await expect(state.getByRole('link', { name: 'Find add-ons' })).toHaveCount(0)
+  })
+
+  test('a failed add-on shows its reason and, for an administrator, a link to its details', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', state: 'failed', mainPage: undefined, ui: { entry: '/x.js', sdk: { min: 1, max: 1 }, pages: ['jobs'] } })] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state).toHaveAttribute('data-state', 'failed')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning failed to start' })).toBeVisible()
+    await expect(state).toContainText('stopped responding')
+    await expect(state.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/app/addons?detail=fine-tuning')
+  })
+
+  test('the page names a headless add-on by a capitalised id, not the bare identifier', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'indexer', title: 'indexer', enabled: false, state: 'stopped', mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })] })
+    await page.goto('/app/addons/indexer/home')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Indexer')
   })
 
   test('an old Voice link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {

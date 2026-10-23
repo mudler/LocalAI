@@ -317,7 +317,18 @@
     },
     "layer": {
       "close": "닫기"
-    }
+    },
+    "off": {
+      "title": "{{name}} is off",
+      "body": "Turn it on to use its page.",
+      "reader": "An administrator can turn it on."
+    },
+    "notInstalled": {
+      "title": "{{name}} is not installed",
+      "body": "Find it in Find add-ons, then install and turn it on.",
+      "reader": "An administrator can install it."
+    },
+    "failedTitle": "{{name}} failed to start"
   },
   "slots": {
     "unavailable": "사용할 수 없음",
