@@ -125,6 +125,7 @@ type options struct {
 	responseHeaderTimeout time.Duration
 	transport             http.RoundTripper
 	followRedirects       bool
+	externalOnly          bool
 }
 
 // Option configures a client built by New.
@@ -159,6 +160,23 @@ func WithResponseHeaderTimeout(d time.Duration) Option {
 // redirects (e.g. some download CDNs) and the request carries a secret.
 func WithFollowRedirects() Option { return func(o *options) { o.followRedirects = true } }
 
+// WithExternalOnly restricts a client to hosts that pass the external URL
+// policy (see IsPublicIP). Use it for every client that fetches a URL supplied
+// by a user. It has two effects:
+//
+//   - Each redirect hop is validated like the original URL, so a public host
+//     cannot bounce the client to a loopback, link-local or private target.
+//     It only matters together with WithFollowRedirects.
+//   - Unless WithTransport is given, the transport resolves the host itself,
+//     rejects it if any resolved address is not public, and dials one of the
+//     validated addresses, so a second DNS lookup cannot return a different
+//     answer. Environment proxies are not used for such a client, since the
+//     proxy address would be what gets validated and dialled.
+//
+// A caller-supplied transport is left untouched and must enforce the policy
+// itself.
+func WithExternalOnly() Option { return func(o *options) { o.externalOnly = true } }
+
 // New returns a hardened *http.Client. By default it refuses redirects, sets a
 // TLS 1.2 floor, bounds connection setup, and imposes no body deadline (safe
 // for streaming). Apply Options to adjust.
@@ -170,7 +188,15 @@ func New(opts ...Option) *http.Client {
 
 	rt := o.transport
 	if rt == nil {
-		rt = HardenedTransport()
+		t := HardenedTransport()
+		if o.externalOnly {
+			t.Proxy = nil
+			t.DialContext = validatedDialContext(&net.Dialer{
+				Timeout:   dialTimeout,
+				KeepAlive: dialKeepAlive,
+			})
+		}
+		rt = t
 	}
 	// Only an *http.Transport carries the knob; a caller-supplied wrapper
 	// (bearer-token RoundTripper, IP-pinned dialer) is left untouched rather
@@ -184,6 +210,14 @@ func New(opts ...Option) *http.Client {
 	check := NoRedirect
 	if o.followRedirects {
 		check = stripAuthOnRedirect
+		if o.externalOnly {
+			check = func(req *http.Request, via []*http.Request) error {
+				if err := validateRedirectTarget(req); err != nil {
+					return err
+				}
+				return stripAuthOnRedirect(req, via)
+			}
+		}
 	}
 
 	return &http.Client{
