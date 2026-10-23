@@ -4,6 +4,7 @@ package routes_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -42,7 +43,7 @@ var _ = Describe("library sources on a frontend", func() {
 		routes.RegisterLibrarySourceRoutes(e, app, app.ApplicationConfig(), pass)
 
 		want := httptest.NewRecorder()
-		gateway.WriteUnavailable(want)
+		gateway.WriteUnavailable(want, gateway.ReasonLibraryOnOwner)
 		for _, c := range []struct{ method, path string }{
 			{http.MethodGet, "/api/library/sources"},
 			{http.MethodPost, "/api/library/sources"},
@@ -55,7 +56,14 @@ var _ = Describe("library sources on a frontend", func() {
 			e.ServeHTTP(w, httptest.NewRequest(c.method, c.path, strings.NewReader(`{"kind":"model","url":"https://example.org/a.yaml"}`)))
 			Expect(w.Code).To(Equal(http.StatusServiceUnavailable), c.path)
 			Expect(w.Body.String()).To(Equal(want.Body.String()), c.path)
-			Expect(w.Header().Get("X-LocalAI-Reason")).To(ContainSubstring("managed on the add-on owner"))
+			Expect(w.Header().Get("X-LocalAI-Reason")).To(BeEmpty())
+			var env struct {
+				Error struct{ Message, Type, Code string }
+			}
+			Expect(json.Unmarshal(w.Body.Bytes(), &env)).To(Succeed())
+			Expect(env.Error.Message).To(Equal("library sources are managed on the owner"))
+			Expect(env.Error.Code).To(Equal("unavailable"))
+			Expect(env.Error.Type).NotTo(BeEmpty())
 		}
 		Expect(filepath.Join(dataPath, "addons")).NotTo(BeADirectory())
 		Expect(filepath.Join(dataPath, "sources.json")).NotTo(BeAnExistingFile())

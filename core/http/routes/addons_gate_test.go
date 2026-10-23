@@ -60,9 +60,9 @@ var _ = Describe("Routes behind the addons gate", func() {
 			}
 			Expect(w.Body.String()).To(Equal(body), p)
 		}
-		// The body is the one the gateway writes for an absent owner.
+		// The body is the one the gateway writes for a disabled feature.
 		rec := httptest.NewRecorder()
-		gateway.WriteUnavailable(rec)
+		gateway.WriteUnavailable(rec, gateway.ReasonAddonsOff)
 		Expect(body).To(Equal(rec.Body.String()))
 	})
 
@@ -75,6 +75,8 @@ var _ = Describe("Routes behind the addons gate", func() {
 		for _, p := range []string{"/api/addons/apps", "/api/addons/builtin", "/api/addons/pins", "/api/addons/does-not-exist"} {
 			w := get(e, p)
 			Expect(w.Code).To(Equal(http.StatusServiceUnavailable), p)
+			Expect(w.Body.String()).To(ContainSubstring(gateway.ReasonAddonsOff), p)
+			Expect(w.Body.String()).To(ContainSubstring(`"code":"unavailable"`), p)
 		}
 	})
 

@@ -129,7 +129,10 @@ While the key is `false`:
   server that sends no `addons` key counts as `true` in the UI.
 - Every path under `/api/addons`, `/api/fine-tuning` and `/api/quantization`
   answers `503` with the same body, also for a path that does not exist. The
-  answer does not show which routes exist.
+  answer does not show which routes exist. The body is the LocalAI error envelope
+  (`{"error": {"message", "type", "code"}}`, code `unavailable`). The message is
+  "add-ons are turned off on this instance" when the feature is off and "the
+  add-on owner is not reachable" when a frontend cannot reach the owner.
 - With `--addons-enabled=false` the handlers of these routes are not registered at
   all. A `frontend` with `--addons-enabled=false` needs no `--addons-owner-address`
   and no `--addons-carrier-dir`. It loads no keys and builds no carrier. If you set
@@ -307,9 +310,9 @@ consequences:
   creates or writes `sources.json` or anything else under the `addons` folder of
   the data path. It reads only the galleries named by `--galleries` and
   `--backend-galleries`. Every `/api/library/sources` route, reads included,
-  answers `503` with the same body as the other add-on routes when the owner
-  cannot be used, and an `X-LocalAI-Reason` header says that library sources are
-  managed on the add-on owner. Use the owner to list or change them.
+  answers `503` with the LocalAI error envelope (code `unavailable`) and the
+  message "library sources are managed on the owner". Use the owner to list or
+  change them.
 - **Backend library routes are not served by frontends.** The routes that list or
   install backends from a library, and the library update checks, need the owner's
   sources, so a frontend does not serve them.

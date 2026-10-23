@@ -42,6 +42,10 @@ func (s *addonsProbeState) lifetime() time.Duration {
 	return addonsReachableTTL
 }
 
+// AddonsEnabled reports the instance switch alone, so a refusal can tell a
+// disabled feature from an owner that does not answer.
+func (a *Application) AddonsEnabled() bool { return a.applicationConfig.Addons.Enabled }
+
 // AddonsFeature is the one place that decides whether the add-on surfaces are
 // on for this instance. The routes and the UI read it; nothing else checks
 // Addons.Enabled for this purpose.

@@ -333,11 +333,38 @@ func StatusFor(e error) int {
 	return http.StatusServiceUnavailable
 }
 
+// Reasons that WriteUnavailable puts in the body, so a client can tell a
+// disabled feature from an absent owner.
+const (
+	ReasonAddonsOff      = "add-ons are turned off on this instance"
+	ReasonOwnerUnreached = "the add-on owner is not reachable"
+	ReasonLibraryOnOwner = "library sources are managed on the owner"
+	unavailableErrorType = "server_error"
+	unavailableErrorCode = "unavailable"
+)
+
+// unavailableBody has the shape of the LocalAI error envelope
+// (schema.ErrorResponse), which the rest of the API writes.
+type unavailableBody struct {
+	Error struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+		Code    string `json:"code"`
+	} `json:"error"`
+}
+
 // WriteUnavailable writes the response of an add-on request that no owner can
-// serve: the typed failure of an absent owner, with the status StatusFor gives
-// ErrUnavailable. The add-on feature gate uses it so a disabled add-on side and
-// an unreachable owner look the same to a client.
-func WriteUnavailable(w http.ResponseWriter) { typedError(w, ErrUnavailable) }
+// serve: status 503, the status StatusFor gives ErrUnavailable, and the LocalAI
+// error envelope with code "unavailable". The message says why. The add-on
+// feature gate uses it so a disabled add-on side and an unreachable owner share
+// one status and one shape, and differ only in the message.
+func WriteUnavailable(w http.ResponseWriter, reason string) {
+	var b unavailableBody
+	b.Error.Message, b.Error.Type, b.Error.Code = reason, unavailableErrorType, unavailableErrorCode
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(StatusFor(ErrUnavailable))
+	_ = json.NewEncoder(w).Encode(b)
+}
 
 // typedError writes the owner's typed failure response.
 func typedError(w http.ResponseWriter, e error) {

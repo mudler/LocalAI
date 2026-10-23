@@ -14,6 +14,22 @@ type AddonsFeatureGate interface {
 	AddonsFeature(ctx context.Context) bool
 }
 
+// addonsSwitch is implemented by a gate that knows whether the instance
+// switch is on, so the refusal can say which of the two causes applies.
+type addonsSwitch interface {
+	AddonsEnabled() bool
+}
+
+func unavailableReason(app AddonsFeatureGate) string {
+	if s, ok := app.(addonsSwitch); ok && !s.AddonsEnabled() {
+		return gateway.ReasonAddonsOff
+	}
+	if app == nil {
+		return gateway.ReasonAddonsOff
+	}
+	return gateway.ReasonOwnerUnreached
+}
+
 // RequireAddonsFeature answers every request with the typed unavailable
 // response while the gate is false. It is the instance gate and not the
 // per-user permission: auth.RequireFeature runs after it.
@@ -21,7 +37,7 @@ func RequireAddonsFeature(app AddonsFeatureGate) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if app == nil || !app.AddonsFeature(c.Request().Context()) {
-				gateway.WriteUnavailable(c.Response())
+				gateway.WriteUnavailable(c.Response(), unavailableReason(app))
 				return nil
 			}
 			return next(c)
@@ -34,18 +50,16 @@ func RequireAddonsFeature(app AddonsFeatureGate) echo.MiddlewareFunc {
 // same response for every path under the prefix, whether or not it exists.
 func AddonsUnavailable() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		gateway.WriteUnavailable(c.Response())
+		gateway.WriteUnavailable(c.Response(), gateway.ReasonAddonsOff)
 		return nil
 	}
 }
 
 // LibrarySourcesOnOwner is the handler of the library-source routes on a
-// frontend. The body is the add-on unavailable response; the header names the
-// reason, because that body carries no text.
+// frontend that cannot reach an owner.
 func LibrarySourcesOnOwner() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		c.Response().Header().Set("X-LocalAI-Reason", "library sources are managed on the add-on owner")
-		gateway.WriteUnavailable(c.Response())
+		gateway.WriteUnavailable(c.Response(), gateway.ReasonLibraryOnOwner)
 		return nil
 	}
 }
