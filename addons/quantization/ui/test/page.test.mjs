@@ -170,14 +170,6 @@ test('plural: the job count picks the singular and the plural key', async () => 
   assert.equal(ctx.plural('jobs.count', 3), '3 kept on this server')
 })
 
-test('parity: every data-testid of the core page is in the add-on or the shared views', () => {
-  const core = read(join(hostUi, 'src/pages/Quantize.jsx'))
-  const ids = new Set([...core.matchAll(/(?:data-testid|testId)="([^"]+)"/g)].map(m => m[1]))
-  assert.ok(ids.size >= 10, `found only ${ids.size} test ids in the core source`)
-  const mine = ownText + sharedText
-  for (const id of ids) assert.ok(mine.includes(`"${id}"`) || mine.includes(`'${id}'`), `missing data-testid ${id}`)
-})
-
 test('icons: every icon name the page draws is one the SDK knows', async () => {
   const { ICON_NAMES } = await import(pathToFileURL(join(hostUi, 'src/addons/sdk.js')).href)
   const known = new Set(ICON_NAMES)

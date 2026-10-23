@@ -13,14 +13,19 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// A library entry has the same top-level name and urls keys as a gallery
+// entry, so galleryModel below reads both.
+
 var galleryIndexPath = os.Getenv("GALLERY_INDEX_PATH")
 
-// getGalleryIndexPath returns the gallery index file path, with a default fallback
+// getGalleryIndexPath returns the model library path, with a default fallback.
+// The library, gallery/models/index.yaml, is the source of the models; the
+// gallery/index.yaml copy is generated from it and is never written here.
 func getGalleryIndexPath() string {
 	if galleryIndexPath != "" {
 		return galleryIndexPath
 	}
-	return "gallery/index.yaml"
+	return "gallery/models/index.yaml"
 }
 
 type galleryModel struct {
@@ -28,7 +33,7 @@ type galleryModel struct {
 	Urls []string `yaml:"urls"`
 }
 
-// loadGalleryURLSet parses gallery/index.yaml once and returns the set of
+// loadGalleryURLSet parses the model library once and returns the set of
 // HuggingFace model URLs already present in the gallery.
 func loadGalleryURLSet() (map[string]struct{}, error) {
 	indexPath := getGalleryIndexPath()
@@ -142,7 +147,7 @@ func resolveReadme(client *hfapi.Client, modelID string, hfTags []string) (strin
 }
 
 // extractDescription turns a raw HuggingFace README into a concise plain-text
-// description suitable for embedding in gallery/index.yaml: strips YAML
+// description suitable for embedding in a gallery entry: strips YAML
 // frontmatter, HTML tags/comments, markdown images, link URLs (keeping the
 // link text), markdown tables, and then truncates at a paragraph boundary
 // around ~1200 characters. Raw README should still be used for icon

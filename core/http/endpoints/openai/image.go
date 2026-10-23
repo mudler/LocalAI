@@ -29,13 +29,15 @@ import (
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
+var imageDownloadClient = httpclient.New(httpclient.WithFollowRedirects(), httpclient.WithExternalOnly())
+
 func downloadFile(url string) (string, error) {
 	if err := utils.ValidateExternalURL(url); err != nil {
 		return "", fmt.Errorf("URL validation failed: %w", err)
 	}
 
 	// Get the data
-	resp, err := httpclient.New(httpclient.WithFollowRedirects()).Get(url)
+	resp, err := imageDownloadClient.Get(url)
 	if err != nil {
 		return "", err
 	}

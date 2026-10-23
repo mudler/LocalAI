@@ -90,6 +90,23 @@ var _ = Describe("utils/urlfetch tests", func() {
 			Expect(err.Error()).To(ContainSubstring("internal"))
 		})
 
+		DescribeTable("blocks non-public ranges that net.IP does not flag",
+			func(rawURL string) {
+				err := ValidateExternalURL(rawURL)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("internal"))
+			},
+			Entry("shared address space (RFC 6598)", "http://100.64.0.1/x"),
+			Entry("shared address space, upper end", "http://100.127.255.254/x"),
+			Entry("this network 0.0.0.0/8", "http://0.1.2.3/x"),
+			Entry("benchmarking range", "http://198.18.0.1/x"),
+			Entry("IPv4-mapped shared address space", "http://[::ffff:100.64.0.1]/x"),
+		)
+
+		It("allows a public address next to the shared address space", func() {
+			Expect(ValidateExternalURL("http://100.128.0.1/x")).To(Succeed())
+		})
+
 		It("blocks IPv6 loopback ::1", func() {
 			err := ValidateExternalURL("http://[::1]/secret")
 			Expect(err).ToNot(BeNil())

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/gallery/importers"
@@ -155,59 +154,32 @@ func generateYAMLEntry(model ProcessedModel, quantization string) string {
 	)
 }
 
-// generateYAMLForModels generates YAML entries for selected models and appends to index.yaml
+// generateYAMLForModels generates library entries for the selected models and
+// appends them to the model library, gallery/models/index.yaml.
+//
+// The entry text is still built in the gallery shape, because that is what the
+// importer output maps onto. appendLibraryEntries converts each entry to the
+// library shape before anything is written.
 func generateYAMLForModels(ctx context.Context, models []ProcessedModel, quantization string) error {
-
-	// Generate YAML entries for each model
 	var yamlEntries []string
 	for _, model := range models {
 		fmt.Printf("Generating YAML entry for model: %s\n", model.ModelID)
-
-		// Generate YAML entry
-		yamlEntry := generateYAMLEntry(model, quantization)
-		yamlEntries = append(yamlEntries, yamlEntry)
+		yamlEntries = append(yamlEntries, generateYAMLEntry(model, quantization))
 	}
 
-	// Prepend to index.yaml (write at the top)
-	if len(yamlEntries) > 0 {
-		indexPath := getGalleryIndexPath()
-		fmt.Printf("Prepending YAML entries to %s...\n", indexPath)
-
-		// Read current content
-		content, err := os.ReadFile(indexPath)
-		if err != nil {
-			return fmt.Errorf("failed to read %s: %w", indexPath, err)
-		}
-
-		existingContent := string(content)
-		yamlBlock := strings.Join(yamlEntries, "\n")
-
-		// Check if file starts with "---"
-		var newContent string
-		if strings.HasPrefix(existingContent, "---\n") {
-			// File starts with "---", prepend new entries after it
-			restOfContent := strings.TrimPrefix(existingContent, "---\n")
-			// Ensure proper spacing: "---\n" + new entries + "\n" + rest of content
-			newContent = "---\n" + yamlBlock + "\n" + restOfContent
-		} else if strings.HasPrefix(existingContent, "---") {
-			// File starts with "---" but no newline after
-			restOfContent := strings.TrimPrefix(existingContent, "---")
-			newContent = "---\n" + yamlBlock + "\n" + strings.TrimPrefix(restOfContent, "\n")
-		} else {
-			// No "---" at start, prepend new entries at the very beginning
-			// Trim leading whitespace from existing content
-			existingContent = strings.TrimLeft(existingContent, " \t\n\r")
-			newContent = yamlBlock + "\n" + existingContent
-		}
-
-		// Write back to file
-		err = os.WriteFile(indexPath, []byte(newContent), 0644)
-		if err != nil {
-			return fmt.Errorf("failed to write %s: %w", indexPath, err)
-		}
-
-		fmt.Printf("Successfully prepended %d models to %s\n", len(yamlEntries), indexPath)
+	if len(yamlEntries) == 0 {
+		return nil
 	}
 
+	indexPath := getGalleryIndexPath()
+	fmt.Printf("Appending library entries to %s...\n", indexPath)
+	added, skipped, err := appendLibraryEntries(indexPath, yamlEntries)
+	if err != nil {
+		return err
+	}
+	for _, id := range skipped {
+		fmt.Printf("Skipped %s: the library already has an entry with this id\n", id)
+	}
+	fmt.Printf("Successfully appended %d models to %s\n", len(added), indexPath)
 	return nil
 }

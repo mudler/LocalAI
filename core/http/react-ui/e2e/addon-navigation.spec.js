@@ -387,14 +387,6 @@ async function asAdmin(page, features = {}) {
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true, voice_recognition: true, ...features }) }))
 }
 
-async function expectVoicesPage(page) {
-  await expect(page.getByTestId('voices-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Voices', level: 1 })).toBeVisible()
-  for (const name of [/Speakers/, /Speech voices/, /From a recording/]) {
-    await expect(page.getByRole('tab', { name })).toBeVisible()
-  }
-}
-
 // The tabs of the one Voice page. An administrator sees all four.
 async function expectVoiceTabs(page, active) {
   const tabs = page.getByTestId('voice-tabs')
@@ -426,13 +418,12 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
   })
 
-  test('the core page, with the add-on absent, shows the same test ids and tabs', async ({ page }) => {
+  test('an old Voice link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
     await setup(page, { apps: [] })
     await asAdmin(page)
-    await mockIdentity(page)
     await page.goto('/app/voice')
-    await expect(page).toHaveURL(/\/app\/voice$/)
-    await expectVoicesPage(page)
+    await expect(page).toHaveURL(/\/app\/addons\/voice\//)
+    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
   })
 
   test('an old model link ends in the add-on with the model in the query', async ({ page }) => {
@@ -667,13 +658,12 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
   })
 
-  test('the core page, with the add-on absent, shows the same test id and title', async ({ page }) => {
+  test('an old Face link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
     await setup(page, { apps: [] })
-    await asFaceAdmin(page)
-    await mockIdentity(page)
+    await asAdmin(page)
     await page.goto('/app/face')
-    await expect(page).toHaveURL(/\/app\/face$/)
-    await expectFacesPage(page)
+    await expect(page).toHaveURL(/\/app\/addons\/face\//)
+    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
   })
 
   test('an old model link ends in the add-on with the model in the query', async ({ page }) => {
@@ -705,10 +695,12 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await expect(page.getByTestId('tool-off')).toBeVisible()
   })
 
-  test('an old fine-tuning link opens the core page when the add-on is not installed', async ({ page }) => {
+  test('an old fine-tuning link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
     await setup(page, { apps: [] })
+    await asAdmin(page)
     await page.goto('/app/fine-tune')
-    await expect(page).toHaveURL(/\/app\/fine-tune$/)
+    await expect(page).toHaveURL(/\/app\/addons\/fine-tuning\//)
+    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
   })
 
   test('an old fine-tuning link opens the add-on when it is installed and running', async ({ page }) => {
@@ -718,10 +710,12 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/fine-tuning\/jobs$/)
   })
 
-  test('an old quantization link opens the core page when the add-on is not installed', async ({ page }) => {
+  test('an old quantization link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
     await setup(page, { apps: [] })
+    await asAdmin(page)
     await page.goto('/app/quantize')
-    await expect(page).toHaveURL(/\/app\/quantize$/)
+    await expect(page).toHaveURL(/\/app\/addons\/quantization\//)
+    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
   })
 
   test('an old quantization link opens the add-on when it is installed and running', async ({ page }) => {
