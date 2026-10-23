@@ -1,50 +1,50 @@
 // SPDX-License-Identifier: MIT
-package workerledger
+package workerledger_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/pkg/workerledger"
 )
 
-func TestReadFileDistinguishesMissingFromCorrupt(t *testing.T) {
-	dir := t.TempDir()
-	if entries, err := ReadFile(filepath.Join(dir, "none.json")); err != nil || entries != nil {
-		t.Fatalf("a missing ledger is empty, got %v, %v", entries, err)
-	}
-	bad := filepath.Join(dir, "bad.json")
-	if err := os.WriteFile(bad, []byte("{"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ReadFile(bad); err == nil {
-		t.Fatal("a corrupt ledger must be an error: ownership is unknown")
-	}
+func TestWorkerLedger(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Worker ledger")
 }
 
-func TestWriteFileIsOwnerOnlyAndRoundTrips(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "sub", "ledger.json")
-	want := []Entry{{Key: "m#0", PID: 42, StartTime: "7", Generation: "g"}}
-	if err := WriteFile(path, want); err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(path)
-	if err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("mode = %v, err = %v", info.Mode().Perm(), err)
-	}
-	got, err := ReadFile(path)
-	if err != nil || len(got) != 1 || got[0] != want[0] {
-		t.Fatalf("round trip = %v, %v", got, err)
-	}
-	if _, err := os.Stat(path + ".tmp"); err == nil {
-		t.Fatal("temporary file left behind")
-	}
-}
+var _ = Describe("Process ledger file", func() {
+	It("distinguishes a missing ledger from a corrupt one", func() {
+		dir := GinkgoT().TempDir()
+		entries, err := workerledger.ReadFile(filepath.Join(dir, "none.json"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(entries).To(BeNil())
+		bad := filepath.Join(dir, "bad.json")
+		Expect(os.WriteFile(bad, []byte("{"), 0o600)).To(Succeed())
+		_, err = workerledger.ReadFile(bad)
+		Expect(err).To(HaveOccurred(), "ownership of earlier backends is unknown")
+	})
 
-func TestClassifyGoneForMissingGroup(t *testing.T) {
-	if got := Classify(Entry{PID: 0}); got != Gone {
-		t.Fatalf("pid 0 = %v", got)
-	}
-	if got := Classify(Entry{PID: 1 << 30, StartTime: "1"}); got != Gone {
-		t.Fatalf("absent group = %v", got)
-	}
-}
+	It("writes owner-only, atomically, and round-trips", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "sub", "ledger.json")
+		want := []workerledger.Entry{{Key: "m#0", PID: 42, StartTime: "7", Generation: "g"}}
+		Expect(workerledger.WriteFile(path, want)).To(Succeed())
+		info, err := os.Stat(path)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		got, err := workerledger.ReadFile(path)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal(want))
+		_, err = os.Stat(path + ".tmp")
+		Expect(os.IsNotExist(err)).To(BeTrue(), "no temporary file is left behind")
+	})
+
+	It("classifies a missing group as gone", func() {
+		Expect(workerledger.Classify(workerledger.Entry{PID: 0})).To(Equal(workerledger.Gone))
+		Expect(workerledger.Classify(workerledger.Entry{PID: 1 << 30, StartTime: "1"})).To(Equal(workerledger.Gone))
+	})
+})
