@@ -133,21 +133,9 @@
     "unknownOutcome": "无法确认结果。请先检查状态,再重试。"
   },
   "installed": {
-    "disable": "关闭",
     "disabled": "已关闭",
-    "emptyBody": "请在“浏览”标签页安装附加组件。",
-    "emptyTitle": "尚未安装任何内容",
-    "enable": "打开",
     "enabled": "已打开",
-    "generation": "第 {{generation}} 代",
-    "listLabel": "已安装的附加组件",
-    "loading": "正在加载已安装的附加组件",
-    "manage": "详情",
-    "manageLead": "{{id}} 的管理视图",
-    "missing": "{{id}} 未安装。",
-    "uninstall": "卸载",
-    "uninstallBody": "附加组件将停止,其软件包不再使用。其数据、身份和授权会保留,再次安装时会沿用。不会删除任何内容。",
-    "uninstallTitle": "卸载 {{name}}?"
+    "missing": "{{id}} 未安装。"
   },
   "libraries": {
     "add": "添加库",
@@ -348,7 +336,6 @@
   "tabs": {
     "apps": "我的附加组件",
     "browse": "查找附加组件",
-    "installed": "已安装",
     "label": "附加组件分区",
     "libraries": "来源"
   },
@@ -638,7 +625,8 @@
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
-    "sourceUnknown": "Not known"
+    "sourceUnknown": "Not known",
+    "moreDetails": "Health, trust and updates"
   },
   "flow": {
     "installAndTurnOn": "安装并打开",

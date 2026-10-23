@@ -284,3 +284,8 @@
 .ad-entry__details > summary:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
 .ad-entry__details[open] > summary { margin-bottom: var(--dk-space-2, 8px); }
 .ad-steps--stack { flex-direction: column; flex-wrap: nowrap; gap: var(--dk-space-2, 8px); margin: 0; }
+.ad-tile__update { font-size: var(--dk-text-12, 0.75rem); color: var(--dk-warn-text); }
+.ad-pane__more > summary { cursor: pointer; font-weight: var(--dk-weight-semibold, 600); width: fit-content; }
+.ad-pane__more > summary:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+.ad-pane__more[open] > summary { margin-bottom: var(--dk-space-3, 12px); }
+.ad-facts-body { display: flex; flex-direction: column; gap: var(--dk-space-4, 16px); }

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { apiUrl } from '../../utils/basePath'
-import { AppIcon, StateChip } from './AddonBits'
+import { AppIcon, UpdateChip } from './AddonBits'
 import AddonMenu from './AddonMenu'
 import { addedByAddon } from './addonState'
 
@@ -33,6 +33,7 @@ export default function AddonTile({ tile, pinned, selected = false, onPin, onMov
         <span className="ad-tile__text">
           <span className="ad-tile__title">{title}</span>
           <span className="ad-tile__state" data-state={tile.state}>{stateText}{line ? `, ${line}` : ''}</span>
+          {tile.app && tile.app.update === 'update-pending' && <span className="ad-tile__update"><UpdateChip /></span>}
           {tile.description && <span className="ad-tile__desc">{tile.description}</span>}
           {(added.page || added.tools > 0) && (
             <span className="ad-tile__adds" data-testid="tile-adds">

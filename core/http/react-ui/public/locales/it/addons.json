@@ -133,21 +133,9 @@
     "unknownOutcome": "Non è stato possibile confermare il risultato. Controlla lo stato prima di riprovare."
   },
   "installed": {
-    "disable": "Disattiva",
     "disabled": "Disattivato",
-    "emptyBody": "Installa un componente dalla scheda Sfoglia.",
-    "emptyTitle": "Nulla è installato",
-    "enable": "Attiva",
     "enabled": "Attivo",
-    "generation": "Generazione {{generation}}",
-    "listLabel": "Componenti installati",
-    "loading": "Caricamento dei componenti installati",
-    "manage": "Dettagli",
-    "manageLead": "Vista di gestione di {{id}}",
-    "missing": "{{id}} non è installato.",
-    "uninstall": "Disinstalla",
-    "uninstallBody": "Il componente si ferma e il suo pacchetto non viene più usato. I suoi dati, la sua identità e i suoi permessi vengono conservati, quindi reinstallarlo li ritrova. Nulla viene eliminato.",
-    "uninstallTitle": "Disinstallare {{name}}?"
+    "missing": "{{id}} non è installato."
   },
   "libraries": {
     "add": "Aggiungi una libreria",
@@ -348,7 +336,6 @@
   "tabs": {
     "apps": "I miei componenti",
     "browse": "Trova componenti",
-    "installed": "Installati",
     "label": "Sezioni dei componenti aggiuntivi",
     "libraries": "Fonti"
   },
@@ -638,7 +625,8 @@
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
-    "sourceUnknown": "Not known"
+    "sourceUnknown": "Not known",
+    "moreDetails": "Health, trust and updates"
   },
   "flow": {
     "installAndTurnOn": "Installa e attiva",

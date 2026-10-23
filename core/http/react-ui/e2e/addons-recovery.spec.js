@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto'
 const creds = JSON.parse(fs.readFileSync(process.env.ADDONS_FIXTURE, 'utf8'))
 const BASE = process.env.ADDONS_UI_URL
 const shots = process.env.ADDONS_SHOTS
-const MANAGE = '/app/addons?tab=installed&manage=tables'
+const MANAGE = '/app/addons?manage=tables'
 
 async function shoot(page, name, target = 'recovery-panel') {
   if (!shots) return
@@ -68,9 +68,9 @@ async function openManage(page) {
   await expect(page.getByTestId('recovery-panel')).toBeVisible({ timeout: 25_000 })
 }
 
-// The sheet's own enable and disable buttons: the real lifecycle.
+// The pane's own Turn on and Turn off buttons: the real lifecycle.
 async function setEnabled(page, enabled) {
-  const sheet = page.getByTestId('addon-manage')
+  const sheet = page.getByTestId('addon-detail')
   await sheet.getByRole('button', { name: enabled ? 'Turn on' : 'Turn off' }).click()
   await expect(sheet.getByRole('button', { name: enabled ? 'Turn off' : 'Turn on' })).toBeVisible({ timeout: 30_000 })
 }

@@ -1,10 +1,12 @@
 // Pure helpers for the add-on pages. No React and no network.
 import { updateView } from './updateState.js'
 
-// Tabs. Apps is for everyone; the other three are management and the server
-// checks administration again on every call they make.
-export const TABS = ['apps', 'browse', 'installed', 'libraries']
-export const ADMIN_TABS = new Set(['browse', 'installed', 'libraries'])
+// Tabs: My add-ons is for everyone; Find add-ons and Sources are management and
+// the server checks administration again on every call they make. What the old
+// Installed tab showed is now the Details of an add-on in My add-ons, so an old
+// ?tab=installed address lands on My add-ons.
+export const TABS = ['apps', 'browse', 'libraries']
+export const ADMIN_TABS = new Set(['browse', 'libraries'])
 
 export function resolveTab(requested, isAdmin) {
   if (requested && TABS.includes(requested) && (isAdmin || !ADMIN_TABS.has(requested))) return requested
@@ -39,7 +41,7 @@ export function featuredEntries(entries, installedIds = [], limit = 3) {
   return (Array.isArray(entries) ? entries : []).filter(e => e && e.kind === 'addon' && !have.has(e.id)).slice(0, limit)
 }
 
-// The management link of an app opens the Installed tab on that add-on.
+// The management link of an app opens the Details of that add-on.
 export function resolveManage(params, isAdmin) {
   if (!isAdmin) return ''
   const id = params.get('manage') || ''

@@ -133,21 +133,9 @@
     "unknownOutcome": "Das Ergebnis konnte nicht bestätigt werden. Prüfe den Status, bevor du es erneut versuchst."
   },
   "installed": {
-    "disable": "Ausschalten",
     "disabled": "Aus",
-    "emptyBody": "Installiere ein Add-on über den Tab Durchsuchen.",
-    "emptyTitle": "Nichts ist installiert",
-    "enable": "Einschalten",
     "enabled": "An",
-    "generation": "Generation {{generation}}",
-    "listLabel": "Installierte Add-ons",
-    "loading": "Installierte Add-ons werden geladen",
-    "manage": "Details",
-    "manageLead": "Verwaltungsansicht von {{id}}",
-    "missing": "{{id}} ist nicht installiert.",
-    "uninstall": "Deinstallieren",
-    "uninstallBody": "Das Add-on wird gestoppt und sein Paket nicht mehr verwendet. Seine Daten, Identität und Berechtigungen bleiben erhalten, eine erneute Installation übernimmt sie. Es wird nichts gelöscht.",
-    "uninstallTitle": "{{name}} deinstallieren?"
+    "missing": "{{id}} ist nicht installiert."
   },
   "libraries": {
     "add": "Bibliothek hinzufügen",
@@ -348,7 +336,6 @@
   "tabs": {
     "apps": "Meine Add-ons",
     "browse": "Add-ons finden",
-    "installed": "Installiert",
     "label": "Bereiche der Add-ons",
     "libraries": "Quellen"
   },
@@ -638,7 +625,8 @@
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
-    "sourceUnknown": "Not known"
+    "sourceUnknown": "Not known",
+    "moreDetails": "Health, trust and updates"
   },
   "flow": {
     "installAndTurnOn": "Installieren und einschalten",

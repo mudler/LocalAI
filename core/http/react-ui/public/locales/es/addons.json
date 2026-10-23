@@ -133,21 +133,9 @@
     "unknownOutcome": "No se pudo confirmar el resultado. Comprueba el estado antes de volver a intentarlo."
   },
   "installed": {
-    "disable": "Desactivar",
     "disabled": "Desactivado",
-    "emptyBody": "Instala un complemento desde la pestaña Explorar.",
-    "emptyTitle": "No hay nada instalado",
-    "enable": "Activar",
     "enabled": "Activado",
-    "generation": "Generación {{generation}}",
-    "listLabel": "Complementos instalados",
-    "loading": "Cargando complementos instalados",
-    "manage": "Detalles",
-    "manageLead": "Vista de gestión de {{id}}",
-    "missing": "{{id}} no está instalado.",
-    "uninstall": "Desinstalar",
-    "uninstallBody": "El complemento se detiene y su paquete deja de usarse. Sus datos, identidad y permisos se conservan, así que al instalarlo de nuevo los recupera. No se elimina nada.",
-    "uninstallTitle": "¿Desinstalar {{name}}?"
+    "missing": "{{id}} no está instalado."
   },
   "libraries": {
     "add": "Añadir una biblioteca",
@@ -348,7 +336,6 @@
   "tabs": {
     "apps": "Mis complementos",
     "browse": "Buscar complementos",
-    "installed": "Instalados",
     "label": "Secciones de complementos",
     "libraries": "Fuentes"
   },
@@ -638,7 +625,8 @@
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
-    "sourceUnknown": "Not known"
+    "sourceUnknown": "Not known",
+    "moreDetails": "Health, trust and updates"
   },
   "flow": {
     "installAndTurnOn": "Instalar y activar",

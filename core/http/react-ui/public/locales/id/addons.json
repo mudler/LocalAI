@@ -133,21 +133,9 @@
     "unknownOutcome": "Hasil tidak dapat dikonfirmasi. Periksa statusnya sebelum mencoba lagi."
   },
   "installed": {
-    "disable": "Nonaktifkan",
     "disabled": "Nonaktif",
-    "emptyBody": "Pasang add-on dari tab Jelajahi.",
-    "emptyTitle": "Belum ada yang terpasang",
-    "enable": "Aktifkan",
     "enabled": "Aktif",
-    "generation": "Generasi {{generation}}",
-    "listLabel": "Add-on terpasang",
-    "loading": "Memuat add-on terpasang",
-    "manage": "Detail",
-    "manageLead": "Tampilan pengelolaan {{id}}",
-    "missing": "{{id}} tidak terpasang.",
-    "uninstall": "Copot",
-    "uninstallBody": "Add-on berhenti dan paketnya tidak lagi dipakai. Data, identitas, dan izinnya dipertahankan, jadi memasangnya lagi akan memakainya kembali. Tidak ada yang dihapus.",
-    "uninstallTitle": "Copot {{name}}?"
+    "missing": "{{id}} tidak terpasang."
   },
   "libraries": {
     "add": "Tambah pustaka",
@@ -348,7 +336,6 @@
   "tabs": {
     "apps": "Add-on saya",
     "browse": "Cari add-on",
-    "installed": "Terpasang",
     "label": "Bagian add-on",
     "libraries": "Sumber"
   },
@@ -638,7 +625,8 @@
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
-    "sourceUnknown": "Not known"
+    "sourceUnknown": "Not known",
+    "moreDetails": "Health, trust and updates"
   },
   "flow": {
     "installAndTurnOn": "Pasang dan aktifkan",

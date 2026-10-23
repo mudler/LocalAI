@@ -136,21 +136,9 @@
     "unknownOutcome": "Le résultat n'a pas pu être confirmé. Vérifiez l'état avant de réessayer."
   },
   "installed": {
-    "disable": "Désactiver",
     "disabled": "Désactivé",
-    "emptyBody": "Installez un module depuis l'onglet Parcourir.",
-    "emptyTitle": "Rien n'est installé",
-    "enable": "Activer",
     "enabled": "Activé",
-    "generation": "Génération {{generation}}",
-    "listLabel": "Modules installés",
-    "loading": "Chargement des modules installés",
-    "manage": "Détails",
-    "manageLead": "Vue de gestion de {{id}}",
-    "missing": "{{id}} n'est pas installé.",
-    "uninstall": "Désinstaller",
-    "uninstallBody": "Le module s'arrête et son paquet n'est plus utilisé. Ses données, son identité et ses autorisations sont conservées : le réinstaller les retrouve. Rien n'est supprimé.",
-    "uninstallTitle": "Désinstaller {{name}} ?"
+    "missing": "{{id}} n'est pas installé."
   },
   "libraries": {
     "add": "Ajouter une bibliothèque",
@@ -352,7 +340,6 @@
   "tabs": {
     "apps": "Mes add-ons",
     "browse": "Trouver des add-ons",
-    "installed": "Installés",
     "label": "Sections des modules",
     "libraries": "Sources"
   },
@@ -642,7 +629,8 @@
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
-    "sourceUnknown": "Not known"
+    "sourceUnknown": "Not known",
+    "moreDetails": "Health, trust and updates"
   },
   "flow": {
     "installAndTurnOn": "Installer et activer",

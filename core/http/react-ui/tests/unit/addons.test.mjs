@@ -94,7 +94,10 @@ test('library drafts accept references and refuse secrets before sending', () =>
 
 test('tabs: the server decides, the page only avoids showing what it will refuse', () => {
   assert.deepEqual(visibleTabs(false), ['apps'])
-  assert.deepEqual(visibleTabs(true), ['apps', 'browse', 'installed', 'libraries'])
+  assert.deepEqual(visibleTabs(true), ['apps', 'browse', 'libraries'])
+  // The Installed tab is folded into My add-ons; an old address lands there.
+  assert.equal(resolveTab('installed', true), 'apps')
+  assert.equal(resolveTab('installed', false), 'apps')
   assert.equal(resolveTab('libraries', false), 'apps')
   assert.equal(resolveTab('libraries', true), 'libraries')
   assert.equal(resolveTab('nope', true), 'apps')
@@ -422,7 +425,7 @@ test('the add-on labels use one name and one verb pair', () => {
   const nav = JSON.parse(readFileSync(join(localesDir, 'en', 'nav.json'), 'utf8'))
   assert.equal(nav.items.addons, 'Add-ons')
   assert.deepEqual([en.tabs.apps, en.tabs.browse, en.tabs.libraries], ['My add-ons', 'Find add-ons', 'Sources'])
-  assert.deepEqual([en.apps.start, en.apps.stop, en.installed.enable, en.installed.disable], ['Turn on', 'Turn off', 'Turn on', 'Turn off'])
+  assert.deepEqual([en.apps.start, en.apps.stop], ['Turn on', 'Turn off'])
   assert.ok(!/owner/i.test(en.supporting), 'the subtitle does not name the owner')
   assert.ok(!/\bapps?\b/i.test(JSON.stringify([...Object.values(en.tabs), en.supporting, nav.items.addons])), 'no label says Apps')
 })

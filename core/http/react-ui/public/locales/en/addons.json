@@ -133,21 +133,9 @@
     "unknownOutcome": "The result could not be confirmed. Check the status before you try again."
   },
   "installed": {
-    "disable": "Turn off",
     "disabled": "Off",
-    "emptyBody": "Install an add-on from the Find add-ons tab.",
-    "emptyTitle": "Nothing is installed",
-    "enable": "Turn on",
     "enabled": "On",
-    "generation": "Generation {{generation}}",
-    "listLabel": "Installed add-ons",
-    "loading": "Loading installed add-ons",
-    "manage": "Details",
-    "manageLead": "Management view of {{id}}",
-    "missing": "{{id}} is not installed.",
-    "uninstall": "Remove",
-    "uninstallBody": "The add-on turns off and is removed from this server. Its data, identity and grants are kept, so installing it again picks them up. Nothing is deleted.",
-    "uninstallTitle": "Remove {{name}}?"
+    "missing": "{{id}} is not installed."
   },
   "libraries": {
     "add": "Add a library",
@@ -348,7 +336,6 @@
   "tabs": {
     "apps": "My add-ons",
     "browse": "Find add-ons",
-    "installed": "Installed",
     "label": "Add-ons sections",
     "libraries": "Sources"
   },
@@ -638,7 +625,8 @@
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
-    "sourceUnknown": "Not known"
+    "sourceUnknown": "Not known",
+    "moreDetails": "Health, trust and updates"
   },
   "flow": {
     "installAndTurnOn": "Install and turn on",

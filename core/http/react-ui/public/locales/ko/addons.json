@@ -133,21 +133,9 @@
     "unknownOutcome": "결과를 확인할 수 없습니다. 다시 시도하기 전에 상태를 확인하세요."
   },
   "installed": {
-    "disable": "끄기",
     "disabled": "꺼짐",
-    "emptyBody": "찾아보기 탭에서 애드온을 설치하세요.",
-    "emptyTitle": "설치된 항목이 없습니다",
-    "enable": "켜기",
     "enabled": "켜짐",
-    "generation": "세대 {{generation}}",
-    "listLabel": "설치된 애드온",
-    "loading": "설치된 애드온을 불러오는 중",
-    "manage": "자세히",
-    "manageLead": "{{id}} 관리 보기",
-    "missing": "{{id}}은(는) 설치되어 있지 않습니다.",
-    "uninstall": "제거",
-    "uninstallBody": "애드온이 중지되고 패키지는 더 이상 사용되지 않습니다. 데이터, 신원, 권한은 보존되므로 다시 설치하면 이어서 사용합니다. 아무것도 삭제되지 않습니다.",
-    "uninstallTitle": "{{name}}을(를) 제거할까요?"
+    "missing": "{{id}}은(는) 설치되어 있지 않습니다."
   },
   "libraries": {
     "add": "라이브러리 추가",
@@ -348,7 +336,6 @@
   "tabs": {
     "apps": "내 애드온",
     "browse": "애드온 찾기",
-    "installed": "설치됨",
     "label": "애드온 섹션",
     "libraries": "소스"
   },
@@ -638,7 +625,8 @@
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
-    "sourceUnknown": "Not known"
+    "sourceUnknown": "Not known",
+    "moreDetails": "Health, trust and updates"
   },
   "flow": {
     "installAndTurnOn": "설치하고 켜기",
