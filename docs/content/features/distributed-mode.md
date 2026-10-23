@@ -86,7 +86,9 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 Every `local-ai run` process is its own add-on owner by default. With several
 frontend replicas, run the owner as one separate workload with its own volume, and
 start the frontends with `--addons-role=frontend`, so they forward add-on requests
-to it and hold no add-on state. See
+to it and hold no add-on state. The library sources and the backend library
+installs also go through the owner: a frontend follows the owner's sources and
+installs backends on its own node. See
 [Running the owner as its own workload]({{% relref "features/addons#running-the-owner-as-its-own-workload" %}}).
 
 ### The model load deadline scales with the checkpoint

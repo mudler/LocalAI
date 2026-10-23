@@ -303,19 +303,50 @@ LocalAI does not check this.
 
 ### Frontend limits
 
-A process with `--addons-role=frontend` holds no add-on state. This has three
+A process with `--addons-role=frontend` holds no add-on state. This has these
 consequences:
 
-- **Library sources are managed only on the owner.** The frontend never opens,
-  creates or writes `sources.json` or anything else under the `addons` folder of
-  the data path. It reads only the galleries named by `--galleries` and
-  `--backend-galleries`. Every `/api/library/sources` route, reads included,
-  answers `503` with the LocalAI error envelope (code `unavailable`) and the
-  message "library sources are managed on the owner". Use the owner to list or
-  change them.
-- **Backend library routes are not served by frontends.** The routes that list or
-  install backends from a library, and the library update checks, need the owner's
-  sources, so a frontend does not serve them.
+- **Library sources live on the owner and are changed through it.** The frontend
+  never opens, creates or writes `sources.json` or anything else under the `addons`
+  folder of the data path. Every `/api/library/sources` route is forwarded to the
+  owner, which is the only writer. The caller must be a named account and an
+  administrator: the frontend checks the account, and the owner checks the
+  administrator right again, as it does for its own routes. A legacy API key has no
+  named user and gets `401` on a frontend, in `local-owner` mode too. The routes
+  answer the same statuses as on a single node (`404` for an unknown source, `409` for
+  a duplicate, `400` for an invalid request). With add-ons off a frontend has no owner
+  to reach, and these routes answer `503` with the message "library sources are
+  managed on the owner". When the owner is down they answer `503` with
+  "the add-on owner is not reachable". A change whose reply was lost answers `503`
+  with the operation ID in the message; read the list again before you repeat it.
+- **The gallery lists follow the owner.** A frontend asks the owner for its source
+  list every 60 seconds (a read over the pinned carrier that needs no signed-in user)
+  and, only when the list or the `official_libraries` setting
+  changed, rebuilds its model and backend gallery lists from the galleries named by
+  `--galleries` and `--backend-galleries` plus the owner's sources. A change made on
+  the owner shows up on every frontend after at most 60 seconds, and a change made
+  through a frontend shows up on that frontend at once. Until the owner has answered
+  once, a frontend reads only its own flags. While the owner does not answer, the
+  frontend keeps its last lists and logs that they may be stale. This is a
+  per-instance observation: two frontends can show different lists for up to 60
+  seconds.
+- **`official_libraries` is set on the owner.** The owner's value is the value of
+  the deployment, and a frontend takes it at each refresh. `POST /api/settings` with a
+  different `official_libraries` value answers `409` on a frontend. Set it on the
+  owner.
+- **Backend installs run on the frontend node.** `POST /backends/library/install`
+  and `GET /backends/library/updates` work on a frontend. The owner resolves the
+  entry (including the choice of a meta backend for the capability of the frontend)
+  and pins the image by digest. The frontend then installs it into its own backends
+  path, verifies the signature there, and applies its own size limit and
+  `--require-backend-integrity`. The owner's backends path stays unchanged. The
+  update check compares the local backends with the releases the owner lists.
+- **The owner and the frontends must run on the same OS and architecture.** The
+  owner resolves entries for its own platform, so a frontend checks the platform the
+  owner reports (`GET /addons/capabilities`) and refuses every library call to an owner
+  on another one with a `503`. A frontend also refuses library calls to an owner that
+  does not serve them, with "the add-on owner does not support library operations;
+  upgrade the owner". Upgrade the owner before the frontends.
 - **Pins are per frontend without an account database.** With an account database,
   the pins of the Apps entry are shared by all frontends. Without one, each
   frontend keeps its own pins in a file in its own data path, so two frontends can
@@ -401,13 +432,15 @@ model gallery index and backend gallery index are not used for search, install o
 update checks. They stay in the store, still marked `default`, and the Sources tab shows
 them as off (`suspended: true` in the routes). Each source keeps its own enabled state, so turning the
 setting back on restores exactly what was there. Sources you added are not affected. The
-change applies at once, with no restart.
+change applies at once, with no restart. On a frontend the switch is read-only: the
+owner's value applies, and a change there reaches the frontends within 60 seconds.
 
 ### Source routes
 
 The routes are for administrators. A caller who is not an administrator gets `403`, and a
 caller who is not signed in gets `401` when authentication is on. They are not add-on
-routes, so they do not need the add-ons owner to run.
+routes, so they do not need the add-ons owner to run. On a frontend they go to the owner
+(see [Frontend limits](#frontend-limits)).
 
 | Method and path | What it does |
 |---|---|
@@ -542,8 +575,9 @@ lifecycle. The page installs an add-on and turns it on in one action (Install an
 on); the install itself leaves an add-on disabled. A backend has no on or off: it is
 ready to use when the install ends, and its button says Install.
 
-The route is `POST /backends/library/install`. It is for administrators and exists only
-when the add-on owner runs on this instance:
+The route is `POST /backends/library/install`. It is for administrators and exists where
+the libraries are: on the instance that runs the add-on owner, and on a frontend, which asks the
+owner to resolve the entry and installs the backend on its own node:
 
 ```bash
 curl -X POST http://localhost:8080/backends/library/install \

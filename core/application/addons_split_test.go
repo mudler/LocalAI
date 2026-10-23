@@ -17,6 +17,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -210,5 +211,67 @@ var _ = Describe("split owner and frontends", func() {
 		}).Should(Succeed())
 		// The audience is new, and the frontend's next call fetches it.
 		Expect(installed(frontend)).To(ContainSubstring("sample"))
+	})
+	Describe("library operations", func() {
+		libCtx := func() context.Context { return library.WithActor(context.Background(), actor) }
+
+		It("lists the sources through the owner and keeps the frontend's data path empty", func() {
+			startOK("owner", ownerData)
+			frontendData := realTempDir()
+			frontend := startOK("frontend", frontendData)
+			l, e := frontend.LibraryAdmin().List(libCtx(), "")
+			Expect(e).NotTo(HaveOccurred())
+			var ids []string
+			for _, in := range l.Sources {
+				ids = append(ids, in.ID)
+			}
+			Expect(ids).To(ContainElement("test"))
+			// A version the caller holds gives the cheap answer.
+			again, e := frontend.LibraryAdmin().List(libCtx(), l.Version)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(again.Unchanged).To(BeTrue())
+			entries, e := os.ReadDir(frontendData)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(entries).To(BeEmpty())
+		})
+
+		It("refuses a frontend on another OS or architecture", func() {
+			startOK("owner", ownerData)
+			frontend := startOK("frontend", realTempDir())
+			frontend.applicationConfig.Addons.Host.Arch = "arm64"
+			_, e := frontend.LibraryAdmin().List(libCtx(), "")
+			Expect(e).To(MatchError(gateway.ErrUnavailable))
+			Expect(gateway.UnavailableReason(e)).To(Equal(gateway.ReasonPlatformMismatch))
+			Expect(frontend.RefreshLibraries(context.Background())).To(MatchError(gateway.ErrUnavailable))
+		})
+
+		It("refuses library calls to an owner that does not serve them", func() {
+			owner := startOK("owner", ownerData)
+			owner.addonGateway.Libraries = nil
+			frontend := startOK("frontend", realTempDir())
+			_, e := frontend.LibraryAdmin().List(libCtx(), "")
+			Expect(gateway.UnavailableReason(e)).To(Equal(gateway.ReasonLibraryUnsupported))
+		})
+
+		It("checks the administrator right on the owner whatever the frontend did", func() {
+			owner := startOK("owner", ownerData)
+			stranger := contract.Actor{UserID: "someone", CredentialID: "key:1", Mode: auth.AddonModeLocalOwner}
+			_, e := owner.addonGateway.Libraries.Library(context.Background(), stranger, gateway.LibraryCall{Op: gateway.LibraryList})
+			Expect(e).To(MatchError(gateway.ErrForbidden))
+			_, e = owner.addonGateway.Libraries.Library(context.Background(), actor, gateway.LibraryCall{Op: gateway.LibraryList})
+			Expect(e).NotTo(HaveOccurred())
+		})
+
+		It("keeps a frontend with the official libraries off from creating an add-ons folder", func() {
+			startOK("owner", ownerData)
+			frontendData := realTempDir()
+			frontend := startOK("frontend", frontendData)
+			frontend.applicationConfig.OfficialLibraries = false
+			Expect(frontend.ApplyLibraries()).To(Succeed())
+			applyOfficialLibrariesAtStartup(frontend.applicationConfig)
+			entries, e := os.ReadDir(frontendData)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(entries).To(BeEmpty())
+		})
 	})
 })
