@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -35,13 +37,19 @@ type Launcher struct {
 	app            fyne.App
 
 	// Process management: one serialized lifecycle owns the child.
-	life      *lifecycle
-	lifeOnce  sync.Once
-	lock      *userLock
-	lockDir   string
-	lockMu    sync.Mutex
-	statusMu  sync.Mutex
-	statusMsg string
+	life     *lifecycle
+	lifeOnce sync.Once
+	lock     *userLock
+	lockDir  string
+	lockMu   sync.Mutex
+	// applying is set while a stop-and-apply runs; start, save and update are
+	// refused for that time.
+	applying atomic.Bool
+	// plaintextAck is the owner's per-session acknowledgement that plaintext
+	// connections run inside a protected network. It is never saved.
+	plaintextAck atomic.Bool
+	statusMu     sync.Mutex
+	statusMsg    string
 	// statusPath and statusGeneration identify the current worker's private
 	// status snapshot; tracker measures its freshness.
 	statusPath       string
@@ -175,7 +183,14 @@ func (l *Launcher) Initialize() error {
 // without user interaction: at launcher startup and right after a fresh
 // install. Unset means enabled; legacy StartOnBoot is inert.
 func (l *Launcher) ShouldAutoStartServer() bool {
-	if l.config == nil || l.configError != nil || (l.config.Mode != "" && l.config.Mode != "standalone") {
+	if l.config == nil || l.configError != nil {
+		return false
+	}
+	if l.config.Mode == roleWorker {
+		// Joining a deployment is never a default: the owner must have chosen it.
+		return l.config.AutoStart != nil && *l.config.AutoStart
+	}
+	if l.config.Mode != "" && l.config.Mode != roleStandalone {
 		return false
 	}
 	return l.config.AutoStart == nil || *l.config.AutoStart
@@ -204,6 +219,9 @@ func (l *Launcher) StartLocalAI() error {
 	if l.config == nil {
 		return fmt.Errorf("launcher settings are missing")
 	}
+	if l.Applying() {
+		return errLifecycleBusy
+	}
 	if l.IsRunning() {
 		return fmt.Errorf("LocalAI is already running")
 	}
@@ -223,14 +241,28 @@ func (l *Launcher) StartLocalAI() error {
 		return fmt.Errorf("LocalAI binary not found. Please download a release first")
 	}
 
-	// Plaintext acknowledgement is a settings-UI decision that is not stored
-	// yet, so a plaintext worker connection stays refused.
-	description, err := buildLaunch(l.config, l.GetDataPath(), os.Environ(), false)
+	description, err := l.describeLaunch()
 	if err != nil {
 		return err
 	}
 	return l.launchRuntime(binaryPath, description)
 }
+
+// describeLaunch validates the active profile. A plaintext connection needs the
+// owner's acknowledgement for this launcher session.
+func (l *Launcher) describeLaunch() (launchDescription, error) {
+	return buildLaunch(l.config, l.GetDataPath(), os.Environ(), l.plaintextAck.Load())
+}
+
+// SetPlaintextAcknowledged records that the owner accepts plaintext frontend or
+// message-bus connections inside a protected network, for this session only.
+func (l *Launcher) SetPlaintextAcknowledged(v bool) { l.plaintextAck.Store(v) }
+
+// PlaintextAcknowledged reports the session acknowledgement.
+func (l *Launcher) PlaintextAcknowledged() bool { return l.plaintextAck.Load() }
+
+// Applying reports whether a stop-and-apply transition is under way.
+func (l *Launcher) Applying() bool { return l.applying.Load() }
 
 func (l *Launcher) runtimeContext() context.Context {
 	if l.ctx == nil {
@@ -556,6 +588,11 @@ func (l *Launcher) GetReleaseManager() *ReleaseManager {
 
 // GetWebUIURL returns the URL for the WebUI
 func (l *Launcher) GetWebUIURL() string {
+	if l.config != nil && l.config.Mode == roleWorker {
+		// A worker hosts no UI: the browser goes to the deployment.
+		u, _ := l.DeploymentURL()
+		return u
+	}
 	address := l.config.Address
 	if strings.HasPrefix(address, ":") {
 		address = "localhost" + address
@@ -613,6 +650,9 @@ func (l *Launcher) CheckForUpdates() (bool, string, error) {
 
 // DownloadUpdate downloads the latest version
 func (l *Launcher) DownloadUpdate(version string, progressCallback func(downloaded, total int64)) error {
+	if l.Applying() || l.lifecycleController().State() == lifecycleStopping {
+		return errLifecycleBusy
+	}
 	return l.releaseManager.DownloadRelease(version, progressCallback)
 }
 
@@ -1049,4 +1089,61 @@ func (l *Launcher) periodicUpdateCheck() {
 			return
 		}
 	}
+}
+
+// DeploymentURL is the saved frontend URL, validated, without credentials or a
+// guessed internal route. The browser handles its own login.
+func (l *Launcher) DeploymentURL() (string, error) {
+	if l.config == nil {
+		return "", fmt.Errorf("launcher settings are missing")
+	}
+	return launchURL(l.config.Worker.Connection.FrontendURL, false)
+}
+
+// errStopRequired means the change needs the running role stopped first.
+var errStopRequired = errors.New("the running role must be stopped to apply this change")
+
+// activeProfileChanged reports whether a change affects what the running role
+// was launched with: a role switch, or any shared or active-profile setting.
+func activeProfileChanged(old, next *Config) bool {
+	role := func(c *Config) string {
+		if c.Mode == "" {
+			return roleStandalone
+		}
+		return c.Mode
+	}
+	if role(old) != role(next) {
+		return true
+	}
+	if old.ModelsPath != next.ModelsPath || old.BackendsPath != next.BackendsPath || old.LogLevel != next.LogLevel {
+		return true
+	}
+	if role(old) == roleWorker {
+		return !reflect.DeepEqual(old.Worker, next.Worker)
+	}
+	return old.Address != next.Address || !reflect.DeepEqual(old.EnvironmentVars, next.EnvironmentVars)
+}
+
+// ApplySettings commits candidate. When a runtime exists and the change affects
+// it, nothing is committed until the caller confirms a stop (stop=true) and the
+// stop is verified. It never starts the replacement. Cancelling, a failed stop
+// and an incomplete shutdown leave the active configuration unchanged.
+func (l *Launcher) ApplySettings(candidate *Config, stop bool) error {
+	if !l.applying.CompareAndSwap(false, true) {
+		return errLifecycleBusy
+	}
+	defer l.applying.Store(false)
+	state := l.lifecycleController().State()
+	if state == lifecycleStarting || state == lifecycleStopping {
+		return errLifecycleBusy
+	}
+	if state != lifecycleStopped && l.config != nil && activeProfileChanged(l.config, candidate) {
+		if !stop {
+			return errStopRequired
+		}
+		if err := l.StopLocalAI(); err != nil && !errors.Is(err, errNotRunning) {
+			return err
+		}
+	}
+	return l.SetConfig(candidate)
 }

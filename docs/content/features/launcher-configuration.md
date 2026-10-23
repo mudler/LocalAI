@@ -21,11 +21,8 @@ Version 2 separates settings into these objects:
 - `worker.environment_vars`: separate advanced runtime overrides.
 - `legacy`: preserves `start_on_boot` when present in an older file.
 
-The worker objects currently prepare storage only: this migration does **not**
-add worker controls or a worker launch command. Selecting `worker` in a manually
-edited file will not start a standalone server as a fallback. Connection
-validation and reserved worker environment handling belong to worker launch
-support, not storage.
+Selecting `worker` never starts a standalone server as a fallback. The settings
+window described in [Settings window](#settings-window) edits both profiles.
 
 Legacy environment settings stay in the standalone profile and are not copied
 to worker settings. Saving unrelated settings retains remembered worker values.
@@ -36,6 +33,40 @@ versions produce a settings error instead of launching a guessed role.
 Absent or `null` retains the default of enabled. The obsolete `auto_start` key
 is ignored. `legacy.start_on_boot` is inert, including when true: it does not
 override an explicit opt-out or install an OS service, login item, or boot task.
+
+## Settings window
+
+The window begins with a mode selector: **Run locally** or **Join a distributed
+server**. Joining contributes this machine's inference capacity to an existing
+deployment. It does not create one. The two modes are mutually exclusive and each
+keeps its draft when you switch; paths and log level are shared.
+
+The join form takes the frontend URL, the registration token, the advertised
+address and an optional node name. **Advanced connection settings** holds the
+NATS URL, the NATS CA, client certificate and key files, the maximum gRPC port,
+optional NATS JWT and user seed overrides, runtime environment overrides
+(`KEY=VALUE` per line), and the plaintext acknowledgement. The window shows the
+reverse HTTP port and the gRPC port range the frontend must reach.
+
+Secret fields are masked and never filled in from the saved file. A blank secret
+keeps the saved value when you save other settings; type a new value to replace
+it, or tick **Clear the saved ...** to remove it. Plain `http://` or `nats://`
+connections need the acknowledgement checkbox, which lasts for the launcher
+session and is never saved.
+
+**Save Configuration** persists both profiles and the selected mode. An invalid
+draft of the inactive profile does not block saving; an invalid active worker
+profile blocks only the worker start. When a runtime is running and the change
+affects it (a role switch, or any shared or active-profile setting), **Save**
+offers **Stop and apply** or **Cancel**. Cancel changes nothing. Stop and apply
+saves only after the runtime and its backends are confirmed gone, and does not
+start anything. Start, save and update actions are refused while this runs.
+
+**Start selected mode when launcher opens** keeps the default of enabled for
+standalone profiles. A worker starts at launch only when you chose it. In worker
+mode the tray offers **Start worker**, **Stop worker** and **Open deployment UI**;
+the last opens the saved frontend URL without credentials, and the browser
+handles its own login. The registration token is not a browser session.
 
 ## File security and recovery
 
@@ -61,7 +92,7 @@ logging.
 Remembered registration tokens and optional NATS JWT/seed values are **plaintext**
 inside the protected file, not encrypted at rest. File permissions do not protect
 against the same user, root, backups, or child-process inspection. Protect backups
-accordingly. Masked editing controls are not part of this storage migration.
+accordingly. The settings window masks these fields; see below.
 {{% /notice %}}
 
 ## Launch validation and logs
