@@ -36,7 +36,7 @@ go build ./addons/tables/...
   [Backup, upgrade and restore](#backup-upgrade-and-restore)). A copy of the data
   directory made while the add-on runs is not a consistent backup.
 - **Ownership mode.** Named-user mode keeps databases private to their owners and
-  shareable. Local-owner mode has one owner and no sharing. The mode is stored with the
+  shareable. Local-owner mode has one owner and no sharing, so the database page shows no Share button. The mode is stored with the
   data and is changed only while the host is stopped, with an explicit mapping (see
   [Moving between the modes](../addons/#moving-between-the-modes)).
 - **CSV.** An export is a private, temporary file with the formula policy described in

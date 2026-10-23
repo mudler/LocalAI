@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader'
 import CatalogEmpty from '../components/catalog/CatalogEmpty'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ConfirmDialog from '../components/ConfirmDialog'
-import { localizedText } from '../components/addons/addonState'
+import { addonDisplayName, localizedText } from '../components/addons/addonState'
 import AddonErrorBoundary from './AddonErrorBoundary'
 import { useAddonRegistry } from './useAddonRegistry'
 import { appStatus } from './registryState'
@@ -45,7 +45,7 @@ export default function AddonRoute() {
   const app = registry.apps.find(a => a.id === addonId) || null
   const instance = registry.instances.find(i => i.id === addonId) || null
   const status = appStatus(app)
-  const title = (app && localizedText(app, 'title', i18n.language)) || addonId
+  const title = (app && localizedText(app, 'title', i18n.language)) || addonDisplayName(addonId)
   const pages = app && app.ui ? app.ui.pages || [] : []
   const subpath = splat || ''
   const resolved = subpath ? resolveSubpath(subpath, pages) : null
@@ -136,7 +136,7 @@ export default function AddonRoute() {
   // mounts it draws its own title, even to say it is not enabled on this
   // server, and the shell draws none.
   const unavailable = (reason, extra) => (
-    <div className="page ad-page" data-testid="addon-unavailable" data-reason={reason}>
+    <div className="page ad-page ad-page--shell" data-testid="addon-unavailable" data-reason={reason}>
       <PageHeader title={title} />
       <CatalogEmpty icon="puzzle" title={t('shell.unavailable.title')} text={t(`shell.reasons.${REASONS.includes(reason) ? reason : 'import_failed'}`)} role="status">
         <div className="ad-shell-actions">
@@ -177,7 +177,7 @@ export default function AddonRoute() {
   }
   if (!resolved && !isStale) {
     return (
-      <div className="page ad-page" data-testid="addon-missing-page">
+      <div className="page ad-page ad-page--shell" data-testid="addon-missing-page">
         <PageHeader title={title} />
         <CatalogEmpty icon="puzzle" title={t('shell.pageMissing.title')} text={t('shell.pageMissing.body', { title, page: subpath.split('/')[0] || '' })} role="status">
           <div className="ad-shell-actions">{back}</div>

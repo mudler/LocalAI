@@ -141,6 +141,7 @@ export default function AppsView({ api }) {
     )
   }
 
+  const firstRun = showFirstRun({ apps: state.apps, isAdmin, canList })
   return (
     <div className="ad-apps">
       {state.stale && (
@@ -159,14 +160,13 @@ export default function AppsView({ api }) {
           value={query}
           onChange={e => setQuery(e.target.value)}
         />
-        {isAdmin && (
-          <>
-            <Link className="dk-btn dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-browse"><Icon name="search" /> {t('drawer.browse')}</Link>
-            <Link className="dk-btn dk-btn--primary dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-add"><Icon name="plus" /> {t('drawer.add')}</Link>
-          </>
+        {/* One way into Browse per screen: the first-run card carries it while
+            nothing is installed, and the bar carries it afterwards. */}
+        {isAdmin && !firstRun && (
+          <Link className="dk-btn dk-btn--primary dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-add"><Icon name="plus" /> {t('drawer.add')}</Link>
         )}
       </div>
-      {showFirstRun({ apps: state.apps, isAdmin, canList }) ? (
+      {firstRun ? (
         <section className="ad-card ad-first" data-testid="addons-first-run" aria-labelledby="ad-first-title">
           <h2 className="ad-card__title" id="ad-first-title">{t('apps.firstRun.title')}</h2>
           <ol className="ad-first__steps">

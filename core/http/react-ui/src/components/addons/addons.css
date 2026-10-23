@@ -9,6 +9,12 @@
 
 .ad-page { display: flex; flex-direction: column; gap: var(--dk-space-4); min-width: 0; }
 .ad-page .page-header { margin-bottom: 0; }
+/* A page an add-on draws sits in this shell page and in its own .page, so its
+   content starts two page paddings in. The shell's own pages (not available,
+   no such page) take the same inset, so the title does not jump when an
+   add-on comes and goes. */
+.ad-page--shell { padding-inline: calc(var(--spacing-xl) * 2); }
+@media (max-width: 639px) { .ad-page--shell { padding-inline: calc(var(--spacing-md) * 2); } }
 .ad-panel { min-width: 0; }
 
 /* ---- Tabs ---------------------------------------------------------------- */

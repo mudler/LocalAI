@@ -7,6 +7,7 @@ import { setAll, toggle, allSelected } from './lib/batch.js'
 import { display } from './lib/codecs.js'
 import { describeError } from './lib/errors.js'
 import { exportArguments } from './lib/export.js'
+import { addRowsPlace } from './lib/layout.js'
 
 const CACHE_LIMIT = 40
 
@@ -112,6 +113,10 @@ export function createTableView(ctx, ui, api, hooks, rows, filters, exporter) {
         <exporter.ExportDialog db={db} table={table} args={built.arguments} filtered={hasFilter} close={close} onLost={onLost} />
       ))
     }
+    // One primary action per screen: the empty state of a table with no rows
+    // carries its own Add rows button, so the toolbar keeps its button for the
+    // other cases.
+    const addPlace = addRowsPlace({ canWrite, columnCount: columns.length, loaded: Boolean(shown), rowCount: pageRows.length, filtered: hasFilter })
     let body
     if (columns.length === 0) {
       body = <EmptyState icon="table" title={t('grid.noColumns.title')} text={db.role === 'owner' ? t('grid.noColumns.owner') : t('grid.noColumns.other')} />
@@ -122,7 +127,7 @@ export function createTableView(ctx, ui, api, hooks, rows, filters, exporter) {
     } else if (shown && pageRows.length === 0) {
       body = hasFilter
         ? <EmptyState icon="search" title={t('grid.noMatch.title')} text={t('grid.noMatch.text')}><Button onClick={clearFilter}>{t('filter.clear')}</Button></EmptyState>
-        : <EmptyState icon="table" title={t('grid.noRows.title')} text={t('grid.noRows.text')}>{canWrite ? <Button variant="primary" icon="plus" onClick={addRows}>{t('grid.addRows')}</Button> : null}</EmptyState>
+        : <EmptyState icon="table" title={t('grid.noRows.title')} text={t('grid.noRows.text')}>{addPlace === 'empty' ? <Button variant="primary" icon="plus" onClick={addRows}>{t('grid.addRows')}</Button> : null}</EmptyState>
     } else if (shown) {
       body = (
         <div className="tbl-gridwrap" data-testid="tbl-grid-wrap">
@@ -191,9 +196,9 @@ export function createTableView(ctx, ui, api, hooks, rows, filters, exporter) {
             <Button size="sm" icon="refresh" onClick={() => { setBump(n => n + 1) }}>{t('grid.refresh')}</Button>
             <Button size="sm" icon="download" disabled={columns.length === 0} onClick={exportFile}>{t('export.action')}</Button>
           </div>
-          {canWrite ? (
+          {addPlace === 'toolbar' ? (
             <div className="tbl-toolbar__group">
-              <Button size="sm" variant="primary" icon="plus" disabled={columns.length === 0} onClick={addRows}>{t('grid.addRows')}</Button>
+              <Button size="sm" variant="primary" icon="plus" onClick={addRows}>{t('grid.addRows')}</Button>
             </div>
           ) : null}
         </div>
