@@ -13,7 +13,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
-var base64DownloadClient = httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects())
+var base64DownloadClient = httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects(), httpclient.WithExternalOnly())
 
 // Match `data:<mime>[;param=value...];base64,` — browser-produced data URIs
 // often carry codec/charset params between the mime type and `;base64,`
