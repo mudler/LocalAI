@@ -278,6 +278,21 @@ LocalAI supports several subcommands beyond `run`:
 
 Use `local-ai <command> --help` for more information on each command.
 
+### Add-on carrier keys
+
+`local-ai util addons-carrier-keys` makes the key set that a separate add-on owner and its frontends share. See [Running the owner as its own workload]({{% relref "features/addons#running-the-owner-as-its-own-workload" %}}) for how the set is used.
+
+| Flag | Description |
+|------|-------------|
+| `--out` | Directory to write the key set to. Required. The command fails if the directory already holds any of the files, and it never overwrites a file. |
+| `--owner-host` | DNS name or IP address of the add-on owner, as the frontends dial it. Required. Repeat the flag for more than one. |
+
+```bash
+local-ai util addons-carrier-keys --out ./carrier-keys --owner-host addons.owner.example
+```
+
+The command prints which files go to the owner and which go to the frontends. It writes the files with mode `0600` in a directory with mode `0700`, and it does not keep the CA key.
+
 ## Examples
 
 ### Basic Usage
