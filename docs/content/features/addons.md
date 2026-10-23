@@ -168,8 +168,11 @@ state in files under one root, as before. Frontends keep none and scale freely.
   service name, never a pod address.
 - **Frontends have no add-on volume.** A frontend (`--addons-role=frontend`) does
   not create or open the `addons` folder. Give it no volume for it.
-- **Start a new root.** Moving the add-ons of a single node to an owner workload is
-  not supported yet. Start the owner on an empty volume.
+- **Existing add-ons.** A root written by a single node loads under the owner role
+  when the owner uses the same owner and storage identity. The stored address does
+  not matter. The journal keeps absolute paths, so the owner must see the same data
+  path and mount point as the node did. Otherwise the installed add-ons point at
+  missing directories. For an empty volume, the owner starts fresh.
 
 {{% notice warning %}}
 The owner is a node-bound singleton. If the owner is down, add-ons are down: the
