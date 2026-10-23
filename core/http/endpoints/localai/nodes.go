@@ -75,6 +75,8 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
+	// RenewNodeID renews credentials without restoring status or mutating registration.
+	RenewNodeID     string  `json:"renew_node_id,omitempty"`
 	Name            string  `json:"name"`
 	NodeType        string  `json:"node_type,omitempty"` // "backend" (default) or "agent"
 	Address         string  `json:"address"`
@@ -119,6 +121,15 @@ type RegisterNodeRequest struct {
 // RegisterNodeEndpoint registers a new backend node.
 // expectedToken is the registration token configured on the frontend (may be empty to disable auth).
 // autoApprove controls whether new nodes go directly to "healthy" or require admin approval.
+// @Tags nodes
+// @Summary Register a worker or renew its credentials
+// @Description Supply renew_node_id and the configured registration token to renew credentials without changing approval or telemetry. Renewal requires authentication and only healthy nodes receive credentials.
+// @Accept json
+// @Produce json
+// @Param request body RegisterNodeRequest true "Registration or credential renewal"
+// @Success 200 {object} map[string]interface{} "Node ID, status, and credentials when available"
+// @Failure 400,401,403,404 {object} schema.ErrorResponse
+// @Router /api/node/register [post]
 func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req RegisterNodeRequest
@@ -136,6 +147,21 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			if subtle.ConstantTimeCompare(expectedHash[:], providedHash[:]) != 1 {
 				return c.JSON(http.StatusUnauthorized, nodeError(http.StatusUnauthorized, "invalid registration token"))
 			}
+		}
+
+		if req.RenewNodeID != "" {
+			if expectedToken == "" {
+				return c.JSON(http.StatusForbidden, nodeError(http.StatusForbidden, "authenticated renewal required"))
+			}
+			node, err := registry.Get(c.Request().Context(), req.RenewNodeID)
+			if err != nil {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			response := map[string]any{"id": node.ID, "status": node.Status}
+			if node.Status == nodes.StatusHealthy {
+				attachNatsJWT(response, node, natsCfg)
+			}
+			return c.JSON(http.StatusOK, response)
 		}
 
 		// Determine node type
@@ -1365,4 +1391,26 @@ func proxyHTTPToWorker(ctx context.Context, dialFor nodes.WorkerNetDialerFor, no
 	t.DialContext = dialFor(nodeID)
 	client := httpclient.NewWithTimeout(15*time.Second, httpclient.WithTransport(t))
 	return client.Do(req)
+}
+
+// NodeApprovalEndpoint observes approval without re-registering, restoring an
+// offline node, refreshing heartbeat, or minting credentials. It uses the same
+// registration-token boundary as the other worker self-service endpoints.
+// @Tags nodes
+// @Summary Observe worker approval
+// @Description Read approval without changing registration, heartbeat, or credentials. Requires the configured registration token when authentication is enabled.
+// @Produce json
+// @Param id path string true "Node ID"
+// @Param Authorization header string false "Bearer registration token"
+// @Success 200 {object} map[string]string "Node ID and current status"
+// @Failure 401,404 {object} schema.ErrorResponse
+// @Router /api/node/{id}/status [get]
+func NodeApprovalEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		node, err := registry.Get(c.Request().Context(), c.Param("id"))
+		if err != nil {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		return c.JSON(http.StatusOK, map[string]string{"id": node.ID, "status": string(node.Status)})
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/sanitize"
@@ -20,8 +21,9 @@ const subscribeConfirmTimeout = 5 * time.Second
 
 // Client wraps a NATS connection and provides helpers for pub/sub and queue subscriptions.
 type Client struct {
-	conn *nats.Conn
-	mu   sync.RWMutex
+	subscriptionDenied atomic.Bool
+	conn               *nats.Conn
+	mu                 sync.RWMutex
 
 	// reconnectCbs are invoked after the underlying connection is
 	// re-established. nats.go transparently resubscribes existing
@@ -47,6 +49,10 @@ func New(url string, opts ...Option) (*Client, error) {
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
+			// A new connection replays the subscriptions under current credentials.
+			// Permission failures on that connection are latched again by the
+			// ordered async error callback. Never clear them merely on a flush.
+			c.subscriptionDenied.Store(false)
 			if err != nil {
 				xlog.Warn("NATS disconnected", "error", err)
 			}
@@ -68,6 +74,7 @@ func New(url string, opts ...Option) (*Client, error) {
 				subject = sub.Subject
 			}
 			if errors.Is(err, nats.ErrPermissionViolation) {
+				c.subscriptionDenied.Store(true)
 				xlog.Error("NATS permission violation — check JWT pub/sub allow lists", "subject", subject, "error", err)
 				return
 			}
@@ -76,6 +83,11 @@ func New(url string, opts ...Option) (*Client, error) {
 	}
 	switch {
 	case cfg.jwtProvider != nil:
+		// Dynamic credentials can recover after expiry during a renewal outage.
+		// MaxReconnects alone does not prevent nats.go from closing permanently
+		// after two identical auth errors. Keep retrying with the provider;
+		// static credentials retain the default terminal auth-error behavior.
+		natsOpts = append(natsOpts, nats.IgnoreAuthErrorAbort())
 		// Fetch creds on every (re)connect so a refresh loop can rotate the JWT
 		// before expiry; the server expiring the old JWT triggers a reconnect
 		// that transparently picks up the new one.
@@ -219,6 +231,7 @@ func (c *Client) confirmSubscription(subject string, mk func(*nats.Conn) (*nats.
 	if lerr := conn.LastError(); lerr != nil &&
 		errors.Is(lerr, nats.ErrPermissionViolation) &&
 		strings.Contains(lerr.Error(), `Subscription to "`+subject+`"`) {
+		c.subscriptionDenied.Store(true)
 		_ = sub.Unsubscribe()
 		return nil, fmt.Errorf("subscription to %s denied by NATS server (check JWT sub allow list): %w", subject, lerr)
 	}
@@ -330,4 +343,27 @@ func (c *Client) Close() {
 		c.conn.Drain()
 		c.conn.FlushTimeout(5 * time.Second)
 	}
+}
+
+// SubscriptionsReady is stricter than Subscribe's historical buffered success:
+// a managed worker needs a completed server round trip and no permission error.
+// Reconnect replays subscriptions before responding to this flush.
+func (c *Client) SubscriptionsReady() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.conn == nil || !c.conn.IsConnected() {
+		return false
+	}
+	if c.conn.FlushTimeout(time.Second) != nil {
+		return false
+	}
+	return !c.subscriptionDenied.Load() && !errors.Is(c.conn.LastError(), nats.ErrPermissionViolation)
+}
+
+// Authenticated requires a connected server that demanded authentication, not
+// merely configured credentials sent to an anonymous server.
+func (c *Client) Authenticated() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.conn != nil && c.conn.IsConnected() && c.conn.AuthRequired()
 }

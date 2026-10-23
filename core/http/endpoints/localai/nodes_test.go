@@ -57,6 +57,35 @@ var _ = Describe("Node HTTP handlers", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	It("Worker status observation and renewal preserve offline status and heartbeat", func() {
+		ctx := context.Background()
+		node := &nodes.BackendNode{Name: "approval-test", Address: "127.0.0.1:50051"}
+		Expect(registry.Register(ctx, node, true)).To(Succeed())
+		Expect(registry.MarkOffline(ctx, node.ID)).To(Succeed())
+		before, err := registry.Get(ctx, node.ID)
+		Expect(err).NotTo(HaveOccurred())
+		e := echo.New()
+		rec := httptest.NewRecorder()
+		c := e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)
+		c.SetParamNames("id")
+		c.SetParamValues(node.ID)
+		Expect(NodeApprovalEndpoint(registry)(c)).To(Succeed())
+		Expect(rec.Code).To(Equal(200))
+		Expect(rec.Body.String()).To(ContainSubstring("offline"))
+		body := `{"renew_node_id":"` + node.ID + `","token":"secret"}`
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec = httptest.NewRecorder()
+		Expect(RegisterNodeEndpoint(registry, "secret", true, nil, "", natsauth.Config{})(e.NewContext(req, rec))).To(Succeed())
+		Expect(rec.Code).To(Equal(200))
+		Expect(rec.Body.String()).To(ContainSubstring("offline"))
+		Expect(rec.Body.String()).NotTo(ContainSubstring("nats_jwt"))
+		after, err := registry.Get(ctx, node.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after.Status).To(Equal(before.Status))
+		Expect(after.LastHeartbeat).To(Equal(before.LastHeartbeat))
+	})
+
 	Describe("RegisterNodeEndpoint", func() {
 		It("binds, persists, and lists CPU telemetry", func() {
 			e := echo.New()

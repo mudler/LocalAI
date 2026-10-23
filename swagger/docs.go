@@ -4642,6 +4642,115 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/node/register": {
+            "post": {
+                "description": "Supply renew_node_id and the configured registration token to renew credentials without changing approval or telemetry. Renewal requires authentication and only healthy nodes receive credentials.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "nodes"
+                ],
+                "summary": "Register a worker or renew its credentials",
+                "parameters": [
+                    {
+                        "description": "Registration or credential renewal",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.RegisterNodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Node ID, status, and credentials when available",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/node/{id}/status": {
+            "get": {
+                "description": "Read approval without changing registration, heartbeat, or credentials. Requires the configured registration token when authentication is enabled.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "nodes"
+                ],
+                "summary": "Observe worker approval",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer registration token",
+                        "name": "Authorization",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Node ID and current status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/models": {
             "get": {
                 "tags": [
@@ -10211,6 +10320,92 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "origin": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RegisterNodeRequest": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "available_disk": {
+                    "type": "integer"
+                },
+                "available_ram": {
+                    "type": "integer"
+                },
+                "available_vram": {
+                    "type": "integer"
+                },
+                "capability": {
+                    "description": "Capability is the worker's own meta-backend capability string. The\ncontroller stores it so backend discovery can reflect what the cluster\ncan run rather than what the (typically GPU-less) controller can run.",
+                    "type": "string"
+                },
+                "commit": {
+                    "description": "Commit is the git commit hash the worker binary was built from.",
+                    "type": "string"
+                },
+                "cpu_load_1": {
+                    "type": "number"
+                },
+                "cpu_logical_cores": {
+                    "type": "integer"
+                },
+                "cpu_usage_percent": {
+                    "type": "number"
+                },
+                "gpu_compute_capability": {
+                    "description": "GPUComputeCapability is the worker GPU's compute capability (\"major.minor\",\ne.g. \"12.1\" for GB10). Used by the router for per-arch option tuning.",
+                    "type": "string"
+                },
+                "gpu_vendor": {
+                    "type": "string"
+                },
+                "http_address": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "max_replicas_per_model": {
+                    "description": "MaxReplicasPerModel is the per-node cap on replicas of any single model.\nWorkers older than this field omit it; we coerce 0 → 1 below to preserve\nhistorical single-replica behavior.",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "node_type": {
+                    "description": "\"backend\" (default) or \"agent\"",
+                    "type": "string"
+                },
+                "renew_node_id": {
+                    "description": "RenewNodeID renews credentials without restoring status or mutating registration.",
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "total_disk": {
+                    "description": "TotalDisk / AvailableDisk describe the filesystem backing the worker's\nMODELS directory (where staged weights land), not the root filesystem.\nOmitted by workers that predate the fields; the scheduler treats\ntotal_disk == 0 as \"unknown\" and leaves such a node in rotation.",
+                    "type": "integer"
+                },
+                "total_ram": {
+                    "type": "integer"
+                },
+                "total_vram": {
+                    "type": "integer"
+                },
+                "version": {
+                    "description": "Version is the LocalAI build version reported by the worker at\nregistration. Empty for workers registered before this field existed.",
+                    "type": "string"
+                },
+                "vram_budget": {
+                    "description": "VRAMBudget is the worker's operator-set VRAM cap (\"80%\" or \"12GB\"). The\nregistry resolves and enforces it against the raw reported VRAM.",
                     "type": "string"
                 }
             }

@@ -51,6 +51,10 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 	node.POST("/:id/drain", localai.DrainNodeEndpoint(registry, nil))
 	node.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
 	node.POST("/:id/deregister", localai.DeactivateNodeEndpoint(registry))
+	// Approval evidence is never exposed by an unauthenticated deployment.
+	if registrationToken != "" {
+		node.GET("/:id/status", localai.NodeApprovalEndpoint(registry))
+	}
 	node.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
 	node.DELETE("/:id", localai.DeactivateNodeEndpoint(registry))
 }

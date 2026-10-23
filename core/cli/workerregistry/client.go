@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -21,11 +22,12 @@ import (
 
 // RegistrationClient talks to the frontend's /api/node/* endpoints.
 type RegistrationClient struct {
-	FrontendURL       string
-	RegistrationToken string
-	HTTPTimeout       time.Duration // used for registration calls; defaults to 10s
-	client            *http.Client
-	clientOnce        sync.Once
+	FrontendURL         string
+	RegistrationToken   string
+	ObserveRegistration func(*RegisterResponse, error) // optional local evidence callback; set before first use
+	HTTPTimeout         time.Duration                  // used for registration calls; defaults to 10s
+	client              *http.Client
+	clientOnce          sync.Once
 }
 
 // httpTimeout returns the configured timeout or a sensible default.
@@ -69,7 +71,12 @@ type RegisterResponse struct {
 // response (node ID, approval status, and optional API token / NATS creds).
 // Re-registration is idempotent: the frontend preserves the node row and mints
 // a fresh NATS JWT each call, so this doubles as the credential-refresh call.
-func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]any) (*RegisterResponse, error) {
+func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]any) (resultResponse *RegisterResponse, resultError error) {
+	defer func() {
+		if c.ObserveRegistration != nil {
+			c.ObserveRegistration(resultResponse, resultError)
+		}
+	}()
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/register"
 
@@ -148,6 +155,9 @@ func (c *RegistrationClient) Heartbeat(ctx context.Context, nodeID string, body 
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("heartbeat failed with status %d", resp.StatusCode)
+	}
 	return nil
 }
 
@@ -283,4 +293,30 @@ func (c *RegistrationClient) GracefulDeregister(nodeID string) {
 	} else {
 		xlog.Info("Deregistered from frontend")
 	}
+}
+
+// Approval reads current controller state without any credential or registration
+// side effects. Older controllers fail closed; heartbeat success is not approval.
+func (c *RegistrationClient) Approval(ctx context.Context, nodeID string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL()+"/api/node/"+url.PathEscape(nodeID)+"/status", nil)
+	if err != nil {
+		return "", err
+	}
+	c.setAuth(req)
+	resp, err := c.httpClient().Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("approval query failed with status %d", resp.StatusCode)
+	}
+	var result RegisterResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	if result.ID != nodeID {
+		return "", fmt.Errorf("approval identity mismatch")
+	}
+	return result.Status, nil
 }

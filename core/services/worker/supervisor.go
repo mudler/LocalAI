@@ -565,8 +565,20 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		backendDirID: dirInfo,
 		instance:     uuid.NewString(),
 	}
-	if pid, convErr := strconv.Atoi(proc.CurrentPID()); convErr == nil {
-		s.ledger.add(backend, pid)
+	// Ownership must be durable before the backend is used: a process nobody
+	// can find again after a crash is an orphan that holds a port and GPU memory.
+	if ownErr := s.recordOwnership(backend, proc.CurrentPID()); ownErr != nil {
+		delete(s.processes, backend)
+		if pid, convErr := strconv.Atoi(proc.CurrentPID()); convErr == nil && pid > 0 {
+			_ = killProcessGroup(pid)
+		}
+		if stopErr := proc.Stop(); stopErr != nil {
+			xlog.Warn("Stopping a backend whose ownership could not be recorded", "backend", backend, "error", stopErr)
+		}
+		s.cleanupProcessRuntime(proc)
+		s.releasePortForKey(backend, port)
+		s.mu.Unlock()
+		return "", fmt.Errorf("refusing to run backend %s: %w", backend, ownErr)
 	}
 	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
 
@@ -676,7 +688,7 @@ func (s *backendSupervisor) markBackendServing(key string, bp *backendProcess) b
 func (s *backendSupervisor) reapDeadProcess(key string, bp *backendProcess) {
 	xlog.Warn("Backend process died unexpectedly, restarting", "backend", key)
 	delete(s.processes, key)
-	s.ledger.remove(key)
+	s.releaseOwnership(key)
 	if bp == nil {
 		return
 	}
@@ -698,7 +710,7 @@ func (s *backendSupervisor) releaseBackendStart(key string, bp *backendProcess) 
 		return
 	}
 	delete(s.processes, key)
-	s.ledger.remove(key)
+	s.releaseOwnership(key)
 	s.cleanupProcessRuntime(bp.proc)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: startup has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
@@ -1079,7 +1091,7 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 		return fmt.Errorf("stopping backend process %s: %w", key, stopErr)
 	}
 	delete(s.processes, key)
-	s.ledger.remove(key)
+	s.releaseOwnership(key)
 	s.cleanupProcessRuntime(bp.proc)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
@@ -1166,4 +1178,26 @@ func (s *backendSupervisor) LoadedBackendAddresses() []string {
 		addrs = append(addrs, bp.addr)
 	}
 	return addrs
+}
+
+// recordOwnership stores the identity of a just-started backend process group
+// in the ledger. It is a no-op without a ledger (unit tests).
+func (s *backendSupervisor) recordOwnership(key, pid string) error {
+	if s.ledger == nil {
+		return nil
+	}
+	n, err := strconv.Atoi(pid)
+	if err != nil {
+		return fmt.Errorf("recording ownership of %s: process id %q is not a number", key, pid)
+	}
+	return s.ledger.add(key, n)
+}
+
+// releaseOwnership ends ownership of a stopped backend. A group that cannot be
+// emptied stays recorded, so the next worker start reports it instead of
+// silently forgetting a live process.
+func (s *backendSupervisor) releaseOwnership(key string) {
+	if err := s.ledger.release(key); err != nil {
+		xlog.Error("Backend process group is still owned and was kept in the ledger", "backend", key, "error", err)
+	}
 }

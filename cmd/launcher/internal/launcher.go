@@ -1,9 +1,8 @@
 package launcher
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,40 +10,25 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
-	"syscall"
+	"sync/atomic"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
-)
 
-// Config represents the launcher configuration
-type Config struct {
-	ModelsPath   string `json:"models_path"`
-	BackendsPath string `json:"backends_path"`
-	Address      string `json:"address"`
-	// AutoStart controls whether the launcher starts the LocalAI server as
-	// soon as the launcher itself opens (and right after a fresh install).
-	// Unset means enabled: launching the app must yield a serving endpoint,
-	// which is what the quickstart docs promise. The JSON key is deliberately
-	// not the legacy "auto_start": that field was never honored nor exposed
-	// in any UI, so every existing launcher.json carries an unintentional
-	// false that would keep auto-start permanently off (#11673).
-	AutoStart       *bool             `json:"auto_start_server"`
-	StartOnBoot     bool              `json:"start_on_boot"`
-	LogLevel        string            `json:"log_level"`
-	EnvironmentVars map[string]string `json:"environment_vars"`
-	ShowWelcome     *bool             `json:"show_welcome"`
-}
+	"github.com/mudler/LocalAI/pkg/workerstatus"
+)
 
 // Launcher represents the main launcher application
 type Launcher struct {
 	// Core components
 	releaseManager *ReleaseManager
+	configError    error
 	config         *Config
 	ui             *LauncherUI
 	systray        *SystrayManager
@@ -52,16 +36,36 @@ type Launcher struct {
 	window         fyne.Window
 	app            fyne.App
 
-	// Process management
-	localaiCmd    *exec.Cmd
-	isRunning     bool
-	logBuffer     *strings.Builder
-	logMutex      sync.RWMutex
-	statusChannel chan string
+	// Process management: one serialized lifecycle owns the child.
+	life     *lifecycle
+	lifeOnce sync.Once
+	lock     *userLock
+	lockDir  string
+	lockMu   sync.Mutex
+	// applying is set while a stop-and-apply runs; start, save and update are
+	// refused for that time.
+	applying atomic.Bool
+	// plaintextAck is the owner's per-session acknowledgement that plaintext
+	// connections run inside a protected network. It is never saved.
+	plaintextAck atomic.Bool
+	statusMu     sync.Mutex
+	statusMsg    string
+	// statusPath and statusGeneration identify the current worker's private
+	// status snapshot; tracker measures its freshness.
+	statusPath       string
+	statusGeneration string
+	statusTracker    *workerstatus.Tracker
+	// statusFromLogs is true only for a standalone runtime: a worker's state
+	// comes from its status snapshot, never from log text.
+	statusFromLogs bool
+	logBuffer      *strings.Builder
+	logMutex       sync.RWMutex
+	statusChannel  chan string
 
 	// Logging
-	logFile *os.File
-	logPath string
+	logFile  *os.File
+	logPath  string
+	logBytes int
 
 	// UI state
 	lastUpdateCheck time.Time
@@ -83,21 +87,11 @@ func NewLauncher(ui *LauncherUI, window fyne.Window, app fyne.App) *Launcher {
 
 // setupLogging sets up log file for LocalAI process output
 func (l *Launcher) setupLogging() error {
-	// Create logs directory in data folder
-	dataPath := l.GetDataPath()
-	logsDir := filepath.Join(dataPath, "logs")
-	if err := os.MkdirAll(logsDir, 0755); err != nil {
-		return fmt.Errorf("failed to create logs directory: %w", err)
-	}
-
-	// Create log file with timestamp
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	l.logPath = filepath.Join(logsDir, fmt.Sprintf("localai_%s.log", timestamp))
-
-	logFile, err := os.Create(l.logPath)
+	logFile, err := secureLogFile(l.GetDataPath())
 	if err != nil {
-		return fmt.Errorf("failed to create log file: %w", err)
+		return err
 	}
+	l.logPath = logFile.Name()
 
 	l.logFile = logFile
 	return nil
@@ -110,18 +104,13 @@ func (l *Launcher) Initialize() error {
 	}
 	log.Printf("Initializing launcher...")
 
-	// Setup logging
-	if err := l.setupLogging(); err != nil {
-		return fmt.Errorf("failed to setup logging: %w", err)
-	}
-
-	// Load configuration
-	log.Printf("Loading configuration...")
+	// Verify settings storage before touching files beneath its directory.
 	if err := l.loadConfig(); err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	log.Printf("Configuration loaded, current state: ModelsPath=%s, BackendsPath=%s, Address=%s, LogLevel=%s",
-		l.config.ModelsPath, l.config.BackendsPath, l.config.Address, l.config.LogLevel)
+	if err := l.setupLogging(); err != nil {
+		return fmt.Errorf("failed to setup logging: %w", err)
+	}
 
 	// Clean up any partial downloads
 	log.Printf("Cleaning up partial downloads...")
@@ -133,20 +122,16 @@ func (l *Launcher) Initialize() error {
 	if l.config.ModelsPath == "" {
 		homeDir, _ := os.UserHomeDir()
 		l.config.ModelsPath = filepath.Join(homeDir, ".localai", "models")
-		log.Printf("Setting default ModelsPath: %s", l.config.ModelsPath)
 	}
 	if l.config.BackendsPath == "" {
 		homeDir, _ := os.UserHomeDir()
 		l.config.BackendsPath = filepath.Join(homeDir, ".localai", "backends")
-		log.Printf("Setting default BackendsPath: %s", l.config.BackendsPath)
 	}
 	if l.config.Address == "" {
 		l.config.Address = "127.0.0.1:8080"
-		log.Printf("Setting default Address: %s", l.config.Address)
 	}
 	if l.config.LogLevel == "" {
 		l.config.LogLevel = "info"
-		log.Printf("Setting default LogLevel: %s", l.config.LogLevel)
 	}
 	if l.config.EnvironmentVars == nil {
 		l.config.EnvironmentVars = make(map[string]string)
@@ -160,19 +145,13 @@ func (l *Launcher) Initialize() error {
 		log.Printf("Setting default ShowWelcome: true")
 	}
 
-	if l.config.AutoStart == nil {
-		enabled := true
-		l.config.AutoStart = &enabled
-		log.Printf("Setting default AutoStart: true")
-	}
-
 	// Create directories
 	os.MkdirAll(l.config.ModelsPath, 0755)
 	os.MkdirAll(l.config.BackendsPath, 0755)
 
 	// Save the configuration with default values
 	if err := l.saveConfig(); err != nil {
-		log.Printf("Warning: failed to save default configuration: %v", err)
+		return err
 	}
 
 	// System tray is now handled in main.go using Fyne's built-in approach
@@ -202,14 +181,17 @@ func (l *Launcher) Initialize() error {
 
 // ShouldAutoStartServer reports whether the launcher should start the server
 // without user interaction: at launcher startup and right after a fresh
-// install. Defaults to enabled; StartOnBoot forces a start even when
-// auto-start was explicitly disabled, preserving its historical behavior.
+// install. Unset means enabled; legacy StartOnBoot is inert.
 func (l *Launcher) ShouldAutoStartServer() bool {
-	if l.config == nil {
+	if l.config == nil || l.configError != nil {
 		return false
 	}
-	if l.config.StartOnBoot {
-		return true
+	if l.config.Mode == roleWorker {
+		// Joining a deployment is never a default: the owner must have chosen it.
+		return l.config.AutoStart != nil && *l.config.AutoStart
+	}
+	if l.config.Mode != "" && l.config.Mode != roleStandalone {
+		return false
 	}
 	return l.config.AutoStart == nil || *l.config.AutoStart
 }
@@ -229,9 +211,18 @@ func (l *Launcher) autoStartServer() {
 	}()
 }
 
-// StartLocalAI starts the LocalAI server
+// StartLocalAI starts the LocalAI runtime for the selected mode.
 func (l *Launcher) StartLocalAI() error {
-	if l.isRunning {
+	if l.configError != nil {
+		return l.configError
+	}
+	if l.config == nil {
+		return fmt.Errorf("launcher settings are missing")
+	}
+	if l.Applying() {
+		return errLifecycleBusy
+	}
+	if l.IsRunning() {
 		return fmt.Errorf("LocalAI is already running")
 	}
 
@@ -250,120 +241,282 @@ func (l *Launcher) StartLocalAI() error {
 		return fmt.Errorf("LocalAI binary not found. Please download a release first")
 	}
 
-	// Build command arguments
-	args := l.BuildRunArgs()
+	description, err := l.describeLaunch()
+	if err != nil {
+		return err
+	}
+	return l.launchRuntime(binaryPath, description)
+}
 
-	l.localaiCmd = exec.CommandContext(l.ctx, binaryPath, args...)
+// describeLaunch validates the active profile. A plaintext connection needs the
+// owner's acknowledgement for this launcher session.
+func (l *Launcher) describeLaunch() (launchDescription, error) {
+	return buildLaunch(l.config, l.GetDataPath(), os.Environ(), l.plaintextAck.Load())
+}
 
-	// Apply environment variables
-	if len(l.config.EnvironmentVars) > 0 {
-		env := os.Environ()
-		for key, value := range l.config.EnvironmentVars {
-			env = append(env, fmt.Sprintf("%s=%s", key, value))
+// SetPlaintextAcknowledged records that the owner accepts plaintext frontend or
+// message-bus connections inside a protected network, for this session only.
+func (l *Launcher) SetPlaintextAcknowledged(v bool) { l.plaintextAck.Store(v) }
+
+// PlaintextAcknowledged reports the session acknowledgement.
+func (l *Launcher) PlaintextAcknowledged() bool { return l.plaintextAck.Load() }
+
+// Applying reports whether a stop-and-apply transition is under way.
+func (l *Launcher) Applying() bool { return l.applying.Load() }
+
+func (l *Launcher) runtimeContext() context.Context {
+	if l.ctx == nil {
+		return context.Background()
+	}
+	return l.ctx
+}
+
+func (l *Launcher) lifecycleController() *lifecycle {
+	l.lifeOnce.Do(func() {
+		if l.life == nil {
+			l.life = newLifecycle()
 		}
-		l.localaiCmd.Env = env
-	}
+	})
+	return l.life
+}
 
-	// Setup logging
-	stdout, err := l.localaiCmd.StdoutPipe()
+// runUI runs f on the UI thread when an application exists.
+func (l *Launcher) runUI(f func()) {
+	if l.app == nil {
+		f()
+		return
+	}
+	fyne.Do(f)
+}
+
+// ensureLock takes the per-user launcher lock once and keeps it until
+// Shutdown completes. A second launcher cannot start an overlapping role.
+func (l *Launcher) ensureLock() error {
+	l.lockMu.Lock()
+	defer l.lockMu.Unlock()
+	if l.lock != nil {
+		return nil
+	}
+	dir := l.lockDir
+	if dir == "" {
+		d, err := configDirectory()
+		if err != nil {
+			return err
+		}
+		d.Close()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		dir = filepath.Join(home, ".localai")
+	}
+	lock, err := acquireUserLock(dir)
 	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
+		return err
+	}
+	l.lock = lock
+	return nil
+}
+
+func (l *Launcher) releaseLock() {
+	l.lockMu.Lock()
+	defer l.lockMu.Unlock()
+	if l.lock != nil {
+		_ = l.lock.Release()
+		l.lock = nil
+	}
+}
+
+// launchRuntime starts one validated launch. A worker additionally needs a
+// runtime that speaks the status contract and a private status channel; an
+// older runtime is an upgrade error and never a log-parsing fallback.
+func (l *Launcher) launchRuntime(binary string, d launchDescription) error {
+	if err := l.ensureLock(); err != nil {
+		return err
+	}
+	worker := d.role == roleWorker
+	env := d.Env()
+	var statusDir string
+	if worker {
+		if err := checkWorkerRuntime(l.runtimeContext(), binary); err != nil {
+			return err
+		}
+		parent := filepath.Join(d.Dir(), "launcher-run")
+		if err := os.MkdirAll(parent, 0o700); err != nil {
+			return fmt.Errorf("cannot create the worker status directory: %w", err)
+		}
+		path, generation, err := workerstatus.NewSession(parent)
+		if err != nil {
+			return err
+		}
+		statusDir = filepath.Dir(path)
+		env = append(env, workerstatus.PathEnv+"="+path, workerstatus.GenerationEnv+"="+generation)
+		l.statusMu.Lock()
+		l.statusPath, l.statusGeneration = path, generation
+		l.statusMu.Unlock()
 	}
 
-	stderr, err := l.localaiCmd.StderrPipe()
+	filter := newLogFilter(d.secrets)
+	spec := launchSpec{
+		Binary:     binary,
+		Args:       d.Args(),
+		Env:        env,
+		Dir:        d.Dir(),
+		LedgerPath: d.ledger,
+		Attach: func(cmd *exec.Cmd) error {
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				return fmt.Errorf("failed to create stdout pipe: %w", err)
+			}
+			stderr, err := cmd.StderrPipe()
+			if err != nil {
+				return fmt.Errorf("failed to create stderr pipe: %w", err)
+			}
+			go l.monitorFilteredLogs(stdout, "STDOUT", filter)
+			go l.monitorFilteredLogs(stderr, "STDERR", newLogFilter(d.secrets))
+			return nil
+		},
+		OnExit: func(generation uint64, err error) { l.runtimeExited(generation, err, statusDir) },
+	}
+	l.statusMu.Lock()
+	l.statusFromLogs = !worker
+	l.statusMu.Unlock()
+	generation, err := l.lifecycleController().Start(spec)
 	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
+		if statusDir != "" {
+			_ = os.RemoveAll(statusDir)
+		}
+		return err
 	}
 
-	// Start the process
-	if err := l.localaiCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start LocalAI: %w", err)
+	if worker {
+		l.statusMu.Lock()
+		l.statusTracker = &workerstatus.Tracker{Generation: l.statusGeneration, ExpectedPID: l.life.PID(), Started: time.Now()}
+		l.statusMu.Unlock()
+		go l.pollWorkerStatus(generation)
 	}
-
-	l.isRunning = true
-
-	fyne.Do(func() {
-		l.updateStatus("LocalAI is starting...")
+	l.runUI(func() {
+		if worker {
+			l.updateStatus("Starting worker...")
+		} else {
+			l.updateStatus("LocalAI is starting...")
+		}
 		l.updateRunningState(true)
 	})
+	return nil
+}
 
-	// Start log monitoring
-	go l.monitorLogs(stdout, "STDOUT")
-	go l.monitorLogs(stderr, "STDERR")
+// runtimeExited is called once per run after cleanup finished or failed.
+func (l *Launcher) runtimeExited(generation uint64, err error, statusDir string) {
+	if errors.Is(err, errShutdownIncomplete) {
+		l.runUI(func() { l.updateStatus("Failed: shutdown incomplete. Stop again to retry.") })
+		return // keep the status directory: ownership is not resolved
+	}
+	if statusDir != "" {
+		_ = os.RemoveAll(statusDir)
+	}
+	l.runUI(func() {
+		l.updateRunningState(false)
+		if err != nil {
+			l.updateStatus(fmt.Sprintf("LocalAI stopped with error: %v", err))
+		} else {
+			l.updateStatus("LocalAI stopped")
+		}
+	})
+}
 
-	// Monitor process with startup timeout
-	go func() {
-		// Wait for process to start or fail
-		err := l.localaiCmd.Wait()
-		l.isRunning = false
-		fyne.Do(func() {
-			l.updateRunningState(false)
-			if err != nil {
-				l.updateStatus(fmt.Sprintf("LocalAI stopped with error: %v", err))
-			} else {
-				l.updateStatus("LocalAI stopped")
+// pollWorkerStatus shows the worker's evidence-backed state every two seconds
+// while this generation is the live run. Results of older runs are dropped.
+func (l *Launcher) pollWorkerStatus(generation uint64) {
+	ticker := time.NewTicker(workerstatus.PollInterval)
+	defer ticker.Stop()
+	for range ticker.C {
+		if !l.lifecycleController().Running(generation) {
+			return
+		}
+		text := l.WorkerStatus()
+		l.runUI(func() {
+			if l.lifecycleController().Running(generation) {
+				l.updateStatus(text)
 			}
 		})
-	}()
-
-	// Add startup timeout detection
-	go func() {
-		time.Sleep(10 * time.Second) // Wait 10 seconds for startup
-		if l.isRunning {
-			// Check if process is still alive
-			if l.localaiCmd.Process != nil {
-				if err := l.localaiCmd.Process.Signal(syscall.Signal(0)); err != nil {
-					// Process is dead, mark as not running
-					l.isRunning = false
-					fyne.Do(func() {
-						l.updateRunningState(false)
-						l.updateStatus("LocalAI failed to start properly")
-					})
-				}
-			}
-		}
-	}()
-
-	return nil
+	}
 }
 
-// StopLocalAI stops the LocalAI server
+// WorkerStatus classifies the current worker snapshot into display text.
+func (l *Launcher) WorkerStatus() string {
+	l.statusMu.Lock()
+	defer l.statusMu.Unlock()
+	if l.statusTracker == nil || l.statusPath == "" {
+		return "Starting worker..."
+	}
+	s, err := workerstatus.Read(l.statusPath, l.statusGeneration)
+	if err != nil {
+		return workerStateText("status_unavailable")
+	}
+	return workerStateText(l.statusTracker.Classify(s, time.Now()))
+}
+
+func workerStateText(state string) string {
+	switch state {
+	case "ready":
+		return "Ready - waiting for work"
+	case "starting":
+		return "Starting worker..."
+	case "pending":
+		return "Waiting for approval"
+	case "stopping":
+		return "Stopping..."
+	case "registration":
+		return "Connection problem: registration"
+	case "credentials":
+		return "Connection problem: credentials"
+	case "nats":
+		return "Connection problem: message bus"
+	case "subscriptions":
+		return "Connection problem: lifecycle subscriptions"
+	case "readiness":
+		return "Connection problem: local readiness checks"
+	case "heartbeat":
+		return "Connection problem: heartbeat"
+	default:
+		return "Connection problem: status unavailable"
+	}
+}
+
+// StopLocalAI runs the bounded stop sequence. It returns only after the
+// runtime and its owned backend groups are confirmed gone, or reports that
+// shutdown is incomplete and keeps further starts blocked.
 func (l *Launcher) StopLocalAI() error {
-	if !l.isRunning || l.localaiCmd == nil {
-		return fmt.Errorf("LocalAI is not running")
+	if l.lifecycleController().State() == lifecycleStopped {
+		return fmt.Errorf("LocalAI is not running: %w", errNotRunning)
 	}
-
-	// Gracefully terminate the process
-	if err := l.localaiCmd.Process.Signal(os.Interrupt); err != nil {
-		// If graceful termination fails, force kill
-		if killErr := l.localaiCmd.Process.Kill(); killErr != nil {
-			return fmt.Errorf("failed to kill LocalAI process: %w", killErr)
-		}
+	l.runUI(func() { l.updateStatus("Stopping...") })
+	err := l.lifecycleController().Stop()
+	if err != nil {
+		l.runUI(func() { l.updateStatus("Failed: shutdown incomplete. Stop again to retry.") })
 	}
-
-	l.isRunning = false
-	fyne.Do(func() {
-		l.updateRunningState(false)
-		l.updateStatus("LocalAI stopped")
-	})
-	return nil
+	return err
 }
 
-// IsRunning returns whether LocalAI is currently running
+// IsRunning reports whether a runtime, or unresolved ownership of one, exists.
+// Stop stays available until shutdown is confirmed.
 func (l *Launcher) IsRunning() bool {
-	return l.isRunning
+	return l.lifecycleController().State() != lifecycleStopped
 }
 
-// Shutdown performs cleanup when the application is closing
+// Shutdown stops the runtime before the launcher exits. It does not claim
+// success, and keeps the lock, when shutdown cannot be confirmed.
 func (l *Launcher) Shutdown() error {
 	log.Printf("Launcher shutting down, stopping LocalAI...")
 
-	// Stop LocalAI if it's running
-	if l.isRunning {
-		if err := l.StopLocalAI(); err != nil {
+	if l.IsRunning() {
+		if err := l.StopLocalAI(); err != nil && !errors.Is(err, errNotRunning) {
 			log.Printf("Error stopping LocalAI during shutdown: %v", err)
+			return err
 		}
 	}
+	l.releaseLock()
 
 	// Close log file if open
 	if l.logFile != nil {
@@ -402,13 +555,22 @@ func (l *Launcher) GetRecentLogs() string {
 
 // GetConfig returns the current configuration
 func (l *Launcher) GetConfig() *Config {
-	return l.config
+	return l.config.clone()
 }
 
 // SetConfig updates the configuration
 func (l *Launcher) SetConfig(config *Config) error {
-	l.config = config
-	return l.saveConfig()
+	candidate := config.clone()
+	if candidate == nil {
+		return fmt.Errorf("launcher settings are missing")
+	}
+	if err := l.persistConfig(candidate); err != nil {
+		l.configError = err
+		return err
+	}
+	l.config = candidate
+	l.configError = nil
+	return nil
 }
 
 func (l *Launcher) GetUI() *LauncherUI {
@@ -426,6 +588,11 @@ func (l *Launcher) GetReleaseManager() *ReleaseManager {
 
 // GetWebUIURL returns the URL for the WebUI
 func (l *Launcher) GetWebUIURL() string {
+	if l.config != nil && l.config.Mode == roleWorker {
+		// A worker hosts no UI: the browser goes to the deployment.
+		u, _ := l.DeploymentURL()
+		return u
+	}
 	address := l.config.Address
 	if strings.HasPrefix(address, ":") {
 		address = "localhost" + address
@@ -448,18 +615,7 @@ func (l *Launcher) GetWebUIURL() string {
 // path under the per-user data directory avoids both the misplacement (#10610)
 // and the cross-user /tmp collision.
 func (l *Launcher) BuildRunArgs() []string {
-	dataPath := l.GetDataPath()
-	return []string{
-		"run",
-		"--models-path", l.config.ModelsPath,
-		"--backends-path", l.config.BackendsPath,
-		"--address", l.config.Address,
-		"--log-level", l.config.LogLevel,
-		"--data-path", filepath.Join(dataPath, "data"),
-		"--localai-config-dir", filepath.Join(dataPath, "configuration"),
-		"--generated-content-path", filepath.Join(dataPath, "generated"),
-		"--upload-path", filepath.Join(dataPath, "uploads"),
-	}
+	return standaloneArgs(l.config, l.GetDataPath())
 }
 
 // GetDataPath returns the path where LocalAI data and logs are stored
@@ -494,6 +650,9 @@ func (l *Launcher) CheckForUpdates() (bool, string, error) {
 
 // DownloadUpdate downloads the latest version
 func (l *Launcher) DownloadUpdate(version string, progressCallback func(downloaded, total int64)) error {
+	if l.Applying() || l.lifecycleController().State() == lifecycleStopping {
+		return errLifecycleBusy
+	}
 	return l.releaseManager.DownloadRelease(version, progressCallback)
 }
 
@@ -502,13 +661,20 @@ func (l *Launcher) GetCurrentVersion() string {
 	return l.releaseManager.GetInstalledVersion()
 }
 
+// StatusText is the last status shown, without consuming it.
+func (l *Launcher) StatusText() string {
+	l.statusMu.Lock()
+	defer l.statusMu.Unlock()
+	return l.statusMsg
+}
+
 // GetCurrentStatus returns the current status
 func (l *Launcher) GetCurrentStatus() string {
 	select {
 	case status := <-l.statusChannel:
 		return status
 	default:
-		if l.isRunning {
+		if l.IsRunning() {
 			return "LocalAI is running"
 		}
 		return "Ready"
@@ -517,7 +683,7 @@ func (l *Launcher) GetCurrentStatus() string {
 
 // GetLastStatus returns the last known status without consuming from channel
 func (l *Launcher) GetLastStatus() string {
-	if l.isRunning {
+	if l.IsRunning() {
 		return "LocalAI is running"
 	}
 
@@ -701,7 +867,7 @@ func (l *Launcher) showDownloadProgress(version, title string) {
 				}
 				// A fresh install should end with a running server, not with
 				// the user hunting for a start button in the tray (#11673).
-				if l.ShouldAutoStartServer() && !l.isRunning {
+				if l.ShouldAutoStartServer() && !l.IsRunning() {
 					l.autoStartServer()
 				}
 			}, win)
@@ -823,9 +989,11 @@ func formatBytes(b int64) string {
 
 // monitorLogs monitors the output of LocalAI and adds it to the log buffer
 func (l *Launcher) monitorLogs(reader io.Reader, prefix string) {
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		line := scanner.Text()
+	l.monitorFilteredLogs(reader, prefix, newLogFilter(nil))
+}
+
+func (l *Launcher) monitorFilteredLogs(reader io.Reader, prefix string, filter logFilter) {
+	filter.consume(reader, func(line string) {
 		timestamp := time.Now().Format("15:04:05")
 		logLine := fmt.Sprintf("[%s] %s: %s\n", timestamp, prefix, line)
 
@@ -840,14 +1008,13 @@ func (l *Launcher) monitorLogs(reader io.Reader, prefix string) {
 				l.logBuffer.WriteString(content[len(content)-50000:])
 			}
 		}
-		l.logMutex.Unlock()
 
 		// Write to log file if available
-		if l.logFile != nil {
-			if _, err := l.logFile.WriteString(logLine); err != nil {
-				log.Printf("Failed to write to log file: %v", err)
-			}
+		if l.logFile != nil && l.logBytes+len(logLine) <= maxLogFile {
+			n, _ := l.logFile.WriteString(logLine)
+			l.logBytes += n
 		}
+		l.logMutex.Unlock()
 
 		fyne.Do(func() {
 			// Notify UI of new log content
@@ -855,16 +1022,23 @@ func (l *Launcher) monitorLogs(reader io.Reader, prefix string) {
 				l.ui.OnLogUpdate(logLine)
 			}
 
-			// Check for startup completion
-			if strings.Contains(line, "API server listening") {
+			// Check for startup completion. A worker never takes its state from
+			// log text.
+			l.statusMu.Lock()
+			fromLogs := l.statusFromLogs
+			l.statusMu.Unlock()
+			if fromLogs && strings.Contains(line, "API server listening") {
 				l.updateStatus("LocalAI is running")
 			}
 		})
-	}
+	})
 }
 
 // updateStatus updates the status and notifies UI
 func (l *Launcher) updateStatus(status string) {
+	l.statusMu.Lock()
+	l.statusMsg = status
+	l.statusMu.Unlock()
 	select {
 	case l.statusChannel <- status:
 	default:
@@ -917,71 +1091,59 @@ func (l *Launcher) periodicUpdateCheck() {
 	}
 }
 
-// loadConfig loads configuration from file
-func (l *Launcher) loadConfig() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+// DeploymentURL is the saved frontend URL, validated, without credentials or a
+// guessed internal route. The browser handles its own login.
+func (l *Launcher) DeploymentURL() (string, error) {
+	if l.config == nil {
+		return "", fmt.Errorf("launcher settings are missing")
 	}
-
-	configPath := filepath.Join(homeDir, ".localai", "launcher.json")
-	log.Printf("Loading config from: %s", configPath)
-
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Printf("Config file not found, creating default config")
-		// Create default config
-		return l.saveConfig()
-	}
-
-	// Load existing config
-	configData, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	log.Printf("Config file content: %s", string(configData))
-
-	log.Printf("loadConfig: about to unmarshal JSON data")
-	if err := json.Unmarshal(configData, l.config); err != nil {
-		return fmt.Errorf("failed to parse config file: %w", err)
-	}
-	log.Printf("loadConfig: JSON unmarshaled successfully")
-
-	log.Printf("Loaded config: ModelsPath=%s, BackendsPath=%s, Address=%s, LogLevel=%s",
-		l.config.ModelsPath, l.config.BackendsPath, l.config.Address, l.config.LogLevel)
-	log.Printf("Environment vars: %v", l.config.EnvironmentVars)
-
-	return nil
+	return launchURL(l.config.Worker.Connection.FrontendURL, false)
 }
 
-// saveConfig saves configuration to file
-func (l *Launcher) saveConfig() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+// errStopRequired means the change needs the running role stopped first.
+var errStopRequired = errors.New("the running role must be stopped to apply this change")
+
+// activeProfileChanged reports whether a change affects what the running role
+// was launched with: a role switch, or any shared or active-profile setting.
+func activeProfileChanged(old, next *Config) bool {
+	role := func(c *Config) string {
+		if c.Mode == "" {
+			return roleStandalone
+		}
+		return c.Mode
 	}
-
-	configDir := filepath.Join(homeDir, ".localai")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+	if role(old) != role(next) {
+		return true
 	}
-
-	// Marshal config to JSON
-	log.Printf("saveConfig: marshaling config with EnvironmentVars: %v", l.config.EnvironmentVars)
-	configData, err := json.MarshalIndent(l.config, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
+	if old.ModelsPath != next.ModelsPath || old.BackendsPath != next.BackendsPath || old.LogLevel != next.LogLevel {
+		return true
 	}
-	log.Printf("saveConfig: JSON marshaled successfully, length: %d", len(configData))
-
-	configPath := filepath.Join(configDir, "launcher.json")
-	log.Printf("Saving config to: %s", configPath)
-	log.Printf("Config content: %s", string(configData))
-
-	if err := os.WriteFile(configPath, configData, 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+	if role(old) == roleWorker {
+		return !reflect.DeepEqual(old.Worker, next.Worker)
 	}
+	return old.Address != next.Address || !reflect.DeepEqual(old.EnvironmentVars, next.EnvironmentVars)
+}
 
-	log.Printf("Config saved successfully")
-	return nil
+// ApplySettings commits candidate. When a runtime exists and the change affects
+// it, nothing is committed until the caller confirms a stop (stop=true) and the
+// stop is verified. It never starts the replacement. Cancelling, a failed stop
+// and an incomplete shutdown leave the active configuration unchanged.
+func (l *Launcher) ApplySettings(candidate *Config, stop bool) error {
+	if !l.applying.CompareAndSwap(false, true) {
+		return errLifecycleBusy
+	}
+	defer l.applying.Store(false)
+	state := l.lifecycleController().State()
+	if state == lifecycleStarting || state == lifecycleStopping {
+		return errLifecycleBusy
+	}
+	if state != lifecycleStopped && l.config != nil && activeProfileChanged(l.config, candidate) {
+		if !stop {
+			return errStopRequired
+		}
+		if err := l.StopLocalAI(); err != nil && !errors.Is(err, errNotRunning) {
+			return err
+		}
+	}
+	return l.SetConfig(candidate)
 }
