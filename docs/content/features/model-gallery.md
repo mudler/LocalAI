@@ -60,6 +60,24 @@ local-ai models install nemotron-3.5-bolt-e4b-q4
 To select a build explicitly, use `--variant nemotron-3.5-bolt-e4b-q4`
 or `--variant nemotron-3.5-bolt-e4b-q8`.
 
+### Qwen3.8 Jumbo Fusion 27B
+
+The gallery includes DavidAU's Qwen3.8 Jumbo Fusion Q4_K_M and Q8_0 GGUF builds
+for text chat through llama.cpp. Both use the embedded chat template and a
+32,768-token default context. These entries do not include a vision projector
+or enable MTP decoding.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-jumbo-fusion-q4
+```
+
+Use `--variant qwen3.8-27b-jumbo-fusion-q4` or
+`--variant qwen3.8-27b-jumbo-fusion-q8` to select a specific build.
+See the [publisher's model card](https://huggingface.co/DavidAU/Qwen3.8-27B-Jumbo-Fusion-IQ-747-900-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF)
+for its custom reasoning and instruction modes.
+
 ### MiniCPM-V 4.7 1B
 
 [MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
