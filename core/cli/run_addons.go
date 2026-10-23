@@ -133,15 +133,13 @@ func splitAddonConfig(role, mode, dataPath string, f addonRoleFlags) (config.Add
 		InstanceID: transport.InstanceID, OwnerID: gateway.OwnerIdentity, OwnerAddress: f.OwnerAddress,
 		StorageID: "local", Transport: transport, OwnershipMode: mode,
 	}
-	// The add-on manager rejects a relative root even when it never opens it,
-	// so the frontend names the path where an owner would keep its state. The
-	// frontend never creates, opens or reads it.
+	// A frontend keeps no add-on state, so it has no root: Root stays empty.
+	if role == addonRoleFrontend {
+		return c, nil
+	}
 	c.Root, err = filepath.Abs(filepath.Join(dataPath, "addons"))
 	if err != nil {
 		return config.AddonConfig{}, err
-	}
-	if role == addonRoleFrontend {
-		return c, nil
 	}
 	c.ListenAddress = f.OwnerListen
 	if c.ListenAddress == "" {

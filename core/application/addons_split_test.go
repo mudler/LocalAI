@@ -99,6 +99,9 @@ var _ = Describe("split owner and frontends", func() {
 			StorageID: "local", Root: filepath.Join(dataPath, "addons"), Transport: transport, OwnershipMode: auth.AddonModeLocalOwner,
 			Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"},
 		}
+		if role == "frontend" {
+			c.Root = ""
+		}
 		if role == "owner" {
 			c.ListenAddress = "127.0.0.1:" + ownerPort
 		}

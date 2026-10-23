@@ -212,8 +212,8 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 			Expect(c.InstanceID).To(Equal("frontend"))
 			Expect(c.OwnerID).To(Equal("local"))
 			Expect(c.OwnerAddress).To(Equal(ownerAddress))
-			// The root is only a name: the manager needs an absolute path.
-			Expect(c.Root).To(Equal(filepath.Join(dir, "addons")))
+			// A frontend has no state root.
+			Expect(c.Root).To(BeEmpty())
 			Expect(c.ListenAddress).To(BeEmpty())
 			Expect(c.Transport).NotTo(BeNil())
 			Expect(c.Transport.SigningKey).NotTo(BeEmpty())

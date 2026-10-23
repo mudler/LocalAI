@@ -21,7 +21,12 @@ type OwnerConfig struct {
 
 func (c OwnerConfig) validate() error {
 	u, e := url.Parse(c.OwnerAddress)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.StorageID == "" || !filepath.IsAbs(c.Root) || c.SharedStorage {
+	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.StorageID == "" || c.SharedStorage {
+		return ErrConfiguration
+	}
+	// Only the owner has a state root. A frontend keeps no add-on state, so it
+	// has no root to name and nothing may read or create one.
+	if c.InstanceID == c.OwnerID && !filepath.IsAbs(c.Root) {
 		return ErrConfiguration
 	}
 	return nil

@@ -245,6 +245,20 @@ var _ = Describe("designated owner lifecycle", func() {
 		_, e = NewManager(ctx, cfg, c, i, admin)
 		Expect(e).To(HaveOccurred())
 	})
+	It("needs a state root for the owner only", func() {
+		cfg, c, i := fixture()
+		cfg.InstanceID = "frontend"
+		cfg.Root = ""
+		m := open(cfg, c, i)
+		_, e := m.Status(ctx, "sample")
+		Expect(e).To(MatchError(ErrNotOwner))
+		cfg.InstanceID = cfg.OwnerID
+		_, e = NewManager(ctx, cfg, c, i, admin)
+		Expect(e).To(MatchError(ErrConfiguration))
+		cfg.Root = "relative/root"
+		_, e = NewManager(ctx, cfg, c, i, admin)
+		Expect(e).To(MatchError(ErrConfiguration))
+	})
 	It("refuses commands and asset reads for an add-on ID the host serves as a route", func() {
 		cfg, c, i := fixture()
 		m := open(cfg, c, i)
