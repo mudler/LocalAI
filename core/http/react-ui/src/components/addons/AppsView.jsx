@@ -14,7 +14,7 @@ import SideSheet from '../SideSheet'
 import AddonSlot from '../../addons/AddonSlot'
 import { useHubAuth } from '../hub/useHubAuth'
 import AddonTile from './AddonTile'
-import PinControl from './PinControl'
+import ConfirmDialog from '../ConfirmDialog'
 import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
 import { apiUrl } from '../../utils/basePath'
@@ -28,7 +28,7 @@ import { useAddonActions } from './useAddonActions'
 // cadence, slower in a hidden tab and backing off while the owner is
 // unreachable. Start and stop are offered to administrators and the server
 // refuses everyone else whatever this view shows.
-export default function AppsView({ api }) {
+export default function AppsView({ api, adapter }) {
   const { t, i18n } = useTranslation('addons')
   const [state, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
@@ -97,6 +97,17 @@ export default function AppsView({ api }) {
     })
   }, [actions, api])
 
+  // Remove is the typed uninstall action: the data is kept, so installing the
+  // add-on again picks it up. The owner refuses anyone but an administrator.
+  const [removing, setRemoving] = useState(null)
+  const remove = useCallback((tile) => {
+    actions.run(`uninstall:${tile.id}:${tile.app.generation}`, {
+      addonId: tile.id,
+      submit: (operationId, signal) => adapter.submitLifecycle({ operationId, action: 'uninstall', addonId: tile.id, generation: 0 }, signal),
+      verify: async (signal) => !(await api.installed(signal)).some(a => a.id === tile.id),
+    })
+  }, [actions, adapter, api])
+
   const nav = useNavigation()
   // Under the legacy switch the Build hub row draws the app.nav slot instead.
   const legacy = useHubAuth().features.addon_navigation === false
@@ -150,6 +161,12 @@ export default function AppsView({ api }) {
           <span>{t('apps.stale')}</span>
         </div>
       )}
+      {Object.entries(actions.state).filter(([key, r]) => key.startsWith('uninstall:') && r.outcome && r.outcome !== 'completed' && !actions.unknown[key.split(':')[1]]).map(([key, r]) => (
+        <p key={key} className="ad-card__note" data-tone="error" role="alert" data-testid="remove-error">{describeOutcome(r.outcome, t, r.error)}</p>
+      ))}
+      {Object.keys(actions.unknown).filter(id => actions.unknown[id].key.startsWith('uninstall:')).map(id => (
+        <UnknownNotice key={id} addonId={id} actions={actions} className="ad-card__note" />
+      ))}
       <div className="ad-drawer__bar">
         <input
           type="search"
@@ -183,13 +200,13 @@ export default function AppsView({ api }) {
       ) : (
         <ul className="ad-tiles" aria-label={t('apps.listLabel')}>
           {shown.map(tile => (
-            <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} />
+            <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} selected={tile.id === detailId} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} onRemove={isAdmin ? setRemoving : undefined} />
           ))}
         </ul>
       )}
       {!legacy && <div className="ad-nav-slot"><AddonSlot slot="app.nav" context={null} /></div>}
       {detail && (
-        <SideSheet title={titleOf(detail)} onClose={closeDetail} headActions={<PinControl variant="head" name={titleOf(detail)} pinned={pinnedIds.has(detail.id)} onToggle={() => onPin(detail.id)} />} closeLabel={t('drawer.close')} testId="addon-detail">
+        <SideSheet title={titleOf(detail)} onClose={closeDetail} closeLabel={t('drawer.close')} testId="addon-detail">
           {detail.app
             ? (
               <>
@@ -202,6 +219,15 @@ export default function AppsView({ api }) {
             : <p>{t('drawer.builtinDetail')}</p>}
         </SideSheet>
       )}
+      <ConfirmDialog
+        open={Boolean(removing)}
+        danger
+        title={removing ? t('card.removeTitle', { name: removing.title }) : ''}
+        message={removing ? <p>{t('card.removeBody', { name: removing.title })}</p> : null}
+        confirmLabel={t('card.remove')}
+        onConfirm={() => { const x = removing; setRemoving(null); closeDetail(); remove(x) }}
+        onCancel={() => setRemoving(null)}
+      />
       {limit && (
         <SideSheet title={t('drawer.limitTitle')} onClose={() => setLimit(false)} closeLabel={t('drawer.close')} testId="pin-limit">
           <p>{t('drawer.limitBody')}</p>
@@ -263,12 +289,12 @@ function AppCard({ app, t, language, actions, onStartStop }) {
         )}
         {control.start && (
           <button type="button" className="dk-btn dk-btn--sm" disabled={locked} onClick={() => onStartStop(app, 'start')}>
-            <Icon name={working ? 'spinner' : 'play'} spin={working} /> {t('apps.start')}
+            <Icon name={working ? 'spinner' : 'toggle-on'} spin={working} /> {t('apps.start')}
           </button>
         )}
         {control.stop && (
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={locked} onClick={() => onStartStop(app, 'stop')}>
-            <Icon name={working ? 'spinner' : 'stop'} spin={working} /> {t('apps.stop')}
+            <Icon name={working ? 'spinner' : 'toggle-off'} spin={working} /> {t('apps.stop')}
           </button>
         )}
         {control.manage && (

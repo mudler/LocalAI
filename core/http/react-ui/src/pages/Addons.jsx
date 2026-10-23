@@ -86,7 +86,7 @@ export default function Addons() {
       )}
 
       <div role="tabpanel" id={`ad-panel-${tab}`} aria-labelledby={tabs.length > 1 ? `ad-tab-${tab}` : undefined} aria-label={tabs.length > 1 ? undefined : t('tabs.apps')} className="ad-panel">
-        {tab === 'apps' && <AppsView api={addonsApi} />}
+        {tab === 'apps' && <AppsView api={addonsApi} adapter={addonsCatalog} />}
         {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} />}
         {tab === 'installed' && <InstalledView api={addonsApi} adapter={addonsCatalog} manage={manage} onManage={onManage} />}
         {tab === 'libraries' && <LibrariesView adapter={addonsCatalog} />}

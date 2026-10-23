@@ -82,6 +82,22 @@ export function toolSummary(app, limit = 4) {
   return { shown: tools.slice(0, limit), more: Math.max(0, count - Math.min(limit, tools.length)), count }
 }
 
+// What an add-on adds to LocalAI, from the facts the list already carries: a
+// page (an add-on with a UI) and chat tools (the tools it offers the model).
+// Nothing here is guessed: no field, no line.
+export function addedByAddon(app) {
+  const tools = toolSummary(app)
+  return { page: Boolean(app && (app.hasUI || app.mainPage)), tools: tools.count, toolNames: tools.shown, toolsMore: tools.more }
+}
+
+// Screenshots an add-on ships, when the host lists them. The list carries none
+// today, so the preview shows no slot; a path is used only when it is served by
+// the host itself, as icons are.
+export function screenshotsOf(app, limit = 6) {
+  const list = Array.isArray(app && app.screenshots) ? app.screenshots : []
+  return list.filter(src => typeof src === 'string' && src.startsWith('/') && !src.startsWith('//')).slice(0, limit)
+}
+
 export function shortDigest(digest) {
   const text = String(digest || '')
   const [algorithm, value] = text.includes(':') ? text.split(':') : ['', text]

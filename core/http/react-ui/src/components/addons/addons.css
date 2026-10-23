@@ -212,24 +212,22 @@
 
 .ad-drawer__bar { display: flex; flex-wrap: wrap; gap: var(--dk-space-2, 8px); align-items: center; margin-bottom: var(--dk-space-4, 16px); }
 .ad-drawer__search { flex: 1 1 14rem; min-width: 0; }
-.ad-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--dk-space-3, 12px); }
-.ad-tile { position: relative; display: flex; align-items: stretch; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-surface, transparent); }
-.ad-tile__open { flex: 1; min-width: 0; display: flex; gap: var(--dk-space-3, 12px); align-items: center; padding: var(--dk-space-3, 12px); color: inherit; text-decoration: none; background: none; border: 0; text-align: start; cursor: pointer; }
+.ad-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: var(--dk-space-3, 12px); }
+.ad-tile { position: relative; display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-card, var(--dk-surface, transparent)); }
+.ad-tile[data-selected='true'] { border-color: var(--dk-accent); box-shadow: 0 0 0 1px var(--dk-accent); }
+.ad-tile__open { flex: 1; min-width: 0; display: flex; gap: var(--dk-space-3, 12px); align-items: flex-start; padding: var(--dk-space-3, 12px) 2.75rem var(--dk-space-3, 12px) var(--dk-space-3, 12px); color: inherit; text-decoration: none; background: none; border: 0; text-align: start; cursor: pointer; border-radius: inherit; }
 .ad-tile__open:hover { background: var(--dk-hover); }
-.ad-tile__text { display: flex; flex-direction: column; min-width: 0; }
+.ad-tile__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ad-tile__title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ad-tile__state { font-size: 0.8125rem; color: var(--dk-text-muted, var(--dk-text)); }
+.ad-tile__state { font-size: var(--dk-text-12, 0.75rem); color: var(--dk-muted, var(--dk-text)); }
+.ad-tile__state[data-state='running'] { color: var(--dk-ok-text); }
+.ad-tile__desc { margin-top: var(--dk-space-1, 4px); font-size: var(--dk-text-13, 0.8125rem); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.ad-tile__adds { display: flex; flex-wrap: wrap; gap: 2px var(--dk-space-3, 12px); margin-top: var(--dk-space-1, 4px); font-size: var(--dk-text-12, 0.75rem); color: var(--dk-muted); }
+.ad-tile__add { display: inline-flex; align-items: center; gap: 4px; }
 .ad-tile[data-state='stopped'] .ad-icon { opacity: 0.5; }
-.ad-tile__order { flex: none; display: flex; flex-direction: column; justify-content: center; }
-.ad-tile__move { background: none; border: 0; padding: 0.125rem 0.5rem; color: var(--dk-text-muted, var(--dk-text)); cursor: pointer; }
-.ad-tile__move:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
-.ad-tile__pin { flex: none; width: 4.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; padding: 0 0.25rem; font: inherit; font-size: 0.75rem; background: none; border: 0; border-inline-start: 1px solid var(--dk-edge); color: var(--dk-text-muted, var(--dk-text)); cursor: pointer; }
-.ad-tile__pin:hover { background: var(--dk-hover); }
-.ad-pin__icon { width: 1.125rem; height: 1.125rem; flex: none; }
-.ad-pin__label { white-space: nowrap; }
-.ad-tile__pin[aria-pressed='true'], .ad-pin[aria-pressed='true'] { color: var(--dk-accent); }
-.ad-pin { gap: 0.375rem; }
-.ad-tile__open:focus-visible, .ad-tile__pin:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
+.ad-tile__side { position: absolute; top: var(--dk-space-2, 8px); right: var(--dk-space-2, 8px); }
+.ad-tile__foot { display: flex; padding: 0 var(--dk-space-3, 12px) var(--dk-space-3, 12px); }
+.ad-tile__open:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
 .nav-item--muted { opacity: 0.55; }
 .nav-item--sub { padding-inline-start: 2.25rem; }
 @media (max-width: 480px) { .ad-tiles { grid-template-columns: minmax(0, 1fr); } }

@@ -619,5 +619,18 @@
     "none": "No library sources of this kind.",
     "listLabel": "Library sources",
     "mirrors": "Mirrors: {{list}}"
+  },
+  "card": {
+    "showInSidebar": "Mostra nella barra laterale",
+    "hideFromSidebar": "Remove from sidebar",
+    "details": "Dettagli",
+    "remove": "Rimuovi",
+    "menu": "Actions for {{name}}",
+    "addsPage": "Aggiunge una pagina",
+    "chatTools_one": "{{count}} chat tool",
+    "chatTools_other": "{{count}} chat tools",
+    "openNamed": "Open {{name}}",
+    "removeTitle": "Remove {{name}}?",
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
   }
 }

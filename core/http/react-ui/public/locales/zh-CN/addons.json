@@ -619,5 +619,18 @@
     "none": "No library sources of this kind.",
     "listLabel": "Library sources",
     "mirrors": "Mirrors: {{list}}"
+  },
+  "card": {
+    "showInSidebar": "在侧边栏中显示",
+    "hideFromSidebar": "Remove from sidebar",
+    "details": "详情",
+    "remove": "移除",
+    "menu": "Actions for {{name}}",
+    "addsPage": "添加一个页面",
+    "chatTools_one": "{{count}} chat tool",
+    "chatTools_other": "{{count}} chat tools",
+    "openNamed": "Open {{name}}",
+    "removeTitle": "Remove {{name}}?",
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
   }
 }

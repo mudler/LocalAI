@@ -147,9 +147,9 @@
     "manage": "Details",
     "manageLead": "Management view of {{id}}",
     "missing": "{{id}} is not installed.",
-    "uninstall": "Uninstall",
-    "uninstallBody": "The add-on stops and its package is removed from use. Its data, identity and grants are kept, so installing it again picks them up. Nothing is deleted.",
-    "uninstallTitle": "Uninstall {{name}}?"
+    "uninstall": "Remove",
+    "uninstallBody": "The add-on turns off and is removed from this server. Its data, identity and grants are kept, so installing it again picks them up. Nothing is deleted.",
+    "uninstallTitle": "Remove {{name}}?"
   },
   "libraries": {
     "add": "Add a library",
@@ -619,5 +619,18 @@
     "none": "No library sources of this kind.",
     "listLabel": "Library sources",
     "mirrors": "Mirrors: {{list}}"
+  },
+  "card": {
+    "showInSidebar": "Show in sidebar",
+    "hideFromSidebar": "Remove from sidebar",
+    "details": "Details",
+    "remove": "Remove",
+    "menu": "Actions for {{name}}",
+    "addsPage": "Adds a page",
+    "chatTools_one": "{{count}} chat tool",
+    "chatTools_other": "{{count}} chat tools",
+    "openNamed": "Open {{name}}",
+    "removeTitle": "Remove {{name}}?",
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
   }
 }

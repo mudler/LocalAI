@@ -91,55 +91,62 @@ test.describe('Add-on navigation', () => {
     await page.getByRole('navigation').getByRole('link', { name: 'Add-ons', exact: true }).click()
     await expect(page).toHaveURL(/\/app\/addons$/)
     await expect(page.getByTestId('addon-tile')).toHaveCount(2)
-    await expect(page.getByTestId('pin-toggle')).toHaveCount(2)
-    for (const toggle of await page.getByTestId('pin-toggle').all()) {
-      await expect(toggle).toHaveAttribute('aria-pressed', 'true')
-      await expect(toggle).toHaveText('Pinned')
-    }
-    await page.locator('[data-testid="addon-tile"][data-app="studio"]').getByTestId('pin-later').click()
+    // A bare pin button or pair of arrows is gone: each card has one overflow menu.
+    await expect(page.getByTestId('pin-toggle')).toHaveCount(0)
+    await expect(page.getByTestId('pin-later')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Actions for / })).toHaveCount(2)
+    const studio = page.locator('[data-testid="addon-tile"][data-app="studio"]')
+    await studio.getByRole('button', { name: /^Actions for / }).click()
+    await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
+    await page.getByRole('menuitem', { name: /^Move .* later$/ }).click()
     await expect.poll(() => server.saved()).toEqual(['talk', 'studio'])
   })
 
-  test('the drawer lists tiles, searches them and pins from the keyboard', async ({ page }) => {
-    const server = await setup(page, { pins: [], apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
+  test('the card menu offers Show in sidebar, Details and Remove, and pins from the keyboard', async ({ page }) => {
+    const server = await setup(page, { pins: [], user: ADMIN, apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
     await page.goto('/app/addons')
     await expect(page.getByTestId('addon-tile')).toHaveCount(3)
     await page.getByTestId('addon-search').fill('note')
     await expect(page.getByTestId('addon-tile')).toHaveCount(1)
-    const toggle = page.getByTestId('pin-toggle').first()
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
-    await expect(toggle).toHaveAccessibleName(/Pin Notes/)
-    await expect(toggle).toHaveText('Pin')
-    await toggle.focus()
+    const menu = page.getByRole('button', { name: 'Actions for Notes' })
+    await menu.focus()
     await page.keyboard.press('Enter')
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    await expect(toggle).toHaveText('Pinned')
-    expect(server.saved()).toEqual(['notes'])
+    await expect(page.getByRole('menuitem')).toHaveText(['Show in sidebar', 'Details', 'Remove'])
+    await page.keyboard.press('Enter')
+    await expect.poll(() => server.saved()).toEqual(['notes'])
+    await menu.click()
+    await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
   })
 
-  test('pinned apps come first in the grid, in pin order, and the detail view has the same pin control', async ({ page }) => {
-    const server = await setup(page, {
+  test('a reader sees no Remove in the card menu', async ({ page }) => {
+    await setup(page, { pins: [], apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
+    await page.goto('/app/addons')
+    await page.getByRole('button', { name: 'Actions for Notes' }).click()
+    await expect(page.getByRole('menuitem', { name: 'Show in sidebar' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Remove', exact: true })).toHaveCount(0)
+  })
+
+  test('the card says what the add-on does and what it adds', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes', description: 'Keep notes.', state: 'running', mainPage: '/app/addons/notes/home', tools: ['add', 'list'], toolCount: 2 }), app({ id: 'quiet', title: 'Quiet', description: 'Works in the background.', hasUI: false, mainPage: undefined, tools: [], toolCount: 0 })] })
+    await page.goto('/app/addons')
+    const notes = page.locator('[data-testid="addon-tile"][data-app="notes"]')
+    await expect(notes).toContainText('Keep notes.')
+    await expect(notes.getByTestId('tile-adds')).toContainText('Adds a page')
+    await expect(notes.getByTestId('tile-adds')).toContainText('2 chat tools')
+    await expect(page.locator('[data-testid="addon-tile"][data-app="quiet"]').getByTestId('tile-adds')).toHaveCount(0)
+  })
+
+  test('pinned apps come first in the grid, in pin order', async ({ page }) => {
+    await setup(page, {
       pins: ['notes'],
-      apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' }), app({ id: 'zeta', title: 'Zeta', enabled: false, state: 'stopped' })],
+      apps: [app({ id: 'zeta', title: 'Zeta', enabled: false, state: 'stopped' }), app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })],
     })
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/app/addons')
     const tiles = page.getByTestId('addon-tile')
     await expect(tiles.first()).toHaveAttribute('data-app', 'notes')
-    await expect(tiles.first().getByTestId('pin-toggle')).toHaveText('Pinned')
-    await expect(tiles.nth(1).getByTestId('pin-toggle')).toHaveText('Pin')
-    // The tile pin and the detail pin are one state.
-    await page.goto('/app/addons?detail=zeta')
-    const detail = page.getByTestId('addon-detail')
-    const head = detail.getByTestId('pin-toggle')
-    await expect(head).toHaveText('Pin')
-    await head.click()
-    await expect(head).toHaveText('Pinned')
-    await expect(head).toHaveAttribute('aria-pressed', 'true')
-    await expect.poll(() => server.saved()).toEqual(['notes', 'zeta'])
-    await head.click()
-    await expect(head).toHaveText('Pin')
-    await expect.poll(() => server.saved()).toEqual(['notes'])
+    await tiles.first().getByRole('button', { name: /^Actions for / }).click()
+    await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
   })
 
   test('the first-run card shows to an administrator with nothing installed and leads to Browse', async ({ page }) => {
@@ -184,7 +191,8 @@ test.describe('Add-on navigation', () => {
   test('a pinned tile can be moved later and the new order is saved', async ({ page }) => {
     const server = await setup(page, { pins: ['studio', 'talk'] })
     await page.goto('/app/addons')
-    await page.getByTestId('addon-tile').filter({ hasText: 'Studio' }).getByTestId('pin-later').click()
+    await page.getByTestId('addon-tile').filter({ hasText: 'Studio' }).getByRole('button', { name: /^Actions for / }).click()
+    await page.getByRole('menuitem', { name: /^Move .* later$/ }).click()
     await expect.poll(() => server.saved()).toEqual(['talk', 'studio'])
   })
 
@@ -193,7 +201,8 @@ test.describe('Add-on navigation', () => {
     const eight = nine.slice(0, 8).map(a => a.id)
     await setup(page, { apps: nine, pins: eight })
     await page.goto('/app/addons')
-    await page.getByTestId('addon-tile').filter({ hasText: 'App 8' }).getByTestId('pin-toggle').click()
+    await page.getByTestId('addon-tile').filter({ hasText: 'App 8' }).getByRole('button', { name: /^Actions for / }).click()
+    await page.getByRole('menuitem', { name: 'Show in sidebar' }).click()
     await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toContainText(/unpin/i)
   })
 
@@ -261,16 +270,14 @@ test.describe('Add-on navigation', () => {
     await expect(page.getByTestId('addon-detail').getByRole('button', { name: 'Turn on' })).toBeVisible()
   })
 
-  test('the pin control has a visible focus state and a name', async ({ page }) => {
+  test('the card menu has a visible focus state and a name', async ({ page }) => {
     await setup(page)
     await page.goto('/app/addons')
-    const toggle = page.getByTestId('pin-toggle').first()
-    await toggle.focus()
-    const outline = await toggle.evaluate(el => getComputedStyle(el).outlineStyle)
-    expect(outline).toBe('solid')
-    const width = await toggle.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth))
-    expect(width).toBeGreaterThan(0)
-    await expect(toggle).toHaveAccessibleName(/(Pin|Unpin) /)
+    const trigger = page.getByRole('button', { name: /^Actions for / }).first()
+    await trigger.focus()
+    await expect(trigger).toBeFocused()
+    await expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    await expect(trigger).toHaveAccessibleName(/^Actions for .+/)
   })
 
   test('a pin of an add-on that is no longer listed is not drawn in the drawer and shows no error', async ({ page }) => {
