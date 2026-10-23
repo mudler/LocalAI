@@ -12976,6 +12976,90 @@
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: hy-memory-30b-a3b-q4
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/tencent/Hy-Memory-30B-A3B
+    - https://huggingface.co/tencent/Hy-Memory-30B-A3B-GGUF
+  description: |
+    Tencent Hy-Memory is a 30B MoE model with about 3B active parameters
+    for writing and updating long-term memory in external agent frameworks.
+    This Q4_K_M build uses llama.cpp with the embedded chat template and
+    no-think mode. It supports English and Chinese; the memory framework
+    must supply the task prompts and persistent storage.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - memory
+    - english
+    - chinese
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    chat_template_kwargs:
+      reasoning_effort: no_think
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Hy-Memory-30B-A3B-Q4_K_M.gguf
+      temperature: 0.7
+      top_k: 0
+      top_p: 1.0
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Hy-Memory-30B-A3B-Q4_K_M.gguf
+      sha256: e417fc86d0a2bb058ed253028f4617d144aa874b8af35711cca0c7009bd63446
+      uri: https://huggingface.co/tencent/Hy-Memory-30B-A3B-GGUF/resolve/38e10a37701e1caff4a6dc3831448aaf8c2e15d1/Hy-Memory-30B-A3B-Q4_K_M.gguf
+  variants:
+    - model: hy-memory-30b-a3b-q8
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: hy-memory-30b-a3b-q8
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/tencent/Hy-Memory-30B-A3B
+    - https://huggingface.co/tencent/Hy-Memory-30B-A3B-GGUF
+  description: |
+    Tencent Hy-Memory is a 30B MoE model with about 3B active parameters
+    for writing and updating long-term memory in external agent frameworks.
+    This Q8_0 build uses llama.cpp with the embedded chat template and
+    no-think mode. It supports English and Chinese; the memory framework
+    must supply the task prompts and persistent storage.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - memory
+    - english
+    - chinese
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    chat_template_kwargs:
+      reasoning_effort: no_think
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Hy-Memory-30B-A3B-Q8_0.gguf
+      temperature: 0.7
+      top_k: 0
+      top_p: 1.0
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Hy-Memory-30B-A3B-Q8_0.gguf
+      sha256: 3ba2897dbb7e21e618cb65cec4b31498e59eca2960b381c5e0a0590e7ce8526b
+      uri: https://huggingface.co/tencent/Hy-Memory-30B-A3B-GGUF/resolve/38e10a37701e1caff4a6dc3831448aaf8c2e15d1/Hy-Memory-30B-A3B-Q8_0.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: hy3
   description: "中文&nbsp;｜&nbsp;English\n\n[](#license)\n&nbsp;&nbsp;\n[](https://huggingface.co/tencent/Hy3)\n&nbsp;&nbsp;\n[](https://modelscope.cn/models/Tencent-Hunyuan/Hy3)\n&nbsp;&nbsp;\n[](https://cnb.cool/ai-models/tencent/Hy3)\n&nbsp;&nbsp;\n[](https://ai.gitcode.com/tencent_hunyuan/Hy3)\n\n\U0001F5A5️&nbsp;Official Website&nbsp;&nbsp;|&nbsp;&nbsp;\n\U0001F4AC&nbsp;GitHub\n\n## Table of Contents\n\n  - Model Introduction\n  - Stronger Agent Capabilities\n  - More Reliable Product Experiences\n  - Benchmark Appendix\n  - News\n  - Model Links\n  - Quickstart\n  - Deployment\n  - vLLM\n  - SGLang\n  - Finetuning\n  - RL Post-training\n  - Quantization\n  - License\n  - Contact Us\n\n## Model Introduction\n\n**Hy3** is a 295B-parameter Mixture-of-Experts (MoE) model with 21B active parameters and 3.8B MTP layer parameters, developed by the Tencent Hy Team. Following the Hy3 Preview launch in late April, we gathered feedback from 50+ products and scaled up post-training with higher quality data. Today, we introduce Hy3, which outperforms similar-size models and rivals flagship open-source models with 2-5x parameters. It also shows significant gains in utility across various products and productivity tasks.\n\n## Stronger Agent Capabilities\n\n...\n"
   license: apache-2.0
