@@ -61,6 +61,18 @@ Select a specific build with `--variant minicpm-v-4_7-1b-q4`,
 `--variant minicpm-v-4_7-1b-q5`, `--variant minicpm-v-4_7-1b-q6`,
 or `--variant minicpm-v-4_7-1b-q8`.
 
+### Huihui Qwen3.8-Flash-Next v2
+
+Install `huihui-qwen3.8-flash-next-abliterated-v2-q4` for the publisher's
+UD-Q4_K_XL build, or select the linked
+`huihui-qwen3.8-flash-next-abliterated-v2-iq4` variant for UD-IQ4_XS.
+Both entries use llama.cpp, include a BF16 vision projector, and default to
+32,768 context tokens. They support text chat and image input.
+
+These entries provide Huihui's second abliteration release and keep the first
+release available separately. See the [publisher's model card](https://huggingface.co/huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-v2-GGUF)
+for the changes and the Qwen Community License 1.0 terms.
+
 ### Repairing an existing model configuration
 
 Gallery template updates do not rewrite YAML files for already installed models.
