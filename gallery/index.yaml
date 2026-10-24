@@ -1088,6 +1088,66 @@
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  name: qwen3.8-27b-jumbo-fusion-q4
+  description: |
+    DavidAU's Jumbo Fusion edition of Qwen3.8-27B merges community fine-tunes
+    and includes a custom template with reasoning and instruction modes.
+    This Q4_K_M GGUF build supports text chat with a 32,768-token default context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-Jumbo-Fusion-IQ-747-900-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+  files:
+    - filename: Qwen3.8-27B-Jumbo-FIQ-747-900-T-Brill-50X-NEO-MTP-Q4_K_M.gguf
+      sha256: 10110a2cb45cf827f8deb6c17946376691697080e4ea0e3ae1922a7dd06fc713
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-Jumbo-Fusion-IQ-747-900-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF/resolve/63559b2ec40db5d17c383afb7e8574e038a1dc82/Qwen3.8-27B-Jumbo-FIQ-747-900-T-Brill-50X-NEO-MTP-Q4_K_M.gguf
+  overrides:
+    context_size: 32768
+    parameters:
+      min_p: 0.05
+      model: Qwen3.8-27B-Jumbo-FIQ-747-900-T-Brill-50X-NEO-MTP-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 64
+      top_p: 0.95
+  variants:
+    - model: qwen3.8-27b-jumbo-fusion-q8
+- url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  name: qwen3.8-27b-jumbo-fusion-q8
+  description: |
+    DavidAU's Jumbo Fusion edition of Qwen3.8-27B merges community fine-tunes
+    and includes a custom template with reasoning and instruction modes.
+    This Q8_0 GGUF build supports text chat with a 32,768-token default context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-Jumbo-Fusion-IQ-747-900-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+  files:
+    - filename: Qwen3.8-27B-Jumbo-FIQ-747-900-T-Brill-50X-NEO-MTP-Q8_0.gguf
+      sha256: b18ae37279ebd34b92d2e15371cfe0a3aac490ccfc3f060ad9691c0aebfad6c1
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-Jumbo-Fusion-IQ-747-900-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF/resolve/63559b2ec40db5d17c383afb7e8574e038a1dc82/Qwen3.8-27B-Jumbo-FIQ-747-900-T-Brill-50X-NEO-MTP-Q8_0.gguf
+  overrides:
+    context_size: 32768
+    parameters:
+      min_p: 0.05
+      model: Qwen3.8-27B-Jumbo-FIQ-747-900-T-Brill-50X-NEO-MTP-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 64
+      top_p: 0.95
+- url: github:mudler/LocalAI/gallery/qwen3.yaml@master
   name: qwen3.8-27b-turbo-brilliance-50x-q4
   description: |
     DavidAU's Turbo Brilliance 50X edition of Qwen3.8-27B includes a custom
