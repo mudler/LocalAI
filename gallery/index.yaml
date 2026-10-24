@@ -16892,6 +16892,100 @@
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: nemotron-3.5-bolt-e4b-q4
+  description: |
+    NVIDIA Nemotron 3.5 Bolt E4B is a Gemma 4 E4B fine-tune for
+    conversational assistants, instruction following, and multi-turn tool use.
+    This UD-Q4_K_XL GGUF build includes the F16 vision projector for
+    chat and image input, with a 32,768-token context by default.
+  license: openmdw-1.1
+  urls:
+    - https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16
+    - https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - reasoning
+  files:
+    - filename: llama-cpp/models/nemotron-3.5-bolt-e4b/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q4_K_XL.gguf
+      sha256: 84ff34f5834b929043f5ae74799e8d562d4056998f6a5923ceb44831e8ad84d6
+      uri: https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF/resolve/b738967d6da3441a7d1c71fcec15e49e32e16ecd/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q4_K_XL.gguf
+    - filename: llama-cpp/mmproj/nemotron-3.5-bolt-e4b/mmproj-F16.gguf
+      sha256: 6bc77b7ac2b62cf61bc86757605e45e39f6345373f0a6b76cc5b1ed97f2e233e
+      uri: https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF/resolve/b738967d6da3441a7d1c71fcec15e49e32e16ecd/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/nemotron-3.5-bolt-e4b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nemotron-3.5-bolt-e4b/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q4_K_XL.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: nemotron-3.5-bolt-e4b-q8
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: nemotron-3.5-bolt-e4b-q8
+  description: |
+    NVIDIA Nemotron 3.5 Bolt E4B is a Gemma 4 E4B fine-tune for
+    conversational assistants, instruction following, and multi-turn tool use.
+    This UD-Q8_K_XL GGUF build includes the F16 vision projector for
+    chat and image input, with a 32,768-token context by default.
+  license: openmdw-1.1
+  urls:
+    - https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16
+    - https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - reasoning
+  files:
+    - filename: llama-cpp/models/nemotron-3.5-bolt-e4b/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q8_K_XL.gguf
+      sha256: 6176bd788769bd58042c165d3dc8e8c86a8ca5c90d5de188a364b31dc9560810
+      uri: https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF/resolve/b738967d6da3441a7d1c71fcec15e49e32e16ecd/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q8_K_XL.gguf
+    - filename: llama-cpp/mmproj/nemotron-3.5-bolt-e4b/mmproj-F16.gguf
+      sha256: 6bc77b7ac2b62cf61bc86757605e45e39f6345373f0a6b76cc5b1ed97f2e233e
+      uri: https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF/resolve/b738967d6da3441a7d1c71fcec15e49e32e16ecd/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/nemotron-3.5-bolt-e4b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nemotron-3.5-bolt-e4b/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q8_K_XL.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: gemma-4-e4b-heretic-q4
   description: |
     Gemma 4 E4B Heretic is llmfan46's abliterated version of Gemma 4 E4B IT.
