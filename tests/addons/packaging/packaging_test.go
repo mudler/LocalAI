@@ -284,8 +284,10 @@ var _ = Describe("first-party package", func() {
 	})
 
 	It("refuses a platform the matrix does not enable and a missing executable of another platform", func() {
+		// Tables enables every platform the CI hosts run on, so the refused
+		// platform is one the matrix never lists.
 		layout := filepath.Join(GinkgoT().TempDir(), "leg")
-		out, err := packageSh("--layout", layout, "--version", "1.0.0", "--platform", hostPlat, "--executable", binary)
+		out, err := packageSh("--layout", layout, "--version", "1.0.0", "--platform", "windows/amd64", "--executable", binary)
 		Expect(err).To(HaveOccurred(), out)
 		Expect(out).To(ContainSubstring("not enabled"))
 		Expect(layout).NotTo(BeADirectory())
