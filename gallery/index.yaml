@@ -4,6 +4,249 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: glm-5.3-flash-maya-s
+  description: |
+    GLM-5.3-Flash is a mixture-of-experts model for reasoning, coding, tool use, and vision. Maya-S v2 mixes IQ2_XXS and IQ2_S experts with Q6_K attention and shared experts.
+  license: mit
+  urls:
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+    - https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/logo.svg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - multimodal
+    - vision
+    - reasoning
+    - tool-calling
+    - long-context
+    - moe
+    - glm
+    - glm-5.3
+  files:
+    - filename: llama-cpp/models/glm-5.3-flash-maya-s/GLM-5.3-Flash-Maya-S-v2-IQ2_XXS-00001-of-00003.gguf
+      sha256: e56ef50efd71d81ddf6249e08bd2ef5af96ed348c2b7a004491d46168d0ecaa7
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-S-v2-IQ2_XXS/GLM-5.3-Flash-Maya-S-v2-IQ2_XXS-00001-of-00003.gguf
+    - filename: llama-cpp/models/glm-5.3-flash-maya-s/GLM-5.3-Flash-Maya-S-v2-IQ2_XXS-00002-of-00003.gguf
+      sha256: 2d65d88a69f8dc124c8d24bd33b33161ddab218918b4253ad4f500aeede84df5
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-S-v2-IQ2_XXS/GLM-5.3-Flash-Maya-S-v2-IQ2_XXS-00002-of-00003.gguf
+    - filename: llama-cpp/models/glm-5.3-flash-maya-s/GLM-5.3-Flash-Maya-S-v2-IQ2_XXS-00003-of-00003.gguf
+      sha256: a6a981c4fee7a53d78bdbd97d8f465d48ddf439cf938ff90617f395e0351b5a6
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-S-v2-IQ2_XXS/GLM-5.3-Flash-Maya-S-v2-IQ2_XXS-00003-of-00003.gguf
+    - filename: llama-cpp/mmproj/glm-5.3-flash-maya/mmproj-GLM-5.3-Flash-F16.gguf
+      sha256: 3627575df16bd152db0f3fd7e488d270b33f3a9e6c7fa3b1b8ac381faafde882
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/vision/mmproj-GLM-5.3-Flash-F16.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - completion
+      - vision
+    mmproj: llama-cpp/mmproj/glm-5.3-flash-maya/mmproj-GLM-5.3-Flash-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/glm-5.3-flash-maya-s/GLM-5.3-Flash-Maya-S-v2-IQ2_XXS-00001-of-00003.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: glm-5.3-flash-maya-s24
+  description: |
+    GLM-5.3-Flash is a mixture-of-experts model for reasoning, coding, tool use, and vision. Maya-S24 uses mixed 2-bit experts with Q4_K attention and shared experts.
+  license: mit
+  urls:
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+    - https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/logo.svg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - multimodal
+    - vision
+    - reasoning
+    - tool-calling
+    - long-context
+    - moe
+    - glm
+    - glm-5.3
+  files:
+    - filename: llama-cpp/models/glm-5.3-flash-maya-s24/GLM-5.3-Flash-Maya-S24-IQ2_XXS_S-00001-of-00003.gguf
+      sha256: 8ebd5c74bcf65ece2a8699b7b6fd2b8d177f350ed252cee252fdd99b86a0138c
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-S24/GLM-5.3-Flash-Maya-S24-IQ2_XXS_S-00001-of-00003.gguf
+    - filename: llama-cpp/models/glm-5.3-flash-maya-s24/GLM-5.3-Flash-Maya-S24-IQ2_XXS_S-00002-of-00003.gguf
+      sha256: 4bd445da3a0128a9c5b32228c924e0a622aa4a132c7a8dc9a2c207a4beea8e34
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-S24/GLM-5.3-Flash-Maya-S24-IQ2_XXS_S-00002-of-00003.gguf
+    - filename: llama-cpp/models/glm-5.3-flash-maya-s24/GLM-5.3-Flash-Maya-S24-IQ2_XXS_S-00003-of-00003.gguf
+      sha256: a6fd4e88007ac49b431c7d02be34e43ab7a09224d53a0c52782327613cb41917
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-S24/GLM-5.3-Flash-Maya-S24-IQ2_XXS_S-00003-of-00003.gguf
+    - filename: llama-cpp/mmproj/glm-5.3-flash-maya/mmproj-GLM-5.3-Flash-F16.gguf
+      sha256: 3627575df16bd152db0f3fd7e488d270b33f3a9e6c7fa3b1b8ac381faafde882
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/vision/mmproj-GLM-5.3-Flash-F16.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - completion
+      - vision
+    mmproj: llama-cpp/mmproj/glm-5.3-flash-maya/mmproj-GLM-5.3-Flash-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/glm-5.3-flash-maya-s24/GLM-5.3-Flash-Maya-S24-IQ2_XXS_S-00001-of-00003.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: glm-5.3-flash-maya-m
+  description: |
+    GLM-5.3-Flash is a mixture-of-experts model for reasoning, coding, tool use, and vision. Maya-M uses mixed 2-bit and 3-bit experts with Q6_K attention and shared experts.
+  license: mit
+  urls:
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+    - https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/logo.svg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - multimodal
+    - vision
+    - reasoning
+    - tool-calling
+    - long-context
+    - moe
+    - glm
+    - glm-5.3
+  files:
+    - filename: llama-cpp/models/glm-5.3-flash-maya-m/GLM-5.3-Flash-Maya-M-IQ2_S-00001-of-00003.gguf
+      sha256: 3f740d1b1022b4a0ddad50cd861bb071dd415bde94afa1292d0476641186c638
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-M/GLM-5.3-Flash-Maya-M-IQ2_S-00001-of-00003.gguf
+    - filename: llama-cpp/models/glm-5.3-flash-maya-m/GLM-5.3-Flash-Maya-M-IQ2_S-00002-of-00003.gguf
+      sha256: 285951d2afa0cd98285b03d0dc4aa68d83daf1a6f4a2594fe40b0cdd27ade485
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-M/GLM-5.3-Flash-Maya-M-IQ2_S-00002-of-00003.gguf
+    - filename: llama-cpp/models/glm-5.3-flash-maya-m/GLM-5.3-Flash-Maya-M-IQ2_S-00003-of-00003.gguf
+      sha256: ebf1ce713f71207747e10eeebed87597969d8b5e1d9dd817420d2c2f7ca51e0e
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-M/GLM-5.3-Flash-Maya-M-IQ2_S-00003-of-00003.gguf
+    - filename: llama-cpp/mmproj/glm-5.3-flash-maya/mmproj-GLM-5.3-Flash-F16.gguf
+      sha256: 3627575df16bd152db0f3fd7e488d270b33f3a9e6c7fa3b1b8ac381faafde882
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/vision/mmproj-GLM-5.3-Flash-F16.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - completion
+      - vision
+    mmproj: llama-cpp/mmproj/glm-5.3-flash-maya/mmproj-GLM-5.3-Flash-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/glm-5.3-flash-maya-m/GLM-5.3-Flash-Maya-M-IQ2_S-00001-of-00003.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: glm-5.3-flash-maya-l
+  description: |
+    GLM-5.3-Flash is a mixture-of-experts model for reasoning, coding, tool use, and vision. Maya-L uses mixed 3-bit and 4-bit experts with higher precision in sensitive layers.
+  license: mit
+  urls:
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+    - https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/logo.svg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - multimodal
+    - vision
+    - reasoning
+    - tool-calling
+    - long-context
+    - moe
+    - glm
+    - glm-5.3
+  files:
+    - filename: llama-cpp/models/glm-5.3-flash-maya-l/GLM-5.3-Flash-Maya-L-IQ3_S-00001-of-00004.gguf
+      sha256: c41aeaf3a3e0022150b7c355e7f4df6c92ba68c4794e3e827e02e56b54886b9e
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-L/GLM-5.3-Flash-Maya-L-IQ3_S-00001-of-00004.gguf
+    - filename: llama-cpp/models/glm-5.3-flash-maya-l/GLM-5.3-Flash-Maya-L-IQ3_S-00002-of-00004.gguf
+      sha256: 351d59366afb7be7dfc3fb7af91281f7ccf00760b17dc45f82090325a7b34f64
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-L/GLM-5.3-Flash-Maya-L-IQ3_S-00002-of-00004.gguf
+    - filename: llama-cpp/models/glm-5.3-flash-maya-l/GLM-5.3-Flash-Maya-L-IQ3_S-00003-of-00004.gguf
+      sha256: 3685962fdfeaf130b74f98d3ce703ee33d818aa9991725932cb305b7c48db8af
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-L/GLM-5.3-Flash-Maya-L-IQ3_S-00003-of-00004.gguf
+    - filename: llama-cpp/models/glm-5.3-flash-maya-l/GLM-5.3-Flash-Maya-L-IQ3_S-00004-of-00004.gguf
+      sha256: 1af62cd72de6460c85369d988abbb790d6ec3a97507df51faf9bf32aa2b600d0
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/Maya-L/GLM-5.3-Flash-Maya-L-IQ3_S-00004-of-00004.gguf
+    - filename: llama-cpp/mmproj/glm-5.3-flash-maya/mmproj-GLM-5.3-Flash-F16.gguf
+      sha256: 3627575df16bd152db0f3fd7e488d270b33f3a9e6c7fa3b1b8ac381faafde882
+      uri: https://huggingface.co/peasantsmith/GLM-5.3-Flash-Maya-GGUF/resolve/f16ee4ba50d8fd2bb726ea1862ca6ca14ba188da/vision/mmproj-GLM-5.3-Flash-F16.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - completion
+      - vision
+    mmproj: llama-cpp/mmproj/glm-5.3-flash-maya/mmproj-GLM-5.3-Flash-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/glm-5.3-flash-maya-l/GLM-5.3-Flash-Maya-L-IQ3_S-00001-of-00004.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
@@ -1753,6 +1996,10 @@
       use_tokenizer_template: true
   variants:
     - model: glm-5.3-flash-q8
+    - model: glm-5.3-flash-maya-s
+    - model: glm-5.3-flash-maya-s24
+    - model: glm-5.3-flash-maya-m
+    - model: glm-5.3-flash-maya-l
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: glm-5.3-flash-q8
   description: |
