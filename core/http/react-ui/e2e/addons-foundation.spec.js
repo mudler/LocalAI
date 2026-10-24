@@ -65,23 +65,23 @@ test.describe('Add-ons foundation through real servers', () => {
       const { context, page } = await browserAs(browser, node, 'member')
       await page.goto('/app/addons')
       await expect(card(page)).toBeVisible({ timeout: 30_000 })
-      await expect(card(page).locator('.ad-tile__state')).toHaveText('Running')
+      await expect(card(page).locator('.ad-tile__state')).toHaveText('On')
       await context.close()
     }
   })
 
-  test('foundation: a member sees the Apps list only and the server refuses every management request', async ({ browser }) => {
+  test('foundation: a member sees the add-on list only and the server refuses every management request', async ({ browser }) => {
     for (const node of ['front-a', 'front-b', 'owner']) {
       const { context, page } = await browserAs(browser, node, 'member')
       await page.goto('/app/addons')
       await expect(card(page)).toBeVisible({ timeout: 30_000 })
       await expect(page.getByRole('tablist')).toHaveCount(0)
-      await expect(page.getByRole('button', { name: /^(Start|Stop)$/ })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: /^Turn (on|off)$/ })).toHaveCount(0)
       await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
       // The detail sheet hides them as well.
       await page.goto(`/app/addons?detail=${ID}`)
       await expect(sheetCard(page)).toBeVisible({ timeout: 30_000 })
-      await expect(page.getByRole('button', { name: /^(Start|Stop)$/ })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: /^Turn (on|off)$/ })).toHaveCount(0)
       await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
       // The page hides the controls; the server is what refuses.
       for (const action of ['install', 'upgrade', 'enable', 'disable', 'uninstall', 'catalog-sources', 'addons-installed']) {
@@ -116,15 +116,15 @@ test.describe('Add-ons foundation through real servers', () => {
     await expect(card(page)).toBeVisible({ timeout: 30_000 })
     await expect(page.getByRole('tablist')).toBeVisible()
     await page.goto(`/app/addons?detail=${ID}`)
-    await sheetCard(page).getByRole('button', { name: 'Stop' }).click()
-    await expect(sheetCard(page).getByRole('img', { name: 'State: Stopped' })).toBeVisible({ timeout: 30_000 })
+    await sheetCard(page).getByRole('button', { name: 'Turn off' }).click()
+    await expect(sheetCard(page).getByRole('img', { name: 'State: Off' })).toBeVisible({ timeout: 30_000 })
     // The other frontend and the owner see the same stopped add-on: the
     // administrator in the list with its state, a member not at all, because
     // the owner lists a disabled add-on to administrators only.
     for (const node of ['front-a', 'owner']) {
       const other = await browserAs(browser, node, 'admin')
       await other.page.goto(`/app/addons?detail=${ID}`)
-      await expect(sheetCard(other.page).getByRole('img', { name: 'State: Stopped' })).toBeVisible({ timeout: 30_000 })
+      await expect(sheetCard(other.page).getByRole('img', { name: 'State: Off' })).toBeVisible({ timeout: 30_000 })
       await other.context.close()
       const member = await browserAs(browser, node, 'member')
       await member.page.goto('/app/addons')
@@ -132,8 +132,8 @@ test.describe('Add-ons foundation through real servers', () => {
       await expect(card(member.page)).toHaveCount(0)
       await member.context.close()
     }
-    await sheetCard(page).getByRole('button', { name: 'Start' }).click()
-    await expect(sheetCard(page).getByRole('img', { name: 'State: Running' })).toBeVisible({ timeout: 30_000 })
+    await sheetCard(page).getByRole('button', { name: 'Turn on' }).click()
+    await expect(sheetCard(page).getByRole('img', { name: 'State: On' })).toBeVisible({ timeout: 30_000 })
     await context.close()
   })
 

@@ -58,6 +58,7 @@ const libraryInstallTimeout = time.Hour
 // @Success 200 {object} schema.BackendResponse "the job; read its status at the status URL"
 // @Failure 400 {object} schema.ErrorResponse "the request does not name an entry"
 // @Failure 409 {object} schema.ErrorResponse "the same backend is already being installed"
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /backends/library/install [post]
 func InstallBackendFromLibraryEndpoint(installer BackendLibraryInstaller, jobs BackendLibraryJobs) echo.HandlerFunc {
 	var mu sync.Mutex
@@ -173,6 +174,7 @@ func libraryReason(err error) string {
 // @Summary List the installed library backends with a newer build in their library.
 // @Tags backends
 // @Success 200 {object} map[string][]backendlib.Update "updates"
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /backends/library/updates [get]
 func BackendLibraryUpdatesEndpoint(installer BackendLibraryInstaller) echo.HandlerFunc {
 	return func(c echo.Context) error {
