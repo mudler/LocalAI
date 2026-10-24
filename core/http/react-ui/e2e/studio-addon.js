@@ -6,7 +6,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { app, mockAddons } from './addons-fixtures.js'
+import { app, mockAddons, stubAddonRoutes } from './addons-fixtures.js'
 
 const addons = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../addons')
 const DIGEST = 'e'.repeat(64)
@@ -55,6 +55,7 @@ export function packagedApp(id, over = {}) {
 // Returns the state of mockAddons.
 export async function installStudioAddons(page, { ids = ['studio', 'talk'], ...options } = {}) {
   const dirs = await Promise.all(ids.map(build))
+  await stubAddonRoutes(page)
   await page.route(/\/api\/addons\/(studio|talk|voice)\/assets\//, route => {
     const parts = new URL(route.request().url()).pathname.split('/')
     const id = parts[3]
