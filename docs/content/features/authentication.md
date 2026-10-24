@@ -139,6 +139,38 @@ credentials after auth is enabled. Admin views do not provide a complete migrati
 or export path for root data.
 {{% /notice %}}
 
+To keep the existing data without moving it, name the account that owns it with
+`LOCALAI_AUTH_LEGACY_OWNER`. Requests authenticated as that account (session or
+one of its API keys) use the root storage area instead of a per-user one, so the
+existing agents, collections, skills, jobs, outputs and chat history stay
+visible and usable, and switching auth off again returns to the same data. Every
+other account keeps its own storage area. The account is matched by e-mail,
+case-insensitively, and must hold the **admin** role: LocalAI grants that role
+only on a verified e-mail, so an OAuth identity that merely reports the owner's
+address without verification keeps its own area. Treat the address like
+`LOCALAI_ADMIN_EMAIL` and register it before anyone else can. Legacy API keys
+(`LOCALAI_API_KEY`) are not the owner, and an owner account that loses the admin
+role loses the root area with it.
+
+The agent pool runs the root agents with its own key (`LOCALAI_AGENT_POOL_API_KEY`).
+When a legacy owner is configured, a knowledge base search made with that key
+(`POST /api/agents/collections/<name>/search`) uses the root storage area too,
+unless it names a user with `?user_id=`; this lets knowledge base auto-search find
+the root agents' collections and append their sources. Every other call made with
+the pool key, including chat history, stays in the pool account's own area. Give
+the account that owns the pool key the `collections` feature, and keep it a
+regular user: it needs no admin rights.
+
+```bash
+LOCALAI_AUTH=true \
+LOCALAI_ADMIN_EMAIL=owner@example.com \
+LOCALAI_AUTH_LEGACY_OWNER=owner@example.com \
+LOCALAI_REGISTRATION_MODE=invite \
+local-ai run
+```
+
+Without `LOCALAI_AUTH_LEGACY_OWNER`, or for any other account, the steps below apply.
+
 Before switching an existing instance:
 
 1. Pause existing agents and scheduled work while auth is still off.
@@ -178,6 +210,7 @@ in **Settings → Users and keys**. Existing root agents can use an explicit
 | `LOCALAI_OIDC_CLIENT_SECRET` | | OIDC Client Secret |
 | `LOCALAI_BASE_URL` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) |
 | `LOCALAI_ADMIN_EMAIL` | | Email address to auto-promote to admin role on login |
+| `LOCALAI_AUTH_LEGACY_OWNER` | | Email address of the account that keeps the root storage area (data created while auth was off) |
 | `LOCALAI_REGISTRATION_MODE` | `approval` | Registration mode: `open`, `approval`, or `invite` |
 | `LOCALAI_DISABLE_LOCAL_AUTH` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only deployments) |
 
