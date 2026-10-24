@@ -606,6 +606,18 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml)).
 
+### Tess 4.5 27B
+
+Install `tess-4.5-27b-q4` for coding, reasoning, tool use, and image input
+with llama.cpp. The gallery groups Q4_K_M, Q6_K, and Q8_0 builds as variants.
+Each build includes the F16 vision projector and uses a 32,768-token context
+by default. These entries do not enable MTP speculative decoding or download
+the separate draft heads.
+
+```bash
+local-ai models install tess-4.5-27b-q4
+```
+
 ### Model variants
 
 Some gallery entries offer several builds of the same model: different

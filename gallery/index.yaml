@@ -4,6 +4,147 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: tess-4.5-27b-q4
+  description: |
+    Tess 4.5 is a 27B Qwen3.8 fine-tune for coding, reasoning, and tool use.
+    This Q4_K_M GGUF build includes the F16 vision projector and uses
+    llama.cpp with the embedded chat template. Speculative decoding is disabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/migtissera/Tess-4.5-27B
+    - https://huggingface.co/migtissera/Tess-4.5-27B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  files:
+    - filename: Tess-4.5-27B-Q4_K_M.gguf
+      sha256: 7a3157e2d4ab96a2abcee99a986bea11cfe282b58815ec676c5abe7e6a92d8dc
+      uri: https://huggingface.co/migtissera/Tess-4.5-27B-GGUF/resolve/af17a3f0de2b8557849c1b6fcc303d3160052450/Tess-4.5-27B-Q4_K_M.gguf
+    - filename: mmproj-Tess-4.5-27B-F16.gguf
+      sha256: ae93dc35b2bf3a7730fa518db6f1e8d7c624363643f61d85eef8655b671257bb
+      uri: https://huggingface.co/migtissera/Tess-4.5-27B-GGUF/resolve/af17a3f0de2b8557849c1b6fcc303d3160052450/mmproj-Tess-4.5-27B-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-Tess-4.5-27B-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Tess-4.5-27B-Q4_K_M.gguf
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: tess-4.5-27b-q6
+    - model: tess-4.5-27b-q8
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: tess-4.5-27b-q6
+  description: |
+    Tess 4.5 is a 27B Qwen3.8 fine-tune for coding, reasoning, and tool use.
+    This Q6_K GGUF build includes the F16 vision projector and uses
+    llama.cpp with the embedded chat template. Speculative decoding is disabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/migtissera/Tess-4.5-27B
+    - https://huggingface.co/migtissera/Tess-4.5-27B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  files:
+    - filename: Tess-4.5-27B-Q6_K.gguf
+      sha256: 515a2a0339bbb6fa9083cf347755c1a08acb735a43ec1e20f6c361da9491f43b
+      uri: https://huggingface.co/migtissera/Tess-4.5-27B-GGUF/resolve/af17a3f0de2b8557849c1b6fcc303d3160052450/Tess-4.5-27B-Q6_K.gguf
+    - filename: mmproj-Tess-4.5-27B-F16.gguf
+      sha256: ae93dc35b2bf3a7730fa518db6f1e8d7c624363643f61d85eef8655b671257bb
+      uri: https://huggingface.co/migtissera/Tess-4.5-27B-GGUF/resolve/af17a3f0de2b8557849c1b6fcc303d3160052450/mmproj-Tess-4.5-27B-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-Tess-4.5-27B-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Tess-4.5-27B-Q6_K.gguf
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: tess-4.5-27b-q8
+  description: |
+    Tess 4.5 is a 27B Qwen3.8 fine-tune for coding, reasoning, and tool use.
+    This Q8_0 GGUF build includes the F16 vision projector and uses
+    llama.cpp with the embedded chat template. Speculative decoding is disabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/migtissera/Tess-4.5-27B
+    - https://huggingface.co/migtissera/Tess-4.5-27B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  files:
+    - filename: Tess-4.5-27B-Q8_0.gguf
+      sha256: 5e97564e427b8672c7e69e119534600b29cb1c1677381cd355be3d140c8aae7a
+      uri: https://huggingface.co/migtissera/Tess-4.5-27B-GGUF/resolve/af17a3f0de2b8557849c1b6fcc303d3160052450/Tess-4.5-27B-Q8_0.gguf
+    - filename: mmproj-Tess-4.5-27B-F16.gguf
+      sha256: ae93dc35b2bf3a7730fa518db6f1e8d7c624363643f61d85eef8655b671257bb
+      uri: https://huggingface.co/migtissera/Tess-4.5-27B-GGUF/resolve/af17a3f0de2b8557849c1b6fcc303d3160052450/mmproj-Tess-4.5-27B-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-Tess-4.5-27B-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Tess-4.5-27B-Q8_0.gguf
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
