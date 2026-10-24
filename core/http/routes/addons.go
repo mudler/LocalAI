@@ -6,19 +6,24 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
 	endpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
+	httpMiddleware "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"gorm.io/gorm"
 )
 
-func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
-	RegisterAddonRoutesFor(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode())
+// RegisterAddonRoutes registers the routes over the gateway of a. The caller
+// passes the instance gate (middleware.RequireAddonsFeature(a)); app.go does.
+func RegisterAddonRoutes(e *echo.Echo, a *application.Application, gate ...echo.MiddlewareFunc) {
+	RegisterAddonRoutesFor(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), gate...)
 }
 
 // RegisterAddonRoutesFor registers the addon routes over one gateway. A
 // frontend of a distributed deployment serves exactly the routes of the owner
-// over its forwarding gateway, so the routes are one list.
-func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string) {
-	group := e.Group("/api/addons", auth.RequireFeature(db, auth.FeatureAddons), auth.CSRFMiddleware(), endpoints.BrowserProtection())
+// over its forwarding gateway, so the routes are one list. The instance gate
+// (middleware.RequireAddonsFeature) runs first and the per-user permission
+// after it.
+func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, gate ...echo.MiddlewareFunc) {
+	group := e.Group("/api/addons", append(gate, auth.RequireFeature(db, auth.FeatureAddons), auth.CSRFMiddleware(), endpoints.BrowserProtection())...)
 	mode := endpoints.WithOwnership(ownership)
 	group.POST("/dispatch", endpoints.Dispatch(gw, db, mode))
 	group.POST("/relay", endpoints.Relay(gw, db, mode))
@@ -94,4 +99,14 @@ func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 	// read for every caller with the feature; the owner serves only declared
 	// files of the current package. No MCP tool maps to it.
 	group.GET("/:id/assets/:digest/*", endpoints.GetAsset(gw, db, mode))
+}
+
+// RegisterAddonsUnavailable answers every method on a prefix and below it with
+// the typed unavailable response of an absent owner. With add-ons off, it is
+// registered in place of the add-on, fine-tuning and quantization routes, so a
+// client sees the same response for every path under the prefix.
+func RegisterAddonsUnavailable(e *echo.Echo, prefix string) {
+	h := httpMiddleware.AddonsUnavailable()
+	e.Any(prefix, h)
+	e.Any(prefix+"/*", h)
 }

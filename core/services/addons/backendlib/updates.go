@@ -48,14 +48,34 @@ func (i *Installer) Updates(ctx context.Context) ([]Update, error) {
 	if err != nil {
 		return nil, err
 	}
-	target, arch := i.Catalog.Target()
-	out := []Update{}
+	var target, arch string
+	if i.Remote != nil {
+		if target, arch, err = i.Remote.Target(ctx); err != nil {
+			return nil, err
+		}
+	} else {
+		target, arch = i.Catalog.Target()
+	}
+	var refs []Ref
 	for name, b := range backends {
 		if b.IsSystem || b.Metadata == nil || b.Metadata.Library == "" || b.Metadata.Digest == "" {
 			continue
 		}
-		releases, err := i.Catalog.KindReleases(ctx, catalog.KindBackend, b.Metadata.Library, name)
-		if err != nil {
+		refs = append(refs, Ref{SourceID: b.Metadata.Library, Name: name})
+	}
+	var remote map[string][]catalog.Release
+	if i.Remote != nil && len(refs) > 0 {
+		if remote, err = i.Remote.Releases(ctx, refs); err != nil {
+			return nil, err
+		}
+	}
+	out := []Update{}
+	for _, ref := range refs {
+		b, name := backends[ref.Name], ref.Name
+		var releases []catalog.Release
+		if i.Remote != nil {
+			releases = remote[RefKey(ref.SourceID, ref.Name)]
+		} else if releases, err = i.Catalog.KindReleases(ctx, catalog.KindBackend, b.Metadata.Library, name); err != nil {
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
