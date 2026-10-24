@@ -62,7 +62,11 @@
     "thisMachine": "Esta máquina",
     "failover": "Failover",
     "p2p": "P2P",
-    "addons": "Complementos"
+    "addons": "Complementos",
+    "logs": "Logs",
+    "trafficModels": "Models",
+    "gpuHost": "GPU and host",
+    "prometheus": "Prometheus"
   },
   "footer": {
     "github": "GitHub",

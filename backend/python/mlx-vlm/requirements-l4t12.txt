@@ -1,2 +1,2 @@
-git+https://github.com/Blaizzy/mlx-vlm@v0.4.4
+git+https://github.com/Blaizzy/mlx-vlm@v0.6.12
 mlx[cuda12]

@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"io"
 	"net/http"
 	"net/url"
@@ -41,6 +42,7 @@ type CarrierConfig struct {
 type Carrier struct {
 	config CarrierConfig
 	client *http.Client
+	caps   capsCache
 }
 type OutcomeUnknown struct {
 	OperationID string `json:"operationId"`
@@ -48,6 +50,17 @@ type OutcomeUnknown struct {
 
 func (e *OutcomeUnknown) Error() string { return "addon mutation outcome unknown" }
 func (e *OutcomeUnknown) Unwrap() error { return ErrUnavailable }
+
+// validSigningKey reports whether the signing key fits the role. A frontend
+// signs every request it forwards and needs a full key. The owner never signs
+// outbound requests, so it needs none; a key it has must still be well formed.
+func validSigningKey(c CarrierConfig) bool {
+	if len(c.SigningKey) == 0 {
+		return c.InstanceID == c.OwnerID
+	}
+	return len(c.SigningKey) == ed25519.PrivateKeySize
+}
+
 func NewCarrier(c CarrierConfig) (*Carrier, error) {
 	limits, e := c.Limits.resolved()
 	if e != nil {
@@ -55,7 +68,7 @@ func NewCarrier(c CarrierConfig) (*Carrier, error) {
 	}
 	c.Limits = limits
 	u, e := url.Parse(c.OwnerAddress)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.Roots == nil || len(c.Certificate.Certificate) == 0 || len(c.SigningKey) != ed25519.PrivateKeySize {
+	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.Roots == nil || len(c.Certificate.Certificate) == 0 || !validSigningKey(c) {
 		return nil, ErrForbidden
 	}
 	if _, ok := c.Pins[c.OwnerID]; !ok {
@@ -122,6 +135,9 @@ type wireRequest struct {
 	// grants, rename, deletion and conversation selections. Such a call is
 	// never a typed dispatch.
 	Resource *ResourceCall `json:"resource,omitempty"`
+	// Library marks a library call: a change of the library sources, or the
+	// owner's half of a backend install. Such a call is never a typed dispatch.
+	Library *LibraryCall `json:"library,omitempty"`
 }
 
 func decode(r io.Reader, dst any) error {
@@ -161,6 +177,49 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			}{v.Audience()})
 			return
 		}
+		if r.Method == "GET" && r.URL.Path == "/addons/capabilities" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(g.capabilities())
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/addons/models-probe" {
+			var p modelsprobe.Probe
+			ok := false
+			if g.ModelsProbe != nil {
+				p, ok = g.ModelsProbe()
+			}
+			if !ok {
+				typedError(w, ErrUnavailable)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(p)
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/addons/library/snapshot" {
+			if g.Libraries == nil {
+				typedError(w, ErrUnavailable)
+				return
+			}
+			raw, e := g.Libraries.Snapshot(r.Context(), r.URL.Query().Get("known"))
+			if e != nil {
+				typedError(w, e)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(raw)
+			return
+		}
+		if r.Method == "POST" && r.URL.Path == "/addons/library/system" {
+			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+			var call LibraryCall
+			if decode(r.Body, &call) != nil {
+				http.Error(w, "invalid request", 400)
+				return
+			}
+			g.librarySystemLocal(r.Context(), w, call)
+			return
+		}
 		if r.Method != "POST" || r.URL.Path != "/addons/forward" {
 			http.Error(w, "not found", 404)
 			return
@@ -181,9 +240,19 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			http.Error(w, "invalid binding", 400)
 			return
 		}
+		if wire.Library != nil {
+			call := *wire.Library
+			// The owner classifies by the call, not by the action the peer wrote.
+			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Resource != nil || !call.valid() || call.System || wire.Request.Action != call.wireAction() {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			g.libraryLocal(r.Context(), w, actor, call)
+			return
+		}
 		if wire.Resource != nil {
 			call := *wire.Resource
-			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Request.Action != call.wireAction() {
+			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Library != nil || wire.Request.Action != call.wireAction() {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -322,6 +391,40 @@ func StatusFor(e error) int {
 	return http.StatusServiceUnavailable
 }
 
+// Reasons that WriteUnavailable puts in the body, so a client can tell a
+// disabled feature from an absent owner.
+const (
+	ReasonAddonsOff       = "add-ons are turned off on this instance"
+	ReasonOwnerUnreached  = "the add-on owner is not reachable"
+	ReasonLibraryOnOwner  = "library sources are managed on the owner"
+	ReasonModelsNotShared = "the models path of this instance is not the shared models storage of the add-on owner; model exports are blocked"
+	unavailableErrorType  = "server_error"
+	unavailableErrorCode  = "unavailable"
+)
+
+// unavailableBody has the shape of the LocalAI error envelope
+// (schema.ErrorResponse), which the rest of the API writes.
+type unavailableBody struct {
+	Error struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+		Code    string `json:"code"`
+	} `json:"error"`
+}
+
+// WriteUnavailable writes the response of an add-on request that no owner can
+// serve: status 503, the status StatusFor gives ErrUnavailable, and the LocalAI
+// error envelope with code "unavailable". The message says why. The add-on
+// feature gate uses it so a disabled add-on side and an unreachable owner share
+// one status and one shape, and differ only in the message.
+func WriteUnavailable(w http.ResponseWriter, reason string) {
+	var b unavailableBody
+	b.Error.Message, b.Error.Type, b.Error.Code = reason, unavailableErrorType, unavailableErrorCode
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(StatusFor(ErrUnavailable))
+	_ = json.NewEncoder(w).Encode(b)
+}
+
 // typedError writes the owner's typed failure response.
 func typedError(w http.ResponseWriter, e error) {
 	if e = Refused(e); errors.Is(e, ErrInvalidRequest) {
@@ -392,14 +495,16 @@ func (c *Carrier) relayBudget(kind string) (int64, error) {
 	}
 	return 0, ErrForbidden
 }
-func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) (*http.Response, error) {
+
+// audience asks the owner for the audience its envelopes must name.
+func (c *Carrier) audience(ctx context.Context) (string, error) {
 	req, e := http.NewRequestWithContext(ctx, "GET", c.config.OwnerAddress+"/addons/audience", nil)
 	if e != nil {
-		return nil, ErrUnavailable
+		return "", ErrUnavailable
 	}
 	resp, e := c.client.Do(req)
 	if e != nil {
-		return nil, ErrUnavailable
+		return "", ErrUnavailable
 	}
 	var bootstrap struct {
 		Audience string `json:"audience"`
@@ -407,7 +512,48 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	e = decode(io.LimitReader(resp.Body, 4096), &bootstrap)
 	_ = resp.Body.Close()
 	if e != nil || resp.StatusCode != 200 || len(bootstrap.Audience) != 64 {
-		return nil, ErrUnavailable
+		return "", ErrUnavailable
+	}
+	return bootstrap.Audience, nil
+}
+
+// ModelsProbe asks the owner for the probe it wrote into its models path. An
+// owner that has none, or that does not know the call, gives ErrUnavailable.
+func (c *Carrier) ModelsProbe(ctx context.Context) (modelsprobe.Probe, error) {
+	ctx, cancel := context.WithTimeout(ctx, ReachableTimeout)
+	defer cancel()
+	req, e := http.NewRequestWithContext(ctx, "GET", c.config.OwnerAddress+"/addons/models-probe", nil)
+	if e != nil {
+		return modelsprobe.Probe{}, ErrUnavailable
+	}
+	resp, e := c.client.Do(req)
+	if e != nil {
+		return modelsprobe.Probe{}, ErrUnavailable
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var p modelsprobe.Probe
+	if resp.StatusCode != http.StatusOK || decode(io.LimitReader(resp.Body, 4096), &p) != nil || !p.Valid() {
+		return modelsprobe.Probe{}, ErrUnavailable
+	}
+	return p, nil
+}
+
+// ReachableTimeout bounds one reachability probe of the owner.
+const ReachableTimeout = 2 * time.Second
+
+// Reachable reports whether the owner answered the audience call. It signs
+// nothing and changes nothing, and it has its own timeout.
+func (c *Carrier) Reachable(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, ReachableTimeout)
+	defer cancel()
+	_, e := c.audience(ctx)
+	return e
+}
+
+func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) (*http.Response, error) {
+	audience, e := c.audience(ctx)
+	if e != nil {
+		return nil, e
 	}
 	body, e := json.Marshal(wire)
 	if e != nil || len(body) > 2<<20 {
@@ -417,15 +563,19 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	if _, e = rand.Read(nonce[:]); e != nil {
 		return nil, ErrUnavailable
 	}
-	m := ForwardedRequest{PeerID: c.config.InstanceID, Audience: bootstrap.Audience, Actor: a, OperationID: wire.Request.OperationID, Nonce: hex.EncodeToString(nonce[:]), ExpiresAt: time.Now().Add(30 * time.Second), Body: body}
+	if len(c.config.SigningKey) != ed25519.PrivateKeySize {
+		// Only an owner can lack a key, and an owner never forwards.
+		return nil, ErrForbidden
+	}
+	m := ForwardedRequest{PeerID: c.config.InstanceID, Audience: audience, Actor: a, OperationID: wire.Request.OperationID, Nonce: hex.EncodeToString(nonce[:]), ExpiresAt: time.Now().Add(30 * time.Second), Body: body}
 	m.Sign(c.config.SigningKey)
 	b, _ := json.Marshal(m)
-	req, e = http.NewRequestWithContext(ctx, "POST", c.config.OwnerAddress+"/addons/forward", bytes.NewReader(b))
+	req, e := http.NewRequestWithContext(ctx, "POST", c.config.OwnerAddress+"/addons/forward", bytes.NewReader(b))
 	if e != nil {
 		return nil, e
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, e = c.client.Do(req)
+	resp, e := c.client.Do(req)
 	if e != nil {
 		if wire.Proposal != nil {
 			return nil, uncertainProposal(*wire.Proposal, wire.Request.OperationID)
@@ -504,7 +654,7 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action]
+	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})

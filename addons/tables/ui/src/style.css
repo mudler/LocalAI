@@ -9,7 +9,7 @@
 .tbl-page { display: flex; flex-direction: column; gap: var(--dk-space-4, 16px); min-width: 0; }
 .tbl-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--dk-space-3, 12px); }
 .tbl-head__main { display: flex; flex-direction: column; gap: var(--dk-space-2, 8px); min-width: 0; }
-.tbl-title { margin: 0; font-size: var(--dk-text-18, 18px); font-weight: var(--dk-weight-semibold, 600); overflow-wrap: anywhere; }
+.tbl-title { margin: 0; overflow-wrap: anywhere; }
 .tbl-subtitle { margin: 0; font-size: var(--dk-text-14, 14px); font-weight: var(--dk-weight-semibold, 600); }
 .tbl-muted { margin: 0; color: var(--dk-muted); }
 .tbl-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -36,7 +36,7 @@ a.tbl-db__name:hover { text-decoration: underline; }
 .tbl-tabs { display: flex; flex-wrap: wrap; gap: var(--dk-space-1, 4px); min-width: 0; }
 .tbl-tab { min-height: 32px; padding: 0 var(--dk-space-3, 12px); border: 1px solid transparent; border-radius: var(--dk-radius-1, 4px); background: transparent; color: var(--dk-text); font: inherit; cursor: pointer; }
 .tbl-tab:hover { background: var(--dk-hover); }
-.tbl-tab--on { border-color: var(--dk-edge); background: var(--dk-inset); font-weight: var(--dk-weight-semibold, 600); }
+.tbl-tab--on { border-color: transparent; background: var(--dk-accent-wash); color: var(--dk-accent-text); font-weight: var(--dk-weight-semibold, 600); }
 
 /* Toolbar, selection bar, pager */
 .tbl-tableview { display: flex; flex-direction: column; gap: var(--dk-space-3, 12px); min-width: 0; }

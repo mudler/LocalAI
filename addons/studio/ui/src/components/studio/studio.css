@@ -42,21 +42,29 @@
 
 /* The seven types, as one row above every Studio page. The current one is
    outlined and lifted onto a card; there is no underline and no rail. */
+.studio-head { padding: var(--spacing-xl) var(--spacing-xl) 0; }
+.studio-head .page-header { margin-bottom: var(--dk-space-3); }
+/* One row at any width: eight tabs do not fit a narrow window, so the row
+   scrolls sideways instead of dropping the last tab onto a second line. */
 .studio-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--dk-space-1);
-  padding: var(--dk-space-4) var(--spacing-xl) 0;
+  padding: 3px var(--dk-space-2) 3px var(--spacing-xl);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.studio-tabs::-webkit-scrollbar { display: none; }
 .studio-tab {
   position: relative; /* contains the hidden state text so it cannot widen the scrolling row */
   display: inline-flex;
   align-items: center;
   gap: var(--dk-space-2);
   height: 38px;
-  padding: 0 var(--dk-space-3);
+  padding: 0 10px;
   border: 0;
   border-radius: var(--dk-radius-3);
+  flex: none;
   background: transparent;
   color: var(--dk-muted);
   font: var(--dk-weight-semibold) var(--dk-text-13) / 1 var(--dk-font-body);
@@ -73,8 +81,8 @@
   box-shadow: inset 0 0 0 1.5px var(--dk-text);
 }
 @media (max-width: 720px) {
-  .studio-tabs { flex-wrap: nowrap; overflow-x: auto; padding-left: var(--dk-space-4); padding-right: var(--dk-space-4); scrollbar-width: none; }
-  .studio-tab { flex: none; }
+  .studio-head { padding: var(--dk-space-4) var(--dk-space-4) 0; }
+  .studio-tabs { padding-left: var(--dk-space-4); padding-right: var(--dk-space-4); }
 }
 
 /* --- Composer ------------------------------------------------------------ */
