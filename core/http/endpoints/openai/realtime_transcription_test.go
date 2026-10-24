@@ -29,7 +29,7 @@ var _ = Describe("emitTranscription", func() {
 		}
 		t := &fakeTransport{}
 
-		transcript, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav")
+		transcript, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav", nil)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(transcript).To(Equal("Hello world"))
@@ -45,7 +45,7 @@ var _ = Describe("emitTranscription", func() {
 		}
 		t := &fakeTransport{}
 
-		transcript, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav")
+		transcript, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav", nil)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(transcript).To(Equal("Hi"))
@@ -82,7 +82,7 @@ var _ = Describe("emitTranscription", func() {
 			}
 			t := &fakeTransport{}
 
-			transcript, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav")
+			transcript, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav", nil)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(transcript).To(Equal("hi there. hello"))
@@ -111,7 +111,7 @@ var _ = Describe("emitTranscription", func() {
 			}
 			t := &fakeTransport{}
 
-			_, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav")
+			_, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav", nil)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(m.lastDiarize).To(BeTrue())
@@ -127,7 +127,7 @@ var _ = Describe("emitTranscription", func() {
 			}
 			t := &fakeTransport{}
 
-			_, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav")
+			_, err := emitTranscription(context.Background(), t, session, "item1", "/tmp/x.wav", nil)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(m.lastDiarize).To(BeFalse())

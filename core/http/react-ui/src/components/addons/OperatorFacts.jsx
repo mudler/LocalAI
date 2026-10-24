@@ -1,0 +1,175 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useTranslation } from 'react-i18next'
+import Icon from '../Icon'
+import { StateChip, Fact, UnknownNotice } from './AddonBits'
+import { formatBytes, rangeText, shortDigest } from './addonState'
+import { describeError, describeOutcome } from './errors'
+import { updateView, formatWhen, UPDATE_TYPES } from './updateState'
+import RecoveryPanel from './RecoveryPanel'
+
+// What an administrator needs to run an add-on, shown in the preview pane under
+// Details: health, trust, compatibility, storage, data recovery and updates.
+// It reads the installed record of the add-on, which the host serves to
+// administrators only; the host checks that again on every call.
+export function OperatorFacts({ addon, api, language, actions, check, upgraded, onCheck, onUpgrade }) {
+  const { t } = useTranslation('addons')
+  const working = busy(actions, addon, ['start', 'stop', 'enable', 'disable', 'upgrade', 'uninstall'])
+  const compat = addon.compatibility || {}
+  return (
+    <div className="ad-facts-body" data-testid="addon-manage">
+      <section className="ad-section" aria-labelledby="manage-health">
+        <h3 id="manage-health" className="ad-section__title">{t('manage.health')}</h3>
+        <dl className="dk-kv ad-kv">
+          <dt>{t('manage.desired')}</dt><dd>{addon.enabled ? t('installed.enabled') : t('installed.disabled')}</dd>
+          <dt>{t('manage.observed')}</dt><dd><StateChip app={addon} /></dd>
+          <dt>{t('manage.restarts')}</dt><dd>{addon.restarts}</dd>
+        </dl>
+        {addon.enabled && addon.state === 'failed' && <p className="ad-entry__note" data-tone="error" role="alert">{t('manage.failedNote', { count: addon.restarts })}</p>}
+      </section>
+
+      <section className="ad-section" aria-labelledby="manage-trust">
+        <h3 id="manage-trust" className="ad-section__title">{t('manage.trust')}</h3>
+        <dl className="dk-kv ad-kv">
+          <dt>{t('trust.verification')}</dt><dd>{t(`trust.mode.${addon.verification === 'sha256+sigstore' ? 'signed' : 'digest'}`)}</dd>
+          <dt>{t('trust.library')}</dt><dd>{addon.sourceId || '—'}</dd>
+          {addon.channel && (<><dt>{t('trust.channel')}</dt><dd>{addon.channel}</dd></>)}
+          {addon.selection && (<><dt>{t('trust.selection')}</dt><dd>{addon.selection}</dd></>)}
+          <dt>{t('trust.digest')}</dt><dd className="dk-mono ad-wrap" title={addon.digest}>{shortDigest(addon.digest)}</dd>
+        </dl>
+      </section>
+
+      <section className="ad-section" aria-labelledby="manage-compat">
+        <h3 id="manage-compat" className="ad-section__title">{t('manage.compatibility')}</h3>
+        <dl className="dk-kv ad-kv">
+          <dt>{t('trust.platform')}</dt><dd>{addon.platform.os}/{addon.platform.arch}</dd>
+          <dt>{t('manage.host')}</dt><dd>{rangeText(compat.host)}</dd>
+          <dt>{t('manage.api')}</dt><dd>{rangeText(compat.api)}</dd>
+          <dt>{t('manage.protocol')}</dt><dd>{rangeText(compat.protocol)}</dd>
+          <dt>{t('manage.dataFormat')}</dt><dd>{rangeText(compat.dataFormat)}</dd>
+          <dt>{t('manage.tools')}</dt><dd>{addon.toolCount}{addon.tools?.length ? `: ${addon.tools.join(', ')}` : ''}</dd>
+          <dt>{t('manage.interface')}</dt><dd>{addon.hasUI ? t('manage.hasUI') : t('manage.headless')}</dd>
+        </dl>
+      </section>
+
+      <section className="ad-section" aria-labelledby="manage-storage">
+        <h3 id="manage-storage" className="ad-section__title">{t('manage.storage')}</h3>
+        <dl className="dk-kv ad-kv">
+          <dt>{t('manage.data')}</dt><dd>{formatBytes(addon.storage?.bytes)}{addon.storage?.truncated ? ` ${t('manage.atLeast')}` : ''}</dd>
+          <dt>{t('manage.generations')}</dt><dd>{addon.generations}</dd>
+        </dl>
+      </section>
+
+      <section className="ad-section" aria-labelledby="manage-recovery" data-testid="manage-recovery">
+        <h3 id="manage-recovery" className="ad-section__title">{t('recovery.title')}</h3>
+        <RecoveryPanel api={api} addon={addon} />
+      </section>
+
+      <section className="ad-section" aria-labelledby="manage-updates" data-testid="manage-updates">
+        <h3 id="manage-updates" className="ad-section__title">{t('updates.title')}</h3>
+        <UpdatePanel addon={addon} t={t} language={language} actions={actions} check={check} upgraded={upgraded} working={working} onCheck={onCheck} onUpgrade={onUpgrade} />
+      </section>
+
+      <section className="ad-section" aria-labelledby="manage-logs">
+        <h3 id="manage-logs" className="ad-section__title">{t('manage.logs')}</h3>
+        <p className="ad-quiet">{t('manage.logsNone')}</p>
+      </section>
+    </div>
+  )
+}
+
+function busy(actions, addon, verbs) {
+  if (actions.unknown[addon.id]) return true
+  return verbs.some(v => actions.state[`${v}:${addon.id}:${addon.generation}`]?.phase === 'working')
+}
+
+function latest(actions, addon, verbs) {
+  for (const v of verbs) {
+    const s = actions.state[`${v}:${addon.id}:${addon.generation}`]
+    if (s && s.phase !== 'working' && s.outcome) return s
+  }
+  return null
+}
+
+// The words for the outcome of an action. A typed refusal of the update
+// routes has its own words; everything else is the shared description.
+function outcomeText(result, t) {
+  const type = result && result.error && result.error.type
+  if (type && UPDATE_TYPES.has(type)) return t(`updates.errors.${type}`)
+  return describeOutcome(result.outcome, t, result.error)
+}
+
+// The owner's update check of one add-on: what it says, how old it is, and the
+// two actions. Check only reads; Upgrade opens a confirmation first.
+function UpdatePanel({ addon, t, language, actions, check, upgraded, working, onCheck, onUpgrade }) {
+  const view = updateView(addon.update)
+  const checking = check && check.phase === 'working'
+  const upgrading = actions.state[`upgrade:${addon.id}:${addon.generation}`]?.phase === 'working'
+  const result = latest(actions, addon, ['upgrade'])
+  const checkedAt = formatWhen(view.checkedAt, language)
+  const lastSuccess = formatWhen(view.lastSuccess, language)
+  return (
+    <>
+      <p data-testid="update-state" data-state={view.state} className={view.state === 'check-failed' || view.state === 'integrity-error' ? 'ad-entry__note' : undefined} data-tone={view.tone === 'error' ? 'error' : undefined}>
+        {t(`updates.state.${view.state}`, { version: view.version })}
+      </p>
+      <dl className="dk-kv ad-kv">
+        <dt>{t('updates.installed')}</dt>
+        <dd>{addon.version} <span className="dk-mono ad-wrap" title={addon.digest}>{shortDigest(addon.digest)}</span></dd>
+        {view.version && (view.state === 'update-available' || view.state === 'incompatible' || view.state === 'integrity-error') && (
+          <>
+            <dt>{t('updates.candidate')}</dt>
+            <dd data-testid="update-candidate">{view.version} {view.digest && <span className="dk-mono ad-wrap" title={view.digest}>{shortDigest(view.digest)}</span>}</dd>
+          </>
+        )}
+        <dt>{t('trust.library')}</dt><dd>{addon.sourceId || '—'}{addon.channel ? ` · ${addon.channel}` : addon.selection ? ` · ${addon.selection}` : ''}</dd>
+      </dl>
+      {view.reasons.length > 0 && (
+        <div data-testid="update-reasons">
+          <p className="ad-quiet">{t('updates.reasons')}</p>
+          <ul className="ad-reasons">{view.reasons.map(r => <li key={r}>{t(`updates.reason.${r}`)}</li>)}</ul>
+        </div>
+      )}
+      {view.state === 'check-failed' && view.error && <p className="ad-entry__note" data-tone="error" role="status" data-testid="update-error">{t(`updates.class.${view.error}`)}</p>}
+      <p className="ad-quiet" data-testid="update-times">
+        {checkedAt ? t('updates.checkedAt', { when: checkedAt }) : t('updates.neverChecked')}
+        {lastSuccess ? ` · ${t('updates.lastSuccess', { when: lastSuccess })}` : ''}
+      </p>
+      {view.stale && <p className="ad-quiet" data-testid="update-stale">{t('updates.stale')}</p>}
+      {check && check.phase === 'done' && check.throttled && <p className="ad-quiet" role="status">{t('updates.throttled')}</p>}
+      {check && check.phase === 'error' && <p className="ad-entry__note" data-tone="error" role="alert">{describeError(check.error, t)}</p>}
+      {upgrading && <p className="ad-entry__note" role="status" data-testid="upgrade-progress">{t('updates.progress', { name: addon.title })}</p>}
+      {upgraded && !working && <p className="ad-entry__note" data-tone="ok" role="status">{t('updates.done', { version: addon.version })}</p>}
+      {actions.unknown[addon.id]
+        ? <UnknownNotice addonId={addon.id} actions={actions} />
+        : result && result.outcome !== 'completed' && <p className="ad-entry__note" data-tone="error" role="alert">{outcomeText(result, t)}</p>}
+      <div className="ad-section__acts">
+        <button type="button" className="dk-btn dk-btn--sm" disabled={checking || working} onClick={onCheck} data-testid="update-check">
+          <Icon name={checking ? 'spinner' : 'refresh'} spin={checking} /> {checking ? t('updates.checking') : t('updates.checkNow')}
+        </button>
+        {view.canUpgrade && (
+          <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={working} onClick={onUpgrade} data-testid="update-upgrade">
+            <Icon name="arrow-up" /> {t('updates.upgrade')}
+          </button>
+        )}
+      </div>
+    </>
+  )
+}
+
+// What the confirmation shows before an upgrade: which library and channel,
+// which version and digest goes to which, and that the data is backed up.
+export function UpgradeSummary({ addon, t }) {
+  const view = updateView(addon.update)
+  return (
+    <div data-testid="upgrade-confirm">
+      <dl className="dk-kv ad-kv">
+        <dt>{t('updates.confirm.library')}</dt><dd>{addon.sourceId || '—'}</dd>
+        <dt>{t('updates.confirm.channel')}</dt><dd>{addon.channel || addon.selection || '—'}</dd>
+        <dt>{t('updates.confirm.from')}</dt><dd>{addon.version} <span className="dk-mono">{shortDigest(addon.digest)}</span></dd>
+        <dt>{t('updates.confirm.to')}</dt><dd>{view.version} <span className="dk-mono">{shortDigest(view.digest)}</span></dd>
+      </dl>
+      <p>{t('updates.confirm.body')}</p>
+      <p>{t('updates.confirm.data')}</p>
+    </div>
+  )
+}

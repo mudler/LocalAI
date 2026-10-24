@@ -29,6 +29,17 @@ func registerBackendTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		return jsonResult(backends), nil, nil
 	})
 
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolListBackendLibraryUpdates,
+		Description: "List installed library backends that have a newer build in their library. Reads the cached library index and installs nothing.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+		updates, err := client.ListBackendLibraryUpdates(ctx)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(map[string]any{"updates": updates}), nil, nil
+	})
+
 	if opts.DisableMutating {
 		return
 	}

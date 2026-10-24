@@ -183,6 +183,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/stores/find", FeatureStores},
 
 	// Fine-tuning
+	{"GET", "/api/fine-tuning/status", FeatureFineTuning},
 	{"POST", "/api/fine-tuning/jobs", FeatureFineTuning},
 	{"GET", "/api/fine-tuning/jobs", FeatureFineTuning},
 	{"GET", "/api/fine-tuning/jobs/:id", FeatureFineTuning},
@@ -208,6 +209,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"DELETE", "/api/conversations/:id", FeatureChatHistory},
 
 	// Quantization
+	{"GET", "/api/quantization/status", FeatureQuantization},
 	{"POST", "/api/quantization/jobs", FeatureQuantization},
 	{"GET", "/api/quantization/jobs", FeatureQuantization},
 	{"GET", "/api/quantization/jobs/:id", FeatureQuantization},

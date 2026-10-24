@@ -3,10 +3,13 @@ package cli
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/xlog"
 )
@@ -15,17 +18,40 @@ import (
 // owner, so the node supervises the add-ons itself.
 const localAddonOwnerID = "local"
 
-// addonConfigFor derives the add-on owner configuration of a single node from
-// the run flags. Only the on/off switch and the ownership mode are flags; the
-// rest follows from the node being its own owner.
+// The roles of --addons-role.
+const (
+	addonRoleCombined = "combined"
+	addonRoleOwner    = "owner"
+	addonRoleFrontend = "frontend"
+)
+
+// addonRoleFlags holds the flags that choose how this process takes part in the
+// add-on owner. The zero value is the combined role of a single node.
+type addonRoleFlags struct {
+	Role         string
+	OwnerAddress string
+	OwnerListen  string
+	CarrierDir   string
+}
+
+// addonConfigFor derives the add-on owner configuration from the run flags. In
+// the combined role (the default) the node is its own owner and only the
+// on/off switch and the ownership mode matter. In the owner and frontend roles
+// the owner is its own workload: the carrier keys come from a key directory
+// and the frontend never touches the owner's files.
 //
 // An empty mode takes the documented default: local-owner when authentication
 // is off, named-user when it is on. An explicit mode always wins. Named-user
 // needs the account database, so an explicit named-user without
 // authentication leaves the owner off with a warning instead of stopping the
 // server.
-func addonConfigFor(enabled bool, mode, dataPath string, authEnabled bool) (config.AddonConfig, error) {
+func addonConfigFor(enabled bool, mode, dataPath string, authEnabled bool, roleFlags addonRoleFlags) (config.AddonConfig, error) {
 	if !enabled {
+		// Add-ons off means no carrier, no keys and no owner address, so a role
+		// flag cannot matter. A frontend with add-ons off starts without them.
+		if roleFlags.Role != "" || roleFlags.OwnerAddress != "" || roleFlags.OwnerListen != "" || roleFlags.CarrierDir != "" {
+			xlog.Info("Add-ons are off: the --addons-role, --addons-owner-address, --addons-owner-listen and --addons-carrier-dir flags are ignored")
+		}
 		return config.AddonConfig{}, nil
 	}
 	if mode == "" {
@@ -50,6 +76,23 @@ func addonConfigFor(enabled bool, mode, dataPath string, authEnabled bool) (conf
 		xlog.Warn("Add-ons are off: named-user ownership needs authentication. Enable authentication, or set --addons-ownership-mode=local-owner to let every caller share the owner's authority")
 		return config.AddonConfig{}, nil
 	}
+	role := roleFlags.Role
+	if role == "" {
+		role = addonRoleCombined
+	}
+	switch role {
+	case addonRoleCombined:
+		if roleFlags.OwnerAddress != "" {
+			return config.AddonConfig{}, fmt.Errorf("--addons-owner-address: only for --addons-role=%s or --addons-role=%s, not %s", addonRoleOwner, addonRoleFrontend, addonRoleCombined)
+		}
+		if roleFlags.CarrierDir != "" {
+			return config.AddonConfig{}, fmt.Errorf("--addons-carrier-dir: only for --addons-role=%s or --addons-role=%s, not %s", addonRoleOwner, addonRoleFrontend, addonRoleCombined)
+		}
+	case addonRoleOwner, addonRoleFrontend:
+		return splitAddonConfig(role, mode, dataPath, roleFlags)
+	default:
+		return config.AddonConfig{}, fmt.Errorf("--addons-role: %q is not valid; use %q, %q or %q", role, addonRoleCombined, addonRoleOwner, addonRoleFrontend)
+	}
 	root, err := filepath.Abs(filepath.Join(dataPath, "addons"))
 	if err != nil {
 		return config.AddonConfig{}, err
@@ -64,4 +107,70 @@ func addonConfigFor(enabled bool, mode, dataPath string, authEnabled bool) (conf
 		StorageID: "local", Root: root, ListenAddress: address, Transport: transport,
 		OwnershipMode: mode,
 	}, nil
+}
+
+// splitAddonConfig builds the configuration of the owner role or the frontend
+// role. Both use the fixed carrier identities, so a root made by a single node
+// keeps passing the owner identity check. The frontend never
+// creates or opens the owner's files.
+func splitAddonConfig(role, mode, dataPath string, f addonRoleFlags) (config.AddonConfig, error) {
+	if f.OwnerAddress == "" {
+		return config.AddonConfig{}, fmt.Errorf("--addons-owner-address is required with --addons-role=%s", role)
+	}
+	if f.CarrierDir == "" {
+		return config.AddonConfig{}, fmt.Errorf("--addons-carrier-dir is required with --addons-role=%s", role)
+	}
+	port, err := ownerAddressPort(f.OwnerAddress)
+	if err != nil {
+		return config.AddonConfig{}, err
+	}
+	transport, err := gateway.LoadCarrierConfig(f.CarrierDir, role, f.OwnerAddress)
+	if err != nil {
+		return config.AddonConfig{}, fmt.Errorf("--addons-carrier-dir: %w", err)
+	}
+	c := config.AddonConfig{
+		Enabled:    true,
+		InstanceID: transport.InstanceID, OwnerID: gateway.OwnerIdentity, OwnerAddress: f.OwnerAddress,
+		StorageID: "local", Transport: transport, OwnershipMode: mode,
+	}
+	// A frontend keeps no add-on state, so it has no root: Root stays empty.
+	if role == addonRoleFrontend {
+		return c, nil
+	}
+	c.Root, err = filepath.Abs(filepath.Join(dataPath, "addons"))
+	if err != nil {
+		return config.AddonConfig{}, err
+	}
+	c.ListenAddress = f.OwnerListen
+	if c.ListenAddress == "" {
+		c.ListenAddress = ":" + port
+	}
+	return c, nil
+}
+
+// ownerAddressPort checks that the owner address is https://host:port with no
+// path, and returns the port.
+func ownerAddressPort(address string) (string, error) {
+	u, err := url.Parse(address)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("--addons-owner-address: %q must look like https://host:port, with no path", address)
+	}
+	_, port, err := net.SplitHostPort(u.Host)
+	if err != nil || port == "" {
+		return "", fmt.Errorf("--addons-owner-address: %q must name a port, like https://host:port", address)
+	}
+	return port, nil
+}
+
+// libraryOptionFor returns the startup option that joins the galleries the
+// flags named with the library sources. The sources live in the owner's root,
+// and the option writes to them, so the frontend role must not apply it: it
+// reads only the galleries the flags named. Library sources are managed on the
+// owner.
+func libraryOptionFor(r *RunCMD) config.AppOption {
+	if r.AddonsRole == addonRoleFrontend {
+		xlog.Info("Add-on frontend: library sources are managed on the add-on owner; reading only --galleries and --backend-galleries")
+		return func(*config.ApplicationConfig) {}
+	}
+	return library.Option(r.DataPath, r.AddonsOfficialLibrary, r.AddonsBackendLibrary, r.OfficialLibraries)
 }

@@ -88,7 +88,7 @@ var _ = Describe("requireAuthOrTrustedBind", func() {
 		})
 
 		It("rejects public IPv6", func() {
-			Expect(requireAuthOrTrustedBind("[2001:db8::1]:8080", false, false)).To(HaveOccurred())
+			Expect(requireAuthOrTrustedBind("[2606:4700:4700::1111]:8080", false, false)).To(HaveOccurred())
 		})
 	})
 
