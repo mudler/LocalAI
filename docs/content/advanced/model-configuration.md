@@ -833,6 +833,12 @@ The fields below come from upstream llama.cpp's **CLI completion tool** and are 
 
 These options apply when using the `vllm` backend:
 
+The `vllm` backend validates sampling parameters before generation. Stop strings
+work with streaming and non-streaming requests; an empty stop string is invalid.
+Presence and frequency penalties must be between -2 and 2. A temperature of `0`
+selects greedy decoding, which ignores `top_p` and `top_k`. A seed of `-1` uses
+vLLM's default random seed behavior.
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `gpu_memory_utilization` | float32 | GPU memory utilization (0.0-1.0, default 0.9) |
