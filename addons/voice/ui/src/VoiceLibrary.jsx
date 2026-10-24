@@ -366,14 +366,15 @@ JSON`
     return (
       <main className="page voice-library-page" data-testid="voice-library">
         <ui.PageHeader
-          title={<>{t('voiceLibrary.title')} <span className="dk-hubtab-count">{profiles.length}</span></>}
+          title={t('voices.title')}
           supporting={t('voiceLibrary.subtitle')}
           actions={(
             <div className="idn-speech__acts">
               {cloningModels.length > 0
                 ? <span className="dk-badge dk-badge--ok"><Icon name="check" /> {t(cloningModels.length === 1 ? 'voiceLibrary.summary.modelsReady_one' : 'voiceLibrary.summary.modelsReady_other', { count: cloningModels.length })}</span>
                 : <span className="dk-badge dk-badge--warn">{t('voiceLibrary.summary.noModels')}</span>}
-              {newButton('dk-btn dk-btn--secondary')}
+              {/* With no voices the empty state below carries the one primary action. */}
+              {profiles.length > 0 && newButton('dk-btn dk-btn--secondary')}
             </div>
           )}
         />

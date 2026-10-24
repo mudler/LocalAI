@@ -2,7 +2,7 @@ import { test, expect } from './coverage-fixtures.js'
 import { chatOf, pair, mockChat, answerWith, CHATS_KEY } from './chat-fixtures.js'
 import { MEMBER, app, sessionFor, mockAddons } from './addons-fixtures.js'
 
-// The add-ons control in the chat header lists the add-ons that ship tools,
+// The add-ons control in the chat composer, next to the MCP control, lists the add-ons that ship tools,
 // one switch each, and shows how many are on. The /addons command of the
 // composer flips all of them and stays in step with it.
 
@@ -57,6 +57,32 @@ test.describe('Chat add-ons control', () => {
     await expect(page.getByTestId('chat-addons-menu')).toHaveCount(0)
   })
 
+  test('sits right after the MCP control in the composer, not in the chat header', async ({ page }) => {
+    await setup(page, [NOTES])
+    await openChat(page, [chatOf('c1', 'Place', 'qwen3-8b', pair('hi', 'hello'))])
+    await expect(button(page)).toBeVisible()
+    await expect(page.getByTestId('chat-header').getByTestId('chat-addons')).toHaveCount(0)
+    const beside = await page.getByTestId('chat-addons').evaluate(el => {
+      const before = el.previousElementSibling
+      return Boolean(before && before.classList.contains('chat-mcp-dropdown') && before.textContent.includes('MCP') && el.parentElement === before.parentElement)
+    })
+    expect(beside).toBe(true)
+  })
+
+  test('says in one line that an add-on that is off does nothing in this chat', async ({ page }) => {
+    await setup(page, [NOTES, INDEXER, VIEWER])
+    await openChat(page, [chatOf('c1', 'Line', 'qwen3-8b', pair('hi', 'hello'))])
+    await button(page).click()
+    const menu = page.getByTestId('chat-addons-menu')
+    const note = menu.getByTestId('chat-addons-note')
+    await expect(note).toHaveText('An add-on that is off here does nothing in this chat.')
+    // One line: a single text node paragraph, tied to the control by its description.
+    await expect(button(page)).toHaveAttribute('aria-describedby', await note.getAttribute('id'))
+    // Only the add-ons that ship tools are listed under it.
+    await expect(items(page)).toHaveCount(2)
+    await expect(menu).not.toContainText('Viewer')
+  })
+
   test('shows nothing when no add-on ships tools', async ({ page }) => {
     await setup(page, [VIEWER, STOPPED])
     await openChat(page, [chatOf('c1', 'None', 'qwen3-8b', pair('hi', 'hello'))])
@@ -103,7 +129,7 @@ test.describe('Chat add-ons control', () => {
     await expect(page.getByTestId('chat-addons-count')).toHaveCount(0)
   })
 
-  test('/addons flips all add-ons and the header control shows it, in step with the switches', async ({ page }) => {
+  test('/addons flips all add-ons and the composer control shows it, in step with the switches', async ({ page }) => {
     await setup(page, [NOTES, INDEXER])
     await openChat(page, [chatOf('c1', 'Slash', 'qwen3-8b', pair('hi', 'hello'))])
     await input(page).fill('/addons')

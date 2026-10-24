@@ -64,6 +64,10 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 
 | `--models-config-file` | | YAML file containing a list of model backend configs (alias: `--config-file`) | `$LOCALAI_MODELS_CONFIG_FILE`, `$CONFIG_FILE` |
 | `--addon-host-ops` | `fine-tuning=finetune.,quantization=quantize.` | Add-ons that may call host operations, as a comma list of `addon-id=operation-prefix`. An add-on that is not listed gets no host operation channel; an empty value lists none. See [Host operations]({{% relref "features/addons" %}}) | `$LOCALAI_ADDON_HOST_OPS` |
+| `--addons-role` | `combined` | How this process takes part in the add-on owner: `combined` (the node is its own owner), `owner` or `frontend`. See [Turning the owner on or off]({{% relref "features/addons#turning-the-owner-on-or-off" %}}) | `$LOCALAI_ADDONS_ROLE` |
+| `--addons-owner-address` | | `https://host:port` of the add-on owner carrier, with no path. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_OWNER_ADDRESS` |
+| `--addons-owner-listen` | | `owner` role only: the address the carrier listens on. Empty listens on all interfaces, on the port of `--addons-owner-address` | `$LOCALAI_ADDONS_OWNER_LISTEN` |
+| `--addons-carrier-dir` | | Directory with the carrier key set from `local-ai util addons-carrier-keys`. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_CARRIER_DIR` |
 | `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only — a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
 
 Backend processes receive a private scratch directory through `TMPDIR`, `TMP`,
@@ -277,6 +281,21 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai completion` - Generate shell completion scripts for bash, zsh, or fish
 
 Use `local-ai <command> --help` for more information on each command.
+
+### Add-on carrier keys
+
+`local-ai util addons-carrier-keys` makes the key set that a separate add-on owner and its frontends share. See [Running the owner as its own workload]({{% relref "features/addons#running-the-owner-as-its-own-workload" %}}) for how the set is used.
+
+| Flag | Description |
+|------|-------------|
+| `--out` | Directory to write the key set to. Required. The command fails if the directory already holds any of the files, and it never overwrites a file. |
+| `--owner-host` | DNS name or IP address of the add-on owner, as the frontends dial it. Required. Repeat the flag for more than one. |
+
+```bash
+local-ai util addons-carrier-keys --out ./carrier-keys --owner-host addons.owner.example
+```
+
+The command prints which files go to the owner and which go to the frontends. It writes the files with mode `0600` in a directory with mode `0700`, and it does not keep the CA key.
 
 ## Examples
 

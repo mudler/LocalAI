@@ -266,7 +266,7 @@ export function ComposeCard({
   return (
     <form className="ws-compose" onSubmit={onSubmit} ref={ws?.composeRef} data-testid="ws-compose" data-rerun={ws?.rerunning || undefined} noValidate>
       <header className="ws-compose__head">
-        <h1 className="page-title ws-title">{icon && <Icon name={icon} />}{title}</h1>
+        <h2 className="ws-title">{icon && <Icon name={icon} />}{title}</h2>
         {lede && <span className="ws-lede">{lede}</span>}
       </header>
       {handoff}

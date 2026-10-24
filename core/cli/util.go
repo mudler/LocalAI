@@ -21,10 +21,11 @@ import (
 )
 
 type UtilCMD struct {
-	GGUFInfo         GGUFInfoCMD         `cmd:"" name:"gguf-info" help:"Get information about a GGUF file"`
-	CreateOCIImage   CreateOCIImageCMD   `cmd:"" name:"create-oci-image" help:"Create an OCI image from a file or a directory"`
-	HFScan           HFScanCMD           `cmd:"" name:"hf-scan" help:"Checks installed models for known security issues. WARNING: this is a best-effort feature and may not catch everything!"`
-	UsecaseHeuristic UsecaseHeuristicCMD `cmd:"" name:"usecase-heuristic" help:"Checks a specific model config and prints what usecase LocalAI will offer for it."`
+	GGUFInfo         GGUFInfoCMD          `cmd:"" name:"gguf-info" help:"Get information about a GGUF file"`
+	CreateOCIImage   CreateOCIImageCMD    `cmd:"" name:"create-oci-image" help:"Create an OCI image from a file or a directory"`
+	HFScan           HFScanCMD            `cmd:"" name:"hf-scan" help:"Checks installed models for known security issues. WARNING: this is a best-effort feature and may not catch everything!"`
+	UsecaseHeuristic UsecaseHeuristicCMD  `cmd:"" name:"usecase-heuristic" help:"Checks a specific model config and prints what usecase LocalAI will offer for it."`
+	AddonsCarrier    AddonsCarrierKeysCMD `cmd:"" name:"addons-carrier-keys" help:"Generate the key set that a separate add-on owner and its frontends share"`
 }
 
 type GGUFInfoCMD struct {

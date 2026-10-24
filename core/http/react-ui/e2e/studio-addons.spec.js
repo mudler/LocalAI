@@ -39,6 +39,25 @@ test.describe('Studio add-on', () => {
     await expect(page.locator('.studio-front').getByText(/studio\.[a-z]+\.[A-Za-z.]+/)).toHaveCount(0)
   })
 
+  test('/studio/3d opens the 3D tab, and a generator tab has the one page title', async ({ page }) => {
+    await mockStudio(page)
+    await page.goto('/app/addons/studio/studio/3d')
+    await expect(page.locator('.studio-tab-active[data-tab="threed"]')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('h1')).toHaveCount(1)
+    await expect(page.locator('h1.page-title')).toHaveText('Studio')
+    // The card of the generator is a section under that title.
+    await expect(page.getByTestId('ws-compose').getByRole('heading', { level: 2 })).toBeVisible()
+  })
+
+  test('the tab strip stays on one row at 1280 wide', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await mockStudio(page)
+    await page.goto('/app/addons/studio/studio/tts')
+    await expect(page.locator('.studio-tab-active[data-tab="tts"]')).toBeVisible({ timeout: 15_000 })
+    const tops = await page.locator('.studio-tab').evaluateAll(tabs => [...new Set(tabs.map(el => Math.round(el.getBoundingClientRect().top)))])
+    expect(tops).toHaveLength(1)
+  })
+
   test('a model id with a slash and a colon travels as ?model= and reaches the page', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/studio/images/sd-1.5-lcm?size=768x768')
