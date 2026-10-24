@@ -17,7 +17,7 @@ import { runLifecycle, settleOperation } from '../../src/components/addons/lifec
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
 import { backendState, libraryOrigin, shortDigest as shortBackendDigest } from '../../src/utils/backendRows.js'
-import { runInstallAndTurnOn } from '../../src/components/addons/installFlow.js'
+import { runInstallAndTurnOn } from '../../src/components/addons/installAndTurnOn.js'
 import { installSteps, STEP_ORDER } from '../../src/components/addons/installSteps.js'
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
