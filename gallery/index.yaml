@@ -4,6 +4,132 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: atomic-lfm2.5-24b-a2b-uncensored
+  description: |
+    AtomicChat's LFM2.5-24B-A2B derivative reduces refusal behavior in the
+    original weights. This text-only mixture-of-experts model has 24B total
+    parameters and supports multilingual reasoning and tool use.
+    This entry uses the AD-Q4_K_M GGUF build with the edits baked in.
+  license: other
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/AtomicChat/LFM2.5-24B-A2B-Uncensored-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - uncensored
+  files:
+    - filename: llama-cpp/models/atomic-lfm2.5-24b-a2b-uncensored/LFM2.5-24B-A2B-Uncensored-AD-Q4_K_M.gguf
+      sha256: 17a5de7f9718d8f6133ef08579d35845dd69bb51f329204ead0fc0ee97a75a41
+      uri: https://huggingface.co/AtomicChat/LFM2.5-24B-A2B-Uncensored-GGUF/resolve/1acb8f6eb027d85b7771dcc9eb68817aa480e9c8/LFM2.5-24B-A2B-Uncensored-AD-Q4_K_M.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/atomic-lfm2.5-24b-a2b-uncensored/LFM2.5-24B-A2B-Uncensored-AD-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: atomic-lfm2.5-24b-a2b-uncensored-q6
+    - model: atomic-lfm2.5-24b-a2b-uncensored-q8
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: atomic-lfm2.5-24b-a2b-uncensored-q6
+  description: |
+    AtomicChat's LFM2.5-24B-A2B derivative reduces refusal behavior in the
+    original weights. This text-only mixture-of-experts model has 24B total
+    parameters and supports multilingual reasoning and tool use.
+    This entry uses the AD-Q6_K GGUF build with the edits baked in.
+  license: other
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/AtomicChat/LFM2.5-24B-A2B-Uncensored-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - uncensored
+  files:
+    - filename: llama-cpp/models/atomic-lfm2.5-24b-a2b-uncensored/LFM2.5-24B-A2B-Uncensored-AD-Q6_K.gguf
+      sha256: 2eea8a0f214304357f45527b2bbc757a810445e8cbb38d7664115ac426aa0711
+      uri: https://huggingface.co/AtomicChat/LFM2.5-24B-A2B-Uncensored-GGUF/resolve/1acb8f6eb027d85b7771dcc9eb68817aa480e9c8/LFM2.5-24B-A2B-Uncensored-AD-Q6_K.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/atomic-lfm2.5-24b-a2b-uncensored/LFM2.5-24B-A2B-Uncensored-AD-Q6_K.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: atomic-lfm2.5-24b-a2b-uncensored-q8
+  description: |
+    AtomicChat's LFM2.5-24B-A2B derivative reduces refusal behavior in the
+    original weights. This text-only mixture-of-experts model has 24B total
+    parameters and supports multilingual reasoning and tool use.
+    This entry uses the AD-Q8_0 GGUF build with the edits baked in.
+  license: other
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/AtomicChat/LFM2.5-24B-A2B-Uncensored-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - uncensored
+  files:
+    - filename: llama-cpp/models/atomic-lfm2.5-24b-a2b-uncensored/LFM2.5-24B-A2B-Uncensored-AD-Q8_0.gguf
+      sha256: 852b43bc93dfc776f702c9ef0661c1e8cf92eb2d6914def912c51a2a9d45a4d1
+      uri: https://huggingface.co/AtomicChat/LFM2.5-24B-A2B-Uncensored-GGUF/resolve/1acb8f6eb027d85b7771dcc9eb68817aa480e9c8/LFM2.5-24B-A2B-Uncensored-AD-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/atomic-lfm2.5-24b-a2b-uncensored/LFM2.5-24B-A2B-Uncensored-AD-Q8_0.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
