@@ -2129,12 +2129,53 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		itemID = generateItemID()
 	}
 
+	// joinResolve waits for the speaker resolution once and caches the outcome,
+	// so it can be joined early (before the transcript is final) and again at
+	// the gate below.
+	var resolved *resolveOutcome
+	joinResolve := func() resolveOutcome {
+		if resolved == nil {
+			out := <-resolveCh
+			resolved = &out
+		}
+		return *resolved
+	}
+
+	// A transcription-only session never reaches generateResponse, which is
+	// where a response session announces the speaker. Announce it here
+	// instead, before the turn's completed event, so the client knows who
+	// spoke when the final transcript arrives. As on the response path, a
+	// speaker that an enforcing gate rejects is not announced.
+	var beforeCompleted func()
+	if runResolve && session.TranscriptionOnly && session.voiceGate.cfg.AnnounceEnabled() {
+		beforeCompleted = func() {
+			out := joinResolve()
+			if out.err != nil {
+				return
+			}
+			if session.voiceGate.cfg.EnforceGate() {
+				alreadyVerified := false
+				if session.voiceGate.cfg.When == config.VoiceGateWhenFirst {
+					session.gateMu.Lock()
+					alreadyVerified = session.voiceVerified
+					session.gateMu.Unlock()
+				}
+				allowed, _ := session.voiceGate.authorize(out.res)
+				if proceed, _ := session.voiceGate.decide(alreadyVerified, allowed); !proceed {
+					return
+				}
+			}
+			s := out.res.speaker
+			announceSpeaker(t, session, itemID, &s)
+		}
+	}
+
 	var transcript string
 	switch {
 	case gated != nil:
 		// semantic_vad retranscribe gate: the batch decode is authoritative.
 		transcript = gated.Text
-		if err := emitPrecomputedTranscription(t, itemID, nil, transcript); err != nil {
+		if err := emitPrecomputedTranscription(t, itemID, nil, transcript, beforeCompleted); err != nil {
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
 		}
@@ -2142,7 +2183,7 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		// The caption deltas already streamed during the turn under this
 		// itemID; the completed event replaces the partial text client-side.
 		transcript = live.Text
-		if err := emitPrecomputedTranscription(t, itemID, nil, transcript); err != nil {
+		if err := emitPrecomputedTranscription(t, itemID, nil, transcript, beforeCompleted); err != nil {
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
 		}
@@ -2162,12 +2203,12 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		// turn is still cancelled — see the ctx check below — only the
 		// transcript survives, so the next response is built on the full
 		// utterance.
-		transcript, err = emitTranscription(sctx, t, session, itemID, f.Name())
+		transcript, err = emitTranscription(sctx, t, session, itemID, f.Name(), beforeCompleted)
 		if err != nil {
 			// Drain the gate goroutine before returning so its in-flight read of
 			// the temp WAV finishes before the deferred os.Remove fires.
 			if runResolve {
-				<-resolveCh
+				joinResolve()
 			}
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
@@ -2199,7 +2240,7 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	// Join on the resolution before any side-effecting step.
 	var speaker *types.Speaker
 	if runResolve {
-		out := <-resolveCh
+		out := joinResolve()
 		enforce := session.voiceGate.cfg.EnforceGate()
 
 		if out.err != nil {
@@ -2487,18 +2528,25 @@ func generateResponse(ctx context.Context, session *Session, utt []byte, transcr
 	// Create user message item
 	item := appendUserItem(conv, t, utt, transcript, speaker)
 
-	// Surface the recognized speaker to the client. Skip the event for an
-	// unidentified speaker unless announce_unknown is set.
-	if speaker != nil && session.voiceGate != nil && session.voiceGate.cfg.AnnounceEnabled() {
-		if speaker.Matched || session.voiceGate.cfg.Identity.AnnounceUnknown {
-			sendEvent(t, types.ConversationItemSpeakerEvent{
-				ItemID:  item.User.ID,
-				Speaker: *speaker,
-			})
-		}
-	}
+	announceSpeaker(t, session, item.User.ID, speaker)
 
 	triggerResponse(ctx, session, conv, t, nil)
+}
+
+// announceSpeaker surfaces the recognized speaker of itemID to the client as a
+// conversation.item.speaker event when the pipeline enables identity.announce.
+// It skips the event for an unidentified speaker unless announce_unknown is
+// set, and for a nil speaker (the resolution failed or did not run).
+func announceSpeaker(t Transport, session *Session, itemID string, speaker *types.Speaker) {
+	if speaker == nil || session.voiceGate == nil || !session.voiceGate.cfg.AnnounceEnabled() {
+		return
+	}
+	if speaker.Matched || session.voiceGate.cfg.Identity.AnnounceUnknown {
+		sendEvent(t, types.ConversationItemSpeakerEvent{
+			ItemID:  itemID,
+			Speaker: *speaker,
+		})
+	}
 }
 
 // maxAssistantToolTurns caps the server-side agentic loop. Mirrors the

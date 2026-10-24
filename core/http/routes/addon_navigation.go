@@ -20,20 +20,20 @@ import (
 // It returns an error when the pin store cannot be opened, for example a
 // corrupt pins file. Startup must stop then: a memory-only fallback would lose
 // every unpin at the next restart.
-func RegisterAddonNavigationRoutes(e *echo.Echo, a *application.Application) error {
+func RegisterAddonNavigationRoutes(e *echo.Echo, a *application.Application, gate ...echo.MiddlewareFunc) error {
 	store, err := a.AddonPinStore()
 	if err != nil {
 		return err
 	}
-	e.GET("/api/addons/builtin", endpoints.ListBuiltin(a.AuthDB()))
-	RegisterAddonPinRoutes(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), &pins.Service{Store: store})
+	e.GET("/api/addons/builtin", endpoints.ListBuiltin(a.AuthDB()), gate...)
+	RegisterAddonPinRoutes(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), &pins.Service{Store: store}, gate...)
 	return nil
 }
 
 // RegisterAddonPinRoutes registers the two user-scoped pin routes. The caller
 // is filtered like the Apps list.
-func RegisterAddonPinRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, svc *pins.Service) {
+func RegisterAddonPinRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, svc *pins.Service, gate ...echo.MiddlewareFunc) {
 	mode := endpoints.WithOwnership(ownership)
-	e.GET("/api/addons/pins", endpoints.GetPins(gw, db, svc, mode))
-	e.PUT("/api/addons/pins", endpoints.PutPins(gw, db, svc, mode), auth.CSRFMiddleware(), endpoints.BrowserProtection())
+	e.GET("/api/addons/pins", endpoints.GetPins(gw, db, svc, mode), gate...)
+	e.PUT("/api/addons/pins", endpoints.PutPins(gw, db, svc, mode), append(gate, auth.CSRFMiddleware(), endpoints.BrowserProtection())...)
 }

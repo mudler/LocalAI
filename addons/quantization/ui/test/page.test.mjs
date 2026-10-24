@@ -48,6 +48,7 @@ test('page: the API helper uses the core quantization paths and bodies', async (
   const seen = []
   const ctx = { core: { fetch: async (p, i) => { seen.push([p, i]); return { ok: true } } }, json: async (p, i) => { seen.push([p, i]); return {} } }
   const api = createApi(ctx)
+  await api.quantize.status()
   await api.quantize.listBackends()
   await api.quantize.listJobs()
   await api.quantize.getJob('a b')
@@ -58,13 +59,13 @@ test('page: the API helper uses the core quantization paths and bodies', async (
   await api.resources.get()
   const paths = seen.map(s => `${s[1]?.method || 'GET'} ${s[0]}`)
   assert.deepEqual(paths, [
-    'GET /api/quantization/backends', 'GET /api/quantization/jobs', 'GET /api/quantization/jobs/a%20b',
+    'GET /api/quantization/status', 'GET /api/quantization/backends', 'GET /api/quantization/jobs', 'GET /api/quantization/jobs/a%20b',
     'POST /api/quantization/jobs', 'POST /api/quantization/jobs/j1/stop', 'DELETE /api/quantization/jobs/j1',
     'POST /api/quantization/jobs/j1/import', 'GET /api/resources',
   ])
-  assert.equal(seen[3][1].body, JSON.stringify({ model: 'm' }))
-  assert.equal(seen[3][1].headers['Content-Type'], 'application/json')
-  assert.equal(seen[6][1].body, JSON.stringify({ name: 'n' }))
+  assert.equal(seen[4][1].body, JSON.stringify({ model: 'm' }))
+  assert.equal(seen[4][1].headers['Content-Type'], 'application/json')
+  assert.equal(seen[7][1].body, JSON.stringify({ name: 'n' }))
 })
 
 test('page: a failed call throws the server message', async () => {
@@ -194,7 +195,7 @@ test('i18n: en.js repeats the host strings and adds only the keys the add-on own
     if (k in tools) assert.equal(v, tools[k], k)
     else own.push(k)
   }
-  assert.deepEqual(own.sort(), ['run.unknownPercent'])
+  assert.deepEqual(own.sort(), ['quantize.importBlocked', 'run.unknownPercent'])
   assert.equal(Object.keys(en).some(k => k.startsWith('rewards.') || k.startsWith('checkpoints.') || k.startsWith('chart.')), false)
 })
 
@@ -209,4 +210,17 @@ test('source: no file imports a core UI file or the router', () => {
     assert.doesNotMatch(text, /from\s+['"](react|react-dom|react-router-dom|react-i18next)['"]/, f)
     assert.doesNotMatch(text, /\bEventSource\b/, f)
   }
+})
+
+test('import: the import control is off with the reason when the models probe fails', async () => {
+  const { mod, sdk } = await load()
+  const { ResultPanel } = (await mod.__partsFor(sdk)).parts
+  const done = job({ status: 'completed', output_file: 'model-q4.gguf' })
+  const blocked = renderToString(React.createElement(ResultPanel, { job: done, onRefresh: async () => {}, modelExports: false }))
+  assert.match(blocked, /<button[^>]*disabled=""[^>]*data-testid="quantize-import"/)
+  assert.match(blocked, /data-testid="quantize-import-blocked"/)
+  assert.match(blocked, new RegExp(en['quantize.importBlocked'].slice(0, 30)))
+  const open = renderToString(React.createElement(ResultPanel, { job: done, onRefresh: async () => {} }))
+  assert.doesNotMatch(open, /quantize-import-blocked/)
+  assert.doesNotMatch(open, /<button[^>]*disabled=""[^>]*data-testid="quantize-import"/)
 })

@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 // Agent workers do not subscribe to the backend.* subjects, so asking one to
@@ -38,9 +39,10 @@ var _ = Describe("Backend listing across mixed node types", func() {
 		Expect(err).ToNot(HaveOccurred())
 		mc = newScriptedMessagingClient()
 		mgr = &DistributedBackendManager{
-			local:    stubLocalBackendManager{},
-			adapter:  NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute),
-			registry: registry,
+			local:       stubLocalBackendManager{},
+			adapter:     NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute),
+			registry:    registry,
+			systemState: &system.SystemState{},
 		}
 		ctx = context.Background()
 	})

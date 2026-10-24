@@ -9,10 +9,10 @@ import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } f
 // Studio and Talk are packaged add-ons, not built-in tiles: the specs install
 // the real packages. No page is built in today, so `builtin` is empty unless a
 // spec makes one up to check the built-in rules.
-async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed, releases } = {}) {
+async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed, releases, features = { addon_navigation: true } } = {}) {
   let saved = pins
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons }) }))
-  await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: true } }))
+  await page.route('**/api/features', route => route.fulfill({ json: features }))
   await page.route('**/api/addons/builtin', route => route.fulfill({ json: { builtin } }))
   // mockAddons installs the Apps routes with the real response shape ({ apps }).
   // The packages are served from the build output, so a page that opens one runs it.
@@ -966,5 +966,65 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await page.clock.runFor(11000)
     await expect.poll(() => calls.forget.length).toBe(1)
     expect(calls.forget[0]).toMatchObject({ face: true, id: 'f-anna' })
+  })
+})
+
+test.describe('Add-on navigation: the addons feature gate', () => {
+  const OFF = { addon_navigation: true, addons: false, fine_tuning: false, quantization: false }
+
+  // With add-ons off the server answers 503 on every add-on route, so a request
+  // to the pins or built-in routes is a failure of the page, not of the server.
+  async function watch(page) {
+    const calls = []
+    page.on('request', request => {
+      const { pathname } = new URL(request.url())
+      if (pathname === '/api/addons/pins' || pathname === '/api/addons/builtin') calls.push(pathname)
+    })
+    return calls
+  }
+
+  test('with add-ons off the sidebar has no Add-ons entry, no pinned app and no fine-tuning or quantization entry', async ({ page }) => {
+    const calls = await watch(page)
+    await setup(page, { features: OFF, user: ADMIN })
+    await page.goto('/app')
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(0)
+    await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: /Fine-?tun/i })).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: /Quantiz/i })).toHaveCount(0)
+    expect(calls).toEqual([])
+  })
+
+  test('with add-ons off the Build hub has no Add-ons, fine-tuning or quantization tab, in either layout', async ({ page }) => {
+    for (const addon_navigation of [true, false]) {
+      await setup(page, { features: { ...OFF, addon_navigation }, user: ADMIN })
+      await page.goto('/app/build')
+      await expect(page.getByRole('tab', { name: 'Agents' }).or(page.getByRole('link', { name: 'Agents' })).first()).toBeVisible()
+      for (const name of [/^Add-ons$/, /Fine-?tun/i, /Quantiz/i]) {
+        await expect(page.getByRole('tab', { name })).toHaveCount(0)
+        await expect(page.locator('.hub-tabs, [role="tablist"]').getByRole('link', { name })).toHaveCount(0)
+      }
+      await page.unroute('**/api/features')
+    }
+  })
+
+  for (const address of ['/app/addons', '/app/addons/studio/home', '/app/fine-tune', '/app/quantize']) {
+    test(`with add-ons off ${address} ends at /app and calls no add-on route`, async ({ page }) => {
+      const calls = await watch(page)
+      await setup(page, { features: OFF, user: ADMIN })
+      await page.goto(address)
+      await expect(page).toHaveURL(/\/app\/?$/)
+      await expect(page.getByRole('navigation').getByRole('link', { name: 'Chat' })).toBeVisible()
+      expect(calls).toEqual([])
+    })
+  }
+
+  test('an older server without the addons key keeps today\'s behaviour', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app')
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
+    await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(2)
   })
 })

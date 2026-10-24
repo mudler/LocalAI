@@ -244,6 +244,7 @@ export default {
   "checkpoints.resumeTitle": "Resume training from this checkpoint",
   "checkpoints.export": "Export",
   "checkpoints.exportTitle": "Export this checkpoint",
+  "export.blocked": "Export is off on this server because it does not share the models folder of the add-on host.",
   "export.title": "Export as a model",
   "export.lede": "Exporting turns the result into a model LocalAI can load.",
   "export.checkpoint": "Checkpoint",
