@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 // These specs pin the reactions the seams contract allows on ErrNoRoute: the
@@ -139,9 +140,10 @@ var _ = Describe("ErrNoRoute reactions", func() {
 
 		BeforeEach(func() {
 			mgr = &DistributedBackendManager{
-				local:    stubLocalBackendManager{},
-				adapter:  adapter,
-				registry: registry,
+				local:       stubLocalBackendManager{},
+				adapter:     adapter,
+				registry:    registry,
+				systemState: &system.SystemState{},
 			}
 		})
 

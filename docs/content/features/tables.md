@@ -36,7 +36,7 @@ go build ./addons/tables/...
   [Backup, upgrade and restore](#backup-upgrade-and-restore)). A copy of the data
   directory made while the add-on runs is not a consistent backup.
 - **Ownership mode.** Named-user mode keeps databases private to their owners and
-  shareable. Local-owner mode has one owner and no sharing. The mode is stored with the
+  shareable. Local-owner mode has one owner and no sharing, so the database page shows no Share button. The mode is stored with the
   data and is changed only while the host is stopped, with an explicit mapping (see
   [Moving between the modes](../addons/#moving-between-the-modes)).
 - **CSV.** An export is a private, temporary file with the formula policy described in
@@ -331,7 +331,7 @@ deleted is refused like an unknown one. With none selected the tool answers a
 
 Tables ships its own UI as a standalone ES module in the package. It is loaded by
 the host after the host was built, so installing or updating Tables changes the
-pages without a rebuild of LocalAI. The Add-ons drawer shows a **Tables** tile.
+pages without a rebuild of LocalAI. The My add-ons page shows a **Tables** card.
 
 | Where | What |
 |---|---|

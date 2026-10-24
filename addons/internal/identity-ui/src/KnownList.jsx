@@ -42,7 +42,7 @@ export function createKnownList(ctx) {
           <div className="dk-empty-icon"><Icon name={kind === 'face' ? 'smile' : 'mic'} /></div>
           <h3 className="dk-empty-title">{t(`${kind}.emptyTitle`)}</h3>
           <p className="dk-empty-text">{t(`${kind}.emptyText`)}</p>
-          <button type="button" className="dk-btn dk-btn--primary" onClick={() => onEnrol()} disabled={!canEnrol}><Icon name="plus" /> {t(`${kind}.enrol`)}</button>
+          <button type="button" className="dk-btn dk-btn--primary" onClick={() => onEnrol()} disabled={!canEnrol} data-testid="enrol-open"><Icon name="plus" /> {t(`${kind}.enrol`)}</button>
         </div>
       )
     }

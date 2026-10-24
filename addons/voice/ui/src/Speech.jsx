@@ -29,6 +29,7 @@ export function createSpeech(ctx) {
 
     const selected = useMemo(() => models.list.find(m => m.id === model) || null, [models.list, model])
     const cloning = Boolean(selected?.voice_cloning)
+    const noModels = models.status === 'ready' && models.list.length === 0
 
     useEffect(() => {
       if (!cloning) { setProfiles([]); setVoiceId(''); return undefined }
@@ -56,35 +57,44 @@ export function createSpeech(ctx) {
 
     return (
       <main className="page vc-speech" data-testid="voice-speech">
-        <ui.PageHeader title={t('speech.title')} supporting={t('speech.lede')} />
+        <ui.PageHeader title={t('voices.title')} supporting={t('speech.lede')} />
         {tabs}
-        <label className="vc-field">
-          <span>{t('speech.model')}</span>
-          <ui.ModelSelector value={model} onChange={setModel} options={models.list.map(m => m.id)} loading={models.status === 'loading'} />
-        </label>
-        {cloning ? (
+        <form className="vc-speech__form dk-card" onSubmit={e => { e.preventDefault(); run() }} aria-label={t('voices.tab.speech')}>
           <label className="vc-field">
-            <span>{t('speech.voice')}</span>
-            <select className="dk-input" value={voiceId} onChange={e => setVoiceId(e.target.value)} aria-label={t('speech.voice')}>
-              <option value="">{t('speech.defaultVoice')}</option>
-              {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <span className="dk-label">{t('speech.model')}</span>
+            <ui.ModelSelector value={model} onChange={setModel} options={models.list.map(m => m.id)} loading={models.status === 'loading'} />
+            {noModels && (
+              <span className="dk-hint" data-testid="speech-no-models">
+                {t('speech.noModels')} <a href={`${ctx.basePath}/app/models`}>{t('speech.noModelsLink')}</a>
+              </span>
+            )}
           </label>
-        ) : (
+          {cloning ? (
+            <label className="vc-field">
+              <span className="dk-label">{t('speech.voice')}</span>
+              <select className="dk-input" value={voiceId} onChange={e => setVoiceId(e.target.value)} aria-label={t('speech.voice')}>
+                <option value="">{t('speech.defaultVoice')}</option>
+                {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </label>
+          ) : (
+            <label className="vc-field">
+              <span className="dk-label">{t('speech.voice')}</span>
+              <input className="dk-input" value={manualVoice} placeholder={t('speech.voicePlaceholder')} onChange={e => setManualVoice(e.target.value)} />
+            </label>
+          )}
           <label className="vc-field">
-            <span>{t('speech.voice')}</span>
-            <input className="dk-input" value={manualVoice} onChange={e => setManualVoice(e.target.value)} />
+            <span className="dk-label">{t('speech.text')}</span>
+            <textarea className="dk-input" rows={5} value={text} placeholder={t('speech.textPlaceholder')} onChange={e => setText(e.target.value)} />
           </label>
-        )}
-        <label className="vc-field">
-          <span>{t('speech.text')}</span>
-          <textarea className="dk-input" rows={5} value={text} onChange={e => setText(e.target.value)} />
-        </label>
-        <label className="vc-field">
-          <span>{t('speech.instructions')}</span>
-          <input className="dk-input" value={instructions} onChange={e => setInstructions(e.target.value)} />
-        </label>
-        <ui.Button variant="primary" busy={busy} onClick={run}>{t('speech.generate')}</ui.Button>
+          <label className="vc-field">
+            <span className="dk-label">{t('speech.instructions')}</span>
+            <input className="dk-input" value={instructions} onChange={e => setInstructions(e.target.value)} />
+          </label>
+          <div className="vc-speech__acts">
+            <ui.Button variant="primary" type="submit" busy={busy}>{t('speech.generate')}</ui.Button>
+          </div>
+        </form>
         {error && <ui.ErrorWithTraceLink message={error} />}
         {audioUrl && <ui.WaveformPlayer src={audioUrl} label={t('speech.result')} />}
         {!viewer.hasFeature('audio_speech') && <p className="vc-note">{t('speech.noAccess')}</p>}

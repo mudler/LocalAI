@@ -34,9 +34,9 @@ test.describe('Settings: groups and search', () => {
         seen.add(key)
       }
     }
-    // 54 settings plus the three branding images.
-    expect(seen.size).toBe(57)
-    await expect(page.getByLabel(/Search all 57 settings/)).toBeVisible()
+    // 55 settings plus the three branding images.
+    expect(seen.size).toBe(58)
+    await expect(page.getByLabel(/Search all 58 settings/)).toBeVisible()
   })
 
   test('a group lists its settings, and the memory group shows memory use now', async ({ page }) => {

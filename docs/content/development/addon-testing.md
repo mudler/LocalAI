@@ -228,7 +228,7 @@ resource, because the fixture has no add-on that creates one.
 | failed upgrade and enable | A new generation that cannot start leaves the last good one running; killing the owner in the middle of an upgrade or an enable keeps the last good code, the retained data and a usable lifecycle |
 | disable, remove, reinstall | Data and grants outlive the removal, and a stale generation and its assets are denied after an upgrade |
 | sessions and keys | Ending a session or revoking a key on one frontend refuses it on every node |
-| browser | A member sees the Apps list only and the server refuses every management request; Open works through a non-owner frontend; a proxy path prefix works for deep links; a session ended on one frontend loses the assets on the others |
+| browser | A member sees the add-on list only and the server refuses every management request; Open works through a non-owner frontend; a proxy path prefix works for deep links; a session ended on one frontend loses the assets on the others |
 | service layer | An upgrade that cannot start keeps the last good generation running and the data; a request canceled during the start puts the last good generation back, keeps the operation open and the same operation ID finishes it; one broken add-on does not stop the owner |
 | regression | The existing model and backend gallery specs (`core/gallery`), the gallery operation specs (`core/services/galleryop`) and the process adapter specs (`pkg/model`) pass |
 

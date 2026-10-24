@@ -69,7 +69,7 @@ export function createQuantize(ctx, api, shared) {
   }
 
   // What to do with a finished quantization: import it as a model, then use it.
-  function ResultPanel({ job, onRefresh }) {
+  function ResultPanel({ job, onRefresh, modelExports = true }) {
     const [modelName, setModelName] = useState('')
     const [importing, setImporting] = useState(false)
     const [error, setError] = useState('')
@@ -130,11 +130,12 @@ export function createQuantize(ctx, api, shared) {
                     <input id="qz-import-name" className="dk-input dk-input--mono" placeholder={t('quantize.importNamePlaceholder')} value={modelName} onChange={e => setModelName(e.target.value)} />
                   </Field>
                   <div className="bt-actions">
-                    <button type="button" className="dk-btn dk-btn--primary" onClick={handleImport} disabled={importing} aria-busy={importing || undefined} data-testid="quantize-import">
+                    <button type="button" className="dk-btn dk-btn--primary" onClick={handleImport} disabled={importing || !modelExports} aria-busy={importing || undefined} data-testid="quantize-import">
                       <Icon name="save" /> {t('quantize.import')}
                     </button>
                     <a className="dk-btn dk-btn--secondary" href={download} download><Icon name="download" /> {t('quantize.download')}</a>
                   </div>
+                  {!modelExports && <p className="bt-status bt-status--error" role="status" data-testid="quantize-import-blocked">{t('quantize.importBlocked')}</p>}
                 </>
               )}
             </div>
@@ -148,7 +149,7 @@ export function createQuantize(ctx, api, shared) {
   // the result. The server streams progress events while the job is active; a
   // finished job is read from the job record. `seed` starts the view with an
   // event already read; tests use it to draw a state the stream would reach.
-  function JobView({ job, onStop, onReuse, onTerminal, onRefresh, seed }) {
+  function JobView({ job, onStop, onReuse, onTerminal, onRefresh, seed, modelExports = true }) {
     const [latest, setLatest] = useState(seed?.latest ?? null)
     const [log, setLog] = useState([])
     const previousRef = useRef(null)
@@ -253,9 +254,21 @@ export function createQuantize(ctx, api, shared) {
         )}
 
         {(active || log.length > 0) && <JobLog lines={log} name={`quantize-${job.id?.slice(0, 8)}`} />}
-        <ResultPanel job={job} onRefresh={onRefresh} />
+        <ResultPanel job={job} onRefresh={onRefresh} modelExports={modelExports} />
       </div>
     )
+  }
+
+  // Whether this instance may write an imported model. Only a clear false turns
+  // the controls off: a failed or slow answer leaves them on, as the server does.
+  function useModelExports() {
+    const [allowed, setAllowed] = useState(true)
+    useEffect(() => {
+      let off = false
+      api.quantize.status().then(r => { if (!off && r && r.model_exports === false) setAllowed(false) }).catch(() => {})
+      return () => { off = true }
+    }, [])
+    return allowed
   }
 
   // The machine facts for the checks: the one request the page makes, as a
@@ -282,6 +295,7 @@ export function createQuantize(ctx, api, shared) {
   function QuantizeBody({ path }) {
     const isAdmin = viewer.isAdmin()
     const resources = useResources(10000)
+    const modelExports = useModelExports()
     const facts = useMemo(() => machineFacts(resources), [resources])
 
     // A deep link names the model: ?model=<id> or the first path segment.
@@ -417,8 +431,8 @@ export function createQuantize(ctx, api, shared) {
     return (
       <div className="page page--medium bt-page quantize-page" data-testid="quantize-page">
         <ui.PageHeader
-          title={<>{t('quantize.title')} <span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span></>}
-          supporting={t('quantize.lede')}
+          title={t('quantize.title')}
+          supporting={<><span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span> {t('quantize.lede')}</>}
           actions={selectedJob && (
             <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setSelectedJob(null)} data-testid="job-back">
               <Icon name="plus" /> {t('quantize.newJob')}
@@ -435,7 +449,7 @@ export function createQuantize(ctx, api, shared) {
         )}
 
         {selectedJob ? (
-          <JobView job={selectedJob} onStop={handleStop} onReuse={reuse} onTerminal={loadJobs} onRefresh={refreshSelected} />
+          <JobView job={selectedJob} onStop={handleStop} onReuse={reuse} onTerminal={loadJobs} onRefresh={refreshSelected} modelExports={modelExports} />
         ) : (
           <form onSubmit={handleSubmit} className="bt-form-page" data-testid="quantize-form">
             <Section done={!!model.trim()} title={t('quantize.sectionModel')}>
