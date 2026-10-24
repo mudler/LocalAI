@@ -4363,6 +4363,35 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # timestral-cpp (CPU only: the engine has no GPU path)
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-timestral-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "timestral-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-timestral-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "timestral-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   # parakeet-cpp
   - build-type: ''
     cuda-major-version: ""
@@ -6702,6 +6731,12 @@ includeDarwin:
     lang: "go"
   - backend: "voice-detect"
     tag-suffix: "-metal-darwin-arm64-voice-detect"
+    build-type: "metal"
+    lang: "go"
+  # timestral-cpp: CPU build for Apple silicon (the engine has no Metal path).
+  # Not built or tested on macOS yet.
+  - backend: "timestral-cpp"
+    tag-suffix: "-metal-darwin-arm64-timestral-cpp"
     build-type: "metal"
     lang: "go"
   - backend: "face-detect"
