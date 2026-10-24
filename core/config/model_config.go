@@ -2405,6 +2405,9 @@ const (
 	// guards against two flags silently sharing one.
 	FLAG_MOTION ModelConfigUsecase = 1 << 27
 
+	// Marks a model as a time-series forecaster served by the Forecast RPC.
+	FLAG_FORECAST ModelConfigUsecase = 1 << 28
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -2470,6 +2473,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DECISIONS":            FLAG_DECISIONS,
 		"FLAG_UPSCALE":              FLAG_UPSCALE,
 		"FLAG_MOTION":               FLAG_MOTION,
+		"FLAG_FORECAST":             FLAG_FORECAST,
 	}
 }
 
@@ -2536,7 +2540,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		"whisper", "piper", "kokoro",
 		"diffusers", "stablediffusion", "stablediffusion-ggml",
 		"rerankers", "silero-vad", "rfdetr", "insightface", "speaker-recognition",
-		"transformers-musicgen", "ace-step", "acestep-cpp",
+		"transformers-musicgen", "ace-step", "acestep-cpp", "timestral-cpp",
 	}
 
 	if (u & FLAG_CHAT) == FLAG_CHAT {
@@ -2641,6 +2645,13 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	if (u & FLAG_DEPTH) == FLAG_DEPTH {
 		depthBackends := []string{"depth-anything"}
 		if !slices.Contains(depthBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_FORECAST) == FLAG_FORECAST {
+		forecastBackends := []string{"timestral-cpp"}
+		if !slices.Contains(forecastBackends, c.Backend) {
 			return false
 		}
 	}

@@ -28,6 +28,7 @@ const (
 	UsecaseRerank              = "rerank"
 	UsecaseDetection           = "detection"
 	UsecaseDepth               = "depth"
+	UsecaseForecast            = "forecast"
 	UsecaseVAD                 = "vad"
 	UsecaseAudioTransform      = "audio_transform"
 	UsecaseDiarization         = "diarization"
@@ -60,6 +61,7 @@ const (
 	MethodTokenizeString     GRPCMethod = "TokenizeString"
 	MethodDetect             GRPCMethod = "Detect"
 	MethodDepth              GRPCMethod = "Depth"
+	MethodForecast           GRPCMethod = "Forecast"
 	MethodRerank             GRPCMethod = "Rerank"
 	MethodVAD                GRPCMethod = "VAD"
 	MethodAudioTransform     GRPCMethod = "AudioTransform"
@@ -180,6 +182,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_DEPTH,
 		GRPCMethod:  MethodDepth,
 		Description: "Per-pixel metric depth, camera pose and 3D point cloud via the Depth RPC (Depth Anything 3).",
+	},
+	UsecaseForecast: {
+		Flag:        FLAG_FORECAST,
+		GRPCMethod:  MethodForecast,
+		Description: "Time-series quantile forecasting via the Forecast RPC (timestral.cpp).",
 	},
 	UsecaseVAD: {
 		Flag:        FLAG_VAD,
@@ -813,6 +820,12 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseDepth},
 		AcceptsImages:    true,
 		Description:      "Depth Anything 3 C++ — per-pixel metric depth, camera pose and 3D point cloud",
+	},
+	"timestral-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodForecast},
+		PossibleUsecases: []string{UsecaseForecast},
+		DefaultUsecases:  []string{UsecaseForecast},
+		Description:      "timestral.cpp (C++/ggml, CPU only): quantile forecasts for numeric time series with optional covariates",
 	},
 
 	// --- Face and speaker recognition backends ---
