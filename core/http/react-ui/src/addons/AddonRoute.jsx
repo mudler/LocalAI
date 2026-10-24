@@ -181,6 +181,7 @@ export default function AddonRoute() {
               <Icon name={working ? 'spinner' : 'toggle-on'} spin={working} /> {t('apps.start')}
             </button>
           )}
+          {extra}
           {outcome && outcome.outcome && describeOutcome(outcome.outcome, t, outcome.error) && (
             <span className="ad-card__note" data-tone="error" role="alert">{describeOutcome(outcome.outcome, t, outcome.error)}</span>
           )}

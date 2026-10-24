@@ -17,7 +17,7 @@ import { runLifecycle, settleOperation } from '../../src/components/addons/lifec
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
 import { backendState, libraryOrigin, shortDigest as shortBackendDigest } from '../../src/utils/backendRows.js'
-import { runInstallAndTurnOn } from '../../src/components/addons/installFlow.js'
+import { runInstallAndTurnOn } from '../../src/components/addons/installAndTurnOn.js'
 import { installSteps, STEP_ORDER } from '../../src/components/addons/installSteps.js'
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
@@ -143,6 +143,22 @@ test('update status comes only from an authoritative check', () => {
   assert.equal(parseEntryKey('a/b'), null)
 })
 
+test('the add-on browse list drops backend entries and keeps entries with no kind', async () => {
+  const rel = (id, kind) => ({ id, name: id, version: '1.0.0', sourceId: 'main', os: 'linux', arch: 'amd64', digest: 'sha256:a', ...(kind ? { kind } : {}) })
+  let sent
+  const api = createAddonsApi({
+    base: p => p,
+    fetch: async (url, init) => {
+      sent = JSON.parse(init.body)
+      return json(200, { payload: { releases: [rel('notes'), rel('tables', 'addon'), rel('cpu-local-store', 'backend')], total: 3 } })
+    },
+  })
+  const page = await createAddonsCatalogAdapter(api).search({ text: '', sourceId: '', page: 1 })
+  assert.equal(sent.arguments.kind, 'addon')
+  assert.deepEqual(page.entries.map(e => e.id), ['notes', 'tables'])
+  assert.ok(page.entries.every(e => e.kind === 'addon'))
+})
+
 test('the api sends one dispatch shape and classifies refusals', async () => {
   const calls = []
   const api = createAddonsApi({
@@ -162,7 +178,7 @@ test('the api sends one dispatch shape and classifies refusals', async () => {
   assert.equal(calls[0].init.method, 'POST')
   assert.equal(calls[0].init.credentials, 'same-origin')
   const sent = JSON.parse(calls[0].init.body)
-  assert.deepEqual(sent.arguments, { text: 'no', kind: 'all', sourceId: 'main', offset: 10, limit: 10 })
+  assert.deepEqual(sent.arguments, { text: 'no', kind: 'addon', sourceId: 'main', offset: 10, limit: 10 })
   assert.equal(sent.action, 'catalog-search')
   assert.ok(sent.operationId)
   assert.equal(page.total, 31)
@@ -289,7 +305,7 @@ test('a refusal shows the server reason and falls back to the generic text', () 
   assert.equal(describeError(new AddonsError(classifyResponse(401, { error: { message: 'x' } })), t), 'T:errors.auth')
 })
 
-test('a backend entry keeps its kind and installs through the backend route', async () => {
+test('the add-on list drops a backend entry, and the backend route still installs one', async () => {
   const calls = []
   const api = createAddonsApi({
     fetch: async (url, init) => {
@@ -303,9 +319,7 @@ test('a backend entry keeps its kind and installs through the backend route', as
   })
   const adapter = createAddonsCatalogAdapter(api, { pageSize: 10 })
   const page = await adapter.search({})
-  assert.equal(page.entries[0].kind, 'backend')
-  assert.equal(page.entries[0].alias, 'local-store')
-  assert.equal(page.entries[0].key, 'official-backends/cpu-local-store/0.0.0-latest.aaaaaaaaaaaa')
+  assert.deepEqual(page.entries, [])
   assert.deepEqual(await api.backends.installed(), [{ id: 'cpu-local-store', library: 'official-backends', version: '', digest: '' }, { id: 'llama-cpp', library: '', version: '', digest: '' }])
   await assert.rejects(
     api.backends.install({ sourceId: 'official-backends', name: 'cpu-local-store', version: 'v' }),

@@ -206,6 +206,95 @@ var _ = Describe("realtime speaker surfacing (commitUtterance)", func() {
 	})
 })
 
+// firstEventIndex returns the position of the first recorded event of type et,
+// or -1 when there is none.
+func firstEventIndex(tr *fakeTransport, et types.ServerEventType) int {
+	for i, e := range tr.events() {
+		if e.ServerEventType() == et {
+			return i
+		}
+	}
+	return -1
+}
+
+var _ = Describe("realtime speaker surfacing in transcription-only sessions (commitUtterance)", func() {
+	utt := make([]byte, 32)
+
+	transcriptionOnly := func(identity *config.VoiceIdentityConfig) *Session {
+		session, _ := itSession(itGate("alice", "alice", []float32{1, 0, 0}, nil,
+			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
+		session.TranscriptionOnly = true
+		session.voiceGate.cfg.Identity = identity
+		return session
+	}
+
+	It("emits conversation.item.speaker before the completed event when announce is on", func() {
+		session := transcriptionOnly(&config.VoiceIdentityConfig{Announce: true})
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
+		speakerAt := firstEventIndex(tr, types.ServerEventTypeConversationItemSpeaker)
+		completedAt := firstEventIndex(tr, types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)
+		Expect(completedAt).To(BeNumerically(">=", 0))
+		Expect(speakerAt).To(BeNumerically("<", completedAt))
+
+		events := tr.events()
+		spk := events[speakerAt].(types.ConversationItemSpeakerEvent)
+		done := events[completedAt].(types.ConversationItemInputAudioTranscriptionCompletedEvent)
+		Expect(spk.ItemID).To(Equal(done.ItemID))
+		Expect(spk.Speaker.Name).To(Equal("alice"))
+		Expect(spk.Speaker.Matched).To(BeTrue())
+
+		// Still transcription only: no response is generated.
+		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
+	})
+
+	It("emits no speaker event when announce is off", func() {
+		for _, identity := range []*config.VoiceIdentityConfig{nil, {Personalize: true}} {
+			session := transcriptionOnly(identity)
+			tr := &fakeTransport{}
+
+			commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
+
+			Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(0))
+			Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
+			Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
+		}
+	})
+
+	It("does not announce a speaker that the enforcing gate rejects", func() {
+		// match name "mallory" is not in the allow list, so the gate denies it.
+		session, _ := itSession(itGate("alice", "mallory", []float32{1, 0, 0}, nil,
+			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
+		session.TranscriptionOnly = true
+		session.voiceGate.cfg.Identity = &config.VoiceIdentityConfig{Announce: true}
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(0))
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
+	})
+
+	It("leaves a response session unchanged: the speaker follows the completed event", func() {
+		session, _ := itSession(itGate("alice", "alice", []float32{1, 0, 0}, nil,
+			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
+		session.voiceGate.cfg.Identity = &config.VoiceIdentityConfig{Announce: true}
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
+		speakerAt := firstEventIndex(tr, types.ServerEventTypeConversationItemSpeaker)
+		completedAt := firstEventIndex(tr, types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)
+		Expect(completedAt).To(BeNumerically(">=", 0))
+		Expect(speakerAt).To(BeNumerically(">", completedAt))
+		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(BeNumerically(">=", 1))
+	})
+})
+
 var _ = Describe("realtime speaker personalization (triggerResponseAtTurn)", func() {
 	utt := make([]byte, 32)
 
