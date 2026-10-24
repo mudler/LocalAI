@@ -61,6 +61,17 @@ Select a specific build with `--variant minicpm-v-4_7-1b-q4`,
 `--variant minicpm-v-4_7-1b-q5`, `--variant minicpm-v-4_7-1b-q6`,
 or `--variant minicpm-v-4_7-1b-q8`.
 
+### Underdog Saluki with multi-token prediction
+
+The `underdog-saluki-27b-1.0` entry offers `underdog-saluki-27b-1.0-mtp` as a
+variant. It preserves the mixed IQ2 main weights and adds an MTP head for
+llama.cpp, with up to two draft tokens. Both entries include the F16 vision
+projector. To install the MTP build explicitly:
+
+```bash
+local-ai models install --variant underdog-saluki-27b-1.0-mtp underdog-saluki-27b-1.0
+```
+
 ### Repairing an existing model configuration
 
 Gallery template updates do not rewrite YAML files for already installed models.
