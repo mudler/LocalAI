@@ -44,6 +44,26 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Ternary Bonsai 2 9B
+
+[Ternary Bonsai 2 9B](https://huggingface.co/prism-ml/Ternary-Bonsai-2-9B-gguf)
+supports chat and image understanding through the Bonsai backend.
+The PQ2_0, PTQ1_0, and Q2_0 builds contain the same ternary weights in
+different storage layouts. Each includes the Q8_0 vision projector and
+uses a 32,768-token default context.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install ternary-bonsai-2-9b
+```
+
+Use `--variant ternary-bonsai-2-9b` to select PQ2_0,
+`--variant ternary-bonsai-2-9b-ptq1` for PTQ1_0, or
+`--variant ternary-bonsai-2-9b-q2` for Q2_0.
+Automatic selection can choose the larger Q2_0 packing when it fits;
+a larger packing does not imply higher precision for these ternary weights.
+
 ### MiniCPM-V 4.7 1B
 
 [MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
