@@ -23,8 +23,11 @@ type UserServicesManager struct {
 	configLoader     *config.ModelConfigLoader
 	evaluator        *templates.Evaluator
 	collectionsCache map[string]collections.Backend
-	skillsCache      map[string]*skills.Service
-	jobsCache        map[string]*AgentJobService
+	// Set during initialization, before serving users. Capturing the user here
+	// avoids reacquiring the manager mutex from a collection operation.
+	collectionModelSettings func(string) func(string) (collections.CollectionModelSettings, error)
+	skillsCache             map[string]*skills.Service
+	jobsCache               map[string]*AgentJobService
 
 	// Shared distributed backends (set once, inherited by per-user job services)
 	jobDispatcher DistributedDispatcher
@@ -98,6 +101,9 @@ func (m *UserServicesManager) GetCollections(userID string) (collections.Backend
 		DatabaseURL:      cfg.DatabaseURL,
 	}
 
+	if m.collectionModelSettings != nil {
+		collectionsCfg.ModelSettings = m.collectionModelSettings(userID)
+	}
 	backend, _ := collections.NewInProcessBackend(collectionsCfg)
 	m.collectionsCache[userID] = backend
 	return backend, nil

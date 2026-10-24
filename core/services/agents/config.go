@@ -45,6 +45,8 @@ type AgentConfig struct {
 	TranscriptionModel    string `json:"transcription_model"`
 	TranscriptionLanguage string `json:"transcription_language"`
 	TTSModel              string `json:"tts_model"`
+	EmbeddingModel        string `json:"embedding_model,omitempty"`
+	RerankerModel         string `json:"reranker_model,omitempty"`
 
 	// API
 	APIURL         string `json:"api_url"`
