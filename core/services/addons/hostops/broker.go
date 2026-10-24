@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"io"
 	"net/http"
 	"strings"
@@ -203,6 +204,8 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 				status, code, msg = http.StatusNotFound, contract.HostNotFound, "not found"
 			case errors.Is(err, ErrConflict):
 				status, code, msg = http.StatusConflict, contract.HostConflict, "conflict"
+			case errors.Is(err, modelsprobe.ErrNotShared):
+				status, code, msg = http.StatusConflict, contract.HostConflict, modelsprobe.ErrNotShared.Error()
 			case errors.Is(err, ErrBadRequest):
 				// The message names the refused field. Handlers build it from
 				// fixed text and field names, never from a server path.

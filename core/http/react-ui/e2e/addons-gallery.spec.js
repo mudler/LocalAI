@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
 import { ADMIN, MEMBER, HEADLESS, app, installedAddon, release, sessionFor, mockAddons, ok, fail } from './addons-fixtures.js'
 
-// The add-ons page (src/pages/Addons.jsx): Apps for everyone, Browse,
-// Installed and Libraries for administrators. The server is the authority for
+// The add-ons page (src/pages/Addons.jsx): My add-ons for everyone, Find add-ons,
+// Installed and Sources for administrators. The server is the authority for
 // every answer, so these specs drive the page against a stand-in that gives
 // the same refusals the real routes give, and assert what the page sent.
 
@@ -33,10 +33,10 @@ test.describe('Add-ons: apps', () => {
     await page.goto('/app/addons')
     const notes = page.locator('[data-app="notes"]')
     await expect(notes.locator('.ad-tile__title')).toHaveText('Notes')
-    await expect(notes.locator('.ad-tile__state')).toHaveText('Running')
+    await expect(notes.locator('.ad-tile__state')).toHaveText('On')
     await expect(notes.getByRole('link')).toHaveAttribute('href', '/app/addons/notes/home')
     await expect(notes.locator('img.ad-icon')).toHaveAttribute('src', '/api/addons/apps/notes/icon?generation=3')
-    await expect(page.locator('[data-app="broken"] .ad-tile__state')).toHaveText('Stopped, failed')
+    await expect(page.locator('[data-app="broken"] .ad-tile__state')).toHaveText('Off, failed')
     await expect(page.locator('[data-app="broken"]').getByRole('link')).toHaveCount(0)
     await expect(page.locator('[data-app="indexer"]').getByRole('link')).toHaveCount(0)
     // Every image is served by the host itself, never from another origin.
@@ -50,7 +50,7 @@ test.describe('Add-ons: apps', () => {
     await mockAddons(page, { apps: [HEADLESS] })
     await page.goto('/app/addons?detail=indexer')
     const card = detail(page, 'indexer')
-    await expect(card.getByTestId('app-tools')).toContainText('3 tools')
+    await expect(card.getByTestId('app-tools')).toContainText('3 chat tools')
     await expect(card.getByTestId('app-tools')).toContainText('query, export, reindex')
     await expect(card.getByText('Runs in the background')).toBeVisible()
     await expect(card.getByRole('link')).toHaveCount(0)
@@ -62,13 +62,13 @@ test.describe('Add-ons: apps', () => {
     await page.goto('/app/addons?tab=libraries')
     await expect(page.locator('[data-app="notes"]')).toBeVisible()
     await expect(page.getByRole('tablist')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: /^(Start|Stop)$/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Turn (on|off)$/ })).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
     await expect(page.getByText('Add a library')).toHaveCount(0)
-    // The detail sheet offers the reader nothing to start, stop or manage either.
+    // The preview pane offers the reader nothing to turn on, turn off or manage either.
     await page.goto('/app/addons?detail=notes')
     await expect(detail(page, 'notes')).toBeVisible()
-    await expect(page.getByRole('button', { name: /^(Start|Stop)$/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Turn (on|off)$/ })).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
   })
 
@@ -77,10 +77,9 @@ test.describe('Add-ons: apps', () => {
     const state = await mockAddons(page, { apps: [app({ id: 'indexer', title: 'Indexer', enabled: false, state: 'stopped', generation: 4, mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })] })
     await page.goto('/app/addons?detail=indexer')
     const card = detail(page, 'indexer')
-    await expect(card.getByRole('img', { name: 'State: Stopped' })).toBeVisible()
-    await expect(card.getByRole('link', { name: 'Manage' })).toHaveAttribute('href', '/app/addons?manage=indexer')
-    await card.getByRole('button', { name: 'Start' }).click()
-    await expect(card.getByRole('img', { name: 'State: Running' })).toBeVisible()
+    await expect(card.getByRole('img', { name: 'State: Off' })).toBeVisible()
+    await card.getByRole('button', { name: 'Turn on' }).click()
+    await expect(card.getByRole('img', { name: 'State: On' })).toBeVisible()
     expect(state.log.start).toHaveLength(1)
     expect(state.log.start[0].generation).toBe(4)
     expect(state.log.start[0].operationId).toMatch(UUID)
@@ -101,7 +100,7 @@ test.describe('Add-ons: apps', () => {
       },
     })
     await page.goto('/app/addons?detail=indexer')
-    await detail(page, 'indexer').getByRole('button', { name: 'Start' }).click()
+    await detail(page, 'indexer').getByRole('button', { name: 'Turn on' }).click()
     await expect.poll(() => reads, { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
     expect(state.log.start).toHaveLength(1)
     const ids = new Set([state.log.start[0].operationId, ...state.log.dispatch.filter(d => d.action === 'operation-status').map(d => d.operationId)])
@@ -150,7 +149,7 @@ test.describe('Add-ons: apps', () => {
     })
     await page.goto('/app/addons?detail=indexer')
     const card = detail(page, 'indexer')
-    await card.getByRole('button', { name: 'Start' }).click()
+    await card.getByRole('button', { name: 'Turn on' }).click()
     const notice = card.getByTestId('unknown-outcome')
     await expect(notice).toBeVisible({ timeout: 40_000 })
     expect(state.log.start).toHaveLength(1)
@@ -158,23 +157,23 @@ test.describe('Add-ons: apps', () => {
     lose = false
     // The list now shows the app running, but a new action on it is blocked
     // until the unknown one is read or dismissed.
-    await expect(card.getByRole('button', { name: 'Stop' })).toBeVisible({ timeout: 15_000 })
-    await expect(card.getByRole('button', { name: 'Stop' })).toBeDisabled()
+    await expect(card.getByRole('button', { name: 'Turn off' })).toBeVisible({ timeout: 15_000 })
+    await expect(card.getByRole('button', { name: 'Turn off' })).toBeDisabled()
     expect(state.log.stop).toHaveLength(0)
     await notice.getByRole('button', { name: 'Check status' }).click()
     await expect(notice).toHaveCount(0)
     expect(state.log.start).toHaveLength(1)
     // Stop is a new operation.
-    await card.getByRole('button', { name: 'Stop' }).click()
+    await card.getByRole('button', { name: 'Turn off' }).click()
     await expect.poll(() => state.log.stop.length).toBe(1)
     expect(state.log.stop[0].operationId).toMatch(UUID)
     expect(state.log.stop[0].operationId).not.toBe(firstId)
-    await expect(card.getByRole('button', { name: 'Start' })).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Turn on' })).toBeVisible()
     // Start again: a fresh ID, applied by the owner, not replayed as a no-op.
-    await card.getByRole('button', { name: 'Start' }).click()
+    await card.getByRole('button', { name: 'Turn on' }).click()
     await expect.poll(() => state.log.start.length).toBe(2)
     expect(state.log.start[1].operationId).not.toBe(firstId)
-    await expect(card.getByRole('img', { name: 'State: Running' })).toBeVisible()
+    await expect(card.getByRole('img', { name: 'State: On' })).toBeVisible()
     await expect(card.getByRole('alert')).toHaveCount(0)
     expect(state.apps[0].enabled).toBe(true)
   })
@@ -191,13 +190,13 @@ test.describe('Add-ons: apps', () => {
     })
     await page.goto('/app/addons?detail=indexer')
     const card = detail(page, 'indexer')
-    await card.getByRole('button', { name: 'Start' }).click()
+    await card.getByRole('button', { name: 'Turn on' }).click()
     const notice = card.getByTestId('unknown-outcome')
     await expect(notice).toBeVisible({ timeout: 40_000 })
-    await expect(card.getByRole('button', { name: 'Start' })).toBeDisabled()
+    await expect(card.getByRole('button', { name: 'Turn on' })).toBeDisabled()
     await notice.getByRole('button', { name: 'Dismiss' }).click()
     await expect(notice).toHaveCount(0)
-    await card.getByRole('button', { name: 'Start' }).click()
+    await card.getByRole('button', { name: 'Turn on' }).click()
     await expect.poll(() => state.log.start.length).toBe(2)
     expect(state.log.start[1].operationId).not.toBe(state.log.start[0].operationId)
   })
@@ -211,9 +210,9 @@ test.describe('Add-ons: apps', () => {
     })
     await page.goto('/app/addons?detail=indexer')
     const card = detail(page, 'indexer')
-    await card.getByRole('button', { name: 'Start' }).click()
+    await card.getByRole('button', { name: 'Turn on' }).click()
     await expect(card.getByRole('alert')).toContainText('did not change')
-    await expect(card.getByRole('img', { name: 'State: Stopped' })).toBeVisible()
+    await expect(card.getByRole('img', { name: 'State: Off' })).toBeVisible()
   })
 
   test('apps: a refused start shows the server denial and refreshes the list', async ({ page }) => {
@@ -224,8 +223,8 @@ test.describe('Add-ons: apps', () => {
     })
     await page.goto('/app/addons?detail=indexer')
     const before = state.log.appsList
-    await detail(page, 'indexer').getByRole('button', { name: 'Start' }).click()
-    await expect(page.getByRole('alert').filter({ hasText: 'The server refused this' })).toBeVisible()
+    await detail(page, 'indexer').getByRole('button', { name: 'Turn on' }).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'addon_error' })).toBeVisible()
     await expect.poll(() => state.log.appsList).toBeGreaterThan(before)
   })
 
@@ -324,6 +323,9 @@ test.describe('Add-ons: browse', () => {
     await expect(page.locator('.cat-item')).toHaveCount(24)
     await expect(page.getByText('31 results')).toBeVisible()
     const tables = page.locator('.cat-item', { hasText: 'Tables' }).first()
+    // Trust and platform facts are folded into the entry, behind Details.
+    await expect(tables.getByText('linux/amd64')).toBeHidden()
+    await tables.getByText('Details', { exact: true }).click()
     await expect(tables.getByText('Signature required')).toBeVisible()
     await expect(tables.getByText('linux/amd64')).toBeVisible()
     await expect(page.getByRole('group', { name: 'Libraries' }).getByRole('button', { name: 'Team' })).toBeVisible()
@@ -331,51 +333,101 @@ test.describe('Add-ons: browse', () => {
     await expect(page).toHaveURL(/page=2/)
     await expect(page.locator('.cat-item')).toHaveCount(7)
     expect(state.log.dispatch.filter(d => d.action === 'catalog-search').at(-1).arguments.offset).toBe(24)
-    await page.getByRole('searchbox').or(page.getByLabel('Search the libraries')).first().fill('tables')
+    await page.getByRole('searchbox').or(page.getByLabel('Search add-ons in your sources')).first().fill('tables')
     await expect(page.locator('.cat-item')).toHaveCount(1)
     await expect(page).toHaveURL(/q=tables/)
     expect(state.log.dispatch.filter(d => d.action === 'catalog-search').at(-1).arguments.text).toBe('tables')
     await shoot(page, 'browse')
   })
 
-  test('browse: installing asks first and leaves the add-on disabled until it is enabled', async ({ page }) => {
+  test('browse: Install and turn on asks once, installs and turns the add-on on', async ({ page }) => {
     await signIn(page, ADMIN)
-    const state = await mockAddons(page, { installed: [], releases: [release('tables', { name: 'Tables' })] })
+    const state = await mockAddons(page, { installed: [], releases: [release('tables', { name: 'Tables', description: 'Spreadsheets.', ui: { mainPage: '/app/addons/tables/home' } })] })
     await page.goto('/app/addons?tab=browse')
     const row = page.locator('.cat-item', { hasText: 'Tables' })
-    await row.getByRole('button', { name: 'Install' }).click()
+    await expect(row).toContainText('Spreadsheets.')
+    await expect(row.getByTestId('entry-adds')).toHaveText('Adds a page')
+    // One button on the entry, and Details is folded into it.
+    await expect(row.getByRole('button')).toHaveCount(1)
+    await row.getByRole('button', { name: 'Install and turn on' }).click()
     const dialog = page.getByRole('alertdialog')
-    await expect(dialog).toContainText('Install Tables?')
-    await expect(dialog).toContainText('does not start the add-on')
+    await expect(dialog).toContainText('Install and turn on Tables?')
     await expect(dialog).toContainText('sha256:aaaaaaaaaaaa')
     expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(0)
-    await dialog.getByRole('button', { name: 'Install' }).click()
-    await expect(row.getByText('It is not enabled')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Install and turn on' }).click()
+    // The same dialog stays open and shows the two steps, then the result.
+    await expect(dialog.getByTestId('flow-steps').getByRole('listitem')).toHaveCount(2)
+    await expect(dialog).toContainText('Tables is installed and on.')
+    await expect(dialog.getByTestId('flow-steps').locator('[data-step="install"]')).toHaveAttribute('data-state', 'done')
+    await expect(dialog.getByTestId('flow-steps').locator('[data-step="turn-on"]')).toHaveAttribute('data-state', 'done')
+    await dialog.getByRole('button', { name: 'Close' }).click()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(row.getByText('Tables is installed and on.')).toBeVisible()
     const install = state.log.dispatch.filter(d => d.action === 'install')
     expect(install).toHaveLength(1)
     expect(install[0].operationId).toMatch(UUID)
     expect(install[0].arguments).toEqual({ sourceId: 'main', version: '1.0.0' })
-    expect(state.log.dispatch.filter(d => d.action === 'enable')).toHaveLength(0)
-    // Activation is its own step, on the Installed tab.
-    await tab(page, 'Installed').click()
-    const installed = page.locator('[data-addon="tables"]')
-    await expect(installed.getByText('Disabled')).toBeVisible()
-    await installed.getByRole('button', { name: 'Enable' }).click()
-    await expect(installed.getByText('Enabled', { exact: true })).toBeVisible()
-    expect(state.log.dispatch.filter(d => d.action === 'enable')).toHaveLength(1)
-    expect(state.log.dispatch.find(d => d.action === 'enable').generation).toBe(1)
+    const enable = state.log.dispatch.filter(d => d.action === 'enable')
+    expect(enable).toHaveLength(1)
+    expect(enable[0].operationId).toMatch(UUID)
+    expect(enable[0].operationId).not.toBe(install[0].operationId)
+    expect(state.installed.find(a => a.id === 'tables').enabled).toBe(true)
   })
+
+  test('browse: a failed turn on keeps the install, says why in the dialog and can be tried again', async ({ page }) => {
+    await signIn(page, ADMIN)
+    let attempts = 0
+    const state = await mockAddons(page, {
+      installed: [],
+      releases: [release('tables', { name: 'Tables' })],
+      dispatch: (body) => {
+        if (body.action !== 'enable') return null
+        attempts += 1
+        return attempts === 1 ? fail(403, 'addon_error') : null
+      },
+    })
+    await page.goto('/app/addons?tab=browse')
+    const row = page.locator('.cat-item', { hasText: 'Tables' })
+    await row.getByRole('button', { name: 'Install and turn on' }).click()
+    const dialog = page.getByRole('alertdialog')
+    await dialog.getByRole('button', { name: 'Install and turn on' }).click()
+    await expect(dialog.getByTestId('install-dialog-failed')).toContainText('Tables is installed but did not turn on.')
+    await expect(dialog.getByTestId('flow-steps').locator('[data-step="install"]')).toHaveAttribute('data-state', 'done')
+    await expect(dialog.getByTestId('flow-steps').locator('[data-step="turn-on"]')).toHaveAttribute('data-state', 'failed')
+    // Trying again turns it on; it does not install a second time.
+    await dialog.getByRole('button', { name: 'Try again' }).click()
+    await expect(dialog).toContainText('Tables is installed and on.')
+    expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(1)
+    expect(state.log.dispatch.filter(d => d.action === 'enable')).toHaveLength(2)
+  })
+
+  test('browse: an add-on that is installed but off offers Turn on and nothing else', async ({ page }) => {
+    await signIn(page, ADMIN)
+    const state = await mockAddons(page, { installed: [installedAddon({ id: 'tables', title: 'Tables', enabled: false, state: 'stopped', generation: 1, version: '1.0.0' })], releases: [release('tables', { name: 'Tables' })] })
+    await page.goto('/app/addons?tab=browse')
+    const row = page.locator('.cat-item', { hasText: 'Tables' })
+    await expect(row.getByRole('button')).toHaveCount(1)
+    await row.getByRole('button', { name: 'Turn on' }).click()
+    await expect.poll(() => state.log.dispatch.filter(d => d.action === 'enable').length).toBe(1)
+    expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(0)
+  })
+})
+
+// What the Installed tab used to show is the Details of an add-on in My add-ons:
+// the list read for an administrator and its installed record go together.
+const details = (id, over = {}, installedOver = {}) => ({
+  apps: [app({ id, title: installedOver.title || id, admin: { canStart: false, canStop: true, managementUrl: `/app/addons?manage=${id}` }, ...over })],
+  installed: [installedAddon({ id, title: installedOver.title || id, ...installedOver })],
 })
 
 test.describe('Add-ons: installed', () => {
   test('installed: health is separate from enabled and the details show trust, compatibility and storage', async ({ page }) => {
     await signIn(page, ADMIN)
-    await mockAddons(page, { installed: [installedAddon({ state: 'failed', restarts: 3, verification: 'sha256+sigstore' })] })
-    await page.goto('/app/addons?tab=installed')
-    const row = page.locator('[data-addon="notes"]')
-    await expect(row.getByText('Enabled', { exact: true })).toBeVisible()
-    await expect(row.getByRole('img', { name: 'State: Failed' })).toBeVisible()
-    await row.getByRole('button', { name: 'Details' }).click()
+    await mockAddons(page, details('notes', { state: 'failed' }, { state: 'failed', restarts: 3, verification: 'sha256+sigstore', title: 'Notes' }))
+    await page.goto('/app/addons?manage=notes')
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane.getByRole('heading', { name: 'Notes' })).toBeVisible()
+    await expect(pane.getByRole('img', { name: 'State: Failed' }).first()).toBeVisible()
     const sheet = page.getByTestId('addon-manage')
     await expect(sheet.getByText('Wanted state')).toBeVisible()
     await expect(sheet.getByRole('img', { name: 'State: Failed' })).toBeVisible()
@@ -394,14 +446,18 @@ test.describe('Add-ons: installed', () => {
   test('installed: an update is shown only from the owner update field and upgrade sends that version', async ({ page }) => {
     await signIn(page, ADMIN)
     const candidate = 'sha256:' + 'b'.repeat(64)
-    const state = await mockAddons(page, { installed: [
-      installedAddon({ update: { available: true, state: 'update-available', version: '1.3.0', digest: candidate, checkedAt: '2026-10-01T00:00:00Z' } }),
-      installedAddon({ id: 'plain', title: 'Plain', version: '9.9.9' }),
-    ] })
-    await page.goto('/app/addons?tab=installed')
-    await expect(page.locator('[data-addon="notes"]').getByText('Update 1.3.0')).toBeVisible()
-    await expect(page.locator('[data-addon="plain"]').getByText(/Update/)).toHaveCount(0)
-    await page.locator('[data-addon="notes"]').getByRole('button', { name: 'Details' }).click()
+    const admin = { canStart: false, canStop: true, managementUrl: '/app/addons?manage=notes' }
+    const state = await mockAddons(page, {
+      apps: [app({ update: 'update-pending', admin, title: 'Notes' }), app({ id: 'plain', title: 'Plain', admin: { ...admin, managementUrl: '/app/addons?manage=plain' } })],
+      installed: [
+        installedAddon({ update: { available: true, state: 'update-available', version: '1.3.0', digest: candidate, checkedAt: '2026-10-01T00:00:00Z' } }),
+        installedAddon({ id: 'plain', title: 'Plain', version: '9.9.9' }),
+      ],
+    })
+    await page.goto('/app/addons')
+    await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('update-chip')).toHaveText('Update pending')
+    await expect(page.locator('[data-testid="addon-tile"][data-app="plain"]').getByTestId('update-chip')).toHaveCount(0)
+    await page.goto('/app/addons?manage=notes')
     await page.getByTestId('addon-manage').getByRole('button', { name: 'Upgrade' }).click()
     // The confirmation names the version and digest the owner resolved and
     // nothing is sent until it is confirmed.
@@ -419,97 +475,79 @@ test.describe('Add-ons: installed', () => {
     expect(sent.confirm).toBe(sent.operationId)
     expect(state.log.dispatch.filter(d => d.action === 'upgrade')).toHaveLength(0)
     // An add-on without the field says the status is unknown and has no Upgrade.
-    await page.goto('/app/addons?tab=installed&manage=plain')
+    await page.goto('/app/addons?manage=plain')
     const sheet = page.getByTestId('addon-manage')
     await expect(sheet.getByText('The update status is not known')).toBeVisible()
     await expect(sheet.getByRole('button', { name: 'Upgrade' })).toHaveCount(0)
   })
 
-  test('installed: uninstalling warns that data is kept before anything is submitted', async ({ page }) => {
+  test('installed: removing warns that data is kept before anything is submitted', async ({ page }) => {
     await signIn(page, ADMIN)
-    const state = await mockAddons(page)
-    await page.goto('/app/addons?tab=installed&manage=notes')
-    await page.getByTestId('addon-manage').getByRole('button', { name: 'Uninstall' }).click()
+    const state = await mockAddons(page, details('notes', {}, { title: 'Notes' }))
+    await page.goto('/app/addons?detail=notes')
+    await page.getByTestId('addon-detail').getByRole('button', { name: 'Remove' }).click()
     const dialog = page.getByRole('alertdialog')
-    await expect(dialog).toContainText('data, identity and grants are kept')
+    await expect(dialog).toContainText('Remove Notes?')
+    await expect(dialog).toContainText('Its data is kept')
     expect(state.log.dispatch.filter(d => d.action === 'uninstall')).toHaveLength(0)
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     expect(state.log.dispatch.filter(d => d.action === 'uninstall')).toHaveLength(0)
-    await page.getByTestId('addon-manage').getByRole('button', { name: 'Uninstall' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Uninstall' }).click()
+    await page.getByTestId('addon-detail').getByRole('button', { name: 'Remove' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click()
     await expect.poll(() => state.log.dispatch.filter(d => d.action === 'uninstall').length).toBe(1)
   })
 
-  test('installed: Escape cancels the uninstall dialog only, then closes the sheet, and focus returns', async ({ page }) => {
+  test('installed: Escape cancels the remove dialog only, then closes the pane, and focus returns to the card', async ({ page }) => {
     await signIn(page, ADMIN)
-    await mockAddons(page)
-    await page.goto('/app/addons?tab=installed')
-    const manage = page.locator('[data-addon="notes"]').getByRole('button', { name: 'Details' })
-    await manage.click()
-    const sheet = page.getByTestId('addon-manage')
-    await expect(sheet).toBeVisible()
-    const uninstall = sheet.getByRole('button', { name: 'Uninstall' })
-    await uninstall.focus()
+    await mockAddons(page, details('notes', {}, { title: 'Notes' }))
+    await page.goto('/app/addons')
+    const card = page.locator('[data-testid="addon-tile"][data-app="notes"] .ad-tile__open')
+    await card.click()
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane).toBeVisible()
+    const remove = pane.getByRole('button', { name: 'Remove' })
+    await remove.focus()
     await page.keyboard.press('Enter')
     const dialog = page.getByRole('alertdialog')
     await expect(dialog).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
-    await expect(sheet).toBeVisible()
-    await expect(uninstall).toBeFocused()
+    await expect(pane).toBeVisible()
+    await expect(remove).toBeFocused()
     await page.keyboard.press('Escape')
-    await expect(sheet).toHaveCount(0)
-    await expect(manage).toBeFocused()
-  })
-
-  test('installed: an unknown enable blocks other actions on the add-on until it is read', async ({ page }) => {
-    test.setTimeout(90_000)
-    await signIn(page, ADMIN)
-    let phase = 'prepared'
-    const state = await mockAddons(page, {
-      installed: [installedAddon({ enabled: false, state: 'stopped' })],
-      dispatch: (body, st) => {
-        if (body.action === 'enable' && st.log.dispatch.filter(d => d.action === 'enable').length === 1) {
-          return fail(503, 'outcome_unknown', { operationId: body.operationId })
-        }
-        if (body.action === 'operation-status') return ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: phase, Generation: 3 })
-        return null
-      },
-    })
-    await page.goto('/app/addons?tab=installed')
-    const row = page.locator('[data-addon="notes"]')
-    await row.getByRole('button', { name: 'Enable' }).click()
-    const notice = row.getByTestId('unknown-outcome')
-    await expect(notice).toBeVisible({ timeout: 40_000 })
-    await expect(row.getByRole('button', { name: 'Enable' })).toBeDisabled()
-    phase = 'failed'
-    await notice.getByRole('button', { name: 'Check status' }).click()
-    await expect(notice).toHaveCount(0)
-    await expect(row.getByRole('alert')).toContainText('did not complete')
-    // The failed operation is over: a new click is a new operation.
-    await row.getByRole('button', { name: 'Enable' }).click()
-    await expect.poll(() => state.log.dispatch.filter(d => d.action === 'enable').length).toBe(2)
-    const ids = state.log.dispatch.filter(d => d.action === 'enable').map(d => d.operationId)
-    expect(ids[1]).not.toBe(ids[0])
+    await expect(pane).toHaveCount(0)
+    await expect(card).toBeFocused()
   })
 
   test('installed: a headless add-on keeps its details, health and tools', async ({ page }) => {
     await signIn(page, ADMIN)
-    await mockAddons(page, { installed: [installedAddon({ id: 'indexer', title: 'indexer', hasUI: false, mainPage: undefined, icon: undefined, tools: ['query', 'export'], toolCount: 2, state: 'running' })] })
-    await page.goto('/app/addons?tab=installed&manage=indexer')
+    await mockAddons(page, details('indexer', { hasUI: false, mainPage: undefined, icon: undefined, tools: ['query', 'export'], toolCount: 2, state: 'running' }, { hasUI: false, mainPage: undefined, icon: undefined, tools: ['query', 'export'], toolCount: 2, state: 'running', title: 'indexer' }))
+    await page.goto('/app/addons?manage=indexer')
     const sheet = page.getByTestId('addon-manage')
     await expect(sheet.getByText('Headless, no pages')).toBeVisible()
     await expect(sheet.getByText('2: query, export')).toBeVisible()
-    await expect(sheet.getByRole('img', { name: 'State: Running' })).toBeVisible()
+    await expect(sheet.getByRole('img', { name: 'State: On' })).toBeVisible()
     await expect(sheet.getByRole('link', { name: 'Open' })).toHaveCount(0)
   })
 
-  test('installed: a refusal from the server is shown even though the tab was offered', async ({ page }) => {
+  test('installed: a refusal of the installed list leaves the pane without Details', async ({ page }) => {
     await signIn(page, ADMIN)
-    await mockAddons(page, { dispatch: (body) => (body.action === 'addons-installed' ? fail(403, 'addon_error') : null) })
+    await mockAddons(page, { ...details('notes', {}, { title: 'Notes' }), dispatch: (body) => (body.action === 'addons-installed' ? fail(403, 'addon_error') : null) })
+    await page.goto('/app/addons?detail=notes')
+    await expect(page.getByTestId('addon-detail').getByRole('heading', { name: 'Notes' })).toBeVisible()
+    await expect(page.getByTestId('preview-source')).toHaveText('Not known')
+    await expect(page.getByTestId('addon-more')).toHaveCount(0)
+  })
+
+  test('installed: an old Installed address lands on My add-ons and the management link opens the details', async ({ page }) => {
+    await signIn(page, ADMIN)
+    await mockAddons(page, details('notes', {}, { title: 'Notes' }))
     await page.goto('/app/addons?tab=installed')
-    await expect(page.getByRole('alert').filter({ hasText: 'The server refused this' })).toBeVisible()
-    await expect(page.locator('[data-addon]')).toHaveCount(0)
+    await expect(tab(page, 'My add-ons')).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: 'Installed' })).toHaveCount(0)
+    await expect(page.getByTestId('addon-tile')).toHaveCount(1)
+    await page.goto('/app/addons?manage=notes')
+    await expect(page.getByTestId('addon-more')).toHaveAttribute('open', '')
   })
 })
 
@@ -551,8 +589,8 @@ test.describe('Add-ons: libraries', () => {
     // A removal goes through the library route, the same one the other kinds use.
     const removal = state.log.library.find(c => c.method === 'DELETE')
     expect(removal.id).toBe('main')
-    await tab(page, 'Installed').click()
-    await expect(page.locator('[data-addon="notes"]')).toBeVisible()
+    await tab(page, 'My add-ons').click()
+    await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]')).toBeVisible()
     expect(state.installed).toHaveLength(1)
   })
 
@@ -579,20 +617,20 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await signIn(page, ADMIN)
     const state = await mockAddons(page, { apps: [app({ admin })] })
     await page.goto('/app/addons')
-    await tab(page, 'Apps').focus()
+    await tab(page, 'My add-ons').focus()
     await page.keyboard.press('ArrowRight')
-    await expect(tab(page, 'Browse')).toBeFocused()
-    await expect(tab(page, 'Browse')).toHaveAttribute('aria-selected', 'true')
+    await expect(tab(page, 'Find add-ons')).toBeFocused()
+    await expect(tab(page, 'Find add-ons')).toHaveAttribute('aria-selected', 'true')
     await expect(page).toHaveURL(/tab=browse/)
     await page.keyboard.press('End')
-    await expect(tab(page, 'Libraries')).toHaveAttribute('aria-selected', 'true')
+    await expect(tab(page, 'Sources')).toHaveAttribute('aria-selected', 'true')
     await page.keyboard.press('Home')
-    await expect(tab(page, 'Apps')).toHaveAttribute('aria-selected', 'true')
+    await expect(tab(page, 'My add-ons')).toHaveAttribute('aria-selected', 'true')
     // The selected tab is the only one in the tab order.
-    await expect(tab(page, 'Browse')).toHaveAttribute('tabindex', '-1')
+    await expect(tab(page, 'Find add-ons')).toHaveAttribute('tabindex', '-1')
     // Stop is reachable and operable with the keyboard alone, in the detail sheet.
     await page.goto('/app/addons?detail=notes')
-    const stop = detail(page, 'notes').getByRole('button', { name: 'Stop' })
+    const stop = detail(page, 'notes').getByRole('button', { name: 'Turn off' })
     await stop.focus()
     await expect(stop).toBeFocused()
     await page.keyboard.press('Enter')
@@ -610,7 +648,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     const lefts = await page.locator('.ad-tile').evaluateAll(cards => cards.map(c => Math.round(c.getBoundingClientRect().left)))
     expect(new Set(lefts).size).toBe(1)
     await shoot(page, 'apps-narrow')
-    await page.goto('/app/addons?tab=installed&manage=notes')
+    await page.goto('/app/addons?manage=notes')
     await expect(page.getByTestId('addon-manage')).toBeVisible()
     const sheetOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(sheetOverflow).toBeLessThanOrEqual(0)
@@ -623,7 +661,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await page.addInitScript(() => localStorage.setItem('localai-theme', 'light'))
     await page.goto('/app/addons')
     await page.goto('/app/addons?detail=notes')
-    const read = () => page.locator('.ad-card').first().evaluate(el => {
+    const read = () => page.locator('.ad-pane').first().evaluate(el => {
       const css = getComputedStyle(el)
       const chip = getComputedStyle(el.querySelector('.ad-chip'))
       return { card: css.backgroundColor, chip: chip.color, chipBg: chip.backgroundColor }
@@ -643,10 +681,10 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await mockAddons(page)
     await page.addInitScript(() => localStorage.setItem('localai-language', 'it'))
     await page.goto('/app/addons')
-    await expect(page.getByRole('tab', { name: 'Sfoglia' })).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Librerie' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Trova componenti' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Fonti' })).toBeVisible()
     await page.goto('/app/addons?detail=notes')
-    await expect(detail(page, 'notes').getByRole('img', { name: 'Stato: In esecuzione' })).toBeVisible()
+    await expect(detail(page, 'notes').getByRole('img', { name: 'Stato: Attivo' })).toBeVisible()
   })
 
   test('hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature', async ({ page }) => {

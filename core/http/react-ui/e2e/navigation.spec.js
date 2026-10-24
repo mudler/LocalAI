@@ -20,7 +20,7 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('the sidebar has Chat, Models and Apps, no Settings and no Create tier', async ({ page }) => {
+  test('the sidebar has Chat, Models and Add-ons, no Settings and no Create tier', async ({ page }) => {
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
     for (const href of ['/app/chat', '/app/models', '/app/addons']) {

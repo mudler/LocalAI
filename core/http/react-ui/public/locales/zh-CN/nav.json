@@ -61,7 +61,12 @@
     "thisMachine": "本机",
     "failover": "故障转移",
     "p2p": "P2P",
-    "addons": "附加组件"
+    "addons": "附加组件",
+    "voiceLibrary": "Voice Library",
+    "logs": "Logs",
+    "trafficModels": "Models",
+    "gpuHost": "GPU and host",
+    "prometheus": "Prometheus"
   },
   "footer": {
     "github": "GitHub",
@@ -71,7 +76,9 @@
   },
   "console": {
     "automation": "自动化",
-    "training": "训练"
+    "training": "训练",
+    "expandNavigation": "Expand {{section}} navigation",
+    "collapseNavigation": "Collapse {{section}} navigation"
   },
   "hub": {
     "status": "状态",
