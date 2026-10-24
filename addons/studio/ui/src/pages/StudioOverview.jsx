@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import PageHeader from '../components/PageHeader'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import StudioComposer from '../components/studio/StudioComposer'
@@ -80,12 +79,6 @@ export default function StudioOverview({ modalities, upscalers, modelsLoading, m
 
   return (
     <div data-testid="studio-overview" className="page-pad studio-front">
-      <PageHeader
-        title={t('studio.overview.title')}
-        supporting={t('studio.overview.subtitle')}
-        actions={<span className="studio-key-hint"><kbd className="dk-kbd">/</kbd> {t('studio.composer.startTyping')}</span>}
-      />
-
       {modelsError ? (
         <div className="studio-note studio-note--error studio-note--standalone" role="alert" data-testid="studio-models-error">
           <h3>{t('studio.error.title')}</h3>

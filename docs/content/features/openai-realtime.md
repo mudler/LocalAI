@@ -730,7 +730,7 @@ pipeline:
 
 ### The `conversation.item.speaker` event
 
-When `identity.announce` is enabled, the server emits a `conversation.item.speaker` event after the user conversation item, naming the recognized speaker:
+When `identity.announce` is enabled, the server emits a `conversation.item.speaker` event after the user conversation item, naming the recognized speaker. In a transcription-only session there is no conversation item, so the server emits the event before the `conversation.item.input_audio_transcription.completed` event of the turn, with the same `item_id`:
 
 ```json
 {

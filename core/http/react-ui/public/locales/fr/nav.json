@@ -37,7 +37,8 @@
       "memory": "Collections de documents que les agents peuvent consulter.",
       "quantize": "Réduisez un modèle pour l'exécuter sur du matériel plus modeste.",
       "skills": "Instructions réutilisables que les agents chargent à la demande.",
-      "voices": "Identifiez les locuteurs et conservez une bibliothèque de profils vocaux."
+      "voices": "Identifiez les locuteurs et conservez une bibliothèque de profils vocaux.",
+      "addons": "Install, turn on and open add-ons."
     }
   },
   "operate": {
@@ -89,7 +90,8 @@
     "logs": "Journaux",
     "p2p": "P2P",
     "prometheus": "Prometheus",
-    "trafficModels": "Modèles"
+    "trafficModels": "Modèles",
+    "addons": "Add-ons"
   },
   "footer": {
     "github": "GitHub",

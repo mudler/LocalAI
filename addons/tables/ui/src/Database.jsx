@@ -3,6 +3,7 @@
 // listing for this person; what the page offers follows it, and the host
 // refuses the rest.
 import { describeError } from './lib/errors.js'
+import { canShare } from './lib/layout.js'
 
 export function createDatabase(ctx, ui, api, hooks, parts) {
   const { sdk, h, R, Fragment, t } = ctx
@@ -100,7 +101,7 @@ export function createDatabase(ctx, ui, api, hooks, parts) {
         <header className="tbl-head">
           <div className="tbl-head__main">
             <div>{back}</div>
-            <h1 className="tbl-title" data-testid="tbl-db-name">{name}</h1>
+            <h1 className="page-title tbl-title" data-testid="tbl-db-name">{name}</h1>
             <div className="tbl-db__meta">
               <RoleBadge role={resource.role} />
               {!isOwner && resource.owner ? <span className="tbl-muted">{t('db.sharedBy', { name: resource.owner })}</span> : null}
@@ -109,9 +110,12 @@ export function createDatabase(ctx, ui, api, hooks, parts) {
           </div>
           {isOwner ? (
             <div className="tbl-toolbar__group">
-              <Button size="sm" icon="users" onClick={() => open(t('share.title', { name }), ({ close }) => (
-                <sharing.Sharing resource={{ id, name }} sharing={data.listing.sharing} onChanged={view.refresh} onLost={onLost} close={close} />
-              ))}>{t('db.share')}</Button>
+              {/* Without named accounts there is nobody to share with, so no button. */}
+              {canShare(data.listing) ? (
+                <Button size="sm" icon="users" onClick={() => open(t('share.title', { name }), ({ close }) => (
+                  <sharing.Sharing resource={{ id, name }} sharing={data.listing.sharing} onChanged={view.refresh} onLost={onLost} close={close} />
+                ))}>{t('db.share')}</Button>
+              ) : null}
               <Button size="sm" icon="edit" onClick={() => open(t('rename.title'), ({ close }) => (
                 <databases.NameDialog initial={name} label={t('rename.submit')} close={close} onDone={() => view.refresh()}
                   submit={(n, operationId) => api.rename(id, n, db.revision(), { operationId })} />
@@ -127,13 +131,15 @@ export function createDatabase(ctx, ui, api, hooks, parts) {
         {view.state === 'error' ? <Problem error={view.error} onRetry={view.reload} /> : null}
         {notice ? <Banner tone="success" testid="tbl-notice">{notice}</Banner> : null}
         <nav className="tbl-tables" aria-label={t('db.tables')}>
-          <ul className="tbl-tabs" data-testid="tbl-tables">
-            {tables.map(x => (
-              <li key={x.name}>
-                <button type="button" className={current && current.name === x.name ? 'tbl-tab tbl-tab--on' : 'tbl-tab'} aria-current={current && current.name === x.name ? 'true' : undefined} onClick={() => select(x.name)} data-testid="tbl-table-tab">{x.name}</button>
-              </li>
-            ))}
-          </ul>
+          {tables.length > 0 ? (
+            <ul className="tbl-tabs" data-testid="tbl-tables">
+              {tables.map(x => (
+                <li key={x.name}>
+                  <button type="button" className={current && current.name === x.name ? 'tbl-tab tbl-tab--on' : 'tbl-tab'} aria-current={current && current.name === x.name ? 'true' : undefined} onClick={() => select(x.name)} data-testid="tbl-table-tab">{x.name}</button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {isOwner ? <Button size="sm" icon="plus" onClick={() => open(t('db.newTable'), ({ close }) => <schema.TableNameDialog db={db} onDone={changedSchema} onLost={onLost} close={close} />)}>{t('db.newTable')}</Button> : null}
         </nav>
         {current ? (

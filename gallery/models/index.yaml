@@ -720,8 +720,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: ds4flash.gguf
-        sha256: b1f1528d3be5886819d6b637d733ad6e6e3b908cc16bfa491130c4d25e2862a9
         uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
+        sha256: cf1f614ed7cd3c9beb2e74d66995f4584cb014de63349a019990c0a4c741e31c
     overrides:
       backend: ds4
       function:
@@ -94802,3 +94802,144 @@
         - detector_interval:1
       parameters:
         model: gem-x/gem-x-contact-f32.gguf
+- kind: model
+  id: flint
+  name: flint
+  version: 0.0.0-gallery.a824f12de5cd
+  description: |
+    Flint is a mixture-of-experts coding-agent model from Recursive, with
+    39.8B total and about 2.5B active parameters per token. It takes text in
+    and gives text out, and supports reasoning and multi-turn tool use. This
+    entry uses the Unsloth UD-Q4_K_XL GGUF quantization (25 GB).
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/RecursiveSI/flint
+    - https://huggingface.co/unsloth/flint-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - coding
+    - agent
+    - reasoning
+    - tools
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/unsloth/flint-GGUF/flint-UD-Q4_K_XL.gguf
+        sha256: 63c2ecc461ca545134b670c660e76fa20f47240f8d39b6510bfd21c4dd6e072f
+        uri: huggingface://unsloth/flint-GGUF/flint-UD-Q4_K_XL.gguf
+    overrides:
+      backend: llama-cpp
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        model: llama-cpp/models/unsloth/flint-GGUF/flint-UD-Q4_K_XL.gguf
+        temperature: 1
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+    variants:
+      - model: flint-q2
+      - model: flint-q6
+- kind: model
+  id: flint-q2
+  name: flint-q2
+  version: 0.0.0-gallery.0522ec7a82c2
+  description: |
+    Flint is a mixture-of-experts coding-agent model from Recursive, with
+    39.8B total and about 2.5B active parameters per token. It takes text in
+    and gives text out, and supports reasoning and multi-turn tool use. This
+    entry uses the Unsloth UD-Q2_K_XL GGUF quantization (13.6 GB).
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/RecursiveSI/flint
+    - https://huggingface.co/unsloth/flint-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - coding
+    - agent
+    - reasoning
+    - tools
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/unsloth/flint-GGUF/flint-UD-Q2_K_XL.gguf
+        sha256: 7f43dd99e7d574c43c3f1b24e0e8269cf1ec92ba6c25f11b3ff126cde4c7a0cb
+        uri: huggingface://unsloth/flint-GGUF/flint-UD-Q2_K_XL.gguf
+    overrides:
+      backend: llama-cpp
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        model: llama-cpp/models/unsloth/flint-GGUF/flint-UD-Q2_K_XL.gguf
+        temperature: 1
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: flint-q6
+  name: flint-q6
+  version: 0.0.0-gallery.6df3c309be93
+  description: |
+    Flint is a mixture-of-experts coding-agent model from Recursive, with
+    39.8B total and about 2.5B active parameters per token. It takes text in
+    and gives text out, and supports reasoning and multi-turn tool use. This
+    entry uses the Unsloth UD-Q6_K_XL GGUF quantization (36 GB).
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/RecursiveSI/flint
+    - https://huggingface.co/unsloth/flint-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - coding
+    - agent
+    - reasoning
+    - tools
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/unsloth/flint-GGUF/flint-UD-Q6_K_XL.gguf
+        sha256: 086231093581c67f8bf2964f8b49198889c4f0775b39857ba63b4c37041279c2
+        uri: huggingface://unsloth/flint-GGUF/flint-UD-Q6_K_XL.gguf
+    overrides:
+      backend: llama-cpp
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        model: llama-cpp/models/unsloth/flint-GGUF/flint-UD-Q6_K_XL.gguf
+        temperature: 1
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
