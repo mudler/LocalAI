@@ -322,15 +322,12 @@ var _ = Describe("platform matrix", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(strings.TrimSpace(out)).To(Equal(`{"include":[{"platform":"linux/amd64","runner":"r1","slug":"linux-amd64"},{"platform":"linux/arm64","runner":"r2","slug":"linux-arm64"}]}`))
 	})
-	It("ships the checked-in matrix with every platform disabled until its native check passes", func() {
+	It("ships a checked-in Tables matrix with at least one enabled platform", func() {
 		cfg, err := loadPlatforms("../../../addons/tables/package/platforms.yaml")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(cfg.Platforms).NotTo(BeEmpty())
-		for _, e := range cfg.Platforms {
-			Expect(e.Enabled).To(BeFalse(), e.Platform)
-		}
-		_, err = cfg.enabled()
-		Expect(err).To(HaveOccurred())
+		enabled, err := cfg.enabled()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(enabled).NotTo(BeEmpty())
 	})
 })
 
