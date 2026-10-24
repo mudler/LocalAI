@@ -185,6 +185,9 @@ func (c *fakeBackendClient) SoundDetection(_ context.Context, _ *pb.SoundDetecti
 func (c *fakeBackendClient) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) Forecast(_ context.Context, _ *pb.ForecastRequest, _ ...ggrpc.CallOption) (*pb.ForecastResponse, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) FaceVerify(_ context.Context, _ *pb.FaceVerifyRequest, _ ...ggrpc.CallOption) (*pb.FaceVerifyResponse, error) {
 	return nil, nil
 }
