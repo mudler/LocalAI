@@ -22,6 +22,10 @@ type AddonConfig struct {
 	Transport     *gateway.CarrierConfig `json:"-" yaml:"-"`
 	ListenAddress string
 
+	// Frontend is set for the frontend role, also when add-ons are off. A
+	// frontend keeps no owner state, so it never opens the library store.
+	Frontend bool
+
 	Enabled                                            bool
 	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
 	SharedStorage                                      bool
@@ -64,6 +68,12 @@ type AddonConfig struct {
 	// zero is the contract default of one hour. It is a programmatic option
 	// that no flag sets: the acceptance fixture shortens it to test expiry.
 	ArtifactExpiry time.Duration
+}
+
+// IsFrontend says whether this process is an add-on frontend: the role was set,
+// or the instance is not the owner it forwards to.
+func (c AddonConfig) IsFrontend() bool {
+	return c.Frontend || (c.Enabled && c.OwnerID != "" && c.InstanceID != c.OwnerID)
 }
 
 func WithAddons(c AddonConfig) AppOption {

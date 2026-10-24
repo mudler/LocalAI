@@ -219,6 +219,11 @@ func (f *fakeClient) InstallBackend(_ context.Context, req InstallBackendRequest
 	return "", errNotConfigured
 }
 
+func (f *fakeClient) ListBackendLibraryUpdates(_ context.Context) ([]BackendLibraryUpdate, error) {
+	f.record("ListBackendLibraryUpdates", nil)
+	return []BackendLibraryUpdate{}, nil
+}
+
 func (f *fakeClient) InstallLibraryBackend(_ context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error) {
 	f.record("InstallLibraryBackend", req)
 	if f.installLibraryBackend != nil {

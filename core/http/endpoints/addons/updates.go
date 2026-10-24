@@ -94,6 +94,7 @@ func GetUpdate(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc
 		}
 		id := c.Param("id")
 		if !appID.MatchString(id) {
+			logDenial(c, "invalid-addon-id", nil)
 			return failure(c, 403, "Addon request denied")
 		}
 		if g == nil {
@@ -126,6 +127,7 @@ func updateMutation(g *gateway.Gateway, db *gorm.DB, opts []Option, action strin
 		}
 		id := c.Param("id")
 		if !appID.MatchString(id) {
+			logDenial(c, "invalid-addon-id", nil)
 			return failure(c, 403, "Addon request denied")
 		}
 		req := body()

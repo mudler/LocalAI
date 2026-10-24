@@ -8,6 +8,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_installed_models` — List models currently installed on this LocalAI. Optional `capability` filter (e.g. `chat`, `embed`, `image`).
 - `list_galleries` — List configured model galleries.
 - `list_backends` — List installed backends.
+- `list_backend_library_updates` — List installed library backends that have a newer build in their library. Read-only. To take one, confirm, then call `install_library_backend` with the listed `sourceId`, `name` and `version`.
 - `list_known_backends` — List backends available to install from configured backend galleries.
 - `get_job_status` — Poll the status of an install/delete/upgrade job by id.
 - `get_model_config` — Read the YAML/JSON config of an installed model.
