@@ -73,7 +73,7 @@ func cmdCatalog(args []string) error {
 	dir := fs.String("merged", "", "merged layout")
 	config := fs.String("config", "", "platform matrix file")
 	repository := fs.String("repository", "", "registry and repository the package was published to")
-	tag := fs.String("tag", "", "immutable tag the artifact reference names: the version or sha-<commit>")
+	tag := fs.String("tag", "", "immutable tag the artifact reference names, without the add-on id prefix: the version or sha-<commit>")
 	channel := fs.String("channel", "", "channel name the entries are current for: latest, development or a branch channel")
 	ownerRepo := fs.String("owner-repo", "", "GitHub owner/repository that ran the workflow")
 	signerRef := fs.String("signer-ref", "", "ref of the signing workflow run")
@@ -152,7 +152,7 @@ func cmdCatalog(args []string) error {
 			}
 		}
 		values := map[string]string{
-			"addon": v.Manifest.ID, "version": m.Version, "tag": *tag, "channel": *channel,
+			"addon": v.Manifest.ID, "version": m.Version, "tag": addonTagOrEmpty(v.Manifest.ID, *tag), "channel": *channel,
 			"repository": repo.Name(), "digest": d.Digest.String(),
 			"os": d.Platform.OS, "arch": d.Platform.Architecture,
 			"issuer": OIDCIssuer, "identity": identity,
@@ -171,7 +171,11 @@ func cmdCatalog(args []string) error {
 			return fmt.Errorf("rendered entry: %v", err)
 		}
 		r := parsed[0]
-		if err := checkRelease(r, m.Version, d.Digest.String(), repo.Name(), *tag); err != nil {
+		regTag, err := addonTag(v.Manifest.ID, *tag)
+		if err != nil {
+			return err
+		}
+		if err := checkRelease(r, m.Version, d.Digest.String(), repo.Name(), regTag); err != nil {
 			return err
 		}
 		releases = append(releases, r)
@@ -240,4 +244,14 @@ func checkRelease(r catalogRelease, version, digest, repository, tag string) err
 		return errors.New("entry needs addon id, os, arch and channel")
 	}
 	return nil
+}
+
+// addonTagOrEmpty is addonTag for the template values. An invalid id yields an
+// empty tag, which checkRelease then refuses.
+func addonTagOrEmpty(id, tag string) string {
+	t, err := addonTag(id, tag)
+	if err != nil {
+		return ""
+	}
+	return t
 }
