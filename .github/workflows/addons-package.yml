@@ -37,6 +37,7 @@ on:
       - 'pkg/addons/**'
       - 'scripts/addons/**'
       - 'gallery/addons/**'
+      - 'tests/addons/packaging/**'
       - '.github/workflows/addons-package.yml'
   pull_request:
     paths:
@@ -44,6 +45,7 @@ on:
       - 'pkg/addons/**'
       - 'scripts/addons/**'
       - 'gallery/addons/**'
+      - 'tests/addons/packaging/**'
       - '.github/workflows/addons-package.yml'
   release:
     types: [published]
