@@ -2,37 +2,38 @@ import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ADMIN, MEMBER, app, sessionFor, mockAddons } from './addons-fixtures.js'
+import { ADMIN, MEMBER, app, installedAddon, release, sessionFor, mockAddons } from './addons-fixtures.js'
 import { buildAddonBundles, installStudioAddons, packagedApp } from './studio-addon.js'
 import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } from './identity-fixtures.js'
 
 // Studio and Talk are packaged add-ons, not built-in tiles: the specs install
 // the real packages. No page is built in today, so `builtin` is empty unless a
 // spec makes one up to check the built-in rules.
-async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER } = {}) {
+async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed, releases, features = { addon_navigation: true } } = {}) {
   let saved = pins
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons }) }))
-  await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: true } }))
+  await page.route('**/api/features', route => route.fulfill({ json: features }))
   await page.route('**/api/addons/builtin', route => route.fulfill({ json: { builtin } }))
   // mockAddons installs the Apps routes with the real response shape ({ apps }).
   // The packages are served from the build output, so a page that opens one runs it.
-  if (studio) await installStudioAddons(page, { apps: [packagedApp('studio'), packagedApp('talk'), ...apps] })
-  else await mockAddons(page, { apps })
+  let mocked = null
+  if (studio) mocked = await installStudioAddons(page, { apps: [packagedApp('studio'), packagedApp('talk'), ...apps] })
+  else mocked = await mockAddons(page, { apps, installed, releases })
   await page.route('**/api/addons/pins', async route => {
     if (route.request().method() === 'PUT') saved = route.request().postDataJSON()
     await route.fulfill({ json: saved })
   })
-  return { saved: () => saved }
+  return { saved: () => saved, dispatchLog: () => (mocked ? mocked.log.dispatch : []), mocked: () => mocked }
 }
 
 test.describe('Add-on navigation', () => {
-  test('the sidebar lists the pinned apps under Apps, in pin order, and no Show all link', async ({ page }) => {
+  test('the sidebar lists the pinned apps under Add-ons, in pin order, and no Show all link', async ({ page }) => {
     await setup(page)
     await page.goto('/app')
     const nav = page.getByRole('navigation')
     await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
     // Apps, then the pinned apps in pin order; Apps is the only add-on entry.
-    await expect(nav.getByRole('link', { name: 'Apps', exact: true })).toHaveCount(1)
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
     const pinned = nav.getByTestId('apps-pinned-link')
     await expect(pinned).toHaveCount(2)
     await expect(pinned.nth(0)).toHaveAttribute('data-app', 'studio')
@@ -42,8 +43,8 @@ test.describe('Add-on navigation', () => {
     await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
     await expect(nav.getByText('Show all')).toHaveCount(0)
     const group = await nav.locator('a.nav-item').evaluateAll(els => els.map(e => e.textContent.trim()))
-    const at = group.indexOf('Apps')
-    expect(group.slice(at, at + 4)).toEqual(['Apps', 'Studio', 'Talk'])
+    const at = group.indexOf('Add-ons')
+    expect(group.slice(at, at + 4)).toEqual(['Add-ons', 'Studio', 'Talk'])
     await expect(pinned.nth(0)).toHaveAttribute('href', /\/app\/addons\/studio\//)
     // There is no Pinned section.
     await expect(page.getByTestId('pinned-nav')).toHaveCount(0)
@@ -59,12 +60,12 @@ test.describe('Add-on navigation', () => {
     await page.unroute('**/api/addons/pins')
     await page.route('**/api/addons/pins', route => route.fulfill({ json: [] }))
     await page.goto('/app')
-    await expect(nav.getByRole('link', { name: 'Apps', exact: true })).toHaveCount(1)
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
     await expect(nav.getByTestId('apps-show-all')).toHaveCount(0)
     await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
   })
 
-  test('the icon rail shows Apps only, centred, with no pinned app', async ({ page }) => {
+  test('the icon rail shows Add-ons only, centred, with no pinned app', async ({ page }) => {
     await setup(page)
     for (const size of [{ width: 1280, height: 800, collapsed: true }, { width: 1000, height: 800, collapsed: false }]) {
       await page.setViewportSize({ width: size.width, height: size.height })
@@ -85,74 +86,162 @@ test.describe('Add-on navigation', () => {
     }
   })
 
-  test('the Apps entry opens the drawer, where pinned add-ons are shown and their order can be changed', async ({ page }) => {
+  test('the Add-ons entry opens the drawer, where pinned add-ons are shown and their order can be changed', async ({ page }) => {
     const server = await setup(page, { pins: ['studio', 'talk'] })
     await page.goto('/app')
-    await page.getByRole('navigation').getByRole('link', { name: 'Apps' }).click()
+    await page.getByRole('navigation').getByRole('link', { name: 'Add-ons', exact: true }).click()
     await expect(page).toHaveURL(/\/app\/addons$/)
     await expect(page.getByTestId('addon-tile')).toHaveCount(2)
-    await expect(page.getByTestId('pin-toggle')).toHaveCount(2)
-    for (const toggle of await page.getByTestId('pin-toggle').all()) {
-      await expect(toggle).toHaveAttribute('aria-pressed', 'true')
-      await expect(toggle).toHaveText('Pinned')
-    }
-    await page.locator('[data-testid="addon-tile"][data-app="studio"]').getByTestId('pin-later').click()
+    // A bare pin button or pair of arrows is gone: each card has one overflow menu.
+    await expect(page.getByTestId('pin-toggle')).toHaveCount(0)
+    await expect(page.getByTestId('pin-later')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Actions for / })).toHaveCount(2)
+    const studio = page.locator('[data-testid="addon-tile"][data-app="studio"]')
+    await studio.getByRole('button', { name: /^Actions for / }).click()
+    await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
+    await page.getByRole('menuitem', { name: /^Move .* later$/ }).click()
     await expect.poll(() => server.saved()).toEqual(['talk', 'studio'])
   })
 
-  test('the drawer lists tiles, searches them and pins from the keyboard', async ({ page }) => {
-    const server = await setup(page, { pins: [], apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
+  test('the card menu offers Show in sidebar, Details and Remove, and pins from the keyboard', async ({ page }) => {
+    const server = await setup(page, { pins: [], user: ADMIN, apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
     await page.goto('/app/addons')
     await expect(page.getByTestId('addon-tile')).toHaveCount(3)
     await page.getByTestId('addon-search').fill('note')
     await expect(page.getByTestId('addon-tile')).toHaveCount(1)
-    const toggle = page.getByTestId('pin-toggle').first()
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
-    await expect(toggle).toHaveAccessibleName(/Pin Notes/)
-    await expect(toggle).toHaveText('Pin')
-    await toggle.focus()
+    const menu = page.getByRole('button', { name: 'Actions for Notes' })
+    await menu.focus()
     await page.keyboard.press('Enter')
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    await expect(toggle).toHaveText('Pinned')
-    expect(server.saved()).toEqual(['notes'])
+    await expect(page.getByRole('menuitem')).toHaveText(['Show in sidebar', 'Details', 'Remove'])
+    await page.keyboard.press('Enter')
+    await expect.poll(() => server.saved()).toEqual(['notes'])
+    await menu.click()
+    await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
   })
 
-  test('pinned apps come first in the grid, in pin order, and the detail view has the same pin control', async ({ page }) => {
-    const server = await setup(page, {
+  test('a reader sees no Remove in the card menu', async ({ page }) => {
+    await setup(page, { pins: [], apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
+    await page.goto('/app/addons')
+    await page.getByRole('button', { name: 'Actions for Notes' }).click()
+    await expect(page.getByRole('menuitem', { name: 'Show in sidebar' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Remove', exact: true })).toHaveCount(0)
+  })
+
+  test('the card says what the add-on does and what it adds', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes', description: 'Keep notes.', state: 'running', mainPage: '/app/addons/notes/home', tools: ['add', 'list'], toolCount: 2 }), app({ id: 'quiet', title: 'Quiet', description: 'Works in the background.', hasUI: false, mainPage: undefined, tools: [], toolCount: 0 })] })
+    await page.goto('/app/addons')
+    const notes = page.locator('[data-testid="addon-tile"][data-app="notes"]')
+    await expect(notes).toContainText('Keep notes.')
+    await expect(notes.getByTestId('tile-adds')).toContainText('Adds a page')
+    await expect(notes.getByTestId('tile-adds')).toContainText('2 chat tools')
+    await expect(page.locator('[data-testid="addon-tile"][data-app="quiet"]').getByTestId('tile-adds')).toHaveCount(0)
+  })
+
+  test('pinned apps come first in the grid, in pin order', async ({ page }) => {
+    await setup(page, {
       pins: ['notes'],
-      apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' }), app({ id: 'zeta', title: 'Zeta', enabled: false, state: 'stopped' })],
+      apps: [app({ id: 'zeta', title: 'Zeta', enabled: false, state: 'stopped' }), app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })],
     })
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/app/addons')
     const tiles = page.getByTestId('addon-tile')
     await expect(tiles.first()).toHaveAttribute('data-app', 'notes')
-    await expect(tiles.first().getByTestId('pin-toggle')).toHaveText('Pinned')
-    await expect(tiles.nth(1).getByTestId('pin-toggle')).toHaveText('Pin')
-    // The tile pin and the detail pin are one state.
+    await tiles.first().getByRole('button', { name: /^Actions for / }).click()
+    await expect(page.getByRole('menuitem', { name: 'Remove from sidebar' })).toBeVisible()
+  })
+
+  test('selecting a card opens the preview pane with what the add-on is, adds and offers', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [app({ id: 'indexer', title: 'Indexer', description: 'Indexes your files.', enabled: false, state: 'stopped', hasUI: false, mainPage: undefined, tools: ['query', 'export'], toolCount: 2, version: '0.4.0', admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })], installed: [installedAddon({ id: 'indexer', title: 'Indexer', sourceId: 'main', enabled: false, state: 'stopped', version: '0.4.0' })] })
+    await page.setViewportSize({ width: 1360, height: 860 })
+    await page.goto('/app/addons')
+    await expect(page.getByTestId('addon-detail')).toHaveCount(0)
+    await page.getByRole('button', { name: /^Indexer, Off/ }).click()
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane).toBeVisible()
+    await expect(page).toHaveURL(/detail=indexer/)
+    await expect(pane.getByRole('heading', { name: 'Indexer' })).toBeVisible()
+    await expect(pane.getByRole('img', { name: 'State: Off' })).toBeVisible()
+    await expect(pane).toContainText('Indexes your files.')
+    await expect(pane.getByTestId('app-tools')).toContainText('2 chat tools')
+    await expect(pane.getByTestId('app-tools')).toContainText('query, export')
+    await expect(pane).toContainText('Runs in the background')
+    await expect(pane.getByTestId('preview-facts')).toContainText('0.4.0')
+    await expect(pane.getByTestId('preview-source')).toHaveText('main')
+    await expect(pane.getByRole('button', { name: 'Turn on' })).toBeVisible()
+    await expect(pane.getByRole('button', { name: 'Remove' })).toBeVisible()
+    // No screenshot slot unless the add-on provides images.
+    await expect(pane.getByTestId('addon-shots')).toHaveCount(0)
+    await pane.getByRole('button', { name: 'Close' }).click()
+    await expect(page.getByTestId('addon-detail')).toHaveCount(0)
+  })
+
+  test('the preview pane shows screenshot slots only for an add-on that ships images', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes', screenshots: ['/api/addons/apps/notes/icon?generation=3'] })] })
+    await page.goto('/app/addons?detail=notes')
+    await expect(page.getByTestId('addon-detail').getByTestId('addon-shots').getByRole('listitem')).toHaveCount(1)
+  })
+
+  test('a member sees the pane without Remove and without the source', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes' })] })
+    await page.goto('/app/addons?detail=notes')
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane.getByRole('heading', { name: 'Notes' })).toBeVisible()
+    await expect(pane.getByRole('button', { name: 'Remove' })).toHaveCount(0)
+    await expect(pane.getByTestId('preview-source')).toHaveCount(0)
+  })
+
+  test('the pane menu is the same sidebar control as the card menu', async ({ page }) => {
+    const server = await setup(page, { pins: ['notes'], studio: false, apps: [app({ id: 'notes', title: 'Notes' }), app({ id: 'zeta', title: 'Zeta', enabled: false, state: 'stopped' })] })
+    await page.setViewportSize({ width: 1360, height: 860 })
     await page.goto('/app/addons?detail=zeta')
     const detail = page.getByTestId('addon-detail')
-    const head = detail.getByTestId('pin-toggle')
-    await expect(head).toHaveText('Pin')
-    await head.click()
-    await expect(head).toHaveText('Pinned')
-    await expect(head).toHaveAttribute('aria-pressed', 'true')
+    await detail.getByRole('button', { name: 'Actions for Zeta' }).click()
+    await page.getByRole('menuitem', { name: 'Show in sidebar' }).click()
     await expect.poll(() => server.saved()).toEqual(['notes', 'zeta'])
-    await head.click()
-    await expect(head).toHaveText('Pin')
+    await detail.getByRole('button', { name: 'Actions for Zeta' }).click()
+    await page.getByRole('menuitem', { name: 'Remove from sidebar' }).click()
     await expect.poll(() => server.saved()).toEqual(['notes'])
   })
 
-  test('the first-run card shows to an administrator with nothing installed and leads to Browse', async ({ page }) => {
-    await setup(page, { user: ADMIN, studio: false, pins: [] })
+  test('the first-run card offers three featured add-ons and a way to find more', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], releases: ['notes', 'tables', 'voice', 'extra'].map(id => release(id, { description: `${id} does a thing.`, ui: id === 'notes' ? { mainPage: '/app/addons/notes/home' } : undefined })) })
     await page.goto('/app/addons')
     const card = page.getByTestId('addons-first-run')
     await expect(card).toBeVisible()
-    await expect(card.getByRole('listitem')).toHaveCount(3)
-    await expect(card).toContainText('official library is registered by default')
+    await expect(card.getByRole('heading', { name: 'Add your first add-on' })).toBeVisible()
+    const featured = card.getByTestId('featured').getByRole('listitem')
+    await expect(featured).toHaveCount(3)
+    await expect(featured.first()).toContainText('does a thing.')
+    await expect(featured.first()).toContainText('Adds a page')
+    await expect(card.getByRole('button', { name: 'Install and turn on' })).toHaveCount(3)
+    // One way into Find add-ons while the card shows: the bar's button waits.
+    await expect(page.getByRole('link', { name: 'Find add-ons' })).toHaveCount(1)
+    await expect(page.getByTestId('addons-add')).toHaveCount(0)
     await expect(page.getByTestId('addon-tile')).toHaveCount(0)
     await card.getByTestId('addons-first-run-browse').click()
     await expect(page).toHaveURL(/tab=browse/)
     await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+  })
+
+  test('Install and turn on asks once, installs, then turns the add-on on', async ({ page }) => {
+    const state = await setup(page, { user: ADMIN, studio: false, pins: [], releases: [release('notes', { name: 'Notes' })] })
+    await page.goto('/app/addons')
+    await page.getByRole('button', { name: 'Install and turn on' }).click()
+    const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'))
+    await expect(dialog).toContainText('Install and turn on Notes?')
+    await dialog.getByRole('button', { name: 'Install and turn on' }).click()
+    await expect.poll(() => state.dispatchLog().filter(d => ['install', 'enable'].includes(d.action)).map(d => d.action)).toEqual(['install', 'enable'])
+  })
+
+  test('a search with no result says no add-on matches, not that none are installed', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'notes', title: 'Notes' })] })
+    await page.goto('/app/addons')
+    await page.getByTestId('addon-search').fill('zzz')
+    await expect(page.getByRole('heading', { name: 'No add-on matches' })).toBeVisible()
+    await expect(page.getByText('No add-ons yet')).toHaveCount(0)
+    await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Clear search' }).click()
+    await expect(page.getByTestId('addon-tile')).toHaveCount(1)
   })
 
   test('the first-run card is hidden once an add-on is installed', async ({ page }) => {
@@ -160,12 +249,13 @@ test.describe('Add-on navigation', () => {
     await page.goto('/app/addons')
     await expect(page.getByTestId('addon-tile').first()).toBeVisible()
     await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
+    await expect(page.getByTestId('addons-add')).toBeVisible()
   })
 
   test('the first-run card is hidden from a caller who cannot install add-ons', async ({ page }) => {
     await setup(page, { studio: false, pins: [] })
     await page.goto('/app/addons')
-    await expect(page.getByRole('heading', { name: 'No apps yet' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'No add-ons yet' })).toBeVisible()
     await expect(page.getByTestId('addons-first-run')).toHaveCount(0)
   })
 
@@ -180,7 +270,8 @@ test.describe('Add-on navigation', () => {
   test('a pinned tile can be moved later and the new order is saved', async ({ page }) => {
     const server = await setup(page, { pins: ['studio', 'talk'] })
     await page.goto('/app/addons')
-    await page.getByTestId('addon-tile').filter({ hasText: 'Studio' }).getByTestId('pin-later').click()
+    await page.getByTestId('addon-tile').filter({ hasText: 'Studio' }).getByRole('button', { name: /^Actions for / }).click()
+    await page.getByRole('menuitem', { name: /^Move .* later$/ }).click()
     await expect.poll(() => server.saved()).toEqual(['talk', 'studio'])
   })
 
@@ -189,7 +280,8 @@ test.describe('Add-on navigation', () => {
     const eight = nine.slice(0, 8).map(a => a.id)
     await setup(page, { apps: nine, pins: eight })
     await page.goto('/app/addons')
-    await page.getByTestId('addon-tile').filter({ hasText: 'App 8' }).getByTestId('pin-toggle').click()
+    await page.getByTestId('addon-tile').filter({ hasText: 'App 8' }).getByRole('button', { name: /^Actions for / }).click()
+    await page.getByRole('menuitem', { name: 'Show in sidebar' }).click()
     await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toContainText(/unpin/i)
   })
 
@@ -201,7 +293,7 @@ test.describe('Add-on navigation', () => {
     await page.route(/\/api\/addons\/apps$/, route => { appsCalled = true; return route.fulfill({ status: 403, json: {} }) })
     await page.goto('/app/addons')
     await expect(page.getByTestId('addon-tile')).toHaveCount(1)
-    await expect(page.getByTestId('addons-browse')).toHaveCount(0)
+    await expect(page.getByTestId('addons-add')).toHaveCount(0)
     await expect(page.getByRole('alert')).toHaveCount(0)
     expect(appsCalled).toBe(false)
   })
@@ -254,19 +346,17 @@ test.describe('Add-on navigation', () => {
     await setup(page, { apps: [app({ id: 'notes', title: 'Notes', enabled: false, state: 'stopped', admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=notes' } })] })
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor({ ...MEMBER, role: 'admin' }, { addons: true }) }))
     await page.goto('/app/addons?detail=notes')
-    await expect(page.getByTestId('addon-detail').getByRole('button', { name: 'Start' })).toBeVisible()
+    await expect(page.getByTestId('addon-detail').getByRole('button', { name: 'Turn on' })).toBeVisible()
   })
 
-  test('the pin control has a visible focus state and a name', async ({ page }) => {
+  test('the card menu has a visible focus state and a name', async ({ page }) => {
     await setup(page)
     await page.goto('/app/addons')
-    const toggle = page.getByTestId('pin-toggle').first()
-    await toggle.focus()
-    const outline = await toggle.evaluate(el => getComputedStyle(el).outlineStyle)
-    expect(outline).toBe('solid')
-    const width = await toggle.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth))
-    expect(width).toBeGreaterThan(0)
-    await expect(toggle).toHaveAccessibleName(/(Pin|Unpin) /)
+    const trigger = page.getByRole('button', { name: /^Actions for / }).first()
+    await trigger.focus()
+    await expect(trigger).toBeFocused()
+    await expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    await expect(trigger).toHaveAccessibleName(/^Actions for .+/)
   })
 
   test('a pin of an add-on that is no longer listed is not drawn in the drawer and shows no error', async ({ page }) => {
@@ -416,6 +506,65 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expectVoiceTabs(page, 'recognition')
     await expect(page.locator('[data-testid="addon-surface"][data-addon="voice"]')).toBeVisible()
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
+    // With nobody saved there is one enrol button, in the empty state.
+    await expect(page.getByRole('button', { name: /Enrol a speaker/ })).toHaveCount(1)
+  })
+
+  test('an add-on that is installed but off says it is off, by its name, and offers Turn on', async ({ page }) => {
+    const server = await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', enabled: false, state: 'stopped', mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=fine-tuning' } })] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state).toHaveAttribute('data-state', 'off')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fine-tuning')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is off' })).toBeVisible()
+    await expect(state).not.toContainText('fine-tuning')
+    await state.getByRole('button', { name: 'Turn on' }).click()
+    await expect.poll(() => server.mocked().log.start.length).toBe(1)
+    expect(server.mocked().log.start[0].id).toBe('fine-tuning')
+  })
+
+  test('an off add-on shows a reader who can turn it on, and no button', async ({ page }) => {
+    await setup(page, { studio: false, pins: [], apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', enabled: false, state: 'stopped', mainPage: undefined })] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is off' })).toBeVisible()
+    await expect(state).toContainText('An administrator can turn it on.')
+    await expect(state.getByRole('button', { name: 'Turn on' })).toHaveCount(0)
+  })
+
+  test('an add-on that is not installed says so and sends an administrator to Find add-ons', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state).toHaveAttribute('data-state', 'not-installed')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fine-tuning')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is not installed' })).toBeVisible()
+    await expect(state.getByRole('link', { name: 'Find add-ons' })).toHaveAttribute('href', '/app/addons?tab=browse&q=fine-tuning')
+  })
+
+  test('a reader of an add-on that is not installed gets no link to Find add-ons', async ({ page }) => {
+    await setup(page, { studio: false, pins: [], apps: [] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning is not installed' })).toBeVisible()
+    await expect(state).toContainText('An administrator can install it.')
+    await expect(state.getByRole('link', { name: 'Find add-ons' })).toHaveCount(0)
+  })
+
+  test('a failed add-on shows its reason and, for an administrator, a link to its details', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'fine-tuning', title: 'Fine-tuning', state: 'failed', mainPage: undefined, ui: { entry: '/x.js', sdk: { min: 1, max: 1 }, pages: ['jobs'] } })] })
+    await page.goto('/app/addons/fine-tuning/jobs')
+    const state = page.getByTestId('addon-unavailable')
+    await expect(state).toHaveAttribute('data-state', 'failed')
+    await expect(state.getByRole('heading', { name: 'Fine-tuning failed to start' })).toBeVisible()
+    await expect(state).toContainText('stopped responding')
+    await expect(state.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/app/addons?detail=fine-tuning')
+  })
+
+  test('the page names a headless add-on by a capitalised id, not the bare identifier', async ({ page }) => {
+    await setup(page, { user: ADMIN, studio: false, pins: [], apps: [app({ id: 'indexer', title: 'indexer', enabled: false, state: 'stopped', mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })] })
+    await page.goto('/app/addons/indexer/home')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Indexer')
   })
 
   test('an old Voice link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
@@ -461,7 +610,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library$/)
     await expect(page.getByTestId('voice-library')).toBeVisible()
     await expectVoiceTabs(page, 'library')
-    await expectOneVoiceTitle(page, /^Speech voices/)
+    await expectOneVoiceTitle(page, 'Voices')
 
     await page.getByTestId('voice-library-new').first().click()
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/library\/new$/)
@@ -473,12 +622,26 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/speech$/)
     await expect(page.getByTestId('voice-speech')).toBeVisible()
     await expectVoiceTabs(page, 'speech')
-    await expectOneVoiceTitle(page, 'Speak text')
+    await expectOneVoiceTitle(page, 'Voices')
 
     await tabs.getByRole('tab', { name: /^From a recording$/ }).click()
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recording$/)
     await expect(page.getByTestId('recording-tab')).toBeVisible()
     await expectVoiceTabs(page, 'recording')
+    await expectOneVoiceTitle(page, 'Voices')
+  })
+
+  test('the Text to speech tab says where to get a model when none is installed', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    // Registered last, so it wins over the fixture's model list.
+    await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [] } }))
+    await page.goto('/app/addons/voice/voice/speech')
+    const hint = page.getByTestId('speech-no-models')
+    await expect(hint).toBeVisible({ timeout: 15_000 })
+    await expect(hint.getByRole('link', { name: /model gallery/ })).toHaveAttribute('href', /\/app\/models$/)
     await expectOneVoiceTitle(page, 'Voices')
   })
 
@@ -695,6 +858,18 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await expect(page.getByTestId('tool-off')).toBeVisible()
   })
 
+  test('Fine-tune titles itself with its name and keeps the Experimental badge out of the h1', async ({ page }) => {
+    await setup(page, { apps: [ftApp()] })
+    await asAdmin(page, { fine_tuning: true })
+    await page.route('**/api/fine-tuning/jobs', route => route.fulfill({ json: [] }))
+    await serveFineTuning(page)
+    await page.goto('/app/addons/fine-tuning/jobs')
+    await expect(page.getByTestId('fine-tune-page')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fine-tune')
+    await expect(page.locator('h1 .bt-experimental')).toHaveCount(0)
+    await expect(page.locator('.bt-experimental')).toBeVisible()
+  })
+
   test('an old fine-tuning link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
     await setup(page, { apps: [] })
     await asAdmin(page)
@@ -791,5 +966,65 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await page.clock.runFor(11000)
     await expect.poll(() => calls.forget.length).toBe(1)
     expect(calls.forget[0]).toMatchObject({ face: true, id: 'f-anna' })
+  })
+})
+
+test.describe('Add-on navigation: the addons feature gate', () => {
+  const OFF = { addon_navigation: true, addons: false, fine_tuning: false, quantization: false }
+
+  // With add-ons off the server answers 503 on every add-on route, so a request
+  // to the pins or built-in routes is a failure of the page, not of the server.
+  async function watch(page) {
+    const calls = []
+    page.on('request', request => {
+      const { pathname } = new URL(request.url())
+      if (pathname === '/api/addons/pins' || pathname === '/api/addons/builtin') calls.push(pathname)
+    })
+    return calls
+  }
+
+  test('with add-ons off the sidebar has no Add-ons entry, no pinned app and no fine-tuning or quantization entry', async ({ page }) => {
+    const calls = await watch(page)
+    await setup(page, { features: OFF, user: ADMIN })
+    await page.goto('/app')
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(0)
+    await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: /Fine-?tun/i })).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: /Quantiz/i })).toHaveCount(0)
+    expect(calls).toEqual([])
+  })
+
+  test('with add-ons off the Build hub has no Add-ons, fine-tuning or quantization tab, in either layout', async ({ page }) => {
+    for (const addon_navigation of [true, false]) {
+      await setup(page, { features: { ...OFF, addon_navigation }, user: ADMIN })
+      await page.goto('/app/build')
+      await expect(page.getByRole('tab', { name: 'Agents' }).or(page.getByRole('link', { name: 'Agents' })).first()).toBeVisible()
+      for (const name of [/^Add-ons$/, /Fine-?tun/i, /Quantiz/i]) {
+        await expect(page.getByRole('tab', { name })).toHaveCount(0)
+        await expect(page.locator('.hub-tabs, [role="tablist"]').getByRole('link', { name })).toHaveCount(0)
+      }
+      await page.unroute('**/api/features')
+    }
+  })
+
+  for (const address of ['/app/addons', '/app/addons/studio/home', '/app/fine-tune', '/app/quantize']) {
+    test(`with add-ons off ${address} ends at /app and calls no add-on route`, async ({ page }) => {
+      const calls = await watch(page)
+      await setup(page, { features: OFF, user: ADMIN })
+      await page.goto(address)
+      await expect(page).toHaveURL(/\/app\/?$/)
+      await expect(page.getByRole('navigation').getByRole('link', { name: 'Chat' })).toBeVisible()
+      expect(calls).toEqual([])
+    })
+  }
+
+  test('an older server without the addons key keeps today\'s behaviour', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app')
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
+    await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(2)
   })
 })

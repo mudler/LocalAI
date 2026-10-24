@@ -146,6 +146,7 @@ export default {
   "quantize.file": "File",
   "quantize.importName": "Model name",
   "quantize.importNamePlaceholder": "Generated if empty",
+  "quantize.importBlocked": "Import is off on this server because it does not share the models folder of the add-on host.",
   "quantize.import": "Import to LocalAI",
   "quantize.importing": "Importing...",
   "quantize.importFailed": "Import failed",

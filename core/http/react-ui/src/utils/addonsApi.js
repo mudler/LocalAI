@@ -269,9 +269,11 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
       const payload = await api.dispatch({
         operationId: newOperationId(),
         action: 'catalog-search',
-        args: { text: query?.text || '', kind: 'all', sourceId: query?.sourceId || '', offset, limit: pageSize },
+        args: { text: query?.text || '', kind: 'addon', sourceId: query?.sourceId || '', offset, limit: pageSize },
       }, signal)
-      const releases = Array.isArray(payload?.releases) ? payload.releases : []
+      // Backends belong to the Backends page. The request asks for add-ons
+      // only; an entry that still says it is a backend is dropped here too.
+      const releases = (Array.isArray(payload?.releases) ? payload.releases : []).filter(r => !r.kind || r.kind === 'addon')
       return { entries: releases.map(toEntry), total: Number(payload?.total) || 0, offset }
     },
     async details(key, signal) {

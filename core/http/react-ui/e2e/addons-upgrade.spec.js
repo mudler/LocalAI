@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto'
 const creds = JSON.parse(fs.readFileSync(process.env.ADDONS_FIXTURE, 'utf8'))
 const BASE = process.env.ADDONS_UI_URL
 const shots = process.env.ADDONS_SHOTS
-const MANAGE = '/app/addons?tab=installed&manage=tables'
+const MANAGE = '/app/addons?manage=tables'
 
 async function shoot(page, name, target, { settle = 350 } = {}) {
   if (!shots) return
@@ -128,8 +128,8 @@ test.describe('Add-on updates and the explicit upgrade through the real owner', 
     await expect(admin.page.getByTestId('update-upgrade')).toBeVisible()
     await shoot(admin.page, 'updates-available-1280', 'manage-updates')
     // The installed list carries the badge.
-    await admin.page.goto('/app/addons?tab=installed')
-    await expect(admin.page.locator('[data-addon="tables"]').getByText('Update 0.1.0-dev')).toBeVisible({ timeout: 25_000 })
+    await admin.page.goto('/app/addons')
+    await expect(admin.page.locator('[data-testid="addon-tile"][data-app="tables"]').getByTestId('update-chip')).toBeVisible({ timeout: 25_000 })
     await shoot(admin.page, 'updates-badge-1280')
     await admin.context.close()
 
@@ -138,7 +138,7 @@ test.describe('Add-on updates and the explicit upgrade through the real owner', 
     await state.memberPage.goto('/app/addons')
     const card = state.memberPage.locator('[data-app="tables"]')
     await expect(card.getByTestId('update-chip')).toBeVisible({ timeout: 25_000 })
-    await expect(card.getByRole('img', { name: 'State: Running' })).toBeVisible()
+    await expect(card.locator('.ad-tile__state')).toHaveText('On')
     await shoot(state.memberPage, 'updates-pending-chip-1280', 'update-chip')
     const read = await pageFetch(state.memberPage, '/api/addons/tables/update')
     expect(read.status).toBe(200)
@@ -308,8 +308,9 @@ test.describe('Add-on updates and the explicit upgrade through the real owner', 
     await expect(admin.page.getByTestId('update-times')).toContainText('Library last read')
     await expect(admin.page.getByTestId('update-upgrade')).toHaveCount(0)
     await shoot(admin.page, 'updates-check-failed-1280', 'manage-updates')
-    await admin.page.goto('/app/addons?tab=installed')
-    await expect(admin.page.locator('[data-addon="tables"]').getByText('Update check failed')).toBeVisible({ timeout: 25_000 })
+    await admin.page.goto('/app/addons')
+    await expect(admin.page.locator('[data-testid="addon-tile"][data-app="tables"]')).toBeVisible({ timeout: 25_000 })
+    await expect(admin.page.getByTestId('update-chip')).toHaveCount(0)
     await admin.context.close()
     // The member's list shows no mark for a check that failed.
     await state.memberPage.goto('/app/addons')

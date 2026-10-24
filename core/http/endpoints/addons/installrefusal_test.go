@@ -12,10 +12,12 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
@@ -25,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -126,6 +129,40 @@ var _ = Describe("install refusal in the dispatch response", func() {
 		code, body = install(app, token, "corrupt")
 		Expect(code).To(Equal(http.StatusForbidden))
 		Expect(message(body)).To(Equal(generic))
+	})
+
+	It("logs the reason behind a generic denial and leaves the response unchanged", func() {
+		_, app, token, _, _ := setup()
+		logs := &strings.Builder{}
+		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
+		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
+
+		code, body := install(app, token, "corrupt")
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(body).To(MatchJSON(`{"error":{"type":"addon_error","message":"` + generic + `","code":403}}`))
+		line := logs.String()
+		Expect(strings.Count(line, "\n")).To(Equal(1), line)
+		Expect(line).To(ContainSubstring("action=install"))
+		Expect(line).To(ContainSubstring("addonId=corrupt"))
+		Expect(line).To(ContainSubstring("reason="))
+		Expect(line).To(ContainSubstring("kind="))
+		// Neither the credential nor the arguments reach the log.
+		Expect(line).NotTo(ContainSubstring(token))
+		Expect(line).NotTo(ContainSubstring("Bearer"))
+		Expect(line).NotTo(ContainSubstring("sourceId"))
+		Expect(line).NotTo(ContainSubstring("op-corrupt"))
+
+		logs.Reset()
+		r := httptest.NewRequest(http.MethodPost, "/api/addons/dispatch", bytes.NewBufferString(`{"addonId":"x","operationId":"o","action":"update-upgrade","arguments":{}}`))
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		app.ServeHTTP(w, r)
+		Expect(w.Code).To(Equal(http.StatusForbidden))
+		Expect(w.Body.String()).To(MatchJSON(`{"error":{"type":"addon_error","message":"` + generic + `","code":403}}`))
+		Expect(logs.String()).To(ContainSubstring("action=update-upgrade"))
+		Expect(logs.String()).To(ContainSubstring("rule=recovery-and-update-actions-use-their-own-routes"))
+		Expect(logs.String()).NotTo(ContainSubstring(token))
 	})
 
 	It("returns the same text through a forwarding frontend", func() {

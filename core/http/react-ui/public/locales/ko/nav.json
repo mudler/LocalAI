@@ -61,7 +61,12 @@
     "thisMachine": "이 머신",
     "failover": "페일오버",
     "p2p": "P2P",
-    "addons": "애드온"
+    "addons": "애드온",
+    "voiceLibrary": "Voice Library",
+    "logs": "Logs",
+    "trafficModels": "Models",
+    "gpuHost": "GPU and host",
+    "prometheus": "Prometheus"
   },
   "footer": {
     "github": "GitHub",
@@ -71,7 +76,9 @@
   },
   "console": {
     "automation": "자동화",
-    "training": "학습"
+    "training": "학습",
+    "expandNavigation": "Expand {{section}} navigation",
+    "collapseNavigation": "Collapse {{section}} navigation"
   },
   "hub": {
     "status": "상태",

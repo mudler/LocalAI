@@ -1,5 +1,9 @@
 .vc-undo { display: flex; gap: var(--dk-space-2, 8px); align-items: center; }
 .vc-field { display: flex; flex-direction: column; gap: var(--dk-space-1, 4px); margin-bottom: var(--dk-space-3, 12px); }
+.vc-speech__form { display: flex; flex-direction: column; gap: var(--dk-space-3, 12px); max-width: 640px; padding: var(--dk-space-4, 16px) var(--dk-space-5, 20px); margin-bottom: var(--dk-space-3, 12px); }
+.vc-speech__form .vc-field { margin-bottom: 0; }
+.vc-speech__form .dk-hint a { color: var(--dk-accent-text, var(--dk-accent)); }
+.vc-speech__acts { display: flex; justify-content: flex-start; }
 .vc-note { color: var(--dk-text-muted, var(--dk-text)); }
 
 /* From pages/identity.css: the rules the library and create pages and the clip input use. */

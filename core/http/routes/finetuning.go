@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	httpMiddleware "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services/finetune"
 )
 
@@ -28,7 +29,8 @@ func RegisterFineTuningRoutes(e *echo.Echo, ftService *finetune.FineTuneService,
 		}
 	}
 
-	ft := e.Group("/api/fine-tuning", readyMw, fineTuningMw)
+	ft := e.Group("/api/fine-tuning", httpMiddleware.RequireAddonsFeature(app), readyMw, fineTuningMw)
+	ft.GET("/status", localai.ModelExportsStatusEndpoint(app))
 	ft.GET("/backends", localai.ListFineTuneBackendsEndpoint(appConfig, ClusterCapabilityProviderFor(app), ClusterInstalledProviderFor(app)))
 	ft.POST("/jobs", localai.StartFineTuneJobEndpoint(ftService))
 	ft.GET("/jobs", localai.ListFineTuneJobsEndpoint(ftService))
@@ -37,7 +39,7 @@ func RegisterFineTuningRoutes(e *echo.Echo, ftService *finetune.FineTuneService,
 	ft.DELETE("/jobs/:id", localai.DeleteFineTuneJobEndpoint(ftService))
 	ft.GET("/jobs/:id/progress", localai.FineTuneProgressEndpoint(ftService))
 	ft.GET("/jobs/:id/checkpoints", localai.ListCheckpointsEndpoint(ftService))
-	ft.POST("/jobs/:id/export", localai.ExportModelEndpoint(ftService))
+	ft.POST("/jobs/:id/export", localai.ExportModelEndpoint(ftService), httpMiddleware.RequireModelExports(app))
 	ft.GET("/jobs/:id/download", localai.DownloadExportedModelEndpoint(ftService))
 	ft.POST("/datasets", localai.UploadDatasetEndpoint(ftService))
 }
