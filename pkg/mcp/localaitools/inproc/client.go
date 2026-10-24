@@ -488,6 +488,14 @@ func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBac
 // installer the REST route uses, so both paths share one code path.
 type LibraryBackendInstaller interface {
 	Install(ctx context.Context, sourceID, backend, version string) error
+	Updates(ctx context.Context) ([]localaitools.BackendLibraryUpdate, error)
+}
+
+func (c *Client) ListBackendLibraryUpdates(ctx context.Context) ([]localaitools.BackendLibraryUpdate, error) {
+	if c.BackendLibrary == nil {
+		return nil, errors.New("the backend library is not enabled on this instance")
+	}
+	return c.BackendLibrary.Updates(ctx)
 }
 
 func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {

@@ -82,9 +82,14 @@ type Application struct {
 	addonGateway       *gateway.Gateway
 	addonServer        *http.Server
 	addonSources       *catalog.Sources
-	backendLibrary     *backendlib.Installer
-	addonManager       *addons.Manager
-	addonHostOps       *addonruntime.HostOps
+	// addonAdminCheck is the owner's administrator check, the one the manager gets.
+	addonAdminCheck func(context.Context, contract.Actor) error
+	librarySnap     librarySnapshot
+	backendLibrary  *backendlib.Installer
+	addonManager    *addons.Manager
+	addonHostOps    *addonruntime.HostOps
+	addonsProbe     addonsProbeState
+	modelsProbe     modelsProbeState
 
 	// libraryStore is the library sources file when no add-on owner runs here.
 	libraryStore   *catalog.Sources
@@ -870,6 +875,7 @@ func (a *Application) startAddons() error {
 			}
 		}
 	}
+	a.addonAdminCheck = c.AdminCheck
 	owner := addons.OwnerConfig{InstanceID: c.InstanceID, OwnerID: c.OwnerID, OwnerAddress: c.OwnerAddress, StorageID: c.StorageID, Root: c.Root, SharedStorage: c.SharedStorage}
 	var cat catalog.Catalog
 	var installer *packages.Installer
@@ -946,6 +952,7 @@ func (a *Application) startAddons() error {
 	}
 	if c.InstanceID == c.OwnerID {
 		limits := contract.DefaultLimits()
+		a.writeModelsProbe()
 		a.addonHostOps = a.newAddonHostOps(m, limits)
 		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
 		if err != nil {
@@ -982,4 +989,20 @@ type libraryInstallNoProgress struct{ in *backendlib.Installer }
 
 func (l libraryInstallNoProgress) Install(ctx context.Context, sourceID, backend, version string) error {
 	return l.in.Install(ctx, sourceID, backend, version, backendlib.Progress{})
+}
+
+func (l libraryInstallNoProgress) Updates(ctx context.Context) ([]localaitools.BackendLibraryUpdate, error) {
+	found, err := l.in.Updates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.BackendLibraryUpdate, 0, len(found))
+	for _, u := range found {
+		out = append(out, localaitools.BackendLibraryUpdate{
+			Name: u.Name, SourceID: u.SourceID,
+			InstalledVersion: u.InstalledVersion, InstalledDigest: u.InstalledDigest,
+			Version: u.Version, Digest: u.Digest, Signed: u.Signed,
+		})
+	}
+	return out, nil
 }
