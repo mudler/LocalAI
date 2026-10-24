@@ -4,6 +4,88 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: sage-a1.5-q4
+  description: |
+    Sage-A1.5 is a 35B mixture-of-experts model based on Qwen3.6 for
+    scientific reasoning, coding, and tool use. This official Q4_K_M GGUF
+    build uses llama.cpp and includes the vision projector.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/InternScience/Sage-A1.5
+    - https://huggingface.co/InternScience/Sage-A1.5-Q4_K_M-GGUF
+  tags:
+    - llm
+    - gguf
+    - vision
+    - reasoning
+    - cpu
+    - gpu
+  files:
+    - filename: Sage-A1.5-Q4_K_M.gguf
+      sha256: a64fe0bbf936db3eb54f66f142c2b2eee569ade83673649f549a21daef8ca395
+      uri: https://huggingface.co/InternScience/Sage-A1.5-Q4_K_M-GGUF/resolve/10b179b52f2c841030db327627e707d076b4c8cf/Sage-A1.5-Q4_K_M.gguf
+    - filename: Sage-A1.5-mmproj.gguf
+      sha256: 51cd4410057e8dc4152ca771a726fbfb34856f047e7049018c757d42ddd481f2
+      uri: https://huggingface.co/InternScience/Sage-A1.5-Q4_K_M-GGUF/resolve/10b179b52f2c841030db327627e707d076b4c8cf/Sage-A1.5-mmproj.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: Sage-A1.5-mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Sage-A1.5-Q4_K_M.gguf
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: sage-a1.5-q8
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: sage-a1.5-q8
+  description: |
+    Sage-A1.5 is a 35B mixture-of-experts model based on Qwen3.6 for
+    scientific reasoning, coding, and tool use. This official Q8_0 GGUF
+    build uses llama.cpp and includes the vision projector.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/InternScience/Sage-A1.5
+    - https://huggingface.co/InternScience/Sage-A1.5-Q8_0-GGUF
+  tags:
+    - llm
+    - gguf
+    - vision
+    - reasoning
+    - cpu
+    - gpu
+  files:
+    - filename: Sage-A1.5-Q8_0.gguf
+      sha256: f7247f6faef3f6c616b953595e1fc7c3fbf257d02d9915af5fdf15e808ea8ee4
+      uri: https://huggingface.co/InternScience/Sage-A1.5-Q8_0-GGUF/resolve/1cbe2925983a13a6c09881b9bc088884dbfbc146/Sage-A1.5-Q8_0.gguf
+    - filename: Sage-A1.5-mmproj.gguf
+      sha256: 51cd4410057e8dc4152ca771a726fbfb34856f047e7049018c757d42ddd481f2
+      uri: https://huggingface.co/InternScience/Sage-A1.5-Q4_K_M-GGUF/resolve/10b179b52f2c841030db327627e707d076b4c8cf/Sage-A1.5-mmproj.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: Sage-A1.5-mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Sage-A1.5-Q8_0.gguf
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
