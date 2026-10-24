@@ -18,7 +18,10 @@ name: 'add-on packages'
 # value of ADDON_OCI_REPOSITORY (the add-on registry organization). Each
 # add-on is a set of tags of that repository, prefixed with its id:
 # <id>-sha-<short sha> for a commit, <id>-<version> for a release and
-# <id>-development or <id>-latest for a channel alias. Signatures and digests
+# <id>-development or <id>-latest for a channel alias. The development alias is
+# the tag a development library entry names (mutable, no digest); the install
+# resolves it to a digest, as for a development backend, so it moves only in
+# the promote job below. Signatures and digests
 # are per image, so add-ons never collide. A publishing event fails for an
 # add-on until one of its platforms is enabled.
 #

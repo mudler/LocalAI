@@ -78,7 +78,14 @@ var _ = Describe("official library index", func() {
 		ids := []string{}
 		for _, r := range releases {
 			ids = append(ids, r.ID)
-			Expect(digestPattern.MatchString(r.Digest)).To(BeTrue(), r.ID)
+			// A development entry is mutable and has no digest; any other is pinned.
+			if r.Mutable {
+				Expect(r.Digest).To(BeEmpty(), r.ID)
+				Expect(r.Channel).To(Equal("development"), r.ID)
+				Expect(r.Artifact).To(HaveSuffix(":"+r.ID+"-development"), r.ID)
+			} else {
+				Expect(digestPattern.MatchString(r.Digest)).To(BeTrue(), r.ID)
+			}
 			Expect(versionPattern.MatchString(r.Version)).To(BeTrue(), r.ID)
 			Expect(r.Artifact).To(HavePrefix("oci://"), r.ID)
 		}

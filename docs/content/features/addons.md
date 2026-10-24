@@ -3242,6 +3242,13 @@ add-on is a set of tags of that repository, and every tag starts with the add-on
 build of one commit is
 `oci://quay.io/go-skynet/local-ai-addons:fine-tuning-sha-99d1dca2c869`.
 
+A release entry of the official library is pinned by digest. A development entry is
+mutable, as a development backend is: it names the moving tag
+(`oci://quay.io/go-skynet/local-ai-addons:fine-tuning-development`), sets `mutable: true`
+and has no digest. At install LocalAI resolves the tag to a digest, verifies the signature
+against that digest, installs by it and records it in the receipt. A mutable entry must be
+an OCI artifact. The update check does not compare a mutable entry yet.
+
 Set `ADDON_OCI_REPOSITORY` to `quay.io/go-skynet/local-ai-addons`. The value has no tag
 and no digest. A value that is a backend image repository makes the add-on tools refuse
 it. `addonpkg target --repository <repository> --addon <id> --tag <tag>` prints the

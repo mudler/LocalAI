@@ -427,6 +427,12 @@ func (c *Checker) moving(ctx context.Context, in Installation, st Status, select
 		st.State, st.Error = CheckFailed, classOf(e)
 		return Result{Status: st}
 	}
+	// A mutable entry has no digest to compare: its tag is resolved at install.
+	// Until the check resolves it too, report nothing rather than a false update.
+	if rel.Mutable {
+		st.State = Unknown
+		return Result{Status: st}
+	}
 	st.CandidateVersion, st.CandidateDigest = rel.Version, rel.Digest
 	if rel.Digest == in.Receipt.Digest {
 		st.State = UpToDate

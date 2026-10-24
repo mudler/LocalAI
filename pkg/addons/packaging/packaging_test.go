@@ -864,6 +864,28 @@ var _ = Describe("catalog template", func() {
 		Expect(entries[0].Digest).NotTo(Equal(entries[1].Digest))
 		Expect(entries[0].Arch).NotTo(Equal(entries[1].Arch))
 	})
+	It("renders the development channel as mutable entries: the moving tag, no digest", func() {
+		reg := newRegistry()
+		p := newProject(both)
+		m := p.merged("0.0.0-dev.0123456789ab", rev, nil)
+		repoName := reg.repo("addons/tables")
+		out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")
+		_, err := run("catalog", "--config", p.config, "--template", "../../../gallery/addons/tables.yaml.tmpl", "--merged", m, "--repository", repoName, "--tag", "sha-0123456789ab", "--channel", "development", "--owner-repo", "example/localai", "--signer-ref", "refs/heads/master", "--out", out)
+		Expect(err).NotTo(HaveOccurred())
+		b, err := os.ReadFile(out)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).NotTo(ContainSubstring("digest:"))
+		entries, err := readCatalogIndex(b)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(entries).To(HaveLen(2))
+		for _, e := range entries {
+			Expect(e.Mutable).To(BeTrue())
+			Expect(e.Digest).To(BeEmpty())
+			Expect(e.Artifact).To(Equal("oci://" + repoName + ":tables-development"))
+			Expect(e.Channel).To(Equal("development"))
+			Expect(e.Policy.RequireSignature).To(BeTrue())
+		}
+	})
 	It("renders an entry for every first-party add-on from its own template", func() {
 		for _, id := range []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk"} {
 			p := newProjectFor(id, both)
