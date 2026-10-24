@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"encoding/json"
 	"regexp"
 	"strings"
 
@@ -10,6 +11,49 @@ import (
 )
 
 var numberToken = regexp.MustCompile(`\b\d+(?:[.,]\d+)?\b`)
+
+// urlToken matches an http(s) URL up to the first character that cannot be
+// part of one in tool output. Parentheses are allowed inside URL paths;
+// sourceURLs removes unmatched closing parentheses from Markdown links.
+var urlToken = regexp.MustCompile(`https?://[^\s"'<>\[\]{}\\]+`)
+
+// maxSourceURLs caps the appended source line; a search tool can return
+// dozens of links, and the first ones are the ones it ranked highest.
+const maxSourceURLs = 5
+
+// sourceURLs returns the distinct URLs of texts in the order they first
+// appear, at most maxSourceURLs. Punctuation that ends a sentence is not part
+// of the URL.
+func sourceURLs(texts []string) []string {
+	var urls []string
+	seen := map[string]struct{}{}
+	for _, text := range texts {
+		// ExecuteMCPToolCall JSON-encodes multiple TextContent results.
+		// Decode that envelope so escaped query separators remain intact.
+		var parts []string
+		var single string
+		if json.Unmarshal([]byte(text), &parts) == nil {
+			text = strings.Join(parts, "\n")
+		} else if json.Unmarshal([]byte(text), &single) == nil {
+			text = single
+		}
+		for _, token := range urlToken.FindAllString(text, -1) {
+			token = strings.TrimRight(token, ".,;:!?")
+			for strings.HasSuffix(token, ")") && strings.Count(token, ")") > strings.Count(token, "(") {
+				token = strings.TrimRight(strings.TrimSuffix(token, ")"), ".,;:!?")
+			}
+			if _, ok := seen[token]; ok || strings.HasSuffix(token, "://") {
+				continue
+			}
+			seen[token] = struct{}{}
+			urls = append(urls, token)
+			if len(urls) == maxSourceURLs {
+				return urls
+			}
+		}
+	}
+	return urls
+}
 
 // numberKey makes "3,5" and "3.5" the same number, so an answer is not
 // flagged for writing a decimal with the other separator than its source.
@@ -53,35 +97,63 @@ func hasUnsupportedNumber(answer string, evidence map[string]struct{}, toolExecu
 // evidenceGate carries the per-request state of a profile's evidence check.
 // A nil gate is disabled, so callers need no separate enabled check.
 type evidenceGate struct {
+	// evidence is nil when the number check is off.
 	note         string
 	evidence     map[string]struct{}
 	toolExecuted bool
+
+	sources      bool
+	sourcesLabel string
+	toolResults  []string
 }
 
 func newEvidenceGate(cfg *config.ModelConfig, messages []schema.Message) *evidenceGate {
 	check := cfg.EvidenceCheck()
-	if !check.Numbers {
+	if !check.Numbers && !check.Sources {
 		return nil
 	}
-	return &evidenceGate{note: check.EvidenceNote(), evidence: evidenceNumbers(cfg.SystemPrompt, messages)}
+	g := &evidenceGate{sources: check.Sources, sourcesLabel: check.SourcesHeading()}
+	if check.Numbers {
+		g.note = check.EvidenceNote()
+		g.evidence = evidenceNumbers(cfg.SystemPrompt, messages)
+	}
+	return g
 }
 
-func (g *evidenceGate) markToolExecuted() {
-	if g != nil {
-		g.toolExecuted = true
+// markToolExecuted records a successful server-side tool call. Its result is
+// the only place the source line may take a URL from.
+func (g *evidenceGate) markToolExecuted(result string) {
+	if g == nil {
+		return
+	}
+	g.toolExecuted = true
+	if g.sources {
+		g.toolResults = append(g.toolResults, result)
 	}
 }
 
 // suffix returns the text to append to answer, or "" when it needs none.
 func (g *evidenceGate) suffix(answer string) string {
-	if g == nil || !hasUnsupportedNumber(answer, g.evidence, g.toolExecuted) {
+	if g == nil {
 		return ""
 	}
-	xlog.Debug("Evidence check: answer has numbers without evidence in the request, appending note")
-	return "\n\n" + g.note
+	var suffix string
+	// An answer that links anything is left alone: it cites in its own way,
+	// and a second list would contradict or repeat it.
+	if g.sources && !urlToken.MatchString(answer) {
+		if urls := sourceURLs(g.toolResults); len(urls) > 0 {
+			xlog.Debug("Evidence check: answer names no URL, appending the tool results' URLs", "count", len(urls))
+			suffix += "\n\n" + g.sourcesLabel + ": " + strings.Join(urls, ", ")
+		}
+	}
+	if g.evidence != nil && hasUnsupportedNumber(answer, g.evidence, g.toolExecuted) {
+		xlog.Debug("Evidence check: answer has numbers without evidence in the request, appending note")
+		suffix += "\n\n" + g.note
+	}
+	return suffix
 }
 
-// apply appends the note to every final answer choice. Choices that hand tool
+// apply appends the suffix to every final answer choice. Choices that hand tool
 // calls to the client are not final answers and stay untouched.
 func (g *evidenceGate) apply(choices []schema.Choice) {
 	if g == nil {
