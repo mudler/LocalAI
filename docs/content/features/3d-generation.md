@@ -5,7 +5,7 @@ weight = 19
 url = "/features/3d-generation/"
 +++
 
-LocalAI can generate textured 3D meshes from a single conditioning image via the `/3d/generations` endpoint, powered by the `trellis2cpp` backend — a C++/GGML port of [Microsoft TRELLIS.2](https://github.com/microsoft/TRELLIS.2) ([trellis2.cpp](https://github.com/localai-org/trellis2cpp)). The output is a binary glTF (`.glb`) asset with PBR materials.
+LocalAI supports single-image TRELLIS.2 and four-view Pixal3D generation. The TRELLIS.2 workflow below generates textured 3D meshes from a single conditioning image via the `/3d/generations` endpoint, powered by the `trellis2cpp` backend — a C++/GGML port of [Microsoft TRELLIS.2](https://github.com/microsoft/TRELLIS.2) ([trellis2.cpp](https://github.com/localai-org/trellis2cpp)). The output is a binary glTF (`.glb`) asset with PBR materials.
 
 Generation is image-conditioned only — there is no text-prompt path. Provide a photo or rendering of a single object (ideally on a plain background) and TRELLIS.2 reconstructs a full 3D mesh from it.
 
@@ -122,3 +122,82 @@ The React UI includes a 3D tab in the Studio (and a `/3d` page) with an interact
 - The 512³ pipeline takes roughly two minutes on a modern GPU; the 1024³ cascade takes around five minutes and needs about 10 GB VRAM plus a temporary host-RAM spike.
 - `TRELLIS2_DEVICE=cpu` forces CPU inference (slow; mainly for debugging).
 - The generated mesh has unoriented winding (faithful to TRELLIS.2) and is exported Y-up with vertex-PBR materials; a UV-atlas texture bake can be enabled in the backend via the `T2GLB_XATLAS` environment variable.
+
+## Pixal3D: four views to a mesh
+
+The `pixal3dcpp` backend runs [raven38/pixal3d.cpp](https://github.com/raven38/pixal3d.cpp) in its explicit Pixal3D multiview mode. It produces a textured GLB with PNG textures at resolution 1024.
+
+Use four **8-bit RGBA PNGs**, ordered **front, right, back, left**. Prepare the alpha mattes before uploading. Each view can contain at most 32 MiB and 4096 × 4096 pixels. URLs, base64 strings, and data URIs use the same input staging as single-image generation; client-local file paths are not accepted.
+
+The server upload limit also applies to the complete JSON request. Set `--upload-limit` to accommodate all four images and their base64 overhead.
+
+These are canonical turntable views, not arbitrary camera photographs. Match the upstream canonical rig: 20° field of view, zero elevation, and camera distance 3.1192049980163574. Set `mesh_scale` to the finite positive object scale used for those views. The backend does not estimate cameras, create alpha mattes, or accept `transforms.json` uploads.
+
+### Install the model
+
+In **Import model**, select `pixal3dcpp` explicitly and enter:
+
+```text
+https://huggingface.co/raven38/pixal3d-q8_0-v1
+```
+
+The importer downloads the complete Q8_0 multiview bundle with SHA256 checks. It does not automatically claim other GGUF or TRELLIS repositories.
+
+For a manually installed bundle, place the following files in `models/pixal3d/`:
+
+```text
+pixal3d-models.json
+dinov3.gguf
+pixal3d_naf.gguf
+pixal3d_ss_flow_mv.gguf
+ss_dec.gguf
+pixal3d_shape_flow_512_mv.gguf
+shape_dec.gguf
+pixal3d_shape_flow_1024_mv.gguf
+pixal3d_tex_flow_1024_mv.gguf
+tex_dec.gguf
+```
+
+Use the matching upstream multiview manifest. Loading checks the manifest family, each required filename, the GGUF header, and the declared file size. Do not mix single-view, multiview, or TRELLIS components.
+
+Create `models/pixal3d.yaml`:
+
+```yaml
+name: pixal3d
+backend: pixal3dcpp
+parameters:
+  model: pixal3d
+```
+
+The model path names the **directory**, so distributed workers receive the complete model set. LocalAI also stages all four request images on the selected worker and removes them after the request.
+
+### Generate
+
+Select the Pixal3D model on Studio's **3D** page. Upload the four labelled views and enter the mesh scale. The form offers only supported generation controls.
+
+The same request works through `POST /3d/generations`:
+
+```json
+{
+  "model": "pixal3d",
+  "images": [
+    "data:image/png;base64,<front>",
+    "data:image/png;base64,<right>",
+    "data:image/png;base64,<back>",
+    "data:image/png;base64,<left>"
+  ],
+  "mesh_scale": 0.8,
+  "quality": "1024",
+  "response_format": "url"
+}
+```
+
+Replace the placeholders with the image data. `mesh_scale: 0.8` is an example, not an estimated default. `quality` can be omitted or set to `1024`; `background` can be omitted or set to `keep`. Both `url` and `b64_json` responses use the envelope described above.
+
+Pixal3D rejects `image`, sampling overrides, nonempty `params`, and other resolutions or background modes. Other backends reject the new `images` and `mesh_scale` fields. The existing TRELLIS single-image request remains unchanged.
+
+### Runtime and platforms
+
+The adapter registers and unloads models through LocalAI's normal backend lifecycle. It starts the native CLI for each generation, so each request reloads weights. Unloading cancels an active child process. This adapter does not expose upstream's persistent HTTP server or its single-view mode.
+
+Build definitions cover Linux amd64 and arm64 CPU/Vulkan, Linux amd64 CUDA 12/13, and Apple Silicon Metal. Some upstream operations use CPU fallbacks on Metal. CPU inference can be slow and requires substantial memory. Native builds and inference with real weights require platform validation; no throughput or memory guarantee is implied by the build definitions.
