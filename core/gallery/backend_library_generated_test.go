@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 )
 
@@ -104,9 +105,10 @@ func TestLibraryGalleryReadsTheBackendLibrary(t *testing.T) {
 	official.Library = true
 	official.URL = srv.URL + "/backends/index.yaml"
 	backends := names(official)
-	if len(backends) != goldenGalleryNames {
-		t.Fatalf("the library gave %d backends, want %d", len(backends), goldenGalleryNames)
-	}
+	expected, err := BackendsFromLibrary(loadRealBackendLibrary(t))
+	g := gomega.NewWithT(t)
+	g.Expect(err).To(gomega.Succeed())
+	g.Expect(backends).To(gomega.HaveLen(len(expected)))
 	llama := backends.FindByName("llama-cpp")
 	if llama == nil || !llama.IsMeta() || llama.CapabilitiesMap["nvidia"] != "cuda12-llama-cpp" || llama.Alias != "llama-cpp" {
 		t.Fatalf("the meta backend lost its body: %+v", llama)

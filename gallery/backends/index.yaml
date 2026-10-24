@@ -43107,3 +43107,239 @@
   urls:
     - https://github.com/modelscope/FunASR
   version: 0.0.0-development
+- alias: cachyllama
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  channel: latest
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  id: cachyllama
+  kind: backend
+  license: mit
+  name: cachyllama
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  version: 0.0.0-latest
+- alias: cachyllama
+  capabilities:
+    default: cpu-cachyllama-development
+    metal: metal-cachyllama-development
+    vulkan: vulkan-cachyllama-development
+  channel: development
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  id: cachyllama-development
+  kind: backend
+  license: mit
+  name: cachyllama-development
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  version: 0.0.0-development
+- alias: cachyllama
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-cachyllama
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  channel: latest
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  id: cpu-cachyllama
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-cachyllama
+  mutable: true
+  name: cpu-cachyllama
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  version: 0.0.0-latest
+- alias: cachyllama
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-cachyllama
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  channel: development
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  id: cpu-cachyllama-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-cpu-cachyllama
+  mutable: true
+  name: cpu-cachyllama-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  version: 0.0.0-development
+- alias: cachyllama
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-cachyllama
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  channel: latest
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  id: vulkan-cachyllama
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-vulkan-cachyllama
+  mutable: true
+  name: vulkan-cachyllama
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  version: 0.0.0-latest
+- alias: cachyllama
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-cachyllama
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  channel: development
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  id: vulkan-cachyllama-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-vulkan-cachyllama
+  mutable: true
+  name: vulkan-cachyllama-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  version: 0.0.0-development
+- alias: cachyllama
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-cachyllama
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  channel: latest
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  id: metal-cachyllama
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-metal-darwin-arm64-cachyllama
+  mutable: true
+  name: metal-cachyllama
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  version: 0.0.0-latest
+- alias: cachyllama
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-cachyllama
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  channel: development
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  id: metal-cachyllama-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-metal-darwin-arm64-cachyllama
+  mutable: true
+  name: metal-cachyllama-development
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  version: 0.0.0-development
