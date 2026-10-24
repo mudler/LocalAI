@@ -501,3 +501,23 @@ var _ = Describe("InstallLibraryBackend", func() {
 		Expect(res.Status).To(Equal("installed"))
 	})
 })
+
+var _ = Describe("ListBackendLibraryUpdates", func() {
+	It("reads the backend library updates route", func() {
+		var path string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path = r.Method + " " + r.URL.Path
+			_ = json.NewEncoder(w).Encode(map[string]any{"updates": []map[string]any{
+				{"name": "demo", "sourceId": "official", "installedVersion": "1.0.0", "version": "1.1.0", "digest": "sha256:aa", "signed": true},
+			}})
+		}))
+		DeferCleanup(srv.Close)
+
+		res, err := New(srv.URL, "").ListBackendLibraryUpdates(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(path).To(Equal("GET /backends/library/updates"))
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].SourceID).To(Equal("official"))
+		Expect(res[0].Version).To(Equal("1.1.0"))
+	})
+})

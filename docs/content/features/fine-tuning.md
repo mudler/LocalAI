@@ -78,6 +78,7 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs/{job_id}/export \
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/api/fine-tuning/status` | Whether model exports are allowed on this instance (`{"model_exports": bool}`) |
 | `POST` | `/api/fine-tuning/jobs` | Start a fine-tuning job |
 | `GET` | `/api/fine-tuning/jobs` | List all jobs |
 | `GET` | `/api/fine-tuning/jobs/:id` | Get job details |
@@ -86,6 +87,8 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs/{job_id}/export \
 | `GET` | `/api/fine-tuning/jobs/:id/checkpoints` | List checkpoints |
 | `POST` | `/api/fine-tuning/jobs/:id/export` | Export model |
 | `POST` | `/api/fine-tuning/datasets` | Upload dataset file |
+
+`GET /api/fine-tuning/status` and `GET /api/quantization/status` return `{"model_exports": true|false}`. The value is `false` only when this instance does not see the models path of the add-on owner; it is the same value as the `model_exports` key of `GET /api/features`. The Web UI disables the export controls while it is `false`. Both routes need an authenticated user and answer `503` when add-ons are off.
 
 ### Job Request Fields
 
@@ -188,6 +191,10 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs \
   }'
 ```
 
+{{% notice note %}}
+In a split deployment (`--addons-role=owner` and `--addons-role=frontend`), the export writes into the models path. That path must be the shared models storage. See [The models path](../addons/#the-models-path).
+{{% /notice %}}
+
 ### Export Formats
 
 | Format | Description | Notes |
@@ -216,11 +223,13 @@ A user needs the fine-tuning permission. Without it, the page says the account c
 
 ### Fine-tuning is an add-on
 
-The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Browse add-ons** in the drawer and starts it. Once it runs, it opens from the drawer at `/app/addons/fine-tuning/jobs` and can be pinned. The Build hub no longer has a Fine-Tune tab.
+The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/fine-tuning/jobs` and can be shown in the sidebar. The Build hub no longer has a Fine-Tune tab.
 
 The old link `/app/fine-tune` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
 
 The API does not change. The page calls `/api/fine-tuning/*` with the signed-in user's own session, and the server checks the fine-tuning permission on every call, so the add-on never widens what a user may do.
+
+With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/fine-tune` leads back to `/app`, and every path under `/api/fine-tuning` answers `503`. See [The addons feature gate](../addons/#the-addons-feature-gate).
 
 The add-on also offers tools to the chat: list jobs, propose a job, store a small dataset, read the status and the checkpoints of a job, stop a job and export a checkpoint as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or export it. A tool never starts, stops or exports anything by itself: it proposes the action and a person confirms it in an approval card. A model or a dataset given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `finetune.` prefix, and they run with the permissions of the person in the chat.
 

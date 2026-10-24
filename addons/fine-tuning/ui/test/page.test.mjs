@@ -44,6 +44,7 @@ test('page: the API helper uses the core fine-tuning paths and bodies', async ()
     json: async (p, i) => { seen.push([p, i]); return {} },
   }
   const api = createApi(ctx)
+  await api.fineTune.status()
   await api.fineTune.listBackends()
   await api.fineTune.listJobs()
   await api.fineTune.getJob('a b')
@@ -56,13 +57,13 @@ test('page: the API helper uses the core fine-tuning paths and bodies', async ()
   await api.resources.get()
   const paths = seen.map(s => `${s[1]?.method || 'GET'} ${s[0]}`)
   assert.deepEqual(paths, [
-    'GET /api/fine-tuning/backends', 'GET /api/fine-tuning/jobs', 'GET /api/fine-tuning/jobs/a%20b',
+    'GET /api/fine-tuning/status', 'GET /api/fine-tuning/backends', 'GET /api/fine-tuning/jobs', 'GET /api/fine-tuning/jobs/a%20b',
     'POST /api/fine-tuning/jobs', 'POST /api/fine-tuning/jobs/j1/stop?save_checkpoint=true',
     'POST /api/fine-tuning/jobs/j1/stop?save_checkpoint=false', 'DELETE /api/fine-tuning/jobs/j1',
     'GET /api/fine-tuning/jobs/j1/checkpoints', 'POST /api/fine-tuning/jobs/j1/export', 'GET /api/resources',
   ])
-  assert.equal(seen[3][1].body, JSON.stringify({ model: 'm' }))
-  assert.equal(seen[3][1].headers['Content-Type'], 'application/json')
+  assert.equal(seen[4][1].body, JSON.stringify({ model: 'm' }))
+  assert.equal(seen[4][1].headers['Content-Type'], 'application/json')
 })
 
 test('page: the dataset upload is a FormData body with no Content-Type header', async () => {
@@ -222,7 +223,7 @@ test('i18n: en.js repeats the host strings and adds only the keys the add-on own
     if (k in tools) assert.equal(v, tools[k], k)
     else own.push(k)
   }
-  assert.deepEqual(own.sort(), ['export.adminOnly.text', 'export.adminOnly.title', 'run.unknownPercent'])
+  assert.deepEqual(own.sort(), ['export.adminOnly.text', 'export.adminOnly.title', 'export.blocked', 'run.unknownPercent'])
   assert.equal(Object.keys(en).some(k => k.startsWith('quantize.')), false)
 })
 
@@ -237,4 +238,24 @@ test('source: no file imports a core UI file or the router', () => {
     assert.doesNotMatch(text, /from\s+['"](react|react-dom|react-router-dom|react-i18next)['"]/, f)
     assert.doesNotMatch(text, /\bEventSource\b/, f)
   }
+})
+
+test('export: the export controls are off with the reason when the models probe fails', async () => {
+  const done = job({ status: 'completed' })
+  const seed = { checkpoints: [{ path: '/srv/c1', step: 10, loss: 0.5, epoch: 1 }] }
+  const { mod, sdk } = await load()
+  const { ExportPanel, JobView } = (await mod.__partsFor(sdk)).parts
+  const blocked = renderToString(React.createElement(ExportPanel, { job: done, seed, modelExports: false }))
+  assert.match(blocked, /data-testid="export-blocked"/)
+  assert.match(blocked, new RegExp(en['export.blocked'].slice(0, 30)))
+  assert.match(blocked, /<button[^>]*disabled=""[^>]*>[^]*?<\/button>/)
+  const open = renderToString(React.createElement(ExportPanel, { job: done, seed }))
+  assert.doesNotMatch(open, /data-testid="export-blocked"/)
+  const props = { job: done, seed, onStop() {}, onReuse() {}, onResume() {}, onTerminal() {}, exportCheckpoint() {} }
+  const off = renderToString(React.createElement(JobView, { ...props, modelExports: false }))
+  const on = renderToString(React.createElement(JobView, props))
+  const exportBtn = (html) => html.match(/<button[^>]*title="[^"]*"[^>]*><i data-icon="save"/)[0]
+  assert.match(exportBtn(off), /disabled=""/)
+  assert.match(exportBtn(off), new RegExp(en['export.blocked'].slice(0, 30)))
+  assert.doesNotMatch(exportBtn(on), /disabled/)
 })

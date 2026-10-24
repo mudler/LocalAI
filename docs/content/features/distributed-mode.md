@@ -81,6 +81,16 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--model-config-resync-interval` | `LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL` | `30s` | How often each frontend compares its model configs with the shared models directory, to apply a change whose NATS message it missed. A frontend that missed a message serves the old config for at most this long. See [Model configs across frontends](#model-configs-across-frontends). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
+### Add-ons
+
+Every `local-ai run` process is its own add-on owner by default. With several
+frontend replicas, run the owner as one separate workload with its own volume, and
+start the frontends with `--addons-role=frontend`, so they forward add-on requests
+to it and hold no add-on state. The library sources and the backend library
+installs also go through the owner: a frontend follows the owner's sources and
+installs backends on its own node. See
+[Running the owner as its own workload]({{% relref "features/addons#running-the-owner-as-its-own-workload" %}}).
+
 ### The model load deadline scales with the checkpoint
 
 The `LoadModel` deadline starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint read and pipeline init. That work is proportional to the bytes on disk, which makes any fixed deadline a model-size cliff rather than a timeout: a 70 GB video checkpoint on a Jetson Thor worker failed reproducibly against the old fixed 5m default (`rpc error: code = DeadlineExceeded` after 953.5s of wall clock, roughly 11m of which was backend install and staging), and simply raising the constant would only move the cliff to the next larger model while making a genuinely wedged *small* model hang for the whole inflated duration.
