@@ -51,6 +51,18 @@ try:
 except ImportError:
     HAS_REASONING_PARSERS = False
 
+# vLLM >= 0.30 composes reasoning and tool parsing into one per-delta parser
+# (ParserManager / Parser.parse_delta) — the one its own OpenAI server uses
+# for streaming.
+try:
+    from vllm.parser.parser_manager import ParserManager
+    from vllm.entrypoints.openai.chat_completion.protocol import (
+        ChatCompletionRequest as _ParserRequest,
+    )
+    HAS_STREAM_PARSER = True
+except ImportError:
+    HAS_STREAM_PARSER = False
+
 # vLLM >= 0.23 renamed GuidedDecodingParams -> StructuredOutputsParams and the
 # SamplingParams field guided_decoding -> structured_outputs.
 try:
@@ -307,6 +319,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             except Exception as e:
                 print(f"Failed to load reasoning_parser {opts.get('reasoning_parser')}: {e}", file=sys.stderr)
 
+        # With a reasoning parser, streaming has to split reasoning from content
+        # per delta. Use vLLM's composed parser for that (reasoning + tools).
+        self.stream_parser_cls = None
+        if HAS_STREAM_PARSER and self.reasoning_parser_cls is not None:
+            try:
+                self.stream_parser_cls = ParserManager.get_parser(
+                    tool_parser_name=opts.get("tool_parser") if self.tool_parser_cls else None,
+                    reasoning_parser_name=opts.get("reasoning_parser"),
+                    enable_auto_tools=True,
+                )
+            except Exception as e:
+                print(f"Streaming parser unavailable, streaming raw deltas: {e!r}", file=sys.stderr)
+                self.stream_parser_cls = None
+
         print("Model loaded successfully", file=sys.stderr)
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
@@ -387,6 +413,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 del self.tokenizer
             self.tool_parser_cls = None
             self.reasoning_parser_cls = None
+            self.stream_parser_cls = None
             gc.collect()
             try:
                 import torch
@@ -634,6 +661,120 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # budget. It is all reasoning, and there is no answer to report.
         return reasoning or "", content or ""
 
+    def _new_stream_parser(self, request, template_kwargs):
+        """Build vLLM's per-delta parser for one streaming request.
+
+        Same construction as vLLM's OpenAI server: the request's
+        ``chat_template_kwargs`` (``enable_thinking``) set the parser's initial
+        state, and the prompt token ids passed to the first ``parse_delta``
+        tell it whether the reasoning block is open. Returns ``(None, None)``
+        when that is not possible; the caller then streams raw deltas as
+        before.
+        """
+        cls = getattr(self, "stream_parser_cls", None)
+        if cls is None:
+            return None, None
+        try:
+            tools = None
+            if request.Tools:
+                try:
+                    tools = json.loads(request.Tools) or None
+                except json.JSONDecodeError:
+                    tools = None
+            parser_request = _ParserRequest(
+                model="local",
+                messages=[{"role": "user", "content": ""}],
+                tools=tools,
+            )
+            chat_template_kwargs = {
+                k: v for k, v in (template_kwargs or {}).items()
+                if k not in ("tokenize", "add_generation_prompt", "tools")
+            }
+            parser = cls(self.tokenizer, parser_request.tools,
+                         chat_template_kwargs=chat_template_kwargs)
+            return parser, parser_request
+        except Exception as e:
+            print(f"Could not build streaming parser, streaming raw deltas: {e!r}",
+                  file=sys.stderr)
+            return None, None
+
+    @staticmethod
+    def _delta_message_to_reply(msg):
+        """vLLM ``DeltaMessage`` -> ``Reply``, or ``None`` if it carries nothing."""
+        tc_protos = []
+        for tc in (msg.tool_calls or []):
+            fn = tc.function or None
+            tc_protos.append(backend_pb2.ToolCallDelta(
+                index=tc.index,
+                id=tc.id or "",
+                name=(fn.name if fn and fn.name else "") or "",
+                arguments=(fn.arguments if fn and fn.arguments else "") or "",
+            ))
+        cd_kwargs = {}
+        if msg.content:
+            cd_kwargs["content"] = msg.content
+        if msg.reasoning:
+            cd_kwargs["reasoning_content"] = msg.reasoning
+        if tc_protos:
+            cd_kwargs["tool_calls"] = tc_protos
+        if not cd_kwargs:
+            return None
+        return backend_pb2.Reply(
+            message=bytes(msg.content or "", encoding='utf-8'),
+            chat_deltas=[backend_pb2.ChatDelta(**cd_kwargs)],
+        )
+
+    @staticmethod
+    def _unsent_remainder(sent_content, sent_reasoning, sent_tools,
+                          content, reasoning, tool_calls):
+        """After the streaming parser failed mid-stream: what is still unsent.
+
+        ``content``/``reasoning``/``tool_calls`` come from parsing the full
+        text; ``sent_tools`` maps a tool-call index to the name and arguments
+        already streamed for it. Only suffixes of what was sent are added. If
+        the full parse disagrees with what went out, nothing is guessed: the
+        field is left as streamed and the mismatch is logged.
+        """
+        def unsent(field, full, sent):
+            full = full or ""
+            if full.startswith(sent):
+                return full[len(sent):]
+            print(f"Streamed {field} does not match the final parse; "
+                  f"not sending the rest", file=sys.stderr)
+            return ""
+
+        remainder = {}
+        rest = unsent("reasoning", reasoning, sent_reasoning)
+        if rest:
+            remainder["reasoning_content"] = rest
+        if sent_tools and not tool_calls:
+            # A tool call was streamed but the full text does not parse as
+            # one: the rest of the content would be raw tool-call markup.
+            print("Streamed tool call not found in the final parse; "
+                  "not sending the rest", file=sys.stderr)
+        else:
+            rest = unsent("content", content, sent_content)
+            if rest:
+                remainder["content"] = rest
+        tc_protos = []
+        for i, (call_id, name, arguments) in enumerate(tool_calls or []):
+            sent = sent_tools.get(i)
+            if sent is None:
+                tc_protos.append(backend_pb2.ToolCallDelta(
+                    index=i, id=call_id or "", name=name or "", arguments=arguments or "",
+                ))
+                continue
+            if sent["name"] and name and sent["name"] != name:
+                print(f"Streamed tool call {i} does not match the final parse; "
+                      f"not sending the rest", file=sys.stderr)
+                continue
+            rest = unsent(f"tool call {i} arguments", arguments, sent["arguments"])
+            if rest:
+                tc_protos.append(backend_pb2.ToolCallDelta(index=i, arguments=rest))
+        if tc_protos:
+            remainder["tool_calls"] = tc_protos
+        return remainder
+
     async def _predict(self, request, context, streaming=False):
         # Build the sampling parameters
         sampling_params = self._build_sampling_params(request)
@@ -777,12 +918,58 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 and hasattr(tp_instance, "extract_tool_calls_streaming")
             )
 
+        # With a reasoning parser, split reasoning, content and tool calls per
+        # delta, as vLLM's OpenAI server does. Without this the raw text —
+        # reasoning included — was streamed as content, and LocalAI takes the
+        # backend's ChatDeltas as they are.
+        stream_parser, parser_request = (
+            self._new_stream_parser(request, template_kwargs) if streaming else (None, None)
+        )
+        stream_parser_error = False
+        sent_content = ""
+        sent_reasoning = ""
+        sent_tools = {}  # tool-call index -> {"name", "arguments"} already streamed
+
         try:
             async for request_output in outputs:
                 iteration_text = request_output.outputs[0].text
                 last_output = request_output
 
-                if streaming:
+                if streaming and stream_parser is not None and not stream_parser_error:
+                    delta_iteration_text = iteration_text.removeprefix(generated_text)
+                    new_token_ids = list(request_output.outputs[0].token_ids)
+                    delta_token_ids = new_token_ids[len(generated_token_ids):]
+                    try:
+                        msg = stream_parser.parse_delta(
+                            delta_text=delta_iteration_text,
+                            delta_token_ids=delta_token_ids,
+                            request=parser_request,
+                            prompt_token_ids=list(request_output.prompt_token_ids or []),
+                            finished=bool(
+                                getattr(request_output, "finished", False)
+                                or getattr(request_output.outputs[0], "finish_reason", None) is not None
+                            ),
+                        )
+                    except Exception as e:
+                        print(f"Streaming parser error (sending the rest with the "
+                              f"final chunk): {e!r}", file=sys.stderr)
+                        stream_parser_error = True
+                        msg = None
+                    if msg is not None:
+                        reply = self._delta_message_to_reply(msg)
+                        if reply is not None:
+                            sent_content += msg.content or ""
+                            sent_reasoning += msg.reasoning or ""
+                            for tc in (msg.tool_calls or []):
+                                fn = tc.function or None
+                                sent = sent_tools.setdefault(tc.index, {"name": "", "arguments": ""})
+                                if fn and fn.name and not sent["name"]:
+                                    sent["name"] = fn.name  # sent once, as in OpenAI deltas
+                                sent["arguments"] += (fn.arguments if fn and fn.arguments else "") or ""
+                            yield reply
+                elif streaming and stream_parser is not None:
+                    pass  # parser failed: buffer, the final chunk carries the rest
+                elif streaming:
                     delta_iteration_text = iteration_text.removeprefix(generated_text)
                     new_token_ids = list(request_output.outputs[0].token_ids)
                     delta_token_ids = new_token_ids[len(generated_token_ids):]
@@ -864,6 +1051,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             except Exception as e:
                 print(f"Reasoning parser error: {e}", file=sys.stderr)
 
+        # Content after the reasoning split, before tool-call extraction.
+        split_content = content
+
         # When (A) native streaming ran cleanly, per-delta yields above already
         # delivered everything — do NOT extract again on the full text or we'd
         # duplicate content/tool_calls into the final chunk.
@@ -935,6 +1125,39 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             reasoning_content=reasoning_content,
             tool_calls=tool_calls_proto,
         )
+
+        if streaming and stream_parser is not None:
+            # Everything went out per delta; the final chunk carries only token
+            # counts and logprobs, or LocalAI would repeat answer and
+            # reasoning. If the parser failed mid-stream, send what is left.
+            remainder = {}
+            if stream_parser_error:
+                rest_content = split_content
+                rest_tool_calls = []
+                if has_tool_parser and rest_content:
+                    try:
+                        tp = tp_instance or self.tool_parser_cls(self.tokenizer)
+                        info = tp.extract_tool_calls(rest_content, request=None)
+                        if info.tools_called:
+                            rest_content = info.content or ""
+                            rest_tool_calls = [
+                                (tc.id, tc.function.name, tc.function.arguments)
+                                for tc in info.tool_calls
+                            ]
+                    except Exception as e:
+                        print(f"Tool parser error: {e}", file=sys.stderr)
+                remainder = self._unsent_remainder(
+                    sent_content, sent_reasoning, sent_tools,
+                    rest_content, reasoning_content, rest_tool_calls,
+                )
+            yield backend_pb2.Reply(
+                message=bytes(remainder.get("content", ""), encoding='utf-8'),
+                prompt_tokens=prompt_tokens,
+                tokens=completion_tokens,
+                chat_deltas=[backend_pb2.ChatDelta(**remainder)],
+                logprobs=logprobs_bytes,
+            )
+            return
 
         if streaming:
             # Final chunk with structured data.
