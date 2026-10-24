@@ -24,9 +24,10 @@ from typing import Any, List, Optional, Tuple
 
 @dataclass
 class CacheEntry:
-    """A cache entry with reference counting."""
+    """An exclusively borrowed cache or a reusable immutable checkpoint."""
     prompt_cache: List[Any]
     count: int
+    reusable: bool = False
 
 
 @dataclass
@@ -151,10 +152,15 @@ class ThreadSafeLRUPromptCache:
         """
         Extract a cache entry for exclusive use.
 
+        Reusable checkpoints remain stored and return an independent copy.
         If the entry has count > 1, deep copy and decrement.
         If count == 1, remove from cache entirely.
         """
         cache_entry = self._get(model, tokens)
+        if cache_entry.reusable:
+            self._lru.remove((model, tokens))
+            self._lru.append((model, tokens))
+            return CacheEntry(copy.deepcopy(cache_entry.prompt_cache), 1)
         if cache_entry.count == 1:
             self._delete(model, tokens)
             self._lru.remove((model, tokens))
@@ -167,7 +173,7 @@ class ThreadSafeLRUPromptCache:
         )
 
     def fetch_nearest_cache(
-        self, model, tokens: List[int]
+        self, model, tokens: List[int], *, prefix_only: bool = False
     ) -> Tuple[Optional[List[Any]], List[int]]:
         """
         Fetch the nearest cache for the given token sequence.
@@ -179,12 +185,28 @@ class ThreadSafeLRUPromptCache:
         Args:
             model: Model identifier (used to namespace caches)
             tokens: The full token sequence for the prompt
+            prefix_only: Only reuse strict prefixes, leaving input for generation
 
         Returns:
             Tuple of (prompt_cache, remaining_tokens)
         """
         with self._lock:
-            tokens_tuple = tuple(tokens)
+            if prefix_only:
+                # Recurrent state cannot be trimmed. Never consume the final
+                # input token: generation needs it to produce the next logits.
+                current = self._cache.get(model, {})
+                prefix_len = 0
+                for index, token in enumerate(tokens[:-1]):
+                    if token not in current:
+                        break
+                    current = current[token]
+                    if "cache" in current:
+                        prefix_len = index + 1
+                if prefix_len:
+                    entry = self._extract(model, tuple(tokens[:prefix_len]))
+                    return entry.prompt_cache, list(tokens[prefix_len:])
+                return None, list(tokens)
+
             result = self._search(model, tokens)
 
             # Exact match - extract and return
@@ -214,19 +236,22 @@ class ThreadSafeLRUPromptCache:
             return None, list(tokens)
 
     def insert_cache(
-        self, model, tokens: List[int], prompt_cache: List[Any]
+        self, model, tokens: List[int], prompt_cache: List[Any], *, reusable: bool = False
     ) -> None:
         """
-        Insert a cache entry after generation completes.
+        Insert a completed generation cache or a verified prefix checkpoint.
 
         Thread-safe. Handles LRU eviction if max_size is exceeded.
 
         Args:
             model: Model identifier (used to namespace caches)
-            tokens: The full token sequence (prompt + generated)
+            tokens: The exact token sequence represented by the cache
             prompt_cache: The KV cache to store
+            reusable: Save an independent checkpoint and retain it across reads
         """
         with self._lock:
+            if self.max_size <= 0:
+                return
             tokens_tuple = tuple(tokens)
 
             if model not in self._cache:
@@ -241,8 +266,11 @@ class ThreadSafeLRUPromptCache:
 
             # Update or create entry
             if "cache" in current:
-                current["cache"].count += 1
                 self._lru.remove((model, tokens_tuple))
+            if reusable:
+                current["cache"] = CacheEntry(copy.deepcopy(prompt_cache), 1, True)
+            elif "cache" in current:
+                current["cache"].count += 1
             else:
                 current["cache"] = CacheEntry(prompt_cache, 1)
 
