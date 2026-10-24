@@ -37,3 +37,30 @@ test('speech: a failed answer surfaces the API message', async () => {
   const core = { fetch: async () => ({ ok: false, status: 403, json: async () => ({ error: { message: 'feature not enabled for your account' } }), blob: async () => null }) }
   await assert.rejects(() => speak(core, { model: 'm', input: 'x' }), /feature not enabled for your account/)
 })
+
+test('speech: the tab draws the one Voice title, a styled form and no second title', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'speech' }))
+  assert.deepEqual([...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1]), ['Voices'])
+  assert.doesNotMatch(html, /Speak text/)
+  assert.match(html, /<form class="vc-speech__form dk-card"/)
+  assert.match(html, /placeholder="Optional speaker or voice ID"/)
+})
+
+test('library: the tab keeps the one Voice title and shows no count in it', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))
+  assert.deepEqual([...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1]), ['Voices'])
+  // While the list loads, or when it is empty, the empty state carries the one add button.
+  assert.doesNotMatch(html, /data-testid="voice-library-new"/)
+})
+
+test('off notice: a viewer without the feature gets the page title and a section heading, one h1', async () => {
+  const { mod, sdk } = await load({ viewer: { isAdmin: () => false, hasFeature: (f) => f !== 'voice_recognition' } })
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recognition' }))
+  assert.deepEqual([...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1]), ['Voices'])
+  assert.match(html, /<h2 class="idn-h2">/)
+})

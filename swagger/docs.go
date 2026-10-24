@@ -3941,6 +3941,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/fine-tuning/status": {
+            "get": {
+                "description": "Returns model_exports=false when this instance does not share the models path of the add-on owner. The value is the same as the model_exports key of GET /api/features.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "fine-tuning",
+                    "quantization"
+                ],
+                "summary": "Report whether model exports are allowed",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelExportsStatus"
+                        }
+                    },
+                    "503": {
+                        "description": "add-ons are off or the owner is not reachable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/instructions": {
             "get": {
                 "description": "Returns a compact list of instruction areas with descriptions and URLs for detailed guides",
@@ -4023,6 +4051,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/localai.LibrarySourcesResponse"
                         }
+                    },
+                    "503": {
+                        "description": "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -4044,11 +4078,53 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/library.Info"
                         }
+                    },
+                    "503": {
+                        "description": "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/api/library/sources/{id}": {
+            "put": {
+                "description": "Replaces the mirrors of a model or backend source; an empty list clears them. Each mirror is an http(s), github:, oci:// or file:// address. Administrators only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "library"
+                ],
+                "summary": "Change the mirrors of a library source",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/library.Info"
+                        }
+                    },
+                    "503": {
+                        "description": "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "description": "A source of your own is deleted. A shipped default is not: it stays as a tombstone (removed true), so it does not come back at the next start; enabling it brings it back. Administrators only.",
                 "produces": [
@@ -4073,6 +4149,12 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "503": {
+                        "description": "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -4103,6 +4185,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/library.Info"
                         }
+                    },
+                    "503": {
+                        "description": "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -4131,6 +4219,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/library.Info"
+                        }
+                    },
+                    "503": {
+                        "description": "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -4915,6 +5009,34 @@ const docTemplate = `{
                         "description": "Redacted text + entities",
                         "schema": {
                             "$ref": "#/definitions/schema.PIIRedactResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/quantization/status": {
+            "get": {
+                "description": "Returns model_exports=false when this instance does not share the models path of the add-on owner. The value is the same as the model_exports key of GET /api/features.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "fine-tuning",
+                    "quantization"
+                ],
+                "summary": "Report whether model imports are allowed",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelExportsStatus"
+                        }
+                    },
+                    "503": {
+                        "description": "add-ons are off or the owner is not reachable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5880,6 +6002,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
+                    },
+                    "503": {
+                        "description": "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -5901,6 +6029,12 @@ const docTemplate = `{
                                     "$ref": "#/definitions/backendlib.Update"
                                 }
                             }
+                        }
+                    },
+                    "503": {
+                        "description": "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -9917,6 +10051,13 @@ const docTemplate = `{
                 "kind": {
                     "$ref": "#/definitions/catalog.Kind"
                 },
+                "mirrors": {
+                    "description": "Mirrors are the fallback addresses of the source, in order.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },
@@ -10131,6 +10272,15 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/library.Info"
                     }
+                }
+            }
+        },
+        "localai.ModelExportsStatus": {
+            "type": "object",
+            "properties": {
+                "model_exports": {
+                    "description": "ModelExports is false only when this instance does not see the models\npath of the add-on owner. It is the same value as the model_exports key\nof GET /api/features.",
+                    "type": "boolean"
                 }
             }
         },

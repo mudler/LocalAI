@@ -156,6 +156,7 @@ func lifecycle(g *gateway.Gateway, db *gorm.DB, action string, opts []Option) ec
 		var body apps.StartRequest
 		if decode(c, &body) != nil || body.OperationID == "" || len(body.OperationID) > 256 || body.Generation == 0 || !appID.MatchString(c.Param("id")) {
 			if !appID.MatchString(c.Param("id")) {
+				logDenial(c, "invalid-addon-id", nil)
 				return failure(c, 403, "Addon request denied")
 			}
 			return failure(c, 400, "An operationId and the listed generation are required")

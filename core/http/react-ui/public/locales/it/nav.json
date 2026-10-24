@@ -61,7 +61,12 @@
     "thisMachine": "Questa macchina",
     "failover": "Failover",
     "p2p": "P2P",
-    "addons": "Componenti aggiuntivi"
+    "addons": "Componenti aggiuntivi",
+    "voiceLibrary": "Voice Library",
+    "logs": "Logs",
+    "trafficModels": "Models",
+    "gpuHost": "GPU and host",
+    "prometheus": "Prometheus"
   },
   "footer": {
     "github": "GitHub",
@@ -71,7 +76,9 @@
   },
   "console": {
     "automation": "Automazione",
-    "training": "Addestramento"
+    "training": "Addestramento",
+    "expandNavigation": "Expand {{section}} navigation",
+    "collapseNavigation": "Collapse {{section}} navigation"
   },
   "hub": {
     "status": "Stato",
