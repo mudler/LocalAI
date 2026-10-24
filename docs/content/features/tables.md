@@ -331,7 +331,7 @@ deleted is refused like an unknown one. With none selected the tool answers a
 
 Tables ships its own UI as a standalone ES module in the package. It is loaded by
 the host after the host was built, so installing or updating Tables changes the
-pages without a rebuild of LocalAI. The Add-ons drawer shows a **Tables** tile.
+pages without a rebuild of LocalAI. The My add-ons page shows a **Tables** card.
 
 | Where | What |
 |---|---|

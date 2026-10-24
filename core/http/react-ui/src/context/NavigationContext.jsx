@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext'
+import { apiUrl } from '../utils/basePath'
 import { pinsApi } from '../utils/pinsClient'
 import { PIN_CAP, togglePin, movePin } from '../utils/addonTiles'
 
@@ -27,7 +28,16 @@ export function NavigationProvider({ children }) {
     if (!signedIn) return undefined
     const ctl = new AbortController()
     setState(s => ({ ...s, status: 'loading' }))
-    Promise.all([pinsApi.listBuiltin(ctl.signal), pinsApi.listPins(ctl.signal)])
+    // With add-ons off the server answers 503 on both routes, so the shell does
+    // not call them. An unreadable /api/features counts as on.
+    const addonsOn = fetch(apiUrl('/api/features'), { signal: ctl.signal })
+      .then(r => r.json())
+      .then(f => f?.addons !== false)
+      .catch(() => true)
+    addonsOn
+      .then(on => (on
+        ? Promise.all([pinsApi.listBuiltin(ctl.signal), pinsApi.listPins(ctl.signal)])
+        : [[], []]))
       .then(([builtin, pinIds]) => setState({ status: 'ready', builtin, pinIds }))
       .catch(() => { if (!ctl.signal.aborted) setState(s => ({ ...s, status: 'error' })) })
     return () => ctl.abort()
