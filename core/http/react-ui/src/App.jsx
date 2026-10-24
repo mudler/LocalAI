@@ -11,6 +11,7 @@ import { useAuth } from './context/AuthContext'
 import RouteFallback from './components/RouteFallback'
 import { hubs, hubOwnsPath } from './components/hub/hubConfig'
 import Icon from './components/Icon'
+import { displayVersion } from './utils/version'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 
@@ -48,7 +49,7 @@ export default function App() {
 
   useEffect(() => {
     systemApi.version()
-      .then(data => setVersion(typeof data === 'string' ? data : (data?.version || '')))
+      .then(data => setVersion(displayVersion(typeof data === 'string' ? data : (data?.version || ''))))
       .catch(() => {})
   }, [])
 

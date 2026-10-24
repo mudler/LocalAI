@@ -314,9 +314,12 @@ export function createWorkbench(ctx, deps) {
         <section className="idn-known" aria-labelledby={`${kind}-known-title`}>
           <div className="idn-known__head">
             <h2 className="idn-h2" id={`${kind}-known-title`}>{t(`${kind}.knownTitle`)} <span className="dk-hubtab-count">{known}</span></h2>
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => openSheet({})} disabled={!model} data-testid="enrol-open">
-              <Icon name="plus" /> {t(`${kind}.enrol`)}
-            </button>
+            {/* With nobody saved yet the empty state below carries the one enrol button. */}
+            {(known > 0 || reg.extras.length > 0) && (
+              <button type="button" className="dk-btn dk-btn--secondary" onClick={() => openSheet({})} disabled={!model} data-testid="enrol-open">
+                <Icon name="plus" /> {t(`${kind}.enrol`)}
+              </button>
+            )}
           </div>
           <p className="dk-hint idn-known__note" data-testid="registry-note">{t(reg.searched ? 'known.noteSearched' : 'known.note', { noun })}</p>
           <KnownList

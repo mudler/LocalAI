@@ -37,13 +37,11 @@
     "emptyTitle": "Aucune application pour le moment",
     "firstRun": {
       "browse": "Parcourir les modules",
-      "browseBody": "Choisissez un module dans une bibliothèque et installez-le.",
-      "browseTitle": "Parcourir et installer.",
-      "libraryBody": "La bibliothèque officielle est enregistrée par défaut. Vous pouvez en ajouter d'autres dans Bibliothèques.",
-      "libraryTitle": "Choisir une bibliothèque.",
-      "startBody": "Démarrez un module installé depuis sa vignette. Les modules qui étaient en cours d'exécution redémarrent avec le serveur.",
-      "startTitle": "Le démarrer.",
-      "title": "Bienvenue dans Applications"
+      "title": "Bienvenue dans Applications",
+      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
+      "featuredLabel": "Featured add-ons",
+      "featuredFailed": "The list of add-ons could not be read.",
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
     },
     "headless": "S'exécute en arrière-plan et n'a pas de page propre.",
     "listLabel": "Applications",
@@ -51,8 +49,8 @@
     "manage": "Gérer",
     "open": "Ouvrir",
     "stale": "La liste n'a pas pu être actualisée. Ce que vous voyez est peut-être périmé.",
-    "start": "Démarrer",
-    "stop": "Arrêter",
+    "start": "Activer",
+    "stop": "Désactiver",
     "toolsMore_one": "et {{count}} de plus",
     "toolsMore_many": "et {{count}} de plus",
     "toolsMore_other": "et {{count}} de plus",
@@ -60,25 +58,36 @@
     "tools_many": "{{count}} d'outils",
     "tools_other": "{{count}} outils",
     "version": "Version {{version}}",
-    "working": "En attente de la confirmation du propriétaire."
+    "working": "En attente de la confirmation du propriétaire.",
+    "noMatchTitle": "No add-on matches",
+    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
+    "clearSearch": "Clear search"
   },
   "browse": {
-    "confirmBody": "La version {{version}} de la bibliothèque {{library}} sera téléchargée et vérifiée avant d'être installée.",
-    "confirmNotEnabled": "L'installation ne démarre pas le module. Vous l'activez dans une étape distincte.",
     "confirmTitle": "Installer {{name}} ?",
     "details": "Détails",
-    "detailsLead": "Entrée de bibliothèque pour {{id}}",
     "emptyBody": "Ajoutez une bibliothèque dans l'onglet Bibliothèques, puis actualisez-la.",
     "emptyTitle": "Aucun module trouvé",
     "fromLibrary": "depuis {{library}}",
     "install": "Installer",
     "installedDetail": "Version {{version}}, génération {{generation}}",
-    "installedNotEnabled": "Installé. Il n'est pas activé : activez-le dans l'onglet Installés quand vous êtes prêt.",
     "installedOther": "{{version}} installée (autre version)",
     "installedSame": "{{version}} installée",
     "installedState": "Installé",
     "installing": "Installation en cours",
-    "search": "Rechercher dans les bibliothèques"
+    "search": "Rechercher dans les bibliothèques",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend"
+    },
+    "installedBackend": "Installed",
+    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
+    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
+    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
+    "backendFailed": "The backend was not installed.",
+    "alias": "Alias",
+    "kindLabel": "Kind",
+    "installedOn": "{{name}} is installed and on."
   },
   "catalog": {
     "allLibraries": "Toutes les bibliothèques",
@@ -109,13 +118,13 @@
     "pin": "Épingler {{name}}",
     "pinLabel": "Épingler",
     "pinned": "Épinglé",
-    "running": "En cours d'exécution",
+    "running": "Activé",
     "search": "Rechercher des modules",
     "status": {
       "failed": "en échec",
       "starting": "démarrage"
     },
-    "stopped": "Arrêté",
+    "stopped": "Désactivé",
     "unpin": "Désépingler {{name}}"
   },
   "errors": {
@@ -127,21 +136,9 @@
     "unknownOutcome": "Le résultat n'a pas pu être confirmé. Vérifiez l'état avant de réessayer."
   },
   "installed": {
-    "disable": "Désactiver",
     "disabled": "Désactivé",
-    "emptyBody": "Installez un module depuis l'onglet Parcourir.",
-    "emptyTitle": "Rien n'est installé",
-    "enable": "Activer",
     "enabled": "Activé",
-    "generation": "Génération {{generation}}",
-    "listLabel": "Modules installés",
-    "loading": "Chargement des modules installés",
-    "manage": "Détails",
-    "manageLead": "Vue de gestion de {{id}}",
-    "missing": "{{id}} n'est pas installé.",
-    "uninstall": "Désinstaller",
-    "uninstallBody": "Le module s'arrête et son paquet n'est plus utilisé. Ses données, son identité et ses autorisations sont conservées : le réinstaller les retrouve. Rien n'est supprimé.",
-    "uninstallTitle": "Désinstaller {{name}} ?"
+    "missing": "{{id}} n'est pas installé."
   },
   "libraries": {
     "add": "Ajouter une bibliothèque",
@@ -159,7 +156,10 @@
       "required": "Obligatoire lorsqu'une signature est exigée.",
       "url": "Saisissez une adresse http ou https.",
       "urlCredentials": "L'adresse ne doit contenir ni nom d'utilisateur ni mot de passe.",
-      "urlQuery": "L'adresse ne doit contenir ni chaîne de requête ni fragment."
+      "urlQuery": "L'adresse ne doit contenir ni chaîne de requête ni fragment.",
+      "either": "Use the exact identity or the pattern, not both.",
+      "urlEmpty": "Enter the address of the index.",
+      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
     "fields": {
       "enabled": "Activée",
@@ -169,12 +169,19 @@
       "name": "Nom",
       "reference": "Référence d'identifiant (facultatif)",
       "requireSignature": "Exiger une signature",
-      "url": "URL du catalogue"
+      "url": "URL du catalogue",
+      "identityRegex": "Signer identity pattern (optional)",
+      "kind": "Kind",
+      "format": "Index format",
+      "mirrors": "Mirrors"
     },
     "hints": {
       "id": "Minuscules, chiffres et traits d'union. Il ne peut plus changer ensuite.",
       "reference": "Le nom d'un identifiant configuré par le propriétaire. Ne collez jamais un jeton ou un mot de passe ici.",
-      "url": "Une adresse https sans identifiants ni chaîne de requête."
+      "url": "Une adresse https sans identifiants ni chaîne de requête.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
+      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Actualisée {{when}}, {{count}} entrées",
     "lead": "Une bibliothèque est un document de catalogue qui liste des modules. Les identifiants ne se saisissent jamais ici : une bibliothèque privée nomme un identifiant configuré par le propriétaire.",
@@ -190,7 +197,49 @@
     "removeTitle": "Retirer {{name}} ?",
     "removed": "{{name}} retirée.",
     "save": "Enregistrer",
-    "saved": "{{name}} enregistrée."
+    "saved": "{{name}} enregistrée.",
+    "default": "Default",
+    "emptyKindBody": "Add a library of this kind, or pick another filter.",
+    "emptyKindTitle": "No libraries of this kind",
+    "formats": {
+      "library": "Library index",
+      "gallery": "Gallery index"
+    },
+    "gallery": "Gallery index",
+    "kind": {
+      "addon": "Add-on",
+      "backend": "Backend",
+      "model": "Model"
+    },
+    "kindFilter": "Filter by kind",
+    "kinds": {
+      "all": "All",
+      "addon": "Add-ons",
+      "backend": "Backends",
+      "model": "Models"
+    },
+    "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
+    "removeDefaultBody": "This is a default library that comes with LocalAI. It is removed from the list and stays removed at the next start. You can restore it from the list. Installed items are not touched.",
+    "removedDefault": "Removed {{name}}. It stays removed at the next start; restore it to bring it back.",
+    "restore": "Restore",
+    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
+    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
+    "state": {
+      "enabled": "On",
+      "disabled": "Off",
+      "removed": "Removed",
+      "suspended": "Off (official libraries are off)"
+    },
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "turnedOff": "Turned off {{name}}.",
+    "turnedOn": "Turned on {{name}}.",
+    "manage": "Manage libraries",
+    "manageTitle": {
+      "backend": "Backend libraries",
+      "model": "Model libraries",
+      "addon": "Add-on libraries"
+    }
   },
   "manage": {
     "api": "API des modules",
@@ -272,7 +321,18 @@
     },
     "layer": {
       "close": "Fermer"
-    }
+    },
+    "off": {
+      "title": "{{name}} is off",
+      "body": "Turn it on to use its page.",
+      "reader": "An administrator can turn it on."
+    },
+    "notInstalled": {
+      "title": "{{name}} is not installed",
+      "body": "Find it in Find add-ons, then install and turn it on.",
+      "reader": "An administrator can install it."
+    },
+    "failedTitle": "{{name}} failed to start"
   },
   "slots": {
     "unavailable": "Indisponible",
@@ -282,18 +342,17 @@
   "state": {
     "failed": "En échec",
     "label": "État : {{state}}",
-    "running": "En cours d'exécution",
+    "running": "Activé",
     "starting": "Démarrage",
-    "stopped": "Arrêté",
+    "stopped": "Désactivé",
     "update-pending": "Mise à jour en attente"
   },
   "supporting": "Les applications que votre propriétaire exécute pour vous, et les bibliothèques dont elles proviennent.",
   "tabs": {
-    "apps": "Applications",
-    "browse": "Parcourir",
-    "installed": "Installés",
+    "apps": "Mes add-ons",
+    "browse": "Trouver des add-ons",
     "label": "Sections des modules",
-    "libraries": "Bibliothèques"
+    "libraries": "Sources"
   },
   "title": "Modules",
   "trust": {
@@ -538,5 +597,64 @@
       "network": "Le réseau est injoignable.",
       "unavailable": "Le propriétaire du module n'est pas disponible. Réessayez."
     }
+  },
+  "install": {
+    "stepsLabel": "Install steps",
+    "step": {
+      "resolving": "Resolve the library entry",
+      "verifying": "Verify the signature",
+      "size": "Check the image size",
+      "fetching": "Fetch the image",
+      "writing": "Write the metadata"
+    },
+    "state": {
+      "pending": "Waiting",
+      "active": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "settingsView": {
+    "loadFailed": "The library sources could not be read.",
+    "none": "No library sources of this kind.",
+    "listLabel": "Library sources",
+    "mirrors": "Mirrors: {{list}}"
+  },
+  "card": {
+    "showInSidebar": "Afficher dans la barre latérale",
+    "hideFromSidebar": "Remove from sidebar",
+    "details": "Détails",
+    "remove": "Supprimer",
+    "menu": "Actions for {{name}}",
+    "addsPage": "Ajoute une page",
+    "chatTools_one": "{{count}} chat tool",
+    "chatTools_other": "{{count}} chat tools",
+    "openNamed": "Open {{name}}",
+    "removeTitle": "Remove {{name}}?",
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+  },
+  "preview": {
+    "screenshots": "Screenshots",
+    "adds": "What it adds",
+    "page": "A page of its own in LocalAI",
+    "addsNothing": "Nothing you can see. It works in the background.",
+    "version": "Version",
+    "id": "Identifier",
+    "sourceUnknown": "Not known",
+    "moreDetails": "Health, trust and updates"
+  },
+  "flow": {
+    "installAndTurnOn": "Installer et activer",
+    "installing": "Installing {{name}}...",
+    "turningOn": "Turning on {{name}}...",
+    "installFailed": "{{name}} was not installed.",
+    "turnOnFailed": "{{name}} is installed but did not turn on.",
+    "confirmTitle": "Install and turn on {{name}}?",
+    "confirmBody": "Version {{version}} from the source {{library}} is downloaded and verified, installed, and turned on.",
+    "step": {
+      "install": "Download, verify and install",
+      "turn-on": "Turn on"
+    },
+    "seeInList": "See it in My add-ons"
   }
 }

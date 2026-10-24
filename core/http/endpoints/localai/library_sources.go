@@ -3,11 +3,11 @@ package localai
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/xlog"
 )
 
@@ -16,12 +16,10 @@ import (
 // edits, through the same functions, so the command and the routes cannot
 // drift. The routes are registered behind the administrator middleware.
 type LibrarySourcesEndpoints struct {
-	// Store returns the one store of the running server.
-	Store func() (*catalog.Sources, error)
-	// Official says whether the official libraries are on.
-	Official func() bool
-	// Applied runs after a change, so the server reads the new state.
-	Applied func(dropped ...string) error
+	// Admin works on the library sources: the store of this process, or the
+	// add-on owner's store through the carrier on a frontend. The routes
+	// answer the same either way.
+	Admin library.Admin
 }
 
 type LibrarySourcesResponse struct {
@@ -47,34 +45,21 @@ func librarySourceError(c echo.Context, code int, message string) error {
 	return c.JSON(code, map[string]any{"error": map[string]any{"code": code, "message": message}})
 }
 
-func (e LibrarySourcesEndpoints) open(c echo.Context) (*catalog.Sources, error) {
-	store, err := e.Store()
-	if err != nil {
-		xlog.Warn("library sources are not available", "error", err)
-		return nil, librarySourceError(c, http.StatusServiceUnavailable, "the library sources are not available")
-	}
-	return store, nil
-}
-
-func (e LibrarySourcesEndpoints) applied(dropped ...string) {
-	if e.Applied == nil {
-		return
-	}
-	if err := e.Applied(dropped...); err != nil {
-		xlog.Warn("could not apply the library sources", "error", err)
-	}
-}
-
-func (e LibrarySourcesEndpoints) official() bool {
-	if e.Official == nil {
-		return true
-	}
-	return e.Official()
-}
-
-// storeError maps a store error to the status the caller sees.
+// storeError maps an error of the library administration to the status the
+// caller sees.
 func storeError(c echo.Context, err error, id string) error {
+	var bad *library.BadRequestError
 	switch {
+	case errors.As(err, &bad):
+		return librarySourceError(c, http.StatusBadRequest, bad.Message)
+	case errors.Is(err, library.ErrStoreUnavailable):
+		return librarySourceError(c, http.StatusServiceUnavailable, "the library sources are not available")
+	case errors.Is(err, gateway.ErrForbidden):
+		return librarySourceError(c, http.StatusForbidden, "this account may not change the library sources")
+	case errors.Is(err, gateway.ErrUnavailable):
+		// The add-on owner cannot serve the call. The body says why.
+		gateway.WriteUnavailable(c.Response(), gateway.UnavailableReason(err))
+		return nil
 	case errors.Is(err, catalog.ErrNotFound):
 		return librarySourceError(c, http.StatusNotFound, "no source with id "+id)
 	case errors.Is(err, catalog.ErrExists), errors.Is(err, library.ErrDuplicate):
@@ -92,33 +77,16 @@ func storeError(c echo.Context, err error, id string) error {
 // @Tags library
 // @Produce json
 // @Success 200 {object} localai.LibrarySourcesResponse
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources [get]
 func (e LibrarySourcesEndpoints) List() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		store, err := e.open(c)
-		if store == nil {
-			return err
+		l, err := e.Admin.List(c.Request().Context(), "")
+		if err != nil {
+			return storeError(c, err, "")
 		}
-		return c.JSON(http.StatusOK, LibrarySourcesResponse{Sources: library.List(store), OfficialLibraries: e.official()})
+		return c.JSON(http.StatusOK, LibrarySourcesResponse{Sources: l.Sources, OfficialLibraries: l.OfficialLibraries})
 	}
-}
-
-// cleanMirrors trims the mirrors and checks them as a gallery address is
-// checked. An add-on source takes none.
-func cleanMirrors(kind string, in []string) ([]string, error) {
-	var out []string
-	for _, m := range in {
-		if m = strings.TrimSpace(m); m != "" {
-			out = append(out, m)
-		}
-	}
-	if len(out) > 0 && kind == string(catalog.KindAddon) {
-		return nil, errors.New("an add-on source takes no mirrors")
-	}
-	if err := catalog.ValidateMirrors(out); err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 // Update godoc
@@ -129,6 +97,7 @@ func cleanMirrors(kind string, in []string) ([]string, error) {
 // @Produce json
 // @Param id path string true "Source id"
 // @Success 200 {object} library.Info
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources/{id} [put]
 func (e LibrarySourcesEndpoints) Update() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -137,30 +106,14 @@ func (e LibrarySourcesEndpoints) Update() echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return librarySourceError(c, http.StatusBadRequest, "the request is not valid JSON")
 		}
-		store, err := e.open(c)
-		if store == nil {
-			return err
-		}
-		kind := ""
-		for _, in := range library.List(store) {
-			if in.ID == id {
-				kind = string(in.Kind)
-			}
-		}
-		mirrors, err := cleanMirrors(kind, req.Mirrors)
+		in, err := e.Admin.SetMirrors(c.Request().Context(), id, req.Mirrors)
 		if err != nil {
-			return librarySourceError(c, http.StatusBadRequest, err.Error())
-		}
-		if err := store.SetMirrors(id, mirrors); err != nil {
 			return storeError(c, err, id)
 		}
-		e.applied()
-		for _, in := range library.List(store) {
-			if in.ID == id {
-				return c.JSON(http.StatusOK, in)
-			}
+		if in == nil {
+			return c.NoContent(http.StatusNoContent)
 		}
-		return c.NoContent(http.StatusNoContent)
+		return c.JSON(http.StatusOK, in)
 	}
 }
 
@@ -171,6 +124,7 @@ func (e LibrarySourcesEndpoints) Update() echo.HandlerFunc {
 // @Accept json
 // @Produce json
 // @Success 201 {object} library.Info
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources [post]
 func (e LibrarySourcesEndpoints) Add() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -178,42 +132,11 @@ func (e LibrarySourcesEndpoints) Add() echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return librarySourceError(c, http.StatusBadRequest, "the request is not valid JSON")
 		}
-		req.URL, req.ID, req.Name = strings.TrimSpace(req.URL), strings.TrimSpace(req.ID), strings.TrimSpace(req.Name)
-		switch req.Kind {
-		case string(catalog.KindAddon), string(catalog.KindBackend), string(catalog.KindModel):
-		default:
-			return librarySourceError(c, http.StatusBadRequest, "kind must be addon, backend or model")
-		}
-		format := ""
-		switch req.Format {
-		case "", "library":
-		case "gallery":
-			format = catalog.FormatGallery
-		default:
-			return librarySourceError(c, http.StatusBadRequest, "format must be library or gallery")
-		}
-		if req.URL == "" {
-			return librarySourceError(c, http.StatusBadRequest, "url is required")
-		}
-		mirrors, err := cleanMirrors(req.Kind, req.Mirrors)
-		if err != nil {
-			return librarySourceError(c, http.StatusBadRequest, err.Error())
-		}
-		store, err := e.open(c)
-		if store == nil {
-			return err
-		}
-		src, err := library.AddWithMirrors(store, catalog.Kind(req.Kind), req.URL, req.ID, req.Name, format, mirrors)
+		in, err := e.Admin.Add(c.Request().Context(), library.AddRequest{Kind: req.Kind, URL: req.URL, ID: req.ID, Name: req.Name, Format: req.Format, Mirrors: req.Mirrors})
 		if err != nil {
 			return storeError(c, err, req.ID)
 		}
-		e.applied()
-		for _, in := range library.List(store) {
-			if in.ID == src.ID {
-				return c.JSON(http.StatusCreated, in)
-			}
-		}
-		return c.JSON(http.StatusCreated, library.Info{Kind: src.Kind, ID: src.ID, Name: src.Name, URL: src.URL, Enabled: true})
+		return c.JSON(http.StatusCreated, in)
 	}
 }
 
@@ -224,25 +147,20 @@ func (e LibrarySourcesEndpoints) Add() echo.HandlerFunc {
 // @Produce json
 // @Param id path string true "Source id"
 // @Success 200 {object} library.Info
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources/{id}/enable [post]
 // @Router /api/library/sources/{id}/disable [post]
 func (e LibrarySourcesEndpoints) SetEnabled(enabled bool) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
-		store, err := e.open(c)
-		if store == nil {
-			return err
-		}
-		if err := store.SetEnabled(id, enabled); err != nil {
+		in, err := e.Admin.SetEnabled(c.Request().Context(), id, enabled)
+		if err != nil {
 			return storeError(c, err, id)
 		}
-		e.applied()
-		for _, in := range library.List(store) {
-			if in.ID == id {
-				return c.JSON(http.StatusOK, in)
-			}
+		if in == nil {
+			return c.NoContent(http.StatusNoContent)
 		}
-		return c.NoContent(http.StatusNoContent)
+		return c.JSON(http.StatusOK, in)
 	}
 }
 
@@ -253,25 +171,15 @@ func (e LibrarySourcesEndpoints) SetEnabled(enabled bool) echo.HandlerFunc {
 // @Produce json
 // @Param id path string true "Source id"
 // @Success 200 {object} map[string]any
+// @Failure 503 {object} schema.ErrorResponse "on a frontend: the add-on owner is not reachable, does not serve library calls, or runs on another platform; the message says which"
 // @Router /api/library/sources/{id} [delete]
 func (e LibrarySourcesEndpoints) Remove() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
-		store, err := e.open(c)
-		if store == nil {
-			return err
-		}
-		url := library.URLOf(store, id)
-		wasDefault, err := library.Remove(store, id)
+		res, err := e.Admin.Remove(c.Request().Context(), id)
 		if err != nil {
 			return storeError(c, err, id)
 		}
-		// A tombstone keeps its record, so only a deleted source is dropped by address.
-		if wasDefault {
-			e.applied()
-		} else {
-			e.applied(url)
-		}
-		return c.JSON(http.StatusOK, map[string]any{"id": id, "default": wasDefault, "tombstone": wasDefault})
+		return c.JSON(http.StatusOK, map[string]any{"id": res.ID, "default": res.Default, "tombstone": res.Tombstone})
 	}
 }
