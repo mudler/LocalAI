@@ -21,11 +21,19 @@ type OwnerConfig struct {
 
 func (c OwnerConfig) validate() error {
 	u, e := url.Parse(c.OwnerAddress)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.StorageID == "" || !filepath.IsAbs(c.Root) || c.SharedStorage {
+	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.StorageID == "" || c.SharedStorage {
+		return ErrConfiguration
+	}
+	// Only the owner has a state root. A frontend keeps no add-on state, so it
+	// has no root to name and nothing may read or create one.
+	if c.InstanceID == c.OwnerID && !filepath.IsAbs(c.Root) {
 		return ErrConfiguration
 	}
 	return nil
 }
+
+// ownerIdentity is what the identity file stores.
+type ownerIdentity struct{ OwnerID, StorageID string }
 
 type OwnerGuard struct{ Config OwnerConfig }
 
@@ -64,14 +72,20 @@ func (g OwnerGuard) Acquire(ctx context.Context) (func() error, error) {
 		once.Do(func() { releaseErr = errors.Join(syscall.Flock(int(f.Fd()), syscall.LOCK_UN), f.Close()) })
 		return releaseErr
 	}
-	identity := struct{ OwnerID, Address, StorageID string }{c.OwnerID, c.OwnerAddress, c.StorageID}
+	// The address is runtime configuration and a frontend may reach the owner at
+	// a new one, so identity is the owner and the storage only. An older file
+	// that still carries an address is read and the address is ignored.
+	identity := ownerIdentity{OwnerID: c.OwnerID, StorageID: c.StorageID}
 	expected, _ := json.Marshal(identity)
 	p := filepath.Join(c.Root, "identity.json")
 	b, e := os.ReadFile(p) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if os.IsNotExist(e) {
 		e = durableWrite(p, expected)
-	} else if e == nil && string(b) != string(expected) {
-		e = ErrConfiguration
+	} else if e == nil {
+		var stored ownerIdentity
+		if json.Unmarshal(b, &stored) != nil || stored != identity {
+			e = ErrConfiguration
+		}
 	}
 	if e != nil {
 		_ = release()

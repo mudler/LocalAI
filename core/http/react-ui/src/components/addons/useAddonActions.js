@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createActionBook, effectOutcome } from './actionBook'
 import { runLifecycle, settleOperation } from './lifecycleFlow'
-import { runInstallAndTurnOn } from './installFlow'
+import { runInstallAndTurnOn } from './installAndTurnOn'
 
 // Runs user actions that change an add-on, one operation identity per action.
 //

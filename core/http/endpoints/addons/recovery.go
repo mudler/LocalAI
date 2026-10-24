@@ -121,6 +121,7 @@ func recoveryRoute(g *gateway.Gateway, db *gorm.DB, opts []Option, action string
 		}
 		id := c.Param("id")
 		if !appID.MatchString(id) {
+			logDenial(c, "invalid-addon-id", nil)
 			return failure(c, 403, "Addon request denied")
 		}
 		var req any
