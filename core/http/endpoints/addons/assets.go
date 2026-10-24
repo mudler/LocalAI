@@ -45,6 +45,7 @@ func GetAsset(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc 
 		}
 		id, digest, name := c.Param("id"), c.Param("digest"), c.Param("*")
 		if !appID.MatchString(id) || !assetDigest.MatchString(digest) || name == "" || len(name) > maxAssetPath {
+			logDenial(c, "invalid-addon-id-digest-or-path", nil)
 			return failure(c, 403, "Addon request denied")
 		}
 		if g == nil {

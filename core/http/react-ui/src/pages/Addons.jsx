@@ -8,22 +8,22 @@ import { useAuth } from '../context/AuthContext'
 import { addonsApi, addonsCatalog } from '../utils/addonsClient'
 import AppsView from '../components/addons/AppsView'
 import BrowseView from '../components/addons/BrowseView'
-import InstalledView from '../components/addons/InstalledView'
 import LibrariesView from '../components/addons/LibrariesView'
 import { resolveManage, resolveTab, visibleTabs } from '../components/addons/addonState'
 import '../components/addons/addons.css'
 
-const TAB_ICONS = { apps: 'puzzle', browse: 'store', installed: 'boxes', libraries: 'book' }
+const TAB_ICONS = { apps: 'puzzle', browse: 'store', libraries: 'book' }
 
-// Add-ons. Everyone sees the apps they may use. Administrators also browse
-// libraries, manage what is installed and edit libraries. Hiding a tab is a
-// convenience: the owner checks administration again on every call.
+// Add-ons. Everyone sees the add-ons they may use. Administrators also find
+// add-ons and edit sources; what is installed, and how it runs, is in the Details
+// of each add-on. Hiding a tab is a convenience: the owner checks administration
+// again on every call.
 export default function Addons() {
   const { t } = useTranslation('addons')
   const { isAdmin } = useAuth()
   const [params, setParams] = useSearchParams()
   const manage = resolveManage(params, isAdmin)
-  const tab = manage ? 'installed' : resolveTab(params.get('tab'), isAdmin)
+  const tab = manage ? 'apps' : resolveTab(params.get('tab'), isAdmin)
   const tabs = visibleTabs(isAdmin)
   const refs = useRef({})
 
@@ -35,16 +35,6 @@ export default function Addons() {
       if (next === 'browse' && prev.get('tab') === 'browse') for (const k of ['q', 'source', 'page']) if (prev.get(k)) out.set(k, prev.get(k))
       return out
     })
-  }, [setParams])
-
-  const onManage = useCallback((id) => {
-    setParams(prev => {
-      const out = new URLSearchParams(prev)
-      out.set('tab', 'installed')
-      if (id) out.set('manage', id)
-      else out.delete('manage')
-      return out
-    }, { replace: true })
   }, [setParams])
 
   const onKeyDown = (e) => {
@@ -86,9 +76,8 @@ export default function Addons() {
       )}
 
       <div role="tabpanel" id={`ad-panel-${tab}`} aria-labelledby={tabs.length > 1 ? `ad-tab-${tab}` : undefined} aria-label={tabs.length > 1 ? undefined : t('tabs.apps')} className="ad-panel">
-        {tab === 'apps' && <AppsView api={addonsApi} />}
+        {tab === 'apps' && <AppsView api={addonsApi} adapter={addonsCatalog} />}
         {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} />}
-        {tab === 'installed' && <InstalledView api={addonsApi} adapter={addonsCatalog} manage={manage} onManage={onManage} />}
         {tab === 'libraries' && <LibrariesView adapter={addonsCatalog} />}
       </div>
     </div>
