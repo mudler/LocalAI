@@ -77085,6 +77085,7 @@
   variants:
     - model: flint-q2
     - model: flint-q6
+    - model: flint-int4-q4-1
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: flint-q2
   description: |
@@ -77156,6 +77157,47 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/unsloth/flint-GGUF/flint-UD-Q6_K_XL.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: flint-int4-q4-1
+  description: |
+    Flint is a coding-agent mixture-of-experts model from Recursive, with
+    39.8B total and about 2.5B active parameters per token. This official
+    Q4_1 GGUF preserves the trained INT4 codes from the MLX export, with
+    F32 floating tensors. The 26 GB file includes the tokenizer and chat
+    template. This entry uses a 32,768-token default context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/RecursiveSI/flint
+    - https://huggingface.co/RecursiveSI/flint-int4-gguf
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - coding
+    - agent
+    - reasoning
+    - tools
+  files:
+    - filename: llama-cpp/models/RecursiveSI/flint-int4-gguf/flint-int4-q4_1.gguf
+      sha256: 43c07baccdba42eb7528a9630ee15699b1942c297291dc1b39a061f508ee1a4b
+      uri: https://huggingface.co/RecursiveSI/flint-int4-gguf/resolve/9c47151036bc2c34331142dda04488bceab2bc9f/flint-int4-q4_1.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/RecursiveSI/flint-int4-gguf/flint-int4-q4_1.gguf
       temperature: 1
       top_k: 20
       top_p: 0.95
