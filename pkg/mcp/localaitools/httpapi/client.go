@@ -413,6 +413,19 @@ func (c *Client) ListKnownBackends(ctx context.Context) ([]schema.KnownBackend, 
 	return out, nil
 }
 
+func (c *Client) ListBackendLibraryUpdates(ctx context.Context) ([]localaitools.BackendLibraryUpdate, error) {
+	var resp struct {
+		Updates []localaitools.BackendLibraryUpdate `json:"updates"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeBackendsLibraryUpdates, nil, &resp); err != nil {
+		return nil, err
+	}
+	if resp.Updates == nil {
+		resp.Updates = []localaitools.BackendLibraryUpdate{}
+	}
+	return resp.Updates, nil
+}
+
 func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBackendRequest) (string, error) {
 	body := map[string]any{"id": req.BackendName}
 	if req.GalleryName != "" {
