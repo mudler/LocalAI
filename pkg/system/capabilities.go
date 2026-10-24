@@ -304,8 +304,17 @@ func (s *SystemState) CapabilityFilterDisabled() bool {
 }
 
 func (s *SystemState) Capability(capMap map[string]string) string {
-	reportedCapability := s.getSystemCapabilities()
+	return PickCapability(s.getSystemCapabilities(), capMap)
+}
 
+// ReportedCapability is the capability this host reports, before it is matched
+// against the capabilities a meta backend lists. A process that resolves a meta
+// backend for another host sends it, and that host calls PickCapability.
+func (s *SystemState) ReportedCapability() string { return s.getSystemCapabilities() }
+
+// PickCapability chooses the key of capMap that serves a host which reports
+// reportedCapability. Capability uses it for the local host.
+func PickCapability(reportedCapability string, capMap map[string]string) string {
 	// Check if the reported capability is in the map
 	if _, exists := capMap[reportedCapability]; exists {
 		xlog.Debug("Using reported capability", "reportedCapability", reportedCapability, "capMap", capMap)
