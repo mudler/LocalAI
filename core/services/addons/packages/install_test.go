@@ -296,6 +296,47 @@ var _ = Describe("distribution adapters", func() {
 		Expect(e).To(HaveOccurred())
 		Expect(externalRequests.Load()).To(BeZero())
 	})
+	// The shared add-on repository names an add-on by a tag prefixed with its
+	// id (oci://<repo>:<id>-sha-<short sha>). The reference is pinned by
+	// digest, so the tag form decides nothing but the parse. The old
+	// repository-per-add-on form still parses and installs.
+	for _, form := range []struct{ title, path string }{
+		{"the shared repository with an id-prefixed tag", "/local-ai-addons:sample-sha-0123456789ab"},
+		{"the old repository per add-on", "/local-ai-addons/sample:sha-0123456789ab"},
+	} {
+		form := form
+		It("installs from "+form.title, func() {
+			m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+			Expect(e).NotTo(HaveOccurred())
+			data := archive(nil, m)
+			layer, e := tarball.LayerFromReader(bytes.NewReader(data))
+			Expect(e).NotTo(HaveOccurred())
+			img, e := mutate.AppendLayers(empty.Image, layer)
+			Expect(e).NotTo(HaveOccurred())
+			cfg, e := img.ConfigFile()
+			Expect(e).NotTo(HaveOccurred())
+			cfg.OS = "linux"
+			cfg.Architecture = "amd64"
+			img, e = mutate.ConfigFile(img, cfg)
+			Expect(e).NotTo(HaveOccurred())
+			server := httptest.NewServer(registry.New())
+			DeferCleanup(server.Close)
+			ref, e := name.ParseReference(strings.TrimPrefix(server.URL, "http://") + form.path)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(remote.Write(ref, img)).To(Succeed())
+			digest, e := img.Digest()
+			Expect(e).NotTo(HaveOccurred())
+			i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) {
+				r.Artifact = "oci://" + ref.Name()
+				r.Digest = digest.String()
+			})
+			staged, e := i.Stage(context.Background(), r, nil)
+			Expect(e).NotTo(HaveOccurred())
+			receipt, e := i.Commit(context.Background(), staged)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(receipt.Digest).To(Equal(digest.String()))
+		})
+	}
 	It("rejects downloaded digest mismatch redirects cancellation and file count limits", func() {
 		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
 		Expect(e).NotTo(HaveOccurred())

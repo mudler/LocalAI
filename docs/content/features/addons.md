@@ -3222,8 +3222,8 @@ platforms of that add-on. A platform is shipped only
 while `enabled: true`, and it needs a native runner and the `executable-start` native
 check. Until a platform's native check passes on a runner of that platform, it stays
 listed with `enabled: false`. The workflow fails closed on an empty matrix and on a
-missing registry/namespace input (`ADDON_OCI_REPOSITORY`). There is no default registry.
-The add-on repository namespace is `quay.io/go-skynet/local-ai-addons`; every other
+missing repository input (`ADDON_OCI_REPOSITORY`). There is no default registry.
+The add-on repository is `quay.io/go-skynet/local-ai-addons`; every other
 backend image repository is refused.
 
 Every platform matrix lists four platforms: `linux/amd64` on `ubuntu-24.04`, `linux/arm64`
@@ -3235,15 +3235,22 @@ Each package also has a catalog template in `gallery/addons/<id>.yaml.tmpl`, so 
 listed in Find add-ons once a maintainer renders and publishes its entries. See
 `gallery/addons/README.md` for the commands.
 
-Every add-on has its own repository. Tables publishes to `ADDON_OCI_REPOSITORY`. Each
-other add-on publishes to `<namespace>/<id>`, where the namespace is
-`ADDON_OCI_REPOSITORY` without its last path element.
+All add-ons publish to one OCI repository, the value of `ADDON_OCI_REPOSITORY`. Each
+add-on is a set of tags of that repository, and every tag starts with the add-on id:
+`<id>-sha-<short sha>` for a commit, `<id>-<version>` for a release, and
+`<id>-development` or `<id>-latest` for a channel alias. For example, the Fine-tuning
+build of one commit is
+`oci://quay.io/go-skynet/local-ai-addons:fine-tuning-sha-99d1dca2c869`.
 
-Set `ADDON_OCI_REPOSITORY` to the Tables repository inside the add-on namespace:
-`quay.io/go-skynet/local-ai-addons/tables`. The other add-ons then publish to
-`quay.io/go-skynet/local-ai-addons/voice`, `.../face`, `.../fine-tuning` and
-`.../quantization`. The value has no tag and no digest. A value outside the add-on
-namespace makes the add-on tools refuse the repository.
+Set `ADDON_OCI_REPOSITORY` to `quay.io/go-skynet/local-ai-addons`. The value has no tag
+and no digest. A value that is a backend image repository makes the add-on tools refuse
+it. `addonpkg target --repository <repository> --addon <id> --tag <tag>` prints the
+reference one add-on publishes to, without a network request.
+
+The index entries pin each platform image by digest, so the tag only names the
+artifact. The host accepts a tag reference (`oci://<repository>:<tag>`) and reads the
+repository with any number of path elements, so an index that still names the old
+repository-per-add-on form (`oci://<repository>/<id>:<tag>`) keeps working.
 
 Publishing events (a push to `master`, a version tag and a published release) fail closed
 for an add-on until at least one of its platforms is enabled in its `platforms.yaml`.
@@ -3264,6 +3271,9 @@ place that decides what an event may publish. Its output is what the workflow us
 | Push of a `v<semver>` tag | `<semver>` | none: a tag alone never advances `latest` |
 | Published, stable, non-draft release | `<semver>` | `latest`, after complete publication |
 | Published pre-release | `<semver>` | none |
+
+The names in this table are the part after the add-on id. The registry tag is `<id>-<name>`,
+for example `tables-sha-4edf30cda051` or `voice-development`.
 
 Names are in disjoint namespaces: `latest` and `development` are reserved, `<semver>`
 and `sha-<12 hex>` are immutable, and every branch channel starts with `branch-`. The
