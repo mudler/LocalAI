@@ -166,7 +166,7 @@ export default function Sidebar({ isOpen, onClose }) {
   // The previous sidebar returns when the operator sets the legacy switch.
   const legacy = features.addon_navigation === false
   const hasBuiltin = builtin.length > 0
-  const navAuth = { isAdmin, hasFeature, hasBuiltin }
+  const navAuth = { isAdmin, hasFeature, hasBuiltin, features }
   const primary = visiblePrimary(primaryDestinations, navAuth)
 
   // One badge, on the always-visible sidebar entry. The Operate tab bar only
@@ -221,7 +221,7 @@ export default function Sidebar({ isOpen, onClose }) {
               <Fragment key={item.path}>
                 <NavItem item={item} onClose={onClose} collapsed={collapsed} />
                 {/* The Apps group: the pinned apps in pin order, under the Apps entry. */}
-                {!legacy && item.addonsEntry && !collapsed && <AppsPinnedLinks onClose={onClose} />}
+                {!legacy && item.addonsEntry && features.addons !== false && !collapsed && <AppsPinnedLinks onClose={onClose} />}
               </Fragment>
             ))}
           </div>

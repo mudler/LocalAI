@@ -110,6 +110,16 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			}
 		}
 
+		// The owner's value is the deployment's value. A frontend reads it from
+		// the owner at every refresh, so a change made here would be undone and
+		// would not reach the other frontends.
+		if app.AddonFrontend() && settings.OfficialLibraries != nil && *settings.OfficialLibraries != appConfig.OfficialLibraries {
+			return c.JSON(http.StatusConflict, schema.SettingsResponse{
+				Success: false,
+				Error:   "official_libraries is set on the add-on owner, not on a frontend",
+			})
+		}
+
 		// Generate P2P token before saving so the real token is persisted (not "0")
 		if settings.P2PToken != nil && *settings.P2PToken == "0" {
 			token := p2p.GenerateToken(60, 60)

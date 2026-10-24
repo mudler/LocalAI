@@ -24,9 +24,9 @@ export async function buildAddonBundles(ids) {
   for (const id of ids) await import(path.join(addons, id, 'ui/build.mjs')).then(m => m.build())
 }
 
-// The add-ons the specs serve from their build output: Studio and Talk through
-// installStudioAddons, Face and Fine-tuning through their own routes.
-export async function buildStudioAddons(ids = ['studio', 'talk', 'face', 'fine-tuning']) {
+// The add-ons the specs serve from their build output: Studio, Talk and Voice
+// through installStudioAddons, Face and Fine-tuning through their own routes.
+export async function buildStudioAddons(ids = ['studio', 'talk', 'voice', 'face', 'fine-tuning']) {
   await buildAddonBundles(ids)
   process.env[BUILT] = '1'
 }
@@ -55,7 +55,7 @@ export function packagedApp(id, over = {}) {
 // Returns the state of mockAddons.
 export async function installStudioAddons(page, { ids = ['studio', 'talk'], ...options } = {}) {
   const dirs = await Promise.all(ids.map(build))
-  await page.route(/\/api\/addons\/(studio|talk)\/assets\//, route => {
+  await page.route(/\/api\/addons\/(studio|talk|voice)\/assets\//, route => {
     const parts = new URL(route.request().url()).pathname.split('/')
     const id = parts[3]
     const file = parts.slice(6).join('/')

@@ -67,6 +67,10 @@ func (stubClient) ListBackends(_ context.Context) ([]localaitools.Backend, error
 	return []localaitools.Backend{{Name: "stub-backend", Installed: true}}, nil
 }
 
+func (stubClient) ListBackendLibraryUpdates(_ context.Context) ([]localaitools.BackendLibraryUpdate, error) {
+	return nil, nil
+}
+
 func (stubClient) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, error) {
 	return []schema.KnownBackend{}, nil
 }
