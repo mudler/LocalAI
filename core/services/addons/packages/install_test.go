@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
@@ -654,5 +655,110 @@ var _ = Describe("signer identity pattern", func() {
 		entries, e := os.ReadDir(i.Root)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(entries).To(BeEmpty())
+	})
+})
+
+var _ = Describe("a mutable development add-on", func() {
+	// sign publishes a signature of the given digest for the image at artifact.
+	sign := func(authority *signing.Authority, artifact, signedDigest string) {
+		ref, e := name.ParseReference(strings.TrimPrefix(artifact, "oci://"))
+		Expect(e).NotTo(HaveOccurred())
+		blob, e := authority.Bundle(signedDigest[7:], "builder@example.invalid", "https://issuer.invalid")
+		Expect(e).NotTo(HaveOccurred())
+		img, e := mutate.AppendLayers(empty.Image, static.NewLayer(blob, types.MediaType("application/vnd.dev.sigstore.bundle.v0.3+json")))
+		Expect(e).NotTo(HaveOccurred())
+		hash, e := img.Digest()
+		Expect(e).NotTo(HaveOccurred())
+		size, e := img.Size()
+		Expect(e).NotTo(HaveOccurred())
+		index := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{Add: img, Descriptor: v1.Descriptor{Digest: hash, Size: size, MediaType: types.DockerManifestSchema2, ArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json"}})
+		Expect(remote.WriteIndex(ref.Context().Tag(strings.Replace(signedDigest, ":", "-", 1)), index)).To(Succeed())
+	}
+	mutable := func(artifact string, signed bool) func(*catalog.Release, *catalog.Source) {
+		return func(r *catalog.Release, s *catalog.Source) {
+			r.Artifact, r.Digest, r.Mutable = artifact, "", true
+			if signed {
+				s.Policy = catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", Identity: "builder@example.invalid"}
+			}
+		}
+	}
+	var m []byte
+	BeforeEach(func() {
+		var e error
+		m, e = os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+	})
+
+	It("installs by a digest resolved at install, and the receipt records it", func() {
+		data := archive(nil, m)
+		artifact, digest, _ := localOCI(data)
+		i, r := fixture(data, mutable(artifact, false))
+		var asked []string
+		i.Lookup = func(_ context.Context, image, platform string) (string, error) {
+			asked = append(asked, image+" "+platform)
+			return digest, nil
+		}
+		staged, e := i.Stage(context.Background(), r, nil)
+		Expect(e).NotTo(HaveOccurred())
+		receipt, e := i.Commit(context.Background(), staged)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(asked).To(Equal([]string{strings.TrimPrefix(artifact, "oci://") + " linux/amd64"}))
+		Expect(receipt.Digest).To(Equal(digest))
+		Expect(receipt.Reference).To(Equal(artifact))
+	})
+
+	It("checks the signature against the resolved digest", func() {
+		authority, e := signing.New()
+		Expect(e).NotTo(HaveOccurred())
+		data := archive(nil, m)
+		for _, scenario := range []string{"valid", "other digest"} {
+			artifact, digest, _ := localOCI(data)
+			signed := digest
+			if scenario == "other digest" {
+				signed = "sha256:" + strings.Repeat("a", 64)
+			}
+			sign(authority, artifact, signed)
+			i, r := fixture(data, mutable(artifact, true))
+			i.SignatureTrust = authority
+			i.Lookup = func(context.Context, string, string) (string, error) { return digest, nil }
+			staged, e := i.Stage(context.Background(), r, nil)
+			if scenario == "valid" {
+				Expect(e).NotTo(HaveOccurred())
+				receipt, e := i.Commit(context.Background(), staged)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(receipt.Verification).To(Equal("sha256+sigstore"))
+				Expect(receipt.Digest).To(Equal(digest))
+			} else {
+				Expect(e).To(MatchError(ErrPackage), scenario)
+			}
+		}
+	})
+
+	It("is refused when the tag cannot be resolved or resolves to something that is not the image", func() {
+		data := archive(nil, m)
+		artifact, _, _ := localOCI(data)
+		for _, answer := range []func(context.Context, string, string) (string, error){
+			func(context.Context, string, string) (string, error) { return "", errors.New("registry down") },
+			func(context.Context, string, string) (string, error) { return "latest", nil },
+			func(context.Context, string, string) (string, error) { return "sha256:" + strings.Repeat("b", 64), nil },
+		} {
+			i, r := fixture(data, mutable(artifact, false))
+			i.Lookup = answer
+			_, e := i.Stage(context.Background(), r, nil)
+			Expect(e).To(HaveOccurred())
+		}
+	})
+
+	It("refuses an entry that has no digest and is not mutable", func() {
+		data := archive(nil, m)
+		artifact, _, _ := localOCI(data)
+		i, r := fixture(data, func(r *catalog.Release, _ *catalog.Source) { r.Artifact = artifact })
+		r.Digest = ""
+		i.Lookup = func(context.Context, string, string) (string, error) {
+			Fail("only a mutable entry is resolved")
+			return "", nil
+		}
+		_, e := i.Stage(context.Background(), r, nil)
+		Expect(e).To(HaveOccurred())
 	})
 })
