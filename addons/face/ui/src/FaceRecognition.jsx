@@ -40,9 +40,10 @@ export function createFaceRecognition(ctx, api, identity) {
   function FeatureOff() {
     return (
       <main className="page idn-page idn-off" data-testid="face-off">
+        <ui.PageHeader title={t('faces.title')} supporting={t('faces.lede')} />
         <section className="idn-needed dk-card">
           <span className="dk-badge dk-badge--warn"><Icon name="lock" /> {t('off.badge')}</span>
-          <h1 className="idn-h2">{t('off.face.title')}</h1>
+          <h2 className="idn-h2">{t('off.face.title')}</h2>
           <p className="idn-needed__text">{t('off.face.text')}</p>
           <details className="idn-disclosure" open>
             <summary><Icon name="chevron-right" /> {t('needed.whatTitle')}</summary>

@@ -146,7 +146,7 @@ export function createFineTune(ctx, api, shared) {
   // events while the job is active; a finished job is read from the job record.
   // `seed` starts the view with an event and checkpoints already read; tests use
   // it to draw a state the stream would reach.
-  function JobView({ job, onStop, onReuse, onResume, onTerminal, exportCheckpoint, seed }) {
+  function JobView({ job, onStop, onReuse, onResume, onTerminal, exportCheckpoint, seed, modelExports = true }) {
     const isAdmin = viewer.isAdmin()
     const [events, setEvents] = useState([])
     const [latest, setLatest] = useState(seed?.latest ?? null)
@@ -339,7 +339,7 @@ export function createFineTune(ctx, api, shared) {
                         <div className="bt-rowacts">
                           <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => onResume(cp)} title={t('checkpoints.resumeTitle')}><Icon name="play" /> {t('checkpoints.resume')}</button>
                           {isAdmin && (
-                            <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => exportCheckpoint(cp)} title={t('checkpoints.exportTitle')}><Icon name="save" /> {t('checkpoints.export')}</button>
+                            <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => exportCheckpoint(cp)} disabled={!modelExports} title={modelExports ? t('checkpoints.exportTitle') : t('export.blocked')}><Icon name="save" /> {t('checkpoints.export')}</button>
                           )}
                         </div>
                       </td>
@@ -355,7 +355,7 @@ export function createFineTune(ctx, api, shared) {
   }
 
   // What to do with a finished job: export it as a model, then use it.
-  function ExportForm({ job, prefilledCheckpoint, seed }) {
+  function ExportForm({ job, prefilledCheckpoint, seed, modelExports = true }) {
     const [checkpoints, setCheckpoints] = useState(seed?.checkpoints || [])
     const [exportFormat, setExportFormat] = useState('lora')
     const [quantMethod, setQuantMethod] = useState('q4_k_m')
@@ -484,10 +484,11 @@ export function createFineTune(ctx, api, shared) {
               <input id="ft-export-name" type="text" className="dk-input" value={modelName} onChange={e => setModelName(e.target.value)} placeholder="my-finetuned-model" />
             </Field>
             <div className="bt-actions">
-              <button type="button" className="dk-btn dk-btn--primary" onClick={handleExport} disabled={exporting} aria-busy={exporting || undefined}>
+              <button type="button" className="dk-btn dk-btn--primary" onClick={handleExport} disabled={exporting || !modelExports} aria-busy={exporting || undefined}>
                 {exporting ? <><ui.Spinner size="sm" /> {t('export.exporting')}</> : <><Icon name="download" /> {t('export.go')}</>}
               </button>
             </div>
+            {!modelExports && <p className="bt-status bt-status--error" role="status" data-testid="export-blocked">{t('export.blocked')}</p>}
             {message && (!exportedModelName || exportFailed) && (
               <p className={`bt-status${exportFailed ? ' bt-status--error' : ''}`} role="status" data-testid="export-status">
                 {exporting && <ui.Spinner size="sm" />} {message}
@@ -501,7 +502,7 @@ export function createFineTune(ctx, api, shared) {
 
   // The wrapper of the export controls. Registering a model is for
   // administrators; anyone else sees why the controls are missing.
-  function ExportPanel({ job, prefilledCheckpoint, seed }) {
+  function ExportPanel({ job, prefilledCheckpoint, seed, modelExports = true }) {
     if (!job || !TERMINAL.includes(job.status)) return null
     if (!viewer.isAdmin()) {
       return (
@@ -511,7 +512,19 @@ export function createFineTune(ctx, api, shared) {
         </section>
       )
     }
-    return <ExportForm job={job} prefilledCheckpoint={prefilledCheckpoint} seed={seed} />
+    return <ExportForm job={job} prefilledCheckpoint={prefilledCheckpoint} seed={seed} modelExports={modelExports} />
+  }
+
+  // Whether this instance may write an exported model. Only a clear false turns
+  // the controls off: a failed or slow answer leaves them on, as the server does.
+  function useModelExports() {
+    const [allowed, setAllowed] = useState(true)
+    useEffect(() => {
+      let off = false
+      api.fineTune.status().then(r => { if (!off && r && r.model_exports === false) setAllowed(false) }).catch(() => {})
+      return () => { off = true }
+    }, [])
+    return allowed
   }
 
   // The machine facts for the checks: the one request useResources makes, as
@@ -538,6 +551,7 @@ export function createFineTune(ctx, api, shared) {
   function FineTuneBody({ path }) {
     const isAdmin = viewer.isAdmin()
     const resources = useResources(10000)
+    const modelExports = useModelExports()
     const facts = useMemo(() => machineFacts(resources), [resources])
 
     const [jobs, setJobs] = useState([])
@@ -918,8 +932,8 @@ export function createFineTune(ctx, api, shared) {
     return (
       <div className="page page--medium bt-page" data-testid="fine-tune-page">
         <ui.PageHeader
-          title={<>{t('fineTune.title')} <span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span></>}
-          supporting={t('fineTune.lede')}
+          title={t('fineTune.title')}
+          supporting={<><span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span> {t('fineTune.lede')}</>}
           actions={(
             <div className="bt-head-acts">
               {selectedJob && (
@@ -951,8 +965,9 @@ export function createFineTune(ctx, api, shared) {
               onResume={handleResumeFromCheckpoint}
               onTerminal={loadJobs}
               exportCheckpoint={setExportCheckpoint}
+              modelExports={modelExports}
             />
-            <ExportPanel job={selectedJob} prefilledCheckpoint={exportCheckpoint} />
+            <ExportPanel job={selectedJob} prefilledCheckpoint={exportCheckpoint} modelExports={modelExports} />
           </>
         ) : (
           <form onSubmit={handleSubmit} className="bt-form-page" data-testid="fine-tune-form">

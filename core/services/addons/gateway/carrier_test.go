@@ -64,17 +64,27 @@ var _ = Describe("mTLS carrier", func() {
 		delete(cfg.Pins, "owner")
 		Expect(c.config.Pins).To(HaveKey("owner"))
 		Expect(c.config.Limits).To(Equal(DefaultRelayLimits()))
+		// The owner never signs, so it needs no key; a key it has must be whole.
+		owner := valid()
+		owner.InstanceID, owner.Certificate = "owner", certs["owner"]
+		owner.SigningKey = nil
+		_, err = NewCarrier(owner)
+		Expect(err).NotTo(HaveOccurred())
+		owner.SigningKey = key[:8]
+		_, err = NewCarrier(owner)
+		Expect(err).To(MatchError(ErrForbidden))
 		for name, mutate := range map[string]func(*CarrierConfig){
-			"owner pin missing":      func(c *CarrierConfig) { delete(c.Pins, "owner") },
-			"own pin missing":        func(c *CarrierConfig) { delete(c.Pins, "front-a") },
-			"plain http owner":       func(c *CarrierConfig) { c.OwnerAddress = "http://127.0.0.1:9443" },
-			"owner path":             func(c *CarrierConfig) { c.OwnerAddress = "https://127.0.0.1:9443/x" },
-			"owner credentials":      func(c *CarrierConfig) { c.OwnerAddress = "https://u:p@127.0.0.1:9443" },
-			"no trust roots":         func(c *CarrierConfig) { c.Roots = nil },
-			"no client certificate":  func(c *CarrierConfig) { c.Certificate = tls.Certificate{} },
-			"short signing key":      func(c *CarrierConfig) { c.SigningKey = key[:8] },
-			"empty instance":         func(c *CarrierConfig) { c.InstanceID = "" },
-			"partial limit override": func(c *CarrierConfig) { c.Limits = RelayLimits{Bytes: 1 << 20} },
+			"frontend without a signing key": func(c *CarrierConfig) { c.SigningKey = nil },
+			"owner pin missing":              func(c *CarrierConfig) { delete(c.Pins, "owner") },
+			"own pin missing":                func(c *CarrierConfig) { delete(c.Pins, "front-a") },
+			"plain http owner":               func(c *CarrierConfig) { c.OwnerAddress = "http://127.0.0.1:9443" },
+			"owner path":                     func(c *CarrierConfig) { c.OwnerAddress = "https://127.0.0.1:9443/x" },
+			"owner credentials":              func(c *CarrierConfig) { c.OwnerAddress = "https://u:p@127.0.0.1:9443" },
+			"no trust roots":                 func(c *CarrierConfig) { c.Roots = nil },
+			"no client certificate":          func(c *CarrierConfig) { c.Certificate = tls.Certificate{} },
+			"short signing key":              func(c *CarrierConfig) { c.SigningKey = key[:8] },
+			"empty instance":                 func(c *CarrierConfig) { c.InstanceID = "" },
+			"partial limit override":         func(c *CarrierConfig) { c.Limits = RelayLimits{Bytes: 1 << 20} },
 		} {
 			cfg := valid()
 			mutate(&cfg)
