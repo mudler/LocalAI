@@ -133,8 +133,13 @@ class TestBackendServicer(unittest.TestCase):
         sampling_params = servicer._build_sampling_params(request)
         self.assertEqual(sampling_params.temperature, 0)
         self.assertEqual(sampling_params.seed, 0)
-        # Other protobuf-default scalar fields must remain filtered.
+        # Other protobuf-default scalar fields must remain filtered. (With
+        # temperature 0, vLLM's __post_init__ switches to greedy and sets
+        # top_p to 1.0, so check the default on a sampled request.)
+        request = backend_pb2.PredictOptions(Prompt="hello", Temperature=0.7, Seed=0)
+        sampling_params = servicer._build_sampling_params(request)
         self.assertEqual(sampling_params.top_p, 0.9)
+        self.assertEqual(sampling_params.seed, 0)
 
 
     def test_messages_to_dicts(self):
@@ -294,6 +299,69 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("Embedding service failed")
         finally:
             self.tearDown()
+
+
+class TestSamplingParamsConstruction(unittest.TestCase):
+    """Server-less tests for BackendServicer._build_sampling_params.
+
+    protobuf repeated fields (StopPrompts) are RepeatedScalarContainer, not
+    list. Assigned with setattr after construction they reached the engine
+    as-is: vLLM's argument checks assert a list, and the msgpack encoder that
+    ships the params to the engine core cannot serialise them, so every
+    request with `stop` failed.
+    """
+
+    def _build(self, **fields):
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        servicer = BackendServicer.__new__(BackendServicer)
+        return servicer._build_sampling_params(backend_pb2.PredictOptions(**fields))
+
+    @staticmethod
+    def _engine_round_trip(sp):
+        """What happens to the params on their way to the engine core."""
+        from vllm.v1.serial_utils import MsgpackEncoder
+        sp._verify_args()
+        sp.clone()
+        MsgpackEncoder().encode(sp)
+
+    def test_stop_is_a_list_and_reaches_the_engine(self):
+        sp = self._build(Prompt="x", StopPrompts=["</answer>", "##"], Tokens=50, Temperature=0.7)
+        self.assertIs(type(sp.stop), list)
+        self.assertEqual(sp.stop, ["</answer>", "##"])
+        self._engine_round_trip(sp)
+
+    def test_stop_string_hold_back_buffer_is_set(self):
+        """Without it the start of a multi-character stop string is streamed
+        before the match completes."""
+        sp = self._build(Prompt="x", StopPrompts=["</answer>"], Tokens=50, Temperature=0.7)
+        self.assertEqual(sp.output_text_buffer_length, len("</answer>") - 1)
+
+    def test_request_values_are_applied(self):
+        sp = self._build(Prompt="x", Tokens=77, Temperature=0.6, TopP=0.95, TopK=20)
+        self.assertEqual(sp.max_tokens, 77)
+        self.assertEqual(sp.top_k, 20)
+        self.assertAlmostEqual(sp.top_p, 0.95, places=6)
+        self.assertEqual(sp.stop, [])
+        self._engine_round_trip(sp)
+
+    def test_seed_minus_one_means_random(self):
+        sp = self._build(Prompt="x", Seed=-1, Temperature=0.7)
+        self.assertIsNone(sp.seed)
+
+    def test_invalid_values_are_rejected(self):
+        """Out-of-range values fail with vLLM's validation error instead of
+        reaching the engine."""
+        try:
+            from vllm.exceptions import VLLMValidationError as rejected
+        except ImportError:  # older vLLM raises ValueError
+            rejected = ValueError
+        for fields in ({"PresencePenalty": 5.0, "Temperature": 0.7},
+                       {"StopPrompts": [""], "Temperature": 0.7}):
+            with self.subTest(fields=fields):
+                with self.assertRaises(rejected):
+                    self._build(Prompt="x", Tokens=10, **fields)
 
 
 class TestStreamingToolParser(unittest.TestCase):

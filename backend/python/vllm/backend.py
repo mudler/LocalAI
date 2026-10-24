@@ -555,17 +555,24 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             "TruncatePromptTokens": "truncate_prompt_tokens",
         }
 
-        sampling_params = SamplingParams(top_p=0.9, max_tokens=200)
-
+        # Construct SamplingParams from the collected values, as vLLM's own
+        # OpenAI server does. Assigning them with setattr after construction
+        # skipped __post_init__ and left protobuf repeated fields (StopPrompts)
+        # as RepeatedScalarContainer, which vLLM's argument checks and the
+        # msgpack encoder to the engine core reject: every request with `stop`
+        # failed. Invalid values now raise vLLM's validation error here.
+        kwargs = {"top_p": 0.9, "max_tokens": 200}
         for request_field, param_field in request_to_sampling_params.items():
             if hasattr(request, request_field):
                 value = getattr(request, request_field)
                 # See _EXPLICIT_ZERO_FIELDS: temperature 0 is greedy decoding
                 # and 0 is a valid seed, so neither may be filtered out.
                 if request_field in _EXPLICIT_ZERO_FIELDS or value not in (None, 0, [], False):
-                    setattr(sampling_params, param_field, value)
+                    if not isinstance(value, (str, bytes, int, float, bool)):
+                        value = list(value)  # protobuf repeated field -> list
+                    kwargs[param_field] = value
 
-        return sampling_params
+        return SamplingParams(**kwargs)
 
     def _new_reasoning_parser(self, chat_template_kwargs):
         """Build the reasoning parser, telling it whether thinking is on.
