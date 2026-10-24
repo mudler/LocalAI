@@ -66,7 +66,7 @@
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
-    "addons": "Apps"
+    "addons": "Add-ons"
   },
   "footer": {
     "github": "GitHub",
@@ -99,7 +99,7 @@
       "import": "Add a model from a file, a URL or a Hugging Face repository.",
       "voices": "Identify speakers and keep a library of voice profiles.",
       "faces": "Detect, compare and match faces.",
-      "addons": "Install add-ons and open the apps they provide."
+      "addons": "Install, turn on and open add-ons."
     }
   }
 }

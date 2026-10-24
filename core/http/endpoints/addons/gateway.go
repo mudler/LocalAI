@@ -4,10 +4,12 @@ package addons
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 	"io"
 	"net/http"
@@ -109,6 +111,55 @@ func denied(c echo.Context, e error) error {
 	}
 	return failure(c, 401, "Named authentication required")
 }
+
+const (
+	ctxAction  = "addon.action"
+	ctxAddonID = "addon.id"
+)
+
+// noteRequest remembers the action and add-on ID of a parsed request, the
+// only request fields a denial log may carry.
+func noteRequest(c echo.Context, r contract.Request) {
+	c.Set(ctxAction, r.Action)
+	c.Set(ctxAddonID, r.AddonID)
+}
+
+// logDenial writes one Warn line for a request refused with the generic
+// message, so an operator can tell which check fired. The client response
+// is not affected. It logs the action and add-on ID of a parsed request (or
+// the route pattern when the request has none), the fixed rule that refused
+// it or the innermost message of err, and the error kind. It never logs the
+// request body, arguments, headers, cookies or credential references.
+func logDenial(c echo.Context, rule string, err error) {
+	action, _ := c.Get(ctxAction).(string)
+	id, _ := c.Get(ctxAddonID).(string)
+	if action == "" {
+		action = c.Path()
+	}
+	if id == "" {
+		id = c.Param("id")
+	}
+	args := []any{"action", action, "addonId", id, "status", http.StatusForbidden}
+	if rule != "" {
+		args = append(args, "rule", rule)
+	}
+	if err != nil {
+		inner := err
+		for u := errors.Unwrap(inner); u != nil; u = errors.Unwrap(inner) {
+			inner = u
+		}
+		kind := fmt.Sprintf("%T", err)
+		switch {
+		case errors.Is(err, gateway.ErrForbidden):
+			kind = "ErrForbidden"
+		case errors.Is(err, gateway.ErrUnavailable):
+			kind = "ErrUnavailable"
+		}
+		args = append(args, "kind", kind, "reason", inner.Error())
+	}
+	xlog.Warn("Addon request denied", args...)
+}
+
 func decode(c echo.Context, v any) error {
 	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 2<<20)
 	d := json.NewDecoder(c.Request().Body)
@@ -164,6 +215,7 @@ func resultError(c echo.Context, e error) error {
 			return c.JSON(t.status, AddonErrorResponse{Error: AddonError{Type: t.kind, Code: t.status, Message: t.message}})
 		}
 	}
+	logDenial(c, "", e)
 	return failure(c, 403, "Addon request denied")
 }
 
@@ -191,11 +243,13 @@ func Dispatch(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc 
 		if decode(c, &r) != nil {
 			return failure(c, 400, "Invalid addon request")
 		}
+		noteRequest(c, r)
 		// Recovery and update mutations have their own routes, which accept
 		// only the administrator's own browser session. The generic dispatch
 		// also takes API keys, so it must not carry them.
 		if (gateway.RecoveryAction(r.Action) && r.Action != gateway.ActionRecoveryStatus) ||
 			(gateway.UpdateAction(r.Action) && r.Action != gateway.ActionUpdateStatus) {
+			logDenial(c, "recovery-and-update-actions-use-their-own-routes", nil)
 			return failure(c, 403, "Addon request denied")
 		}
 		if r.Action != "read" {

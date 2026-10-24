@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 // scriptedMessagingClient maps a NATS subject to a canned reply payload
@@ -311,9 +312,10 @@ var _ = Describe("DistributedBackendManager", func() {
 		mc = newScriptedMessagingClient()
 		adapter = NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute)
 		mgr = &DistributedBackendManager{
-			local:    stubLocalBackendManager{},
-			adapter:  adapter,
-			registry: registry,
+			local:       stubLocalBackendManager{},
+			adapter:     adapter,
+			registry:    registry,
+			systemState: &system.SystemState{},
 		}
 		ctx = context.Background()
 	})
@@ -655,7 +657,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				// mgr in the outer BeforeEach has progressSink=nil so the
 				// pre-existing specs keep verifying the no-sink behavior.
 				sink = &recordingProgressSink{}
-				appCfg := &config.ApplicationConfig{}
+				appCfg := &config.ApplicationConfig{SystemState: &system.SystemState{}}
 				mgr = NewDistributedBackendManager(appCfg, nil, adapter, registry, sink)
 				// stubLocalBackendManager mirrors the production behaviour
 				// where the frontend node rarely has the backend installed
