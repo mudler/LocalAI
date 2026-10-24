@@ -14,6 +14,10 @@ test: chatterbox
 	bash test.sh
 	@echo "coqui tested."
 
+.PHONY: test-unit
+test-unit:
+	python3 -m unittest discover -s . -p 'test_variants.py' -v
+
 .PHONY: protogen-clean
 protogen-clean:
 	$(RM) backend_pb2_grpc.py backend_pb2.py
