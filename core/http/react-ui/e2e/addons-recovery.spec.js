@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto'
 const creds = JSON.parse(fs.readFileSync(process.env.ADDONS_FIXTURE, 'utf8'))
 const BASE = process.env.ADDONS_UI_URL
 const shots = process.env.ADDONS_SHOTS
-const MANAGE = '/app/addons?tab=installed&manage=tables'
+const MANAGE = '/app/addons?manage=tables'
 
 async function shoot(page, name, target = 'recovery-panel') {
   if (!shots) return
@@ -68,11 +68,11 @@ async function openManage(page) {
   await expect(page.getByTestId('recovery-panel')).toBeVisible({ timeout: 25_000 })
 }
 
-// The sheet's own enable and disable buttons: the real lifecycle.
+// The pane's own Turn on and Turn off buttons: the real lifecycle.
 async function setEnabled(page, enabled) {
-  const sheet = page.getByTestId('addon-manage')
-  await sheet.getByRole('button', { name: enabled ? 'Enable' : 'Disable' }).click()
-  await expect(sheet.getByRole('button', { name: enabled ? 'Disable' : 'Enable' })).toBeVisible({ timeout: 30_000 })
+  const sheet = page.getByTestId('addon-detail')
+  await sheet.getByRole('button', { name: enabled ? 'Turn on' : 'Turn off' }).click()
+  await expect(sheet.getByRole('button', { name: enabled ? 'Turn off' : 'Turn on' })).toBeVisible({ timeout: 30_000 })
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -154,7 +154,7 @@ test.describe('Add-on data recovery through the real owner', () => {
     await expect(dialog).toBeVisible()
     await expect(dialog).toContainText('Changes made after the backup are lost')
     await expect(dialog).toContainText('nobody gets back access that was taken away')
-    await expect(dialog).toContainText('Stop the add-on first')
+    await expect(dialog).toContainText('Turn the add-on off first')
     await shoot(admin.page, 'recovery-restore-running-1280', 'recovery-restore-dialog')
     // Escape closes the dialog and gives the focus back.
     await admin.page.keyboard.press('Escape')
@@ -237,7 +237,7 @@ test.describe('Add-on data recovery through the real owner', () => {
     await admin.page.getByTestId('recovery-purge').click()
     const dialog = admin.page.getByTestId('recovery-purge-dialog')
     await expect(dialog).toBeVisible()
-    await expect(dialog).toContainText('Stop the add-on first')
+    await expect(dialog).toContainText('Turn the add-on off first')
     await admin.page.keyboard.press('Escape')
     await setEnabled(admin.page, false)
     await admin.page.getByTestId('recovery-purge').click()

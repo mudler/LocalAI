@@ -1631,6 +1631,11 @@ definitions:
         type: string
       kind:
         $ref: '#/definitions/catalog.Kind'
+      mirrors:
+        description: Mirrors are the fallback addresses of the source, in order.
+        items:
+          type: string
+        type: array
       name:
         type: string
       policy:
@@ -1797,6 +1802,15 @@ definitions:
         items:
           $ref: '#/definitions/library.Info'
         type: array
+    type: object
+  localai.ModelExportsStatus:
+    properties:
+      model_exports:
+        description: |-
+          ModelExports is false only when this instance does not see the models
+          path of the add-on owner. It is the same value as the model_exports key
+          of GET /api/features.
+        type: boolean
     type: object
   localai.ModelResponse:
     properties:
@@ -8446,6 +8460,27 @@ paths:
       summary: Stream failover events (server-sent events)
       tags:
       - failover
+  /api/fine-tuning/status:
+    get:
+      description: Returns model_exports=false when this instance does not share the
+        models path of the add-on owner. The value is the same as the model_exports
+        key of GET /api/features.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ModelExportsStatus'
+        "503":
+          description: add-ons are off or the owner is not reachable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Report whether model exports are allowed
+      tags:
+      - fine-tuning
+      - quantization
   /api/instructions:
     get:
       description: Returns a compact list of instruction areas with descriptions and
@@ -8507,6 +8542,11 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/localai.LibrarySourcesResponse'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: List the library sources
       tags:
       - library
@@ -8524,6 +8564,11 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/library.Info'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Add a library source
       tags:
       - library
@@ -8546,7 +8591,39 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Remove a library source
+      tags:
+      - library
+    put:
+      consumes:
+      - application/json
+      description: Replaces the mirrors of a model or backend source; an empty list
+        clears them. Each mirror is an http(s), github:, oci:// or file:// address.
+        Administrators only.
+      parameters:
+      - description: Source id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/library.Info'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Change the mirrors of a library source
       tags:
       - library
   /api/library/sources/{id}/disable:
@@ -8565,6 +8642,11 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/library.Info'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Turn a library source on or off
       tags:
       - library
@@ -8584,6 +8666,11 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/library.Info'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Turn a library source on or off
       tags:
       - library
@@ -9133,6 +9220,27 @@ paths:
       summary: Redact PII in a string by applying the configured policy.
       tags:
       - pii
+  /api/quantization/status:
+    get:
+      description: Returns model_exports=false when this instance does not share the
+        models path of the add-on owner. The value is the same as the model_exports
+        key of GET /api/features.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ModelExportsStatus'
+        "503":
+          description: add-ons are off or the owner is not reachable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Report whether model imports are allowed
+      tags:
+      - fine-tuning
+      - quantization
   /api/router/{name}/corpus:
     delete:
       parameters:
@@ -9793,6 +9901,11 @@ paths:
           description: the same backend is already being installed
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Install a backend from a library entry on this node.
       tags:
       - backends
@@ -9807,6 +9920,11 @@ paths:
                 $ref: '#/definitions/backendlib.Update'
               type: array
             type: object
+        "503":
+          description: 'on a frontend: the add-on owner is not reachable, does not
+            serve library calls, or runs on another platform; the message says which'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: List the installed library backends with a newer build in their library.
       tags:
       - backends

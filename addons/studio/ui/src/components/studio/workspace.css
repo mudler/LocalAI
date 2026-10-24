@@ -166,6 +166,9 @@
   text-align: right;
 }
 .ws-chip__input::placeholder { color: var(--dk-muted); opacity: 1; }
+/* The label of an input chip is set off from what is typed (or its placeholder)
+   by a hairline, so "Voice" and "Optional speaker or voice ID" read as two things. */
+.ws-chip--input > span { align-self: stretch; display: inline-flex; align-items: center; padding-right: var(--dk-space-3); border-right: 1px solid var(--dk-edge); color: var(--dk-text); }
 /* A wide field holds a sentence-length placeholder ("Optional speaker or voice
    ID"), which 120px cut off mid-word. Left-aligned text, and it gives way on a
    phone instead of overflowing the row. */

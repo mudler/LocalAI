@@ -8,8 +8,10 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -257,6 +259,36 @@ var _ = Describe("addon bootstrap", func() {
 			a.applicationConfig.Addons = c
 			Expect(a.startAddons()).NotTo(Succeed())
 		}
+	})
+})
+
+var _ = Describe("addon frontend role", func() {
+	It("creates nothing under the add-ons folder, refuses owner calls and forwards", func() {
+		keys := filepath.Join(realTempDir(), "keys")
+		Expect(gateway.GenerateCarrierKeys(keys, []string{"127.0.0.1"})).To(Succeed())
+		// Nothing listens on this port, so a forwarded call fails at the dial.
+		const ownerAddress = "https://127.0.0.1:1"
+		transport, e := gateway.LoadCarrierConfig(keys, "frontend", ownerAddress)
+		Expect(e).NotTo(HaveOccurred())
+		dataPath := realTempDir()
+		a := &Application{applicationConfig: &config.ApplicationConfig{Context: context.Background(), DataPath: dataPath}}
+		a.applicationConfig.Addons = config.AddonConfig{
+			Enabled:    true,
+			InstanceID: gateway.FrontendIdentity, OwnerID: gateway.OwnerIdentity, OwnerAddress: ownerAddress,
+			StorageID: "local", Root: filepath.Join(dataPath, "addons"), Transport: transport, OwnershipMode: "local-owner",
+		}
+		Expect(a.startAddons()).To(Succeed())
+		DeferCleanup(a.Shutdown)
+		Expect(filepath.Join(dataPath, "addons")).NotTo(BeADirectory())
+		_, e = a.AddonManager().Status(context.Background(), "sample")
+		Expect(e).To(MatchError(addons.ErrNotOwner))
+		Expect(a.AddonGateway()).NotTo(BeNil())
+		Expect(a.AddonGateway().Forward).NotTo(BeNil())
+		_, e = a.AddonGateway().Apps(context.Background(), contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner})
+		Expect(e).To(MatchError(gateway.ErrUnavailable))
+		entries, e := os.ReadDir(dataPath)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(entries).To(BeEmpty())
 	})
 })
 

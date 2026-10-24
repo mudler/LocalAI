@@ -14,7 +14,7 @@
 .bt-h1 { margin: 0; font: var(--dk-weight-bold) var(--dk-text-32) / 1.15 var(--dk-font-display); letter-spacing: -.02em; text-wrap: balance; }
 .bt-h2 { margin: 0; font: var(--dk-weight-semibold) var(--dk-text-17) / 1.3 var(--dk-font-display); color: var(--dk-text); }
 .bt-h3 { margin: 0; font: var(--dk-weight-semibold) var(--dk-text-15) / 1.3 var(--dk-font-display); color: var(--dk-text); }
-.bt-experimental { vertical-align: middle; margin-left: var(--dk-space-2); }
+.bt-experimental { vertical-align: middle; margin-right: var(--dk-space-2); }
 .bt-head-acts { display: flex; align-items: center; gap: var(--dk-space-2); flex-wrap: wrap; justify-content: flex-end; }
 .bt-stack { display: flex; flex-direction: column; gap: var(--dk-space-4); min-width: 0; }
 .bt-empty { color: var(--dk-muted); }
@@ -43,6 +43,12 @@
 .bt-section__title { margin: 0; display: flex; align-items: center; gap: var(--dk-space-3); font: var(--dk-weight-semibold) var(--dk-text-17) / 1.3 var(--dk-font-display); }
 .bt-section__mark { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; border: 2px solid var(--dk-edge); box-sizing: border-box; color: var(--dk-on-accent); }
 .bt-section__mark .lai-icon { font-size: 13px; }
+/* A step that is not done yet shows its number, so an open circle reads as
+   "to do" and not as a checkbox that failed to tick. */
+.bt-page { counter-reset: bt-step; }
+.bt-section { counter-increment: bt-step; }
+.bt-section[data-done="false"] .bt-section__mark { color: var(--dk-muted); font: var(--dk-weight-bold) var(--dk-text-12) / 1 var(--dk-font-mono); }
+.bt-section[data-done="false"] .bt-section__mark::before { content: counter(bt-step); }
 .bt-section[data-done="true"] .bt-section__mark { background: var(--dk-accent); border-color: var(--dk-accent); }
 .bt-section__body { display: flex; flex-direction: column; gap: var(--dk-space-3); padding-left: calc(24px + var(--dk-space-3)); min-width: 0; }
 .bt-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dk-space-3); }
@@ -101,7 +107,7 @@
 .bt-check__meter { margin-top: var(--dk-space-2); }
 
 /* ---- Action bar --------------------------------------------------------------- */
-.bt-bar { position: sticky; bottom: 0; z-index: var(--dk-z-sticky); display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-4); flex-wrap: wrap; padding: var(--dk-space-3) 0; background: var(--dk-canvas); border-top: 1px solid var(--dk-edge); }
+.bt-bar { position: sticky; margin-top: var(--dk-space-4); bottom: 0; z-index: var(--dk-z-sticky); display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-4); flex-wrap: wrap; padding: var(--dk-space-3) 0; background: var(--dk-canvas); border-top: 1px solid var(--dk-edge); }
 .bt-bar__text { margin: 0; flex: 1 1 280px; min-width: 0; font-size: var(--dk-text-13); line-height: 1.5; color: var(--dk-muted); overflow-wrap: anywhere; }
 .bt-bar__acts { display: flex; align-items: center; gap: var(--dk-space-2); flex-wrap: wrap; margin-left: auto; }
 

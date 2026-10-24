@@ -9,6 +9,8 @@ export function createApi(ctx) {
 
   return {
     fineTune: {
+      // {model_exports: bool}: false when this instance cannot share the models path of the owner.
+      status: () => json('/api/fine-tuning/status'),
       listBackends: () => json('/api/fine-tuning/backends'),
       startJob: (data) => post('/api/fine-tuning/jobs', data),
       listJobs: () => json('/api/fine-tuning/jobs'),

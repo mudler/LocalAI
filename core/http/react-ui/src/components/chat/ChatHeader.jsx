@@ -10,7 +10,7 @@ import Icon from '../Icon'
 export default function ChatHeader({
   historyMenu, manageMode, name, onRename, renaming, setRenaming,
   contextPercent, contextTokens, contextSize,
-  onFind, findOpen, onSettings, settingsOpen, moreItems, addonsMenu,
+  onFind, findOpen, onSettings, settingsOpen, moreItems,
 }) {
   const { t } = useTranslation('chat')
   const inputRef = useRef(null)
@@ -94,7 +94,6 @@ export default function ChatHeader({
       )}
 
       <div className="cx-hdr">
-        {addonsMenu}
         {onFind && (
           <button
             type="button"
