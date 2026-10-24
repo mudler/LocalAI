@@ -479,6 +479,10 @@ ws://localhost:8080/v1/realtime?model=gpt-realtime
 
 Audio is sent and received as raw PCM in the WebSocket messages, following the OpenAI Realtime API protocol.
 
+LocalAI writes committed audio to the transcription backend at the session input sample rate.
+For example, 24 kHz WebSocket input produces a WAV file with a 24 kHz header.
+WebRTC input is resampled to 16 kHz before transcription.
+
 ### WebRTC
 
 The WebRTC transport enables browser-based voice conversations with lower latency. OpenAI-compatible clients can send a raw SDP offer and select the model with the query parameter:
