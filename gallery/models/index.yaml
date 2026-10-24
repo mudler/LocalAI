@@ -5,6 +5,175 @@
 # master reads it as the default model source; a tagged build reads the gallery
 # until the release cutover.
 - kind: model
+  id: atomic-minicpm-v-4.7-35b-a3b-uncensored-q4
+  name: atomic-minicpm-v-4.7-35b-a3b-uncensored-q4
+  version: 0.0.0-gallery.0148855c0a62
+  description: |
+    AtomicChat's abliterated MiniCPM-V 4.7 is a 35B mixture-of-experts model
+    with 3B active parameters for chat and image understanding. This
+    AD-Q4_K-IQ4_XS build includes all 11 weight shards and the F16 vision
+    projector, with the embedded chat template and a 32K-token default context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B
+    - https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00001-of-00011.gguf
+        sha256: ededfbd2709bab4d48bebb7cf73429a8fd0567f1fb17f8be1d3522775184fdcf
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00001-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00002-of-00011.gguf
+        sha256: b268130b6592959b532a5b751b0150ba8d4468cce142ae79bc447cdb091c897e
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00002-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00003-of-00011.gguf
+        sha256: c8567d2ed77e60bc25d27111c9a2a83fc1d0b2154b39e2ddd1bcde682a05f561
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00003-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00004-of-00011.gguf
+        sha256: a617dc76e210203a20925f287337625a89c908dff49199959f39af383804e76a
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00004-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00005-of-00011.gguf
+        sha256: a38b6295a283ace463a5d013814baeaf4e452e89a2aa54a02964977598c9d870
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00005-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00006-of-00011.gguf
+        sha256: 51e2bf54868f0595ce0de650cfffe68bf227cd88ce994cf80cca9af8f83212af
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00006-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00007-of-00011.gguf
+        sha256: 95b6ac36a9eb16e40ec1cc7b54687a82a3f8cf9ae33fdb0dd83afb8df6e3584b
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00007-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00008-of-00011.gguf
+        sha256: 9dcdbac30a269116b7181922c15a2c8fdaf83228f7f0cab38c2b53d332570e41
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00008-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00009-of-00011.gguf
+        sha256: 9198cbf4df908dc96981736fdbd2e9b0f8fd35ace49521f0dd07a4a6c335a4f7
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00009-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00010-of-00011.gguf
+        sha256: 6bd1b0efaa4f9e7a7cafc905fd00b7eadfff043fb3b740ec84cc35d28ce7cdbf
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00010-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00011-of-00011.gguf
+        sha256: c52f2d97fd09b1e6ba07b38ab3edc9b7730443f390c18f0115f02007ec3e4dad
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00011-of-00011.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/mmproj-MiniCPM-V-4.7-35B-A3B-Uncensored-F16.gguf
+        sha256: d7ccc65bd9fbd13ad7e3b5773a530d875fe364d7b387e683f981918716139479
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/mmproj-MiniCPM-V-4.7-35B-A3B-Uncensored-F16.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      known_usecases:
+        - chat
+        - vision
+      mmproj: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/mmproj-MiniCPM-V-4.7-35B-A3B-Uncensored-F16.gguf
+      options:
+        - use_jinja:true
+      parameters:
+        model: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q4_K-IQ4_XS-00001-of-00011.gguf
+      template:
+        use_tokenizer_template: true
+    variants:
+      - model: atomic-minicpm-v-4.7-35b-a3b-uncensored-q6
+- kind: model
+  id: atomic-minicpm-v-4.7-35b-a3b-uncensored-q6
+  name: atomic-minicpm-v-4.7-35b-a3b-uncensored-q6
+  version: 0.0.0-gallery.74d1ad4cc579
+  description: |
+    AtomicChat's abliterated MiniCPM-V 4.7 is a 35B mixture-of-experts model
+    with 3B active parameters for chat and image understanding. This
+    AD-Q6_K build includes all 16 weight shards and the F16 vision
+    projector, with the embedded chat template and a 32K-token default context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B
+    - https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00001-of-00016.gguf
+        sha256: 0c04cd31988229dc6dcc2e46582a956cea333a0ebd8bf59496afeb17db2a6ce4
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00001-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00002-of-00016.gguf
+        sha256: 0f6718c7d4bb5f16764b16b06971896bf8cf4806cc99bbd201f10d23d589f27e
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00002-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00003-of-00016.gguf
+        sha256: 9d8b3681a60d5defb1c43b3b70d7ec3b38a6dcb36e39e900dde59354543f73ff
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00003-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00004-of-00016.gguf
+        sha256: f9d40212be4f65e9ffbd74278d53ffc975f4a6c8aa5b823c0ac5fa7bdd20c453
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00004-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00005-of-00016.gguf
+        sha256: 622537a165aea469fa3c24a35b670e65db75310c80d707170ce40e2e661ee958
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00005-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00006-of-00016.gguf
+        sha256: c096bf25eb119d2136e6fc4af6fcfb0809fc6d96f2b1935ff9e750567b6f421e
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00006-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00007-of-00016.gguf
+        sha256: 9cb9dcd9f73faf364be302ba042052121dcde5b9a30044831b9d4a6470321b47
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00007-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00008-of-00016.gguf
+        sha256: 336634b01cf0e1b2cd0eef641e820134c81ff96912b0fae869f35a79963263d2
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00008-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00009-of-00016.gguf
+        sha256: de855b95468db6d69d03e51a10917efff7e73ddcd6810d2167579544a7484cd6
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00009-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00010-of-00016.gguf
+        sha256: 1f3022d27e441a9d9f5667f1ad9411f5d1928d9af0d8c3498a5901ee796c086f
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00010-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00011-of-00016.gguf
+        sha256: aac45e52f376f929e08452f4b87a34f7bd498ca31acffe15c1664028d8dbea60
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00011-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00012-of-00016.gguf
+        sha256: b9fbc22a2e18d408b007b0cc61293b2413ea3246fd153a081a38a3cb5a77e98b
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00012-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00013-of-00016.gguf
+        sha256: c2c0f6ce07365baed8b8a34fd2979ad4d0f2c0bffd59b6bf6076fb3d1dd38e8b
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00013-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00014-of-00016.gguf
+        sha256: b7d405ca5d8451d055df9caf2aa2c5bba731edf848ca82d14008ee85f3548edd
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00014-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00015-of-00016.gguf
+        sha256: dcab51216a0c401cb78fa8d58485bb3a6ace207c46a63fd07dc4e7cd17c1c359
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00015-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00016-of-00016.gguf
+        sha256: 1e0cacf4cc7f80b7b84f2b5becf27bd97b94b4052180d62f477c10cb4b0bcf70
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00016-of-00016.gguf
+      - filename: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/mmproj-MiniCPM-V-4.7-35B-A3B-Uncensored-F16.gguf
+        sha256: d7ccc65bd9fbd13ad7e3b5773a530d875fe364d7b387e683f981918716139479
+        uri: https://huggingface.co/AtomicChat/MiniCPM-V-4.7-35B-A3B-Uncensored-GGUF/resolve/948c2f37e34730f8abd9b80f86642f37e8f30960/mmproj-MiniCPM-V-4.7-35B-A3B-Uncensored-F16.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      known_usecases:
+        - chat
+        - vision
+      mmproj: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/mmproj-MiniCPM-V-4.7-35B-A3B-Uncensored-F16.gguf
+      options:
+        - use_jinja:true
+      parameters:
+        model: llama-cpp/models/atomic-minicpm-v-4.7-35b-a3b-uncensored/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K/MiniCPM-V-4.7-35B-A3B-Uncensored-AD-Q6_K-00001-of-00016.gguf
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: adavar-3b-q4
   name: adavar-3b-q4
   version: 0.0.0-gallery.aad216859953
