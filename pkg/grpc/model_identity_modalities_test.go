@@ -62,6 +62,11 @@ func (b *modalityBackend) Depth(*pb.DepthRequest) (pb.DepthResponse, error) {
 	return pb.DepthResponse{}, nil
 }
 
+func (b *modalityBackend) Forecast(*pb.ForecastRequest) (pb.ForecastResponse, error) {
+	b.served++
+	return pb.ForecastResponse{}, nil
+}
+
 func (b *modalityBackend) FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error) {
 	b.served++
 	return pb.FaceVerifyResponse{}, nil
@@ -133,6 +138,7 @@ func callAllModalities(c Backend, identity string) map[string]error {
 	errs["AudioTranscriptionStream"] = c.AudioTranscriptionStream(ctx, &pb.TranscriptRequest{ModelIdentity: identity}, func(*pb.TranscriptStreamResponse) {})
 	_, errs["Detect"] = c.Detect(ctx, &pb.DetectOptions{ModelIdentity: identity})
 	_, errs["Depth"] = c.Depth(ctx, &pb.DepthRequest{ModelIdentity: identity})
+	_, errs["Forecast"] = c.Forecast(ctx, &pb.ForecastRequest{ModelIdentity: identity})
 	_, errs["FaceVerify"] = c.FaceVerify(ctx, &pb.FaceVerifyRequest{ModelIdentity: identity})
 	_, errs["FaceAnalyze"] = c.FaceAnalyze(ctx, &pb.FaceAnalyzeRequest{ModelIdentity: identity})
 	_, errs["VoiceVerify"] = c.VoiceVerify(ctx, &pb.VoiceVerifyRequest{ModelIdentity: identity})

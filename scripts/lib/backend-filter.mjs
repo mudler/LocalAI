@@ -19,6 +19,13 @@ export function inferBackendPath(item) {
   if (item.backend === "parakeet-cpp") {
     return `backend/go/parakeet-cpp/`;
   }
+  // timestral-cpp is a Go backend (Dockerfile.golang) wrapping the timestral.cpp
+  // ggml port via purego, living in backend/go/timestral-cpp/. Same
+  // explicit-branch rationale as parakeet-cpp: the generic golang fallthrough
+  // would also resolve it, but this documents the mapping.
+  if (item.backend === "timestral-cpp") {
+    return `backend/go/timestral-cpp/`;
+  }
   // ced is a Go backend (Dockerfile.golang) wrapping the ced.cpp ggml port via
   // purego, living in backend/go/ced/. Same explicit-branch rationale as
   // parakeet-cpp above: the generic golang fallthrough would also resolve it,
