@@ -44,6 +44,29 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Hy-Memory 30B A3B
+
+[Hy-Memory](https://huggingface.co/tencent/Hy-Memory-30B-A3B) is Tencent's
+English and Chinese memory-writing model, with about 3B active parameters.
+It extracts and updates memories for external agent frameworks. The framework
+must provide the task prompts and persistent storage.
+
+The gallery offers official Q4_K_M and Q8_0 builds for llama.cpp. Both use the
+embedded chat template, `reasoning_effort: no_think`, and an 8,192-token default
+context. Increase `context_size` in the model configuration for longer inputs
+if enough memory is available; the model supports up to 262,144 tokens.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install hy-memory-30b-a3b-q4
+```
+
+To select a build explicitly, add `--variant hy-memory-30b-a3b-q4` or
+`--variant hy-memory-30b-a3b-q8`. See the
+[publisher's GGUF guide](https://huggingface.co/tencent/Hy-Memory-30B-A3B-GGUF)
+for memory-framework examples and quantization evaluations.
+
 ### MiniCPM-V 4.7 1B
 
 [MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
