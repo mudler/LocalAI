@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test'
 import { ADMIN, release, sessionFor, mockAddons } from './addons-fixtures.js'
 
-// Backends in the library (phase 1): an entry has a kind, the Browse tab shows
-// it, and a backend installs through the backend route, not the add-on
-// lifecycle. The server is the authority, so these specs drive the page
+// Backends in the library: an entry has a kind, the add-on Browse tab lists
+// add-ons only, and backends are handled on the Backends page. The server is the authority, so these specs drive the page
 // against a stand-in and assert what the page sent.
 
 const POLICY = { requireSignature: true, issuer: 'https://token.actions.githubusercontent.com', identityRegex: '^https://github\\.com/o/r/\\.github/workflows/w\\.yml@refs/(heads/master|tags/.+)$' }
@@ -46,89 +45,18 @@ async function mockBackends(page, { installed = [], phases = ['resolving', 'size
 }
 
 test.describe('Library backends', () => {
-  test('browse: an entry shows its kind, and add-ons are still add-ons', async ({ page }) => {
+  test('browse: a backend entry is not listed, and add-ons are', async ({ page }) => {
     await signIn(page)
     const state = await mockAddons(page, { installed: [], releases: [release('tables'), backend()] })
     await mockBackends(page)
     await page.goto('/app/addons?tab=browse')
-    await expect(page.locator('.cat-item')).toHaveCount(2)
-    // A backend says what it is on the entry; an add-on is the default and says it under Details.
-    const tables = page.locator('.cat-item', { hasText: 'Tables' })
-    await expect(tables.getByTestId('entry-kind')).toHaveCount(0)
-    await tables.getByText('Details', { exact: true }).click()
-    await expect(tables.getByTestId('details-kind')).toHaveText('Add-on')
-    const row = page.locator('.cat-item', { hasText: 'cpu-local-store' })
-    await expect(row.getByTestId('entry-kind')).toHaveText('Backend')
-    await expect(row.getByTestId('entry-kind')).toHaveAttribute('data-kind', 'backend')
-    // The page asks for every kind this host reads.
-    expect(state.log.dispatch.find(d => d.action === 'catalog-search').arguments.kind).toBe('all')
-  })
-
-  test('browse: a backend installs through the backend route and never through the add-on lifecycle', async ({ page }) => {
-    await signIn(page)
-    const state = await mockAddons(page, { installed: [], releases: [backend()] })
-    const backends = await mockBackends(page)
-    await page.goto('/app/addons?tab=browse')
-    const row = page.locator('.cat-item', { hasText: 'cpu-local-store' })
-    await row.getByRole('button', { name: 'Install' }).click()
-    const dialog = page.getByRole('alertdialog')
-    await expect(dialog).toContainText('Install cpu-local-store?')
-    await expect(dialog).toContainText('backend gallery is not changed')
-    await expect(dialog).toContainText('native code')
-    expect(backends.installs).toHaveLength(0)
-    await dialog.getByRole('button', { name: 'Install' }).click()
-    // The steps show while the job runs: a signed library lists the signature step.
-    const steps = row.getByTestId('install-steps')
-    await expect(steps.locator('[data-step]')).toHaveCount(5)
-    await expect(steps.locator('[data-step="fetching"]')).toHaveAttribute('data-state', /active|done/)
-    await expect(row.getByText('Installed as a backend on this node')).toBeVisible()
-    await expect(steps).toHaveCount(0)
-    expect(backends.installs).toEqual([{ sourceId: 'official-backends', name: 'cpu-local-store', version: '0.0.0-latest.0a1056fd8633' }])
-    expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(0)
-    // Once installed the entry says so and offers no second install.
-    await expect(row.getByText('Installed', { exact: true })).toBeVisible()
-    await expect(row.getByRole('button', { name: 'Install' })).toHaveCount(0)
-  })
-
-  test('browse: a refusal of the host is shown with its own reason', async ({ page }) => {
-    await signIn(page)
-    await mockAddons(page, { installed: [], releases: [backend()] })
-    await mockBackends(page, {
-      phases: ['resolving'],
-      fail: 'backend is already installed from another origin: "cpu-local-store"',
-    })
-    await page.goto('/app/addons?tab=browse')
-    const row = page.locator('.cat-item', { hasText: 'cpu-local-store' })
-    await row.getByRole('button', { name: 'Install' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Install' }).click()
-    await expect(row.getByRole('alert')).toContainText('The backend was not installed.')
-    await expect(row.getByRole('alert')).toContainText('already installed from another origin')
-    await expect(row.getByRole('button', { name: 'Install' })).toBeEnabled()
-    // The step that failed stays marked.
-    await expect(row.locator('[data-step="resolving"]')).toHaveAttribute('data-state', 'failed')
-    await expect(row.locator('[data-step="fetching"]')).toHaveAttribute('data-state', 'pending')
-  })
-
-  test('browse: a request the host refuses is shown with its reason', async ({ page }) => {
-    await signIn(page)
-    await mockAddons(page, { installed: [], releases: [backend()] })
-    await mockBackends(page, { refuse: { status: 409, json: { error: { type: 'backend_library', code: 409, message: 'this backend is already being installed' } } } })
-    await page.goto('/app/addons?tab=browse')
-    const row = page.locator('.cat-item', { hasText: 'cpu-local-store' })
-    await row.getByRole('button', { name: 'Install' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Install' }).click()
-    await expect(row.getByRole('alert')).toContainText('already being installed')
-  })
-
-  test('browse: the details give the kind, the alias and the signer pattern', async ({ page }) => {
-    await signIn(page)
-    await mockAddons(page, { installed: [], releases: [backend()] })
-    await mockBackends(page)
-    await page.goto('/app/addons?tab=browse')
-    await page.locator('.cat-item', { hasText: 'cpu-local-store' }).getByText('Details', { exact: true }).click()
-    await expect(page.getByTestId('details-kind')).toHaveText('Backend')
-    await expect(page.getByText('local-store', { exact: true })).toBeVisible()
-    await expect(page.getByText('workflows/w', { exact: false })).toBeVisible()
+    // Backends belong to the Backends page: only the add-on is listed.
+    await expect(page.locator('.cat-item')).toHaveCount(1)
+    await expect(page.locator('.cat-item', { hasText: 'Tables' })).toBeVisible()
+    await expect(page.locator('.cat-item', { hasText: 'cpu-local-store' })).toHaveCount(0)
+    await expect(page.getByTestId('entry-kind')).toHaveCount(0)
+    // The page asks for add-ons only.
+    expect(state.log.dispatch.find(d => d.action === 'catalog-search').arguments.kind).toBe('addon')
   })
 
   test('libraries: a signer pattern is edited and saved without an exact identity, and skipped entries are reported', async ({ page }) => {
