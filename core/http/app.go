@@ -482,9 +482,19 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Register auth routes (login, callback, API keys, user management)
 	routes.RegisterAuthRoutes(e, application)
-	routes.RegisterAddonRoutes(e, application)
-	if err := routes.RegisterAddonNavigationRoutes(e, application); err != nil {
-		return nil, fmt.Errorf("register the add-on navigation routes: %w", err)
+	// With add-ons off, no real add-on, fine-tuning or quantization handler is
+	// registered. One handler per prefix answers the same unavailable response
+	// whether or not the path exists, so the off state does not reveal the route
+	// list. With add-ons on, the real routes sit behind the same gate.
+	addonsOn := application.ApplicationConfig().Addons.Enabled
+	if addonsOn {
+		gate := httpMiddleware.RequireAddonsFeature(application)
+		routes.RegisterAddonRoutes(e, application, gate)
+		if err := routes.RegisterAddonNavigationRoutes(e, application, gate); err != nil {
+			return nil, fmt.Errorf("register the add-on navigation routes: %w", err)
+		}
+	} else {
+		routes.RegisterAddonsUnavailable(e, "/api/addons")
 	}
 
 	// Register routing-module usage endpoints. Unlike /api/auth/usage
@@ -521,64 +531,69 @@ func API(application *application.Application) (*echo.Echo, error) {
 	chatHistoryMw := auth.RequireFeature(application.AuthDB(), auth.FeatureChatHistory)
 	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw, chatHistoryMw)
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
-	// Fine-tuning routes
-	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
-	// In distributed mode pass the shared NATS client + PostgreSQL store so
-	// fine-tune jobs stay consistent across replicas (the SyncedMap broadcasts
-	// mutations and hydrates from the DB); standalone passes nil for both.
-	var ftNats messaging.MessagingClient
-	var ftStore *distributed.FineTuneStore
-	if d := application.Distributed(); d != nil {
-		ftNats = d.Nats
-		if d.DistStores != nil && d.DistStores.FineTune != nil {
-			ftStore = d.DistStores.FineTune
+	if addonsOn {
+		// Fine-tuning routes
+		fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
+		// In distributed mode pass the shared NATS client + PostgreSQL store so
+		// fine-tune jobs stay consistent across replicas (the SyncedMap broadcasts
+		// mutations and hydrates from the DB); standalone passes nil for both.
+		var ftNats messaging.MessagingClient
+		var ftStore *distributed.FineTuneStore
+		if d := application.Distributed(); d != nil {
+			ftNats = d.Nats
+			if d.DistStores != nil && d.DistStores.FineTune != nil {
+				ftStore = d.DistStores.FineTune
+			}
 		}
-	}
-	ftService := finetune.NewFineTuneService(
-		application.ApplicationConfig(),
-		application.ModelLoader(),
-		application.ModelConfigLoader(),
-		ftNats,
-		ftStore,
-	)
-	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), application, fineTuningMw)
+		ftService := finetune.NewFineTuneService(
+			application.ApplicationConfig(),
+			application.ModelLoader(),
+			application.ModelConfigLoader(),
+			ftNats,
+			ftStore,
+		)
+		routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), application, fineTuningMw)
 
-	// Quantization routes
-	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
-	// In distributed mode pass the shared NATS client + PostgreSQL store so
-	// quantization jobs stay consistent across replicas (the SyncedMap broadcasts
-	// mutations and hydrates from the DB); standalone passes nil for both.
-	var quantNats messaging.MessagingClient
-	var quantStore *distributed.QuantStore
-	if d := application.Distributed(); d != nil {
-		quantNats = d.Nats
-		if d.DistStores != nil && d.DistStores.Quant != nil {
-			quantStore = d.DistStores.Quant
+		// Quantization routes
+		quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
+		// In distributed mode pass the shared NATS client + PostgreSQL store so
+		// quantization jobs stay consistent across replicas (the SyncedMap broadcasts
+		// mutations and hydrates from the DB); standalone passes nil for both.
+		var quantNats messaging.MessagingClient
+		var quantStore *distributed.QuantStore
+		if d := application.Distributed(); d != nil {
+			quantNats = d.Nats
+			if d.DistStores != nil && d.DistStores.Quant != nil {
+				quantStore = d.DistStores.Quant
+			}
 		}
-	}
-	qService := quantization.NewQuantizationService(
-		application.ApplicationConfig(),
-		application.ModelLoader(),
-		application.ModelConfigLoader(),
-		quantNats,
-		quantStore,
-	)
-	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), application, quantizationMw)
+		qService := quantization.NewQuantizationService(
+			application.ApplicationConfig(),
+			application.ModelLoader(),
+			application.ModelConfigLoader(),
+			quantNats,
+			quantStore,
+		)
+		routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), application, quantizationMw)
 
-	// The add-on host operations reach the same services as the routes. Only the
-	// owner of an add-on host has a broker, so elsewhere this registers nothing.
-	engineBackends := localai.EngineBackends{AppConfig: application.ApplicationConfig(), Capabilities: routes.ClusterCapabilityProviderFor(application), Installed: routes.ClusterInstalledProviderFor(application)}
-	if err := application.RegisterAddonEngineJobs(localai.FineTuneJobs{Svc: ftService}, localai.QuantizationJobs{Svc: qService}, engineBackends); err != nil {
-		return nil, err
-	}
-	if err := application.RegisterAddonEngineProgress(localai.FineTuneProgress{Svc: ftService}, localai.QuantizationProgress{Svc: qService}); err != nil {
-		return nil, err
-	}
-	if err := application.RegisterAddonEngineModels(localai.FineTuneModels{Svc: ftService}, localai.QuantizationModels{Svc: qService}); err != nil {
-		return nil, err
-	}
-	if err := application.RegisterAddonEngineDatasets(localai.NewFineTuneDatasets(ftService)); err != nil {
-		return nil, err
+		// The add-on host operations reach the same services as the routes. Only the
+		// owner of an add-on host has a broker, so elsewhere this registers nothing.
+		engineBackends := localai.EngineBackends{AppConfig: application.ApplicationConfig(), Capabilities: routes.ClusterCapabilityProviderFor(application), Installed: routes.ClusterInstalledProviderFor(application)}
+		if err := application.RegisterAddonEngineJobs(localai.FineTuneJobs{Svc: ftService}, localai.QuantizationJobs{Svc: qService}, engineBackends); err != nil {
+			return nil, err
+		}
+		if err := application.RegisterAddonEngineProgress(localai.FineTuneProgress{Svc: ftService}, localai.QuantizationProgress{Svc: qService}); err != nil {
+			return nil, err
+		}
+		if err := application.RegisterAddonEngineModels(localai.FineTuneModels{Svc: ftService}, localai.QuantizationModels{Svc: qService}); err != nil {
+			return nil, err
+		}
+		if err := application.RegisterAddonEngineDatasets(localai.NewFineTuneDatasets(ftService)); err != nil {
+			return nil, err
+		}
+	} else {
+		routes.RegisterAddonsUnavailable(e, "/api/fine-tuning")
+		routes.RegisterAddonsUnavailable(e, "/api/quantization")
 	}
 
 	// Node management routes (distributed mode)

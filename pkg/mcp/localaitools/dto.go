@@ -91,6 +91,19 @@ type InstallLibraryBackendResult struct {
 	SourceID string `json:"source_id"`
 }
 
+// BackendLibraryUpdate is one installed library backend with a newer build in
+// its library, as list_backend_library_updates returns it. Version is what an
+// install_library_backend call names to take the update.
+type BackendLibraryUpdate struct {
+	Name             string `json:"name"`
+	SourceID         string `json:"sourceId"`
+	InstalledVersion string `json:"installedVersion,omitempty"`
+	InstalledDigest  string `json:"installedDigest,omitempty"`
+	Version          string `json:"version"`
+	Digest           string `json:"digest"`
+	Signed           bool   `json:"signed"`
+}
+
 // Backend is the LLM-facing summary returned by list_backends. We don't
 // expose gallery.SystemBackend directly because it carries filesystem
 // paths (RunFile, IsSystem, IsMeta, the full Metadata) the LLM doesn't

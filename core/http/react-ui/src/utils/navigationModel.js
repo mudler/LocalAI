@@ -11,9 +11,12 @@ export const primaryDestinations = Object.freeze([
   { path: '/app/addons', icon: 'puzzle', labelKey: 'items.addons', addonsEntry: true },
 ])
 
-export function visiblePrimary(items, { isAdmin, hasFeature, hasBuiltin }) {
+// `features` is the /api/features map. An absent `addons` key (an older server)
+// counts as on; only an explicit false hides the Add-ons entry.
+export function visiblePrimary(items, { isAdmin, hasFeature, hasBuiltin, features }) {
   return items.filter(item => {
     if (item.adminOnly && !isAdmin) return false
+    if (item.addonsEntry && features?.addons === false) return false
     if (item.addonsEntry && !isAdmin && !hasFeature('addons') && !hasBuiltin) return false
     return true
   })

@@ -70,11 +70,11 @@ var _ = Describe("Library source routes", func() {
 				return next(c)
 			}
 		})
-		e := LibrarySourcesEndpoints{
+		e := LibrarySourcesEndpoints{Admin: library.LocalAdmin{
 			Store:    func() (*catalog.Sources, error) { return store, nil },
 			Official: func() bool { return official },
 			Applied:  func(d ...string) error { applied++; dropped = append(dropped, d...); return nil },
-		}
+		}}
 		admin := auth.RequireAdmin()
 		app.GET("/api/library/sources", e.List(), admin)
 		app.POST("/api/library/sources", e.Add(), admin)
