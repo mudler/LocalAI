@@ -9,6 +9,8 @@ export function createApi(ctx) {
 
   return {
     quantize: {
+      // {model_exports: bool}: false when this instance cannot share the models path of the owner.
+      status: () => json('/api/quantization/status'),
       listBackends: () => json('/api/quantization/backends'),
       startJob: (data) => post('/api/quantization/jobs', data),
       listJobs: () => json('/api/quantization/jobs'),

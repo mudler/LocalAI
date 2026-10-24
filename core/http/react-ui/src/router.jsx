@@ -210,9 +210,21 @@ function Admin({ children }) {
 
 // The layout of the add-on routes: the Build hub bar under the legacy switch,
 // the bare page otherwise.
+// With add-ons off (features.addons === false) the add-on addresses and the
+// old fine-tuning and quantization addresses lead back to /app. An absent key
+// counts as on.
+function AddonsOffRedirect({ children }) {
+  const { features, featuresLoaded } = useHubAuth()
+  if (!featuresLoaded) return null
+  if (features.addons === false) return <Navigate to="/app" replace />
+  return children
+}
+
 function AddonsShell() {
-  const { features } = useHubAuth()
+  const { features, featuresLoaded } = useHubAuth()
   const outletContext = useOutletContext()
+  if (!featuresLoaded) return null
+  if (features.addons === false) return <Navigate to="/app" replace />
   if (features.addon_navigation === false) return <HubLayout config={buildHub} />
   return <Outlet context={outletContext} />
 }
@@ -284,8 +296,8 @@ const appChildren = [
       { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
       { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
       { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-      { path: 'fine-tune', element: <AddonRedirect addon="fine-tuning" page="jobs" /> },
-      { path: 'quantize', element: <AddonRedirect addon="quantization" page="jobs" /> },
+      { path: 'fine-tune', element: <AddonsOffRedirect><AddonRedirect addon="fine-tuning" page="jobs" /></AddonsOffRedirect> },
+      { path: 'quantize', element: <AddonsOffRedirect><AddonRedirect addon="quantization" page="jobs" /></AddonsOffRedirect> },
       { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
       { path: 'face/:model', element: <AddonRedirect addon="face" page="recognition" withModel /> },
       { path: 'voice', element: <AddonRedirect addon="voice" page="voice/recognition" /> },

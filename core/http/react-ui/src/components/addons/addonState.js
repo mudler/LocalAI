@@ -1,10 +1,12 @@
 // Pure helpers for the add-on pages. No React and no network.
 import { updateView } from './updateState.js'
 
-// Tabs. Apps is for everyone; the other three are management and the server
-// checks administration again on every call they make.
-export const TABS = ['apps', 'browse', 'installed', 'libraries']
-export const ADMIN_TABS = new Set(['browse', 'installed', 'libraries'])
+// Tabs: My add-ons is for everyone; Find add-ons and Sources are management and
+// the server checks administration again on every call they make. What the old
+// Installed tab showed is now the Details of an add-on in My add-ons, so an old
+// ?tab=installed address lands on My add-ons.
+export const TABS = ['apps', 'browse', 'libraries']
+export const ADMIN_TABS = new Set(['browse', 'libraries'])
 
 export function resolveTab(requested, isAdmin) {
   if (requested && TABS.includes(requested) && (isAdmin || !ADMIN_TABS.has(requested))) return requested
@@ -21,7 +23,25 @@ export function showFirstRun({ apps, isAdmin, canList = true }) {
   return Boolean(isAdmin) && Boolean(canList) && Array.isArray(apps) && apps.length === 0
 }
 
-// The management link of an app opens the Installed tab on that add-on.
+// What the My add-ons list shows. Nothing installed is a first run for someone
+// who can install, and plain emptiness for anyone else. A search that finds
+// nothing says so: it never claims that nothing is installed.
+export function listState({ apps, shownCount, query, isAdmin, canList = true }) {
+  if (showFirstRun({ apps, isAdmin, canList })) return 'first-run'
+  if (shownCount > 0) return 'list'
+  if (String(query || '').trim() && Array.isArray(apps) && apps.length > 0) return 'no-match'
+  return 'none'
+}
+
+// The add-ons to offer when nothing is installed: the first entries of the
+// sources that install as add-ons and are not installed yet. The sources do
+// not mark any entry as featured, so this is their own order.
+export function featuredEntries(entries, installedIds = [], limit = 3) {
+  const have = new Set(installedIds)
+  return (Array.isArray(entries) ? entries : []).filter(e => e && e.kind === 'addon' && !have.has(e.id)).slice(0, limit)
+}
+
+// The management link of an app opens the Details of that add-on.
 export function resolveManage(params, isAdmin) {
   if (!isAdmin) return ''
   const id = params.get('manage') || ''
@@ -80,6 +100,22 @@ export function toolSummary(app, limit = 4) {
   const tools = Array.isArray(app?.tools) ? app.tools : []
   const count = Number.isFinite(app?.toolCount) ? app.toolCount : tools.length
   return { shown: tools.slice(0, limit), more: Math.max(0, count - Math.min(limit, tools.length)), count }
+}
+
+// What an add-on adds to LocalAI, from the facts the list already carries: a
+// page (an add-on with a UI) and chat tools (the tools it offers the model).
+// Nothing here is guessed: no field, no line.
+export function addedByAddon(app) {
+  const tools = toolSummary(app)
+  return { page: Boolean(app && (app.hasUI || app.mainPage)), tools: tools.count, toolNames: tools.shown, toolsMore: tools.more }
+}
+
+// Screenshots an add-on ships, when the host lists them. The list carries none
+// today, so the preview shows no slot; a path is used only when it is served by
+// the host itself, as icons are.
+export function screenshotsOf(app, limit = 6) {
+  const list = Array.isArray(app && app.screenshots) ? app.screenshots : []
+  return list.filter(src => typeof src === 'string' && src.startsWith('/') && !src.startsWith('//')).slice(0, limit)
 }
 
 export function shortDigest(digest) {

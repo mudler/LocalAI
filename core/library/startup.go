@@ -143,16 +143,31 @@ func Option(dataPath string, official, backendLibrary, useOfficial bool) config.
 // dropped names the addresses of sources that were deleted: a deleted source is
 // no longer in the store, so only the caller can say its gallery must go.
 func Reconcile(store *catalog.Sources, models, backends []config.Gallery, dropped ...string) ([]config.Gallery, []config.Gallery) {
-	return reconcileKind(store, catalog.KindModel, models, dropped), reconcileKind(store, catalog.KindBackend, backends, dropped)
+	entries := store.Entries()
+	return reconcileKind(entries, catalog.KindModel, models, dropped), reconcileKind(entries, catalog.KindBackend, backends, dropped)
 }
 
-func reconcileKind(store *catalog.Sources, kind catalog.Kind, current []config.Gallery, dropped []string) []config.Gallery {
+// ReconcileInfos is Reconcile for a source list that was read from the owner
+// of the store, as a frontend does. Each Info carries the state the host acts
+// on, so the result is the one the owner's own Reconcile gives.
+func ReconcileInfos(infos []Info, models, backends []config.Gallery) ([]config.Gallery, []config.Gallery) {
+	entries := make([]catalog.Source, 0, len(infos))
+	for _, in := range infos {
+		entries = append(entries, catalog.Source{
+			ID: in.ID, Name: in.Name, URL: in.URL, Kind: in.Kind, Format: in.Format,
+			Enabled: in.Enabled, Default: in.Default, Removed: in.Removed, Suspended: in.Suspended, Mirrors: in.Mirrors,
+		})
+	}
+	return reconcileKind(entries, catalog.KindModel, models, nil), reconcileKind(entries, catalog.KindBackend, backends, nil)
+}
+
+func reconcileKind(entries []catalog.Source, kind catalog.Kind, current []config.Gallery, dropped []string) []config.Gallery {
 	live := map[string]catalog.Source{}
 	known := map[string]bool{}
 	for _, u := range dropped {
 		known[u] = true
 	}
-	for _, e := range store.Entries() {
+	for _, e := range entries {
 		if e.Kind == kind {
 			known[e.URL] = true
 		}
@@ -174,7 +189,7 @@ func reconcileKind(store *catalog.Sources, kind catalog.Kind, current []config.G
 			have[g.URL] = true
 		}
 	}
-	for _, e := range store.Entries() {
+	for _, e := range entries {
 		if _, ok := live[e.URL]; ok && e.Kind == kind && readsAsGallery(kind, e) && !have[e.URL] {
 			out = append(out, config.Gallery{Name: e.Name, URL: e.URL, Mirrors: e.Mirrors, Library: e.Format != catalog.FormatGallery})
 			have[e.URL] = true
