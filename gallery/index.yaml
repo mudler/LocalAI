@@ -3951,7 +3951,7 @@
       uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
     - filename: llama-cpp/mmproj/qwen3.8-27b-uncensored/vision-f16.gguf
       sha256: 5ac423f8a29059dc24e51bc6a43e9380dcd57a9347f28b62591e0b3f60b7081c
-      uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/Qwen3.8-27B-Uncensored-vision-f16.gguf
+      uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/mmproj-Qwen3.8-27B-Uncensored-F16.gguf
   overrides:
     backend: llama-cpp
     context_size: 262144
@@ -4007,7 +4007,7 @@
       uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/Qwen3.8-27B-Uncensored-Q8_0.gguf
     - filename: llama-cpp/mmproj/qwen3.8-27b-uncensored/vision-f16.gguf
       sha256: 5ac423f8a29059dc24e51bc6a43e9380dcd57a9347f28b62591e0b3f60b7081c
-      uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/Qwen3.8-27B-Uncensored-vision-f16.gguf
+      uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/mmproj-Qwen3.8-27B-Uncensored-F16.gguf
   overrides:
     backend: llama-cpp
     context_size: 262144
