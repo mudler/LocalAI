@@ -1051,6 +1051,12 @@ github.com/mudler/LocalAGI v0.0.0-20261016084905-7aa0c8fea076 h1:IHWoTN1T3LEfI08
 github.com/mudler/LocalAGI v0.0.0-20261016084905-7aa0c8fea076/go.mod h1:Zt29aPgdHzUgXnD3mmvkAkWSmVAy3dWEx30Pyp6yT9A=
 github.com/mudler/cogito v0.11.1-0.20260928072733-b40513ef5d1a h1:b3bZ15XGd3kH+gje6ggFAciT4uC83+24xO/qc3o4viQ=
 github.com/mudler/cogito v0.11.1-0.20260928072733-b40513ef5d1a/go.mod h1:UxGNMBRakV0A2uVHv2JQIHjpnVPkEWFaS7SDhyynZqQ=
+github.com/mudler/cogito v0.11.1-0.20261002063524-935bd35a9b27 h1:W9ZrEibGNUfbFFF/rMoI4AwgIEtwzEJlK3OQGuguUYo=
+github.com/mudler/cogito v0.11.1-0.20261002063524-935bd35a9b27/go.mod h1:UxGNMBRakV0A2uVHv2JQIHjpnVPkEWFaS7SDhyynZqQ=
+github.com/mudler/cogito v0.11.1-0.20261021091636-d9a2eb016706 h1:vg9rxiQC/ZzyAVV4g/9Rvnz6CtCry40CS6Z9cTEvnhM=
+github.com/mudler/cogito v0.11.1-0.20261021091636-d9a2eb016706/go.mod h1:UxGNMBRakV0A2uVHv2JQIHjpnVPkEWFaS7SDhyynZqQ=
+github.com/mudler/cogito v0.11.1-0.20261021142612-1db9d39e4c34 h1:PVzzfHHSwpx7qDGTRpk28EFADLR14Sute0nn5ZGMF9k=
+github.com/mudler/cogito v0.11.1-0.20261021142612-1db9d39e4c34/go.mod h1:UxGNMBRakV0A2uVHv2JQIHjpnVPkEWFaS7SDhyynZqQ=
 github.com/mudler/edgevpn v0.34.0 h1:qDrD/rCPFY/FdURbXudIZWihVKY4VOX3nMn3CcbeQEU=
 github.com/mudler/edgevpn v0.34.0/go.mod h1:yki7uMi5LR9gSMrw8PdPieuxsrk8BLV2Ui7VBEmbbIA=
 github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc h1:RxwneJl1VgvikiX28EkpdAyL4yQVnJMrbquKospjHyA=
@@ -1065,6 +1071,12 @@ github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8 h1:Ry8RiWy8fZ6Ff4E7d
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8/go.mod h1:EA8Ashhd56o32qN7ouPKFSRUs/Z+LrRCF4v6R2Oarm8=
 github.com/mudler/nib v0.12.1 h1:7yKZeOWcIac62UoNb3J2R/oEtFYzebFwgap9HPjIJdI=
 github.com/mudler/nib v0.12.1/go.mod h1:I6diFODU8ALfPwFIbvrwpLDfhyBu6wAzoseig9jJEQ4=
+github.com/mudler/nib v0.12.2-0.20261020064257-4bdb29c37b09 h1:ZVNhqCw/3gN02yf1mC6dqUf1LAw+ZCYIGxLJk6qQc8U=
+github.com/mudler/nib v0.12.2-0.20261020064257-4bdb29c37b09/go.mod h1:Ry8cDBXJdj4wDqByRnLymT+rngA8WeXbLlAayRdn4b8=
+github.com/mudler/nib v0.12.2-0.20261021094032-bd3e43d930fe h1:E7hNyq4WeI4BNBgl1CjGks4/1zcDvvSe69wLv4LY9ts=
+github.com/mudler/nib v0.12.2-0.20261021094032-bd3e43d930fe/go.mod h1:p5bMpc/Md1wpETbgYkGCh9oYm1hHD8zeiM8bt2xgdwc=
+github.com/mudler/nib v0.12.2-0.20261021145134-5b5bca4a8539 h1:jqVGBLVlBWJjFWRcJnOqNow/JfHhV5iO1euZFg/TL5E=
+github.com/mudler/nib v0.12.2-0.20261021145134-5b5bca4a8539/go.mod h1:1k94R89qF2wj2VPWPxno9Ipj2VRpGYjE16c55pdaYT8=
 github.com/mudler/skillserver v0.0.7-0.20260520220837-a7317cbf9145 h1:z59tA3IDYPt71nzH1jpxeaA1LuDw8aZfpTQFNU43Zb8=
 github.com/mudler/skillserver v0.0.7-0.20260520220837-a7317cbf9145/go.mod h1:z3yFhcL9bSykmmh6xgGu0hyoItd4CnxgtWMEWw8uFJU=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025 h1:WFLP5FHInarYGXi6B/Ze204x7Xy6q/I4nCZnWEyPHK0=
