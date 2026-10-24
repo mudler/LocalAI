@@ -284,7 +284,7 @@ jobs:
           go run ./scripts/addons/cmd/addonpkg merge --config "addons/$ADDON/package/platforms.yaml" \
             --out merged --version "$VERSION" --revision "$SHA" legs/*
       - name: Registry login
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ needs.plan.outputs.registry }}
           username: ${{ secrets.ADDON_OCI_USERNAME }}
@@ -375,7 +375,7 @@ jobs:
           name: digest-${{ matrix.addon }}
           path: digest
       - name: Registry login
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ needs.plan.outputs.registry }}
           username: ${{ secrets.ADDON_OCI_USERNAME }}
