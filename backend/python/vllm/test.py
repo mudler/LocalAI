@@ -762,6 +762,24 @@ class TestStreamingReasoningSplit(unittest.TestCase):
     THINK = ["Let me ", "count the ", "primes.", "</think>"]
     ANSWER = ["There are ", "37 primes."]
 
+    def setUp(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import backend
+
+        def parser_request(model, messages, tools=None):
+            return SimpleNamespace(
+                model=model, messages=messages,
+                tools=[SimpleNamespace(function=SimpleNamespace(**tool["function"]))
+                       for tool in tools] if tools else None,
+            )
+
+        # These fake-parser tests also run on backend profiles whose vLLM
+        # predates ParserManager and therefore has no _ParserRequest import.
+        request_patch = patch.object(backend, "_ParserRequest", parser_request, create=True)
+        request_patch.start()
+        self.addCleanup(request_patch.stop)
+
     class _DeltaMsg:
         def __init__(self, content=None, reasoning=None, tool_calls=None):
             self.content = content
