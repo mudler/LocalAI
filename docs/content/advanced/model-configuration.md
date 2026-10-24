@@ -686,7 +686,7 @@ These load-time options control how the backend parses `<think>` reasoning block
 This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg toggles thinking on/off per call without restarting the model. It can be driven either by the YAML `reasoning.disable` field (model default) or per request via the OpenAI `reasoning_effort` field on `/v1/chat/completions`:
 
 - `reasoning_effort: "none"` disables thinking for that request (`enable_thinking=false`) - useful to run a single reasoning model like Qwen3 for low-latency tasks while still enabling reasoning on other requests.
-- `reasoning_effort: "minimal" | "low" | "medium" | "high"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
+- `reasoning_effort: "minimal" | "low" | "medium" | "high" | "xhigh" | "max"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
 {{% /notice %}}
 
 #### `reasoning_effort` as a chat-template kwarg
@@ -697,7 +697,7 @@ Set a per-model default in the config so every request inherits it (a per-reques
 
 ```yaml
 name: my-model
-reasoning_effort: none   # none | minimal | low | medium | high
+reasoning_effort: none   # none | minimal | low | medium | high | xhigh | max
 ```
 
 For [realtime pipelines]({{%relref "features/openai-realtime" %}}), set it on the pipeline so it applies to the pipeline's LLM without editing that model's own config:
