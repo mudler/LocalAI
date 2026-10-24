@@ -38,10 +38,11 @@ export function createVoiceRecognition(ctx, api, identity) {
   function FeatureOff({ feature, tabs }) {
     return (
       <main className="page idn-page idn-off" data-testid="voice-off">
+        <ui.PageHeader title={t('voices.title')} supporting={t('voices.lede')} />
         {tabs}
         <section className="idn-needed dk-card">
           <span className="dk-badge dk-badge--warn"><Icon name="lock" /> {t('off.badge')}</span>
-          <h1 className="idn-h2">{t(`off.${feature}.title`)}</h1>
+          <h2 className="idn-h2">{t(`off.${feature}.title`)}</h2>
           <p className="idn-needed__text">{t(`off.${feature}.text`)}</p>
           <details className="idn-disclosure" open>
             <summary><Icon name="chevron-right" /> {t('needed.whatTitle')}</summary>

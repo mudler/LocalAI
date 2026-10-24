@@ -62,7 +62,11 @@
     "thisMachine": "Mesin ini",
     "failover": "Failover",
     "p2p": "P2P",
-    "addons": "Add-on"
+    "addons": "Add-on",
+    "logs": "Logs",
+    "trafficModels": "Models",
+    "gpuHost": "GPU and host",
+    "prometheus": "Prometheus"
   },
   "footer": {
     "github": "GitHub",
@@ -72,7 +76,9 @@
   },
   "console": {
     "automation": "Automasi",
-    "training": "Pelatihan"
+    "training": "Pelatihan",
+    "expandNavigation": "Expand {{section}} navigation",
+    "collapseNavigation": "Collapse {{section}} navigation"
   },
   "hub": {
     "status": "Status",

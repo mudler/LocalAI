@@ -42,9 +42,55 @@ var (
 	ErrNoCapability = errors.New("the meta backend has no backend for this host")
 )
 
+// Plan is what the owner of the libraries decides for one install: the entry
+// resolved, a meta backend replaced by the backend that serves the capability
+// of the asking host, and the image pinned by digest with the library's
+// signature policy. Whoever installs it runs the gallery install on its own
+// node and applies its own size limit and strict mode. A Plan crosses the
+// carrier between a frontend and the owner.
+type Plan struct {
+	// Name and Library are the backend ID and the library it came from.
+	Name    string `json:"name"`
+	Library string `json:"library"`
+	Alias   string `json:"alias,omitempty"`
+	// URI and Mirrors name the image by digest.
+	URI     string   `json:"uri"`
+	Mirrors []string `json:"mirrors,omitempty"`
+	Version string   `json:"version"`
+	// SourceURL is the address of the library index.
+	SourceURL string `json:"sourceUrl,omitempty"`
+	// Verification is set when the library requires a signature.
+	Verification *config.GalleryVerification `json:"verification,omitempty"`
+}
+
+// Ref names one library backend whose releases a caller asks for.
+type Ref struct {
+	SourceID string `json:"sourceId"`
+	Name     string `json:"name"`
+}
+
+// Remote is the owner of the libraries, reached over the carrier. A frontend
+// has no library index: it asks the owner to resolve an entry and to list the
+// releases of the backends it has installed.
+type Remote interface {
+	// Resolve returns the plan of an entry. capability is the capability
+	// the asking host reports, used to pick the backend of a meta backend.
+	Resolve(ctx context.Context, sourceID, backend, version, capability string) (Plan, error)
+	// Releases returns the releases of each ref, by "<source>/<name>".
+	Releases(ctx context.Context, refs []Ref) (map[string][]catalog.Release, error)
+	// Target is the OS and architecture the owner resolves for.
+	Target(ctx context.Context) (string, string, error)
+}
+
+// RefKey is the key of a ref in the map that Remote.Releases returns.
+func RefKey(sourceID, name string) string { return sourceID + "/" + name }
+
 // Installer installs library backends on the local node.
 type Installer struct {
-	Catalog     catalog.Catalog
+	Catalog catalog.Catalog
+	// Remote, when set, replaces Catalog: the owner resolves the entry and
+	// this node installs it.
+	Remote      Remote
 	SystemState *system.SystemState
 	ModelLoader *model.ModelLoader
 	// MaxBytes bounds the compressed size of the image. Zero means the default
@@ -107,42 +153,86 @@ func (p Progress) step(s string) {
 // or the channel of the entry, as for an add-on.
 func (i *Installer) Install(ctx context.Context, sourceID, backend, version string, progress Progress) error {
 	progress.step(StepResolving)
-	r, err := i.Catalog.ResolveKind(ctx, catalog.KindBackend, sourceID, backend, version)
+	var plan Plan
+	var err error
+	if i.Remote != nil {
+		capability := ""
+		if i.SystemState != nil {
+			capability = i.SystemState.ReportedCapability()
+		}
+		plan, err = i.Remote.Resolve(ctx, sourceID, backend, version, capability)
+	} else {
+		plan, err = i.Resolve(ctx, sourceID, backend, version, "")
+	}
 	if err != nil {
 		return err
+	}
+	return i.installPlan(ctx, plan, progress)
+}
+
+// Resolve is the owner's half of an install: it resolves the entry, replaces a
+// meta backend by the backend that serves capability, and pins the image. An
+// empty capability means the capability of this host. It installs nothing and
+// checks no collision, because the node that installs may be another one.
+func (i *Installer) Resolve(ctx context.Context, sourceID, backend, version, capability string) (Plan, error) {
+	r, err := i.Catalog.ResolveKind(ctx, catalog.KindBackend, sourceID, backend, version)
+	if err != nil {
+		return Plan{}, err
 	}
 	if r.IsMeta() {
 		// A meta backend installs nothing itself: the host picks the backend
 		// that serves its capability and that one is installed, pinned and
 		// verified like any other.
-		if r, err = i.concrete(ctx, sourceID, r); err != nil {
-			return err
+		if r, err = i.concrete(ctx, sourceID, r, capability); err != nil {
+			return Plan{}, err
 		}
 	}
 	gb, err := i.plan(ctx, r)
 	if err != nil {
-		return err
+		return Plan{}, err
 	}
-	if err := i.checkCollision(r); err != nil {
+	p := Plan{Name: gb.Name, Library: gb.Library, Alias: gb.Alias, URI: gb.URI, Mirrors: gb.Mirrors, Version: gb.Version, SourceURL: gb.Gallery.URL, Verification: gb.Gallery.Verification}
+	return p, nil
+}
+
+// installPlan is the node's half: collision check and the gallery install, with
+// this node's strict mode and size limit.
+func (i *Installer) installPlan(ctx context.Context, p Plan, progress Progress) error {
+	if p.Name == "" || !strings.HasPrefix(p.URI, "oci://") {
+		return ErrInvalid
+	}
+	if i.RequireIntegrity && p.Verification == nil {
+		return fmt.Errorf("%w (library %q)", ErrIntegrity, p.Library)
+	}
+	if err := i.checkCollision(p.Name, p.Library); err != nil {
 		return err
 	}
 	install := i.install
 	if install == nil {
 		install = gallery.InstallBackend
 	}
+	gb := &gallery.GalleryBackend{URI: p.URI, Version: p.Version, Alias: p.Alias, Library: p.Library, MaxBytes: i.limit(), Mirrors: p.Mirrors}
+	gb.Name = p.Name
+	gb.Gallery = config.Gallery{Name: "library:" + p.Library, URL: p.SourceURL, Verification: p.Verification}
 	// With a verification policy the gallery install verifies the signature of
 	// the pinned image before it fetches any layer, then applies the size limit.
 	gb.Stage = progress.Step
 	return install(ctx, i.SystemState, i.ModelLoader, gb, progress.Bytes, i.RequireIntegrity)
 }
 
-// concrete returns the release a meta backend names for this host, in the same
-// library and the same channel.
-func (i *Installer) concrete(ctx context.Context, sourceID string, meta catalog.Release) (catalog.Release, error) {
-	if i.SystemState == nil || meta.Channel == "" {
+// concrete returns the release a meta backend names for a host that reports
+// capability (this host when it is empty), in the same library and channel.
+func (i *Installer) concrete(ctx context.Context, sourceID string, meta catalog.Release, capability string) (catalog.Release, error) {
+	if meta.Channel == "" || (capability == "" && i.SystemState == nil) {
 		return catalog.Release{}, ErrInvalid
 	}
-	id := meta.Capabilities[i.SystemState.Capability(meta.Capabilities)]
+	var pick string
+	if capability == "" {
+		pick = i.SystemState.Capability(meta.Capabilities)
+	} else {
+		pick = system.PickCapability(capability, meta.Capabilities)
+	}
+	id := meta.Capabilities[pick]
 	if id == "" || id == meta.ID {
 		return catalog.Release{}, fmt.Errorf("%w: %q", ErrNoCapability, meta.ID)
 	}
@@ -220,7 +310,7 @@ func (i *Installer) plan(ctx context.Context, r catalog.Release) (*gallery.Galle
 // checkCollision refuses to replace a backend that did not come from this
 // library: one installed from a gallery, from another library or by hand.
 // Installing again from the same library is a reinstall.
-func (i *Installer) checkCollision(r catalog.Release) error {
+func (i *Installer) checkCollision(name, library string) error {
 	backends, err := gallery.ListSystemBackends(i.SystemState)
 	if errors.Is(err, os.ErrNotExist) {
 		// No backends directory yet: nothing can collide.
@@ -229,12 +319,12 @@ func (i *Installer) checkCollision(r catalog.Release) error {
 	if err != nil {
 		return err
 	}
-	have, ok := backends.Get(r.ID)
+	have, ok := backends.Get(name)
 	if !ok || have.IsSystem {
 		return nil
 	}
-	if have.Metadata == nil || have.Metadata.Library != r.SourceID {
-		return fmt.Errorf("%w: %q", ErrCollision, r.ID)
+	if have.Metadata == nil || have.Metadata.Library != library {
+		return fmt.Errorf("%w: %q", ErrCollision, name)
 	}
 	return nil
 }

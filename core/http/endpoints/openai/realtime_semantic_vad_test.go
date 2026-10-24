@@ -461,7 +461,7 @@ var _ = Describe("transcribeUtterance", func() {
 var _ = Describe("emitPrecomputedTranscription", func() {
 	It("emits deltas then completed, sharing the item id", func() {
 		tr := &fakeTransport{}
-		Expect(emitPrecomputedTranscription(tr, "item42", []string{"a", "", "b"}, "ab")).To(Succeed())
+		Expect(emitPrecomputedTranscription(tr, "item42", []string{"a", "", "b"}, "ab", nil)).To(Succeed())
 
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionDelta)).To(Equal(2), "empty deltas skipped")
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
@@ -478,7 +478,7 @@ var _ = Describe("emitPrecomputedTranscription", func() {
 
 	It("emits only the completed event with no deltas", func() {
 		tr := &fakeTransport{}
-		Expect(emitPrecomputedTranscription(tr, "item1", nil, "hi")).To(Succeed())
+		Expect(emitPrecomputedTranscription(tr, "item1", nil, "hi", nil)).To(Succeed())
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionDelta)).To(Equal(0))
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
 	})
