@@ -69,6 +69,9 @@ curl -X POST http://localhost:8080/api/quantization/jobs/{job_id}/import \
 | `POST` | `/api/quantization/jobs/:id/import` | Import quantized model into LocalAI |
 | `GET` | `/api/quantization/jobs/:id/download` | Download quantized GGUF file |
 | `GET` | `/api/quantization/backends` | List available quantization backends |
+| `GET` | `/api/quantization/status` | Whether model imports are allowed on this instance |
+
+`GET /api/fine-tuning/status` and `GET /api/quantization/status` return `{"model_exports": true|false}`. The value is `false` only when this instance does not see the models path of the add-on owner; it is the same value as the `model_exports` key of `GET /api/features`. The Web UI disables the import controls while it is `false`. Both routes need an authenticated user and answer `503` when add-ons are off.
 
 ### Job Request Fields
 
@@ -84,6 +87,10 @@ curl -X POST http://localhost:8080/api/quantization/jobs/{job_id}/import \
 | Key | Description |
 |-----|-------------|
 | `hf_token` | HuggingFace token for gated models |
+
+{{% notice note %}}
+In a split deployment (`--addons-role=owner` and `--addons-role=frontend`), the export writes into the models path. That path must be the shared models storage. See [The models path](../addons/#the-models-path).
+{{% /notice %}}
 
 ### Import Request Fields
 
@@ -160,6 +167,8 @@ The Quantize page is the `quantization` add-on. It does not ship with LocalAI. A
 The old link `/app/quantize` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
 
 The API does not change. The page calls `/api/quantization/*` with the signed-in user's own session, and the server checks the quantization permission on every call.
+
+With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/quantize` leads back to `/app`, and every path under `/api/quantization` answers `503`. See [The addons feature gate](../addons/#the-addons-feature-gate).
 
 The add-on also offers tools to the chat: list jobs, propose a job, read the status of a job, stop a job and import the result as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or import it. A tool never starts, stops or imports anything by itself: it proposes the action and a person confirms it in an approval card. A model given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `quantize.` prefix, and they run with the permissions of the person in the chat.
 
