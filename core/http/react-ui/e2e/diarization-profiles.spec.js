@@ -27,8 +27,9 @@ async function setup(page, permission = true, diarizationPermission = true) {
     return route.fulfill({ json: data })
   })
   await page.route('**/v1/audio/diarization', route => route.fulfill({ json: result }))
-  // Studio is an add-on. Installed after the catch-all above, so its routes win.
-  await installStudioAddons(page, { ids: ['studio'] })
+  // Studio and Voice are add-ons. Installed after the catch-all above, so their routes win.
+  // The remembered-voices link opens the Voice add-on page.
+  await installStudioAddons(page, { ids: ['studio', 'voice'] })
   await page.goto('/app/diarization')
   if (!diarizationPermission) return
   await expect(page.getByRole('button', { name: 'diarizer', exact: true })).toBeVisible()
