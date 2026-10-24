@@ -15,8 +15,10 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/artifacts"
+	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
+	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/core/services/addons/resources"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
@@ -92,6 +94,15 @@ func (a *Application) RegisterAddonEngineProgress(ft, q hostops.ProgressSource) 
 func (a *Application) RegisterAddonEngineModels(ex hostops.Exporter, im hostops.Importer) error {
 	if a.addonHostOps == nil {
 		return nil
+	}
+	// The owner writes the exports, so it refuses them while its models path
+	// does not hold its probe.
+	ok := a.ownerProbeCurrent
+	if ex != nil {
+		ex = guardedExporter{Exporter: ex, ok: ok}
+	}
+	if im != nil {
+		im = guardedImporter{Importer: im, ok: ok}
 	}
 	return hostops.RegisterEngineModels(a.addonHostOps.Broker, ex, im)
 }
@@ -209,6 +220,14 @@ func (a *Application) startAddonGateway() error {
 	if cfg.InstanceID != cfg.OwnerID {
 		g.Forward = carrier
 		a.addonGateway = g
+		// The frontend installs backends on its own node and takes the
+		// resolved plan from the owner.
+		a.backendLibrary = &backendlib.Installer{
+			Remote: remoteBackends{a}, SystemState: a.applicationConfig.SystemState, ModelLoader: a.modelLoader,
+			MaxBytes: cfg.BackendMaxBytes, RequireIntegrity: a.applicationConfig.RequireBackendIntegrity,
+		}
+		go a.runLibraryRefresh(a.applicationConfig.Context)
+		go a.runModelsProbe(a.applicationConfig.Context)
 		return nil
 	}
 	// Only the owner holds the policy store. Other frontends reach it through the
@@ -301,6 +320,19 @@ func (a *Application) startAddonGateway() error {
 	}
 	manage := resources.New(resourceOpts)
 	g.Resources = manage
+	// The owner serves the library calls of the frontends. A node with no
+	// source store (no catalog) has nothing to serve.
+	if a.addonSources != nil {
+		g.Libraries = a.newLibraryOwner()
+		g.OS, g.Arch = cfg.Host.OS, cfg.Host.Arch
+	}
+	g.ModelsProbe = func() (modelsprobe.Probe, bool) {
+		p := a.modelsProbe.own.Load()
+		if p == nil {
+			return modelsprobe.Probe{}, false
+		}
+		return *p, true
+	}
 	loop := policy.NewReconcileLoop(p, exists, a.addonReconcileTick)
 	loop.Resume = manage.Resume
 	loop.Report = func(r policy.ReconcileReport, err error) {
