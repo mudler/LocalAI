@@ -4,6 +4,44 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: deepseek-v4.1-flash-1017
+  description: "# DeepSeek-V4.1-Flash-1017\n\nTechnical Report \U0001F441️\n\n## Introduction\n\n**DeepSeek-V4.1-Flash-1017** is a minor update to **DeepSeek-V4.1-Flash**, delivering substantial improvements across reasoning, coding, agentic tasks, and visual benchmarks. Alongside these gains, the model reduces task execution time and output length, enabling users to complete tasks faster and at lower cost and advancing the performance–cost Pareto frontier across multiple agent harnesses.\n\n*† denotes the text-only subset of HLE. We use the Claude Code harness for Terminal-Bench 4.0 and the Mini-SWE-V2 harness for DeepSWE v1.1.*\n\n## Prompt Encoding\n\nThis release does not include a Jinja-format chat template. The `encoding` folder contains a self-contained Python reference implementation (`encoding.py`) with test cases for multi-turn conversations, tool calling, thinking mode, numeric reasoning effort, mid-conversation system messages, and interleaved image content.\n\n...\n"
+  license: mit
+  urls:
+    - https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
+  tags:
+    - llm
+    - gguf
+    - deepseek
+  files:
+    - filename: llama-cpp/models/dspark-DeepSeek-V4.1-Flash-1017-Q8_0/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+      sha256: 6ba6ac1b331c540691a209e7fc97dec2a24e295acb1e755c84c7d24a4373927a
+      uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/main/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+    - filename: llama-cpp/mmproj/dspark-DeepSeek-V4.1-Flash-1017-Q8_0/mmproj-F16.gguf
+      sha256: dad8ad13f1d9a25757e121592d7b4f8ca83620d1172048004998b7c0b964b18e
+      uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/dspark-DeepSeek-V4.1-Flash-1017-Q8_0/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/dspark-DeepSeek-V4.1-Flash-1017-Q8_0/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
