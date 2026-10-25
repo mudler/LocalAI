@@ -1,0 +1,322 @@
+/* ==========================================================================
+   Chats: conversations the server keeps. A list on the left, one conversation
+   on the right with its waiting messages folded into the composer.
+   Flat surfaces, hairlines, no coloured rails. Streaming text sits in a live
+   region; motion is the kit's and reduced motion switches it off there.
+   ========================================================================== */
+
+.ch-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ch-list {
+  width: 260px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-4) var(--dk-space-3);
+  background: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border-subtle);
+  min-height: 0;
+}
+
+.ch-list__items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ch-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--dk-radius-2);
+}
+
+.ch-list__item[aria-current='true'] {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-subtle);
+  font-weight: 600;
+}
+
+.ch-list__open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-2) var(--dk-space-3);
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ch-list__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--dk-radius-pill);
+  background: var(--color-warning);
+}
+
+.ch-list__empty {
+  color: var(--color-text-muted);
+  padding: var(--dk-space-2) var(--dk-space-3);
+}
+
+.ch-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ch-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-3) var(--dk-space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ch-head__title {
+  margin: 0;
+  font-size: var(--dk-text-15);
+  font-weight: 600;
+}
+
+.ch-head__meta {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-12);
+}
+
+.ch-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--dk-space-5);
+}
+
+.ch-flow {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-4);
+}
+
+.ch-msg {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.ch-msg--user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: var(--dk-space-2) var(--dk-space-4);
+  border-radius: var(--dk-radius-3);
+  background: var(--color-primary-light);
+}
+
+.ch-tools {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border-subtle);
+  font-family: var(--dk-font-mono);
+  font-size: var(--dk-text-12);
+}
+
+.ch-tool {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-1) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ch-tool__state {
+  color: var(--color-text-muted);
+  flex: none;
+}
+
+.ch-tool--failed .ch-tool__state {
+  color: var(--color-error);
+}
+
+.ch-thought {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-13);
+}
+
+.ch-thought__text {
+  white-space: pre-wrap;
+  margin-top: var(--dk-space-2);
+}
+
+.ch-note {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-12);
+}
+
+.ch-status {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-13);
+}
+
+.ch-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-2) var(--dk-space-4);
+  border-radius: var(--dk-radius-2);
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.ch-empty {
+  margin: auto;
+  max-width: 420px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-6);
+}
+
+.ch-empty__title {
+  margin: 0;
+  font-size: var(--dk-text-17);
+}
+
+.ch-empty__body {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.ch-composer-wrap {
+  padding: 0 var(--dk-space-5) var(--dk-space-5);
+}
+
+.ch-composer {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--dk-radius-3);
+}
+
+.ch-pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-1);
+  padding: var(--dk-space-2) var(--dk-space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--dk-text-13);
+}
+
+.ch-pending__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-12);
+}
+
+.ch-pending__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+}
+
+.ch-pending__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ch-pending__edit {
+  flex: 1;
+}
+
+.ch-pending__actions {
+  flex: none;
+  display: flex;
+  gap: var(--dk-space-3);
+}
+
+.ch-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--dk-text-12);
+  cursor: pointer;
+}
+
+.ch-link--danger {
+  color: var(--color-error);
+}
+
+.ch-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  max-height: 200px;
+  resize: vertical;
+  padding: var(--dk-space-3) var(--dk-space-4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.ch-input:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: -2px;
+}
+
+.ch-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-2) var(--dk-space-3) var(--dk-space-3) var(--dk-space-4);
+}
+
+.ch-actions__right {
+  display: flex;
+  gap: var(--dk-space-2);
+}
+
+@media (max-width: 720px) {
+  .ch-list {
+    width: 200px;
+  }
+}

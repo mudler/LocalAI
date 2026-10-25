@@ -1,0 +1,54 @@
+{
+  "title": "Chats",
+  "list": {
+    "new": "New chat",
+    "label": "Your chats",
+    "empty": "No chats yet.",
+    "untitled": "New chat",
+    "delete": "Delete chat",
+    "working": "Working"
+  },
+  "empty": {
+    "title": "Start a chat",
+    "body": "Pick a model and ask anything. You can keep typing while it works."
+  },
+  "model": "Model",
+  "transcript": "Conversation",
+  "composer": {
+    "label": "Message",
+    "placeholder": "Message. Enter sends, Shift+Enter adds a line.",
+    "send": "Send",
+    "stop": "Stop",
+    "sendNow": "Send now"
+  },
+  "pending": {
+    "header_one": "1 message waiting",
+    "header_other": "{{count}} messages waiting",
+    "note": "They reach the model together, in order, at its next step.",
+    "afterStop": "You stopped the turn. These messages are waiting for you.",
+    "afterFailure": "The turn ended early. These messages are waiting for you.",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "discard": "Discard"
+  },
+  "status": {
+    "working": "Working…",
+    "stopped": "Stopped",
+    "failed": "The last turn failed.",
+    "interrupted": "The last turn was interrupted."
+  },
+  "tool": {
+    "running": "Running",
+    "failed": "Failed"
+  },
+  "reasoning": "Thought",
+  "notes": {
+    "compacted": "The conversation was compacted to make room ({{before}} to {{after}} tokens).",
+    "subAgentDone": "Sub-agent finished: {{title}}"
+  },
+  "errors": {
+    "send": "The message could not be sent.",
+    "dismiss": "Dismiss"
+  }
+}

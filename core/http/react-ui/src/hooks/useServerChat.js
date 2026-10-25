@@ -1,0 +1,206 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { chatsApi } from '../utils/api'
+
+// Every event kind the server sends. EventSource needs one listener per name.
+const EVENT_KINDS = [
+  'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
+  'turn_end', 'error', 'pending_delivered', 'sub_agent_done', 'compacted',
+]
+
+const RECONNECT_MS = 1000
+
+const emptyLive = () => ({ text: '', reasoning: '', tools: [] })
+
+// State of the chats the server keeps: the list, one open chat with its
+// transcript and waiting messages, and the live events of a running turn.
+//
+// Events are live only. The transcript is the record, so the hook reads it
+// again whenever something that changes it happens (a turn starts or ends, a
+// waiting message reaches the model) and whenever the stream reconnects.
+export function useServerChat() {
+  const [chats, setChats] = useState([])
+  const [activeId, setActiveId] = useState(null)
+  const [detail, setDetail] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [live, setLive] = useState(emptyLive)
+  const [notes, setNotes] = useState([])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const sourceRef = useRef(null)
+  const reconnectRef = useRef(null)
+  const activeRef = useRef(null)
+
+  const refreshList = useCallback(async () => {
+    try {
+      const data = await chatsApi.list()
+      // Sub-agent runs belong to their parent; the list shows chats only.
+      setChats((data.conversations || []).filter(c => c.kind !== 'subagent'))
+    } catch (e) {
+      setError(e.message)
+    }
+  }, [])
+
+  const refreshChat = useCallback(async (id) => {
+    try {
+      const [d, m] = await Promise.all([chatsApi.get(id), chatsApi.messages(id)])
+      if (activeRef.current !== id) return
+      setDetail(d)
+      setMessages(m.messages || [])
+    } catch (e) {
+      if (activeRef.current === id) setError(e.message)
+    }
+  }, [])
+
+  const refreshDetail = useCallback(async (id) => {
+    try {
+      const d = await chatsApi.get(id)
+      if (activeRef.current === id) setDetail(d)
+    } catch (e) {
+      if (activeRef.current === id) setError(e.message)
+    }
+  }, [])
+
+  const closeStream = useCallback(() => {
+    clearTimeout(reconnectRef.current)
+    reconnectRef.current = null
+    if (sourceRef.current) {
+      sourceRef.current.close()
+      sourceRef.current = null
+    }
+  }, [])
+
+  const connect = useCallback((id) => {
+    closeStream()
+    const source = new EventSource(chatsApi.eventsUrl(id))
+    sourceRef.current = source
+
+    const parse = (ev) => {
+      try { return JSON.parse(ev.data) } catch { return {} }
+    }
+    const on = {
+      turn_start: () => {
+        setDetail(d => (d ? { ...d, running: true } : d))
+        refreshChat(id)
+      },
+      text: (e) => setLive(l => ({ ...l, text: l.text + (e.text || '') })),
+      reasoning: (e) => setLive(l => ({ ...l, reasoning: l.reasoning + (e.text || '') })),
+      tool_start: (e) => setLive(l => ({
+        ...l, tools: [...l.tools, { name: e.tool?.name || '', summary: e.tool?.summary || '', state: 'running' }],
+      })),
+      tool_end: (e) => setLive(l => {
+        const tools = [...l.tools]
+        for (let i = tools.length - 1; i >= 0; i--) {
+          if (tools[i].state === 'running' && tools[i].name === (e.tool?.name || '')) {
+            tools[i] = { ...tools[i], state: e.tool?.ok ? 'done' : 'failed', output: e.tool?.output || '' }
+            break
+          }
+        }
+        return { ...l, tools }
+      }),
+      pending_delivered: () => refreshChat(id),
+      compacted: (e) => setNotes(n => [...n, { kind: 'compacted', before: e.before, after: e.after }]),
+      sub_agent_done: (e) => setNotes(n => [...n, { kind: 'subAgentDone', title: e.text || '' }]),
+      error: (e) => setError(e.text || ''),
+      turn_end: () => {
+        setLive(emptyLive())
+        refreshChat(id)
+        refreshList()
+      },
+    }
+    for (const kind of EVENT_KINDS) {
+      source.addEventListener(kind, (ev) => on[kind]?.(parse(ev)))
+    }
+    source.onerror = () => {
+      // The stream carries only what happens after it connects, so a reconnect
+      // reads the transcript again to close the gap.
+      source.close()
+      if (sourceRef.current === source) sourceRef.current = null
+      if (activeRef.current !== id) return
+      reconnectRef.current = setTimeout(() => {
+        if (activeRef.current !== id) return
+        connect(id)
+        refreshChat(id)
+      }, RECONNECT_MS)
+    }
+  }, [closeStream, refreshChat, refreshList])
+
+  const select = useCallback(async (id) => {
+    activeRef.current = id
+    setActiveId(id)
+    setLive(emptyLive())
+    setNotes([])
+    setError('')
+    setDetail(null)
+    setMessages([])
+    if (!id) {
+      closeStream()
+      return
+    }
+    setLoading(true)
+    connect(id)
+    await refreshChat(id)
+    setLoading(false)
+  }, [closeStream, connect, refreshChat])
+
+  useEffect(() => {
+    refreshList()
+    return () => {
+      activeRef.current = null
+      closeStream()
+    }
+  }, [refreshList, closeStream])
+
+  const createChat = useCallback(async (model) => {
+    setError('')
+    const created = await chatsApi.create(model)
+    await refreshList()
+    return created.id
+  }, [refreshList])
+
+  // Sends go out one after another, so two messages typed quickly reach the
+  // server in the order they were typed and cannot swap on the wire.
+  const sendChain = useRef(Promise.resolve())
+  const send = useCallback((id, text) => {
+    setError('')
+    const run = async () => {
+      const res = await chatsApi.send(id, text)
+      if (res.started) setDetail(d => (d ? { ...d, running: true } : d))
+      await refreshChat(id)
+      return res
+    }
+    const result = sendChain.current.then(run, run)
+    sendChain.current = result.catch(() => {})
+    return result
+  }, [refreshChat])
+
+  const act = useCallback(async (id, call) => {
+    setError('')
+    try {
+      await call()
+    } catch (e) {
+      setError(e.message)
+    }
+    await refreshDetail(id)
+  }, [refreshDetail])
+
+  const editPending = useCallback((id, pid, text) => act(id, () => chatsApi.editPending(id, pid, text)), [act])
+  const cancelPending = useCallback((id, pid) => act(id, () => chatsApi.cancelPending(id, pid)), [act])
+  const stop = useCallback((id) => act(id, () => chatsApi.stop(id)), [act])
+  const sendNow = useCallback((id) => act(id, () => chatsApi.sendNow(id)), [act])
+
+  const remove = useCallback(async (id) => {
+    await chatsApi.delete(id)
+    if (activeRef.current === id) await select(null)
+    await refreshList()
+  }, [refreshList, select])
+
+  return {
+    chats, activeId, detail, messages, live, notes, error, loading,
+    running: Boolean(detail?.running),
+    lastTurn: detail?.last_turn || '',
+    pending: detail?.pending || [],
+    select, createChat, send, editPending, cancelPending, stop, sendNow, remove, refreshList,
+    clearError: () => setError(''),
+  }
+}

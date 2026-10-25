@@ -157,6 +157,22 @@ export const chatApi = {
   mcpComplete: (body) => postJSON(API_CONFIG.endpoints.mcpChatCompletions, body),
 }
 
+// Chats API: conversations the server keeps. A message sent while a turn runs
+// waits and reaches the model, with any others, at its next request.
+export const chatsApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.chats),
+  create: (model, title) => postJSON(API_CONFIG.endpoints.chats, title ? { model, title } : { model }),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
+  delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
+  messages: (id, after = 0) => fetchJSON(`${API_CONFIG.endpoints.chatMessages(id)}?after=${after}&limit=1000`),
+  send: (id, text) => postJSON(API_CONFIG.endpoints.chatMessages(id), { text }),
+  editPending: (id, pid, text) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'PATCH', body: JSON.stringify({ text }) }),
+  cancelPending: (id, pid) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'DELETE' }),
+  sendNow: (id) => postJSON(API_CONFIG.endpoints.chatSendNow(id), {}),
+  stop: (id) => postJSON(API_CONFIG.endpoints.chatStop(id), {}),
+  eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
+}
+
 // Chat History API — server-side conversation persistence (#9432).
 // Endpoints return 404 when the WebUI's chat history feature is disabled, so
 // every call here is best-effort: callers should fall back to localStorage on

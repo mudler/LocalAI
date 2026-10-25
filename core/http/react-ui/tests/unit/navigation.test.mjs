@@ -83,11 +83,18 @@ test('movePin moves one place and stops at the ends', () => {
 const user = { isAdmin: false, authEnabled: true, hasFeature: () => false, features: {}, hasBuiltin: false }
 
 test('Settings is not a primary item and Models is an administrator item', () => {
-  assert.deepEqual(primaryDestinations.map(i => i.path), ['/app/chat', '/app/models', '/app/addons'])
+  assert.deepEqual(primaryDestinations.map(i => i.path), ['/app/chat', '/app/chats', '/app/models', '/app/addons'])
   const admin = visiblePrimary(primaryDestinations, { ...user, isAdmin: true, hasFeature: () => true })
-  assert.equal(admin.length, 3)
+  assert.equal(admin.length, 4)
   const member = visiblePrimary(primaryDestinations, { ...user, hasBuiltin: true })
   assert.deepEqual(member.map(i => i.path), ['/app/chat', '/app/addons'])
+})
+
+test('the chats entry shows only to a viewer who holds the chats feature', () => {
+  const paths = (a) => visiblePrimary(primaryDestinations, a).map(i => i.path)
+  assert.ok(paths({ ...user, hasFeature: (f) => f === 'chats' }).includes('/app/chats'))
+  assert.ok(!paths(user).includes('/app/chats'))
+  assert.ok(paths({ ...user, isAdmin: true, hasFeature: () => true }).includes('/app/chats'))
 })
 
 test('addons entry shows for a built-in tile even without the addons feature, and hides with neither', () => {

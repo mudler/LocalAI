@@ -57,6 +57,15 @@ export const API_CONFIG = {
     p2pStats: '/api/p2p/stats',
     p2pToken: '/api/p2p/token',
 
+    // Chats the server keeps: steering, sub-agents and live events
+    chats: '/api/chats',
+    chat: (id) => `/api/chats/${encodeURIComponent(id)}`,
+    chatMessages: (id) => `/api/chats/${encodeURIComponent(id)}/messages`,
+    chatPending: (id, pid) => `/api/chats/${encodeURIComponent(id)}/pending/${encodeURIComponent(pid)}`,
+    chatSendNow: (id) => `/api/chats/${encodeURIComponent(id)}/send-now`,
+    chatStop: (id) => `/api/chats/${encodeURIComponent(id)}/stop`,
+    chatEvents: (id) => `/api/chats/${encodeURIComponent(id)}/events`,
+
     // Chat history (server-side persistence, #9432)
     conversations: '/api/conversations',
     conversation: (id) => `/api/conversations/${encodeURIComponent(id)}`,

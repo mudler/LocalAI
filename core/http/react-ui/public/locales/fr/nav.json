@@ -91,7 +91,8 @@
     "p2p": "P2P",
     "prometheus": "Prometheus",
     "trafficModels": "Modèles",
-    "addons": "Add-ons"
+    "addons": "Add-ons",
+    "chats": "Chats"
   },
   "footer": {
     "github": "GitHub",
