@@ -136,6 +136,21 @@ class TestBackendServicer(unittest.TestCase):
         # Other protobuf-default scalar fields must remain filtered.
         self.assertEqual(sampling_params.top_p, 0.9)
 
+    def test_omitted_max_tokens_does_not_cap_generation(self):
+        """A request without max_tokens must not get a hidden 200-token cap;
+        None lets vLLM generate until the context is full. A requested value
+        still wins."""
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+
+        servicer = BackendServicer()
+        unset = servicer._build_sampling_params(backend_pb2.PredictOptions(Prompt="hello"))
+        unset._verify_args()  # vLLM's own checks accept None
+        self.assertIsNone(unset.max_tokens)
+        requested = servicer._build_sampling_params(backend_pb2.PredictOptions(Prompt="hello", Tokens=4000))
+        self.assertEqual(requested.max_tokens, 4000)
+
 
     def test_messages_to_dicts(self):
         """

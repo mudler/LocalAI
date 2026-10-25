@@ -294,6 +294,52 @@ class TestSglangHelpers(unittest.TestCase):
         params = servicer._build_sampling_params(request)
         self.assertNotIn("custom_params", params)
 
+    def test_omitted_max_tokens_does_not_cap_generation(self):
+        """A request without max_tokens (Tokens=0) must not get a hidden
+        200-token cap. None makes sglang generate until the context is full,
+        as its own OpenAI server does."""
+        from types import SimpleNamespace
+
+        servicer = self._servicer()
+        request = SimpleNamespace(
+            Temperature=0.7, N=0, PresencePenalty=0, FrequencyPenalty=0,
+            RepetitionPenalty=0, TopP=0, TopK=0, MinP=0, Seed=0,
+            StopPrompts=[], StopTokenIds=[], IgnoreEOS=False, Tokens=0,
+            MinTokens=0, SkipSpecialTokens=False, Grammar="",
+        )
+        params = servicer._build_sampling_params(request)
+        self.assertIn("max_new_tokens", params)
+        self.assertIsNone(params["max_new_tokens"])
+
+    def test_omitted_max_tokens_passes_sglang_validation(self):
+        """The None default must survive sglang's own SamplingParams checks."""
+        from types import SimpleNamespace
+        from sglang.srt.sampling.sampling_params import SamplingParams
+
+        servicer = self._servicer()
+        request = SimpleNamespace(
+            Temperature=0.7, N=0, PresencePenalty=0, FrequencyPenalty=0,
+            RepetitionPenalty=0, TopP=0, TopK=0, MinP=0, Seed=0,
+            StopPrompts=[], StopTokenIds=[], IgnoreEOS=False, Tokens=0,
+            MinTokens=0, SkipSpecialTokens=False, Grammar="",
+        )
+        params = SamplingParams(**servicer._build_sampling_params(request))
+        params.verify(vocab_size=32000)
+        self.assertIsNone(params.max_new_tokens)
+
+    def test_requested_max_tokens_is_passed_through(self):
+        from types import SimpleNamespace
+
+        servicer = self._servicer()
+        request = SimpleNamespace(
+            Temperature=0.7, N=0, PresencePenalty=0, FrequencyPenalty=0,
+            RepetitionPenalty=0, TopP=0, TopK=0, MinP=0, Seed=0,
+            StopPrompts=[], StopTokenIds=[], IgnoreEOS=False, Tokens=4000,
+            MinTokens=0, SkipSpecialTokens=False, Grammar="",
+        )
+        params = servicer._build_sampling_params(request)
+        self.assertEqual(params["max_new_tokens"], 4000)
+
     def test_thinking_budget_accepts_integral_spellings(self):
         """YAML options arrive as strings; "512" and "512.0" both mean 512."""
         servicer = self._servicer()

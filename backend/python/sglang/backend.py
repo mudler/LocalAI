@@ -417,7 +417,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return backend_pb2.Result(success=False, message=str(e))
 
     def _build_sampling_params(self, request) -> dict:
-        sampling_params: dict = {"temperature": 0.7, "max_new_tokens": 200}
+        # max_new_tokens=None allows generation up to the remaining context,
+        # which is what sglang's own OpenAI server does when max_tokens is
+        # omitted (the scheduler turns None into the remaining request
+        # capacity). Leaving the key out would select SamplingParams' own
+        # default of 128 instead. A fixed number here silently truncated every
+        # request without max_tokens, and the response still reported
+        # finish_reason "stop", because the Go side only reports "length"
+        # against a budget the client requested.
+        sampling_params: dict = {"temperature": 0.7, "max_new_tokens": None}
         mapping = {
             "N": "n",
             "PresencePenalty": "presence_penalty",

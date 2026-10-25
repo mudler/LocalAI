@@ -555,7 +555,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             "TruncatePromptTokens": "truncate_prompt_tokens",
         }
 
-        sampling_params = SamplingParams(top_p=0.9, max_tokens=200)
+        # max_tokens=None allows generation up to the remaining model context,
+        # which is what OpenAI clients expect when they omit max_tokens. A fixed
+        # default silently truncated those requests while still reporting
+        # finish_reason "stop".
+        sampling_params = SamplingParams(top_p=0.9, max_tokens=None)
 
         for request_field, param_field in request_to_sampling_params.items():
             if hasattr(request, request_field):
