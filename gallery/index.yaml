@@ -4,6 +4,93 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: bge-base-en-v1.5-f16
+  description: |
+    BGE-base-en-v1.5 is a 109M English embedding model for semantic search
+    and retrieval. This F16 GGUF build produces 768-dimensional embeddings
+    with a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  license: mit
+  urls:
+    - https://huggingface.co/BAAI/bge-base-en-v1.5
+    - https://huggingface.co/CompendiumLabs/bge-base-en-v1.5-gguf
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  files:
+    - filename: bge-base-en-v1.5-f16.gguf
+      sha256: 88360fdf8521af0ac08d43818bd272da679ab97c685d9b273c48efd01a4187c2
+      uri: https://huggingface.co/CompendiumLabs/bge-base-en-v1.5-gguf/resolve/24914efdfa9ee54e815c3fcaa78a617031251c5c/bge-base-en-v1.5-f16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 512
+    embeddings: true
+    options:
+      - pooling:cls
+    parameters:
+      model: bge-base-en-v1.5-f16.gguf
+  variants:
+    - model: bge-base-en-v1.5-q8-0
+    - model: bge-base-en-v1.5-q4-k-m
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: bge-base-en-v1.5-q8-0
+  description: |
+    BGE-base-en-v1.5 is a 109M English embedding model for semantic search
+    and retrieval. This Q8_0 GGUF build produces 768-dimensional embeddings
+    with a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  license: mit
+  urls:
+    - https://huggingface.co/BAAI/bge-base-en-v1.5
+    - https://huggingface.co/CompendiumLabs/bge-base-en-v1.5-gguf
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  files:
+    - filename: bge-base-en-v1.5-q8_0.gguf
+      sha256: ad1afe72cd6654a558667a3db10878b049a75bfd72912e1dabb91310d671173c
+      uri: https://huggingface.co/CompendiumLabs/bge-base-en-v1.5-gguf/resolve/24914efdfa9ee54e815c3fcaa78a617031251c5c/bge-base-en-v1.5-q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 512
+    embeddings: true
+    options:
+      - pooling:cls
+    parameters:
+      model: bge-base-en-v1.5-q8_0.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: bge-base-en-v1.5-q4-k-m
+  description: |
+    BGE-base-en-v1.5 is a 109M English embedding model for semantic search
+    and retrieval. This Q4_K_M GGUF build produces 768-dimensional embeddings
+    with a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  license: mit
+  urls:
+    - https://huggingface.co/BAAI/bge-base-en-v1.5
+    - https://huggingface.co/CompendiumLabs/bge-base-en-v1.5-gguf
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  files:
+    - filename: bge-base-en-v1.5-q4_k_m.gguf
+      sha256: 74aebb552ea73b271d3b9c709923b4b7633b304fbc897a0498e52a180c3a9da9
+      uri: https://huggingface.co/CompendiumLabs/bge-base-en-v1.5-gguf/resolve/24914efdfa9ee54e815c3fcaa78a617031251c5c/bge-base-en-v1.5-q4_k_m.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 512
+    embeddings: true
+    options:
+      - pooling:cls
+    parameters:
+      model: bge-base-en-v1.5-q4_k_m.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: bge-small-en-v1.5-f16
   description: |
     BGE-small-en-v1.5 is a 33M English embedding model for semantic search
