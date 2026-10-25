@@ -5,6 +5,106 @@
 # master reads it as the default model source; a tagged build reads the gallery
 # until the release cutover.
 - kind: model
+  id: lfm2.5-24b-a2b-turbo-brilliance-iq4-xs
+  name: lfm2.5-24b-a2b-turbo-brilliance-iq4-xs
+  version: 0.0.0-gallery.285918856e35
+  description: |
+    DavidAU's Turbo Brilliance build of LFM2.5-24B-A2B, a text-only reasoning
+    model with 24B total parameters and 2.45B active parameters. This entry
+    uses the IQ4_XS GGUF quantization and the embedded Turbo Brilliance
+    chat template for multilingual chat and tool use.
+  license: other
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/DavidAU/LFM2.5-24B-A2B-Turbo-Brilliance-50X-NEO-MAX-Imatrix-GGUF
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/lfm2.5-24b-a2b-turbo-brilliance/LFM2.5-24B-A2B-TBrill-NEO-IQ4_XS.gguf
+        sha256: a1562db04b263e5406ac8412e07be6ea92941ea653653e9f678ab13f430e59b1
+        uri: https://huggingface.co/DavidAU/LFM2.5-24B-A2B-Turbo-Brilliance-50X-NEO-MAX-Imatrix-GGUF/resolve/69107daec71f075c94d7d84929b4a0222d1b8446/LFM2.5-24B-A2B-TBrill-NEO-IQ4_XS.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+        - completion
+      options:
+        - use_jinja:true
+      parameters:
+        model: llama-cpp/models/lfm2.5-24b-a2b-turbo-brilliance/LFM2.5-24B-A2B-TBrill-NEO-IQ4_XS.gguf
+        repeat_penalty: 1.05
+        temperature: 0.1
+        top_k: 50
+      template:
+        use_tokenizer_template: true
+    variants:
+      - model: lfm2.5-24b-a2b-turbo-brilliance-q8
+- kind: model
+  id: lfm2.5-24b-a2b-turbo-brilliance-q8
+  name: lfm2.5-24b-a2b-turbo-brilliance-q8
+  version: 0.0.0-gallery.401e9a9ccabf
+  description: |
+    DavidAU's Turbo Brilliance build of LFM2.5-24B-A2B, a text-only reasoning
+    model with 24B total parameters and 2.45B active parameters. This entry
+    uses the Q8_0 MAX GGUF quantization and the embedded Turbo Brilliance
+    chat template for multilingual chat and tool use.
+  license: other
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-24B-A2B
+    - https://huggingface.co/DavidAU/LFM2.5-24B-A2B-Turbo-Brilliance-50X-NEO-MAX-Imatrix-GGUF
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/lfm2.5-24b-a2b-turbo-brilliance/LFM2.5-24B-A2B-TBrill-MAX-NEO-Q8_0.gguf
+        sha256: 17de10d567a0678dc6050445ecef3007ee1bf50df8d94a73d558d4133ad8aa4e
+        uri: https://huggingface.co/DavidAU/LFM2.5-24B-A2B-Turbo-Brilliance-50X-NEO-MAX-Imatrix-GGUF/resolve/69107daec71f075c94d7d84929b4a0222d1b8446/LFM2.5-24B-A2B-TBrill-MAX-NEO-Q8_0.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+        - completion
+      options:
+        - use_jinja:true
+      parameters:
+        model: llama-cpp/models/lfm2.5-24b-a2b-turbo-brilliance/LFM2.5-24B-A2B-TBrill-MAX-NEO-Q8_0.gguf
+        repeat_penalty: 1.05
+        temperature: 0.1
+        top_k: 50
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: tess-4.5-27b-q4
   name: tess-4.5-27b-q4
   version: 0.0.0-gallery.c7df49b0fa37
