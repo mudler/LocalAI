@@ -7429,7 +7429,7 @@ const docTemplate = `{
         },
         "/v1/rerank": {
             "post": {
-                "description": "` + "`" + `query` + "`" + ` is a string or a content object, and each entry of ` + "`" + `documents` + "`" + ` is a string or a content object. A content object is ` + "`" + `{\"content\":[part,...]}` + "`" + ` with ` + "`" + `text` + "`" + ` and ` + "`" + `image_url` + "`" + ` parts; text parts come first, then images. Typed requests with images need a reranker whose backend publishes the multimodal rerank capability: a backend without it returns 501, a model that cannot read images returns 422, and media is never dropped to score text only. A request of one string query and string documents is unchanged.",
+                "description": "` + "`" + `query` + "`" + ` is a string or a content object, and each entry of ` + "`" + `documents` + "`" + ` is a string or a content object. A content object is ` + "`" + `{\"content\":[part,...]}` + "`" + ` with ` + "`" + `text` + "`" + ` and ` + "`" + `image_url` + "`" + ` parts; text parts come first, then images. The llama.cpp-style object ` + "`" + `{\"text\": string|[string], \"image\": url|[url]}` + "`" + ` is accepted too and means the same (` + "`" + `image` + "`" + ` is an http(s) URL, a base64 data URI or a raw base64 string); it cannot be mixed with ` + "`" + `content` + "`" + `. Typed requests with images need a reranker whose backend publishes the multimodal rerank capability: a backend without it returns 501, a model that cannot read images returns 422, and media is never dropped to score text only. A request of one string query and string documents is unchanged.",
                 "tags": [
                     "rerank"
                 ],

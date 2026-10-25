@@ -231,6 +231,58 @@ var _ = Describe("Multimodal rerank HTTP", func() {
 		Expect(h.be.textSeen[0].Documents).To(Equal([]string{"x", "y"}))
 	})
 
+	It("sends the llama.cpp-style object exactly as the content shape", func() {
+		content := h.post(`{"model":"rr","query":{"content":[` + textPart("a red cat") + `,` + imagePart() + `]},"documents":["a dog",{"content":[` + textPart("a cat") + `,` + imagePart() + `]},{"content":[` + imagePart() + `]}],"top_n":2}`)
+		Expect(content.Code).To(Equal(http.StatusOK), content.Body.String())
+		object := h.post(`{"model":"rr","query":{"text":"a red cat","image":"` + pngURL + `"},"documents":["a dog",{"text":["a ","cat"],"image":["` + pngURL + `"]},{"image":"` + pngURL + `"}],"top_n":2}`)
+		Expect(object.Code).To(Equal(http.StatusOK), object.Body.String())
+		Expect(object.Body.String()).To(Equal(content.Body.String()))
+		Expect(h.be.textCalls.Load()).To(BeZero())
+		Expect(h.be.typedSeen).To(HaveLen(2))
+		Expect(h.be.typedSeen[1].Query).To(Equal(h.be.typedSeen[0].Query))
+		Expect(h.be.typedSeen[1].Documents).To(Equal(h.be.typedSeen[0].Documents))
+		Expect(h.be.typedSeen[1].TopN).To(Equal(h.be.typedSeen[0].TopN))
+		Expect(h.be.typedSeen[1].Budget).To(Equal(h.be.typedSeen[0].Budget))
+	})
+
+	It("sends text-only llama.cpp-style objects to the text RPC", func() {
+		rec := h.post(`{"model":"rr","query":{"text":"a cat"},"documents":[{"text":["x","y"]},"z"]}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(h.be.typedCalls.Load()).To(BeZero())
+		Expect(h.be.textSeen[0].Query).To(Equal("a cat"))
+		Expect(h.be.textSeen[0].Documents).To(Equal([]string{"xy", "z"}))
+	})
+
+	It("rejects mixed shapes, file paths and unknown keys before any fetch or backend call", func() {
+		for _, doc := range []string{
+			`{"content":[` + imagePart() + `],"text":"a"}`,
+			`{"image":"file:///etc/passwd"}`,
+			`{"image":"/etc/passwd"}`,
+			`{"image":"` + pngURL + `","caption":"x"}`,
+		} {
+			Expect(h.post(`{"model":"rr","query":"q","documents":[`+doc+`]}`).Code).To(Equal(400), doc)
+		}
+		Expect(h.acq.calls.Load()).To(BeZero())
+		Expect(h.be.typedCalls.Load() + h.be.textCalls.Load()).To(BeZero())
+	})
+
+	It("passes a raw base64 image to the acquirer as inline data", func() {
+		rec := h.post(`{"model":"rr","query":"q","documents":[{"image":"iVBORw0KGgo="}]}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(string(h.be.typedSeen[0].Documents[0].Parts[0].GetMedia().GetData())).To(Equal("image:iVBORw0KGgo="))
+	})
+
+	It("applies the media budget and status mapping to the object shape", func() {
+		h.acq.fn = func(embeddingmedia.Source) ([]byte, error) {
+			return nil, &embeddingmedia.Error{Status: 502, Code: "embedding_fetch_failed"}
+		}
+		Expect(h.post(`{"model":"rr","query":"q","documents":[{"image":"` + pngURL + `"}]}`).Code).To(Equal(502))
+		h.acq.fn = nil
+		h.be.metadata = func() (*pb.ModelMetadataResponse, error) { return rerankMeta(pb.EmbeddingModality_TEXT), nil }
+		Expect(h.post(`{"model":"rr","query":"q","documents":[{"image":"` + pngURL + `"}]}`).Code).To(Equal(422))
+		Expect(h.be.textCalls.Load()).To(BeZero())
+	})
+
 	Describe("status mapping", func() {
 		img := func() string { return `{"model":"rr","query":"q","documents":[{"content":[` + imagePart() + `]}]}` }
 		It("400 on malformed structure and 422 on audio, before any fetch", func() {

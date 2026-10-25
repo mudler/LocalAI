@@ -4,7 +4,10 @@ package schema
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
+	"net/url"
+	"strings"
 
 	"github.com/mudler/LocalAI/pkg/embeddingmedia"
 )
@@ -93,11 +96,11 @@ func ParseRerankRequest(raw json.RawMessage) (*RerankContent, bool, error) {
 	// the number of documents is bounded by the source part limit.
 	budget := embeddingmedia.NewBudget()
 	content := &RerankContent{Documents: make([]EmbeddingInputItem, 0, len(entries))}
-	if content.Query, err = parseEmbeddingItem(query, &budget); err != nil {
+	if content.Query, err = parseRerankItem(query, &budget); err != nil {
 		return nil, true, err
 	}
 	for _, e := range entries {
-		item, err := parseEmbeddingItem(bytes.TrimSpace(e), &budget)
+		item, err := parseRerankItem(bytes.TrimSpace(e), &budget)
 		if err != nil {
 			return nil, true, err
 		}
@@ -112,6 +115,133 @@ func ParseRerankRequest(raw json.RawMessage) (*RerankContent, bool, error) {
 		}
 	}
 	return content, true, nil
+}
+
+// parseRerankItem parses one query or document. A string and the content shape
+// go through the embedding parser. The llama.cpp-style object
+// {"text": string|[string], "image": url|[url]} is mapped onto the same item the
+// content shape produces: one text part first, then one image_url part per
+// image, so budgets, acquisition and the typed RPC see no difference.
+func parseRerankItem(entry json.RawMessage, budget *embeddingmedia.Budget) (EmbeddingInputItem, error) {
+	var item EmbeddingInputItem
+	if len(entry) == 0 || entry[0] != '{' {
+		return parseEmbeddingItem(entry, budget)
+	}
+	obj, err := embeddingObject(entry, "content", "text", "image")
+	if err != nil {
+		return item, err
+	}
+	if obj["content"] != nil {
+		if obj["text"] != nil || obj["image"] != nil {
+			return item, &embeddingmedia.Error{Status: 400, Code: "rerank_mixed_shapes"}
+		}
+		return parseEmbeddingItem(entry, budget)
+	}
+	texts, err := rerankStrings(obj["text"])
+	if err != nil {
+		return item, err
+	}
+	images, err := rerankStrings(obj["image"])
+	if err != nil {
+		return item, err
+	}
+	if len(texts) == 0 && len(images) == 0 {
+		return item, rerankMalformed()
+	}
+	text := strings.Join(texts, "")
+	if len(images) == 0 {
+		item.Text = &text
+		return item, budget.Consume(embeddingmedia.Consumption{TextBytes: uint64(len(text)), SourceParts: 1})
+	}
+	parts := len(images)
+	if text != "" {
+		parts++
+	}
+	if err = budget.Consume(embeddingmedia.Consumption{SourceParts: uint64(parts)}); err != nil {
+		return item, err
+	}
+	if text != "" {
+		if err = budget.Consume(embeddingmedia.Consumption{TextBytes: uint64(len(text))}); err != nil {
+			return item, err
+		}
+		item.Content = append(item.Content, EmbeddingContentPart{Type: "text", Text: text})
+	}
+	for _, img := range images {
+		part, err := rerankImagePart(img, budget)
+		if err != nil {
+			return item, err
+		}
+		item.Content = append(item.Content, part)
+	}
+	return item, nil
+}
+
+// rerankStrings reads a JSON string or a non-empty array of strings. A missing
+// key yields nothing; null, numbers and objects are malformed.
+func rerankStrings(raw json.RawMessage) ([]string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	raw = bytes.TrimSpace(raw)
+	if len(raw) > 0 && raw[0] == '"' {
+		s, err := embeddingString(raw)
+		if err != nil {
+			return nil, err
+		}
+		return []string{s}, nil
+	}
+	var entries []json.RawMessage
+	if len(raw) == 0 || raw[0] != '[' || json.Unmarshal(raw, &entries) != nil || len(entries) == 0 {
+		return nil, rerankMalformed()
+	}
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		s, err := embeddingString(bytes.TrimSpace(e))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
+// rerankImagePart turns one "image" string into an image_url part. Accepted: an
+// http(s) URL, a base64 data URI, or a raw base64 string. A raw string is held
+// as inline data, so it meets the same bounded decode and signature sniff as a
+// data URI at acquisition and is never read as a path. Anything with another
+// scheme, and anything path-like, is refused.
+func rerankImagePart(s string, b *embeddingmedia.Budget) (EmbeddingContentPart, error) {
+	p := EmbeddingContentPart{Type: "image_url"}
+	useDataURI := &embeddingmedia.Error{Status: 400, Code: "rerank_image_use_data_uri"}
+	switch {
+	case s == "":
+		return p, rerankMalformed()
+	case strings.HasPrefix(s, "data:"):
+		header, data, ok := strings.Cut(s, ",")
+		if !ok || !strings.HasSuffix(header, ";base64") {
+			return p, rerankMalformed()
+		}
+		p.Source.URL = s
+		return p, validateEmbeddingBase64(data, b)
+	case strings.Contains(s, ":"):
+		u, err := url.Parse(s)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil {
+			return p, rerankMalformed()
+		}
+		p.Source.URL = s
+		return p, nil
+	case strings.ContainsAny(s[:1], "/.~") || strings.Contains(s, "\\"):
+		return p, useDataURI
+	}
+	if err := validateEmbeddingBase64(s, b); err != nil {
+		var classified *embeddingmedia.Error
+		if errors.As(err, &classified) && classified.Status == 413 {
+			return p, err
+		}
+		return p, useDataURI
+	}
+	p.Source.Data = s
+	return p, nil
 }
 
 // checkRerankItem enforces the part types and order a reranker can honour.
@@ -158,4 +288,13 @@ func (c *RerankContent) HasMedia() bool {
 type RerankContentObject struct {
 	// Content is a non-empty ordered list of text and image_url parts.
 	Content []EmbeddingContentPartDoc `json:"content"`
+}
+
+// RerankTextImageObject is the llama.cpp-style form of a query or document. Both
+// keys are optional but one is required, and it cannot be mixed with content.
+type RerankTextImageObject struct {
+	// Text is a string or an array of strings, joined in order without separators.
+	Text any `json:"text,omitempty"`
+	// Image is an http(s) URL, a base64 data URI or a raw base64 string, or an array of them.
+	Image any `json:"image,omitempty"`
 }
