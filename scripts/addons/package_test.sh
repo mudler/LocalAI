@@ -76,7 +76,8 @@ sh scripts/addons/package.sh --layout "$work/leg" --version 1.2.3 --platform "$h
 grep -F 'publishable=false' "$work/out" >/dev/null && grep -F 'verified=tables 1.2.3' "$work/out" >/dev/null
 test -f "$work/leg/receipt.json" && test -f "$work/leg/index.json" && test -f "$work/leg/oci-layout"
 case_ok 'package.sh builds and verifies a local check layout'
-expect_fail 'package.sh refuses a platform the matrix has not enabled' 'not enabled' sh scripts/addons/package.sh --layout "$work/leg2" --version 1.2.3 --platform "$host" --executable "$work/stub"
+sed 's/enabled: true/enabled: false/' addons/tables/package/platforms.yaml >"$work/disabled.yaml"
+expect_fail 'package.sh refuses a platform the matrix has not enabled' 'not enabled' sh scripts/addons/package.sh --config "$work/disabled.yaml" --layout "$work/leg2" --version 1.2.3 --platform "$host" --executable "$work/stub"
 expect_fail 'package.sh refuses an existing non-empty layout' 'not empty' sh scripts/addons/package.sh --layout "$work/leg" --version 1.2.3 --platform "$host" --executable "$work/stub" --local-check
 expect_fail 'package.sh requires its arguments' 'usage:' sh scripts/addons/package.sh --version 1.2.3
 expect_fail 'package.sh refuses an invalid version' 'semantic version' sh scripts/addons/package.sh --layout "$work/leg3" --version v1 --platform "$host" --executable "$work/stub" --local-check
@@ -122,7 +123,7 @@ for id in voice face fine-tuning quantization studio talk; do
     grep -x "./addons/$id/cmd/$id CGO_ENABLED=0" "$work/gobuild.log" >/dev/null || { echo "FAIL: $id is not built with CGO_ENABLED=0" >&2; cat "$work/gobuild.log" >&2; exit 1; }
 done
 case_ok 'package.sh builds Tables with cgo and the pure Go add-ons without'
-expect_fail 'matrix fails closed while no platform is enabled' 'no enabled platform' "$tool" matrix --config addons/tables/package/platforms.yaml
+expect_fail 'matrix fails closed while no platform is enabled' 'no enabled platform' "$tool" matrix --config "$work/disabled.yaml"
 expect_fail 'matrix fails closed without a file' 'platform matrix' "$tool" matrix --config "$work/absent.yaml"
 
 # channel.sh.

@@ -107,6 +107,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [locate-anything.cpp](https://github.com/mudler/locate-anything.cpp) | Open-vocabulary object detection and visual grounding (LocateAnything-3B) in C/C++ using GGML | CPU, CUDA 12/13, Intel SYCL, Vulkan, Jetson L4T |
 | [depth-anything.cpp](https://github.com/mudler/depth-anything.cpp) | Depth Anything 3 monocular metric depth + camera pose in C/C++ using GGML | CPU, CUDA 12/13, Intel SYCL, Vulkan, Jetson L4T |
 | [sam3.cpp](https://github.com/PABannier/sam3.cpp) | Segment Anything (SAM 3/2/EdgeTAM) with text/point/box prompts in C/C++ using GGML | CPU, CUDA 12/13, Intel SYCL, Vulkan, Jetson L4T |
+| [timestral.cpp](https://github.com/mudler/timestral.cpp) | Mistral Timestral time-series forecasting through `/v1/forecast`, in C/C++ using GGML | CPU (Linux amd64 and arm64) |
 | [face-detect.cpp](https://github.com/mudler/face-detect.cpp) | Native face detection, recognition, embedding, demographics and anti-spoofing (SCRFD/ArcFace, YuNet/SFace) in C/C++ using GGML | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [voice-detect.cpp](https://github.com/localai-org/voice-detect.cpp) | Native speaker (voice) recognition and voice analysis (ECAPA-TDNN, WeSpeaker, ERes2Net, CAM++, wav2vec2) in C/C++ using GGML | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [insightface](https://github.com/deepinsight/insightface) | Face verification, embedding, and anti-spoofing liveness (ONNX Runtime) | CPU, CUDA 12 |

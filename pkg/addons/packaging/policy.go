@@ -229,23 +229,21 @@ func checkWorkflow(data []byte) []string {
 			add("P_MATRIX", "%s must run once for each add-on: strategy.matrix.addon is missing", n)
 		}
 	}
-	// Publication is per add-on: the groups, the repository and the digest
-	// must not be shared between add-ons.
+	// Publication is per add-on: the groups and the digest must not be shared
+	// between add-ons. The repository is shared; the tag carries the id.
 	for _, n := range []string{"publish", "promote"} {
 		j := job(n)
 		c, _ := j["concurrency"].(map[string]any)
 		if !strings.Contains(fmt.Sprint(c["group"]), "matrix.addon") {
 			add("P_CONCURRENCY", "%s must serialize per add-on: the concurrency group needs matrix.addon", n)
 		}
-		if t := text(j); !strings.Contains(t, `ADDON_OCI_REPOSITORY=$repo" >> "$GITHUB_ENV"`) || !strings.Contains(t, `${ADDON_OCI_BASE%/*}/$ADDON`) {
-			add("P_REPOSITORY", "%s must choose the repository of the add-on: <namespace>/<id>, and the configured repository for tables", n)
+		if t := text(j); strings.Contains(t, "ADDON_OCI_BASE") || strings.Contains(t, "ADDON_OCI_REPOSITORY%/*") || strings.Contains(t, "ADDON_OCI_REPOSITORY=$repo") {
+			add("P_REPOSITORY", "%s must use the configured repository as it is: every add-on is a tag of one repository", n)
 		}
 	}
-	// Tables keeps the configured repository and every other add-on derives its
-	// own from the namespace.
 	for _, n := range []string{"publish", "promote"} {
-		if !regexp.MustCompile(`if \[ "\$ADDON" = tables \]; then\s+repo="\$ADDON_OCI_BASE"\s+else\s+repo="\$\{ADDON_OCI_BASE%/\*\}/\$ADDON"\s+fi`).MatchString(text(job(n))) {
-			add("P_REPOSITORY", "%s must keep ADDON_OCI_REPOSITORY for tables and derive <namespace>/<id> for every other add-on", n)
+		if !strings.Contains(text(job(n)), "ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}") {
+			add("P_REPOSITORY", "%s must read ADDON_OCI_REPOSITORY from the repository variable", n)
 		}
 		// A leg that is pushing or moving an alias must finish, and one
 		// failing add-on must not stop another.

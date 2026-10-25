@@ -83,10 +83,6 @@ func (stubClient) InstallBackend(_ context.Context, _ localaitools.InstallBacken
 	return "stub-backend-job", nil
 }
 
-func (stubClient) InstallLibraryBackend(_ context.Context, _ localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {
-	return &localaitools.InstallLibraryBackendResult{Status: "installed", Name: "stub-backend", SourceID: "stub-source"}, nil
-}
-
 func (stubClient) UpgradeBackend(_ context.Context, _ string) (string, error) {
 	return "stub-upgrade-job", nil
 }
