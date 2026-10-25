@@ -102,6 +102,14 @@ export function toolSummary(app, limit = 4) {
   return { shown: tools.slice(0, limit), more: Math.max(0, count - Math.min(limit, tools.length)), count }
 }
 
+// What a library entry says the add-on will add, before it is installed. It
+// reads the same fields as an installed add-on (toolCount, tools), so the
+// count goes through the same code path. The page comes from ui.mainPage; the
+// tools are the chat tools of the manifest, never its admin tools.
+export function addedByEntry(entry) {
+  return addedByAddon({ hasUI: Boolean(entry && entry.ui && entry.ui.mainPage), toolCount: entry?.toolCount, tools: entry?.tools })
+}
+
 // What an add-on adds to LocalAI, from the facts the list already carries: a
 // page (an add-on with a UI) and chat tools (the tools it offers the model).
 // Nothing here is guessed: no field, no line.

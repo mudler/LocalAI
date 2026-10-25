@@ -8,6 +8,7 @@ import { paramsToQuery, queryToParams } from '../catalog/catalogState'
 import { AppIcon, Fact, UnknownNotice } from './AddonBits'
 import FlowStatus from './InstallFlow'
 import InstallDialog from './InstallDialog'
+import { addedByEntry } from './addonState'
 import { updateView } from './updateState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
@@ -51,7 +52,7 @@ export default function BrowseView({ api, adapter }) {
     const flow = actions.flows[`flow:${entry.key}`]
     const pending = Boolean(actions.unknown[entry.id])
     const working = ['install', 'turn-on'].includes(flow?.step)
-    const addsPage = Boolean(entry.ui && entry.ui.mainPage)
+    const adds = addedByEntry(entry)
     const off = have && have.enabled === false
     return (
       <article className="ad-entry" aria-labelledby={`entry-${entry.key}`}>
@@ -67,7 +68,8 @@ export default function BrowseView({ api, adapter }) {
           </p>
           {entry.description && <p className="ad-entry__text">{entry.description}</p>}
           <div className="ad-facts">
-            {addsPage && <Fact icon="file"><span data-testid="entry-adds">{t('card.addsPage')}</span></Fact>}
+            {adds.page && <Fact icon="file"><span data-testid="entry-adds">{t('card.addsPage')}</span></Fact>}
+            {adds.tools > 0 && <Fact icon="wrench"><span data-testid="entry-tools">{t('card.addsTools', { count: adds.tools })}</span></Fact>}
             {have && <Fact icon="check-circle" tone="ok">{have.version === entry.version ? t('browse.installedSame', { version: have.version }) : t('browse.installedOther', { version: have.version })}</Fact>}
             {have && updateView(have.update).state === 'update-available' && <Fact icon="arrow-up" tone="warn">{t('updates.badge.available', { version: updateView(have.update).version })}</Fact>}
           </div>

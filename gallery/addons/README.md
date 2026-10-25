@@ -50,6 +50,17 @@ The command fails when the repository is empty or a backend image repository, wh
 channel is not a channel alias, when a platform of the matrix has no image, or when the
 template holds an unknown placeholder or weakens the policy.
 
+Every entry also carries `toolCount` and `tools`: the chat tools the package declares in
+`capabilities.tools` (admin tools are not counted), at most 32 names, and the full count.
+An add-on without chat tools has neither field. To add them to an existing index without a
+merged layout, read the manifests of the repository:
+
+```sh
+go run ./scripts/addons/cmd/addonpkg catalog-tools --index gallery/addons/index.yaml --addons addons
+```
+
+It changes no other field, so no digest or artifact moves.
+
 ## Placeholders
 
 `{{addon}}`, `{{version}}`, `{{tag}}`, `{{channel}}`, `{{repository}}`, `{{digest}}`,

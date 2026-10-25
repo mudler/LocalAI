@@ -18,18 +18,19 @@ import (
 var stdout io.Writer = os.Stdout
 
 var commands = map[string]func(args []string) error{
-	"matrix":       cmdMatrix,
-	"channel":      cmdChannel,
-	"build":        cmdBuild,
-	"verify":       cmdVerify,
-	"extract":      cmdExtract,
-	"native-check": cmdNativeCheck,
-	"merge":        cmdMerge,
-	"publish":      cmdPublish,
-	"promote":      cmdPromote,
-	"target":       cmdTarget,
-	"catalog":      cmdCatalog,
-	"policy":       cmdPolicy,
+	"matrix":        cmdMatrix,
+	"channel":       cmdChannel,
+	"build":         cmdBuild,
+	"verify":        cmdVerify,
+	"extract":       cmdExtract,
+	"native-check":  cmdNativeCheck,
+	"merge":         cmdMerge,
+	"publish":       cmdPublish,
+	"promote":       cmdPromote,
+	"target":        cmdTarget,
+	"catalog":       cmdCatalog,
+	"catalog-tools": cmdCatalogTools,
+	"policy":        cmdPolicy,
 }
 
 // Run executes one subcommand of the addonpkg command line.

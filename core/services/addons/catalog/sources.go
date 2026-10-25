@@ -552,7 +552,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 	seen := map[string]bool{}
 	for i := range releases {
 		r := &releases[i]
-		if !validFetchedRelease(*r, src.AllowLoopbackHTTP) || !validKindFields(*r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) {
+		if !validFetchedRelease(*r, src.AllowLoopbackHTTP) || !validKindFields(*r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) || !validEntryTools(*r) {
 			return nil, IndexResult{}, ErrRefresh
 		}
 		r.Selection = ""
@@ -594,9 +594,9 @@ func validKindFields(r Release) bool {
 	if r.IsMeta() {
 		// A meta backend has no image, so it has no UI path or requirements
 		// either; its alias follows the same rule as any backend.
-		return r.UI == (EntryUI{}) && r.Requires == (Requirements{}) && (r.Alias == "" || (backendNamePattern.MatchString(r.Alias) && !strings.Contains(r.Alias, "..")))
+		return r.UI == (EntryUI{}) && r.Requires == (Requirements{}) && r.ToolCount == 0 && len(r.Tools) == 0 && (r.Alias == "" || (backendNamePattern.MatchString(r.Alias) && !strings.Contains(r.Alias, "..")))
 	}
-	if !strings.HasPrefix(r.Artifact, "oci://") || r.UI.MainPage != "" || r.UI.Icon != "" || r.UI.LaunchMode != "" || r.Requires != (Requirements{}) {
+	if !strings.HasPrefix(r.Artifact, "oci://") || r.UI.MainPage != "" || r.UI.Icon != "" || r.UI.LaunchMode != "" || r.Requires != (Requirements{}) || r.ToolCount != 0 || len(r.Tools) > 0 {
 		return false
 	}
 	return r.Alias == "" || (backendNamePattern.MatchString(r.Alias) && !strings.Contains(r.Alias, ".."))

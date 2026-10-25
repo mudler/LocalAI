@@ -31,6 +31,27 @@ type VerificationPolicy struct {
 	IdentityRegex string `json:"identityRegex,omitempty" yaml:"identityRegex,omitempty"`
 }
 
+// MaxEntryTools bounds the tool names of one entry, as apps.MaxTools bounds
+// them in the installed view.
+const MaxEntryTools = 32
+
+// validEntryTools applies to the tool hint the rules of the manifest: names
+// are tool names, there are at most MaxEntryTools of them, and the count is the
+// full number, so it is never below the names listed.
+func validEntryTools(r Release) bool {
+	if r.ToolCount < 0 || len(r.Tools) > MaxEntryTools || len(r.Tools) > r.ToolCount || (r.ToolCount > len(r.Tools) && len(r.Tools) != MaxEntryTools) {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, t := range r.Tools {
+		if !contract.ValidName(t) || seen[t] {
+			return false
+		}
+		seen[t] = true
+	}
+	return true
+}
+
 // EntryUI is optional display metadata a catalog may offer for an entry. It is
 // a hint for browsing before install, never authority: the manifest inside the
 // verified package decides what an installed addon shows and can open. Every
@@ -98,6 +119,13 @@ type Release struct {
 	UI EntryUI `json:"ui,omitzero"`
 	// Requires is the optional compatibility hint of the entry.
 	Requires Requirements `json:"requires,omitzero"`
+	// ToolCount and Tools say what the add-on brings to chat before it is
+	// installed. They use the names of the installed view (apps.App). Tools are
+	// the chat tools of the manifest (never its admin tools), at most
+	// MaxEntryTools; ToolCount is the full number. Like UI they are a hint for
+	// browsing, never authority: the manifest in the verified package decides.
+	ToolCount int      `json:"toolCount,omitempty"`
+	Tools     []string `json:"tools,omitempty"`
 
 	// The fields below describe a backend and are refused on any other kind.
 	// They carry what the backend gallery carries beyond the image, so the

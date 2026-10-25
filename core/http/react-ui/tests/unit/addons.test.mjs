@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
+import i18next from 'i18next'
 import {
   normalizeQuery, queryKey, queryToParams, paramsToQuery, totalPages, queryToOffset,
   createOperationBook, newOperationId, classifyResponse, pollDelay, slugify,
@@ -10,7 +11,7 @@ import {
 } from '../../src/components/catalog/catalogState.js'
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
-  shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, screenshotsOf, listState, featuredEntries,
+  shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, addedByEntry, screenshotsOf, listState, featuredEntries,
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
@@ -530,4 +531,33 @@ test('install and turn on stops at a failed install and retries only the turn on
   await runInstallAndTurnOn({ run: run(async () => ({ outcome: 'completed' })), api, adapter, mark: m => marks.push(m) }, entry, { skipInstall: true })
   assert.deepEqual(calls, ['enable:tables:0'])
   assert.deepEqual(marks.map(m => m.step), ['turn-on', 'done'])
+})
+
+test('a library entry shows its tool count only when it is above zero, from the installed-view fields', () => {
+  assert.deepEqual(addedByEntry({ ui: { mainPage: 'databases' }, toolCount: 16, tools: ['a', 'b'] }), { page: true, tools: 16, toolNames: ['a', 'b'], toolsMore: 14 })
+  assert.equal(addedByEntry({ ui: { mainPage: 'jobs' }, toolCount: 0, tools: [] }).tools, 0)
+  assert.equal(addedByEntry({ ui: { mainPage: 'jobs' } }).tools, 0)
+  assert.equal(addedByEntry({ ui: null, toolCount: 3, tools: ['a', 'b', 'c'] }).page, false)
+  assert.equal(addedByEntry(null).tools, 0)
+  // A count that is not a number is no count.
+  assert.equal(addedByEntry({ toolCount: 'many', tools: [] }).tools, 0)
+})
+
+test('the catalog adapter carries toolCount and tools of a release, and defaults them to none', async () => {
+  const release = (extra) => ({ id: 'tables', name: 'Tables', version: '1.0.0', sourceId: 'main', ui: { mainPage: 'databases' }, ...extra })
+  const adapterFor = (releases) => createAddonsCatalogAdapter({ dispatch: async () => ({ releases, total: releases.length }) })
+  const { entries } = await adapterFor([release({ toolCount: 16, tools: ['resource-exists'] }), release({ id: 'voice' })]).search({})
+  assert.equal(entries[0].toolCount, 16)
+  assert.deepEqual(entries[0].tools, ['resource-exists'])
+  assert.equal(entries[1].toolCount, 0)
+  assert.deepEqual(entries[1].tools, [])
+  assert.equal(addedByEntry(entries[1]).tools, 0)
+})
+
+test('the English wording is "Adds 16 tools" and "Adds 1 tool"', async () => {
+  const en = JSON.parse(readFileSync(join(localesDir, 'en', 'addons.json'), 'utf8'))
+  const i18n = i18next.createInstance()
+  await i18n.init({ lng: 'en', resources: { en: { addons: en } }, ns: ['addons'], defaultNS: 'addons', interpolation: { escapeValue: false } })
+  assert.equal(i18n.t('card.addsTools', { count: 16 }), 'Adds 16 tools')
+  assert.equal(i18n.t('card.addsTools', { count: 1 }), 'Adds 1 tool')
 })

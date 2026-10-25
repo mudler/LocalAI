@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
-import { AppIcon } from './AddonBits'
+import { AppIcon, EntryAdds } from './AddonBits'
 import FlowStatus from './InstallFlow'
 import InstallDialog from './InstallDialog'
 import { featuredEntries } from './addonState'
@@ -48,7 +48,7 @@ export default function FirstRun({ adapter, actions }) {
                 </div>
               </div>
               {entry.description && <p className="ad-card__text">{entry.description}</p>}
-              {entry.ui && entry.ui.mainPage && <p className="ad-tile__adds"><span className="ad-tile__add"><Icon name="file" aria-hidden="true" /> {t('card.addsPage')}</span></p>}
+              <EntryAdds entry={entry} />
               <FlowStatus flow={confirm && confirm.key === entry.key ? undefined : flowOf(entry)} name={entry.title} onRetry={flowOf(entry)?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flowOf(entry).failedStep === 'turn-on' }) : undefined} />
               <div className="ad-card__acts">
                 <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={busy(entry)} onClick={() => setConfirm(entry)}>

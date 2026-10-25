@@ -24,6 +24,16 @@
     description: "Train an adapter on your own data, then export it as a model you can chat with."
     mainPage: "jobs"
     icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "resource-exists"
+    - "fine-tune-list"
+    - "fine-tune-start"
+    - "fine-tune-dataset"
+    - "fine-tune-status"
+    - "fine-tune-checkpoints"
+    - "fine-tune-stop"
+    - "fine-tune-export"
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
@@ -42,6 +52,14 @@
     description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
     mainPage: "jobs"
     icon: "ui/icon.png"
+  toolCount: 6
+  tools:
+    - "resource-exists"
+    - "quantize-list"
+    - "quantize-start"
+    - "quantize-status"
+    - "quantize-stop"
+    - "quantize-import"
 - id: "voice"
   name: Voice
   description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
@@ -132,3 +150,21 @@
     description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
     mainPage: "databases"
     icon: "ui/icon.png"
+  toolCount: 16
+  tools:
+    - "resource-exists"
+    - "databases-create"
+    - "databases-rename"
+    - "databases-inspect"
+    - "tables-create"
+    - "tables-rename"
+    - "tables-drop"
+    - "columns-add"
+    - "columns-rename"
+    - "columns-drop"
+    - "rows-query"
+    - "rows-aggregate"
+    - "rows-export"
+    - "rows-insert"
+    - "rows-update"
+    - "rows-delete"

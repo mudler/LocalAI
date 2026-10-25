@@ -2,6 +2,7 @@
 package catalog
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -109,5 +110,53 @@ var _ = Describe("library index document (YAML)", func() {
 		Expect(e).To(MatchError(ErrRefresh))
 		_, e, _ = refreshBody(yamlEntry + "# " + strings.Repeat("x", MaxIndexBytes) + "\n")
 		Expect(e).To(MatchError(ErrRefresh))
+	})
+	Context("tool hint", func() {
+		It("carries toolCount and tools from the index to the listing", func() {
+			body := yamlEntry + "  toolCount: 2\n  tools:\n    - resource-exists\n    - tables-create\n"
+			_, e, s := refreshBody(body)
+			Expect(e).NotTo(HaveOccurred())
+			page, e := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Search(ctx, Query{})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(page.Releases).To(HaveLen(1))
+			Expect(page.Releases[0].ToolCount).To(Equal(2))
+			Expect(page.Releases[0].Tools).To(Equal([]string{"resource-exists", "tables-create"}))
+			out, e := json.Marshal(page.Releases[0])
+			Expect(e).NotTo(HaveOccurred())
+			Expect(string(out)).To(ContainSubstring(`"toolCount":2`))
+			Expect(string(out)).To(ContainSubstring(`"tools":["resource-exists","tables-create"]`))
+		})
+		It("leaves both fields out for an entry without chat tools", func() {
+			_, e, s := refreshBody(yamlEntry)
+			Expect(e).NotTo(HaveOccurred())
+			page, e := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Search(ctx, Query{})
+			Expect(e).NotTo(HaveOccurred())
+			out, _ := json.Marshal(page.Releases[0])
+			Expect(string(out)).NotTo(ContainSubstring("toolCount"))
+			Expect(string(out)).NotTo(ContainSubstring(`"tools"`))
+		})
+		It("keeps a count above the listed names when the names are capped", func() {
+			var names strings.Builder
+			for i := 0; i < MaxEntryTools; i++ {
+				fmt.Fprintf(&names, "    - tool-%c%c\n", 'a'+i/26, 'a'+i%26)
+			}
+			_, e, s := refreshBody(yamlEntry + "  toolCount: 40\n  tools:\n" + names.String())
+			Expect(e).NotTo(HaveOccurred())
+			page, _ := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Search(ctx, Query{})
+			Expect(page.Releases[0].ToolCount).To(Equal(40))
+			Expect(page.Releases[0].Tools).To(HaveLen(MaxEntryTools))
+		})
+		It("refuses a malformed hint", func() {
+			for name, extra := range map[string]string{
+				"negative count":         "  toolCount: -1\n",
+				"names above count":      "  toolCount: 1\n  tools:\n    - aa\n    - bb\n",
+				"count above short list": "  toolCount: 5\n  tools:\n    - aa\n",
+				"bad name":               "  toolCount: 1\n  tools:\n    - Bad_Name\n",
+				"duplicate name":         "  toolCount: 2\n  tools:\n    - aa\n    - aa\n",
+			} {
+				_, e, _ := refreshBody(yamlEntry + extra)
+				Expect(e).To(MatchError(ErrRefresh), name)
+			}
+		})
 	})
 })
