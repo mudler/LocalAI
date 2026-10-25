@@ -18,6 +18,39 @@ validation statuses, absence of error usage stamps, and parent cancellation.
 OpenAI passes raw base64 to prediction; Anthropic retains MIME-bearing data URLs.
 Neither test normalizes away that distinction.
 
+## Opt-in real embeddings and rerank test
+
+`MultimodalEmbeddingReal` starts a LocalAI instance with the real `llama-cpp` gRPC
+backend and checks structured `/v1/embeddings` and typed `/v1/rerank` requests. It
+is labelled `real-models`, skips with a reason unless `MM_E2E_REAL=1`, and a spec
+whose model files are missing skips on its own, so it never runs in the default
+suite or in CI.
+
+Models (about 0.87 GB for the embedding pair and 1.9 GB for the reranker pair):
+
+- EmbeddingGemma 2: `embeddinggemma-2-Q8_0.gguf` and `mmproj-embeddinggemma-2-Q8_0.gguf`
+  from `AtomicChat/embeddinggemma-2-GGUF` at revision
+  `96a5415769c8a56d2557846c4ac23b9f724231be`. Check the license terms first.
+- A Qwen3-VL reranker whose GGUF carries the `rerank` chat template, for example
+  `Qwen3-VL-Reranker-2B-Q4_K_M.gguf` with `mmproj-Qwen3-VL-Reranker-2B-F16.gguf`
+  from `gorse-io/Qwen3-VL-Reranker-2B-GGUF` (Apache 2.0). Some other conversions
+  drop the template and cannot rank images.
+
+```sh
+# a CPU build of the backend: see backend/cpp/llama-cpp/Makefile
+MM_E2E_BACKEND=/absolute/path/to/grpc-server \
+MM_E2E_EMBED_MODEL=/path/embeddinggemma-2-Q8_0.gguf \
+MM_E2E_EMBED_PROJECTOR=/path/mmproj-embeddinggemma-2-Q8_0.gguf \
+MM_E2E_RERANK_MODEL=/path/Qwen3-VL-Reranker-2B-Q4_K_M.gguf \
+MM_E2E_RERANK_PROJECTOR=/path/mmproj-Qwen3-VL-Reranker-2B-F16.gguf \
+make test-e2e-multimodal-embeddings
+```
+
+The fixtures are the deterministic ones under `test/multimodal`. To score a frozen
+acceptance contract and write its raw vectors, also set `MM_E2E_CONTRACT`,
+`MM_E2E_FIXTURES` and `MM_E2E_VECTORS_OUT`, then recompute with
+`test/multimodal/check_adapter_proof.py`.
+
 ## Opt-in real gallery test
 
 Accept the model's CC-BY-NC-4.0 license before running. Supply an existing cache

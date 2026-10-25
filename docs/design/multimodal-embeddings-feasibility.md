@@ -173,6 +173,22 @@ embedding-space identity.
   special tokens within 2 tokens, and the leave-one-out vectors to differ from
   the full item by at least the media-change distance.
 
+## Native adapter run (contract v2)
+
+The probe below scores the upstream `llama-server`. The LocalAI backend adapter
+was scored separately, through `/v1/embeddings` and the `llama-cpp` gRPC backend
+built at llama.cpp `78a8ae14be559b45f5f13ddee82c188b683d5d8d`, with the same model
+and projector hashes. Contract v1 was not retuned. Contract
+`multimodal-acceptance-v2-adapter` was frozen, with new recordings, in the commit
+that added it and before any v2 score existed. Result: **FAIL, 12 of 14 scored
+cases**. The failures are `text-to-audio-drum` and `audio-to-text-water`. The v1
+fixtures scored through the adapter (video not applicable) give 7 of 9 scored cases
+and the same two text-to-audio failures, with margins 0.0062 and 0.0050 against the
+upstream server's 0.0052 and 0.0063. The raw vectors are in
+`native-proof-v2-vectors.json` and `native-proof-v1-adapter-vectors.json`, and
+`check_adapter_proof.py` recomputes every number. The adapter publishes no video, so
+the video rows of v1 stay as the upstream server recorded them.
+
 ## Native run results (exact pin)
 
 Outcome: **FAIL, recorded.** Machine-readable evidence:

@@ -174,12 +174,19 @@ you to rebuild or update it.
 ## Multimodal input
 
 {{% notice warning %}}
-**Native backend support is pending.** The HTTP route, the typed backend
-protocol and the resource limits are in place, but no shipped backend or model
-configuration implements the `MultimodalEmbedding` RPC yet, and no model has
-been accepted for text, image, audio and video retrieval. Until a backend
-publishes protocol version 1 with modality capabilities, structured requests
-return `501`. Nothing here is an availability claim for any model.
+**What is supported.** The `llama-cpp` backend embeds text, images and audio
+when the model has a projector that reads them. It does **not** embed video:
+decoding video needs an ffmpeg binary that the backend does not ship, so it does
+not publish a video capability and a video part returns `501`. A backend that
+does not publish protocol version 1 also returns `501`, and a model that cannot
+read a requested modality returns `422`.
+
+**What is proven.** The candidate model (EmbeddingGemma 2, see
+[Model setup](#model-setup)) embeds all three modalities into one 768-dimension
+space, and changing the media changes the vector. Retrieval quality is **not**
+accepted: on the frozen v2 acceptance set 12 of 14 cases pass, and two audio
+cases fail (see [Acceptance status](#acceptance-status)). Do not rely on
+audio-to-text or text-to-audio retrieval with this model.
 {{% /notice %}}
 
 `input` can be a content object, or an array whose elements are strings and
@@ -209,8 +216,9 @@ curl http://localhost:8080/v1/embeddings -X POST -H "Content-Type: application/j
 
 - **Text** is passed as given. **Images** are PNG or JPEG. **Audio** is WAV, MP3
   or FLAC. **Video** is MP4 (H.264, optional AAC) or WebM (VP8/VP9, optional
-  Opus); `video_url` is an alias of `input_video`.
-- **Video** is expanded in place into a `Video:` marker, frames sampled at 4 per
+  Opus); `video_url` is an alias of `input_video`. The `llama-cpp` backend does
+  not publish video, so a video part to such a model returns `501`.
+- A backend that accepts video expands it in place into a `Video:` marker, frames sampled at 4 per
   second with an elapsed-milliseconds marker before each frame, and the first
   audio track after an `Audio track:` marker. This is a joint audiovisual
   sequence, not synchronized attention. Videos with several video streams or
@@ -242,7 +250,7 @@ given has returned a corrupt result.
 | 415 | Unsupported or mismatched media format, including a backend error that starts with `unsupported_media_format` |
 | 422 | The loaded model cannot consume a requested modality |
 | 429 | Media preparation capacity (2 per frontend) is in use, the backend is busy (`RESOURCE_EXHAUSTED` without the `limit_exceeded` prefix), or the global backend capacity is reached |
-| 501 | The backend has no multimodal protocol, or it did not publish capabilities |
+| 501 | The backend has no multimodal protocol, did not publish capabilities, or cannot decode the media kind (video on `llama-cpp`) |
 | 502 | Source fetch failed, the backend result was invalid, or the backend failed |
 | 503 | The model is loading, in a load cooldown, or no node is available. These answers carry `Retry-After` where known, as for text requests |
 | 504 | Fetch, preparation or inference deadline exceeded |
@@ -341,9 +349,9 @@ image/audio/video bytes, selected model identity, inference options, and remaini
 request-wide resource allowances. Responses wrap the existing embedding result
 with typed resource consumption. Binary media is not encoded into a text prompt.
 
-This protocol addition does not establish native model support: no shipped
-backend implements the RPC yet (see [Multimodal input](#multimodal-input) for the
-HTTP behavior). Legacy Go models and old backend servers return gRPC
+The `llama-cpp` backend implements the RPC for text, image and audio (see
+[Multimodal input](#multimodal-input) for the HTTP behavior and
+[Native adapter](#native-adapter) for its bounds). Legacy Go models and old backend servers return gRPC
 `UNIMPLEMENTED` for the new RPC; text embeddings continue unchanged. Structured
 callers must require protocol version 1 and explicit modality capabilities for
 the selected loaded instance. Missing or unknown versions are not evidence of
@@ -369,8 +377,8 @@ including refusals during metadata admission before inference. The next request
 selects a fresh eligible route; the refused session does not retry elsewhere.
 Transient metadata errors do not remove otherwise healthy replica routes.
 Legacy text requests keep their existing route. These transport provisions do not
-constitute real-model multimodal support; native and full runtime acceptance are
-still required.
+constitute real-model multimodal support; the real-model run is described under
+[Acceptance status](#acceptance-status).
 
 Protocol version 1 additionally requires an opaque `embedding_generation` token
 in metadata and each structured embedding request. The token identifies a worker's
@@ -381,11 +389,65 @@ Missing tokens fail closed; stale tokens are refused before inference and result
 are discarded if their generation changes during execution. A caller must reopen
 its session rather than retry an item against stale metadata.
 
-**Native implementation requirement (Task 10):** the llama.cpp adapter must issue
-and validate this token under its model lifecycle synchronization, invalidate it
-before load/free, and check it at dispatch and result publication. Merely exposing
-the protobuf field or unchanged capability flags is insufficient. This Go routing
-verification is not native-runtime acceptance.
+The llama.cpp adapter issues a fresh random token on every model load, clears it
+before a load starts, publishes it in the metadata, and checks it on every typed
+request: a missing token answers `UNIMPLEMENTED` and a different one `ABORTED`,
+before any media is decoded.
+
+### Model setup
+
+EmbeddingGemma 2 with its projector is the candidate used for acceptance. The
+projector file must be listed as `mmproj`, and the batch must hold a whole item,
+because images and audio are embedded without chunking:
+
+```yaml
+name: embeddinggemma-2
+backend: llama-cpp
+embeddings: true
+mmproj: mmproj-embeddinggemma-2-Q8_0.gguf
+context_size: 16384
+batch: 16384
+parameters:
+  model: embeddinggemma-2-Q8_0.gguf
+```
+
+An item that does not fit the context returns `413`; nothing is truncated. The
+model cards say Apache 2.0 but also link the base model's license page and
+prohibited-use policy, so check the redistribution terms before you ship the
+weights. No gallery entry exists for it.
+
+### Native adapter
+
+The `llama-cpp` backend checks every bound itself, before it decodes anything,
+and does not rely on what the media claims. It reads the pixel size of a PNG or
+JPEG and the length of a WAV, FLAC or MP3 clip from the container header and
+charges them to the remaining request budget first, so a small file that claims
+a huge image, a long clip, or (for FLAC) no sample count is refused without
+allocating. Per part: at most 16 million pixels and 30 seconds; per request: the
+remaining pixel, duration, audio-allocation, byte, text and part allowances sent
+by the frontend. A zero allowance is exhausted. Audio is counted as the mono
+float buffer at the projector rate. The backend writes no temporary files, so it
+reports no temporary storage. A text part that contains the model's media marker
+is rejected, and a corrupt image never starts a subprocess.
+
+### Acceptance status
+
+Two frozen contracts were scored. Neither is retuned.
+
+- **v1** (upstream `llama-server`, text, image, audio and video): 10 of 12
+  retrieval queries pass. Two text-to-audio queries rank the intended clip first
+  but miss the 0.01 margin. The recorded result is FAIL.
+- **v2** (`multimodal-acceptance-v2-adapter`, through the LocalAI `llama-cpp`
+  backend, text, image and audio, new recordings frozen before scoring): 12 of 14
+  cases pass and the result is **FAIL**. Text-to-image, image-to-text and both
+  media-change pairs pass, with image margins from 0.066 to 0.228. Two cases fail:
+  `text-to-audio-drum` (the typing clip ranks above the drum clip) and
+  `audio-to-text-water` (the drum text ranks above the water text). The audio
+  cases that pass have margins from 0.011 to 0.051.
+
+The raw vectors and a checker that recomputes every number are committed under
+`test/multimodal`. `bash test/multimodal/verify.sh native-proof` recomputes both
+and exits with 3 for a recorded FAIL.
 
 ### Structured input validation (protocol groundwork)
 

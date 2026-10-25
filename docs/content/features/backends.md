@@ -571,6 +571,32 @@ capabilities or implement native multimodal inference. Go models may implement
 `MultimodalEmbeddingModel`; models without that optional interface explicitly
 return `UNIMPLEMENTED`, without invoking legacy embeddings.
 
+The `llama-cpp` backend publishes version 1 for a model loaded for pooled
+embeddings. Its modalities come from what the loaded model has: `TEXT`, plus
+`IMAGE` and `AUDIO` when the projector reads them. It never publishes
+`SILENT_VIDEO` or `AUDIOVISUAL_VIDEO`, because decoding video needs an ffmpeg
+binary the backend does not ship. A video part answers `UNIMPLEMENTED`, and the
+frontend answers `501` before it fetches anything when the instance reads images
+but publishes no video. A fork of llama.cpp that lacks the needed mtmd API keeps
+the text path and publishes nothing.
+
+### Typed multimodal rerank protocol
+
+`MultimodalRerank(MultimodalRerankRequest)` carries a rerank request with media.
+It reuses `EmbeddingPart`, `EmbeddingBudget` and `EmbeddingConsumption`:
+`embedding_generation` and `model` bind it to the loaded instance, `query` is an
+ordered list of parts, `documents` is a list of `RerankDocument` (ordered parts),
+`top_n` crops the result, and `budget` holds the remaining request allowances.
+The response wraps the unchanged `RerankResult` plus consumption. The text
+`Rerank` RPC is unchanged and is never used for a request with media.
+
+`ModelMetadataResponse.rerank_protocol_version` is 1 and `rerank_modalities`
+lists `TEXT` and, for a reranker with a projector and a `rerank` chat template,
+`IMAGE`. Within a query or document the text parts precede the images, because
+llama.cpp appends the images to the text. The same request size ceiling,
+generation check, identity check and in-flight accounting apply as for
+`MultimodalEmbedding`.
+
 Go bindings are generated, not tracked. The wire verification uses installed
 protoc 3.21.12, protoc-gen-go v1.34.2 and protoc-gen-go-grpc 1.4.0 with the
 repository's source-relative protogen arguments. `bash test/multimodal/verify.sh

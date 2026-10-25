@@ -11031,6 +11031,13 @@ paths:
       - moderation
   /v1/rerank:
     post:
+      description: '`query` is a string or a content object, and each entry of `documents`
+        is a string or a content object. A content object is `{"content":[part,...]}`
+        with `text` and `image_url` parts; text parts come first, then images. Typed
+        requests with images need a reranker whose backend publishes the multimodal
+        rerank capability: a backend without it returns 501, a model that cannot read
+        images returns 422, and media is never dropped to score text only. A request
+        of one string query and string documents is unchanged.'
       parameters:
       - description: query params
         in: body
