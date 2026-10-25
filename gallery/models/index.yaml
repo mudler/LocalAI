@@ -5,6 +5,92 @@
 # master reads it as the default model source; a tagged build reads the gallery
 # until the release cutover.
 - kind: model
+  id: qwen3.5-0.8b-artemis-q5
+  name: qwen3.5-0.8b-artemis-q5
+  version: 0.0.0-gallery.536455f1d8a6
+  description: |
+    TurinTech Artemis Q5_K_M quantization of Qwen3.5 0.8B for text chat,
+    reasoning, and tool use. This text-only build omits the vision encoder
+    and MTP layer. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-0.8B
+    - https://huggingface.co/turintech/Qwen3.5-0.8B-Artemis-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: Qwen3.5-0.8B-Artemis-Q5_K_M.gguf
+        sha256: 3b782856b66f61b4494b346ad8ff3e91a0d4c294ecedd1797f1855a078abbd05
+        uri: https://huggingface.co/turintech/Qwen3.5-0.8B-Artemis-GGUF/resolve/98eb257fe3b2b165e5b4f0ecfa9f127a17823e06/Qwen3.5-0.8B-Artemis-Q5_K_M.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        model: Qwen3.5-0.8B-Artemis-Q5_K_M.gguf
+      template:
+        use_tokenizer_template: true
+    variants:
+      - model: qwen3.5-0.8b-artemis-q4
+- kind: model
+  id: qwen3.5-0.8b-artemis-q4
+  name: qwen3.5-0.8b-artemis-q4
+  version: 0.0.0-gallery.b7476e18bdd7
+  description: |
+    TurinTech Artemis Q4_K_M quantization of Qwen3.5 0.8B for text chat,
+    reasoning, and tool use. This text-only build omits the vision encoder
+    and MTP layer. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-0.8B
+    - https://huggingface.co/turintech/Qwen3.5-0.8B-Artemis-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: Qwen3.5-0.8B-Artemis-Q4_K_M.gguf
+        sha256: 01e0651f0fc5d0f9a3d1a68166fbdf12ab4d3bb135b3d725d694f42becfaa5a4
+        uri: https://huggingface.co/turintech/Qwen3.5-0.8B-Artemis-GGUF/resolve/98eb257fe3b2b165e5b4f0ecfa9f127a17823e06/Qwen3.5-0.8B-Artemis-Q4_K_M.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        model: Qwen3.5-0.8B-Artemis-Q4_K_M.gguf
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: diplodocus-preview-q4
   name: diplodocus-preview-q4
   version: 0.0.0-gallery.fe37350f336e
