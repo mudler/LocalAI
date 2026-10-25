@@ -171,6 +171,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DEPTH)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DepthRequest) }))
 
+	forecastHandler := localai.ForecastEndpoint(cl, ml, appConfig)
+	router.POST("/v1/forecast",
+		forecastHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_FORECAST)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.ForecastRequest) }))
+
 	// Face recognition endpoints
 	faceMw := []echo.MiddlewareFunc{
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_FACE_RECOGNITION)),

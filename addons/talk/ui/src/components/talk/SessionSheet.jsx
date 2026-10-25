@@ -19,12 +19,17 @@ export default function SessionSheet({
   const sheetRef = useRef(null)
   const closeRef = useRef(null)
   const openerRef = useRef(null)
+  // The parent passes a fresh onClose on every render. Read it through a ref
+  // so the effect below runs once per open: re-running it would move focus to
+  // the opener and back to Close, pulling it out of the control in use.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose })
 
   useEffect(() => {
     openerRef.current = document.activeElement
     closeRef.current?.focus()
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCloseRef.current(); return }
       if (e.key !== 'Tab' || !sheetRef.current) return
       const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
       if (focusable.length === 0) return
@@ -39,7 +44,7 @@ export default function SessionSheet({
       const el = openerRef.current
       if (el && document.contains(el)) el.focus?.()
     }
-  }, [onClose])
+  }, [])
 
   const slots = pipeline && !pipeline.self_contained
     ? [

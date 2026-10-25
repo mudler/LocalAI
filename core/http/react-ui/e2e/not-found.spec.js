@@ -1,8 +1,10 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockAccess } from './access-fixtures.js'
+import { stubAddonRoutes } from './addons-fixtures.js'
 
 test.describe('404', () => {
   test('names the address, offers a way home and lists the places the viewer can go', async ({ page }) => {
+    await stubAddonRoutes(page)
     await page.goto('/app/no-such-page')
     const nf = page.getByTestId('not-found')
     await expect(nf.getByRole('heading', { level: 1 })).toHaveText('This page does not exist')

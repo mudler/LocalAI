@@ -122,6 +122,10 @@ func (f *fakeGRPCBackend) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrp
 	return &pb.DepthResponse{}, nil
 }
 
+func (f *fakeGRPCBackend) Forecast(_ context.Context, _ *pb.ForecastRequest, _ ...ggrpc.CallOption) (*pb.ForecastResponse, error) {
+	return &pb.ForecastResponse{}, nil
+}
+
 func (f *fakeGRPCBackend) FaceVerify(_ context.Context, _ *pb.FaceVerifyRequest, _ ...ggrpc.CallOption) (*pb.FaceVerifyResponse, error) {
 	return &pb.FaceVerifyResponse{}, nil
 }

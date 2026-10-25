@@ -80,6 +80,36 @@ test.describe('Chat settings sheet', () => {
     expect(answer.request().messages[0]).toEqual({ role: 'system', content: 'Answer in one line.' })
   })
 
+  // Every edit in the sheet re-renders the chat page, which hands the sheet a
+  // new onClose. Focus must stay where the user put it: before the fix each
+  // re-render sent focus to the opener and then to the Close button, so a
+  // second keystroke went nowhere and an open native dropdown closed itself.
+  test('keeps focus on the control being edited while the page re-renders', async ({ page }) => {
+    await openChat(page, [chatOf('c1', 'Settings', 'qwen3-8b', pair('hi', 'hello'))])
+    await open(page)
+
+    const prompt = sheet(page).getByTestId('chat-system-prompt')
+    await prompt.click()
+    await page.keyboard.type('Be brief.', { delay: 20 })
+    await expect(prompt).toBeFocused()
+    await expect(prompt).toHaveValue('Be brief.')
+    await expect.poll(async () => (await storedChats(page)).chats[0].systemPrompt).toBe('Be brief.')
+
+    const topK = sheet(page).locator('.cx-field', { hasText: 'Top K' }).getByRole('slider')
+    await topK.focus()
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await expect(topK).toBeFocused()
+    await expect.poll(async () => (await storedChats(page)).chats[0].topK).toBe(42)
+
+    // Escape still reaches the current onClose, and focus goes back to the
+    // button that opened the sheet.
+    await expect(sheet(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(sheet(page)).toHaveCount(0)
+    await expect(page.getByTestId('chat-settings-button')).toBeFocused()
+  })
+
   test('the context size has quick sizes, drives the header meter and is not sent', async ({ page }) => {
     const answer = await answerWith(page, 'ok')
     await openChat(page, [chatOf('c1', 'Settings', 'qwen3-8b', pair('hi', 'hello'), { tokenUsage: { prompt: 1000, completion: 96, total: 1096 } })])

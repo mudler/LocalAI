@@ -191,6 +191,7 @@ different tools share one loaded model.
 #### Agent Configuration (`agent`)
 
 - **`max_iterations`**: Maximum number of MCP tool execution loop iterations (default: 10). Each iteration allows the model to call tools and receive results before generating the next response.
+- **`max_generation_tokens`**: Output-token cap for each completion of an MCP agent job (default: the client default, 16384). `max_iterations` bounds the number of turns, not the length of one; this bounds a single completion that keeps generating. Raise it for reasoning models that think at length, lower it for models that should only pick a tool and answer briefly. It applies to agent jobs (`/api/agent/jobs`, also when run on a distributed agent worker); an MCP tool loop on `/v1/chat/completions` uses the request's own `max_tokens`.
 
 ## Agent-scoped MCP servers
 
