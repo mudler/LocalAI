@@ -36,7 +36,7 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.5.0
-	github.com/mudler/cogito v0.11.1-0.20261012224442-f243b545f2d9
+	github.com/mudler/cogito v0.11.1-0.20261025222131-dccd888f9f77
 	github.com/mudler/edgevpn v0.34.0
 	github.com/mudler/go-processmanager v0.1.2-0.20260823202314-dfa0ed852db6
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8

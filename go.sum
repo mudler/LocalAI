@@ -1053,6 +1053,8 @@ github.com/mudler/cogito v0.11.1-0.20260928072733-b40513ef5d1a h1:b3bZ15XGd3kH+g
 github.com/mudler/cogito v0.11.1-0.20260928072733-b40513ef5d1a/go.mod h1:UxGNMBRakV0A2uVHv2JQIHjpnVPkEWFaS7SDhyynZqQ=
 github.com/mudler/cogito v0.11.1-0.20261012224442-f243b545f2d9 h1:m6M2XyUcb4w7LVx4akYkMt6UX5qmlCnHW3xw3b6Kt6I=
 github.com/mudler/cogito v0.11.1-0.20261012224442-f243b545f2d9/go.mod h1:UxGNMBRakV0A2uVHv2JQIHjpnVPkEWFaS7SDhyynZqQ=
+github.com/mudler/cogito v0.11.1-0.20261025222131-dccd888f9f77 h1:ABD4UTVDl1rcOyXid8hfH1n8vHrrVrXURmpM6XBzcng=
+github.com/mudler/cogito v0.11.1-0.20261025222131-dccd888f9f77/go.mod h1:UxGNMBRakV0A2uVHv2JQIHjpnVPkEWFaS7SDhyynZqQ=
 github.com/mudler/edgevpn v0.34.0 h1:qDrD/rCPFY/FdURbXudIZWihVKY4VOX3nMn3CcbeQEU=
 github.com/mudler/edgevpn v0.34.0/go.mod h1:yki7uMi5LR9gSMrw8PdPieuxsrk8BLV2Ui7VBEmbbIA=
 github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc h1:RxwneJl1VgvikiX28EkpdAyL4yQVnJMrbquKospjHyA=
