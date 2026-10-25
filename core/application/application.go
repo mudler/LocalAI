@@ -43,6 +43,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
@@ -113,6 +114,8 @@ type Application struct {
 	voiceRegistry        voicerecognition.Registry
 	voiceProfileStore    *voiceprofile.Store
 	chatHistoryStore     *chathistory.Store
+	studioStore          store.Store // the studio loop's chats; see initStudioStore
+	studioStoreKind      string      // "gorm", "json" or "memory"
 	authDB               *gorm.DB
 	metricsService       *monitoring.LocalAIMetricsService
 	statsRecorder        *billing.Recorder

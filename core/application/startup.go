@@ -193,6 +193,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}()
 	}
 	application.initChatHistoryStore()
+	application.initStudioStore()
 
 	// Initialize the OTel + Prometheus metric pipeline before any
 	// counter is created. monitoring.NewLocalAIMetricsService calls
