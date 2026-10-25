@@ -21,14 +21,18 @@ manifest: addons/tables/manifest.json
 ui: addons/tables/ui/dist
 platforms:
   - platform: linux/amd64
-    enabled: false
+    enabled: true
     runner: ubuntu-24.04
     native_check: executable-start
   - platform: linux/arm64
-    enabled: false
+    enabled: true
     runner: ubuntu-24.04-arm
     native_check: executable-start
   - platform: darwin/arm64
-    enabled: false
+    enabled: true
     runner: macos-14
+    native_check: executable-start
+  - platform: darwin/amd64
+    enabled: true
+    runner: macos-15-intel
     native_check: executable-start

@@ -56,15 +56,18 @@ type RunCMD struct {
 	NoColor   string   `env:"NO_COLOR" hidden:""`
 	HFToken   string   `env:"HF_TOKEN" hidden:""`
 
-	ExternalBackends             []string      `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
-	WebRTCNAT1To1IPs             []string      `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
-	WebRTCICEInterfaces          []string      `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
-	WebRTCUDPPort                int           `env:"LOCALAI_WEBRTC_UDP_PORT" help:"Shared UDP port for /v1/realtime WebRTC ICE traffic. Publish this port as UDP and allow it through the firewall." group:"api" name:"web-rtc-udp-port"`
-	BackendsPath                 string        `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
-	BackendsSystemPath           string        `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
-	ModelsPath                   string        `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
-	DownloadStagingPath          string        `env:"LOCALAI_DOWNLOAD_STAGING_PATH,DOWNLOAD_STAGING_PATH" type:"path" default:"${basepath}/downloading" help:"Path where in-flight downloads are staged before extraction" group:"storage"`
-	ArtifactDownloadConcurrency  int           `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
+	ExternalBackends            []string `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
+	WebRTCNAT1To1IPs            []string `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
+	WebRTCICEInterfaces         []string `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
+	WebRTCUDPPort               int      `env:"LOCALAI_WEBRTC_UDP_PORT" help:"Shared UDP port for /v1/realtime WebRTC ICE traffic. Publish this port as UDP and allow it through the firewall." group:"api" name:"web-rtc-udp-port"`
+	BackendsPath                string   `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
+	BackendsSystemPath          string   `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
+	ModelsPath                  string   `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
+	DownloadStagingPath         string   `env:"LOCALAI_DOWNLOAD_STAGING_PATH,DOWNLOAD_STAGING_PATH" type:"path" default:"${basepath}/downloading" help:"Path where in-flight downloads are staged before extraction" group:"storage"`
+	ArtifactDownloadConcurrency int      `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
+
+	MaxConcurrentBackendOperations int `env:"LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS" help:"How many backend install, upgrade and delete operations run at once. 1 (the default) runs them one after the other. Operations on the same backend always run one at a time" group:"backends" default:"1"`
+
 	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
 	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
 	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (collectiondb, agent state, tasks, jobs). Separates mutable data from configuration" group:"storage"`
@@ -338,6 +341,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
 		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
+		config.WithMaxConcurrentBackendOperations(r.MaxConcurrentBackendOperations),
 		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
 			modelartifacts.WithHuggingFaceToken(r.HFToken),
 			modelartifacts.WithDownloadConcurrency(r.ArtifactDownloadConcurrency),

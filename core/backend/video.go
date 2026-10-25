@@ -11,8 +11,6 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-// VideoGenerationOptions is the backend-neutral request passed to video generators.
-// Media fields contain staged local paths by the time they reach this layer.
 // VideoReferenceOptions is a reference video whose frames were staged into one
 // directory, named so that lexicographic order is frame order.
 type VideoReferenceOptions struct {
@@ -21,6 +19,8 @@ type VideoReferenceOptions struct {
 	Audio     string
 }
 
+// VideoGenerationOptions is the backend-neutral request passed to video generators.
+// Media fields contain staged local paths by the time they reach this layer.
 type VideoGenerationOptions struct {
 	Height         int32
 	Width          int32

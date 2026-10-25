@@ -245,6 +245,12 @@ var runtimeSettingsFields = []fieldSpec{
 			}
 			o.ArtifactDownloadConcurrency = v
 		}),
+	field("max_concurrent_backend_operations",
+		func(s *RuntimeSettings) **int { return &s.MaxConcurrentBackendOperations },
+		func(o *ApplicationConfig) int { return o.MaxConcurrentBackendOperations },
+		func(o *ApplicationConfig, v int) {
+			o.SetMaxConcurrentBackendOperations(v)
+		}),
 	// VRAM budget: the cap string ("80%"/"12GB"/"" = uncapped). The live
 	// side effect (xsysinfo.SetDefaultVRAMBudget) is post-processing in the
 	// apply loop, not here - the row only owns the config member, matching

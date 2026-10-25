@@ -399,6 +399,9 @@ type NodeRegistry struct {
 	clock func() time.Time
 	// leaseTTL overrides loadJobLeaseTTL when set (tests).
 	leaseTTL time.Duration
+	// backendOpLocks keeps live backend operations and the reconciler off the
+	// same (node, backend) at the same time.
+	backendOpLocks backendOpLocks
 	// incarnations caches the last worker incarnation seen per node.
 	incarnations sync.Map
 	// replicaRemovedHooks are invoked after a replica row for (modelName, nodeID)

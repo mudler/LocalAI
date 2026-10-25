@@ -127,6 +127,12 @@ func (c *ConnectionEvictingClient) Depth(ctx context.Context, in *pb.DepthReques
 	return result, err
 }
 
+func (c *ConnectionEvictingClient) Forecast(ctx context.Context, in *pb.ForecastRequest, opts ...ggrpc.CallOption) (*pb.ForecastResponse, error) {
+	result, err := c.Backend.Forecast(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}
+
 func (c *ConnectionEvictingClient) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...ggrpc.CallOption) (*pb.RerankResult, error) {
 	result, err := c.Backend.Rerank(ctx, in, opts...)
 	c.checkErr(err)

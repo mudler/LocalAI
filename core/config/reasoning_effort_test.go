@@ -35,12 +35,24 @@ var _ = Describe("ModelConfig.ApplyReasoningEffort", func() {
 		Expect(*c.ReasoningConfig.DisableReasoning).To(BeFalse())
 	})
 
+	It("enables thinking for the levels above high", func() {
+		for _, level := range []string{"xhigh", "max"} {
+			c := &config.ModelConfig{}
+			c.ApplyReasoningEffort(level)
+			Expect(c.ReasoningEffort).To(Equal(level))
+			Expect(c.ReasoningConfig.DisableReasoning).ToNot(BeNil())
+			Expect(*c.ReasoningConfig.DisableReasoning).To(BeFalse())
+		}
+	})
+
 	It("does not let a level override an operator's config-level disable", func() {
-		disabled := true
-		c := &config.ModelConfig{}
-		c.ReasoningConfig.DisableReasoning = &disabled
-		c.ApplyReasoningEffort("high")
-		Expect(*c.ReasoningConfig.DisableReasoning).To(BeTrue())
+		for _, level := range []string{"high", "xhigh", "max"} {
+			disabled := true
+			c := &config.ModelConfig{}
+			c.ReasoningConfig.DisableReasoning = &disabled
+			c.ApplyReasoningEffort(level)
+			Expect(*c.ReasoningConfig.DisableReasoning).To(BeTrue(), level)
+		}
 	})
 
 	It("is a no-op on the toggle when no effort is set anywhere", func() {

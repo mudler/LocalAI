@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -64,6 +65,8 @@ type DistributedBackendManager struct {
 	backendGalleries []config.Gallery
 	systemState      *system.SystemState
 	progressSink     nodeProgressSink
+	// maxConcurrent returns max_concurrent_backend_operations. nil means 1.
+	maxConcurrent func() int
 }
 
 // NewDistributedBackendManager creates a DistributedBackendManager.
@@ -77,6 +80,7 @@ func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model
 		backendGalleries: appConfig.BackendGalleries,
 		systemState:      appConfig.SystemState,
 		progressSink:     progressSink,
+		maxConcurrent:    appConfig.BackendOperationLimit,
 	}
 }
 
@@ -160,7 +164,9 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 		})
 	}
 
-	result := BackendOpResult{Nodes: make([]NodeOpStatus, 0, len(allNodes))}
+	// Pick the nodes first, in registry order, so the result keeps that order
+	// whatever the send order is.
+	targets := make([]BackendNode, 0, len(allNodes))
 	for _, node := range allNodes {
 		// Pending nodes haven't been approved yet - no intent to apply.
 		if node.Status == StatusPending {
@@ -176,76 +182,102 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 		if targetNodeIDs != nil && !targetNodeIDs[node.ID] {
 			continue
 		}
-		if err := d.registry.UpsertPendingBackendOp(ctx, node.ID, backend, op, galleriesJSON); err != nil {
-			xlog.Warn("Failed to enqueue backend op", "op", op, "node", node.Name, "backend", backend, "error", err)
-			errMsg := fmt.Sprintf("enqueue failed: %v", err)
-			result.Nodes = append(result.Nodes, NodeOpStatus{
-				NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusError,
-				Error: errMsg,
-			})
-			emitNodeProgress(node, galleryop.NodeStatusError, errMsg)
-			continue
-		}
-
-		if node.Status != StatusHealthy {
-			// Intent is recorded; reconciler will retry when the node recovers.
-			errMsg := fmt.Sprintf("node %s, will retry when healthy", node.Status)
-			result.Nodes = append(result.Nodes, NodeOpStatus{
-				NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusQueued,
-				Error: errMsg,
-			})
-			emitNodeProgress(node, galleryop.NodeStatusQueued, errMsg)
-			continue
-		}
-
-		applyErr := apply(node)
-		if applyErr == nil {
-			// Find the row we just upserted and delete it; cheap but requires
-			// a lookup since UpsertPendingBackendOp doesn't return the ID.
-			if err := d.deletePendingRow(ctx, node.ID, backend, op); err != nil {
-				xlog.Debug("Failed to clear pending backend op after success", "error", err)
-			}
-			result.Nodes = append(result.Nodes, NodeOpStatus{
-				NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusSuccess,
-			})
-			emitNodeProgress(node, galleryop.NodeStatusSuccess, "")
-			continue
-		}
-
-		// Record failure for backoff. If there is no route to the node, mark it
-		// unhealthy so the router stops picking it too.
-		errMsg := applyErr.Error()
-
-		// Worker-still-installing is a "soft" failure: the worker is most
-		// likely still pulling the OCI image. Keep the row, push NextRetryAt
-		// out so the reconciler does not immediately re-fire another install
-		// while the worker is still busy, and report the in-progress state
-		// to the caller. The next reconciler pass / backend.list confirms
-		// the actual outcome.
-		if errors.Is(applyErr, galleryop.ErrWorkerStillInstalling) {
-			if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
-				_ = d.registry.RecordPendingBackendOpInFlight(ctx, id, errMsg, d.adapter.InstallTimeout())
-			}
-			result.Nodes = append(result.Nodes, NodeOpStatus{
-				NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusRunningOnWorker, Error: errMsg,
-			})
-			emitNodeProgress(node, galleryop.NodeStatusRunningOnWorker, errMsg)
-			continue
-		}
-
-		if errors.Is(applyErr, ErrNoRoute) {
-			xlog.Warn("No route to node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
-			d.registry.MarkUnhealthy(ctx, node.ID)
-		}
-		if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
-			_ = d.registry.RecordPendingBackendOpFailure(ctx, id, errMsg)
-		}
-		result.Nodes = append(result.Nodes, NodeOpStatus{
-			NodeID: node.ID, NodeName: node.Name, Status: galleryop.NodeStatusError, Error: errMsg,
-		})
-		emitNodeProgress(node, galleryop.NodeStatusError, errMsg)
+		targets = append(targets, node)
 	}
+
+	// Nodes are independent, so they are served in parallel, up to the
+	// max_concurrent_backend_operations setting. With the default of 1 they are
+	// visited one after the other, as before. Each result goes to its own slot.
+	statuses := make([]NodeOpStatus, len(targets))
+	limit := d.fanOutLimit()
+	sem := make(chan struct{}, limit)
+	var wg sync.WaitGroup
+	for i, node := range targets {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			statuses[i] = d.applyToNode(ctx, node, backend, op, galleriesJSON, apply, emitNodeProgress)
+		}()
+	}
+	wg.Wait()
+
+	result := BackendOpResult{Nodes: statuses}
 	return result, nil
+}
+
+// fanOutLimit is how many nodes one operation may talk to at once.
+func (d *DistributedBackendManager) fanOutLimit() int {
+	if d.maxConcurrent != nil {
+		if n := d.maxConcurrent(); n > 1 {
+			return n
+		}
+	}
+	return 1
+}
+
+// applyToNode records the intent for one node and, when the node is healthy,
+// sends the operation and settles the pending row. It holds the (node,
+// backend) lock for the whole time so the reconciler does not send the same
+// operation in parallel.
+func (d *DistributedBackendManager) applyToNode(ctx context.Context, node BackendNode, backend, op string, galleriesJSON []byte, apply func(node BackendNode) error, emitNodeProgress func(node BackendNode, status, errMsg string)) NodeOpStatus {
+	fail := func(status, errMsg string) NodeOpStatus {
+		emitNodeProgress(node, status, errMsg)
+		return NodeOpStatus{NodeID: node.ID, NodeName: node.Name, Status: status, Error: errMsg}
+	}
+
+	unlock, lockErr := d.registry.backendOpLocks.lock(ctx, node.ID, backend)
+	if lockErr != nil {
+		return fail(galleryop.NodeStatusError, fmt.Sprintf("waiting for the node: %v", lockErr))
+	}
+	defer unlock()
+
+	if err := d.registry.UpsertPendingBackendOp(ctx, node.ID, backend, op, galleriesJSON); err != nil {
+		xlog.Warn("Failed to enqueue backend op", "op", op, "node", node.Name, "backend", backend, "error", err)
+		return fail(galleryop.NodeStatusError, fmt.Sprintf("enqueue failed: %v", err))
+	}
+
+	if node.Status != StatusHealthy {
+		// Intent is recorded; reconciler will retry when the node recovers.
+		return fail(galleryop.NodeStatusQueued, fmt.Sprintf("node %s, will retry when healthy", node.Status))
+	}
+
+	applyErr := apply(node)
+	if applyErr == nil {
+		// Find the row we just upserted and delete it; cheap but requires
+		// a lookup since UpsertPendingBackendOp doesn't return the ID.
+		if err := d.deletePendingRow(ctx, node.ID, backend, op); err != nil {
+			xlog.Debug("Failed to clear pending backend op after success", "error", err)
+		}
+		return fail(galleryop.NodeStatusSuccess, "")
+	}
+
+	// Record failure for backoff. If there is no route to the node, mark it
+	// unhealthy so the router stops picking it too.
+	errMsg := applyErr.Error()
+
+	// Worker-still-installing is a "soft" failure: the worker is most
+	// likely still pulling the OCI image. Keep the row, push NextRetryAt
+	// out so the reconciler does not immediately re-fire another install
+	// while the worker is still busy, and report the in-progress state
+	// to the caller. The next reconciler pass / backend.list confirms
+	// the actual outcome.
+	if errors.Is(applyErr, galleryop.ErrWorkerStillInstalling) {
+		if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
+			_ = d.registry.RecordPendingBackendOpInFlight(ctx, id, errMsg, d.adapter.InstallTimeout())
+		}
+		return fail(galleryop.NodeStatusRunningOnWorker, errMsg)
+	}
+
+	if errors.Is(applyErr, ErrNoRoute) {
+		xlog.Warn("No route to node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
+		d.registry.MarkUnhealthy(ctx, node.ID)
+	}
+	if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
+		_ = d.registry.RecordPendingBackendOpFailure(ctx, id, errMsg)
+	}
+	return fail(galleryop.NodeStatusError, errMsg)
 }
 
 // findPendingRow looks up the ID of a pending_backend_ops row by its

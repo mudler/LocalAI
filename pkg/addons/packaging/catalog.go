@@ -30,6 +30,7 @@ type catalogRelease struct {
 	Channel     string `json:"channel"`
 	Artifact    string `json:"artifact"`
 	Digest      string `json:"digest"`
+	Mutable     bool   `json:"mutable"`
 	OS          string `json:"os"`
 	Arch        string `json:"arch"`
 	Policy      struct {
@@ -73,7 +74,7 @@ func cmdCatalog(args []string) error {
 	dir := fs.String("merged", "", "merged layout")
 	config := fs.String("config", "", "platform matrix file")
 	repository := fs.String("repository", "", "registry and repository the package was published to")
-	tag := fs.String("tag", "", "immutable tag the artifact reference names: the version or sha-<commit>")
+	tag := fs.String("tag", "", "immutable tag the artifact reference names, without the add-on id prefix: the version or sha-<commit>")
 	channel := fs.String("channel", "", "channel name the entries are current for: latest, development or a branch channel")
 	ownerRepo := fs.String("owner-repo", "", "GitHub owner/repository that ran the workflow")
 	signerRef := fs.String("signer-ref", "", "ref of the signing workflow run")
@@ -151,14 +152,24 @@ func cmdCatalog(args []string) error {
 				description = ui.Description.Default()
 			}
 		}
+		// The development channel is mutable, like a development backend: the
+		// entry names the moving tag <id>-development and has no digest.
+		mutable := *channel == aliasDevelopment
+		entryVersion, entryTag := m.Version, *tag
+		if mutable {
+			entryVersion, entryTag = "0.0.0-development", aliasDevelopment
+		}
 		values := map[string]string{
-			"addon": v.Manifest.ID, "version": m.Version, "tag": *tag, "channel": *channel,
+			"addon": v.Manifest.ID, "version": entryVersion, "tag": addonTagOrEmpty(v.Manifest.ID, entryTag), "channel": *channel,
 			"repository": repo.Name(), "digest": d.Digest.String(),
 			"os": d.Platform.OS, "arch": d.Platform.Architecture,
 			"issuer": OIDCIssuer, "identity": identity,
 			"title": title, "description": description, "main_page": mainPage, "icon": icon,
 		}
 		text := string(tmpl)
+		if mutable {
+			text = strings.Replace(text, "digest: \"{{digest}}\"", "mutable: true", 1)
+		}
 		for k, val := range values {
 			text = strings.ReplaceAll(text, "{{"+k+"}}", jsonString(val))
 		}
@@ -171,7 +182,14 @@ func cmdCatalog(args []string) error {
 			return fmt.Errorf("rendered entry: %v", err)
 		}
 		r := parsed[0]
-		if err := checkRelease(r, m.Version, d.Digest.String(), repo.Name(), *tag); err != nil {
+		regTag, err := addonTag(v.Manifest.ID, entryTag)
+		if err != nil {
+			return err
+		}
+		if mutable != r.Mutable {
+			return errors.New("the development channel renders a mutable entry and no other channel does")
+		}
+		if err := checkRelease(r, entryVersion, d.Digest.String(), repo.Name(), regTag); err != nil {
 			return err
 		}
 		releases = append(releases, r)
@@ -226,9 +244,17 @@ func readCatalogIndex(b []byte) ([]catalogRelease, error) {
 // add-on workflow.
 func checkRelease(r catalogRelease, version, digest, repository, tag string) error {
 	switch {
+	case r.Mutable:
+		// A development entry names the moving tag and carries no digest; the
+		// install resolves the tag, as it does for a development backend.
+		if r.Digest != "" {
+			return errors.New("a mutable entry must not carry a digest")
+		}
 	case r.Digest != digest || !digestRE.MatchString(r.Digest):
 		return errors.New("entry digest differs from the verified image digest")
-	case r.Version != version:
+	}
+	switch {
+	case !r.Mutable && r.Version != version:
 		return errors.New("entry version differs from the package version")
 	case r.Artifact != "oci://"+repository+":"+tag:
 		return fmt.Errorf("entry artifact %q must be oci://%s:%s", r.Artifact, repository, tag)
@@ -240,4 +266,14 @@ func checkRelease(r catalogRelease, version, digest, repository, tag string) err
 		return errors.New("entry needs addon id, os, arch and channel")
 	}
 	return nil
+}
+
+// addonTagOrEmpty is addonTag for the template values. An invalid id yields an
+// empty tag, which checkRelease then refuses.
+func addonTagOrEmpty(id, tag string) string {
+	t, err := addonTag(id, tag)
+	if err != nil {
+		return ""
+	}
+	return t
 }

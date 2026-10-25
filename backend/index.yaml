@@ -29389,3 +29389,111 @@
   uri: quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-funasr
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-funasr
+- name: timestral-cpp
+  alias: timestral-cpp
+  license: mit
+  description: |
+    timestral.cpp is a C++/ggml port of Mistral's Timestral time-series forecasting models.
+    It takes numeric series, with optional covariates, and returns quantile forecasts through
+    POST /v1/forecast. CPU only. The code is MIT; the model weights have their own licence.
+  urls:
+    - https://github.com/mudler/timestral.cpp
+  tags:
+    - forecasting
+    - time-series
+    - CPU
+  capabilities:
+    default: cpu-timestral-cpp
+    metal: metal-timestral-cpp
+- name: timestral-cpp-development
+  alias: timestral-cpp
+  license: mit
+  description: |
+    timestral.cpp is a C++/ggml port of Mistral's Timestral time-series forecasting models.
+    It takes numeric series, with optional covariates, and returns quantile forecasts through
+    POST /v1/forecast. CPU only. The code is MIT; the model weights have their own licence.
+  urls:
+    - https://github.com/mudler/timestral.cpp
+  tags:
+    - forecasting
+    - time-series
+    - CPU
+  capabilities:
+    default: cpu-timestral-cpp-development
+    metal: metal-timestral-cpp-development
+- name: cpu-timestral-cpp
+  alias: timestral-cpp
+  license: mit
+  description: |
+    timestral.cpp is a C++/ggml port of Mistral's Timestral time-series forecasting models.
+    It takes numeric series, with optional covariates, and returns quantile forecasts through
+    POST /v1/forecast. CPU only. The code is MIT; the model weights have their own licence.
+  urls:
+    - https://github.com/mudler/timestral.cpp
+  tags:
+    - forecasting
+    - time-series
+    - CPU
+  capabilities:
+    default: cpu-timestral-cpp
+    metal: metal-timestral-cpp
+  uri: quay.io/go-skynet/local-ai-backends:latest-cpu-timestral-cpp
+  mirrors:
+    - localai/localai-backends:latest-cpu-timestral-cpp
+- name: cpu-timestral-cpp-development
+  alias: timestral-cpp
+  license: mit
+  description: |
+    timestral.cpp is a C++/ggml port of Mistral's Timestral time-series forecasting models.
+    It takes numeric series, with optional covariates, and returns quantile forecasts through
+    POST /v1/forecast. CPU only. The code is MIT; the model weights have their own licence.
+  urls:
+    - https://github.com/mudler/timestral.cpp
+  tags:
+    - forecasting
+    - time-series
+    - CPU
+  capabilities:
+    default: cpu-timestral-cpp
+    metal: metal-timestral-cpp
+  uri: quay.io/go-skynet/local-ai-backends:master-cpu-timestral-cpp
+  mirrors:
+    - localai/localai-backends:master-cpu-timestral-cpp
+- name: metal-timestral-cpp
+  alias: timestral-cpp
+  license: mit
+  description: |
+    timestral.cpp is a C++/ggml port of Mistral's Timestral time-series forecasting models.
+    It takes numeric series, with optional covariates, and returns quantile forecasts through
+    POST /v1/forecast. CPU only. The code is MIT; the model weights have their own licence.
+  urls:
+    - https://github.com/mudler/timestral.cpp
+  tags:
+    - forecasting
+    - time-series
+    - CPU
+  capabilities:
+    default: cpu-timestral-cpp
+    metal: metal-timestral-cpp
+  uri: quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-timestral-cpp
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-timestral-cpp
+- name: metal-timestral-cpp-development
+  alias: timestral-cpp
+  license: mit
+  description: |
+    timestral.cpp is a C++/ggml port of Mistral's Timestral time-series forecasting models.
+    It takes numeric series, with optional covariates, and returns quantile forecasts through
+    POST /v1/forecast. CPU only. The code is MIT; the model weights have their own licence.
+  urls:
+    - https://github.com/mudler/timestral.cpp
+  tags:
+    - forecasting
+    - time-series
+    - CPU
+  capabilities:
+    default: cpu-timestral-cpp
+    metal: metal-timestral-cpp
+  uri: quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-timestral-cpp
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-timestral-cpp
