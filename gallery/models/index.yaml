@@ -800,7 +800,7 @@
     files:
       - filename: llama-cpp/models/unsloth/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-UD-Q4_K_XL.gguf
         sha256: a235d23638cc5549cb1ff61da7522c8a7e97f056f27093462a1e56f35aba91d8
-        uri: https://huggingface.co/unsloth/LFM2.5-24B-A2B-GGUF/resolve/faa77113e93335b63423e9e8d33395f86eaf8946/LFM2.5-24B-A2B-UD-Q4_K_XL.gguf
+        uri: https://huggingface.co/unsloth/LFM2.5-24B-A2B-GGUF/resolve/aacc77834f6aa568c93b4dbd6d295059736be98c/LFM2.5-24B-A2B-UD-Q4_K_XL.gguf
     overrides:
       backend: llama-cpp
       context_size: 131072
@@ -848,7 +848,7 @@
     files:
       - filename: llama-cpp/models/unsloth/LFM2.5-24B-A2B-GGUF/LFM2.5-24B-A2B-UD-Q6_K_XL.gguf
         sha256: abcb7e21e006eb4c826a2b75fb91c0804db7b20f908a61beeebdbdd07c88f41d
-        uri: https://huggingface.co/unsloth/LFM2.5-24B-A2B-GGUF/resolve/faa77113e93335b63423e9e8d33395f86eaf8946/LFM2.5-24B-A2B-UD-Q6_K_XL.gguf
+        uri: https://huggingface.co/unsloth/LFM2.5-24B-A2B-GGUF/resolve/aacc77834f6aa568c93b4dbd6d295059736be98c/LFM2.5-24B-A2B-UD-Q6_K_XL.gguf
     overrides:
       backend: llama-cpp
       context_size: 131072
