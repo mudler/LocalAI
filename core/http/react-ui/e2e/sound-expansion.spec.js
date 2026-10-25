@@ -105,7 +105,7 @@ test('Advanced preserves all fields and never sends the remembered expansion mod
 // All published schema surfaces must describe the opt-in field consistently.
 test('published Sound schemas expose expansion_model as an optional string', () => {
   const read = name => readFileSync(new URL(`../../../../swagger/${name}`, import.meta.url), 'utf8')
-  const generated = read('docs.go').split('"schema.ElevenLabsSoundGenerationRequest":')[1].split('"schema.ErrorResponse":')[0].trim().replace(/,$/, '')
+  const generated = read('docs.go').split('"schema.ElevenLabsSoundGenerationRequest":')[1].split(/\n {8}"schema\./)[0].trim().replace(/,$/, '')
   const schemas = [
     JSON.parse(read('swagger.json')),
     parseYaml(read('swagger.yaml')),
