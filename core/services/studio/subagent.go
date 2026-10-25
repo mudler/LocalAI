@@ -46,13 +46,9 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		s.mu.Unlock()
 		return session.TurnTools{Tools: tools}, nil
 	}
-	var tools []session.Tool
-	if s.d.HostTools != nil {
-		ts, err := s.d.HostTools(ctx, a)
-		if err != nil {
-			s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
-		}
-		tools = append(tools, ts...)
+	tools, err := s.hostTools(ctx, a)
+	if err != nil {
+		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
 	}
 	return session.TurnTools{Tools: append(tools, s.spawnTool(a))}, nil
 }
@@ -139,12 +135,9 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 // subset picks the tools a sub-agent gets from the parent's host tools. Nil
 // asks for all of them; a name the parent does not have is an error.
 func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string) ([]session.Tool, error) {
-	var have []session.Tool
-	if s.d.HostTools != nil {
-		var err error
-		if have, err = s.d.HostTools(ctx, a); err != nil {
-			return nil, fmt.Errorf("could not list your tools: %w", err)
-		}
+	have, err := s.hostTools(ctx, a)
+	if err != nil {
+		return nil, fmt.Errorf("could not list your tools: %w", err)
 	}
 	if names == nil {
 		return have, nil

@@ -22,19 +22,23 @@ func searchTool() session.Tool {
 	}
 }
 
-func newToolService(t *testing.T, script func(workspace.Actor, string) []studiotest.ToolStep) (*studio.Service, *studiotest.ToolHarness) {
+func newToolService(t *testing.T, script func(workspace.Actor, string) []studiotest.ToolStep, opts ...func(*studio.Deps)) (*studio.Service, *studiotest.ToolHarness) {
 	t.Helper()
 	h := &studiotest.ToolHarness{Script: script}
 	st, err := store.NewJSON("")
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := studio.New(studio.Deps{
+	d := studio.Deps{
 		Store: st, Provider: provider.New(), StateDir: t.TempDir(), Harness: h,
 		HostTools: func(context.Context, workspace.Actor) ([]session.Tool, error) {
 			return []session.Tool{searchTool()}, nil
 		},
-	})
+	}
+	for _, o := range opts {
+		o(&d)
+	}
+	svc, err := studio.New(d)
 	if err != nil {
 		t.Fatal(err)
 	}

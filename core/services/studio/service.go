@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -44,6 +45,9 @@ type Deps struct {
 	// itself (for example the tools of MCP servers). A sub-agent gets all of
 	// them, or the subset its parent names. Nil: none.
 	HostTools func(ctx context.Context, a workspace.Actor) ([]session.Tool, error)
+	// MCP returns the MCP tool executor for a user's chat with a model, or nil
+	// when the model has none. Its tools become the chat's tools. Nil: no MCP.
+	MCP func(ctx context.Context, user, model string) mcpendpoint.ToolExecutor
 	// ContextTokens returns the context window of a model in tokens, or zero
 	// when it is not known (the harness then uses its default). Nil: zero.
 	ContextTokens func(model string) int
