@@ -1,0 +1,446 @@
+package store
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+)
+
+// chatRow is the stored form of a chat record and its turn state. NextEntry and
+// NextPending are counters that give transcript lines and pending messages their
+// order; bumping one inside a transaction also takes the row lock, which is how
+// racing callers are serialized on SQLite and PostgreSQL alike.
+type chatRow struct {
+	ID           string `gorm:"primaryKey;size:128"`
+	Principal    string `gorm:"index;size:128;not null"`
+	Title        string
+	Folder       string
+	Created      time.Time
+	Updated      time.Time `gorm:"index"`
+	Snapshot     string    `gorm:"type:text"`
+	HarnessState []byte
+	Turns        int
+	Kind         string
+	ParentID     string `gorm:"size:128"`
+	Status       string
+	Summary      string `gorm:"type:text"`
+	RunID        string `gorm:"size:128"`
+	RunSince     time.Time
+	LastTurn     string `gorm:"size:32"`
+	NextEntry    int64
+	NextPending  int64
+}
+
+func (chatRow) TableName() string { return "studio_chats" }
+
+type entryRow struct {
+	ChatID string `gorm:"primaryKey;size:128"`
+	Seq    int64  `gorm:"primaryKey"`
+	Turn   int
+	Role   string `gorm:"size:32"`
+	Text   string `gorm:"type:text"`
+	Rev    int64
+	DurMs  int64
+	Card   string `gorm:"type:text"`
+	At     time.Time
+}
+
+func (entryRow) TableName() string { return "studio_entries" }
+
+type pendingRow struct {
+	ChatID    string `gorm:"primaryKey;size:128"`
+	ID        string `gorm:"primaryKey;size:64"`
+	Seq       int64
+	Text      string `gorm:"type:text"`
+	Delivered bool
+	At        time.Time
+}
+
+func (pendingRow) TableName() string { return "studio_pending" }
+
+type gormStore struct{ db *gorm.DB }
+
+// NewGORM returns a Store on db (SQLite or PostgreSQL) and creates its tables.
+func NewGORM(db *gorm.DB) (Store, error) {
+	if db == nil {
+		return nil, errors.New("studio store: nil *gorm.DB")
+	}
+	if err := db.AutoMigrate(&chatRow{}, &entryRow{}, &pendingRow{}); err != nil {
+		return nil, fmt.Errorf("studio store: migrate: %w", err)
+	}
+	return &gormStore{db: db}, nil
+}
+
+func (r chatRow) record() (session.ChatRecord, error) {
+	rec := session.ChatRecord{
+		ID: r.ID, Principal: r.Principal, Title: r.Title, Folder: r.Folder,
+		Created: r.Created, Updated: r.Updated, HarnessState: append([]byte(nil), r.HarnessState...),
+		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Status: r.Status, Summary: r.Summary,
+	}
+	if r.Snapshot != "" {
+		var ref sandbox.SnapshotRef
+		if err := json.Unmarshal([]byte(r.Snapshot), &ref); err != nil {
+			return rec, err
+		}
+		rec.Snapshot = &ref
+	}
+	return rec, nil
+}
+
+func snapshotJSON(ref *sandbox.SnapshotRef) (string, error) {
+	if ref == nil {
+		return "", nil
+	}
+	raw, err := json.Marshal(ref)
+	return string(raw), err
+}
+
+func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) error {
+	snap, err := snapshotJSON(rec.Snapshot)
+	if err != nil {
+		return err
+	}
+	row := chatRow{
+		ID: rec.ID, Principal: rec.Principal, Title: rec.Title, Folder: rec.Folder,
+		Created: rec.Created, Updated: rec.Updated, Snapshot: snap, HarnessState: rec.HarnessState,
+		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Status: rec.Status, Summary: rec.Summary,
+	}
+	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
+		var n int64
+		if s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ?", rec.ID).Count(&n).Error == nil && n > 0 {
+			return session.ErrExists // also when the ID belongs to another principal
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *gormStore) GetChat(ctx context.Context, principal, id string) (session.ChatRecord, error) {
+	var row chatRow
+	err := s.db.WithContext(ctx).Where("id = ? AND principal = ?", id, principal).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return session.ChatRecord{}, session.ErrNotFound
+	}
+	if err != nil {
+		return session.ChatRecord{}, err
+	}
+	return row.record()
+}
+
+func (s *gormStore) ListChats(ctx context.Context, principal string, before session.ChatCursor, limit int) ([]session.ChatRecord, error) {
+	q := s.db.WithContext(ctx).Where("principal = ?", principal)
+	if !before.Updated.IsZero() {
+		q = q.Where("updated < ? OR (updated = ? AND id < ?)", before.Updated, before.Updated, before.ID)
+	}
+	q = q.Order("updated DESC, id DESC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	var rows []chatRow
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]session.ChatRecord, 0, len(rows))
+	for _, r := range rows {
+		rec, err := r.record()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rec)
+	}
+	return out, nil
+}
+
+func (s *gormStore) UpdateChat(ctx context.Context, rec session.ChatRecord) error {
+	snap, err := snapshotJSON(rec.Snapshot)
+	if err != nil {
+		return err
+	}
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", rec.ID, rec.Principal).
+		Updates(map[string]any{
+			"title": rec.Title, "folder": rec.Folder, "snapshot": snap, "harness_state": rec.HarnessState,
+			"turns": rec.Turns, "updated": rec.Updated, "status": rec.Status, "summary": rec.Summary,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+func (s *gormStore) DeleteChat(ctx context.Context, principal, id string) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Where("id = ? AND principal = ?", id, principal).Delete(&chatRow{})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return session.ErrNotFound
+		}
+		if err := tx.Where("chat_id = ?", id).Delete(&entryRow{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("chat_id = ?", id).Delete(&pendingRow{}).Error
+	})
+}
+
+// lock takes the row lock of the chat by bumping a counter column and returns
+// the new value. It is session.ErrNotFound when principal does not own the chat.
+// principal "" means any owner (the transcript calls have none).
+func lock(tx *gorm.DB, principal, id, column string) (int64, error) {
+	q := tx.Model(&chatRow{}).Where("id = ?", id)
+	if principal != "" {
+		q = q.Where("principal = ?", principal)
+	}
+	res := q.UpdateColumn(column, gorm.Expr(column+" + 1"))
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return 0, session.ErrNotFound
+	}
+	var n int64
+	if err := tx.Model(&chatRow{}).Where("id = ?", id).Select(column).Row().Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func (s *gormStore) AppendEntry(ctx context.Context, id string, e session.Entry) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		seq, err := lock(tx, "", id, "next_entry")
+		if err != nil {
+			return err
+		}
+		if e.At.IsZero() {
+			e.At = time.Now().UTC()
+		}
+		card := ""
+		if e.Card != nil {
+			raw, err := json.Marshal(e.Card)
+			if err != nil {
+				return err
+			}
+			card = string(raw)
+		}
+		return tx.Create(&entryRow{
+			ChatID: id, Seq: seq, Turn: e.Turn, Role: e.Role, Text: e.Text, Rev: e.Rev,
+			DurMs: e.Dur.Milliseconds(), Card: card, At: e.At,
+		}).Error
+	})
+}
+
+func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit int) ([]session.Entry, error) {
+	var n int64
+	if err := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ?", id).Count(&n).Error; err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return nil, session.ErrNotFound
+	}
+	q := s.db.WithContext(ctx).Where("chat_id = ? AND seq > ?", id, after).Order("seq ASC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	var rows []entryRow
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]session.Entry, 0, len(rows))
+	for _, r := range rows {
+		e := session.Entry{
+			Seq: r.Seq, Turn: r.Turn, Role: r.Role, Text: r.Text, Rev: r.Rev,
+			Dur: time.Duration(r.DurMs) * time.Millisecond, At: r.At,
+		}
+		if r.Card != "" {
+			var c session.ToolCard
+			if err := json.Unmarshal([]byte(r.Card), &c); err != nil {
+				return nil, err
+			}
+			e.Card = &c
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+func toPending(r pendingRow) Pending {
+	return Pending{ID: r.ID, Text: r.Text, Seq: r.Seq, Delivered: r.Delivered, At: r.At}
+}
+
+func (s *gormStore) AddPending(ctx context.Context, principal, id, text string) (Pending, error) {
+	var out Pending
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		seq, err := lock(tx, principal, id, "next_pending")
+		if err != nil {
+			return err
+		}
+		row := pendingRow{ChatID: id, ID: fmt.Sprintf("p%d", seq), Seq: seq, Text: text, At: time.Now().UTC()}
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		out = toPending(row)
+		return nil
+	})
+	return out, err
+}
+
+// owns is session.ErrNotFound unless principal owns the chat.
+func (s *gormStore) owns(tx *gorm.DB, principal, id string) error {
+	var n int64
+	if err := tx.Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Count(&n).Error; err != nil {
+		return err
+	}
+	if n == 0 {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+func (s *gormStore) Pending(ctx context.Context, principal, id string) ([]Pending, error) {
+	db := s.db.WithContext(ctx)
+	if err := s.owns(db, principal, id); err != nil {
+		return nil, err
+	}
+	var rows []pendingRow
+	if err := db.Where("chat_id = ? AND delivered = ?", id, false).Order("seq ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]Pending, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, toPending(r))
+	}
+	return out, nil
+}
+
+// withChatLock runs f in a transaction that holds the chat's row lock.
+func (s *gormStore) withChatLock(ctx context.Context, principal, id string, f func(tx *gorm.DB) error) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// A write that changes nothing still takes the row lock.
+		res := tx.Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).UpdateColumn("principal", principal)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return session.ErrNotFound
+		}
+		return f(tx)
+	})
+}
+
+func (s *gormStore) EditPending(ctx context.Context, principal, id, pendingID, text string) error {
+	return s.withChatLock(ctx, principal, id, func(tx *gorm.DB) error {
+		var row pendingRow
+		if err := tx.Where("chat_id = ? AND id = ?", id, pendingID).Take(&row).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return session.ErrNotFound
+			}
+			return err
+		}
+		if row.Delivered {
+			return ErrDelivered
+		}
+		return tx.Model(&pendingRow{}).Where("chat_id = ? AND id = ?", id, pendingID).Update("text", text).Error
+	})
+}
+
+func (s *gormStore) CancelPending(ctx context.Context, principal, id, pendingID string) error {
+	return s.withChatLock(ctx, principal, id, func(tx *gorm.DB) error {
+		var row pendingRow
+		if err := tx.Where("chat_id = ? AND id = ?", id, pendingID).Take(&row).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return session.ErrNotFound
+			}
+			return err
+		}
+		if row.Delivered {
+			return ErrDelivered
+		}
+		return tx.Where("chat_id = ? AND id = ?", id, pendingID).Delete(&pendingRow{}).Error
+	})
+}
+
+func (s *gormStore) TakePending(ctx context.Context, principal, id string) ([]Pending, error) {
+	var out []Pending
+	err := s.withChatLock(ctx, principal, id, func(tx *gorm.DB) error {
+		var rows []pendingRow
+		if err := tx.Where("chat_id = ? AND delivered = ?", id, false).Order("seq ASC").Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+		if err := tx.Model(&pendingRow{}).Where("chat_id = ? AND delivered = ?", id, false).Update("delivered", true).Error; err != nil {
+			return err
+		}
+		for _, r := range rows {
+			p := toPending(r)
+			p.Delivered = true
+			out = append(out, p)
+		}
+		return nil
+	})
+	return out, err
+}
+
+func (s *gormStore) RestorePending(ctx context.Context, principal, id string, ids []string) error {
+	return s.withChatLock(ctx, principal, id, func(tx *gorm.DB) error {
+		if len(ids) == 0 {
+			return nil
+		}
+		return tx.Model(&pendingRow{}).Where("chat_id = ? AND id IN ?", id, ids).Update("delivered", false).Error
+	})
+}
+
+func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) error {
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL)", id, principal, "").
+		Updates(map[string]any{"run_id": runID, "run_since": time.Now().UTC()})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	return ErrTurnRunning
+}
+
+func (s *gormStore) ReleaseTurn(ctx context.Context, principal, id, runID string, status TurnStatus) error {
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
+		Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "last_turn": string(status)})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	return ErrNotClaimed
+}
+
+func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, error) {
+	var row chatRow
+	err := s.db.WithContext(ctx).Where("id = ? AND principal = ?", id, principal).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return TurnInfo{}, session.ErrNotFound
+	}
+	if err != nil {
+		return TurnInfo{}, err
+	}
+	return TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: row.RunSince, Last: TurnStatus(row.LastTurn)}, nil
+}
