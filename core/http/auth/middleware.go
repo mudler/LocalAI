@@ -41,6 +41,14 @@ const (
 func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// An in-process caller (see WithInternalUser) is already authenticated.
+			if u, ok := internalUser(c.Request().Context()); ok {
+				c.Set(contextKeyUser, u)
+				c.Set(contextKeyRole, u.Role)
+				c.Set(contextKeySource, UsageSourceStudio)
+				return next(c)
+			}
+
 			authEnabled := db != nil
 			hasLegacyKeys := len(appConfig.ApiKeys) > 0
 
