@@ -87,6 +87,10 @@ func (e *embedBackend) Depth(ctx context.Context, in *pb.DepthRequest, opts ...g
 	return e.s.Depth(ctx, in)
 }
 
+func (e *embedBackend) Forecast(ctx context.Context, in *pb.ForecastRequest, opts ...grpc.CallOption) (*pb.ForecastResponse, error) {
+	return e.s.Forecast(ctx, in)
+}
+
 func (e *embedBackend) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts ...grpc.CallOption) (*pb.FaceVerifyResponse, error) {
 	return e.s.FaceVerify(ctx, in)
 }

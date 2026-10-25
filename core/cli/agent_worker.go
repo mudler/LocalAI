@@ -445,6 +445,7 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 
 	// Create LLM client pointing back to the frontend API
 	llm := clients.NewLocalAILLM(task.Model, apiToken, apiURL)
+	modelCfg.ApplyAgentGenerationCap(llm)
 
 	// Build cogito options
 	ctx, cancel := context.WithTimeout(shutdownCtx, jobTimeout)

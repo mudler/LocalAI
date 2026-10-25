@@ -98,6 +98,7 @@ const FILTERS = [
   { key: '3d', labelKey: 'filters.threed', icon: 'cube' },
   { key: '3d_animation', labelKey: 'filters.threedAnimation', icon: 'walk' },
   { key: 'motion', labelKey: 'filters.motion', icon: 'walk' },
+  { key: 'forecast', labelKey: 'filters.forecast', icon: 'chart-line' },
   { key: 'multimodal', labelKey: 'filters.multimodal', icon: 'shapes' },
   { key: 'vision', labelKey: 'filters.vision', icon: 'eye' },
   { key: 'tts', labelKey: 'filters.tts', icon: 'mic' },

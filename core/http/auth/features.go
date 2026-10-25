@@ -116,6 +116,9 @@ var RouteFeatureRegistry = []RouteFeature{
 	// Detection
 	{"POST", "/v1/detection", FeatureDetection},
 
+	// Time-series forecasting
+	{"POST", "/v1/forecast", FeatureForecast},
+
 	// Decisions API (OpenAI and SystemOne wire contracts)
 	{"POST", "/v1/decisions", FeatureDecisions},
 	{"POST", "/v1/systemone", FeatureDecisions},
@@ -274,6 +277,7 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureAudioTransform, "Audio Transform", true},
 		{FeaturePIIFilter, "PII Analyze / Redact", true},
 		{FeatureDecisions, "Decisions", true},
+		{FeatureForecast, "Forecast", true},
 		{FeatureChatHistory, "Chat History", true},
 	}
 }

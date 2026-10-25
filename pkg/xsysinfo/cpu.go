@@ -3,6 +3,7 @@ package xsysinfo
 import (
 	"fmt"
 	"maps"
+	"runtime"
 	"slices"
 	"sort"
 
@@ -81,4 +82,25 @@ func CPUPhysicalCores() int {
 		return 1
 	}
 	return cpuid.CPU.PhysicalCores
+}
+
+// DefaultThreads returns the default number of inference threads: the number
+// of physical cores, capped by the number of CPUs the Go runtime may use.
+// Since Go 1.25 the default GOMAXPROCS follows the CPU affinity mask and the
+// cgroup CPU limit, so a container started with --cpus=2 or a Kubernetes CPU
+// limit of 2 gets 2 threads instead of one per physical core on the host.
+func DefaultThreads() int {
+	return capThreads(CPUPhysicalCores(), runtime.GOMAXPROCS(0))
+}
+
+// capThreads returns physical, lowered to usable when usable is smaller and
+// positive, and never less than 1.
+func capThreads(physical, usable int) int {
+	if physical < 1 {
+		physical = 1
+	}
+	if usable > 0 && usable < physical {
+		return usable
+	}
+	return physical
 }

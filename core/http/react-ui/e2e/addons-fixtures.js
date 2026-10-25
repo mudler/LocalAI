@@ -44,6 +44,22 @@ export function sessionFor(user, permissions = {}) {
 const ok = (payload) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ payload }) })
 const fail = (status, type, extra = {}) => ({ status, contentType: 'application/json', body: JSON.stringify({ error: { type, message: type, ...extra } }) })
 
+// Specs that draw add-on pages need add-ons on. With no add-on owner running,
+// the server reports add-ons off and answers 5xx on the pin routes, and the
+// browser logs each failed request. These stubs answer the add-on pages with an
+// empty set. They live on the context, which Playwright matches after the
+// page's own routes: a spec that sets its own features, builtin or pin list
+// still gets it.
+export async function stubAddonRoutes(page) {
+  // The real flags, with add-ons on: the other switches keep what the server says.
+  await page.context().route('**/api/features', async route => {
+    const real = await (await route.fetch()).json()
+    return route.fulfill({ json: { ...real, addons: true } })
+  })
+  await page.context().route('**/api/addons/builtin', route => route.fulfill({ json: { builtin: [] } }))
+  await page.context().route('**/api/addons/pins', route => route.fulfill({ json: [] }))
+}
+
 // Installs the routes and returns the mutable state the spec reads and edits.
 export async function mockAddons(page, options = {}) {
   const state = {
@@ -62,6 +78,7 @@ export async function mockAddons(page, options = {}) {
     dispatch: options.dispatch || null,
   }
 
+  await stubAddonRoutes(page)
   await page.route(/\/api\/addons\/apps\/[^/]+\/icon/, route => route.fulfill({ status: 200, contentType: 'image/png', body: PNG }))
   await page.route(/\/api\/addons\/apps$/, route => {
     state.log.appsList += 1

@@ -107,6 +107,14 @@ using grpc::Status;
 #define LOCALAI_MTMD_INIT_OPT_ARG(value)
 #endif
 
+// Newer format_prompt_rerank() takes the decoded media of the query and of the
+// document. The gRPC rerank API is text only, so pass empty lists.
+#if LOCALAI_HAS_RERANK_FILES
+#define LOCALAI_RERANK_FILES_ARGS , std::vector<raw_buffer>(), std::vector<raw_buffer>()
+#else
+#define LOCALAI_RERANK_FILES_ARGS
+#endif
+
 // gRPC bearer token auth for distributed mode.
 // Reads LOCALAI_GRPC_AUTH_TOKEN from the environment. When set, rejects
 // requests without a matching "authorization: Bearer <token>" metadata header.
@@ -3114,7 +3122,7 @@ public:
 
             tasks.reserve(documents.size());
             for (size_t i = 0; i < documents.size(); i++) {
-                auto tmp = format_prompt_rerank(ctx_server.impl->model_tgt, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i] LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
+                auto tmp = format_prompt_rerank(ctx_server.impl->model_tgt, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i] LOCALAI_RERANK_FILES_ARGS LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
                 server_task task = server_task(SERVER_TASK_TYPE_RERANK);
                 task.id = rd.queue_tasks.get_new_id();
                 task.index = i;

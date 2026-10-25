@@ -60,7 +60,9 @@ test.describe('Create and edit an agent', () => {
     expect(cfg).not.toContain('sk-secret-value')
     expect(cfg).not.toContain('tok-123')
 
+    // Switching tabs re-renders the page; focus stays on the tab.
     await sheet.getByRole('tab', { name: /Changes/ }).click()
+    await expect(sheet.getByRole('tab', { name: /Changes/ })).toBeFocused()
     const changes = sheet.getByTestId('agent-preview-changes')
     await expect(changes.locator('[data-key]')).toHaveCount(1)
     await expect(changes.locator('[data-key="system_prompt"]')).toContainText('You are a careful research assistant')

@@ -44,6 +44,22 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Nemotron 3.5 Bolt E4B
+
+[Nemotron 3.5 Bolt E4B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16)
+is NVIDIA's Gemma 4 E4B fine-tune for conversational assistants and tool use.
+The llama.cpp entries include Unsloth's UD-Q4_K_XL and UD-Q8_K_XL builds,
+the F16 vision projector, and a 32,768-token default context.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install nemotron-3.5-bolt-e4b-q4
+```
+
+To select a build explicitly, use `--variant nemotron-3.5-bolt-e4b-q4`
+or `--variant nemotron-3.5-bolt-e4b-q8`.
+
 ### MiniCPM-V 4.7 1B
 
 [MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
