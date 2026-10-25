@@ -295,3 +295,44 @@ func TestEventsCarryTextAndTheDeliveredMarker(t *testing.T) {
 		t.Fatalf("text=%v pending_delivered=%v, want both", sawText, sawDelivered)
 	}
 }
+
+func TestDeleteRemovesAConversationForItsOwnerOnly(t *testing.T) {
+	h := studiotest.NewGateHarness()
+	svc := newService(t, h)
+	id := create(t, svc, alice)
+	ctx := context.Background()
+	sent(t, svc, alice, id, "hi")
+	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+	h.Gate <- struct{}{}
+	until(t, "the turn to end", func() bool { return !turn(t, svc, alice, id).Running })
+
+	if err := svc.Delete(ctx, "bob", id); !errors.Is(err, session.ErrNotFound) {
+		t.Fatalf("Delete as bob = %v, want not found", err)
+	}
+	if _, err := svc.Get(ctx, alice, id); err != nil {
+		t.Fatalf("bob's failed delete removed the conversation: %v", err)
+	}
+	if err := svc.Delete(ctx, alice, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Get(ctx, alice, id); !errors.Is(err, session.ErrNotFound) {
+		t.Fatalf("Get after delete = %v, want not found", err)
+	}
+	if entries, err := svc.Messages(ctx, alice, id, 0, 10); !errors.Is(err, session.ErrNotFound) {
+		t.Fatalf("Messages after delete = %v, %v", entries, err)
+	}
+}
+
+func TestDeleteStopsARunningTurnFirst(t *testing.T) {
+	h := studiotest.NewGateHarness()
+	svc := newService(t, h)
+	id := create(t, svc, alice)
+	sent(t, svc, alice, id, "hi")
+	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+	if err := svc.Delete(context.Background(), alice, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Get(context.Background(), alice, id); !errors.Is(err, session.ErrNotFound) {
+		t.Fatalf("Get after delete = %v", err)
+	}
+}

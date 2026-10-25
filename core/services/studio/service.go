@@ -485,3 +485,18 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 	}
 	return m, nil
 }
+
+// Delete removes a conversation and its transcript. A running turn is stopped
+// first, and so are its running sub-agents. Another user's conversation is
+// session.ErrNotFound.
+func (s *Service) Delete(ctx context.Context, user, conv string) error {
+	p := principal(user)
+	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+		return err
+	}
+	if err := s.Stop(ctx, p, conv); err != nil {
+		return err
+	}
+	s.stopChildren(p, conv)
+	return s.mgr.Delete(ctx, workspace.Actor{Principal: p, ChatID: conv}, conv)
+}

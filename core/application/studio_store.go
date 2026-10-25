@@ -38,14 +38,14 @@ func (a *Application) initStudioStore() {
 		s, err = store.NewGORM(a.authDB)
 		kind = "gorm"
 	case a.applicationConfig.DataPath != "":
-		s, err = store.NewJSON(filepath.Join(a.applicationConfig.DataPath, "studio"))
+		s, err = store.NewJSON(filepath.Join(a.applicationConfig.DataPath, "chats"))
 		kind = "json"
 	default:
 		s, err = store.NewJSON("")
 		kind = "memory"
 	}
 	if err != nil {
-		xlog.Warn("Studio chat disabled: failed to initialise its store", "kind", kind, "error", err)
+		xlog.Warn("Chats disabled: failed to initialise its store", "kind", kind, "error", err)
 		return
 	}
 	a.studioStore, a.studioStoreKind = s, kind

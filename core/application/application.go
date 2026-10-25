@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand/v2"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -43,6 +44,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
@@ -118,6 +120,8 @@ type Application struct {
 	studioStore          store.Store // the studio loop's chats; see initStudioStore
 	studioStoreKind      string      // "gorm", "json" or "memory"
 	studioProvider       *provider.Provider
+	studioService        *studio.Service
+	studioTempDir        string // removed at shutdown; set only in memory-only mode
 	authDB               *gorm.DB
 	metricsService       *monitoring.LocalAIMetricsService
 	statsRecorder        *billing.Recorder
@@ -596,6 +600,12 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		if a.studioService != nil {
+			_ = a.studioService.Close(context.Background())
+		}
+		if a.studioTempDir != "" {
+			_ = os.RemoveAll(a.studioTempDir)
+		}
 		if a.addonServer != nil {
 			_ = a.addonServer.Close()
 		}
