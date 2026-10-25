@@ -9229,6 +9229,11 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   /* The page scrolls inside the pinned shell; the rail and pane keep their own
      inner scrollers for long lists and long details. */
   overflow-y: auto;
+  /* Containing block for absolutely positioned descendants. The screen-reader
+     spans inside long tables (.dk-sr-only is position: absolute) otherwise
+     resolve against the viewport, escape every scroller below, and give the
+     document its own scroll height, so the whole window scrolls again. */
+  position: relative;
 }
 
 /* The header, fused. A slim row that reads as the top of the view rather than

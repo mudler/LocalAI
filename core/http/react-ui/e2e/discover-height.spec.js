@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { mockLedger } from './ledger-fixtures.js'
 
 // The split view is meant to scroll inside itself. It is easy to regress into
 // scrolling the document instead, because the shell's height rules are floors
@@ -62,6 +63,26 @@ test.describe('Models Explore - the view scrolls, not the page', () => {
       return el ? getComputedStyle(el).overflowY : null
     })
     expect(paneOverflows).toBe('auto')
+  })
+
+  test('the document itself does not scroll while the table does', async ({ page }) => {
+    // Screen-reader spans inside the table are position: absolute. Without a
+    // positioned scroller above them they escape every clip and stretch the
+    // document, so the whole window scrolls instead of the table.
+    // The shared fixture has a gallery long enough to scroll its table.
+    await page.unroute('**/api/models*')
+    await mockLedger(page)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/app/models')
+    await expect(page.locator('[data-testid="discover-rail-item"]').first()).toBeVisible({ timeout: 10_000 })
+
+    const m = await page.evaluate(() => {
+      const doc = document.scrollingElement
+      const wrap = document.querySelector('.ledger-wrap')
+      return { docScroll: doc.scrollHeight, docClient: doc.clientHeight, wrapScroll: wrap.scrollHeight, wrapClient: wrap.clientHeight }
+    })
+    expect(m.docScroll).toBe(m.docClient)
+    expect(m.wrapScroll).toBeGreaterThan(m.wrapClient)
   })
 
   test('stacked below the breakpoint it scrolls with the document again', async ({ page }) => {

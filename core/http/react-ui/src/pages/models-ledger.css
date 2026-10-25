@@ -222,7 +222,9 @@
   min-height: 0;
 }
 
-.ledger-wrap { flex: 1; min-height: 160px; }
+/* The table's scroller is also the containing block for its screen-reader
+   spans, so they are clipped with the rows instead of stretching the page. */
+.ledger-wrap { flex: 1; min-height: 160px; position: relative; }
 
 .ledger__pane {
   min-width: 0;
@@ -656,6 +658,60 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-confirm__table td.dk-num { grid-column: 2; grid-row: 1; color: var(--dk-text); text-align: right; font-family: var(--dk-font-mono); white-space: nowrap; }
 .ledger-confirm__ok { display: flex; gap: var(--dk-space-2); align-items: center; color: var(--dk-ok-text); font-weight: var(--dk-weight-semibold); }
 .ledger-confirm__warn { color: var(--dk-warn-text); }
+
+/* --- Room for the controls ------------------------------------------------
+   Tabs choose the view, so they are the larger and more strongly marked
+   control; filters narrow what the view shows and stay a step smaller. Every
+   control here has a hit area of at least 36px, tabs 40px. */
+
+.models-page .models-bar { row-gap: var(--dk-space-3); padding-bottom: var(--dk-space-4); }
+.models-page .models-bar .view-bar__count { margin-inline-start: var(--dk-space-1); }
+
+.models-page .models-tabs { gap: var(--dk-space-1); padding: 4px; margin-inline-start: var(--dk-space-3); }
+.models-page .models-tabs .dk-hubtab { height: 40px; padding: 0 var(--dk-space-4); gap: var(--dk-space-2); }
+/* The current view lifts onto a card and carries an accent underline, so it
+   reads as selected without relying on the surface step alone. */
+.models-page .models-tabs .dk-hubtab[aria-current="page"] {
+  box-shadow: var(--dk-shadow-rest), inset 0 0 0 1px var(--dk-edge), inset 0 -2px 0 var(--dk-accent);
+}
+.models-page .models-tabs .dk-hubtab:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+
+.models-page .cat-bar { margin-bottom: var(--dk-space-3); }
+
+.models-page .ledger-controls { gap: var(--dk-space-4); margin-bottom: var(--dk-space-4); }
+.models-page .ledger-controls__row { gap: var(--dk-space-3) var(--dk-space-4); }
+
+/* Toggles: the label is part of the target. */
+.models-page .ledger-refine { gap: var(--dk-space-2) var(--dk-space-5); }
+.models-page .ledger-refine .filter-bar-group__toggle { min-height: 40px; gap: var(--dk-space-3); }
+
+/* Facet chips: taller, and spaced so neighbours are not hit by mistake. */
+.models-page .ledger-facets { gap: var(--dk-space-2); padding: 4px 32px 8px 4px; }
+.models-page .ledger-facets .dk-chip { height: 36px; padding: 0 var(--dk-space-4); }
+.models-page .ledger-facets .dk-chip[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-accent-text) 40%, transparent);
+}
+
+/* Density and state segments share one height. */
+.models-page .ledger-density { padding: 4px; }
+.models-page .ledger-density .dk-seg { width: 40px; height: 36px; }
+.models-page .ledger-states { padding: 4px; gap: var(--dk-space-1); }
+.models-page .ledger-states .dk-seg { height: 36px; padding: 0 var(--dk-space-4); gap: var(--dk-space-2); }
+.models-page .ledger-states .dk-seg[aria-selected="true"] {
+  box-shadow: var(--dk-shadow-rest), inset 0 0 0 1px var(--dk-edge), inset 0 -2px 0 var(--dk-accent);
+}
+
+.models-page .ledger-bar { margin-bottom: var(--dk-space-3); min-height: 32px; }
+
+@media (max-width: 640px) {
+  /* Thumb-sized targets, and the tabs take the full width as two halves. */
+  .models-page .models-tabs { width: 100%; margin-inline-start: 0; }
+  .models-page .models-tabs .dk-hubtab { flex: 1 1 0; justify-content: center; height: 44px; }
+  .models-page .ledger-refine .filter-bar-group__toggle { min-height: 44px; }
+  .models-page .ledger-facets .dk-chip { height: 40px; }
+  .models-page .ledger-density .dk-seg { width: 44px; height: 40px; }
+  .models-page .ledger-states .dk-seg { height: 40px; }
+}
 
 /* --- Narrow ---------------------------------------------------------------- */
 
