@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"os"
 	"path/filepath"
 	"strings"
@@ -194,6 +195,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 	application.initChatHistoryStore()
 	application.initStudioStore()
+	application.studioProvider = provider.New()
 
 	// Initialize the OTel + Prometheus metric pipeline before any
 	// counter is created. monitoring.NewLocalAIMetricsService calls

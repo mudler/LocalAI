@@ -5,8 +5,16 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
+
+// StudioProvider returns the studio loop's model provider. Its transport gets
+// the HTTP router once the server has built it, so the loop reaches the model
+// through the same chat route as any client, in memory.
+func (a *Application) StudioProvider() *provider.Provider {
+	return a.studioProvider
+}
 
 // StudioStore returns the store of the studio loop. It is never nil after New
 // succeeds: it is GORM on the auth database when there is one, JSON files under
