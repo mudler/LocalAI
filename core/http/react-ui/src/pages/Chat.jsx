@@ -258,6 +258,8 @@ function ChatPage() {
   const [attachmentCollectionChoice, setAttachmentCollectionChoice] = useState(() => loadAttachmentCollection())
   const [attachmentUploads, setAttachmentUploads] = useState([])
   const uploadBatchRef = useRef(0)
+  // Read the list once per page, not on every open of the settings sheet;
+  // each send that saves attachments reads it again and refreshes it.
   useEffect(() => {
     if (!collectionsAllowed) { setCollectionOptions(null); return }
     let live = true
@@ -265,7 +267,7 @@ function ChatPage() {
       .then(data => { if (live) setCollectionOptions(collectionNames(data)) })
       .catch(() => { if (live) setCollectionOptions(null) })
     return () => { live = false }
-  }, [collectionsAllowed, showSettings])
+  }, [collectionsAllowed])
   useEffect(() => {
     uploadBatchRef.current++
     setAttachmentUploads([])
@@ -289,7 +291,9 @@ function ChatPage() {
           ? await fetch(apiUrl('/api/features')).then(r => r.json())
           : hubAuth.features
         if (!canSaveAttachments({ features, hasFeature: hubAuth.hasFeature })) return []
-        return collectionNames(await agentCollectionsApi.list())
+        const names = collectionNames(await agentCollectionsApi.list())
+        setCollectionOptions(names)
+        return names
       },
       entries,
       upload: (name, form) => agentCollectionsApi.upload(name, form),

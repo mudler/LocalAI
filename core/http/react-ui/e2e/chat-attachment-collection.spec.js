@@ -173,6 +173,18 @@ test.describe('Chat - save attachments to a collection', () => {
     expect(uploads).toHaveLength(0)
   })
 
+  test('opening and closing the settings sheet does not reload the collections list', async ({ page }) => {
+    const collections = await mockCollections(page)
+    await openChat(page, chats)
+    for (let i = 0; i < 3; i++) {
+      await page.getByTestId('chat-settings-button').click()
+      await expect(sheet(page).getByLabel('Save attachments to collection').locator('option')).toHaveText(['None', 'docs', 'notes'])
+      await page.keyboard.press('Escape')
+      await expect(sheet(page)).toHaveCount(0)
+    }
+    expect(collections.listCalls()).toBe(1)
+  })
+
   test('hidden when the agent pool is off', async ({ page }) => {
     await mockChat(page, { features: { distributed: false, localai_assistant: true, agents: false, mcp: true } })
     const collections = await mockCollections(page)
