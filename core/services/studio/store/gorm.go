@@ -29,6 +29,7 @@ type chatRow struct {
 	Turns        int
 	Kind         string
 	ParentID     string `gorm:"size:128"`
+	Model        string
 	Status       string
 	Summary      string `gorm:"type:text"`
 	RunID        string `gorm:"size:128"`
@@ -82,7 +83,7 @@ func (r chatRow) record() (session.ChatRecord, error) {
 	rec := session.ChatRecord{
 		ID: r.ID, Principal: r.Principal, Title: r.Title, Folder: r.Folder,
 		Created: r.Created, Updated: r.Updated, HarnessState: append([]byte(nil), r.HarnessState...),
-		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Status: r.Status, Summary: r.Summary,
+		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Model: r.Model, Status: r.Status, Summary: r.Summary,
 	}
 	if r.Snapshot != "" {
 		var ref sandbox.SnapshotRef
@@ -110,7 +111,7 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 	row := chatRow{
 		ID: rec.ID, Principal: rec.Principal, Title: rec.Title, Folder: rec.Folder,
 		Created: rec.Created, Updated: rec.Updated, Snapshot: snap, HarnessState: rec.HarnessState,
-		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Status: rec.Status, Summary: rec.Summary,
+		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Model: rec.Model, Status: rec.Status, Summary: rec.Summary,
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		var n int64

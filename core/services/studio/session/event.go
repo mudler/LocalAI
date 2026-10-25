@@ -19,6 +19,9 @@ const (
 	// KindReasoning carries a delta of the model's reasoning. It is for
 	// display only and has its own bound (see Events).
 	KindReasoning EventKind = "reasoning"
+	// KindPendingDelivered says that messages the user sent during the turn
+	// reached the model. Event.IDs names them.
+	KindPendingDelivered EventKind = "pending_delivered"
 )
 
 // Event is one thing that happened in a chat.
@@ -28,6 +31,7 @@ type Event struct {
 	Text   string       // text, reasoning: a delta; error: a fixed reason
 	Tool   *ToolEvent   // tool_start, tool_end
 	Change *ChangeEvent // checkpoint
+	IDs    []string     // pending_delivered: the ids of the messages
 }
 
 // ToolEvent describes one tool call.

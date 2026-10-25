@@ -45,6 +45,8 @@ type ChatRecord struct {
 	// chat that started a sub-agent run. Neither changes after CreateChat.
 	Kind     string
 	ParentID string
+	// Model is the model the chat talks to. It does not change after CreateChat.
+	Model string
 	// Status is the last turn outcome ("", "done", "stopped", "failed",
 	// "interrupted"). Summary is the text of the last compaction, for display.
 	// UpdateChat replaces both.

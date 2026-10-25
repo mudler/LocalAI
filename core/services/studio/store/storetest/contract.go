@@ -60,10 +60,10 @@ func Run(t *testing.T, newStore New) {
 	// The loop's own transcript contract.
 	sessiontest.RunStoreSuite(t, func(t *testing.T) session.Store { return newStore(t) })
 
-	t.Run("kind, parent, status and summary round-trip", func(t *testing.T) {
+	t.Run("kind, parent, model, status and summary round-trip", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "parent", "alice")
-		rec := session.ChatRecord{ID: "child", Principal: "alice", Title: "Sub", Created: t0, Updated: t0, Kind: session.KindSubAgent, ParentID: "parent"}
+		rec := session.ChatRecord{ID: "child", Principal: "alice", Title: "Sub", Created: t0, Updated: t0, Kind: session.KindSubAgent, ParentID: "parent", Model: "qwen3"}
 		if err := s.CreateChat(ctx(t), rec); err != nil {
 			t.Fatal(err)
 		}
@@ -75,7 +75,7 @@ func Run(t *testing.T, newStore New) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.Kind != session.KindSubAgent || got.ParentID != "parent" || got.Status != "done" || got.Summary != "short summary" {
+		if got.Kind != session.KindSubAgent || got.ParentID != "parent" || got.Model != "qwen3" || got.Status != "done" || got.Summary != "short summary" {
 			t.Fatalf("got %+v", got)
 		}
 	})
