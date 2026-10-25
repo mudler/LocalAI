@@ -5,6 +5,100 @@
 # master reads it as the default model source; a tagged build reads the gallery
 # until the release cutover.
 - kind: model
+  id: spark-x2.6-4b-q4
+  name: spark-x2.6-4b-q4
+  version: 0.0.0-gallery.893c50e4aba3
+  description: |
+    Spark-X2.6-4B is XHToken's 4B text model for conversation, reasoning,
+    coding, and multilingual tasks. This build uses Q4_K_M GGUF weights,
+    the embedded Jinja chat template, and a 32K-token default context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.6-4B
+    - https://huggingface.co/XHToken/Spark-X2.6-4B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+    - multilingual
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/spark-x2.6-4b/Spark-X2.6-4B-Q4_K_M.gguf
+        sha256: 91cb2811aebb47ac916aa619d27d4cdd7f4143106b7917accb8ead4cd7f5cbd9
+        uri: https://huggingface.co/XHToken/Spark-X2.6-4B-GGUF/resolve/fe31f8d64890302cc3a1d365d700357b4b75ba77/Spark-X2.6-4B-Q4_K_M.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        min_p: 0
+        model: llama-cpp/models/spark-x2.6-4b/Spark-X2.6-4B-Q4_K_M.gguf
+        repeat_penalty: 1
+        temperature: 1
+        top_k: -1
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+    variants:
+      - model: spark-x2.6-4b-q8
+- kind: model
+  id: spark-x2.6-4b-q8
+  name: spark-x2.6-4b-q8
+  version: 0.0.0-gallery.dc29344bd04b
+  description: |
+    Spark-X2.6-4B is XHToken's 4B text model for conversation, reasoning,
+    coding, and multilingual tasks. This build uses Q8_0 GGUF weights,
+    the embedded Jinja chat template, and a 32K-token default context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.6-4B
+    - https://huggingface.co/XHToken/Spark-X2.6-4B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+    - multilingual
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/spark-x2.6-4b/Spark-X2.6-4B-Q8_0.gguf
+        sha256: 145c2aa606820663f26ad530b8fc141ed885e2e9ca29f9be7c3bfe8931d58b81
+        uri: https://huggingface.co/XHToken/Spark-X2.6-4B-GGUF/resolve/fe31f8d64890302cc3a1d365d700357b4b75ba77/Spark-X2.6-4B-Q8_0.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        min_p: 0
+        model: llama-cpp/models/spark-x2.6-4b/Spark-X2.6-4B-Q8_0.gguf
+        repeat_penalty: 1
+        temperature: 1
+        top_k: -1
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: qwen3.8-27b-defiance-iq4
   name: qwen3.8-27b-defiance-iq4
   version: 0.0.0-gallery.9833dd29edab
