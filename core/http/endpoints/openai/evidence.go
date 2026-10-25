@@ -28,7 +28,7 @@ func sourceURLs(texts []string) []string {
 	var urls []string
 	seen := map[string]struct{}{}
 	for _, text := range texts {
-		// ExecuteMCPToolCall JSON-encodes multiple TextContent results.
+		// The MCP tool call path JSON-encodes multiple TextContent results.
 		// Decode that envelope so escaped query separators remain intact.
 		var parts []string
 		var single string
