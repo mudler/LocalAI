@@ -34,6 +34,7 @@ type chatRow struct {
 	Summary      string `gorm:"type:text"`
 	RunID        string `gorm:"size:128"`
 	RunSince     time.Time
+	RunBeat      time.Time
 	LastTurn     string `gorm:"size:32"`
 	NextEntry    int64
 	NextPending  int64
@@ -405,7 +406,7 @@ func (s *gormStore) RestorePending(ctx context.Context, principal, id string, id
 func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) error {
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL)", id, principal, "").
-		Updates(map[string]any{"run_id": runID, "run_since": time.Now().UTC()})
+		Updates(map[string]any{"run_id": runID, "run_since": time.Now().UTC(), "run_beat": time.Now().UTC()})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -421,7 +422,7 @@ func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) 
 func (s *gormStore) ReleaseTurn(ctx context.Context, principal, id, runID string, status TurnStatus) error {
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
-		Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "last_turn": string(status)})
+		Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(status)})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -443,5 +444,46 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 	if err != nil {
 		return TurnInfo{}, err
 	}
-	return TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: row.RunSince, Last: TurnStatus(row.LastTurn)}, nil
+	return TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: row.RunSince, Beat: row.RunBeat, Last: TurnStatus(row.LastTurn)}, nil
+}
+
+func (s *gormStore) TouchTurn(ctx context.Context, principal, id, runID string) error {
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
+		Update("run_beat", time.Now().UTC())
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	return ErrNotClaimed
+}
+
+func (s *gormStore) ReapTurns(ctx context.Context, olderThan time.Time) ([]ReapedTurn, error) {
+	var rows []chatRow
+	err := s.db.WithContext(ctx).
+		Where("run_id <> ? AND run_id IS NOT NULL AND run_beat < ?", "", olderThan).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	var out []ReapedTurn
+	for _, r := range rows {
+		// Conditional on the same run and beat, so a turn that beat again
+		// after the read, or that already ended, is left alone.
+		res := s.db.WithContext(ctx).Model(&chatRow{}).
+			Where("id = ? AND run_id = ? AND run_beat < ?", r.ID, r.RunID, olderThan).
+			Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(TurnInterrupted)})
+		if res.Error != nil {
+			return out, res.Error
+		}
+		if res.RowsAffected == 1 {
+			out = append(out, ReapedTurn{Principal: r.Principal, ChatID: r.ID, RunID: r.RunID})
+		}
+	}
+	return out, nil
 }

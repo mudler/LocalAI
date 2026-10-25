@@ -20,6 +20,8 @@ var _ = Describe("Subject rules", func() {
 		Entry("control subject", "nodes.abc.backend.install"),
 		Entry("mcp request", "mcp.tools.execute"),
 		Entry("finetune progress", "finetune.job1.progress"),
+		Entry("chat events", "chats.events.abc"),
+		Entry("chat control", "chats.control.abc"),
 	)
 
 	DescribeTable("refuses a root that is not served",
@@ -53,6 +55,7 @@ var _ = Describe("Subject rules", func() {
 		Entry("jobs", "jobs"), Entry("agent", "agent"), Entry("gallery", "gallery"),
 		Entry("cache", "cache"), Entry("staging", "staging"), Entry("prefixcache", "prefixcache"),
 		Entry("responses", "responses"), Entry("state", "state"), Entry("finetune", "finetune"),
+		Entry("chats", "chats"),
 		Entry("nodes", "nodes"), Entry("mcp", "mcp"),
 	)
 

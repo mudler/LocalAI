@@ -9,6 +9,8 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,6 +36,24 @@ var _ = Describe("studio service at startup", func() {
 		Expect(newApp().StudioService()).NotTo(BeNil())
 		withAuth := newApp(config.WithAuthEnabled(true), config.WithAuthDatabaseURL(filepath.Join(GinkgoT().TempDir(), "auth.db")))
 		Expect(withAuth.StudioService()).NotTo(BeNil())
+	})
+
+	It("frees a turn that a previous process left running", func() {
+		dbPath := filepath.Join(GinkgoT().TempDir(), "auth.db")
+		dataDir := GinkgoT().TempDir()
+		ctx := context.Background()
+		first := newApp(config.WithAuthEnabled(true), config.WithAuthDatabaseURL(dbPath), config.WithDataPath(dataDir))
+		rec, err := first.StudioService().Create(ctx, "u1", studio.CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		// The process dies in the middle of a turn: its claim is never released.
+		Expect(first.StudioStore().ClaimTurn(ctx, "u1", rec.ID, "dead-run")).To(Succeed())
+		Expect(first.Shutdown()).To(Succeed())
+
+		second := newApp(config.WithAuthEnabled(true), config.WithAuthDatabaseURL(dbPath), config.WithDataPath(dataDir))
+		info, err := second.StudioService().Turn(ctx, "u1", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Running).To(BeFalse())
+		Expect(info.Last).To(Equal(store.TurnInterrupted))
 	})
 
 	It("gives each model its configured context size", func() {

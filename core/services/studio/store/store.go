@@ -46,11 +46,17 @@ const (
 	TurnInterrupted TurnStatus = "interrupted"
 )
 
+// ReapedTurn is a turn that ReapTurns ended.
+type ReapedTurn struct {
+	Principal, ChatID, RunID string
+}
+
 // TurnInfo is the turn state of a chat.
 type TurnInfo struct {
 	Running bool
 	RunID   string
 	Since   time.Time  // when the running turn was claimed
+	Beat    time.Time  // the last sign of life of the running turn
 	Last    TurnStatus // outcome of the last finished turn; empty before the first
 }
 
@@ -78,6 +84,13 @@ type Store interface {
 	ClaimTurn(ctx context.Context, principal, chatID, runID string) error
 	// ReleaseTurn ends the claim and records how the turn ended.
 	ReleaseTurn(ctx context.Context, principal, chatID, runID string, status TurnStatus) error
+	// TouchTurn records that the run holding the chat is still alive. The
+	// frontend that runs a turn calls it on a timer.
+	TouchTurn(ctx context.Context, principal, chatID, runID string) error
+	// ReapTurns ends every running turn whose last sign of life is before
+	// olderThan: the chat is free again and its last outcome is interrupted. A
+	// frontend that died leaves such turns behind. It returns the turns it ended.
+	ReapTurns(ctx context.Context, olderThan time.Time) ([]ReapedTurn, error)
 	// Turn returns the turn state of the chat.
 	Turn(ctx context.Context, principal, chatID string) (TurnInfo, error)
 }

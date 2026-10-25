@@ -220,6 +220,60 @@ func Run(t *testing.T, newStore New) {
 		}
 	})
 
+	t.Run("a turn that stops beating is reaped, one that keeps beating is not", func(t *testing.T) {
+		s := newStore(t)
+		chat(t, s, "stale", "alice")
+		chat(t, s, "alive", "alice")
+		if err := s.ClaimTurn(ctx(t), "alice", "stale", "r-stale"); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.ClaimTurn(ctx(t), "alice", "alive", "r-alive"); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(40 * time.Millisecond)
+		cutoff := time.Now()
+		time.Sleep(40 * time.Millisecond)
+		if err := s.TouchTurn(ctx(t), "alice", "alive", "r-alive"); err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := s.ReapTurns(ctx(t), cutoff)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 1 || got[0].ChatID != "stale" || got[0].Principal != "alice" || got[0].RunID != "r-stale" {
+			t.Fatalf("reaped = %+v, want only the chat that stopped beating", got)
+		}
+		if info, _ := s.Turn(ctx(t), "alice", "stale"); info.Running || info.Last != store.TurnInterrupted {
+			t.Fatalf("reaped turn = %+v, want not running and interrupted", info)
+		}
+		if info, _ := s.Turn(ctx(t), "alice", "alive"); !info.Running {
+			t.Fatalf("a turn that kept beating was reaped: %+v", info)
+		}
+		// The run that was reaped can no longer beat or release, and the chat is free.
+		if err := s.TouchTurn(ctx(t), "alice", "stale", "r-stale"); !errors.Is(err, store.ErrNotClaimed) {
+			t.Fatalf("TouchTurn on a reaped run = %v, want ErrNotClaimed", err)
+		}
+		if err := s.ClaimTurn(ctx(t), "alice", "stale", "r-next"); err != nil {
+			t.Fatalf("claim after reap: %v", err)
+		}
+		if again, _ := s.ReapTurns(ctx(t), cutoff); len(again) != 0 {
+			t.Fatalf("a second reap found %+v", again)
+		}
+	})
+
+	t.Run("touch is refused for another principal and for a run that does not hold the chat", func(t *testing.T) {
+		s := newStore(t)
+		chat(t, s, "c1", "alice")
+		_ = s.ClaimTurn(ctx(t), "alice", "c1", "r1")
+		if err := s.TouchTurn(ctx(t), "bob", "c1", "r1"); !errors.Is(err, session.ErrNotFound) {
+			t.Fatalf("TouchTurn as bob = %v, want ErrNotFound", err)
+		}
+		if err := s.TouchTurn(ctx(t), "alice", "c1", "other"); !errors.Is(err, store.ErrNotClaimed) {
+			t.Fatalf("TouchTurn by another run = %v, want ErrNotClaimed", err)
+		}
+	})
+
 	t.Run("racing takes never deliver a message twice", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "c1", "alice")

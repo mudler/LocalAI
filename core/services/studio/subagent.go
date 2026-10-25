@@ -248,7 +248,7 @@ func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-ch
 	ctx := context.Background()
 	parentKey := key(a.Principal, a.ChatID)
 	s.forgetChild(parentKey, childID)
-	s.hub.publish(parentKey, session.Event{Kind: session.KindSubAgentDone, IDs: []string{childID}, Text: title})
+	s.bus.Publish(parentKey, session.Event{Kind: session.KindSubAgentDone, IDs: []string{childID}, Text: title})
 	if st != store.TurnDone {
 		return
 	}

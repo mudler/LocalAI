@@ -122,6 +122,20 @@ With authentication off, chats belong to one anonymous owner.
 The JSON files are for one LocalAI process. A cluster needs PostgreSQL, as
 [distributed mode]({{% relref "features/distributed-mode" %}}) already does.
 
+## Clusters
+
+In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend can serve any request about any chat.
+
+**State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once: a client that missed some reads the transcript.
+
+**Where a turn runs.** The frontend that wins the claim runs the whole turn. The model calls it makes are routed to inference nodes, and its MCP tool calls are sent to agent workers, exactly as for any other request. Agent workers do not run chats: they have no database.
+
+**From any frontend** you can send a message, edit or cancel a waiting message, read the transcript, stop the turn and stream events. A stop travels over the bus to the frontend that runs the turn.
+
+**If a frontend dies.** A running turn records a heartbeat every 15 seconds. One frontend, chosen by a PostgreSQL advisory lock, ends turns that have not beaten for a minute. Such a turn ends as `interrupted`, its waiting messages stay, and `send-now` starts them. A standalone process with a database does the same once at startup, for turns its previous run left behind.
+
+The JSON files are not supported in a cluster, as the Storage table says.
+
 ## API reference
 
 The routes are listed under the `chats` tag at `/swagger/index.html`, and

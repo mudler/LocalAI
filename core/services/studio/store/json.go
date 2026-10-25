@@ -33,6 +33,7 @@ type chatState struct {
 	NextPending int64              `json:"next_pending"`
 	Run         string             `json:"run,omitempty"`
 	RunSince    time.Time          `json:"run_since,omitempty"`
+	RunBeat     time.Time          `json:"run_beat,omitempty"`
 	Last        TurnStatus         `json:"last,omitempty"`
 
 	entries []session.Entry
@@ -433,11 +434,50 @@ func (s *jsonStore) ClaimTurn(_ context.Context, principal, id, runID string) er
 	}
 	next := *c
 	next.Run, next.RunSince = runID, time.Now().UTC()
+	next.RunBeat = next.RunSince
 	if err := s.save(&next); err != nil {
 		return err
 	}
-	c.Run, c.RunSince = next.Run, next.RunSince
+	c.Run, c.RunSince, c.RunBeat = next.Run, next.RunSince, next.RunBeat
 	return nil
+}
+
+func (s *jsonStore) TouchTurn(_ context.Context, principal, id, runID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	if c.Run == "" || c.Run != runID {
+		return ErrNotClaimed
+	}
+	// The beat is not persisted: a restart interrupts every running turn anyway.
+	c.RunBeat = time.Now().UTC()
+	return nil
+}
+
+func (s *jsonStore) ReapTurns(_ context.Context, olderThan time.Time) ([]ReapedTurn, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []ReapedTurn
+	for _, c := range s.chats {
+		beat := c.RunBeat
+		if beat.IsZero() {
+			beat = c.RunSince
+		}
+		if c.Run == "" || !beat.Before(olderThan) {
+			continue
+		}
+		next := *c
+		next.Run, next.RunSince, next.RunBeat, next.Last = "", time.Time{}, time.Time{}, TurnInterrupted
+		if err := s.save(&next); err != nil {
+			return out, err
+		}
+		out = append(out, ReapedTurn{Principal: c.Rec.Principal, ChatID: c.Rec.ID, RunID: c.Run})
+		c.Run, c.RunSince, c.RunBeat, c.Last = next.Run, next.RunSince, next.RunBeat, next.Last
+	}
+	return out, nil
 }
 
 func (s *jsonStore) ReleaseTurn(_ context.Context, principal, id, runID string, status TurnStatus) error {
@@ -451,11 +491,11 @@ func (s *jsonStore) ReleaseTurn(_ context.Context, principal, id, runID string, 
 		return ErrNotClaimed
 	}
 	next := *c
-	next.Run, next.RunSince, next.Last = "", time.Time{}, status
+	next.Run, next.RunSince, next.RunBeat, next.Last = "", time.Time{}, time.Time{}, status
 	if err := s.save(&next); err != nil {
 		return err
 	}
-	c.Run, c.RunSince, c.Last = next.Run, next.RunSince, next.Last
+	c.Run, c.RunSince, c.RunBeat, c.Last = next.Run, next.RunSince, next.RunBeat, next.Last
 	return nil
 }
 
@@ -466,5 +506,5 @@ func (s *jsonStore) Turn(_ context.Context, principal, id string) (TurnInfo, err
 	if err != nil {
 		return TurnInfo{}, err
 	}
-	return TurnInfo{Running: c.Run != "", RunID: c.Run, Since: c.RunSince, Last: c.Last}, nil
+	return TurnInfo{Running: c.Run != "", RunID: c.Run, Since: c.RunSince, Beat: c.RunBeat, Last: c.Last}, nil
 }

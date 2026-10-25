@@ -5,12 +5,14 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/studio"
 )
 
@@ -43,7 +45,12 @@ func (a *Application) initStudioService() {
 		}
 		a.studioTempDir, stateDir = dir, dir
 	}
+	var bus studio.Bus
+	if d := a.Distributed(); d != nil && d.Nats != nil {
+		bus = studio.NewBroadcastBus(d.Nats, nil)
+	}
 	svc, err := studio.New(studio.Deps{
+		Bus:           bus,
 		Store:         a.studioStore,
 		Provider:      a.studioProvider,
 		Users:         a.studioUsers(),
@@ -56,6 +63,45 @@ func (a *Application) initStudioService() {
 		return
 	}
 	a.studioService = svc
+	a.startStudioReaper(svc)
+}
+
+// A turn beats every 15 seconds; one that has not beaten for this long belongs
+// to a frontend that died.
+const (
+	studioTurnTimeout = time.Minute
+	studioReapEvery   = 30 * time.Second
+)
+
+// startStudioReaper frees the chats whose turn was left running by a process
+// that died. A standalone process runs once at startup with no grace: every
+// claim then belongs to a process that no longer exists. In a cluster the other
+// frontends are alive, so only turns that stopped beating are reaped, by the one
+// frontend that holds the advisory lock at each tick.
+func (a *Application) startStudioReaper(svc *studio.Service) {
+	ctx := a.applicationConfig.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	reap := func(olderThan time.Duration) {
+		n, err := svc.ReapStale(ctx, olderThan)
+		if err != nil {
+			xlog.Warn("Chats: could not reap stale turns", "error", err)
+		} else if n > 0 {
+			xlog.Info("Chats: ended turns whose frontend stopped", "turns", n)
+		}
+	}
+	if a.Distributed() == nil {
+		if a.authDB != nil {
+			// The JSON store settles its own claims when it loads; a database does not.
+			reap(0)
+		}
+		return
+	}
+	if a.authDB == nil {
+		return
+	}
+	go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, func() { reap(studioTurnTimeout) })
 }
 
 // studioUsers returns the user lookup, or nil when auth is off.

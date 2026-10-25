@@ -18,4 +18,7 @@ const (
 	// KeyAddonPinSweep elects the one frontend that expires the pins of
 	// removed add-ons.
 	KeyAddonPinSweep int64 = 109
+	// KeyChatsReaper elects the one frontend that ends the chat turns whose
+	// frontend stopped beating.
+	KeyChatsReaper int64 = 110
 )

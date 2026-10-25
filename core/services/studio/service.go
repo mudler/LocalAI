@@ -51,6 +51,12 @@ type Deps struct {
 	// ContextTokens returns the context window of a model in tokens, or zero
 	// when it is not known (the harness then uses its default). Nil: zero.
 	ContextTokens func(model string) int
+	// Bus carries live events and control messages between the frontends that
+	// serve a chat. Nil: a bus for this process only.
+	Bus Bus
+	// HeartbeatEvery is how often a running turn tells the store it is alive.
+	// Zero means 15 seconds.
+	HeartbeatEvery time.Duration
 	// Harness replaces the nib harness. It is for tests.
 	Harness session.Harness
 	Logger  *slog.Logger
@@ -74,7 +80,7 @@ type SendResult struct {
 type Service struct {
 	d   Deps
 	mgr *session.Manager
-	hub *hub
+	bus Bus
 	log *slog.Logger
 
 	mu    sync.Mutex
@@ -93,7 +99,12 @@ type run struct {
 	id      string
 	stopped bool
 	failed  bool
+	// end stops what the turn started besides the loop itself: the heartbeat and
+	// the listener for control messages.
+	end func()
 }
+
+const defaultHeartbeat = 15 * time.Second
 
 type keyLock struct {
 	mu sync.Mutex
@@ -109,7 +120,11 @@ func New(d Deps) (*Service, error) {
 	if log == nil {
 		log = slog.Default()
 	}
-	s := &Service{d: d, hub: newHub(), log: log, runs: map[string]*run{}, pumps: map[string]bool{}, locks: map[string]*keyLock{},
+	bus := d.Bus
+	if bus == nil {
+		bus = NewLocalBus()
+	}
+	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]bool{}, locks: map[string]*keyLock{},
 		children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
 	h := d.Harness
 	if h == nil {
@@ -233,7 +248,7 @@ func (s *Service) Events(ctx context.Context, user, conv string) (<-chan session
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return nil, nil, err
 	}
-	ch, cancel := s.hub.subscribe(key(p, conv))
+	ch, cancel := s.bus.Subscribe(key(p, conv))
 	return ch, cancel, nil
 }
 
@@ -259,6 +274,14 @@ func (s *Service) Send(ctx context.Context, user, conv, text string) (SendResult
 		if err != nil {
 			return SendResult{}, err
 		}
+		// The turn may have ended on another frontend between the claim and the
+		// queue. Nothing would start for this message then, so look again; the
+		// claim decides who starts it.
+		if info, terr := s.d.Store.Turn(ctx, p, conv); terr == nil && !info.Running && info.Last == store.TurnDone {
+			if _, err := s.startFromPending(ctx, p, conv); err != nil {
+				s.log.Warn("studio: could not start a turn for a message that arrived late", "chat", conv, "error", err)
+			}
+		}
 		return SendResult{PendingID: pend.ID}, nil
 	default:
 		return SendResult{}, err
@@ -278,12 +301,26 @@ func (s *Service) SendNow(ctx context.Context, user, conv string) error {
 	return err
 }
 
-// Stop ends the running turn. Waiting messages stay.
+// Stop ends the running turn. Waiting messages stay. The turn may run on another
+// frontend, which then hears the request over the bus.
 func (s *Service) Stop(ctx context.Context, user, conv string) error {
 	p := principal(user)
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return err
 	}
+	k := key(p, conv)
+	s.mu.Lock()
+	local := s.runs[k] != nil
+	s.mu.Unlock()
+	if !local {
+		s.bus.Control(k, ControlMsg{Stop: true})
+		return nil
+	}
+	return s.stopLocal(ctx, p, conv)
+}
+
+// stopLocal stops a turn that runs in this process.
+func (s *Service) stopLocal(ctx context.Context, p, conv string) error {
 	k := key(p, conv)
 	s.mu.Lock()
 	r := s.runs[k]
@@ -325,7 +362,7 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 		_ = s.d.Store.RestorePending(ctx, p, conv, ids)
 		return false, err
 	}
-	s.hub.publish(key(p, conv), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
+	s.bus.Publish(key(p, conv), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
 	return true, nil
 }
 
@@ -337,17 +374,65 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string) er
 		return err
 	}
 	k := key(p, conv)
+	// While the turn runs, tell the store it is alive and listen for a stop
+	// requested on another frontend.
+	hbCtx, stopBeat := context.WithCancel(context.Background())
+	go s.heartbeat(hbCtx, p, conv, runID)
+	stopListening := s.bus.OnControl(k, func(m ControlMsg) {
+		if m.Stop {
+			if err := s.stopLocal(context.Background(), p, conv); err != nil {
+				s.log.Warn("studio: could not stop a turn on request", "chat", conv, "error", err)
+			}
+		}
+	})
+	end := func() { stopBeat(); stopListening() }
 	s.mu.Lock()
-	s.runs[k] = &run{id: runID}
+	s.runs[k] = &run{id: runID, end: end}
 	s.mu.Unlock()
 	if err := chat.Send(context.WithoutCancel(ctx), session.Message{Text: text}); err != nil {
 		s.mu.Lock()
 		delete(s.runs, k)
 		s.mu.Unlock()
+		end()
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
 		return err
 	}
 	return nil
+}
+
+// heartbeat tells the store that a turn is alive until ctx ends.
+func (s *Service) heartbeat(ctx context.Context, p, conv, runID string) {
+	every := s.d.HeartbeatEvery
+	if every <= 0 {
+		every = defaultHeartbeat
+	}
+	tick := time.NewTicker(every)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			if err := s.d.Store.TouchTurn(ctx, p, conv, runID); err != nil && ctx.Err() == nil {
+				s.log.Warn("studio: could not record a turn's heartbeat", "chat", conv, "error", err)
+			}
+		}
+	}
+}
+
+// ReapStale ends the turns that have not beaten for olderThan and tells the
+// watchers of each. A frontend that died leaves such turns behind. In a cluster
+// one frontend runs this on a timer; a standalone process runs it once at
+// startup with a zero duration, because every claim then belongs to a process
+// that no longer exists.
+func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, error) {
+	reaped, err := s.d.Store.ReapTurns(ctx, time.Now().Add(-olderThan))
+	for _, r := range reaped {
+		k := key(r.Principal, r.ChatID)
+		s.bus.Publish(k, session.Event{Kind: session.KindError, Text: "The turn was interrupted."})
+		s.bus.Publish(k, session.Event{Kind: session.KindTurnEnd})
+	}
+	return len(reaped), err
 }
 
 // chat opens the conversation in the loop and makes sure its events are read.
@@ -377,7 +462,7 @@ func (s *Service) pump(chat *session.Chat, p, conv string) {
 		s.mu.Unlock()
 	}()
 	for ev := range chat.Events() {
-		s.hub.publish(k, ev)
+		s.bus.Publish(k, ev)
 		switch ev.Kind {
 		case session.KindError:
 			s.mu.Lock()
@@ -404,6 +489,9 @@ func (s *Service) finishTurn(p, conv string) {
 	s.mu.Unlock()
 	if r == nil {
 		return
+	}
+	if r.end != nil {
+		r.end()
 	}
 	status := store.TurnDone
 	switch {
@@ -461,7 +549,7 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 					s.log.Warn("studio: could not record a delivered message", "chat", a.ChatID, "error", aerr)
 				}
 			}
-			s.hub.publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
+			s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
 		}
 	}
 }

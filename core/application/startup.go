@@ -196,7 +196,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 	application.initChatHistoryStore()
 	application.initStudioStore()
 	application.studioProvider = provider.New()
-	application.initStudioService()
 
 	// Initialize the OTel + Prometheus metric pipeline before any
 	// counter is created. monitoring.NewLocalAIMetricsService calls
@@ -449,6 +448,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 			)
 		}
 	}
+
+	// The chats service needs the cluster message bus, so it starts after distributed wiring.
+	application.initStudioService()
 
 	// Start AgentJobService (after distributed wiring so it knows whether to use local or NATS)
 	if application.agentJobService != nil {

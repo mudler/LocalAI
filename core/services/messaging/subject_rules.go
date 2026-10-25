@@ -16,7 +16,7 @@ var (
 	broadcastRoots = map[string]struct{}{
 		"jobs": {}, "agent": {}, "gallery": {}, "cache": {},
 		"staging": {}, "prefixcache": {}, "responses": {}, "state": {},
-		"finetune": {},
+		"finetune": {}, "chats": {},
 	}
 	// controlRoots carry request/reply to one node or one agent worker.
 	controlRoots = map[string]struct{}{
