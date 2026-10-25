@@ -4,6 +4,145 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: bge-large-en-v1.5-f16
+  description: |
+    BGE-large-en-v1.5 is a 335M English embedding model for semantic search
+    and retrieval. This F16 GGUF build produces 1024-dimensional embeddings
+    with a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  license: mit
+  urls:
+    - https://huggingface.co/BAAI/bge-large-en-v1.5
+    - https://huggingface.co/CompendiumLabs/bge-large-en-v1.5-gguf
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  files:
+    - filename: bge-large-en-v1.5-f16.gguf
+      sha256: 3379a0e9cea28fc6d7136df8ea7a88ef99ccce5963b9a6f7af9609997be762e3
+      uri: https://huggingface.co/CompendiumLabs/bge-large-en-v1.5-gguf/resolve/03b9bf107964236f1de7c217f866d1bf27ea677d/bge-large-en-v1.5-f16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 512
+    embeddings: true
+    options:
+      - pooling:cls
+    parameters:
+      model: bge-large-en-v1.5-f16.gguf
+  variants:
+    - model: bge-large-en-v1.5-q8-0
+    - model: bge-large-en-v1.5-q4-k-m
+    - model: bge-large-en-v1.5-transformers
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: bge-large-en-v1.5-q8-0
+  description: |
+    BGE-large-en-v1.5 is a 335M English embedding model for semantic search
+    and retrieval. This Q8_0 GGUF build produces 1024-dimensional embeddings
+    with a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  license: mit
+  urls:
+    - https://huggingface.co/BAAI/bge-large-en-v1.5
+    - https://huggingface.co/CompendiumLabs/bge-large-en-v1.5-gguf
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  files:
+    - filename: bge-large-en-v1.5-q8_0.gguf
+      sha256: 3475a261c0c52536503b8266ea94c6c76a3b282f0ce5d0b12452288ee7eff48a
+      uri: https://huggingface.co/CompendiumLabs/bge-large-en-v1.5-gguf/resolve/03b9bf107964236f1de7c217f866d1bf27ea677d/bge-large-en-v1.5-q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 512
+    embeddings: true
+    options:
+      - pooling:cls
+    parameters:
+      model: bge-large-en-v1.5-q8_0.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: bge-large-en-v1.5-q4-k-m
+  description: |
+    BGE-large-en-v1.5 is a 335M English embedding model for semantic search
+    and retrieval. This Q4_K_M GGUF build produces 1024-dimensional embeddings
+    with a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  license: mit
+  urls:
+    - https://huggingface.co/BAAI/bge-large-en-v1.5
+    - https://huggingface.co/CompendiumLabs/bge-large-en-v1.5-gguf
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  files:
+    - filename: bge-large-en-v1.5-q4_k_m.gguf
+      sha256: c55f590f8e557ae698a6ecfdbe0bf62ce292f0db94c861d0dfd177e4bd01f700
+      uri: https://huggingface.co/CompendiumLabs/bge-large-en-v1.5-gguf/resolve/03b9bf107964236f1de7c217f866d1bf27ea677d/bge-large-en-v1.5-q4_k_m.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 512
+    embeddings: true
+    options:
+      - pooling:cls
+    parameters:
+      model: bge-large-en-v1.5-q4_k_m.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: bge-large-en-v1.5-transformers
+  description: |
+    BGE-large-en-v1.5 is a 335M English embedding model for semantic search
+    and retrieval. This safetensors build uses the Transformers backend's
+    SentenceTransformer loader, producing 1024-dimensional embeddings with
+    a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  license: mit
+  urls:
+    - https://huggingface.co/BAAI/bge-large-en-v1.5
+  tags:
+    - embeddings
+    - safetensors
+    - cpu
+    - gpu
+  files:
+    - filename: bge-large-en-v1.5/model.safetensors
+      sha256: 45e1954914e29bd74080e6c1510165274ff5279421c89f76c418878732f64ae7
+      uri: https://huggingface.co/BAAI/bge-large-en-v1.5/resolve/d4aa6901d3a41ba39fb536a557fa166f842b0e09/model.safetensors
+    - filename: bge-large-en-v1.5/config.json
+      sha256: 446712fac367857b4b1302762fe1cd7bfa8b3c4b77b4dc5d77c4025407660896
+      uri: https://huggingface.co/BAAI/bge-large-en-v1.5/resolve/d4aa6901d3a41ba39fb536a557fa166f842b0e09/config.json
+    - filename: bge-large-en-v1.5/modules.json
+      sha256: 84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf
+      uri: https://huggingface.co/BAAI/bge-large-en-v1.5/resolve/d4aa6901d3a41ba39fb536a557fa166f842b0e09/modules.json
+    - filename: bge-large-en-v1.5/sentence_bert_config.json
+      sha256: 84e39fda68ccbff05bfa723ae9c0e70e23e2ec373b76e0f8c6e71af72a693cbf
+      uri: https://huggingface.co/BAAI/bge-large-en-v1.5/resolve/d4aa6901d3a41ba39fb536a557fa166f842b0e09/sentence_bert_config.json
+    - filename: bge-large-en-v1.5/1_Pooling/config.json
+      sha256: e54c164a07274f2eb45bb724f54a79d1efcc90c41573887cd9a29aeee0597352
+      uri: https://huggingface.co/BAAI/bge-large-en-v1.5/resolve/d4aa6901d3a41ba39fb536a557fa166f842b0e09/1_Pooling/config.json
+    - filename: bge-large-en-v1.5/tokenizer.json
+      sha256: d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66
+      uri: https://huggingface.co/BAAI/bge-large-en-v1.5/resolve/d4aa6901d3a41ba39fb536a557fa166f842b0e09/tokenizer.json
+    - filename: bge-large-en-v1.5/tokenizer_config.json
+      sha256: 9261e7d79b44c8195c1cada2b453e55b00aeb81e907a6664974b4d7776172ab3
+      uri: https://huggingface.co/BAAI/bge-large-en-v1.5/resolve/d4aa6901d3a41ba39fb536a557fa166f842b0e09/tokenizer_config.json
+    - filename: bge-large-en-v1.5/special_tokens_map.json
+      sha256: b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3
+      uri: https://huggingface.co/BAAI/bge-large-en-v1.5/resolve/d4aa6901d3a41ba39fb536a557fa166f842b0e09/special_tokens_map.json
+    - filename: bge-large-en-v1.5/vocab.txt
+      sha256: 07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3
+      uri: https://huggingface.co/BAAI/bge-large-en-v1.5/resolve/d4aa6901d3a41ba39fb536a557fa166f842b0e09/vocab.txt
+  overrides:
+    backend: transformers
+    context_size: 512
+    embeddings: true
+    parameters:
+      model: bge-large-en-v1.5
+    type: SentenceTransformer
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: bge-base-en-v1.5-f16
   description: |
     BGE-base-en-v1.5 is a 109M English embedding model for semantic search
