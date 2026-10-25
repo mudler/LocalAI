@@ -230,6 +230,13 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 		ml.wd.RegisterModelSize(modelID, o.modelSizeBytes)
 	}
 
+	// StartProcess registers a spawned backend with the watchdog. A backend
+	// reached by address has no process, so register it here or LRU and group
+	// eviction never see it loaded.
+	if ml.wd != nil && client.Process() == nil {
+		ml.wd.AddAddressModelMap(uri, modelID)
+	}
+
 	return client, nil
 }
 
