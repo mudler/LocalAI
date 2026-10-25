@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"encoding/json"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 // Harness starts agent sessions.
@@ -22,6 +23,15 @@ type HarnessEnv struct {
 	Dir        string // a private state folder for this chat
 	Resume     []byte // the harness's own state from the last turn; nil for a new chat
 	Emit       func(Event)
+	// Actor is whose chat this is, so the harness can pick the model client and
+	// the user for it.
+	Actor workspace.Actor
+	// Inputs, when set, is asked before every model request for texts the host
+	// wants the model to see (messages the user sent while the turn ran). The
+	// texts reach the model as one user message, in order. settle is called
+	// with nil once the request succeeded or with its error, so the host can
+	// put the texts back. settle may be nil. Nil Inputs: nothing to add.
+	Inputs func() (texts []string, settle func(error))
 }
 
 // HarnessSession is one running agent conversation.

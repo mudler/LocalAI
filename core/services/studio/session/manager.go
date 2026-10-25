@@ -50,7 +50,11 @@ type Options struct {
 	// is dropped. An error from the hook does not fail the turn: it runs with
 	// the sandbox tools only. Nil: only the sandbox tools.
 	ChatTools func(ctx context.Context, a workspace.Actor) (TurnTools, error)
-	Logger    *slog.Logger
+	// Inputs gives the harness of a chat its source of pending messages (see
+	// HarnessEnv.Inputs). It runs once per harness start. Nil: no pending
+	// messages.
+	Inputs func(a workspace.Actor) func() ([]string, func(error))
+	Logger *slog.Logger
 }
 
 // Manager opens chats and owns their sandboxes.

@@ -375,3 +375,32 @@ func (c *Chat) clearCards() {
 	c.cards = nil
 	c.cardMu.Unlock()
 }
+
+// primeChatTools asks the ChatTools hook once before the harness starts, so a
+// chat opens with its host tools and its first turn needs no restart. A failed
+// hook changes nothing: the turn hook asks again.
+func (c *Chat) primeChatTools(ctx context.Context) {
+	f := c.m.o.ChatTools
+	if f == nil {
+		return
+	}
+	actor, _, _ := c.access()
+	tt, err := callChatTools(ctx, f, actor, c.m.log)
+	if err != nil || ctx.Err() != nil {
+		return
+	}
+	tools := acceptHostTools(tt.Tools, c.m.log, c.id)
+	prompt := capPrompt(tt.Prompt, c.m.log, c.id)
+	cur := make(map[string]Tool, len(tools))
+	defs := make([]Tool, len(tools))
+	for i, t := range tools {
+		cur[t.Name] = t
+		defs[i] = Tool{Name: t.Name, Description: t.Description, Schema: t.Schema}
+	}
+	c.hostMu.Lock()
+	c.host.cur, c.host.defs, c.host.prompt, c.host.fp = cur, defs, prompt, fingerprint(tools, prompt)
+	if tt.RefreshKey != "" {
+		c.host.key = tt.RefreshKey
+	}
+	c.hostMu.Unlock()
+}

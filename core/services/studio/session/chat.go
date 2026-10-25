@@ -242,6 +242,7 @@ func (c *Chat) isRunning() bool {
 // harness cannot read, or a missing state in a chat that has a transcript,
 // starts a fresh session with the transcript in the system prompt.
 func (c *Chat) startHarness(ctx context.Context) error {
+	c.primeChatTools(ctx)
 	c.mu.Lock()
 	rec := c.rec
 	c.mu.Unlock()
@@ -257,13 +258,24 @@ func (c *Chat) startHarness(ctx context.Context) error {
 	c.hostMu.Lock()
 	turnPrompt := c.host.prompt
 	c.hostMu.Unlock()
+	// The six sandbox tools exist only when there is a sandbox to run them in;
+	// without one they could only answer "cannot run commands".
+	tools := c.hostWrappers()
+	if c.m.o.Sandbox != nil {
+		tools = append(NewTools(c.acquireCreate), tools...)
+	}
+	actor, _, _ := c.access()
 	env := HarnessEnv{
 		SystemPrompt: prompt,
 		TurnPrompt:   turnPrompt,
-		Tools:        c.guardTools(append(NewTools(c.acquireCreate), c.hostWrappers()...)),
+		Tools:        c.guardTools(tools),
 		Resume:       rec.HarnessState,
 		Dir:          c.dir,
 		Emit:         c.onHarnessEvent,
+		Actor:        actor,
+	}
+	if c.m.o.Inputs != nil {
+		env.Inputs = c.m.o.Inputs(actor)
 	}
 	var hs HarnessSession
 	var err error
