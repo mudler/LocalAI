@@ -65,7 +65,7 @@ func EmbeddingBodyLimit(globalMB int) echo.MiddlewareFunc {
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if !isEmbeddingRoute(c.Path()) {
+			if !isBoundedMultimodalRoute(c.Path()) {
 				return next(c)
 			}
 			if c.Request().ContentLength > limit {

@@ -23,6 +23,13 @@ func NewLimiter(capacity int) *Limiter {
 // NewPreparationLimiter returns a limiter with the fixed protocol capacity.
 func NewPreparationLimiter() *Limiter { return NewLimiter(int(MaxConcurrentPreparations)) }
 
+var sharedPreparation = NewPreparationLimiter()
+
+// SharedPreparationLimiter returns the process-wide limiter that the HTTP routes
+// hand to every endpoint that prepares media, so embeddings and rerank draw on
+// the same two slots instead of two each.
+func SharedPreparationLimiter() *Limiter { return sharedPreparation }
+
 // TryAcquire admits one holder without waiting, or fails with a typed 429.
 // The returned release function is idempotent and frees exactly one slot.
 func (l *Limiter) TryAcquire() (release func(), err error) {

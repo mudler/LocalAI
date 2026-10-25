@@ -37,6 +37,7 @@ func multimodalError(code int, message string, cause error) error {
 // Only capabilities and cancellation are request scoped. No model-name cache
 // is consulted, and this session never reschedules onto another replica.
 type MultimodalEmbeddingSession struct {
+	rerank       bool
 	valid        func() bool
 	mu           sync.Mutex
 	client       grpcpkg.Backend
@@ -49,12 +50,23 @@ type MultimodalEmbeddingSession struct {
 }
 
 func OpenMultimodalEmbeddingSession(ctx context.Context, loader *model.ModelLoader, cfg config.ModelConfig, app *config.ApplicationConfig) (*MultimodalEmbeddingSession, error) {
+	return openMultimodalSession(ctx, loader, cfg, app, false)
+}
+
+// OpenMultimodalRerankSession opens the same instance-bound session for the
+// typed rerank RPC. It requires the rerank capability fields of the loaded
+// instance instead of the embedding ones.
+func OpenMultimodalRerankSession(ctx context.Context, loader *model.ModelLoader, cfg config.ModelConfig, app *config.ApplicationConfig) (*MultimodalEmbeddingSession, error) {
+	return openMultimodalSession(ctx, loader, cfg, app, true)
+}
+
+func openMultimodalSession(ctx context.Context, loader *model.ModelLoader, cfg config.ModelConfig, app *config.ApplicationConfig, rerank bool) (*MultimodalEmbeddingSession, error) {
 	client, err := loader.Load(ModelOptions(cfg, app, model.WithContext(ctx))...)
 	if err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	s := &MultimodalEmbeddingSession{client: client, modelOptions: grpcModelOpts(cfg, loader.ModelPath), options: gRPCPredictOpts(cfg, loader.ModelPath), ctx: ctx, cancel: cancel}
+	s := &MultimodalEmbeddingSession{rerank: rerank, client: client, modelOptions: grpcModelOpts(cfg, loader.ModelPath), options: gRPCPredictOpts(cfg, loader.ModelPath), ctx: ctx, cancel: cancel}
 	s.modelOptions.Model = cfg.Model
 	s.valid = loader.BindLoadedInstance(cfg.ModelID(), client)
 	s.metadata, err = s.readMetadata(ctx)
@@ -76,7 +88,11 @@ func (s *MultimodalEmbeddingSession) readMetadata(ctx context.Context) (*pb.Mode
 	if !s.valid() {
 		return nil, multimodalError(501, "embedding instance unloaded; reopen session", nil)
 	}
-	if err != nil || m.GetEmbeddingProtocolVersion() != 1 || m.GetEmbeddingGeneration() == "" {
+	version := m.GetEmbeddingProtocolVersion()
+	if s.rerank {
+		version = m.GetRerankProtocolVersion()
+	}
+	if err != nil || version != 1 || m.GetEmbeddingGeneration() == "" {
 		return nil, multimodalError(501, "multimodal embedding protocol unavailable", err)
 	}
 	return proto.Clone(m).(*pb.ModelMetadataResponse), nil
@@ -96,30 +112,67 @@ func (s *MultimodalEmbeddingSession) Close() error {
 	s.cancel()
 	return nil
 }
-func (s *MultimodalEmbeddingSession) Embed(ctx context.Context, request *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
+
+// admit runs the checks both typed RPCs share before an item is dispatched: the
+// session is open, the exact instance is still the one that was bound, and its
+// capability snapshot has not changed since the session was opened.
+func (s *MultimodalEmbeddingSession) admit(ctx context.Context) (context.Context, func(), error) {
 	s.mu.Lock()
 	closed := s.closed
 	s.mu.Unlock()
 	if closed {
-		return nil, context.Canceled
+		return nil, nil, context.Canceled
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	stop := context.AfterFunc(s.ctx, cancel)
-	defer stop()
+	done := func() { stop(); cancel() }
 	if s.ctx.Err() != nil {
-		return nil, s.ctx.Err()
+		done()
+		return nil, nil, s.ctx.Err()
 	}
-	if request == nil {
-		return nil, multimodalError(400, "missing embedding request", nil)
-	}
-	// Recheck this exact connection before every item, including after idle time.
+	return ctx, done, nil
+}
+
+// recheck verifies the bound instance and its capabilities. It is called before
+// dispatch and again before a result is published, so a result that raced a
+// reload or a capability change is never returned.
+func (s *MultimodalEmbeddingSession) recheck(ctx context.Context) (*pb.ModelMetadataResponse, error) {
 	m, err := s.readMetadata(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if !proto.Equal(m, s.metadata) {
 		return nil, multimodalError(501, "embedding capabilities changed; reopen session", nil)
+	}
+	return m, nil
+}
+
+func classifyDispatchError(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	if status.Code(err) == codes.Unimplemented {
+		return multimodalError(501, "multimodal embedding protocol unavailable", err)
+	}
+	return err
+}
+
+func (s *MultimodalEmbeddingSession) Embed(ctx context.Context, request *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
+	ctx, done, err := s.admit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	if request == nil {
+		return nil, multimodalError(400, "missing embedding request", nil)
+	}
+	// Recheck this exact connection before every item, including after idle time.
+	m, err := s.recheck(ctx)
+	if err != nil {
+		return nil, err
 	}
 	if err := CheckEmbeddingModalities(m, request.Parts); err != nil {
 		return nil, err
@@ -138,25 +191,59 @@ func (s *MultimodalEmbeddingSession) Embed(ctx context.Context, request *pb.Mult
 	}
 	defer release()
 	result, err := s.client.MultimodalEmbedding(ctx, in)
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, err
-		}
-		if status.Code(err) == codes.Unimplemented {
-			return nil, multimodalError(501, "multimodal embedding protocol unavailable", err)
-		}
-		return nil, err
+	if ctx.Err() != nil || err != nil {
+		return nil, classifyDispatchError(ctx, err)
 	}
 	// Do not publish a result that raced a capabilities change or backend restart.
-	after, err := s.readMetadata(ctx)
+	if _, err := s.recheck(ctx); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// Rerank sends one typed rerank request through the bound instance. It applies
+// the embedding admission rules with the rerank capability fields, and never
+// falls back to the text Rerank RPC.
+func (s *MultimodalEmbeddingSession) Rerank(ctx context.Context, request *pb.MultimodalRerankRequest) (*pb.MultimodalRerankResponse, error) {
+	if !s.rerank {
+		return nil, multimodalError(501, "multimodal rerank protocol unavailable", nil)
+	}
+	ctx, done, err := s.admit(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !proto.Equal(m, after) {
-		return nil, multimodalError(501, "embedding capabilities changed; reopen session", nil)
+	defer done()
+	if request == nil {
+		return nil, multimodalError(400, "missing rerank request", nil)
+	}
+	m, err := s.recheck(ctx)
+	if err != nil {
+		return nil, err
+	}
+	parts := append([]*pb.EmbeddingPart(nil), request.Query...)
+	for _, d := range request.Documents {
+		parts = append(parts, d.GetParts()...)
+	}
+	if err := CheckRerankModalities(m, parts); err != nil {
+		return nil, err
+	}
+	in := proto.Clone(request).(*pb.MultimodalRerankRequest)
+	in.Model = s.modelOptions.Model
+	in.EmbeddingGeneration = s.metadata.EmbeddingGeneration
+	if proto.Size(in) > MultimodalMaxRPCBytes {
+		return nil, multimodalError(413, "multimodal rerank request exceeds the transport limit", nil)
+	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	result, err := s.client.MultimodalRerank(ctx, in)
+	if ctx.Err() != nil || err != nil {
+		return nil, classifyDispatchError(ctx, err)
+	}
+	if _, err := s.recheck(ctx); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

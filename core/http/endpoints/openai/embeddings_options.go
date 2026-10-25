@@ -2,15 +2,12 @@
 package openai
 
 import (
-	"context"
-
+	"github.com/mudler/LocalAI/core/http/endpoints/multimodal"
 	"github.com/mudler/LocalAI/pkg/embeddingmedia"
 )
 
 // MediaAcquirer fetches and validates the compressed bytes of one media source.
-type MediaAcquirer interface {
-	Acquire(ctx context.Context, source embeddingmedia.Source, budget *embeddingmedia.Budget) ([]byte, error)
-}
+type MediaAcquirer = multimodal.MediaAcquirer
 
 type embeddingsOptions struct {
 	acquirer MediaAcquirer

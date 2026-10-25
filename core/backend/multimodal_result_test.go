@@ -80,4 +80,30 @@ var _ = Describe("Multimodal HTTP", func() {
 		Expect(code(backend.CheckEmbeddingModalities(meta, []*pb.EmbeddingPart{text, image}))).To(Equal(422))
 		Expect(code(backend.CheckEmbeddingModalities(nil, []*pb.EmbeddingPart{text}))).To(Equal(501))
 	})
+	It("answers 501 for video when the instance reads images but publishes no video decoder", func() {
+		meta := &pb.ModelMetadataResponse{EmbeddingModalities: []pb.EmbeddingModality{pb.EmbeddingModality_TEXT, pb.EmbeddingModality_IMAGE, pb.EmbeddingModality_AUDIO}}
+		text := &pb.EmbeddingPart{Part: &pb.EmbeddingPart_Text{Text: "x"}}
+		video := &pb.EmbeddingPart{Part: &pb.EmbeddingPart_Media{Media: &pb.EmbeddingMedia{Kind: pb.EmbeddingMedia_VIDEO}}}
+		image := &pb.EmbeddingPart{Part: &pb.EmbeddingPart_Media{Media: &pb.EmbeddingMedia{Kind: pb.EmbeddingMedia_IMAGE}}}
+		Expect(backend.CheckEmbeddingModalities(meta, []*pb.EmbeddingPart{text, image})).To(Succeed())
+		Expect(code(backend.CheckEmbeddingModalities(meta, []*pb.EmbeddingPart{text, image, video}))).To(Equal(501))
+		// A text-only model has no image input either, so video is a model limit.
+		textOnly := &pb.ModelMetadataResponse{EmbeddingModalities: []pb.EmbeddingModality{pb.EmbeddingModality_TEXT}}
+		Expect(code(backend.CheckEmbeddingModalities(textOnly, []*pb.EmbeddingPart{video}))).To(Equal(422))
+	})
+	It("checks rerank parts against the rerank capability only", func() {
+		meta := &pb.ModelMetadataResponse{
+			EmbeddingModalities: []pb.EmbeddingModality{pb.EmbeddingModality_TEXT, pb.EmbeddingModality_IMAGE, pb.EmbeddingModality_AUDIO},
+			RerankModalities:    []pb.EmbeddingModality{pb.EmbeddingModality_TEXT, pb.EmbeddingModality_IMAGE},
+		}
+		text := &pb.EmbeddingPart{Part: &pb.EmbeddingPart_Text{Text: "x"}}
+		image := &pb.EmbeddingPart{Part: &pb.EmbeddingPart_Media{Media: &pb.EmbeddingMedia{Kind: pb.EmbeddingMedia_IMAGE}}}
+		audio := &pb.EmbeddingPart{Part: &pb.EmbeddingPart_Media{Media: &pb.EmbeddingMedia{Kind: pb.EmbeddingMedia_AUDIO}}}
+		Expect(backend.CheckRerankModalities(meta, []*pb.EmbeddingPart{text, image})).To(Succeed())
+		Expect(code(backend.CheckRerankModalities(meta, []*pb.EmbeddingPart{audio}))).To(Equal(422))
+		Expect(code(backend.CheckRerankModalities(nil, []*pb.EmbeddingPart{text}))).To(Equal(501))
+		// A text-only reranker refuses an image with 422, never a text-only score.
+		textOnly := &pb.ModelMetadataResponse{RerankModalities: []pb.EmbeddingModality{pb.EmbeddingModality_TEXT}}
+		Expect(code(backend.CheckRerankModalities(textOnly, []*pb.EmbeddingPart{text, image}))).To(Equal(422))
+	})
 })

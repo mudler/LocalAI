@@ -71,12 +71,29 @@ func FinishMultimodalEmbedding(res *pb.MultimodalEmbeddingResponse, cfg config.M
 // not inspected, so callers can run this before fetching anything. A video is
 // accepted when audiovisual video is declared; whether a given clip carries a
 // soundtrack is resolved by the backend after it probes the tracks.
+//
+// A video sent to an instance that consumes images but declares no video
+// modality is a missing backend decoder, not a model limit, and answers 501.
+// An instance that cannot consume images either gets the usual 422.
 func CheckEmbeddingModalities(meta *pb.ModelMetadataResponse, parts []*pb.EmbeddingPart) error {
 	if meta == nil {
 		return multimodalError(501, "multimodal embedding protocol unavailable", nil)
 	}
+	return checkModalities(meta.EmbeddingModalities, parts)
+}
+
+// CheckRerankModalities applies the same rules to the rerank capability fields.
+// Rerank publishes TEXT and IMAGE only, so any other part is refused.
+func CheckRerankModalities(meta *pb.ModelMetadataResponse, parts []*pb.EmbeddingPart) error {
+	if meta == nil {
+		return multimodalError(501, "multimodal rerank protocol unavailable", nil)
+	}
+	return checkModalities(meta.RerankModalities, parts)
+}
+
+func checkModalities(published []pb.EmbeddingModality, parts []*pb.EmbeddingPart) error {
 	supported := map[pb.EmbeddingModality]bool{}
-	for _, v := range meta.EmbeddingModalities {
+	for _, v := range published {
 		supported[v] = true
 	}
 	for _, part := range parts {
@@ -95,6 +112,9 @@ func CheckEmbeddingModalities(meta *pb.ModelMetadataResponse, parts []*pb.Embedd
 					continue
 				}
 				modality = pb.EmbeddingModality_SILENT_VIDEO
+				if !supported[modality] && supported[pb.EmbeddingModality_IMAGE] {
+					return multimodalError(501, "video decoding unavailable in the backend", nil)
+				}
 			}
 		}
 		if modality == pb.EmbeddingModality_EMBEDDING_MODALITY_UNSPECIFIED {

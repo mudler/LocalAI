@@ -15,11 +15,13 @@ import (
 
 // JINARerankEndpoint acts like the Jina reranker endpoint (https://jina.ai/reranker/)
 // @Summary Reranks a list of phrases by relevance to a given text query.
+// @Description `query` is a string or a content object, and each entry of `documents` is a string or a content object. A content object is `{"content":[part,...]}` with `text` and `image_url` parts; text parts come first, then images. Typed requests with images need a reranker whose backend publishes the multimodal rerank capability: a backend without it returns 501, a model that cannot read images returns 422, and media is never dropped to score text only. A request of one string query and string documents is unchanged.
 // @Tags rerank
 // @Param request body schema.JINARerankRequest true "query params"
 // @Success 200 {object} schema.JINARerankResponse "Response"
 // @Router /v1/rerank [post]
-func JINARerankEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func JINARerankEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, opts ...RerankOption) echo.HandlerFunc {
+	options := newRerankOptions(opts)
 	return func(c echo.Context) error {
 
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.JINARerankRequest)
@@ -35,6 +37,9 @@ func JINARerankEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		xlog.Debug("JINA Rerank Request received", "model", input.Model)
 		var requestTopN int32
 		docs := int32(len(input.Documents))
+		if input.Typed != nil {
+			docs = int32(len(input.Typed.Documents))
+		}
 		if input.TopN == nil { // omit top_n to get all
 			requestTopN = docs
 		} else {
@@ -46,13 +51,19 @@ func JINARerankEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 				requestTopN = docs
 			}
 		}
-		request := &proto.RerankRequest{
-			Query:     input.Query,
-			TopN:      requestTopN,
-			Documents: input.Documents,
+		var results *proto.RerankResult
+		var typedDocuments []string
+		var err error
+		if input.Typed != nil {
+			results, typedDocuments, err = rerankTyped(c, input, cfg, ml, appConfig, requestTopN, options)
+		} else {
+			request := &proto.RerankRequest{
+				Query:     input.Query,
+				TopN:      requestTopN,
+				Documents: input.Documents,
+			}
+			results, err = backend.Rerank(c.Request().Context(), request, ml, appConfig, *cfg)
 		}
-
-		results, err := backend.Rerank(c.Request().Context(), request, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}
@@ -62,9 +73,14 @@ func JINARerankEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		for _, r := range results.Results {
+			text := r.Text
+			if typedDocuments != nil && int(r.Index) < len(typedDocuments) {
+				// Typed documents show the text the caller sent, never backend text.
+				text = typedDocuments[r.Index]
+			}
 			response.Results = append(response.Results, schema.JINADocumentResult{
 				Index:          int(r.Index),
-				Document:       schema.JINAText{Text: r.Text},
+				Document:       schema.JINAText{Text: text},
 				RelevanceScore: float64(r.RelevanceScore),
 			})
 		}

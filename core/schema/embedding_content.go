@@ -114,39 +114,50 @@ func ParseEmbeddingInput(raw json.RawMessage) ([]EmbeddingInputItem, bool, error
 	}
 	items := make([]EmbeddingInputItem, 0, len(entries))
 	for _, entry := range entries {
-		var item EmbeddingInputItem
-		if len(entry) > 0 && entry[0] == '"' {
-			text, err := embeddingString(entry)
-			if err != nil {
-				return nil, true, err
-			}
-			item.Text = &text
-			if err = budget.Consume(embeddingmedia.Consumption{TextBytes: uint64(len(text)), SourceParts: 1}); err != nil {
-				return nil, true, err
-			}
-		} else {
-			obj, err := embeddingObject(entry, "content")
-			if err != nil {
-				return nil, true, err
-			}
-			var parts []json.RawMessage
-			if json.Unmarshal(obj["content"], &parts) != nil || len(parts) == 0 {
-				return nil, true, embeddingMalformed()
-			}
-			if err = budget.Consume(embeddingmedia.Consumption{SourceParts: uint64(len(parts))}); err != nil {
-				return nil, true, err
-			}
-			for _, p := range parts {
-				part, err := parseEmbeddingPart(p, &budget)
-				if err != nil {
-					return nil, true, err
-				}
-				item.Content = append(item.Content, part)
-			}
+		item, err := parseEmbeddingItem(entry, &budget)
+		if err != nil {
+			return nil, true, err
 		}
 		items = append(items, item)
 	}
 	return items, true, nil
+}
+
+// parseEmbeddingItem parses one string or content object and charges its text,
+// parts and media bytes to budget. Rerank queries and documents use it too, so
+// they cannot drift from the embedding rules.
+func parseEmbeddingItem(entry json.RawMessage, budget *embeddingmedia.Budget) (EmbeddingInputItem, error) {
+	var item EmbeddingInputItem
+	if len(entry) > 0 && entry[0] == '"' {
+		text, err := embeddingString(entry)
+		if err != nil {
+			return item, err
+		}
+		item.Text = &text
+		if err = budget.Consume(embeddingmedia.Consumption{TextBytes: uint64(len(text)), SourceParts: 1}); err != nil {
+			return item, err
+		}
+		return item, nil
+	}
+	obj, err := embeddingObject(entry, "content")
+	if err != nil {
+		return item, err
+	}
+	var parts []json.RawMessage
+	if json.Unmarshal(obj["content"], &parts) != nil || len(parts) == 0 {
+		return item, embeddingMalformed()
+	}
+	if err = budget.Consume(embeddingmedia.Consumption{SourceParts: uint64(len(parts))}); err != nil {
+		return item, err
+	}
+	for _, p := range parts {
+		part, err := parseEmbeddingPart(p, budget)
+		if err != nil {
+			return item, err
+		}
+		item.Content = append(item.Content, part)
+	}
+	return item, nil
 }
 func parseEmbeddingPart(raw []byte, b *embeddingmedia.Budget) (EmbeddingContentPart, error) {
 	var p EmbeddingContentPart

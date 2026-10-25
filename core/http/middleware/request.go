@@ -189,6 +189,10 @@ func (re *RequestExtractor) setModelAndConfig(initializer func() schema.LocalAIR
 				if err := bindEmbeddingRequest(c, request); err != nil {
 					return err
 				}
+			} else if request, ok := input.(*schema.JINARerankRequest); ok && isRerankRoute(c.Path()) {
+				if err := bindRerankRequest(c, request); err != nil {
+					return err
+				}
 			} else if err := c.Bind(input); err != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed parsing request body: %v", err))
 			}
@@ -907,6 +911,52 @@ func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResp
 func isEmbeddingRoute(path string) bool {
 	return path == "/embeddings" || path == "/v1/embeddings" || path == "/v1/engines/:model/embeddings"
 }
+
+// isRerankRoute is the rerank route, which accepts the same typed content as
+// embeddings and is bounded by the same body cap.
+func isRerankRoute(path string) bool { return path == "/v1/rerank" }
+
+// isBoundedMultimodalRoute lists every route that shares the embedding body cap.
+func isBoundedMultimodalRoute(path string) bool { return isEmbeddingRoute(path) || isRerankRoute(path) }
+
+// bindRerankRequest reads the body under the embedding cap, validates typed
+// content before JSON binding can reinterpret it, and then binds. A legacy body
+// (string query, string documents) passes through the default binder unchanged.
+func bindRerankRequest(c echo.Context, request *schema.JINARerankRequest) error {
+	limit := int64(embeddingmedia.MaxBodyBytes)
+	if c.Request().ContentLength > limit || embeddingBodyOverflowed(c) {
+		return echo.ErrStatusRequestEntityTooLarge
+	}
+	raw, err := io.ReadAll(io.LimitReader(c.Request().Body, limit+1))
+	if err != nil {
+		var httpErr *echo.HTTPError
+		if errors.As(err, &httpErr) && httpErr.Code == http.StatusRequestEntityTooLarge {
+			return echo.ErrStatusRequestEntityTooLarge
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed parsing request body: %v", err))
+	}
+	if embeddingBodyOverflowed(c) || embeddingmedia.CheckLimit(uint64(len(raw)), embeddingmedia.MaxBodyBytes) != nil {
+		return echo.ErrStatusRequestEntityTooLarge
+	}
+	typed, _, err := schema.ParseRerankRequest(raw)
+	if err != nil {
+		var classified *embeddingmedia.Error
+		if errors.As(err, &classified) {
+			return echo.NewHTTPError(classified.Status, classified.Code)
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid_rerank_input")
+	}
+	c.Request().Body = io.NopCloser(bytes.NewReader(raw))
+	if err := c.Bind(request); err != nil {
+		if typed != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid_rerank_input")
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed parsing request body: %v", err))
+	}
+	request.Typed = typed
+	return nil
+}
+
 func bindEmbeddingRequest(c echo.Context, request *schema.OpenAIRequest) error {
 	limit := int64(embeddingmedia.MaxBodyBytes)
 	if c.Request().ContentLength > limit || embeddingBodyOverflowed(c) {

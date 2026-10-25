@@ -24,6 +24,7 @@ type sessionBackend struct {
 	grpcpkg.Backend
 	metadata func(context.Context, *pb.ModelOptions) (*pb.ModelMetadataResponse, error)
 	embed    func(context.Context, *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error)
+	rerank   func(context.Context, *pb.MultimodalRerankRequest) (*pb.MultimodalRerankResponse, error)
 }
 
 func (b *sessionBackend) HealthCheck(context.Context) (bool, error) { return true, nil }
@@ -33,6 +34,18 @@ func (b *sessionBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions,
 }
 func (b *sessionBackend) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, _ ...ggrpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
 	return b.embed(ctx, in)
+}
+func (b *sessionBackend) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest, _ ...ggrpc.CallOption) (*pb.MultimodalRerankResponse, error) {
+	return b.rerank(ctx, in)
+}
+func rerankMetadata(mod ...pb.EmbeddingModality) *pb.ModelMetadataResponse {
+	return &pb.ModelMetadataResponse{EmbeddingGeneration: "test-instance", RerankProtocolVersion: 1, RerankModalities: mod}
+}
+func rerankRequest() *pb.MultimodalRerankRequest {
+	text := func(s string) []*pb.EmbeddingPart {
+		return []*pb.EmbeddingPart{{Part: &pb.EmbeddingPart_Text{Text: s}}}
+	}
+	return &pb.MultimodalRerankRequest{Model: "untrusted", Query: text("q"), Documents: []*pb.RerankDocument{{Parts: text("a")}}}
 }
 func sessionMetadata(mod ...pb.EmbeddingModality) *pb.ModelMetadataResponse {
 	return &pb.ModelMetadataResponse{EmbeddingGeneration: "test-instance", EmbeddingProtocolVersion: 1, EmbeddingModalities: mod}
@@ -219,5 +232,92 @@ var _ = Describe("Multimodal routing", func() {
 		s := open(sessionLoader(b))
 		s.Metadata().EmbeddingProtocolVersion = 0
 		Expect(s.Metadata().EmbeddingProtocolVersion).To(Equal(uint32(1)))
+	})
+
+	Describe("typed rerank", func() {
+		openRerank := func(l *model.ModelLoader) *backend.MultimodalEmbeddingSession {
+			s, err := backend.OpenMultimodalRerankSession(context.Background(), l, cfg, app)
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(s.Close)
+			return s
+		}
+		BeforeEach(func() {
+			b.metadata = func(context.Context, *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
+				return rerankMetadata(pb.EmbeddingModality_TEXT, pb.EmbeddingModality_IMAGE), nil
+			}
+			b.rerank = func(context.Context, *pb.MultimodalRerankRequest) (*pb.MultimodalRerankResponse, error) {
+				return &pb.MultimodalRerankResponse{}, nil
+			}
+		})
+		It("binds the selected identity and generation and does not mutate the caller request", func() {
+			b.rerank = func(_ context.Context, in *pb.MultimodalRerankRequest) (*pb.MultimodalRerankResponse, error) {
+				Expect(in.Model).To(Equal(cfg.Model))
+				Expect(in.EmbeddingGeneration).To(Equal("test-instance"))
+				return &pb.MultimodalRerankResponse{}, nil
+			}
+			s := openRerank(sessionLoader(b))
+			req := rerankRequest()
+			_, err := s.Rerank(context.Background(), req)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(req.Model).To(Equal("untrusted"))
+			Expect(req.EmbeddingGeneration).To(BeEmpty())
+		})
+		It("requires the rerank capability, not the embedding one", func() {
+			b.metadata = func(context.Context, *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
+				return sessionMetadata(pb.EmbeddingModality_TEXT, pb.EmbeddingModality_IMAGE), nil
+			}
+			_, err := backend.OpenMultimodalRerankSession(context.Background(), sessionLoader(b), cfg, app)
+			Expect(err).To(HaveOccurred())
+			Expect(err.(*backend.MultimodalEmbeddingError).StatusCode()).To(Equal(501))
+		})
+		It("refuses an image the reranker does not publish before dispatch", func() {
+			b.metadata = func(context.Context, *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
+				return rerankMetadata(pb.EmbeddingModality_TEXT), nil
+			}
+			var called atomic.Bool
+			b.rerank = func(context.Context, *pb.MultimodalRerankRequest) (*pb.MultimodalRerankResponse, error) {
+				called.Store(true)
+				return &pb.MultimodalRerankResponse{}, nil
+			}
+			s := openRerank(sessionLoader(b))
+			req := rerankRequest()
+			req.Documents[0].Parts = []*pb.EmbeddingPart{{Part: &pb.EmbeddingPart_Media{Media: &pb.EmbeddingMedia{Kind: pb.EmbeddingMedia_IMAGE, Data: []byte("x")}}}}
+			_, err := s.Rerank(context.Background(), req)
+			Expect(err.(*backend.MultimodalEmbeddingError).StatusCode()).To(Equal(422))
+			Expect(called.Load()).To(BeFalse())
+		})
+		It("maps an old worker to 501 and never retries as text", func() {
+			b.rerank = func(context.Context, *pb.MultimodalRerankRequest) (*pb.MultimodalRerankResponse, error) {
+				return nil, status.Error(codes.Unimplemented, "old")
+			}
+			s := openRerank(sessionLoader(b))
+			_, err := s.Rerank(context.Background(), rerankRequest())
+			Expect(err.(*backend.MultimodalEmbeddingError).StatusCode()).To(Equal(501))
+		})
+		It("never publishes a result that raced a capability change", func() {
+			var changed atomic.Bool
+			b.metadata = func(context.Context, *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
+				if changed.Load() {
+					return &pb.ModelMetadataResponse{}, nil
+				}
+				return rerankMetadata(pb.EmbeddingModality_TEXT), nil
+			}
+			b.rerank = func(context.Context, *pb.MultimodalRerankRequest) (*pb.MultimodalRerankResponse, error) {
+				changed.Store(true)
+				return &pb.MultimodalRerankResponse{}, nil
+			}
+			s := openRerank(sessionLoader(b))
+			res, err := s.Rerank(context.Background(), rerankRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(res).To(BeNil())
+		})
+		It("is not available on an embedding session", func() {
+			b.metadata = func(context.Context, *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
+				return sessionMetadata(pb.EmbeddingModality_TEXT), nil
+			}
+			s := open(sessionLoader(b))
+			_, err := s.Rerank(context.Background(), rerankRequest())
+			Expect(err.(*backend.MultimodalEmbeddingError).StatusCode()).To(Equal(501))
+		})
 	})
 })

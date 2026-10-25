@@ -251,6 +251,18 @@ func isLegacyEmbeddingBody(body []byte) bool {
 	return err == nil && !structured
 }
 
+// isLegacyRerankBody reports whether a rerank body is a valid legacy request: a
+// JSON object with a string query and string documents. Typed content can carry
+// private text, media or URLs, so anything else is not captured.
+func isLegacyRerankBody(body []byte) bool {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 || trimmed[0] != '{' || !json.Valid(trimmed) {
+		return false
+	}
+	_, structured, err := schema.ParseRerankRequest(trimmed)
+	return err == nil && !structured
+}
+
 // TraceMiddleware logs JSON exchanges and transcription upload metadata.
 func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 	initializeTracing(app.ApplicationConfig().DataPath, app.ApplicationConfig().TracingMaxItems)
@@ -288,7 +300,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				// Structured embedding input can carry private text, media or URLs
 				// (and so can its errors). Legacy string/token requests stay traced.
 				// The read above is bounded by the embedding body limiter.
-				if isEmbeddingRoute(c.Path()) && !isLegacyEmbeddingBody(body) {
+				if (isEmbeddingRoute(c.Path()) && !isLegacyEmbeddingBody(body)) || (isRerankRoute(c.Path()) && !isLegacyRerankBody(body)) {
 					body = []byte(`{"body_omitted":"embedding payload omitted"}`)
 					redactExchange = true
 				}
