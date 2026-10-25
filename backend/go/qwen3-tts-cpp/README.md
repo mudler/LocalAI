@@ -68,6 +68,11 @@ requests (time to the first PCM chunk): RTX 5060 Ti 0.02/0.36/0.70/1.04 s with
 `max_batch:1`, 0.06 s for all four with `max_batch:4`. VRAM grows with N
 (about 2.6 GB at 1, 6 GB at 4, 10.5 GB at 8 for that talker).
 
+- With `max_batch > 1` the backend warms up at load: it synthesizes N short
+  utterances of increasing length concurrently, so qwentts builds its graphs
+  for every batch width before the first request (otherwise the first
+  request that hits a new width stalls the batch for seconds).
+  `max_batch_warmup:false` skips it.
 - Incremental synthesis (`TTSLive`, the realtime pipeline with
   `streaming.tts: true`) requires `max_batch:1` and is rejected otherwise
   (qwentts `docs/INCREMENTAL.md`).

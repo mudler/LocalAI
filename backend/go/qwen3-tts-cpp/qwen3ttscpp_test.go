@@ -258,3 +258,31 @@ var _ = Describe("TTSLive with max_batch", func() {
 		Expect(err).To(MatchError(ContainSubstring("requires max_batch=1")))
 	})
 })
+
+var _ = Describe("batch warmup", func() {
+	It("is on by default and can be disabled", func() {
+		Expect(parseOptions(nil).batchWarmup).To(BeTrue())
+		Expect(parseOptions([]string{"max_batch_warmup:false"}).batchWarmup).To(BeFalse())
+	})
+	It("runs n concurrent streaming syntheses of increasing length", func() {
+		original := CppTTSStream
+		DeferCleanup(func() { CppTTSStream = original })
+		var mu sync.Mutex
+		var texts []string
+		var inside sync.WaitGroup
+		inside.Add(3)
+		CppTTSStream = func(text, _, _, _ string, _ unsafe.Pointer, _ int, _ string, _ int64, _ float32, _ int, _, _ float32, _ int, _ uintptr, user uintptr) int {
+			Expect(user).To(Equal(uintptr(0)))
+			mu.Lock()
+			texts = append(texts, text)
+			mu.Unlock()
+			inside.Done()
+			inside.Wait() // all three must be in flight together
+			return 0
+		}
+		done := make(chan struct{})
+		go func() { warmupBatch(3); close(done) }()
+		Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
+		Expect(texts).To(ConsistOf("Hello there.", "Hello there. Hello there.", "Hello there. Hello there. Hello there."))
+	})
+})

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -90,7 +91,36 @@ func (q *Qwen3TtsCpp) Load(opts *pb.ModelOptions) error {
 		return fmt.Errorf("qwen3-tts: failed to load model (rc=%d)", rc)
 	}
 	q.maxBatch.Store(int32(q.opts.maxBatch))
+	if q.opts.maxBatch > 1 && q.opts.batchWarmup {
+		warmupBatch(q.opts.maxBatch)
+	}
 	return nil
+}
+
+// warmupBatch synthesizes n short utterances of increasing length
+// concurrently through the streaming path, discarding the audio. qt builds
+// its code-predictor and codec-stream graphs lazily per batch width; the
+// first request that hits a new width (e.g. two requests finishing in the
+// same step) otherwise stalls the whole batch for seconds (~5 s per width on
+// an RTX 5060 Ti). The staggered lengths make the slots finish one by one, so
+// every width from n down to 1 is built here, at load.
+func warmupBatch(n int) {
+	streamCbOnce.Do(func() {
+		streamCbPtr = purego.NewCallback(streamCallback)
+	})
+	start := time.Now()
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		text := strings.TrimSpace(strings.Repeat("Hello there. ", i+1))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// user_data 0 is never a registered route: chunks are dropped.
+			CppTTSStream(text, "", "", "", nil, 0, "", 0, 0, 0, 0, 0, 96, streamCbPtr, 0)
+		}()
+	}
+	wg.Wait()
+	fmt.Fprintf(os.Stderr, "[qwen3-tts-cpp] batch warmup (%d concurrent) done in %s\n", n, time.Since(start).Round(time.Millisecond))
 }
 
 // discoverTokenizer returns the first *tokenizer*.gguf in dir, or "".
