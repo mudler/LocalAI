@@ -561,7 +561,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # as RepeatedScalarContainer, which vLLM's argument checks and the
         # msgpack encoder to the engine core reject: every request with `stop`
         # failed. Invalid values now raise vLLM's validation error here.
-        kwargs = {"top_p": 0.9, "max_tokens": 200}
+        # max_tokens=None allows generation up to the remaining model context,
+        # which is what OpenAI clients expect when they omit max_tokens. A fixed
+        # default silently truncated those requests while still reporting
+        # finish_reason "stop".
+        kwargs = {"top_p": 0.9, "max_tokens": None}
         for request_field, param_field in request_to_sampling_params.items():
             if hasattr(request, request_field):
                 value = getattr(request, request_field)
