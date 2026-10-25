@@ -84,6 +84,13 @@ When you import a vLLM model through the LocalAI gallery, the importer looks up 
 
 Available tool parsers include `hermes`, `llama3_json`, `llama4_pythonic`, `mistral`, `qwen3_xml`, `deepseek_v3`, `granite4`, `kimi_k2`, `glm45`, and more. Available reasoning parsers include `deepseek_r1`, `qwen3`, `mistral`, `gemma4`, `granite`. See the upstream vLLM documentation for the full list.
 
+With `backend: vllm`, vLLM 0.30 or later, and a configured reasoning parser,
+streamed responses separate `delta.reasoning_content`, `delta.content`, and tool
+calls as tokens arrive. The final chunk does not repeat the generated text.
+If parsing fails during a stream, the backend buffers the remaining output and
+sends any matching, unsent suffixes in the final chunk. Older vLLM versions keep
+the previous streaming behavior and can include reasoning in `delta.content`.
+
 ### MLX / MLX-VLM
 
 MLX backends **auto-detect** the right tool parser by inspecting the model's chat template - you don't need to set anything. Just load an MLX-quantized model that was trained with tool support:

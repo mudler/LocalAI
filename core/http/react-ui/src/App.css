@@ -713,6 +713,12 @@
   bottom: calc(100% + 8px);
   left: 0;
   min-width: 220px;
+  /* The menu opens upwards from the sidebar footer, inside a scrollable
+     sidebar. Cap its height to the viewport so it stays within the sidebar
+     box instead of being clipped at the top on short windows. */
+  max-height: calc(100dvh - 64px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--color-surface-float);
   border: 1px solid var(--color-border-card);
   border-radius: var(--radius-lg);

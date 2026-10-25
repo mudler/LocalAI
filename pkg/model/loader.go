@@ -666,6 +666,19 @@ func (ml *ModelLoader) ShutdownModelAtAddress(modelName, address string, force b
 	return err
 }
 
+// HasModelAtAddress reports whether the loader store still holds modelName at
+// address. The watchdog uses it after a failed shutdown to tell a backend that
+// is still running (store entry intact, safe to track again) from one that
+// deleteProcess already tore down before it returned an error, such as a failed
+// remote unload or the remote half of a local+remote placement.
+func (ml *ModelLoader) HasModelAtAddress(modelName, address string) bool {
+	ml.mu.Lock()
+	store := ml.store
+	ml.mu.Unlock()
+	m, ok := store.Get(modelName)
+	return ok && m.address == address
+}
+
 // ShutdownModelContext is the cancellation-aware lifecycle primitive used by
 // both graceful and forced shutdown wrappers.
 func (ml *ModelLoader) ShutdownModelContext(ctx context.Context, modelName string, force bool) error {

@@ -31,6 +31,8 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
+When a request omits `max_tokens`, the vLLM and SGLang backends do not cap generation at 200 tokens. Generation is bounded only by the context window of the model.
+
 Reasoning models return their thinking in the `reasoning` field. When a model reasons and calls a tool in the same turn, see [Interleaved Thinking with Tool Calls]({{%relref "features/interleaved-thinking" %}}).
 
 When `stream: true` is set and the llama.cpp backend fails before the first chunk, for example because the prompt exceeds the context size, the request fails with an HTTP error. The error message is not streamed as assistant content. An error after streaming has started is reported inside the stream.
@@ -240,6 +242,37 @@ curl http://localhost:8080/v1/responses \
     "input": "Say this is a test!",
     "max_output_tokens": 1024
   }'
+```
+
+#### Reuse assistant messages
+
+When you manage conversation history in your client, append assistant messages from a response's `output` array to the next request's `input`.
+Keep their content type as `output_text`. Use `input_text` for new user messages.
+Include earlier conversation items that the model still needs.
+
+For example, submit this body to `POST /v1/responses`:
+
+```json
+{
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [{"type": "input_text", "text": "What is the capital of France?"}]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [{"type": "output_text", "text": "Paris is the capital of France."}]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [{"type": "input_text", "text": "Which river flows through it?"}]
+    }
+  ]
+}
 ```
 
 #### WebSocket Responses
@@ -1063,6 +1096,19 @@ SGLang requires `engine_args.enable_strict_thinking: true` to enforce the budget
 LocalAI warns if you configure a budget without that engine option.
 Keep the budget well below the `max_tokens` of your requests: if `max_tokens` is reached first,
 the budget never triggers and the whole reply can be spent on reasoning, leaving the answer empty.
+
+`effort_budgets` maps the request's `reasoning_effort` to its own budget, so the levels differ in how long the model may think:
+
+```yaml
+options:
+  - thinking_budget:256                                        # fallback: no effort, or a level not listed below
+  - effort_budgets:low=256;medium=1024;high=4096;xhigh=16384;max=16384
+```
+
+Entries are separated by `;` and use the same parsing rules as `thinking_budget` (invalid entries are skipped with a warning).
+A request whose effort is not listed falls back to `thinking_budget`; without either, no budget is sent.
+A level listed here also turns reasoning on for that request, even when `reasoning_default:off` is set; an explicit `enable_thinking: "false"` in the request metadata (also sent when the model sets `reasoning.disable: true`) still wins.
+The budget is an upper bound, not a target: the model may stop thinking earlier.
 
 `reasoning_default:on` or `reasoning_default:off` sets the default for LocalAI's tokenizer chat template.
 Request metadata `enable_thinking` set to `"true"` or `"false"` overrides this default.

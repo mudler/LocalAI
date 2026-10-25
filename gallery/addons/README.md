@@ -14,7 +14,7 @@ go run ./scripts/addons/cmd/addonpkg catalog \
   --template gallery/addons/tables.yaml.tmpl \
   --merged <merged layout> \
   --repository <registry>/<namespace>/<repository> \
-  --tag <immutable tag: the version or sha-<12 hex>> \
+  --tag <immutable tag without the id prefix: the version or sha-<12 hex>> \
   --channel <latest | development | branch-...> \
   --owner-repo <owner>/<repository> \
   --signer-ref <refs/tags/vX.Y.Z | refs/heads/master> \
@@ -32,13 +32,14 @@ go run ./scripts/addons/cmd/addonpkg catalog \
 ```
 
 Use `face`, `fine-tuning`, `quantization`, `studio` or `talk` in place of `voice` for the other packages.
-Each package has its own repository, so pass the repository of that package.
+All packages share one repository, so pass the same repository for each. The artifact of an
+entry is `oci://<repository>:<id>-<tag>`, for example `...:voice-sha-50f0f3de26d2`.
 
 The add-on packages live in `quay.io/go-skynet/local-ai-addons`; the template itself holds
 no registry value. The result is a YAML list with one entry for each enabled platform. Each entry:
 
 - pins the digest of the platform image, so a tag that moves later changes nothing;
-- names `oci://<repository>:<tag>` for the immutable tag;
+- names `oci://<repository>:<id>-<tag>` for the immutable tag of that add-on;
 - carries the channel it is current for and the version of the package, so the
   channel is metadata that maps to a digest;
 - states the signature policy: signature required, issuer

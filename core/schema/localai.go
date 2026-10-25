@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	gopsutil "github.com/shirou/gopsutil/v3/process"
@@ -279,6 +280,78 @@ type DepthRequest struct {
 	IncludePoints     bool     `json:"include_points,omitempty"`     // back-project to a 3D point cloud (DualDPT)
 	PointsConfThresh  float32  `json:"points_conf_thresh,omitempty"` // keep points with confidence >= this threshold
 	Exports           []string `json:"exports,omitempty"`            // requested exports: "glb", "colmap"
+}
+
+// ForecastRows is a list of equally long numeric rows (variates or
+// covariates), oldest step first. A JSON null is a missing value and is held
+// as a nil pointer.
+type ForecastRows [][]*float64
+
+// ForecastTarget is ForecastRows that also accepts a flat array as shorthand
+// for a single variate: [1, 2, 3] reads as [[1, 2, 3]].
+type ForecastTarget ForecastRows
+
+// UnmarshalJSON accepts both the nested form and the flat shorthand.
+func (t *ForecastTarget) UnmarshalJSON(data []byte) error {
+	var rows [][]*float64
+	if err := json.Unmarshal(data, &rows); err == nil {
+		*t = rows
+		return nil
+	}
+	var flat []*float64
+	if err := json.Unmarshal(data, &flat); err != nil {
+		return fmt.Errorf("target must be an array of numbers or an array of arrays of numbers")
+	}
+	*t = ForecastTarget{flat}
+	return nil
+}
+
+// ForecastSeries is one time series of a /v1/forecast request.
+type ForecastSeries struct {
+	ID     string         `json:"id,omitempty"` // echoed back in the matching result
+	Target ForecastTarget `json:"target"`       // [V][T] or [T], null = missing
+	// PastCovariates is [C][T]: numeric covariates known only for the past.
+	PastCovariates ForecastRows `json:"past_covariates,omitempty"`
+	// KnownCovariates is [C][T+H]: numeric covariates known for the future too.
+	KnownCovariates ForecastRows `json:"known_covariates,omitempty"`
+	// PastCategorical is [C][T]: integer category codes for the past.
+	PastCategorical ForecastRows `json:"past_categorical,omitempty"`
+	// KnownCategorical is [C][T+H]: integer category codes for the future too.
+	KnownCategorical ForecastRows `json:"known_categorical,omitempty"`
+}
+
+// ForecastRequest is the request body for the /v1/forecast endpoint.
+type ForecastRequest struct {
+	BasicModelRequest
+	PredictionLength   int              `json:"prediction_length"`             // steps to forecast
+	Quantiles          []float64        `json:"quantiles,omitempty"`           // levels to return; default 0.1, 0.5, 0.9
+	MaxContext         int              `json:"max_context,omitempty"`         // cap on history used; 0 = model default
+	SymmetricAveraging *bool            `json:"symmetric_averaging,omitempty"` // null = model default
+	ClipNonnegative    *bool            `json:"clip_nonnegative,omitempty"`    // null = model default
+	Series             []ForecastSeries `json:"series"`
+}
+
+// ForecastVariate holds the forecast of one variate.
+type ForecastVariate struct {
+	Index int `json:"index"`
+	// Values is [Q][H]: Values[q][h] is quantile_levels[q] at step h.
+	Values [][]float32 `json:"values"`
+}
+
+// ForecastSeriesResult is the forecast of one input series.
+type ForecastSeriesResult struct {
+	Index    int               `json:"index"` // position of the series in the request
+	ID       string            `json:"id,omitempty"`
+	Variates []ForecastVariate `json:"variates"`
+}
+
+// ForecastResponse is the JSON response for the /v1/forecast endpoint.
+type ForecastResponse struct {
+	Object           string                 `json:"object"`
+	Model            string                 `json:"model"`
+	PredictionLength int                    `json:"prediction_length"`
+	QuantileLevels   []float64              `json:"quantile_levels"`
+	Data             []ForecastSeriesResult `json:"data"`
 }
 
 // DepthResponse is the JSON response for the /v1/depth endpoint, mirroring the

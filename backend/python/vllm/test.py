@@ -133,8 +133,28 @@ class TestBackendServicer(unittest.TestCase):
         sampling_params = servicer._build_sampling_params(request)
         self.assertEqual(sampling_params.temperature, 0)
         self.assertEqual(sampling_params.seed, 0)
-        # Other protobuf-default scalar fields must remain filtered.
+        # Other protobuf-default scalar fields must remain filtered. (With
+        # temperature 0, vLLM's __post_init__ switches to greedy and sets
+        # top_p to 1.0, so check the default on a sampled request.)
+        request = backend_pb2.PredictOptions(Prompt="hello", Temperature=0.7, Seed=0)
+        sampling_params = servicer._build_sampling_params(request)
         self.assertEqual(sampling_params.top_p, 0.9)
+        self.assertEqual(sampling_params.seed, 0)
+
+    def test_omitted_max_tokens_does_not_cap_generation(self):
+        """A request without max_tokens must not get a hidden 200-token cap;
+        None lets vLLM generate until the context is full. A requested value
+        still wins."""
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+
+        servicer = BackendServicer()
+        unset = servicer._build_sampling_params(backend_pb2.PredictOptions(Prompt="hello"))
+        unset._verify_args()  # vLLM's own checks accept None
+        self.assertIsNone(unset.max_tokens)
+        requested = servicer._build_sampling_params(backend_pb2.PredictOptions(Prompt="hello", Tokens=4000))
+        self.assertEqual(requested.max_tokens, 4000)
 
 
     def test_messages_to_dicts(self):
@@ -294,6 +314,69 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("Embedding service failed")
         finally:
             self.tearDown()
+
+
+class TestSamplingParamsConstruction(unittest.TestCase):
+    """Server-less tests for BackendServicer._build_sampling_params.
+
+    protobuf repeated fields (StopPrompts) are RepeatedScalarContainer, not
+    list. Assigned with setattr after construction they reached the engine
+    as-is: vLLM's argument checks assert a list, and the msgpack encoder that
+    ships the params to the engine core cannot serialise them, so every
+    request with `stop` failed.
+    """
+
+    def _build(self, **fields):
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        servicer = BackendServicer.__new__(BackendServicer)
+        return servicer._build_sampling_params(backend_pb2.PredictOptions(**fields))
+
+    @staticmethod
+    def _engine_round_trip(sp):
+        """What happens to the params on their way to the engine core."""
+        from vllm.v1.serial_utils import MsgpackEncoder
+        sp._verify_args()
+        sp.clone()
+        MsgpackEncoder().encode(sp)
+
+    def test_stop_is_a_list_and_reaches_the_engine(self):
+        sp = self._build(Prompt="x", StopPrompts=["</answer>", "##"], Tokens=50, Temperature=0.7)
+        self.assertIs(type(sp.stop), list)
+        self.assertEqual(sp.stop, ["</answer>", "##"])
+        self._engine_round_trip(sp)
+
+    def test_stop_string_hold_back_buffer_is_set(self):
+        """Without it the start of a multi-character stop string is streamed
+        before the match completes."""
+        sp = self._build(Prompt="x", StopPrompts=["</answer>"], Tokens=50, Temperature=0.7)
+        self.assertEqual(sp.output_text_buffer_length, len("</answer>") - 1)
+
+    def test_request_values_are_applied(self):
+        sp = self._build(Prompt="x", Tokens=77, Temperature=0.6, TopP=0.95, TopK=20)
+        self.assertEqual(sp.max_tokens, 77)
+        self.assertEqual(sp.top_k, 20)
+        self.assertAlmostEqual(sp.top_p, 0.95, places=6)
+        self.assertEqual(sp.stop, [])
+        self._engine_round_trip(sp)
+
+    def test_seed_minus_one_means_random(self):
+        sp = self._build(Prompt="x", Seed=-1, Temperature=0.7)
+        self.assertIsNone(sp.seed)
+
+    def test_invalid_values_are_rejected(self):
+        """Out-of-range values fail with vLLM's validation error instead of
+        reaching the engine."""
+        try:
+            from vllm.exceptions import VLLMValidationError as rejected
+        except ImportError:  # older vLLM raises ValueError
+            rejected = ValueError
+        for fields in ({"PresencePenalty": 5.0, "Temperature": 0.7},
+                       {"StopPrompts": [""], "Temperature": 0.7}):
+            with self.subTest(fields=fields):
+                with self.assertRaises(rejected):
+                    self._build(Prompt="x", Tokens=10, **fields)
 
 
 class TestStreamingToolParser(unittest.TestCase):
@@ -664,3 +747,188 @@ class TestReasoningParserConstruction(unittest.TestCase):
         self.assertIsInstance(
             s._new_reasoning_parser({"enable_thinking": False}), _Old,
         )
+
+
+class TestStreamingReasoningSplit(unittest.TestCase):
+    """With a reasoning parser, streaming must split reasoning from content.
+
+    The stream used to send each raw text delta as ChatDelta.content, so with
+    thinking on the reasoning text arrived as delta.content and the final
+    chunk repeated it as reasoning_content. These tests replace the engine
+    and vLLM's composed parser (ParserManager.get_parser) with fakes; no GPU,
+    model or server needed.
+    """
+
+    THINK = ["Let me ", "count the ", "primes.", "</think>"]
+    ANSWER = ["There are ", "37 primes."]
+
+    def setUp(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import backend
+
+        def parser_request(model, messages, tools=None):
+            return SimpleNamespace(
+                model=model, messages=messages,
+                tools=[SimpleNamespace(function=SimpleNamespace(**tool["function"]))
+                       for tool in tools] if tools else None,
+            )
+
+        # These fake-parser tests also run on backend profiles whose vLLM
+        # predates ParserManager and therefore has no _ParserRequest import.
+        request_patch = patch.object(backend, "_ParserRequest", parser_request, create=True)
+        request_patch.start()
+        self.addCleanup(request_patch.stop)
+
+    class _DeltaMsg:
+        def __init__(self, content=None, reasoning=None, tool_calls=None):
+            self.content = content
+            self.reasoning = reasoning
+            self.tool_calls = tool_calls or []
+
+    @classmethod
+    def _parser_cls(cls, seen=None, fail_after=None):
+        delta_msg = cls._DeltaMsg
+
+        class _Parser:
+            """Stands in for vLLM's DelegatingParser: reasoning until the
+            end tag, then content, then a tool call between <tool_call> tags
+            (name first, arguments as they arrive)."""
+            def __init__(self, tokenizer, tools=None, **kwargs):
+                if seen is not None:
+                    seen.update(kwargs, tools=tools)
+                self._state = "reasoning"
+                self._calls = 0
+
+            def parse_delta(self, delta_text, delta_token_ids, request,
+                            prompt_token_ids=None, *, finished):
+                from types import SimpleNamespace
+                self._calls += 1
+                if fail_after is not None and self._calls > fail_after:
+                    raise RuntimeError("simulated parser bug")
+                if self._state == "reasoning":
+                    if "</think>" in delta_text:
+                        self._state = "content"
+                        before = delta_text.split("</think>", 1)[0]
+                        return delta_msg(reasoning=before) if before else None
+                    return delta_msg(reasoning=delta_text)
+                if delta_text == "<tool_call>":
+                    self._state = "tool"
+                    fn = SimpleNamespace(name="search", arguments="")
+                    return delta_msg(tool_calls=[SimpleNamespace(index=0, id="call_1", function=fn)])
+                if self._state == "tool":
+                    if delta_text == "</tool_call>":
+                        return None
+                    fn = SimpleNamespace(name=None, arguments=delta_text)
+                    return delta_msg(tool_calls=[SimpleNamespace(index=0, id=None, function=fn)])
+                return delta_msg(content=delta_text)
+        return _Parser
+
+    class _ToolParser:
+        """Full-text tool extraction used after a streaming parser failure."""
+        def __init__(self, tokenizer, tools=None):
+            pass
+
+        def extract_tool_calls(self, text, request=None):
+            from types import SimpleNamespace
+            if "<tool_call>" not in text:
+                return SimpleNamespace(tools_called=False, content=text, tool_calls=[])
+            before, rest = text.split("<tool_call>", 1)
+            args = rest.split("</tool_call>", 1)[0]
+            call = SimpleNamespace(id="call_1", function=SimpleNamespace(name="search", arguments=args))
+            return SimpleNamespace(tools_called=True, content=before, tool_calls=[call])
+
+    class _ReasoningParser:
+        """Full-text split used after the loop (BaseThinkingReasoningParser shape)."""
+        start_token = "<think>"
+        end_token = "</think>"
+
+        def __init__(self, tokenizer, **kwargs):
+            pass
+
+        def extract_reasoning(self, text, request=None):
+            if "</think>" in text:
+                r, c = text.split("</think>", 1)
+                return r, c
+            return text, None
+
+    def _servicer(self, stream_parser_cls, pieces=None):
+        import sys, os
+        from types import SimpleNamespace
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        s = BackendServicer()
+        s.tokenizer = None
+        s.tool_parser_cls = self._ToolParser
+        s.reasoning_parser_cls = self._ReasoningParser
+        s.stream_parser_cls = stream_parser_cls
+        s.llm = SimpleNamespace(generate=TestStreamingToolParser._make_generate(
+            self._cumulative(pieces or (self.THINK + self.ANSWER))))
+        return s
+
+    @staticmethod
+    def _cumulative(pieces):
+        out, acc = [], ""
+        for p in pieces:
+            acc += p
+            out.append(acc)
+        return out
+
+    @staticmethod
+    def _joined(replies, field):
+        return "".join(getattr(cd, field) for r in replies for cd in r.chat_deltas)
+
+    def test_reasoning_is_not_streamed_as_content(self):
+        s = self._servicer(self._parser_cls())
+        replies = TestStreamingToolParser._collect(s, backend_pb2.PredictOptions(Prompt="x"))
+        self.assertEqual(self._joined(replies, "content"), "There are 37 primes.")
+        self.assertEqual(self._joined(replies, "reasoning_content"), "Let me count the primes.")
+        # Progressive: reasoning and content arrive before the final chunk.
+        self.assertTrue(any(cd.reasoning_content for r in replies[:-1] for cd in r.chat_deltas))
+        self.assertTrue(any(cd.content for r in replies[:-1] for cd in r.chat_deltas))
+        # The final chunk carries no text, otherwise LocalAI repeats it.
+        final = replies[-1].chat_deltas[0]
+        self.assertEqual((final.content, final.reasoning_content), ("", ""))
+
+    def test_parser_error_mid_stream_sends_the_rest_once(self):
+        s = self._servicer(self._parser_cls(fail_after=2))
+        replies = TestStreamingToolParser._collect(s, backend_pb2.PredictOptions(Prompt="x"))
+        self.assertEqual(self._joined(replies, "content"), "There are 37 primes.")
+        self.assertEqual(self._joined(replies, "reasoning_content"), "Let me count the primes.")
+
+    def test_without_stream_parser_streams_raw_deltas(self):
+        """vLLM without ParserManager: previous behaviour."""
+        s = self._servicer(None)
+        replies = TestStreamingToolParser._collect(s, backend_pb2.PredictOptions(Prompt="x"))
+        intermediate = "".join(cd.content for r in replies[:-1] for cd in r.chat_deltas)
+        self.assertEqual(intermediate, "".join(self.THINK + self.ANSWER))
+
+    def test_parser_gets_chat_template_kwargs_and_tools(self):
+        seen = {}
+        s = self._servicer(self._parser_cls(seen=seen))
+        tools = '[{"type":"function","function":{"name":"calc","parameters":{}}}]'
+        parser, parser_request = s._new_stream_parser(
+            backend_pb2.PredictOptions(Prompt="x", Tools=tools),
+            {"tokenize": False, "add_generation_prompt": True, "enable_thinking": False,
+             "tools": [{}]},
+        )
+        self.assertIsNotNone(parser)
+        self.assertEqual(seen["chat_template_kwargs"], {"enable_thinking": False})
+        self.assertEqual([t.function.name for t in seen["tools"]], ["calc"])
+
+    def test_parser_error_after_partial_tool_arguments(self):
+        """The rest of the arguments follows on the same index; no raw
+        tool-call markup reaches content."""
+        pieces = self.THINK + ["Checking.", "<tool_call>", '{"q": ', '"primes"}', "</tool_call>"]
+        tools = '[{"type":"function","function":{"name":"search","parameters":{}}}]'
+        for fail_after in (6, 7):  # after the name / after part of the arguments
+            with self.subTest(fail_after=fail_after):
+                s = self._servicer(self._parser_cls(fail_after=fail_after), pieces)
+                replies = TestStreamingToolParser._collect(
+                    s, backend_pb2.PredictOptions(Prompt="x", Tools=tools))
+                self.assertEqual(self._joined(replies, "content"), "Checking.")
+                self.assertEqual(self._joined(replies, "reasoning_content"), "Let me count the primes.")
+                calls = [tc for r in replies for cd in r.chat_deltas for tc in cd.tool_calls]
+                self.assertEqual({tc.index for tc in calls}, {0})
+                self.assertEqual([tc.name for tc in calls if tc.name], ["search"])
+                self.assertEqual("".join(tc.arguments for tc in calls), '{"q": "primes"}')

@@ -920,6 +920,22 @@ type AgentConfig struct {
 	LoopDetection         int  `yaml:"loop_detection,omitempty" json:"loop_detection,omitempty"`
 	MaxAdjustmentAttempts int  `yaml:"max_adjustment_attempts,omitempty" json:"max_adjustment_attempts,omitempty"`
 	ForceReasoningTool    bool `yaml:"force_reasoning_tool,omitempty" json:"force_reasoning_tool,omitempty"`
+	// MaxGenerationTokens caps the tokens a single completion may generate in
+	// the agent loop. Neither max_iterations nor loop_detection stops one
+	// completion that keeps generating; without a per-model value every model
+	// gets the client's fixed default, which is too low for some reasoning
+	// models and far above what others need. 0 keeps the client default.
+	MaxGenerationTokens int `yaml:"max_generation_tokens,omitempty" json:"max_generation_tokens,omitempty"`
+}
+
+// ApplyAgentGenerationCap puts agent.max_generation_tokens on the LLM client
+// the agent loop uses. The client applies it to every request that carries no
+// cap of its own, so a larger cap cogito sets when it retries a completion
+// truncated by length still wins. Unset leaves the client default in place.
+func (c *ModelConfig) ApplyAgentGenerationCap(llm interface{ SetMaxTokens(int) }) {
+	if c.Agent.MaxGenerationTokens > 0 {
+		llm.SetMaxTokens(c.Agent.MaxGenerationTokens)
+	}
 }
 
 // HasMCPServers returns true if any MCP servers (remote or stdio) are configured.
@@ -1274,7 +1290,7 @@ func (c *ModelConfig) ApplyReasoningEffort(requestEffort string) {
 	case "none":
 		disable := true
 		c.ReasoningConfig.DisableReasoning = &disable
-	case "minimal", "low", "medium", "high":
+	case "minimal", "low", "medium", "high", "xhigh", "max":
 		if c.ReasoningConfig.DisableReasoning == nil || !*c.ReasoningConfig.DisableReasoning {
 			enable := false
 			c.ReasoningConfig.DisableReasoning = &enable
@@ -2405,6 +2421,9 @@ const (
 	// guards against two flags silently sharing one.
 	FLAG_MOTION ModelConfigUsecase = 1 << 27
 
+	// Marks a model as a time-series forecaster served by the Forecast RPC.
+	FLAG_FORECAST ModelConfigUsecase = 1 << 28
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -2470,6 +2489,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DECISIONS":            FLAG_DECISIONS,
 		"FLAG_UPSCALE":              FLAG_UPSCALE,
 		"FLAG_MOTION":               FLAG_MOTION,
+		"FLAG_FORECAST":             FLAG_FORECAST,
 	}
 }
 
@@ -2536,7 +2556,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		"whisper", "piper", "kokoro",
 		"diffusers", "stablediffusion", "stablediffusion-ggml",
 		"rerankers", "silero-vad", "rfdetr", "insightface", "speaker-recognition",
-		"transformers-musicgen", "ace-step", "acestep-cpp",
+		"transformers-musicgen", "ace-step", "acestep-cpp", "timestral-cpp",
 	}
 
 	if (u & FLAG_CHAT) == FLAG_CHAT {
@@ -2641,6 +2661,13 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	if (u & FLAG_DEPTH) == FLAG_DEPTH {
 		depthBackends := []string{"depth-anything"}
 		if !slices.Contains(depthBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_FORECAST) == FLAG_FORECAST {
+		forecastBackends := []string{"timestral-cpp"}
+		if !slices.Contains(forecastBackends, c.Backend) {
 			return false
 		}
 	}

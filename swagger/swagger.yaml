@@ -3156,6 +3156,124 @@ definitions:
       "y":
         type: number
     type: object
+  schema.ForecastRequest:
+    properties:
+      clip_nonnegative:
+        description: null = model default
+        type: boolean
+      max_context:
+        description: cap on history used; 0 = model default
+        type: integer
+      model:
+        type: string
+      prediction_length:
+        description: steps to forecast
+        type: integer
+      quantiles:
+        description: levels to return; default 0.1, 0.5, 0.9
+        items:
+          type: number
+        type: array
+      series:
+        items:
+          $ref: '#/definitions/schema.ForecastSeries'
+        type: array
+      symmetric_averaging:
+        description: null = model default
+        type: boolean
+    type: object
+  schema.ForecastResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schema.ForecastSeriesResult'
+        type: array
+      model:
+        type: string
+      object:
+        type: string
+      prediction_length:
+        type: integer
+      quantile_levels:
+        items:
+          type: number
+        type: array
+    type: object
+  schema.ForecastSeries:
+    properties:
+      id:
+        description: echoed back in the matching result
+        type: string
+      known_categorical:
+        description: 'KnownCategorical is [C][T+H]: integer category codes for the
+          future too.'
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+      known_covariates:
+        description: 'KnownCovariates is [C][T+H]: numeric covariates known for the
+          future too.'
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+      past_categorical:
+        description: 'PastCategorical is [C][T]: integer category codes for the past.'
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+      past_covariates:
+        description: 'PastCovariates is [C][T]: numeric covariates known only for
+          the past.'
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+      target:
+        description: '[V][T] or [T], null = missing'
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+    type: object
+  schema.ForecastSeriesResult:
+    properties:
+      id:
+        type: string
+      index:
+        description: position of the series in the request
+        type: integer
+      variates:
+        items:
+          $ref: '#/definitions/schema.ForecastVariate'
+        type: array
+    type: object
+  schema.ForecastVariate:
+    properties:
+      index:
+        type: integer
+      values:
+        description: 'Values is [Q][H]: Values[q][h] is quantile_levels[q] at step
+          h.'
+        items:
+          items:
+            format: float32
+            type: number
+          type: array
+        type: array
+    type: object
   schema.FunctionCall:
     properties:
       arguments:
@@ -10604,6 +10722,23 @@ paths:
       summary: Verify that two images depict the same person.
       tags:
       - face-recognition
+  /v1/forecast:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ForecastRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ForecastResponse'
+      summary: Forecasts numeric time series as quantile trajectories.
+      tags:
+      - forecast
   /v1/images/generations:
     post:
       parameters:

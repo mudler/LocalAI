@@ -100,6 +100,7 @@
   },
   "filters": {
     "motion": "Motion Capture",
+    "forecast": "Forecasting",
     "all": "All",
     "llm": "Chat",
     "image": "Image",

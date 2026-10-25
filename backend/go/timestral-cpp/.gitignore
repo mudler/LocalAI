@@ -1,0 +1,21 @@
+# Fetched upstream sources
+sources/
+
+# CMake build directories
+build*/
+
+# Build artifacts staged in this directory by the Makefile (copied from
+# sources/ or symlinked for local development).
+*.so
+*.so.*
+*.dylib
+timestral_capi.h
+
+# Test model downloaded by test.sh
+test-models/
+
+# Compiled backend binary
+timestral-cpp-grpc
+
+# Packaging output
+package/

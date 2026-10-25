@@ -632,7 +632,7 @@
     - deepseek
   files:
     - filename: ds4flash.gguf
-      sha256: cf1f614ed7cd3c9beb2e74d66995f4584cb014de63349a019990c0a4c741e31c
+      sha256: ce715af0959dcac0d739e925aacd78fc3d2275b242f6c68a30914c39d5c7a991
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   overrides:
     backend: ds4
@@ -16970,6 +16970,100 @@
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: nemotron-3.5-bolt-e4b-q4
+  description: |
+    NVIDIA Nemotron 3.5 Bolt E4B is a Gemma 4 E4B fine-tune for
+    conversational assistants, instruction following, and multi-turn tool use.
+    This UD-Q4_K_XL GGUF build includes the F16 vision projector for
+    chat and image input, with a 32,768-token context by default.
+  license: openmdw-1.1
+  urls:
+    - https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16
+    - https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - reasoning
+  files:
+    - filename: llama-cpp/models/nemotron-3.5-bolt-e4b/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q4_K_XL.gguf
+      sha256: 84ff34f5834b929043f5ae74799e8d562d4056998f6a5923ceb44831e8ad84d6
+      uri: https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF/resolve/b738967d6da3441a7d1c71fcec15e49e32e16ecd/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q4_K_XL.gguf
+    - filename: llama-cpp/mmproj/nemotron-3.5-bolt-e4b/mmproj-F16.gguf
+      sha256: 6bc77b7ac2b62cf61bc86757605e45e39f6345373f0a6b76cc5b1ed97f2e233e
+      uri: https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF/resolve/b738967d6da3441a7d1c71fcec15e49e32e16ecd/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/nemotron-3.5-bolt-e4b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nemotron-3.5-bolt-e4b/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q4_K_XL.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: nemotron-3.5-bolt-e4b-q8
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: nemotron-3.5-bolt-e4b-q8
+  description: |
+    NVIDIA Nemotron 3.5 Bolt E4B is a Gemma 4 E4B fine-tune for
+    conversational assistants, instruction following, and multi-turn tool use.
+    This UD-Q8_K_XL GGUF build includes the F16 vision projector for
+    chat and image input, with a 32,768-token context by default.
+  license: openmdw-1.1
+  urls:
+    - https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16
+    - https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - reasoning
+  files:
+    - filename: llama-cpp/models/nemotron-3.5-bolt-e4b/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q8_K_XL.gguf
+      sha256: 6176bd788769bd58042c165d3dc8e8c86a8ca5c90d5de188a364b31dc9560810
+      uri: https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF/resolve/b738967d6da3441a7d1c71fcec15e49e32e16ecd/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q8_K_XL.gguf
+    - filename: llama-cpp/mmproj/nemotron-3.5-bolt-e4b/mmproj-F16.gguf
+      sha256: 6bc77b7ac2b62cf61bc86757605e45e39f6345373f0a6b76cc5b1ed97f2e233e
+      uri: https://huggingface.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF/resolve/b738967d6da3441a7d1c71fcec15e49e32e16ecd/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/nemotron-3.5-bolt-e4b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nemotron-3.5-bolt-e4b/NVIDIA-Nemotron-3.5-Bolt-E4B-UD-Q8_K_XL.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: gemma-4-e4b-heretic-q4
   description: |
     Gemma 4 E4B Heretic is llmfan46's abliterated version of Gemma 4 E4B IT.
@@ -32011,6 +32105,322 @@
     backend: depth-anything
     parameters:
       model: depth-anything2-metric-vkitti-large-q4_k.gguf
+  variants: []
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: timestral-5m
+  description: |
+    Timestral 5M (5 million parameters) time-series forecaster by Mistral AI,
+    served by the native timestral.cpp backend (C++/ggml, CPU only). Given one or
+    more numeric series, with optional covariates, it returns quantile forecasts
+    through POST /v1/forecast. Full precision (F32). The CPU engine is slower than
+    the PyTorch reference at long context lengths.
+
+    LICENSE WARNING: the weights are under Mistral's Modified MIT licence. You may
+    not use them if the global consolidated monthly revenue of your company (or
+    your employer) exceeded USD 20 million in the preceding month, unless you
+    get a commercial licence from Mistral AI. The restriction also covers
+    derivatives, so it applies to these GGUF conversions. The licence text is
+    installed next to the weights as LICENSE-timestral-5m.txt.
+  license: mistral-modified-mit
+  urls:
+    - https://github.com/mudler/timestral.cpp
+    - https://huggingface.co/mistralai/Timestral-5M
+    - https://huggingface.co/mudler/timestral-cpp-gguf
+  tags:
+    - forecasting
+    - time-series
+    - timestral
+    - native
+    - cpp
+    - cpu
+    - revenue-restricted-license
+  files:
+    - filename: timestral-5m-f32.gguf
+      sha256: c320276d8db95fb72fe5f4e043147e29142a1bf197c1b45daf6736780f6736ed
+      uri: huggingface://mudler/timestral-cpp-gguf/5M/timestral-5m-f32.gguf
+    - filename: LICENSE-timestral-5m.txt
+      sha256: 648194727930df730890e9f9affdbcc5c930d406d6829559b25ca3d5a973fc8c
+      uri: huggingface://mudler/timestral-cpp-gguf/5M/LICENSE
+  overrides:
+    backend: timestral-cpp
+    parameters:
+      model: timestral-5m-f32.gguf
+  variants:
+    - model: timestral-5m-f16
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: timestral-5m-f16
+  description: |
+    Timestral 5M (5 million parameters) time-series forecaster by Mistral AI,
+    half precision (F16) build, about half the size of the F32 build. Served by the
+    native timestral.cpp backend (C++/ggml, CPU only) through POST /v1/forecast.
+
+    LICENSE WARNING: the weights are under Mistral's Modified MIT licence. You may
+    not use them if the global consolidated monthly revenue of your company (or
+    your employer) exceeded USD 20 million in the preceding month, unless you
+    get a commercial licence from Mistral AI. The restriction also covers
+    derivatives, so it applies to these GGUF conversions. The licence text is
+    installed next to the weights as LICENSE-timestral-5m.txt.
+  license: mistral-modified-mit
+  urls:
+    - https://github.com/mudler/timestral.cpp
+    - https://huggingface.co/mistralai/Timestral-5M
+    - https://huggingface.co/mudler/timestral-cpp-gguf
+  tags:
+    - forecasting
+    - time-series
+    - timestral
+    - native
+    - cpp
+    - cpu
+    - revenue-restricted-license
+  files:
+    - filename: timestral-5m-f16.gguf
+      sha256: 933e2e518300e97e7799deb1920dd4e539da89a90c743b663cda772ee79d4a38
+      uri: huggingface://mudler/timestral-cpp-gguf/5M/timestral-5m-f16.gguf
+    - filename: LICENSE-timestral-5m.txt
+      sha256: 648194727930df730890e9f9affdbcc5c930d406d6829559b25ca3d5a973fc8c
+      uri: huggingface://mudler/timestral-cpp-gguf/5M/LICENSE
+  overrides:
+    backend: timestral-cpp
+    parameters:
+      model: timestral-5m-f16.gguf
+  variants: []
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: timestral-28m
+  description: |
+    Timestral 28M (28 million parameters) time-series forecaster by Mistral AI,
+    served by the native timestral.cpp backend (C++/ggml, CPU only). Given one or
+    more numeric series, with optional covariates, it returns quantile forecasts
+    through POST /v1/forecast. Full precision (F32). The CPU engine is slower than
+    the PyTorch reference at long context lengths.
+
+    LICENSE WARNING: the weights are under Mistral's Modified MIT licence. You may
+    not use them if the global consolidated monthly revenue of your company (or
+    your employer) exceeded USD 20 million in the preceding month, unless you
+    get a commercial licence from Mistral AI. The restriction also covers
+    derivatives, so it applies to these GGUF conversions. The licence text is
+    installed next to the weights as LICENSE-timestral-28m.txt.
+  license: mistral-modified-mit
+  urls:
+    - https://github.com/mudler/timestral.cpp
+    - https://huggingface.co/mistralai/Timestral-28M
+    - https://huggingface.co/mudler/timestral-cpp-gguf
+  tags:
+    - forecasting
+    - time-series
+    - timestral
+    - native
+    - cpp
+    - cpu
+    - revenue-restricted-license
+  files:
+    - filename: timestral-28m-f32.gguf
+      sha256: fbb5a8dcb8b224a45b149dc802428beca20504e71f585d942b0530f67f46a89c
+      uri: huggingface://mudler/timestral-cpp-gguf/28M/timestral-28m-f32.gguf
+    - filename: LICENSE-timestral-28m.txt
+      sha256: 648194727930df730890e9f9affdbcc5c930d406d6829559b25ca3d5a973fc8c
+      uri: huggingface://mudler/timestral-cpp-gguf/28M/LICENSE
+  overrides:
+    backend: timestral-cpp
+    parameters:
+      model: timestral-28m-f32.gguf
+  variants:
+    - model: timestral-28m-f16
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: timestral-28m-f16
+  description: |
+    Timestral 28M (28 million parameters) time-series forecaster by Mistral AI,
+    half precision (F16) build, about half the size of the F32 build. Served by the
+    native timestral.cpp backend (C++/ggml, CPU only) through POST /v1/forecast.
+
+    LICENSE WARNING: the weights are under Mistral's Modified MIT licence. You may
+    not use them if the global consolidated monthly revenue of your company (or
+    your employer) exceeded USD 20 million in the preceding month, unless you
+    get a commercial licence from Mistral AI. The restriction also covers
+    derivatives, so it applies to these GGUF conversions. The licence text is
+    installed next to the weights as LICENSE-timestral-28m.txt.
+  license: mistral-modified-mit
+  urls:
+    - https://github.com/mudler/timestral.cpp
+    - https://huggingface.co/mistralai/Timestral-28M
+    - https://huggingface.co/mudler/timestral-cpp-gguf
+  tags:
+    - forecasting
+    - time-series
+    - timestral
+    - native
+    - cpp
+    - cpu
+    - revenue-restricted-license
+  files:
+    - filename: timestral-28m-f16.gguf
+      sha256: 64b5b836c54c2d3a83b428e6b9e44e2bbf668c60297245c97a0df160d2c5366d
+      uri: huggingface://mudler/timestral-cpp-gguf/28M/timestral-28m-f16.gguf
+    - filename: LICENSE-timestral-28m.txt
+      sha256: 648194727930df730890e9f9affdbcc5c930d406d6829559b25ca3d5a973fc8c
+      uri: huggingface://mudler/timestral-cpp-gguf/28M/LICENSE
+  overrides:
+    backend: timestral-cpp
+    parameters:
+      model: timestral-28m-f16.gguf
+  variants: []
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: timestral-123m
+  description: |
+    Timestral 123M (123 million parameters) time-series forecaster by Mistral AI,
+    served by the native timestral.cpp backend (C++/ggml, CPU only). Given one or
+    more numeric series, with optional covariates, it returns quantile forecasts
+    through POST /v1/forecast. Full precision (F32). The CPU engine is slower than
+    the PyTorch reference at long context lengths.
+
+    LICENSE WARNING: the weights are under Mistral's Modified MIT licence. You may
+    not use them if the global consolidated monthly revenue of your company (or
+    your employer) exceeded USD 20 million in the preceding month, unless you
+    get a commercial licence from Mistral AI. The restriction also covers
+    derivatives, so it applies to these GGUF conversions. The licence text is
+    installed next to the weights as LICENSE-timestral-123m.txt.
+  license: mistral-modified-mit
+  urls:
+    - https://github.com/mudler/timestral.cpp
+    - https://huggingface.co/mistralai/Timestral-123M
+    - https://huggingface.co/mudler/timestral-cpp-gguf
+  tags:
+    - forecasting
+    - time-series
+    - timestral
+    - native
+    - cpp
+    - cpu
+    - revenue-restricted-license
+  files:
+    - filename: timestral-123m-f32.gguf
+      sha256: 90a2cad5bff9ac6ef695689b03d459df1cdfb5bb140755da7b99d01cfa0cbeb4
+      uri: huggingface://mudler/timestral-cpp-gguf/123M/timestral-123m-f32.gguf
+    - filename: LICENSE-timestral-123m.txt
+      sha256: 648194727930df730890e9f9affdbcc5c930d406d6829559b25ca3d5a973fc8c
+      uri: huggingface://mudler/timestral-cpp-gguf/123M/LICENSE
+  overrides:
+    backend: timestral-cpp
+    parameters:
+      model: timestral-123m-f32.gguf
+  variants:
+    - model: timestral-123m-f16
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: timestral-123m-f16
+  description: |
+    Timestral 123M (123 million parameters) time-series forecaster by Mistral AI,
+    half precision (F16) build, about half the size of the F32 build. Served by the
+    native timestral.cpp backend (C++/ggml, CPU only) through POST /v1/forecast.
+
+    LICENSE WARNING: the weights are under Mistral's Modified MIT licence. You may
+    not use them if the global consolidated monthly revenue of your company (or
+    your employer) exceeded USD 20 million in the preceding month, unless you
+    get a commercial licence from Mistral AI. The restriction also covers
+    derivatives, so it applies to these GGUF conversions. The licence text is
+    installed next to the weights as LICENSE-timestral-123m.txt.
+  license: mistral-modified-mit
+  urls:
+    - https://github.com/mudler/timestral.cpp
+    - https://huggingface.co/mistralai/Timestral-123M
+    - https://huggingface.co/mudler/timestral-cpp-gguf
+  tags:
+    - forecasting
+    - time-series
+    - timestral
+    - native
+    - cpp
+    - cpu
+    - revenue-restricted-license
+  files:
+    - filename: timestral-123m-f16.gguf
+      sha256: cf3e7eb0ab9581407d9edc2f4b2d1b8dda8c3a39674dbf3b6967971f906c54b0
+      uri: huggingface://mudler/timestral-cpp-gguf/123M/timestral-123m-f16.gguf
+    - filename: LICENSE-timestral-123m.txt
+      sha256: 648194727930df730890e9f9affdbcc5c930d406d6829559b25ca3d5a973fc8c
+      uri: huggingface://mudler/timestral-cpp-gguf/123M/LICENSE
+  overrides:
+    backend: timestral-cpp
+    parameters:
+      model: timestral-123m-f16.gguf
+  variants: []
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: timestral-209m
+  description: |
+    Timestral 209M (209 million parameters) time-series forecaster by Mistral AI,
+    served by the native timestral.cpp backend (C++/ggml, CPU only). Given one or
+    more numeric series, with optional covariates, it returns quantile forecasts
+    through POST /v1/forecast. Full precision (F32). The CPU engine is slower than
+    the PyTorch reference at long context lengths.
+
+    LICENSE WARNING: the weights are under Mistral's Modified MIT licence. You may
+    not use them if the global consolidated monthly revenue of your company (or
+    your employer) exceeded USD 20 million in the preceding month, unless you
+    get a commercial licence from Mistral AI. The restriction also covers
+    derivatives, so it applies to these GGUF conversions. The licence text is
+    installed next to the weights as LICENSE-timestral-209m.txt.
+  license: mistral-modified-mit
+  urls:
+    - https://github.com/mudler/timestral.cpp
+    - https://huggingface.co/mistralai/Timestral-209M
+    - https://huggingface.co/mudler/timestral-cpp-gguf
+  tags:
+    - forecasting
+    - time-series
+    - timestral
+    - native
+    - cpp
+    - cpu
+    - revenue-restricted-license
+  files:
+    - filename: timestral-209m-f32.gguf
+      sha256: bf7605545245a2dd4d32f7ac2f7bbe5c2a12d8f47370814a254862150255b8e8
+      uri: huggingface://mudler/timestral-cpp-gguf/209M/timestral-209m-f32.gguf
+    - filename: LICENSE-timestral-209m.txt
+      sha256: 648194727930df730890e9f9affdbcc5c930d406d6829559b25ca3d5a973fc8c
+      uri: huggingface://mudler/timestral-cpp-gguf/209M/LICENSE
+  overrides:
+    backend: timestral-cpp
+    parameters:
+      model: timestral-209m-f32.gguf
+  variants:
+    - model: timestral-209m-f16
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: timestral-209m-f16
+  description: |
+    Timestral 209M (209 million parameters) time-series forecaster by Mistral AI,
+    half precision (F16) build, about half the size of the F32 build. Served by the
+    native timestral.cpp backend (C++/ggml, CPU only) through POST /v1/forecast.
+
+    LICENSE WARNING: the weights are under Mistral's Modified MIT licence. You may
+    not use them if the global consolidated monthly revenue of your company (or
+    your employer) exceeded USD 20 million in the preceding month, unless you
+    get a commercial licence from Mistral AI. The restriction also covers
+    derivatives, so it applies to these GGUF conversions. The licence text is
+    installed next to the weights as LICENSE-timestral-209m.txt.
+  license: mistral-modified-mit
+  urls:
+    - https://github.com/mudler/timestral.cpp
+    - https://huggingface.co/mistralai/Timestral-209M
+    - https://huggingface.co/mudler/timestral-cpp-gguf
+  tags:
+    - forecasting
+    - time-series
+    - timestral
+    - native
+    - cpp
+    - cpu
+    - revenue-restricted-license
+  files:
+    - filename: timestral-209m-f16.gguf
+      sha256: 24242f55b330a3794649700f6fadd7e59de320aabb42fe377d8df4ab811fb94f
+      uri: huggingface://mudler/timestral-cpp-gguf/209M/timestral-209m-f16.gguf
+    - filename: LICENSE-timestral-209m.txt
+      sha256: 648194727930df730890e9f9affdbcc5c930d406d6829559b25ca3d5a973fc8c
+      uri: huggingface://mudler/timestral-cpp-gguf/209M/LICENSE
+  overrides:
+    backend: timestral-cpp
+    parameters:
+      model: timestral-209m-f16.gguf
   variants: []
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: rfdetr-cpp-base

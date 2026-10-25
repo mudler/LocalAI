@@ -39,9 +39,12 @@ type Installer struct {
 	Root           string
 	Catalog        catalog.Catalog
 	Host           contract.HostCompatibility
-	MaxBytes       int64
-	MaxFiles       int
-	writeFile      func(string, os.FileMode) (fileWriter, error)
+	// Lookup resolves the tag of a mutable entry to a digest. Nil asks the
+	// registry; tests replace it.
+	Lookup    catalog.DigestLookup
+	MaxBytes  int64
+	MaxFiles  int
+	writeFile func(string, os.FileMode) (fileWriter, error)
 }
 
 func (i *Installer) byteLimit() int64 {
@@ -75,8 +78,19 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if r.Policy.IdentityRegex != "" || r.EntryKind() != catalog.KindAddon {
 		return out, ErrPackage
 	}
-	if !r.Equal(trusted) || r.Digest == "" || r.OS != i.Host.OS || r.Arch != i.Host.Arch {
+	if !r.Equal(trusted) || (r.Digest == "" && !r.Mutable) || r.OS != i.Host.OS || r.Arch != i.Host.Arch {
 		return out, ErrPackage
+	}
+	// A mutable entry (a development image) has no digest in the library. The
+	// same helper as for backends resolves its tag to a digest here; from then
+	// on the install is the pinned path and the receipt records that digest.
+	// Only an OCI artifact can be mutable.
+	if r.Mutable {
+		pin, e := catalog.Pin(ctx, r, i.Lookup)
+		if e != nil {
+			return out, ErrPackage
+		}
+		r.Digest = pin.Digest
 	}
 	root, e := filepath.Abs(i.Root)
 	if e != nil || i.Root == "" {
@@ -217,7 +231,9 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if e = contract.ValidateManifest(m, i.Host); e != nil {
 		return out, e
 	}
-	if m.ID != r.ID || m.Version != r.Version {
+	// A mutable entry names a moving tag, so the version the library shows is a
+	// label; the package says which build it is, and the digest pins it.
+	if m.ID != r.ID || (!r.Mutable && m.Version != r.Version) {
 		return out, ErrPackage
 	}
 	assets := []string{m.Executable}

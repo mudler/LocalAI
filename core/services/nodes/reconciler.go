@@ -332,89 +332,111 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		var applyErr error
-		switch op.Op {
-		case OpBackendDelete:
-			_, applyErr = rc.adapter.DeleteBackend(op.NodeID, op.Backend)
-		case OpBackendInstall:
-			// Pending-op drain for admin install — not a per-replica load.
-			// Replica 0 is the conventional admin slot. Install is idempotent:
-			// the worker short-circuits if the backend is already running.
-			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0, "", nil)
-			if err != nil {
-				applyErr = err
-			} else if !reply.Success {
-				applyErr = fmt.Errorf("install failed: %s", reply.Error)
-			}
-		case OpBackendUpgrade:
-			// Pending-op drain for admin upgrade — fires backend.upgrade so
-			// the slow re-pull doesn't head-of-line-block install traffic on
-			// the same worker. Falls back to the legacy backend.install
-			// Force=true path on ErrNoRoute for old workers that
-			// don't subscribe to backend.upgrade yet (rolling-update window).
-			// Reconciler retries are background reconciliation with no live
-			// admin watching a progress bar, so opID/onProgress are empty —
-			// the adapter skips the progress subscription entirely.
-			reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
-			if err != nil {
-				if errors.Is(err, ErrNoRoute) {
-					instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
-					if instErr != nil {
-						applyErr = instErr
-					} else if !instReply.Success {
-						applyErr = fmt.Errorf("upgrade (legacy fallback) failed: %s", instReply.Error)
-					}
-				} else {
-					applyErr = err
-				}
-			} else if !reply.Success {
-				applyErr = fmt.Errorf("upgrade failed: %s", reply.Error)
-			}
-		default:
-			xlog.Warn("Reconciler: unknown pending op", "op", op.Op, "id", op.ID)
+		// A live operation holds this (node, backend). Leave the row for the
+		// next pass instead of sending the same operation twice at once.
+		unlock, free := rc.registry.backendOpLocks.tryLock(op.NodeID, op.Backend)
+		if !free {
+			xlog.Debug("Reconciler: backend op in progress, skipping", "op", op.Op, "backend", op.Backend, "node", op.NodeID)
 			continue
 		}
-
-		if applyErr == nil {
-			if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
-				xlog.Warn("Reconciler: failed to delete drained op row", "id", op.ID, "error", err)
-			} else {
-				xlog.Info("Reconciler: pending backend op applied",
-					"op", op.Op, "backend", op.Backend, "node", op.NodeID, "attempts", op.Attempts+1)
+		func() {
+			defer unlock()
+			// The live operation may have settled this row while we waited
+			// for the lock. Do not send an operation that already finished.
+			var row PendingBackendOp
+			if err := rc.registry.db.WithContext(ctx).First(&row, op.ID).Error; err != nil {
+				return
 			}
-			continue
-		}
-
-		// ErrNoRoute means nothing is listening for this subject on the node.
-		// Either its connection dropped, or it's the wrong node type
-		// entirely. Mark unhealthy so the health monitor's
-		// heartbeat-only pass doesn't immediately flip it back — and so
-		// ListDuePendingBackendOps (which filters by status=healthy) stops
-		// picking the row until the node genuinely recovers.
-		if errors.Is(applyErr, ErrNoRoute) {
-			xlog.Warn("Reconciler: no route to node, marking it unhealthy",
-				"op", op.Op, "backend", op.Backend, "node", op.NodeID)
-			_ = rc.registry.MarkUnhealthy(ctx, op.NodeID)
-		}
-
-		// Dead-letter cap: after maxAttempts the row is the reconciler
-		// equivalent of a poison message. Delete it loudly so the queue
-		// doesn't churn NATS every tick forever — operators can re-issue
-		// the op from the UI if they still want it applied.
-		if op.Attempts+1 >= maxPendingBackendOpAttempts {
-			xlog.Error("Reconciler: abandoning pending backend op after max attempts",
-				"op", op.Op, "backend", op.Backend, "node", op.NodeID,
-				"attempts", op.Attempts+1, "last_error", applyErr)
-			if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
-				xlog.Warn("Reconciler: failed to delete abandoned op row", "id", op.ID, "error", err)
-			}
-			continue
-		}
-
-		_ = rc.registry.RecordPendingBackendOpFailure(ctx, op.ID, applyErr.Error())
-		xlog.Warn("Reconciler: pending backend op retry failed",
-			"op", op.Op, "backend", op.Backend, "node", op.NodeID, "attempts", op.Attempts+1, "error", applyErr)
+			rc.drainPendingBackendOp(ctx, op)
+		}()
 	}
+}
+
+// drainPendingBackendOp applies one queued backend op and settles its row.
+// The caller holds the (node, backend) lock.
+func (rc *ReplicaReconciler) drainPendingBackendOp(ctx context.Context, op PendingBackendOp) {
+	var applyErr error
+	switch op.Op {
+	case OpBackendDelete:
+		_, applyErr = rc.adapter.DeleteBackend(op.NodeID, op.Backend)
+	case OpBackendInstall:
+		// Pending-op drain for admin install — not a per-replica load.
+		// Replica 0 is the conventional admin slot. Install is idempotent:
+		// the worker short-circuits if the backend is already running.
+		reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0, "", nil)
+		if err != nil {
+			applyErr = err
+		} else if !reply.Success {
+			applyErr = fmt.Errorf("install failed: %s", reply.Error)
+		}
+	case OpBackendUpgrade:
+		// Pending-op drain for admin upgrade — fires backend.upgrade so
+		// the slow re-pull doesn't head-of-line-block install traffic on
+		// the same worker. Falls back to the legacy backend.install
+		// Force=true path on ErrNoRoute for old workers that
+		// don't subscribe to backend.upgrade yet (rolling-update window).
+		// Reconciler retries are background reconciliation with no live
+		// admin watching a progress bar, so opID/onProgress are empty —
+		// the adapter skips the progress subscription entirely.
+		reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
+		if err != nil {
+			if errors.Is(err, ErrNoRoute) {
+				instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
+				if instErr != nil {
+					applyErr = instErr
+				} else if !instReply.Success {
+					applyErr = fmt.Errorf("upgrade (legacy fallback) failed: %s", instReply.Error)
+				}
+			} else {
+				applyErr = err
+			}
+		} else if !reply.Success {
+			applyErr = fmt.Errorf("upgrade failed: %s", reply.Error)
+		}
+	default:
+		xlog.Warn("Reconciler: unknown pending op", "op", op.Op, "id", op.ID)
+		return
+	}
+
+	if applyErr == nil {
+		if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
+			xlog.Warn("Reconciler: failed to delete drained op row", "id", op.ID, "error", err)
+		} else {
+			xlog.Info("Reconciler: pending backend op applied",
+				"op", op.Op, "backend", op.Backend, "node", op.NodeID, "attempts", op.Attempts+1)
+		}
+		return
+	}
+
+	// ErrNoRoute means nothing is listening for this subject on the node.
+	// Either its connection dropped, or it's the wrong node type
+	// entirely. Mark unhealthy so the health monitor's
+	// heartbeat-only pass doesn't immediately flip it back — and so
+	// ListDuePendingBackendOps (which filters by status=healthy) stops
+	// picking the row until the node genuinely recovers.
+	if errors.Is(applyErr, ErrNoRoute) {
+		xlog.Warn("Reconciler: no route to node, marking it unhealthy",
+			"op", op.Op, "backend", op.Backend, "node", op.NodeID)
+		_ = rc.registry.MarkUnhealthy(ctx, op.NodeID)
+	}
+
+	// Dead-letter cap: after maxAttempts the row is the reconciler
+	// equivalent of a poison message. Delete it loudly so the queue
+	// doesn't churn NATS every tick forever — operators can re-issue
+	// the op from the UI if they still want it applied.
+	if op.Attempts+1 >= maxPendingBackendOpAttempts {
+		xlog.Error("Reconciler: abandoning pending backend op after max attempts",
+			"op", op.Op, "backend", op.Backend, "node", op.NodeID,
+			"attempts", op.Attempts+1, "last_error", applyErr)
+		if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
+			xlog.Warn("Reconciler: failed to delete abandoned op row", "id", op.ID, "error", err)
+		}
+		return
+	}
+
+	_ = rc.registry.RecordPendingBackendOpFailure(ctx, op.ID, applyErr.Error())
+	xlog.Warn("Reconciler: pending backend op retry failed",
+		"op", op.Op, "backend", op.Backend, "node", op.NodeID, "attempts", op.Attempts+1, "error", applyErr)
 }
 
 // maxPendingBackendOpAttempts caps how many times the reconciler retries a

@@ -48,6 +48,9 @@ service Backend {
   // (e.g. CED over the AudioSet ontology) on a clip and returns scored labels.
   rpc SoundDetection(SoundDetectionRequest) returns (SoundDetectionResponse) {}
   rpc Depth(DepthRequest) returns (DepthResponse) {}
+  // Forecast runs a time-series forecasting model (timestral.cpp) on one or more
+  // numeric series and returns quantile trajectories for the next steps.
+  rpc Forecast(ForecastRequest) returns (ForecastResponse) {}
   rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
   rpc FaceAnalyze(FaceAnalyzeRequest) returns (FaceAnalyzeResponse) {}
   rpc VoiceVerify(VoiceVerifyRequest) returns (VoiceVerifyResponse) {}
@@ -1088,6 +1091,52 @@ message DepthResponse {
   bytes point_colors = 10;         // num_points*3 uint8 rgb
   repeated string export_paths = 11; // paths written for the requested exports
   bool is_metric = 12;             // depth is in metric units
+}
+
+// --- Time-series forecasting messages (timestral.cpp) ---
+//
+// Arrays are flat and row-major. NaN marks a missing value. One request may
+// carry series of different shapes; the backend groups them by shape and
+// returns the results in the order the series were sent.
+
+message ForecastSeries {
+  string id = 1;                          // echoed back in the matching result
+  int32 num_variates = 2;                 // V
+  int32 length = 3;                       // T, context steps per variate
+  repeated float target = 4;              // V*T, NaN = missing
+  int32 num_past_covariates = 5;          // C_past
+  repeated float past_covariates = 6;     // C_past*T
+  int32 num_known_covariates = 7;         // C_known
+  repeated float known_covariates = 8;    // C_known*(T+H)
+  int32 num_past_categorical = 9;         // CC_past
+  repeated double past_categorical = 10;  // CC_past*T, NaN = missing code
+  int32 num_known_categorical = 11;       // CC_known
+  repeated double known_categorical = 12; // CC_known*(T+H), NaN = missing code
+}
+
+message ForecastRequest {
+  repeated ForecastSeries series = 1;
+  int32 prediction_length = 2;            // H, steps to forecast
+  repeated double quantiles = 3;          // empty = backend default
+  int32 max_context = 4;                  // 0 = model default
+  optional bool symmetric_averaging = 5;  // unset = model default
+  optional bool clip_nonnegative = 6;     // unset = model default
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 7;
+}
+
+message ForecastSeriesResult {
+  string id = 1;
+  int32 num_variates = 2;                 // V
+  repeated float values = 3;              // V*Q*H row-major
+}
+
+message ForecastResponse {
+  int32 prediction_length = 1;
+  repeated double quantile_levels = 2;    // levels returned, ascending
+  repeated ForecastSeriesResult series = 3;  // same order as the request
 }
 
 // --- Face recognition messages ---
