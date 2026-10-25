@@ -2,9 +2,12 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"sync"
 	"testing"
+	"time"
 	"unsafe"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -150,5 +153,108 @@ var _ = Describe("floatToPCM16LE", func() {
 		Expect(read(4)).To(Equal(int16(-32767)))
 		Expect(read(6)).To(Equal(int16(32767)))  // clamped from 2.0
 		Expect(read(8)).To(Equal(int16(-32767))) // clamped from -2.0
+	})
+})
+
+var _ = Describe("max_batch option", func() {
+	It("defaults to 1 (single-sequence synthesis)", func() {
+		Expect(parseOptions(nil).maxBatch).To(Equal(1))
+	})
+	It("reads max_batch and the parallel alias", func() {
+		Expect(parseOptions([]string{"max_batch:4"}).maxBatch).To(Equal(4))
+		Expect(parseOptions([]string{"parallel:2"}).maxBatch).To(Equal(2))
+	})
+	It("ignores values below 1 and non-numbers", func() {
+		Expect(parseOptions([]string{"max_batch:0"}).maxBatch).To(Equal(1))
+		Expect(parseOptions([]string{"max_batch:many"}).maxBatch).To(Equal(1))
+	})
+})
+
+var _ = Describe("Locking", func() {
+	It("keeps the request lock before Load and for max_batch 1", func() {
+		b := &Qwen3TtsCpp{}
+		Expect(b.Locking()).To(BeTrue())
+		b.maxBatch.Store(1)
+		Expect(b.Locking()).To(BeTrue())
+	})
+	It("drops the request lock for max_batch > 1", func() {
+		b := &Qwen3TtsCpp{}
+		b.maxBatch.Store(4)
+		Expect(b.Locking()).To(BeFalse())
+	})
+})
+
+var _ = Describe("TTSStream routing", func() {
+	It("delivers each concurrent request its own chunks", func() {
+		original := CppTTSStream
+		DeferCleanup(func() { CppTTSStream = original })
+		// Both fake syntheses wait until the other one has started, so the test
+		// fails (deadlocks into the timeout) if requests were serialized.
+		var started sync.WaitGroup
+		started.Add(2)
+		CppTTSStream = func(text, _, _, _ string, _ unsafe.Pointer, _ int, _ string, _ int64, _ float32, _ int, _, _ float32, _ int, _ uintptr, user uintptr) int {
+			started.Done()
+			started.Wait()
+			v := float32(0.25)
+			if text == "b" {
+				v = -0.25
+			}
+			samples := []float32{v, v, v}
+			for i := 0; i < 3; i++ {
+				streamCallback(&samples[0], int32(len(samples)), user)
+			}
+			return 0
+		}
+		b := &Qwen3TtsCpp{}
+		b.maxBatch.Store(2)
+		run := func(text string) [][]byte {
+			results := make(chan []byte)
+			errc := make(chan error, 1)
+			go func() { errc <- b.TTSStream(&pb.TTSRequest{Text: text}, results) }()
+			var got [][]byte
+			for chunk := range results {
+				got = append(got, chunk)
+			}
+			Expect(<-errc).To(Succeed())
+			return got
+		}
+		var gotA, gotB [][]byte
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() { defer GinkgoRecover(); defer wg.Done(); gotA = run("a") }()
+		go func() { defer GinkgoRecover(); defer wg.Done(); gotB = run("b") }()
+		done := make(chan struct{})
+		go func() { wg.Wait(); close(done) }()
+		Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
+
+		expectChunks := func(got [][]byte, want []byte) {
+			Expect(got).To(HaveLen(4)) // WAV header + 3 PCM chunks
+			Expect(got[0]).To(Equal(wavHeader24k()))
+			for _, c := range got[1:] {
+				Expect(c).To(Equal(want))
+			}
+		}
+		expectChunks(gotA, floatToPCM16LE([]float32{0.25, 0.25, 0.25}))
+		expectChunks(gotB, floatToPCM16LE([]float32{-0.25, -0.25, -0.25}))
+		streamRoutesMu.Lock()
+		defer streamRoutesMu.Unlock()
+		Expect(streamRoutes).To(BeEmpty())
+	})
+})
+
+var _ = Describe("TTSLive with max_batch", func() {
+	It("rejects incremental synthesis on a batched context", func() {
+		original := CppTTSLive
+		DeferCleanup(func() { CppTTSLive = original })
+		CppTTSLive = func(_, _, _ string, _ unsafe.Pointer, _ int, _ string, _ int64, _ float32, _ int, _, _ float32, _ int, _, _, _ uintptr) int {
+			Fail("native incremental synthesis must not be reached")
+			return 1
+		}
+		b := &Qwen3TtsCpp{}
+		b.maxBatch.Store(4)
+		err := b.TTSLive(context.Background(),
+			func() (*pb.TTSRequest, error) { return &pb.TTSRequest{Text: "hi"}, nil },
+			func([]byte) error { return nil })
+		Expect(err).To(MatchError(ContainSubstring("requires max_batch=1")))
 	})
 })

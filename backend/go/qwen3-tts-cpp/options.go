@@ -11,6 +11,9 @@ type loadOptions struct {
 	useFA     bool
 	clampFP16 bool
 	seed      int64
+	// maxBatch > 1 sizes qt's KV cache sets and lets its compute worker batch
+	// concurrent TTS/TTSStream requests on one handle (qt_init_params.max_batch).
+	maxBatch int
 }
 
 // sampling holds per-request generation parameters with qt defaults applied.
@@ -37,7 +40,7 @@ func parseBool(v string) bool { return v == "true" || v == "1" }
 // ignored. Defaults: use_fa true (qt default; CPU still uses the F32 chain),
 // seed -1 (engine random).
 func parseOptions(opts []string) loadOptions {
-	o := loadOptions{useFA: true, seed: -1}
+	o := loadOptions{useFA: true, seed: -1, maxBatch: 1}
 	for _, oo := range opts {
 		key, value, ok := splitOption(oo)
 		if !ok {
@@ -53,6 +56,10 @@ func parseOptions(opts []string) loadOptions {
 		case "seed":
 			if n, err := strconv.ParseInt(value, 10, 64); err == nil {
 				o.seed = n
+			}
+		case "max_batch", "parallel":
+			if n, err := strconv.Atoi(value); err == nil && n >= 1 {
+				o.maxBatch = n
 			}
 		}
 	}
