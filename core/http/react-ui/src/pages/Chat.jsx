@@ -8,7 +8,7 @@ import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/arti
 // eslint-disable-next-line no-unused-vars
 import CanvasPanel from '../components/CanvasPanel'
 // eslint-disable-next-line no-unused-vars
-import { fileToBase64, modelsApi, mcpApi, agentCollectionsApi } from '../utils/api'
+import { fileToBase64, modelsApi, mcpApi, agentCollectionsApi, featuresApi } from '../utils/api'
 import { readAttachmentText, renderPdfPages, PdfNoTextError } from '../utils/pdf'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
@@ -52,7 +52,6 @@ import AddonToolsMenu from '../components/chat/AddonToolsMenu'
 import { enabledAddonIds, toggleAddonSettings, toggleAllAddonSettings } from '../utils/chatAddons'
 // eslint-disable-next-line no-unused-vars
 import AddonSlot from '../addons/AddonSlot'
-import { apiUrl } from '../utils/basePath'
 import { useHubAuth } from '../components/hub/useHubAuth'
 import {
   canSaveAttachments, collectionNames, effectiveCollection,
@@ -288,7 +287,7 @@ function ChatPage() {
       selected: attachmentCollectionChoice,
       loadAvailable: async () => {
         const features = hubAuth.features.agents === undefined
-          ? await fetch(apiUrl('/api/features')).then(r => r.json())
+          ? await featuresApi.get()
           : hubAuth.features
         if (!canSaveAttachments({ features, hasFeature: hubAuth.hasFeature })) return []
         const names = collectionNames(await agentCollectionsApi.list())
