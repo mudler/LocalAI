@@ -25,6 +25,10 @@ const (
 	// KindSubAgentDone says that a sub-agent run ended. Event.IDs holds its
 	// conversation id and Text its title.
 	KindSubAgentDone EventKind = "sub_agent_done"
+	// KindCompacted says that the harness shrank the model's context to make
+	// room. The transcript keeps every message; only what the model sees
+	// shrinks. Event.Before and Event.After are token counts.
+	KindCompacted EventKind = "compacted"
 )
 
 // Event is one thing that happened in a chat.
@@ -35,6 +39,9 @@ type Event struct {
 	Tool   *ToolEvent   // tool_start, tool_end
 	Change *ChangeEvent // checkpoint
 	IDs    []string     // pending_delivered: the ids of the messages
+	// Before and After are the size of the model's context in tokens, before
+	// and after a compaction (compacted only).
+	Before, After int
 }
 
 // ToolEvent describes one tool call.

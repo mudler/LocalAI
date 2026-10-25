@@ -15,8 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/cogito"
-
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -46,6 +44,9 @@ type Deps struct {
 	// itself (for example the tools of MCP servers). A sub-agent gets all of
 	// them, or the subset its parent names. Nil: none.
 	HostTools func(ctx context.Context, a workspace.Actor) ([]session.Tool, error)
+	// ContextTokens returns the context window of a model in tokens, or zero
+	// when it is not known (the harness then uses its default). Nil: zero.
+	ContextTokens func(model string) int
 	// Harness replaces the nib harness. It is for tests.
 	Harness session.Harness
 	Logger  *slog.Logger
@@ -462,17 +463,21 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 }
 
 // llmFor gives the harness of a chat its model client, acting as the chat's owner.
-func (s *Service) llmFor(a workspace.Actor) (cogito.LLM, string, error) {
+func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 	ctx := context.Background()
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
-		return nil, "", err
+		return nibharness.Model{}, err
 	}
 	var user *auth.User
 	if s.d.Users != nil && a.Principal != AnonymousPrincipal {
 		if user, err = s.d.Users(ctx, a.Principal); err != nil {
-			return nil, "", fmt.Errorf("studio: load the chat's user: %w", err)
+			return nibharness.Model{}, fmt.Errorf("studio: load the chat's user: %w", err)
 		}
 	}
-	return s.d.Provider.LLM(user, rec.Model), rec.Model, nil
+	m := nibharness.Model{LLM: s.d.Provider.LLM(user, rec.Model), Name: rec.Model}
+	if s.d.ContextTokens != nil {
+		m.ContextTokens = s.d.ContextTokens(rec.Model)
+	}
+	return m, nil
 }

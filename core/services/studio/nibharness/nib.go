@@ -26,11 +26,11 @@ import (
 
 // Config is the model endpoint that every chat of a harness uses.
 type Config struct {
-	// LLM, when set, gives the model client of a chat and the name of its
-	// model. nib then uses that client and builds no provider of its own, so the
-	// host can serve the model in process. Provider, BaseURL and APIKey are
-	// ignored.
-	LLM             func(a workspace.Actor) (llm cogito.LLM, model string, err error)
+	// LLM, when set, gives the model of a chat: its client, its name and its
+	// context size. nib then uses that client and builds no provider of its own,
+	// so the host can serve the model in process. Provider, BaseURL, APIKey and
+	// Model are ignored.
+	LLM             func(a workspace.Actor) (Model, error)
 	Provider        string // empty: an OpenAI-compatible endpoint
 	Model           string
 	BaseURL         string
@@ -44,6 +44,15 @@ type Config struct {
 	// error. Empty means error. The first call of New sets it for the process.
 	// At debug, nib logs tool arguments.
 	LogLevel string
+}
+
+// Model is the model one chat talks to.
+type Model struct {
+	LLM  cogito.LLM
+	Name string
+	// ContextTokens is the model's context window in tokens. Zero uses the
+	// harness's ContextTokens.
+	ContextTokens int
 }
 
 // New returns a harness that starts one nib session per chat.
@@ -99,12 +108,16 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 		}
 		transports = append(transports, tr)
 	}
-	model := h.cfg.Model
+	model, ctxTokens := h.cfg.Model, h.cfg.ContextTokens
 	var llm cogito.LLM
 	if h.cfg.LLM != nil {
-		var err error
-		if llm, model, err = h.cfg.LLM(env.Actor); err != nil {
+		m, err := h.cfg.LLM(env.Actor)
+		if err != nil {
 			return nil, fmt.Errorf("nib: model client: %w", err)
+		}
+		llm, model = m.LLM, m.Name
+		if m.ContextTokens > 0 {
+			ctxTokens = m.ContextTokens
 		}
 	}
 	apiKey := h.cfg.APIKey
@@ -131,7 +144,7 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 			PromptFragments: fragments,
 			BuiltinTools:    names,
 			ApprovalMode:    types.ApprovalAuto,
-			Compaction:      types.CompactionConfig{MaxContextTokens: h.cfg.ContextTokens},
+			Compaction:      types.CompactionConfig{MaxContextTokens: ctxTokens},
 		},
 	})
 	cfg.WorkingDir = env.Dir
@@ -184,6 +197,9 @@ func (h *hsession) callbacks() chat.Callbacks {
 			case "reasoning":
 				h.emit(session.Event{Kind: session.KindReasoning, Text: ev.Content})
 			}
+		},
+		OnCompactDone: func(before, after int) {
+			h.emit(session.Event{Kind: session.KindCompacted, Before: before, After: after})
 		},
 		OnToolStart: func(ts chat.ToolStart) {
 			h.emit(session.Event{Kind: session.KindToolStart, Tool: &session.ToolEvent{

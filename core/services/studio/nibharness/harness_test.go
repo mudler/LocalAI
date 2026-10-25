@@ -21,8 +21,12 @@ import (
 type recordingLLM struct {
 	mu       sync.Mutex
 	messages [][]openai.ChatCompletionMessage
-	tools    [][]string
-	via      []string
+	// contextTokens is the context size the harness is given for the model, and
+	// promptTokens is what every reply claims the prompt used.
+	contextTokens int
+	promptTokens  int
+	tools         [][]string
+	via           []string
 }
 
 func (r *recordingLLM) record(via string, msgs []openai.ChatCompletionMessage, tools []openai.Tool) {
@@ -48,23 +52,29 @@ func (r *recordingLLM) CreateChatCompletion(ctx context.Context, req openai.Chat
 	r.record("CreateChatCompletion", req.Messages, req.Tools)
 	return cogito.LLMReply{ChatCompletionResponse: openai.ChatCompletionResponse{
 		Choices: []openai.ChatCompletionChoice{{Message: openai.ChatCompletionMessage{Role: "assistant", Content: "ok"}}},
-	}}, cogito.LLMUsage{TotalTokens: 1}, nil
+	}}, cogito.LLMUsage{PromptTokens: r.promptTokens, TotalTokens: r.promptTokens + 1}, nil
 }
 
 func start(t *testing.T, llm *recordingLLM, env session.HarnessEnv) session.HarnessSession {
 	t.Helper()
+	ctxTokens := 0
+	if llm.contextTokens > 0 {
+		ctxTokens = llm.contextTokens
+	}
 	h := nibharness.New(nibharness.Config{
-		LLM: func(a workspace.Actor) (cogito.LLM, string, error) {
+		LLM: func(a workspace.Actor) (nibharness.Model, error) {
 			if a.Principal != "alice" {
 				t.Errorf("LLM asked for actor %+v", a)
 			}
-			return llm, "host-model", nil
+			return nibharness.Model{LLM: llm, Name: "host-model", ContextTokens: ctxTokens}, nil
 		},
 	})
 	env.Dir = t.TempDir()
 	env.SystemPrompt = "You are a test."
 	env.Actor = workspace.Actor{Principal: "alice", ChatID: "c1"}
-	env.Emit = func(session.Event) {}
+	if env.Emit == nil {
+		env.Emit = func(session.Event) {}
+	}
 	hs, err := h.Start(context.Background(), env)
 	if err != nil {
 		t.Fatalf("Start: %v", err)
@@ -155,5 +165,59 @@ func TestHarnessWithoutToolsOffersNoBuiltinTools(t *testing.T) {
 				t.Errorf("tool %q is offered to a chat that has no tools; all offered: %v", name, llm.tools[0])
 			}
 		}
+	}
+}
+
+// nib compacts when a prompt fills most of the model's context. The context size
+// is the model's, not nib's default, so a small model compacts early; the host
+// hears about it.
+func TestCompactionIsReportedAndUsesTheModelContextSize(t *testing.T) {
+	llm := &recordingLLM{contextTokens: 2000, promptTokens: 1900}
+	var mu sync.Mutex
+	var compacted []session.Event
+	hs := start(t, llm, session.HarnessEnv{
+		Emit: func(e session.Event) {
+			if e.Kind == session.KindCompacted {
+				mu.Lock()
+				compacted = append(compacted, e)
+				mu.Unlock()
+			}
+		},
+	})
+	for i := 0; i < 8; i++ {
+		send(t, hs, "message number "+string(rune('a'+i))+" with some words so there is history to compact")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(compacted) == 0 {
+		t.Fatalf("no compaction was reported after 8 turns with a 1900-token prompt in a 2000-token context; requests=%d", len(llm.messages))
+	}
+	if compacted[0].Before == 0 || compacted[0].After >= compacted[0].Before {
+		t.Fatalf("compaction event = %+v, want a smaller context after", compacted[0])
+	}
+}
+
+// The control for the test above: with the default context window the same
+// conversation does not compact, so the model's context size is what decides.
+func TestNoCompactionInALargeContext(t *testing.T) {
+	llm := &recordingLLM{contextTokens: 200000, promptTokens: 1900}
+	var mu sync.Mutex
+	compacted := 0
+	hs := start(t, llm, session.HarnessEnv{
+		Emit: func(e session.Event) {
+			if e.Kind == session.KindCompacted {
+				mu.Lock()
+				compacted++
+				mu.Unlock()
+			}
+		},
+	})
+	for i := 0; i < 8; i++ {
+		send(t, hs, "message number "+string(rune('a'+i))+" with some words so there is history to compact")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if compacted != 0 {
+		t.Fatalf("a 1900-token prompt in a 200000-token context compacted %d times", compacted)
 	}
 }

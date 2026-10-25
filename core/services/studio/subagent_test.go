@@ -31,7 +31,9 @@ func newToolService(t *testing.T, script func(workspace.Actor, string) []studiot
 	}
 	svc, err := studio.New(studio.Deps{
 		Store: st, Provider: provider.New(), StateDir: t.TempDir(), Harness: h,
-		HostTools: func(context.Context, workspace.Actor) ([]session.Tool, error) { return []session.Tool{searchTool()}, nil },
+		HostTools: func(context.Context, workspace.Actor) ([]session.Tool, error) {
+			return []session.Tool{searchTool()}, nil
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
