@@ -389,3 +389,7 @@ var _ grpc.Backend = (*fakeBackendClient)(nil)
 func (c *fakeBackendClient) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...ggrpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "multimodal embedding unavailable")
 }
+
+func (c *fakeBackendClient) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest, opts ...ggrpc.CallOption) (*pb.MultimodalRerankResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "multimodal rerank unavailable")
+}

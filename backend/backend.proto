@@ -14,6 +14,7 @@ service Backend {
   rpc LoadModel(ModelOptions) returns (Result) {}
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
   rpc MultimodalEmbedding(MultimodalEmbeddingRequest) returns (MultimodalEmbeddingResponse) {}
+  rpc MultimodalRerank(MultimodalRerankRequest) returns (MultimodalRerankResponse) {}
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
   rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
@@ -1509,7 +1510,9 @@ message AudioToAudioResponse {
 }
 
 message ModelMetadataResponse {
-  string embedding_generation = 7; // Opaque worker/model generation; changes on every load and restart.
+  string embedding_generation = 7; // Opaque worker/model generation; changes on every load and restart. Also guards the typed rerank RPC.
+  uint32 rerank_protocol_version = 8; // 1 for the typed multimodal rerank contract; 0 means unsupported.
+  repeated EmbeddingModality rerank_modalities = 9; // TEXT and IMAGE only.
   uint32 embedding_protocol_version = 5; // 1 for the typed multimodal contract; 0 means unsupported.
   repeated EmbeddingModality embedding_modalities = 6;
   bool supports_thinking = 1;
@@ -1755,5 +1758,25 @@ message MultimodalEmbeddingRequest {
 }
 message MultimodalEmbeddingResponse {
   EmbeddingResult result = 1;
+  EmbeddingConsumption consumption = 2;
+}
+
+// Typed rerank protocol version 1. It reuses the embedding parts, budget and
+// consumption messages, so media is compressed bytes only and every allowance
+// is a remaining request-wide allowance. Query and document parts are text
+// first, then images; the backend never reorders them.
+message RerankDocument {
+  repeated EmbeddingPart parts = 1;
+}
+message MultimodalRerankRequest {
+  string embedding_generation = 1; // Required metadata generation; same check as MultimodalEmbeddingRequest.
+  string model = 2; // Selected loaded instance identity, not a backend file path.
+  repeated EmbeddingPart query = 3;
+  repeated RerankDocument documents = 4;
+  int32 top_n = 5;
+  EmbeddingBudget budget = 6;
+}
+message MultimodalRerankResponse {
+  RerankResult result = 1;
   EmbeddingConsumption consumption = 2;
 }

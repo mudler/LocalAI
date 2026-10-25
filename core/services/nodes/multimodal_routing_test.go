@@ -22,7 +22,23 @@ func (b *multimodalTrackedBackend) MultimodalEmbedding(ctx context.Context, in *
 	return nil, b.err
 }
 
+func (b *multimodalTrackedBackend) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest, _ ...ggrpc.CallOption) (*pb.MultimodalRerankResponse, error) {
+	return nil, b.err
+}
+
 var _ = Describe("Multimodal routing", func() {
+	It("distributed typed rerank is tracked and preserves worker-owned refusals", func() {
+		for _, err := range []error{status.Error(codes.Unimplemented, "old"), status.Error(codes.ResourceExhausted, "budget")} {
+			tracker := &fakeInFlightTracker{}
+			client := NewInFlightTrackingClient(&multimodalTrackedBackend{err: err}, tracker, "node", "same", 2)
+			_, got := client.MultimodalRerank(context.Background(), &pb.MultimodalRerankRequest{})
+			Expect(got).To(BeIdenticalTo(err))
+			Expect(tracker.increments).To(Equal(1))
+			Expect(tracker.decrements).To(Equal(1))
+			Expect(tracker.removed).To(BeZero())
+		}
+	})
+
 	It("distributed failure decrements tracking and preserves worker-owned refusals", func() {
 		for _, err := range []error{status.Error(codes.Unimplemented, "old"), context.Canceled, status.Error(codes.ResourceExhausted, "budget")} {
 			tracker := &fakeInFlightTracker{}

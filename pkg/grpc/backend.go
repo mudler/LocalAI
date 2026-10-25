@@ -70,6 +70,7 @@ type Backend interface {
 type InferenceBackend interface {
 	Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.EmbeddingResult, error)
 	MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...grpc.CallOption) (*pb.MultimodalEmbeddingResponse, error)
+	MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest, opts ...grpc.CallOption) (*pb.MultimodalRerankResponse, error)
 	PredictStream(ctx context.Context, in *pb.PredictOptions, f func(reply *pb.Reply), opts ...grpc.CallOption) error
 	Predict(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.Reply, error)
 	GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...grpc.CallOption) (*pb.Result, error)

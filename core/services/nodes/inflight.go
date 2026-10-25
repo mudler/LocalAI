@@ -148,6 +148,12 @@ func (c *InFlightTrackingClient) MultimodalEmbedding(ctx context.Context, in *pb
 	return res, c.reconcile(err)
 }
 
+func (c *InFlightTrackingClient) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest, opts ...ggrpc.CallOption) (*pb.MultimodalRerankResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.inner.MultimodalRerank(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
 func (c *InFlightTrackingClient) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	defer c.track(ctx)()
 	res, err := c.inner.GenerateImage(ctx, in, opts...)

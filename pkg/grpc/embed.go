@@ -31,6 +31,10 @@ func (e *embedBackend) MultimodalEmbedding(ctx context.Context, in *pb.Multimoda
 	return e.s.MultimodalEmbedding(ctx, in)
 }
 
+func (e *embedBackend) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest, opts ...grpc.CallOption) (*pb.MultimodalRerankResponse, error) {
+	return e.s.MultimodalRerank(ctx, in)
+}
+
 func (e *embedBackend) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.Reply, error) {
 	return e.s.Predict(ctx, in)
 }

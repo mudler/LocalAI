@@ -1292,6 +1292,45 @@ func (s *server) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbed
 	return result, nil
 }
 
+// MultimodalRerank follows the multimodal embedding rules: the selected identity
+// and the metadata generation must match, and it never falls back to Rerank.
+func (s *server) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest) (*pb.MultimodalRerankResponse, error) {
+	if err := validateMultimodalRerankSize(in); err != nil {
+		return nil, err
+	}
+	if in.GetModel() == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing rerank model identity")
+	}
+	if err := s.checkModelIdentity(&pb.PredictOptions{ModelIdentity: in.GetModel()}); err != nil {
+		return nil, err
+	}
+	model, ok := s.llm.(MultimodalRerankModel)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "multimodal rerank unavailable")
+	}
+	if err := s.checkEmbeddingGeneration(in.GetEmbeddingGeneration()); err != nil {
+		return nil, err
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	if err := s.checkEmbeddingGeneration(in.GetEmbeddingGeneration()); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, status.FromContextError(err).Err()
+	}
+	result, err := model.MultimodalRerank(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.checkEmbeddingGeneration(in.GetEmbeddingGeneration()); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (s *server) checkEmbeddingGeneration(token string) error {
 	s.identityMu.RLock()
 	defer s.identityMu.RUnlock()

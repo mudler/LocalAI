@@ -67,6 +67,12 @@ func (c *ConnectionEvictingClient) MultimodalEmbedding(ctx context.Context, in *
 	return result, err
 }
 
+func (c *ConnectionEvictingClient) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest, opts ...ggrpc.CallOption) (*pb.MultimodalRerankResponse, error) {
+	result, err := c.Backend.MultimodalRerank(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}
+
 func (c *ConnectionEvictingClient) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	result, err := c.Backend.GenerateImage(ctx, in, opts...)
 	c.checkErr(err)

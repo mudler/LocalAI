@@ -152,6 +152,27 @@ func (c *Client) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbed
 	return client.MultimodalEmbedding(ctx, in, opts...)
 }
 
+func (c *Client) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest, opts ...grpc.CallOption) (*pb.MultimodalRerankResponse, error) {
+	if err := validateMultimodalRerankSize(in); err != nil {
+		return nil, err
+	}
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+
+	return client.MultimodalRerank(ctx, in, opts...)
+}
+
 func (c *Client) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.Reply, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

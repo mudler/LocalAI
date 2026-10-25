@@ -146,6 +146,12 @@ type RerankModel interface {
 	Rerank(context.Context, *pb.RerankRequest) (*pb.RerankResult, error)
 }
 
+// MultimodalRerankModel is optional. Models without it reject the typed rerank
+// RPC; callers never retry media-bearing content through the text Rerank RPC.
+type MultimodalRerankModel interface {
+	MultimodalRerank(context.Context, *pb.MultimodalRerankRequest) (*pb.MultimodalRerankResponse, error)
+}
+
 // MultimodalEmbeddingModel is optional. Legacy models reject the dedicated RPC
 // rather than interpreting structured content as a legacy text embedding.
 type MultimodalEmbeddingModel interface {
