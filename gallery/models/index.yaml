@@ -5,6 +5,64 @@
 # master reads it as the default model source; a tagged build reads the gallery
 # until the release cutover.
 - kind: model
+  id: underdog-saluki-27b-1.0-mtp
+  name: underdog-saluki-27b-1.0-mtp
+  version: 0.0.0-gallery.1f1ebd571aaa
+  description: |
+    Underdog Saluki 27B 1.0 with its mixed IQ2 main weights preserved and
+    a Qwen3.8-27B MTP head added. This llama.cpp build enables multi-token
+    prediction with up to two draft tokens and includes the F16 vision
+    projector. The weights and projector total approximately 9.28 GB.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/ConwayResearch/Underdog-Saluki-27B-1.0
+    - https://huggingface.co/Kujira/Underdog-Saluki-27B-1.0-MTP-GGUF
+  tags:
+    - llm
+    - gguf
+    - vision
+    - function-calling
+    - reasoning
+    - mtp
+    - cpu
+    - gpu
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/underdog-saluki-27b-1.0-mtp/Underdog-Saluki-27B-1.0-IQ2-mix-MTP.gguf
+        sha256: 98f6ebb527917a2541df8e667d51c3ec8a8bb135b44c606d40cc6ed924e89e52
+        uri: https://huggingface.co/Kujira/Underdog-Saluki-27B-1.0-MTP-GGUF/resolve/5d92db9b7aa466a7c8f55e26dac2e366c36e8e5b/Underdog-Saluki-27B-1.0-IQ2-mix-MTP.gguf
+      - filename: llama-cpp/mmproj/underdog-saluki-27b-1.0/mmproj-Underdog-Saluki-27B-1.0-F16.gguf
+        sha256: f3aa57813a513420c2ef765503b057c1946bf4c8cdf3679d266a6644fc6cfd50
+        uri: https://huggingface.co/ConwayResearch/Underdog-Saluki-27B-1.0/resolve/1336c0b5d74dfe6ad7f793577092f5effd9f97c6/mmproj-Underdog-Saluki-27B-1.0-F16.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+        - vision
+      mmproj: llama-cpp/mmproj/underdog-saluki-27b-1.0/mmproj-Underdog-Saluki-27B-1.0-F16.gguf
+      options:
+        - use_jinja:true
+        - spec_type:draft-mtp
+        - spec_n_max:2
+      parameters:
+        model: llama-cpp/models/underdog-saluki-27b-1.0-mtp/Underdog-Saluki-27B-1.0-IQ2-mix-MTP.gguf
+        temperature: 0.6
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: adavar-3b-q4
   name: adavar-3b-q4
   version: 0.0.0-gallery.aad216859953
@@ -9187,6 +9245,8 @@
         top_p: 0.95
       template:
         use_tokenizer_template: true
+    variants:
+      - model: underdog-saluki-27b-1.0-mtp
 - kind: model
   id: spark-x2.5-4b-heretic-jp-q4
   name: spark-x2.5-4b-heretic-jp-q4
