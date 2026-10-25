@@ -22,6 +22,9 @@ const (
 	// KindPendingDelivered says that messages the user sent during the turn
 	// reached the model. Event.IDs names them.
 	KindPendingDelivered EventKind = "pending_delivered"
+	// KindSubAgentDone says that a sub-agent run ended. Event.IDs holds its
+	// conversation id and Text its title.
+	KindSubAgentDone EventKind = "sub_agent_done"
 )
 
 // Event is one thing that happened in a chat.

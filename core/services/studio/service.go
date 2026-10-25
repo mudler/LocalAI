@@ -42,6 +42,10 @@ type Deps struct {
 	Users    UserLookup
 	// StateDir holds the harness's private files, one folder per chat.
 	StateDir string
+	// HostTools supplies the tools a chat gets besides the ones the service adds
+	// itself (for example the tools of MCP servers). A sub-agent gets all of
+	// them, or the subset its parent names. Nil: none.
+	HostTools func(ctx context.Context, a workspace.Actor) ([]session.Tool, error)
 	// Harness replaces the nib harness. It is for tests.
 	Harness session.Harness
 	Logger  *slog.Logger
@@ -72,6 +76,12 @@ type Service struct {
 	runs  map[string]*run // the turn this process runs, by conversation
 	pumps map[string]bool // conversations whose events this process reads
 	locks map[string]*keyLock
+
+	// Sub-agents; see subagent.go.
+	children map[string]map[string]*child       // running sub-agents, by parent conversation
+	allowed  map[string][]session.Tool          // the tools of a sub-agent conversation
+	waiters  map[string][]chan store.TurnStatus // callers waiting for a turn to end
+	closed   chan struct{}
 }
 
 type run struct {
@@ -94,7 +104,8 @@ func New(d Deps) (*Service, error) {
 	if log == nil {
 		log = slog.Default()
 	}
-	s := &Service{d: d, hub: newHub(), log: log, runs: map[string]*run{}, pumps: map[string]bool{}, locks: map[string]*keyLock{}}
+	s := &Service{d: d, hub: newHub(), log: log, runs: map[string]*run{}, pumps: map[string]bool{}, locks: map[string]*keyLock{},
+		children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
 	h := d.Harness
 	if h == nil {
 		if d.Provider == nil {
@@ -102,7 +113,7 @@ func New(d Deps) (*Service, error) {
 		}
 		h = nibharness.New(nibharness.Config{LLM: s.llmFor})
 	}
-	mgr, err := session.New(session.Options{Store: d.Store, Harness: h, StateDir: d.StateDir, Inputs: s.inputs, Logger: log})
+	mgr, err := session.New(session.Options{Store: d.Store, Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools, Logger: log})
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +122,20 @@ func New(d Deps) (*Service, error) {
 }
 
 // Close stops every chat.
-func (s *Service) Close(ctx context.Context) error { return s.mgr.Close(ctx) }
+func (s *Service) Close(ctx context.Context) error {
+	select {
+	case <-s.closed:
+	default:
+		close(s.closed)
+	}
+	return s.mgr.Close(ctx)
+}
+
+// List returns the user's conversations, newest first. Sub-agent runs are
+// included; they have Kind session.KindSubAgent and a ParentID.
+func (s *Service) List(ctx context.Context, user string, limit int) ([]session.ChatRecord, error) {
+	return s.d.Store.ListChats(ctx, principal(user), session.ChatCursor{}, limit)
+}
 
 func principal(user string) string {
 	if user == "" {
@@ -387,8 +411,12 @@ func (s *Service) finishTurn(p, conv string) {
 		s.log.Warn("studio: could not release the turn", "chat", conv, "error", err)
 		return
 	}
+	s.notifyWaiters(k, status)
 	if status != store.TurnDone {
-		return // after a Stop or a failure the messages wait for the user
+		// A stopped or failed turn takes its running sub-agents with it, and the
+		// waiting messages stay for the user to decide.
+		s.stopChildren(p, conv)
+		return
 	}
 	// The next turn is started from another goroutine: this one reads the events
 	// that the new turn will produce.
