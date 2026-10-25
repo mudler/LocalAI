@@ -3186,6 +3186,17 @@ public:
     }
 #endif
 
+    // The server reports an input that does not fit as ERROR_TYPE_EXCEED_CONTEXT_SIZE
+    // in the chat path, but as a plain server error ("input (N tokens) is too large
+    // to process") when a non-causal task is larger than the physical batch. Both are
+    // a limit the client can act on, not a backend failure.
+    static bool is_context_overflow(const json & err) {
+        if (err.value("type", std::string()) == "exceed_context_size_error") {
+            return true;
+        }
+        return err.value("message", std::string()).find("is too large to process") != std::string::npos;
+    }
+
     // Queues one embedding task per prompt, waits for all of them and fills the
     // result. Shared by the legacy and the typed RPC so pooling, layout and usage
     // accounting cannot differ. typed_errors maps a context overflow to the
@@ -3222,7 +3233,7 @@ public:
             return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
         } else if (all_results.error) {
             const json err = all_results.error->to_json();
-            if (typed_errors && err.value("type", std::string()) == "exceed_context_size_error") {
+            if (typed_errors && is_context_overflow(err)) {
                 return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED, "limit_exceeded: context");
             }
             return grpc::Status(grpc::StatusCode::INTERNAL, err.value("message", "Error in receiving results"));
@@ -3517,7 +3528,7 @@ public:
             return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
         } else if (all_results.error) {
             const json err = all_results.error->to_json();
-            if (err.value("type", std::string()) == "exceed_context_size_error") {
+            if (is_context_overflow(err)) {
                 return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED, "limit_exceeded: context");
             }
             return grpc::Status(grpc::StatusCode::INTERNAL, err.value("message", "Error in receiving results"));

@@ -284,6 +284,10 @@ var _ = Describe("Multimodal embeddings and rerank with the real llama.cpp backe
 		bomb := map[string]any{"type": "image_url", "image_url": map[string]any{"url": "data:image/png;base64," + base64.StdEncoding.EncodeToString(ihdr)}}
 		code, _, body = embedAt(url, []any{contentItem(bomb)})
 		Expect(code).To(Equal(413), string(body))
+
+		// An item that does not fit the context is refused, not truncated.
+		code, _, body = embedAt(url, []any{contentItem(textPart(strings.Repeat("hello world ", 20000)))})
+		Expect(code).To(Equal(413), string(body))
 	})
 
 	It("ranks image and text documents for a text query", func() {
