@@ -625,6 +625,8 @@
     "addsPage": "페이지를 추가합니다",
     "chatTools_one": "{{count}} chat tool",
     "chatTools_other": "{{count}} chat tools",
+    "addsTools_one": "Adds {{count}} tool",
+    "addsTools_other": "Adds {{count}} tools",
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."

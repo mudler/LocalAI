@@ -969,6 +969,14 @@ launch mode, and a catalog that breaks them fails refresh as a whole. They only
 help browsing before install: the manifest inside the verified package is what an
 installed addon shows, and the host serves an icon only after install.
 
+A release may also carry `toolCount` and `tools`, the same names the installed view
+uses: the chat tools the package declares in `capabilities.tools` (admin tools are
+not chat tools and are not counted). `tools` holds at most 32 names and `toolCount`
+is the full number. The add-on cards, the Find add-ons tab and the details panel show
+"Adds N tools" from them before install. `addonpkg catalog` writes both fields, and
+`addonpkg catalog-tools` adds them to an existing index from the manifests in
+`addons/<id>/manifest.json`. They are a hint like `ui`, and only an add-on entry may carry them.
+
 Refresh accepts at most 1 MiB and 1,000 releases. Duplicate release identities
 within a source fail. Duplicate names across sources remain distinct. Search
 matches names, IDs and descriptions, sorts by source/release identity and uses

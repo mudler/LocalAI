@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { pushLayer } from '../../utils/modalLayers'
-import { UnknownNotice } from './AddonBits'
+import { EntryAdds, UnknownNotice } from './AddonBits'
 import { shortDigest } from './addonState'
 import { describeOutcome } from './errors'
 
@@ -67,6 +67,7 @@ export default function InstallDialog({ entry, flow, actions, onClose }) {
           {step === 'ask' && (
             <>
               <p>{t('flow.confirmBody', { version: entry.version, library: entry.sourceId })}</p>
+              <EntryAdds entry={entry} />
               <dl className="dk-kv">
                 <dt>{t('trust.digest')}</dt><dd className="dk-mono">{shortDigest(entry.digest)}</dd>
                 <dt>{t('trust.verification')}</dt><dd>{entry.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}</dd>

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"gopkg.in/yaml.v3"
 )
 
@@ -38,7 +39,12 @@ type catalogRelease struct {
 		Issuer           string `json:"issuer"`
 		Identity         string `json:"identity"`
 	} `json:"policy"`
-	UI struct {
+	// ToolCount and Tools repeat the names of the installed view: the chat
+	// tools the package declares (capabilities.tools, never adminTools). Tools
+	// is capped at MaxEntryTools; ToolCount is the full number.
+	ToolCount int      `json:"toolCount,omitempty"`
+	Tools     []string `json:"tools,omitempty"`
+	UI        struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		MainPage    string `json:"mainPage"`
@@ -57,6 +63,93 @@ func signerIdentity(ownerRepo, ref string) (string, error) {
 		return "", fmt.Errorf("signer ref %q is invalid", ref)
 	}
 	return "https://github.com/" + ownerRepo + "/.github/workflows/" + SignerWorkflow + "@" + ref, nil
+}
+
+// MaxEntryTools bounds the tool names of one catalog entry. It is the bound
+// the installed view uses (apps.MaxTools); the count stays the full number.
+const MaxEntryTools = 32
+
+// toolFieldsYAML renders the toolCount and tools fields of a catalog entry
+// from the chat tools of a manifest. An add-on without chat tools has neither
+// field. Admin tools are not passed in: they are not chat tools.
+func toolFieldsYAML(tools []string, indent string) string {
+	if len(tools) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%stoolCount: %d\n%stools:\n", indent, len(tools), indent)
+	for _, t := range tools[:min(len(tools), MaxEntryTools)] {
+		b.WriteString(indent + "  - \"" + jsonString(t) + "\"\n")
+	}
+	return b.String()
+}
+
+// cmdCatalogTools adds the toolCount and tools fields to the entries of an
+// existing library index, reading each manifest from addons/<id>/manifest.json
+// of the repository. It touches no other field, so the digests and artifacts
+// stay as they are. Running it twice gives the same file.
+func cmdCatalogTools(args []string) error {
+	fs := flag.NewFlagSet("catalog-tools", flag.ContinueOnError)
+	index := fs.String("index", "gallery/addons/index.yaml", "library index to update")
+	addons := fs.String("addons", "addons", "directory that holds addons/<id>/manifest.json")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	raw, err := os.ReadFile(*index)
+	if err != nil {
+		return err
+	}
+	entries, err := readCatalogIndex(raw)
+	if err != nil {
+		return err
+	}
+	var blocks []string
+	for _, line := range strings.SplitAfter(string(raw), "\n") {
+		if strings.HasPrefix(line, "- ") || len(blocks) == 0 {
+			blocks = append(blocks, "")
+		}
+		blocks[len(blocks)-1] += line
+	}
+	// blocks[0] is the header comment when the file starts with one.
+	if len(blocks) == len(entries)+1 {
+		blocks = blocks[1:]
+		blocks[0] = string(raw[:len(raw)-len(strings.Join(blocks, ""))]) + blocks[0]
+	}
+	if len(blocks) != len(entries) {
+		return errors.New("index entries do not match their blocks")
+	}
+	for i, e := range entries {
+		data, err := os.ReadFile(filepath.Join(*addons, filepath.Base(e.ID), "manifest.json"))
+		if err != nil {
+			return err
+		}
+		m, err := contract.ParseManifest(data)
+		if err != nil {
+			return fmt.Errorf("manifest of %s: %w", e.ID, err)
+		}
+		var kept []string
+		skip := false
+		for _, line := range strings.SplitAfter(strings.TrimRight(blocks[i], "\n"), "\n") {
+			switch {
+			case strings.HasPrefix(line, "  toolCount:"):
+				continue
+			case strings.HasPrefix(line, "  tools:"):
+				skip = true
+				continue
+			case skip && strings.HasPrefix(line, "    - "):
+				continue
+			}
+			skip = false
+			kept = append(kept, line)
+		}
+		text := strings.TrimRight(strings.Join(kept, ""), "\n") + "\n"
+		blocks[i] = text + toolFieldsYAML(m.Capabilities.Tools, "  ")
+	}
+	out := strings.Join(blocks, "")
+	if _, err := readCatalogIndex([]byte(out)); err != nil {
+		return fmt.Errorf("updated index: %w", err)
+	}
+	return os.WriteFile(*index, []byte(out), 0o600)
 }
 
 func jsonString(s string) string {
@@ -167,6 +260,7 @@ func cmdCatalog(args []string) error {
 			"title": title, "description": description, "main_page": mainPage, "icon": icon,
 		}
 		text := string(tmpl)
+		text = strings.TrimRight(text, "\n") + "\n" + toolFieldsYAML(v.Manifest.Capabilities.Tools, "")
 		if mutable {
 			text = strings.Replace(text, "digest: \"{{digest}}\"", "mutable: true", 1)
 		}

@@ -260,6 +260,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     platform: { os: release.os, arch: release.arch },
     policy: release.policy || { requireSignature: false },
     ui: release.ui || null,
+    // What the add-on brings to chat, with the names of the installed view.
+    toolCount: Number.isFinite(release.toolCount) ? release.toolCount : 0,
+    tools: Array.isArray(release.tools) ? release.tools : [],
   })
   return {
     kind: 'addons',

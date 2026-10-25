@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -905,6 +906,67 @@ var _ = Describe("catalog template", func() {
 				Expect(e.Policy.RequireSignature).To(BeTrue())
 			}
 		}
+	})
+	It("reports the chat tools of the manifest on each entry and not the admin tools", func() {
+		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0}
+		for id, want := range counts {
+			p := newProjectFor(id, both)
+			m := p.merged("1.2.3", rev, nil)
+			out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")
+			_, err := run("catalog", "--config", p.config, "--template", "../../../gallery/addons/"+id+".yaml.tmpl", "--merged", m, "--repository", newRegistry().repo("addons"), "--tag", "1.2.3", "--channel", "latest", "--owner-repo", "example/localai", "--signer-ref", "refs/tags/v1.2.3", "--out", out)
+			Expect(err).NotTo(HaveOccurred(), id)
+			b, err := os.ReadFile(out)
+			Expect(err).NotTo(HaveOccurred())
+			entries, err := readCatalogIndex(b)
+			Expect(err).NotTo(HaveOccurred(), id)
+			Expect(entries).To(HaveLen(2), id)
+			for _, e := range entries {
+				Expect(e.ToolCount).To(Equal(want), id)
+				Expect(e.Tools).To(HaveLen(want), id)
+			}
+			if want == 0 {
+				Expect(string(b)).NotTo(ContainSubstring("toolCount"))
+			}
+			if id == "tables" {
+				// The admin tool is declared next to the chat tools and is not one of them.
+				Expect(entries[0].Tools).NotTo(ContainElement("databases-delete"))
+				Expect(entries[0].Tools).To(ContainElement("databases-create"))
+			}
+		}
+	})
+	It("caps the tool names at MaxEntryTools and keeps the full count", func() {
+		var tools []string
+		for i := 0; i < MaxEntryTools+8; i++ {
+			tools = append(tools, fmt.Sprintf("tool-%c%c", 'a'+i/26, 'a'+i%26))
+		}
+		text := toolFieldsYAML(tools, "")
+		Expect(text).To(HavePrefix(fmt.Sprintf("toolCount: %d\n", MaxEntryTools+8)))
+		Expect(strings.Count(text, "\n  - ")).To(Equal(MaxEntryTools))
+		Expect(toolFieldsYAML(nil, "")).To(BeEmpty())
+	})
+	It("adds the tool fields to an existing index from the repository manifests, and changes nothing else", func() {
+		raw, err := os.ReadFile("../../../gallery/addons/index.yaml")
+		Expect(err).NotTo(HaveOccurred())
+		stripped := regexp.MustCompile(`(?m)^  toolCount:.*\n  tools:\n(    - .*\n)+`).ReplaceAll(raw, nil)
+		Expect(string(stripped)).NotTo(ContainSubstring("toolCount"))
+		index := filepath.Join(GinkgoT().TempDir(), "index.yaml")
+		Expect(os.WriteFile(index, stripped, 0o600)).To(Succeed())
+		_, err = run("catalog-tools", "--index", index, "--addons", "../../../addons")
+		Expect(err).NotTo(HaveOccurred())
+		again, err := os.ReadFile(index)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(again)).To(Equal(string(raw)), "the committed index is what the generator writes")
+		_, err = run("catalog-tools", "--index", index, "--addons", "../../../addons")
+		Expect(err).NotTo(HaveOccurred())
+		twice, _ := os.ReadFile(index)
+		Expect(string(twice)).To(Equal(string(again)))
+		entries, err := readCatalogIndex(again)
+		Expect(err).NotTo(HaveOccurred())
+		got := map[string]int{}
+		for _, e := range entries {
+			got[e.ID] = e.ToolCount
+		}
+		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0}))
 	})
 	It("refuses missing inputs, backend repositories, bad channels and unknown placeholders", func() {
 		reg := newRegistry()

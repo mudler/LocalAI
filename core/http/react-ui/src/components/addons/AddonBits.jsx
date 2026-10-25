@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import { stateChip } from './addonState'
+import { addedByEntry, stateChip } from './addonState'
 import { installSteps } from './installSteps'
 import './addons.css'
 
@@ -41,6 +41,21 @@ export function AppIcon({ src, size = 40 }) {
     <span className="ad-icon ad-icon--empty" aria-hidden="true">
       <Icon name="puzzle" />
     </span>
+  )
+}
+
+// What a library entry adds, before it is installed: "Adds a page" when it has
+// a main page, "Adds N tools" when it declares chat tools. It shows nothing
+// for an entry that says neither.
+export function EntryAdds({ entry }) {
+  const { t } = useTranslation('addons')
+  const adds = addedByEntry(entry)
+  if (!adds.page && adds.tools === 0) return null
+  return (
+    <p className="ad-tile__adds" data-testid="entry-adds-line">
+      {adds.page && <span className="ad-tile__add"><Icon name="file" aria-hidden="true" /> {t('card.addsPage')}</span>}
+      {adds.tools > 0 && <span className="ad-tile__add" data-testid="entry-tools"><Icon name="wrench" aria-hidden="true" /> {t('card.addsTools', { count: adds.tools })}</span>}
+    </p>
   )
 }
 

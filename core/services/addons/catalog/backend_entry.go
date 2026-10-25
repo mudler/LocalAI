@@ -161,7 +161,7 @@ var ErrInvalidEntry = errors.New("library entry is not valid for this host")
 // will keep what it writes. The loopback allowance is a per-source setting and
 // is off here.
 func ValidateEntry(r Release) error {
-	if !validFetchedRelease(r, false) || !validKindFields(r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) {
+	if !validFetchedRelease(r, false) || !validKindFields(r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) || !validEntryTools(r) {
 		return fmt.Errorf("%w: %s %q", ErrInvalidEntry, r.EntryKind(), r.ID)
 	}
 	return nil
