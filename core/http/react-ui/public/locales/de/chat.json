@@ -130,5 +130,18 @@
     "heading": "Add-on tools",
     "selectAll": "Select all",
     "deselectAll": "Deselect all"
+  },
+  "attachmentCollection": {
+    "title": "Anhänge",
+    "label": "Anhänge in Sammlung speichern",
+    "none": "Keine",
+    "help": "Jede angehängte Datei wird beim Senden zusätzlich als Originaldatei in diese Sammlung hochgeladen. Der Chat selbst funktioniert wie bisher. Die Auswahl wird in diesem Browser gespeichert.",
+    "helpEmpty": "Sie haben noch keine Sammlungen. Legen Sie unter Speicher eine an, um Chat-Anhänge dort abzulegen.",
+    "uploading": "wird in {{collection}} gespeichert…",
+    "saved": "in {{collection}} gespeichert",
+    "failed": "fehlgeschlagen: {{reason}}",
+    "dismiss": "Upload-Status ausblenden",
+    "retry": "Erneut versuchen",
+    "retryLabel": "{{name}} erneut speichern"
   }
 }

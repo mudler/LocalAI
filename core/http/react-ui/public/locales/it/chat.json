@@ -130,5 +130,18 @@
     "heading": "Add-on tools",
     "selectAll": "Select all",
     "deselectAll": "Deselect all"
+  },
+  "attachmentCollection": {
+    "title": "Allegati",
+    "label": "Salva gli allegati in una raccolta",
+    "none": "Nessuna",
+    "help": "Ogni file che alleghi viene anche caricato, come file originale, in questa raccolta all'invio. La chat funziona come prima. Memorizzato in questo browser.",
+    "helpEmpty": "Non hai ancora raccolte. Creane una in Memoria per conservarvi gli allegati della chat.",
+    "uploading": "salvataggio in {{collection}}…",
+    "saved": "salvato in {{collection}}",
+    "failed": "non riuscito: {{reason}}",
+    "dismiss": "Nascondi lo stato del caricamento",
+    "retry": "Riprova",
+    "retryLabel": "Riprova a salvare {{name}}"
   }
 }

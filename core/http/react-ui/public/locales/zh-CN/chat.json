@@ -130,5 +130,18 @@
     "heading": "Add-on tools",
     "selectAll": "Select all",
     "deselectAll": "Deselect all"
+  },
+  "attachmentCollection": {
+    "title": "附件",
+    "label": "将附件保存到集合",
+    "none": "无",
+    "help": "发送时，您附加的每个文件也会以原始文件形式上传到此集合。聊天本身照常工作。此选择保存在本浏览器中。",
+    "helpEmpty": "您还没有任何集合。请在记忆库中创建一个，以便在其中保存聊天附件。",
+    "uploading": "正在保存到 {{collection}}…",
+    "saved": "已保存到 {{collection}}",
+    "failed": "失败：{{reason}}",
+    "dismiss": "关闭上传状态",
+    "retry": "重试",
+    "retryLabel": "重新保存 {{name}}"
   }
 }
