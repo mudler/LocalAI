@@ -30,6 +30,7 @@ type AIModel interface {
 	Animate3D(*pb.Animate3DRequest) error
 	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
 	Depth(*pb.DepthRequest) (pb.DepthResponse, error)
+	Forecast(*pb.ForecastRequest) (pb.ForecastResponse, error)
 	FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error)
 	FaceAnalyze(*pb.FaceAnalyzeRequest) (pb.FaceAnalyzeResponse, error)
 	VoiceVerify(*pb.VoiceVerifyRequest) (pb.VoiceVerifyResponse, error)

@@ -345,6 +345,21 @@ func (s *server) Depth(ctx context.Context, in *pb.DepthRequest) (*pb.DepthRespo
 	return &res, nil
 }
 
+func (s *server) Forecast(ctx context.Context, in *pb.ForecastRequest) (*pb.ForecastResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.Forecast(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 func (s *server) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest) (*pb.FaceVerifyResponse, error) {
 	if err := s.checkModelIdentity(in); err != nil {
 		return nil, err

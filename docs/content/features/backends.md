@@ -441,6 +441,7 @@ LocalAI supports various types of backends:
 - **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [MLX-Video on Apple Silicon]({{%relref "features/video-generation" %}}), [LongCat-Video]({{%relref "features/video-generation" %}}), [vllm.cpp / MiniMax-H3]({{%relref "features/video-generation" %}}))
 - **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "features/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
+- **Time-Series Backends**: For quantile forecasting of numeric series ([timestral.cpp]({{%relref "features/forecast" %}}), Mistral's Timestral models)
 - **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store, qdrant-store)

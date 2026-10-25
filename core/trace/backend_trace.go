@@ -38,6 +38,7 @@ const (
 	BackendTraceTokenize        BackendTraceType = "tokenize"
 	BackendTraceDetection       BackendTraceType = "detection"
 	BackendTraceDepth           BackendTraceType = "depth"
+	BackendTraceForecast        BackendTraceType = "forecast"
 	BackendTraceFaceVerify      BackendTraceType = "face_verify"
 	BackendTraceFaceAnalyze     BackendTraceType = "face_analyze"
 	BackendTraceVoiceVerify     BackendTraceType = "voice_verify"

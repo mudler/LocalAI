@@ -97,6 +97,11 @@ func (r *recordingBackend) Depth(_ context.Context, in *pb.DepthRequest, _ ...gg
 	return &pb.DepthResponse{}, nil
 }
 
+func (r *recordingBackend) Forecast(_ context.Context, in *pb.ForecastRequest, _ ...ggrpc.CallOption) (*pb.ForecastResponse, error) {
+	r.record("Forecast", in)
+	return &pb.ForecastResponse{}, nil
+}
+
 func (r *recordingBackend) VAD(_ context.Context, in *pb.VADRequest, _ ...ggrpc.CallOption) (*pb.VADResponse, error) {
 	r.record("VAD", in)
 	return &pb.VADResponse{}, nil
@@ -245,6 +250,12 @@ var _ = Describe("modality requests carry the model identity", func() {
 		_, err := backend.Depth(ctx, &pb.DepthRequest{Src: "src.png"}, loader, appCfg, cfg)
 		Expect(err).ToNot(HaveOccurred())
 		expectIdentity("Depth")
+	})
+
+	It("Forecast", func() {
+		_, err := backend.Forecast(ctx, &pb.ForecastRequest{PredictionLength: 1}, loader, appCfg, cfg)
+		Expect(err).ToNot(HaveOccurred())
+		expectIdentity("Forecast")
 	})
 
 	It("VAD", func() {
