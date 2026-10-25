@@ -34,6 +34,7 @@ import {
   listConversations, setActiveConversation, removeConversation,
 } from '../utils/homeConversations'
 import { chatsStorageKey } from '../utils/chatStore'
+import { handOffToChat } from '../utils/chatHandoff'
 // eslint-disable-next-line no-unused-vars
 import Skeleton from '../components/Skeleton'
 import { staggerStyle } from '../hooks/useStagger'
@@ -298,7 +299,9 @@ export default function Home() {
       clientMCPServers: clientMCPSelectedIds,
       newChat: true,
     }
-    localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
+    // In memory, not localStorage: the attachments must not depend on free
+    // browser storage (a full cache used to make Send do nothing).
+    handOffToChat(chatData)
     setSending(true)
     navigate(`/app/chat/${encodeURIComponent(selectedModel)}`)
   }, [message, allFiles, selectedModel, mcpMode, mcpSelectedServers, clientMCPSelectedIds, addToast, navigate, t])
@@ -313,7 +316,7 @@ export default function Home() {
       localaiAssistant: true,
       newChat: true,
     }
-    localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
+    handOffToChat(chatData)
     try { localStorage.setItem('localai_assistant_used', '1') } catch { /* ignore */ }
     setAssistantUsed(true)
     navigate('/app/chat')
@@ -321,7 +324,7 @@ export default function Home() {
 
   // An empty new chat: Chat opens a fresh conversation on the chosen model.
   const openNewChat = useCallback(() => {
-    localStorage.setItem('localai_index_chat_data', JSON.stringify({ model: selectedModel || '', mcpMode: false, newChat: true }))
+    handOffToChat({ model: selectedModel || '', mcpMode: false, newChat: true })
     navigate('/app/chat')
   }, [navigate, selectedModel])
 

@@ -558,16 +558,36 @@ test.describe('Home first run', () => {
 })
 
 test.describe('Home send hand-off', () => {
+  // The hand-off is checked where it takes effect: the conversation the Chat
+  // page opens from it (as Chat stores it) and the request that chat sends.
+  let requests
+  const seeded = new Set(sampleChats().map(c => c.id))
+
   async function record(page) {
-    await page.addInitScript(() => {
-      window.__handoff = null
-      const set = Storage.prototype.setItem
-      Storage.prototype.setItem = function (key, value) {
-        if (key === 'localai_index_chat_data') window.__handoff = JSON.parse(value)
-        return set.call(this, key, value)
-      }
+    requests = []
+    await page.route('**/v1/chat/completions', route => {
+      requests.push(route.request().postDataJSON())
+      return route.fulfill({ status: 200, contentType: 'text/event-stream', body: 'data: [DONE]\n\n' })
     })
   }
+
+  // The new conversation Chat opened (not one of the seeded ones).
+  async function openedChat(page) {
+    let chat = null
+    await expect.poll(async () => {
+      const stored = await storedChats(page)
+      chat = (stored.chats || []).find(c => c.id === stored.activeChatId) || null
+      return !!chat && !seeded.has(chat.id)
+    }).toBe(true)
+    return chat
+  }
+
+  async function sentRequest() {
+    await expect.poll(() => requests.length).toBe(1)
+    return requests[0]
+  }
+
+  const lastUser = body => body.messages.filter(m => m.role === 'user').at(-1)
 
   test.beforeEach(async ({ page }) => {
     await mockHome(page)
@@ -583,16 +603,19 @@ test.describe('Home send hand-off', () => {
     await expect(send).toBeEnabled()
     await send.click()
     await expect(page).toHaveURL(/\/app\/chat\/qwen3-8b-instruct/)
-    const handoff = await page.evaluate(() => window.__handoff)
-    expect(handoff).toMatchObject({
-      message: 'Compare the release plans',
+    const body = await sentRequest()
+    expect(body.model).toBe('qwen3-8b-instruct')
+    // No attachments: the message goes as plain text.
+    expect(lastUser(body).content).toBe('Compare the release plans')
+    expect(body.metadata?.mcp_servers).toBeUndefined()
+    const chat = await openedChat(page)
+    expect(chat).toMatchObject({
       model: 'qwen3-8b-instruct',
-      newChat: true,
       mcpMode: false,
       mcpServers: [],
       clientMCPServers: [],
-      files: [],
     })
+    expect(chat.history[0]).toMatchObject({ role: 'user', content: 'Compare the release plans' })
   })
 
   test('Enter sends and Shift+Enter adds a line', async ({ page }) => {
@@ -604,7 +627,7 @@ test.describe('Home send hand-off', () => {
     await expect(box).toHaveValue('first\nsecond')
     await box.press('Enter')
     await expect(page).toHaveURL(/\/app\/chat\//)
-    expect((await page.evaluate(() => window.__handoff)).message).toBe('first\nsecond')
+    expect(lastUser(await sentRequest()).content).toBe('first\nsecond')
   })
 
   test('the picked model travels with it', async ({ page }) => {
@@ -614,7 +637,8 @@ test.describe('Home send hand-off', () => {
     await page.locator('.home-textarea').fill('hello')
     await page.locator('.home-send-btn').click()
     await expect(page).toHaveURL(/\/app\/chat\/gemma-4-e4b-it-qat-q4_0/)
-    expect((await page.evaluate(() => window.__handoff)).model).toBe('gemma-4-e4b-it-qat-q4_0')
+    expect((await sentRequest()).model).toBe('gemma-4-e4b-it-qat-q4_0')
+    expect((await openedChat(page)).model).toBe('gemma-4-e4b-it-qat-q4_0')
   })
 
   test('attachments travel with it', async ({ page }) => {
@@ -629,9 +653,11 @@ test.describe('Home send hand-off', () => {
     await page.locator('.home-textarea').fill('Summarise')
     await page.locator('.home-send-btn').click()
     await expect(page).toHaveURL(/\/app\/chat\//)
-    const handoff = await page.evaluate(() => window.__handoff)
-    expect(handoff.files).toHaveLength(1)
-    expect(handoff.files[0]).toMatchObject({ name: 'notes.txt', textContent: 'Meeting notes' })
+    const parts = lastUser(await sentRequest()).content
+    expect(parts[0]).toEqual({ type: 'text', text: 'Summarise' })
+    // Exactly the one file, with its text.
+    expect(parts.slice(1)).toHaveLength(1)
+    expect(parts[1].text).toContain('--- File: notes.txt ---\nMeeting notes\n')
   })
 
   test('an attachment can be removed before sending', async ({ page }) => {
@@ -658,7 +684,8 @@ test.describe('Home send hand-off', () => {
     await page.locator('.home-textarea').fill('use the tool')
     await page.locator('.home-send-btn').click()
     await expect(page).toHaveURL(/\/app\/chat\//)
-    expect((await page.evaluate(() => window.__handoff)).mcpServers).toEqual(['ordino'])
+    expect((await sentRequest()).metadata?.mcp_servers).toBe('ordino')
+    expect((await openedChat(page)).mcpServers).toEqual(['ordino'])
   })
 
   test('the assistant line opens a chat in assistant mode and then steps aside', async ({ page }) => {
@@ -667,8 +694,8 @@ test.describe('Home send hand-off', () => {
     await expect(tip).toContainText('Manage LocalAI by chatting')
     await tip.getByRole('button', { name: 'Open assistant' }).click()
     await expect(page).toHaveURL(/\/app\/chat$/)
-    const handoff = await page.evaluate(() => window.__handoff)
-    expect(handoff).toMatchObject({ localaiAssistant: true, newChat: true })
+    // A new conversation, already in assistant mode.
+    expect((await openedChat(page)).localaiAssistant).toBe(true)
   })
 
   test('the assistant line can be dismissed and stays dismissed', async ({ page }) => {

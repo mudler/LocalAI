@@ -38,6 +38,7 @@ import LoadCard from '../components/chat/LoadCard'
 // eslint-disable-next-line no-unused-vars
 import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 import { conversationsFromChats } from '../utils/homeConversations'
+import { takeChatHandoff } from '../utils/chatHandoff'
 import { applyFind, clearFind } from '../components/chat/findInThread'
 // eslint-disable-next-line no-unused-vars
 import HomeUndoToast from '../components/home/HomeUndoToast'
@@ -488,12 +489,10 @@ function ChatPage() {
   const homeDataProcessed = useRef(false)
   useEffect(() => {
     if (homeDataProcessed.current) return
-    const stored = localStorage.getItem('localai_index_chat_data')
-    if (stored) {
+    const data = takeChatHandoff()
+    if (data) {
       homeDataProcessed.current = true
       try {
-        const data = JSON.parse(stored)
-        localStorage.removeItem('localai_index_chat_data')
 
         // Three entry shapes from Home:
         //   - "compose-and-send": data.message present → open new chat,
