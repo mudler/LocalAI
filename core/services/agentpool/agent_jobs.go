@@ -900,6 +900,7 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 
 	// Create LLM client
 	defaultLLM := clients.NewLocalAILLM(modelConfig.Name, apiKey, "http://127.0.0.1:"+port)
+	modelConfig.ApplyAgentGenerationCap(defaultLLM)
 
 	// Initialize traces slice
 	job.Traces = []schema.JobTrace{}

@@ -294,6 +294,126 @@ class TestSglangHelpers(unittest.TestCase):
         params = servicer._build_sampling_params(request)
         self.assertNotIn("custom_params", params)
 
+    def test_omitted_max_tokens_does_not_cap_generation(self):
+        """A request without max_tokens (Tokens=0) must not get a hidden
+        200-token cap. None makes sglang generate until the context is full,
+        as its own OpenAI server does."""
+        from types import SimpleNamespace
+
+        servicer = self._servicer()
+        request = SimpleNamespace(
+            Temperature=0.7, N=0, PresencePenalty=0, FrequencyPenalty=0,
+            RepetitionPenalty=0, TopP=0, TopK=0, MinP=0, Seed=0,
+            StopPrompts=[], StopTokenIds=[], IgnoreEOS=False, Tokens=0,
+            MinTokens=0, SkipSpecialTokens=False, Grammar="",
+        )
+        params = servicer._build_sampling_params(request)
+        self.assertIn("max_new_tokens", params)
+        self.assertIsNone(params["max_new_tokens"])
+
+    def test_omitted_max_tokens_passes_sglang_validation(self):
+        """The None default must survive sglang's own SamplingParams checks."""
+        from types import SimpleNamespace
+        from sglang.srt.sampling.sampling_params import SamplingParams
+
+        servicer = self._servicer()
+        request = SimpleNamespace(
+            Temperature=0.7, N=0, PresencePenalty=0, FrequencyPenalty=0,
+            RepetitionPenalty=0, TopP=0, TopK=0, MinP=0, Seed=0,
+            StopPrompts=[], StopTokenIds=[], IgnoreEOS=False, Tokens=0,
+            MinTokens=0, SkipSpecialTokens=False, Grammar="",
+        )
+        params = SamplingParams(**servicer._build_sampling_params(request))
+        params.verify(vocab_size=32000)
+        self.assertIsNone(params.max_new_tokens)
+
+    def test_requested_max_tokens_is_passed_through(self):
+        from types import SimpleNamespace
+
+        servicer = self._servicer()
+        request = SimpleNamespace(
+            Temperature=0.7, N=0, PresencePenalty=0, FrequencyPenalty=0,
+            RepetitionPenalty=0, TopP=0, TopK=0, MinP=0, Seed=0,
+            StopPrompts=[], StopTokenIds=[], IgnoreEOS=False, Tokens=4000,
+            MinTokens=0, SkipSpecialTokens=False, Grammar="",
+        )
+        params = servicer._build_sampling_params(request)
+        self.assertEqual(params["max_new_tokens"], 4000)
+
+    def _sampling_request(self, metadata=None):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            Temperature=0.7, N=0, PresencePenalty=0, FrequencyPenalty=0,
+            RepetitionPenalty=0, TopP=0, TopK=0, MinP=0, Seed=0,
+            StopPrompts=[], StopTokenIds=[], IgnoreEOS=False, Tokens=0,
+            MinTokens=0, SkipSpecialTokens=False, Grammar="",
+            Metadata=metadata or {},
+        )
+
+    def test_effort_budgets_parse(self):
+        """`low=512;medium=2048;high=8192` -> per-level dict; bad entries are skipped."""
+        servicer = self._servicer()
+        self.assertEqual(
+            servicer._parse_effort_budgets("low=512; Medium=2048.0;high=8192"),
+            {"low": 512, "medium": 2048, "high": 8192},
+        )
+        self.assertEqual(servicer._parse_effort_budgets("low=abc;medium;=5;high=0;xhigh=100"), {"xhigh": 100})
+        self.assertEqual(servicer._parse_effort_budgets(None), {})
+        self.assertEqual(servicer._parse_effort_budgets(""), {})
+        self.assertEqual(servicer._parse_effort_budgets(";;low=512;"), {"low": 512})
+
+    def test_effort_budgets_empty_value_warns(self):
+        """`high=` is skipped like any other invalid entry, and says so."""
+        import contextlib
+        import io
+
+        servicer = self._servicer()
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(servicer._parse_effort_budgets("high=;max=16384"), {"max": 16384})
+        self.assertIn("'high='", err.getvalue())
+
+    def test_effort_level_selects_its_budget(self):
+        """The request's reasoning_effort (Metadata, forwarded by the Go side)
+        picks its own budget, so low/medium/high stop being identical."""
+        servicer = self._servicer()
+        servicer.thinking_budget = 256
+        servicer.effort_budgets = {"low": 512, "medium": 2048, "high": 8192, "xhigh": 16384, "max": 32768}
+        for level, budget in (("low", 512), ("medium", 2048), ("HIGH", 8192), ("xhigh", 16384), ("max", 32768)):
+            params = servicer._build_sampling_params(self._sampling_request({"reasoning_effort": level}))
+            self.assertEqual(params["custom_params"], {"thinking_budget": budget}, level)
+
+    def test_listed_effort_turns_thinking_on_despite_default_off(self):
+        """A request that carries only reasoning_effort (no enable_thinking) for a
+        level listed in effort_budgets must think instead of falling to default off."""
+        servicer = self._servicer()
+        servicer.reasoning_default = "off"
+        servicer.effort_budgets = {"xhigh": 16384, "max": 16384}
+        self.assertTrue(servicer._thinking_default(_request(metadata={"reasoning_effort": "xhigh"})))
+        self.assertTrue(servicer._thinking_default(_request(metadata={"reasoning_effort": "max"})))
+        self.assertFalse(servicer._thinking_default(_request(metadata={"reasoning_effort": "ultra"})))
+        self.assertFalse(servicer._thinking_default(
+            _request(metadata={"reasoning_effort": "xhigh", "enable_thinking": "false"})))
+
+    def test_effort_without_entry_falls_back_to_thinking_budget(self):
+        servicer = self._servicer()
+        servicer.thinking_budget = 256
+        servicer.effort_budgets = {"high": 8192}
+        for metadata in ({}, {"reasoning_effort": "low"}, {"reasoning_effort": ""}):
+            params = servicer._build_sampling_params(self._sampling_request(metadata))
+            self.assertEqual(params["custom_params"], {"thinking_budget": 256}, metadata)
+
+    def test_effort_budgets_alone_without_default(self):
+        """Only levels in the map get a budget; others stay unconfigured (no key)."""
+        servicer = self._servicer()
+        servicer.effort_budgets = {"low": 512}
+        self.assertEqual(
+            servicer._build_sampling_params(self._sampling_request({"reasoning_effort": "low"}))["custom_params"],
+            {"thinking_budget": 512},
+        )
+        self.assertNotIn("custom_params", servicer._build_sampling_params(self._sampling_request({"reasoning_effort": "high"})))
+
     def test_thinking_budget_accepts_integral_spellings(self):
         """YAML options arrive as strings; "512" and "512.0" both mean 512."""
         servicer = self._servicer()
@@ -327,6 +447,16 @@ class TestSglangHelpers(unittest.TestCase):
         )
         self.assertIsNone(servicer._strict_thinking_warning(512, {"enable_strict_thinking": True}))
         self.assertIsNone(servicer._strict_thinking_warning(None, {}))
+
+    def test_warns_when_only_effort_budgets_are_set(self):
+        """A model with effort_budgets but no thinking_budget still needs strict thinking."""
+        servicer = self._servicer()
+        servicer.thinking_budget = None
+        servicer.effort_budgets = {"low": 256, "max": 16384}
+        self.assertEqual(servicer._configured_budget(), 16384)
+        self.assertIn("enable_strict_thinking", servicer._strict_thinking_warning(servicer._configured_budget(), {}))
+        servicer.effort_budgets = {}
+        self.assertIsNone(servicer._configured_budget())
 
     def test_explicit_zero_temperature_and_seed_are_preserved(self):
         """Temperature=0 is greedy decoding and 0 is a valid seed — neither is

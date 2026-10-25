@@ -100,6 +100,12 @@ var instructionDefs = []instructionDef{
 		Intro:       "POST /3d/generations accepts a conditioning image as public URL, base64, or data URI (no text prompt) and returns one .glb asset as a URL under /generated-3d or as b64_json. quality selects the mesh pipeline (auto|coarse|512|1024); background controls solid-background removal (auto|keep|black|white); step, texture_steps, and cfg_scale tune the flow sampling. POST /3d/remesh accepts multipart model, mesh (GLB), and a single detail percentage to return a watertight print-ready GLB; the enclosing offset is derived automatically. POST /3d/animate accepts named inputs with type and data, plus string-valued params. Consult the selected model's three_d_operations from /v1/models/capabilities for its required inputs, parameters, and output type. Kimodo produces text-conditioned animated skeletons without a mesh or skin; animation inputs are not universally text-only.",
 	},
 	{
+		Name:        "forecast",
+		Description: "Time-series forecasting: quantile trajectories for numeric series, with optional covariates",
+		Tags:        []string{"forecast"},
+		Intro:       "POST /v1/forecast accepts { model, prediction_length, series: [{ id, target, past_covariates, known_covariates, past_categorical, known_categorical }], quantiles, max_context }. target is [variates][steps], or a flat array for one variate; null marks a missing value. known_* rows hold steps + prediction_length values. Series of different shapes may share one request: the response keeps the request order. quantiles defaults to 0.1, 0.5 and 0.9 and must be levels the model was trained on. Forecast models serve this route only; they do not appear as chat models. CPU only.",
+	},
+	{
 		Name:        "face-recognition",
 		Description: "Face verification (1:1), identification (1:N), embedding, and demographic analysis",
 		Tags:        []string{"face-recognition"},

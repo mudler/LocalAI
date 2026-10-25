@@ -735,6 +735,23 @@ func (c *Client) Depth(ctx context.Context, in *pb.DepthRequest, opts ...grpc.Ca
 	return client.Depth(ctx, in, opts...)
 }
 
+func (c *Client) Forecast(ctx context.Context, in *pb.ForecastRequest, opts ...grpc.CallOption) (*pb.ForecastResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.Forecast(ctx, in, opts...)
+}
+
 func (c *Client) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts ...grpc.CallOption) (*pb.FaceVerifyResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

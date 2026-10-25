@@ -569,13 +569,13 @@ func (c DistributedConfig) HealthCheckIntervalOrDefault() time.Duration {
 	return cmp.Or(c.HealthCheckInterval, DefaultHealthCheckInterval)
 }
 
-// StaleNodeThresholdOrDefault returns the configured threshold or the default.
 // ModelConfigResyncIntervalOrDefault returns the configured interval or the
 // default.
 func (c DistributedConfig) ModelConfigResyncIntervalOrDefault() time.Duration {
 	return cmp.Or(c.ModelConfigResyncInterval, DefaultModelConfigResyncInterval)
 }
 
+// StaleNodeThresholdOrDefault returns the configured threshold or the default.
 func (c DistributedConfig) StaleNodeThresholdOrDefault() time.Duration {
 	return cmp.Or(c.StaleNodeThreshold, DefaultStaleNodeThreshold)
 }

@@ -161,7 +161,9 @@ test.describe('Edit a task', () => {
     await page.getByTestId('task-preview-open').click()
     const sheet = page.getByTestId('task-preview')
     await expect(sheet.getByTestId('task-preview-prompt')).toContainText('Summarise overnight news about local inference in bullet points format. Keep it to 8 items.')
+    // Switching tabs re-renders the page; focus stays on the tab.
     await sheet.getByRole('tab', { name: /Changes/ }).click()
+    await expect(sheet.getByRole('tab', { name: /Changes/ })).toBeFocused()
     const changes = sheet.getByTestId('task-preview-changes')
     await expect(changes.locator('[data-key="cron"]')).toContainText('0 7 * * *')
     await expect(changes.locator('[data-key="cron"]')).toContainText('0 8 * * *')

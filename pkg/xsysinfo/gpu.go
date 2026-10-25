@@ -1085,13 +1085,17 @@ func GetResourceInfo() ResourceInfo {
 	gpus := GetGPUMemoryUsage()
 
 	if len(gpus) > 0 {
-		// GPU available - return GPU info
+		// GPU available - return GPU info, plus system RAM for the UI and CPU offload (#12834)
 		aggregate := GetGPUAggregateInfo()
+		ramInfo, err := GetSystemRAMInfo()
+		if err != nil {
+			xlog.Debug("failed to get system RAM info", "error", err)
+		}
 		return ResourceInfo{
 			Type:      "gpu",
 			Available: true,
 			GPUs:      gpus,
-			RAM:       nil,
+			RAM:       ramInfo,
 			Aggregate: AggregateMemoryInfo{
 				TotalMemory:  aggregate.TotalVRAM,
 				UsedMemory:   aggregate.UsedVRAM,

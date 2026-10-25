@@ -68,6 +68,7 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 | `--addons-owner-address` | | `https://host:port` of the add-on owner carrier, with no path. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_OWNER_ADDRESS` |
 | `--addons-owner-listen` | | `owner` role only: the address the carrier listens on. Empty listens on all interfaces, on the port of `--addons-owner-address` | `$LOCALAI_ADDONS_OWNER_LISTEN` |
 | `--addons-carrier-dir` | | Directory with the carrier key set from `local-ai util addons-carrier-keys`. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_CARRIER_DIR` |
+| `--max-concurrent-backend-operations` | `1` | How many backend install, upgrade and delete operations run at once. `1` runs them one after the other. Operations on the same backend always run one at a time. In distributed mode it also bounds how many nodes one operation is sent to at the same time | `$LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS` |
 | `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only — a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
 
 Backend processes receive a private scratch directory through `TMPDIR`, `TMP`,
@@ -120,8 +121,23 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--f16` | `false` | Enable GPU acceleration | `$LOCALAI_F16`, `$F16` |
-| `-t, --threads` | | Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested | `$LOCALAI_THREADS`, `$THREADS` |
+| `-t, --threads` | Automatic | Number of threads used for parallel computation. See the default thread count below | `$LOCALAI_THREADS`, `$THREADS` |
 | `--context-size` | | Default context size for models (`-1` = each model's full trained context from GGUF metadata) | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
+
+### Default thread count
+
+When the server thread setting is unset or zero, LocalAI selects the smaller
+of the physical core count and Go's current `GOMAXPROCS` value at startup.
+The result is at least one thread.
+
+By default, Go accounts for CPU affinity and Linux container CPU quotas.
+For example, `docker run --cpus=2` limits the automatic default to two threads.
+Go normally applies a minimum of two for CPU quotas, so `--cpus=1` can still
+produce two threads. Set `--threads=1` if you need one inference thread.
+
+An explicit `GOMAXPROCS` value overrides Go's automatic CPU detection.
+A nonzero server thread setting from the CLI, environment, or saved runtime
+settings bypasses this automatic default.
 
 ## API Flags
 

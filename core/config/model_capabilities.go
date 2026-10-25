@@ -169,6 +169,7 @@ func (c *ModelConfig) Capabilities() []string {
 	add(c.HasUsecases(FLAG_VAD), UsecaseVAD)
 	add(c.HasUsecases(FLAG_DETECTION), UsecaseDetection)
 	add(c.HasUsecases(FLAG_DEPTH), UsecaseDepth)
+	add(c.HasUsecases(FLAG_FORECAST), UsecaseForecast)
 	add(c.HasUsecases(FLAG_AUDIO_TRANSFORM), UsecaseAudioTransform)
 	add(c.HasUsecases(FLAG_DIARIZATION), UsecaseDiarization)
 	add(c.HasUsecases(FLAG_SOUND_CLASSIFICATION), UsecaseSoundClassification)

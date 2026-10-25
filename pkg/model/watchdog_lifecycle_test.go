@@ -4,6 +4,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -19,6 +20,24 @@ type watchdogLifecycleBackend struct{ grpc.Backend }
 
 func (*watchdogLifecycleBackend) IsBusy() bool               { return false }
 func (*watchdogLifecycleBackend) Free(context.Context) error { return nil }
+
+// lockTimeoutManager behaves like a ModelLoader whose stop cannot get the
+// model's lifecycle lock: it fails without touching the store. It embeds the
+// loader so HasModelAtAddress still reports real residency.
+type lockTimeoutManager struct{ *ModelLoader }
+
+func (lockTimeoutManager) ShutdownModel(string) error      { return errLockTimeout }
+func (lockTimeoutManager) ShutdownModelForce(string) error { return errLockTimeout }
+func (lockTimeoutManager) ShutdownModelAtAddress(string, string, bool) error {
+	return errLockTimeout
+}
+
+var errLockTimeout = errors.New("waiting to shut down model: context deadline exceeded")
+
+// failingUnloader fails every remote unload, like an unreachable worker.
+type failingUnloader struct{ err error }
+
+func (u failingUnloader) UnloadRemoteModel(string) error { return u.err }
 
 var _ = Describe("Watchdog backend lifecycle", func() {
 	var loader *ModelLoader
@@ -98,6 +117,59 @@ var _ = Describe("Watchdog backend lifecycle", func() {
 		Entry("graceful", false),
 		Entry("forced", true),
 	)
+
+	Describe("a failed stop", func() {
+		// deleteProcess drops a remote-only model from the store and the
+		// watchdog before it reports that the remote unload failed, so the
+		// watchdog must not track it again: nothing local holds it anymore.
+		It("does not track a remote-only model the loader already dropped", func() {
+			loader.SetRemoteUnloader(failingUnloader{err: errors.New("worker unreachable")})
+			loader.store.Set("model", NewModelWithClient("model", "remote", &watchdogLifecycleBackend{}))
+			wd.AddAddressModelMap("remote", "model")
+			wd.TrackRequest("remote")()
+
+			targets, _ := wd.collectEvictionsLocked([]modelUsageInfo{{model: "model", address: "remote"}}, 1, false)
+			stopped := wd.shutdownEvictedStopped(targets, "test")
+
+			Expect(stopped).To(Equal(0), "the unload failed, it is not counted as stopped")
+			_, ok := loader.store.Get("model")
+			Expect(ok).To(BeFalse())
+			Expect(wd.GetState().AddressModelMap).To(BeEmpty(), "no phantom entry for a model the loader dropped")
+		})
+
+		It("tracks a model again when the loader still holds it", func() {
+			loader.store.Set("model", NewModelWithClient("model", "current", &watchdogLifecycleBackend{}))
+			wd.AddAddressModelMap("current", "model")
+			wd.TrackRequest("current")()
+
+			// A stop that cannot get the model's lifecycle lock leaves the store
+			// entry intact. The real loader would wait out its 30s deadline, so
+			// the wrapper returns that failure immediately.
+			wd.pm = lockTimeoutManager{ModelLoader: loader}
+
+			targets, _ := wd.collectEvictionsLocked([]modelUsageInfo{{model: "model", address: "current"}}, 1, false)
+			Expect(wd.GetState().AddressModelMap).To(BeEmpty(), "untracked before the stop")
+
+			stopped := wd.shutdownEvictedStopped(targets, "test")
+
+			Expect(stopped).To(Equal(0))
+			Expect(wd.GetState().AddressModelMap).To(HaveKeyWithValue("current", "model"),
+				"the loader still holds the backend, so it may still run")
+		})
+
+		It("memory reclaimer does not keep a remote-only model the loader dropped", func() {
+			loader.SetRemoteUnloader(failingUnloader{err: errors.New("worker unreachable")})
+			loader.store.Set("model", NewModelWithClient("model", "remote", &watchdogLifecycleBackend{}))
+			wd.AddAddressModelMap("remote", "model")
+			wd.TrackRequest("remote")()
+
+			wd.evictLRUModel()
+
+			_, ok := loader.store.Get("model")
+			Expect(ok).To(BeFalse())
+			Expect(wd.GetState().AddressModelMap).To(BeEmpty())
+		})
+	})
 
 	It("keeps replacement tracking when an old process cleanup arrives late", func() {
 		oldProcess := process.New()

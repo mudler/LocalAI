@@ -256,7 +256,7 @@ var digestForm = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 // the same pinned path: the signature is verified against that digest and the
 // metadata records it, so an update check can compare it later.
 func (i *Installer) plan(ctx context.Context, r catalog.Release) (*gallery.GalleryBackend, error) {
-	if r.EntryKind() != catalog.KindBackend || !strings.HasPrefix(r.Artifact, "oci://") || (r.Mutable != (r.Digest == "")) || (!r.Mutable && !digestForm.MatchString(r.Digest)) {
+	if r.EntryKind() != catalog.KindBackend {
 		return nil, ErrInvalid
 	}
 	target, arch := i.Catalog.Target()
@@ -266,19 +266,12 @@ func (i *Installer) plan(ctx context.Context, r catalog.Release) (*gallery.Galle
 	if i.RequireIntegrity && !r.Policy.RequireSignature {
 		return nil, fmt.Errorf("%w (library %q)", ErrIntegrity, r.SourceID)
 	}
-	ref, err := name.ParseReference(strings.TrimPrefix(r.Artifact, "oci://"))
+	// The shared pin: a mutable entry's tag is resolved to a digest here.
+	pin, err := catalog.Pin(ctx, r, i.digestOf)
 	if err != nil {
-		return nil, ErrInvalid
+		return nil, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
-	digest, version := r.Digest, r.Version
-	if r.Mutable {
-		d, err := i.digestOf(ctx, ref.Name(), r.OS+"/"+r.Arch)
-		if err != nil || !digestForm.MatchString(d) {
-			return nil, fmt.Errorf("%w: resolving %s: %v", ErrInvalid, ref.Name(), err)
-		}
-		digest = d
-		version = r.Version + "." + strings.TrimPrefix(d, "sha256:")[:12]
-	}
+	ref, digest, version := pin.Ref, pin.Digest, pin.Version
 	gb := &gallery.GalleryBackend{
 		URI:      "oci://" + ref.Context().Digest(digest).Name(),
 		Version:  version,

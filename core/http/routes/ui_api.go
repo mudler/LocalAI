@@ -60,6 +60,7 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseEmbeddings:          config.FLAG_EMBEDDINGS,
 	config.UsecaseRerank:              config.FLAG_RERANK,
 	config.UsecaseDetection:           config.FLAG_DETECTION,
+	config.UsecaseForecast:            config.FLAG_FORECAST,
 	config.UsecaseVAD:                 config.FLAG_VAD,
 	config.UsecaseAudioTransform:      config.FLAG_AUDIO_TRANSFORM,
 	config.UsecaseDiarization:         config.FLAG_DIARIZATION,

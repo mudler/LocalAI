@@ -203,6 +203,12 @@ func (c *InFlightTrackingClient) Depth(ctx context.Context, in *pb.DepthRequest,
 	return res, c.reconcile(err)
 }
 
+func (c *InFlightTrackingClient) Forecast(ctx context.Context, in *pb.ForecastRequest, opts ...ggrpc.CallOption) (*pb.ForecastResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.inner.Forecast(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
 func (c *InFlightTrackingClient) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...ggrpc.CallOption) (*pb.RerankResult, error) {
 	defer c.track(ctx)()
 	res, err := c.inner.Rerank(ctx, in, opts...)
