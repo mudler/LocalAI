@@ -1,0 +1,470 @@
+package store
+
+import (
+	"bufio"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"sync"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/studio/session"
+)
+
+// jsonStore keeps chats in memory and, when it has a directory, mirrors them to
+// files: one small record file per chat (rewritten atomically) and one
+// append-only transcript file per chat. One process owns the directory: the
+// lock below is in-process only, so two LocalAI processes must not share it.
+// A cluster uses the GORM store.
+type jsonStore struct {
+	mu    sync.Mutex
+	dir   string // empty: memory only
+	chats map[string]*chatState
+}
+
+type chatState struct {
+	Rec         session.ChatRecord `json:"rec"`
+	Pending     []Pending          `json:"pending"`
+	NextPending int64              `json:"next_pending"`
+	Run         string             `json:"run,omitempty"`
+	RunSince    time.Time          `json:"run_since,omitempty"`
+	Last        TurnStatus         `json:"last,omitempty"`
+
+	entries []session.Entry
+}
+
+// NewJSON returns a Store. With an empty dir it keeps everything in memory and
+// loses it on exit. With a directory it creates it, loads what is there, and
+// writes every change.
+func NewJSON(dir string) (Store, error) {
+	s := &jsonStore{dir: dir, chats: map[string]*chatState{}}
+	if dir == "" {
+		return s, nil
+	}
+	if err := os.MkdirAll(s.chatDir(), 0o700); err != nil {
+		return nil, err
+	}
+	names, err := filepath.Glob(filepath.Join(s.chatDir(), "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range names {
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+		var c chatState
+		if err := json.Unmarshal(raw, &c); err != nil {
+			return nil, fmt.Errorf("studio store: read %s: %w", p, err)
+		}
+		if c.Run != "" {
+			// The process that held the claim is gone; the turn did not finish.
+			c.Run, c.Last = "", TurnInterrupted
+		}
+		if err := s.loadEntries(&c); err != nil {
+			return nil, err
+		}
+		s.chats[c.Rec.ID] = &c
+	}
+	return s, nil
+}
+
+func (s *jsonStore) chatDir() string { return filepath.Join(s.dir, "chats") }
+
+func (s *jsonStore) file(id, ext string) string {
+	return filepath.Join(s.chatDir(), base64.RawURLEncoding.EncodeToString([]byte(id))+ext)
+}
+
+func (s *jsonStore) loadEntries(c *chatState) error {
+	f, err := os.Open(s.file(c.Rec.ID, ".entries"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	for sc.Scan() {
+		var e session.Entry
+		if err := json.Unmarshal(sc.Bytes(), &e); err != nil {
+			return fmt.Errorf("studio store: read transcript of %s: %w", c.Rec.ID, err)
+		}
+		c.entries = append(c.entries, e)
+	}
+	return sc.Err()
+}
+
+// save rewrites the record file of c atomically.
+func (s *jsonStore) save(c *chatState) error {
+	if s.dir == "" {
+		return nil
+	}
+	raw, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(s.chatDir(), ".tmp-*")
+	if err != nil {
+		return err
+	}
+	_, werr := tmp.Write(raw)
+	cerr := tmp.Close()
+	if werr != nil || cerr != nil {
+		_ = os.Remove(tmp.Name())
+		return errors.Join(werr, cerr)
+	}
+	return os.Rename(tmp.Name(), s.file(c.Rec.ID, ".json"))
+}
+
+// get returns the chat when principal owns it. The caller holds s.mu.
+func (s *jsonStore) get(principal, id string) (*chatState, error) {
+	c, ok := s.chats[id]
+	if !ok || c.Rec.Principal != principal {
+		return nil, session.ErrNotFound
+	}
+	return c, nil
+}
+
+func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.chats[rec.ID]; ok {
+		return session.ErrExists
+	}
+	c := &chatState{Rec: rec}
+	if err := s.save(c); err != nil {
+		return err
+	}
+	s.chats[rec.ID] = c
+	return nil
+}
+
+func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.ChatRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return session.ChatRecord{}, err
+	}
+	return cloneRec(c.Rec), nil
+}
+
+func cloneRec(r session.ChatRecord) session.ChatRecord {
+	r.HarnessState = append([]byte(nil), r.HarnessState...)
+	return r
+}
+
+func (s *jsonStore) ListChats(_ context.Context, principal string, before session.ChatCursor, limit int) ([]session.ChatRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []session.ChatRecord
+	for _, c := range s.chats {
+		r := c.Rec
+		if r.Principal != principal {
+			continue
+		}
+		if !before.Updated.IsZero() {
+			older := r.Updated.Before(before.Updated) || (r.Updated.Equal(before.Updated) && r.ID < before.ID)
+			if !older {
+				continue
+			}
+		}
+		out = append(out, cloneRec(r))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].Updated.Equal(out[j].Updated) {
+			return out[i].Updated.After(out[j].Updated)
+		}
+		return out[i].ID > out[j].ID
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(rec.Principal, rec.ID)
+	if err != nil {
+		return err
+	}
+	next := *c
+	next.Rec.Title, next.Rec.Folder, next.Rec.Snapshot = rec.Title, rec.Folder, rec.Snapshot
+	next.Rec.HarnessState = append([]byte(nil), rec.HarnessState...)
+	next.Rec.Turns, next.Rec.Updated = rec.Turns, rec.Updated
+	next.Rec.Status, next.Rec.Summary = rec.Status, rec.Summary
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Rec = next.Rec
+	return nil
+}
+
+func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, err := s.get(principal, id); err != nil {
+		return err
+	}
+	if s.dir != "" {
+		for _, ext := range []string{".json", ".entries"} {
+			if err := os.Remove(s.file(id, ext)); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+		}
+	}
+	delete(s.chats, id)
+	return nil
+}
+
+func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.chats[id]
+	if !ok {
+		return session.ErrNotFound
+	}
+	e.Seq = int64(len(c.entries) + 1)
+	if e.At.IsZero() {
+		e.At = time.Now().UTC()
+	}
+	e.Dur = e.Dur.Truncate(time.Millisecond) // stores keep it to the millisecond
+	if s.dir != "" {
+		raw, err := json.Marshal(e)
+		if err != nil {
+			return err
+		}
+		f, err := os.OpenFile(s.file(id, ".entries"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		_, werr := f.Write(append(raw, '\n'))
+		if cerr := f.Close(); werr == nil {
+			werr = cerr
+		}
+		if werr != nil {
+			return werr
+		}
+	}
+	c.entries = append(c.entries, e)
+	return nil
+}
+
+func (s *jsonStore) Entries(_ context.Context, id string, after int64, limit int) ([]session.Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.chats[id]
+	if !ok {
+		return nil, session.ErrNotFound
+	}
+	var out []session.Entry
+	for _, e := range c.entries {
+		if e.Seq > after {
+			out = append(out, e)
+		}
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (s *jsonStore) AddPending(_ context.Context, principal, id, text string) (Pending, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return Pending{}, err
+	}
+	next := *c
+	next.NextPending++
+	p := Pending{ID: fmt.Sprintf("p%d", next.NextPending), Text: text, Seq: next.NextPending, At: time.Now().UTC()}
+	next.Pending = append(append([]Pending(nil), c.Pending...), p)
+	if err := s.save(&next); err != nil {
+		return Pending{}, err
+	}
+	c.NextPending, c.Pending = next.NextPending, next.Pending
+	return p, nil
+}
+
+// undelivered returns the messages not yet delivered, in send order.
+func undelivered(ps []Pending) []Pending {
+	var out []Pending
+	for _, p := range ps {
+		if !p.Delivered {
+			out = append(out, p)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Seq < out[j].Seq })
+	return out
+}
+
+func (s *jsonStore) Pending(_ context.Context, principal, id string) ([]Pending, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return nil, err
+	}
+	return undelivered(c.Pending), nil
+}
+
+func indexOf(ps []Pending, id string) int {
+	for i := range ps {
+		if ps[i].ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func (s *jsonStore) EditPending(_ context.Context, principal, id, pendingID, text string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	i := indexOf(c.Pending, pendingID)
+	if i < 0 {
+		return session.ErrNotFound
+	}
+	if c.Pending[i].Delivered {
+		return ErrDelivered
+	}
+	next := *c
+	next.Pending = append([]Pending(nil), c.Pending...)
+	next.Pending[i].Text = text
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Pending = next.Pending
+	return nil
+}
+
+func (s *jsonStore) CancelPending(_ context.Context, principal, id, pendingID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	i := indexOf(c.Pending, pendingID)
+	if i < 0 {
+		return session.ErrNotFound
+	}
+	if c.Pending[i].Delivered {
+		return ErrDelivered
+	}
+	next := *c
+	next.Pending = append(append([]Pending(nil), c.Pending[:i]...), c.Pending[i+1:]...)
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Pending = next.Pending
+	return nil
+}
+
+func (s *jsonStore) TakePending(_ context.Context, principal, id string) ([]Pending, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return nil, err
+	}
+	taken := undelivered(c.Pending)
+	if len(taken) == 0 {
+		return nil, nil
+	}
+	next := *c
+	next.Pending = append([]Pending(nil), c.Pending...)
+	for i := range next.Pending {
+		next.Pending[i].Delivered = true
+	}
+	if err := s.save(&next); err != nil {
+		return nil, err
+	}
+	c.Pending = next.Pending
+	for i := range taken {
+		taken[i].Delivered = true
+	}
+	return taken, nil
+}
+
+func (s *jsonStore) RestorePending(_ context.Context, principal, id string, ids []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	next := *c
+	next.Pending = append([]Pending(nil), c.Pending...)
+	for _, pid := range ids {
+		if i := indexOf(next.Pending, pid); i >= 0 {
+			next.Pending[i].Delivered = false
+		}
+	}
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Pending = next.Pending
+	return nil
+}
+
+func (s *jsonStore) ClaimTurn(_ context.Context, principal, id, runID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	if c.Run != "" {
+		return ErrTurnRunning
+	}
+	next := *c
+	next.Run, next.RunSince = runID, time.Now().UTC()
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Run, c.RunSince = next.Run, next.RunSince
+	return nil
+}
+
+func (s *jsonStore) ReleaseTurn(_ context.Context, principal, id, runID string, status TurnStatus) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	if c.Run == "" || c.Run != runID {
+		return ErrNotClaimed
+	}
+	next := *c
+	next.Run, next.RunSince, next.Last = "", time.Time{}, status
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Run, c.RunSince, c.Last = next.Run, next.RunSince, next.Last
+	return nil
+}
+
+func (s *jsonStore) Turn(_ context.Context, principal, id string) (TurnInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return TurnInfo{}, err
+	}
+	return TurnInfo{Running: c.Run != "", RunID: c.Run, Since: c.RunSince, Last: c.Last}, nil
+}

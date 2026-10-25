@@ -41,7 +41,22 @@ type ChatRecord struct {
 	Snapshot             *sandbox.SnapshotRef // set while the sandbox is suspended
 	HarnessState         []byte
 	Turns                int
+	// Kind is KindChat (empty counts as a chat) or KindSubAgent. ParentID is the
+	// chat that started a sub-agent run. Neither changes after CreateChat.
+	Kind     string
+	ParentID string
+	// Status is the last turn outcome ("", "done", "stopped", "failed",
+	// "interrupted"). Summary is the text of the last compaction, for display.
+	// UpdateChat replaces both.
+	Status  string
+	Summary string
 }
+
+// Chat kinds.
+const (
+	KindChat     = "chat"
+	KindSubAgent = "subagent"
+)
 
 // ChatCursor marks a position in the ListChats order. It is the (Updated, ID)
 // of the last record of the previous page. Chats that share an Updated value
