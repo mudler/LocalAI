@@ -4,6 +4,68 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-27b-imatrix-nvfp4-mtp
+  description: |
+    Qwen3.8-27B in cdiamond's iMatrix-calibrated mixed-precision NVFP4
+    build. Selected attention and feed-forward tensors retain higher
+    precision. Includes the F16 vision projector and enables the embedded
+    MTP draft head with one draft token per step.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/cdiamond/Qwen3.8-27B-iMatrix-NVFP4-MTP-GGUF
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+    - nvfp4
+    - mtp
+    - speculative
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-iMatrix-NVFP4-MTP.gguf
+      sha256: 15b6bb8d0eb15cb6b081c562f8daea86330ec64174cb0f9e1655f3d467484007
+      uri: https://huggingface.co/cdiamond/Qwen3.8-27B-iMatrix-NVFP4-MTP-GGUF/resolve/ac343e8f44caef0896f79d372ecc07ef7ab34ec8/Qwen3.8-27B-iMatrix-NVFP4-MTP.gguf
+    - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-iMatrix-F16.gguf
+      sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
+      uri: https://huggingface.co/cdiamond/Qwen3.8-27B-iMatrix-NVFP4-MTP-GGUF/resolve/ac343e8f44caef0896f79d372ecc07ef7ab34ec8/mmproj-Qwen3.8-27B-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-iMatrix-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:1
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-iMatrix-NVFP4-MTP.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  variants: []
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: bge-large-en-v1.5-f16
   description: |
     BGE-large-en-v1.5 is a 335M English embedding model for semantic search
@@ -8374,6 +8436,7 @@
   variants:
     - model: qwen3.8-27b-q4-mtp
     - model: qwen3.8-27b-nvfp4-mtp
+    - model: qwen3.8-27b-imatrix-nvfp4-mtp
     - model: qwen3.8-27b-ridge
     - model: qwen3.8-27b-gsq-rco-iq2-xs
     - model: qwen3.8-27b-gsq-rco-iq2-s
@@ -8490,7 +8553,7 @@
     known_usecases:
       - chat
       - vision
-    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
+    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-BF16.gguf
     options:
       - use_jinja:true
       - spec_type:draft-mtp
