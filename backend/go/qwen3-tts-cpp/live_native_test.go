@@ -28,7 +28,7 @@ var _ = Describe("TTSLiveNative", func() {
 		purego.RegisterLibFunc(&CppLoad, lib, "qt3_load")
 		purego.RegisterLibFunc(&CppUnload, lib, "qt3_unload")
 		purego.RegisterLibFunc(&CppTTSLive, lib, "qt3_tts_live")
-		if rc := CppLoad(os.Getenv("QWEN3TTS_MODEL"), os.Getenv("QWEN3TTS_CODEC"), 1, 0); rc != 0 {
+		if rc := CppLoad(os.Getenv("QWEN3TTS_MODEL"), os.Getenv("QWEN3TTS_CODEC"), 1, 0, 1); rc != 0 {
 			Fail(fmt.Sprint("load", rc))
 		}
 		defer CppUnload()

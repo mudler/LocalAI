@@ -50,6 +50,31 @@ results and rejects saved `localai://voice-profiles/...` references. It does
 not disable Qwen's named-speaker or VoiceDesign modes. Setting it to `true`
 cannot add cloning to a backend that lacks LocalAI's reference-audio contract.
 
+### Concurrent requests (`max_batch`)
+
+By default one request is synthesized at a time. `max_batch:N` (alias
+`parallel:N`) initializes qwentts with `max_batch = N`: its compute worker
+coalesces up to N concurrent `/v1/audio/speech` requests (streaming or not)
+into batched decode steps, and LocalAI stops serializing requests to the
+backend. Further requests queue FIFO inside qwentts.
+
+```yaml
+options:
+  - max_batch:4
+```
+
+Measured with the 1.7B Base Q4_K_M talker and four concurrent streaming
+requests (time to the first PCM chunk): RTX 5060 Ti 0.02/0.36/0.70/1.04 s with
+`max_batch:1`, 0.06 s for all four with `max_batch:4`. VRAM grows with N
+(about 2.6 GB at 1, 6 GB at 4, 10.5 GB at 8 for that talker).
+
+- Incremental synthesis (`TTSLive`, the realtime pipeline with
+  `streaming.tts: true`) requires `max_batch:1` and is rejected otherwise
+  (qwentts `docs/INCREMENTAL.md`).
+- ROCm on gfx1201 (RDNA4) hangs the GPU in hipBLASLt for batched matmuls;
+  `env: {ROCBLAS_USE_HIPBLASLT: "0"}` in the model config routes them to
+  rocBLAS. CUDA needs no workaround.
+
 Request precedence is: a request `voice`, then `tts.voice`, then
 `tts.audio_path`. A saved profile supplies its private WAV and exact transcript
 for that request without changing the model YAML.
