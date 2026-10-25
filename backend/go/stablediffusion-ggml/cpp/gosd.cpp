@@ -814,8 +814,7 @@ void sd_img_gen_params_set_custom_sigmas(sd_img_gen_params_t *params, float *sig
 
 int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count) {
 
-    sd_image_t* results;
-    int num_results_out = 0;
+    sd_image_generation_result_t* generated = nullptr;
 
     std::vector<int> skip_layers = {7, 8, 9};
 
@@ -1012,15 +1011,13 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
             sd_ctx_params_to_str(&ctx_params),
             sd_img_gen_params_to_str(p));
 
-    bool gen_ok = generate_image(sd_c, p, &results, &num_results_out);
+    bool gen_ok = generate_image(sd_c, p, &generated);
+    std::unique_ptr<sd_image_generation_result_t, decltype(&free_sd_image_generation_result)>
+        output(generated, free_sd_image_generation_result);
 
     std::free(p);
 
-    if (!gen_ok || num_results_out == 0) {
-        results = NULL;
-    }
-
-    if (results == NULL) {
+    if (!gen_ok || !output || output->count <= 0 || !output->items) {
         fprintf (stderr, "NO results\n");
         if (input_image_buffer) free(input_image_buffer);
         if (mask_image_buffer) free(mask_image_buffer);
@@ -1030,7 +1027,8 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
         return 1;
     }
 
-    if (results[0].data == NULL) {
+    const sd_image_t& result = output->items[0].image;
+    if (result.data == NULL) {
         fprintf (stderr, "Results with no data\n");
         if (input_image_buffer) free(input_image_buffer);
         if (mask_image_buffer) free(mask_image_buffer);
@@ -1043,22 +1041,19 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
     fprintf (stderr, "Writing PNG\n");
 
     fprintf (stderr, "DST: %s\n", dst);
-    fprintf (stderr, "Width: %d\n", results[0].width);
-    fprintf (stderr, "Height: %d\n", results[0].height);
-    fprintf (stderr, "Channel: %d\n", results[0].channel);
-    fprintf (stderr, "Data: %p\n", results[0].data);
+    fprintf (stderr, "Width: %d\n", result.width);
+    fprintf (stderr, "Height: %d\n", result.height);
+    fprintf (stderr, "Channel: %d\n", result.channel);
+    fprintf (stderr, "Data: %p\n", result.data);
 
-    int ret = stbi_write_png(dst, results[0].width, results[0].height, results[0].channel,
-                             results[0].data, 0);
+    int ret = stbi_write_png(dst, result.width, result.height, result.channel,
+                             result.data, 0);
     if (ret)
       fprintf (stderr, "Saved resulting image to '%s'\n", dst);
     else
       fprintf(stderr, "Failed to write image to '%s'\n", dst);
 
     // Clean up
-    free(results[0].data);
-    results[0].data = NULL;
-    free(results);
     if (input_image_buffer) free(input_image_buffer);
     if (mask_image_buffer) free(mask_image_buffer);
     for (auto buffer : ref_image_buffers) {
@@ -1590,29 +1585,22 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
     if (!ref_auds.empty()) { p->ref_audios = ref_auds.data(); p->ref_audios_count = (int)ref_auds.size(); }
 
     // Generate
-    int num_frames_out = 0;
-    int effective_fps = fps;
-    sd_image_t* frames = nullptr;
-    sd_audio_t* audio = nullptr;
-    bool ok = generate_video(sd_c, p, &frames, &num_frames_out, &audio, &effective_fps);
+    sd_video_generation_result_t* generated = nullptr;
+    bool ok = generate_video(sd_c, p, &generated);
+    std::unique_ptr<sd_video_generation_result_t, decltype(&free_sd_video_generation_result)>
+        output(generated, free_sd_video_generation_result);
     std::free(p);
 
-    if (!ok || !frames || num_frames_out == 0) {
+    if (!ok || !output || !output->frames || output->frame_count <= 0) {
         fprintf(stderr, "generate_video produced no frames\n");
-        if (audio) free_sd_audio(audio);
         free_inputs();
         return 1;
     }
 
-    fprintf(stderr, "Generated %d frames, muxing to %s via ffmpeg\n", num_frames_out, dst);
+    fprintf(stderr, "Generated %d frames, muxing to %s via ffmpeg\n", output->frame_count, dst);
 
-    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, effective_fps, audio, dst);
-
-    for (int i = 0; i < num_frames_out; i++) {
-        if (frames[i].data) free(frames[i].data);
-    }
-    free(frames);
-    if (audio) free_sd_audio(audio);
+    int rc = ffmpeg_mux_raw_to_mp4(output->frames, output->frame_count, output->fps,
+                                  output->audio, dst);
     free_inputs();
 
     if (rc == 0) {
@@ -1665,9 +1653,8 @@ int gosd_upscaler_run(void* handle, const char* src, const char* dst, int scale)
     if (!handle || !src || !*src || !dst || !*dst || scale <= 0) return 1;
     // RAII also covers exceptions from native inference.
     struct images {
-        sd_image_t* data = nullptr;
-        int count = 0;
-        ~images() { if (data) free_sd_images(data, count); }
+        sd_image_generation_result_t* data = nullptr;
+        ~images() { free_sd_image_generation_result(data); }
     } output;
     int width = 0, height = 0, channels = 0;
     std::unique_ptr<unsigned char, decltype(&stbi_image_free)> input(
@@ -1680,12 +1667,13 @@ int gosd_upscaler_run(void* handle, const char* src, const char* dst, int scale)
     sd_image_t image = {uint32_t(width), uint32_t(height), 3, input.get()};
     try {
         if (!upscale(static_cast<gosd_upscaler*>(handle)->ctx, image, scale,
-                     &output.data, &output.count)) return 3;
-        if (!output.data || output.count != 1 || !output.data[0].data ||
-            output.data[0].width != out_width || output.data[0].height != out_height ||
-            output.data[0].channel != 3) return 4;
+                     &output.data)) return 3;
+        if (!output.data || output.data->count != 1 || !output.data->items) return 4;
+        const sd_image_t& result = output.data->items[0].image;
+        if (!result.data || result.width != out_width || result.height != out_height ||
+            result.channel != 3) return 4;
         if (!stbi_write_png(dst, int(out_width), int(out_height), 3,
-                            output.data[0].data, int(out_width) * 3)) return 5;
+                            result.data, int(out_width) * 3)) return 5;
         return 0;
     } catch (...) { return 3; }
 }
