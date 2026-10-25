@@ -56,8 +56,8 @@ func wireClient(s pb.BackendServer, old bool) *Client {
 		}
 	}
 	transport.RegisterService(&desc, s)
-	go transport.Serve(listener)
-	DeferCleanup(func() { transport.Stop(); listener.Close() })
+	go func() { _ = transport.Serve(listener) }()
+	DeferCleanup(func() { transport.Stop(); _ = listener.Close() })
 	return &Client{address: listener.Addr().String(), parallel: true, token: "wire-token"}
 }
 func wireRequest() *pb.MultimodalEmbeddingRequest {
@@ -193,7 +193,7 @@ var _ = Describe("Multimodal wire", func() {
 		srv := NewBackendServer(&wireModel{call: func(ctx context.Context, in *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
 			md, _ := metadata.FromIncomingContext(ctx)
 			entered <- md
-			ggrpc.SetHeader(ctx, metadata.Pairs("wire-header", "yes"))
+			_ = ggrpc.SetHeader(ctx, metadata.Pairs("wire-header", "yes")) // the header is only a probe for the wire test
 			<-ctx.Done()
 			return nil, status.FromContextError(ctx.Err()).Err()
 		}})

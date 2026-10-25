@@ -383,7 +383,7 @@ func newProofVector(v []float32) proofVector {
 func fileSHA(path string) string {
 	f, err := os.Open(path)
 	Expect(err).NotTo(HaveOccurred(), path)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	h := sha256.New()
 	_, err = io.Copy(h, f)
 	Expect(err).NotTo(HaveOccurred())

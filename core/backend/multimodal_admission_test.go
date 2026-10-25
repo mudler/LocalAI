@@ -64,7 +64,7 @@ var _ = Describe("Multimodal routing", func() {
 			Expect(err).NotTo(HaveOccurred())
 			transport := ggrpc.NewServer()
 			pb.RegisterBackendServer(transport, srv)
-			go transport.Serve(listener)
+			go func() { _ = transport.Serve(listener) }()
 			DeferCleanup(transport.Stop)
 			node := &nodes.BackendNode{Name: name, NodeType: nodes.NodeTypeBackend, Address: listener.Addr().String()}
 			Expect(registry.Register(ctx, node, true)).To(Succeed())

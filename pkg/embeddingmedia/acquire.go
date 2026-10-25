@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/netip"
@@ -111,7 +112,7 @@ func (a *Acquirer) dialContext(ctx context.Context, network, address string) (ne
 		return nil, fetchFailed()
 	}
 	port, err := net.LookupPort(network, portText)
-	if err != nil {
+	if err != nil || port < 0 || port > math.MaxUint16 {
 		return nil, fetchFailed()
 	}
 	addrs, err := a.approve(ctx, host)
@@ -374,7 +375,7 @@ func (a *Acquirer) fetch(ctx context.Context, raw string, limit uint64) ([]byte,
 	if err != nil {
 		return nil, a.classify(ctx, fctx)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fetchFailed()
 	}

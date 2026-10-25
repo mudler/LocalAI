@@ -96,7 +96,7 @@ func rerankTyped(c echo.Context, input *schema.JINARerankRequest, cfg *config.Mo
 	if err != nil {
 		return nil, nil, multimodal.Failure(c, err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }() // best-effort release; the response is already decided
 
 	items := append([]schema.EmbeddingInputItem{content.Query}, content.Documents...)
 	// Capability check precedes every fetch and every slot.
@@ -116,7 +116,7 @@ func rerankTyped(c echo.Context, input *schema.JINARerankRequest, cfg *config.Mo
 
 	budget := embeddingmedia.NewBudget()
 	work := budget
-	prepCtx, cancel := context.WithTimeout(ctx, time.Duration(budget.PreparationMilliseconds)*time.Millisecond)
+	prepCtx, cancel := context.WithTimeout(ctx, multimodal.PreparationTimeout(budget.PreparationMilliseconds))
 	defer cancel()
 	started := time.Now()
 	var known embeddingmedia.Consumption
@@ -134,7 +134,7 @@ func rerankTyped(c echo.Context, input *schema.JINARerankRequest, cfg *config.Mo
 	if known.MediaBytes > budget.MediaBytes {
 		return nil, nil, multimodal.Failure(c, &embeddingmedia.Error{Status: http.StatusRequestEntityTooLarge, Code: "embedding_resource_limit"})
 	}
-	elapsed := uint64((time.Since(started) + time.Millisecond - 1) / time.Millisecond)
+	elapsed := multimodal.ElapsedMilliseconds(started)
 	if elapsed > budget.PreparationMilliseconds {
 		return nil, nil, multimodal.Failure(c, &embeddingmedia.Error{Status: http.StatusGatewayTimeout, Code: "embedding_preparation_timeout"})
 	}

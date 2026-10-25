@@ -36,7 +36,7 @@ func embedStructured(c echo.Context, input *schema.OpenAIRequest, cfg *config.Mo
 	if err != nil {
 		return nil, multimodal.Failure(c, err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }() // best-effort release; the response is already decided
 
 	// Capability check precedes every fetch and every slot.
 	var skeleton []*pb.EmbeddingPart
@@ -73,7 +73,7 @@ func embedStructuredItem(c echo.Context, ctx context.Context, session *backend.M
 	if err := work.Consume(embeddingmedia.Consumption{Items: 1}); err != nil {
 		return nil, err
 	}
-	prepCtx, cancel := context.WithTimeout(ctx, time.Duration(budget.PreparationMilliseconds)*time.Millisecond)
+	prepCtx, cancel := context.WithTimeout(ctx, multimodal.PreparationTimeout(budget.PreparationMilliseconds))
 	defer cancel()
 	started := time.Now()
 	parts, known, err := multimodal.PrepareItem(prepCtx, opts.acquirer, item, &work)
@@ -85,7 +85,7 @@ func embedStructuredItem(c echo.Context, ctx context.Context, session *backend.M
 	if known.MediaBytes > budget.MediaBytes {
 		return nil, &embeddingmedia.Error{Status: http.StatusRequestEntityTooLarge, Code: "embedding_resource_limit"}
 	}
-	elapsed := uint64((time.Since(started) + time.Millisecond - 1) / time.Millisecond)
+	elapsed := multimodal.ElapsedMilliseconds(started)
 	if elapsed > budget.PreparationMilliseconds {
 		return nil, &embeddingmedia.Error{Status: http.StatusGatewayTimeout, Code: "embedding_preparation_timeout"}
 	}

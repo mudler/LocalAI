@@ -146,7 +146,7 @@ func (c *Client) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbed
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	client := pb.NewBackendClient(conn)
 
 	return client.MultimodalEmbedding(ctx, in, opts...)
@@ -167,7 +167,7 @@ func (c *Client) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRe
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	client := pb.NewBackendClient(conn)
 
 	return client.MultimodalRerank(ctx, in, opts...)

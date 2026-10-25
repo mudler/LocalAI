@@ -3,11 +3,32 @@ package multimodal
 
 import (
 	"context"
+	"math"
+	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/embeddingmedia"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
+
+// PreparationTimeout turns the budget's preparation milliseconds into a
+// duration, saturating instead of overflowing for very large budgets.
+func PreparationTimeout(ms uint64) time.Duration {
+	if ms > uint64(math.MaxInt64/int64(time.Millisecond)) {
+		return time.Duration(math.MaxInt64)
+	}
+	return time.Duration(ms) * time.Millisecond
+}
+
+// ElapsedMilliseconds returns the time since started, rounded up to whole
+// milliseconds and never negative.
+func ElapsedMilliseconds(started time.Time) uint64 {
+	d := time.Since(started) + time.Millisecond - 1
+	if d <= 0 {
+		return 0
+	}
+	return uint64(d / time.Millisecond)
+}
 
 // MediaAcquirer fetches and validates the compressed bytes of one media source.
 type MediaAcquirer interface {
