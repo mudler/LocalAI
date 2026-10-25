@@ -5,6 +5,174 @@
 # master reads it as the default model source; a tagged build reads the gallery
 # until the release cutover.
 - kind: model
+  id: ternary-bonsai-2-2b
+  name: ternary-bonsai-2-2b
+  version: 0.0.0-gallery.de98a2203208
+  description: |
+    Ternary Bonsai 2 2B is a vision-language model derived from Qwen3.5-2B
+    with ternary transformer weights. This PQ2_0 build uses the Bonsai
+    backend and includes the Q8_0 vision projector. The three standard
+    packings contain the same weights in different storage layouts.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf
+    - https://huggingface.co/Qwen/Qwen3.5-2B
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: bonsai/models/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-PQ2_0.gguf
+        sha256: d5f01a4ecaf49239653308ee732ad1a0c5f802c0ddb997549fc7b694c8b45928
+        uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf/resolve/683f7be2629342a50987627b40881e54761a2430/Ternary-Bonsai-2-2B-PQ2_0.gguf
+      - filename: bonsai/mmproj/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-mmproj-Q8_0.gguf
+        sha256: ac9934e8d7966d0d62442c202ec8fdad99a045dea79366c1a4a246a46f5c0533
+        uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf/resolve/683f7be2629342a50987627b40881e54761a2430/Ternary-Bonsai-2-2B-mmproj-Q8_0.gguf
+    overrides:
+      backend: bonsai
+      context_size: 32768
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+        - vision
+      mmproj: bonsai/mmproj/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-mmproj-Q8_0.gguf
+      options:
+        - use_jinja:true
+      parameters:
+        min_p: 0.0
+        model: bonsai/models/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-PQ2_0.gguf
+        presence_penalty: 1.0
+        repeat_penalty: 1.0
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+    variants:
+      - model: ternary-bonsai-2-2b-ptq1
+      - model: ternary-bonsai-2-2b-q2
+- kind: model
+  id: ternary-bonsai-2-2b-ptq1
+  name: ternary-bonsai-2-2b-ptq1
+  version: 0.0.0-gallery.a0b5119034e1
+  description: |
+    Ternary Bonsai 2 2B is a vision-language model derived from Qwen3.5-2B
+    with ternary transformer weights. This PTQ1_0 build uses the Bonsai
+    backend and includes the Q8_0 vision projector. The three standard
+    packings contain the same weights in different storage layouts.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf
+    - https://huggingface.co/Qwen/Qwen3.5-2B
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: bonsai/models/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-PTQ1_0.gguf
+        sha256: 36061ad406df8a4903a6db005be350c50fabfaf717f9ef0acf4b76adcd9929fa
+        uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf/resolve/683f7be2629342a50987627b40881e54761a2430/Ternary-Bonsai-2-2B-PTQ1_0.gguf
+      - filename: bonsai/mmproj/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-mmproj-Q8_0.gguf
+        sha256: ac9934e8d7966d0d62442c202ec8fdad99a045dea79366c1a4a246a46f5c0533
+        uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf/resolve/683f7be2629342a50987627b40881e54761a2430/Ternary-Bonsai-2-2B-mmproj-Q8_0.gguf
+    overrides:
+      backend: bonsai
+      context_size: 32768
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+        - vision
+      mmproj: bonsai/mmproj/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-mmproj-Q8_0.gguf
+      options:
+        - use_jinja:true
+      parameters:
+        min_p: 0.0
+        model: bonsai/models/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-PTQ1_0.gguf
+        presence_penalty: 1.0
+        repeat_penalty: 1.0
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: ternary-bonsai-2-2b-q2
+  name: ternary-bonsai-2-2b-q2
+  version: 0.0.0-gallery.762a52ed03ee
+  description: |
+    Ternary Bonsai 2 2B is a vision-language model derived from Qwen3.5-2B
+    with ternary transformer weights. This Q2_0 build uses the Bonsai
+    backend and includes the Q8_0 vision projector. The three standard
+    packings contain the same weights in different storage layouts.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf
+    - https://huggingface.co/Qwen/Qwen3.5-2B
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: bonsai/models/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-Q2_0.gguf
+        sha256: c2893fa6f951daee8b7263d5f49b455e57989ef56417a22125b03566dc560650
+        uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf/resolve/683f7be2629342a50987627b40881e54761a2430/Ternary-Bonsai-2-2B-Q2_0.gguf
+      - filename: bonsai/mmproj/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-mmproj-Q8_0.gguf
+        sha256: ac9934e8d7966d0d62442c202ec8fdad99a045dea79366c1a4a246a46f5c0533
+        uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-2B-gguf/resolve/683f7be2629342a50987627b40881e54761a2430/Ternary-Bonsai-2-2B-mmproj-Q8_0.gguf
+    overrides:
+      backend: bonsai
+      context_size: 32768
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+        - vision
+      mmproj: bonsai/mmproj/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-mmproj-Q8_0.gguf
+      options:
+        - use_jinja:true
+      parameters:
+        min_p: 0.0
+        model: bonsai/models/ternary-bonsai-2-2b/Ternary-Bonsai-2-2B-Q2_0.gguf
+        presence_penalty: 1.0
+        repeat_penalty: 1.0
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: ternary-bonsai-2-9b
   name: ternary-bonsai-2-9b
   version: 0.0.0-gallery.275b12980f1b
