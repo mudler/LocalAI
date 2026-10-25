@@ -284,10 +284,14 @@ var _ = Describe("first-party package", func() {
 	})
 
 	It("refuses a platform the matrix does not enable and a missing executable of another platform", func() {
+		// Tables enables every platform the tool accepts, so the refused
+		// platform is one the matrix never lists. The tool may refuse it in the
+		// format check or in the matrix check; both name the platform.
 		layout := filepath.Join(GinkgoT().TempDir(), "leg")
-		out, err := packageSh("--layout", layout, "--version", "1.0.0", "--platform", hostPlat, "--executable", binary)
+		out, err := packageSh("--layout", layout, "--version", "1.0.0", "--platform", "windows/amd64", "--executable", binary)
 		Expect(err).To(HaveOccurred(), out)
-		Expect(out).To(ContainSubstring("not enabled"))
+		Expect(out).To(ContainSubstring("windows/amd64"))
+		Expect(out).To(Or(ContainSubstring("not enabled"), ContainSubstring("is not os/arch of"), ContainSubstring("not in the platform matrix")))
 		Expect(layout).NotTo(BeADirectory())
 		other := "linux/arm64"
 		if hostPlat == other {

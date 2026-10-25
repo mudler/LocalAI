@@ -99,10 +99,10 @@ var _ = Describe("the backend body of a library entry", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("refuses a license, urls, tags, icon, mirrors, capabilities or mutable flag on an add-on", func() {
+	It("refuses a license, urls, tags, icon, mirrors or capabilities on an add-on", func() {
 		for _, extra := range []string{
 			"  license: mit\n", "  urls: [https://example.com]\n", "  tags: [a]\n", "  icon: https://example.com/i.png\n",
-			"  mirrors: [oci://hub.example/x:y]\n", "  capabilities: {default: x}\n", "  mutable: true\n", "  schemaVersion: 1\n",
+			"  mirrors: [oci://hub.example/x:y]\n", "  capabilities: {default: x}\n", "  schemaVersion: 1\n",
 		} {
 			_, _, err := read(oldShapeIndex + extra)
 			Expect(err).To(HaveOccurred(), extra)
@@ -272,8 +272,21 @@ var _ = Describe("the backend body of a library entry", func() {
 			_, _, err = read(strings.Replace(mutableEntry, "  mutable: true\n", "", 1))
 			Expect(err).To(HaveOccurred())
 		})
-		It("is refused on an add-on", func() {
+		It("is accepted on an add-on without a digest, as on a backend", func() {
+			entry := strings.Replace(oldShapeIndex, "  digest: "+yamlDigest+"\n", "  mutable: true\n", 1)
+			_, s, err := read(entry)
+			Expect(err).NotTo(HaveOccurred())
+			r, err := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}.Resolve(ctx, "lib", "tables", "1.0.0")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(r.Mutable).To(BeTrue())
+			Expect(r.Digest).To(BeEmpty())
+		})
+		It("is refused on an add-on with a digest, without a digest unless mutable, or on an archive", func() {
 			_, _, err := read(oldShapeIndex + "  mutable: true\n")
+			Expect(err).To(HaveOccurred())
+			_, _, err = read(strings.Replace(oldShapeIndex, "  digest: "+yamlDigest+"\n", "", 1))
+			Expect(err).To(HaveOccurred())
+			_, _, err = read(strings.Replace(strings.Replace(oldShapeIndex, "  digest: "+yamlDigest+"\n", "  mutable: true\n", 1), "oci://registry.example/tables", "https://registry.example/tables.tar", 1))
 			Expect(err).To(HaveOccurred())
 		})
 	})

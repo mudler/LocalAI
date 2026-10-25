@@ -41,6 +41,7 @@ var routeUsecaseFilters = []struct {
 	{"upscale", config.FLAG_UPSCALE},
 	{"detection", config.FLAG_DETECTION},
 	{"depth", config.FLAG_DEPTH},
+	{"forecast", config.FLAG_FORECAST},
 	{"face recognition", config.FLAG_FACE_RECOGNITION},
 	{"speaker recognition", config.FLAG_SPEAKER_RECOGNITION},
 	{"audio transform", config.FLAG_AUDIO_TRANSFORM},

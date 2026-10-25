@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { stubAddonRoutes } from './addons-fixtures.js'
 
 test.describe('Navigation', () => {
   test('/ redirects to /app', async ({ page }) => {
@@ -21,6 +22,7 @@ test.describe('Navigation', () => {
   })
 
   test('the sidebar has Chat, Models and Add-ons, no Settings and no Create tier', async ({ page }) => {
+    await stubAddonRoutes(page)
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
     for (const href of ['/app/chat', '/app/models', '/app/addons']) {
@@ -81,6 +83,11 @@ test.describe('Navigation', () => {
   })
 
   test('the Build overview lists the tools with a line each', async ({ page }) => {
+    // The Fine-tuning tile is shown when the server has the switch on.
+    await page.route('**/api/features', async route => {
+      const real = await (await route.fetch()).json()
+      return route.fulfill({ json: { ...real, fine_tuning: true } })
+    })
     await page.goto('/app/build')
     const list = page.getByRole('list', { name: 'Build tools' })
     // Each tool is a row with its sentence and an Open link.

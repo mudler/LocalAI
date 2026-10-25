@@ -24,7 +24,19 @@ import (
 var (
 	immutableTagRE = regexp.MustCompile(`^(sha-[0-9a-f]{12}|(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(\.[0-9A-Za-z-]+)*)?)$`)
 	branchAliasRE  = regexp.MustCompile(`^branch-[a-z0-9]+(-[a-z0-9]+)*-[0-9a-f]{12}$`)
+	addonIDRE      = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
 )
+
+// addonTag is the registry tag of one add-on in the shared add-on repository:
+// the add-on id, a dash, then the immutable tag or the channel alias. Every
+// add-on lives in the same repository, so the id prefix keeps their tags apart,
+// for example fine-tuning-sha-99d1dca2c869 or tables-development.
+func addonTag(id, tag string) (string, error) {
+	if !addonIDRE.MatchString(id) {
+		return "", fmt.Errorf("%q is not an add-on id", id)
+	}
+	return id + "-" + tag, nil
+}
 
 // backendRepositoryPrefixes are repositories that belong to the backend
 // image pipeline. Add-on packages never go there, whatever the input says.
@@ -110,7 +122,11 @@ func publishIndex(ctx context.Context, dir string, cfg *PlatformsFile, repo name
 	} else if immutable != m.Version {
 		return zero, fail("E_RESERVED", "version tag %q differs from the layout version %q", immutable, m.Version)
 	}
-	tag := repo.Tag(immutable)
+	regTag, err := addonTag(cfg.Addon, immutable)
+	if err != nil {
+		return zero, err
+	}
+	tag := repo.Tag(regTag)
 	if _, err := guardImmutable(ctx, tag, digest); err != nil {
 		if adopt && strings.HasPrefix(err.Error(), "E_IMMUTABLE") {
 			// A rebuild of the same version and commit differs in bytes only
@@ -195,7 +211,7 @@ func adoptExisting(ctx context.Context, repo name.Repository, tag name.Tag, m *m
 func cmdPublish(args []string) error {
 	fs := flag.NewFlagSet("publish", flag.ContinueOnError)
 	dir := fs.String("layout", "", "merged layout")
-	repository := fs.String("repository", "", "registry and repository, for example registry.example/owner/addon-tables")
+	repository := fs.String("repository", "", "shared add-on registry and repository; every add-on is a tag of it, prefixed with its id")
 	immutable := fs.String("tag", "", "immutable version or commit tag")
 	config := fs.String("config", "", "platform matrix file")
 	adopt := fs.Bool("adopt-existing", false, "keep a published index of the same version and commit when a rebuild differs")
@@ -239,8 +255,12 @@ type aliasState struct {
 	revision string
 }
 
-func readAlias(ctx context.Context, repo name.Repository, alias string) (*aliasState, error) {
-	ref := repo.Tag(alias)
+func readAlias(ctx context.Context, repo name.Repository, addon, alias string) (*aliasState, error) {
+	regTag, err := addonTag(addon, alias)
+	if err != nil {
+		return nil, err
+	}
+	ref := repo.Tag(regTag)
 	d, err := remote.Get(ref, remoteOptions(ctx)...)
 	if err != nil {
 		if isNotFound(err) {
@@ -391,14 +411,14 @@ func (s promotionSource) pushToOwnBranch(alias string) bool {
 // promoteAlias moves one moving tag to a digest that was already published,
 // verified and signed. It never moves an alias backwards: a slower, older run
 // finds a newer alias and leaves it alone.
-func promoteAlias(ctx context.Context, repo name.Repository, alias string, digest v1.Hash, version, revision, gitDir string) (string, error) {
-	return promoteAliasFrom(ctx, repo, alias, digest, version, revision, gitDir, promotionSource{})
+func promoteAlias(ctx context.Context, repo name.Repository, addon, alias string, digest v1.Hash, version, revision, gitDir string) (string, error) {
+	return promoteAliasFrom(ctx, repo, addon, alias, digest, version, revision, gitDir, promotionSource{})
 }
 
 // promoteAliasFrom is promoteAlias with the event that asks for the move. A
 // branch channel whose current commit is gone from the checkout (the branch
 // was force-pushed) accepts only a push to its own ref as the new truth.
-func promoteAliasFrom(ctx context.Context, repo name.Repository, alias string, digest v1.Hash, version, revision, gitDir string, src promotionSource) (string, error) {
+func promoteAliasFrom(ctx context.Context, repo name.Repository, addon, alias string, digest v1.Hash, version, revision, gitDir string, src promotionSource) (string, error) {
 	switch {
 	case alias == aliasLatest:
 		if !versionRE.MatchString(version) || strings.Contains(version, "-") {
@@ -411,7 +431,7 @@ func promoteAliasFrom(ctx context.Context, repo name.Repository, alias string, d
 	default:
 		return "", fail("E_RESERVED", "%q is not a channel alias", alias)
 	}
-	cur, err := readAlias(ctx, repo, alias)
+	cur, err := readAlias(ctx, repo, addon, alias)
 	if err != nil {
 		return "", err
 	}
@@ -462,7 +482,11 @@ func promoteAliasFrom(ctx context.Context, repo name.Repository, alias string, d
 	if err != nil {
 		return "", err
 	}
-	if err := remote.Tag(repo.Tag(alias), idx, remoteOptions(ctx)...); err != nil {
+	regTag, err := addonTag(addon, alias)
+	if err != nil {
+		return "", err
+	}
+	if err := remote.Tag(repo.Tag(regTag), idx, remoteOptions(ctx)...); err != nil {
 		return "", fmt.Errorf("tagging %s: %w", alias, err)
 	}
 	return promoted, nil
@@ -471,6 +495,7 @@ func promoteAliasFrom(ctx context.Context, repo name.Repository, alias string, d
 func cmdPromote(args []string) error {
 	fs := flag.NewFlagSet("promote", flag.ContinueOnError)
 	repository := fs.String("repository", "", "registry and repository")
+	addon := fs.String("addon", "", "add-on id; the alias tag is <id>-<alias> in the shared repository")
 	alias := fs.String("alias", "", "latest, development or a branch channel tag")
 	digest := fs.String("digest", "", "published index digest")
 	version := fs.String("version", "", "release version of the digest")
@@ -497,7 +522,7 @@ func cmdPromote(args []string) error {
 	if _, err := os.Stat(*gitDir); err != nil && *alias != aliasLatest {
 		return fmt.Errorf("git directory: %w", err)
 	}
-	out, err := promoteAliasFrom(ctx, repo, *alias, h, *version, *revision, *gitDir, promotionSource{Ref: *ref, Event: *event})
+	out, err := promoteAliasFrom(ctx, repo, *addon, *alias, h, *version, *revision, *gitDir, promotionSource{Ref: *ref, Event: *event})
 	if err != nil {
 		return err
 	}
@@ -525,4 +550,30 @@ func childDigests(ctx context.Context, repo name.Repository, digest v1.Hash) ([]
 		out = append(out, c.Digest.String())
 	}
 	return out, nil
+}
+
+// cmdTarget prints the registry reference one add-on publishes to: the shared
+// repository and the tag <id>-<tag>. It does not touch the network, so the
+// workflow and the tests can show the target before anything is pushed.
+func cmdTarget(args []string) error {
+	fs := flag.NewFlagSet("target", flag.ContinueOnError)
+	repository := fs.String("repository", "", "shared add-on registry and repository")
+	addon := fs.String("addon", "", "add-on id")
+	tag := fs.String("tag", "", "immutable version or commit tag, or a channel alias")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	repo, err := parseRepository(*repository)
+	if err != nil {
+		return err
+	}
+	if *tag == "" {
+		return errors.New("--tag is required")
+	}
+	regTag, err := addonTag(*addon, *tag)
+	if err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(stdout, "target=%s\n", repo.Tag(regTag))
+	return nil
 }

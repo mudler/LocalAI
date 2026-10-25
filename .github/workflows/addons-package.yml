@@ -13,12 +13,17 @@ name: 'add-on packages'
 #   push of a v<semver> tag  prepare the immutable version, move no alias
 #   release published     promote latest, for a stable non-draft release only
 #
-# Every add-on has its own platform file (addons/<id>/package/platforms.yaml),
-# its own package legs and its own repository. Tables publishes to
-# ADDON_OCI_REPOSITORY, which is the repository <namespace>/tables. Each other
-# add-on publishes to <namespace>/<id>, where the namespace is
-# ADDON_OCI_REPOSITORY without its last path element. A publishing event fails
-# for an add-on until one of its platforms is enabled.
+# Every add-on has its own platform file (addons/<id>/package/platforms.yaml)
+# and its own package legs. All add-ons publish to one OCI repository, the
+# value of ADDON_OCI_REPOSITORY (the add-on registry organization). Each
+# add-on is a set of tags of that repository, prefixed with its id:
+# <id>-sha-<short sha> for a commit, <id>-<version> for a release and
+# <id>-development or <id>-latest for a channel alias. The development alias is
+# the tag a development library entry names (mutable, no digest); the install
+# resolves it to a digest, as for a development backend, so it moves only in
+# the promote job below. Signatures and digests
+# are per image, so add-ons never collide. A publishing event fails for an
+# add-on until one of its platforms is enabled.
 #
 # Aliases move only in the promote job, after every platform leg passed, the
 # index was pushed by digest, signed and verified.
@@ -32,6 +37,7 @@ on:
       - 'pkg/addons/**'
       - 'scripts/addons/**'
       - 'gallery/addons/**'
+      - 'tests/addons/packaging/**'
       - '.github/workflows/addons-package.yml'
   pull_request:
     paths:
@@ -39,6 +45,7 @@ on:
       - 'pkg/addons/**'
       - 'scripts/addons/**'
       - 'gallery/addons/**'
+      - 'tests/addons/packaging/**'
       - '.github/workflows/addons-package.yml'
   release:
     types: [published]
@@ -148,6 +155,10 @@ jobs:
               echo "ADDON_OCI_REPOSITORY is not configured; refusing to publish" >&2
               exit 1
             fi
+            case "$ADDON_OCI_REPOSITORY" in
+              */*) ;;
+              *) echo "ADDON_OCI_REPOSITORY needs a namespace and a name" >&2; exit 1 ;;
+            esac
           fi
           # One set of legs for each add-on, from its own platform file. Only
           # the "no enabled platform" answer is tolerated, and only on an event
@@ -253,7 +264,7 @@ jobs:
       matrix:
         addon: ${{ fromJSON(needs.plan.outputs.addons) }}
     env:
-      ADDON_OCI_BASE: ${{ vars.ADDON_OCI_REPOSITORY }}
+      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}
       ADDON: ${{ matrix.addon }}
       # cosign gates --registry-referrers-mode=oci-1-1 behind this flag.
       COSIGN_EXPERIMENTAL: '1'
@@ -264,22 +275,6 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Choose the repository of this add-on
-        # Tables publishes to the configured repository. Every other add-on
-        # publishes to <namespace>/<id>. The later steps read
-        # ADDON_OCI_REPOSITORY.
-        run: |
-          set -eu
-          case "$ADDON_OCI_BASE" in
-            */*) ;;
-            *) echo "ADDON_OCI_REPOSITORY needs a namespace and a name" >&2; exit 1 ;;
-          esac
-          if [ "$ADDON" = tables ]; then
-            repo="$ADDON_OCI_BASE"
-          else
-            repo="${ADDON_OCI_BASE%/*}/$ADDON"
-          fi
-          echo "ADDON_OCI_REPOSITORY=$repo" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v8
         with:
           pattern: layout-${{ matrix.addon }}-*
@@ -305,6 +300,7 @@ jobs:
           IMMUTABLE: ${{ needs.plan.outputs.immutable }}
         run: |
           set -eu
+          go run ./scripts/addons/cmd/addonpkg target --repository "$ADDON_OCI_REPOSITORY" --addon "$ADDON" --tag "$IMMUTABLE"
           go run ./scripts/addons/cmd/addonpkg publish --config "addons/$ADDON/package/platforms.yaml" \
             --layout merged --repository "$ADDON_OCI_REPOSITORY" --tag "$IMMUTABLE" --adopt-existing | tee push.txt
           echo "digest=$(sed -n 's/^digest=//p' push.txt)" >> "$GITHUB_OUTPUT"
@@ -369,7 +365,7 @@ jobs:
       matrix:
         addon: ${{ fromJSON(needs.plan.outputs.addons) }}
     env:
-      ADDON_OCI_BASE: ${{ vars.ADDON_OCI_REPOSITORY }}
+      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}
       ADDON: ${{ matrix.addon }}
     steps:
       - uses: actions/checkout@v7
@@ -379,21 +375,6 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Choose the repository of this add-on
-        # The same rule as in publish: Tables keeps the configured repository,
-        # every other add-on uses <namespace>/<id>.
-        run: |
-          set -eu
-          case "$ADDON_OCI_BASE" in
-            */*) ;;
-            *) echo "ADDON_OCI_REPOSITORY needs a namespace and a name" >&2; exit 1 ;;
-          esac
-          if [ "$ADDON" = tables ]; then
-            repo="$ADDON_OCI_BASE"
-          else
-            repo="${ADDON_OCI_BASE%/*}/$ADDON"
-          fi
-          echo "ADDON_OCI_REPOSITORY=$repo" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v8
         with:
           name: digest-${{ matrix.addon }}
@@ -420,7 +401,7 @@ jobs:
           esac
           for alias in $(echo "$ALIASES" | tr ',' ' '); do
             go run ./scripts/addons/cmd/addonpkg promote \
-              --repository "$ADDON_OCI_REPOSITORY" --alias "$alias" \
+              --repository "$ADDON_OCI_REPOSITORY" --addon "$ADDON" --alias "$alias" \
               --digest "$DIGEST" --version "$VERSION" --revision "$SHA" \
               --ref "$REF" --event "$EVENT" --git-dir .git
           done

@@ -99,6 +99,10 @@ func (llm *Base) Depth(*pb.DepthRequest) (pb.DepthResponse, error) {
 	return pb.DepthResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Forecast(*pb.ForecastRequest) (pb.ForecastResponse, error) {
+	return pb.ForecastResponse{}, fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error) {
 	return pb.FaceVerifyResponse{}, fmt.Errorf("unimplemented")
 }

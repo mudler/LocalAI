@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
+import { stubAddonRoutes } from './addons-fixtures.js'
 import { mockStudio } from './studio-fixtures.js'
 import { fakeRealtime } from './chat-fixtures.js'
 
@@ -66,6 +67,7 @@ test.describe('Studio add-on', () => {
   })
 
   test('the old Studio addresses say so plainly when the add-on is not installed', async ({ page }) => {
+    await stubAddonRoutes(page)
     for (const address of ['/app/studio', '/app/studio/tts', '/app/image', '/app/talk']) {
       await page.goto(address)
       await expect(page.getByTestId('addon-unavailable')).toBeVisible({ timeout: 15_000 })

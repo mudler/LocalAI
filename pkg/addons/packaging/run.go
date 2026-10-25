@@ -27,6 +27,7 @@ var commands = map[string]func(args []string) error{
 	"merge":        cmdMerge,
 	"publish":      cmdPublish,
 	"promote":      cmdPromote,
+	"target":       cmdTarget,
 	"catalog":      cmdCatalog,
 	"policy":       cmdPolicy,
 }

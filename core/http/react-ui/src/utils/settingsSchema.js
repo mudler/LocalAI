@@ -112,6 +112,8 @@ export const FIELDS = [
     desc: 'Context window size for models that do not set their own.', placeholder: '2048', min: 0 },
   { key: 'artifact_download_concurrency', group: 'speed', was: 'performance', kind: 'int', label: 'Artifact Download Concurrency',
     desc: 'Maximum artifact files downloaded at once. 1 downloads one after the other.', default: 1, min: 1 },
+  { key: 'max_concurrent_backend_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent backend operations',
+    desc: 'Backend installs, upgrades and deletes that run at once. 1 runs them one after the other. Operations on the same backend never overlap.', default: 1, min: 1 },
   { key: 'f16', group: 'speed', was: 'performance', kind: 'bool', label: 'F16 precision',
     desc: 'Use 16-bit floating point for reduced memory use.', default: false },
 

@@ -32,7 +32,7 @@ var capabilityPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 // backend may set. An add-on entry that does is refused.
 func (r Release) hasBackendOnlyFields() bool {
 	return r.License != "" || len(r.URLs) > 0 || len(r.Tags) > 0 || r.Icon != "" ||
-		len(r.Mirrors) > 0 || len(r.Capabilities) > 0 || r.Mutable || r.SchemaVersion != 0
+		len(r.Mirrors) > 0 || len(r.Capabilities) > 0 || r.SchemaVersion != 0
 }
 
 // validFetchedRelease is the check a library applies to every entry it keeps.
@@ -60,7 +60,11 @@ func validFetchedRelease(r Release, allowLoopback bool) bool {
 		if r.Mutable != (r.Digest == "") || (r.Digest != "" && !digestPattern.MatchString(r.Digest)) {
 			return false
 		}
-		if r.Mutable && r.EntryKind() != KindBackend {
+		// A mutable entry is an OCI tag: an HTTP archive has nothing to resolve.
+		if r.Mutable && r.EntryKind() != KindBackend && r.EntryKind() != KindAddon {
+			return false
+		}
+		if r.Mutable && !strings.HasPrefix(r.Artifact, "oci://") {
 			return false
 		}
 	}

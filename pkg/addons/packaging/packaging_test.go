@@ -322,15 +322,12 @@ var _ = Describe("platform matrix", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(strings.TrimSpace(out)).To(Equal(`{"include":[{"platform":"linux/amd64","runner":"r1","slug":"linux-amd64"},{"platform":"linux/arm64","runner":"r2","slug":"linux-arm64"}]}`))
 	})
-	It("ships the checked-in matrix with every platform disabled until its native check passes", func() {
+	It("ships a checked-in Tables matrix with at least one enabled platform", func() {
 		cfg, err := loadPlatforms("../../../addons/tables/package/platforms.yaml")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(cfg.Platforms).NotTo(BeEmpty())
-		for _, e := range cfg.Platforms {
-			Expect(e.Enabled).To(BeFalse(), e.Platform)
-		}
-		_, err = cfg.enabled()
-		Expect(err).To(HaveOccurred())
+		enabled, err := cfg.enabled()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(enabled).NotTo(BeEmpty())
 	})
 })
 
@@ -568,7 +565,7 @@ var _ = Describe("publication", func() {
 		Expect(out).To(Equal(first))
 		_ = before
 		repo, _ := name.NewRepository(reg.repo("addons/tables"))
-		d, err := remote.Head(repo.Tag("1.2.3"))
+		d, err := remote.Head(repo.Tag("tables-1.2.3"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(first).To(ContainSubstring(d.Digest.String()))
 		children, err := childDigests(ctx, repo, d.Digest)
@@ -586,7 +583,7 @@ var _ = Describe("publication", func() {
 		_, err = run("publish", "--config", p.config, "--layout", b, "--repository", repoName, "--tag", "1.2.3")
 		expectCode(err, "E_IMMUTABLE")
 		repo, _ := name.NewRepository(repoName)
-		d, err := remote.Head(repo.Tag("1.2.3"))
+		d, err := remote.Head(repo.Tag("tables-1.2.3"))
 		Expect(err).NotTo(HaveOccurred())
 		_, da, _ := verifyMerged(a, mustCfg(p))
 		Expect(d.Digest).To(Equal(da))
@@ -655,7 +652,7 @@ var _ = Describe("alias promotion", func() {
 	}
 	head := func(tag string) v1.Hash {
 		GinkgoHelper()
-		d, err := remote.Head(repo.Tag(tag))
+		d, err := remote.Head(repo.Tag("tables-" + tag))
 		Expect(err).NotTo(HaveOccurred())
 		return d.Digest
 	}
@@ -672,19 +669,19 @@ var _ = Describe("alias promotion", func() {
 		old := publish("0.0.0-dev."+shas[0][:12], shas[0], "c0", "sha-"+shas[0][:12])
 		mid := publish("0.0.0-dev."+shas[1][:12], shas[1], "c1", "sha-"+shas[1][:12])
 		newer := publish("0.0.0-dev."+shas[2][:12], shas[2], "c2", "sha-"+shas[2][:12])
-		res, err := promoteAlias(ctx, repo, "development", mid, "", shas[1], gitDir)
+		res, err := promoteAlias(ctx, repo, "tables", "development", mid, "", shas[1], gitDir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal("promoted"))
 		Expect(head("development")).To(Equal(mid))
-		res, err = promoteAlias(ctx, repo, "development", newer, "", shas[2], gitDir)
+		res, err = promoteAlias(ctx, repo, "tables", "development", newer, "", shas[2], gitDir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal("promoted"))
 		// A slower run of the oldest commit finishes last.
-		res, err = promoteAlias(ctx, repo, "development", old, "", shas[0], gitDir)
+		res, err = promoteAlias(ctx, repo, "tables", "development", old, "", shas[0], gitDir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal("stale"))
 		Expect(head("development")).To(Equal(newer))
-		res, err = promoteAlias(ctx, repo, "development", newer, "", shas[2], gitDir)
+		res, err = promoteAlias(ctx, repo, "tables", "development", newer, "", shas[2], gitDir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal("unchanged"))
 	})
@@ -702,15 +699,15 @@ var _ = Describe("alias promotion", func() {
 		git("commit", "-q", "--allow-empty", "-m", "rewritten")
 		diverged := git("rev-parse", "HEAD")
 		a := publish("0.0.0-dev."+shas[1][:12], shas[1], "x", "sha-"+shas[1][:12])
-		res, err := promoteAlias(ctx, repo, "development", a, "", shas[1], gitDir)
+		res, err := promoteAlias(ctx, repo, "tables", "development", a, "", shas[1], gitDir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal("promoted"))
 		d := publish("0.0.0-dev."+diverged[:12], diverged, "z", "sha-"+diverged[:12])
-		res, err = promoteAlias(ctx, repo, "development", d, "", diverged, gitDir)
+		res, err = promoteAlias(ctx, repo, "tables", "development", d, "", diverged, gitDir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal("promoted"))
 		same := publish("0.0.1", diverged, "y", "0.0.1")
-		_, err = promoteAlias(ctx, repo, "development", same, "", diverged, gitDir)
+		_, err = promoteAlias(ctx, repo, "tables", "development", same, "", diverged, gitDir)
 		expectCode(err, "E_IMMUTABLE")
 		Expect(head("development")).To(Equal(d))
 	})
@@ -726,10 +723,10 @@ var _ = Describe("alias promotion", func() {
 			ref := "refs/heads/feature/x"
 			tag := branchTag(ref)
 			oldD := publish("0.0.0-dev."+gone[:12], gone, "old", "sha-"+gone[:12])
-			_, err := promoteAlias(ctx, repo, tag, oldD, "", gone, gitDir)
+			_, err := promoteAlias(ctx, repo, "tables", tag, oldD, "", gone, gitDir)
 			Expect(err).NotTo(HaveOccurred())
 			newD := publish("0.0.0-dev."+current[:12], current, "new", "sha-"+current[:12])
-			res, err := promoteAliasFrom(ctx, repo, tag, newD, "", current, gitDir, promotionSource{Ref: ref, Event: "push"})
+			res, err := promoteAliasFrom(ctx, repo, "tables", tag, newD, "", current, gitDir, promotionSource{Ref: ref, Event: "push"})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).To(Equal("promoted"))
 			Expect(head(tag)).To(Equal(newD))
@@ -738,7 +735,7 @@ var _ = Describe("alias promotion", func() {
 			ref := "refs/heads/feature/x"
 			tag := branchTag(ref)
 			oldD := publish("0.0.0-dev."+gone[:12], gone, "old", "sha-"+gone[:12])
-			_, err := promoteAlias(ctx, repo, tag, oldD, "", gone, gitDir)
+			_, err := promoteAlias(ctx, repo, "tables", tag, oldD, "", gone, gitDir)
 			Expect(err).NotTo(HaveOccurred())
 			newD := publish("0.0.0-dev."+current[:12], current, "new", "sha-"+current[:12])
 			for _, src := range []promotionSource{
@@ -748,17 +745,17 @@ var _ = Describe("alias promotion", func() {
 				{Ref: "refs/tags/v1.0.0", Event: "push"},
 				{Ref: ref, Event: ""},
 			} {
-				_, err := promoteAliasFrom(ctx, repo, tag, newD, "", current, gitDir, src)
+				_, err := promoteAliasFrom(ctx, repo, "tables", tag, newD, "", current, gitDir, src)
 				expectCode(err, "E_UNREACHABLE")
 				Expect(head(tag)).To(Equal(oldD))
 			}
 		})
 		It("refuses development when its commit is unreachable, even for a push", func() {
 			oldD := publish("0.0.0-dev."+gone[:12], gone, "old", "sha-"+gone[:12])
-			_, err := promoteAlias(ctx, repo, "development", oldD, "", gone, gitDir)
+			_, err := promoteAlias(ctx, repo, "tables", "development", oldD, "", gone, gitDir)
 			Expect(err).NotTo(HaveOccurred())
 			newD := publish("0.0.0-dev."+current[:12], current, "new", "sha-"+current[:12])
-			_, err = promoteAliasFrom(ctx, repo, "development", newD, "", current, gitDir, promotionSource{Ref: "refs/heads/master", Event: "push"})
+			_, err = promoteAliasFrom(ctx, repo, "tables", "development", newD, "", current, gitDir, promotionSource{Ref: "refs/heads/master", Event: "push"})
 			expectCode(err, "E_UNREACHABLE")
 			Expect(head("development")).To(Equal(oldD))
 		})
@@ -791,43 +788,43 @@ var _ = Describe("alias promotion", func() {
 	It("moves latest only to a newer stable version", func() {
 		v1d := publish("1.0.0", rev, "one", "1.0.0")
 		v2d := publish("1.1.0", rev, "two", "1.1.0")
-		res, err := promoteAlias(ctx, repo, "latest", v2d, "1.1.0", rev, "")
+		res, err := promoteAlias(ctx, repo, "tables", "latest", v2d, "1.1.0", rev, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal("promoted"))
-		res, err = promoteAlias(ctx, repo, "latest", v1d, "1.0.0", rev, "")
+		res, err = promoteAlias(ctx, repo, "tables", "latest", v1d, "1.0.0", rev, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal("stale"))
 		Expect(head("latest")).To(Equal(v2d))
-		_, err = promoteAlias(ctx, repo, "latest", v2d, "1.2.0-rc.1", rev, "")
+		_, err = promoteAlias(ctx, repo, "tables", "latest", v2d, "1.2.0-rc.1", rev, "")
 		expectCode(err, "E_RESERVED")
 		other := publish("1.1.0", "fedcba9876543210fedcba9876543210fedcba98", "three", "sha-fedcba987654")
-		_, err = promoteAlias(ctx, repo, "latest", other, "1.1.0", rev, "")
+		_, err = promoteAlias(ctx, repo, "tables", "latest", other, "1.1.0", rev, "")
 		expectCode(err, "E_IMMUTABLE")
 		Expect(head("latest")).To(Equal(v2d))
 	})
 	It("refuses reserved or foreign alias names and unpublished digests, leaving aliases unchanged", func() {
 		d := publish("1.0.0", rev, "one", "1.0.0")
 		for _, alias := range []string{"1.0.0", "sha-0123456789ab", "main", "branch-", "Latest", ""} {
-			_, err := promoteAlias(ctx, repo, alias, d, "1.0.0", rev, "")
+			_, err := promoteAlias(ctx, repo, "tables", alias, d, "1.0.0", rev, "")
 			expectCode(err, "E_RESERVED")
 		}
 		missing, _ := v1.NewHash("sha256:" + strings.Repeat("a", 64))
 		before := reg.writeCount()
-		_, err := promoteAlias(ctx, repo, "latest", missing, "1.0.0", rev, "")
+		_, err := promoteAlias(ctx, repo, "tables", "latest", missing, "1.0.0", rev, "")
 		Expect(err).To(HaveOccurred())
 		Expect(reg.writeCount()).To(Equal(before))
-		_, err = remote.Head(repo.Tag("latest"))
+		_, err = remote.Head(repo.Tag("tables-latest"))
 		Expect(err).To(HaveOccurred())
 	})
 	It("promotes a branch channel under its hashed name", func() {
 		gitDir, shas := gitHistory(1)
 		tag := branchTag("refs/heads/feature/x")
 		d := publish("0.0.0-dev."+shas[0][:12], shas[0], "b", "sha-"+shas[0][:12])
-		res, err := promoteAlias(ctx, repo, tag, d, "", shas[0], gitDir)
+		res, err := promoteAlias(ctx, repo, "tables", tag, d, "", shas[0], gitDir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal("promoted"))
 		Expect(head(tag)).To(Equal(d))
-		_, err = promoteAlias(ctx, repo, "branch-feature-x", d, "", shas[0], gitDir)
+		_, err = promoteAlias(ctx, repo, "tables", "branch-feature-x", d, "", shas[0], gitDir)
 		expectCode(err, "E_RESERVED")
 	})
 })
@@ -856,7 +853,7 @@ var _ = Describe("catalog template", func() {
 		Expect(err).NotTo(HaveOccurred())
 		for _, e := range entries {
 			Expect(e.Digest).To(MatchRegexp(`^sha256:[0-9a-f]{64}$`))
-			Expect(e.Artifact).To(Equal("oci://" + repoName + ":1.2.3"))
+			Expect(e.Artifact).To(Equal("oci://" + repoName + ":tables-1.2.3"))
 			Expect(e.Policy.RequireSignature).To(BeTrue())
 			Expect(e.Policy.Identity).To(Equal("https://github.com/example/localai/.github/workflows/addons-package.yml@refs/tags/v1.2.3"))
 			Expect(e.Policy.Issuer).To(Equal("https://token.actions.githubusercontent.com"))
@@ -867,11 +864,33 @@ var _ = Describe("catalog template", func() {
 		Expect(entries[0].Digest).NotTo(Equal(entries[1].Digest))
 		Expect(entries[0].Arch).NotTo(Equal(entries[1].Arch))
 	})
+	It("renders the development channel as mutable entries: the moving tag, no digest", func() {
+		reg := newRegistry()
+		p := newProject(both)
+		m := p.merged("0.0.0-dev.0123456789ab", rev, nil)
+		repoName := reg.repo("addons/tables")
+		out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")
+		_, err := run("catalog", "--config", p.config, "--template", "../../../gallery/addons/tables.yaml.tmpl", "--merged", m, "--repository", repoName, "--tag", "sha-0123456789ab", "--channel", "development", "--owner-repo", "example/localai", "--signer-ref", "refs/heads/master", "--out", out)
+		Expect(err).NotTo(HaveOccurred())
+		b, err := os.ReadFile(out)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).NotTo(ContainSubstring("digest:"))
+		entries, err := readCatalogIndex(b)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(entries).To(HaveLen(2))
+		for _, e := range entries {
+			Expect(e.Mutable).To(BeTrue())
+			Expect(e.Digest).To(BeEmpty())
+			Expect(e.Artifact).To(Equal("oci://" + repoName + ":tables-development"))
+			Expect(e.Channel).To(Equal("development"))
+			Expect(e.Policy.RequireSignature).To(BeTrue())
+		}
+	})
 	It("renders an entry for every first-party add-on from its own template", func() {
 		for _, id := range []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk"} {
 			p := newProjectFor(id, both)
 			m := p.merged("1.2.3", rev, nil)
-			repoName := newRegistry().repo("addons/" + id)
+			repoName := newRegistry().repo("addons")
 			out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")
 			_, err := run("catalog", "--config", p.config, "--template", "../../../gallery/addons/"+id+".yaml.tmpl", "--merged", m, "--repository", repoName, "--tag", "1.2.3", "--channel", "latest", "--owner-repo", "example/localai", "--signer-ref", "refs/tags/v1.2.3", "--out", out)
 			Expect(err).NotTo(HaveOccurred(), id)
@@ -882,6 +901,7 @@ var _ = Describe("catalog template", func() {
 			Expect(entries).To(HaveLen(2), id)
 			for _, e := range entries {
 				Expect(e.ID).To(Equal(id))
+				Expect(e.Artifact).To(Equal("oci://" + repoName + ":" + id + "-1.2.3"))
 				Expect(e.Policy.RequireSignature).To(BeTrue())
 			}
 		}
@@ -1031,8 +1051,8 @@ var _ = Describe("workflow policy", func() {
 	It("rejects publication that is shared between add-ons", func() {
 		expect(mutate("addons-promote-${{ matrix.addon }}-", "addons-promote-"), "P_CONCURRENCY")
 		expect(mutate("addons-publish-${{ matrix.addon }}-", "addons-publish-"), "P_CONCURRENCY")
-		expect(mutate("        addon: ${{ fromJSON(needs.plan.outputs.addons) }}\n    env:\n      ADDON_OCI_BASE: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n      #", "      #"), "P_MATRIX")
-		expect(mutate("repo=\"${ADDON_OCI_BASE%/*}/$ADDON\"", "repo=\"$ADDON_OCI_BASE\""), "P_REPOSITORY")
+		expect(mutate("        addon: ${{ fromJSON(needs.plan.outputs.addons) }}\n    env:\n      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n      #", "      #"), "P_MATRIX")
+		expect(mutate("      ADDON: ${{ matrix.addon }}\n      # cosign", "      ADDON: ${{ matrix.addon }}\n      ADDON_OCI_BASE: x\n      # cosign"), "P_REPOSITORY")
 		expect(mutate("      COSIGN_EXPERIMENTAL: '1'\n", "      COSIGN_EXPERIMENTAL: '1'\n    outputs:\n      digest: x\n"), "P_ORDER")
 	})
 	It("rejects a workflow that names one add-on by path or skips an add-on in the matrix", func() {
@@ -1050,13 +1070,13 @@ var _ = Describe("workflow policy", func() {
 		expect(mutate("            elif grep -q 'no enabled platform' \"$err\"; then", "            elif true; then"), "P_FAIL_CLOSED")
 		expect(mutate("              echo \"cannot read the platform matrix of add-on $id\" >&2\n              cat \"$err\" >&2\n              exit 1", "              continue"), "P_FAIL_CLOSED")
 	})
-	It("rejects a repository rule that does not keep the configured repository for tables", func() {
-		expect(mutate("          if [ \"$ADDON\" = tables ]; then\n            repo=\"$ADDON_OCI_BASE\"", "          if [ \"$ADDON\" = never ]; then\n            repo=\"$ADDON_OCI_BASE\""), "P_REPOSITORY")
-		expect(mutate("            repo=\"$ADDON_OCI_BASE\"\n          else", "            repo=\"${ADDON_OCI_BASE%/*}/$ADDON\"\n          else"), "P_REPOSITORY")
+	It("rejects a repository rule that derives a repository for each add-on", func() {
+		expect(mutate("    env:\n      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n      # cosign", "    env:\n      ADDON_OCI_BASE: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n      # cosign"), "P_REPOSITORY")
+		expect(mutate("ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0", "ADDON_OCI_REPOSITORY: quay.io/example/x\n      ADDON: ${{ matrix.addon }}\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0"), "P_REPOSITORY")
 	})
 	It("rejects a publish or promote matrix that stops the other add-ons on a failure", func() {
 		expect(mutate("      # A leg that is pushing must finish, so one failure never cancels another.\n      fail-fast: false", "      fail-fast: true"), "P_FAIL_FAST")
-		expect(mutate("    permissions:\n      contents: read\n    strategy:\n      fail-fast: false\n      matrix:\n        addon: ${{ fromJSON(needs.plan.outputs.addons) }}\n    env:\n      ADDON_OCI_BASE: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n    steps:", "    permissions:\n      contents: read\n    strategy:\n      fail-fast: true\n      matrix:\n        addon: ${{ fromJSON(needs.plan.outputs.addons) }}\n    env:\n      ADDON_OCI_BASE: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n    steps:"), "P_FAIL_FAST")
+		expect(mutate("    permissions:\n      contents: read\n    strategy:\n      fail-fast: false\n      matrix:\n        addon: ${{ fromJSON(needs.plan.outputs.addons) }}\n    env:\n      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n    steps:", "    permissions:\n      contents: read\n    strategy:\n      fail-fast: true\n      matrix:\n        addon: ${{ fromJSON(needs.plan.outputs.addons) }}\n    env:\n      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n    steps:"), "P_FAIL_FAST")
 	})
 	It("rejects a publish job that downloads the layouts of other add-ons", func() {
 		expect(mutate("pattern: layout-${{ matrix.addon }}-*", "pattern: layout-*"), "P_ARTIFACTS")
@@ -1168,8 +1188,8 @@ var _ = Describe("the add-on package workflow", func() {
 })
 
 // documentedAddonRepository is the value the documentation gives for the
-// ADDON_OCI_REPOSITORY variable: the Tables repository in the add-on namespace.
-const documentedAddonRepository = "quay.io/go-skynet/local-ai-addons/tables"
+// ADDON_OCI_REPOSITORY variable: the one repository of all add-ons.
+const documentedAddonRepository = "quay.io/go-skynet/local-ai-addons"
 
 // workflowStepScript returns the shell script and env of a named step of a job.
 func workflowStepScript(workflow, job, step string) (script string) {
@@ -1201,31 +1221,24 @@ var _ = Describe("workflow behavior", func() {
 		workflow = string(b)
 	})
 
-	It("derives a repository that the add-on tools accept for every add-on from the documented variable", func() {
+	It("publishes every add-on to the one documented repository, with its id as the tag prefix", func() {
 		docs, err := os.ReadFile("../../../docs/content/features/addons.md")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(docs)).To(ContainSubstring("`" + documentedAddonRepository + "`"))
 		for _, job := range []string{"publish", "promote"} {
-			script := workflowStepScript(workflow, job, "Choose the repository of this add-on")
-			for _, id := range firstPartyAddons {
-				env := filepath.Join(GinkgoT().TempDir(), "github-env")
-				Expect(os.WriteFile(env, nil, 0o644)).To(Succeed())
-				cmd := exec.Command("sh", "-c", script)
-				cmd.Env = append(os.Environ(), "ADDON_OCI_BASE="+documentedAddonRepository, "ADDON="+id, "GITHUB_ENV="+env)
-				out, err := cmd.CombinedOutput()
-				Expect(err).NotTo(HaveOccurred(), string(out))
-				written, err := os.ReadFile(env)
-				Expect(err).NotTo(HaveOccurred())
-				repo := strings.TrimSpace(strings.TrimPrefix(string(written), "ADDON_OCI_REPOSITORY="))
-				if id == "tables" {
-					Expect(repo).To(Equal(documentedAddonRepository), "%s keeps the configured repository", job)
-				} else {
-					Expect(repo).To(Equal("quay.io/go-skynet/local-ai-addons/"+id), job)
-				}
-				_, err = parseRepository(repo)
-				Expect(err).NotTo(HaveOccurred(), "%s: %s for %s", job, repo, id)
-			}
+			Expect(workflow).NotTo(ContainSubstring("ADDON_OCI_BASE"))
+			Expect(workflow).NotTo(ContainSubstring("Choose the repository of this add-on"))
+			_ = job
 		}
+		for _, id := range firstPartyAddons {
+			out, err := run("target", "--repository", documentedAddonRepository, "--addon", id, "--tag", "sha-99d1dca2c869")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.TrimSpace(out)).To(Equal("target=" + documentedAddonRepository + ":" + id + "-sha-99d1dca2c869"))
+		}
+		_, err = run("target", "--repository", documentedAddonRepository, "--addon", "Bad_ID", "--tag", "sha-99d1dca2c869")
+		Expect(err).To(HaveOccurred())
+		_, err = run("target", "--repository", "quay.io/go-skynet/local-ai-backends", "--addon", "tables", "--tag", "sha-99d1dca2c869")
+		Expect(err).To(HaveOccurred())
 	})
 
 	Describe("the plan step", func() {
