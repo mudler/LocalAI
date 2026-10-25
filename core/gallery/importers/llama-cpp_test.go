@@ -568,7 +568,11 @@ var _ = Describe("LlamaCPPImporter", func() {
 	})
 
 	Context("AdditionalBackends", func() {
-		It("advertises ik-llama-cpp, turboquant and vllm-cpp as drop-in replacements", func() {
+		// The advertised set is the set of GGUF-consuming engines that the
+		// llama-cpp importer emits on an explicit backend preference. It is
+		// pinned exactly, so adding or dropping an engine is a deliberate
+		// change to this list and to the preference switch in Import.
+		It("advertises ik-llama-cpp, turboquant, rocmfp4 and vllm-cpp as drop-in replacements", func() {
 			entries := importer.AdditionalBackends()
 
 			names := make([]string, 0, len(entries))
@@ -577,12 +581,28 @@ var _ = Describe("LlamaCPPImporter", func() {
 				names = append(names, e.Name)
 				byName[e.Name] = e
 			}
-			Expect(names).To(ConsistOf("ik-llama-cpp", "turboquant", "vllm-cpp"))
+			Expect(names).To(ConsistOf("ik-llama-cpp", "turboquant", "rocmfp4", "vllm-cpp"))
 
 			for _, name := range names {
 				e := byName[name]
 				Expect(e.Modality).To(Equal("text"))
 				Expect(e.Description).NotTo(BeEmpty())
+			}
+		})
+
+		// The import form offers every advertised name; one that Import does
+		// not honour would silently produce a llama-cpp config instead.
+		It("emits every advertised drop-in when it is the preferred backend", func() {
+			for _, e := range importer.AdditionalBackends() {
+				details := Details{
+					URI:         "https://example.com/my-model.gguf",
+					Preferences: json.RawMessage(fmt.Sprintf(`{"backend": %q}`, e.Name)),
+				}
+
+				modelConfig, err := importer.Import(details)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: "+e.Name+"\n"), fmt.Sprintf("%s: %+v", e.Name, modelConfig))
 			}
 		})
 	})
