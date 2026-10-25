@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { loadClientMCPServers, addClientMCPServer, removeClientMCPServer } from '../utils/mcpClientStorage'
+import Icon from './Icon'
 
 export default function UnifiedMCPDropdown({
   // Server MCP props
@@ -120,7 +121,7 @@ export default function UnifiedMCPDropdown({
         title="MCP servers, prompts, and resources"
         onClick={handleOpen}
       >
-        <i className="fas fa-plug" /> MCP
+        <Icon name="plug" /> MCP
         {totalBadge > 0 && (
           <span className="chat-mcp-badge">{totalBadge}</span>
         )}
@@ -144,7 +145,7 @@ export default function UnifiedMCPDropdown({
           {/* Servers tab */}
           {activeTab === 'servers' && serverMCPAvailable && (
             mcpServersLoading ? (
-              <div className="chat-mcp-dropdown-loading"><i className="fas fa-spinner fa-spin" /> Loading servers...</div>
+              <div className="chat-mcp-dropdown-loading"><Icon name="spinner" spin /> Loading servers...</div>
             ) : serverListError ? (
               <div className="chat-mcp-dropdown-error" role="alert">Failed to discover MCP servers: {serverListError}</div>
             ) : mcpServerList.length === 0 ? (
@@ -190,7 +191,7 @@ export default function UnifiedMCPDropdown({
               <div className="chat-mcp-dropdown-header">
                 <span>Client MCP Servers</span>
                 <button type="button" className="chat-mcp-select-all" onClick={() => setAddDialog(!addDialog)}>
-                  <i className="fas fa-plus" /> Add
+                  <Icon name="plus" /> Add
                 </button>
               </div>
               {addDialog && (
@@ -244,7 +245,7 @@ export default function UnifiedMCPDropdown({
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span className={`chat-client-mcp-status chat-client-mcp-status-${status}`} />
                           <span className="chat-mcp-server-name">{server.name}</span>
-                          {server.headers?.Authorization && <i className="fas fa-lock" style={{ fontSize: '0.65rem', opacity: 0.5 }} title="Authenticated" />}
+                          {server.headers?.Authorization && <Icon name="lock" style={{ fontSize: '0.65rem', opacity: 0.5 }} title="Authenticated" />}
                         </div>
                         <span className="chat-mcp-server-tools">
                           {status === 'connecting' ? 'Connecting...' :
@@ -259,7 +260,7 @@ export default function UnifiedMCPDropdown({
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveClient(server.id) }}
                         title="Remove server"
                       >
-                        <i className="fas fa-trash" />
+                        <Icon name="trash" />
                       </button>
                     </label>
                   )
@@ -296,7 +297,7 @@ export default function UnifiedMCPDropdown({
                   </div>
                 </>
               ) : mcpPromptsLoading ? (
-                <div className="chat-mcp-dropdown-loading"><i className="fas fa-spinner fa-spin" /> Loading prompts...</div>
+                <div className="chat-mcp-dropdown-loading"><Icon name="spinner" spin /> Loading prompts...</div>
               ) : mcpPromptList.length === 0 ? (
                 <div className="chat-mcp-dropdown-empty">No MCP prompts available</div>
               ) : (
@@ -325,7 +326,7 @@ export default function UnifiedMCPDropdown({
           {/* Resources tab */}
           {activeTab === 'resources' && resourcesAvailable && (
             mcpResourcesLoading ? (
-              <div className="chat-mcp-dropdown-loading"><i className="fas fa-spinner fa-spin" /> Loading resources...</div>
+              <div className="chat-mcp-dropdown-loading"><Icon name="spinner" spin /> Loading resources...</div>
             ) : mcpResourceList.length === 0 ? (
               <div className="chat-mcp-dropdown-empty">No MCP resources available</div>
             ) : (

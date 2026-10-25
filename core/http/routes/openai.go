@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"net/http"
+
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
@@ -38,10 +40,10 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/realtime/transcription_session", openai.RealtimeTranscriptionSession(application), traceMiddleware)
 	app.POST("/v1/realtime/calls", openai.RealtimeCalls(application), traceMiddleware)
 
-	// NATS client for distributed MCP tool routing (nil when not in distributed mode)
-	var natsClient mcpTools.MCPNATSClient
+	// Agent control for distributed MCP tool routing (nil when not in distributed mode)
+	var agentControl mcpTools.AgentControl
 	if d := application.Distributed(); d != nil {
-		natsClient = d.Nats
+		agentControl = d.AgentControl
 	}
 
 	// chat
@@ -49,13 +51,12 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 		compressionservice.CounterFunc(tokens.CountMessages),
 		compressionservice.NewInferenceSummarizer(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()),
 	)
-	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant(), chatCompressor)
+	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), agentControl, application.LocalAIAssistant(), application.AddonToolProvider(), chatCompressor, application.AuthDB())
 	chatMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
-		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
-		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		re.SetModelAndConfigWithDefault(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }, config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		func(next echo.HandlerFunc) echo.HandlerFunc {
 			return func(c echo.Context) error {
 				if err := re.SetOpenAIRequest(c); err != nil {
@@ -158,9 +159,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
-		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS)),
-		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
-		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		embeddingsModelResolution(re),
 		func(next echo.HandlerFunc) echo.HandlerFunc {
 			return func(c echo.Context) error {
 				if err := re.SetOpenAIRequest(c); err != nil {
@@ -178,6 +177,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	audioHandler := openai.TranscriptEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	audioMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
+		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TRANSCRIPT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
@@ -194,7 +194,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/audio/transcriptions", audioHandler, audioMiddleware...)
 	app.POST("/audio/transcriptions", audioHandler, audioMiddleware...)
 
-	diarizationHandler := openai.DiarizationEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	diarizationHandler := openai.DiarizationEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.VoiceRegistry(), application.AuthDB())
 	diarizationMiddleware := []echo.MiddlewareFunc{
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DIARIZATION)),
@@ -267,10 +267,31 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/images/inpainting", inpaintingHandler, imageMiddleware...)
 	app.POST("/images/inpainting", inpaintingHandler, imageMiddleware...)
 
-	// upscale endpoint - reuse same middleware config as images
+	// Upscaling has its own model usecase; generation models are not defaults.
+	upscaleMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
+		traceMiddleware,
+		// Default: use the first available upscaling model
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_UPSCALE)),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				// The default-model filter does not validate explicitly named models.
+				cfg, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+				if !ok || cfg == nil || !cfg.HasUsecases(config.FLAG_UPSCALE) {
+					return echo.NewHTTPError(http.StatusBadRequest, "model does not support image upscaling")
+				}
+				if err := re.SetOpenAIRequest(c); err != nil {
+					return err
+				}
+				return next(c)
+			}
+		},
+	}
+
 	upscaleHandler := openai.UpscaleEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
-	app.POST("/v1/images/upscale", upscaleHandler, imageMiddleware...)
-	app.POST("/images/upscale", upscaleHandler, imageMiddleware...)
+	app.POST("/v1/images/upscale", upscaleHandler, upscaleMiddleware...)
+	app.POST("/images/upscale", upscaleHandler, upscaleMiddleware...)
 
 	// List models
 	app.GET("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))
@@ -281,4 +302,10 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	capabilitiesHandler := openai.ListModelCapabilitiesEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB())
 	app.GET("/v1/models/capabilities", capabilitiesHandler)
 	app.GET("/models/capabilities", capabilitiesHandler)
+}
+
+// embeddingsModelResolution binds the request and resolves its model. The
+// embeddings default is looked up only when the body names no model.
+func embeddingsModelResolution(re *middleware.RequestExtractor) echo.MiddlewareFunc {
+	return re.SetModelAndConfigWithDefault(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }, config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS))
 }

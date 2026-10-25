@@ -30,6 +30,24 @@ var _ = Describe("thinking probe gating", func() {
 	})
 })
 
+var _ = Describe("needsMediaMarkerProbe", func() {
+	It("probes when the media marker slot is still empty", func() {
+		Expect(needsMediaMarkerProbe("", true)).To(BeTrue())
+		Expect(needsMediaMarkerProbe("", false)).To(BeTrue())
+	})
+
+	It("skips probing a cached marker when the backend is already resident", func() {
+		Expect(needsMediaMarkerProbe("<__media_cached__>", true)).To(BeFalse())
+	})
+
+	It("re-probes a cached marker after a cold Load (stale process-scoped marker)", func() {
+		// llama.cpp picks a new random media marker per server launch. A value
+		// left on the model config from a previous process must not suppress
+		// the probe when the backend was just (re)started (#12246).
+		Expect(needsMediaMarkerProbe("<__media_stale_from_previous_process__>", false)).To(BeTrue())
+	})
+})
+
 var _ = Describe("persistProbedReasoning", func() {
 	const modelName = "probe-test"
 

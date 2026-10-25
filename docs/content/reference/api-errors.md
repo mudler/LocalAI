@@ -88,7 +88,9 @@ The `/v1/responses` endpoint returns errors with this structure:
 | 404  | Not Found                | Model or resource does not exist                       |
 | 409  | Conflict                 | Resource already exists (e.g., duplicate token)        |
 | 422  | Unprocessable Entity     | Validation failed (e.g., invalid parameter range)      |
+| 429  | Too Many Requests        | All backends are saturated (per-model `max_concurrent` or process-wide `--max-concurrent-backend-requests` ceiling reached). Includes a `Retry-After` header and `type: "rate_limit_error"` so OpenAI-compatible clients and harnesses back off automatically |
 | 500  | Internal Server Error    | Backend inference failure, unexpected server errors    |
+| 503  | Service Unavailable       | No healthy node available to serve the model (cluster is full, eviction cannot free a slot, or a `node_selector` excludes all candidates). Also used during model-load cooldown and while a model is still cold-loading. Retryable |
 
 ## Global Error Handling
 
@@ -190,6 +192,7 @@ See also: [Text Generation]({{%relref "features/text-generation" %}})
 |--------|--------------------------------|---------------------------------------|
 | 400    | Invalid or malformed request body | `Bad Request`                       |
 | 400    | Model not found in configuration | `Bad Request`                       |
+| 400    | No `model` in the body and no embeddings model configured | `Bad Request` |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
 See also: [Embeddings]({{%relref "features/embeddings" %}})
@@ -368,6 +371,18 @@ See also: [Object Detection]({{%relref "features/object-detection" %}})
 |--------|--------------------------------|---------------------------------------|
 | 400    | Invalid or malformed request body | `Bad Request`                       |
 | 400    | Model not found in configuration | `Bad Request`                       |
+
+### Slot cache - `POST /v1/slots/save`, `POST /v1/slots/restore`
+
+| Status | Cause                          | Example Message                       |
+|--------|--------------------------------|---------------------------------------|
+| 400    | Invalid `id` on restore, an `id` sent on save, negative slot, or model not found | `invalid id: expected 32 lowercase hex characters` |
+| 404    | The `id` is unknown, or was issued for another model | `no saved state with this id for this model` |
+| 400    | `slot_save_path` is not set for the model | `slot save and restore is disabled for this model: set the slot_save_path option` |
+| 403    | Caller is not an admin (authentication on) | `Forbidden` |
+| 412    | Backend has save and restore turned off, or the saved file no longer matches its record | `slot save/restore is disabled` |
+| 507    | The saved state is larger than the 8 GiB limit and was deleted | `the saved state is larger than the 8589934592 byte limit and was deleted` |
+| 501    | Backend does not support the call | `slot save and restore is not supported by this model's backend` |
 
 ### Models - `GET /v1/models`, `GET /models`
 

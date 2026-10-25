@@ -52,7 +52,7 @@ func NewFineTuneService(
 	appConfig *config.ApplicationConfig,
 	modelLoader *model.ModelLoader,
 	configLoader *config.ModelConfigLoader,
-	nats messaging.MessagingClient,
+	nats messaging.Broadcaster,
 	store *distributed.FineTuneStore,
 ) *FineTuneService {
 	s := &FineTuneService{
@@ -115,7 +115,7 @@ func (s *FineTuneService) saveJobState(job *schema.FineTuneJob) {
 	}
 
 	statePath := filepath.Join(dir, "state.json")
-	if err := os.WriteFile(statePath, data, 0640); err != nil {
+	if err := os.WriteFile(statePath, data, 0600); err != nil {
 		xlog.Error("Failed to write job state", "job_id", job.ID, "error", err)
 	}
 }
@@ -137,7 +137,7 @@ func (s *FineTuneService) loadJobsFromDisk(_ context.Context) ([]*schema.FineTun
 			continue
 		}
 		statePath := filepath.Join(baseDir, entry.Name(), "state.json")
-		data, err := os.ReadFile(statePath)
+		data, err := os.ReadFile(filepath.Clean(statePath))
 		if err != nil {
 			continue
 		}
@@ -564,14 +564,15 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 	modelsPath := s.appConfig.SystemState.Model.ModelsPath
 	outputPath := filepath.Join(modelsPath, modelName)
 
-	// Check for name collision (synchronous — fast validation)
-	configPath := filepath.Join(modelsPath, modelName+".yaml")
+	// Check for name collision (synchronous — fast validation). A folder or a
+	// file of any extension with the name is a collision, not only the config.
 	if err := utils.VerifyPath(modelName+".yaml", modelsPath); err != nil {
 		return "", fmt.Errorf("invalid model name: %w", err)
 	}
-	if _, err := os.Stat(configPath); err == nil {
+	if utils.ModelNameTaken(modelsPath, modelName) {
 		return "", fmt.Errorf("model %q already exists, choose a different name", modelName)
 	}
+	configPath := filepath.Join(modelsPath, modelName+".yaml")
 
 	// Create output directory
 	if err := os.MkdirAll(outputPath, 0750); err != nil {
@@ -659,7 +660,7 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 			s.setExportFailed(job, fmt.Sprintf("failed to marshal config: %v", err))
 			return
 		}
-		if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
+		if err := os.WriteFile(configPath, yamlData, 0600); err != nil {
 			s.setExportFailed(job, fmt.Sprintf("failed to write config file: %v", err))
 			return
 		}
@@ -764,7 +765,7 @@ func (s *FineTuneService) UploadDataset(filename string, data []byte) (string, e
 		return "", fmt.Errorf("invalid filename")
 	}
 	filePath := filepath.Join(uploadDir, uuid.New().String()[:8]+"-"+base)
-	if err := os.WriteFile(filePath, data, 0640); err != nil {
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
 		return "", fmt.Errorf("failed to write dataset: %w", err)
 	}
 

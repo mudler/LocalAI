@@ -21,7 +21,7 @@ test.describe('Traces latency', () => {
   test('every row shows a latency bar and figure', async ({ page }) => {
     const cells = page.locator('.lat')
     await expect(cells).toHaveCount(3)
-    await expect(cells.first()).toContainText('4.20s')
+    await expect(cells.first()).toContainText('4.2 s')
   })
 
   test('the bar is scaled against the slowest request in view', async ({ page }) => {

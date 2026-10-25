@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/rocmfp4 backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/cloud-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
+.NOTPARALLEL: backends/rocmfp4 backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
 .NOTPARALLEL: backends/whisper-medusa
 .NOTPARALLEL: backends/funasr
 
@@ -45,6 +45,19 @@ LAUNCHER_APP_VERSION?=$(shell v=$$(echo "$(VERSION)" | sed -E 's/^v//; s/[+-].*$
 LD_FLAGS?=-s -w
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
+# The model source the binary reads by default: "library" (the model library) or
+# "gallery" (the gallery named localai). A build from master reads the library.
+# A build of a commit that carries a tag reads the gallery until the release
+# workflow cuts over by setting LOCALAI_MODEL_SOURCE=library (see release.yaml).
+LOCALAI_MODEL_SOURCE?=$(shell git describe --exact-match --tags >/dev/null 2>&1 && echo gallery || echo library)
+override LD_FLAGS += -X "github.com/mudler/LocalAI/core/library.ModelSource=$(LOCALAI_MODEL_SOURCE)"
+# The backend source follows the same rule: "library" (the backend library,
+# gallery/backends/index.yaml) or "gallery" (the gallery named localai-backends,
+# backend/index.yaml, which is generated from the library). A build from master
+# reads the library; a build of a commit that carries a tag reads the gallery
+# until the release workflow cuts over with LOCALAI_BACKEND_SOURCE=library.
+LOCALAI_BACKEND_SOURCE?=$(shell git describe --exact-match --tags >/dev/null 2>&1 && echo gallery || echo library)
+override LD_FLAGS += -X "github.com/mudler/LocalAI/core/library.BackendSource=$(LOCALAI_BACKEND_SOURCE)"
 
 OPTIONAL_TARGETS?=
 
@@ -76,7 +89,7 @@ else
 	GORELEASER=$(shell which goreleaser)
 endif
 
-TEST_PATHS?=./api/... ./pkg/... ./core/... ./backend/go/cloud-proxy/... ./backend/go/local-store/... ./backend/go/valkey-store/...
+TEST_PATHS?=./api/... ./pkg/... ./core/... ./backend/go/cloud-proxy/... ./backend/go/localai-proxy/... ./backend/go/local-store/... ./backend/go/valkey-store/... ./backend/go/qdrant-store/...
 
 ## Coverage output and the committed baseline that CI compares against.
 ## The gate is strict: total coverage must never decrease (no tolerance).
@@ -385,13 +398,14 @@ prepare-e2e:
 run-e2e-image:
 	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --name e2e-tests-$(RANDOM) localai-tests
 
-test-e2e: build-mock-backend build-cloud-proxy-backend prepare-e2e run-e2e-image
+test-e2e: build-mock-backend build-cloud-proxy-backend build-localai-proxy-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
 	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390 \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
 	$(MAKE) clean-mock-backend
 	$(MAKE) clean-cloud-proxy-backend
+	$(MAKE) clean-localai-proxy-backend
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
@@ -426,6 +440,11 @@ test-stores: backends/local-store
 test-valkey-store: backends/valkey-store
 	BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --label-filter='valkey' -v -r tests/integration
+
+## Needs a Qdrant gRPC endpoint in $$QDRANT_ADDR, e.g. localhost:6334.
+test-qdrant-store: backends/qdrant-store
+	BACKENDS_PATH=$(abspath ./)/backends \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --label-filter='qdrant' -v -r tests/integration
 
 test-opus:
 	@echo 'Running opus backend tests'
@@ -576,7 +595,7 @@ protoc:
 	  echo "Unsupported OS: $$OS_NAME"; exit 1; \
 	fi; \
 	URL=https://github.com/protocolbuffers/protobuf/releases/download/v31.1/$$FILE; \
-	curl -L $$URL -o protoc.zip && \
+	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 $$URL -o protoc.zip && \
 	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
 
 .PHONY: protogen-go
@@ -590,6 +609,7 @@ protogen-go: protoc install-go-tools
 	# shell-profile change.
 	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
+	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc -Ipkg/motion/proto --go_out=pkg/motion/proto --go_opt=paths=source_relative pkg/motion/proto/motion.proto
 
 core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
 	$(GOCMD) generate ./core/config/...
@@ -603,7 +623,7 @@ generate-force: ## Re-fetch inference defaults from unsloth (always)
 
 .PHONY: protogen-go-clean
 protogen-go-clean:
-	$(RM) pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go
+	$(RM) pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go pkg/motion/proto/motion.pb.go
 	$(RM) bin/*
 
 prepare-test-extra: protogen-python
@@ -638,8 +658,12 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/rust/kokoros kokoros-grpc
 	$(MAKE) -C backend/go/rfdetr-cpp
 	$(MAKE) -C backend/go/locate-anything-cpp
+	$(MAKE) -C backend/go/timestral-cpp
 	$(MAKE) -C backend/go/trellis2cpp
+	$(MAKE) -C backend/go/kimodocpp
+	$(MAKE) -C backend/go/gemxcpp
 	$(MAKE) -C backend/go/valkey-store
+	$(MAKE) -C backend/go/qdrant-store
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -673,11 +697,15 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/rfdetr-cpp test
 	$(MAKE) -C backend/go/locate-anything-cpp test
 	$(MAKE) -C backend/go/depth-anything-cpp test
+	$(MAKE) -C backend/go/timestral-cpp test
 	$(MAKE) -C backend/go/supertonic test
 	$(MAKE) -C backend/go/vllm-cpp test
 	$(MAKE) -C backend/go/nemo-speech-cpp test
 	$(MAKE) -C backend/go/trellis2cpp test
+	$(MAKE) -C backend/go/kimodocpp test
+	$(MAKE) -C backend/go/gemxcpp test
 	$(MAKE) -C backend/go/valkey-store test
+	$(MAKE) -C backend/go/qdrant-store test
 
 ##
 ## End-to-end gRPC tests that exercise a built backend container image.
@@ -744,7 +772,7 @@ test-extra-backend: protogen-go
 ## Convenience wrappers: build the image, then exercise it.
 test-extra-backend-llama-cpp: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
-	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias \
+	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias,context_overflow \
 	$(MAKE) test-extra-backend
 
 ## Raw llama.cpp embeddings are required by Go-side pooling. This exercises the
@@ -1340,17 +1368,22 @@ BACKEND_AUDIO_CPP = audio-cpp|audio-cpp|.|false|false
 BACKEND_PIPER = piper|golang|.|false|true
 BACKEND_LOCAL_STORE = local-store|golang|.|false|true
 BACKEND_VALKEY_STORE = valkey-store|golang|.|false|true
+BACKEND_QDRANT_STORE = qdrant-store|golang|.|false|true
 BACKEND_CLOUD_PROXY = cloud-proxy|golang|.|false|true
+BACKEND_LOCALAI_PROXY = localai-proxy|golang|.|false|true
 BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
 BACKEND_SILERO_VAD = silero-vad|golang|.|false|true
 BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|true
 BACKEND_TRELLIS2CPP = trellis2cpp|golang|.|--progress=plain|true
+BACKEND_GEMXCPP = gemxcpp|golang|.|--progress=plain|true
+BACKEND_KIMODOCPP = kimodocpp|golang|.|--progress=plain|true
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_CRISPASR = crispasr|golang|.|false|true
 BACKEND_PARAKEET_CPP = parakeet-cpp|golang|.|false|true
 BACKEND_MOSS_TRANSCRIBE_CPP = moss-transcribe-cpp|golang|.|false|true
 BACKEND_NEMO_SPEECH_CPP = nemo-speech-cpp|golang|.|false|true
 BACKEND_DEPTH_ANYTHING_CPP = depth-anything-cpp|golang|.|false|true
+BACKEND_TIMESTRAL_CPP = timestral-cpp|golang|.|false|true
 BACKEND_VOXTRAL = voxtral|golang|.|false|true
 BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
 BACKEND_QWEN3_TTS_CPP = qwen3-tts-cpp|golang|.|false|true
@@ -1446,17 +1479,36 @@ $(eval $(call generate-docker-build-target,$(BACKEND_AUDIO_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VALKEY_STORE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_QDRANT_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CLOUD_PROXY)))
+$(eval $(call generate-docker-build-target,$(BACKEND_LOCALAI_PROXY)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TRELLIS2CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_KIMODOCPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_GEMXCPP)))
+.NOTPARALLEL: backends/kimodocpp backends/kimodocpp-darwin
+docker-build-backends: docker-build-kimodocpp
+
+backends/kimodocpp-darwin:
+	BACKEND=kimodocpp BUILD_TYPE=cpu $(MAKE) build-darwin-go-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/kimodocpp.tar)"
+
+.NOTPARALLEL: backends/gemxcpp backends/gemxcpp-darwin
+docker-build-backends: docker-build-gemxcpp
+
+backends/gemxcpp-darwin:
+	BACKEND=gemxcpp BUILD_TYPE=cpu $(MAKE) build-darwin-go-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/gemxcpp.tar)"
+
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CRISPASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PARAKEET_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MOSS_TRANSCRIBE_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_NEMO_SPEECH_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DEPTH_ANYTHING_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_TIMESTRAL_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VOXTRAL)))
 $(eval $(call generate-docker-build-target,$(BACKEND_OPUS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_RERANKERS)))
@@ -1514,7 +1566,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SUPERTONIC)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-rocmfp4 docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-audio-cpp
+docker-build-backends: docker-build-rocmfp4 docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-localai-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-qdrant-store docker-build-audio-cpp docker-build-timestral-cpp
 docker-build-backends: docker-build-whisper-medusa
 docker-build-backends: docker-build-funasr
 
@@ -1533,6 +1585,12 @@ build-cloud-proxy-backend: protogen-go
 
 clean-cloud-proxy-backend:
 	rm -f tests/e2e/mock-backend/cloud-proxy
+
+build-localai-proxy-backend: protogen-go
+	$(GOCMD) build -o tests/e2e/mock-backend/localai-proxy ./backend/go/localai-proxy
+
+clean-localai-proxy-backend:
+	rm -f tests/e2e/mock-backend/localai-proxy
 
 ########################################################
 ### UI E2E Test Server
@@ -1695,3 +1753,11 @@ release-launcher-darwin: notarize-launcher-darwin
 
 build-launcher-linux:
 	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux --app-version $(LAUNCHER_APP_VERSION) && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz
+
+# Thin native launcher only; retains the first-run LocalAI runtime downloader.
+.PHONY: build-launcher-appimage test-launcher-appimage
+build-launcher-appimage:
+	APPIMAGE_ARCH=$(or $(APPIMAGE_ARCH),amd64) bash contrib/appimage/build.sh
+
+test-launcher-appimage:
+	python3 -m unittest discover -s contrib/appimage -p 'test_*.py' -v

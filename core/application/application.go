@@ -3,8 +3,11 @@ package application
 import (
 	"cmp"
 	"context"
+	"errors"
 	"math/rand/v2"
+	"net/http"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,9 +16,24 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/library"
+	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/backendlib"
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/addons/pins"
+	"github.com/mudler/LocalAI/core/services/addons/policy"
+	"github.com/mudler/LocalAI/core/services/addons/recovery"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
+	"github.com/mudler/LocalAI/core/services/addons/updates"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
+	"github.com/mudler/LocalAI/core/services/chathistory"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
+	"github.com/mudler/LocalAI/core/services/failover"
+	"github.com/mudler/LocalAI/core/services/failover/distsync"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -29,6 +47,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/core/trace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	localaiInproc "github.com/mudler/LocalAI/pkg/mcp/localaitools/inproc"
@@ -53,26 +72,56 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
-	backendLoader      *config.ModelConfigLoader
-	modelLoader        *model.ModelLoader
-	applicationConfig  *config.ApplicationConfig
-	startupConfig      *config.ApplicationConfig // Stores original config from env vars (before file loading)
-	templatesEvaluator *templates.Evaluator
-	galleryService     *galleryop.GalleryService
-	agentJobService    *agentpool.AgentJobService
-	agentPoolService   atomic.Pointer[agentpool.AgentPoolService]
-	faceRegistry       facerecognition.Registry
-	voiceRegistry      voicerecognition.Registry
-	voiceProfileStore  *voiceprofile.Store
-	authDB             *gorm.DB
-	metricsService     *monitoring.LocalAIMetricsService
-	statsRecorder      *billing.Recorder
-	fallbackUser       *auth.User
-	piiRedactor        *pii.Redactor
-	piiEvents          pii.EventStore
-	mitmCA             atomic.Pointer[mitm.CA]
-	mitmServer         atomic.Pointer[mitm.Server]
-	mitmMutex          sync.Mutex // serializes Stop+Start; readers use atomic loads
+	addonPolicy         *policy.Policy
+	addonStore          *policy.Store
+	addonResourceExists func(context.Context, policy.ResourceKey) (bool, error)
+	// addonReconcileTick drives the pending-registration retry; nil is a real
+	// 30 second ticker. addonReconcile is that loop once the owner started it.
+	addonReconcileTick <-chan time.Time
+	addonReconcile     *policy.ReconcileLoop
+	addonGateway       *gateway.Gateway
+	addonServer        *http.Server
+	addonSources       *catalog.Sources
+	// addonAdminCheck is the owner's administrator check, the one the manager gets.
+	addonAdminCheck func(context.Context, contract.Actor) error
+	librarySnap     librarySnapshot
+	backendLibrary  *backendlib.Installer
+	addonManager    *addons.Manager
+	addonHostOps    *addonruntime.HostOps
+	addonsProbe     addonsProbeState
+	modelsProbe     modelsProbeState
+
+	// libraryStore is the library sources file when no add-on owner runs here.
+	libraryStore   *catalog.Sources
+	libraryStoreMu sync.Mutex
+
+	// The pin store is built once so the routes and the retention sweep share it.
+	addonPinStoreOnce    sync.Once
+	addonPinStore        pins.Store
+	addonPinStoreErr     error
+	webSocketTicketsOnce sync.Once
+	webSocketTickets     *auth.WebSocketTickets
+	backendLoader        *config.ModelConfigLoader
+	modelLoader          *model.ModelLoader
+	applicationConfig    *config.ApplicationConfig
+	startupConfig        *config.ApplicationConfig // Stores original config from env vars (before file loading)
+	templatesEvaluator   *templates.Evaluator
+	galleryService       *galleryop.GalleryService
+	agentJobService      *agentpool.AgentJobService
+	agentPoolService     atomic.Pointer[agentpool.AgentPoolService]
+	faceRegistry         facerecognition.Registry
+	voiceRegistry        voicerecognition.Registry
+	voiceProfileStore    *voiceprofile.Store
+	chatHistoryStore     *chathistory.Store
+	authDB               *gorm.DB
+	metricsService       *monitoring.LocalAIMetricsService
+	statsRecorder        *billing.Recorder
+	fallbackUser         *auth.User
+	piiRedactor          *pii.Redactor
+	piiEvents            pii.EventStore
+	mitmCA               atomic.Pointer[mitm.CA]
+	mitmServer           atomic.Pointer[mitm.Server]
+	mitmMutex            sync.Mutex // serializes Stop+Start; readers use atomic loads
 	// mitmHostConflicts records duplicate-host claims across model configs.
 	// Non-empty disables the MITM listener until resolved — the strict
 	// 1-to-1 host↔model invariant the dispatcher relies on. Read by
@@ -82,6 +131,7 @@ type Application struct {
 	routerRegistry    *router.Registry
 	routerCorpus      *corpus.Manager
 	admissionLimiter  *admission.Limiter
+	failoverManager   *failover.Manager
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
 	p2pMutex          sync.Mutex
@@ -92,12 +142,26 @@ type Application struct {
 	// Distributed mode services (nil when not in distributed mode)
 	distributed *DistributedServices
 
+	// failoverSync shares failover state between frontends; nil in
+	// standalone mode or when it could not start.
+	failoverSync *distsync.Sync
+	// failoverLock is the probe-leader lock this frontend holds or tries
+	// for; nil when failoverSync is nil.
+	failoverLock *advisorylock.HeldLock
+
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
 
 	// LocalAI Assistant in-process MCP server. nil when DisableLocalAIAssistant
 	// is set; otherwise initialised in start() after galleryService.
 	localAIAssistant *mcpTools.LocalAIAssistantHolder
+
+	// assistantClient is the concrete inproc client backing localAIAssistant.
+	// start() constructs it before failoverManager exists (see New() in
+	// startup.go), so New() sets assistantClient.Failover once the manager
+	// is built, using this field to reach back into the already-registered
+	// MCP tool set. nil when DisableLocalAIAssistant is set.
+	assistantClient *localaiInproc.Client
 
 	// startupComplete flips to true once New() has finished its whole startup
 	// sequence. It backs the /readyz probe.
@@ -111,6 +175,12 @@ type Application struct {
 	startupComplete atomic.Bool
 
 	shutdownOnce sync.Once
+}
+
+// WebSocketTickets returns this frontend's short-lived upgrade ticket store.
+func (a *Application) WebSocketTickets() *auth.WebSocketTickets {
+	a.webSocketTicketsOnce.Do(func() { a.webSocketTickets = auth.NewWebSocketTickets() })
+	return a.webSocketTickets
 }
 
 // Ready reports whether the application has finished starting up and can serve
@@ -147,6 +217,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		backendLoader: config.NewModelConfigLoader(
 			appConfig.SystemState.Model.ModelsPath,
 			config.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer),
+			config.WithReloadDiagnostics(appConfig.DiagnosticsRecorder),
 			config.WithPreloadDisplay(appConfig.ModelPreloadRenderMode, appConfig.DisableModelPreloadColor),
 		),
 		modelLoader:        ml,
@@ -183,6 +254,8 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	// Voice (speaker) recognition registry — same plumbing, separate
 	// namespace so embedding spaces stay isolated (a face vector and a
 	// speaker vector are not comparable and differ in dimensionality).
+	// The registry also splits its store per embedding dimension, so speaker
+	// encoders of different sizes can coexist.
 	voiceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
 		return corebackend.StoreBackend(ml, appConfig, app.backendLoader, storeName, "")
 	}
@@ -260,6 +333,13 @@ func (a *Application) VoiceRegistry() voicerecognition.Registry {
 // recognition embeddings rather than synthesis reference audio.
 func (a *Application) VoiceProfileStore() *voiceprofile.Store {
 	return a.voiceProfileStore
+}
+
+// ChatHistoryStore returns the server-side WebUI chat history store, or nil
+// when the feature is disabled (LOCALAI_DISABLE_WEBUI=true or persistence
+// path could not be resolved).
+func (a *Application) ChatHistoryStore() *chathistory.Store {
+	return a.chatHistoryStore
 }
 
 // AuthDB returns the auth database connection, or nil if auth is not enabled.
@@ -346,13 +426,18 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 		}
 
 		det := piidetector.New(a.ModelLoader(), cfg, a.ApplicationConfig())
-		return pii.NERConfigFromRaw(
+		nc := pii.NERConfigFromRaw(
 			det,
 			cfg.PIIDetectionMinScore(),
 			cfg.PIIDetectionDefaultAction(),
 			cfg.PIIDetectionEntityActions(),
 			pii.SourceNER,
-		), true
+		)
+		nc.ExtendToNextWord = cfg.PIIDetectionExtendToNextWord()
+		nc.ExtendToPreviousWord = cfg.PIIDetectionExtendToPreviousWord()
+		terms, files := cfg.PIIDetectionProtectedTerms()
+		nc.ProtectedTerms = pii.LoadProtectedTerms(terms, files, a.ApplicationConfig().SystemState.Model.ModelsPath)
+		return nc, true
 	}
 }
 
@@ -456,8 +541,8 @@ func (a *Application) MITMHostOwners() map[string]string {
 }
 
 // RouterDecisions returns the routing decision store. nil when stats
-// are disabled (--disable-stats); the RouteModel middleware skips the
-// log write in that case but still rewrites requests.
+// are disabled (--disable-stats), unless WithRouterDecisionLog explicitly
+// retains the log. A nil store skips logging but still rewrites requests.
 func (a *Application) RouterDecisions() router.DecisionStore {
 	return a.routerDecisions
 }
@@ -477,6 +562,9 @@ func (a *Application) RouterClassifierRegistry() *router.Registry {
 func (a *Application) AdmissionLimiter() *admission.Limiter {
 	return a.admissionLimiter
 }
+
+// FailoverManager serves failover chains. Never nil after New.
+func (a *Application) FailoverManager() *failover.Manager { return a.failoverManager }
 
 // StartupConfig returns the original startup configuration (from env vars, before file loading)
 func (a *Application) StartupConfig() *config.ApplicationConfig {
@@ -503,9 +591,21 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		if a.addonServer != nil {
+			_ = a.addonServer.Close()
+		}
+		if a.addonStore != nil {
+			_ = a.addonStore.Close()
+		}
+		if a.addonManager != nil {
+			err = a.addonManager.Close()
+		}
+		// Before distributed shutdown: the sync's subscriptions live on the
+		// NATS connection that closes there.
+		a.stopFailoverDistributed()
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {
-			err = a.modelLoader.StopAllGRPC()
+			err = errors.Join(err, a.modelLoader.StopAllGRPC())
 		}
 		if a.voiceProfileStore != nil {
 			if closeErr := a.voiceProfileStore.Close(); err == nil {
@@ -536,6 +636,7 @@ func (a *Application) waitForHealthyWorker() {
 			}
 		}
 		// Add 0-1s jitter to prevent thundering-herd on the node registry
+		// #nosec G404 -- jitter only spreads retries, it is not security sensitive.
 		jitter := time.Duration(rand.Int64N(int64(time.Second)))
 		select {
 		case <-a.applicationConfig.Context.Done():
@@ -551,7 +652,16 @@ func (a *Application) InstanceID() string {
 	return a.applicationConfig.Distributed.InstanceID
 }
 
-func (a *Application) start() error {
+func (a *Application) start() (startErr error) {
+	if err := a.startAddons(); err != nil {
+		return err
+	}
+	defer func() {
+		if startErr != nil && a.addonManager != nil {
+			_ = a.addonManager.Close()
+		}
+	}()
+
 	galleryService := galleryop.NewGalleryService(a.ApplicationConfig(), a.ModelLoader())
 	err := galleryService.Start(a.ApplicationConfig().Context, a.ModelConfigLoader(), a.ApplicationConfig().SystemState)
 	if err != nil {
@@ -582,6 +692,12 @@ func (a *Application) start() error {
 		assistantClient.StatsRecorder = a.statsRecorder
 		assistantClient.FallbackUser = a.fallbackUser
 		assistantClient.VoiceProfiles = a.voiceProfileStore
+		if a.backendLibrary != nil {
+			assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
+		}
+		if a.distributed != nil && a.distributed.Unloader != nil {
+			assistantClient.LoadStopper = a.distributed.Unloader
+		}
 		// PII filter — same nil-or-real wiring.
 		assistantClient.PIIRedactor = a.piiRedactor
 		assistantClient.PIIEvents = a.piiEvents
@@ -593,6 +709,12 @@ func (a *Application) start() error {
 		assistantClient.RouterEmbedder = a.Embedder
 		assistantClient.RouterEmbedderFingerprint = a.EmbedderFingerprint
 		assistantClient.RouterVectorStore = a.VectorStore
+		// Failover chains: failoverManager does not exist yet at this point
+		// in startup (New() in startup.go builds it after start() returns),
+		// so it can't be wired here like the fields above. New() sets
+		// assistantClient.Failover directly once the manager is built;
+		// stash the client so it can reach back into it.
+		a.assistantClient = assistantClient
 		if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
 			// Why log+continue instead of fail: the assistant is an optional
 			// feature; a failure here must not take down the whole server.
@@ -621,14 +743,30 @@ func (a *Application) start() error {
 	return nil
 }
 
-// StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
-// This must be called after the HTTP server is listening, because backends like
-// PostgreSQL need to call the embeddings API during collection initialization.
-func (a *Application) StartAgentPool() {
-	if !a.applicationConfig.AgentPool.Enabled {
+// initChatHistoryStore initializes the chat history store for the WebUI
+// (issue #9432). It reuses the shared auth database so per-user chat history
+// sits alongside agent configs and jobs in one place — mudler's review on
+// #9902 called out the file-based store as inconsistent with the rest of
+// LocalAI's per-user state. When auth is disabled the store stays nil and the
+// React UI falls back to localStorage. It must run after the auth database is
+// opened: start() runs before that, so a store set up there was always nil
+// and the conversation routes were never registered.
+func (a *Application) initChatHistoryStore() {
+	if a.applicationConfig.DisableWebUI || a.authDB == nil {
 		return
 	}
-	// Build options struct from available dependencies
+	store, err := chathistory.New(a.authDB)
+	if err != nil {
+		xlog.Warn("Chat history persistence disabled: failed to initialise store", "error", err)
+		return
+	}
+	a.chatHistoryStore = store
+}
+
+// agentPoolOptions builds the agent pool's dependencies. WorkQueue stays a nil
+// interface without distributed services, because the pool reads a non-nil
+// WorkQueue as distributed mode.
+func (a *Application) agentPoolOptions() agentpool.AgentPoolOptions {
 	opts := agentpool.AgentPoolOptions{
 		AuthDB: a.authDB,
 	}
@@ -636,12 +774,24 @@ func (a *Application) StartAgentPool() {
 		if d.DistStores != nil && d.DistStores.Skills != nil {
 			opts.SkillStore = d.DistStores.Skills
 		}
-		opts.NATSClient = d.Nats
+		opts.WorkQueue = d.WorkQueue
 		opts.EventBridge = d.AgentBridge
 		opts.AgentStore = d.AgentStore
+		if d.Nats != nil {
+			opts.Bus = d.Nats
+		}
 	}
+	return opts
+}
 
-	aps, err := agentpool.NewAgentPoolService(a.applicationConfig, opts)
+// StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
+// This must be called after the HTTP server is listening, because backends like
+// PostgreSQL need to call the embeddings API during collection initialization.
+func (a *Application) StartAgentPool() {
+	if !a.applicationConfig.AgentPool.Enabled {
+		return
+	}
+	aps, err := agentpool.NewAgentPoolService(a.applicationConfig, a.agentPoolOptions())
 	if err != nil {
 		xlog.Error("Failed to create agent pool service", "error", err)
 		return
@@ -685,4 +835,174 @@ func (a *Application) StartAgentPool() {
 	aps.SetUserServicesManager(usm)
 
 	a.agentPoolService.Store(aps)
+}
+
+// AddonManager is nil unless the deployment explicitly enables addons.
+func (a *Application) AddonManager() *addons.Manager { return a.addonManager }
+
+// BackendLibrary installs backends from the library entries of kind backend.
+// It is nil unless this instance owns the add-on libraries.
+func (a *Application) BackendLibrary() *backendlib.Installer { return a.backendLibrary }
+
+// AddonSources exposes owner-only source administration and explicit live refresh.
+// Forwarders never load source configuration or perform catalog I/O.
+func (a *Application) AddonSources() *catalog.Sources { return a.addonSources }
+
+func (a *Application) startAddons() error {
+	c := a.applicationConfig.Addons
+	if !c.Enabled {
+		return nil
+	}
+	if a.addonManager != nil {
+		return addons.ErrConflict
+	}
+	mode := a.AddonOwnershipMode()
+	if mode != auth.AddonModeNamedUser && mode != auth.AddonModeLocalOwner {
+		return addons.ErrConfiguration
+	}
+	if c.Transport != nil {
+		switch mode {
+		case auth.AddonModeLocalOwner:
+			// The HTTP layer checked the caller's role when an account database
+			// exists; here the only principal is the local owner.
+			c.AdminCheck = func(_ context.Context, actor contract.Actor) error { return auth.ValidateLocalOwnerActor(actor) }
+		default:
+			if a.authDB == nil {
+				return addons.ErrForbidden
+			}
+			c.AdminCheck = func(ctx context.Context, actor contract.Actor) error {
+				return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
+			}
+		}
+	}
+	a.addonAdminCheck = c.AdminCheck
+	owner := addons.OwnerConfig{InstanceID: c.InstanceID, OwnerID: c.OwnerID, OwnerAddress: c.OwnerAddress, StorageID: c.StorageID, Root: c.Root, SharedStorage: c.SharedStorage}
+	var cat catalog.Catalog
+	var installer *packages.Installer
+	// Replicas must not load even source metadata from the owner's volume.
+	if c.InstanceID == c.OwnerID && c.OwnerID != "" {
+		if c.AdminCheck == nil {
+			return addons.ErrForbidden
+		}
+		sources, err := catalog.NewSources(filepath.Join(c.Root, "sources.json"), c.AdminCheck, catalog.CredentialResolver{})
+		if err != nil {
+			return err
+		}
+		var defaults []catalog.Source
+		if c.OfficialLibrary {
+			defaults = append(defaults, catalog.OfficialLibrary())
+		}
+		if c.OfficialBackendLibrary {
+			defaults = append(defaults, library.DefaultBackendLibrary())
+		}
+		sources.SetOfficial(a.applicationConfig.OfficialLibraries)
+		if len(defaults) > 0 {
+			if _, err = sources.SeedDefaults(defaults...); err != nil {
+				return err
+			}
+		}
+		host := c.Host
+		if host == (contract.HostCompatibility{}) {
+			host = contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
+		}
+		cat = catalog.Catalog{Sources: sources, TargetOS: host.OS, TargetArch: host.Arch}
+		installer = &packages.Installer{Root: filepath.Join(c.Root, "packages"), Catalog: cat, Host: host}
+	}
+	m, err := addons.NewManager(a.applicationConfig.Context, owner, cat, installer, c.AdminCheck)
+	if err != nil {
+		return err
+	}
+	if c.InstanceID == c.OwnerID {
+		// Data recovery sits beside the manager: an upgrade of an add-on that
+		// has data goes through it, and its journals are settled before any
+		// process starts. It gets the owner's policy once that exists.
+		account := func(context.Context, string) error { return gateway.ErrForbidden }
+		if a.AddonOwnershipMode() != auth.AddonModeLocalOwner && a.authDB != nil {
+			users := auth.NewAddonUsers(a.authDB)
+			account = users.Active
+		}
+		rec, rerr := recovery.New(recovery.Config{
+			Root: c.Root, Host: m.RecoveryHost(), Admin: c.AdminCheck, Account: account,
+			SelectionsDir: filepath.Join(c.Root, "selections"),
+			Retention:     recovery.Retention{Keep: c.BackupKeep, MaxAge: c.BackupMaxAge},
+		})
+		if rerr != nil {
+			_ = m.Close()
+			return rerr
+		}
+		m.SetRecovery(rec)
+		// The update check reads the libraries and the journal the owner
+		// holds; it applies nothing, and its cache is bounded.
+		m.EnableUpdates(updates.Config{TTL: c.UpdateCacheTTL, MinRefresh: c.UpdateRefreshInterval})
+		if err = m.Reconcile(a.applicationConfig.Context); err != nil {
+			_ = m.Close()
+			return err
+		}
+	}
+	if cat.Sources != nil {
+		if err = cat.Sources.RefreshEnabled(a.applicationConfig.Context); err != nil {
+			if a.applicationConfig.Context.Err() != nil {
+				_ = m.Close()
+				return err
+			}
+			// An unreachable library must not keep LocalAI or the installed
+			// add-ons down. The cache stays empty until an explicit refresh.
+			xlog.Warn("Could not refresh the add-on libraries at startup", "error", err)
+		}
+	}
+	if c.InstanceID == c.OwnerID {
+		limits := contract.DefaultLimits()
+		a.writeModelsProbe()
+		a.addonHostOps = a.newAddonHostOps(m, limits)
+		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
+		if err != nil {
+			_ = m.Close()
+			return err
+		}
+		if err = m.AttachRuntime(a.applicationConfig.Context, supervisor); err != nil {
+			_ = supervisor.Close(context.Background())
+			_ = m.Close()
+			return err
+		}
+	}
+	a.addonSources = cat.Sources
+	if cat.Sources != nil {
+		a.backendLibrary = &backendlib.Installer{
+			Catalog: cat, SystemState: a.applicationConfig.SystemState, ModelLoader: a.modelLoader,
+			MaxBytes: c.BackendMaxBytes, RequireIntegrity: a.applicationConfig.RequireBackendIntegrity,
+		}
+	}
+	a.addonManager = m
+	if c.InstanceID == c.OwnerID {
+		go a.runAddonAutoUpgrade(a.applicationConfig.Context, upgradeInitialDelay, upgradeCheckInterval)
+	}
+	if err := a.startAddonGateway(); err != nil {
+		_ = m.Close()
+		return err
+	}
+	return nil
+}
+
+// libraryInstallNoProgress adapts the library installer to the assistant's
+// installer interface, which does not report progress.
+type libraryInstallNoProgress struct{ in *backendlib.Installer }
+
+func (l libraryInstallNoProgress) Install(ctx context.Context, sourceID, backend, version string) error {
+	return l.in.Install(ctx, sourceID, backend, version, backendlib.Progress{})
+}
+
+func (l libraryInstallNoProgress) Updates(ctx context.Context) ([]localaitools.BackendLibraryUpdate, error) {
+	found, err := l.in.Updates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.BackendLibraryUpdate, 0, len(found))
+	for _, u := range found {
+		out = append(out, localaitools.BackendLibraryUpdate{
+			Name: u.Name, SourceID: u.SourceID,
+			InstalledVersion: u.InstalledVersion, InstalledDigest: u.InstalledDigest,
+			Version: u.Version, Digest: u.Digest, Signed: u.Signed,
+		})
+	}
+	return out, nil
 }

@@ -394,6 +394,7 @@ When adding a new endpoint:
 - [ ] Error responses use `schema.ErrorResponse` format (or `echo.NewHTTPError` with a mapped gRPC status — see the `mapBackendError` helper in `core/http/endpoints/localai/images.go`)
 - [ ] Tests cover both authenticated and unauthenticated access
 - [ ] Swagger regenerated (`make swagger`) if you changed any `@Router`/`@Tags`/`@Param` annotation
+- [ ] Stateful feature: distributed mode chosen and documented (see [distributed-state.md](distributed-state.md))
 
 ## Companion: MCP admin tool surface
 

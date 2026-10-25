@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
@@ -109,6 +110,16 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			}
 		}
 
+		// The owner's value is the deployment's value. A frontend reads it from
+		// the owner at every refresh, so a change made here would be undone and
+		// would not reach the other frontends.
+		if app.AddonFrontend() && settings.OfficialLibraries != nil && *settings.OfficialLibraries != appConfig.OfficialLibraries {
+			return c.JSON(http.StatusConflict, schema.SettingsResponse{
+				Success: false,
+				Error:   "official_libraries is set on the add-on owner, not on a frontend",
+			})
+		}
+
 		// Generate P2P token before saving so the real token is persisted (not "0")
 		if settings.P2PToken != nil && *settings.P2PToken == "0" {
 			token := p2p.GenerateToken(60, 60)
@@ -186,7 +197,20 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 
 		// Apply settings using centralized method
+		prevGalleries, prevBackendGalleries := appConfig.Galleries, appConfig.BackendGalleries
+		// The legacy ApplyRuntimeSettings result drives live watchdog
+		// reconfiguration, not a server restart. Resolver preference changes
+		// take effect only at startup and must not cycle that unrelated service.
+		prevDevelopmentPreference := appConfig.PreferDevelopmentBackends
 		watchdogChanged := appConfig.ApplyRuntimeSettings(&settings)
+		restartRequired := prevDevelopmentPreference != appConfig.PreferDevelopmentBackends
+		gallery.ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries, appConfig)
+		if settings.OfficialLibraries != nil {
+			// The shipped default sources of every kind follow the switch now.
+			if err := app.ApplyLibraries(); err != nil {
+				xlog.Warn("could not apply the official libraries setting", "error", err)
+			}
+		}
 		if settings.VRAMPersistentCache != nil || settings.AutoloadGalleries != nil {
 			if appConfig.VRAMPersistentCache && appConfig.AutoloadGalleries {
 				vram.ConfigurePersistentCache(filepath.Join(appConfig.SystemState.Model.ModelsPath, "..", "cache", "vram"), 24*time.Hour)
@@ -331,8 +355,9 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 
 		return c.JSON(http.StatusOK, schema.SettingsResponse{
-			Success: true,
-			Message: "Settings updated successfully",
+			Success:         true,
+			Message:         "Settings updated successfully",
+			RestartRequired: restartRequired,
 		})
 	}
 }

@@ -30,6 +30,10 @@ To install the dependencies follow the instructions below:
 {{< tabs >}}
 {{% tab title="Apple" %}}
 
+To build pure-Go backend hosts that load Metal libraries, use Go 1.27 or later on macOS 13 or later.
+Go 1.27 records macOS SDK 26.2 in internally linked executables, which enables modern Metal APIs in these hosts.
+Rebuild the affected backend after upgrading Go. Rebuilding only `local-ai` does not update installed backend executables.
+
 Install `xcode` from the App Store
 
 ```bash

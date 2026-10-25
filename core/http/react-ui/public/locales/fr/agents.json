@@ -1,0 +1,55 @@
+{
+  "title": "Agents",
+  "subtitle": "Gérez des agents IA autonomes",
+  "actions": {
+    "agentHub": "Hub d'agents",
+    "import": "Importer",
+    "createAgent": "Créer un agent",
+    "edit": "Modifier",
+    "chat": "Discuter",
+    "export": "Exporter",
+    "delete": "Supprimer",
+    "pause": "Mettre en pause",
+    "resume": "Reprendre"
+  },
+  "table": {
+    "name": "Nom",
+    "status": "Statut",
+    "events": "Événements",
+    "actions": "Actions",
+    "eventsTooltip": "{{count}} événements - Cliquez pour voir"
+  },
+  "search": {
+    "placeholder": "Rechercher des agents...",
+    "summary_one": "{{shown}} agent sur {{total}}",
+    "summary_other": "{{shown}} agents sur {{total}}"
+  },
+  "empty": {
+    "noConfigured": "Aucun agent configuré",
+    "noConfiguredText": "Créez un agent pour démarrer des workflows IA autonomes.",
+    "browseHub": "Vous ne savez pas par où commencer ? Parcourez le <1>Hub d'agents</1> pour trouver des configurations prêtes à importer.",
+    "noMatching": "Aucun agent correspondant",
+    "noMatchingText": "Aucun agent ne correspond à « {{query}} »"
+  },
+  "sections": {
+    "yourAgents": "Vos agents",
+    "otherUsersAgents": "Agents des autres utilisateurs"
+  },
+  "deleteDialog": {
+    "title": "Supprimer l'agent",
+    "message": "Supprimer l'agent « {{name}} » ? Cette action est irréversible.",
+    "confirm": "Supprimer"
+  },
+  "toasts": {
+    "loadFailed": "Échec du chargement des agents : {{message}}",
+    "deleted": "Agent « {{name}} » supprimé",
+    "deleteFailed": "Échec de la suppression de l'agent : {{message}}",
+    "paused": "Agent « {{name}} » mis en pause",
+    "resumed": "Agent « {{name}} » repris",
+    "pauseFailed": "Échec de la mise en pause de l'agent : {{message}}",
+    "resumeFailed": "Échec de la reprise de l'agent : {{message}}",
+    "exported": "Agent « {{name}} » exporté",
+    "exportFailed": "Échec de l'export de l'agent : {{message}}",
+    "parseFailed": "Échec de l'analyse du fichier d'agent : {{message}}"
+  }
+}

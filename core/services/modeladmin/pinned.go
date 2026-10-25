@@ -29,7 +29,7 @@ func (s *ConfigService) TogglePinned(_ context.Context, name string, action Acti
 	if configPath == "" {
 		return nil, ErrConfigFileMissing
 	}
-	if err := utils.VerifyPath(configPath, s.modelsPath()); err != nil {
+	if err := utils.VerifyResolvedPath(configPath, s.modelsPath()); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 	}
 	if err := mutateYAMLBoolFlag(configPath, "pinned", action == ActionPin); err != nil {

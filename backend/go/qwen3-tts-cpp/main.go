@@ -38,6 +38,7 @@ func main() {
 		{&CppLoad, "qt3_load"},
 		{&CppTTS, "qt3_tts"},
 		{&CppTTSStream, "qt3_tts_stream"},
+		{&CppTTSLive, "qt3_tts_live"},
 		{&CppPCMFree, "qt3_pcm_free"},
 		{&CppUnload, "qt3_unload"},
 	}

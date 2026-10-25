@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <stdexcept>
 #include <unordered_map>
 
 static int failures = 0;
@@ -375,6 +376,40 @@ static void test_tts_language_and_params() {
           "tts params: an explicit param overrides the derived caption");
 }
 
+static void test_tts_reference_transcript() {
+    backend::TTSRequest request;
+    request.set_text("New speech to generate.");
+    request.set_voice("reference.wav");
+    (*request.mutable_params())["ref_text"] = "The saved voice transcript.";
+
+    const auto task = build_tts_request(request, clip(24000, 1));
+    check(option_or(task.options, "reference_text", "") ==
+              "The saved voice transcript.",
+          "tts reference: saved transcript reaches Fish Audio's option");
+    check(option_or(task.options, "ref_text", "") ==
+              "The saved voice transcript.",
+          "tts reference: original transcript parameter is preserved");
+    check(task.text_input->text == "New speech to generate.",
+          "tts reference: transcript does not replace synthesis text");
+
+    (*request.mutable_params())["reference_text"] = "Explicit transcript.";
+    const auto explicit_task = build_tts_request(request, clip(24000, 1));
+    check(option_or(explicit_task.options, "reference_text", "") ==
+              "Explicit transcript.",
+          "tts reference: explicit canonical parameter wins over alias");
+
+    (*request.mutable_params())["reference_text"] = "";
+    const auto empty_task = build_tts_request(request, clip(24000, 1));
+    check(has_key(empty_task.options, "reference_text") &&
+              empty_task.options.at("reference_text").empty(),
+          "tts reference: explicit empty canonical parameter is preserved");
+
+    request.mutable_params()->clear();
+    const auto missing_task = build_tts_request(request, clip(24000, 1));
+    check(!has_key(missing_task.options, "reference_text"),
+          "tts reference: no transcript is invented when none was supplied");
+}
+
 static void test_sound_generation_minimal() {
     backend::SoundGenerationRequest request;
     request.set_text("a distant thunderstorm");
@@ -392,6 +427,42 @@ static void test_sound_generation_minimal() {
     check(!task.voice.has_value(), "sound: no voice condition");
 }
 
+static void test_sound_generation_caption_style() {
+    backend::SoundGenerationRequest request;
+    request.set_caption("slow acoustic folk");
+    request.set_lyrics("first line\nsecond line");
+
+    auto task = build_sound_generation_request(request, std::nullopt);
+    check(option_or(task.options, "style", "") == "slow acoustic folk",
+          "sound: caption supplies the default YuE2 style");
+    check(option_or(task.options, "caption", "") == "slow acoustic folk",
+          "sound: caption remains available under its own name");
+    check(option_or(task.options, "lyrics", "") == "first line\nsecond line",
+          "sound: style fallback preserves lyrics");
+    check(request.params().empty(), "sound: style fallback does not mutate params");
+
+    (*request.mutable_params())["style"] = "fast jazz";
+    task = build_sound_generation_request(request, std::nullopt);
+    check(option_or(task.options, "style", "") == "fast jazz",
+          "sound: explicit style overrides caption");
+
+    (*request.mutable_params())["style"] = "";
+    task = build_sound_generation_request(request, std::nullopt);
+    check(has_key(task.options, "style") && task.options.at("style").empty(),
+          "sound: explicit empty style overrides caption");
+
+    request.mutable_params()->clear();
+    request.set_caption("");
+    task = build_sound_generation_request(request, std::nullopt);
+    check(!has_key(task.options, "style"), "sound: empty caption supplies no style");
+
+    request.clear_caption();
+    (*request.mutable_params())["style"] = "instrumental jazz";
+    task = build_sound_generation_request(request, std::nullopt);
+    check(option_or(task.options, "style", "") == "instrumental jazz",
+          "sound: explicit style works without a caption");
+}
+
 static void test_sound_generation_full() {
     backend::SoundGenerationRequest request;
     request.set_text("a slow blues in E");
@@ -407,6 +478,14 @@ static void test_sound_generation_full() {
     request.set_language("en");
     request.set_timesignature("4/4");
     request.set_instrumental(true);
+    (*request.mutable_params())["style"] = "cinematic";
+    (*request.mutable_params())["cot"] = "true";
+    (*request.mutable_params())["src"] = "/attacker-controlled/input.wav";
+    // Generic values lose collisions to typed fields, and src is transported as
+    // audio_input rather than leaking its filesystem path into engine options.
+    (*request.mutable_params())["lyrics"] = "generic lyrics";
+    (*request.mutable_params())["duration_seconds"] = "999";
+    request.set_src("/private/input.wav");
 
     const auto task = build_sound_generation_request(request, clip(48000, 2));
 
@@ -443,6 +522,16 @@ static void test_sound_generation_full() {
           "sound: instrumental forwarded");
     check(option_or(task.options, "language", "") == "en",
           "sound: language forwarded as an option alias");
+    check(option_or(task.options, "style", "") == "cinematic",
+          "sound: generic style parameter forwarded");
+    check(option_or(task.options, "cot", "") == "true",
+          "sound: generic cot parameter forwarded");
+    check(option_or(task.options, "lyrics", "") == "first line\nsecond line",
+          "sound: typed lyrics overrides a colliding generic parameter");
+    check(option_or(task.options, "duration_seconds", "").rfind("30.", 0) == 0,
+          "sound: typed duration overrides a colliding generic parameter");
+    check(!has_key(task.options, "src"),
+          "sound: generic params cannot cross the reserved source-input boundary");
     check(task.text_input->language == "en",
           "sound: language reaches the transcript, which is what ace_step reads");
     check(task.audio_input.has_value() &&
@@ -551,7 +640,74 @@ static void test_transform_text_preserves_other_inputs() {
           "transform text: the source audio is untouched");
 }
 
+static void test_expanded_families() {
+    backend::SoundGenerationRequest request;
+    request.set_expanded(true);
+    request.set_caption("warm jazz");
+    request.set_lyrics("sing this");
+    request.set_bpm(123);
+    request.set_language("en");
+    request.set_text("raw description");
+    (*request.mutable_params())["tags"] = "old tags";
+    auto task = build_sound_generation_request(request, std::nullopt, "heartmula");
+    check(!task.text_input && task.options.at("tags") == "warm jazz" &&
+              task.options.at("lyrics") == "sing this", "expanded heartmula: tags and lyrics, no transcript");
+    task = build_sound_generation_request(request, std::nullopt, "ace_step");
+    check(task.text_input && task.text_input->text == "warm jazz" &&
+              task.text_input->language == "en" && task.options.at("bpm") == "123" &&
+              task.options.at("lyrics") == "sing this", "expanded ace_step: caption transcript and metadata");
+    request.set_text("");
+    task = build_sound_generation_request(request, std::nullopt, "stable_audio");
+    check(task.text_input && task.text_input->text == "warm jazz", "expanded stable_audio: caption fills empty transcript");
+    request.set_text("explicit transcript");
+    task = build_sound_generation_request(request, std::nullopt, "stable_audio");
+    check(task.text_input && task.text_input->text == "explicit transcript", "expanded stable_audio: preserve nonempty transcript");
+    for (const auto &family : {"unknown", "", "heartmula"}) {
+        if (std::string(family) == "heartmula") request.set_lyrics("");
+        bool rejected = false;
+        try { build_sound_generation_request(request, std::nullopt, family); }
+        catch (const std::invalid_argument &) { rejected = true; }
+        check(rejected, std::string("expanded rejects unsupported or empty lyrics: ") + family);
+    }
+    request.set_lyrics("sing this");
+    request.set_instrumental(true);
+    bool rejected = false;
+    try { build_sound_generation_request(request, std::nullopt, "heartmula"); }
+    catch (const std::invalid_argument &) { rejected = true; }
+    check(rejected, "expanded heartmula: instrumental rejected even with lyrics");
+    request.set_expanded(false);
+    (*request.mutable_params())["style"] = "";
+    task = build_sound_generation_request(request, std::nullopt, "unknown");
+    check(task.text_input && task.text_input->text == "explicit transcript" &&
+              task.options.at("style").empty(), "unmarked: unknown family and empty explicit style unchanged");
+    request.mutable_params()->erase("style");
+    task = build_sound_generation_request(request, std::nullopt, "unknown");
+    check(task.options.at("style") == "warm jazz", "unmarked: legacy caption style fallback unchanged");
+}
+
+static void test_expanded_yue2() {
+    backend::SoundGenerationRequest request;
+    request.set_expanded(true);
+    request.set_text("raw description");
+    request.set_caption("soft piano");
+    request.set_lyrics("");
+    (*request.mutable_params())["style"] = "conflicting style";
+    (*request.mutable_params())["lyrics"] = "conflicting lyrics";
+    const auto task = build_sound_generation_request(request, std::nullopt, "yue2");
+    check(!task.text_input.has_value(), "expanded yue2: raw text cannot become lyrics");
+    check(option_or(task.options, "style", "") == "soft piano",
+          "expanded yue2: caption overrides conflicting style");
+    check(option_or(task.options, "lyrics", "missing").empty(),
+          "expanded yue2: empty lyrics override params");
+    request.set_caption("");
+    const auto empty = build_sound_generation_request(request, std::nullopt, "yue2");
+    check(empty.options.at("style").empty() && !empty.text_input,
+          "expanded yue2: empty caption clears params style without raw fallback");
+}
+
 int main() {
+    test_expanded_families();
+    test_expanded_yue2();
     test_voice_is_reference_file();
     test_tts_shape();
     test_tts_plain();
@@ -562,7 +718,9 @@ int main() {
     test_tts_empty_language_is_not_a_language();
     test_tts_clip_and_instructions();
     test_tts_language_and_params();
+    test_tts_reference_transcript();
     test_sound_generation_minimal();
+    test_sound_generation_caption_style();
     test_sound_generation_full();
     test_transform_text_absent();
     test_transform_text_canonical_key();

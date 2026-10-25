@@ -314,7 +314,7 @@ func agentOptions(dir, model string, opts Options) app.Options {
 		TraceDir: opts.TraceDir,
 	}
 	if opts.Yolo {
-		overrides.ApprovalMode = "auto"
+		overrides.ApprovalMode = nibtypes.ApprovalAuto
 	}
 
 	return app.Options{

@@ -36,12 +36,13 @@ jobs:
     # signs each pushed manifest. Without this permission the runner
     # cannot mint the token, and `cosign sign` fails with "no token".
     permissions:
+      actions: read
       contents: read
       id-token: write
     env:
       quay_username: ${{ secrets.quayUsername }}
-      # cosign v2.4.x still gates --registry-referrers-mode=oci-1-1 behind
-      # this flag. Without it, signing fails with:
+      # cosign gates --registry-referrers-mode=oci-1-1 behind this flag.
+      # Without it, signing fails with:
       #   invalid argument "oci-1-1" for "--registry-referrers-mode" flag:
       #   in order to use mode "oci-1-1", you must set COSIGN_EXPERIMENTAL=1
       COSIGN_EXPERIMENTAL: '1'
@@ -59,9 +60,22 @@ jobs:
       # backends whose tag-suffix happens to be a prefix of ours
       # (e.g. -cpu-vllm vs -cpu-vllm-omni). Must stay in sync with the
       # upload-artifact name in backend_build.yml.
+      # The internal artifact API truncates large release runs at 1,000 items.
+      # Use the paginated public API with a limit taken from this run.
+      - name: Count run artifacts
+        id: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=1" --jq .total_count)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
       - name: Download digests
         uses: actions/download-artifact@v8
+        env:
+          ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT: ${{ steps.artifacts.outputs.count }}
         with:
+          github-token: ${{ github.token }}
           pattern: digests${{ inputs.tag-suffix }}--*
           merge-multiple: true
           path: /tmp/digests
@@ -71,13 +85,14 @@ jobs:
 
       # cosign signs each pushed manifest list with --recursive so the
       # index and every per-arch entry get an attached Sigstore bundle.
-      # Cosign v2.4.1 emits the current bundle format by default; the
-      # verifier discovers those bundles through OCI 1.1 referrers.
+      # The version floor is what makes --new-bundle-format available: it
+      # arrives in cosign v2.5.0, and without it cosign writes the legacy
+      # simplesigning format, which our own verifier refuses.
       - name: Install cosign
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3
         with:
-          cosign-release: 'v2.4.1'
+          cosign-release: 'v2.6.5'
 
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
@@ -159,6 +174,7 @@ jobs:
           # manifest before checking signatures need the per-arch
           # signatures, not just the list-level one.
           cosign sign --yes --recursive \
+            --new-bundle-format \
             --registry-referrers-mode=oci-1-1 \
             "quay.io/go-skynet/local-ai-backends@${digest}"
 
@@ -185,6 +201,7 @@ jobs:
           ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
           digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
           cosign sign --yes --recursive \
+            --new-bundle-format \
             --registry-referrers-mode=oci-1-1 \
             "localai/localai-backends@${digest}"
 

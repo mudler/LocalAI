@@ -30,12 +30,15 @@ const (
 	BackendTraceVideoGeneration BackendTraceType = "video_generation"
 	BackendTrace3DGeneration    BackendTraceType = "3d_generation"
 	BackendTrace3DRemesh        BackendTraceType = "3d_remesh"
+	BackendTrace3DAnimation     BackendTraceType = "3d_animation"
+	BackendTraceMotion          BackendTraceType = "motion"
 	BackendTraceTTS             BackendTraceType = "tts"
 	BackendTraceSoundGeneration BackendTraceType = "sound_generation"
 	BackendTraceRerank          BackendTraceType = "rerank"
 	BackendTraceTokenize        BackendTraceType = "tokenize"
 	BackendTraceDetection       BackendTraceType = "detection"
 	BackendTraceDepth           BackendTraceType = "depth"
+	BackendTraceForecast        BackendTraceType = "forecast"
 	BackendTraceFaceVerify      BackendTraceType = "face_verify"
 	BackendTraceFaceAnalyze     BackendTraceType = "face_analyze"
 	BackendTraceVoiceVerify     BackendTraceType = "voice_verify"
@@ -47,6 +50,7 @@ const (
 	BackendTraceTokenClassify   BackendTraceType = "token_classify"
 	BackendTracePatternPII      BackendTraceType = "pattern_pii"
 	BackendTraceVectorStore     BackendTraceType = "vector_store"
+	BackendTraceFailover        BackendTraceType = "failover"
 )
 
 const (

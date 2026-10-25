@@ -8,51 +8,63 @@ package localaitools
 // that the mutating names stay aligned with the confirmation rule.
 const (
 	// Read-only tools.
-	ToolGallerySearch        = "gallery_search"
-	ToolListInstalledModels  = "list_installed_models"
-	ToolListGalleries        = "list_galleries"
-	ToolGetJobStatus         = "get_job_status"
-	ToolGetModelConfig       = "get_model_config"
-	ToolListBackends         = "list_backends"
-	ToolListKnownBackends    = "list_known_backends"
-	ToolSystemInfo           = "system_info"
-	ToolListNodes            = "list_nodes"
-	ToolListScheduling       = "list_scheduling"
-	ToolGetScheduling        = "get_scheduling"
-	ToolVRAMEstimate         = "vram_estimate"
-	ToolGetBranding          = "get_branding"
-	ToolGetUsageStats        = "get_usage_stats"
-	ToolGetPIIEvents         = "get_pii_events"
-	ToolGetMiddlewareStatus  = "get_middleware_status"
-	ToolGetRouterDecisions   = "get_router_decisions"
-	ToolGetRouterCorpusStats = "get_router_corpus_stats"
-	ToolListVoiceProfiles    = "list_voice_profiles"
+	ToolGallerySearch             = "gallery_search"
+	ToolListInstalledModels       = "list_installed_models"
+	ToolListGalleries             = "list_galleries"
+	ToolGetJobStatus              = "get_job_status"
+	ToolGetModelConfig            = "get_model_config"
+	ToolListBackends              = "list_backends"
+	ToolListKnownBackends         = "list_known_backends"
+	ToolListBackendLibraryUpdates = "list_backend_library_updates"
+	ToolSystemInfo                = "system_info"
+	ToolListNodes                 = "list_nodes"
+	ToolListScheduling            = "list_scheduling"
+	ToolGetScheduling             = "get_scheduling"
+	ToolVRAMEstimate              = "vram_estimate"
+	ToolGetBranding               = "get_branding"
+	ToolGetUsageStats             = "get_usage_stats"
+	ToolGetPIIEvents              = "get_pii_events"
+	ToolGetMiddlewareStatus       = "get_middleware_status"
+	ToolGetRouterDecisions        = "get_router_decisions"
+	ToolGetRouterCorpusStats      = "get_router_corpus_stats"
+	ToolListVoiceProfiles         = "list_voice_profiles"
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).
-	ToolInstallModel       = "install_model"
-	ToolImportModelURI     = "import_model_uri"
-	ToolDeleteModel        = "delete_model"
-	ToolEditModelConfig    = "edit_model_config"
-	ToolReloadModels       = "reload_models"
-	ToolLoadModel          = "load_model"
-	ToolInstallBackend     = "install_backend"
-	ToolUpgradeBackend     = "upgrade_backend"
-	ToolToggleModelState   = "toggle_model_state"
-	ToolToggleModelPinned  = "toggle_model_pinned"
-	ToolSetBranding        = "set_branding"
-	ToolSetAlias           = "set_alias"
-	ToolSeedRouterCorpus   = "seed_router_corpus"
-	ToolClearRouterCorpus  = "clear_router_corpus"
-	ToolCreateVoiceProfile = "create_voice_profile"
-	ToolDeleteVoiceProfile = "delete_voice_profile"
-	ToolSetNodeVRAMBudget  = "set_node_vram_budget"
-	ToolSetScheduling      = "set_scheduling"
-	ToolDeleteScheduling   = "delete_scheduling"
+	ToolInstallModel          = "install_model"
+	ToolImportModelURI        = "import_model_uri"
+	ToolDeleteModel           = "delete_model"
+	ToolEditModelConfig       = "edit_model_config"
+	ToolReloadModels          = "reload_models"
+	ToolCancelModelLoad       = "cancel_model_load"
+	ToolLoadModel             = "load_model"
+	ToolInstallBackend        = "install_backend"
+	ToolUpgradeBackend        = "upgrade_backend"
+	ToolInstallLibraryBackend = "install_library_backend"
+	ToolToggleModelState      = "toggle_model_state"
+	ToolToggleModelPinned     = "toggle_model_pinned"
+	ToolSetBranding           = "set_branding"
+	ToolSetAlias              = "set_alias"
+	ToolSeedRouterCorpus      = "seed_router_corpus"
+	ToolClearRouterCorpus     = "clear_router_corpus"
+	ToolCreateVoiceProfile    = "create_voice_profile"
+	ToolDeleteVoiceProfile    = "delete_voice_profile"
+	ToolSetNodeVRAMBudget     = "set_node_vram_budget"
+	ToolSetScheduling         = "set_scheduling"
+	ToolDeleteScheduling      = "delete_scheduling"
+	// ToolPinFailoverTarget and ToolUnpinFailoverTarget live here (rather
+	// than grouped with ToolListFailoverChains below) so mutatingToolNames
+	// stays a contiguous scan of this block.
+	ToolPinFailoverTarget   = "pin_failover_target"
+	ToolUnpinFailoverTarget = "unpin_failover_target"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
 	ToolListAliases = "list_aliases"
+
+	// ToolListFailoverChains is read-only but lives here so the failover
+	// tools stay grouped; the catalog tests assert its read-only placement.
+	ToolListFailoverChains = "list_failover_chains"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when
@@ -69,9 +81,11 @@ var mutatingToolNames = []string{
 	ToolDeleteModel,
 	ToolEditModelConfig,
 	ToolReloadModels,
+	ToolCancelModelLoad,
 	ToolLoadModel,
 	ToolInstallBackend,
 	ToolUpgradeBackend,
+	ToolInstallLibraryBackend,
 	ToolToggleModelState,
 	ToolToggleModelPinned,
 	ToolSetBranding,
@@ -83,4 +97,6 @@ var mutatingToolNames = []string{
 	ToolSetNodeVRAMBudget,
 	ToolSetScheduling,
 	ToolDeleteScheduling,
+	ToolPinFailoverTarget,
+	ToolUnpinFailoverTarget,
 }

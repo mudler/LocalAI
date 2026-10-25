@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -11,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,6 +77,59 @@ func checkModelIdentity(in interface{ GetModelIdentity() string }) error {
 	return grpcerrors.ModelMismatch("mock-backend", opts.Model, in.GetModelIdentity())
 }
 
+// addonToolCall reads a scripted add-on tool call from the prompt. A spec puts
+// ADDON_TOOL_CALL:<tool name>:<base64url JSON arguments> in the user message;
+// the model then answers its first turn with that call, as a model that chose
+// the tool would. The arguments are exactly what the spec encoded, so a spec
+// can send valid, forged or malformed ones. The second turn, after the host
+// put the tool result into the prompt, is plain text.
+var addonToolMarker = regexp.MustCompile(`ADDON_TOOL_CALL:([A-Za-z0-9_-]+):([A-Za-z0-9_=-]+)`)
+
+func addonToolCall(prompt string) (name, arguments string, ok bool) {
+	m := addonToolMarker.FindStringSubmatch(prompt)
+	if m == nil {
+		return "", "", false
+	}
+	raw, err := base64.URLEncoding.DecodeString(m[2])
+	if err != nil {
+		raw, err = base64.RawURLEncoding.DecodeString(m[2])
+	}
+	if err != nil {
+		return "", "", false
+	}
+	return m[1], string(raw), true
+}
+
+// promptHasAddonFile reports whether the host answered the scripted call with
+// private file references (an export).
+func promptHasAddonFile(prompt string) bool {
+	return strings.Contains(prompt, `"kind":"artifact"`) || strings.Contains(prompt, `"kind": "artifact"`)
+}
+
+// addonAnswer is the plain text the scripted model gives after the host
+// answered its call: a file result is ready to download, anything else is a
+// change that waits for the person.
+func addonAnswer(prompt string) string {
+	// A call the add-on refused as invalid ends in an error result with the
+	// code invalid_request: nothing was changed and the model says so.
+	if strings.Contains(prompt, `"code":"invalid_request"`) || strings.Contains(prompt, `"code": "invalid_request"`) {
+		return "The add-on refused the request as invalid."
+	}
+	if promptHasAddonFile(prompt) {
+		return "The file is ready to download."
+	}
+	return "The change is waiting for your confirmation."
+}
+
+// promptHasAddonResult reports whether the host already answered the scripted
+// call: the broker's result documents carry a kind (a proposal, a result or an
+// error such as select_resource), and a refusal is prefixed.
+func promptHasAddonResult(prompt string) bool {
+	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) || strings.Contains(prompt, `"kind":"error"`) ||
+		strings.Contains(prompt, `"kind": "proposal"`) || strings.Contains(prompt, `"kind": "result"`) || strings.Contains(prompt, `"kind": "error"`) || strings.Contains(prompt, "Error: ") ||
+		promptHasAddonFile(prompt)
+}
+
 // promptHasToolResults checks if the prompt contains evidence of prior tool
 // execution — specifically the output from the mock MCP server's get_weather tool.
 func promptHasToolResults(prompt string) bool {
@@ -93,6 +148,10 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 		"draft_model", in.DraftModel,
 		"mmproj", in.MMProj)
 	recordLoadParams(in)
+	// Lets e2e specs build a failover target whose backend cannot load.
+	if strings.HasPrefix(in.Model, "fail-load") {
+		return &pb.Result{Message: "mock: load failure", Success: false}, nil
+	}
 	return &pb.Result{
 		Message: "Model loaded successfully (mocked)",
 		Success: true,
@@ -103,7 +162,17 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
+	if opts := snapshotLoadParams(); opts != nil && (strings.Contains(opts.Model, "mm-red") || strings.Contains(opts.Model, "mm-blue")) {
+		if err := auditDecision("predict", []byte(opts.Model)); err != nil {
+			return nil, err
+		}
+		b, err := json.Marshal(map[string]any{"model": opts.Model, "images": in.Images, "prompt": in.Prompt})
+		return &pb.Reply{Message: b, PromptTokens: 1, Tokens: 1}, err
+	}
 	xlog.Debug("Predict called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
+		return nil, errMockContextOverflow
+	}
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
 	}
@@ -237,7 +306,13 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	}
 	var response string
 	toolName := mockToolNameFromRequest(in)
-	if toolName != "" && !promptHasToolResults(in.Prompt) {
+	if name, arguments, ok := addonToolCall(in.Prompt); ok && toolName != "" {
+		if promptHasAddonResult(in.Prompt) {
+			response = addonAnswer(in.Prompt)
+		} else {
+			response = fmt.Sprintf(`{"name": %q, "arguments": %s}`, name, arguments)
+		}
+	} else if toolName != "" && !promptHasToolResults(in.Prompt) {
 		// First call with tools: return a tool call so the MCP loop executes it.
 		response = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
 	} else if toolName != "" {
@@ -255,11 +330,18 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	}, nil
 }
 
+// errMockContextOverflow is llama.cpp's error for a prompt that does not fit
+// the slot's context (tools/server/server-context.cpp).
+var errMockContextOverflow = fmt.Errorf("request (9739 tokens) exceeds the available context size (8192 tokens), try increasing it")
+
 func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
 	if err := checkModelIdentity(in); err != nil {
 		return err
 	}
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
+		return errMockContextOverflow
+	}
 	if strings.Contains(in.Prompt, "MOCK_ERROR_IMMEDIATE") {
 		return fmt.Errorf("mock backend stream error: simulated failure")
 	}
@@ -382,8 +464,18 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 	}
 
 	var toStream string
+	wholeChunk := false
 	toolName := mockToolNameFromRequest(in)
+	addonName, addonArgs, addonCall := addonToolCall(in.Prompt)
 	switch {
+	case addonCall && toolName != "" && promptHasAddonResult(in.Prompt):
+		toStream = addonAnswer(in.Prompt)
+	case addonCall && toolName != "":
+		// One chunk: the chat handler emits a tool call as soon as the name
+		// is complete, so a call streamed byte by byte would reach it with
+		// empty arguments, which no real backend does.
+		toStream = fmt.Sprintf(`{"name": %q, "arguments": %s}`, addonName, addonArgs)
+		wholeChunk = true
 	case toolName != "" && !promptHasToolResults(in.Prompt):
 		toStream = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
 	case toolName != "":
@@ -396,6 +488,9 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		toStream = "Sure — here it is: alice@example.com is the address."
 	default:
 		toStream = "This is a mocked streaming response."
+	}
+	if wholeChunk {
+		return stream.Send(&pb.Reply{Message: []byte(toStream), Tokens: int32(len(toStream))}) // #nosec G115 -- the length of a short fixed string
 	}
 	for i, r := range toStream {
 		if err := stream.Send(&pb.Reply{
@@ -425,6 +520,9 @@ func mockToolNameFromRequest(in *pb.PredictOptions) string {
 }
 
 func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
+	if err := auditDecision("embedding", []byte("Embedding")); err != nil {
+		return nil, err
+	}
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
@@ -634,6 +732,7 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 	rms := 0.0
 
 	if dst != "" {
+		// #nosec G304 -- test-only mock backend reading the path core just staged
 		if data, err := os.ReadFile(dst); err == nil {
 			if len(data) >= 44 {
 				wavSR = int(binary.LittleEndian.Uint32(data[24:28]))
@@ -704,6 +803,9 @@ func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions)
 func (m *MockBackend) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
+	}
+	if in.QuestionType == "systemone" {
+		return mockDecision(ctx, in)
 	}
 	xlog.Debug("Score called", "candidates", len(in.Candidates))
 	hint := extractRouteHint(in.Prompt)
@@ -947,7 +1049,7 @@ func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.D
 		}
 		return out
 	}
-	return &pb.DiarizeResponse{
+	resp := &pb.DiarizeResponse{
 		Segments: []*pb.DiarizeSegment{
 			seg(0.0, 1.0, "5", "hello there"),
 			seg(1.0, 2.0, "2", "general kenobi"),
@@ -956,7 +1058,16 @@ func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.D
 		NumSpeakers: 2,
 		Duration:    3.5,
 		Language:    in.Language,
-	}, nil
+	}
+	// IncludeSounds gates the sound events; the mock always has a sound model.
+	if in.IncludeSounds {
+		resp.SoundsIncluded = true
+		resp.Sounds = []*pb.DiarizeSound{
+			{Start: 0.5, End: 1.25, Label: "Door", Confidence: 0.8},
+			{Start: 2.0, End: 3.0, Label: "Applause", Confidence: 0.6},
+		}
+	}
+	return resp, nil
 }
 
 func (m *MockBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
@@ -1004,7 +1115,7 @@ func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*
 // survive resampling (DC is sample-rate independent). Near-zero DC maps to a
 // neutral vector equidistant from both. Returns nil for unreadable audio.
 func voiceEmbedFromWAV(path string) []float32 {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- test-only mock backend reading the path core just staged
 	if err != nil || len(data) < 44 {
 		return nil
 	}

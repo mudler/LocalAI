@@ -18,7 +18,9 @@ a single client-facing model name fans out across multiple downstream
 targets.
 
 Both are inspected and configured from the same admin page
-(`/app/middleware`), backed by the same REST surface (`/api/middleware/*`,
+(`/app/middleware`), which draws the order a request passes through as five
+steps (Proxy, Admission, Filtering, Routing, Model) and shows only the rules of
+the step you select, backed by the same REST surface (`/api/middleware/*`,
 `/api/pii/*`, `/api/router/*`) and the same MCP tools.
 
 ## Request lifecycle
@@ -51,11 +53,27 @@ backend default.
 
 Filtering runs on every text-accepting endpoint that has an adapter wired:
 `/v1/chat/completions` and `/v1/messages` (chat), `/v1/completions`,
-`/v1/embeddings`, `/v1/edits`, and the Ollama `/api/chat`, `/api/generate`
-and `/api/embed` endpoints, plus the [MITM proxy]({{< relref "mitm-proxy.md" >}})
-request body. Image, audio (TTS/STT), video, rerank, and the realtime
-WebSocket are not filtered yet (different prompt-PII semantics; realtime is
-not HTTP middleware).
+`/v1/embeddings`, `/v1/edits`, the Open Responses `POST /v1/responses`
+(`instructions`, string `input`, and in input items the message and
+reasoning text, `function_call` arguments and `function_call_output` output),
+and the Ollama `/api/chat`, `/api/generate` and `/api/embed` endpoints, plus
+the [MITM proxy]({{< relref "mitm-proxy.md" >}}) request body. Image, audio
+(TTS/STT), video, rerank, and the realtime WebSocket are not filtered yet
+(different prompt-PII semantics; realtime is not HTTP middleware).
+
+The Responses WebSocket mode (`GET /v1/responses`) is not HTTP middleware
+either, so it cannot filter: a `response.create` for a model with PII
+filtering enabled is refused with the error type `pii_unsupported_transport`
+instead of being served unfiltered. Use `POST /v1/responses` for those models.
+Requests whose `model` names an agent are handed to the agent pool before
+model resolution and are not filtered by the per-model policy.
+
+Stored history loaded through `previous_response_id` or `item_reference`
+is resolved after filtering and is not scanned against the current model's
+policy. That history can contain unfiltered text from another model or
+model-generated output. Tool output supplied directly in the request is
+scanned as text, or as its complete JSON encoding for non-string values,
+including arrays.
 
 A request's messages are scanned **as one document** (joined in order), so
 the NER detector keeps conversational context: whether `4421` is a PIN or
@@ -98,6 +116,91 @@ without forwarding. `allow` detects and logs (a PIIEvent is still recorded)
 but leaves the text unchanged. The entity-group names are whatever the model
 emits (the privacy-filter family uses uppercase names like `EMAIL`,
 `PASSWORD`, `CREDITCARD`).
+
+#### Extending a detection to the next word
+
+Some identifying values come in pairs where the model reliably tags one half
+and misses the other. The typical case is an address line: the postal code is
+detected with high confidence, the town right after it is tagged with a low
+score or not at all, and masking the code alone leaves the town in the clear
+(`[REDACTED:ner:ZIPCODE] Ludwigshafen`). `extend_to_next_word` lists entity
+groups whose accepted detections also cover the word that directly follows
+them on the same line, with the same action and group:
+
+```yaml
+pii_detection:
+  min_score: 0.4
+  extend_to_next_word:
+    - ZIPCODE                 # "67059 Ludwigshafen" -> "[REDACTED:ner:ZIPCODE]"
+```
+
+A word is a run of letters, digits, combining marks, `-`, `'` and inner dots
+(a trailing dot is left out). The extension skips spaces and tabs but never a
+line break, and it does nothing when no word follows. Only one word is added,
+so a multi-word town ("Frankfurt am Main") keeps its tail.
+
+The extension is deliberately blunt: the next word can also be a number or a
+date (`ZIPCODE` followed by `12 Mar 2026` takes `12`), so it trades some
+over-masking for fewer leaks. Use it only for groups whose neighbour is
+identifying.
+
+`extend_to_previous_word` is the mirror for the word *before* a detection. A
+name model often tags the surname with high confidence and scores the first
+name in front of it below `min_score` (`Gast Greta [REDACTED:ner:LASTNAME]`):
+
+```yaml
+pii_detection:
+  extend_to_previous_word:
+    - LASTNAME                # "Gast Greta Waldmeister" -> "Gast [REDACTED:ner:LASTNAME]"
+```
+
+Here the preceding word must consist of letters (plus `-` and `'`): a word
+with digits - an amount, a date, a room number - is never taken, nor a
+protected term. The search skips spaces and tabs but never a line break.
+
+The word before a hit is not always a first name: a title (`Herr`), a
+preposition or any other plain word in front of the surname is taken too
+(`Gast Greta Waldmeister` loses `Greta`, `Herrn Waldmeister` loses `Herrn`).
+Like the next-word option it trades over-masking for fewer leaks. Do not
+combine both directions on the same name group: each hit then also takes the
+word after it, so a name followed by a number swallows that number.
+
+#### Protected terms
+
+The opposite failure is a value the model tags although it must reach the
+upstream model: a business name read as a surname (`Hotel Seeblick` ->
+`Hotel [REDACTED:ner:LASTNAME]`) turns an invoice into one the model cannot
+categorise. `protected_terms` lists such values; `protected_terms_files`
+adds files inside the models path with one term per line (`#` starts a
+comment), re-read whenever they change, so an external process can keep the
+list current without a restart:
+
+```yaml
+pii_detection:
+  protected_terms:
+    - Hotel Seeblick
+  protected_terms_files:
+    - privacy-filter/known-suppliers.txt
+```
+
+Each whole-word, case-insensitive occurrence (whitespace inside a term
+matches any whitespace run) is replaced by a neutral placeholder before the
+detector runs and restored afterwards. The detector never sees the value,
+so it cannot tag it or let it colour the context around it, and the parts
+of a detection that fall on the placeholder are cut out. Event offsets
+still address the original text. Terms shorter than three characters are
+ignored, and a missing or unreadable file is skipped with a warning (fewer
+protected terms means more masking, never less).
+
+A term that is only part of a longer word is not protected: with the term
+`Anna`, `Anna-Lena` and `O'Anna` are still passed to the detector. Protected
+terms apply to the NER tier only. A pattern detector
+(`backend: pattern`) always scans the original text and may still mask a
+match inside a protected term.
+
+A protected term passes **everywhere** in the text: if the same string is
+also a person's name, that occurrence passes too. Keep the list to values
+that are safe to send.
 
 ### Pattern detector tier
 
@@ -183,6 +286,16 @@ customized with `reversible_token_prefix` and `reversible_token_suffix`.
 Reversible redactions provide less confidentiality than irreversible masking:
 any third party that can observe both the redacted request and restored response
 may be able to infer the original values.
+
+`block_unscanned_media: true` closes the gap the text detectors leave open:
+images, audio, video and files in a request are never scanned, so by default
+they reach the backend unchecked. With the option set, a request that carries
+any such content is rejected with HTTP 400 (`error.type=pii_blocked`, audit
+event pattern `__unscanned_media__`) before a detector runs. Use it for egress
+policies where "cannot be inspected" must mean "not sent", e.g. on
+`cloud-proxy` models. It applies to the OpenAI chat, Open Responses,
+Anthropic messages and Ollama chat routes, and only while PII is enabled for
+the model.
 
 Multiple detectors **union** their detections; overlapping spans resolve to
 the strongest action (`block` > `mask` > `allow`). A configured detector
@@ -353,20 +466,84 @@ silent-bypass.
 
 ### Available classifiers
 
-LocalAI ships three classifier implementations. Pick one with `classifier:`
+LocalAI ships four classifier implementations. Pick one with `classifier:`
 in the router YAML:
 
 | Classifier | When to use | Underlying primitive |
 |---|---|---|
 | `score` (default) | Small classifier-tuned LM (Arch-Router-style). Best when label vocabulary is well-covered by next-token continuation. | `Score` gRPC primitive (llama-cpp, vLLM). |
 | `colbert` | When label descriptions are abstract or short and a next-token classifier produces flat distributions. Robust on long-form policy descriptions. | rerankers backend in ColBERT mode (e.g. `bge-m3-colbert` from the gallery). |
+| `decisions` | Independent, overlapping policy decisions from a native decision model. | Internal SystemOne pipeline via Score; numeric noul P(true). |
 | `knn` | When you have (or can generate) labelled example prompts — including outcome-labelled production traffic. Deterministic, auditable, cheapest per request, and the only classifier with an explicit out-of-distribution fallback. | embeddings backend + local-store KNN over a persisted, curated corpus. |
 
-All three share `policies`, `candidates`, `fallback`, and
-`classifier_cache_size`. `score` and `colbert` take a
+All four share `policies`, `candidates`, and `fallback`. The existing
+`score`, `colbert`, and `knn` classifiers also use `classifier_cache_size`. `score` and `colbert` take a
 `classifier_model` (+ `activation_threshold`, optional
 `embedding_cache`); `knn` instead takes a `knn:` block and a corpus
 seeded through the API.
+
+### Native decision models (`decisions`)
+
+Use `classifier: decisions` with an installed native decision model explicitly
+configured with `known_usecases: [decisions]` and a backend supporting the Score
+RPC. A chat model with ordinary continuation scoring is not a substitute.
+The router calls the internal `ModelSystemOne` adapter, never a loopback HTTP
+endpoint, NER extractor, or text-generation fallback.
+
+```yaml
+name: policy-router
+router:
+  classifier: decisions
+  classifier_model: my-decision-model
+  activation_threshold: 0.5
+  policies:
+    - label: code
+      description: Writing or debugging code
+    - label: private
+      description: Handling private information
+  candidates:
+    - model: coding-model
+      labels: [code]
+    - model: private-coding-model
+      labels: [code, private]
+  fallback: general-model
+```
+
+Each policy becomes a separate `noul` question with explicit `false` and `true`
+criteria. Stable question IDs map answers back to policy declaration order.
+The native numeric `noul` value is **P(true)**; a probabilities map is not
+required. `label_scores` are independent values in [0,1], not a distribution
+normalized across policies. Every label with probability **>= threshold** is
+active, and `score` is the maximum probability. The default threshold is 0.5
+(omitted or zero); positive configured thresholds must be finite and <=1.
+There is no exclusive-choice mode or top-one rescue. All-below-threshold means
+abstention. The first candidate covering all active labels wins; abstention,
+malformed answers, native context rejection, and backend errors use the normal
+configured fallback. Parent request cancellation returns without selecting a
+fallback.
+
+Limits: 1–64 unique nonblank policies, nonblank descriptions, and 64 KiB each
+for serialized internal request and raw response. Missing/null/non-numeric,
+wrong-type, unknown-ID and out-of-range answers fail classification; numeric
+zero is valid. The native engine owns question framing and context enforcement.
+The router does not estimate native context from raw JSON token counts or trim
+text on that assumption. A request within the byte limit can still exceed the
+model's context and fall back.
+
+The native adapter has a separate **process-wide eight-operation ceiling**,
+covering healthy calls as well as abandoned work, independently of the general
+backend admission limit (default 1024). Saturation fails classification and uses
+the configured fallback; it does not queue. Model loading has no cancellable
+API: cancellation releases the waiting caller, **not underlying resources**.
+Eight stuck loads therefore prevent further native decisions until underlying
+work finishes. This bound is a resource-safety measure, not a throughput claim.
+
+The classifier registry invalidates on router configuration, resolved native
+model configuration/usecase, or persisted model revision changes. Decisions do
+not memoize prompt results or support `embedding_cache`/composite `knn` blocks;
+these combinations are rejected. `classifier_cache_size` has no effect on this
+classifier. The same central factory serves chat, Anthropic, realtime and the
+existing `/router/decide` oracle. Decision traces contain no prompt text.
 
 ### The Score classifier
 
@@ -558,7 +735,12 @@ The corpus is persisted as one JSONL file per router under
 `<data path>/router-corpus/` (text, labels, vector, embedding-model name,
 and embedding fingerprint) — **the file is the source of truth** and
 survives restarts; the local-store index is rebuilt from it at classifier
-build time without re-embedding. The fingerprint follows the effective
+build time without re-embedding. Before each KNN lookup, LocalAI checks a stored
+vector against the live index. If the store restarts empty after eviction or
+an idle timeout, LocalAI restores the index from the file without re-embedding.
+A synchronization error fails the lookup.
+
+The fingerprint follows the effective
 embedding-model config and local artifact identity, so changing the model or
 replacing its local weights re-embeds the corpus on the next process load.
 For remote embedding services whose weights can change invisibly, bump
@@ -810,3 +992,18 @@ with `POST /models/reload` to pick up YAML edits without restarting.
   required for mutating endpoints and the `/app/middleware` page; in
   no-auth single-user mode the synthetic local user has admin role
   automatically.
+
+### Creating a Decisions router in the UI
+
+In **Middleware → Routing → Create routing model**, select **Decisions (native
+probabilities)** under Classifier. The Classifier Model picker lists installed,
+enabled native decision models explicitly declaring `known_usecases: [decisions]`
+on a backend supporting Score, including `llama-cpp` and `vllm-cpp`. NER-only
+models and routing dispatchers are not eligible. Selecting a model saves its exact
+configured name; it does not install weights.
+
+Decisions needs no ChatML template and returns independent label probabilities,
+not an exclusive choice. Start with an activation threshold of **0.5** (zero uses
+the Decisions default of 0.5). Changing classifiers clears the dependent model
+selection but preserves your threshold, including the template's initial 0.40;
+set it deliberately before saving. Existing saved selections reopen unchanged.

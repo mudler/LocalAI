@@ -19,12 +19,24 @@ jobs:
       - name: Test the proposer
         run: go test ./.github/ci/variantproposals/
 
+      # The proposer calls no gallery code, but modelcatalog imports packages
+      # that need the generated gRPC stubs. Same pinned tools as the model
+      # library workflow.
+      - name: Generate the gRPC stubs the Go packages import
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+
       - name: Propose groupings 🔧
         id: propose
         run: |
           rm -f /tmp/variant-proposals-body.md
           go run ./.github/ci/variantproposals \
-            -index gallery/index.yaml \
+            -index gallery/models/index.yaml \
             -ledger gallery/variant-exclusions.yaml \
             -body-out /tmp/variant-proposals-body.md \
             -apply
@@ -38,6 +50,13 @@ jobs:
           else
             echo "have_proposals=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # The proposer edits the model library, the source. The gallery copy is
+      # generated from it, and the model library check fails a PR where they
+      # disagree. Only regenerate when the library changed.
+      - name: Regenerate the gallery copy from the library
+        if: steps.propose.outputs.have_proposals == 'true'
+        run: go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 
       # No body file means the proposer found nothing. Opening an empty pull
       # request every run is how a proposal job gets muted by its reviewers.

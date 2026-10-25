@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
@@ -13,7 +17,88 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// AddonConfig is startup-only deployment configuration. Authority is injected
+// by the embedding host and cannot be loaded from runtime settings.
+type AddonConfig struct {
+	Transport     *gateway.CarrierConfig `json:"-" yaml:"-"`
+	ListenAddress string
+
+	// Frontend is set for the frontend role, also when add-ons are off. A
+	// frontend keeps no owner state, so it never opens the library store.
+	Frontend bool
+
+	Enabled                                            bool
+	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
+	SharedStorage                                      bool
+	// OwnershipMode is "named-user" (the default when empty) or "local-owner".
+	// Local-owner mode is never inferred from a request. The CLI sets it as the
+	// documented default when authentication is off and the operator chose no
+	// mode. Every caller that reaches the addon routes shares one authority and
+	// sharing is disabled.
+	// Every frontend of a deployment must use the same value.
+	OwnershipMode string
+	// OfficialLibrary registers the official add-on library on the first start,
+	// when the owner has no sources.json yet. A sources.json that exists is
+	// never changed by it, so a library the admin removed stays removed.
+	OfficialLibrary bool
+	// OfficialBackendLibrary also registers the backend library on the first
+	// start, under the same rule: a sources.json that exists is never changed,
+	// so a library the admin removed stays removed. It is on by default, but
+	// whether it is enabled depends on the build (core/library.BackendSource):
+	// a build that reads the backend gallery lists the library and leaves it
+	// off.
+	OfficialBackendLibrary bool
+	// BackendMaxBytes bounds the compressed size of one backend image
+	// installed from a library; zero is 8 GiB. Add-ons keep their own limit.
+	BackendMaxBytes int64
+	Host            contract.HostCompatibility
+	AdminCheck      func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
+	// BackupKeep is how many backups of one add-on the owner keeps; zero is
+	// three. BackupMaxAge removes older ones; zero keeps them by count only.
+	// The newest verified backup and the recovery copy of an upgrade are
+	// never removed by either.
+	BackupKeep   int
+	BackupMaxAge time.Duration
+	// UpdateCacheTTL is how long an answer of the update check, and the
+	// library data under it, counts as fresh; zero is 15 minutes.
+	// UpdateRefreshInterval is the least time between two explicit refreshes
+	// of one add-on and of one library; zero is 15 seconds.
+	UpdateCacheTTL        time.Duration
+	UpdateRefreshInterval time.Duration
+	// ArtifactExpiry is how long a private file result stays downloadable;
+	// zero is the contract default of one hour. It is a programmatic option
+	// that no flag sets: the acceptance fixture shortens it to test expiry.
+	ArtifactExpiry time.Duration
+}
+
+// IsFrontend says whether this process is an add-on frontend: the role was set,
+// or the instance is not the owner it forwards to.
+func (c AddonConfig) IsFrontend() bool {
+	return c.Frontend || (c.Enabled && c.OwnerID != "" && c.InstanceID != c.OwnerID)
+}
+
+func WithAddons(c AddonConfig) AppOption {
+	return func(o *ApplicationConfig) { o.Addons = c }
+}
+
 type ApplicationConfig struct {
+	// OfficialLibraries is the switch for the shipped default library sources
+	// of every kind. On by default; off keeps them listed but unread.
+	OfficialLibraries bool
+
+	Addons AddonConfig `json:"-" yaml:"-"`
+
+	// AddonHostOps maps an add-on ID to the host operation prefixes it may
+	// call. It is startup-only. Nil or empty means no add-on gets a host
+	// operation endpoint.
+	AddonHostOps map[string][]string `json:"-" yaml:"-"`
+
+	// DiagnosticsRecorder is startup-only and local to this frontend process.
+	DiagnosticsRecorder *diagnostics.Recorder `json:"-" yaml:"-"`
+
+	// ProxyAPIKeyEnvLookup resolves upstream credentials at the CLI boundary.
+	ProxyAPIKeyEnvLookup func(string) string `json:"-" yaml:"-"`
+
 	Context          context.Context
 	ConfigFile       string
 	SystemState      *system.SystemState
@@ -39,14 +124,22 @@ type ApplicationConfig struct {
 	WebRTCUDPPort                       int
 	UploadLimitMB, Threads, ContextSize int
 	ArtifactDownloadConcurrency         int
-	F16                                 bool
-	Debug                               bool
-	EnableTracing                       bool
-	MaxConcurrentBackendRequests        int
-	TracingMaxItems                     int
-	TracingMaxBodyBytes                 int // Per-body cap for captured request/response bodies; 0 disables the cap
-	EnableBackendLogging                bool
-	GeneratedContentDir                 string
+
+	// MaxConcurrentBackendOperations bounds how many backend install, upgrade
+	// and delete operations run at once. Always >= 1.
+	MaxConcurrentBackendOperations int
+	// liveMaxBackendOps mirrors MaxConcurrentBackendOperations for readers on
+	// other goroutines, since a runtime settings change can land at any time.
+	liveMaxBackendOps atomic.Int64
+
+	F16                          bool
+	Debug                        bool
+	EnableTracing                bool
+	MaxConcurrentBackendRequests int
+	TracingMaxItems              int
+	TracingMaxBodyBytes          int // Per-body cap for captured request/response bodies; 0 disables the cap
+	EnableBackendLogging         bool
+	GeneratedContentDir          string
 
 	UploadDir string
 	DataPath  string // Persistent data directory for collectiondb, agents, etc.
@@ -84,6 +177,10 @@ type ApplicationConfig struct {
 	// or privacy-strict deployments where no token-count history should
 	// touch disk or memory.
 	DisableStats bool
+
+	// RouterDecisionLog retains the bounded in-memory routing log even when
+	// billing stats are disabled. It does not enable token usage recording.
+	RouterDecisionLog bool
 
 	// MITMListen is the address (host:port) the cloudproxy MITM
 	// listener binds on. Empty disables the MITM proxy entirely.
@@ -127,6 +224,7 @@ type ApplicationConfig struct {
 	AutoloadGalleries, AutoloadBackendGalleries bool
 	VRAMPersistentCache                         bool
 	AutoUpgradeBackends                         bool
+	AutoUpgradeAddons                           bool
 	PreferDevelopmentBackends                   bool
 
 	// RequireBackendIntegrity promotes a missing SHA256 (tarball/HTTP URIs)
@@ -135,6 +233,10 @@ type ApplicationConfig struct {
 	// upgrades non-breaking; operators opt in explicitly via
 	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY.
 	RequireBackendIntegrity bool
+
+	// DisableBackendInstall mirrors SystemState.DisableBackendInstall for the
+	// HTTP layer: admission guards and the capability surfaces read it here.
+	DisableBackendInstall bool
 
 	SingleBackend     bool // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
@@ -208,6 +310,9 @@ type ApplicationConfig struct {
 	// server with this flag; runtime-toggleable via /api/settings.
 	DisableLocalAIAssistant bool
 
+	// LegacyNavigation shows the previous sidebar. See WithLegacyNavigation.
+	LegacyNavigation bool
+
 	// Branding / whitelabeling — runtime-mutable via /api/settings (text) and
 	// /api/branding/asset/:kind (binary uploads). All values optional; empty
 	// strings fall back to bundled LocalAI defaults.
@@ -271,12 +376,17 @@ type AgentPoolConfig struct {
 
 type AppOption func(*ApplicationConfig)
 
+func WithProxyAPIKeyEnvLookup(lookup func(string) string) AppOption {
+	return func(o *ApplicationConfig) { o.ProxyAPIKeyEnvLookup = lookup }
+}
+
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
 		Context:                   context.Background(),
 		UploadLimitMB:             15,
 		Debug:                     true,
 		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
+		OfficialLibraries:         true,
 		ModelPreloadRenderMode:    "dark",
 		// Capture backend process stdout/stderr into the per-model
 		// BackendLogStore by default so the UI "Backend Logs" page works out
@@ -287,10 +397,13 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		EnableBackendLogging:        true,
 		VRAMPersistentCache:         true,
 		ArtifactDownloadConcurrency: modelartifacts.DefaultDownloadConcurrency,
-		AgentJobRetentionDays:       30,               // Default: 30 days
-		LRUEvictionMaxRetries:       30,               // Default: 30 retries
-		LRUEvictionRetryInterval:    1 * time.Second,  // Default: 1 second
-		ModelLoadFailureCooldown:    10 * time.Second, // Default: 10s base cooldown after a failed load
+
+		MaxConcurrentBackendOperations: 1,
+
+		AgentJobRetentionDays:    30,               // Default: 30 days
+		LRUEvictionMaxRetries:    30,               // Default: 30 retries
+		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
+		ModelLoadFailureCooldown: 10 * time.Second, // Default: 10s base cooldown after a failed load
 		// WatchDogInterval is intentionally left at the zero value here.
 		// The startup loader applies a persisted runtime_settings.json value
 		// only when the interval is still 0 (its "not set by env var"
@@ -315,6 +428,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	for _, oo := range o {
 		oo(opt)
 	}
+	opt.SetMaxConcurrentBackendOperations(opt.MaxConcurrentBackendOperations)
 	return opt
 }
 
@@ -594,8 +708,16 @@ var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadBackendGalleries = true
 }
 
+func WithOfficialLibraries(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.OfficialLibraries = v }
+}
+
 func WithAutoUpgradeBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
+}
+
+func WithAutoUpgradeAddons(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.AutoUpgradeAddons = v }
 }
 
 func WithVRAMPersistentCache(v bool) AppOption {
@@ -604,6 +726,10 @@ func WithVRAMPersistentCache(v bool) AppOption {
 
 func WithRequireBackendIntegrity(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.RequireBackendIntegrity = v }
+}
+
+func WithDisableBackendInstall(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.DisableBackendInstall = v }
 }
 
 func WithPreferDevelopmentBackends(v bool) AppOption {
@@ -676,6 +802,38 @@ func WithModelArtifactMaterializer(materializer ArtifactMaterializer) AppOption 
 			o.ModelArtifactMaterializer = materializer
 		}
 	}
+}
+
+// WithMaxConcurrentBackendOperations sets how many backend operations run at
+// once. Values below 1 fall back to 1.
+func WithMaxConcurrentBackendOperations(n int) AppOption {
+	return func(o *ApplicationConfig) {
+		if n < 1 {
+			n = 1
+		}
+		o.SetMaxConcurrentBackendOperations(n)
+	}
+}
+
+// SetMaxConcurrentBackendOperations stores the limit, clamped to at least 1.
+func (o *ApplicationConfig) SetMaxConcurrentBackendOperations(n int) {
+	if n < 1 {
+		n = 1
+	}
+	o.MaxConcurrentBackendOperations = n
+	o.liveMaxBackendOps.Store(int64(n))
+}
+
+// BackendOperationLimit returns how many backend operations may run at once.
+// It is safe to call while a runtime settings change is applied.
+func (o *ApplicationConfig) BackendOperationLimit() int {
+	if n := o.liveMaxBackendOps.Load(); n >= 1 {
+		return int(n)
+	}
+	if o.MaxConcurrentBackendOperations >= 1 {
+		return o.MaxConcurrentBackendOperations
+	}
+	return 1
 }
 
 func WithArtifactDownloadConcurrency(concurrency int) AppOption {
@@ -1115,6 +1273,15 @@ func WithAuthDefaultAPIKeyExpiry(expiry string) AppOption {
 	}
 }
 
+// WithLegacyNavigation brings the old sidebar back without a rebuild. The UI
+// reads it from /api/features. It is a rollback switch and is removed one
+// release after the add-on navigation ships.
+func WithLegacyNavigation(on bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LegacyNavigation = on
+	}
+}
+
 // WithDisableLocalAIAssistant hard-disables the in-process admin MCP server.
 // When set, the chat-handler branch for metadata.localai_assistant=true
 // returns a "feature unavailable" error.
@@ -1147,6 +1314,9 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 		LoadOptionThreads(o.Threads),
 		ModelPath(o.SystemState.Model.ModelsPath),
 		LoadOptionGalleryFiles(o.Galleries...),
+		// Select later YAML/default phases; early phases use WithReloadDiagnostics
+		// at loader construction so callbacks retain their original execution point.
+		LoadOptionDiagnostics(o.DiagnosticsRecorder),
 	}
 }
 
@@ -1163,8 +1333,9 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 
 // ApplyRuntimeSettings applies RuntimeSettings to ApplicationConfig (the
 // live POST /api/settings path). Only non-nil fields are applied. Returns
-// true if restart-requiring settings changed (see each row's
-// restartRequired flag in runtimeSettingsFields).
+// true when legacy service-reconfiguration fields were accepted (see each
+// row's restartRequired flag in runtimeSettingsFields). The settings endpoint
+// consumes this as a watchdog reconfiguration signal, not a server restart.
 func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (requireRestart bool) {
 	if settings == nil {
 		return false
@@ -1217,3 +1388,13 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 // 		o.Metrics = meter
 // 	}
 // }
+
+// WithRouterDecisionLog retains routing decisions independently of billing stats.
+func WithRouterDecisionLog(enabled bool) AppOption {
+	return func(o *ApplicationConfig) { o.RouterDecisionLog = enabled }
+}
+
+// WithDiagnosticsRecorder installs the optional startup-only timing recorder.
+func WithDiagnosticsRecorder(r *diagnostics.Recorder) AppOption {
+	return func(o *ApplicationConfig) { o.DiagnosticsRecorder = r }
+}

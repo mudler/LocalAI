@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,10 +33,21 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/credentials"
+	"github.com/sigstore/sigstore-go/pkg/fulcio/certificate"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
+
+// ErrPolicyRejected marks a verification that reached a decision: the image
+// carries no signature, or its signature does not satisfy the policy.
+//
+// Callers need the distinction because every other failure here (the TUF
+// root or the registry being unreachable, a timeout, a 5xx) says nothing
+// about the image, and a caller that keeps a copy verified earlier may serve
+// it through an outage but must never serve it over a refusal.
+var ErrPolicyRejected = errors.New("rejected by the signature policy")
 
 // Policy is the verification policy a backend image must satisfy.
 //
@@ -54,6 +67,14 @@ type Policy struct {
 	IssuerRegex   string
 	Identity      string
 	IdentityRegex string
+
+	// SourceRepository, when set, must equal the signing certificate's
+	// source-repository extension exactly (for GitHub Actions,
+	// https://github.com/<owner>/<repo>). When a reusable signing
+	// workflow is shared by several repositories, the SAN names that
+	// shared workflow, so the SAN alone accepts a signature made for any
+	// of its callers; the source repository is what pins the caller.
+	SourceRepository string
 
 	// TUFRootURL overrides the default sigstore public-good TUF mirror
 	// (tuf-repo-cdn.sigstore.dev). Leave empty for the public good.
@@ -95,7 +116,31 @@ func (p Policy) Validate() error {
 	if p.Identity == "" && p.IdentityRegex == "" {
 		return errors.New("cosignverify: policy must set Identity or IdentityRegex")
 	}
+	if p.SourceRepository != "" {
+		u, err := url.Parse(p.SourceRepository)
+		if err != nil || u.Scheme != "https" || u.Host == "" || strings.TrimSpace(p.SourceRepository) != p.SourceRepository {
+			return errors.New("cosignverify: source repository must be an https URL, such as https://github.com/<owner>/<repo>")
+		}
+	}
 	return nil
+}
+
+// certificateIdentity is the identity a signature's certificate must match.
+// Without a source repository it is exactly the short identity used before
+// the field existed.
+func (p Policy) certificateIdentity() (verify.CertificateIdentity, error) {
+	if p.SourceRepository == "" {
+		return verify.NewShortCertificateIdentity(p.Issuer, p.IssuerRegex, p.Identity, p.IdentityRegex)
+	}
+	san, err := verify.NewSANMatcher(p.Identity, p.IdentityRegex)
+	if err != nil {
+		return verify.CertificateIdentity{}, err
+	}
+	issuer, err := verify.NewIssuerMatcher(p.Issuer, p.IssuerRegex)
+	if err != nil {
+		return verify.CertificateIdentity{}, err
+	}
+	return verify.NewCertificateIdentity(san, issuer, certificate.Extensions{SourceRepositoryURI: p.SourceRepository})
 }
 
 // Verifier verifies cosign-signed OCI images against a fixed Policy.
@@ -105,7 +150,8 @@ func (p Policy) Validate() error {
 // the process — installing N backends from the same gallery does one TUF
 // fetch, not N.
 type Verifier struct {
-	policy Policy
+	policy  Policy
+	trusted root.TrustedMaterial
 
 	// Registry plumbing — reused from the existing pkg/oci surface so we
 	// honor the same auth / transport conventions.
@@ -117,9 +163,26 @@ type Verifier struct {
 // it is loaded on the first call to VerifyImage. auth and t may be nil.
 func NewVerifier(p Policy, auth *registrytypes.AuthConfig, t http.RoundTripper) (*Verifier, error) {
 	if err := p.Validate(); err != nil {
-		return nil, err
+		// A policy that cannot be used admits nothing, so a caller must
+		// treat it as a refusal and not as an outage a cached copy covers.
+		return nil, fmt.Errorf("%w: %w", ErrPolicyRejected, err)
 	}
 	return &Verifier{policy: p, auth: auth, transport: t}, nil
+}
+
+// NewVerifierWithTrustedMaterial uses explicitly provisioned host trust instead of
+// public TUF. Never pass roots supplied by a catalog, bundle, or registry. All
+// identity, SCT and transparency-log requirements remain unchanged.
+func NewVerifierWithTrustedMaterial(p Policy, auth *registrytypes.AuthConfig, t http.RoundTripper, trusted root.TrustedMaterial) (*Verifier, error) {
+	if trusted == nil {
+		return nil, fmt.Errorf("%w: missing host trust", ErrPolicyRejected)
+	}
+	v, err := NewVerifier(p, auth, t)
+	if err != nil {
+		return nil, err
+	}
+	v.trusted = trusted
+	return v, nil
 }
 
 // trustedMaterialCacheKey identifies which TUF mirror + on-disk cache a
@@ -138,6 +201,9 @@ type trustedMaterialEntry struct {
 var trustedMaterialCache sync.Map // map[trustedMaterialCacheKey]*trustedMaterialEntry
 
 func (v *Verifier) loadTrustedMaterial() (root.TrustedMaterialCollection, error) {
+	if v.trusted != nil {
+		return root.TrustedMaterialCollection{v.trusted}, nil
+	}
 	key := trustedMaterialCacheKey{URL: v.policy.TUFRootURL, Path: v.policy.TUFCachePath}
 	val, _ := trustedMaterialCache.LoadOrStore(key, &trustedMaterialEntry{})
 	entry := val.(*trustedMaterialEntry)
@@ -181,11 +247,6 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 		return err
 	}
 
-	trusted, err := v.loadTrustedMaterial()
-	if err != nil {
-		return err
-	}
-
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return fmt.Errorf("cosignverify: parse image ref %q: %w", imageRef, err)
@@ -219,6 +280,13 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 		return err
 	}
 
+	// Fetch trust only after discovering a bundle. Unsigned images need no
+	// external trust service to be rejected. Signature verification is unchanged.
+	trusted, err := v.loadTrustedMaterial()
+	if err != nil {
+		return err
+	}
+
 	verifierOpts := []verify.VerifierOption{}
 	if boolOrTrue(v.policy.RequireSCT) {
 		verifierOpts = append(verifierOpts, verify.WithSignedCertificateTimestamps(1))
@@ -228,14 +296,11 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 		verifierOpts = append(verifierOpts, verify.WithObserverTimestamps(1))
 	}
 
-	certID, err := verify.NewShortCertificateIdentity(
-		v.policy.Issuer,
-		v.policy.IssuerRegex,
-		v.policy.Identity,
-		v.policy.IdentityRegex,
-	)
+	certID, err := v.policy.certificateIdentity()
 	if err != nil {
-		return fmt.Errorf("cosignverify: building identity policy: %w", err)
+		// A policy that cannot be built admits nothing, whatever the
+		// network does, so this is a decision rather than an outage.
+		return fmt.Errorf("cosignverify: building identity policy: %w: %w", ErrPolicyRejected, err)
 	}
 
 	sev, err := verify.NewVerifier(trusted, verifierOpts...)
@@ -251,7 +316,7 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 
 	result, err := sev.Verify(bun, verify.NewPolicy(artifactPolicy, verify.WithCertificateIdentity(certID)))
 	if err != nil {
-		return fmt.Errorf("cosignverify: verification failed for %s: %w", imageRef, err)
+		return fmt.Errorf("cosignverify: verification failed for %s: %w: %w", imageRef, ErrPolicyRejected, err)
 	}
 
 	if !v.policy.NotBefore.IsZero() {
@@ -271,7 +336,7 @@ func enforceNotBefore(result *verify.VerificationResult, cutoff time.Time) error
 		// timestamp, so this branch is only reachable if a caller set
 		// RequireTLog=false. Treat as a hard error: if you opted into
 		// NotBefore, you implicitly opted into needing a timestamp.
-		return errors.New("signature has no verified timestamp; cannot enforce NotBefore")
+		return fmt.Errorf("%w: signature has no verified timestamp; cannot enforce NotBefore", ErrPolicyRejected)
 	}
 	earliest := result.VerifiedTimestamps[0].Timestamp
 	for _, ts := range result.VerifiedTimestamps[1:] {
@@ -280,8 +345,8 @@ func enforceNotBefore(result *verify.VerificationResult, cutoff time.Time) error
 		}
 	}
 	if earliest.Before(cutoff) {
-		return fmt.Errorf("signature integrated time %s is before NotBefore cutoff %s",
-			earliest.Format(time.RFC3339), cutoff.Format(time.RFC3339))
+		return fmt.Errorf("%w: signature integrated time %s is before NotBefore cutoff %s",
+			ErrPolicyRejected, earliest.Format(time.RFC3339), cutoff.Format(time.RFC3339))
 	}
 	return nil
 }
@@ -303,7 +368,7 @@ func (v *Verifier) remoteOptions(ctx context.Context) []remote.Option {
 	if v.auth != nil {
 		opts = append(opts, remote.WithAuth(staticAuth{auth: v.auth}))
 	} else {
-		opts = append(opts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+		opts = append(opts, remote.WithAuthFromKeychain(credentials.Keychain()))
 	}
 	return opts
 }

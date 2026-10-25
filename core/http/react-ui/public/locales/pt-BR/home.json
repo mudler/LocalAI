@@ -35,7 +35,14 @@
     "enterToSend": "Enter para enviar",
     "selectModelFirst": "Selecione um modelo primeiro",
     "sendMessage": "Enviar mensagem",
-    "selectModelToast": "Selecione um modelo primeiro"
+    "selectModelToast": "Selecione um modelo primeiro",
+    "dictate": "Ditar (voz para texto)",
+    "dictateStop": "Parar gravação",
+    "dictateBusy": "Transcrevendo…",
+    "dictateEmpty": "Nenhuma fala reconhecida.",
+    "dictateFailed": "Falha na transcrição: {{error}}",
+    "dictateNoMic": "Microfone indisponível: {{error}}",
+    "pdfScannedAsImages": "{{name}} não tem camada de texto (digitalização). {{count}} de {{total}} páginas anexadas como imagens para um modelo de visão."
   },
   "quickLinks": {
     "manageByChat": "Gerenciar por chat",

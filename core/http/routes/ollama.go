@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 )
 
@@ -119,6 +120,7 @@ func setOllamaChatRequestContext(appConfig *config.ApplicationConfig) echo.Middl
 
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
 			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
+			ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
 			input.Context = ctxWithCorrelationID
 			input.Cancel = cancel
 
@@ -161,6 +163,7 @@ func setOllamaGenerateRequestContext(appConfig *config.ApplicationConfig) echo.M
 
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
 			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
+			ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
 			input.Ctx = ctxWithCorrelationID
 			input.Cancel = cancel
 

@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
 
 // 3D generation page: mock the capabilities + generation endpoints, feed a
 // real (tiny) Form-B GLB through the parser/viewer, and exercise the
@@ -143,6 +144,8 @@ async function pasteImage(page) {
 
 test.describe('3D generation', () => {
   test.beforeEach(async ({ page }) => {
+    // Studio is an add-on: the page opens inside it.
+    await installStudioAddons(page, { ids: ['studio'] })
     await mockCapabilities(page)
     await mockGlbDownload(page)
   })
@@ -305,7 +308,7 @@ test.describe('3D generation', () => {
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 15_000 })
 
     await page.locator('.studio-tab[data-tab="overview"]').click()
-    await expect(page.getByTestId('studio-recent')).toContainText('trellis-test-model')
+    await expect(page.locator('[data-testid="work-tile"][data-type="threed"]')).toContainText('trellis-test-model')
   })
 
   test('deleting a history entry removes it', async ({ page }) => {
@@ -353,7 +356,7 @@ test.describe('3D generation', () => {
         body: JSON.stringify({
           authEnabled: true,
           staticApiKeyRequired: false,
-          user: { id: 'restricted-user', role: 'user', permissions: { '3d': false } },
+          user: { id: 'restricted-user', role: 'user', permissions: { addons: true, '3d': false } },
         }),
       })
     })

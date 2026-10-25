@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -30,18 +31,26 @@ func SoundGeneration(
 	language string,
 	timesignature string,
 	instrumental *bool,
+	params map[string]string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
+	expanded ...bool,
 ) (string, *proto.Result, error) {
 
-	opts := ModelOptions(modelConfig, appConfig)
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	soundGenModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return "", nil, err
 	}
 
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
 	if soundGenModel == nil {
 		return "", nil, fmt.Errorf("could not load sound generation model")
 	}
@@ -55,7 +64,9 @@ func SoundGeneration(
 		return "", nil, fmt.Errorf("failed creating audio directory: %s", err)
 	}
 
-	fileName := utils.GenerateUniqueFileName(audioDir, "sound_generation", ".wav")
+	// Format normalization can rename .wav to .flac, so existence of the
+	// .wav path cannot determine whether an earlier recording owns this stem.
+	fileName := utils.GenerateUniqueFileName(audioDir, "sound_generation_"+uuid.NewString(), ".wav")
 	filePath := filepath.Join(audioDir, fileName)
 	if filePath, err = filepath.Abs(filePath); err != nil {
 		return "", nil, fmt.Errorf("failed resolving sound generation path: %w", err)
@@ -75,6 +86,13 @@ func SoundGeneration(
 		Temperature:   temperature,
 		Src:           sourceFile,
 		SrcDivisor:    sourceDivisor,
+		Params:        params,
+	}
+	if len(expanded) > 0 && expanded[0] {
+		req.Expanded = &expanded[0]
+		req.Text = ""
+		req.Caption = &caption
+		req.Lyrics = &lyrics
 	}
 	if think != nil {
 		req.Think = think
@@ -119,6 +137,9 @@ func SoundGeneration(
 	}
 	defer trace.CancelBackendTrace(traceID)
 
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
 	res, err := soundGenModel.SoundGeneration(ctx, req)
 
 	if appConfig.EnableTracing {

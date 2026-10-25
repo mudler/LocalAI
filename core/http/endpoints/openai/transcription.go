@@ -2,9 +2,9 @@ package openai
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
@@ -56,6 +56,18 @@ func resolveTranscriptionTranslate(formTranslate string, configTranslate bool) b
 	return configTranslate
 }
 
+// uploadedFile reads a required multipart file field. Any failure here (no
+// multipart boundary, malformed body, missing field) is caused by the request,
+// so it maps to 400 instead of leaking the parser error as a 500.
+func uploadedFile(c echo.Context, field string) (*multipart.FileHeader, error) {
+	file, err := c.FormFile(field)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest,
+			fmt.Sprintf("missing or invalid %q file upload: %v", field, err))
+	}
+	return file, nil
+}
+
 func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
@@ -104,8 +116,15 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			}
 		}
 
+		// Reject an unknown format before the backend runs: the backend work
+		// would be wasted, and a failover chain would count the error
+		// against every target.
+		if !stream && !validTranscriptionResponseFormat(responseFormat) {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format")
+		}
+
 		// retrieve the file data from the request
-		file, err := c.FormFile("file")
+		file, err := uploadedFile(c, "file")
 		if err != nil {
 			return err
 		}
@@ -155,7 +174,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		if stream {
-			return streamTranscription(c, req, ml, *config, appConfig)
+			return streamTranscription(c, req, input.Model, ml, *config, appConfig)
 		}
 
 		tr, err := backend.ModelTranscriptionWithOptions(c.Request().Context(), req, ml, *config, appConfig)
@@ -176,7 +195,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		switch responseFormat {
 		case schema.TranscriptionResponseFormatLrc, schema.TranscriptionResponseFormatText, schema.TranscriptionResponseFormatSrt, schema.TranscriptionResponseFormatVtt:
-			return c.String(http.StatusOK, schema.TranscriptionResponse(tr, responseFormat))
+			err = c.String(http.StatusOK, schema.TranscriptionResponse(tr, responseFormat))
 		case schema.TranscriptionResponseFormatJson:
 			tr.Segments = nil
 			tr.Words = nil
@@ -191,18 +210,20 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			}
 			for _, word := range tr.Words {
 				trs.Words = append(trs.Words, schema.TranscriptionWordSeconds{
-					Start: word.Start.Seconds(),
-					End:   word.End.Seconds(),
-					Text:  word.Text,
+					Start:   word.Start.Seconds(),
+					End:     word.End.Seconds(),
+					Text:    word.Text,
+					Speaker: word.Speaker,
 				})
 			}
 			for _, seg := range tr.Segments {
 				segWords := []schema.TranscriptionWordSeconds{}
 				for _, word := range seg.Words {
 					segWords = append(segWords, schema.TranscriptionWordSeconds{
-						Start: word.Start.Seconds(),
-						End:   word.End.Seconds(),
-						Text:  word.Text,
+						Start:   word.Start.Seconds(),
+						End:     word.End.Seconds(),
+						Text:    word.Text,
+						Speaker: word.Speaker,
 					})
 				}
 				trs.Segments = append(trs.Segments, schema.TranscriptionSegmentSeconds{
@@ -215,11 +236,27 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 					Words:   segWords,
 				})
 			}
-			return c.JSON(http.StatusOK, trs)
+			err = c.JSON(http.StatusOK, trs)
 		default:
-			return errors.New("invalid response_format")
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format")
 		}
+		if err == nil {
+			// Transcription exposes no canonical token counts, but successful
+			// requests still contribute model usage and elapsed time.
+			middleware.StampUsage(c, input.Model, 0, 0)
+		}
+		return err
 	}
+}
+
+func validTranscriptionResponseFormat(f schema.TranscriptionResponseFormatType) bool {
+	switch f {
+	case "", schema.TranscriptionResponseFormatLrc, schema.TranscriptionResponseFormatText,
+		schema.TranscriptionResponseFormatSrt, schema.TranscriptionResponseFormatVtt,
+		schema.TranscriptionResponseFormatJson, schema.TranscriptionResponseFormatJsonVerbose:
+		return true
+	}
+	return false
 }
 
 // streamTranscription emits OpenAI-format SSE events for a transcription
@@ -227,7 +264,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 // `transcript.text.done` with the assembled text, and `[DONE]`. Backends that
 // can't truly stream still produce a single Final event, which we surface as
 // one delta + done.
-func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *model.ModelLoader, config config.ModelConfig, appConfig *config.ApplicationConfig) error {
+func streamTranscription(c echo.Context, req backend.TranscriptionRequest, requestedModel string, ml *model.ModelLoader, config config.ModelConfig, appConfig *config.ApplicationConfig) error {
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
@@ -247,14 +284,17 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 
 	var assembled strings.Builder
 	var finalResult *schema.TranscriptionResult
+	var writeErr error
 
 	err := backend.ModelTranscriptionStream(c.Request().Context(), req, ml, config, appConfig, func(chunk backend.TranscriptionStreamChunk) {
 		if chunk.Delta != "" {
 			assembled.WriteString(chunk.Delta)
-			_ = writeEvent(map[string]any{
-				"type":  "transcript.text.delta",
-				"delta": chunk.Delta,
-			})
+			if writeErr == nil {
+				writeErr = writeEvent(map[string]any{
+					"type":  "transcript.text.delta",
+					"delta": chunk.Delta,
+				})
+			}
 		}
 		if chunk.Final != nil {
 			finalResult = chunk.Final
@@ -273,6 +313,9 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 		c.Response().Flush()
 		return nil
 	}
+	if writeErr != nil {
+		return writeErr
+	}
 
 	// Build the final event. Prefer the backend-provided final result; if the
 	// backend only emitted deltas, synthesize the result from what we collected.
@@ -284,10 +327,12 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 	// If the backend never produced a delta but did return a final text, emit
 	// it as a single delta so clients always see at least one delta event.
 	if assembled.Len() == 0 && finalResult.Text != "" {
-		_ = writeEvent(map[string]any{
+		if err := writeEvent(map[string]any{
 			"type":  "transcript.text.delta",
 			"delta": finalResult.Text,
-		})
+		}); err != nil {
+			return err
+		}
 	}
 	// done carries the assembled text plus, when the backend produced them,
 	// per-segment timings, audio duration, and detected language. The OpenAI
@@ -309,17 +354,26 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 	if len(finalResult.Segments) > 0 {
 		segs := make([]map[string]any, 0, len(finalResult.Segments))
 		for _, seg := range finalResult.Segments {
-			segs = append(segs, map[string]any{
+			entry := map[string]any{
 				"id":    seg.Id,
 				"start": seg.Start.Seconds(),
 				"end":   seg.End.Seconds(),
 				"text":  seg.Text,
-			})
+			}
+			if seg.Speaker != "" {
+				entry["speaker"] = seg.Speaker
+			}
+			segs = append(segs, entry)
 		}
 		doneEvent["segments"] = segs
 	}
-	_ = writeEvent(doneEvent)
-	_, _ = fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+	if err := writeEvent(doneEvent); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n"); err != nil {
+		return err
+	}
 	c.Response().Flush()
+	middleware.StampUsage(c, requestedModel, 0, 0)
 	return nil
 }

@@ -60,7 +60,7 @@ var _ = Describe("Admission", func() {
 
 	It("rejects when full", func() {
 		// Saturate the limiter outside the middleware, then a request
-		// at the same model gets 503 with a Retry-After header.
+		// at the same model gets 429 with a Retry-After header.
 		lim := admission.New()
 		release, ok := lim.Acquire("busy", 1)
 		Expect(ok).To(BeTrue(), "setup acquire should succeed")
@@ -75,7 +75,7 @@ var _ = Describe("Admission", func() {
 			return c.String(http.StatusOK, "ok")
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
 		Expect(rec.Header().Get("Retry-After")).To(Equal("3"))
 		Expect(handlerCalled).To(BeFalse(), "handler should not run when admission rejects")
 		Expect(rec.Body.String()).To(ContainSubstring("admission_rejected"))

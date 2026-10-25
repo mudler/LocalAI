@@ -25,9 +25,9 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
@@ -75,15 +75,18 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name          string `json:"name"`
-	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address       string `json:"address"`
-	HTTPAddress   string `json:"http_address,omitempty"`
-	Token         string `json:"token,omitempty"`
-	TotalVRAM     uint64 `json:"total_vram,omitempty"`
-	AvailableVRAM uint64 `json:"available_vram,omitempty"`
-	TotalRAM      uint64 `json:"total_ram,omitempty"`
-	AvailableRAM  uint64 `json:"available_ram,omitempty"`
+	Name            string  `json:"name"`
+	NodeType        string  `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address         string  `json:"address"`
+	HTTPAddress     string  `json:"http_address,omitempty"`
+	Token           string  `json:"token,omitempty"`
+	TotalVRAM       uint64  `json:"total_vram,omitempty"`
+	AvailableVRAM   uint64  `json:"available_vram,omitempty"`
+	TotalRAM        uint64  `json:"total_ram,omitempty"`
+	AvailableRAM    uint64  `json:"available_ram,omitempty"`
+	CPULogicalCores uint64  `json:"cpu_logical_cores,omitempty"`
+	CPUUsagePercent float64 `json:"cpu_usage_percent,omitempty"`
+	CPULoad1        float64 `json:"cpu_load_1,omitempty"`
 	// TotalDisk / AvailableDisk describe the filesystem backing the worker's
 	// MODELS directory (where staged weights land), not the root filesystem.
 	// Omitted by workers that predate the fields; the scheduler treats
@@ -106,6 +109,11 @@ type RegisterNodeRequest struct {
 	// VRAMBudget is the worker's operator-set VRAM cap ("80%" or "12GB"). The
 	// registry resolves and enforces it against the raw reported VRAM.
 	VRAMBudget string `json:"vram_budget,omitempty"`
+	// Version is the LocalAI build version reported by the worker at
+	// registration. Empty for workers registered before this field existed.
+	Version string `json:"version,omitempty"`
+	// Commit is the git commit hash the worker binary was built from.
+	Commit string `json:"commit,omitempty"`
 }
 
 // RegisterNodeEndpoint registers a new backend node.
@@ -182,6 +190,9 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			AvailableVRAM:        req.AvailableVRAM,
 			TotalRAM:             req.TotalRAM,
 			AvailableRAM:         req.AvailableRAM,
+			CPULogicalCores:      req.CPULogicalCores,
+			CPUUsagePercent:      req.CPUUsagePercent,
+			CPULoad1:             req.CPULoad1,
 			TotalDisk:            req.TotalDisk,
 			AvailableDisk:        req.AvailableDisk,
 			GPUVendor:            req.GPUVendor,
@@ -189,6 +200,8 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			Capability:           req.Capability,
 			MaxReplicasPerModel:  maxReplicasPerModel,
 			VRAMBudget:           req.VRAMBudget,
+			Version:              req.Version,
+			Commit:               req.Commit,
 		}
 
 		ctx := c.Request().Context()
@@ -343,11 +356,33 @@ func provisionAgentWorkerKey(ctx context.Context, authDB *gorm.DB, registry *nod
 	return plaintext, nil
 }
 
+// loadCancelService builds the cancel path unload, drain and deregister share
+// with the load-cancel endpoint. A sender that cannot stop operations still
+// gets the cancel recorded; the worker's watchdog and the stop window then
+// bound the work.
+func loadCancelService(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender) *nodes.LoadCancelService {
+	svc := &nodes.LoadCancelService{Registry: registry}
+	if unloader != nil {
+		svc.Stopper = unloader
+	}
+	return svc
+}
+
+// cancelNodeLoads cancels the loads placed on a node before its rows go. It
+// logs and carries on: a node being removed must not stay because a cancel
+// failed.
+func cancelNodeLoads(ctx context.Context, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, nodeID string) {
+	if err := loadCancelService(registry, unloader).CancelNodeLoads(ctx, nodeID); err != nil {
+		xlog.Warn("Failed to cancel the loads placed on a node", "node", nodeID, "error", err)
+	}
+}
+
 // DeregisterNodeEndpoint removes a backend node permanently (admin use).
-func DeregisterNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+func DeregisterNodeEndpoint(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
+		cancelNodeLoads(ctx, registry, unloader, id)
 		if err := registry.Deregister(ctx, id); err != nil {
 			xlog.Error("Failed to deregister node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to deregister node"))
@@ -381,11 +416,17 @@ func HeartbeatEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 		var updatePtr *nodes.HeartbeatUpdate
 		if update.AvailableVRAM != nil || update.TotalVRAM != nil || update.AvailableRAM != nil ||
-			update.AvailableDisk != nil || update.TotalDisk != nil || update.GPUVendor != "" {
+			update.AvailableDisk != nil || update.TotalDisk != nil || update.GPUVendor != "" ||
+			update.CPUUsagePercent != nil || update.CPULoad1 != nil {
 			updatePtr = &update
 		}
 
 		ctx := c.Request().Context()
+		// A new incarnation means the worker restarted and every load operation of
+		// the previous process ended. Failures here must not fail the heartbeat.
+		if err := registry.ObserveWorkerIncarnation(ctx, id, update.WorkerIncarnation); err != nil {
+			xlog.Warn("Failed to record worker incarnation", "id", id, "error", err)
+		}
 		if err := registry.Heartbeat(ctx, id, updatePtr); err != nil {
 			xlog.Warn("Heartbeat failed for node", "id", id, "error", err)
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
@@ -426,11 +467,18 @@ func ListAllNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 }
 
 // DrainNodeEndpoint sets a node to draining status (no new requests).
-func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+func DrainNodeEndpoint(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
+		cancelNodeLoads(ctx, registry, unloader, id)
 		if err := registry.MarkDraining(ctx, id); err != nil {
+			if errors.Is(err, nodes.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			if errors.Is(err, nodes.ErrNodeStatusConflict) {
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "node must be healthy to drain"))
+			}
 			xlog.Error("Failed to drain node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to drain node"))
 		}
@@ -443,7 +491,13 @@ func ResumeNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
-		if err := registry.MarkHealthy(ctx, id); err != nil {
+		if err := registry.ResumeNode(ctx, id); err != nil {
+			if errors.Is(err, nodes.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			if errors.Is(err, nodes.ErrNodeStatusConflict) {
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "node must be draining to resume"))
+			}
 			xlog.Error("Failed to resume node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to resume node"))
 		}
@@ -642,7 +696,7 @@ func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *node
 		// single-node and cluster-wide views stay consistent.
 		if node, err := registry.Get(c.Request().Context(), nodeID); err == nil {
 			if node.NodeType != "" && node.NodeType != nodes.NodeTypeBackend {
-				return c.JSON(http.StatusOK, []messaging.NodeBackendInfo{})
+				return c.JSON(http.StatusOK, []workerctl.NodeBackendInfo{})
 			}
 		}
 		if unloader == nil {
@@ -673,6 +727,12 @@ func UnloadModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 		}
 		if err := c.Bind(&req); err != nil || req.ModelName == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "model_name required"))
+		}
+		// A load of this model on this node (or one not placed yet) is cancelled
+		// through the same stop path first. The unload of a loaded replica then
+		// proceeds as usual: it is no longer swallowed by the load.
+		if _, err := loadCancelService(registry, unloader).CancelModelOnNode(c.Request().Context(), nodeID, req.ModelName); err != nil {
+			xlog.Warn("Failed to cancel the load before unloading", "node", nodeID, "model", req.ModelName, "error", err)
 		}
 		if err := unloader.UnloadModelOnNode(nodeID, req.ModelName); err != nil {
 			xlog.Error("Failed to unload model on node", "node", nodeID, "model", req.ModelName, "error", err)
@@ -717,7 +777,7 @@ func DeleteModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 
 // NodeBackendLogsListEndpoint proxies a request to a worker node's /v1/backend-logs
 // endpoint to list model IDs that have backend logs.
-func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		nodeID := c.Param("id")
@@ -730,7 +790,7 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, "node has no HTTP address"))
 		}
 
-		resp, err := proxyHTTPToWorker(node.HTTPAddress, "/v1/backend-logs", registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, node.HTTPAddress, "/v1/backend-logs", registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -745,7 +805,7 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 
 // NodeBackendLogsLinesEndpoint proxies a request to a worker node's
 // /v1/backend-logs/{modelId} endpoint to get buffered log lines.
-func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		nodeID := c.Param("id")
@@ -761,7 +821,7 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 		}
 
 		path := "/v1/backend-logs/" + url.PathEscape(modelID)
-		resp, err := proxyHTTPToWorker(node.HTTPAddress, path, registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, node.HTTPAddress, path, registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -776,7 +836,7 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 
 // NodeBackendLogsWSEndpoint proxies a WebSocket connection to a worker node's
 // /v1/backend-logs/{modelId}/ws endpoint for real-time log streaming.
-func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	browserUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
@@ -815,7 +875,7 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 			workerHeaders.Set("Authorization", "Bearer "+registrationToken)
 		}
 
-		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
+		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, NetDialContext: dialFor(node.ID)}
 		workerWS, _, err := workerDialer.Dial(workerURL, workerHeaders)
 		if err != nil {
 			browserWS.WriteMessage(websocket.CloseMessage,
@@ -1286,9 +1346,14 @@ func DeleteSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 }
 
 // proxyHTTPToWorker makes a GET request to a worker's HTTP server with bearer token auth.
-func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) {
+// The connection goes through dialFor(nodeID) because the advertised address
+// alone does not say how this frontend reaches that worker.
+func proxyHTTPToWorker(ctx context.Context, dialFor nodes.WorkerNetDialerFor, nodeID, httpAddress, path, token string) (*http.Response, error) {
 	reqURL := fmt.Sprintf("http://%s%s", httpAddress, path)
-	req, err := http.NewRequest("GET", reqURL, nil)
+	// WithoutCancel keeps the request bounded only by the 15s client timeout,
+	// as before the dialer change; cancelling on admin disconnect would be a
+	// separate, deliberate behaviour change.
+	req, err := http.NewRequestWithContext(context.WithoutCancel(ctx), "GET", reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1296,6 +1361,8 @@ func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) 
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := httpclient.NewWithTimeout(15 * time.Second)
+	t := httpclient.HardenedTransport()
+	t.DialContext = dialFor(nodeID)
+	client := httpclient.NewWithTimeout(15*time.Second, httpclient.WithTransport(t))
 	return client.Do(req)
 }

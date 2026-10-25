@@ -1,12 +1,28 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+// eslint-disable-next-line no-unused-vars
+import { Link, useNavigate, useOutletContext } from 'react-router-dom'
+// eslint-disable-next-line no-unused-vars
 import { useTranslation, Trans } from 'react-i18next'
 import { agentsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
+// eslint-disable-next-line no-unused-vars
 import UserGroupSection from '../components/UserGroupSection'
+// eslint-disable-next-line no-unused-vars
 import PageHeader from '../components/PageHeader'
+// eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
+// eslint-disable-next-line no-unused-vars
+import ActionMenu from '../components/ActionMenu'
+import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import { StatusMark, RunStrip, RecordLine, Chip, LibraryChips, agentPath } from '../components/agents/AgentBits'
+import { agentInfo, workingLine } from '../utils/agentInfo'
+import { effectiveStatus, loadRuns, outcomeLine, recordStatus } from '../utils/agentRuns'
+import { AGENT_TEMPLATES } from '../utils/agentConfigTools'
+import './agents.css'
+
+const DAY = 24 * 60 * 60 * 1000
 
 export default function Agents() {
   const { addToast } = useOutletContext()
@@ -20,6 +36,9 @@ export default function Agents() {
   const [search, setSearch] = useState('')
   const [userGroups, setUserGroups] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [configs, setConfigs] = useState({})
+  const [tick, setTick] = useState(0)
+  const asked = useRef(new Set())
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -29,13 +48,17 @@ export default function Agents() {
       if (data.agent_hub_url) setAgentHubURL(data.agent_hub_url)
       setUserGroups(data.user_groups || null)
 
-      // Fetch observable counts for each agent
-      const agentsWithCounts = await Promise.all(
+      // An observable with no completion is an action still running: that is
+      // what "working" means here. The count stays for the status page link.
+      const withState = await Promise.all(
         names.map(async (name) => {
           let eventsCount = 0
+          let working = null
           try {
             const observables = await agentsApi.observables(name)
-            eventsCount = observables?.History?.length || 0
+            const history = observables?.History || []
+            eventsCount = history.length
+            working = workingLine(history)
           } catch (_err) {
             eventsCount = 0
           }
@@ -43,10 +66,12 @@ export default function Agents() {
             name,
             status: statuses[name] ? 'active' : 'paused',
             eventsCount,
+            working,
           }
         })
       )
-      setAgents(agentsWithCounts)
+      setAgents(withState)
+      setTick(n => n + 1)
     } catch (err) {
       addToast(t('toasts.loadFailed', { message: err.message }), 'error')
     } finally {
@@ -60,11 +85,49 @@ export default function Agents() {
     return () => clearInterval(interval)
   }, [fetchAgents])
 
+  // The model and what an agent has attached live in its saved config. Read
+  // each once; the list poll does not repeat it.
+  useEffect(() => {
+    agents.forEach(({ name }) => {
+      if (asked.current.has(name)) return
+      asked.current.add(name)
+      agentsApi.getConfig(name)
+        .then(cfg => setConfigs(prev => ({ ...prev, [name]: cfg })))
+        .catch(() => setConfigs(prev => ({ ...prev, [name]: null })))
+    })
+  }, [agents])
+
+  const rows = useMemo(() => agents.map(a => {
+    const runs = loadRuns(a.name)
+    return { ...a, runs, info: agentInfo(configs[a.name]), configLoaded: a.name in configs }
+  // tick re-reads the run log after every poll
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [agents, configs, tick])
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return agents
-    const q = search.toLowerCase()
-    return agents.filter(a => a.name.toLowerCase().includes(q))
-  }, [agents, search])
+    const q = search.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter(a => a.name.toLowerCase().includes(q) || a.info.description.toLowerCase().includes(q) || a.info.model.toLowerCase().includes(q))
+  }, [rows, search])
+
+  // Now: agents with work in flight, and agents whose latest run failed in
+  // the last day. Both are only what this browser and the observables know.
+  const now = useMemo(() => {
+    const items = []
+    const at = Date.now()
+    for (const a of rows) {
+      const live = a.runs.find(r => effectiveStatus(r, at) === 'running')
+      if (a.working || live) {
+        items.push({ kind: 'running', agent: a, runId: live?.id, line: a.working || live.turns.at(-1).task })
+        continue
+      }
+      const last = a.runs.find(r => !r.legacy) || a.runs[0]
+      if (last && recordStatus(last, at) === 'failed' && at - last.startedAt < DAY) {
+        items.push({ kind: 'failed', agent: a, runId: last.id, line: outcomeLine(last, 140) || last.turns[0].task })
+      }
+    }
+    return items
+  }, [rows])
 
   const handleDelete = (name, userId) => {
     setConfirmDialog({
@@ -133,55 +196,15 @@ export default function Agents() {
     e.target.value = ''
   }
 
-  const statusBadge = (status) => {
-    const cls = status === 'active' ? 'badge-success' : status === 'paused' ? 'badge-warning' : ''
-    return <span className={`badge ${cls}`}>{status || 'unknown'}</span>
-  }
+  const importLabel = (
+    <label className="btn btn-secondary">
+      <Icon name="import" /> {t('actions.import')}
+      <input type="file" accept=".json" hidden onChange={handleImport} />
+    </label>
+  )
 
   return (
-    <div className="page page--wide">
-      <style>{`
-        .agents-import-input { display: none; }
-        .agents-toolbar {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-sm);
-          margin-bottom: var(--spacing-md);
-          flex-wrap: wrap;
-        }
-        .agents-search {
-          flex: 1;
-          min-width: 180px;
-          max-width: 360px;
-          position: relative;
-        }
-        .agents-search i {
-          position: absolute;
-          left: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--color-text-muted);
-          font-size: 0.8125rem;
-          pointer-events: none;
-        }
-        .agents-search input {
-          padding-left: 32px;
-        }
-        .agents-action-group {
-          display: flex;
-          gap: var(--spacing-xs);
-          justify-content: flex-end;
-        }
-        .agents-name {
-          cursor: pointer;
-          color: var(--color-primary);
-          font-weight: 500;
-        }
-        .agents-name:hover {
-          text-decoration: underline;
-        }
-      `}</style>
-
+    <div className="page page--medium ag-page">
       <PageHeader
         title={t('title')}
         supporting={t('subtitle')}
@@ -189,17 +212,14 @@ export default function Agents() {
           <div className="header-actions">
             {agentHubURL && (
               <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
-                <i className="fas fa-store" /> {t('actions.agentHub')}
+                <Icon name="store" /> {t('actions.agentHub')}
               </a>
             )}
             {/* A label styled as a button, wrapping the file input it triggers,
                 so the control looks and behaves like its neighbours. */}
-            <label className="btn btn-secondary">
-              <i className="fas fa-file-import" /> {t('actions.import')}
-              <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
-            </label>
+            {importLabel}
             <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
-              <i className="fas fa-plus" /> {t('actions.createAgent')}
+              <Icon name="plus" /> {t('actions.createAgent')}
             </button>
           </div>
         }
@@ -207,15 +227,26 @@ export default function Agents() {
 
       {loading ? (
         <div className="loading-center">
-          <i className="fas fa-spinner fa-spin icon-xl text-primary" />
+          <Icon name="spinner" spin className="icon-xl text-primary" />
         </div>
       ) : agents.length === 0 && !userGroups ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-robot" /></div>
+        <div className="ag-empty" data-testid="agents-empty">
           <h2 className="empty-state-title">{t('empty.noConfigured')}</h2>
-          <p className="empty-state-text">{t('empty.noConfiguredText')}</p>
+          <p>{t('empty.noConfiguredText')}</p>
+          <p className="ag-eyebrow">{t('empty.startWith')}</p>
+          <div className="ag-list">
+            {AGENT_TEMPLATES.filter(x => x.id !== 'blank').map(x => (
+              <div key={x.id} className="ag-row ag-row--two">
+                <div className="ag-row__main">
+                  <Link className="ag-row__name" to={`/app/agents/new?template=${x.id}`}>{t(`templates.${x.id}.label`)}</Link>
+                  <span className="ag-row__desc">{x.description}</span>
+                </div>
+                <Link className="btn btn-secondary btn-sm" to={`/app/agents/new?template=${x.id}`}>{t('empty.useTemplate')}</Link>
+              </div>
+            ))}
+          </div>
           {agentHubURL && (
-            <p className="empty-state-text">
+            <p className="ag-note ag-note--gap">
               <Trans
                 i18nKey="agents:empty.browseHub"
                 values={{}}
@@ -225,126 +256,128 @@ export default function Agents() {
               />
             </p>
           )}
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="ag-empty__acts ag-empty__acts--gap">
             <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
-              <i className="fas fa-plus" /> {t('actions.createAgent')}
+              <Icon name="plus" /> {t('actions.createAgent')}
             </button>
-            <label className="btn btn-secondary">
-              <i className="fas fa-file-import" /> {t('actions.import')}
-              <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
-            </label>
+            {importLabel}
             {agentHubURL && (
               <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
-                <i className="fas fa-store" /> {t('actions.agentHub')}
+                <Icon name="store" /> {t('actions.agentHub')}
               </a>
             )}
           </div>
         </div>
       ) : (
-        <>
-          {userGroups && <h2 className="text-lg fw-semibold mb-md">{t('sections.yourAgents')}</h2>}
-          <div className="agents-toolbar">
-            <div className="agents-search">
-              <i className="fas fa-search" />
-              <input
-                className="input"
-                type="text"
-                placeholder={t('search.placeholder')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <span className="text-note">
-              {t('search.summary', { shown: filtered.length, total: agents.length, count: agents.length })}
-            </span>
-          </div>
-
-          {filtered.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon"><i className="fas fa-search" /></div>
-              <h2 className="empty-state-title">{t('empty.noMatching')}</h2>
-              <p className="empty-state-text">{t('empty.noMatchingText', { query: search })}</p>
-            </div>
-          ) : (
-            <div className="table-container">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>{t('table.name')}</th>
-                    <th>{t('table.status')}</th>
-                    <th>{t('table.events')}</th>
-                    <th className="text-right">{t('table.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(agent => {
-                    const name = agent.name || agent.id
-                    const isActive = agent.status === 'active'
-                    return (
-                      <tr key={name}>
-                        <td>
-                          <a className="agents-name" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}>
-                            {name}
-                          </a>
-                        </td>
-                        <td>{statusBadge(agent.status)}</td>
-                        <td>
-                          <a
-                            className="agents-name"
-                            onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status`)}
-                            title={t('table.eventsTooltip', { count: agent.eventsCount })}
-                          >
-                            {agent.eventsCount}
-                          </a>
-                        </td>
-                        <td>
-                          <div className="agents-action-group">
-                            <button
-                              className={`btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'}`}
-                              onClick={() => handlePauseResume(agent)}
-                              title={isActive ? t('actions.pause') : t('actions.resume')}
-                            >
-                              <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} />
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit`)}
-                              title={t('actions.edit')}
-                            >
-                              <i className="fas fa-edit" />
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}
-                              title={t('actions.chat')}
-                            >
-                              <i className="fas fa-comment" />
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => handleExport(name)}
-                              title={t('actions.export')}
-                            >
-                              <i className="fas fa-download" />
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => handleDelete(name)}
-                              title={t('actions.delete')}
-                            >
-                              <i className="fas fa-trash" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+        <div className="ag-launch">
+          {now.length > 0 && (
+            <section aria-labelledby="ag-now-h" data-testid="agents-now">
+              <div className="ag-section-head"><h2 className="ag-eyebrow" id="ag-now-h">{t('now.title')}</h2></div>
+              <div className="ag-now">
+                {now.map(item => (
+                  <div key={`${item.kind}-${item.agent.name}`} className="ag-now__item" data-state={item.kind}>
+                    <div className="ag-now__main">
+                      <StatusMark status={item.kind === 'running' ? 'running' : 'failed'} label={t(item.kind === 'running' ? 'now.working' : 'now.failed')} />
+                      <span className="ag-now__name">{item.agent.name}</span>
+                      <span className="ag-now__line">{item.line}</span>
+                    </div>
+                    <div className="ag-now__acts">
+                      <Link
+                        className="btn btn-secondary btn-sm"
+                        to={item.runId ? agentPath(item.agent.name, undefined, `/runs/${item.runId}`) : agentPath(item.agent.name)}
+                      >
+                        {t('now.open')}
+                      </Link>
+                      {item.kind === 'failed' && (
+                        <Link
+                          className="btn btn-secondary btn-sm"
+                          to={agentPath(item.agent.name)}
+                          state={{ task: item.agent.runs.find(r => r.id === item.runId)?.turns[0].task }}
+                        >
+                          {t('now.runAgain')}
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
 
-        </>
+          <section aria-labelledby="ag-mine-h">
+            <div className="ag-section-head">
+              <h2 className="ag-eyebrow" id="ag-mine-h">{userGroups ? t('sections.yourAgents') : t('sections.agents')}</h2>
+              <span className="ag-muted ag-small">
+                {t('search.summary', { shown: filtered.length, total: agents.length, count: agents.length })}
+              </span>
+            </div>
+            <div className="ag-tools">
+              <div className="ag-search">
+                <Icon name="search" />
+                <input
+                  className="input"
+                  type="text"
+                  aria-label={t('search.placeholder')}
+                  placeholder={t('search.placeholder')}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {filtered.length === 0 ? (
+              <div className="ag-empty">
+                <h3>{t('empty.noMatching')}</h3>
+                <p>{t('empty.noMatchingText', { query: search })}</p>
+              </div>
+            ) : (
+              <div className="ag-list" data-testid="agents-list">
+                {filtered.map(agent => {
+                  const name = agent.name
+                  const isActive = agent.status === 'active'
+                  const state = agent.working ? 'running' : isActive ? 'ready' : 'paused'
+                  return (
+                    <article key={name} className="ag-row" data-agent={name}>
+                      <div className="ag-row__main">
+                        <div className="ag-row__head">
+                          <Link className="ag-row__name" to={agentPath(name)}>{name}</Link>
+                          <StatusMark status={state} />
+                        </div>
+                        {agent.info.description && <span className="ag-row__desc">{agent.info.description}</span>}
+                        {agent.configLoaded && (
+                          <div className="ag-chips ag-row__chips">
+                            {agent.info.model && <Chip mono title={t('facts.model')}>{agent.info.model}</Chip>}
+                            {agent.info.memory.length > 0 && <LibraryChips info={agent.info} kind="memory" />}
+                            {agent.info.skills.length > 0 && <LibraryChips info={agent.info} kind="skills" />}
+                          </div>
+                        )}
+                      </div>
+                      <div className="ag-row__record">
+                        <RunStrip runs={agent.runs} />
+                        <RecordLine runs={agent.runs} />
+                      </div>
+                      <div className="ag-row__end">
+                        <Link className="btn btn-secondary btn-sm" to={agentPath(name)}>{t('actions.open')}</Link>
+                        <ActionMenu
+                          ariaLabel={t('actions.moreFor', { name })}
+                          items={[
+                            { key: 'edit', icon: 'edit', label: t('actions.edit'), onClick: () => navigate(`/app/agents/${encodeURIComponent(name)}/edit`) },
+                            { key: 'pause', icon: isActive ? 'pause' : 'play', label: isActive ? t('actions.pause') : t('actions.resume'), onClick: () => handlePauseResume(agent) },
+                            { key: 'status', icon: 'chart-bar', label: t('actions.statusCount', { count: agent.eventsCount }), onClick: () => navigate(`/app/agents/${encodeURIComponent(name)}/status`) },
+                            { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => handleExport(name) },
+                            { divider: true },
+                            { key: 'delete', icon: 'trash', label: t('actions.delete'), danger: true, onClick: () => handleDelete(name) },
+                          ]}
+                        />
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+            <p className="ag-note ag-note--gap">{t('record.where')}</p>
+          </section>
+        </div>
       )}
 
       {userGroups && (
@@ -355,7 +388,7 @@ export default function Agents() {
           currentUserId={user?.id}
           itemKey="agents"
           renderGroup={(items, userId) => (
-            <div className={`table-container table text-right agents-name agents-action-group btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'} fas ${isActive ? 'fa-pause' : 'fa-play'} btn btn-secondary btn-sm fas fa-edit btn btn-secondary btn-sm fas fa-comment btn btn-secondary btn-sm fas fa-download btn btn-danger btn-sm fas fa-trash`}>
+            <div className="table-container">
               <table>
                 <thead>
                   <tr>
@@ -370,42 +403,42 @@ export default function Agents() {
                     return (
                       <tr key={a.name}>
                         <td>
-                          <a onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}>
-                            {a.name}
-                          </a>
+                          <Link to={agentPath(a.name, userId)}>{a.name}</Link>
                         </td>
-                        <td>{statusBadge(isActive ? 'active' : 'paused')}</td>
+                        <td><StatusMark status={isActive ? 'ready' : 'paused'} /></td>
                         <td>
-                          <div>
+                          <div className="ag-row__end">
                             <button
+                              className="btn btn-secondary btn-sm"
                               onClick={() => handlePauseResume(a, userId)}
                               title={isActive ? t('actions.pause') : t('actions.resume')}
+                              aria-label={isActive ? t('actions.pause') : t('actions.resume')}
                             >
-                              <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} aria-hidden="true" />
+                              <Icon name={isActive ? 'pause' : 'play'} />
                             </button>
                             <button
+                              className="btn btn-secondary btn-sm"
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/edit?user_id=${encodeURIComponent(userId)}`)}
                               title={t('actions.edit')}
+                              aria-label={t('actions.edit')}
                             >
-                              <i className="fas fa-pen" aria-hidden="true" />
+                              <Icon name="pencil" />
                             </button>
                             <button
-                              onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}
-                              title={t('actions.chat')}
-                            >
-                              <i className="fas fa-comments" aria-hidden="true" />
-                            </button>
-                            <button
+                              className="btn btn-secondary btn-sm"
                               onClick={() => handleExport(a.name, userId)}
                               title={t('actions.export')}
+                              aria-label={t('actions.export')}
                             >
-                              <i className="fas fa-file-export" aria-hidden="true" />
+                              <Icon name="export" />
                             </button>
                             <button
+                              className="btn btn-danger btn-sm"
                               onClick={() => handleDelete(a.name, userId)}
                               title={t('actions.delete')}
+                              aria-label={t('actions.delete')}
                             >
-                              <i className="fas fa-trash" aria-hidden="true" />
+                              <Icon name="trash" />
                             </button>
                           </div>
                         </td>

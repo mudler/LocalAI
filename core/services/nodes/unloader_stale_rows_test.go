@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
 // Replies are handed to the adapter as raw JSON rather than as marshalled
@@ -176,7 +175,7 @@ var _ = Describe("RemoteUnloaderAdapter stale replica rows", func() {
 			// Guards the rolling-upgrade direction that matters: a new
 			// controller must keep working against every worker already
 			// deployed, not just ones rebuilt from this commit.
-			var reply messaging.BackendDeleteReply
+			var reply workerctl.BackendDeleteReply
 			Expect(json.Unmarshal([]byte(`{"success": true}`), &reply)).To(Succeed())
 			Expect(reply.Success).To(BeTrue())
 			Expect(reply.ReportsStoppedProcesses).To(BeFalse())

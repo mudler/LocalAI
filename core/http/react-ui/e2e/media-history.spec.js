@@ -1,12 +1,11 @@
 import { test, expect } from './coverage-fixtures.js'
+import { mockStudio, stubMedia } from './studio-fixtures.js'
 
-function mockCapabilities(page, capabilities) {
-  return page.route('**/api/models/capabilities', (route) => {
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ data: capabilities }),
-    })
-  })
+// The generators are pages of the Studio add-on: install it, and serve the
+// models the test names through the capabilities call it reads.
+async function mockCapabilities(page, capabilities) {
+  await mockStudio(page, { capabilityModels: capabilities })
+  await stubMedia(page)
 }
 
 function mockImageGeneration(page, images) {
@@ -73,11 +72,11 @@ test.describe('Media History - Image Generation', () => {
   test('history entry appears after image generation', async ({ page }) => {
     await mockImageGeneration(page, [{ url: '/generated-images/test.png' }])
 
-    await page.goto('/app/image')
+    await page.goto('/app/studio/images')
     await expect(page.getByRole('button', { name: 'test-image-model' })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.textarea').first().fill('a beautiful sunset')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('a beautiful sunset')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
 
     // Image should appear in preview
     await expect(page.locator('.media-result-grid img')).toBeVisible({ timeout: 10_000 })
@@ -100,17 +99,17 @@ test.describe('Media History - Image Generation', () => {
       })
     })
 
-    await page.goto('/app/image')
+    await page.goto('/app/studio/images')
     await expect(page.getByRole('button', { name: 'test-image-model' })).toBeVisible({ timeout: 10_000 })
 
     // Generate first image
-    await page.locator('.textarea').first().fill('first prompt')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('first prompt')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
     await expect(page.locator('.media-result-grid img')).toBeVisible({ timeout: 10_000 })
 
     // Generate second image
-    await page.locator('.textarea').first().fill('second prompt')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('second prompt')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
     await expect(page.locator('.media-result-grid img[src="/generated-images/img2.png"]')).toBeVisible({ timeout: 10_000 })
 
     // Click first history entry (second in list since newest first)
@@ -125,11 +124,11 @@ test.describe('Media History - Image Generation', () => {
   test('history persists across navigation', async ({ page }) => {
     await mockImageGeneration(page, [{ url: '/generated-images/persist.png' }])
 
-    await page.goto('/app/image')
+    await page.goto('/app/studio/images')
     await expect(page.getByRole('button', { name: 'test-image-model' })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.textarea').first().fill('persist test')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('persist test')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 10_000 })
 
     // Wait for debounced save
@@ -137,7 +136,7 @@ test.describe('Media History - Image Generation', () => {
 
     // Navigate away and back
     await page.goto('/app')
-    await page.goto('/app/image')
+    await page.goto('/app/studio/images')
 
     // Re-register the mock for capabilities after navigation
     await expect(page.getByTestId('media-history')).toBeVisible({ timeout: 10_000 })
@@ -148,11 +147,11 @@ test.describe('Media History - Image Generation', () => {
   test('delete removes a history entry', async ({ page }) => {
     await mockImageGeneration(page, [{ url: '/generated-images/del.png' }])
 
-    await page.goto('/app/image')
+    await page.goto('/app/studio/images')
     await expect(page.getByRole('button', { name: 'test-image-model' })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.textarea').first().fill('delete me')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('delete me')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 10_000 })
 
     // Hover and click delete
@@ -175,16 +174,16 @@ test.describe('Media History - Image Generation', () => {
       })
     })
 
-    await page.goto('/app/image')
+    await page.goto('/app/studio/images')
     await expect(page.getByRole('button', { name: 'test-image-model' })).toBeVisible({ timeout: 10_000 })
 
     // Generate two images
-    await page.locator('.textarea').first().fill('first')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('first')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 10_000 })
 
-    await page.locator('.textarea').first().fill('second')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('second')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
     await expect(page.getByTestId('media-history-item')).toHaveCount(2, { timeout: 10_000 })
 
     // Click clear all
@@ -201,11 +200,11 @@ test.describe('Media History - TTS', () => {
   test('TTS history entry appears with server URL from Content-Disposition', async ({ page }) => {
     await mockTTSGeneration(page, 'tts.wav')
 
-    await page.goto('/app/tts')
+    await page.goto('/app/studio/tts')
     await expect(page.getByRole('button', { name: 'test-tts-model' })).toBeVisible({ timeout: 10_000 })
 
     await page.getByPlaceholder('Enter text to synthesize...').fill('hello world')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
 
     // History entry should appear
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 10_000 })
@@ -227,11 +226,13 @@ test.describe('Media History - Sound Generation', () => {
   test('Sound generation history entry appears', async ({ page }) => {
     await mockSoundGeneration(page, 'sound.wav')
 
-    await page.goto('/app/sound')
+    await page.goto('/app/studio/sound')
     await expect(page.getByRole('button', { name: 'test-sound-model' })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.textarea').first().fill('upbeat jazz')
-    await page.locator('button[type="submit"]').click()
+    await page.getByRole('button', { name: 'Prompt expansion model', exact: true }).click()
+    await page.getByRole('option', { name: 'Backend default', exact: true }).click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('upbeat jazz')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
 
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 10_000 })
     await expect(page.getByTestId('media-history-item')).toContainText('upbeat jazz')
@@ -246,11 +247,11 @@ test.describe('Media History - Video Generation', () => {
   test('Video history entry appears after generation', async ({ page }) => {
     await mockVideoGeneration(page, [{ url: '/generated-videos/test.mp4' }])
 
-    await page.goto('/app/video')
+    await page.goto('/app/studio/video')
     await expect(page.getByRole('button', { name: 'test-video-model' })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.textarea').first().fill('a running cat')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('a running cat')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
 
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 10_000 })
     await expect(page.getByTestId('media-history-item')).toContainText('a running cat')
@@ -260,16 +261,16 @@ test.describe('Media History - Video Generation', () => {
     let requestBody
     await mockVideoGeneration(page, [{ url: '/generated-videos/avatar.mp4' }], (body) => { requestBody = body })
 
-    await page.goto('/app/video')
+    await page.goto('/app/studio/video')
     await expect(page.getByRole('button', { name: 'test-video-model' })).toBeVisible({ timeout: 10_000 })
-    await page.getByRole('button', { name: 'Reference media' }).click()
+    await page.getByRole('button', { name: 'Avatar audio' }).click()
     await page.getByLabel('Avatar audio', { exact: true }).setInputFiles({
       name: 'speech.wav',
       mimeType: 'audio/wav',
       buffer: Buffer.from('avatar speech'),
     })
-    await page.locator('.textarea').first().fill('a presenter speaking to camera')
-    await page.locator('button[type="submit"]').click()
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('a presenter speaking to camera')
+    await page.locator('[data-testid="ws-compose"] button[type="submit"]').click()
 
     await expect.poll(() => requestBody?.audio).toBe(Buffer.from('avatar speech').toString('base64'))
   })

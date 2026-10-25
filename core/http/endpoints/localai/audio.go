@@ -25,8 +25,9 @@ import (
 var audioDataURIPattern = regexp.MustCompile(`^data:[^,]+?;base64,`)
 
 // Downloading user-supplied media URLs legitimately follows redirects (CDNs);
-// WithFollowRedirects still strips any credential header on a cross-host hop.
-var audioDownloadClient = httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects())
+// WithFollowRedirects still strips any credential header on a cross-host hop,
+// and WithExternalOnly validates each hop and the dialled address.
+var audioDownloadClient = httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects(), httpclient.WithExternalOnly())
 
 // decodeAudioInput materialises a URL / data-URI / raw-base64 audio
 // payload to a temporary file and returns its path plus a cleanup

@@ -311,6 +311,40 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 	return result, nil
 }
 
+func (f *FileStagingClient) Animate3D(ctx context.Context, in *pb.Animate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.Animate3DRequest)
+	for name, input := range in.Inputs {
+		if input == nil || input.Type == "text" || !isFilePath(input.Data) {
+			continue
+		}
+		path, err := f.stageInputFile(ctx, lifecycle, input.Data, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging animation input %q: %w", name, err)
+		}
+		input.Data = path
+	}
+	frontendDst := in.Dst
+	if frontendDst != "" {
+		path, err := f.stager.AllocRemoteTemp(ctx, f.nodeID)
+		if err != nil {
+			return nil, fmt.Errorf("allocating animation output: %w", err)
+		}
+		in.Dst = path
+	}
+	result, err := f.Backend.Animate3D(ctx, in, opts...)
+	if err != nil {
+		return result, err
+	}
+	if frontendDst != "" && in.Dst != frontendDst {
+		if err := f.retrieveOutputFile(ctx, in.Dst, frontendDst); err != nil {
+			return result, fmt.Errorf("retrieving animation: %w", err)
+		}
+	}
+	return result, nil
+}
+
 func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
 	defer lifecycle.release()
@@ -470,6 +504,23 @@ func (f *FileStagingClient) SoundDetection(ctx context.Context, in *pb.SoundDete
 		in.Src = backendPath
 	}
 	return f.Backend.SoundDetection(ctx, in, opts...)
+}
+
+func (f *FileStagingClient) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.DiarizeRequest)
+
+	// Stage input audio file
+	if in.Dst != "" && isFilePath(in.Dst) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Dst, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging audio for diarization: %w", err)
+		}
+		in.Dst = backendPath
+	}
+
+	return f.Backend.Diarize(ctx, in, opts...)
 }
 
 func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
@@ -674,4 +725,31 @@ func copyFile(src, dst string) error {
 		return copyErr
 	}
 	return closeErr
+}
+
+func (f *FileStagingClient) TTSLive(ctx context.Context, in *pb.TTSRequest, text <-chan string, fn func([]byte) error) error {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.TTSRequest)
+
+	// Translate model path from frontend to remote worker path (same as TTS above)
+	if in.Model != "" && isFilePath(in.Model) {
+		in.Model = f.translateModelPath(in.Model)
+	}
+	if in.Voice != "" && isFilePath(in.Voice) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Voice, "inputs")
+		if err != nil {
+			return fmt.Errorf("staging streaming TTS voice reference: %w", err)
+		}
+		in.Voice = backendPath
+	}
+	if err := f.stageTTSReferences(ctx, lifecycle, in); err != nil {
+		return err
+	}
+
+	live, ok := f.Backend.(grpc.TTSLiveBackend)
+	if !ok {
+		return fmt.Errorf("backend does not support incremental text TTS")
+	}
+	return live.TTSLive(ctx, in, text, fn)
 }

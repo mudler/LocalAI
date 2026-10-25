@@ -103,7 +103,8 @@
   "toasts": {
     "selectModel": "Silahkan pilih model",
     "copied": "Berhasil disalin ke papan klip",
-    "copyFailed": "Gagal menyalin ke papan klip"
+    "copyFailed": "Gagal menyalin ke papan klip",
+    "pdfScannedAsImages": "{{name}} tidak memiliki lapisan teks (pindaian). {{count}} dari {{total}} halaman dilampirkan sebagai gambar untuk model visi."
   },
   "menu": {
     "trigger": "Obrolan",
@@ -121,5 +122,13 @@
   },
   "message": {
     "you": "You"
+  },
+  "addons": {
+    "note": "An add-on that is off here does nothing in this chat.",
+    "label": "Add-ons",
+    "title": "Add-on tools for this chat",
+    "heading": "Add-on tools",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
   }
 }

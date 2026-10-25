@@ -86,12 +86,14 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListAliases,
 	ToolListInstalledModels,
 	ToolListKnownBackends,
+	ToolListBackendLibraryUpdates,
 	ToolListNodes,
 	ToolListScheduling,
 	ToolGetScheduling,
 	ToolListVoiceProfiles,
 	ToolSystemInfo,
 	ToolVRAMEstimate,
+	ToolListFailoverChains,
 )
 
 // expectedFullCatalog derives from the read-only catalog plus the canonical
@@ -134,6 +136,7 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListGalleries, struct{}{}, "ListGalleries"},
 		{ToolListBackends, struct{}{}, "ListBackends"},
 		{ToolListKnownBackends, struct{}{}, "ListKnownBackends"},
+		{ToolListBackendLibraryUpdates, struct{}{}, "ListBackendLibraryUpdates"},
 		{ToolSystemInfo, struct{}{}, "SystemInfo"},
 		{ToolListNodes, struct{}{}, "ListNodes"},
 		{ToolListScheduling, struct{}{}, "ListScheduling"},
@@ -145,9 +148,11 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolImportModelURI, ImportModelURIRequest{URI: "Qwen/Qwen3-4B-GGUF"}, "ImportModelURI"},
 		{ToolDeleteModel, map[string]any{"name": "foo"}, "DeleteModel"},
 		{ToolInstallBackend, InstallBackendRequest{BackendName: "llama-cpp"}, "InstallBackend"},
+		{ToolInstallLibraryBackend, InstallLibraryBackendRequest{SourceID: "official", Name: "demo", Version: "1.0.0"}, "InstallLibraryBackend"},
 		{ToolUpgradeBackend, map[string]any{"name": "llama-cpp"}, "UpgradeBackend"},
 		{ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{"context_size": 4096}}, "EditModelConfig"},
 		{ToolReloadModels, struct{}{}, "ReloadModels"},
+		{ToolCancelModelLoad, map[string]any{"model": "test-model", "job_id": "generation"}, "CancelModelLoad"},
 		{ToolLoadModel, map[string]any{"model": "test-model"}, "LoadModel"},
 		{ToolToggleModelState, map[string]any{"name": "foo", "action": "enable"}, "ToggleModelState"},
 		{ToolToggleModelPinned, map[string]any{"name": "foo", "action": "pin"}, "ToggleModelPinned"},
@@ -155,6 +160,9 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListAliases, struct{}{}, "ListAliases"},
 		{ToolCreateVoiceProfile, CreateVoiceProfileRequest{Name: "Narrator", Transcript: "Reference words", AudioBase64: "UklGRg==", ConsentConfirmed: true}, "CreateVoiceProfile"},
 		{ToolDeleteVoiceProfile, DeleteVoiceProfileRequest{ID: "00000000-0000-0000-0000-000000000001"}, "DeleteVoiceProfile"},
+		{ToolListFailoverChains, map[string]any{}, "ListFailoverChains"},
+		{ToolPinFailoverTarget, map[string]any{"chain": "c", "target": "b"}, "PinFailoverTarget"},
+		{ToolUnpinFailoverTarget, map[string]any{"chain": "c"}, "UnpinFailoverTarget"},
 	}
 
 	for _, c := range cases {
@@ -164,6 +172,9 @@ var _ = Describe("Tool dispatch", func() {
 				installModel:   func(InstallModelRequest) (string, error) { return "job-1", nil },
 				installBackend: func(InstallBackendRequest) (string, error) { return "job-2", nil },
 				upgradeBackend: func(string) (string, error) { return "job-3", nil },
+				installLibraryBackend: func(InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error) {
+					return &InstallLibraryBackendResult{Status: "installed"}, nil
+				},
 			}
 			ctx, sess, done := connectInMemory(fc, Options{})
 			DeferCleanup(done)

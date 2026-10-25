@@ -103,7 +103,8 @@
   "toasts": {
     "selectModel": "请选择一个模型",
     "copied": "已复制到剪贴板",
-    "copyFailed": "无法复制到剪贴板"
+    "copyFailed": "无法复制到剪贴板",
+    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。"
   },
   "menu": {
     "trigger": "聊天",
@@ -121,5 +122,13 @@
   },
   "message": {
     "you": "You"
+  },
+  "addons": {
+    "note": "An add-on that is off here does nothing in this chat.",
+    "label": "Add-ons",
+    "title": "Add-on tools for this chat",
+    "heading": "Add-on tools",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
   }
 }

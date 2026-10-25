@@ -76,6 +76,34 @@ type InstallBackendRequest struct {
 	BackendName string `json:"backend_name"           jsonschema:"Backend identifier (e.g. llama-cpp)."`
 }
 
+// InstallLibraryBackendRequest is the input for install_library_backend.
+type InstallLibraryBackendRequest struct {
+	SourceID string `json:"source_id" jsonschema:"The library the entry comes from, as shown in the Add-ons library list."`
+	Name     string `json:"name"      jsonschema:"The backend name of the library entry."`
+	Version  string `json:"version"   jsonschema:"The version or the channel of the library entry."`
+}
+
+// InstallLibraryBackendResult is the output of install_library_backend. The
+// install runs to the end before the call returns, so there is no job id.
+type InstallLibraryBackendResult struct {
+	Status   string `json:"status"`
+	Name     string `json:"name"`
+	SourceID string `json:"source_id"`
+}
+
+// BackendLibraryUpdate is one installed library backend with a newer build in
+// its library, as list_backend_library_updates returns it. Version is what an
+// install_library_backend call names to take the update.
+type BackendLibraryUpdate struct {
+	Name             string `json:"name"`
+	SourceID         string `json:"sourceId"`
+	InstalledVersion string `json:"installedVersion,omitempty"`
+	InstalledDigest  string `json:"installedDigest,omitempty"`
+	Version          string `json:"version"`
+	Digest           string `json:"digest"`
+	Signed           bool   `json:"signed"`
+}
+
 // Backend is the LLM-facing summary returned by list_backends. We don't
 // expose gallery.SystemBackend directly because it carries filesystem
 // paths (RunFile, IsSystem, IsMeta, the full Metadata) the LLM doesn't
@@ -412,4 +440,37 @@ type VRAMEstimateRequest struct {
 	ContextSize int    `json:"context_size,omitempty"  jsonschema:"Context size in tokens."`
 	GPULayers   int    `json:"gpu_layers,omitempty"    jsonschema:"Number of layers to offload to GPU. -1 for all."`
 	KVQuantBits int    `json:"kv_quant_bits,omitempty" jsonschema:"KV cache quantization bits (e.g. 4, 8, 16)."`
+}
+
+// FailoverTargetInfo is the LLM-facing view of one failover chain target's
+// health. It mirrors failover.TargetStatus but drops ConsecutiveOK and
+// LastProbe — internal probing detail the LLM doesn't need to decide
+// whether to pin or unpin a target.
+type FailoverTargetInfo struct {
+	Model     string `json:"model"`
+	Kind      string `json:"kind"`
+	Warm      bool   `json:"warm"`
+	State     string `json:"state"`
+	LastError string `json:"last_error,omitempty"`
+}
+
+// FailoverChainInfo is the LLM-facing view of one failover chain: its
+// current state, the target serving it now, an optional pin, and every
+// target's health.
+type FailoverChainInfo struct {
+	Name    string               `json:"name"`
+	State   string               `json:"state"`
+	Active  string               `json:"active"`
+	Pinned  string               `json:"pinned,omitempty"`
+	Targets []FailoverTargetInfo `json:"targets"`
+}
+
+// LoadCancelResult is what a cancel of a distributed load did. State is
+// "stopped" (the worker confirmed), "stopping" (recorded, stop pending; the model
+// is released after RetryAfter seconds regardless) or "gone".
+type LoadCancelResult struct {
+	Model      string `json:"model"`
+	JobID      string `json:"job_id"`
+	State      string `json:"state"`
+	RetryAfter int    `json:"retry_after,omitempty"`
 }

@@ -413,6 +413,19 @@ func (c *Client) ListKnownBackends(ctx context.Context) ([]schema.KnownBackend, 
 	return out, nil
 }
 
+func (c *Client) ListBackendLibraryUpdates(ctx context.Context) ([]localaitools.BackendLibraryUpdate, error) {
+	var resp struct {
+		Updates []localaitools.BackendLibraryUpdate `json:"updates"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeBackendsLibraryUpdates, nil, &resp); err != nil {
+		return nil, err
+	}
+	if resp.Updates == nil {
+		resp.Updates = []localaitools.BackendLibraryUpdate{}
+	}
+	return resp.Updates, nil
+}
+
 func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBackendRequest) (string, error) {
 	body := map[string]any{"id": req.BackendName}
 	if req.GalleryName != "" {
@@ -426,6 +439,19 @@ func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBac
 		return "", err
 	}
 	return resp.ID, nil
+}
+
+func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {
+	body := map[string]any{"sourceId": req.SourceID, "name": req.Name, "version": req.Version}
+	var resp struct {
+		Status   string `json:"status"`
+		Name     string `json:"name"`
+		SourceID string `json:"sourceId"`
+	}
+	if err := c.do(ctx, http.MethodPost, routeBackendsLibraryInstall, body, &resp); err != nil {
+		return nil, err
+	}
+	return &localaitools.InstallLibraryBackendResult{Status: resp.Status, Name: resp.Name, SourceID: resp.SourceID}, nil
 }
 
 func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error) {
@@ -828,4 +854,30 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 		return nil, err
 	}
 	return &out, nil
+}
+
+// ---- Failover chains ----
+
+func (c *Client) ListFailoverChains(ctx context.Context) ([]localaitools.FailoverChainInfo, error) {
+	var out struct {
+		Chains []localaitools.FailoverChainInfo `json:"chains"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeFailover, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Chains, nil
+}
+
+func (c *Client) PinFailoverTarget(ctx context.Context, chain, target string) error {
+	return c.do(ctx, http.MethodPost, routeFailover+"/"+url.PathEscape(chain)+"/pin", map[string]string{"target": target}, nil)
+}
+
+func (c *Client) CancelModelLoad(ctx context.Context, model, jobID string) (localaitools.LoadCancelResult, error) {
+	var result localaitools.LoadCancelResult
+	err := c.do(ctx, http.MethodPost, "/api/models/"+url.PathEscape(model)+"/load-cancel", map[string]string{"job_id": jobID}, &result)
+	return result, err
+}
+
+func (c *Client) UnpinFailoverTarget(ctx context.Context, chain string) error {
+	return c.do(ctx, http.MethodDelete, routeFailover+"/"+url.PathEscape(chain)+"/pin", nil, nil)
 }

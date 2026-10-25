@@ -88,6 +88,7 @@ var _ = Describe("DistributedConfig flag-name constants", func() {
 		Entry("backend install timeout", config.FlagBackendInstallTimeout, "backend-install-timeout"),
 		Entry("backend upgrade timeout", config.FlagBackendUpgradeTimeout, "backend-upgrade-timeout"),
 		Entry("model load timeout", config.FlagModelLoadTimeout, "model-load-timeout"),
+		Entry("model config resync interval", config.FlagModelConfigResyncInterval, "model-config-resync-interval"),
 	)
 })
 
@@ -102,6 +103,23 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(config.FlagBackendInstallTimeout))
 		Expect(err.Error()).To(ContainSubstring("must not be negative"))
+	})
+
+	It("rejects a negative ModelConfigResyncInterval with the flag name in the error", func() {
+		c := config.DistributedConfig{
+			Enabled:                   true,
+			NatsURL:                   "nats://localhost:4222",
+			ModelConfigResyncInterval: -1 * time.Second,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(config.FlagModelConfigResyncInterval))
+		Expect(err.Error()).To(ContainSubstring("must not be negative"))
+	})
+
+	It("defaults the model config resync interval", func() {
+		Expect(config.DistributedConfig{}.ModelConfigResyncIntervalOrDefault()).To(Equal(config.DefaultModelConfigResyncInterval))
+		Expect(config.DistributedConfig{ModelConfigResyncInterval: time.Minute}.ModelConfigResyncIntervalOrDefault()).To(Equal(time.Minute))
 	})
 
 	It("rejects a negative BackendUpgradeTimeout with the flag name in the error", func() {

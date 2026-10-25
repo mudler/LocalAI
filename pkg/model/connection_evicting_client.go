@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -72,6 +73,12 @@ func (c *ConnectionEvictingClient) GenerateVideo(ctx context.Context, in *pb.Gen
 	return result, err
 }
 
+func (c *ConnectionEvictingClient) Animate3D(ctx context.Context, in *pb.Animate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	result, err := c.Backend.Animate3D(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}
+
 func (c *ConnectionEvictingClient) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	result, err := c.Backend.Generate3D(ctx, in, opts...)
 	c.checkErr(err)
@@ -120,6 +127,12 @@ func (c *ConnectionEvictingClient) Depth(ctx context.Context, in *pb.DepthReques
 	return result, err
 }
 
+func (c *ConnectionEvictingClient) Forecast(ctx context.Context, in *pb.ForecastRequest, opts ...ggrpc.CallOption) (*pb.ForecastResponse, error) {
+	result, err := c.Backend.Forecast(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}
+
 func (c *ConnectionEvictingClient) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...ggrpc.CallOption) (*pb.RerankResult, error) {
 	result, err := c.Backend.Rerank(ctx, in, opts...)
 	c.checkErr(err)
@@ -136,4 +149,14 @@ func (c *ConnectionEvictingClient) Score(ctx context.Context, in *pb.ScoreReques
 	result, err := c.Backend.Score(ctx, in, opts...)
 	c.checkErr(err)
 	return result, err
+}
+
+func (c *ConnectionEvictingClient) TTSLive(ctx context.Context, in *pb.TTSRequest, text <-chan string, send func([]byte) error) error {
+	live, ok := c.Backend.(grpc.TTSLiveBackend)
+	if !ok {
+		return fmt.Errorf("backend does not support incremental text TTS")
+	}
+	err := live.TTSLive(ctx, in, text, send)
+	c.checkErr(err)
+	return err
 }

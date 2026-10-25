@@ -81,6 +81,13 @@ func (c *RerankClassifier) WithTokenTrim(tokenize func(string) (int, error), max
 func (c *RerankClassifier) Name() string { return ClassifierColbert }
 
 func (c *RerankClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
+	if err := ctx.Err(); err != nil {
+		return Decision{}, err
+	}
+	if err := requireTextProbe(ctx, p); err != nil {
+		return Decision{}, err
+	}
+
 	start := time.Now()
 	query := trimmedProbeText(p, c.budget, identityRender)
 	key := cacheKey(query)

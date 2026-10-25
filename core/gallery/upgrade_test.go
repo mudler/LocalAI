@@ -144,6 +144,71 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 		})
 	})
 
+	Describe("stale backend marks", func() {
+		// Backend names are unique per test: the marks live in the process.
+		installAliased := func(name, alias, installedAt string) {
+			dir := filepath.Join(backendsPath, name)
+			Expect(os.MkdirAll(dir, 0750)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "run.sh"), []byte("#!/bin/sh\necho ok"), 0755)).To(Succeed())
+			data, err := json.Marshal(BackendMetadata{Name: name, Alias: alias, InstalledAt: installedAt})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0644)).To(Succeed())
+			writeGalleryYAML([]GalleryBackend{{
+				Metadata: Metadata{Name: name},
+				URI:      filepath.Join(tempDir, "some-source"),
+			}})
+		}
+
+		It("flags a backend that is current by tag once a request proves it is old", func() {
+			installAliased("stale-cpp", "stale-alias", time.Now().Add(-time.Hour).Format(time.RFC3339))
+
+			upgrades, err := CheckBackendUpgrades(context.Background(), galleries, systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(BeEmpty())
+
+			MarkBackendStale("stale-alias", "no native decisions")
+			upgrades, err = CheckBackendUpgrades(context.Background(), galleries, systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(HaveKey("stale-cpp"))
+			Expect(upgrades["stale-cpp"].Reason).To(Equal("no native decisions"))
+		})
+
+		It("matches a mark on the concrete backend name", func() {
+			installAliased("stale-named", "", time.Now().Add(-time.Hour).Format(time.RFC3339))
+			MarkBackendStale("stale-named", "old")
+			upgrades, err := CheckBackendUpgrades(context.Background(), galleries, systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(HaveKey("stale-named"))
+		})
+
+		It("drops the mark once the backend is reinstalled after it", func() {
+			installAliased("stale-fresh", "stale-fresh-alias", time.Now().Add(-time.Hour).Format(time.RFC3339))
+			MarkBackendStale("stale-fresh-alias", "old")
+			installAliased("stale-fresh", "stale-fresh-alias", time.Now().Add(time.Minute).Format(time.RFC3339))
+
+			upgrades, err := CheckBackendUpgrades(context.Background(), galleries, systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(BeEmpty())
+		})
+
+		It("ignores marks for other backends and empty names", func() {
+			installAliased("stale-other", "", time.Now().Add(-time.Hour).Format(time.RFC3339))
+			MarkBackendStale("", "ignored")
+			MarkBackendStale("not-installed", "ignored")
+			upgrades, err := CheckBackendUpgrades(context.Background(), galleries, systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(BeEmpty())
+		})
+
+		It("calls the notifier on each mark", func() {
+			calls := 0
+			SetStaleBackendNotifier(func() { calls++ })
+			DeferCleanup(func() { SetStaleBackendNotifier(nil) })
+			MarkBackendStale("stale-notify", "old")
+			Expect(calls).To(Equal(1))
+		})
+	})
+
 	// CheckUpgradesAgainst is the entry point used by DistributedBackendManager.
 	// It takes installed backends directly — typically aggregated from workers —
 	// instead of reading the frontend filesystem. These tests exercise drift

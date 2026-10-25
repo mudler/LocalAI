@@ -25,11 +25,12 @@ type ElevenLabsTTSRequest struct {
 // heap corruption with fully attacker-influenced input. Wait for the pin to
 // move past the fix.
 type ElevenLabsSoundGenerationRequest struct {
-	Text        string   `json:"text" yaml:"text"`
-	ModelID     string   `json:"model_id" yaml:"model_id"`
-	Duration    *float32 `json:"duration_seconds,omitempty" yaml:"duration_seconds,omitempty"`
-	Temperature *float32 `json:"prompt_influence,omitempty" yaml:"prompt_influence,omitempty"`
-	DoSample    *bool    `json:"do_sample,omitempty" yaml:"do_sample,omitempty"`
+	ExpansionModel *string  `json:"expansion_model,omitempty" yaml:"expansion_model,omitempty"`
+	Text           string   `json:"text" yaml:"text"`
+	ModelID        string   `json:"model_id" yaml:"model_id"`
+	Duration       *float32 `json:"duration_seconds,omitempty" yaml:"duration_seconds,omitempty"`
+	Temperature    *float32 `json:"prompt_influence,omitempty" yaml:"prompt_influence,omitempty"`
+	DoSample       *bool    `json:"do_sample,omitempty" yaml:"do_sample,omitempty"`
 	// Advanced mode
 	Think         *bool  `json:"think,omitempty" yaml:"think,omitempty"`
 	Caption       string `json:"caption,omitempty" yaml:"caption,omitempty"`
@@ -40,7 +41,8 @@ type ElevenLabsSoundGenerationRequest struct {
 	VocalLanguage string `json:"vocal_language,omitempty" yaml:"vocal_language,omitempty"`
 	Timesignature string `json:"timesignature,omitempty" yaml:"timesignature,omitempty"`
 	// Simple mode: use text as description; optional instrumental / vocal_language
-	Instrumental *bool `json:"instrumental,omitempty" yaml:"instrumental,omitempty"`
+	Instrumental *bool             `json:"instrumental,omitempty" yaml:"instrumental,omitempty"`
+	Params       map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
 }
 
 func (elttsr *ElevenLabsTTSRequest) ModelName(s *string) string {

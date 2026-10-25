@@ -445,3 +445,60 @@ var _ = Describe("AllBackendNames", func() {
 		Expect(slices.IsSorted(names)).To(BeTrue())
 	})
 })
+
+var _ = Describe("Upscale backend declaration", func() {
+	It("maps upscale to its dedicated RPC and advertises SD GGML support", func() {
+		info := UsecaseInfoMap[UsecaseUpscale]
+		Expect(info.Flag).To(Equal(FLAG_UPSCALE))
+		Expect(info.GRPCMethod).To(Equal(MethodUpscaleImage))
+		cap := GetBackendCapability("stablediffusion-ggml")
+		Expect(cap.GRPCMethods).To(ContainElement(MethodUpscaleImage))
+		Expect(cap.PossibleUsecases).To(ContainElement(UsecaseUpscale))
+		Expect(cap.DefaultUsecases).NotTo(ContainElement(UsecaseUpscale))
+	})
+})
+
+var _ = Describe("GEM-X motion capability", func() {
+	It("discovers motion without advertising animation generation", func() {
+		Expect(DefaultUsecasesForBackendCap("gemxcpp")).To(Equal([]string{UsecaseMotion}))
+		cfg := &ModelConfig{Backend: "gemxcpp"}
+		Expect(cfg.HasUsecases(FLAG_MOTION)).To(BeTrue())
+		Expect(cfg.HasUsecases(FLAG_3D_ANIMATION)).To(BeFalse())
+		Expect(cfg.HasUsecases(FLAG_DECISIONS)).To(BeFalse())
+		decisions := FLAG_DECISIONS
+		Expect((&ModelConfig{Backend: "vllm-cpp", KnownUsecases: &decisions}).HasUsecases(FLAG_MOTION)).To(BeFalse())
+		Expect(FLAG_MOTION & FLAG_DECISIONS).To(BeZero())
+		Expect((&ModelConfig{Backend: "llama-cpp"}).HasUsecases(FLAG_MOTION)).To(BeFalse())
+	})
+})
+
+var _ = Describe("timestral forecast capability", func() {
+	It("discovers forecast on the backend and keeps the model out of chat", func() {
+		Expect(DefaultUsecasesForBackendCap("timestral-cpp")).To(Equal([]string{UsecaseForecast}))
+		cfg := &ModelConfig{Backend: "timestral-cpp"}
+		Expect(cfg.HasUsecases(FLAG_FORECAST)).To(BeTrue())
+		Expect(cfg.HasUsecases(FLAG_CHAT)).To(BeFalse())
+		Expect(cfg.HasUsecases(FLAG_COMPLETION)).To(BeFalse())
+		Expect(cfg.HasUsecases(FLAG_EMBEDDINGS)).To(BeFalse())
+		Expect(cfg.HasUsecases(FLAG_DEPTH)).To(BeFalse())
+		Expect(cfg.Capabilities()).To(ContainElement(UsecaseForecast))
+		Expect(cfg.Capabilities()).NotTo(ContainElement(UsecaseChat))
+	})
+
+	It("keeps chat models and other backends out of forecast", func() {
+		Expect((&ModelConfig{Backend: "llama-cpp"}).HasUsecases(FLAG_FORECAST)).To(BeFalse())
+		chat := &ModelConfig{Backend: "timestral-cpp"}
+		chat.TemplateConfig.UseTokenizerTemplate = true
+		Expect(chat.HasUsecases(FLAG_CHAT)).To(BeFalse(), "a timestral model never serves text")
+	})
+
+	It("maps the usecase to its flag, RPC and string form", func() {
+		info := UsecaseInfoMap[UsecaseForecast]
+		Expect(info.Flag).To(Equal(FLAG_FORECAST))
+		Expect(info.GRPCMethod).To(Equal(MethodForecast))
+		Expect(GetAllModelConfigUsecases()).To(HaveKeyWithValue("FLAG_FORECAST", FLAG_FORECAST))
+		flags := GetUsecasesFromYAML([]string{"forecast"})
+		Expect(flags).NotTo(BeNil())
+		Expect(*flags).To(Equal(FLAG_FORECAST))
+	})
+})

@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LocalAI</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      // Set the theme before first paint, with the same rule as ThemeContext:
+      // a stored choice wins, a fresh install opens dark.
+      try {
+        document.documentElement.setAttribute('data-theme', localStorage.getItem('localai-theme') || 'dark')
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark')
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

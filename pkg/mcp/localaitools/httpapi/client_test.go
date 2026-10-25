@@ -365,6 +365,68 @@ var _ = Describe("Model aliases", func() {
 	})
 })
 
+var _ = Describe("Failover chains", func() {
+	Describe("ListFailoverChains", func() {
+		It("issues GET /api/failover and unwraps the chains array", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodGet))
+				Expect(r.URL.Path).To(Equal("/api/failover"))
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"chains": []map[string]any{
+						{
+							"name":   "chain",
+							"state":  "primary",
+							"active": "a",
+							"pinned": nil,
+							"targets": []map[string]any{
+								{"model": "a", "kind": "local", "warm": false, "state": "healthy"},
+							},
+						},
+					},
+				})
+			}))
+			DeferCleanup(srv.Close)
+
+			out, err := New(srv.URL, "").ListFailoverChains(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].Name).To(Equal("chain"))
+			Expect(out[0].Active).To(Equal("a"))
+			Expect(out[0].Pinned).To(BeEmpty())
+			Expect(out[0].Targets).To(ConsistOf(localaitools.FailoverTargetInfo{Model: "a", Kind: "local", State: "healthy"}))
+		})
+	})
+
+	Describe("PinFailoverTarget", func() {
+		It("issues POST /api/failover/:chain/pin with the target in the body", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodPost))
+				Expect(r.URL.Path).To(Equal("/api/failover/chain/pin"))
+				var body map[string]string
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				Expect(body).To(HaveKeyWithValue("target", "b"))
+				w.WriteHeader(http.StatusOK)
+			}))
+			DeferCleanup(srv.Close)
+
+			Expect(New(srv.URL, "").PinFailoverTarget(context.Background(), "chain", "b")).To(Succeed())
+		})
+	})
+
+	Describe("UnpinFailoverTarget", func() {
+		It("issues DELETE /api/failover/:chain/pin", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodDelete))
+				Expect(r.URL.Path).To(Equal("/api/failover/chain/pin"))
+				w.WriteHeader(http.StatusOK)
+			}))
+			DeferCleanup(srv.Close)
+
+			Expect(New(srv.URL, "").UnpinFailoverTarget(context.Background(), "chain")).To(Succeed())
+		})
+	})
+})
+
 var _ = Describe("ErrHTTPNotFound", func() {
 	Context("on a clean 404 status", func() {
 		var (
@@ -418,5 +480,44 @@ var _ = Describe("Bearer token", func() {
 		_, err := c.ListGalleries(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sawAuth).To(Equal("Bearer secret-key"))
+	})
+})
+
+var _ = Describe("InstallLibraryBackend", func() {
+	It("posts the library entry to the backend library route", func() {
+		var path string
+		var body map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path = r.Method + " " + r.URL.Path
+			Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "installed", "name": "demo", "sourceId": "official"})
+		}))
+		DeferCleanup(srv.Close)
+
+		res, err := New(srv.URL, "").InstallLibraryBackend(context.Background(), localaitools.InstallLibraryBackendRequest{SourceID: "official", Name: "demo", Version: "1.0.0"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(path).To(Equal("POST /backends/library/install"))
+		Expect(body).To(Equal(map[string]any{"sourceId": "official", "name": "demo", "version": "1.0.0"}))
+		Expect(res.Status).To(Equal("installed"))
+	})
+})
+
+var _ = Describe("ListBackendLibraryUpdates", func() {
+	It("reads the backend library updates route", func() {
+		var path string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path = r.Method + " " + r.URL.Path
+			_ = json.NewEncoder(w).Encode(map[string]any{"updates": []map[string]any{
+				{"name": "demo", "sourceId": "official", "installedVersion": "1.0.0", "version": "1.1.0", "digest": "sha256:aa", "signed": true},
+			}})
+		}))
+		DeferCleanup(srv.Close)
+
+		res, err := New(srv.URL, "").ListBackendLibraryUpdates(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(path).To(Equal("GET /backends/library/updates"))
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].SourceID).To(Equal("official"))
+		Expect(res[0].Version).To(Equal("1.1.0"))
 	})
 })

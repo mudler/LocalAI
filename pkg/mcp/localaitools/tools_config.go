@@ -41,6 +41,20 @@ func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		return
 	}
 
+	mcp.AddTool(s, &mcp.Tool{Name: ToolCancelModelLoad, Description: "Cancel one distributed model load, named by the job_id from the model's load-status. Requires user confirmation per safety rule 1. State `stopping` means the cancel is recorded and the stop is pending, not that the work stopped; the model is released after retry_after seconds regardless."}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
+		Model string `json:"model" jsonschema:"The model whose load to cancel."`
+		JobID string `json:"job_id" jsonschema:"The exact load attempt, from load-status. Never guess it."`
+	}) (*mcp.CallToolResult, any, error) {
+		if args.Model == "" || args.JobID == "" {
+			return errorResultf("model and job_id are required"), nil, nil
+		}
+		result, err := client.CancelModelLoad(ctx, args.Model, args.JobID)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(result), nil, nil
+	})
+
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolEditModelConfig,
 		Description: "Patch (deep-merge) JSON into an installed model's config. Requires user confirmation per safety rule 1; show a diff first.",

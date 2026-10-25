@@ -39,7 +39,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 
 			instructions, ok := resp["instructions"].([]any)
 			Expect(ok).To(BeTrue())
-			Expect(instructions).To(HaveLen(19))
+			Expect(instructions).To(HaveLen(28))
 
 			// Verify each instruction has required fields and correct URL format
 			for _, s := range instructions {
@@ -68,6 +68,8 @@ var _ = Describe("API Instructions Endpoints", func() {
 			}
 
 			Expect(names).To(ContainElements(
+				"addons",
+				"library-sources",
 				"chat-inference",
 				"moderation",
 				"config-management",
@@ -75,12 +77,17 @@ var _ = Describe("API Instructions Endpoints", func() {
 				"monitoring",
 				"agents",
 				"face-recognition",
+				"forecast",
 				"usage-and-billing",
 				"pii-filtering",
 				"middleware-admin",
 				"intelligent-routing",
 				"voice-library",
 				"3d",
+				"failover",
+				"decisions",
+				"chat-history",
+				"motion",
 			))
 		})
 	})
@@ -133,6 +140,17 @@ var _ = Describe("API Instructions Endpoints", func() {
 			body, _ := io.ReadAll(rec.Body)
 			Expect(string(body)).To(ContainSubstring("POST /3d/generations"))
 			Expect(string(body)).NotTo(ContainSubstring("/v1/3d/generations"))
+		})
+
+		It("should advertise the Decisions API", func() {
+			req := httptest.NewRequest(http.MethodGet, "/api/instructions/decisions", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			body, _ := io.ReadAll(rec.Body)
+			Expect(string(body)).To(ContainSubstring("POST /v1/systemone"))
+			Expect(string(body)).To(ContainSubstring("known_usecases: [decisions]"))
 		})
 
 		It("should return JSON fragment when format=json", func() {

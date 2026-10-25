@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	gopsutil "github.com/shirou/gopsutil/v3/process"
@@ -49,6 +50,13 @@ type GalleryResponse struct {
 	EstimatedSizeDisplay string `json:"estimated_size_display,omitempty"`
 }
 
+// VideoReference is one reference video, given as an ordered list of frames.
+type VideoReference struct {
+	Frames []string `json:"frames" yaml:"frames"`                   // ordered frame images: URL, base64 or data URI
+	FPS    int32    `json:"fps,omitempty" yaml:"fps,omitempty"`     // frame rate of the source frames; 0 means the backend default
+	Audio  string   `json:"audio,omitempty" yaml:"audio,omitempty"` // optional audio paired with this video
+}
+
 type VideoRequest struct {
 	BasicModelRequest
 	Prompt         string            `json:"prompt" yaml:"prompt"`                                       // text description of the video to generate
@@ -56,6 +64,9 @@ type VideoRequest struct {
 	StartImage     string            `json:"start_image" yaml:"start_image"`                             // URL or base64 of the first frame
 	EndImage       string            `json:"end_image" yaml:"end_image"`                                 // URL or base64 of the last frame
 	Audio          string            `json:"audio,omitempty" yaml:"audio,omitempty"`                     // URL or base64 audio for audio-conditioned generation
+	RefImages      []string          `json:"ref_images,omitempty" yaml:"ref_images,omitempty"`           // reference images (URL, base64 or data URI); exclusive with start_image/end_image
+	RefVideos      []VideoReference  `json:"ref_videos,omitempty" yaml:"ref_videos,omitempty"`           // reference videos as frame lists; exclusive with start_image/end_image
+	RefAudios      []string          `json:"ref_audios,omitempty" yaml:"ref_audios,omitempty"`           // reference audio clips (WAV); exclusive with start_image/end_image
 	Width          int32             `json:"width" yaml:"width"`                                         // output width in pixels
 	Height         int32             `json:"height" yaml:"height"`                                       // output height in pixels
 	NumFrames      int32             `json:"num_frames" yaml:"num_frames"`                               // total number of frames to generate
@@ -74,15 +85,15 @@ type VideoRequest struct {
 // (TRELLIS.2 has no text-prompt path); the response is a binary glTF (.glb).
 type Model3DRequest struct {
 	BasicModelRequest
-	Image          string            `json:"image" yaml:"image"`                                           // conditioning image: URL, base64, or data URI (required)
-	Seed           int32             `json:"seed,omitempty" yaml:"seed,omitempty"`                         // random seed; <=0 picks a random seed
-	Step           int32             `json:"step,omitempty" yaml:"step,omitempty"`                         // flow sampling steps (backend default 12)
-	CFGScale       float32           `json:"cfg_scale,omitempty" yaml:"cfg_scale,omitempty"`               // classifier-free guidance scale (backend default 7.5)
-	TextureSteps   int32             `json:"texture_steps,omitempty" yaml:"texture_steps,omitempty"`       // texture flow sampling steps (backend default 12)
-	Quality        string            `json:"quality,omitempty" yaml:"quality,omitempty"`                   // mesh pipeline: auto|coarse|512|1024
-	Background     string            `json:"background,omitempty" yaml:"background,omitempty"`             // background handling: auto|keep|black|white
-	ResponseFormat string            `json:"response_format,omitempty" yaml:"response_format,omitempty"`   // output format (url or b64_json)
-	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`                     // backend-specific generation parameters
+	Image          string            `json:"image" yaml:"image"`                                         // conditioning image: URL, base64, or data URI (required)
+	Seed           int32             `json:"seed,omitempty" yaml:"seed,omitempty"`                       // random seed; <=0 picks a random seed
+	Step           int32             `json:"step,omitempty" yaml:"step,omitempty"`                       // flow sampling steps (backend default 12)
+	CFGScale       float32           `json:"cfg_scale,omitempty" yaml:"cfg_scale,omitempty"`             // classifier-free guidance scale (backend default 7.5)
+	TextureSteps   int32             `json:"texture_steps,omitempty" yaml:"texture_steps,omitempty"`     // texture flow sampling steps (backend default 12)
+	Quality        string            `json:"quality,omitempty" yaml:"quality,omitempty"`                 // mesh pipeline: auto|coarse|512|1024
+	Background     string            `json:"background,omitempty" yaml:"background,omitempty"`           // background handling: auto|keep|black|white
+	ResponseFormat string            `json:"response_format,omitempty" yaml:"response_format,omitempty"` // output format (url or b64_json)
+	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`                   // backend-specific generation parameters
 }
 
 // @Description Print-remesh an existing trellis2.cpp GLB. The multipart mesh
@@ -204,6 +215,26 @@ type SysInfoModel struct {
 	// so it is resolved from the model's config; empty when the model was
 	// loaded without one (a loose file, or a config since removed).
 	Backend string `json:"backend,omitempty"`
+	// Process is the backend process serving the model on this host. Absent
+	// when the model has no local process (a distributed worker holds it) or
+	// the process could not be read.
+	Process *SysInfoProcess `json:"process,omitempty"`
+	// SizeVRAM is DRM-accounted resident device memory in bytes. Nil means
+	// the backend process tree has no complete supported reading.
+	SizeVRAM *uint64 `json:"size_vram,omitempty"`
+}
+
+// SysInfoProcess is a point-in-time reading of one backend process.
+type SysInfoProcess struct {
+	PID int32 `json:"pid"`
+	// RSSBytes is resident host memory. Weights offloaded to a GPU are not
+	// in it.
+	RSSBytes      uint64  `json:"rss_bytes"`
+	MemoryPercent float32 `json:"memory_percent"`
+	// CPUPercent is the share of the whole host's CPU used since the previous
+	// reading, 0-100. Absent on the first reading of a process.
+	CPUPercent *float64  `json:"cpu_percent,omitempty"`
+	StartedAt  time.Time `json:"started_at,omitzero"`
 }
 
 type SystemInformationResponse struct {
@@ -249,6 +280,78 @@ type DepthRequest struct {
 	IncludePoints     bool     `json:"include_points,omitempty"`     // back-project to a 3D point cloud (DualDPT)
 	PointsConfThresh  float32  `json:"points_conf_thresh,omitempty"` // keep points with confidence >= this threshold
 	Exports           []string `json:"exports,omitempty"`            // requested exports: "glb", "colmap"
+}
+
+// ForecastRows is a list of equally long numeric rows (variates or
+// covariates), oldest step first. A JSON null is a missing value and is held
+// as a nil pointer.
+type ForecastRows [][]*float64
+
+// ForecastTarget is ForecastRows that also accepts a flat array as shorthand
+// for a single variate: [1, 2, 3] reads as [[1, 2, 3]].
+type ForecastTarget ForecastRows
+
+// UnmarshalJSON accepts both the nested form and the flat shorthand.
+func (t *ForecastTarget) UnmarshalJSON(data []byte) error {
+	var rows [][]*float64
+	if err := json.Unmarshal(data, &rows); err == nil {
+		*t = rows
+		return nil
+	}
+	var flat []*float64
+	if err := json.Unmarshal(data, &flat); err != nil {
+		return fmt.Errorf("target must be an array of numbers or an array of arrays of numbers")
+	}
+	*t = ForecastTarget{flat}
+	return nil
+}
+
+// ForecastSeries is one time series of a /v1/forecast request.
+type ForecastSeries struct {
+	ID     string         `json:"id,omitempty"` // echoed back in the matching result
+	Target ForecastTarget `json:"target"`       // [V][T] or [T], null = missing
+	// PastCovariates is [C][T]: numeric covariates known only for the past.
+	PastCovariates ForecastRows `json:"past_covariates,omitempty"`
+	// KnownCovariates is [C][T+H]: numeric covariates known for the future too.
+	KnownCovariates ForecastRows `json:"known_covariates,omitempty"`
+	// PastCategorical is [C][T]: integer category codes for the past.
+	PastCategorical ForecastRows `json:"past_categorical,omitempty"`
+	// KnownCategorical is [C][T+H]: integer category codes for the future too.
+	KnownCategorical ForecastRows `json:"known_categorical,omitempty"`
+}
+
+// ForecastRequest is the request body for the /v1/forecast endpoint.
+type ForecastRequest struct {
+	BasicModelRequest
+	PredictionLength   int              `json:"prediction_length"`             // steps to forecast
+	Quantiles          []float64        `json:"quantiles,omitempty"`           // levels to return; default 0.1, 0.5, 0.9
+	MaxContext         int              `json:"max_context,omitempty"`         // cap on history used; 0 = model default
+	SymmetricAveraging *bool            `json:"symmetric_averaging,omitempty"` // null = model default
+	ClipNonnegative    *bool            `json:"clip_nonnegative,omitempty"`    // null = model default
+	Series             []ForecastSeries `json:"series"`
+}
+
+// ForecastVariate holds the forecast of one variate.
+type ForecastVariate struct {
+	Index int `json:"index"`
+	// Values is [Q][H]: Values[q][h] is quantile_levels[q] at step h.
+	Values [][]float32 `json:"values"`
+}
+
+// ForecastSeriesResult is the forecast of one input series.
+type ForecastSeriesResult struct {
+	Index    int               `json:"index"` // position of the series in the request
+	ID       string            `json:"id,omitempty"`
+	Variates []ForecastVariate `json:"variates"`
+}
+
+// ForecastResponse is the JSON response for the /v1/forecast endpoint.
+type ForecastResponse struct {
+	Object           string                 `json:"object"`
+	Model            string                 `json:"model"`
+	PredictionLength int                    `json:"prediction_length"`
+	QuantileLevels   []float64              `json:"quantile_levels"`
+	Data             []ForecastSeriesResult `json:"data"`
 }
 
 // DepthResponse is the JSON response for the /v1/depth endpoint, mirroring the
@@ -458,6 +561,8 @@ type VoiceEmbedResponse struct {
 
 // VoiceRegisterRequest enrolls a speaker into the 1:N identification store.
 type VoiceRegisterRequest struct {
+	SpeakerProfiles *SpeakerProfiles `json:"speaker_profiles,omitempty"`
+	SpeakerSlot     *int             `json:"speaker_slot,omitempty"`
 	BasicModelRequest
 	Audio  string            `json:"audio"`
 	Name   string            `json:"name"`
@@ -523,9 +628,10 @@ type KnownBackend struct {
 
 // SettingsResponse is the response type for settings API operations
 type SettingsResponse struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
-	Message string `json:"message,omitempty"`
+	Success         bool   `json:"success"`
+	Error           string `json:"error,omitempty"`
+	Message         string `json:"message,omitempty"`
+	RestartRequired bool   `json:"restart_required"`
 }
 
 // RouterDecideRequest is the input for POST /api/router/decide — the

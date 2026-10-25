@@ -167,6 +167,8 @@ test('cancelling the last operation does not announce it as installed', async ({
   await expect(page.locator('.operations-strip')).toContainText('Installing model')
 
   await page.locator('.operation-card__cancel').click()
+  // The cancel waits for its undo window; "Cancel now" ends the wait.
+  await page.getByTestId('activity-undo-toast').getByRole('button', { name: 'Cancel now' }).click()
 
   // The poll that empties the page is the same render that would raise the
   // completion hold, so the strip has to be counted the instant the card

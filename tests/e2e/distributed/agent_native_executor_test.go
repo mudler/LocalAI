@@ -314,7 +314,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 	})
 
 	Context("NATSDispatcher", func() {
-		It("should dispatch chat via NATS and receive response", func() {
+		It("should run a chat enqueued on the agent-run queue", func() {
 			bridge := agents.NewEventBridge(infra.NC, nil, "test-instance")
 
 			configs := &mockConfigProvider{configs: map[string]*agents.AgentConfig{
@@ -340,40 +340,38 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			adapter := infra.NC
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.test.execute", "test-workers", 0)
+			// The consumer and the enqueue both use the default agent-run route.
+			// Nothing listens on the API URL, so the run fails after the worker
+			// has taken it, which is what the error message below proves.
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(infra.NC), bridge, configs, "http://127.0.0.1:1", "test-key", 0)
+			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
+			defer func() { _ = dispatcher.Stop() }()
+			FlushNATS(infra.NC)
 
-			err = dispatcher.Start(infra.Ctx)
-			Expect(err).ToNot(HaveOccurred())
+			// No Config in the payload: the worker resolves it through ConfigProvider.
+			Expect(messaging.NewNATSWorkQueue(infra.NC).Enqueue(infra.Ctx, messaging.WorkAgentRun, agents.AgentChatEvent{
+				AgentName: "test-agent",
+				UserID:    "user1",
+				Message:   "Hello",
+				MessageID: "msg-queued-001",
+				Role:      agents.RoleUser,
+			})).To(Succeed())
 
-			// Dispatch a chat
-			messageID, err := dispatcher.Dispatch("user1", "test-agent", "Hello")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(messageID).ToNot(BeEmpty())
-
-			// Wait for events (user message + processing status should arrive immediately)
-			Eventually(func() int {
-				eventMu.Lock()
-				defer eventMu.Unlock()
-				return len(receivedEvents)
-			}, "5s").Should(BeNumerically(">=", 2))
-
-			// Verify user message was published
-			eventMu.Lock()
-			hasUserMsg := false
-			hasProcessing := false
-			for _, evt := range receivedEvents {
-				if evt.EventType == "json_message" && evt.Sender == "user" {
-					hasUserMsg = true
-				}
-				if evt.EventType == "json_message_status" {
-					hasProcessing = true
+			hasEvent := func(eventType, sender, messageID string) func() bool {
+				return func() bool {
+					eventMu.Lock()
+					defer eventMu.Unlock()
+					for _, evt := range receivedEvents {
+						if evt.EventType == eventType && evt.Sender == sender && (messageID == "" || evt.MessageID == messageID) {
+							return true
+						}
+					}
+					return false
 				}
 			}
-			eventMu.Unlock()
-
-			Expect(hasUserMsg).To(BeTrue(), "user message should be published immediately")
-			Expect(hasProcessing).To(BeTrue(), "processing status should be published")
+			Eventually(hasEvent("json_message_status", "", ""), "10s").Should(BeTrue(), "the worker should report processing")
+			Eventually(hasEvent("json_message", agents.RoleAgent, "msg-queued-001-error"), "30s").Should(BeTrue(),
+				"the worker should run the enqueued message and report its failure")
 		})
 
 		It("should handle cancellation via EventBridge", func() {
@@ -402,7 +400,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 			// Create dispatcher with NO ConfigProvider (simulating DB-free worker)
 			adapter := infra.NC
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, "http://localhost:8080", "test-key", "agent.enriched.execute", "enriched-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.enriched.execute", "enriched-workers")), bridge, nil, "http://localhost:8080", "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Subscribe to events to verify processing
@@ -625,7 +623,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 	})
 
 	Context("Full Distributed Chat Flow", func() {
-		It("should dispatch chat via NATS, execute, and publish response via EventBridge", func() {
+		It("should enqueue a stored agent chat, run it on the worker, and publish events via EventBridge", func() {
 			bridge := agents.NewEventBridge(infra.NC, nil, "flow-test")
 
 			// Store agent config in PostgreSQL
@@ -662,34 +660,51 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				"flow-agent": &cfg,
 			}}
 
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.flow.execute", "flow-workers", 0)
+			// Nothing listens on the API URL, so the run fails after the worker
+			// has taken it; the error message below is the proof it did.
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter), bridge, configs, "http://127.0.0.1:1", "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
+			defer func() { _ = dispatcher.Stop() }()
+			FlushNATS(infra.NC)
 
-			// Dispatch
-			messageID, err := dispatcher.Dispatch("user1", "flow-agent", "Hello flow test")
+			// Act as the frontend does for a chat: show the user message, then
+			// enqueue the run with the stored config embedded.
+			const messageID = "msg-flow-001"
+			Expect(bridge.PublishMessage("flow-agent", "user1", agents.RoleUser, "Hello flow test", messageID+"-user")).To(Succeed())
+			rec, err := store.GetConfig("user1", "flow-agent")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(messageID).ToNot(BeEmpty())
+			var stored agents.AgentConfig
+			Expect(agents.ParseConfigJSON(rec.ConfigJSON, &stored)).To(Succeed())
+			Expect(messaging.NewNATSWorkQueue(infra.NC).Enqueue(infra.Ctx, messaging.WorkAgentRun, agents.AgentChatEvent{
+				AgentName: "flow-agent",
+				UserID:    "user1",
+				Message:   "Hello flow test",
+				MessageID: messageID,
+				Role:      agents.RoleUser,
+				Config:    &stored,
+			})).To(Succeed())
 
-			// User message + processing status should arrive immediately
-			Eventually(func() int {
-				eventMu.Lock()
-				defer eventMu.Unlock()
-				return len(receivedEvents)
-			}, "5s").Should(BeNumerically(">=", 2))
-
-			eventMu.Lock()
-			var hasUser, hasProcessing bool
-			for _, evt := range receivedEvents {
-				if evt.EventType == "json_message" && evt.Sender == "user" && evt.Content == "Hello flow test" {
-					hasUser = true
-				}
-				if evt.EventType == "json_message_status" {
-					hasProcessing = true
+			hasEvent := func(match func(agents.AgentEvent) bool) func() bool {
+				return func() bool {
+					eventMu.Lock()
+					defer eventMu.Unlock()
+					for _, evt := range receivedEvents {
+						if match(evt) {
+							return true
+						}
+					}
+					return false
 				}
 			}
-			eventMu.Unlock()
-			Expect(hasUser).To(BeTrue(), "expected user message event")
-			Expect(hasProcessing).To(BeTrue(), "expected processing status event")
+			Eventually(hasEvent(func(evt agents.AgentEvent) bool {
+				return evt.EventType == "json_message" && evt.Sender == agents.RoleUser && evt.Content == "Hello flow test"
+			}), "5s").Should(BeTrue(), "expected user message event")
+			Eventually(hasEvent(func(evt agents.AgentEvent) bool {
+				return evt.EventType == "json_message_status"
+			}), "10s").Should(BeTrue(), "expected processing status event from the worker")
+			Eventually(hasEvent(func(evt agents.AgentEvent) bool {
+				return evt.EventType == "json_message" && evt.Sender == agents.RoleAgent && evt.MessageID == messageID+"-error"
+			}), "30s").Should(BeTrue(), "expected the worker to run the enqueued message")
 		})
 	})
 
@@ -758,7 +773,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.bg.execute", "bg-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.bg.execute", "bg-workers")), bridge, configs, "http://localhost:8080", "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Dispatch as background/system role
@@ -866,7 +881,9 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			// Subscribe to NATS to capture background run events
 			var receivedEvents []agents.AgentChatEvent
 			var eventMu sync.Mutex
-			sub, err := infra.NC.Subscribe("agent.sched.execute", func(data []byte) {
+			// A plain subscription sees every publish, alongside any queue
+			// group that also listens on the agent-run subject.
+			sub, err := infra.NC.Subscribe(messaging.SubjectAgentExecute, func(data []byte) {
 				var evt agents.AgentChatEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -878,8 +895,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			defer sub.Unsubscribe()
 
 			// Start scheduler with short poll interval for testing
-			adapter := infra.NC
-			scheduler := agents.NewAgentScheduler(db, adapter, store, "agent.sched.execute")
+			scheduler := agents.NewAgentScheduler(db, messaging.NewNATSWorkQueue(infra.NC), store)
 
 			schedCtx, schedCancel := context.WithCancel(infra.Ctx)
 			defer schedCancel()
@@ -1081,7 +1097,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 			adapter := infra.NC
 			// Point dispatcher at our mock LLM server
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.e2e.execute", "e2e-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.e2e.execute", "e2e-workers")), bridge, nil, llmURL, "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			FlushNATS(infra.NC)
@@ -1156,7 +1172,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			defer sub.Unsubscribe()
 
 			adapter := infra.NC
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.bg-e2e.execute", "bg-e2e-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.bg-e2e.execute", "bg-e2e-workers")), bridge, nil, llmURL, "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			FlushNATS(infra.NC)

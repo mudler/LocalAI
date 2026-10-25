@@ -15,11 +15,12 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
-	"github.com/mudler/LocalAI/core/services/messaging"
 
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/mcptransport"
 	"github.com/mudler/LocalAI/pkg/signals"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -100,9 +101,14 @@ var (
 	client = mcp.NewClient(&mcp.Implementation{Name: "LocalAI", Version: "v1.0.0"}, nil)
 )
 
-// MCPNATSClient is the interface for NATS request-reply operations needed by MCP routing.
-type MCPNATSClient interface {
-	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
+// AgentControl carries the frontend's MCP verbs to one agent worker. A decoded
+// reply is returned with a nil error even when its Error field is set: that is
+// the worker's own answer. nodes.ErrNoRoute (wrapped) means no agent worker
+// could be offered the request. A timeout, a transport fault or an unreadable
+// reply is an ordinary error and never ErrNoRoute.
+type AgentControl interface {
+	ExecuteMCPTool(ctx context.Context, req mcpRemote.MCPToolRequest) (*mcpRemote.MCPToolResponse, error)
+	DiscoverMCPTools(ctx context.Context, req mcpRemote.MCPDiscoveryRequest) (*mcpRemote.MCPDiscoveryResponse, error)
 }
 
 // MetadataKeyLocalAIAssistant is the request-metadata key the chat handler
@@ -224,14 +230,17 @@ func SessionsFromMCPConfig(
 	// Get the list of all the tools that the Agent will be esposed to
 	for _, server := range remote.Servers {
 		xlog.Debug("[MCP remote server] Configuration", "server", server)
-		// Create HTTP client with custom roundtripper for bearer token injection
+		authTransport, err := newRemoteServerTransport(server, httpclient.HardenedTransport())
+		if err != nil {
+			xlog.Error("Invalid MCP server authentication", "error", err, "url", server.URL)
+			continue
+		}
 		httpClient := httpclient.New(
 			httpclient.WithTimeout(config.DefaultMCPToolTimeout),
-			httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+			httpclient.WithTransport(authTransport),
 		)
 
-		transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
-		mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
+		mcpSession, err := mcptransport.Connect(ctx, client, server.URL, httpClient, config.DefaultMCPDiscoveryTimeout)
 		if err != nil {
 			xlog.Error("Failed to connect to MCP server", "error", err, "url", server.URL)
 			continue
@@ -243,7 +252,7 @@ func SessionsFromMCPConfig(
 
 	for _, server := range stdio.Servers {
 		xlog.Debug("[MCP stdio server] Configuration", "server", server)
-		command := exec.Command(server.Command, server.Args...)
+		command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
 		command.Env = os.Environ()
 		for key, value := range server.Env {
 			command.Env = append(command.Env, key+"="+value)
@@ -335,13 +344,22 @@ func NamedSessionsFromMCPConfig(
 
 		for serverName, server := range remote.Servers {
 			xlog.Debug("[MCP remote server] Configuration", "name", serverName, "server", server)
+			authTransport, err := newRemoteServerTransport(server, httpclient.HardenedTransport())
+			if err != nil {
+				xlog.Error("Invalid MCP server authentication", "error", err, "name", serverName, "url", server.URL)
+				allSessions = append(allSessions, NamedSession{
+					Name:  serverName,
+					Type:  "remote",
+					Error: fmt.Sprintf("authentication setup failed: %v", err),
+				})
+				continue
+			}
 			httpClient := httpclient.New(
 				httpclient.WithTimeout(config.DefaultMCPToolTimeout),
-				httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+				httpclient.WithTransport(authTransport),
 			)
 
-			transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
-			mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
+			mcpSession, err := mcptransport.Connect(ctx, client, server.URL, httpClient, config.DefaultMCPDiscoveryTimeout)
 			if err != nil {
 				xlog.Error("Failed to connect to MCP server", "error", err, "name", serverName, "url", server.URL)
 				allSessions = append(allSessions, NamedSession{
@@ -361,7 +379,7 @@ func NamedSessionsFromMCPConfig(
 
 		for serverName, server := range stdio.Servers {
 			xlog.Debug("[MCP stdio server] Configuration", "name", serverName, "server", server)
-			command := exec.Command(server.Command, server.Args...)
+			command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
 			command.Env = os.Environ()
 			for key, value := range server.Env {
 				command.Env = append(command.Env, key+"="+value)
@@ -426,6 +444,13 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 			if seen[tool.Name] {
 				continue
 			}
+			// The add-on namespace belongs to the broker. A session is shared
+			// by every user of its model, so a tool it publishes under that
+			// namespace is never offered: it could pass for a brokered call.
+			if addontools.IsToolName(tool.Name) {
+				xlog.Warn("Ignoring MCP tool in the reserved add-on namespace", "tool", tool.Name, "server", ns.Name)
+				continue
+			}
 			seen[tool.Name] = true
 
 			f := functions.Function{
@@ -465,6 +490,9 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 
 // ExecuteMCPToolCall finds the matching tool and executes it.
 func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName string, arguments string) (string, error) {
+	if addontools.IsToolName(toolName) {
+		return "", ErrAddonToolsUnsupported
+	}
 	var toolInfo *MCPToolInfo
 	for i := range tools {
 		if tools[i].ToolName == toolName {
@@ -510,18 +538,21 @@ func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName strin
 	return string(combined), nil
 }
 
-// ExecuteMCPToolCallRemote routes an MCP tool execution request to an agent worker via NATS.
+// ExecuteMCPToolCallRemote routes an MCP tool execution request to an agent worker.
 // Used in distributed mode when the frontend doesn't hold MCP sessions locally.
 func ExecuteMCPToolCallRemote(
 	ctx context.Context,
-	natsClient MCPNATSClient,
+	agentControl AgentControl,
 	modelName string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 	toolName, arguments string,
 ) (string, error) {
-	if natsClient == nil {
-		return "", fmt.Errorf("NATS client not configured for distributed MCP")
+	if addontools.IsToolName(toolName) {
+		return "", ErrAddonToolsUnsupported
+	}
+	if agentControl == nil {
+		return "", fmt.Errorf("agent control not configured for distributed MCP")
 	}
 
 	var args map[string]any
@@ -538,16 +569,12 @@ func ExecuteMCPToolCallRemote(
 		RemoteServers: remote,
 		StdioServers:  stdio,
 	}
-	reqData, _ := json.Marshal(req)
 
-	replyData, err := natsClient.Request(messaging.SubjectMCPToolExecute, reqData, config.DefaultMCPToolTimeout)
+	ctx, cancel := context.WithTimeout(ctx, config.DefaultMCPToolTimeout)
+	defer cancel()
+	resp, err := agentControl.ExecuteMCPTool(ctx, req)
 	if err != nil {
-		return "", fmt.Errorf("NATS MCP tool request failed: %w", err)
-	}
-
-	var resp mcpRemote.MCPToolResponse
-	if err := json.Unmarshal(replyData, &resp); err != nil {
-		return "", fmt.Errorf("unmarshal MCP reply: %w", err)
+		return "", fmt.Errorf("remote MCP tool request failed: %w", err)
 	}
 	if resp.Error != "" {
 		return "", fmt.Errorf("remote MCP tool error: %s", resp.Error)
@@ -555,17 +582,17 @@ func ExecuteMCPToolCallRemote(
 	return resp.Result, nil
 }
 
-// DiscoverMCPToolsRemote routes an MCP discovery request to an agent worker via NATS.
+// DiscoverMCPToolsRemote routes an MCP discovery request to an agent worker.
 // Returns server info and tool function schemas from the remote worker.
 func DiscoverMCPToolsRemote(
 	ctx context.Context,
-	natsClient MCPNATSClient,
+	agentControl AgentControl,
 	modelName string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 ) (*mcpRemote.MCPDiscoveryResponse, error) {
-	if natsClient == nil {
-		return nil, fmt.Errorf("NATS client not configured for distributed MCP")
+	if agentControl == nil {
+		return nil, fmt.Errorf("agent control not configured for distributed MCP")
 	}
 
 	req := mcpRemote.MCPDiscoveryRequest{
@@ -573,21 +600,17 @@ func DiscoverMCPToolsRemote(
 		RemoteServers: remote,
 		StdioServers:  stdio,
 	}
-	reqData, _ := json.Marshal(req)
 
-	replyData, err := natsClient.Request(messaging.SubjectMCPDiscovery, reqData, config.DefaultMCPDiscoveryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, config.DefaultMCPDiscoveryTimeout)
+	defer cancel()
+	resp, err := agentControl.DiscoverMCPTools(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("NATS MCP discovery request failed: %w", err)
-	}
-
-	var resp mcpRemote.MCPDiscoveryResponse
-	if err := json.Unmarshal(replyData, &resp); err != nil {
-		return nil, fmt.Errorf("unmarshal MCP discovery reply: %w", err)
+		return nil, fmt.Errorf("remote MCP discovery request failed: %w", err)
 	}
 	if resp.Error != "" {
 		return nil, fmt.Errorf("remote MCP discovery error: %s", resp.Error)
 	}
-	return &resp, nil
+	return resp, nil
 }
 
 // ListMCPServers returns server info with tool, prompt, and resource names for each session.
@@ -780,7 +803,7 @@ func MCPPromptFromMetadata(metadata map[string]string) (string, map[string]strin
 
 	var args map[string]string
 	if raw, ok := metadata["mcp_prompt_args"]; ok && raw != "" {
-		json.Unmarshal([]byte(raw), &args)
+		_ = json.Unmarshal([]byte(raw), &args)
 		delete(metadata, "mcp_prompt_args")
 	}
 	return name, args
@@ -818,7 +841,7 @@ func CloseMCPSessions(modelName string) {
 	cache.mu.Lock()
 	if sessions, ok := cache.cache[modelName]; ok {
 		for _, s := range sessions {
-			s.Close()
+			_ = s.Close()
 		}
 		delete(cache.cache, modelName)
 	}
@@ -856,7 +879,7 @@ func CloseAllMCPSessions() {
 	cache.mu.Lock()
 	for name, sessions := range cache.cache {
 		for _, s := range sessions {
-			s.Close()
+			_ = s.Close()
 		}
 		if cancel, ok := cache.cancels[name]; ok {
 			cancel()

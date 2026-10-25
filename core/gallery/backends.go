@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -22,8 +23,23 @@ import (
 	cp "github.com/otiai10/copy"
 )
 
-// ErrBackendNotFound is returned when a backend is not found in the system.
-var ErrBackendNotFound = errors.New("backend not found")
+var (
+	// ErrBackendNotFound is returned when a backend is not found in the system.
+	ErrBackendNotFound = errors.New("backend not found")
+	// ErrBackendInstallDisabled is returned by every install/upgrade path when
+	// the server runs with --disable-backend-install. Callers that install a
+	// backend as a side effect (model installs) treat it as a skip.
+	ErrBackendInstallDisabled = errors.New("backend installation is disabled on this server (--disable-backend-install)")
+)
+
+// lookupImageDigest asks a registry for the digest of an image reference. It
+// is what install and upgrade record for upgrade detection.
+//
+// A var so specs can see which references reach a registry client without
+// running one.
+var lookupImageDigest = func(ref string) (string, error) {
+	return oci.GetImageDigest(ref, "", nil, nil)
+}
 
 const (
 	metadataFile = "metadata.json"
@@ -77,8 +93,10 @@ func developmentURI(uri, latestTag, masterTag string) (string, bool) {
 
 // backendCandidate represents an installed concrete backend option for a given alias
 type backendCandidate struct {
-	name    string
-	runFile string
+	name     string
+	runFile  string
+	isSystem bool
+	metadata *BackendMetadata
 }
 
 // readBackendMetadata reads the metadata JSON file for a backend
@@ -175,15 +193,17 @@ func backendDownloadOptions(config *GalleryBackend, requireIntegrity bool) ([]do
 // time rather than during signature verification.
 func newGalleryVerifier(p *config.GalleryVerification) (*cosignverify.Verifier, error) {
 	pol := cosignverify.Policy{
-		Issuer:        p.Issuer,
-		IssuerRegex:   p.IssuerRegex,
-		Identity:      p.Identity,
-		IdentityRegex: p.IdentityRegex,
+		Issuer:           p.Issuer,
+		IssuerRegex:      p.IssuerRegex,
+		Identity:         p.Identity,
+		IdentityRegex:    p.IdentityRegex,
+		SourceRepository: p.SourceRepository,
 	}
 	if p.NotBefore != "" {
 		t, err := time.Parse(time.RFC3339, p.NotBefore)
 		if err != nil {
-			return nil, fmt.Errorf("not_before %q: %w", p.NotBefore, err)
+			// A refusal, not an outage: no fetch can make this policy usable.
+			return nil, fmt.Errorf("%w: not_before %q: %w", cosignverify.ErrPolicyRejected, p.NotBefore, err)
 		}
 		pol.NotBefore = t
 	}
@@ -213,6 +233,9 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 
 	if name == "" {
 		return fmt.Errorf("backend name is empty")
+	}
+	if systemState.DisableBackendInstall {
+		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, name)
 	}
 
 	xlog.Debug("Installing backend from gallery", "galleries", galleries, "name", name)
@@ -268,7 +291,41 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 	return InstallBackend(ctx, systemState, modelLoader, backend, downloadStatus, requireIntegrity)
 }
 
+// RequiredBackendInstalled reports which backend the gallery entry `name`
+// would be installed with — the one variant selection picks, or the entry's
+// own — and whether `available` says it can serve models. A nil `available`
+// means the local backend directory. An entry that names no backend reports
+// "" and true: nothing to check.
+func RequiredBackendInstalled(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, name, pin string, available BackendAvailability) (string, bool, error) {
+	models, err := AvailableGalleryModels(galleries, systemState)
+	if err != nil {
+		return "", false, err
+	}
+	entry := FindGalleryElement(models, name)
+	if entry == nil {
+		return "", false, fmt.Errorf("no model found with name %q", name)
+	}
+	if entry.HasVariants() {
+		resolved, _, err := ResolveVariant(models, entry, HostResolveEnv(ctx, systemState), pin)
+		if err != nil {
+			return "", false, err
+		}
+		entry = resolved
+	}
+	if entry.Backend == "" {
+		return "", true, nil
+	}
+	if available == nil {
+		available = LocalBackendAvailability(systemState)
+	}
+	ok, err := available(entry.Backend)
+	return entry.Backend, ok, err
+}
+
 func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
+	if systemState.DisableBackendInstall {
+		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, config.Name)
+	}
 	// Get configurable fallback tag values from SystemState
 	latestTag, masterTag, devSuffix := getFallbackTagValues(systemState)
 
@@ -324,6 +381,13 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	downloadOpts, optsErr := backendDownloadOptions(config, requireIntegrity)
 	if optsErr != nil {
 		return fmt.Errorf("backend %q: %w", config.Name, optsErr)
+	}
+	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
+	if config.MaxBytes > 0 {
+		downloadOpts = append(downloadOpts, downloader.WithMaxBytes(config.MaxBytes))
+	}
+	if config.Stage != nil {
+		downloadOpts = append(downloadOpts, downloader.WithStageReporter(config.Stage))
 	}
 
 	// PreferDevelopmentBackends installs the development image as the primary URI,
@@ -423,6 +487,10 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("not a valid backend: run file not found %q", stagedRunFile)
 	}
 
+	if config.Stage != nil {
+		config.Stage(StageWriting)
+	}
+
 	// Create metadata for the backend (written into the staged dir so the
 	// atomic swap brings a complete, self-describing backend into place).
 	metadata := &BackendMetadata{
@@ -431,11 +499,12 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		InstalledAt: time.Now().Format(time.RFC3339),
 		Version:     config.Version,
 		URI:         string(uri),
+		Library:     config.Library,
 	}
 
 	// Record the OCI digest for upgrade detection (non-fatal on failure)
-	if uri.LooksLikeOCI() {
-		digest, digestErr := oci.GetImageDigest(string(uri), "", nil, nil)
+	if uri.LooksLikeRegistryOCI() {
+		digest, digestErr := lookupImageDigest(uri.OCIReference())
 		if digestErr != nil {
 			xlog.Warn("Failed to get OCI image digest for backend", "uri", string(uri), "error", digestErr)
 		} else {
@@ -560,6 +629,50 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 	return os.RemoveAll(backendDirectory)
 }
 
+// BackendAvailability answers whether a backend can serve models for this
+// server: installed and runnable on a single node, or installed on a healthy
+// worker when inference runs on a cluster.
+type BackendAvailability func(name string) (bool, error)
+
+// LocalBackendAvailability reports the backends installed on this host.
+func LocalBackendAvailability(systemState *system.SystemState) BackendAvailability {
+	return func(name string) (bool, error) {
+		backends, err := ListSystemBackends(systemState)
+		if err != nil {
+			return false, err
+		}
+		b, ok := backends.Get(name)
+		return ok && isBackendRunnable(b), nil
+	}
+}
+
+// AvailableOnCluster reports whether a cluster-wide listing shows the backend
+// on at least one healthy node. Such entries describe workers, not local
+// files, so presence is the test, and only nodes the router may place a load
+// on count. Workers list only concrete backends and keep alias resolution to
+// themselves, so a name is also matched against each entry's alias: a model
+// naming the alias runs on the worker that holds the concrete.
+func AvailableOnCluster(backends SystemBackends, name string) bool {
+	if b, ok := backends.Get(name); ok && servedByHealthyNode(b) {
+		return true
+	}
+	for _, b := range backends {
+		if b.Metadata != nil && b.Metadata.Alias == name && servedByHealthyNode(b) {
+			return true
+		}
+	}
+	return false
+}
+
+func servedByHealthyNode(b SystemBackend) bool {
+	for _, n := range b.Nodes {
+		if n.NodeStatus == "healthy" {
+			return true
+		}
+	}
+	return false
+}
+
 // isBackendRunnable reports whether the given backend entry can actually be
 // invoked. A meta backend is runnable only if its concrete's run.sh still
 // exists on disk; concrete backends are considered runnable as long as their
@@ -624,65 +737,110 @@ func (b SystemBackends) GetAll() []SystemBackend {
 	return backends
 }
 
+// collectedBackend is one backend directory as scanned from its root,
+// before cross-root cleaning.
+type collectedBackend struct {
+	basePath string
+	metadata *BackendMetadata
+	isSystem bool
+}
+
+// collectBackendDir reads one backend directory's optional metadata.json
+// into the root's collection.
+func collectBackendDir(basePath, dir string, isSystem bool, entries map[string]collectedBackend) error {
+	metadata := &BackendMetadata{Name: dir}
+	if _, err := os.Stat(filepath.Join(basePath, dir, metadataFile)); err == nil {
+		m, rerr := readBackendMetadata(filepath.Join(basePath, dir))
+		if rerr != nil {
+			return rerr
+		}
+		if m != nil {
+			metadata = m
+		}
+	}
+	entries[dir] = collectedBackend{basePath: basePath, metadata: metadata, isSystem: isSystem}
+	return nil
+}
+
+// collectRoot scans one backends root into its own collection. Metadata
+// errors: warn-and-skip when lenient (system root), hard error otherwise
+// (user-managed root).
+func collectRoot(basePath string, isSystem, lenient bool) (map[string]collectedBackend, error) {
+	entries := make(map[string]collectedBackend)
+	dirEntries, err := os.ReadDir(basePath)
+	if err != nil {
+		return entries, err
+	}
+	for _, e := range dirEntries {
+		if !e.IsDir() {
+			continue
+		}
+		if cerr := collectBackendDir(basePath, e.Name(), isSystem, entries); cerr != nil {
+			if !lenient {
+				return nil, cerr
+			}
+			xlog.Warn("Skipping backend with unreadable metadata", "dir", e.Name(), "error", cerr)
+		}
+	}
+	return entries, nil
+}
+
 func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error) {
-	// Gather backends from system and user paths, then resolve alias conflicts by capability.
 	backends := make(SystemBackends)
 
-	// System-provided backends
-	if systemBackends, err := os.ReadDir(systemState.Backend.BackendsSystemPath); err == nil {
-		for _, systemBackend := range systemBackends {
-			if systemBackend.IsDir() {
-				run := filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile)
-				if _, err := os.Stat(run); err == nil {
-					backends[systemBackend.Name()] = SystemBackend{
-						Name:     systemBackend.Name(),
-						RunFile:  run,
-						IsMeta:   false,
-						IsSystem: true,
-						Metadata: nil,
-					}
-				}
-			}
+	// 1. Scan each root separately.
+	systemEntries, err := collectRoot(systemState.Backend.BackendsSystemPath, true, true)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			xlog.Debug("No system backends found")
+		} else {
+			xlog.Warn("Failed to read system backends, proceeding with user-managed backends", "error", err)
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		xlog.Warn("Failed to read system backends, proceeding with user-managed backends", "error", err)
-	} else if errors.Is(err, os.ErrNotExist) {
-		xlog.Debug("No system backends found")
 	}
-
-	// User-managed backends and alias collection
-	entries, err := os.ReadDir(systemState.Backend.BackendsPath)
+	managedEntries, err := collectRoot(systemState.Backend.BackendsPath, false, false)
 	if err != nil {
 		return nil, err
 	}
 
+	// 2. Clean the system collection against the user-managed one:
+	//    - a user-managed backend shadows a same-named system backend
+	//    - a user-managed alias member takes over its whole alias group:
+	//      resolution must never mix the roots (and their possibly
+	//      different versions) within one backend family, and a stale
+	//      system variant may not work with newer models, so the whole
+	//      system family becomes invisible, concrete names included
+	managedAliases := make(map[string]bool)
+	for _, e := range managedEntries {
+		if e.metadata.Alias != "" {
+			managedAliases[e.metadata.Alias] = true
+		}
+	}
+	for name, e := range systemEntries {
+		if _, shadowed := managedEntries[name]; shadowed {
+			delete(systemEntries, name)
+		} else if e.metadata.Alias != "" && managedAliases[e.metadata.Alias] {
+			delete(systemEntries, name)
+		}
+	}
+
+	// 3. Merge — disjoint by construction after cleaning.
+	entriesByDir := managedEntries
+	for name, e := range systemEntries {
+		entriesByDir[name] = e
+	}
+
+	// 4. Build concrete entries, alias candidacies and meta indirection
+	//    from the merged collection, in sorted order.
+	dirs := make([]string, 0, len(entriesByDir))
+	for dir := range entriesByDir {
+		dirs = append(dirs, dir)
+	}
+	slices.Sort(dirs)
+
 	aliasGroups := make(map[string][]backendCandidate)
-	metaMap := make(map[string]*BackendMetadata)
-
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		dir := e.Name()
-		run := filepath.Join(systemState.Backend.BackendsPath, dir, runFile)
-
-		var metadata *BackendMetadata
-		metadataPath := filepath.Join(systemState.Backend.BackendsPath, dir, metadataFile)
-		if _, err := os.Stat(metadataPath); os.IsNotExist(err) {
-			metadata = &BackendMetadata{Name: dir}
-		} else {
-			m, rerr := readBackendMetadata(filepath.Join(systemState.Backend.BackendsPath, dir))
-			if rerr != nil {
-				return nil, rerr
-			}
-			if m == nil {
-				metadata = &BackendMetadata{Name: dir}
-			} else {
-				metadata = m
-			}
-		}
-
-		metaMap[dir] = metadata
+	for _, dir := range dirs {
+		entry := entriesByDir[dir]
+		run := filepath.Join(entry.basePath, dir, runFile)
 
 		// Concrete-backend entry
 		if _, err := os.Stat(run); err == nil {
@@ -690,22 +848,25 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 				Name:     dir,
 				RunFile:  run,
 				IsMeta:   false,
-				Metadata: metadata,
+				IsSystem: entry.isSystem,
+				Metadata: entry.metadata,
 			}
 		}
 
 		// Alias candidates
-		if metadata.Alias != "" {
-			aliasGroups[metadata.Alias] = append(aliasGroups[metadata.Alias], backendCandidate{name: dir, runFile: run})
+		if entry.metadata.Alias != "" {
+			aliasGroups[entry.metadata.Alias] = append(aliasGroups[entry.metadata.Alias],
+				backendCandidate{name: dir, runFile: run, isSystem: entry.isSystem, metadata: entry.metadata})
 		}
 
 		// Meta backends indirection
-		if metadata.MetaBackendFor != "" {
-			backends[metadata.Name] = SystemBackend{
-				Name:     metadata.Name,
-				RunFile:  filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor, runFile),
+		if entry.metadata.MetaBackendFor != "" {
+			backends[entry.metadata.Name] = SystemBackend{
+				Name:     entry.metadata.Name,
+				RunFile:  filepath.Join(entry.basePath, entry.metadata.MetaBackendFor, runFile),
 				IsMeta:   true,
-				Metadata: metadata,
+				IsSystem: entry.isSystem,
+				Metadata: entry.metadata,
 			}
 		}
 	}
@@ -713,6 +874,32 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 	// Resolve aliases using system capability preferences
 	tokens := systemState.BackendPreferenceTokens()
 	for alias, cands := range aliasGroups {
+		// First-token-match depends on candidate order: sort by name so
+		// resolution is deterministic by construction, not by scan order.
+		slices.SortFunc(cands, func(a, b backendCandidate) int {
+			return strings.Compare(a.name, b.name)
+		})
+		if systemState.PreferDevelopmentBackends {
+			_, _, suffix := getFallbackTagValues(systemState)
+			var development, stable []backendCandidate
+			for _, c := range cands {
+				if !isBackendRunnable(SystemBackend{RunFile: c.runFile}) ||
+					!systemState.IsBackendCompatible(c.name, c.metadata.URI) {
+					continue
+				}
+				if strings.HasSuffix(c.name, "-"+suffix) {
+					development = append(development, c)
+				} else {
+					stable = append(stable, c)
+				}
+			}
+			// Filter only the enabled path. Partitioning preserves lexical order
+			// and lets development preference precede hardware token ranking.
+			cands = stable
+			if len(development) > 0 {
+				cands = development
+			}
+		}
 		chosen := backendCandidate{}
 		// Try preference tokens
 		for _, t := range tokens {
@@ -738,12 +925,17 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 		if chosen.runFile == "" {
 			continue
 		}
-		md := metaMap[chosen.name]
+		if existing, ok := backends[alias]; ok && !existing.IsSystem && chosen.isSystem {
+			// A system-derived alias never hijacks a user-managed
+			// backend of the same name, including meta indirection.
+			continue
+		}
 		backends[alias] = SystemBackend{
 			Name:     alias,
 			RunFile:  chosen.runFile,
 			IsMeta:   false,
-			Metadata: md,
+			IsSystem: chosen.isSystem,
+			Metadata: chosen.metadata,
 		}
 	}
 

@@ -18,6 +18,8 @@ service Backend {
   rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc Generate3D(Generate3DRequest) returns (Result) {}
+  rpc MotionStream(stream MotionRequest) returns (stream MotionResponse) {}
+  rpc Animate3D(Animate3DRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
   // AudioTranscriptionLive is the bidirectional live-microphone ASR RPC. The
@@ -34,6 +36,9 @@ service Backend {
   rpc AudioTranscriptionLive(stream TranscriptLiveRequest) returns (stream TranscriptLiveResponse) {}
   rpc TTS(TTSRequest) returns (Result) {}
   rpc TTSStream(TTSRequest) returns (stream Reply) {}
+  // First frame configures a persistent utterance; later frames carry only text.
+  // Half-close commits end of text, while audio continues until EOF.
+  rpc TTSLive(stream TTSRequest) returns (stream Reply) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Detokenize(DetokenizeRequest) returns (DetokenizeResponse) {}
@@ -43,6 +48,9 @@ service Backend {
   // (e.g. CED over the AudioSet ontology) on a clip and returns scored labels.
   rpc SoundDetection(SoundDetectionRequest) returns (SoundDetectionResponse) {}
   rpc Depth(DepthRequest) returns (DepthResponse) {}
+  // Forecast runs a time-series forecasting model (timestral.cpp) on one or more
+  // numeric series and returns quantile trajectories for the next steps.
+  rpc Forecast(ForecastRequest) returns (ForecastResponse) {}
   rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
   rpc FaceAnalyze(FaceAnalyzeRequest) returns (FaceAnalyzeResponse) {}
   rpc VoiceVerify(VoiceVerifyRequest) returns (VoiceVerifyResponse) {}
@@ -73,6 +81,11 @@ service Backend {
   rpc Score(ScoreRequest) returns (ScoreResponse) {}
 
   rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
+
+  // SlotCache saves or restores the backend's per-slot prompt state (KV or
+  // session state). On save the backend issues an ID; on restore the client
+  // sends an ID the backend issued. The client never names a file. A backend that does not support it returns gRPC UNIMPLEMENTED.
+  rpc SlotCache(SlotCacheRequest) returns (SlotCacheResponse) {}
 
   rpc VAD(VADRequest) returns (VADResponse) {}
 
@@ -143,6 +156,12 @@ message TokenClassifyRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 3;
+  // Labels overrides the backend's configured entity labels for this
+  // request. Empty means "use the model's configured labels" (the
+  // default for PII detection, where labels are fixed at load time).
+  // Non-empty enables zero-shot per-request label selection (kev /
+  // SystemOne: each question type supplies its own labels).
+  repeated string labels = 4;
 }
 
 // TokenClassifyEntity is one detected entity span. Byte offsets are
@@ -191,6 +210,12 @@ message ScoreRequest {
   // use it to place a reuse point exactly at the boundary, so the next
   // call re-processes only the tokens after it. 0 means unknown.
   int32 stable_prefix_len = 6;
+  // question_type signals a decision-pipeline request (kev/laya)
+  // rather than plain candidate scoring. When set to "systemone", the
+  // backend treats prompt as the raw /v1/systemone request JSON and
+  // returns the full response in ScoreResponse.response_json. Empty
+  // means plain candidate scoring.
+  string question_type = 7;
 }
 
 // CandidateScore is one row in the ScoreResponse, matching by index
@@ -216,6 +241,9 @@ message TokenLogProb {
 
 message ScoreResponse {
   repeated CandidateScore candidates = 1;
+  // response_json carries the full decision-pipeline JSON response when
+  // question_type is set on the request. Empty for plain scoring.
+  string response_json = 2;
 }
 
 message RerankRequest {
@@ -538,6 +566,9 @@ message ProxyOptions {
 message Result {
   string message = 1;
   bool success = 2;
+  // JSON object containing arbitrary backend response metadata. Application
+  // conventions (such as metadata.usage) are independent of this schema.
+  bytes metadata = 4;
 }
 
 // EmbeddingLayout describes whether embeddings contains one final vector or
@@ -609,6 +640,7 @@ message TranscriptLiveConfig {
   string language = 1;             // "" => model default
   int32 sample_rate = 2;           // 0 => 16000; backends may reject others
   map<string, string> params = 3;  // backend-specific tuning
+  repeated KnownVoice known_voices = 4;   // see DiarizeRequest.known_voices
 }
 
 message TranscriptLiveAudio {
@@ -622,12 +654,30 @@ message TranscriptLiveResponse {
   repeated TranscriptWord words = 4;    // words finalized by this feed (stream-relative ns)
   TranscriptResult final_result = 5;    // terminal message only, after the send side closes
   bool eob = 6;                         // <EOB> fired: a backchannel ("uh-huh") ended — NOT a turn boundary
+  repeated LiveSpeakerSegment speakers = 7; // closed speaker segments from a companion diarization/scene stream
+  repeated LiveSoundEvent sounds = 8;       // closed sound events from a companion sound/scene stream
+}
+
+message LiveSpeakerSegment {
+  string speaker = 1;   // decimal speaker index
+  int64 start = 2;      // stream-relative nanoseconds
+  int64 end = 3;
+  string name = 4;      // registered speaker name when the backend identified the speaker, else empty
+}
+
+message LiveSoundEvent {
+  string label = 1;
+  int32 index = 2;
+  float peak = 3;
+  int64 start = 4;      // stream-relative nanoseconds
+  int64 end = 5;
 }
 
 message TranscriptWord {
   int64 start = 1;
   int64 end = 2;
   string text = 3;
+  string speaker = 4;   // backend speaker label when diarizing; empty otherwise
 }
 
 message TranscriptSegment {
@@ -689,6 +739,33 @@ message GenerateVideoRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 15;
+  // Reference conditioning (MiniMax-H3 Ref2VA). Additive: `audio` and
+  // params["ref_image"] keep working and count as one more reference each.
+  // Keyframes (start_image/end_image) and references are mutually exclusive.
+  repeated string ref_images = 16;          // Staged paths of reference images
+  repeated VideoReference ref_videos = 17;  // Reference videos given as frame directories
+  repeated string ref_audios = 18;          // Staged paths of reference audio clips (WAV)
+}
+
+// VideoReference is one reference video for GenerateVideoRequest.
+message VideoReference {
+  string frames_dir = 1;  // Staged directory of frame images, read in lexicographic file-name order
+  int32 fps = 2;          // Frame rate of the source frames; 0 means the backend default
+  string audio = 3;       // Optional staged WAV path paired with this video
+}
+
+// A named conditioning input. Media references are staged local paths by the
+// time they reach the backend; text is passed verbatim.
+message AnimationInput {
+  string type = 1; // text, image, video, or mesh
+  string data = 2;
+}
+
+message Animate3DRequest {
+  map<string, AnimationInput> inputs = 1;
+  string dst = 2;
+  map<string, string> params = 3;
+  string model_identity = 4;
 }
 
 message Generate3DRequest {
@@ -775,6 +852,11 @@ message DiarizeRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 11;
+  // Registered voices the backend may use to name speakers. Only backends that
+  // identify speakers themselves read this; others ignore it.
+  repeated KnownVoice known_voices = 12;
+  bool include_speaker_profiles = 13; // opt-in sensitive embeddings; unsupported backends must reject
+  bool include_sounds = 14;           // ask for closed sound events; backends without a sound model must reject, never return an empty list
 }
 
 message DiarizeSegment {
@@ -783,9 +865,38 @@ message DiarizeSegment {
   float  end = 3;                      // seconds
   string speaker = 4;                  // backend-emitted speaker label (e.g. "0", "SPEAKER_00")
   string text = 5;                     // optional per-segment transcript (empty unless include_text and supported)
+  string name = 6;                     // registered speaker name, empty when unknown or not identified
+  float  name_score = 7;               // match score of that name (cosine similarity), 0 when unnamed
+}
+
+// KnownVoice is one registered voice: a name and its speaker embedding. `model`
+// names the encoder that produced it, so a backend with a different encoder can
+// refuse vectors that are not comparable.
+message KnownVoice {
+  string id = 4; // registration ID; native keys must not aggregate duplicate display names
+  string name = 1;
+  repeated float embedding = 2;
+  string model = 3;
+  // Fingerprint of the encoder that made the embedding, when it is known: the
+  // embedding space ("voicedetect:<arch>:<name>:<dim>") and the exact weights
+  // ("sha256:<hex>"). Empty for voices registered before it was recorded.
+  string encoder_family = 5;
+  string encoder_weights = 6;
+}
+
+// DiarizeSound is one closed sound event over the whole clip, merged the same
+// way the live scene stream merges them.
+message DiarizeSound {
+  float  start = 1;                    // seconds
+  float  end = 2;                      // seconds
+  string label = 3;                    // AudioSet label
+  float  confidence = 4;               // peak score of the event, 0..1
 }
 
 message DiarizeResponse {
+  string speaker_profiles_json = 5; // versioned speaker_profiles object only; absent by default
+  repeated DiarizeSound sounds = 6;    // closed sound events; only filled when include_sounds was set
+  bool   sounds_included = 7;          // true when the backend ran sound detection for this request (an empty `sounds` is then a real "nothing heard")
   repeated DiarizeSegment segments = 1;
   int32  num_speakers = 2;             // count of distinct speaker labels in `segments`
   float  duration = 3;                 // total audio duration in seconds (0 if unknown)
@@ -821,11 +932,43 @@ message SoundGenerationRequest {
   //
   // Empty means "no identity supplied" and backends MUST skip the check.
   string ModelIdentity = 18;
+  map<string, string> params = 19;
+  optional bool expanded = 20;
 }
 
 message TokenizationResponse {
   int32 length = 1;
   repeated int32 tokens = 2;
+}
+
+enum SlotCacheAction {
+  SLOT_CACHE_ACTION_UNSPECIFIED = 0;
+  SLOT_CACHE_ACTION_SAVE = 1;
+  SLOT_CACHE_ACTION_RESTORE = 2;
+}
+
+message SlotCacheRequest {
+  // Ties a save file to the model it came from. Empty means the backend does
+  // not check it.
+  string model_identity = 1;
+  SlotCacheAction action = 2;
+  // The backend's state slot id, 0 is the first slot. For llama.cpp it is the
+  // server slot. Other backends may map it to a session id.
+  int32 slot = 3;
+  // Save: leave empty, the backend issues the ID. Restore: an ID that the
+  // backend issued for this model. The client never chooses a file name or a
+  // path; the backend must refuse any ID it did not issue for this model.
+  string id = 4;
+}
+
+message SlotCacheResponse {
+  bool success = 1;
+  string message = 2;    // error detail when success is false
+  int32 slot = 3;
+  string id = 4;         // save: the ID the backend issued. restore: the ID restored
+  uint64 n_tokens = 5;   // tokens saved or restored
+  uint64 n_bytes = 6;    // bytes written or read
+  double duration_ms = 7;
 }
 
 message DetokenizeRequest {
@@ -841,6 +984,12 @@ message MemoryUsageData {
   map<string, uint64> breakdown = 2;
 }
 
+message SpeakerEncoder {
+  string identity = 1; // sha256 of loaded GGUF bytes
+  int32 dimension = 2;
+  string family = 3; // embedding space of the encoder; empty when the backend cannot tell
+}
+
 message StatusResponse {
   enum State {
     UNINITIALIZED = 0;
@@ -850,6 +999,7 @@ message StatusResponse {
   }
   State state = 1;
   MemoryUsageData memory = 2;
+  SpeakerEncoder speaker_encoder = 3; // trusted metadata from the loaded server encoder, never request data
 }
 
 message Message {
@@ -941,6 +1091,52 @@ message DepthResponse {
   bytes point_colors = 10;         // num_points*3 uint8 rgb
   repeated string export_paths = 11; // paths written for the requested exports
   bool is_metric = 12;             // depth is in metric units
+}
+
+// --- Time-series forecasting messages (timestral.cpp) ---
+//
+// Arrays are flat and row-major. NaN marks a missing value. One request may
+// carry series of different shapes; the backend groups them by shape and
+// returns the results in the order the series were sent.
+
+message ForecastSeries {
+  string id = 1;                          // echoed back in the matching result
+  int32 num_variates = 2;                 // V
+  int32 length = 3;                       // T, context steps per variate
+  repeated float target = 4;              // V*T, NaN = missing
+  int32 num_past_covariates = 5;          // C_past
+  repeated float past_covariates = 6;     // C_past*T
+  int32 num_known_covariates = 7;         // C_known
+  repeated float known_covariates = 8;    // C_known*(T+H)
+  int32 num_past_categorical = 9;         // CC_past
+  repeated double past_categorical = 10;  // CC_past*T, NaN = missing code
+  int32 num_known_categorical = 11;       // CC_known
+  repeated double known_categorical = 12; // CC_known*(T+H), NaN = missing code
+}
+
+message ForecastRequest {
+  repeated ForecastSeries series = 1;
+  int32 prediction_length = 2;            // H, steps to forecast
+  repeated double quantiles = 3;          // empty = backend default
+  int32 max_context = 4;                  // 0 = model default
+  optional bool symmetric_averaging = 5;  // unset = model default
+  optional bool clip_nonnegative = 6;     // unset = model default
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 7;
+}
+
+message ForecastSeriesResult {
+  string id = 1;
+  int32 num_variates = 2;                 // V
+  repeated float values = 3;              // V*Q*H row-major
+}
+
+message ForecastResponse {
+  int32 prediction_length = 1;
+  repeated double quantile_levels = 2;    // levels returned, ascending
+  repeated ForecastSeriesResult series = 3;  // same order as the request
 }
 
 // --- Face recognition messages ---
@@ -1067,6 +1263,12 @@ message VoiceEmbedRequest {
 message VoiceEmbedResponse {
   repeated float embedding = 1;
   string         model = 2;
+  // Fingerprint of the encoder that made the embedding, when the backend can
+  // tell: the embedding space ("voicedetect:<arch>:<name>:<dim>") and the
+  // weights ("sha256:<hex>" of the model file). Both empty when unknown, and
+  // old backends never set them.
+  string         encoder_family = 3;
+  string         encoder_weights = 4;
 }
 
 message ToolFormatMarkers {
@@ -1474,4 +1676,16 @@ message ForwardReply {
   int32 status = 1;
   repeated ForwardHeader headers = 2;
   bytes body_chunk = 3;
+}
+
+// Configuration is first; later messages contain input only.
+message MotionRequest {
+  string model_identity = 1;
+  string profile = 2;
+  bytes input = 3; // Serialized public localai.motion.v1.Input.
+}
+message MotionResponse {
+  bytes output = 1; // Serialized public localai.motion.v1.Output.
+  // Backend-only bounded stage timings; not part of the public wire protocol.
+  map<string, double> stage_ms = 2;
 }

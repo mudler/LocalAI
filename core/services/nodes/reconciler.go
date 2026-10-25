@@ -10,11 +10,9 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
-	grpcclient "github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/xlog"
-	"github.com/nats-io/nats.go"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
@@ -41,7 +39,7 @@ const (
 // Defaulted to a gRPC health probe but overridable for tests so we don't
 // need to stand up a real server.
 type ModelProber interface {
-	Probe(ctx context.Context, address string) ProbeOutcome
+	Probe(ctx context.Context, nodeID, address string) ProbeOutcome
 }
 
 // NodeProcessLister asks a worker which model backend processes it currently
@@ -52,7 +50,7 @@ type ModelProber interface {
 // against the backend's own serving port cannot make that distinction, which
 // is why it is only the fallback for workers that do not answer.
 type NodeProcessLister interface {
-	ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error)
+	ListRunningModels(nodeID string) (*workerctl.ModelsRunningReply, error)
 }
 
 // probeTimeout bounds a single liveness probe. Kept short because a healthy
@@ -62,10 +60,10 @@ type NodeProcessLister interface {
 const probeTimeout = 1 * time.Second
 
 // grpcModelProber does a short HealthCheck on the model's stored gRPC address.
-type grpcModelProber struct{ token string }
+type grpcModelProber struct{ clients BackendClientFactory }
 
-func (g grpcModelProber) Probe(ctx context.Context, address string) ProbeOutcome {
-	client := grpcclient.NewClientWithToken(address, false, nil, false, g.token)
+func (g grpcModelProber) Probe(ctx context.Context, nodeID, address string) ProbeOutcome {
+	client := g.clients.NewClient(nodeID, address, false)
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	ok, err := client.HealthCheck(probeCtx)
@@ -220,7 +218,7 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 	}
 	prober := opts.Prober
 	if prober == nil {
-		prober = grpcModelProber{token: opts.RegistrationToken}
+		prober = grpcModelProber{clients: &tokenClientFactory{token: opts.RegistrationToken}}
 	}
 	pressureThreshold := opts.PressureThreshold
 	if pressureThreshold == 0 {
@@ -334,89 +332,111 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		var applyErr error
-		switch op.Op {
-		case OpBackendDelete:
-			_, applyErr = rc.adapter.DeleteBackend(op.NodeID, op.Backend)
-		case OpBackendInstall:
-			// Pending-op drain for admin install — not a per-replica load.
-			// Replica 0 is the conventional admin slot. Install is idempotent:
-			// the worker short-circuits if the backend is already running.
-			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0, "", nil)
-			if err != nil {
-				applyErr = err
-			} else if !reply.Success {
-				applyErr = fmt.Errorf("install failed: %s", reply.Error)
-			}
-		case OpBackendUpgrade:
-			// Pending-op drain for admin upgrade — fires backend.upgrade so
-			// the slow re-pull doesn't head-of-line-block install traffic on
-			// the same worker. Falls back to the legacy backend.install
-			// Force=true path on nats.ErrNoResponders for old workers that
-			// don't subscribe to backend.upgrade yet (rolling-update window).
-			// Reconciler retries are background reconciliation with no live
-			// admin watching a progress bar, so opID/onProgress are empty —
-			// the adapter skips the progress subscription entirely.
-			reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
-			if err != nil {
-				if errors.Is(err, nats.ErrNoResponders) {
-					instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
-					if instErr != nil {
-						applyErr = instErr
-					} else if !instReply.Success {
-						applyErr = fmt.Errorf("upgrade (legacy fallback) failed: %s", instReply.Error)
-					}
-				} else {
-					applyErr = err
-				}
-			} else if !reply.Success {
-				applyErr = fmt.Errorf("upgrade failed: %s", reply.Error)
-			}
-		default:
-			xlog.Warn("Reconciler: unknown pending op", "op", op.Op, "id", op.ID)
+		// A live operation holds this (node, backend). Leave the row for the
+		// next pass instead of sending the same operation twice at once.
+		unlock, free := rc.registry.backendOpLocks.tryLock(op.NodeID, op.Backend)
+		if !free {
+			xlog.Debug("Reconciler: backend op in progress, skipping", "op", op.Op, "backend", op.Backend, "node", op.NodeID)
 			continue
 		}
-
-		if applyErr == nil {
-			if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
-				xlog.Warn("Reconciler: failed to delete drained op row", "id", op.ID, "error", err)
-			} else {
-				xlog.Info("Reconciler: pending backend op applied",
-					"op", op.Op, "backend", op.Backend, "node", op.NodeID, "attempts", op.Attempts+1)
+		func() {
+			defer unlock()
+			// The live operation may have settled this row while we waited
+			// for the lock. Do not send an operation that already finished.
+			var row PendingBackendOp
+			if err := rc.registry.db.WithContext(ctx).First(&row, op.ID).Error; err != nil {
+				return
 			}
-			continue
-		}
-
-		// ErrNoResponders means the node has no active NATS subscription for
-		// this subject. Either its connection dropped, or it's the wrong
-		// node type entirely. Mark unhealthy so the health monitor's
-		// heartbeat-only pass doesn't immediately flip it back — and so
-		// ListDuePendingBackendOps (which filters by status=healthy) stops
-		// picking the row until the node genuinely recovers.
-		if errors.Is(applyErr, nats.ErrNoResponders) {
-			xlog.Warn("Reconciler: no NATS responders — marking node unhealthy",
-				"op", op.Op, "backend", op.Backend, "node", op.NodeID)
-			_ = rc.registry.MarkUnhealthy(ctx, op.NodeID)
-		}
-
-		// Dead-letter cap: after maxAttempts the row is the reconciler
-		// equivalent of a poison message. Delete it loudly so the queue
-		// doesn't churn NATS every tick forever — operators can re-issue
-		// the op from the UI if they still want it applied.
-		if op.Attempts+1 >= maxPendingBackendOpAttempts {
-			xlog.Error("Reconciler: abandoning pending backend op after max attempts",
-				"op", op.Op, "backend", op.Backend, "node", op.NodeID,
-				"attempts", op.Attempts+1, "last_error", applyErr)
-			if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
-				xlog.Warn("Reconciler: failed to delete abandoned op row", "id", op.ID, "error", err)
-			}
-			continue
-		}
-
-		_ = rc.registry.RecordPendingBackendOpFailure(ctx, op.ID, applyErr.Error())
-		xlog.Warn("Reconciler: pending backend op retry failed",
-			"op", op.Op, "backend", op.Backend, "node", op.NodeID, "attempts", op.Attempts+1, "error", applyErr)
+			rc.drainPendingBackendOp(ctx, op)
+		}()
 	}
+}
+
+// drainPendingBackendOp applies one queued backend op and settles its row.
+// The caller holds the (node, backend) lock.
+func (rc *ReplicaReconciler) drainPendingBackendOp(ctx context.Context, op PendingBackendOp) {
+	var applyErr error
+	switch op.Op {
+	case OpBackendDelete:
+		_, applyErr = rc.adapter.DeleteBackend(op.NodeID, op.Backend)
+	case OpBackendInstall:
+		// Pending-op drain for admin install — not a per-replica load.
+		// Replica 0 is the conventional admin slot. Install is idempotent:
+		// the worker short-circuits if the backend is already running.
+		reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0, "", nil)
+		if err != nil {
+			applyErr = err
+		} else if !reply.Success {
+			applyErr = fmt.Errorf("install failed: %s", reply.Error)
+		}
+	case OpBackendUpgrade:
+		// Pending-op drain for admin upgrade — fires backend.upgrade so
+		// the slow re-pull doesn't head-of-line-block install traffic on
+		// the same worker. Falls back to the legacy backend.install
+		// Force=true path on ErrNoRoute for old workers that
+		// don't subscribe to backend.upgrade yet (rolling-update window).
+		// Reconciler retries are background reconciliation with no live
+		// admin watching a progress bar, so opID/onProgress are empty —
+		// the adapter skips the progress subscription entirely.
+		reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
+		if err != nil {
+			if errors.Is(err, ErrNoRoute) {
+				instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
+				if instErr != nil {
+					applyErr = instErr
+				} else if !instReply.Success {
+					applyErr = fmt.Errorf("upgrade (legacy fallback) failed: %s", instReply.Error)
+				}
+			} else {
+				applyErr = err
+			}
+		} else if !reply.Success {
+			applyErr = fmt.Errorf("upgrade failed: %s", reply.Error)
+		}
+	default:
+		xlog.Warn("Reconciler: unknown pending op", "op", op.Op, "id", op.ID)
+		return
+	}
+
+	if applyErr == nil {
+		if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
+			xlog.Warn("Reconciler: failed to delete drained op row", "id", op.ID, "error", err)
+		} else {
+			xlog.Info("Reconciler: pending backend op applied",
+				"op", op.Op, "backend", op.Backend, "node", op.NodeID, "attempts", op.Attempts+1)
+		}
+		return
+	}
+
+	// ErrNoRoute means nothing is listening for this subject on the node.
+	// Either its connection dropped, or it's the wrong node type
+	// entirely. Mark unhealthy so the health monitor's
+	// heartbeat-only pass doesn't immediately flip it back — and so
+	// ListDuePendingBackendOps (which filters by status=healthy) stops
+	// picking the row until the node genuinely recovers.
+	if errors.Is(applyErr, ErrNoRoute) {
+		xlog.Warn("Reconciler: no route to node, marking it unhealthy",
+			"op", op.Op, "backend", op.Backend, "node", op.NodeID)
+		_ = rc.registry.MarkUnhealthy(ctx, op.NodeID)
+	}
+
+	// Dead-letter cap: after maxAttempts the row is the reconciler
+	// equivalent of a poison message. Delete it loudly so the queue
+	// doesn't churn NATS every tick forever — operators can re-issue
+	// the op from the UI if they still want it applied.
+	if op.Attempts+1 >= maxPendingBackendOpAttempts {
+		xlog.Error("Reconciler: abandoning pending backend op after max attempts",
+			"op", op.Op, "backend", op.Backend, "node", op.NodeID,
+			"attempts", op.Attempts+1, "last_error", applyErr)
+		if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
+			xlog.Warn("Reconciler: failed to delete abandoned op row", "id", op.ID, "error", err)
+		}
+		return
+	}
+
+	_ = rc.registry.RecordPendingBackendOpFailure(ctx, op.ID, applyErr.Error())
+	xlog.Warn("Reconciler: pending backend op retry failed",
+		"op", op.Op, "backend", op.Backend, "node", op.NodeID, "attempts", op.Attempts+1, "error", applyErr)
 }
 
 // maxPendingBackendOpAttempts caps how many times the reconciler retries a
@@ -480,7 +500,7 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		switch rc.prober.Probe(ctx, m.Address) {
+		switch rc.prober.Probe(ctx, m.NodeID, m.Address) {
 		case ProbeAlive:
 			rc.clearProbeFailures(m.ID)
 			// Bump updated_at so we don't probe this row again immediately.
@@ -563,7 +583,7 @@ func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		if rc.prober.Probe(ctx, m.Address) != ProbeAlive {
+		if rc.prober.Probe(ctx, m.NodeID, m.Address) != ProbeAlive {
 			// Busy or unreachable. Busy means the counter may well be real;
 			// unreachable is the reaper's business, not the sweeper's.
 			rc.clearInFlightIdle(m.ID)
@@ -725,7 +745,7 @@ type replicaKey struct {
 }
 
 // replyError safely extracts the error text from a possibly-nil reply.
-func replyError(reply *messaging.ModelsRunningReply) string {
+func replyError(reply *workerctl.ModelsRunningReply) string {
 	if reply == nil {
 		return "nil reply"
 	}
@@ -1133,7 +1153,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 			continue
 		}
 		// Unload from worker
-		if err := rc.unloader.UnloadModelOnNode(nm.NodeID, nm.ModelName); err != nil {
+		if err := rc.unloader.UnloadReplica(nm.NodeID, nm); err != nil {
 			xlog.Warn("Reconciler: unload failed (model already removed from registry)", "error", err)
 		}
 		xlog.Info("Reconciler: scaled down idle replica", "model", cfg.Target(), "node", nm.NodeID, "replica", nm.ReplicaIndex)

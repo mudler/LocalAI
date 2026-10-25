@@ -107,7 +107,8 @@
     "copied": "Copiado para a área de transferência",
     "copyFailed": "Não foi possível copiar para a área de transferência",
     "chatCopied": "Chat copiado para a área de transferência",
-    "forked": "Novo chat criado"
+    "forked": "Novo chat criado",
+    "pdfScannedAsImages": "{{name}} não tem camada de texto (digitalização). {{count}} de {{total}} páginas anexadas como imagens para um modelo de visão."
   },
   "menu": {
     "trigger": "Chats",
@@ -127,5 +128,13 @@
   },
   "message": {
     "you": "Você"
+  },
+  "addons": {
+    "note": "An add-on that is off here does nothing in this chat.",
+    "label": "Add-ons",
+    "title": "Add-on tools for this chat",
+    "heading": "Add-on tools",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
   }
 }

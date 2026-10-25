@@ -95,6 +95,10 @@ func (f *fakeGRPCBackend) Generate3D(_ context.Context, _ *pb.Generate3DRequest,
 	return &pb.Result{}, nil
 }
 
+func (f *fakeGRPCBackend) Animate3D(_ context.Context, _ *pb.Animate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return &pb.Result{}, nil
+}
+
 func (f *fakeGRPCBackend) TTS(_ context.Context, _ *pb.TTSRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return &pb.Result{}, nil
 }
@@ -116,6 +120,10 @@ func (f *fakeGRPCBackend) SoundDetection(_ context.Context, _ *pb.SoundDetection
 
 func (f *fakeGRPCBackend) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
 	return &pb.DepthResponse{}, nil
+}
+
+func (f *fakeGRPCBackend) Forecast(_ context.Context, _ *pb.ForecastRequest, _ ...ggrpc.CallOption) (*pb.ForecastResponse, error) {
+	return &pb.ForecastResponse{}, nil
 }
 
 func (f *fakeGRPCBackend) FaceVerify(_ context.Context, _ *pb.FaceVerifyRequest, _ ...ggrpc.CallOption) (*pb.FaceVerifyResponse, error) {
@@ -178,6 +186,9 @@ func (f *fakeGRPCBackend) Rerank(_ context.Context, _ *pb.RerankRequest, _ ...gg
 	return &pb.RerankResult{}, nil
 }
 
+func (f *fakeGRPCBackend) SlotCache(_ context.Context, _ *pb.SlotCacheRequest, _ ...ggrpc.CallOption) (*pb.SlotCacheResponse, error) {
+	return &pb.SlotCacheResponse{}, nil
+}
 func (f *fakeGRPCBackend) GetTokenMetrics(_ context.Context, _ *pb.MetricsRequest, _ ...ggrpc.CallOption) (*pb.MetricsResponse, error) {
 	return &pb.MetricsResponse{}, nil
 }
@@ -212,6 +223,10 @@ func (f *fakeGRPCBackend) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallO
 
 func (f *fakeGRPCBackend) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
 	return nil, nil
+}
+
+func (f *fakeGRPCBackend) MotionStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.MotionStreamClient, error) {
+	return nil, fmt.Errorf("motion streaming not implemented by in-flight fake")
 }
 
 func (f *fakeGRPCBackend) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {

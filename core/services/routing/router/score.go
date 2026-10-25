@@ -309,6 +309,13 @@ func (c *ScoreClassifier) SlotFillPrompt(p Probe, label, firstSlot string) (stri
 }
 
 func (c *ScoreClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
+	if err := ctx.Err(); err != nil {
+		return Decision{}, err
+	}
+	if err := requireTextProbe(ctx, p); err != nil {
+		return Decision{}, err
+	}
+
 	start := time.Now()
 
 	prompt, userText, err := c.renderProbe(p)

@@ -3,7 +3,7 @@ package worker
 import (
 	"encoding/json"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -185,27 +185,35 @@ var _ = Describe("Worker per-replica process keying", func() {
 	})
 
 	Describe("backend.stop request decoding", func() {
+		// stopBackends treats an empty Backend as stop-all, so these pin what
+		// reaches it for each body shape.
 		It("preserves the legacy empty-payload stop-all command", func() {
-			req, stopAll, err := decodeBackendStopRequest(nil)
+			req, err := decodeBackendStop(nil)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(stopAll).To(BeTrue())
-			Expect(req).To(Equal(messaging.BackendStopRequest{}))
+			Expect(req).To(Equal(workerctl.BackendStopRequest{}))
 		})
 
 		It("preserves force for a structured stop-all command", func() {
-			data, err := json.Marshal(messaging.BackendStopRequest{Force: true})
+			data, err := json.Marshal(workerctl.BackendStopRequest{Force: true})
 			Expect(err).NotTo(HaveOccurred())
 
-			req, stopAll, err := decodeBackendStopRequest(data)
+			req, err := decodeBackendStop(data)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(stopAll).To(BeTrue())
-			Expect(req.Force).To(BeTrue())
+			Expect(req).To(Equal(workerctl.BackendStopRequest{Force: true}))
+		})
+
+		It("decodes a named backend to that name", func() {
+			data, err := json.Marshal(workerctl.BackendStopRequest{Backend: "llama-cpp"})
+			Expect(err).NotTo(HaveOccurred())
+
+			req, err := decodeBackendStop(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(req.Backend).To(Equal("llama-cpp"))
 		})
 
 		It("rejects malformed JSON instead of treating it as stop-all", func() {
-			_, stopAll, err := decodeBackendStopRequest([]byte(`{"backend":`))
+			_, err := decodeBackendStop([]byte(`{"backend":`))
 			Expect(err).To(MatchError(ContainSubstring("decoding backend stop request")))
-			Expect(stopAll).To(BeFalse())
 		})
 	})
 })

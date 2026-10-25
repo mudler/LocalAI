@@ -40,12 +40,13 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
       "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
-      "rerank": "Rerank", "vad": "VAD", "score": "Score"
+      "rerank": "Rerank", "vad": "VAD", "score": "Score", "decisions": "Decisions"
     },
     "empty": {
       "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
@@ -224,5 +225,67 @@
     "pickVision": "读取图像与文档",
     "pickAudio": "语音输入与输出",
     "pickVisual": "生成图像与视频"
+  },
+  "failover": {
+    "title": "故障转移链",
+    "servedBy": "当前服务",
+    "changed": "{{time}}变更",
+    "pinnedTo": "已固定到 {{target}}",
+    "warm": "预热",
+    "never": "从未",
+    "states": {
+      "primary": "主用",
+      "fallback": "备用",
+      "degraded": "降级",
+      "healthy": "健康",
+      "down": "不可用",
+      "recovering": "恢复中",
+      "missing": "缺失"
+    },
+    "kinds": {
+      "local": "本地",
+      "remote": "远程"
+    },
+    "columns": {
+      "target": "目标",
+      "kind": "类型",
+      "warm": "预热",
+      "health": "健康状态",
+      "lastProbe": "上次探测",
+      "lastError": "上次错误",
+      "actions": "操作"
+    },
+    "actions": {
+      "pin": "固定",
+      "pinning": "正在固定…",
+      "unpin": "取消固定",
+      "unpinning": "正在取消固定…"
+    },
+    "confirm": {
+      "pinTitle": "固定 {{target}}？",
+      "pinMessage": "在取消固定之前，只有 {{target}} 为 {{chain}} 提供服务。此链的自动故障转移将停止。",
+      "unpinTitle": "取消固定 {{chain}}？",
+      "unpinMessage": "{{chain}} 将恢复自动故障转移。"
+    },
+    "errors": {
+      "pin": "固定失败：{{error}}",
+      "unpin": "取消固定失败：{{error}}"
+    },
+    "overview": {
+      "title": "故障转移链",
+      "subtitle": "每条故障转移链的实时健康状态和当前目标。",
+      "columns": {
+        "chain": "链",
+        "state": "状态",
+        "active": "当前目标",
+        "targets": "目标",
+        "changed": "变更时间"
+      },
+      "empty": {
+        "title": "尚无故障转移链",
+        "text": "添加故障转移链以自动绕过不健康的目标。",
+        "cta": "创建故障转移链"
+      }
+    }
   }
 }

@@ -57,6 +57,7 @@ The backend system provides language-specific Dockerfiles that handle the build 
 - **piper**: Text-to-speech synthesis Golang with C bindings using rhaspy/piper
 - **local-store**: Vector storage backend
 - **valkey-store**: Durable vector storage backend backed by Valkey Search (FT.*)
+- **qdrant-store**: Durable vector storage backend backed by Qdrant (self-hosted or Qdrant Cloud)
 
 #### C++ Backends (`cpp/`)
 - **llama-cpp**: Llama.cpp integration

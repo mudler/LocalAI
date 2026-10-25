@@ -396,11 +396,17 @@ The recommended default `threshold` for `/v1/face/verify` and
 Pass `threshold` explicitly when switching engines - the per-engine
 default only fires when the field is omitted.
 
+## The WebUI page
+
+The page is the **Recognition** page of the Face add-on (**Add-ons → Face**, `/app/addons/face/recognition`). Install the add-on from **Browse add-ons** and start it; the old `/app/face` link opens the same page in the core web UI until then. The page calls the `/v1/face/*` routes described on this page with your own session, and the Build hub has no Faces tab. It follows the same layout as the Voice add-on's Recognition page. **Who is this** looks up a photo against the people you enrolled (`POST /v1/face/identify`, cut-off 0.35 by default, adjustable on the scale). **Same person?** compares two photos (`POST /v1/face/verify`), optionally with the liveness check, and draws the face the model found in each photo. **Enrol a person** takes a photo, a name, optional labels and a permission tick; a copy of the photo stays in the browser only if you tick it.
+
+The people list is kept in the browser because the server has no list call. After a search, a saved person the server did not return is marked "not on the server", and a server restart empties the server's index. Removing a person waits ten seconds behind an Undo toast before `POST /v1/face/forget` is sent. The server matches one face per photo. Detecting faces, attribute guesses (off by default, often wrong) and the raw embedding are under **More tools**. With no face model installed the page says what is missing and offers gallery models to install.
+
 ## Related features
 
 - [Object Detection](/features/object-detection/) - generic bounding-box
   detection; `/v1/detection` works with the insightface backend too.
 - [Embeddings](/features/embeddings/) - raw vector extraction; face
   embeddings live in the same endpoint under the hood.
-- [Stores](/features/stores/) - the generic vector store powering the
+- [Stores](/stores/) - the generic vector store powering the
   1:N recognition pipeline.

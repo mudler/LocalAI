@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// runSyntheticMode generates synthetic test data and appends it to the gallery
+// runSyntheticMode generates synthetic test data and appends it to the model library
 func runSyntheticMode() error {
 	generator := NewSyntheticDataGenerator()
 
@@ -23,7 +23,7 @@ func runSyntheticMode() error {
 		fmt.Printf("Generated synthetic model: %s\n", model.ModelID)
 	}
 
-	// Generate YAML entries and append to gallery/index.yaml
+	// Generate YAML entries and append to the model library
 	fmt.Println("Generating YAML entries for synthetic models...")
 	err := generateYAMLForModels(context.Background(), models, "Q4_K_M")
 	if err != nil {

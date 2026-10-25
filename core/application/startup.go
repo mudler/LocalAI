@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -52,13 +54,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// were read) meant boot-loaded models saw pre-file defaults for one
 	// full restart. Env/CLI values win over the file (see
 	// ApplyRuntimeSettingsAtStartup).
-	loadRuntimeSettingsFromFile(options)
+	loadStartupSettings(options)
+	applyOfficialLibrariesAtStartup(options)
 
 	// WithThreads no longer eagerly resolves 0 (so the settings merge can
-	// tell "unset" from "env-set"); resolve the physical-core default now
-	// that env, CLI, and file have all had their say.
+	// tell "unset" from "env-set"); resolve the default (physical cores,
+	// capped by the container CPU limit) now that env, CLI, and file have all
+	// had their say.
 	if options.Threads == 0 {
-		options.Threads = xsysinfo.CPUPhysicalCores()
+		options.Threads = xsysinfo.DefaultThreads()
 	}
 
 	trace.ConfigureBackendTracePersistence(options.DataPath)
@@ -68,7 +72,26 @@ func New(opts ...config.AppOption) (*Application, error) {
 	xlog.Info("Starting LocalAI", "threads", options.Threads, "modelsPath", options.SystemState.Model.ModelsPath)
 	xlog.Info("LocalAI version", "version", internal.PrintableVersion())
 
+	// The account database is opened before the services start: the add-on
+	// owner checks its callers against it in named-user mode, and has no
+	// identity to check them with when it starts first.
+	if options.Auth.Enabled {
+		if err := ensureAuthDBDirs(options); err != nil {
+			return nil, err
+		}
+		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
+		}
+		application.authDB = authDB
+	}
+
 	if err := application.start(); err != nil {
+		if application.authDB != nil {
+			if sqlDB, e := application.authDB.DB(); e == nil {
+				_ = sqlDB.Close()
+			}
+		}
 		return nil, err
 	}
 
@@ -147,11 +170,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			options.Auth.APIKeyHMACSecret = secret
 		}
 
-		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
-		}
-		application.authDB = authDB
+		authDB := application.authDB
 		xlog.Info("Auth enabled", "database", sanitize.URL(options.Auth.DatabaseURL))
 
 		// Start session and expired API key cleanup goroutine
@@ -173,6 +192,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 		}()
 	}
+	application.initChatHistoryStore()
 
 	// Initialize the OTel + Prometheus metric pipeline before any
 	// counter is created. monitoring.NewLocalAIMetricsService calls
@@ -242,13 +262,28 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	// Wire the routing decision log. Always-on when stats are enabled —
 	// the per-router admin page reads this as the live activity feed
-	// and as input to drift checks for subsystem 5.
-	if !options.DisableStats {
+	// and as input to drift checks for subsystem 5. Embedders may retain this
+	// bounded log independently without enabling billing stats.
+	if !options.DisableStats || options.RouterDecisionLog {
 		application.routerDecisions = router.NewMemoryDecisionStore(0)
 	}
 	// Process-wide classifier cache shared across all route middlewares so
 	// the embedding-cache stats endpoint sees a single source of truth.
 	application.routerRegistry = router.NewRegistry()
+
+	// Failover chains: probe targets and track which one is active per
+	// chain. WithOnWarmChanged pins and preloads warm local targets so a
+	// switch to them does not wait for a cold load.
+	application.failoverManager = failover.New(application.ModelConfigLoader(),
+		failover.WithProber(failover.NewProber(failoverLoadedBackend(application.ModelLoader()), options.ProxyAPIKeyEnvLookup)),
+		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
+	)
+	// The assistant client was built in start() (above), before this
+	// manager existed; wire it now so list_failover_chains /
+	// pin_failover_target / unpin_failover_target see real chains.
+	if application.assistantClient != nil {
+		application.assistantClient.Failover = application.failoverManager
+	}
 
 	// Subsystem 5: admission control. Limiter is always wired so a
 	// model that gains a limits: block via gallery install or YAML
@@ -270,13 +305,21 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// revisionStore is built inside the distributed block below but used after
 	// the model configs are loaded, so it is declared out here.
 	var revisionStore modeladmin.RevisionStore
+	// modelConfigResync is built there too, and started only once the model
+	// configs are loaded: a pass against an empty loader would treat every
+	// model as new.
+	var modelConfigResync *modeladmin.DirectoryResync
 
-	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader())
+	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader(),
+		&failoverPinnedResolver{base: application.ModelConfigLoader(), fm: application.failoverManager})
 	if err != nil {
 		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
 	}
 	if distSvc != nil {
 		application.distributed = distSvc
+		// Before failoverManager.Run starts below: the gate and sync must be
+		// in place for its first tick.
+		application.startFailoverDistributed(options.Context)
 		// Wire remote model unloader so ShutdownModel works for remote nodes
 		// Uses NATS to tell serve-backend nodes to Free + kill their backend process
 		application.modelLoader.SetRemoteUnloader(distSvc.Unloader)
@@ -305,8 +348,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		go distSvc.ModelCleanup.Run(options.Context)
 		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
 		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
-		// The dispatcher still subscribes to jobs.new for persistence (result/progress subs)
-		// but does NOT set a workerFn — agent workers consume jobs from the same NATS queue.
+		// The dispatcher only enqueues jobs and persists the results and traces workers publish.
 
 		// Wire model config loader so job events include model config for agent workers
 		distSvc.Dispatcher.SetModelConfigLoader(application.backendLoader)
@@ -380,6 +422,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			// Captured here, used after the model configs are loaded below: the
 			// resync reads the loader, which is still empty at this point.
 			revisionStore = modeladmin.NewRevisionStore(distSvc.Registry, modelRevisionLifecycle)
+			modelConfigResync = modeladmin.NewDirectoryResync(application.ModelConfigLoader(), sys.Model.ModelsPath, modelRevisionLifecycle, cfgLoaderOpts...)
 			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
 				// ApplyRemoteChange honors the op: a "delete" prunes the element
 				// (a reload-from-path is additive and cannot drop it), anything
@@ -420,6 +463,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
+	// Attach the GGUF header cache now, before any model config is loaded, so the
+	// first load already starts from the shared file.
+	// Only an ID the operator set keys a per-instance file; a generated ID would
+	// give every restart its own file.
+	cacheInstanceID := ""
+	if !options.Distributed.InstanceIDGenerated {
+		cacheInstanceID = options.Distributed.InstanceID
+	}
+	config.ConfigureGGUFHeaderCache(options.Context, options.DataPath, cacheInstanceID)
+
 	configLoaderOpts := options.ToConfigLoaderOptions()
 
 	if err := application.ModelConfigLoader().LoadModelConfigsFromPath(options.SystemState.Model.ModelsPath, configLoaderOpts...); err != nil {
@@ -445,7 +498,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Start background upgrade checker for backends.
 	// In distributed mode, uses PostgreSQL advisory lock so only one frontend
 	// instance runs periodic checks (avoids duplicate upgrades across replicas).
-	if len(options.BackendGalleries) > 0 {
+	if len(options.BackendGalleries) > 0 && !options.DisableBackendInstall {
 		// Pass a lazy getter for the backend manager so the checker always
 		// uses the active one — DistributedBackendManager is swapped in above
 		// and asks workers for their installed backends, which is what
@@ -453,6 +506,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 		bmFn := func() galleryop.BackendManager { return application.GalleryService().BackendManager() }
 		uc := NewUpgradeChecker(options, application.ModelLoader(), application.distributedDB(), bmFn)
 		application.upgradeChecker = uc
+		// Library backends follow the same auto_upgrade_backends switch.
+		uc.SetLibraryBackends(func() libraryUpgrader {
+			if l := application.BackendLibrary(); l != nil {
+				return l
+			}
+			return nil
+		})
+		// A request that proves a backend is older than the server marks it
+		// stale; refresh the upgrade cache so /backends/upgrades shows it.
+		gallery.SetStaleBackendNotifier(uc.TriggerCheck)
 		// Refresh the upgrade cache the moment a backend op finishes — otherwise
 		// the UI keeps showing a just-upgraded backend as upgradeable until the
 		// next 6-hour tick. TriggerCheck is non-blocking.
@@ -490,14 +553,30 @@ func New(opts ...config.AppOption) (*Application, error) {
 		xlog.Error("error downloading models", "error", err)
 	}
 
+	// Catch up on model config changes whose invalidation this frontend
+	// missed. NATS keeps no history, so a change published while this
+	// frontend was disconnected is otherwise never applied here. Every
+	// frontend runs its own pass against the shared models directory; the
+	// pass is idempotent, so no leader is needed.
+	if modelConfigResync != nil && distSvc != nil {
+		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Nats)
+	}
+
+	// Preloads run outside the operation loop, so they do not get the
+	// availability the loop stamps on each op; it comes from the same manager.
+	preloadOptions := []gallery.InstallOption{gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)}
+	if gs := application.GalleryService(); gs != nil {
+		preloadOptions = append(preloadOptions, gallery.WithBackendAvailability(gs.BackendManager().BackendAvailable))
+	}
+
 	if options.PreloadJSONModels != "" {
-		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
+		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity, preloadOptions...); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
+		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity, preloadOptions...); err != nil {
 			return nil, err
 		}
 	}
@@ -547,6 +626,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 		}
 	}
+
+	// Start the failover scheduler: it syncs chains from config, runs
+	// liveness/recovery probes and dwell-based fail-back. Run is the only
+	// caller of Sync in production so onWarm callbacks stay ordered.
+	application.registerFailoverMetrics()
+	go application.failoverManager.Run(options.Context)
 
 	// Watch the configuration directory
 	startWatcher(options)
@@ -661,7 +746,7 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 // loadOrGenerateHMACSecret loads an HMAC secret from the given file path,
 // or generates a random 32-byte secret and persists it if the file doesn't exist.
 func loadOrGenerateHMACSecret(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err == nil {
 		secret := string(data)
 		if len(secret) >= 32 {
@@ -721,4 +806,51 @@ func migrateDataFiles(srcDir, dstDir string) {
 	if migrated {
 		xlog.Info("Data migration complete", "from", srcDir, "to", dstDir)
 	}
+}
+
+// registerFailoverMetrics must not retain a manager on the global provider
+// when this application has metrics disabled.
+func (a *Application) registerFailoverMetrics() {
+	if a.applicationConfig.DisableMetrics || a.metricsService == nil {
+		return
+	}
+	failover.RegisterMetrics(a.failoverManager, a.metricsService.Meter)
+}
+
+// loadStartupSettings freezes the resolver preference after the persisted
+// settings merge, before installation and registration consume system state.
+// Runtime API and file-watcher updates deliberately do not repeat this step.
+func loadStartupSettings(options *config.ApplicationConfig) {
+	loadRuntimeSettingsFromFile(options)
+	options.SystemState.PreferDevelopmentBackends = options.PreferDevelopmentBackends || options.SystemState.PreferDevelopmentBackends
+}
+
+// ensureAuthDBDirs creates the directories the auth database file lives in.
+// The database opens before the general directory setup, and its default
+// location is inside the data directory, which may not exist on first start.
+// Directories keep the 0750 mode of the later setup. PostgreSQL URLs and
+// in-memory databases have no directory.
+func ensureAuthDBDirs(options *config.ApplicationConfig) error {
+	if options.DataPath != "" {
+		if err := os.MkdirAll(options.DataPath, 0o750); err != nil {
+			return fmt.Errorf("unable to create DataPath: %q", err)
+		}
+	}
+	u := options.Auth.DatabaseURL
+	if strings.HasPrefix(u, "postgres://") || strings.HasPrefix(u, "postgresql://") {
+		return nil
+	}
+	if i := strings.IndexByte(u, '?'); i >= 0 {
+		u = u[:i]
+	}
+	u = strings.TrimPrefix(u, "file:")
+	if u == "" || u == ":memory:" || strings.HasPrefix(u, ":memory:") {
+		return nil
+	}
+	if dir := filepath.Dir(u); dir != "." {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return fmt.Errorf("unable to create the auth database directory: %w", err)
+		}
+	}
+	return nil
 }

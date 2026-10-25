@@ -509,7 +509,7 @@ var _ = Describe("prepare", func() {
 			Expect(agentOptions(dir, "a-model", opts).Overrides.ApprovalMode).To(BeEmpty())
 
 			opts.Yolo = true
-			Expect(agentOptions(dir, "a-model", opts).Overrides.ApprovalMode).To(Equal("auto"))
+			Expect(agentOptions(dir, "a-model", opts).Overrides.ApprovalMode).To(Equal(nibtypes.ApprovalAuto))
 		})
 
 		// The specs above pin what is handed over. These pin what nib does with
@@ -570,7 +570,7 @@ var _ = Describe("prepare", func() {
 				opts.Yolo = true
 
 				cfg := resolve(agentOptions(dir, "a-model", opts))
-				Expect(cfg.ApprovalMode).To(Equal("auto"))
+				Expect(cfg.ApprovalMode).To(Equal(nibtypes.ApprovalAuto))
 			})
 
 			// The other half of the same rule, and the reason an unset flag is
@@ -582,7 +582,7 @@ var _ = Describe("prepare", func() {
 
 				cfg := resolve(agentOptions(dir, "a-model", optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)))
 				Expect(cfg.APIKey).To(Equal("saved-key"))
-				Expect(cfg.ApprovalMode).To(Equal("prompt"))
+				Expect(cfg.ApprovalMode).To(Equal(nibtypes.ApprovalPrompt))
 			})
 		})
 	})

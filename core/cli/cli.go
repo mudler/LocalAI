@@ -1,18 +1,21 @@
 package cli
 
 import (
+	"github.com/mudler/LocalAI/core/cli/benchmark"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/cli/worker"
 )
 
 var CLI struct {
 	cliContext.Context `embed:""`
+	Benchmark          benchmark.Command `cmd:"" help:"Benchmark configured text models against a running LocalAI server"`
 
 	Run             RunCMD             `cmd:"" help:"Run LocalAI, this the default command if no other command is specified. Run 'local-ai run --help' for more information" default:"withargs"`
 	Chat            ChatCMD            `cmd:"" help:"Run the built-in terminal agent against a LocalAI server"`
 	Federated       FederatedCLI       `cmd:"" help:"Run LocalAI in federated mode"`
 	Models          ModelsCMD          `cmd:"" help:"Manage LocalAI models and definitions"`
 	Backends        BackendsCMD        `cmd:"" help:"Manage LocalAI backends and definitions"`
+	Library         LibraryCMD         `cmd:"" help:"Manage the library sources LocalAI reads add-ons, backends and models from"`
 	TTS             TTSCMD             `cmd:"" help:"Convert text to speech"`
 	SoundGeneration SoundGenerationCMD `cmd:"" help:"Generates audio files from text or audio"`
 	Transcript      TranscriptCMD      `cmd:"" help:"Convert audio to text"`

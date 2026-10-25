@@ -264,6 +264,22 @@ func (c *Client) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest,
 	return client.GenerateVideo(ctx, in, opts...)
 }
 
+func (c *Client) Animate3D(ctx context.Context, in *pb.Animate3DRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	return pb.NewBackendClient(conn).Animate3D(ctx, in, opts...)
+}
+
 func (c *Client) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...grpc.CallOption) (*pb.Result, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
@@ -617,6 +633,23 @@ func (c *Client) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opt
 	return client.GetMetrics(ctx, in, opts...)
 }
 
+func (c *Client) SlotCache(ctx context.Context, in *pb.SlotCacheRequest, opts ...grpc.CallOption) (*pb.SlotCacheResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.SlotCache(ctx, in, opts...)
+}
+
 func (c *Client) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOption) (*pb.VADResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
@@ -700,6 +733,23 @@ func (c *Client) Depth(ctx context.Context, in *pb.DepthRequest, opts ...grpc.Ca
 	defer func() { _ = conn.Close() }()
 	client := pb.NewBackendClient(conn)
 	return client.Depth(ctx, in, opts...)
+}
+
+func (c *Client) Forecast(ctx context.Context, in *pb.ForecastRequest, opts ...grpc.CallOption) (*pb.ForecastResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.Forecast(ctx, in, opts...)
 }
 
 func (c *Client) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts ...grpc.CallOption) (*pb.FaceVerifyResponse, error) {

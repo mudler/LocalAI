@@ -1,0 +1,48 @@
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: thinkingcap-qwen3.8-27b
+  description: |
+    ThinkingCap is a 27B Qwen3.8 fine-tune trained to reduce reasoning tokens, with text and image input.
+    This Q4_K_M GGUF build uses llama.cpp, the embedded chat template, and the F16 vision projector.
+    Licensed under PolyForm Small Business 1.0.0 with the publisher's personal-use grant; see the model license for permitted use.
+  license: polyform-small-business-1.0.0
+  urls:
+    - https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B
+    - https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+    - reasoning
+  files:
+    - filename: ThinkingCap-Qwen3.8-27B-Q4_K_M.gguf
+      sha256: fafa890ce2ce8531b4ade225c7dbd5f5d72a92303ca9ef72890c6cf78f19f299
+      uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/resolve/108ff8f24ce8e9335fbf308844cd3c59c13380a4/ThinkingCap-Qwen3.8-27B-Q4_K_M.gguf
+    - filename: mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+      sha256: 98fa9aad59b42449786a16bbce96bcd92204d03cac0aee0cdccca711c2adefd1
+      uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/resolve/108ff8f24ce8e9335fbf308844cd3c59c13380a4/mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.0
+      model: ThinkingCap-Qwen3.8-27B-Q4_K_M.gguf
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: thinkingcap-qwen3.8-27b-q8

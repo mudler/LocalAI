@@ -27,6 +27,9 @@ type BackendMetadata struct {
 	URI string `json:"uri,omitempty"`
 	// Digest is the OCI image digest at install time (for upgrade detection)
 	Digest string `json:"digest,omitempty"`
+	// Library is the id of the library the backend was installed from. It is
+	// empty for a backend installed from a gallery.
+	Library string `json:"library,omitempty"`
 }
 
 type GalleryBackend struct {
@@ -39,7 +42,21 @@ type GalleryBackend struct {
 	// SHA256 is the expected sha256 of the backend tarball at URI / Mirrors.
 	// Empty disables the integrity check; OCI URIs carry their own digest.
 	SHA256 string `json:"sha256,omitempty" yaml:"sha256,omitempty"`
+
+	// Library and MaxBytes are set by the install from a library, never read
+	// from a gallery file. Library records the origin in the metadata of the
+	// installed backend; MaxBytes bounds the compressed size of the image.
+	Library  string `json:"-" yaml:"-"`
+	MaxBytes int64  `json:"-" yaml:"-"`
+	// Stage, when set, receives the name of each install stage as it starts:
+	// the downloader stages (verifying, size, fetching) and StageWriting. A
+	// caller that shows progress sets it; the gallery never does.
+	Stage func(stage string) `json:"-" yaml:"-"`
 }
+
+// StageWriting is the install stage that writes the metadata of the backend
+// and swaps it into place. It follows the download stages.
+const StageWriting = "writing"
 
 func (backend *GalleryBackend) FindBestBackendFromMeta(systemState *system.SystemState, backends GalleryElements[*GalleryBackend]) *GalleryBackend {
 	if systemState == nil {

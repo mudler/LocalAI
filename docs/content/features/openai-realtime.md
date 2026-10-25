@@ -31,6 +31,70 @@ This configuration links the following components:
 
 Make sure all referenced models (`silero-vad-ggml`, `whisper-large-turbo`, `qwen3-4b`, `tts-1`) are also installed or defined in your LocalAI instance.
 
+A pipeline stage can name a [failover chain]({{%relref "features/model-failover" %}}); the stage then switches targets without closing the session.
+
+### Install the Qwen streaming assistant preset
+
+The gallery entry `qwen3-streaming-assistant` configures an English voice
+assistant with Silero VAD, Parakeet TDT 0.6B v3, Qwen3 0.6B, and Qwen3-TTS
+0.6B CustomVoice using Ryan's voice. It streams LLM output text into one persistent TTS session while audio
+is emitted.
+
+The preset installs only its pipeline configuration. Install all four component
+models first, keeping their default names so the pipeline can resolve them:
+
+```bash
+local-ai models install silero-vad-ggml
+local-ai models install parakeet-cpp-tdt-0.6b-v3
+local-ai models install qwen3-0.6b
+local-ai models install qwen3-tts-cpp-customvoice --variant qwen3-tts-cpp-customvoice
+local-ai models install qwen3-streaming-assistant
+```
+
+The TTS command pins the Q8 CustomVoice entry. These are separate installs;
+installing the preset does not install missing components. Use a LocalAI build
+with incremental Qwen3-TTS input support, then select `qwen3-streaming-assistant`
+on the Talk page or as the Realtime API model. WebRTC also requires the `opus`
+backend, available from the Backends page.
+
+This preset targets English speech. It uses a named voice and does not require
+reference audio or `ref_text`. CPU synthesis can be slower than playback; this
+preset does not establish GPU or browser latency or throughput.
+
+### Install a clause-buffered assistant preset
+
+Two English presets use the same Silero VAD, Parakeet TDT 0.6B v3, and Qwen3
+0.6B components. `vits-streaming-assistant` uses VITS-LJS through Sherpa;
+`piper-streaming-assistant` uses Piper's Amy voice.
+
+Install the shared components once, keeping their default names:
+
+```bash
+local-ai models install silero-vad-ggml
+local-ai models install parakeet-cpp-tdt-0.6b-v3
+local-ai models install qwen3-0.6b
+```
+
+Then install either TTS component and its matching preset, or install both:
+
+```bash
+local-ai models install vits-ljs-sherpa
+local-ai models install vits-streaming-assistant
+local-ai models install voice-en-us-amy-low
+local-ai models install piper-streaming-assistant
+```
+
+These presets install pipeline configurations only. They do not install missing
+components. Both enable LLM streaming, TTS streaming, and `clause_chunking: true`.
+Sherpa streams audio within each clause. Piper emits one audio result per clause.
+Each clause starts a separate synthesis, which can introduce pauses between clauses.
+The single-speaker models need no voice override or reference audio.
+
+Select the installed preset on the Talk page or use its name as the Realtime API
+model. WebSocket and WebRTC share the pipeline; WebRTC also needs the `opus`
+backend from the Backends page. Config installation and discovery checks do not
+establish speech quality, browser latency, or hardware throughput.
+
 ### Streaming the pipeline
 
 By default each stage runs to completion before the next begins: the whole utterance is transcribed, the full LLM reply is generated, then it is synthesized. Each stage can instead be streamed incrementally, which lowers the time-to-first-audio of a turn:
@@ -51,10 +115,11 @@ pipeline:
 
 - **streaming.tts**: emit a `response.output_audio.delta` per audio chunk the TTS backend produces (requires a backend that supports streaming synthesis), instead of one delta for the whole utterance. Falls back to a single unary delta otherwise.
 - **streaming.transcription**: stream `conversation.item.input_audio_transcription.delta` events as the transcript is produced (requires a transcription backend that supports streaming).
-- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. The full reply is buffered and synthesized once it is complete - streamed as audio chunks when `streaming.tts` is enabled (and the TTS backend supports it), otherwise as a single unary delta. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
-- **streaming.clause_chunking**: instead of buffering the whole reply before TTS, split it into speakable clauses and synthesize each as soon as it completes, lowering the time-to-first-audio. The splitter is script-aware: it uses Unicode sentence segmentation (so it handles CJK `。！？` with no whitespace), CJK clause punctuation (`，、；：`), and Thai/Lao spaces - it does **not** rely on whitespace sentence boundaries, so it works for languages such as Chinese, Japanese and Thai where the old per-sentence approach degraded to whole-message buffering. Requires `streaming.llm`; scripts that genuinely need a dictionary (e.g. Khmer, Burmese) simply stay buffered until a space or end-of-message. Off by default.
+- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. When TTS streaming is disabled, the full reply is synthesized once it is complete unless explicit clause chunking is enabled. Native incremental input or explicitly enabled clause buffering can produce audio before the reply finishes, as described below. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
+- **Incremental Qwen3-TTS input**: with a `qwen3-tts-cpp` TTS model, enabling both `streaming.llm` and `streaming.tts` forwards cleaned LLM text fragments into one persistent synthesis session. Audio can arrive before the LLM finishes. WebSocket and WebRTC use this path. It takes precedence over `clause_chunking`; other backends can opt into clause buffering as described below. Pending text is bounded and slow audio playback applies backpressure. Cancellation stops the session. A failed live utterance is not replayed through a fallback model. The initial native implementation supports a single batch slot and reference audio without `ref_text`; transcript-based ICL cloning is unavailable for live input. Incomplete words are buffered until a stable boundary; CJK, Kana and Hangul characters can commit without whitespace.
+- **streaming.clause_chunking**: instead of buffering the whole reply before TTS, split it into speakable clauses and synthesize each as soon as it completes, lowering the time-to-first-audio. The splitter is script-aware: it uses Unicode sentence segmentation (so it handles CJK `。！？` with no whitespace), CJK clause punctuation (`，、；：`), and Thai/Lao spaces - it does **not** rely on whitespace sentence boundaries, so it works for languages such as Chinese, Japanese and Thai where the old per-sentence approach degraded to whole-message buffering. Requires `streaming.llm`; scripts that genuinely need a dictionary (e.g. Khmer, Burmese) simply stay buffered until a space or end-of-message. Set `clause_chunking: true` to enable a bounded clause queue. Unset and false retain whole-reply synthesis for backends without native incremental text input. With `streaming.tts` enabled, Sherpa/VITS can stream audio within each clause; unary engines such as Piper produce one audio result per clause. With `streaming.tts` disabled, each clause uses unary synthesis. These engines start a separate synthesis for each clause, so they may pause at clause boundaries. Cancellation stops queued work; a streaming failure after audio has been emitted never replays that clause through unary synthesis.
 
-All streaming flags are off by default, so existing pipelines are unaffected.
+All streaming flags are off by default. Pipelines with streaming disabled remain unaffected.
 
 ### Model warm-up (cold start)
 
@@ -89,7 +154,47 @@ curl -X POST http://localhost:8080/backend/load \
 
 The endpoint is not realtime-specific - it pre-loads any model. See [Backend Monitor]({{%relref "operations/backend-monitor" %}}) for the full request/response reference (it is the inverse of `/backend/shutdown`).
 
+### Controlling response interruption
+
+By default, speech detected by either VAD mode interrupts the active response.
+Set `interrupt_response: false` to let the response finish while the user speaks:
+
+```json
+{
+  "type": "session.update",
+  "session": {
+    "type": "realtime",
+    "audio": {
+      "input": {
+        "turn_detection": {
+          "type": "server_vad",
+          "silence_duration_ms": 500,
+          "interrupt_response": false
+        }
+      }
+    }
+  }
+}
+```
+
+This option also applies to `semantic_vad`. Speech events and transcription
+continue. If a response is active when another turn commits, LocalAI retains
+that turn in conversation history but skips its automatic response. It does
+not queue a response for that turn. A later turn can generate a response once
+the active one finishes. To request a response manually, wait for both
+`response.done` and the overlapping turn's `conversation.item.added` event, then
+send `response.create`. Transcription can finish after the active response.
+Explicit `response.cancel` and client response creation keep their existing
+behavior. When replacing the turn-detection settings, omit `interrupt_response`
+or set it to `true` to enable interruption again.
+
 ### Turn detection
+
+For client-controlled turns, set `turn_detection` to `null` in `session.update`.
+After sending audio, send `input_audio_buffer.commit`, followed by `response.create`.
+If transcription is still running, the response waits for the committed user item before starting the LLM.
+A standalone `response.create` with no pending client commit starts without this wait.
+If the commit produces no user item (transcription error, empty transcript or a voice gate rejection), the server does not run the LLM. It sends `response.done` with status `failed` and an `input_not_committed` error, after the error event that describes the cause. If you cancel the response while it waits, you get `response.done` with status `cancelled`.
 
 Turn detection decides when the user has finished speaking and the pipeline should respond. Two modes are supported, matching the OpenAI session schema:
 
@@ -126,6 +231,116 @@ A client `session.update` still overrides `type` and `eagerness` per session.
 
 - `false` (default): the transcript accumulated from the live stream is used as-is - the model runs once per utterance and the LLM starts immediately at commit.
 - `true`: the committed audio is re-transcribed offline. If the batch decode also ends with the end-of-utterance token the turn proceeds (using the batch transcript); if it does **not**, the commit is cancelled and the session keeps listening - treating the streaming token as a false positive. Both transcripts are compared and logged, which makes this mode a useful diagnostic for how well the streaming and batch decodes align, at the cost of one extra decode per turn.
+
+### Live speaker and sound events (parakeet-cpp)
+
+When the `semantic_vad` transcription model is a parakeet-cpp model loaded with a `diarization_model` and/or `sound_model` companion (see [Audio to Text]({{% relref "audio-to-text" %}})), the realtime session also streams speaker and sound events while a turn is live, alongside the transcript deltas. Nothing needs to change on the client: unrecognized event types are ignored by standard OpenAI Realtime clients.
+
+The transcription model, with its companions:
+
+```yaml
+name: parakeet-realtime-scene
+backend: parakeet-cpp
+parameters:
+  model: realtime_eou_120m-v1-f16.gguf
+options:
+  - diarization_model:nemotron-3-diarization-q8_0.gguf
+  - sound_model:ced-tiny-q8_0.gguf
+```
+
+The realtime pipeline that uses it:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  vad: silero-vad-ggml
+  transcription: parakeet-realtime-scene
+  llm: qwen3-4b
+  tts: tts-1
+  turn_detection:
+    type: semantic_vad
+```
+
+Each closed speaker segment emits a `conversation.item.input_audio_transcription.segment` event under the turn's item id, with an empty `text` (the event exists to carry the speaker boundary, not a transcript - the transcript still comes from the ordinary delta/completed events):
+
+```json
+{
+  "type": "conversation.item.input_audio_transcription.segment",
+  "item_id": "item_abc",
+  "content_index": 0,
+  "speaker": "0",
+  "speaker_name": "Alice",
+  "start": 1.92,
+  "end": 4.10,
+  "text": ""
+}
+```
+
+`speaker_name` is the name of a voice registered through `/v1/voice/register`, and is present only when the model has a `speaker_model:` (or, for a parakeet-cpp bundle file, a `speaker_component:`) and the speaker was identified. A segment that closes before its speaker is identified has none, and later segments of the same speaker do. See [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription). The segments of the offline path below carry no `speaker_name`.
+
+Each sound event emits a `conversation.item.sound_detection` event with one tag and the detection window's `start`/`end`:
+
+```json
+{
+  "type": "conversation.item.sound_detection",
+  "item_id": "item_abc",
+  "content_index": 0,
+  "detections": [{"label": "Chicken, rooster", "score": 0.91, "index": 99}],
+  "start": 24.0,
+  "end": 30.0
+}
+```
+
+The `start`/`end` on both event types are seconds measured from the start of the current turn's own audio, not the session or the WebSocket connection - the same base the streamed transcript words use.
+
+The companion stream is opened fresh for each speech turn, alongside that turn's ASR live session, and closed when the turn commits: whatever it had not yet emitted is drained and sent at that point. Because the diarization model runs a brand new session every turn, its speaker indices are scoped to the turn too - `"speaker": "0"` in one turn and `"speaker": "0"` in the next are not guaranteed to be the same person, even within the same conversation.
+
+`score` is the peak score seen for that tag while the sound was live, not an average.
+
+**Limitation**: under `semantic_vad`, live transcription (and so this companion stream) only runs during speech turns - it does not see audio between turns. A sound that happens while nobody is speaking is not detected this way. If you need sound events independent of speech turns, use the pipeline's `sound_detection` model instead (see [Sound Classification]({{% relref "audio-classification" %}})), which classifies each VAD-committed utterance on its own. Use one or the other, not both, on the same session - they overlap in purpose and would emit sound detections twice.
+
+### Speaker and sound events with an offline model (Parakeet TDT v3)
+
+The live events above need a cache-aware streaming transcription model. An offline model such as Parakeet TDT 0.6B v3 (25 languages) runs under `server_vad` instead: each VAD-committed turn is transcribed as a whole. The gallery model `parakeet-cpp-realtime-scene-tdt` bundles it with Nemotron-3-Diarization and CED-Tiny, so one parakeet-cpp backend handles transcription, speakers and sounds. Point both `transcription` and `sound_detection` at it and turn on `diarization`:
+
+```yaml
+name: gpt-realtime-scene
+pipeline:
+  vad: silero-vad-ggml
+  transcription: parakeet-cpp-realtime-scene-tdt
+  sound_detection: parakeet-cpp-realtime-scene-tdt
+  diarization: true
+  llm: qwen3-4b
+  tts: tts-1
+```
+
+`pipeline.diarization` asks the transcription model for speaker labels on each committed turn and emits every labelled segment as a `conversation.item.input_audio_transcription.segment` event before the turn's `completed` event. Unlike the live path, these segments carry their `text`:
+
+```json
+{
+  "type": "conversation.item.input_audio_transcription.segment",
+  "item_id": "item_abc",
+  "content_index": 0,
+  "id": "seg_1",
+  "speaker": "1",
+  "start": 6.85,
+  "end": 10.82,
+  "text": "Well, I don't wish to see it any more, observed Phoebe, turning away her eyes."
+}
+```
+
+`sound_detection` classifies the same committed audio and emits one `conversation.item.sound_detection` event per turn (see [Sound Classification]({{% relref "audio-classification" %}})). As on the live path, times are relative to the turn's audio and speaker labels are only consistent within a turn. `pipeline.diarization` is off by default: it needs a transcription model that diarizes (parakeet-cpp with a `diarization_model` companion), and some other backends fail a diarization request they cannot serve.
+
+#### Choosing the sound model
+
+Both scene models ship with CED-Tiny, the cheapest to run all the time. `parakeet-cpp-realtime-scene-base` and `parakeet-cpp-realtime-scene-tdt-base` are the same pipelines with CED-Base (86M, the largest CED), which tags sounds more confidently. `parakeet-cpp-multilingual-diarization-speakers-sounds` loads the same TDT, Nemotron-3-Diarization and CED-Tiny trio plus the WeSpeaker encoder, and is meant for offline `/v1/audio/diarization` calls with `include_sounds=true` (see [Speaker Diarization]({{% relref "audio-diarization" %}}#sound-events)). Any CED GGUF from [`mudler/ced-gguf`](https://huggingface.co/mudler/ced-gguf) (tiny, mini, small, base) works as `sound_model`. Measured on CPU (Ryzen 9 9950X3D) over a 37 s clip with two speakers and a rooster, as a fraction of real time:
+
+| | CED-Tiny | CED-Base |
+|---|---|---|
+| Live scene stream (diarization `low` + sound), EOU path | 0.103 | 0.125 |
+| Sound detection per committed turn, TDT path | 0.005 | 0.031 |
+
+The EOU model's own ASR stream adds 0.016. Diarization dominates the live cost, so CED-Base keeps the live path about 7x faster than real time.
 
 ### Disabling thinking
 
@@ -435,6 +650,33 @@ pipeline:
         audio: /models/voices/bob.wav
 ```
 
+### One bundle for every stage
+
+A parakeet-cpp bundle can fill the speaker stage as well as the others, so one model serves
+`vad`, `transcription`, `sound_detection` and `voice_recognition`. The bundle config must
+list `speaker_recognition` in `known_usecases` (the gallery entries do), and the libparakeet.so
+must export `parakeet_capi_speaker_embed_pcm`:
+
+```yaml
+name: my-realtime
+pipeline:
+  vad: parakeet-cpp-bundle-small
+  transcription: parakeet-cpp-bundle-small
+  sound_detection: parakeet-cpp-bundle-small
+  llm: qwen
+  tts: kokoro
+  voice_recognition:
+    model: parakeet-cpp-bundle-small
+    mode: identify
+    threshold: 0.5               # WeSpeaker distance; see Voice Recognition
+```
+
+The bundle's encoder has the same weights as `voice-detect-wespeaker-resnet34`, so voices
+registered with that model are matched. Embedding an utterance uses the same engine lock as
+transcription, so it adds to the turn latency. Voices from a 192-dimension model (ECAPA-TDNN,
+for example) cannot be matched by a bundle; see
+[Voice Recognition]({{% relref "voice-recognition#a-parakeet-cpp-bundle-as-the-embedding-model" %}}).
+
 ### Identifying speakers without gating
 
 To recognize who is speaking and surface it to the client and the LLM without ever rejecting a turn, set `enforce: false` and add an `identity` block. The `identity` block works with or without the gate; when it is set, the speaker is resolved on every turn even if `when: first`.
@@ -488,7 +730,7 @@ pipeline:
 
 ### The `conversation.item.speaker` event
 
-When `identity.announce` is enabled, the server emits a `conversation.item.speaker` event after the user conversation item, naming the recognized speaker:
+When `identity.announce` is enabled, the server emits a `conversation.item.speaker` event after the user conversation item, naming the recognized speaker. In a transcription-only session there is no conversation item, so the server emits the event before the `conversation.item.input_audio_transcription.completed` event of the turn, with the same `item_id`:
 
 ```json
 {
@@ -506,3 +748,19 @@ This event is a LocalAI extension to the OpenAI Realtime API and is server-emitt
 
 - [Realtime voice assistant demo (Go)](https://github.com/localai-org/localai-realtime-demo): a minimal Go client for the Realtime (WebSocket) API with a full talk-back voice loop and an example tool call. Ships a `docker compose` setup that brings up a realtime-capable LocalAI for you.
 - [Realtime voice assistant example (Python)](https://github.com/mudler/LocalAI-examples/tree/main/realtime): thin-client architecture (Silero VAD on the client, heavy lifting on LocalAI), suited to running the client on a Raspberry Pi.
+
+## Talk in the web UI
+
+The **Talk** page of the web UI is a client for this API over WebRTC. Pick a pipeline model with the chip at the top, then press **Start session**. The microphone streams while the session runs. The server detects when you stop talking and answers on its own, and you can speak over a reply to interrupt it. The page has no push-to-talk or hands-free switch.
+
+The heading under the orb says what is happening: connecting, listening, thinking (also while a tool runs), speaking, or interrupted after you cut a reply off. The orb follows the real microphone level while it listens and the reply's audio while it speaks. These states have their own screen:
+
+- **Microphone blocked.** The browser did not give the page the microphone. Allow it in the address bar and press **Try again**.
+- **Connection lost.** The WebRTC link failed during a session. The transcript stays and **Reconnect** starts a new session.
+- **Something went wrong.** The server reported an error or the call could not be set up. The reason is shown, with a link to the traces.
+- **Talk needs a pipeline model.** No pipeline model exists yet. The page links to the model editor with the pipeline template and to the gallery.
+
+The transcript shows what you said, the replies and, in Manage mode, the tool calls and results. **Copy** puts it on the clipboard. It is not saved.
+
+The sliders button opens the session settings: the instructions, the voice, the transcription language, client-side MCP tools, Manage mode (admin, fixed once a session is open) and the parts of the selected pipeline. The gauge button, shown during a session, adds audio diagnostics (waveform, spectrum and WebRTC statistics).
+

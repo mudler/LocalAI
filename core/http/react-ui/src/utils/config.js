@@ -57,6 +57,11 @@ export const API_CONFIG = {
     p2pStats: '/api/p2p/stats',
     p2pToken: '/api/p2p/token',
 
+    // Chat history (server-side persistence, #9432)
+    conversations: '/api/conversations',
+    conversation: (id) => `/api/conversations/${encodeURIComponent(id)}`,
+    conversationsBulk: '/api/conversations/bulk',
+
     // Agent jobs
     agentTasks: '/api/agent/tasks',
     agentTask: (id) => `/api/agent/tasks/${id}`,
@@ -114,6 +119,7 @@ export const API_CONFIG = {
     tts: '/tts',
     video: '/video',
     threeDGenerations: '/3d/generations',
+    threeDAnimate: '/3d/animate',
     threeDRemesh: '/3d/remesh',
     backendMonitor: '/backend/monitor',
     backendShutdown: '/backend/shutdown',
@@ -126,6 +132,7 @@ export const API_CONFIG = {
     modelsImportUri: '/models/import-uri',
     modelsImport: '/models/import',
     vramEstimate: '/api/models/vram-estimate',
+    modelsStorage: '/api/models/storage',
     modelsJobStatus: (uid) => `/models/jobs/${uid}`,
     modelEditGet: (name) => `/api/models/edit/${encodeURIComponent(name)}`,
     modelEdit: (name) => `/models/edit/${name}`,
@@ -137,6 +144,12 @@ export const API_CONFIG = {
     version: '/version',
     system: '/system',
     corsProxy: '/api/cors-proxy',
+
+    // Failover chains
+    failoverChains: '/api/failover',
+    failoverChain: (name) => `/api/failover/${encodeURIComponent(name)}`,
+    failoverEvents: '/api/failover/events',
+    failoverPin: (name) => `/api/failover/${encodeURIComponent(name)}/pin`,
 
     // Nodes (distributed)
     nodes: '/api/nodes',

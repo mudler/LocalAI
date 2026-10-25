@@ -52,6 +52,26 @@ var _ = Describe("RouterDecideEndpoint", func() {
 		_ = os.RemoveAll(modelDir)
 	})
 
+	It("routes overlapping native decisions through the oracle factory", func() {
+		cfg := config.ModelConfig{Name: "native-router", Router: config.RouterConfig{Classifier: "decisions", ClassifierModel: "native", Policies: []config.RouterPolicy{{Label: "code", Description: "coding"}, {Label: "private", Description: "private data"}}, Candidates: []config.RouterCandidate{{Model: "small-model", Labels: []string{"code"}}, {Model: "big-model", Labels: []string{"code", "private"}}}}}
+		b, err := yaml.Marshal(cfg)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(modelDir, "native-router.yaml"), b, 0600)).To(Succeed())
+		writeBareModel(modelDir, "small-model")
+		writeBareModel(modelDir, "big-model")
+		flags := config.FLAG_DECISIONS
+		native := &config.ModelConfig{Name: "native", Backend: "vllm-cpp", KnownUsecases: &flags}
+		calls := 0
+		d := middleware.ClassifierDeps{Registry: router.NewRegistry(), ModelLookup: func(string) *config.ModelConfig { return native }, Decisions: func(name string) backend.DecisionRunner {
+			Expect(name).To(Equal("native"))
+			return oracleDecisionRunner{calls: &calls}
+		}}
+		rec, body := invokeDecide(loader, appConfig, d, `{"router":"native-router","input":"private coding task"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(body.Candidate).To(Equal("big-model"))
+		Expect(calls).To(Equal(1))
+	})
+
 	It("rejects requests with no router field", func() {
 		rec, _ := invokeDecide(loader, appConfig, deps(nil), `{"input":"hello"}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
@@ -245,4 +265,12 @@ func writeRouterNoFallbackCover(modelDir, name string) {
 func writeBareModel(modelDir, name string) {
 	body := "name: " + name + "\nbackend: mock-backend\n"
 	Expect(os.WriteFile(filepath.Join(modelDir, name+".yaml"), []byte(body), 0o644)).To(Succeed())
+}
+
+type oracleDecisionRunner struct{ calls *int }
+
+func (r oracleDecisionRunner) Decide(_ context.Context, req *schema.SystemOneRequest) (*schema.SystemOneResponse, error) {
+	*r.calls++
+	a, b := .8, .9
+	return &schema.SystemOneResponse{Answers: map[string]schema.SystemOneAnswer{"p0": {Type: "noul", Noul: &a}, "p1": {Type: "noul", Noul: &b}}}, nil
 }

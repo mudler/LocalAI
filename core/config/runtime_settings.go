@@ -20,8 +20,10 @@ type RuntimeSettings struct {
 	// Backend management
 	SingleBackend             *bool `json:"single_backend,omitempty"`              // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends         *int  `json:"max_active_backends,omitempty"`         // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	OfficialLibraries         *bool `json:"official_libraries,omitempty"`          // Read the shipped default library sources of add-ons, backends and models
 	AutoUpgradeBackends       *bool `json:"auto_upgrade_backends,omitempty"`       // Automatically upgrade backends when new versions are detected
-	PreferDevelopmentBackends *bool `json:"prefer_development_backends,omitempty"` // Prefer development backend versions by default in UI
+	AutoUpgradeAddons         *bool `json:"auto_upgrade_addons,omitempty"`         // Automatically upgrade installed add-ons when their library lists a newer version
+	PreferDevelopmentBackends *bool `json:"prefer_development_backends,omitempty"` // Display/download preference; installed alias resolver changes require restart
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
 	MemoryReclaimerEnabled   *bool    `json:"memory_reclaimer_enabled,omitempty"`   // Enable memory threshold monitoring
 	MemoryReclaimerThreshold *float64 `json:"memory_reclaimer_threshold,omitempty"` // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
@@ -33,16 +35,19 @@ type RuntimeSettings struct {
 	LRUEvictionRetryInterval *string `json:"lru_eviction_retry_interval,omitempty"` // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
 
 	// Performance settings
-	Threads                     *int    `json:"threads,omitempty"`
-	ContextSize                 *int    `json:"context_size,omitempty"`
-	ArtifactDownloadConcurrency *int    `json:"artifact_download_concurrency,omitempty"`
-	VRAMBudget                  *string `json:"vram_budget,omitempty"` // Cap VRAM for allocation ("80%" or "12GB"; "" = no cap)
-	F16                         *bool   `json:"f16,omitempty"`
-	Debug                       *bool   `json:"debug,omitempty"`
-	EnableTracing               *bool   `json:"enable_tracing,omitempty"`
-	TracingMaxItems             *int    `json:"tracing_max_items,omitempty"`
-	TracingMaxBodyBytes         *int    `json:"tracing_max_body_bytes,omitempty"` // Per-body cap in bytes; 0 disables the cap
-	EnableBackendLogging        *bool   `json:"enable_backend_logging,omitempty"`
+	Threads                     *int `json:"threads,omitempty"`
+	ContextSize                 *int `json:"context_size,omitempty"`
+	ArtifactDownloadConcurrency *int `json:"artifact_download_concurrency,omitempty"`
+
+	MaxConcurrentBackendOperations *int `json:"max_concurrent_backend_operations,omitempty"`
+
+	VRAMBudget           *string `json:"vram_budget,omitempty"` // Cap VRAM for allocation ("80%" or "12GB"; "" = no cap)
+	F16                  *bool   `json:"f16,omitempty"`
+	Debug                *bool   `json:"debug,omitempty"`
+	EnableTracing        *bool   `json:"enable_tracing,omitempty"`
+	TracingMaxItems      *int    `json:"tracing_max_items,omitempty"`
+	TracingMaxBodyBytes  *int    `json:"tracing_max_body_bytes,omitempty"` // Per-body cap in bytes; 0 disables the cap
+	EnableBackendLogging *bool   `json:"enable_backend_logging,omitempty"`
 
 	// Security/CORS settings
 	CORS             *bool   `json:"cors,omitempty"`

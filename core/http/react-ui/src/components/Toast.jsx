@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import Icon from './Icon'
 
 let toastId = 0
 
@@ -31,10 +32,10 @@ export function useToast() {
 }
 
 const iconMap = {
-  success: 'fa-circle-check',
-  error: 'fa-circle-exclamation',
-  warning: 'fa-triangle-exclamation',
-  info: 'fa-circle-info',
+  success: 'check-circle',
+  error: 'alert-circle',
+  warning: 'warning',
+  info: 'info',
 }
 
 const colorMap = {
@@ -69,7 +70,7 @@ function ToastItem({ toast, onRemove }) {
 
   return (
     <div ref={ref} className={`toast ${colorMap[toast.type] || 'toast-info'} ${toast.exiting ? 'toast-exit' : ''}`}>
-      <i className={`fas ${iconMap[toast.type] || 'fa-circle-info'}`} />
+      <Icon name={iconMap[toast.type] || 'info'} />
       <span>{toast.message}</span>
       {toast.link && (
         <a href={toast.link.href} className="toast-link">{toast.link.text}</a>
@@ -79,7 +80,7 @@ function ToastItem({ toast, onRemove }) {
         className="toast-close"
         aria-label={t('actions.close')}
       >
-        <i className="fas fa-xmark" />
+        <Icon name="close" />
       </button>
     </div>
   )

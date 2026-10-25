@@ -23,47 +23,56 @@ type fakeClient struct {
 	calls []fakeCall
 
 	// Per-method overrides. Tests set these.
-	gallerySearch       func(GallerySearchQuery) ([]gallery.Metadata, error)
-	listInstalledModels func(Capability) ([]InstalledModel, error)
-	listGalleries       func() ([]config.Gallery, error)
-	getJobStatus        func(string) (*JobStatus, error)
-	getModelConfig      func(string) (*ModelConfigView, error)
-	installModel        func(InstallModelRequest) (string, error)
-	importModelURI      func(ImportModelURIRequest) (*ImportModelURIResponse, error)
-	deleteModel         func(string) error
-	editModelConfig     func(string, map[string]any) error
-	setAlias            func(string, string) error
-	listAliases         func() ([]AliasInfo, error)
-	reloadModels        func() error
-	loadModel           func(string) ([]string, error)
-	listBackends        func() ([]Backend, error)
-	listKnownBackends   func() ([]schema.KnownBackend, error)
-	installBackend      func(InstallBackendRequest) (string, error)
-	upgradeBackend      func(string) (string, error)
-	systemInfo          func() (*SystemInfo, error)
-	listNodes           func() ([]Node, error)
-	listScheduling      func() ([]ModelSchedulingConfig, error)
-	getScheduling       func(string) (*ModelSchedulingConfig, error)
-	setScheduling       func(SetSchedulingRequest) (*ModelSchedulingConfig, error)
-	deleteScheduling    func(string) error
-	setNodeVRAMBudget   func(string, string) error
-	vramEstimate        func(VRAMEstimateRequest) (*vram.EstimateResult, error)
-	toggleModelState    func(string, modeladmin.Action) error
-	toggleModelPinned   func(string, modeladmin.Action) error
-	getBranding         func() (*Branding, error)
-	setBranding         func(SetBrandingRequest) (*Branding, error)
-	listVoiceProfiles   func() ([]VoiceProfile, error)
-	createVoiceProfile  func(CreateVoiceProfileRequest) (*VoiceProfile, error)
-	deleteVoiceProfile  func(string) error
-	getUsageStats       func(UsageStatsQuery) (*UsageStats, error)
-	getPIIEvents        func(PIIEventsQuery) ([]PIIEvent, error)
-	getMiddlewareStatus func() (*MiddlewareStatus, error)
-	getRouterDecisions  func(RouterDecisionsQuery) ([]RouterDecision, error)
+	gallerySearch         func(GallerySearchQuery) ([]gallery.Metadata, error)
+	listInstalledModels   func(Capability) ([]InstalledModel, error)
+	listGalleries         func() ([]config.Gallery, error)
+	getJobStatus          func(string) (*JobStatus, error)
+	getModelConfig        func(string) (*ModelConfigView, error)
+	installModel          func(InstallModelRequest) (string, error)
+	importModelURI        func(ImportModelURIRequest) (*ImportModelURIResponse, error)
+	deleteModel           func(string) error
+	editModelConfig       func(string, map[string]any) error
+	setAlias              func(string, string) error
+	listAliases           func() ([]AliasInfo, error)
+	reloadModels          func() error
+	loadModel             func(string) ([]string, error)
+	listBackends          func() ([]Backend, error)
+	listKnownBackends     func() ([]schema.KnownBackend, error)
+	installBackend        func(InstallBackendRequest) (string, error)
+	installLibraryBackend func(InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error)
+	upgradeBackend        func(string) (string, error)
+	systemInfo            func() (*SystemInfo, error)
+	listNodes             func() ([]Node, error)
+	listScheduling        func() ([]ModelSchedulingConfig, error)
+	getScheduling         func(string) (*ModelSchedulingConfig, error)
+	setScheduling         func(SetSchedulingRequest) (*ModelSchedulingConfig, error)
+	deleteScheduling      func(string) error
+	setNodeVRAMBudget     func(string, string) error
+	vramEstimate          func(VRAMEstimateRequest) (*vram.EstimateResult, error)
+	toggleModelState      func(string, modeladmin.Action) error
+	toggleModelPinned     func(string, modeladmin.Action) error
+	getBranding           func() (*Branding, error)
+	setBranding           func(SetBrandingRequest) (*Branding, error)
+	listVoiceProfiles     func() ([]VoiceProfile, error)
+	createVoiceProfile    func(CreateVoiceProfileRequest) (*VoiceProfile, error)
+	deleteVoiceProfile    func(string) error
+	getUsageStats         func(UsageStatsQuery) (*UsageStats, error)
+	getPIIEvents          func(PIIEventsQuery) ([]PIIEvent, error)
+	getMiddlewareStatus   func() (*MiddlewareStatus, error)
+	getRouterDecisions    func(RouterDecisionsQuery) ([]RouterDecision, error)
+	listFailoverChains    func() ([]FailoverChainInfo, error)
+	pinFailoverTarget     func(string, string) error
+	unpinFailoverTarget   func(string) error
 }
 
 type fakeCall struct {
 	method string
 	args   any
+}
+
+func (f *fakeClient) CancelModelLoad(_ context.Context, model, jobID string) (LoadCancelResult, error) {
+	f.record("CancelModelLoad", []string{model, jobID})
+	return LoadCancelResult{Model: model, JobID: jobID, State: "stopping"}, nil
 }
 
 func (f *fakeClient) record(method string, args any) {
@@ -208,6 +217,19 @@ func (f *fakeClient) InstallBackend(_ context.Context, req InstallBackendRequest
 		return f.installBackend(req)
 	}
 	return "", errNotConfigured
+}
+
+func (f *fakeClient) ListBackendLibraryUpdates(_ context.Context) ([]BackendLibraryUpdate, error) {
+	f.record("ListBackendLibraryUpdates", nil)
+	return []BackendLibraryUpdate{}, nil
+}
+
+func (f *fakeClient) InstallLibraryBackend(_ context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error) {
+	f.record("InstallLibraryBackend", req)
+	if f.installLibraryBackend != nil {
+		return f.installLibraryBackend(req)
+	}
+	return nil, errNotConfigured
 }
 
 func (f *fakeClient) UpgradeBackend(_ context.Context, name string) (string, error) {
@@ -392,4 +414,28 @@ func (f *fakeClient) SeedRouterCorpus(_ context.Context, req RouterCorpusSeedReq
 func (f *fakeClient) ClearRouterCorpus(_ context.Context, routerModel string) (*RouterCorpusClearResult, error) {
 	f.record("ClearRouterCorpus", routerModel)
 	return &RouterCorpusClearResult{Router: routerModel}, nil
+}
+
+func (f *fakeClient) ListFailoverChains(_ context.Context) ([]FailoverChainInfo, error) {
+	f.record("ListFailoverChains", nil)
+	if f.listFailoverChains != nil {
+		return f.listFailoverChains()
+	}
+	return []FailoverChainInfo{}, nil
+}
+
+func (f *fakeClient) PinFailoverTarget(_ context.Context, chain, target string) error {
+	f.record("PinFailoverTarget", []any{chain, target})
+	if f.pinFailoverTarget != nil {
+		return f.pinFailoverTarget(chain, target)
+	}
+	return nil
+}
+
+func (f *fakeClient) UnpinFailoverTarget(_ context.Context, chain string) error {
+	f.record("UnpinFailoverTarget", chain)
+	if f.unpinFailoverTarget != nil {
+		return f.unpinFailoverTarget(chain)
+	}
+	return nil
 }

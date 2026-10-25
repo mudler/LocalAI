@@ -8,6 +8,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_installed_models` — List models currently installed on this LocalAI. Optional `capability` filter (e.g. `chat`, `embed`, `image`).
 - `list_galleries` — List configured model galleries.
 - `list_backends` — List installed backends.
+- `list_backend_library_updates` — List installed library backends that have a newer build in their library. Read-only. To take one, confirm, then call `install_library_backend` with the listed `sourceId`, `name` and `version`.
 - `list_known_backends` — List backends available to install from configured backend galleries.
 - `get_job_status` — Poll the status of an install/delete/upgrade job by id.
 - `get_model_config` — Read the YAML/JSON config of an installed model.
@@ -24,16 +25,19 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `get_router_decisions` — Inspect recent router decisions and classifier signals.
 - `get_router_corpus_stats` — Inspect a KNN router corpus by count and label only; exemplar texts are never returned.
 - `list_aliases` — List configured model aliases and their targets.
+- `list_failover_chains` — List failover chains, their active target and target health.
 
 ## Mutating (require user confirmation per safety rule 1)
 
 - `install_model` — Install a model from a gallery. Returns a job id; poll with `get_job_status`.
 - `import_model_uri` — Install a model from an arbitrary URI (HuggingFace, OCI, http(s), file://). May return `ambiguous_backend` when several backends apply; call again with `backend_preference` to disambiguate.
 - `delete_model` — Delete an installed model.
-- `install_backend` — Install a backend.
-- `upgrade_backend` — Upgrade an installed backend by name.
+- `install_backend` — Install a backend. Fails with "backend installation is disabled" on servers that manage backends outside LocalAI; report that rather than retrying.
+- `install_library_backend` — Install a backend from an add-on library entry by `source_id`, `name` and `version`. The call returns when the install is done, with no job id. The backend gallery is not changed.
+- `upgrade_backend` — Upgrade an installed backend by name. Same refusal as `install_backend` on such servers.
 - `edit_model_config` — Patch (deep-merge) JSON into an installed model's config.
 - `reload_models` — Reload all model configs from disk.
+- `cancel_model_load` — Cancel one distributed load by the exact job_id from load-status. `stopping` means pending, not proof the work stopped.
 - `load_model` — Pre-load a model into memory so the first request pays no cold-start cost. For a realtime pipeline model, every sub-model (VAD, transcription, LLM, TTS, sound_detection, voice_recognition) is loaded. Inverse of stopping a model.
 - `toggle_model_state` — Enable or disable a model (`action`: `enable` or `disable`).
 - `toggle_model_pinned` — Pin or unpin a model (`action`: `pin` or `unpin`).
@@ -46,3 +50,5 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `set_node_vram_budget` — Set or clear a federated node's VRAM budget override.
 - `set_scheduling` — Create or update a distributed per-model scheduling config.
 - `delete_scheduling` — Remove a distributed per-model scheduling config.
+- `pin_failover_target` — Force a failover chain to one target.
+- `unpin_failover_target` — Remove a failover pin.

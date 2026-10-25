@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"encoding/json"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
@@ -62,6 +64,22 @@ var _ = Describe("router_factories lazy config resolution", func() {
 		Expect(os.Remove(filepath.Join(tmpDir, name+".yaml"))).To(Succeed())
 	}
 
+	Context("DecisionRunner", func() {
+		It("constructs lazily and observes subsequent model removal", func() {
+			runner := app.DecisionRunner("dec-test")
+			Expect(runner).NotTo(BeNil())
+			req := &schema.SystemOneRequest{State: json.RawMessage(`"text"`), Questions: map[string]schema.SystemOneQuestion{"q": {Type: "noul"}}}
+			_, err := runner.Decide(context.Background(), req)
+			Expect(err).To(MatchError(ContainSubstring("no longer available")))
+			writeCfg("dec-test", "vllm-cpp")
+			_, err = runner.Decide(context.Background(), req)
+			Expect(err).To(MatchError(ContainSubstring("explicitly declare")))
+			removeCfg("dec-test")
+			_, err = runner.Decide(context.Background(), req)
+			Expect(err).To(MatchError(ContainSubstring("no longer available")))
+		})
+	})
+
 	Context("Embedder", func() {
 		It("returns nil at construction for an unknown model", func() {
 			Expect(app.Embedder("missing")).To(BeNil())
@@ -117,6 +135,27 @@ var _ = Describe("router_factories lazy config resolution", func() {
 			updated, err := app.EmbedderFingerprint("emb-test")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updated).NotTo(Equal(replaced))
+		})
+
+		It("stays stable when a chat request persists probed reasoning slots", func() {
+			// A chat completion sent to an embedding model whose config sets
+			// use_tokenizer_template runs the thinking probe, and
+			// persistProbedReasoning writes the probed reasoning slots back into
+			// the shared config. Reasoning never changes the embedding space, so
+			// the fingerprint must not move — otherwise every knn router built
+			// on this embedder fails with ErrLiveEmbeddingMismatch until restart.
+			writeCfg("emb-probe", "llama-cpp")
+			before, err := app.EmbedderFingerprint("emb-probe")
+			Expect(err).NotTo(HaveOccurred())
+
+			disable, prefill := true, false
+			app.backendLoader.UpdateModelConfig("emb-probe", func(c *config.ModelConfig) {
+				c.ReasoningConfig.DisableReasoning = &disable
+				c.ReasoningConfig.DisableReasoningTagPrefill = &prefill
+			})
+			after, err := app.EmbedderFingerprint("emb-probe")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(after).To(Equal(before))
 		})
 
 		It("rejects an unknown model", func() {

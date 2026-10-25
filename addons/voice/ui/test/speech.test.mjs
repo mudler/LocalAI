@@ -1,0 +1,66 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
+import { dirname, join, resolve } from 'node:path'
+import { load } from './render.test.mjs'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const require = createRequire(join(resolve(here, '../../../../core/http/react-ui'), 'package.json'))
+const React = require('react')
+const { renderToString } = require('react-dom/server')
+
+test('speech: the first paint shows the title and the text box', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'speech' }))
+  assert.match(html, /data-testid="voice-speech"/)
+  assert.match(html, /<textarea/)
+})
+
+test('speech: the request is POST /v1/audio/speech with the model, the text and the chosen voice', async () => {
+  const { buildSpeechRequest } = await import('../src/speechRequest.js')
+  assert.deepEqual(buildSpeechRequest({ model: 'piper', text: ' hello ', voice: 'amy', instructions: ' calm ' }), {
+    model: 'piper', input: 'hello', voice: 'amy', instructions: 'calm',
+  })
+  assert.deepEqual(buildSpeechRequest({ model: 'piper', text: 'hi', voice: '', instructions: '' }), { model: 'piper', input: 'hi' })
+})
+
+test('speech: nothing is sent without text or without a model', async () => {
+  const { buildSpeechRequest } = await import('../src/speechRequest.js')
+  assert.equal(buildSpeechRequest({ model: '', text: 'x' }), null)
+  assert.equal(buildSpeechRequest({ model: 'm', text: '   ' }), null)
+})
+
+test('speech: a failed answer surfaces the API message', async () => {
+  const { speak } = await import('../src/speechRequest.js')
+  const core = { fetch: async () => ({ ok: false, status: 403, json: async () => ({ error: { message: 'feature not enabled for your account' } }), blob: async () => null }) }
+  await assert.rejects(() => speak(core, { model: 'm', input: 'x' }), /feature not enabled for your account/)
+})
+
+test('speech: the tab draws the one Voice title, a styled form and no second title', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'speech' }))
+  assert.deepEqual([...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1]), ['Voices'])
+  assert.doesNotMatch(html, /Speak text/)
+  assert.match(html, /<form class="vc-speech__form dk-card"/)
+  assert.match(html, /placeholder="Optional speaker or voice ID"/)
+})
+
+test('library: the tab keeps the one Voice title and shows no count in it', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))
+  assert.deepEqual([...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1]), ['Voices'])
+  // While the list loads, or when it is empty, the empty state carries the one add button.
+  assert.doesNotMatch(html, /data-testid="voice-library-new"/)
+})
+
+test('off notice: a viewer without the feature gets the page title and a section heading, one h1', async () => {
+  const { mod, sdk } = await load({ viewer: { isAdmin: () => false, hasFeature: (f) => f !== 'voice_recognition' } })
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recognition' }))
+  assert.deepEqual([...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map(m => m[1]), ['Voices'])
+  assert.match(html, /<h2 class="idn-h2">/)
+})

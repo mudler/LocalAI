@@ -163,6 +163,10 @@ func (c *fakeBackendClient) GenerateVideo(_ context.Context, _ *pb.GenerateVideo
 func (c *fakeBackendClient) Generate3D(_ context.Context, _ *pb.Generate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
+
+func (c *fakeBackendClient) Animate3D(_ context.Context, _ *pb.Animate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) TTS(_ context.Context, _ *pb.TTSRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
@@ -179,6 +183,9 @@ func (c *fakeBackendClient) SoundDetection(_ context.Context, _ *pb.SoundDetecti
 	return nil, nil
 }
 func (c *fakeBackendClient) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
+	return nil, nil
+}
+func (c *fakeBackendClient) Forecast(_ context.Context, _ *pb.ForecastRequest, _ ...ggrpc.CallOption) (*pb.ForecastResponse, error) {
 	return nil, nil
 }
 func (c *fakeBackendClient) FaceVerify(_ context.Context, _ *pb.FaceVerifyRequest, _ ...ggrpc.CallOption) (*pb.FaceVerifyResponse, error) {
@@ -229,6 +236,9 @@ func (c *fakeBackendClient) Rerank(_ context.Context, _ *pb.RerankRequest, _ ...
 func (c *fakeBackendClient) GetTokenMetrics(_ context.Context, _ *pb.MetricsRequest, _ ...ggrpc.CallOption) (*pb.MetricsResponse, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) SlotCache(_ context.Context, _ *pb.SlotCacheRequest, _ ...ggrpc.CallOption) (*pb.SlotCacheResponse, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) VAD(_ context.Context, _ *pb.VADRequest, _ ...ggrpc.CallOption) (*pb.VADResponse, error) {
 	return nil, nil
 }
@@ -253,6 +263,10 @@ func (c *fakeBackendClient) AudioToAudioStream(_ context.Context, _ ...ggrpc.Cal
 func (c *fakeBackendClient) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) MotionStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.MotionStreamClient, error) {
+	return nil, fmt.Errorf("motion streaming not implemented by health fake")
+}
+
 func (c *fakeBackendClient) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {
 	return nil, nil
 }
@@ -315,7 +329,7 @@ func (f *fakeBackendClientFactory) setClient(address string, c *fakeBackendClien
 	f.clients[address] = c
 }
 
-func (f *fakeBackendClientFactory) NewClient(address string, _ bool) grpc.Backend {
+func (f *fakeBackendClientFactory) NewClient(_, address string, _ bool) grpc.Backend {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if c, ok := f.clients[address]; ok {

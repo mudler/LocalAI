@@ -78,7 +78,18 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
+| `--model-config-resync-interval` | `LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL` | `30s` | How often each frontend compares its model configs with the shared models directory, to apply a change whose NATS message it missed. A frontend that missed a message serves the old config for at most this long. See [Model configs across frontends](#model-configs-across-frontends). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
+
+### Add-ons
+
+Every `local-ai run` process is its own add-on owner by default. With several
+frontend replicas, run the owner as one separate workload with its own volume, and
+start the frontends with `--addons-role=frontend`, so they forward add-on requests
+to it and hold no add-on state. The library sources and the backend library
+installs also go through the owner: a frontend follows the owner's sources and
+installs backends on its own node. See
+[Running the owner as its own workload]({{% relref "features/addons#running-the-owner-as-its-own-workload" %}}).
 
 ### The model load deadline scales with the checkpoint
 
@@ -124,6 +135,11 @@ So the load does **not** run on the request. The first request for an unloaded m
 - It never starts a duplicate load and never blocks on the database lock. (Before this split, concurrent requests blocked on `pg_advisory_lock` for the whole load and were killed by the PostgreSQL role's `statement_timeout` — `SQLSTATE 57014` — so from the operator's seat the model simply never loaded.)
 - If the load fails, the waiter gets the *real* cause (`worker out of disk`), not an anonymous timeout.
 - If the client disconnects, the load keeps going. It belongs to the job record, not to the request.
+- The owner of a job holds a 30 second lease, which it renews on every heartbeat. The database clock decides whether a lease has expired, so a frontend with a wrong clock cannot expire a live lease or keep a dead one. If an owner cannot renew for a whole lease, it stops its own load.
+- If an owner dies, its job is marked failed once the lease runs out, with or without a new request. A request that arrives then reads the cause. The model is held for a 2.5 minute stop window, because remote work may still run. After that the next request starts a new attempt. No manual cleanup is needed.
+- A failure that is known to have ended the remote work (an error from the backend, or a failure before a node was chosen) is kept for 15 seconds only, so every waiter reads the same cause and the next request can retry.
+- Each attempt has its own generation. If a job is replaced, the old owner notices at its next heartbeat and stops its load. Its late writes to the job and to the replica table are rejected.
+- If the job table cannot be read, a cold load fails instead of running without a job. Models that are already loaded keep serving, because routing to a loaded replica does not read the job table.
 
 When the wait budget (`LOCALAI_MODEL_LOAD_WAIT`, default `60s`) runs out, the request is answered with `503`, a `Retry-After` header, and a body that says exactly where the load is:
 
@@ -153,8 +169,53 @@ The `error` envelope keeps OpenAI clients working unchanged; `loading` is additi
 The chat UI renders this state inline and retries automatically once the model reports ready. Poll `GET /api/models/{id}/load-status` for the same `loading` object at any time.
 
 {{% notice note %}}
-A frontend replica that dies mid-load does not wedge the model: the job row carries a heartbeat and another replica reclaims a job whose heartbeat has stopped. The heartbeat is time-based, not byte-based, because a checkpoint load legitimately transfers zero bytes for many minutes.
+A frontend replica that dies mid-load does not wedge the model: the job row carries a lease, and a job whose lease ran out is failed and then released. The lease is renewed on a timer, not on byte progress, because a checkpoint load legitimately transfers zero bytes for many minutes.
 {{% /notice %}}
+
+#### The worker bounds the work it runs
+
+The frontend owns the job row, but the real work runs in a backend process on a worker. The worker therefore watches each load too. A load is an **operation** named by the job's generation:
+
+- The install request carries the operation id and the longest the load may run, as a duration, so a worker clock that is wrong changes nothing. The backend starts in its own process group.
+- The frontend renews the operation every few seconds and completes it when the load finishes. The worker kills the whole process group when no renewal arrives for 90 seconds, or when the deadline passes. A backend that already reports `READY` is never killed: a lost completion message must not destroy a model that serves.
+- A stop names the operation, the process key and, when known, the address and process instance. The worker refuses unless they all match its own records. There is no fallback to "any running backend". A stop for a load that already finished leaves the serving model alone.
+- A worker that is killed cannot stop its backends. It records each backend's process group in a small file under its data directory, and the next worker kills every group listed there before it serves (Linux; the start time of the leader guards against a recycled pid). A new incarnation, reported on the next heartbeat, then confirms the failed loads on that node. The worker also skips a gRPC port that something already listens on, and a readiness answer only counts while the worker's own backend process is alive.
+- If the worker answers a renewal with "unknown operation" three times in a row, the frontend fails the load at once instead of waiting for the load budget. The worker lost the operation, so the work is gone.
+
+When a load fails after remote work may have started (a timeout, a cancel, a lost lease), the owner stops the operation immediately. An acknowledged stop shortens the hold to the 15 second report window. A silent worker keeps the hold at the stop window (2.5 minutes), and the reconciler retries the stop on every pass until the worker answers or the window ends. Nothing needs manual cleanup.
+
+| Setting | Value | Meaning |
+|---------|-------|---------|
+| Lease TTL | 30 s | How long a job's lease lasts after each renewal |
+| Worker kill TTL | 90 s | No renewal for this long: the worker kills the operation |
+| Stop window | 150 s | How long a failed load holds the model if the worker never confirms |
+| Report window | 15 s | How long a failure with confirmed-ended work is kept |
+
+A model held by a failed job answers `503` with `Retry-After` set to the seconds until the hold ends, and the real cause in the body.
+
+#### Cancelling a load
+
+`POST /api/models/{id}/load-cancel` (admin only) cancels one load attempt. The body names the exact attempt, as `GET /api/models/{id}/load-status` reports it:
+
+```json
+{"job_id": "0b6e4a3c-5c1d-4d52-8f0a-0f3c9e0b8f11"}
+```
+
+| Status | Meaning |
+|--------|---------|
+| `200` | `state: stopped` (the worker confirmed) or `state: gone` (no such load any more) |
+| `202` | `state: stopping`. The cancel is recorded and the stop is pending. The model is released after `retry_after` seconds regardless. |
+| `400` | The body is not `{"job_id": "..."}` |
+| `404` | Unknown model, or the server is not distributed |
+| `409` | A different attempt is current. The body carries its `current_job_id`. |
+
+The call is idempotent. A repeat retries the stop and never extends the hold. A load that has not been placed on a node yet can be cancelled too. Unloading a model on a node, draining a node, and removing a node all cancel the loads placed there through the same stop path, and an unload still unloads the loaded replicas. The replica rows of a cancelled attempt are removed as soon as the worker confirms the stop. The `cancel_model_load` tool of the assistant calls the same service.
+
+`load-status` also reports `job_id`, `lease_expires_in`, `cancel_requested`, `last_error`, `stopping`, `stop_deadline` and `retry_after`. A database error is a `503`, never an empty answer.
+
+#### Rolling upgrades
+
+Upgrade the frontends first. A worker that predates operations ignores the new request fields and does not report `reports_operations`. The frontend then treats the node as legacy: it cannot confirm a stop, so a failed load holds the model for the 45 minute load deadline, as it did before leases existed, and never longer. For such a node the stop, including a cancel, is sent by exact process address, never by model name. If the address is not known, no stop is claimed, and the model is held for the 45 minutes. A new worker that gets an install from an older frontend tracks it as an anonymous operation: it kills it at its deadline only, never for missing renewals.
 
 ### NATS JWT authentication (recommended for production)
 
@@ -223,6 +284,19 @@ If every node (frontend and workers) mounts the **same** models directory at the
 Set `LOCALAI_DISTRIBUTED_SHARED_MODELS=true` (or `--distributed-shared-models`) on the frontend to skip staging entirely. The router then leaves the model's absolute paths untouched and the worker loads them directly from the shared volume.
 
 This flag is a contract you assert: all nodes must mount identical paths. Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
+
+### Which files are staged
+
+The frontend stages the files that the model config names (`parameters.model`, `mmproj`, draft model, LoRA adapters and similar fields). It also stages every other file that the model declares:
+
+- The `files:` of the gallery entry or `/import-model` import that installed the model. LocalAI records these in `._gallery_<name>.yaml` next to the model config.
+- The `download_files:` of the model config.
+
+A backend can read files that the config does not name. For example, llama.cpp opens all shards of a split GGUF (`<name>-00002-of-00004.gguf` and the rest) from the directory of the first shard. The worker cannot see the frontend's models directory, so it gets only the files that the frontend stages.
+
+If you write a model config by hand and the model has files like these, list them under `download_files:`. If you do not, the worker gets only the first shard and the load fails with `failed to load GGUF split`.
+
+The file sizes used for the load deadline and for the disk headroom check include all of these files.
 
 ### Model artifact staging
 
@@ -322,6 +396,22 @@ local-ai worker \
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /notice %}}
 
+### Disabling backend installation on workers
+
+A worker installs a backend the first time the frontend schedules a model
+that needs it. On workers that must run only pre-installed or system-path
+backends, set `LOCALAI_DISABLE_BACKEND_INSTALL=1` on the worker: it then
+refuses frontend install and upgrade requests for backends it does not have,
+and a model that needs a missing backend fails to load on that node with a
+clear error instead of pulling an image. Set the same variable on the
+frontend so its own install and upgrade endpoints refuse as well — each
+process enforces the switch for the backends it owns. Model installs on the
+frontend are judged against the workers' backends, so a model whose backend
+is installed on any healthy worker, under its own name or an alias, is still
+accepted; a worker marked unhealthy does not count until its heartbeat
+returns. See
+[Disabling backend installation]({{% relref "features/backends#disabling-backend-installation" %}}).
+
 ### Ephemeral request-input storage
 
 Workers reserve local capacity before accepting per-request audio, image, and other ephemeral inputs. The limit covers both direct HTTP staging and the worker's S3 download cache. A request is rejected before inference when accepting its input would exceed the byte limit or the configured free-space headroom. One request-scoped cleanup operation releases all exact input keys and their reservations after inference, while a one-hour recovery sweep removes abandoned files after crashes. The sweep runs at startup and every 15 minutes, preserves active requests, and considers the newest file in each request directory.
@@ -417,8 +507,12 @@ usage is reported back to the frontend:
   NVML library (and therefore `nvidia-smi`) is not available inside the
   container. CUDA compute still works, but the worker cannot query free VRAM
   and the Nodes page will show the node as fully used. Set
-  `NVIDIA_DRIVER_CAPABILITIES=compute,utility` (or, with the NVIDIA CDI
-  runtime, list `capabilities: [gpu, utility]` on the device reservation).
+  `NVIDIA_DRIVER_CAPABILITIES=compute,utility` when using the NVIDIA runtime.
+  For Docker Compose with `driver: nvidia`, use
+  `capabilities: [gpu, compute, utility]` on the device reservation.
+  Docker derives driver capabilities from this reservation, so include `compute`
+  for CUDA libraries such as `libcuda.so.1`. The `utility` capability alone
+  enables monitoring but does not provide CUDA libraries.
 
 - **Run the container with `init: true` (or `docker run --init`).** The
   worker process becomes PID 1 in the container and cannot reap zombies on
@@ -433,6 +527,33 @@ required) and reports system-RAM figures as VRAM. Free VRAM therefore tracks
 from VRAM on every registration and heartbeat. On unified-memory nodes, the
 available RAM and available VRAM values should therefore track each other
 closely; on discrete-GPU nodes they can change independently.
+
+### CPU telemetry
+
+Backend workers report host-wide CPU telemetry in `GET /api/nodes` and
+`GET /api/nodes/:id`:
+
+| Field | Meaning |
+|-------|---------|
+| `cpu_logical_cores` | Logical processor count, sampled at registration |
+| `cpu_usage_percent` | Utilization across the whole host, clamped to `0..100` |
+| `cpu_load_1` | One-minute system load average |
+
+Utilization and load are sampled at registration and again at each worker
+heartbeat (every 10 seconds by default). The frontend persists heartbeat
+samples on the normal heartbeat checkpoint cadence; CPU movement alone does
+not force an extra database write. If a sample fails, the worker omits all CPU
+fields and the frontend keeps the last successful reading.
+
+Workers from releases that predate CPU reporting remain compatible. Their
+`cpu_logical_cores` value is zero, which means unknown rather than a zero-core
+machine. Fleet capacity excludes those workers from CPU totals and reports
+them as unknown. The dashboard derives available CPU as idle logical-core
+equivalents:
+
+```
+idle cores = cpu_logical_cores * (1 - cpu_usage_percent / 100)
+```
 
 ### Node Labels
 
@@ -462,6 +583,20 @@ Workers can run **multiple models concurrently** - each model gets its own gRPC 
 
 When the SmartRouter needs to free capacity, it can unload models with zero in-flight requests without affecting other models on the same worker.
 
+### Managing nodes in the WebUI
+
+With distributed mode on, **Operate → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws these pages.
+
+**Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page sends the upgrade to the nodes that differ from the rest of the cluster, or to the nodes you selected.
+
+The **Running models** view groups replicas by model. Its **View logs…** action opens logs directly when there is one placement. When a model has several, it opens the row so you can choose the logs of one replica.
+
+**Add a node** (`/app/nodes/add`) explains how a machine joins: a registered worker, a peer instance, or a memory shard. It prints the command to run on the new machine with a **Copy** button, and updates the page when the machine appears. On a single-node install it starts with the command that turns distributed mode on.
+
+Open a node for node-scoped work. The page shows its state, VRAM, RAM, models disk, CPU and in-flight requests, and has tabs for **Models** (replica logs, unload), **Backends** (upgrade, delete), **Logs**, and **Capacity and labels** (replica capacity, labels). **Drain…** shows what the drain would change before it does anything; **Remove…** asks for the node's name. A node that stopped answering says so and shows the last figures it reported.
+
+The "what happens if I drain this node" list is a preview worked out in the browser from the node list, the loaded replicas and the placement rules. The server does not compute it, and the scheduler also weighs free memory and disk when it loads a model, so the preview never claims a model will fit.
+
 ## Node Management API
 
 The API is split into two prefixes with distinct auth:
@@ -487,18 +622,24 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `GET` | `/api/nodes` | List all registered workers |
 | `GET` | `/api/nodes/:id` | Get a single worker by ID |
 | `GET` | `/api/nodes/:id/models` | List models loaded on a worker |
+| `GET` | `/api/nodes/models` | List loaded model replicas on healthy workers |
 | `DELETE` | `/api/nodes/:id` | Admin-delete a worker |
 | `POST` | `/api/nodes/:id/drain` | Admin-drain a worker |
 | `POST` | `/api/nodes/:id/approve` | Approve a pending worker node |
 | `POST` | `/api/nodes/:id/backends/install` | Install a backend on a worker |
 | `POST` | `/api/nodes/:id/backends/upgrade` | Upgrade (force-reinstall) a backend on a worker |
 | `POST` | `/api/nodes/:id/backends/delete` | Delete a backend from a worker |
-| `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker |
+| `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker. Cancels a load of that model on the worker first. |
+| `POST` | `/api/models/:id/load-cancel` | Cancel one load attempt (`{"job_id": "..."}`) |
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
 | `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
 | `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
 
-The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
+The **Nodes** page reads `GET /api/nodes` every five seconds and renders 50 workers at a time. Bulk drain, resume and remove run with bounded concurrency, so the page stays usable for fleets with thousands of registrations. Selecting the visible page or a group does not discard selections elsewhere; selections are removed only when a later poll confirms the worker no longer exists.
+
+The list never fetches backend inventory, and the **Running models** and **Map** views stay lazy: the first use of either makes one controller database request that is kept until the page is left. A node's backends are read only when its page opens.
+
+Use a model row's actions menu in **Running models** to stop that model across the fleet. LocalAI sends one controller shutdown request for the model, which stops all loaded placements; the browser does not contact workers individually. The view refreshes the running-model inventory after both successful and failed shutdown attempts because a failed request can still have stopped some replicas.
 
 ### Model sizing in the WebUI
 
@@ -536,6 +677,34 @@ which case every sizing surface falls back to the local host:
 Variant selection (`GET /api/models/variants/:id`) uses the same reading, and
 judges backend compatibility against the union of the capabilities present in
 the cluster, so a CUDA-only build is offered when any worker can run it.
+
+### Model configs across frontends
+
+Every frontend keeps its own in-memory copy of the model configs in the shared models directory. When a frontend installs, edits, toggles or deletes a model, it writes the change to the directory and publishes a message on NATS. The other frontends reload the directory when they receive it.
+
+A gallery install or delete publishes this message as soon as the new config is in place, before the frontend preloads model files. The preload can take minutes on a large models directory, and other frontends do not wait for it. If the preload fails, the operation reports the error, but the config change stays applied on every frontend.
+
+NATS keeps no history of these messages. A frontend that is disconnected when a message is published never receives it. To recover, each frontend also reloads the models directory:
+
+- every `--model-config-resync-interval` (default `30s`), when a config file changed since its last pass, and
+- after each NATS reconnect.
+
+The pass is the same reconcile that a NATS message triggers, so it is idempotent. Only models whose file changed get a new [configuration revision](#model-configuration-revisions). A pass over an unchanged directory reads the config files and does nothing else.
+
+Distributed-state mode: each frontend derives this state from the shared directory, so there is no leader and nothing to replicate. The only per-frontend memory is a hash of the config files from its last pass, which only saves work. The consequence is a bounded delay: a frontend that missed a message serves the previous config for at most one interval.
+
+Two limits apply:
+
+- Models loaded with `--config-file` exist only on the frontend that loaded them. A reload of the models directory keeps them, and a config-file model wins over a directory file with the same name, as it does at startup.
+- The reload is strict: if any config file in the directory does not parse, the frontend keeps its current configs and logs the error once. It retries on each pass until the file is fixed. This keeps a half-written file from looking like a deleted model.
+
+### GGUF header cache shared by file
+
+Frontends that mount the same data volume share one [GGUF header cache]({{% relref "advanced/model-configuration" %}}#gguf-header-cache) file, `header-cache.json`, in the data path. A header that one frontend has read is used by the others. This is the shared-by-file mode, and it requires that every frontend mounts the same data volume.
+
+A frontend that sets `--instance-id` keeps its own file, `header-cache-<id>.json`, and does not share it. Use this when a frontend should start warm after a restart without sharing its entries.
+
+With a ReadWriteOnce volume, all frontends that share the cache must run on one node. Sharing across nodes needs a ReadWriteMany volume or a shared store, and this mode does not support it.
 
 ### Model configuration revisions
 
@@ -657,7 +826,7 @@ curl -X POST http://frontend:8080/api/nodes/<node-id>/approve \
   -H "Authorization: Bearer <admin-token>"
 ```
 
-The **Nodes** page in the WebUI also shows pending nodes with an **Approve** button.
+The **Nodes** page in the WebUI shows pending nodes with an **Approve** button, and so does the node's own page and the **Add a node** page once the machine has registered.
 
 To skip manual approval and let nodes join immediately, set `--auto-approve-nodes` (or `LOCALAI_AUTO_APPROVE_NODES=true`) on the frontend. This is convenient for development and trusted environments.
 
@@ -692,6 +861,10 @@ without waiting:
   those are hardware facts and a change to one is a real event
 - a free VRAM, free RAM or free disk reading that has moved more than 256 MiB, because
   the scheduler places against those figures
+
+CPU utilization and load follow the scheduled checkpoint instead of making a
+heartbeat material. They are dashboard observations and do not affect model
+placement, so persisting every fluctuation would defeat write suppression.
 
 Every figure is compared against the value **last written**, not against the previous
 beat. A worker reports its disk capacity on every single beat, so testing whether a
@@ -770,6 +943,17 @@ gauge and the query above see only LocalAI's own sessions -- and the transaction
 wedges the horizon is typically the co-located vector store connecting as a different
 role, which is exactly the case they exist to catch.
 
+## Agent collections across frontends
+
+Collections (the `/api/agents/collections` routes) are **shared state**: every frontend shows the same list. With the `postgres` vector engine, the database is the source of truth for which collections exist. Each frontend keeps the collections it has opened in memory, but only as a cache:
+
+- Listing a collection set reads it from the database.
+- A request for a collection that this frontend has not opened yet checks the database before it answers `404`, and opens the collection if it exists. A collection created through one frontend is therefore usable through any other one at once.
+- A frontend re-checks a cached collection at most every 5 seconds, so a collection removed through another frontend stops being served within that time.
+- Creating or resetting a collection publishes an event on the message bus, so the other frontends re-check immediately.
+
+This needs `LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres` and `LOCALAI_AGENT_POOL_DATABASE_URL`. With another vector engine there is no shared registry, and each frontend keeps its own list. Per-user collections (authentication enabled) are not yet coordinated this way.
+
 ## Agent Workers
 
 Agent workers are dedicated processes for executing agent chats and MCP CI jobs. Unlike backend workers (which run gRPC model inference), agent workers use cogito to orchestrate multi-step conversations with tool calls.
@@ -786,6 +970,8 @@ Agent workers:
 - Run MCP CI jobs (with access to MCP servers via docker)
 - Handle MCP tool discovery and execution requests from the frontend
 - Get auto-provisioned API keys during registration for calling the inference API
+
+`LOCALAI_AGENT_SUBJECT` (default `agent.execute`) must be a subject that LocalAI serves. Use the `agent` root, for example `agent.execute`. The worker refuses to start with a subject whose root LocalAI does not serve (for example `tenant-a.agent.execute`) or with a `>` wildcard, because no message is carried on those subjects.
 
 In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
 
@@ -986,7 +1172,7 @@ local-ai worker \
 
 ## Model Scheduling
 
-Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Scheduling** page (a top-level nav item, separate from the Nodes page). It combines two optional features:
+Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Placement rules** page (**Operate → Swarm → Placement rules**, at `/app/scheduling`). Each rule is written as a sentence, shows the nodes the model is loaded on now, and opens in a side sheet that previews which nodes the draft rule could use. The preview is worked out in the browser from the node list and labels; the scheduler also checks free memory and disk when it loads a model. A deleted rule can be taken back for a few seconds. A rule combines two optional features:
 
 ### Node Selectors
 
@@ -1060,8 +1246,19 @@ curl -X POST http://frontend:8080/api/nodes/scheduling \
 
 This makes an alias a stable deployment slot: the placement policy belongs to
 the slot, and the model filling it can change without rewriting the rule. The
-WebUI lists aliases in the model picker on the **Scheduling** page, tagged with
+WebUI lists aliases in the model picker on the **Placement rules** page, tagged with
 the model each one resolves to.
+
+Each frontend resolves the alias from its own copy of the model configs, and a
+frontend that has not yet reloaded a repointed alias still resolves it the old
+way (see [Model configs across frontends](#model-configs-across-frontends)).
+The rule's stored target therefore follows the alias only through frontends
+whose copy of the alias config matches the
+[configuration revision](#model-configuration-revisions) the cluster accepted.
+A frontend that is behind uses the stored target for the replica reconciler and
+does not write it, so two frontends cannot overwrite the rule's target against
+each other, and a frontend that is behind cannot reload the model the alias
+used to point at.
 
 Two constraints follow from replicas being shared. A single load of `llama3`
 serves both `production` and any request that names `llama3` directly, so only
@@ -1236,7 +1433,7 @@ Notes:
 **A model cannot be scheduled on a node that looks free (`no replica slot ... all models busy, cannot evict`):**
 - A replica row in `staging` or `loading` holds its slot: slot allocation counts every state except `unloading`. If a worker drops out mid-transfer, that row never reaches `loaded`, and eviction only ever considers `loaded` replicas, so on a node with one replica slot per model the model became unschedulable there.
 - The reconciler now reclaims a replica row stuck before serving when no load job is still driving it, and the freed slot is immediately reusable.
-- Liveness is decided by the load job's progress heartbeat, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer that is still progressing is never reclaimed however long it takes.
+- Each replica row names the load attempt that made it. Liveness is decided by that attempt's job lease, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer whose owner still renews its lease is never reclaimed however long it takes. A row is reclaimed when its attempt has no job: the job was released after a failure, or another attempt replaced it.
 - `Reconciler: reclaimed a replica slot held by a load nobody is driving` names each row reclaimed this way.
 
 **A request fails with `nats: no responders available for request`:**

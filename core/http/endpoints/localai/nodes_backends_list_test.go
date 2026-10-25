@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,21 +22,21 @@ type stubNodeCommandSender struct {
 	listBackendsCalled bool
 }
 
-func (s *stubNodeCommandSender) InstallBackend(_, _, _, _, _, _, _ string, _ int, _ string, _ func(messaging.BackendInstallProgressEvent)) (*messaging.BackendInstallReply, error) {
-	return &messaging.BackendInstallReply{}, nil
+func (s *stubNodeCommandSender) InstallBackend(_, _, _, _, _, _, _ string, _ int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+	return &workerctl.BackendInstallReply{}, nil
 }
 
-func (s *stubNodeCommandSender) UpgradeBackend(_, _, _, _, _, _ string, _ int, _ string, _ func(messaging.BackendInstallProgressEvent)) (*messaging.BackendUpgradeReply, error) {
-	return &messaging.BackendUpgradeReply{}, nil
+func (s *stubNodeCommandSender) UpgradeBackend(_, _, _, _, _, _ string, _ int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendUpgradeReply, error) {
+	return &workerctl.BackendUpgradeReply{}, nil
 }
 
-func (s *stubNodeCommandSender) DeleteBackend(_, _ string) (*messaging.BackendDeleteReply, error) {
-	return &messaging.BackendDeleteReply{Success: true}, nil
+func (s *stubNodeCommandSender) DeleteBackend(_, _ string) (*workerctl.BackendDeleteReply, error) {
+	return &workerctl.BackendDeleteReply{Success: true}, nil
 }
 
-func (s *stubNodeCommandSender) ListBackends(_ string) (*messaging.BackendListReply, error) {
+func (s *stubNodeCommandSender) ListBackends(_ string) (*workerctl.BackendListReply, error) {
 	s.listBackendsCalled = true
-	return &messaging.BackendListReply{Backends: []messaging.NodeBackendInfo{{Name: "llama-cpp"}}}, nil
+	return &workerctl.BackendListReply{Backends: []workerctl.NodeBackendInfo{{Name: "llama-cpp"}}}, nil
 }
 
 func (s *stubNodeCommandSender) StopBackend(_, _ string) error { return nil }
@@ -43,6 +44,25 @@ func (s *stubNodeCommandSender) StopBackend(_, _ string) error { return nil }
 func (s *stubNodeCommandSender) UnloadModelOnNode(_, _ string) error { return nil }
 
 func (s *stubNodeCommandSender) PingNode(_ string) error { return nil }
+
+// The load operation verbs. This stub never reaches them.
+func (s *stubNodeCommandSender) InstallBackendOp(_, _, _, _ string, _ int, _, _ string, _ time.Duration, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+	return &workerctl.BackendInstallReply{}, nil
+}
+
+func (s *stubNodeCommandSender) StopLoadOperation(context.Context, string, workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
+	return workerctl.ModelStopReply{}, nil
+}
+
+func (s *stubNodeCommandSender) OperationControl(string, workerctl.OperationRequest) (*workerctl.OperationReply, error) {
+	return &workerctl.OperationReply{}, nil
+}
+
+func (s *stubNodeCommandSender) UnloadReplica(string, nodes.NodeModel) error { return nil }
+
+func (s *stubNodeCommandSender) StopModelReplica(context.Context, string, nodes.NodeModel, bool) (workerctl.ModelStopReply, error) {
+	return workerctl.ModelStopReply{}, nil
+}
 
 var _ = Describe("ListBackendsOnNodeEndpoint", func() {
 	var registry *nodes.NodeRegistry
@@ -78,7 +98,7 @@ var _ = Describe("ListBackendsOnNodeEndpoint", func() {
 		Expect(stub.listBackendsCalled).To(BeFalse(),
 			"agent workers don't subscribe to backend.list; the endpoint must not issue the doomed NATS request")
 
-		var list []messaging.NodeBackendInfo
+		var list []workerctl.NodeBackendInfo
 		Expect(json.Unmarshal(rec.Body.Bytes(), &list)).To(Succeed())
 		Expect(list).To(BeEmpty())
 		// Must be `[]`, not `null`, so the UI can render it.
@@ -97,7 +117,7 @@ var _ = Describe("ListBackendsOnNodeEndpoint", func() {
 		Expect(stub.listBackendsCalled).To(BeTrue(),
 			"backend nodes must still be queried over NATS")
 
-		var list []messaging.NodeBackendInfo
+		var list []workerctl.NodeBackendInfo
 		Expect(json.Unmarshal(rec.Body.Bytes(), &list)).To(Succeed())
 		Expect(list).To(HaveLen(1))
 		Expect(list[0].Name).To(Equal("llama-cpp"))

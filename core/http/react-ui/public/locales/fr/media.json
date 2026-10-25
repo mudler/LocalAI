@@ -1,0 +1,490 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "Images",
+      "video": "Vidéo",
+      "tts": "TTS",
+      "sound": "Son",
+      "transform": "Transformation",
+      "threed": "3D",
+      "overview": "Vue d'ensemble",
+      "diarization": "Diarisation"
+    },
+    "overview": {
+      "title": "Studio",
+      "subtitle": "Générez des images, des vidéos, de la 3D, de la parole et des sons avec les modèles de cette machine."
+    },
+    "groups": {
+      "create": "Créer",
+      "voice": "Voix",
+      "transform": "Transformer"
+    }
+  },
+  "image": {
+    "title": "Génération d'images",
+    "labels": {
+      "model": "Modèle",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Décrivez l'image à générer...",
+      "negativePrompt": "Prompt négatif",
+      "negativePromptPlaceholder": "Ce qu'il faut éviter...",
+      "size": "Taille",
+      "count": "Nombre (1-4)",
+      "advanced": "Paramètres avancés",
+      "imageInputs": "Images d'entrée",
+      "steps": "Étapes",
+      "stepsPlaceholder": "20",
+      "seed": "Graine",
+      "seedPlaceholder": "Aléatoire",
+      "sourceImage": "Image source (img2img)",
+      "refImages": "Images de référence",
+      "refImagesAdded_one": "{{count}} image ajoutée",
+      "refImagesAdded_other": "{{count}} images ajoutées"
+    },
+    "actions": {
+      "view": "Voir",
+      "generate": "Générer",
+      "generating": "Génération..."
+    },
+    "empty": "Les images générées apparaîtront ici",
+    "toasts": {
+      "noPrompt": "Veuillez saisir un prompt",
+      "noModel": "Veuillez sélectionner un modèle",
+      "noResults": "Aucune image générée"
+    }
+  },
+  "video": {
+    "title": "Génération de vidéos",
+    "labels": {
+      "model": "Modèle",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Décrivez la vidéo à générer...",
+      "duration": "Durée (secondes)",
+      "fps": "Images/s",
+      "size": "Taille",
+      "advanced": "Paramètres avancés",
+      "seed": "Graine",
+      "seedPlaceholder": "Aléatoire",
+      "frames": "Images",
+      "referenceMedia": "Média de référence",
+      "startImage": "Image de début",
+      "endImage": "Image de fin",
+      "avatarAudio": "Audio de l'avatar"
+    },
+    "actions": {
+      "generate": "Générer",
+      "generating": "Génération..."
+    },
+    "empty": "La vidéo générée apparaîtra ici",
+    "toasts": {
+      "noPrompt": "Veuillez saisir un prompt",
+      "noModel": "Veuillez sélectionner un modèle",
+      "noResults": "Aucune vidéo générée"
+    }
+  },
+  "threed": {
+    "title": "Génération 3D",
+    "animation": {
+      "skeletonHint": "Génère un squelette animé, sans maillage ni peau.",
+      "preview": "Aperçu du squelette animé",
+      "pause": "Pause",
+      "play": "Lecture",
+      "reset": "Réinitialiser la vue",
+      "timeline": "Chronologie",
+      "zoom": "Zoom",
+      "inputTooLong": "L'entrée dépasse la limite de {{limit}} octets.",
+      "fileTooLarge": "Le fichier sélectionné est trop volumineux.",
+      "readFailed": "Impossible de lire le fichier sélectionné."
+    },
+    "labels": {
+      "model": "Modèle",
+      "image": "Image d'entrée",
+      "quality": "Qualité",
+      "quality_auto": "Auto (meilleure disponible)",
+      "quality_coarse": "Aperçu grossier (rapide)",
+      "quality_512": "512³ fin",
+      "quality_1024": "1024³ en cascade (lent)",
+      "background": "Arrière-plan",
+      "background_auto": "Supprimer automatiquement un fond uni",
+      "background_keep": "Conserver l'original",
+      "background_black": "Supprimer le noir",
+      "background_white": "Supprimer le blanc",
+      "advanced": "Paramètres avancés",
+      "steps": "Étapes de forme",
+      "textureSteps": "Étapes de matière",
+      "guidance": "Guidage",
+      "seed": "Graine",
+      "seedPlaceholder": "Aléatoire"
+    },
+    "actions": {
+      "generate": "Générer",
+      "generating": "Génération...",
+      "remesh": "Appliquer le remaillage",
+      "remeshing": "Remaillage en cours...",
+      "showOriginal": "Afficher l'original",
+      "download": "Télécharger le GLB"
+    },
+    "remesh": {
+      "title": "Remaillage étanche pour l'impression",
+      "detail": "Détail du remaillage",
+      "coarser": "Plus grossier · plus rapide",
+      "finer": "Plus fin · plus lent",
+      "hint": "Le détail définit les plus petits éléments conservés. Le décalage d'enveloppe s'y adapte automatiquement.",
+      "ready": "Aperçu du modèle remaillé étanche. C'est la version qui sera téléchargée."
+    },
+    "viewer": {
+      "wireframe": "Fil de fer",
+      "autoRotate": "Rotation automatique",
+      "noWebgl": "WebGL2 n'est pas disponible dans ce navigateur — téléchargez le GLB pour le visualiser ailleurs.",
+      "contextLost": "La vue 3D a perdu le contexte GPU — rechargez la page pour la restaurer.",
+      "stats": "{{verts}} sommets · {{tris}} triangles",
+      "hint": "glisser : pivoter · pincer/molette : zoom · deux doigts/clic droit : déplacer · double-clic : réinitialiser"
+    },
+    "empty": "Le modèle 3D généré apparaîtra ici",
+    "toasts": {
+      "noImage": "Veuillez fournir une image d'entrée",
+      "noModel": "Veuillez sélectionner un modèle",
+      "noResults": "Aucun modèle généré"
+    }
+  },
+  "tts": {
+    "title": "Synthèse vocale",
+    "labels": {
+      "model": "Modèle",
+      "voice": "Voix",
+      "voicePlaceholder": "Identifiant de locuteur ou de voix (facultatif)",
+      "input": "Texte",
+      "inputPlaceholder": "Saisissez le texte à synthétiser...",
+      "instructions": "Instructions",
+      "instructionsPlaceholder": "Par exemple : Parle lentement et chaleureusement",
+      "instructionsHint": "Indications de diction facultatives. La prise en charge dépend du backend."
+    },
+    "actions": {
+      "generate": "Générer",
+      "generating": "Génération..."
+    },
+    "empty": "L'audio généré apparaîtra ici",
+    "toasts": {
+      "noText": "Veuillez saisir du texte",
+      "noModel": "Veuillez sélectionner un modèle",
+      "generated": "Parole générée",
+      "generateFailed": "Échec de la génération"
+    },
+    "voiceLibrary": {
+      "cloningReady": "Clonage de voix",
+      "loading": "Chargement des voix enregistrées…",
+      "modelDefault": "Utiliser la voix par défaut du modèle",
+      "empty": "Aucune voix enregistrée pour l'instant.",
+      "create": "En créer une",
+      "manage": "Gérer la bibliothèque de voix",
+      "namedVoiceHint": "Ce modèle n'accepte pas les profils audio de référence. Vous pouvez toujours saisir un locuteur nommé pris en charge par son backend."
+    }
+  },
+  "voiceLibrary": {
+    "title": "Bibliothèque de voix",
+    "subtitle": "Créez et gérez des voix réutilisables à partir d'un ou plusieurs enregistrements de référence.",
+    "loading": "Chargement des voix enregistrées…",
+    "listLabel": "Voix enregistrées",
+    "status": {
+      "ready": "Prêt"
+    },
+    "summary": {
+      "label": "État de la bibliothèque de voix",
+      "profiles": "voix enregistrées",
+      "modelsReady_one": "{{count}} modèle compatible prêt",
+      "modelsReady_other": "{{count}} modèles compatibles prêts",
+      "noModels": "Aucun modèle compatible installé"
+    },
+    "search": {
+      "label": "Rechercher des voix",
+      "placeholder": "Rechercher par voix, langue ou transcription"
+    },
+    "filters": {
+      "language": "Filtrer par langue",
+      "allLanguages": "Toutes les langues"
+    },
+    "empty": {
+      "title": "Votre bibliothèque de voix est vide",
+      "body": "Enregistrez ou importez des extraits de référence avec consentement, ajoutez leur transcription exacte et réutilisez la voix avec les modèles TTS compatibles."
+    },
+    "noResults": {
+      "title": "Aucune voix ne correspond à ces filtres",
+      "body": "Essayez une autre recherche ou affichez toutes les langues."
+    },
+    "detail": {
+      "eyebrow": "Voix sélectionnée",
+      "emptyTitle": "Sélectionnez une voix pour l'inspecter",
+      "emptyBody": "L'audio de référence, la transcription, la compatibilité et le consentement s'afficheront ici.",
+      "referenceAudio": "Audio de référence",
+      "transcript": "Transcription de référence"
+    },
+    "metadata": {
+      "language": "Langue",
+      "languageUnknown": "Non précisée",
+      "duration": "Durée",
+      "sampleRate": "Fréquence d'échantillonnage",
+      "created": "Créée le"
+    },
+    "consent": {
+      "confirmed": "Consentement confirmé",
+      "confirmedAt": "Confirmé le {{date}}"
+    },
+    "modelSetup": {
+      "title": "Installer un modèle de clonage de voix",
+      "body": "Cette voix est prête, mais elle a besoin d'un modèle acceptant l'audio de référence. Choisissez-en un vérifié par ce serveur.",
+      "loading": "Recherche de modèles compatibles dans vos galeries…",
+      "backendUnknown": "Backend choisi lors de l'installation",
+      "install": "Installer",
+      "installing": "Installation…",
+      "loadFailed": "Les recommandations compatibles n'ont pas pu être chargées.",
+      "noneAvailable": "Aucun modèle compatible non installé n'est disponible dans les galeries configurées.",
+      "capabilityNote": "Les recommandations proviennent des métadonnées de capacités des modèles, pas d'une liste côté navigateur."
+    },
+    "api": {
+      "title": "Utilisation de l'API et modèles compatibles",
+      "summary": "Utilisez cette voix hors du navigateur ou vérifiez la compatibilité des modèles",
+      "body": "Envoyez l'URI stable de la voix avec chaque requête de synthèse. LocalAI résout l'audio de référence privé et sa transcription au moment de la génération ; le YAML du modèle n'est pas modifié.",
+      "compatibleModels": "Modèles installés compatibles",
+      "noInstalledModels": "Aucun pour l'instant. Installez l'un des modèles vérifiés ci-dessus avant d'envoyer cette requête.",
+      "curlExample": "Exemple cURL",
+      "copy": "Copier la requête",
+      "endpointNote": "Les mêmes champs model, input et voice fonctionnent aussi avec POST /tts."
+    },
+    "actions": {
+      "create": "Créer une voix",
+      "createFirst": "Créer votre première voix",
+      "retry": "Réessayer",
+      "clearFilters": "Effacer les filtres",
+      "useInTTS": "Utiliser en synthèse vocale",
+      "delete": "Supprimer la voix",
+      "installModel": "Installer un modèle compatible",
+      "browseModels": "Parcourir tous les modèles"
+    },
+    "deleteDialog": {
+      "title": "Supprimer cette voix ?",
+      "message": "« {{name}} » et son audio de référence seront définitivement supprimés. Le YAML des modèles existants n'est pas modifié.",
+      "deleting": "Suppression…"
+    },
+    "toasts": {
+      "deleted": "{{name}} supprimée",
+      "installStarted": "Installation de {{name}}. La progression est disponible dans Opérations.",
+      "installFailed": "Impossible de démarrer l'installation : {{message}}",
+      "apiCopied": "Requête API copiée",
+      "copyFailed": "Impossible de copier la requête API"
+    }
+  },
+  "voiceCreate": {
+    "title": "Créer une voix réutilisable",
+    "subtitle": "Créez une voix réutilisable à partir d'un ou plusieurs extraits de référence propres et de leur transcription exacte.",
+    "references": {
+      "add": "Ajouter une autre référence",
+      "additional": "Référence {{number}}",
+      "remove": "Retirer"
+    },
+    "sections": {
+      "reference": {
+        "title": "Audio de référence",
+        "body": "Enregistrez dans le navigateur ou importez un extrait existant. La parole doit être propre, naturelle et provenir d'un seul locuteur."
+      },
+      "details": {
+        "title": "Identité et transcription",
+        "body": "Donnez un nom reconnaissable aux administrateurs et transcrivez l'extrait exactement, hésitations et ponctuation comprises."
+      },
+      "consent": {
+        "title": "Autorisation",
+        "body": "Le clonage de voix peut être sensible. Confirmez l'autorisation avant d'enregistrer cette référence."
+      }
+    },
+    "audio": {
+      "label": "Référence vocale",
+      "normalizing": "Préparation d'un WAV PCM sécurisé…",
+      "preview": "Référence normalisée",
+      "durationError": "L'audio de référence doit durer entre 1 seconde et 2 minutes.",
+      "decodeError": "Ce navigateur n'a pas pu décoder le fichier audio sélectionné.",
+      "qualityReady": "Durée recommandée",
+      "qualityHint": "6 à 30 secondes produisent généralement un meilleur clone"
+    },
+    "fields": {
+      "name": "Nom de la voix",
+      "namePlaceholder": "ex. Narrateur documentaire",
+      "language": "Langue (facultatif)",
+      "languagePlaceholder": "ex. fr-FR",
+      "description": "Description (facultatif)",
+      "descriptionPlaceholder": "Ton, source ou usage prévu",
+      "transcript": "Transcription exacte",
+      "transcriptPlaceholder": "Saisissez chaque mot prononcé dans l'extrait…",
+      "transcriptHint": "Reproduisez l'enregistrement exactement. Ne corrigez pas la grammaire et ne supprimez ni pauses ni hésitations."
+    },
+    "consent": {
+      "title": "Je confirme que cette voix peut être clonée",
+      "body": "J'ai l'autorisation du locuteur ou une autre base légale pour stocker et utiliser cet enregistrement afin de produire de la parole synthétique."
+    },
+    "readiness": {
+      "title": "Préparation de la voix",
+      "body": "Une voix devient disponible en synthèse vocale lorsque tous les éléments requis sont remplis.",
+      "audio": "Référence PCM-WAV valide",
+      "quality": "Fenêtre de qualité de 6 à 30 secondes",
+      "name": "Nom de voix reconnaissable",
+      "transcript": "Transcription de référence exacte",
+      "consent": "Autorisation confirmée"
+    },
+    "privacy": {
+      "title": "Privé par défaut. ",
+      "body": "L'audio de référence est stocké dans le répertoire de données de LocalAI avec des permissions restreintes et n'est jamais exposé comme chemin de dossier de modèle."
+    },
+    "actions": {
+      "back": "Retour à la bibliothèque",
+      "cancel": "Annuler",
+      "save": "Enregistrer la voix",
+      "saving": "Enregistrement…"
+    },
+    "toasts": {
+      "created": "{{name}} est prête à l'emploi"
+    }
+  },
+  "sound": {
+    "title": "Génération de sons",
+    "labels": {
+      "model": "Modèle",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Décrivez le son à générer...",
+      "instrumental": "Instrumental",
+      "bpm": "BPM",
+      "duration": "Durée (secondes)",
+      "language": "Langue",
+      "timesignature": "Signature rythmique",
+      "keyscale": "Tonalité / Gamme",
+      "vocalLanguage": "Langue du chant",
+      "vocalLanguagePlaceholder": "ex. Français",
+      "caption": "Légende",
+      "lyrics": "Paroles",
+      "lyricsPlaceholder": "Paroles pour la génération vocale",
+      "simple": "Simple",
+      "advanced": "Avancé",
+      "seed": "Graine",
+      "seedPlaceholder": "Aléatoire",
+      "thinkMode": "Mode réflexion"
+    },
+    "actions": {
+      "generate": "Générer",
+      "generating": "Génération..."
+    },
+    "empty": "L'audio généré apparaîtra ici",
+    "toasts": {
+      "noPrompt": "Veuillez saisir un prompt",
+      "noModel": "Veuillez sélectionner un modèle",
+      "generateFailed": "Échec de la génération"
+    }
+  },
+  "audioTransform": {
+    "title": "Transformation audio",
+    "labels": {
+      "model": "Modèle",
+      "audio": "Audio (obligatoire)",
+      "reference": "Référence (facultatif)",
+      "referenceHelp": "Signal de bouclage / extrémité distante pour l'annulation d'écho, locuteur cible pour la conversion de voix. Laissez vide pour une transformation inconditionnelle.",
+      "advancedParameters": "Paramètres avancés",
+      "advancedParametersHelp": "propres au backend (une paire clé=valeur par ligne, ex. noise_gate=true)",
+      "advancedParametersPlaceholder": "# Facultatif. Pour LocalVQE :\n# noise_gate=true\n# noise_gate_threshold_dbfs=-50"
+    },
+    "input": {
+      "upload": "Importer",
+      "uploadDescription": "Déposez un fichier ici ou",
+      "uploadBrowse": "parcourez",
+      "record": "Enregistrer",
+      "startRecording": "Démarrer l'enregistrement",
+      "stop": "Arrêter",
+      "encoding": "Encodage...",
+      "clear": "Effacer",
+      "microphoneUnavailable": "La capture du microphone n'est pas disponible dans ce navigateur.",
+      "echoNotice": "Les navigateurs appliquent souvent leur propre annulation d'écho et réduction de bruit WebRTC par défaut. Le résultat est généralement moins bon qu'avec LocalVQE sur l'audio brut.",
+      "echoTest": "Test d'écho (enregistrer le micro pendant la lecture de la référence)",
+      "stopEchoTest": "Arrêter le test d'écho"
+    },
+    "result": {
+      "audio": "Audio",
+      "reference": "Référence",
+      "inputSpectrum": "Spectre d'entrée",
+      "outputSpectrum": "Spectre de sortie",
+      "outputSpectrumHint": "Transformez pour comparer l'atténuation",
+      "output": "Sortie"
+    },
+    "actions": {
+      "transform": "Transformer",
+      "processing": "Traitement..."
+    },
+    "empty": "Choisissez un fichier audio (et éventuellement une référence) à transformer"
+  },
+  "talk": {
+    "title": "Vocal",
+    "subtitle": "Conversation vocale en temps réel",
+    "actions": {
+      "start": "Démarrer la session",
+      "stop": "Terminer la session",
+      "connecting": "Connexion...",
+      "muted": "Micro coupé",
+      "mute": "Couper le micro",
+      "unmute": "Réactiver le micro"
+    },
+    "labels": {
+      "model": "Modèle",
+      "voice": "Voix",
+      "voicePlaceholder": "alloy",
+      "language": "Langue",
+      "languagePlaceholder": "fr",
+      "instructions": "Instructions",
+      "instructionsPlaceholder": "Définir la personnalité de l'assistant..."
+    },
+    "status": {
+      "idle": "Inactif",
+      "connecting": "Connexion...",
+      "listening": "Écoute...",
+      "speaking": "Parle...",
+      "ended": "Session terminée"
+    },
+    "toasts": {
+      "noModel": "Sélectionnez d'abord un modèle",
+      "connectFailed": "Échec de la connexion : {{message}}"
+    }
+  },
+  "history": {
+    "title": "Historique",
+    "empty": "Aucun historique",
+    "deleteEntry": "Supprimer l'entrée",
+    "clear": "Effacer l'historique",
+    "clearTitle": "Effacer tout l'historique",
+    "clearMessage": "Supprimer toutes les entrées de l'historique ? Cette action est irréversible.",
+    "clearConfirm": "Effacer",
+    "cleared": "Historique effacé"
+  },
+  "request": {
+    "heading": "Requête",
+    "copyCurl": "Copier en curl",
+    "copied": "Copié"
+  },
+  "diarization": {
+    "title": "Diarisation des locuteurs",
+    "subtitle": "Importez un enregistrement pour voir qui parle et quand. Prévisualisez la parole propre avant de mémoriser une voix.",
+    "model": "Modèle",
+    "recording": "Enregistrement",
+    "optIn": "Préparer les locuteurs à mémoriser",
+    "warning": "Les voix mémorisées sont partagées globalement sur ce serveur et sont perdues à son redémarrage. Rien n'est mémorisé automatiquement.",
+    "manage": "Gérer les voix mémorisées",
+    "running": "Diarisation…",
+    "run": "Diariser",
+    "unsupported": "Choisissez un modèle compatible avec les profils et doté d'un encodeur de locuteur, ou désactivez « Préparer les locuteurs à mémoriser » pour lancer une diarisation normale.",
+    "previewError": "Impossible de lire cet enregistrement. Vérifiez que votre navigateur prend en charge son format audio.",
+    "speakers": "Locuteurs",
+    "segments": "Segments",
+    "duration": "Parole propre : {{seconds}} secondes",
+    "preview": "Écouter {{number}}",
+    "insufficient": "Pas assez de parole propre ou aucun profil exploitable. Essayez un enregistrement avec des prises de parole plus longues et sans chevauchement.",
+    "nameAndRemember": "Nommer et mémoriser",
+    "name": "Nom",
+    "saving": "Enregistrement…",
+    "remember": "Mémoriser",
+    "cancel": "Annuler",
+    "stop": "Arrêter la prévisualisation",
+    "missingProfiles": "Le backend n'a pas renvoyé les profils de locuteurs demandés."
+  }
+}

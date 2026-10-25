@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -59,6 +60,12 @@ type SmartRouterOptions struct {
 	// nil disables the exclusion. Deliberate teardown (UnloadModel, admin
 	// endpoints, node drain) is unaffected.
 	PinnedResolver PinnedModelResolver
+	// ModelFiles, when set, returns the absolute local paths of every file a
+	// model's install declared (gallery `files:`, config `download_files`).
+	// The path fields of a load request name only what the backend opens
+	// first; this is how staging learns about the rest, such as the other
+	// shards of a split GGUF. nil stages the path fields alone.
+	ModelFiles func(modelName string) []string
 	// PrefixProvider, when set, enables prefix-cache-aware routing: requests
 	// carrying a prompt prefix chain (distributedhdr.PrefixChain) are biased
 	// toward the node that already holds the longest matching prefix, subject
@@ -170,6 +177,9 @@ type SmartRouter struct {
 	// pinnedResolver feeds the eviction paths the set of pinned model names
 	// (see SmartRouterOptions.PinnedResolver). nil disables the exclusion.
 	pinnedResolver PinnedModelResolver
+	// modelFiles resolves a model's declared files (see
+	// SmartRouterOptions.ModelFiles). nil stages the path fields alone.
+	modelFiles func(modelName string) []string
 	// prefixProvider is the prefix-cache routing seam (nil disables it; see
 	// SmartRouterOptions.PrefixProvider). prefixConfig holds the global policy
 	// and thresholds.
@@ -213,7 +223,12 @@ type SmartRouter struct {
 	// identical outcome, so they share one wait instead of queueing. See
 	// load_job_runner.go.
 	loadWaitersMu sync.Mutex
-	loadWaiters   map[string]chan struct{}
+	loadWaiters   map[string]*loadWaiter
+
+	// leaseTTL overrides loadJobLeaseTTL for the owner's own deadline (tests).
+	leaseTTL time.Duration
+	// opRenewEvery overrides loadOpRenewEvery, in heartbeat ticks (tests).
+	opRenewEvery int
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
@@ -254,6 +269,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		stagingTracker:      NewStagingTracker(),
 		conflictResolver:    opts.ConflictResolver,
 		pinnedResolver:      opts.PinnedResolver,
+		modelFiles:          opts.ModelFiles,
 		probeCache:          newProbeCache(probeCacheTTL),
 		prefixProvider:      opts.PrefixProvider,
 		prefixConfig:        opts.PrefixConfig,
@@ -268,7 +284,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		stagingStallWindow:   opts.StagingStallWindow,
 		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
 		modelLoadWait:        opts.ModelLoadWait,
-		loadWaiters:          map[string]chan struct{}{},
+		loadWaiters:          map[string]*loadWaiter{},
 	}
 }
 
@@ -340,6 +356,12 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, trackingKey, modelName string,
 	configRevision string, modelOpts *pb.ModelOptions, parallel bool, initialInFlight int) (*scheduleLoadResult, error) {
 
+	// With a database every cold load runs under a job row. Mark the path so a
+	// registry write that lost its ownership value is refused, not waved through.
+	if r.db != nil {
+		ctx = withLoadPath(ctx)
+	}
+
 	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
 	if err != nil {
 		return nil, fmt.Errorf("no available nodes: %w", err)
@@ -382,7 +404,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// Size the remote load budget BEFORE staging: stageModelFiles rewrites the
 	// path fields to their remote equivalents on a clone, and only the local
 	// paths can be stat'ed here.
-	payloadBytes := modelPayloadBytes(modelOpts)
+	payloadBytes := r.stagingPayloadBytes(trackingKey, modelOpts)
 	loadTimeout := r.loadTimeoutFor(payloadBytes)
 
 	// Pre-stage model files via FileStager before loading
@@ -403,6 +425,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		}
 	}
 
+	reportLoadAddress(ctx, backendAddr)
 	client := r.buildClientForAddr(node, backendAddr, parallel)
 
 	// Load the model on the remote node
@@ -444,7 +467,9 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 			// minutes past the client timeout, and each retry stacked another
 			// multi-GB loader process on the worker. Reap the replica we just
 			// abandoned before handing the failure back.
-			if loadAbandonedOnWorker(err) {
+			// A load owner stops its own work through the operation stop path,
+			// so it does not reap here as well.
+			if _, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef); !owned && loadAbandonedOnWorker(err) {
 				r.reapAbandonedLoad(node, trackingKey, replicaIndex)
 			}
 			return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
@@ -588,13 +613,33 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 		return nil, fmt.Errorf("unmarshalling stored model options for %s: %w", modelName, err)
 	}
 
-	// initialInFlight=0: reconciler is pre-loading, not serving a request.
-	// scheduleAndLoad picks both the node and the replica slot internally.
-	result, err := r.scheduleAndLoad(ctx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
+	// The reconciler is a load owner like a request is. It claims the job
+	// before any remote work, so a request for the same model waits for this
+	// load instead of scheduling a second copy, and a stale owner is stopped
+	// by the same loop.
+	job, claimed, err := r.registry.ClaimLoadJob(ctx, modelName, ReplicaID())
+	if err != nil {
+		return nil, fmt.Errorf("claiming the load of model %s: %w", modelName, err)
+	}
+	if !claimed {
+		return nil, fmt.Errorf("model %s is already being loaded by another owner", modelName)
+	}
+
+	var node *BackendNode
+	err = r.runLoadOwner(ctx, job.Ref(), func(ownerCtx context.Context) error {
+		// initialInFlight=0: reconciler is pre-loading, not serving a request.
+		// scheduleAndLoad picks both the node and the replica slot internally.
+		result, err := r.scheduleAndLoad(ownerCtx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
+		if err != nil {
+			return err
+		}
+		node = result.Node
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return result.Node, nil
+	return node, nil
 }
 
 // RouteResult contains the routing decision.
@@ -955,7 +1000,7 @@ func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID str
 		return nil, fmt.Errorf("looking up nodes for selector %s: %w", sched.NodeSelector, err)
 	}
 	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no healthy nodes match selector for model %s: %s", modelID, sched.NodeSelector)
+		return nil, fmt.Errorf("no healthy nodes match selector for model %s: %s: %w", modelID, sched.NodeSelector, ErrNoAvailableNodes)
 	}
 	return extractNodeIDs(candidates), nil
 }
@@ -1167,9 +1212,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		evictedNode, evictErr := r.evictLRUAndFreeNodeFrom(ctx, candidateNodeIDs)
 		if evictErr != nil {
 			if errors.Is(evictErr, ErrEvictionBusy) {
-				return nil, "", 0, fmt.Errorf("no healthy nodes available: %w", evictErr)
+				return nil, "", 0, fmt.Errorf("no healthy nodes available: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 			}
-			return nil, "", 0, fmt.Errorf("no healthy nodes available and eviction failed: %w", evictErr)
+			return nil, "", 0, fmt.Errorf("no healthy nodes available and eviction failed: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 		}
 		node = evictedNode
 	}
@@ -1261,7 +1306,7 @@ func (r *SmartRouter) narrowByDiskHeadroom(ctx context.Context, modelID string, 
 		return candidateNodeIDs, nil
 	}
 
-	requiredDisk := DiskRequirementFor(modelPayloadBytes(modelOpts))
+	requiredDisk := DiskRequirementFor(r.stagingPayloadBytes(modelID, modelOpts))
 	diskCandidates, diskErr := r.registry.NarrowByDiskHeadroom(ctx, candidateNodeIDs, requiredDisk)
 
 	// The check runs even when disabled. "Disabled" means do not BLOCK, not do
@@ -1357,10 +1402,24 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	// the whole time; here a cancelled ctx (typically the model-load ceiling)
 	// frees the caller promptly. The shared install keeps running in the
 	// background and still coalesces other callers via singleflight.
+	// A load owner starts the backend as an operation the worker bounds. The
+	// operation id is the load job generation, so a stop can name exactly this
+	// attempt.
+	ref, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef)
 	resCh := r.installFlight.DoChan(key, func() (any, error) {
-		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
+		var reply *workerctl.BackendInstallReply
+		var err error
+		if owned {
+			reply, err = r.unloader.InstallBackendOp(node.ID, backendType, modelID, r.galleriesJSON, replicaIndex, "", ref.Generation, r.loadOperationDeadline(), nil)
+		} else {
+			reply, err = r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
+		}
 		if err != nil {
 			return "", err
+		}
+		if owned && reply.Success && !reply.ReportsOperations {
+			// A worker that predates operations: it cannot confirm a stop.
+			markLegacyWorker(ctx)
 		}
 		if !reply.Success {
 			return "", fmt.Errorf("worker replied with error: %s", reply.Error)
@@ -1384,7 +1443,7 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 }
 
 func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {
-	client := r.clientFactory.NewClient(addr, parallel)
+	client := r.clientFactory.NewClient(node.ID, addr, parallel)
 
 	// Wrap with file staging if configured
 	if r.fileStager != nil {
@@ -1435,6 +1494,10 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		localModelDir = filepath.Dir(opts.ModelFile)
 	}
 
+	// Resolved before the path fields are rewritten to remote paths below,
+	// since that is what tells which declared files the fields already cover.
+	declared := existingFiles(r.declaredExtraFiles(trackingKey, opts), node.Name, trackingKey)
+
 	// keyMapper generates storage keys namespaced under trackingKey, preserving
 	// subdirectory structure relative to frontendModelsDir. This ensures:
 	// 1. All files for a model land in one directory on the worker for clean deletion
@@ -1480,6 +1543,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			totalFiles++
 		}
 	}
+	totalFiles += len(declared)
 
 	// Start tracking staging progress
 	r.stagingTracker.Start(trackingKey, node.Name, totalFiles)
@@ -1608,6 +1672,21 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 				opts.LoraBase = ""
 			}
 		}
+	}
+
+	for _, localPath := range declared {
+		fileIdx++
+		fileName := filepath.Base(localPath)
+		stageCtx := r.withStagingCallback(ctx, trackingKey, fileName, fileIdx, totalFiles)
+
+		xlog.Info("Staging declared model file", "model", trackingKey, "node", node.Name, "file", fileName, "fileIndex", fileIdx, "totalFiles", totalFiles)
+		if _, err := r.fileStager.EnsureRemote(stageCtx, node.ID, localPath, keyMapper.Key(localPath)); err != nil {
+			// The install declared it, so the backend may read it: loading
+			// without it fails later with a less useful error.
+			xlog.Error("Failed to stage declared model file for remote node", "node", node.Name, "path", localPath, "error", err)
+			return nil, fmt.Errorf("staging declared model file %s: %w", localPath, err)
+		}
+		r.stagingTracker.FileComplete(trackingKey, fileIdx, totalFiles)
 	}
 
 	// Stage file paths referenced in generic Options (key:value pairs where values
@@ -2059,6 +2138,13 @@ func (r *SmartRouter) EvictLRU(ctx context.Context, nodeID string) (string, erro
 // and none can be evicted to make room.
 var ErrEvictionBusy = errors.New("all models busy, cannot evict")
 
+// ErrNoAvailableNodes is returned when the scheduler cannot find any healthy
+// node to serve a model — all nodes are full and eviction cannot free a slot,
+// or a node selector excludes every candidate. The HTTP layer maps this to
+// 503 so clients treat it as a transient condition rather than a server bug
+// (which is what 500 would imply).
+var ErrNoAvailableNodes = errors.New("no available nodes")
+
 // evictLRUAndFreeNode finds the globally least-recently-used model with zero in-flight,
 // unloads it, and returns its node for reuse. If all models are busy, retries briefly.
 //
@@ -2140,7 +2226,7 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 
 			// Unload outside the transaction (NATS call)
 			if r.unloader != nil {
-				if uerr := r.unloader.UnloadModelOnNode(lru.NodeID, lru.ModelName); uerr != nil {
+				if uerr := r.unloader.UnloadReplica(lru.NodeID, lru); uerr != nil {
 					xlog.Warn("eviction unload failed (model already removed from registry)", "error", uerr)
 				}
 			}
@@ -2166,4 +2252,13 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 	}
 
 	return nil, ErrEvictionBusy
+}
+
+// loadOperationDeadline is the longest a worker may keep one load running: the
+// controller's own absolute cap. Renewals are what normally end a load sooner.
+func (r *SmartRouter) loadOperationDeadline() time.Duration {
+	if r.modelLoadAbsoluteMax > 0 {
+		return r.modelLoadAbsoluteMax
+	}
+	return modelLoadAbsoluteMax
 }

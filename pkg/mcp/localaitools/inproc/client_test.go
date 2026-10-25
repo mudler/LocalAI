@@ -13,6 +13,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
@@ -126,6 +127,95 @@ var _ = Describe("inproc.Client model aliases", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(filepath.Join(tempDir, "gpt-4.yaml")).ToNot(BeAnExistingFile())
 		})
+	})
+})
+
+// fakeFailoverSource is a minimal failover.ConfigSource over an in-memory
+// map, so these specs don't need a real ModelConfigLoader + on-disk YAML.
+type fakeFailoverSource struct {
+	cfgs map[string]config.ModelConfig
+}
+
+func (s *fakeFailoverSource) GetModelConfig(name string) (config.ModelConfig, bool) {
+	c, ok := s.cfgs[name]
+	return c, ok
+}
+
+func (s *fakeFailoverSource) GetAllModelsConfigs() []config.ModelConfig {
+	out := make([]config.ModelConfig, 0, len(s.cfgs))
+	for _, c := range s.cfgs {
+		out = append(out, c)
+	}
+	return out
+}
+
+var _ = Describe("inproc.Client failover chains", func() {
+	var (
+		ctx context.Context
+		c   *Client
+		fm  *failover.Manager
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		src := &fakeFailoverSource{cfgs: map[string]config.ModelConfig{
+			"a": {Name: "a", Backend: "llama-cpp"},
+			"b": {Name: "b", Backend: "llama-cpp"},
+			"chain": {Name: "chain", Failover: &config.FailoverConfig{
+				Targets: []config.FailoverTarget{{Model: "a"}, {Model: "b"}},
+			}},
+		}}
+		fm = failover.New(src)
+		c = &Client{Failover: fm}
+	})
+
+	It("ListFailoverChains reports the chain, its active target, and target health", func() {
+		out, err := c.ListFailoverChains(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(HaveLen(1))
+		Expect(out[0].Name).To(Equal("chain"))
+		Expect(out[0].Active).To(Equal("a"))
+		Expect(out[0].Pinned).To(BeEmpty())
+		Expect(out[0].Targets).To(HaveLen(2))
+		Expect(out[0].Targets[0].Model).To(Equal("a"))
+		Expect(out[0].Targets[0].Kind).To(Equal("local"))
+		Expect(out[0].Targets[0].State).To(Equal("healthy"))
+	})
+
+	It("returns an empty slice, not an error, when no failover manager is wired", func() {
+		c = &Client{}
+		out, err := c.ListFailoverChains(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(BeEmpty())
+	})
+
+	It("PinFailoverTarget pins the chain and ListFailoverChains reflects it", func() {
+		Expect(c.PinFailoverTarget(ctx, "chain", "b")).To(Succeed())
+
+		out, err := c.ListFailoverChains(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out[0].Pinned).To(Equal("b"))
+	})
+
+	It("PinFailoverTarget errors when the failover manager is unavailable", func() {
+		c = &Client{}
+		err := c.PinFailoverTarget(ctx, "chain", "b")
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("UnpinFailoverTarget clears a pin", func() {
+		Expect(c.PinFailoverTarget(ctx, "chain", "b")).To(Succeed())
+		Expect(c.UnpinFailoverTarget(ctx, "chain")).To(Succeed())
+
+		out, err := c.ListFailoverChains(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out[0].Pinned).To(BeEmpty())
+	})
+
+	It("UnpinFailoverTarget errors when the failover manager is unavailable", func() {
+		c = &Client{}
+		err := c.UnpinFailoverTarget(ctx, "chain")
+		Expect(err).To(HaveOccurred())
 	})
 })
 

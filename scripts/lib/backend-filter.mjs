@@ -19,6 +19,13 @@ export function inferBackendPath(item) {
   if (item.backend === "parakeet-cpp") {
     return `backend/go/parakeet-cpp/`;
   }
+  // timestral-cpp is a Go backend (Dockerfile.golang) wrapping the timestral.cpp
+  // ggml port via purego, living in backend/go/timestral-cpp/. Same
+  // explicit-branch rationale as parakeet-cpp: the generic golang fallthrough
+  // would also resolve it, but this documents the mapping.
+  if (item.backend === "timestral-cpp") {
+    return `backend/go/timestral-cpp/`;
+  }
   // ced is a Go backend (Dockerfile.golang) wrapping the ced.cpp ggml port via
   // purego, living in backend/go/ced/. Same explicit-branch rationale as
   // parakeet-cpp above: the generic golang fallthrough would also resolve it,
@@ -351,6 +358,12 @@ export function protoChangeIsAdditive(previousText, currentText) {
 // first-match-wins per changed file, so specific entries must precede the
 // scripts/build/ catch-all at the bottom.
 export const SHARED_BUILD_INPUTS = [
+  {
+    // GEM-X links the public motion protocol and shared frame validation.
+    matches: file => file.startsWith("pkg/motion/") && !file.endsWith("_test.go"),
+    linux: item => item.backend === "gemxcpp",
+    darwin: item => item.backend === "gemxcpp",
+  },
   {
     // Every language consumes backend.proto: Dockerfile.python COPYs it, Go
     // backends regenerate their stubs from it via `make protogen-go`, the C++

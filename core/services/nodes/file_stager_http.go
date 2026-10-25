@@ -32,7 +32,9 @@ import (
 type HTTPFileStager struct {
 	httpAddrFor     func(nodeID string) (string, error)
 	token           string
-	client          *http.Client
+	dialFor         WorkerNetDialerFor
+	clientsMu       sync.Mutex
+	clients         map[string]*http.Client
 	responseTimeout time.Duration // timeout waiting for server response after upload
 	maxRetries      int           // number of retry attempts for transient failures
 }
@@ -40,7 +42,8 @@ type HTTPFileStager struct {
 // NewHTTPFileStager creates a new HTTP file stager.
 // httpAddrFor should return the HTTP address (host:port) for the given node ID.
 // token is the registration token used for authentication.
-func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token string) *HTTPFileStager {
+// dialFor returns the dial function that reaches a given node's HTTP server.
+func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token string, dialFor WorkerNetDialerFor) *HTTPFileStager {
 	responseTimeout := 30 * time.Minute
 	if v := os.Getenv("LOCALAI_FILE_TRANSFER_TIMEOUT"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
@@ -55,11 +58,28 @@ func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token st
 		}
 	}
 
+	return &HTTPFileStager{
+		httpAddrFor:     httpAddrFor,
+		token:           token,
+		dialFor:         dialFor,
+		clients:         map[string]*http.Client{},
+		responseTimeout: responseTimeout,
+		maxRetries:      maxRetries,
+	}
+}
+
+// clientFor returns the HTTP client that reaches nodeID. Clients are per node
+// rather than shared because the idle pool is keyed by host:port only: two
+// workers reporting the same address (NAT, loopback) would otherwise be handed
+// each other's connections once the dialer routes by node.
+func (h *HTTPFileStager) clientFor(nodeID string) *http.Client {
+	h.clientsMu.Lock()
+	defer h.clientsMu.Unlock()
+	if c, ok := h.clients[nodeID]; ok {
+		return c
+	}
 	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 15 * time.Second, // aggressive keepalive for LAN transfers
-		}).DialContext,
+		DialContext:           h.dialFor(nodeID),
 		ForceAttemptHTTP2:     false, // HTTP/2 flow control can stall large uploads
 		MaxIdleConns:          10,
 		IdleConnTimeout:       90 * time.Second,
@@ -68,19 +88,14 @@ func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token st
 		WriteBufferSize:       256 << 10, // 256 KB
 		ReadBufferSize:        256 << 10, // 256 KB
 	}
-
-	return &HTTPFileStager{
-		httpAddrFor: httpAddrFor,
-		token:       token,
-		// No Timeout set — for large uploads, http.Client.Timeout covers the
-		// entire request lifecycle including the body upload. If it fires
-		// mid-write, Go closes the connection causing "connection reset by peer"
-		// on the server. Instead we use ResponseHeaderTimeout on the transport
-		// to cover only the wait-for-server-response phase.
-		client:          httpclient.New(httpclient.WithTransport(transport)),
-		responseTimeout: responseTimeout,
-		maxRetries:      maxRetries,
-	}
+	// No Timeout set: for large uploads, http.Client.Timeout covers the
+	// entire request lifecycle including the body upload. If it fires
+	// mid-write, Go closes the connection causing "connection reset by peer"
+	// on the server. Instead we use ResponseHeaderTimeout on the transport
+	// to cover only the wait-for-server-response phase.
+	c := httpclient.New(httpclient.WithTransport(transport))
+	h.clients[nodeID] = c
+	return c
 }
 
 // ReleaseRemote removes one exact ephemeral key from a backend node.
@@ -100,7 +115,7 @@ func (h *HTTPFileStager) ReleaseRemote(ctx context.Context, nodeID, key string) 
 	if h.token != "" {
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
-	resp, err := h.client.Do(req)
+	resp, err := h.clientFor(nodeID).Do(req)
 	if err != nil {
 		return fmt.Errorf("releasing %q from node %s: %w", key, nodeID, err)
 	}
@@ -138,7 +153,7 @@ func (h *HTTPFileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, reque
 	if h.token != "" {
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
-	resp, err := h.client.Do(req)
+	resp, err := h.clientFor(nodeID).Do(req)
 	if err != nil {
 		return fmt.Errorf("releasing request inputs from node %s: %w", nodeID, err)
 	}
@@ -170,9 +185,11 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	if err != nil {
 		return "", fmt.Errorf("resolving HTTP address for node %s: %w", nodeID, err)
 	}
+	// Fetched once per call so every retry reuses the same connection pool.
+	client := h.clientFor(nodeID)
 
 	// Probe: check if the remote already has the file with matching content hash.
-	if remotePath, ok, probeErr := h.probeExisting(ctx, addr, localPath, key); probeErr != nil {
+	if remotePath, ok, probeErr := h.probeExisting(ctx, client, addr, localPath, key); probeErr != nil {
 		return "", fmt.Errorf("claiming existing file on node %s: %w", nodeID, probeErr)
 	} else if ok {
 		xlog.Info("Upload skipped (file already exists with matching hash)", "node", nodeID, "key", key, "remotePath", remotePath)
@@ -232,9 +249,9 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 		// matching ours unlocks resume from the reported size; any other
 		// outcome (missing file, hash mismatch, partial-of-different-file)
 		// resets to 0 and uploads the entire file.
-		startOffset := h.resumeOffset(resumeCtx, addr, key, localHash, fileSize)
+		startOffset := h.resumeOffset(resumeCtx, client, addr, key, localHash, fileSize)
 
-		result, err := h.doUpload(ctx, resumeCtx, addr, nodeID, localPath, key, url, fileSize, startOffset, localHash)
+		result, err := h.doUpload(ctx, resumeCtx, client, addr, nodeID, localPath, key, url, fileSize, startOffset, localHash)
 		if err == nil {
 			if attempt > 1 {
 				xlog.Info("File upload succeeded after retry", "node", nodeID, "file", filepath.Base(localPath), "attempt", attempt)
@@ -321,7 +338,7 @@ func nextBackoff(attempt int) time.Duration {
 // different target hash). It returns the server-reported size when the
 // server's X-Target-SHA256 matches our expected final hash AND the size is
 // strictly less than the local file size.
-func (h *HTTPFileStager) resumeOffset(ctx context.Context, addr, key, localHash string, fileSize int64) int64 {
+func (h *HTTPFileStager) resumeOffset(ctx context.Context, client *http.Client, addr, key, localHash string, fileSize int64) int64 {
 	if localHash == "" || fileSize <= 0 {
 		return 0
 	}
@@ -333,7 +350,7 @@ func (h *HTTPFileStager) resumeOffset(ctx context.Context, addr, key, localHash 
 	if h.token != "" {
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
-	resp, err := h.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0
 	}
@@ -366,7 +383,7 @@ func (h *HTTPFileStager) resumeOffset(ctx context.Context, addr, key, localHash 
 // the bytes from startOffset to fileSize-1. The outerCtx is the long-lived
 // resume budget; reqCtx is what's bound to the request (currently the same as
 // the parent ctx, since http.Client doesn't expose a per-request timeout).
-func (h *HTTPFileStager) doUpload(ctx, outerCtx context.Context, addr, nodeID, localPath, key, url string, fileSize, startOffset int64, expectedHash string) (string, error) {
+func (h *HTTPFileStager) doUpload(ctx, outerCtx context.Context, client *http.Client, addr, nodeID, localPath, key, url string, fileSize, startOffset int64, expectedHash string) (string, error) {
 	if startOffset < 0 || startOffset > fileSize {
 		startOffset = 0
 	}
@@ -421,7 +438,7 @@ func (h *HTTPFileStager) doUpload(ctx, outerCtx context.Context, addr, nodeID, l
 		req.Header.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", startOffset, fileSize-1, fileSize))
 	}
 
-	resp, err := h.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		xlog.Error("File upload failed", "node", nodeID, "file", filepath.Base(localPath),
 			"size", humanFileSize(fileSize), "offset", startOffset, "error", err)
@@ -526,7 +543,7 @@ func isTransientError(err error) bool {
 // upload can be skipped. HEAD and hash errors fall through to a normal PUT.
 // Matching ephemeral files are claimed first; a 404 or 405 claim response
 // identifies an older worker and also falls through to PUT.
-func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key string) (string, bool, error) {
+func (h *HTTPFileStager) probeExisting(ctx context.Context, client *http.Client, addr, localPath, key string) (string, bool, error) {
 	url := fmt.Sprintf("http://%s/v1/files/%s", addr, key)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
@@ -537,7 +554,7 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
 
-	resp, err := h.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", false, nil
 	}
@@ -568,7 +585,7 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 	}
 
 	if strings.HasPrefix(key, "ephemeral/") {
-		claimed, err := h.claimExisting(ctx, addr, key)
+		claimed, err := h.claimExisting(ctx, client, addr, key)
 		if err != nil {
 			return "", false, err
 		}
@@ -580,7 +597,7 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 	return remotePath, true, nil
 }
 
-func (h *HTTPFileStager) claimExisting(ctx context.Context, addr, key string) (bool, error) {
+func (h *HTTPFileStager) claimExisting(ctx context.Context, client *http.Client, addr, key string) (bool, error) {
 	claimURL := (&url.URL{
 		Scheme:   "http",
 		Host:     addr,
@@ -594,7 +611,7 @@ func (h *HTTPFileStager) claimExisting(ctx context.Context, addr, key string) (b
 	if h.token != "" {
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
-	resp, err := h.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("claiming %q: %w", key, err)
 	}
@@ -804,7 +821,7 @@ func (h *HTTPFileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, loca
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
 
-	resp, err := h.client.Do(req)
+	resp, err := h.clientFor(nodeID).Do(req)
 	if err != nil {
 		return fmt.Errorf("downloading from node %s: %w", nodeID, err)
 	}
@@ -860,7 +877,7 @@ func (h *HTTPFileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (st
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
 
-	resp, err := h.client.Do(req)
+	resp, err := h.clientFor(nodeID).Do(req)
 	if err != nil {
 		return "", fmt.Errorf("allocating temp file on node %s: %w", nodeID, err)
 	}
@@ -901,7 +918,7 @@ func (h *HTTPFileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix st
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
 
-	resp, err := h.client.Do(req)
+	resp, err := h.clientFor(nodeID).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("listing dir on node %s: %w", nodeID, err)
 	}

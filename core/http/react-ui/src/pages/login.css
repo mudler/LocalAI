@@ -1,0 +1,48 @@
+/* ==========================================================================
+   Sign-in, registration and the invite page
+
+   One screen: a brand panel with the instance's logo, name and tagline, and
+   one form beside it with one field per step. Built on the kit's field, input
+   and button classes. The page has no gradient, no glass and no coloured edge.
+   ========================================================================== */
+
+.lg { --dk-font-display: var(--font-sans); --dk-font-body: var(--font-sans); min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); background: var(--dk-canvas); color: var(--dk-text); }
+
+.lg-brand { display: flex; flex-direction: column; justify-content: space-between; gap: var(--dk-space-6); padding: var(--dk-space-6) var(--dk-space-7); background: var(--dk-inset); border-right: 1px solid var(--dk-edge); }
+.lg-brand__top { display: flex; align-items: center; gap: var(--dk-space-3); }
+.lg-brand__logo { width: 32px; height: 32px; border-radius: var(--dk-radius-1); object-fit: contain; }
+.lg-brand__name { font: var(--dk-weight-bold) var(--dk-text-17) / 1.2 var(--dk-font-display); letter-spacing: -.01em; }
+.lg-brand__tagline { margin: auto 0; max-width: 16ch; font: var(--dk-weight-bold) var(--dk-text-32) / 1.15 var(--dk-font-display); letter-spacing: -.02em; text-wrap: balance; overflow-wrap: anywhere; }
+.lg-brand:not(:has(.lg-brand__tagline)) { justify-content: flex-start; }
+
+.lg-main { display: flex; align-items: center; justify-content: center; padding: var(--dk-space-6) var(--dk-space-5); }
+.lg-form { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.lg-form form { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.lg-steps { display: flex; gap: 6px; margin-bottom: var(--dk-space-2); }
+.lg-steps span { width: 28px; height: 3px; border-radius: 2px; background: var(--dk-edge); }
+.lg-steps span[data-on] { background: var(--dk-text); }
+.lg-title { margin: 0; font: var(--dk-weight-bold) var(--dk-text-32) / 1.15 var(--dk-font-display); letter-spacing: -.02em; text-wrap: balance; }
+.lg-lead { margin: 0 0 var(--dk-space-2); font-size: var(--dk-text-15); line-height: 1.5; color: var(--dk-muted); }
+.lg-full { width: 100%; }
+.lg-form .dk-btn--lg { width: 100%; }
+.lg-as { margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); overflow-wrap: anywhere; }
+.lg-foot { margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
+.lg-link { padding: 0; border: 0; background: none; cursor: pointer; color: var(--dk-accent-text); font: var(--dk-weight-semibold) var(--dk-text-13) / 1.4 var(--dk-font-body); text-decoration: underline; text-underline-offset: 2px; }
+.lg-link:hover { color: var(--dk-text); }
+.lg-link:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: 2px; }
+.lg-divider { display: flex; align-items: center; gap: var(--dk-space-3); font-size: var(--dk-text-13); color: var(--dk-muted); }
+.lg-divider::before, .lg-divider::after { content: ""; flex: 1; height: 1px; background: var(--dk-edge); }
+.lg-alert { display: flex; align-items: flex-start; gap: var(--dk-space-3); margin: 0; padding: var(--dk-space-3) var(--dk-space-4); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-2); background: var(--dk-card); font-size: var(--dk-text-13); line-height: 1.5; }
+.lg-alert p { margin: 0; flex: 1; min-width: 0; }
+.lg-alert .lai-icon { flex: none; margin-top: 2px; font-size: 16px; }
+.lg-alert[data-tone="error"] { background: var(--dk-error-wash); border-color: transparent; color: var(--dk-error-text); }
+.lg-alert[data-tone="warn"] { flex-direction: column; background: var(--dk-warn-wash); border-color: transparent; color: var(--dk-warn-text); }
+.lg-token { display: flex; flex-direction: column; gap: var(--dk-space-3); margin-top: var(--dk-space-2); }
+.lg-token__form { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+
+@media (max-width: 900px) {
+  .lg { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .lg-brand { flex-direction: row; align-items: center; padding: var(--dk-space-4); border-right: 0; border-bottom: 1px solid var(--dk-edge); gap: var(--dk-space-4); }
+  .lg-brand__tagline { display: none; }
+  .lg-main { align-items: flex-start; padding: var(--dk-space-6) var(--dk-space-4); }
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -75,6 +76,25 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 			})
 		})
 
+		Context("Context overflow", func() {
+			It("should return HTTP 400 for a non-streaming request that exceeds the context", func() {
+				_, err := client.Chat.Completions.New(
+					context.TODO(),
+					openai.ChatCompletionNewParams{
+						Model: "mock-model",
+						Messages: []openai.ChatCompletionMessageParamUnion{
+							openai.UserMessage("MOCK_ERROR_CONTEXT_OVERFLOW"),
+						},
+					},
+				)
+				Expect(err).To(HaveOccurred())
+				var apiErr *openai.Error
+				Expect(errors.As(err, &apiErr)).To(BeTrue(), err.Error())
+				Expect(apiErr.StatusCode).To(Equal(http.StatusBadRequest))
+				Expect(err.Error()).To(ContainSubstring("exceeds the available context size"))
+			})
+		})
+
 		Context("Streaming errors", func() {
 			It("should return error for streaming request with immediate error trigger", func() {
 				stream := client.Chat.Completions.NewStreaming(
@@ -90,6 +110,38 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 					// drain
 				}
 				Expect(stream.Err()).To(HaveOccurred())
+			})
+
+			// A backend that fails before it streams anything leaves the
+			// response unwritten, so LocalAI can still answer with a real
+			// status. Clients (the OpenAI SDKs, cogito) then see an HTTP error
+			// instead of an in-stream chunk they may not parse.
+			postStream := func(content string) (*http.Response, string) {
+				body := `{"model":"mock-model","messages":[{"role":"user","content":"` + content + `"}],"stream":true}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+				resp, err := http.DefaultClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer func() { _ = resp.Body.Close() }()
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				return resp, string(data)
+			}
+
+			It("should return HTTP 400 when the prompt exceeds the context before streaming", func() {
+				resp, body := postStream("MOCK_ERROR_CONTEXT_OVERFLOW")
+				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest), body)
+				Expect(resp.Header.Get("Content-Type")).To(ContainSubstring("application/json"))
+				Expect(body).To(ContainSubstring("exceeds the available context size (8192 tokens)"))
+				Expect(body).ToNot(ContainSubstring("[DONE]"))
+			})
+
+			It("should return an HTTP error when the backend fails before streaming", func() {
+				resp, body := postStream("MOCK_ERROR_IMMEDIATE")
+				Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError), body)
+				Expect(resp.Header.Get("Content-Type")).To(ContainSubstring("application/json"))
+				Expect(body).To(ContainSubstring("simulated failure"))
 			})
 
 			It("should return structured error for mid-stream failure", func() {
@@ -352,6 +404,28 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 			segs := got["segments"].([]any)
 			Expect(segs[0].(map[string]any)["text"]).To(Equal("hello there"))
 			Expect(segs[1].(map[string]any)["text"]).To(Equal("general kenobi"))
+		})
+
+		It("returns closed sound events only when include_sounds is set", func() {
+			resp, data := postDiarize(map[string]string{"response_format": "verbose_json", "include_sounds": "true"})
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var got map[string]any
+			Expect(json.Unmarshal(data, &got)).To(Succeed())
+			sounds, ok := got["sounds"].([]any)
+			Expect(ok).To(BeTrue(), "include_sounds must add a sounds array")
+			Expect(sounds).To(HaveLen(2))
+			first := sounds[0].(map[string]any)
+			Expect(first["label"]).To(Equal("Door"))
+			Expect(first["start"]).To(BeNumerically("~", 0.5, 0.001))
+			Expect(first["end"]).To(BeNumerically("~", 1.25, 0.001))
+			Expect(first["confidence"]).To(BeNumerically("~", 0.8, 0.001))
+
+			resp, data = postDiarize(map[string]string{"response_format": "verbose_json"})
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(string(data)).ToNot(ContainSubstring(`"sounds"`))
+
+			resp, _ = postDiarize(map[string]string{"response_format": "rttm", "include_sounds": "true"})
+			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 
 		It("rttm response_format returns NIST RTTM rows", func() {

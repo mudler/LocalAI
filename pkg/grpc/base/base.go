@@ -63,6 +63,10 @@ func (llm *Base) Generate3D(*pb.Generate3DRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Animate3D(*pb.Animate3DRequest) error {
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) UpscaleImage(*pb.UpscaleImageRequest) error {
 	return fmt.Errorf("unimplemented")
 }
@@ -93,6 +97,10 @@ func (llm *Base) Detect(*pb.DetectOptions) (pb.DetectResponse, error) {
 
 func (llm *Base) Depth(*pb.DepthRequest) (pb.DepthResponse, error) {
 	return pb.DepthResponse{}, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) Forecast(*pb.ForecastRequest) (pb.ForecastResponse, error) {
+	return pb.ForecastResponse{}, fmt.Errorf("unimplemented")
 }
 
 func (llm *Base) FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error) {
@@ -246,4 +254,8 @@ func memoryUsage() *pb.MemoryUsageData {
 }
 func (llm *Base) Free() error {
 	return nil
+}
+
+func (*Base) MotionStream(context.Context, func() (*pb.MotionRequest, error), func(*pb.MotionResponse) error) error {
+	return fmt.Errorf("motion streaming is not supported")
 }

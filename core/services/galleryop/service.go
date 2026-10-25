@@ -30,11 +30,14 @@ type GalleryService struct {
 	statuses       map[string]*OpStatus
 	cancellations  map[string]cancellationActions
 
+	// backendScheduler runs backend operations; set by Start.
+	backendScheduler *opScheduler
+
 	// Distributed mode (nil when not in distributed mode).
-	// natsClient is the wider MessagingClient (Publisher + subscribe methods)
+	// natsClient is a messaging.Broadcaster (Publisher + Subscribe)
 	// when wired by the distributed startup path; broadcastSubs holds the
 	// progress + cancel subscriptions opened by SubscribeBroadcasts.
-	natsClient    messaging.MessagingClient
+	natsClient    messaging.Broadcaster
 	galleryStore  *distributed.GalleryStore
 	broadcastSubs []messaging.Subscription
 
@@ -118,10 +121,10 @@ func (g *GalleryService) ModelArtifactMaterializer() config.ArtifactMaterializer
 }
 
 // SetNATSClient sets the NATS client for distributed progress publishing.
-// Accepting the wider MessagingClient (vs. plain Publisher) lets
+// Accepting a Broadcaster (vs. plain Publisher) lets
 // SubscribeBroadcasts wire the wildcard subscriptions that keep peer
 // replicas' statuses + cancellations in sync.
-func (g *GalleryService) SetNATSClient(nc messaging.MessagingClient) {
+func (g *GalleryService) SetNATSClient(nc messaging.Broadcaster) {
 	g.Lock()
 	defer g.Unlock()
 	g.natsClient = nc
@@ -522,7 +525,7 @@ func (g *GalleryService) applyCancel(id string, pause bool) {
 	}
 }
 
-// newUserCancellableContext returns a child context whose CancelFunc cancels
+// NewUserCancellableContext returns a child context whose CancelFunc cancels
 // with the downloader.ErrUserCancelled cause. This lets the download layer
 // distinguish a deliberate user cancel (discard the half-downloaded .partial)
 // from an incidental cancellation such as process shutdown (keep the .partial
@@ -594,19 +597,36 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 	var updateError func(id string, e error)
 	if !g.appConfig.OpaqueErrors {
 		updateError = func(id string, e error) {
+			xlog.Error("Gallery operation failed", "op_id", id, "error", e)
 			g.UpdateStatus(id, &OpStatus{Error: e, Processed: true, Message: "error: " + e.Error()})
 		}
 	} else {
-		updateError = func(id string, _ error) {
+		updateError = func(id string, e error) {
+			xlog.Error("Gallery operation failed", "op_id", id, "error", e)
 			g.UpdateStatus(id, &OpStatus{Error: fmt.Errorf("an error occurred"), Processed: true})
 		}
 	}
 
+	// Backend and model operations have their own loops. A slow backend
+	// operation no longer holds back model operations, and the other way round.
+	sched := newOpScheduler(func() int { return g.maxConcurrentBackendOps() })
+	g.backendScheduler = sched
+
 	go func() {
+		ticker := time.NewTicker(schedulerPollInterval)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-c.Done():
+				// Operations that never started are failed, not left as
+				// "queued" forever. Running ones follow their own contexts.
+				sched.abandonAll()
 				return
+			case <-ticker.C:
+				// Picks up a raised limit while operations wait.
+				if sched.hasPending() {
+					sched.kick()
+				}
 			case op := <-g.BackendGalleryChannel:
 				// Create context if not provided
 				if op.Context == nil {
@@ -615,41 +635,24 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 				} else if op.CancelFunc != nil {
 					g.storeCancellation(op.ID, op.CancelFunc, op.PauseFunc)
 				}
-				// Create DB record for distributed tracking
-				if g.galleryStore != nil {
-					opType := "backend_install"
-					if op.Delete {
-						opType = "backend_delete"
-					}
-					if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
-						ID:                 op.ID,
-						GalleryElementName: op.GalleryElementName,
-						OpType:             opType,
-						Status:             "pending",
-						// Create runs at dequeue, so this is the running-phase
-						// value: a running delete is not cancellable, an install
-						// is, matching the model channel. The queued phase before
-						// this point is cancellable either way (see markQueued).
-						Cancellable: !op.Delete,
-					}); err != nil {
-						// Not fatal: the install still runs and the in-memory
-						// status still updates. Logged because without the row
-						// the cross-replica dedup guard and hydration cannot
-						// see this operation at all.
-						xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)
-					}
-				}
-				err := runOpHandler(func() error { return g.backendHandler(&op, systemState) })
-				if err != nil {
-					updateError(op.ID, err)
-				} else if g.OnBackendOpCompleted != nil {
-					// Let listeners (e.g. UpgradeChecker) refresh their view of
-					// installed state. Run off the worker goroutine so a slow
-					// callback doesn't stall the next queued operation.
-					go g.OnBackendOpCompleted()
-				}
-				g.removeCancellation(op.ID)
+				sched.submit(&opTask{
+					key: backendOpKey(op.GalleryElementName, op.ExternalName),
+					ctx: op.Context,
+					run: func() { g.runBackendOp(&op, systemState, updateError) },
+					abandon: func() {
+						g.abandonQueued(op.ID, op.GalleryElementName)
+						g.removeCancellation(op.ID)
+					},
+				})
+			}
+		}
+	}()
 
+	go func() {
+		for {
+			select {
+			case <-c.Done():
+				return
 			case op := <-g.ModelGalleryChannel:
 				// Create context if not provided
 				if op.Context == nil {
@@ -688,6 +691,53 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 	}()
 
 	return nil
+}
+
+// maxConcurrentBackendOps is the number of backend operations allowed to run
+// at once. It follows the runtime setting.
+func (g *GalleryService) maxConcurrentBackendOps() int {
+	if g.appConfig == nil {
+		return 1
+	}
+	return g.appConfig.BackendOperationLimit()
+}
+
+// runBackendOp runs one backend operation once the scheduler gives it a slot.
+func (g *GalleryService) runBackendOp(op *ManagementOp[gallery.GalleryBackend, any], systemState *system.SystemState, updateError func(string, error)) {
+	// Create DB record for distributed tracking
+	if g.galleryStore != nil {
+		opType := "backend_install"
+		if op.Delete {
+			opType = "backend_delete"
+		}
+		if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
+			ID:                 op.ID,
+			GalleryElementName: op.GalleryElementName,
+			OpType:             opType,
+			Status:             "pending",
+			// Create runs at dequeue, so this is the running-phase
+			// value: a running delete is not cancellable, an install
+			// is, matching the model channel. The queued phase before
+			// this point is cancellable either way (see markQueued).
+			Cancellable: !op.Delete,
+		}); err != nil {
+			// Not fatal: the install still runs and the in-memory
+			// status still updates. Logged because without the row
+			// the cross-replica dedup guard and hydration cannot
+			// see this operation at all.
+			xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)
+		}
+	}
+	err := runOpHandler(func() error { return g.backendHandler(op, systemState) })
+	if err != nil {
+		updateError(op.ID, err)
+	} else if g.OnBackendOpCompleted != nil {
+		// Let listeners (e.g. UpgradeChecker) refresh their view of
+		// installed state. Run off the worker goroutine so a slow
+		// callback doesn't stall the next queued operation.
+		go g.OnBackendOpCompleted()
+	}
+	g.removeCancellation(op.ID)
 }
 
 // SubscribeBroadcasts opens the wildcard subscriptions that keep this

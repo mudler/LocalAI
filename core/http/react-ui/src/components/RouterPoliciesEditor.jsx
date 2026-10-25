@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import Icon from './Icon'
 
 // RouterPoliciesEditor renders the label vocabulary the score
 // classifier ranks for each request. The shape mirrors
@@ -58,7 +59,7 @@ export default function RouterPoliciesEditor({ value, onChange }) {
         className="btn btn-secondary btn-sm self-start"
         onClick={add}
       >
-        <i className="fas fa-plus" /> Add policy
+        <Icon name="plus" /> Add policy
       </button>
     </div>
   )
@@ -98,7 +99,7 @@ function PolicyRow({ row, duplicate, onChange, onRemove }) {
         onClick={onRemove}
         title="Remove policy"
       >
-        <i className="fas fa-trash" />
+        <Icon name="trash" />
       </button>
     </div>
   )

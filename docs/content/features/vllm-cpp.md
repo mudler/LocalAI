@@ -133,6 +133,86 @@ engine_args:
   tool_parser: qwen3_coder
 ```
 
+## Overriding config.json keys (`hf_overrides`)
+
+`engine_args.hf_overrides` is a JSON object of top-level `config.json` keys that
+the backend merges over the model directory's own `config.json` before the
+engine loads it, like vLLM's `--hf-overrides`. The main use is to opt a published
+checkpoint into an engine adapter that its config does not name. For example,
+the Tev1 repositories declare `Qwen3_5ForConditionalGeneration`, and vllm.cpp
+serves them as decision models only when the architecture is `Tev1Model`:
+
+```yaml
+engine_args:
+  hf_overrides:
+    architectures: ["Tev1Model"]
+```
+
+The downloaded model files do not change. At load the backend creates a private
+temporary directory. It writes the merged `config.json` there and adds a
+symlink for each other entry of the model directory (weights, tokenizer files,
+a `tokenizer/` subdirectory). Then it gives that directory to the engine. When
+the model unloads, the backend removes the directory.
+
+Rules:
+
+- The merge is top-level only. An override key replaces the whole value of that
+  key, including a nested object such as `text_config`.
+- The model must be a directory that contains a `config.json`. A `.gguf` file
+  or a directory without `config.json` fails the load.
+- A value that is not a JSON object (an array, a scalar, or JSON that does not
+  parse) fails the load. The backend does not ignore it, because loading the
+  unchanged config would serve a different architecture than the one you
+  configured.
+- An empty object (`{}`) does nothing.
+
+## Named entity recognition (GLiNER2.5)
+
+The `vllm-cpp` backend serves [GLiNER2.5](https://huggingface.co/fastino/gliner2.5-multi-v1),
+a zero-shot NER and structured-extraction model. Point the backend at the
+safetensors directory and the backend exposes the `TokenClassify` gRPC method,
+which LocalAI maps to its standard NER API surface.
+
+Labels are supplied at inference time, not baked into the model config. Set
+them in `engine_args`:
+
+```yaml
+engine_args:
+  ner_labels: "person,organization,location,date,time,money,quantity"
+  ner_threshold: 0.5
+  ner_max_width: 12
+```
+
+`ner_labels` is a comma-separated list. When omitted, the backend falls back to
+a built-in default set (`person`, `organization`, `location`, `date`, `time`,
+`money`, `quantity`). `ner_threshold` is the sigmoid cutoff (default 0.5);
+`ner_max_width` is the maximum span length in tokens (default 12).
+
+The model runs the DeBERTa v2 encoder with disentangled attention on the host
+forward, which is the required contract for pooling models in vllm.cpp. A
+device-resident forward is tracked as a performance optimization, not a
+correctness gap.
+
+### Decisions API
+
+The `vllm-cpp` backend serves the kev-compatible SystemOne endpoints (the Decisions API): typed
+`choice`, `noul` and `score` questions over a state text, answered by a
+non-generative decision model in one pass. A decision model declares
+`known_usecases: [decisions]`. See [Decisions API]({{% relref "features/decisions" %}})
+for the request shape, the models you can install and the access rules.
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/v1/systemone` | POST | Answer all questions in one pass |
+| `/v1/systemone/permute` | POST | Re-run one choice question under n_perm option orders |
+| `/v1/systemone/separate` | POST | Answer each question in its own pass (N passes) |
+
+The GLiNER2.5 zero-shot NER model (`token_classify`) also serves
+`/v1/systemone`, through the NER path, and it is the model to use for
+`/v1/systemone/permute` and `/v1/systemone/separate`, which decision models
+refuse with a `400`. It derives its NER labels from the question definitions, so
+no `ner_labels` configuration is needed.
+
 ## Beyond text generation
 
 The `vllm-cpp` backend also serves MiniMax-H3, which generates video and audio

@@ -2,6 +2,7 @@ package middleware_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -52,6 +53,18 @@ var _ = Describe("RouteModel middleware (score classifier)", func() {
 		_ = os.RemoveAll(modelDir)
 	})
 
+	It("uses configured fallback for image input on text classifiers without changing content", func() {
+		cfg := newScoreRouterModel(modelDir, "smart-router")
+		writeCandidate(modelDir, "qwen3-0.6b")
+		req := openAIChat("")
+		req.Messages[0].Content = []any{map[string]any{"type": "image_url", "image_url": map[string]string{"url": "data:image/png;base64,AA=="}}}
+		before, _ := json.Marshal(req.Messages)
+		rec, err := runRouter(loader, appConfig, store, cfg, req, func(string) backend.Scorer { return &stubScorer{} })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Body.String()).To(Equal("served:qwen3-0.6b"))
+		after, _ := json.Marshal(req.Messages)
+		Expect(after).To(Equal(before))
+	})
 	It("routes to a candidate whose labels cover the active set", func() {
 		// 3 policies, 2 candidates. Small model has [casual-chat],
 		// bigger has [code-generation, math-reasoning, casual-chat].
@@ -129,11 +142,7 @@ var _ = Describe("RouteModel middleware (score classifier)", func() {
 			"math-reasoning":  -4.0,
 		}}
 		_, err := runRouter(loader, appConfig, store, routerCfg, openAIChat("debug something"), stubScorerFactory(s))
-		// Build-time config bugs (here: a candidate referencing a
-		// label not declared in policies) must surface to the client
-		// — the previous silent-fallback behaviour hid the broken
-		// config and left operators wondering why traces never showed
-		// the classifier model running.
+		// Invalid classifier configuration must fail closed even with a fallback.
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("unknown label"))
 	})
@@ -581,6 +590,29 @@ var (
 	errTestKNNInsert = errors.New("knn classifier must never insert into the corpus")
 )
 
+// reseedingCorpusLoader mirrors corpus.Manager's contract: EnsureLoaded
+// is a no-op while the index still answers, and re-seeds it when the
+// store came back empty. It insists on the RAW scripted store, so a
+// wrapper leaking into the loader (and recursing) fails the spec.
+type reseedingCorpusLoader struct {
+	seed           []backend.Neighbor
+	calls, reseeds int
+}
+
+func (r *reseedingCorpusLoader) EnsureLoaded(_ context.Context, _, _, _ string, _ backend.Embedder, store backend.VectorStore) (int, error) {
+	r.calls++
+	s, ok := store.(*scriptedVectorStore)
+	if !ok {
+		return 0, errors.New("corpus loader must receive the raw store, not a wrapper")
+	}
+	if len(s.neighbors) == 0 {
+		s.neighbors = r.seed
+		r.reseeds++
+		return len(r.seed), nil
+	}
+	return 0, nil
+}
+
 type failingCorpusLoader struct{ err error }
 
 func (f failingCorpusLoader) EnsureLoaded(context.Context, string, string, string, backend.Embedder, backend.VectorStore) (int, error) {
@@ -710,6 +742,43 @@ var _ = Describe("RouteModel middleware (knn classifier)", func() {
 		Expect(err.Error()).To(ContainSubstring("knn"))
 	})
 
+	It("re-seeds a relaunched corpus index behind the cached classifier", func() {
+		// The classifier is built once and cached; the local-store
+		// process behind its index may be evicted or idle-killed and
+		// relaunched empty afterwards. Measured in production: every probe
+		// then fell back with similarity 0 while corpus/stats still
+		// reported the full count. The lookup path must re-seed.
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		writeCandidate(modelDir, "small-model")
+		writeCandidate(modelDir, "big-model")
+		seeded := []backend.Neighbor{
+			{Similarity: 0.92, Payload: corpusPayload("code-generation")},
+			{Similarity: 0.88, Payload: corpusPayload("code-generation")},
+		}
+		vstore.neighbors = seeded
+		corpus := &reseedingCorpusLoader{seed: seeded}
+		deps := knnDeps()
+		deps.EmbedderFingerprint = func(string) (string, error) { return "fp", nil }
+		deps.Corpus = corpus
+		registry := router.NewRegistry()
+
+		first, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		d, err := first.Classify(context.Background(), router.Probe{Prompt: "debug my Go null pointer"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.Labels).To(ContainElement("code-generation"))
+		Expect(corpus.reseeds).To(Equal(0), "a healthy index is not re-seeded")
+
+		vstore.neighbors = nil // the store process was relaunched empty
+		again, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(again).To(BeIdenticalTo(first), "the classifier stays cached — the sync must live on the lookup path")
+		d, err = again.Classify(context.Background(), router.Probe{Prompt: "debug my Go null pointer"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.Labels).To(ContainElement("code-generation"), "lookup on a relaunched index re-seeds instead of falling back")
+		Expect(corpus.reseeds).To(Equal(1))
+	})
+
 	It("fails closed when the persisted corpus cannot sync into the live index", func() {
 		routerCfg := newKNNRouterModel(modelDir, "smart-router")
 		writeCandidate(modelDir, "small-model")
@@ -760,5 +829,23 @@ var _ = Describe("RouteModel middleware (knn classifier)", func() {
 		// which errors loudly.
 		Expect(rec.Body.String()).To(Equal("served:small-model"))
 		Expect(store.records[0].Cached).To(BeFalse())
+	})
+})
+
+var _ = Describe("Multimodal router probes", func() {
+	It("preserves image-only OpenAI content without mutating the request", func() {
+		r := &schema.OpenAIRequest{Messages: []schema.Message{{Role: "user", Content: []any{map[string]any{"type": "image_url", "image_url": map[string]string{"url": "data:image/png;base64,AA=="}}}}}}
+		before, _ := json.Marshal(r)
+		p := OpenAIProbeFromRequest(r)
+		Expect(string(p.State)).To(ContainSubstring("data:image/png;base64,AA=="))
+		Expect(p.Prompt).To(BeEmpty())
+		after, _ := json.Marshal(r)
+		Expect(after).To(Equal(before))
+	})
+	It("preserves typed Anthropic base64 source", func() {
+		r := &schema.AnthropicRequest{Messages: []schema.AnthropicMessage{{Role: "user", Content: []schema.AnthropicContentBlock{{Type: "image", Source: &schema.AnthropicImageSource{Type: "base64", MediaType: "image/png", Data: "AA=="}}}}}}
+		p, ok := AnthropicProbe(r)
+		Expect(ok).To(BeTrue())
+		Expect(string(p.State)).To(ContainSubstring(`"media_type":"image/png"`))
 	})
 })

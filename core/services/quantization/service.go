@@ -74,7 +74,7 @@ func NewQuantizationService(
 	appConfig *config.ApplicationConfig,
 	modelLoader *model.ModelLoader,
 	configLoader *config.ModelConfigLoader,
-	nats messaging.MessagingClient,
+	nats messaging.Broadcaster,
 	store *distributed.QuantStore,
 ) *QuantizationService {
 	s := &QuantizationService{
@@ -138,7 +138,7 @@ func (s *QuantizationService) saveJobState(job *schema.QuantizationJob) {
 	}
 
 	statePath := filepath.Join(dir, "state.json")
-	if err := os.WriteFile(statePath, data, 0640); err != nil {
+	if err := os.WriteFile(statePath, data, 0600); err != nil {
 		xlog.Error("Failed to write quantization job state", "job_id", job.ID, "error", err)
 	}
 }
@@ -160,7 +160,7 @@ func (s *QuantizationService) loadJobsFromDisk(_ context.Context) ([]*schema.Qua
 			continue
 		}
 		statePath := filepath.Join(baseDir, entry.Name(), "state.json")
-		data, err := os.ReadFile(statePath)
+		data, err := os.ReadFile(filepath.Clean(statePath))
 		if err != nil {
 			continue
 		}
@@ -621,6 +621,21 @@ func sanitizeQuantModelName(s string) string {
 	return strings.ToLower(s)
 }
 
+// inferenceBackendFor returns the backend that can load what a quantization
+// backend produced.
+//
+// The gallery publishes a quantizer as a release channel of the engine that
+// runs its output: "llama-cpp-quantization" is llama.cpp's quantizer, and the
+// GGUF it writes is served by "llama-cpp". The suffix is a channel marker and
+// carries no engine information, so stripping it yields the backend to pin in
+// the imported model's config. Names that carry no channel suffix (a backend
+// that both quantizes and serves, such as "rocmfp4") are already the engine
+// name and pass through unchanged, as do pinned hardware variants
+// ("rocm-rocmfp4"), which are valid values for a config's `backend:`.
+func inferenceBackendFor(quantBackend string) string {
+	return strings.TrimSuffix(config.NormalizeBackendName(quantBackend), "-quantization")
+}
+
 // ImportModel imports a quantized model into LocalAI asynchronously.
 func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID string, req schema.QuantizationImportRequest) (string, error) {
 	s.mu.Lock()
@@ -665,14 +680,15 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 	modelsPath := s.appConfig.SystemState.Model.ModelsPath
 	outputPath := filepath.Join(modelsPath, modelName)
 
-	// Check for name collision
-	configPath := filepath.Join(modelsPath, modelName+".yaml")
+	// A folder or a file of any extension with the name is a collision, not
+	// only the config file.
 	if err := utils.VerifyPath(modelName+".yaml", modelsPath); err != nil {
 		return "", fmt.Errorf("invalid model name: %w", err)
 	}
-	if _, err := os.Stat(configPath); err == nil {
+	if utils.ModelNameTaken(modelsPath, modelName) {
 		return "", fmt.Errorf("model %q already exists, choose a different name", modelName)
 	}
+	configPath := filepath.Join(modelsPath, modelName+".yaml")
 
 	// Create output directory
 	if err := os.MkdirAll(outputPath, 0750); err != nil {
@@ -698,12 +714,12 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 		srcFile := job.OutputFile
 		dstFile := filepath.Join(outputPath, filepath.Base(srcFile))
 
-		srcData, err := os.ReadFile(srcFile)
+		srcData, err := os.ReadFile(filepath.Clean(srcFile))
 		if err != nil {
 			s.setImportFailed(job, fmt.Sprintf("failed to read output file: %v", err))
 			return
 		}
-		if err := os.WriteFile(dstFile, srcData, 0644); err != nil {
+		if err := os.WriteFile(dstFile, srcData, 0600); err != nil {
 			s.setImportFailed(job, fmt.Sprintf("failed to write model file: %v", err))
 			return
 		}
@@ -719,13 +735,24 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 
 		cfg.Name = modelName
 
+		// The importer detects the file format and defaults to llama-cpp for any
+		// GGUF. That is wrong for a model this service just quantized with a
+		// backend stock llama.cpp cannot read: the job knows which backend
+		// produced the file, so pin that one instead of the detected default.
+		if backend := inferenceBackendFor(job.Backend); backend != "" {
+			cfg.Backend = backend
+		}
+		if job.QuantizationType != "" {
+			cfg.Description = "Quantized model (" + job.QuantizationType + ", GGUF)"
+		}
+
 		// Write YAML config
 		yamlData, err := yaml.Marshal(cfg)
 		if err != nil {
 			s.setImportFailed(job, fmt.Sprintf("failed to marshal config: %v", err))
 			return
 		}
-		if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
+		if err := os.WriteFile(configPath, yamlData, 0600); err != nil {
 			s.setImportFailed(job, fmt.Sprintf("failed to write config file: %v", err))
 			return
 		}

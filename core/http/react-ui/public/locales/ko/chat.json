@@ -103,7 +103,8 @@
   "toasts": {
     "selectModel": "모델을 선택해 주세요",
     "copied": "클립보드에 복사되었습니다",
-    "copyFailed": "클립보드에 복사할 수 없습니다"
+    "copyFailed": "클립보드에 복사할 수 없습니다",
+    "pdfScannedAsImages": "{{name}}에 텍스트 레이어가 없습니다(스캔). 비전 모델용으로 {{total}}페이지 중 {{count}}페이지를 이미지로 첨부했습니다."
   },
   "menu": {
     "trigger": "채팅",
@@ -121,5 +122,13 @@
   },
   "message": {
     "you": "You"
+  },
+  "addons": {
+    "note": "An add-on that is off here does nothing in this chat.",
+    "label": "Add-ons",
+    "title": "Add-on tools for this chat",
+    "heading": "Add-on tools",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
   }
 }

@@ -70,9 +70,12 @@ build_tts_request(const backend::TTSRequest &request,
 
 // `source_audio` is SoundGenerationRequest.src already read, present exactly
 // when the field was set and non-empty. Same reasoning as above.
+// family comes from LoadedModel::family(), never from the request model name.
+// Marked expansions reject families without a verified field mapping.
 engine::runtime::TaskRequest
 build_sound_generation_request(const backend::SoundGenerationRequest &request,
-                               std::optional<engine::runtime::AudioBuffer> source_audio);
+                               std::optional<engine::runtime::AudioBuffer> source_audio,
+                               const std::string &family = "");
 
 // Lifts a text-conditioned transform route's text out of the request params
 // into TaskRequest.text_input, and reports whether it set one.

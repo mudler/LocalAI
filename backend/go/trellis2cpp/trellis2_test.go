@@ -134,9 +134,12 @@ var _ = Describe("resolveModels", func() {
 
 	It("rejects option paths escaping the model directory", func() {
 		touch(dir, fullSet...)
+		// The escaping file exists, so only the containment check can
+		// reject it; a missing file would fail for an unrelated reason.
+		touch(filepath.Dir(dir), "outside.gguf")
 
 		_, err := resolveModels("ss_flow_f16.gguf", dir, []string{"dino_path:../outside.gguf"})
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("outside of trusted root")))
 	})
 })
 

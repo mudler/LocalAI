@@ -23,6 +23,9 @@ import (
 type FakeBus struct {
 	mu   sync.Mutex
 	subs []fakeBusSub
+	// nextID gives every subscription an identity of its own, so Unsubscribe
+	// removes that subscription and not another one on the same subject.
+	nextID uint64
 	// publishCounts records how many messages were published per subject, so a
 	// spec can assert the echo-loop guard (an applied delta must not re-publish).
 	publishCounts map[string]int
@@ -31,43 +34,37 @@ type FakeBus struct {
 	// spec exercise the component's reconnect re-hydrate path without a real
 	// NATS server.
 	reconnectCbs []func()
+
+	// queueGroups records the queue group each queue subscription asked for,
+	// keyed by subject, because a group name decides which processes compete
+	// and a spec has to be able to pin it.
+	queueGroups map[string]string
+	// replyHandlers keeps each reply subscription's handler so a spec can play
+	// the requester through DeliverReply.
+	replyHandlers map[string]func([]byte, func([]byte))
 }
 
 type fakeBusSub struct {
+	id      uint64
 	subject string
 	handler func([]byte)
 }
 
 // NewFakeBus returns a ready-to-use in-memory bus.
 func NewFakeBus() *FakeBus {
-	return &FakeBus{publishCounts: map[string]int{}}
-}
-
-// subjectMatches reports whether a subscription filter matches a concrete
-// subject, honoring the single-token `*` wildcard used by NATS.
-func subjectMatches(filter, subject string) bool {
-	if filter == subject {
-		return true
+	return &FakeBus{
+		publishCounts: map[string]int{},
+		queueGroups:   map[string]string{},
+		replyHandlers: map[string]func([]byte, func([]byte)){},
 	}
-	fp := strings.Split(filter, ".")
-	sp := strings.Split(subject, ".")
-	if len(fp) != len(sp) {
-		return false
-	}
-	for i := range fp {
-		if fp[i] == "*" {
-			continue
-		}
-		if fp[i] != sp[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // Publish marshals data as JSON and delivers it synchronously to every matching
 // subscriber.
 func (b *FakeBus) Publish(subject string, data any) error {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return err
+	}
 	payload, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -100,7 +97,7 @@ func (s *fakeBusSubscription) Unsubscribe() error {
 	s.bus.mu.Lock()
 	defer s.bus.mu.Unlock()
 	for i, candidate := range s.bus.subs {
-		if candidate.subject == s.subRef.subject {
+		if candidate.id == s.subRef.id {
 			s.bus.subs = append(s.bus.subs[:i], s.bus.subs[i+1:]...)
 			return nil
 		}
@@ -109,19 +106,67 @@ func (s *fakeBusSubscription) Unsubscribe() error {
 }
 
 func (b *FakeBus) Subscribe(subject string, handler func([]byte)) (messaging.Subscription, error) {
-	sub := fakeBusSub{subject: subject, handler: handler}
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return nil, err
+	}
 	b.mu.Lock()
+	b.nextID++
+	sub := fakeBusSub{id: b.nextID, subject: subject, handler: handler}
 	b.subs = append(b.subs, sub)
 	b.mu.Unlock()
 	return &fakeBusSubscription{bus: b, subRef: sub}, nil
 }
 
-func (b *FakeBus) QueueSubscribe(subject, _ string, handler func([]byte)) (messaging.Subscription, error) {
-	return b.Subscribe(subject, handler)
+func (b *FakeBus) QueueSubscribe(subject, queue string, handler func([]byte)) (messaging.Subscription, error) {
+	sub, err := b.Subscribe(subject, handler)
+	if err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	b.queueGroups[subject] = queue
+	b.mu.Unlock()
+	return sub, nil
 }
 
-func (b *FakeBus) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
+func (b *FakeBus) QueueSubscribeReply(subject, queue string, handler func([]byte, func([]byte))) (messaging.Subscription, error) {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	b.queueGroups[subject] = queue
+	b.replyHandlers[subject] = handler
+	b.mu.Unlock()
 	return &fakeBusSubscription{bus: b}, nil
+}
+
+// QueueGroups returns a copy of the queue group recorded for each subject by
+// QueueSubscribe and QueueSubscribeReply.
+func (b *FakeBus) QueueGroups() map[string]string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make(map[string]string, len(b.queueGroups))
+	for k, v := range b.queueGroups {
+		out[k] = v
+	}
+	return out
+}
+
+// DeliverReply calls the reply handler registered on the exact subject with
+// data and returns what it replied. ok is false when no handler is registered
+// on the subject or the handler returned without replying, the two cases a
+// real requester sees as a timeout.
+func (b *FakeBus) DeliverReply(subject string, data []byte) (reply []byte, ok bool) {
+	b.mu.Lock()
+	h := b.replyHandlers[subject]
+	b.mu.Unlock()
+	if h == nil {
+		return nil, false
+	}
+	h(data, func(r []byte) {
+		reply = r
+		ok = true
+	})
+	return reply, ok
 }
 
 func (b *FakeBus) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
@@ -157,4 +202,27 @@ func (b *FakeBus) TriggerReconnect() {
 	for _, cb := range cbs {
 		cb()
 	}
+}
+
+// subjectMatches reports whether a subscription filter matches a concrete
+// subject, honouring the single-token `*` wildcard the way NATS does, so the
+// fake delivers to the same subscribers the real carrier would.
+func subjectMatches(filter, subject string) bool {
+	if filter == subject {
+		return true
+	}
+	fp := strings.Split(filter, ".")
+	sp := strings.Split(subject, ".")
+	if len(fp) != len(sp) {
+		return false
+	}
+	for i := range fp {
+		if fp[i] == "*" {
+			continue
+		}
+		if fp[i] != sp[i] {
+			return false
+		}
+	}
+	return true
 }

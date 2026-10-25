@@ -63,6 +63,7 @@ func (bl *BackendsList) Run(ctx *cliContext.Context) error {
 	systemState, err := system.GetSystemState(
 		system.WithBackendSystemPath(bl.BackendsSystemPath),
 		system.WithBackendPath(bl.BackendsPath),
+		system.WithRequireBackendIntegrity(bl.RequireBackendIntegrity),
 	)
 	if err != nil {
 		return err
@@ -107,6 +108,7 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 	systemState, err := system.GetSystemState(
 		system.WithBackendSystemPath(bi.BackendsSystemPath),
 		system.WithBackendPath(bi.BackendsPath),
+		system.WithRequireBackendIntegrity(bi.RequireBackendIntegrity),
 	)
 	if err != nil {
 		return err
@@ -144,6 +146,7 @@ func (bu *BackendsUpgrade) Run(ctx *cliContext.Context) error {
 	systemState, err := system.GetSystemState(
 		system.WithBackendSystemPath(bu.BackendsSystemPath),
 		system.WithBackendPath(bu.BackendsPath),
+		system.WithRequireBackendIntegrity(bu.RequireBackendIntegrity),
 	)
 	if err != nil {
 		return err

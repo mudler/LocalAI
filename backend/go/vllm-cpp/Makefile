@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=6bf3abb580982f4fd2e4525ef37802ee0ce28981
+VLLM_CPP_VERSION?=2b789b86eb46ced8e2ac4c425ff9597c04bb5348
 
 # MLX GEMM provider (darwin/metal only; see the metal branch below for why).
 # Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
@@ -30,7 +30,15 @@ VLLM_CPP_VERSION?=6bf3abb580982f4fd2e4525ef37802ee0ce28981
 # decode makes ~112 calls per TOKEN. Ungated it does both; gated it does only the
 # good half. So if this pin is ever moved BACKWARDS, this default must go with it.
 VLLM_CPP_MLX?=on
-MLX_VERSION?=0.29.4
+MLX_VERSION?=0.32.0
+# The macOS runners' pip index offers only the newest MLX (0.32.4), which lacks
+# the array::set_data overload the engine calls, so the pinned wheel is fetched
+# by URL and verified by sha256. This is the mlx-metal distribution: it holds
+# mlx/include, mlx/lib/libmlx.dylib and mlx/lib/mlx.metallib, the only parts the
+# build uses, and unlike the `mlx` wheel it is not tied to one CPython version.
+# Bumping MLX_VERSION means bumping both values (PyPI JSON: /pypi/mlx-metal/<v>/json).
+MLX_WHEEL_URL?=https://files.pythonhosted.org/packages/d6/ef/d74ae99cfe9ddb59fd08abd14f47754c3d199291a93756903fa595b31b8a/mlx_metal-0.32.0-py3-none-macosx_14_0_arm64.whl
+MLX_WHEEL_SHA256?=5b64b20ac24b0c401f489de01e8209edc4d372125201f19314e6f39e385322aa
 MLX_VENV?=$(abspath ./mlx-venv)
 # Resolved lazily (recursive `=`, not `:=`): the glob only matches once the venv
 # target has run, and the interpreter version in the path varies per runner.
@@ -40,6 +48,14 @@ MLX_ROOT=$(shell echo $(MLX_VENV)/lib/python*/site-packages/mlx)
 # server, examples and tests of the engine are never built here.
 CMAKE_ARGS+=-DVLLM_CPP_SERVER=OFF -DVLLM_CPP_BUILD_TESTS=OFF -DVLLM_CPP_BUILD_EXAMPLES=OFF
 CMAKE_ARGS+=-DCMAKE_BUILD_TYPE=Release
+# Diarization (ABI v30) is ON upstream and FetchContents parakeet.cpp at
+# configure time, building a second (static) ggml into libvllm. The pinned
+# engine now pins that fetch to a commit, so ON configures, but it still adds a
+# network fetch and a second ggml to every build for calls this backend never
+# makes: it binds none of the vllm_diariz*/vllm_transcribe_and_* entry points,
+# and with the option OFF they compile as stubs that refuse by name, so the ABI
+# stays v30-complete without the extra dependency.
+CMAKE_ARGS+=-DVLLM_CPP_WITH_DIARIZATION=OFF
 
 # vllm.cpp sets no global -march: SIMD tiers are per-file with runtime dispatch,
 # so ONE portable library serves every CPU of the target arch (unlike the
@@ -145,14 +161,14 @@ $(MLX_STAMP):
 	@if [ ! -x "$(MLX_VENV)/bin/pip" ]; then \
 		python3 -m venv "$(MLX_VENV)" || { echo "vllm-cpp: python3 with venv is required to build the MLX provider; pass VLLM_CPP_MLX=off to build Metal without it" >&2; exit 1; }; \
 	fi
-	"$(MLX_VENV)"/bin/pip install --quiet --disable-pip-version-check "mlx==$(MLX_VERSION)"
+	"$(MLX_VENV)"/bin/pip install --quiet --disable-pip-version-check "mlx-metal @ $(MLX_WHEEL_URL)#sha256=$(MLX_WHEEL_SHA256)"
 	@# Resolved in the SHELL, not by $(MLX_ROOT): make expands a whole recipe
 	@# before running its first line, so the glob would still be unmatched here.
 	@# Every later use (the cmake args, package.sh) expands after this target has
 	@# completed, where $(MLX_ROOT) does resolve.
 	@root=$$(echo "$(MLX_VENV)"/lib/python*/site-packages/mlx); \
 	test -f "$$root/lib/libmlx.dylib" -a -f "$$root/include/mlx/array.h" || \
-		{ echo "vllm-cpp: mlx==$(MLX_VERSION) did not provide lib/libmlx.dylib + include/mlx/array.h under $$root" >&2; exit 1; }
+		{ echo "vllm-cpp: mlx-metal $(MLX_VERSION) did not provide lib/libmlx.dylib + include/mlx/array.h under $$root" >&2; exit 1; }
 	touch $@
 else
 MLX_STAMP=

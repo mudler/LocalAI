@@ -293,6 +293,9 @@ func ChatWithAgentEndpoint(app *application.Application) echo.HandlerFunc {
 		name := decodedParam(c, "name")
 		var payload struct {
 			Message string `json:"message"`
+			// History is the earlier turns of the conversation the client is
+			// showing; omitted or empty starts a conversation without history.
+			History []agentpool.ChatHistoryMessage `json:"history"`
 		}
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
@@ -301,7 +304,7 @@ func ChatWithAgentEndpoint(app *application.Application) echo.HandlerFunc {
 		if message == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Message cannot be empty"})
 		}
-		messageID, err := svc.ChatForUser(userID, name, message)
+		messageID, err := svc.ChatForUser(userID, name, message, payload.History...)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})

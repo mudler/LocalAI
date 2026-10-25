@@ -67,7 +67,7 @@ func itSession(gate *voiceGate) (*Session, *fakeModel) {
 // hasSpeakerNotAuthorized reports whether a speaker_not_authorized error event
 // was emitted to the client.
 func hasSpeakerNotAuthorized(tr *fakeTransport) bool {
-	for _, e := range tr.events {
+	for _, e := range tr.events() {
 		if ev, ok := e.(types.ErrorEvent); ok && ev.Error.Code == "speaker_not_authorized" {
 			return true
 		}
@@ -83,7 +83,7 @@ var _ = Describe("realtime voice gate integration (commitUtterance)", func() {
 			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
 		tr := &fakeTransport{}
 
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
 
 		Expect(hasSpeakerNotAuthorized(tr)).To(BeFalse())
 		// The LLM/TTS pipeline ran to completion.
@@ -98,7 +98,7 @@ var _ = Describe("realtime voice gate integration (commitUtterance)", func() {
 			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
 		tr := &fakeTransport{}
 
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
 
 		// Hard barrier: the LLM/TTS pipeline never ran.
 		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
@@ -114,7 +114,7 @@ var _ = Describe("realtime voice gate integration (commitUtterance)", func() {
 			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
 		tr := &fakeTransport{}
 
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
 
 		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
 		Expect(hasSpeakerNotAuthorized(tr)).To(BeTrue())
@@ -125,7 +125,7 @@ var _ = Describe("realtime voice gate integration (commitUtterance)", func() {
 			config.VoiceGateWhenEvery, config.VoiceGateRejectSilent))
 		tr := &fakeTransport{}
 
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
 
 		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
 		Expect(hasSpeakerNotAuthorized(tr)).To(BeFalse())
@@ -138,7 +138,7 @@ var _ = Describe("realtime voice gate integration (commitUtterance)", func() {
 
 		// First utterance: authorized, marks the session verified.
 		tr1 := &fakeTransport{}
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr1)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr1, session.nextCommitSlot())
 		Expect(hasSpeakerNotAuthorized(tr1)).To(BeFalse())
 		Expect(tr1.countEvents(types.ServerEventTypeResponseDone)).To(BeNumerically(">=", 1))
 
@@ -147,7 +147,7 @@ var _ = Describe("realtime voice gate integration (commitUtterance)", func() {
 
 		// Second utterance still proceeds because when:first skips re-verification.
 		tr2 := &fakeTransport{}
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr2)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr2, session.nextCommitSlot())
 		Expect(hasSpeakerNotAuthorized(tr2)).To(BeFalse())
 		Expect(tr2.countEvents(types.ServerEventTypeResponseDone)).To(BeNumerically(">=", 1))
 	})
@@ -162,7 +162,7 @@ var _ = Describe("realtime speaker surfacing (commitUtterance)", func() {
 		session.voiceGate.cfg.Identity = &config.VoiceIdentityConfig{Announce: true}
 		tr := &fakeTransport{}
 
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
 
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
 	})
@@ -184,12 +184,12 @@ var _ = Describe("realtime speaker surfacing (commitUtterance)", func() {
 		session, _ := itSession(gate)
 		tr := &fakeTransport{}
 
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(0))
 
 		gate.cfg.Identity.AnnounceUnknown = true
 		tr2 := &fakeTransport{}
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr2)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr2, session.nextCommitSlot())
 		Expect(tr2.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
 	})
 
@@ -199,9 +199,98 @@ var _ = Describe("realtime speaker surfacing (commitUtterance)", func() {
 		session.voiceGate.cfg.Enforce = boolPtr(false)
 		tr := &fakeTransport{}
 
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
 
 		Expect(hasSpeakerNotAuthorized(tr)).To(BeFalse())
+		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(BeNumerically(">=", 1))
+	})
+})
+
+// firstEventIndex returns the position of the first recorded event of type et,
+// or -1 when there is none.
+func firstEventIndex(tr *fakeTransport, et types.ServerEventType) int {
+	for i, e := range tr.events() {
+		if e.ServerEventType() == et {
+			return i
+		}
+	}
+	return -1
+}
+
+var _ = Describe("realtime speaker surfacing in transcription-only sessions (commitUtterance)", func() {
+	utt := make([]byte, 32)
+
+	transcriptionOnly := func(identity *config.VoiceIdentityConfig) *Session {
+		session, _ := itSession(itGate("alice", "alice", []float32{1, 0, 0}, nil,
+			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
+		session.TranscriptionOnly = true
+		session.voiceGate.cfg.Identity = identity
+		return session
+	}
+
+	It("emits conversation.item.speaker before the completed event when announce is on", func() {
+		session := transcriptionOnly(&config.VoiceIdentityConfig{Announce: true})
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
+		speakerAt := firstEventIndex(tr, types.ServerEventTypeConversationItemSpeaker)
+		completedAt := firstEventIndex(tr, types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)
+		Expect(completedAt).To(BeNumerically(">=", 0))
+		Expect(speakerAt).To(BeNumerically("<", completedAt))
+
+		events := tr.events()
+		spk := events[speakerAt].(types.ConversationItemSpeakerEvent)
+		done := events[completedAt].(types.ConversationItemInputAudioTranscriptionCompletedEvent)
+		Expect(spk.ItemID).To(Equal(done.ItemID))
+		Expect(spk.Speaker.Name).To(Equal("alice"))
+		Expect(spk.Speaker.Matched).To(BeTrue())
+
+		// Still transcription only: no response is generated.
+		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
+	})
+
+	It("emits no speaker event when announce is off", func() {
+		for _, identity := range []*config.VoiceIdentityConfig{nil, {Personalize: true}} {
+			session := transcriptionOnly(identity)
+			tr := &fakeTransport{}
+
+			commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
+
+			Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(0))
+			Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
+			Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
+		}
+	})
+
+	It("does not announce a speaker that the enforcing gate rejects", func() {
+		// match name "mallory" is not in the allow list, so the gate denies it.
+		session, _ := itSession(itGate("alice", "mallory", []float32{1, 0, 0}, nil,
+			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
+		session.TranscriptionOnly = true
+		session.voiceGate.cfg.Identity = &config.VoiceIdentityConfig{Announce: true}
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(0))
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
+	})
+
+	It("leaves a response session unchanged: the speaker follows the completed event", func() {
+		session, _ := itSession(itGate("alice", "alice", []float32{1, 0, 0}, nil,
+			config.VoiceGateWhenEvery, config.VoiceGateRejectEvent))
+		session.voiceGate.cfg.Identity = &config.VoiceIdentityConfig{Announce: true}
+		tr := &fakeTransport{}
+
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
+		speakerAt := firstEventIndex(tr, types.ServerEventTypeConversationItemSpeaker)
+		completedAt := firstEventIndex(tr, types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)
+		Expect(completedAt).To(BeNumerically(">=", 0))
+		Expect(speakerAt).To(BeNumerically(">", completedAt))
 		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(BeNumerically(">=", 1))
 	})
 })
@@ -227,7 +316,7 @@ var _ = Describe("realtime speaker personalization (triggerResponseAtTurn)", fun
 		session.Instructions = "You are helpful."
 		tr := &fakeTransport{}
 
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
 
 		user := findRole(m.lastMessages, "user")
 		Expect(user).ToNot(BeNil())
@@ -257,12 +346,12 @@ var _ = Describe("realtime speaker personalization (triggerResponseAtTurn)", fun
 		}
 
 		s1, m1 := base()
-		commitUtterance(context.Background(), utt, s1, &Conversation{}, &fakeTransport{})
+		commitUtterance(context.Background(), utt, s1, &Conversation{}, &fakeTransport{}, s1.nextCommitSlot())
 		Expect(findRole(m1.lastMessages, "system").StringContent).ToNot(ContainSubstring("unknown"))
 
 		s2, m2 := base()
 		s2.voiceGate.cfg.Identity.NoteUnknown = true
-		commitUtterance(context.Background(), utt, s2, &Conversation{}, &fakeTransport{})
+		commitUtterance(context.Background(), utt, s2, &Conversation{}, &fakeTransport{}, s2.nextCommitSlot())
 		Expect(findRole(m2.lastMessages, "system").StringContent).To(ContainSubstring("The current speaker is unknown."))
 	})
 })
@@ -305,7 +394,7 @@ var _ = Describe("realtime when:first with identity (commitUtterance)", func() {
 
 		// Turn 1: authorized; identity resolved, speaker surfaced, response runs.
 		tr1 := &fakeTransport{}
-		commitUtterance(context.Background(), utt, session, conv, tr1)
+		commitUtterance(context.Background(), utt, session, conv, tr1, session.nextCommitSlot())
 		Expect(hasSpeakerNotAuthorized(tr1)).To(BeFalse())
 		Expect(tr1.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
 		Expect(tr1.countEvents(types.ServerEventTypeResponseDone)).To(BeNumerically(">=", 1))
@@ -315,7 +404,7 @@ var _ = Describe("realtime when:first with identity (commitUtterance)", func() {
 		// enforces, the turn is dropped fail-closed rather than riding on the
 		// cached first verification.
 		tr2 := &fakeTransport{}
-		commitUtterance(context.Background(), utt, session, conv, tr2)
+		commitUtterance(context.Background(), utt, session, conv, tr2, session.nextCommitSlot())
 		Expect(hasSpeakerNotAuthorized(tr2)).To(BeTrue())
 		Expect(tr2.countEvents(types.ServerEventTypeResponseDone)).To(Equal(0))
 	})
@@ -326,7 +415,7 @@ var _ = Describe("realtime when:first with identity (commitUtterance)", func() {
 		conv := &Conversation{}
 
 		tr1 := &fakeTransport{}
-		commitUtterance(context.Background(), utt, session, conv, tr1)
+		commitUtterance(context.Background(), utt, session, conv, tr1, session.nextCommitSlot())
 		Expect(hasSpeakerNotAuthorized(tr1)).To(BeFalse())
 		Expect(tr1.countEvents(types.ServerEventTypeResponseDone)).To(BeNumerically(">=", 1))
 
@@ -334,7 +423,7 @@ var _ = Describe("realtime when:first with identity (commitUtterance)", func() {
 		// speaker event still fires and the per-message name is set, proving the
 		// per-turn re-resolution (not the cached first verification) drove it.
 		tr2 := &fakeTransport{}
-		commitUtterance(context.Background(), utt, session, conv, tr2)
+		commitUtterance(context.Background(), utt, session, conv, tr2, session.nextCommitSlot())
 		Expect(tr2.countEvents(types.ServerEventTypeConversationItemSpeaker)).To(Equal(1))
 		var lastUser *schema.Message
 		for i := range m.lastMessages {

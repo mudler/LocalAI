@@ -44,13 +44,13 @@ test('saved message edits persist without sending a completion request', async (
   await seedChat(page, TWO_TURNS)
   await page.goto('/app/chat')
 
-  const firstUser = page.locator('.chat-message-user').first()
+  const firstUser = page.locator('[data-testid="chat-message"][data-role="user"]').first()
   await firstUser.hover()
   await firstUser.getByTitle('Edit').click()
   await firstUser.getByRole('textbox').fill('edited first question')
   await firstUser.getByRole('button', { name: 'Save' }).click()
 
-  const firstAssistant = page.locator('.chat-message-assistant').first()
+  const firstAssistant = page.locator('[data-testid="chat-message"][data-role="assistant"]').first()
   await firstAssistant.hover()
   await firstAssistant.getByTitle('Edit').click()
   await firstAssistant.getByRole('textbox').fill('edited first answer')
@@ -64,8 +64,8 @@ test('saved message edits persist without sending a completion request', async (
   })).toEqual(['edited first question', 'edited first answer'])
 
   await page.reload()
-  await expect(page.locator('.chat-message-user').first()).toContainText('edited first question')
-  await expect(page.locator('.chat-message-assistant').first()).toContainText('edited first answer')
+  await expect(page.locator('[data-testid="chat-message"][data-role="user"]').first()).toContainText('edited first question')
+  await expect(page.locator('[data-testid="chat-message"][data-role="assistant"]').first()).toContainText('edited first answer')
   expect(completionRequests).toBe(0)
 })
 
@@ -74,7 +74,7 @@ test('cancelling a message edit leaves the original content unchanged', async ({
   await seedChat(page, TWO_TURNS)
   await page.goto('/app/chat')
 
-  const firstUser = page.locator('.chat-message-user').first()
+  const firstUser = page.locator('[data-testid="chat-message"][data-role="user"]').first()
   await firstUser.hover()
   await firstUser.getByTitle('Edit').click()
   await firstUser.getByRole('textbox').fill('discard this draft')
@@ -97,9 +97,9 @@ test('duplicate creates an independent copy and switches to it', async ({ page }
   await page.getByTitle('Duplicate chat').first().click()
 
   // A new active chat named "Seeded Chat (fork)" with the same 4 messages.
-  await expect(page.locator('.chat-header-title')).toHaveText('Seeded Chat (fork)')
-  await expect(page.locator('.chat-message-user')).toHaveCount(2)
-  await expect(page.locator('.chat-message-assistant')).toHaveCount(2)
+  await expect(page.getByTestId('chat-title')).toHaveText('Seeded Chat (fork)')
+  await expect(page.locator('[data-testid="chat-message"][data-role="user"]')).toHaveCount(2)
+  await expect(page.locator('[data-testid="chat-message"][data-role="assistant"]')).toHaveCount(2)
 })
 
 async function mockCompletion(page, replyText) {
@@ -129,15 +129,15 @@ test('retry regenerates the first answer and drops the later turn', async ({ pag
   await page.goto('/app/chat')
 
   // Hover the FIRST assistant message and click its retry button.
-  const firstAssistant = page.locator('.chat-message-assistant').first()
+  const firstAssistant = page.locator('[data-testid="chat-message"][data-role="assistant"]').first()
   await firstAssistant.hover()
   await firstAssistant.getByTitle('Regenerate').click()
 
   // History is truncated to the first user turn, then the new answer streams in;
   // the second Q/A turn is gone.
-  await expect(page.locator('.chat-message-assistant')).toContainText(['REGENERATED first answer'])
-  await expect(page.locator('.chat-message-user')).toHaveCount(1)
-  await expect(page.locator('.chat-message-assistant')).toHaveCount(1)
+  await expect(page.locator('[data-testid="chat-message"][data-role="assistant"]')).toContainText(['REGENERATED first answer'])
+  await expect(page.locator('[data-testid="chat-message"][data-role="user"]')).toHaveCount(1)
+  await expect(page.locator('[data-testid="chat-message"][data-role="assistant"]')).toHaveCount(1)
 
   // The OUTBOUND payload must also be truncated: the resent user turn is present,
   // but the downstream turn and the stale first answer must be gone.
@@ -168,7 +168,7 @@ test('editing a file prompt preserves its content blocks and attachment metadata
   await seedChat(page, FILE_TURNS)
   await page.goto('/app/chat')
 
-  const firstUser = page.locator('.chat-message-user').first()
+  const firstUser = page.locator('[data-testid="chat-message"][data-role="user"]').first()
   await firstUser.hover()
   await firstUser.getByTitle('Edit').click()
   await firstUser.getByRole('textbox').fill('edited file question')
@@ -201,16 +201,16 @@ test('regenerating a non-last answer in a fork still sends the uploaded file con
   await page.goto('/app/chat')
 
   // Fork after the second turn, then regenerate the FIRST (now non-last) answer.
-  const secondAssistant = page.locator('.chat-message-assistant').nth(1)
+  const secondAssistant = page.locator('[data-testid="chat-message"][data-role="assistant"]').nth(1)
   await secondAssistant.hover()
   await secondAssistant.getByTitle('Branch from here').click()
-  await expect(page.locator('.chat-header-title')).toHaveText('Seeded Chat (fork)')
+  await expect(page.getByTestId('chat-title')).toHaveText('Seeded Chat (fork)')
 
-  const firstAssistant = page.locator('.chat-message-assistant').first()
+  const firstAssistant = page.locator('[data-testid="chat-message"][data-role="assistant"]').first()
   await firstAssistant.hover()
   await firstAssistant.getByTitle('Regenerate').click()
 
-  await expect(page.locator('.chat-message-assistant')).toContainText(['REGENERATED file answer'])
+  await expect(page.locator('[data-testid="chat-message"][data-role="assistant"]')).toContainText(['REGENERATED file answer'])
 
   // The outbound payload for the regenerated turn must still carry the file text.
   const contents = (sentMessages || []).map(m =>
@@ -242,13 +242,13 @@ test('branch from the first answer forks history up to that point', async ({ pag
   await seedChat(page, TWO_TURNS)
   await page.goto('/app/chat')
 
-  const firstAssistant = page.locator('.chat-message-assistant').first()
+  const firstAssistant = page.locator('[data-testid="chat-message"][data-role="assistant"]').first()
   await firstAssistant.hover()
   await firstAssistant.getByTitle('Branch from here').click()
 
   // New active chat "Seeded Chat (fork)" contains only the first Q/A turn.
-  await expect(page.locator('.chat-header-title')).toHaveText('Seeded Chat (fork)')
-  await expect(page.locator('.chat-message-user')).toHaveCount(1)
-  await expect(page.locator('.chat-message-assistant')).toHaveCount(1)
-  await expect(page.locator('.chat-message-assistant')).toContainText(['first answer'])
+  await expect(page.getByTestId('chat-title')).toHaveText('Seeded Chat (fork)')
+  await expect(page.locator('[data-testid="chat-message"][data-role="user"]')).toHaveCount(1)
+  await expect(page.locator('[data-testid="chat-message"][data-role="assistant"]')).toHaveCount(1)
+  await expect(page.locator('[data-testid="chat-message"][data-role="assistant"]')).toContainText(['first answer'])
 })

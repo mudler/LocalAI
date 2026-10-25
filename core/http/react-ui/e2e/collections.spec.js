@@ -1,20 +1,22 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// Collections (Knowledge Base) feature page (src/pages/Collections.jsx).
+// Memory page (src/pages/Collections.jsx), against the real test server: no
+// collections exist there, so the page shows its empty state.
 test.describe('Collections page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/collections')
   })
 
-  test('renders the knowledge base with an empty state and create control', async ({ page }) => {
+  test('renders memory with an empty state and create control', async ({ page }) => {
     await expect(page).toHaveURL(/\/app\/collections$/)
-    await expect(page.getByRole('heading', { name: 'Knowledge Base' })).toBeVisible()
-    await expect(page.getByText(/No collections yet/i)).toBeVisible()
-    await expect(page.locator('button.btn-primary').filter({ hasText: 'Create' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Memory', exact: true })).toBeVisible()
+    await expect(page.getByText(/Memory holds documents an agent can search/i)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'New collection' }).first()).toBeVisible()
   })
 
   test('new-collection name field accepts input', async ({ page }) => {
-    const input = page.locator('input, textarea').first()
+    await page.getByRole('button', { name: 'New collection' }).first().click()
+    const input = page.getByLabel('New collection name')
     await expect(input).toBeVisible()
     await input.fill('my-kb')
     await expect(input).toHaveValue('my-kb')
@@ -37,10 +39,10 @@ test.describe('Collections page', () => {
     })
 
     await page.goto(`/app/collections/${collectionPath}`)
-    await page.getByRole('button', { name: 'Sources' }).click()
+    await page.getByTestId('add-source-toggle').click()
     await page.locator('#source-url').fill('https://example.com/feed')
     await page.locator('#source-interval').fill('3600')
-    await page.getByRole('button', { name: 'Add Source' }).click()
+    await page.getByRole('button', { name: 'Add URL' }).click()
 
     await expect.poll(() => postedBody).toEqual({
       url: 'https://example.com/feed',

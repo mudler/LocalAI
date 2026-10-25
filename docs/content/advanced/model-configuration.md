@@ -74,6 +74,8 @@ When using `--models-config-file`, you can define multiple models as a list:
   backend: llama-cpp
 ```
 
+LocalAI changes only config files that are inside the models directory. If the file from `--models-config-file` is outside the models directory, you cannot view, edit, pin, enable or disable its models from the web UI or the model admin API. Edit the file directly, then restart LocalAI.
+
 ## Core Configuration Fields
 
 ### Basic Model Settings
@@ -159,6 +161,49 @@ The initially migrated backend families are `transformers` and its aliases,
 artifact declarations only for this set. Compatible external backends may opt
 in by declaring the artifact explicitly.
 
+## GGUF header cache
+
+When a model config does not set a value itself, LocalAI reads the header of its GGUF file to choose defaults. The header gives the layer count, the trained context length, the chat template, the token IDs, and whether the file has an embedded multi-token-prediction head. Reading a large header takes seconds, so LocalAI keeps the result in a cache.
+
+**Mode: shared by file.** Every frontend that uses the same data path reads and writes one cache file, `header-cache.json`. A frontend can therefore use the headers another frontend has already read. This mode is valid only while all frontends mount the same data volume.
+
+Set an instance ID (`--instance-id` or `LOCALAI_INSTANCE_ID`) to give a frontend its own file, `header-cache-<id>.json`, instead of the shared one. It then keeps its own entries across restarts and does not share them with other frontends. An instance ID that is not a plain token (letters, digits, `-` and `_`, up to 64 characters) is hashed into the file name. In distributed mode, an ID that LocalAI generates at startup does not select a file of its own, because it changes on every start; such a frontend uses the shared file.
+
+{{% notice warning %}}
+All frontends that share this cache must mount the same data volume. With a ReadWriteOnce volume, the volume attaches to one node at a time, so all frontends that share the cache must run on that one node. A frontend on another node cannot mount the volume and will not start. Sharing this cache across nodes needs a ReadWriteMany volume or a shared store, and this mode does not support it.
+{{% /notice %}}
+
+### What is stored
+
+Each entry is keyed by the absolute path of the file, its size and its modification time. If any of the three changes, the entry is not used and the header is read again.
+
+The file keeps the values that come from the file: the architecture and name, the trained context length, the chat template, the token IDs, the multi-token-prediction head, and the estimates that depend only on the file and on LocalAI's fixed defaults. The file also records the gguf-parser version and those defaults, so a LocalAI upgrade that changes them ignores the old file.
+
+The file does not store anything about the machine: GPU and memory sizes, and your settings. Those are read again when a model loads, so the same file gives the same defaults on a different host.
+
+The cache holds at most 256 entries. The least recently used entry is dropped first. Changes are written in the background after a short pause, never while a request waits.
+
+### How frontends share the file
+
+- **Merge on save.** Before writing, a frontend reads the file and merges its entries into its own. When both hold an entry for the same model file, the one that matches the model file on disk is kept. Entries that match no current file are dropped. The 256-entry bound applies to the merged set.
+- **Atomic write.** The new file is written to a temporary file in the same directory and renamed into place. A reader sees either the old file or the new one, never a partial file.
+- **Reload on miss.** A frontend reads the file when it starts. Later, it checks the file only when a header lookup misses, and only when the file's modification time differs from the one it last read. It reads the file at most once per miss. A lookup that hits the cache never reads the file.
+- **Concurrent saves.** Two frontends can save at the same moment. The later rename wins, so an entry that the other frontend saved in that moment can be lost. A lost entry costs one header parse the next time that model file is used. It never gives a wrong value, because every entry is checked against its model file before it is used.
+
+### Where the file lives
+
+The file is in the data path (`--data-path`, default `data/` under the LocalAI base path):
+
+- `header-cache.json`, in standalone mode and for every frontend that does not set an instance ID. Frontends that mount the same data path share it.
+- `header-cache-<id>.json`, for a frontend that sets an instance ID (`--instance-id` or `LOCALAI_INSTANCE_ID`).
+- No data path: the cache is kept in memory only. Each start parses the headers again.
+
+Files named `gguf-header-cache*.json` come from earlier versions. LocalAI does not read them, so you can delete them.
+
+### Clearing the cache
+
+Stop the frontends that share the file and delete `header-cache.json`. It is rebuilt as models are used, one parse per model file. Deleting the file while a frontend runs is not reliable: that frontend writes its in-memory entries back after the next change.
+
 ## Parameters Section
 
 The `parameters` section contains all OpenAI-compatible request parameters and model-specific options.
@@ -225,7 +270,7 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | `threads` | int | `processor count` | Number of threads for parallel computation. A per-model value overrides the server-wide `--threads`/`LOCALAI_THREADS` setting |
 | `context_size` | int | `512` | Maximum context size in tokens. Set to `-1` to auto-use the model's full trained context from GGUF metadata (raw max, no VRAM capping; a warning is logged if it may not fit detected VRAM). |
 | `f16` | bool | `false` | Enable 16-bit floating point precision (GPU acceleration) |
-| `gpu_layers` | int | `0` | Number of layers to offload to GPU (0 = CPU only) |
+| `gpu_layers` | int | `99999999` | Number of layers to offload to GPU. The default requests all layers; `0` keeps model layers on CPU. See [mixed CPU/GPU inference](#mixed-cpugpu-inference). |
 
 ### Memory Management
 
@@ -243,6 +288,135 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | `tensor_split` | string | Comma-separated GPU memory allocation (e.g., `"0.8,0.2"` for 80%/20%) |
 | `main_gpu` | string | Main GPU identifier for multi-GPU setups |
 | `cuda` | bool | Explicitly enable/disable CUDA |
+
+### Placement
+
+The model page's **Configuration** tab and the model editor have a **Placement**
+section for the keys above. It edits `gpu_layers`, `tensor_split`, `main_gpu`
+and `context_size` and nothing else.
+
+- **CPU only** writes `gpu_layers: 0`.
+- **Auto** leaves `gpu_layers` unset. LocalAI then asks the backend for every
+  layer (`99999999`), and the `llama-cpp` backend lowers that to what fits in the
+  free device memory unless the model turns off `fit_params` (see [GPU auto-fit settings](#gpu-auto-fit-mode)). Other backends read
+  an unset value as their own default.
+- **Custom** writes the number you enter. **All layers** writes `99999999`, the
+  value LocalAI uses when the key is unset. A slider appears when the memory
+  estimate reports the model's layer count (`block_count`); today it does not, so
+  you enter a number.
+- With two or more GPUs, **Split across GPUs** writes `tensor_split` as
+  percentages (for example `65,35`; llama.cpp reads them as proportions) and
+  **Main GPU** writes `main_gpu`. **Split by free memory** sets the shares from
+  the memory each card has free now.
+
+The bars show, for each GPU and for system memory, what other programs use, what
+this model needs (weights and working memory, and the KV cache that grows with
+`context_size`) and what is left. They come from the device list in
+`/api/resources` and from `POST /api/models/vram-estimate`, which returns one
+total for the chosen context size and layer count. The per-device split of that
+total follows `tensor_split`, so it is an approximation. The page says what the
+choice means in words ("Fits in GPU", "Spills to CPU", "Too many layers for the
+GPU") and does not state a speed. A usable limit is 95 percent of the free
+memory.
+
+**Fit it for me** searches for the largest `gpu_layers` whose estimate fits the
+free GPU memory, by asking the estimate endpoint, and **Undo** puts the previous
+value back. It is hidden when the estimate is unavailable (the model file is
+missing, still downloading or in a format the estimate does not cover) and when
+the host has no GPU. A server that schedules models onto other machines shows no
+per-device bars, because the devices listed belong to the controller.
+
+Saving from the model page sends only the keys that changed. A key set back to
+Auto is sent as `null`. The patch endpoint merges values into the file and cannot
+delete a key, so the file then reads `gpu_layers: null`, which LocalAI treats as
+unset. To remove the line itself, edit the YAML.
+
+### Mixed CPU/GPU inference
+
+The `llama-cpp` backend can run one GGUF model across CPU and GPU, using both system RAM and GPU VRAM.
+Use a GPU-capable build of the backend for your hardware.
+A CPU-only build cannot offload layers to the GPU.
+
+#### Offload some model layers
+
+Set `gpu_layers` to a positive number smaller than the model's layer count.
+The remaining layers run on CPU.
+Merge these settings into your existing model YAML, keeping its model path, template, and other options:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 12
+context_size: 4096
+```
+
+The value `12` is an example, not a memory estimate.
+Reload the model after changing its configuration.
+Check the backend startup log for the number of layers offloaded and the CPU/GPU buffer sizes.
+Increase `gpu_layers` if VRAM has room; reduce it if loading runs out of GPU memory.
+Set `gpu_layers: 0` to keep all model layers on CPU.
+
+#### Keep MoE experts on CPU
+
+For a mixture-of-experts (MoE) model, you can keep expert weights in system RAM while offloading other tensors to the GPU:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+```
+
+Append `cpu_moe:true` to any existing `options` list instead of replacing that list.
+This option applies to the main model's expert weights.
+To keep experts from only the first 12 layers on CPU, replace `cpu_moe:true` with `n_cpu_moe:12`.
+Use one of these options at a time.
+
+To speed up decoding when experts stay in host memory, you can add a GPU cache for them with `moe_cache_mib`:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+  - moe_cache_mib:4096
+```
+
+The value is a size in MiB.
+It is off by default (`0`).
+It helps only when expert weights are in host memory, that is with `cpu_moe`, `n_cpu_moe` or a spill from [GPU auto-fit](#gpu-auto-fit-mode).
+The cache uses GPU memory, so lower `gpu_layers` or the auto-fit result may change when you turn it on.
+The feature is experimental upstream.
+A cache that is too small can thrash, because every token evicts its own experts.
+A rough starting point is about 10% of the total expert size.
+LocalAI sets no value on its own.
+
+CPU execution and data transfers can reduce generation speed compared with a model that fits entirely on GPU.
+RAM and VRAM do not form one interchangeable allocation pool.
+Leave memory for the KV cache, compute buffers, the operating system, and other processes.
+Reduce `context_size` if the KV cache consumes too much memory.
+The [GPU auto-fit settings](#gpu-auto-fit-mode) provide a separate way to let llama.cpp choose the allocation.
+
+#### Lazy tensor loading
+
+Some models have very large tensors that are used sparsely, such as per-layer embeddings.
+The `lazy_mode` option (also `lazy-mode`) sets upstream `--lazy-mode`: it controls whether llama.cpp reads those tensors on demand instead of loading them all at startup.
+
+```yaml
+backend: llama-cpp
+options:
+  - lazy_mode:on
+```
+
+| Value | Behavior |
+|---|---|
+| `auto` | Default. Read on demand only the marked tensors larger than 4 GiB. |
+| `on` | Read on demand every marked tensor. Requires `mmap` (enabled by default). |
+| `off` | Load everything at startup. |
+
+An invalid value logs a warning and keeps the default.
+The option needs a llama.cpp build that has `--lazy-mode`.
 
 ### Sampling and Generation
 
@@ -512,7 +686,7 @@ These load-time options control how the backend parses `<think>` reasoning block
 This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg toggles thinking on/off per call without restarting the model. It can be driven either by the YAML `reasoning.disable` field (model default) or per request via the OpenAI `reasoning_effort` field on `/v1/chat/completions`:
 
 - `reasoning_effort: "none"` disables thinking for that request (`enable_thinking=false`) - useful to run a single reasoning model like Qwen3 for low-latency tasks while still enabling reasoning on other requests.
-- `reasoning_effort: "minimal" | "low" | "medium" | "high"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
+- `reasoning_effort: "minimal" | "low" | "medium" | "high" | "xhigh" | "max"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
 {{% /notice %}}
 
 #### `reasoning_effort` as a chat-template kwarg
@@ -523,7 +697,7 @@ Set a per-model default in the config so every request inherits it (a per-reques
 
 ```yaml
 name: my-model
-reasoning_effort: none   # none | minimal | low | medium | high
+reasoning_effort: none   # none | minimal | low | medium | high | xhigh | max
 ```
 
 For [realtime pipelines]({{%relref "features/openai-realtime" %}}), set it on the pipeline so it applies to the pipeline's LLM without editing that model's own config:
@@ -658,6 +832,12 @@ The fields below come from upstream llama.cpp's **CLI completion tool** and are 
 ## vLLM-Specific Configuration
 
 These options apply when using the `vllm` backend:
+
+The `vllm` backend validates sampling parameters before generation. Stop strings
+work with streaming and non-streaming requests; an empty stop string is invalid.
+Presence and frequency penalties must be between -2 and 2. A temperature of `0`
+selects greedy decoding, which ignores `top_p` and `top_k`. A seed of `-1` uses
+vLLM's default random seed behavior.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -835,6 +1015,7 @@ Agent/autonomous agent configuration:
 | `agent.enable_planning` | bool | Enable planning capabilities |
 | `agent.enable_mcp_prompts` | bool | Enable MCP prompts |
 | `agent.enable_plan_re_evaluator` | bool | Enable plan re-evaluation |
+| `agent.max_generation_tokens` | int | Output-token cap for each completion in the agent loop (agent jobs, `/api/agent/jobs`). Bounds a single completion that keeps generating, which `max_iterations` and `loop_detection` do not. A request that already carries a cap keeps it, so a length retry can still raise it. `0` (default) keeps the client default of 16384 |
 
 ## Reasoning Configuration
 
@@ -1017,7 +1198,9 @@ known_usecases:
   - embeddings
 ```
 
-Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `llm` (combination of CHAT, COMPLETION, EDIT).
+Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `score`, `token_classify`, `decisions`, `llm` (combination of CHAT, COMPLETION, EDIT).
+
+`decisions` marks a model as a decision model for the [Decisions API]({{% relref "features/decisions" %}}) (`POST /v1/systemone`). It is never guessed, and a model that declares it is not listed as a chat, completion or embeddings model.
 
 `token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family - separate from `llama-cpp`, which no longer carries the token-classification path.
 
@@ -1058,6 +1241,12 @@ PII redaction is NER-based and runs on the **request** (input) side. It has two 
       PASSWORD: block
       CREDITCARD: block
       EMAIL: mask
+    extend_to_next_word:      # optional: also mask the word right after these
+      - ZIPCODE               # groups on the same line (e.g. the town after a postal code)
+    extend_to_previous_word:  # optional: also mask the letters-only word right before these
+      - LASTNAME              # groups on the same line (e.g. the first name before a surname)
+    protected_terms:          # optional: values that must pass unchanged even if tagged
+      - Hotel Seeblick        # (plus protected_terms_files: one term per line, in the models path)
   ```
 
 - **Consuming models** opt in and reference one or more detectors by name - no per-consumer policy:
@@ -1155,7 +1344,7 @@ feature_flags:
 
 ### GPU Auto-Fit Mode
 
-**Note**: By default, LocalAI sets `gpu_layers` to a very large value (9999999), which effectively disables llama-cpp's auto-fit functionality. This is intentional to work with LocalAI's VRAM-based model unloading mechanism.
+**Note**: By default, LocalAI sets `gpu_layers` to a very large value (99999999), which effectively disables llama-cpp's auto-fit functionality. This is intentional to work with LocalAI's VRAM-based model unloading mechanism.
 
 To enable llama-cpp's auto-fit mode, set `gpu_layers: -1` in your model configuration. However, be aware of the following:
 

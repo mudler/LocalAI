@@ -66,12 +66,12 @@ func pipelineStages(cl *config.ModelConfigLoader, p *config.Pipeline, modelPath 
 	}
 	var stages []PreloadStage
 	for _, s := range []struct{ role, name string }{
-		{"vad", p.VAD},
-		{"transcription", p.Transcription},
-		{"llm", p.LLM},
-		{"tts", p.TTS},
-		{"sound_detection", p.SoundDetection},
-		{"voice_recognition", voiceRec},
+		{config.PipelineStageVAD, p.VAD},
+		{config.PipelineStageTranscription, p.Transcription},
+		{config.PipelineStageLLM, p.LLM},
+		{config.PipelineStageTTS, p.TTS},
+		{config.PipelineStageSoundDetection, p.SoundDetection},
+		{config.PipelineStageVoiceRecognition, voiceRec},
 	} {
 		if s.name == "" {
 			continue

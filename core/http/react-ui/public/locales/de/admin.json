@@ -186,18 +186,6 @@
     "title": "Traces",
     "subtitle": "Protokollierte API-Anfragen, Antworten und Backend-Operationen anzeigen"
   },
-  "nodes": {
-    "title": "Verteilte Knoten",
-    "subtitle": "Backend- und Agenten-Worker-Knoten verwalten"
-  },
-  "scheduling": {
-    "title": "Planung",
-    "subtitle": "Modellplatzierung und Replikat-Regeln im gesamten Cluster"
-  },
-  "p2p": {
-    "title": "Verteilte KI-Berechnung",
-    "subtitle": "Skalieren Sie Ihre KI-Workloads über mehrere Geräte mit Peer-to-Peer-Verteilung"
-  },
   "users": {
     "title": "Benutzer",
     "subtitle": "Registrierte Benutzer, Rollen und Einladungen verwalten"
@@ -252,7 +240,18 @@
         "p95": "p95 latency",
         "quiet": "No requests served in this window yet.",
         "host": "Host memory"
+      },
+      "running": {
+        "heading": "Gerade aktiv",
+        "cluster": "Laufende Modelle",
+        "clusterSummary": "Geladene Replikate im Cluster, auf der Seite Knoten"
       }
     }
+  },
+  "localMachine": {
+    "title": "Dieser Rechner",
+    "subtitle": "Auf dieser LocalAI-Instanz geladene Modelle und die Host-Kapazität, die sie nutzen.",
+    "scaleOut": "Rechner hinzufügen",
+    "hideScaleOut": "Einrichtung ausblenden"
   }
 }

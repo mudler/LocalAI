@@ -54,7 +54,7 @@ type AgentJobService struct {
 	// taskNats is the distributed NATS client backing the tasks SyncedMap. It is
 	// not available at construction time, so it is injected via SetTaskSyncNATS
 	// during distributed wiring; nil keeps tasks in-memory-only (standalone).
-	taskNats messaging.MessagingClient
+	taskNats messaging.Broadcaster
 
 	// Storage (in-memory primary, persister for secondary persistence)
 	jobs      *xsync.SyncedMap[string, schema.Job]
@@ -115,7 +115,7 @@ func (s *AgentJobService) SetDistributedJobStore(store *jobs.JobStore) {
 // tasks SyncedMap is rebuilt to pick it up. It is always called before Start /
 // hydrate, while the map is still empty, so rebuilding loses no state. Passing nil
 // (standalone) keeps the map in-memory-only with no broadcast.
-func (s *AgentJobService) SetTaskSyncNATS(nats messaging.MessagingClient) {
+func (s *AgentJobService) SetTaskSyncNATS(nats messaging.Broadcaster) {
 	s.taskNats = nats
 	s.buildTasksMap()
 }
@@ -900,6 +900,7 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 
 	// Create LLM client
 	defaultLLM := clients.NewLocalAILLM(modelConfig.Name, apiKey, "http://127.0.0.1:"+port)
+	modelConfig.ApplyAgentGenerationCap(defaultLLM)
 
 	// Initialize traces slice
 	job.Traces = []schema.JobTrace{}
@@ -916,6 +917,9 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 		cogitoOpts,
 		cogito.WithContext(ctx),
 		cogito.WithMCPs(sessions...),
+		// Agent jobs run unattended and have no per-request principal, so
+		// they never serve add-on tools. A session cannot publish one.
+		cogito.WithMCPToolFilter(mcpTools.SessionToolFilter()),
 		cogito.WithStatusCallback(func(status string) {
 			xlog.Debug("Status", "job_id", job.ID, "model", modelConfig.Name, "status", status)
 			// Store trace
@@ -1369,7 +1373,7 @@ func (s *AgentJobService) executeWithRetry(client *http.Client, req *http.Reques
 	if req.Body != nil {
 		var err error
 		savedBody, err = io.ReadAll(req.Body)
-		req.Body.Close()
+		_ = req.Body.Close()
 		if err != nil {
 			return fmt.Errorf("reading request body: %w", err)
 		}
@@ -1386,11 +1390,11 @@ func (s *AgentJobService) executeWithRetry(client *http.Client, req *http.Reques
 		var resp *http.Response
 		resp, lastErr = client.Do(req)
 		if lastErr == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		if i < maxRetries-1 {
 			time.Sleep(backoff[i])

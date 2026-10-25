@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 
+	"golang.org/x/sys/unix"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -53,7 +55,13 @@ var _ = Describe("systemdActivatedListeners", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(original.Close()).To(Succeed())
 
-		listeners, err := listenersFromSystemdFDs(int(file.Fd()), 1)
+		// The activation helper takes ownership of a raw descriptor. Give it a
+		// duplicate so file's finalizer cannot close a later user of that descriptor.
+		fd, err := unix.Dup(int(file.Fd()))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(file.Close()).To(Succeed())
+
+		listeners, err := listenersFromSystemdFDs(fd, 1)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(listeners).To(HaveLen(1))
 		DeferCleanup(listeners[0].Close)

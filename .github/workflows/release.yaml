@@ -16,7 +16,19 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23
+          go-version-file: go.mod
+      # The cutover. A tagged build reads the model gallery (localai) by default
+      # until this step runs; from here the tagged build reads the model library
+      # (official-models, gallery/models/index.yaml) and not the gallery.
+      # .goreleaser.yaml passes the value to the binary with -ldflags.
+      - name: Cut the default model source over to the library
+        run: echo "LOCALAI_MODEL_SOURCE=library" >> "$GITHUB_ENV"
+      # The same cutover for the backends: until this step runs, a tagged build
+      # reads the backend gallery (localai-backends, backend/index.yaml, which
+      # is generated from the backend library). From here it reads the backend
+      # library (official-backends, gallery/backends/index.yaml).
+      - name: Cut the default backend source over to the library
+        run: echo "LOCALAI_BACKEND_SOURCE=library" >> "$GITHUB_ENV"
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
@@ -39,7 +51,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23
+          go-version-file: go.mod
       - name: Import signing certificate
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
@@ -69,7 +81,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23
+          go-version-file: go.mod
       - name: Build launcher for Linux
         run: |
           sudo apt-get update
@@ -79,3 +91,11 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: ./local-ai-launcher-linux.tar.xz
+
+  launcher-appimage:
+    needs: goreleaser
+    permissions:
+      contents: write
+    uses: ./.github/workflows/launcher-appimage.yaml
+    with:
+      publish: true

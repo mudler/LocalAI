@@ -138,6 +138,17 @@ func (c *EmbeddingCacheClassifier) Stats() EmbeddingCacheStats {
 }
 
 func (c *EmbeddingCacheClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
+	if err := ctx.Err(); err != nil {
+		return Decision{}, err
+	}
+	images, err := p.HasImages(ctx)
+	if err != nil {
+		return Decision{}, err
+	}
+	// Text embeddings cannot distinguish images; neither read nor populate cache.
+	if images {
+		return c.inner.Classify(ctx, p)
+	}
 	start := time.Now()
 
 	vec, err := c.embedder.Embed(ctx, trimmedProbeText(p, c.budget, identityRender))

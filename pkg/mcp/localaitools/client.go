@@ -40,6 +40,9 @@ type LocalAIClient interface {
 	// it down). For a realtime pipeline model every configured sub-model is
 	// loaded; it returns the model names that became resident.
 	LoadModel(ctx context.Context, model string) ([]string, error)
+	// CancelModelLoad cancels one distributed load attempt, named by the job id
+	// that load-status reports. It never cancels a replacement attempt.
+	CancelModelLoad(ctx context.Context, model, jobID string) (LoadCancelResult, error)
 	ImportModelURI(ctx context.Context, req ImportModelURIRequest) (*ImportModelURIResponse, error)
 
 	// ---- Model aliases ----
@@ -58,7 +61,14 @@ type LocalAIClient interface {
 	ListBackends(ctx context.Context) ([]Backend, error)
 	// ListKnownBackends returns the same shape as REST /backends/known.
 	ListKnownBackends(ctx context.Context) ([]schema.KnownBackend, error)
+	// ListBackendLibraryUpdates returns the installed library backends that
+	// have a newer build in their library. It reads the cached index and
+	// installs nothing.
+	ListBackendLibraryUpdates(ctx context.Context) ([]BackendLibraryUpdate, error)
 	InstallBackend(ctx context.Context, req InstallBackendRequest) (jobID string, err error)
+	// InstallLibraryBackend installs a backend from a library entry. It
+	// returns when the install is done.
+	InstallLibraryBackend(ctx context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error)
 	UpgradeBackend(ctx context.Context, name string) (jobID string, err error)
 
 	// ---- System ----
@@ -130,4 +140,15 @@ type LocalAIClient interface {
 	// ClearRouterCorpus wipes a knn router's corpus — file and live
 	// index.
 	ClearRouterCorpus(ctx context.Context, routerModel string) (*RouterCorpusClearResult, error)
+
+	// ---- Failover chains ----
+	// ListFailoverChains reports every configured failover chain, its
+	// currently active target, and the health of each target.
+	ListFailoverChains(ctx context.Context) ([]FailoverChainInfo, error)
+	// PinFailoverTarget forces chain to serve every request from target,
+	// regardless of health, until unpinned.
+	PinFailoverTarget(ctx context.Context, chain, target string) error
+	// UnpinFailoverTarget removes chain's pin so health decides the
+	// active target again.
+	UnpinFailoverTarget(ctx context.Context, chain string) error
 }

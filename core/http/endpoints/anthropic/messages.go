@@ -29,7 +29,7 @@ import (
 // @Param request body schema.AnthropicRequest true "query params"
 // @Success 200 {object} schema.AnthropicResponse "Response"
 // @Router /v1/messages [post]
-func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
+func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, agentControl mcpTools.AgentControl) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := uuid.New().String()
 
@@ -49,6 +49,11 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 
 		xlog.Debug("Anthropic Messages endpoint configuration read", "config", cfg)
 
+		if cfg.DropsClientTools() {
+			input.Tools = nil
+			input.ToolChoice = nil
+		}
+
 		// Cloud-proxy bail. Same shape as the OpenAI chat endpoint —
 		// forwards via the cloud-proxy gRPC backend.
 		if cfg.IsCloudProxyBackendPassthrough() {
@@ -61,6 +66,12 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		// Convert Anthropic tools to internal Functions format
 		funcs, shouldUseFn := convertAnthropicTools(input, cfg)
 
+		// Add-on tools need a per-request actor and the host broker; this
+		// surface does not serve them and says so.
+		if mcpTools.AddonToolsFromMetadata(input.Metadata) {
+			return mcpTools.RejectAddonTools(c)
+		}
+
 		// MCP injection: prompts, resources, and tools
 		var mcpExecutor mcpTools.ToolExecutor
 		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
@@ -70,10 +81,10 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (cfg.MCP.Servers != "" || cfg.MCP.Stdio != "") {
 			remote, stdio, mcpErr := cfg.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, cfg.Name, remote, stdio, mcpServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, cfg.MCPSessionKey(), remote, stdio, mcpServers)
 
 				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
-				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
+				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.MCPSessionKey(), remote, stdio, mcpServers)
 				if sessErr == nil && len(namedSessions) > 0 {
 					mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
 					if mcpCtx != nil {
@@ -871,7 +882,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 		}
 
 		// Handle content (can be string or array of content blocks)
-		switch content := msg.Content.(type) {
+		switch content := anthropicContentBlocks(msg.Content).(type) {
 		case string:
 			openAIMsg.StringContent = content
 			openAIMsg.Content = content
@@ -942,13 +953,15 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 						// For now, we'll add it as text content
 						toolUseID, _ := blockMap["tool_use_id"].(string)
 						isError := false
-						if isErrorPtr, ok := blockMap["is_error"].(*bool); ok && isErrorPtr != nil {
+						if value, ok := blockMap["is_error"].(bool); ok {
+							isError = value
+						} else if isErrorPtr, ok := blockMap["is_error"].(*bool); ok && isErrorPtr != nil {
 							isError = *isErrorPtr
 						}
 
 						var resultText string
 						if resultContent, ok := blockMap["content"]; ok {
-							switch rc := resultContent.(type) {
+							switch rc := anthropicContentBlocks(resultContent).(type) {
 							case string:
 								resultText = rc
 							case []any:
@@ -1048,4 +1061,22 @@ func forwardCloudProxyAnthropicViaBackend(c echo.Context, cfg *config.ModelConfi
 		return sendAnthropicError(c, 400, "invalid_request_error", "cloudproxy: marshal request: "+err.Error())
 	}
 	return cloudproxy.ForwardViaBackend(c, cfg, body, ml, appConfig)
+}
+
+// anthropicContentBlocks normalizes typed blocks without a JSON round trip or
+// mutating the caller's payload. Both representations use the same conversion.
+func anthropicContentBlocks(content any) any {
+	blocks, ok := content.([]schema.AnthropicContentBlock)
+	if !ok {
+		return content
+	}
+	result := make([]any, 0, len(blocks))
+	for _, b := range blocks {
+		m := map[string]any{"type": b.Type, "text": b.Text, "thinking": b.Thinking, "id": b.ID, "name": b.Name, "input": b.Input, "tool_use_id": b.ToolUseID, "content": b.Content, "is_error": b.IsError}
+		if b.Source != nil {
+			m["source"] = map[string]any{"type": b.Source.Type, "media_type": b.Source.MediaType, "data": b.Source.Data}
+		}
+		result = append(result, m)
+	}
+	return result
 }

@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { stubAddonRoutes } from './addons-fixtures.js'
 
 test.describe('Navigation', () => {
   test('/ redirects to /app', async ({ page }) => {
@@ -20,39 +21,79 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('Create stays an inline tier with Chat, Studio and Talk', async ({ page }) => {
+  test('the sidebar has Chat, Models and Add-ons, no Settings and no Create tier', async ({ page }) => {
+    await stubAddonRoutes(page)
     await page.goto('/app')
-    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chat"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/studio"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/talk"]')).toBeVisible()
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
+    for (const href of ['/app/chat', '/app/models', '/app/addons']) {
+      await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`).first()).toBeVisible()
+    }
+    // Settings lives under the Operate hub, not in the sidebar.
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/settings"]')).toHaveCount(0)
+    await page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' }).click()
+    await expect(page).toHaveURL(/\/app\/operate$/)
+    const settingsTab = page.locator('.dk-hubtabs [data-hub-tab="settings"]')
+    await expect(settingsTab).toBeVisible()
+    await settingsTab.click()
+    await expect(page).toHaveURL(/\/app\/settings/)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"]')).toHaveAttribute('aria-current', 'page')
+    // Studio and Talk are add-ons: the sidebar does not list them; they are in the drawer while installed.
+    for (const href of ['/app/studio', '/app/talk']) {
+      await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toHaveCount(0)
+    }
   })
 
-  test('Build is a single entry that opens the Build console', async ({ page }) => {
+  test('Build and Operate sit under a Workspace label', async ({ page }) => {
+    await page.goto('/app')
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Workspace' })).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toBeVisible()
+  })
+
+  test('Build is a single entry that opens the Build hub', async ({ page }) => {
     await page.goto('/app')
     const build = page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })
     await expect(build).toBeVisible()
     await build.click()
-    await expect(page.locator('.console-rail .console-rail-header', { hasText: 'Build' })).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/build$/)
+    const bar = page.locator('.dk-hubtabs')
+    await expect(bar.locator('[data-hub-tab="overview"]')).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toHaveClass(/active/)
   })
 
-  test('Operate is a single entry that opens the admin console', async ({ page }) => {
+  test('Operate is a single entry that opens the Operate hub', async ({ page }) => {
     await page.goto('/app')
     const operate = page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })
     await expect(operate).toBeVisible()
     await operate.click()
-    await expect(page.locator('.console-rail .console-rail-header', { hasText: 'Operate' })).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/operate$/)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="status"]')).toHaveAttribute('aria-current', 'page')
   })
 
-  test('Build console groups Automation, Training and Recognition', async ({ page }) => {
+  test('Build hub lists its tools as tabs', async ({ page }) => {
     await page.goto('/app/agents')
-    const rail = page.locator('.console-rail')
-    await expect(rail).toBeVisible()
-    for (const group of ['Automation', 'Training', 'Recognition']) {
-      await expect(rail.locator('.console-group-title', { hasText: group })).toBeVisible()
+    const bar = page.locator('.dk-hubtabs')
+    await expect(bar).toBeVisible()
+    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'import']) {
+      await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
     }
-    // Recognition (Faces/Voices) and Training (Fine-tune/Quantize) live here now.
-    await expect(rail.locator('a.nav-item[href="/app/fine-tune"]')).toBeVisible()
-    await expect(rail.locator('a.nav-item[href="/app/face"]')).toBeVisible()
+    await expect(bar.locator('[data-hub-tab="fine-tune"], [data-hub-tab="quantize"]')).toHaveCount(0)
+    await expect(bar.locator('[data-hub-tab="faces"]')).toHaveCount(0)
+    await expect(bar.locator('[data-hub-tab="agents"]')).toHaveAttribute('aria-current', 'page')
   })
+
+  test('the Build overview lists the tools with a line each', async ({ page }) => {
+    // The Fine-tuning tile is shown when the server has the switch on.
+    await page.route('**/api/features', async route => {
+      const real = await (await route.fetch()).json()
+      return route.fulfill({ json: { ...real, fine_tuning: true } })
+    })
+    await page.goto('/app/build')
+    const list = page.getByRole('list', { name: 'Build tools' })
+    // Each tool is a row with its sentence and an Open link.
+    const row = (path) => list.locator('li.bt-tool', { has: page.locator(`a[href="${path}"]`) })
+    await expect(row('/app/agents')).toContainText('Create and run agents')
+    await expect(list.locator('a[href="/app/fine-tune"]')).toBeVisible()
+  })
+
 })

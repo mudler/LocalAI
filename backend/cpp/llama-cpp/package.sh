@@ -39,6 +39,13 @@ GPU_LIB_SCRIPT="${REPO_ROOT}/scripts/build/package-gpu-libs.sh"
 if [ -f "$GPU_LIB_SCRIPT" ]; then
     echo "Packaging GPU libraries for BUILD_TYPE=${BUILD_TYPE:-cpu}..."
     source "$GPU_LIB_SCRIPT" "$CURDIR/package/lib"
+    # Native decision validation links zlib/libjpeg. Collect actual ELF
+    # dependencies rather than assuming those libraries exist on the host.
+    for binary in "$CURDIR"/package/llama-cpp-*; do
+        if [ -f "$binary" ]; then
+            copy_elf_deps "$binary"
+        fi
+    done
     package_gpu_libs
 fi
 

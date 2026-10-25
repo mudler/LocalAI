@@ -2,6 +2,7 @@ package backend
 
 import (
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -9,6 +10,14 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 )
+
+// VideoReferenceOptions is a reference video whose frames were staged into one
+// directory, named so that lexicographic order is frame order.
+type VideoReferenceOptions struct {
+	FramesDir string
+	FPS       int32
+	Audio     string
+}
 
 // VideoGenerationOptions is the backend-neutral request passed to video generators.
 // Media fields contain staged local paths by the time they reach this layer.
@@ -20,6 +29,9 @@ type VideoGenerationOptions struct {
 	StartImage     string
 	EndImage       string
 	Audio          string
+	RefImages      []string
+	RefVideos      []VideoReferenceOptions
+	RefAudios      []string
 	Destination    string
 	NumFrames      int32
 	FPS            int32
@@ -27,6 +39,14 @@ type VideoGenerationOptions struct {
 	CFGScale       float32
 	Step           int32
 	Params         map[string]string
+}
+
+func refVideosToProto(in []VideoReferenceOptions) []*proto.VideoReference {
+	out := make([]*proto.VideoReference, 0, len(in))
+	for _, r := range in {
+		out = append(out, &proto.VideoReference{FramesDir: r.FramesDir, Fps: r.FPS, Audio: r.Audio})
+	}
+	return out
 }
 
 func VideoGeneration(options VideoGenerationOptions, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() error, error) {
@@ -51,6 +71,9 @@ func VideoGeneration(options VideoGenerationOptions, loader *model.ModelLoader, 
 				StartImage:     options.StartImage,
 				EndImage:       options.EndImage,
 				Audio:          options.Audio,
+				RefImages:      slices.Clone(options.RefImages),
+				RefVideos:      refVideosToProto(options.RefVideos),
+				RefAudios:      slices.Clone(options.RefAudios),
 				NumFrames:      options.NumFrames,
 				Fps:            options.FPS,
 				Seed:           options.Seed,
@@ -79,6 +102,9 @@ func VideoGeneration(options VideoGenerationOptions, loader *model.ModelLoader, 
 			"has_start_image": options.StartImage != "",
 			"has_end_image":   options.EndImage != "",
 			"has_audio":       options.Audio != "",
+			"ref_images":      len(options.RefImages),
+			"ref_videos":      len(options.RefVideos),
+			"ref_audios":      len(options.RefAudios),
 		}
 
 		originalFn := fn

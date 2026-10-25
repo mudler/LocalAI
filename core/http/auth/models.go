@@ -51,7 +51,17 @@ type UserAPIKey struct {
 	CreatedAt time.Time
 	ExpiresAt *time.Time `gorm:"index"`
 	LastUsed  *time.Time
-	User      User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	// Disabled pauses the key until the owner resumes it.
+	Disabled bool
+	// PausedUntil pauses the key until the given time; the key becomes
+	// active again by itself once that time has passed.
+	PausedUntil *time.Time
+	User        User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+}
+
+// IsPaused reports whether the key is paused at the given time.
+func (k *UserAPIKey) IsPaused(now time.Time) bool {
+	return k.Disabled || (k.PausedUntil != nil && k.PausedUntil.After(now))
 }
 
 // PermissionMap is a flexible map of feature -> enabled, stored as JSON text.

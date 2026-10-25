@@ -185,7 +185,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 
 	switch {
 	case uri.LooksLikeOCI():
-		ociName := strings.TrimPrefix(string(uri), downloader.OCIPrefix)
+		ociName := uri.OCIReference()
 		ociName = strings.TrimPrefix(ociName, downloader.OllamaPrefix)
 		ociName = strings.ReplaceAll(ociName, "/", "__")
 		ociName = strings.ReplaceAll(ociName, ":", "__")

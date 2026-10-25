@@ -79,8 +79,8 @@ type File struct {
 }
 
 type PromptTemplate struct {
-	Name    string `yaml:"name"`
-	Content string `yaml:"content"`
+	Name    string `yaml:"name" json:"name"`
+	Content string `yaml:"content" json:"content"`
 }
 
 // variantOptions turns an entry's declared variants into selectable options,
@@ -673,6 +673,20 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
 		}
 
+		if systemState.DisableBackendInstall && modelConfig.Backend != "" {
+			available := installOptions.backendAvailability
+			if available == nil {
+				available = LocalBackendAvailability(systemState)
+			}
+			ok, err := available(modelConfig.Backend)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("%w: model %q needs backend %q, which is not installed", ErrBackendInstallDisabled, name, modelConfig.Backend)
+			}
+		}
+
 		if len(config.Files) == 0 {
 			artifactSpec, inferred, hasArtifact, err := modelConfig.PrimaryArtifactSpec(basePath)
 			if err != nil {
@@ -808,8 +822,11 @@ func GetLocalModelConfiguration(basePath string, name string) (*ModelConfig, err
 
 func listModelFiles(systemState *system.SystemState, name string) ([]string, error) {
 
+	// VerifyPath joins its argument onto the models path itself, so every
+	// check below passes the relative name: an already-joined absolute path
+	// always lands inside the base and the check would pass anything.
 	configFile := filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", name))
-	if err := utils.VerifyPath(configFile, systemState.Model.ModelsPath); err != nil {
+	if err := utils.VerifyPath(fmt.Sprintf("%s.yaml", name), systemState.Model.ModelsPath); err != nil {
 		return nil, fmt.Errorf("failed to verify path %s: %w", configFile, err)
 	}
 
@@ -817,7 +834,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
 	galleryFile := filepath.Join(systemState.Model.ModelsPath, galleryFileName(name))
-	if err := utils.VerifyPath(galleryFile, systemState.Model.ModelsPath); err != nil {
+	if err := utils.VerifyPath(galleryFileName(name), systemState.Model.ModelsPath); err != nil {
 		return nil, fmt.Errorf("failed to verify path %s: %w", galleryFile, err)
 	}
 
@@ -847,7 +864,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 	if err == nil && galleryconfig != nil {
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(systemState.Model.ModelsPath, f.Filename)
-			if err := utils.VerifyPath(fullPath, systemState.Model.ModelsPath); err != nil {
+			if err := utils.VerifyPath(f.Filename, systemState.Model.ModelsPath); err != nil {
 				return allFiles, fmt.Errorf("failed to verify path %s: %w", fullPath, err)
 			}
 			allFiles = append(allFiles, fullPath)
@@ -858,7 +875,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 
 	for _, f := range additionalFiles {
 		fullPath := filepath.Join(filepath.Join(systemState.Model.ModelsPath, f))
-		if err := utils.VerifyPath(fullPath, systemState.Model.ModelsPath); err != nil {
+		if err := utils.VerifyPath(f, systemState.Model.ModelsPath); err != nil {
 			return allFiles, fmt.Errorf("failed to verify path %s: %w", fullPath, err)
 		}
 		allFiles = append(allFiles, fullPath)

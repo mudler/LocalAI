@@ -114,6 +114,7 @@ func applyOverride(f *FieldMeta, o FieldMetaOverride) {
 	if o.Options != nil {
 		f.Options = o.Options
 	}
+	f.AutocompleteBy = o.AutocompleteBy
 	if o.AutocompleteProvider != "" {
 		f.AutocompleteProvider = o.AutocompleteProvider
 	}
@@ -132,4 +133,3 @@ func applyOverride(f *FieldMeta, o FieldMetaOverride) {
 func BuildForTest(modelConfigType reflect.Type, registry map[string]FieldMetaOverride) *ConfigMetadata {
 	return buildConfigMetadataUncached(modelConfigType, registry)
 }
-

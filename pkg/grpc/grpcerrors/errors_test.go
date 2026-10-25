@@ -106,3 +106,12 @@ var _ = Describe("grpcerrors", func() {
 		Expect(grpcerrors.IsModelNotLoaded(err)).To(BeFalse())
 	})
 })
+
+var _ = Describe("SoundEventsUnsupported", func() {
+	It("is Unimplemented and carries the stable code", func() {
+		err := grpcerrors.SoundEventsUnsupported("parakeet-cpp", "no sound model")
+		Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+		Expect(err.Error()).To(ContainSubstring("include_sounds_unsupported"))
+		Expect(grpcerrors.SoundEventsUnsupportedCode).To(Equal("include_sounds_unsupported"))
+	})
+})

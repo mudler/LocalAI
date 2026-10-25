@@ -3,11 +3,13 @@ package worker
 import (
 	"cmp"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
@@ -17,7 +19,18 @@ var (
 	totalAvailableVRAM  = xsysinfo.TotalAvailableVRAM
 	getGPUAggregateInfo = xsysinfo.GetGPUAggregateInfo
 	getSystemRAMInfo    = xsysinfo.GetSystemRAMInfo
+	getCPUInfo          = xsysinfo.GetCPUInfo
 )
+
+func clampCPUUsage(usage float64) float64 {
+	if math.IsNaN(usage) || usage < 0 {
+		return 0
+	}
+	if usage > 100 {
+		return 100
+	}
+	return usage
+}
 
 // effectiveBasePort returns the port used as base for gRPC backend processes.
 // Priority: Addr port → ServeAddr port → 50051
@@ -161,6 +174,8 @@ func (cfg *Config) registrationBody() map[string]any {
 		"gpu_compute_capability": gpuComputeCap,
 		"capability":             capability,
 		"max_replicas_per_model": maxReplicas,
+		"version":                internal.Version,
+		"commit":                 internal.Commit,
 	}
 
 	// Report free space on the filesystem that backs the MODELS directory.
@@ -198,6 +213,14 @@ func (cfg *Config) registrationBody() map[string]any {
 		body["token"] = cfg.RegistrationToken
 	}
 
+	if cpuInfo, err := getCPUInfo(); err != nil {
+		xlog.Debug("Failed to sample worker CPU for registration", "error", err)
+	} else {
+		body["cpu_logical_cores"] = cpuInfo.LogicalCores
+		body["cpu_usage_percent"] = clampCPUUsage(cpuInfo.UsagePercent)
+		body["cpu_load_1"] = cpuInfo.Load1
+	}
+
 	// Parse and add static node labels. Always include the auto-label
 	// `node.replica-slots=N` so AND-selectors in ModelSchedulingConfig can
 	// target high-capacity nodes (e.g. {"node.replica-slots":"4"}).
@@ -224,7 +247,9 @@ func (cfg *Config) registrationBody() map[string]any {
 // used", while reporting total-as-available lies to the scheduler about
 // free capacity.
 func (cfg *Config) heartbeatBody() map[string]any {
-	body := map[string]any{}
+	// The incarnation lets the controller learn that this worker restarted, and
+	// so that every load operation of the previous process ended.
+	body := map[string]any{"worker_incarnation": workerIncarnation}
 	aggregate := getGPUAggregateInfo()
 	if aggregate.TotalVRAM > 0 {
 		body["available_vram"] = aggregate.FreeVRAM
@@ -248,6 +273,13 @@ func (cfg *Config) heartbeatBody() map[string]any {
 	} else {
 		body["total_disk"] = diskInfo.Total
 		body["available_disk"] = diskInfo.Available
+	}
+
+	if cpuInfo, err := getCPUInfo(); err != nil {
+		xlog.Debug("Failed to sample worker CPU for heartbeat", "error", err)
+	} else {
+		body["cpu_usage_percent"] = clampCPUUsage(cpuInfo.UsagePercent)
+		body["cpu_load_1"] = cpuInfo.Load1
 	}
 	return body
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -72,6 +73,7 @@ func WebSocketEndpoint(application *application.Application) echo.HandlerFunc {
 	ml := application.ModelLoader()
 	evaluator := application.TemplatesEvaluator()
 	appConfig := application.ApplicationConfig()
+	piiPolicy := application.PIIPolicyResolver()
 
 	return func(c echo.Context) error {
 		owner := ownerFromContext(c)
@@ -96,13 +98,13 @@ func WebSocketEndpoint(application *application.Application) echo.HandlerFunc {
 
 		xlog.Debug("WebSocket Responses connection established", "address", ws.RemoteAddr().String())
 
-		handleWebSocketConnection(connCtx, conn, owner, cl, ml, evaluator, appConfig)
+		handleWebSocketConnection(connCtx, conn, owner, cl, ml, evaluator, appConfig, piiPolicy)
 		return nil
 	}
 }
 
 // handleWebSocketConnection runs the read loop for a single WebSocket connection.
-func handleWebSocketConnection(connCtx context.Context, conn *lockedConn, owner string, cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) {
+func handleWebSocketConnection(connCtx context.Context, conn *lockedConn, owner string, cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, piiPolicy pii.PolicyResolver) {
 	// Responses created with store=false remain available only to this WebSocket
 	// connection, matching the Responses WebSocket continuation contract without
 	// leaking zero-data-retention state into the process-wide response store.
@@ -172,7 +174,7 @@ func handleWebSocketConnection(connCtx context.Context, conn *lockedConn, owner 
 				releaseOnce.Do(inflight.Unlock)
 			}
 			defer release()
-			handleWSResponseCreate(connCtx, conn, connectionStore, release, owner, wsMsg.Generate, &wsMsg.OpenResponsesRequest, cl, ml, evaluator, appConfig)
+			handleWSResponseCreate(connCtx, conn, connectionStore, release, owner, wsMsg.Generate, &wsMsg.OpenResponsesRequest, cl, ml, evaluator, appConfig, piiPolicy)
 		}()
 	}
 }
@@ -181,7 +183,7 @@ func handleWebSocketConnection(connCtx context.Context, conn *lockedConn, owner 
 // It reuses the existing background stream infrastructure: the request is processed via
 // handleBackgroundStream which buffers events into the store, and a forwarder goroutine
 // reads those events and sends them over the WebSocket.
-func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectionStore *ResponseStore, release func(), owner string, generate *bool, input *schema.OpenResponsesRequest, cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) {
+func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectionStore *ResponseStore, release func(), owner string, generate *bool, input *schema.OpenResponsesRequest, cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, piiPolicy pii.PolicyResolver) {
 	createdAt := time.Now().Unix()
 	responseID := fmt.Sprintf("resp_%s", uuid.New().String())
 	fail := func(errType, message, param string) {
@@ -211,6 +213,19 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 	if err := middleware.MergeOpenResponsesConfig(cfg, input); err != nil {
 		fail("invalid_request", fmt.Sprintf("invalid configuration: %v", err), "")
 		return
+	}
+
+	// The PII request middleware is HTTP middleware and never sees messages
+	// arriving over this socket. Rather than serve a PII-enabled model
+	// unfiltered (the same content would be blocked or masked on
+	// POST /v1/responses), refuse it here: fail closed, as the middleware
+	// does when its detector is unavailable.
+	if piiPolicy != nil {
+		if enabled, detectors := piiPolicy(cfg); enabled && len(detectors) > 0 {
+			xlog.Warn("WebSocket Responses: refusing PII-enabled model, PII filtering is not applied on the WebSocket transport", "model", input.Model)
+			fail("pii_unsupported_transport", "PII filtering is enabled for this model and is not available over the Responses WebSocket; use POST /v1/responses", "model")
+			return
+		}
 	}
 
 	// Set up context with cancellation tied to connection lifetime
@@ -381,7 +396,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 			funcsWithNoAction = funcsWithNoAction.Select(cfg.FunctionToCall())
 		}
 
-		jsStruct := funcsWithNoAction.ToJSONStructure(cfg.FunctionsConfig.FunctionNameKey, cfg.FunctionsConfig.FunctionNameKey)
+		jsStruct := cfg.FunctionsConfig.ToJSONStructure(funcsWithNoAction)
 		g, err := jsStruct.Grammar(cfg.FunctionsConfig.GrammarOptions()...)
 		if err == nil {
 			cfg.Grammar = g

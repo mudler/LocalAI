@@ -71,7 +71,7 @@ type FunctionCall struct {
 
 type Messages []Message
 
-// MessagesToProto converts schema.Message slice to proto.Message slice
+// ToProto converts schema.Message slice to proto.Message slice
 // It handles content conversion, tool_calls serialization, and optional fields
 func (messages Messages) ToProto() []*proto.Message {
 	protoMessages := make([]*proto.Message, len(messages))

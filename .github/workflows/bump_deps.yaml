@@ -82,6 +82,10 @@ jobs:
             variable: "FACEDETECT_VERSION"
             branch: "master"
             file: "backend/go/face-detect/Makefile"
+          - repository: "mudler/timestral.cpp"
+            variable: "TIMESTRAL_VERSION"
+            branch: "main"
+            file: "backend/go/timestral-cpp/Makefile"
           - repository: "mudler/depth-anything.cpp"
             variable: "DEPTHANYTHING_VERSION"
             branch: "master"
@@ -94,6 +98,14 @@ jobs:
             variable: "TRELLIS2CPP_VERSION"
             branch: "pbr-textures"
             file: "backend/go/trellis2cpp/Makefile"
+          - repository: "localai-org/kimodo.cpp"
+            variable: "KIMODO_VERSION"
+            branch: "main"
+            file: "backend/go/kimodocpp/Makefile"
+          - repository: "localai-org/gem-x.cpp"
+            variable: "GEMX_VERSION"
+            branch: "main"
+            file: "backend/go/gemxcpp/Makefile"
           - repository: "mudler/go-piper"
             variable: "PIPER_VERSION"
             branch: "master"
@@ -180,7 +192,7 @@ jobs:
     if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Bump CTranslate2 ROCm wheel pin 🔧
         id: bump
         run: |

@@ -11,6 +11,7 @@ test.describe('Traces - API request metadata', () => {
         contentType: 'application/json',
         body: JSON.stringify([
           {
+            id: 'm1',
             request: { method: 'POST', path: '/v1/chat/completions' },
             response: { status: 200 },
             user_id: 'user-123',
@@ -19,6 +20,20 @@ test.describe('Traces - API request metadata', () => {
             user_agent: 'curl/8.4.0',
           },
         ]),
+      })
+    })
+    await page.route('**/api/traces/m1', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'm1',
+          request: { method: 'POST', path: '/v1/chat/completions' },
+          response: { status: 200 },
+          user_id: 'user-123',
+          user_name: 'alice',
+          client_ip: '203.0.113.7',
+          user_agent: 'curl/8.4.0',
+        }),
       })
     })
     await page.route('**/api/backend-traces?*', (route) => {
@@ -33,8 +48,9 @@ test.describe('Traces - API request metadata', () => {
     await expect(page.locator('td', { hasText: 'alice' }).first()).toBeVisible()
   })
 
-  test('expands the row to reveal Client IP and User Agent', async ({ page }) => {
-    await page.locator('tr', { hasText: '/v1/chat/completions' }).first().click()
+  test('opens the trace to show Client IP and User Agent', async ({ page }) => {
+    await page.getByRole('link', { name: '/v1/chat/completions' }).click()
+    await expect(page).toHaveURL(/\/app\/traces\/m1$/)
 
     await expect(page.locator('text=Client IP').first()).toBeVisible()
     await expect(page.locator('text=203.0.113.7').first()).toBeVisible()

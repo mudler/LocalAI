@@ -13,10 +13,10 @@
   "account": "Akun",
   "accountFor": "Akun: {{name}}",
   "sections": {
-    "create": "Buat",
     "recognition": "Pengenalan",
     "build": "Bangun",
-    "operate": "Operasikan"
+    "operate": "Operasikan",
+    "workspace": "Ruang kerja"
   },
   "operate": {
     "inference": "Inferensi",
@@ -32,8 +32,6 @@
     "home": "Beranda",
     "models": "Models",
     "chat": "Obrolan",
-    "studio": "Studio",
-    "talk": "Bicara",
     "fineTune": "Fine-Tune (Eksperimental)",
     "quantize": "Kuantisasi (Eksperimental)",
     "faces": "Wajah",
@@ -60,7 +58,15 @@
     "settings": "Pengaturan",
     "api": "API",
     "activity": "Aktivitas",
-    "overview": "Ikhtisar"
+    "overview": "Ikhtisar",
+    "thisMachine": "Mesin ini",
+    "failover": "Failover",
+    "p2p": "P2P",
+    "addons": "Add-on",
+    "logs": "Logs",
+    "trafficModels": "Models",
+    "gpuHost": "GPU and host",
+    "prometheus": "Prometheus"
   },
   "footer": {
     "github": "GitHub",
@@ -70,6 +76,30 @@
   },
   "console": {
     "automation": "Automasi",
-    "training": "Pelatihan"
+    "training": "Pelatihan",
+    "expandNavigation": "Expand {{section}} navigation",
+    "collapseNavigation": "Collapse {{section}} navigation"
+  },
+  "hub": {
+    "status": "Status",
+    "runtime": "Runtime",
+    "traffic": "Lalu lintas",
+    "import": "Impor",
+    "recognition": "Pengenalan",
+    "overviewSupporting": "Semua yang kamu bangun dengan modelmu, di satu tempat.",
+    "overviewEmpty": "Tidak ada alat Build yang tersedia untuk akunmu.",
+    "toolsLabel": "Alat Build",
+    "descriptions": {
+      "agents": "Buat dan jalankan agen yang memakai model dan alatmu.",
+      "skills": "Instruksi yang bisa dipakai ulang dan dimuat agen saat diperlukan.",
+      "memory": "Koleksi dokumen yang bisa dicari agen.",
+      "jobs": "Tugas terjadwal dan sekali jalan yang dijalankan agen untukmu.",
+      "fineTune": "Latih model dengan datamu sendiri.",
+      "quantize": "Perkecil model agar berjalan di perangkat keras yang lebih kecil.",
+      "import": "Tambahkan model dari berkas, URL, atau repositori Hugging Face.",
+      "voices": "Kenali pembicara dan simpan pustaka profil suara.",
+      "faces": "Deteksi, bandingkan, dan cocokkan wajah.",
+      "addons": "Pasang add-on dan buka aplikasi yang disediakannya."
+    }
   }
 }

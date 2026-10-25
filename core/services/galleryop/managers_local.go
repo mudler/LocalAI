@@ -51,7 +51,8 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 	case op.GalleryElement != nil:
 		installedModel, err := gallery.InstallModel(ctx, m.systemState, op.GalleryElement.Name,
 			op.GalleryElement, op.Req.Overrides, progressCb, m.enforcePredownloadScans,
-			gallery.WithArtifactMaterializer(m.artifactMaterializer))
+			gallery.WithArtifactMaterializer(m.artifactMaterializer),
+			gallery.WithBackendAvailability(op.BackendAvailability))
 		if err != nil {
 			return err
 		}
@@ -62,7 +63,10 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 		}
 		return nil
 	case op.GalleryElementName != "":
-		opts := []gallery.InstallOption{gallery.WithArtifactMaterializer(m.artifactMaterializer)}
+		opts := []gallery.InstallOption{
+			gallery.WithArtifactMaterializer(m.artifactMaterializer),
+			gallery.WithBackendAvailability(op.BackendAvailability),
+		}
 		if op.Variant != "" {
 			opts = append(opts, gallery.WithVariant(op.Variant))
 		}
@@ -73,7 +77,8 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 	default:
 		return installModelFromRemoteConfig(ctx, m.systemState, m.modelLoader, op.Req,
 			progressCb, m.enforcePredownloadScans, m.automaticallyInstallBackend, op.BackendGalleries, m.requireBackendIntegrity,
-			gallery.WithArtifactMaterializer(m.artifactMaterializer))
+			gallery.WithArtifactMaterializer(m.artifactMaterializer),
+			gallery.WithBackendAvailability(op.BackendAvailability))
 	}
 }
 
@@ -130,3 +135,7 @@ func (b *LocalBackendManager) InstallBackend(ctx context.Context, op *Management
 }
 
 func (b *LocalBackendManager) IsDistributed() bool { return false }
+
+func (b *LocalBackendManager) BackendAvailable(name string) (bool, error) {
+	return gallery.LocalBackendAvailability(b.systemState)(name)
+}

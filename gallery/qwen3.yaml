@@ -2,10 +2,9 @@ config_file: |
     backend: llama-cpp
     known_usecases:
         - chat
-    parameters:
-        context_size: 8192
-        f16: true
-        mmap: true
+    context_size: 8192
+    f16: true
+    mmap: true
     stopwords:
         - <|im_end|>
         - <dummy32000>

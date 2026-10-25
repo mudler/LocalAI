@@ -82,6 +82,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 	systemState, err := system.GetSystemState(
 		system.WithModelPath(mi.ModelsPath),
 		system.WithBackendPath(mi.BackendsPath),
+		system.WithRequireBackendIntegrity(mi.RequireBackendIntegrity),
 	)
 	if err != nil {
 		return err

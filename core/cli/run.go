@@ -3,8 +3,10 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
+	nethttp "net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -30,19 +33,41 @@ import (
 // and document the deprecation in the help text.
 
 type RunCMD struct {
+	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" default:"fine-tuning=finetune.,quantization=quantize." help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
+	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
+	AddonsOwnershipMode       string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
+	AddonsRole                string `name:"addons-role" env:"LOCALAI_ADDONS_ROLE" default:"combined" help:"How this process takes part in the add-on owner: combined (this node is its own owner, the default), owner (only the owner, serves the carrier on the network) or frontend (no owner here; every add-on request goes to the owner). owner and frontend need --addons-owner-address and --addons-carrier-dir" group:"addons"`
+	AddonsOwnerAddress        string `name:"addons-owner-address" env:"LOCALAI_ADDONS_OWNER_ADDRESS" help:"Address of the add-on owner carrier, as https://host:port with no path. Use a stable service name, never a pod address. Required for the owner and frontend roles" group:"addons"`
+	AddonsOwnerListen         string `name:"addons-owner-listen" env:"LOCALAI_ADDONS_OWNER_LISTEN" help:"Owner role only: the address the carrier listens on. Empty listens on all interfaces, on the port of --addons-owner-address" group:"addons"`
+	AddonsCarrierDir          string `name:"addons-carrier-dir" env:"LOCALAI_ADDONS_CARRIER_DIR" type:"path" help:"Directory with the carrier key set made by 'local-ai util addons-carrier-keys'. Required for the owner and frontend roles" group:"addons"`
+	AutoUpgradeAddons         bool   `name:"auto-upgrade-addons" env:"LOCALAI_AUTO_UPGRADE_ADDONS" default:"false" help:"Upgrade installed add-ons on their own when a newer version appears in their library. Off by default; upgrades then stay manual" group:"addons"`
+	AddonsOfficialLibrary     bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
+	AddonsBackendLibrary      bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the backend library on the first start, when the add-on owner has no sources.json yet. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. Turn it off to read the backend gallery only" group:"addons"`
+	OfficialLibraries         bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of add-ons, backends and models. Off: they stay in the list, shown as off, and are not read. Sources you added are not affected. Also a runtime setting (official_libraries)" group:"addons"`
+	AddonsBackendMaxBytes     int64  `name:"addons-backend-max-bytes" env:"LOCALAI_ADDONS_BACKEND_MAX_BYTES" default:"8589934592" help:"Largest compressed size, in bytes, of a backend image installed from a library. Add-ons keep their own limit of 512 MiB" group:"addons"`
+	Pprof                     bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
+	PprofAddress              string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
+	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
+	PprofBlockProfileRate     int    `name:"pprof-block-profile-rate" env:"LOCALAI_PPROF_BLOCK_PROFILE_RATE" default:"0" help:"Block sampling rate in nanoseconds (0 disables sampling); requires pprof" group:"diagnostics"`
+	RequestPhaseTiming        bool   `name:"request-phase-timing" env:"LOCALAI_REQUEST_PHASE_TIMING" default:"false" help:"Log sanitized request and config-reload phase timings at Info" group:"diagnostics"`
+
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 	Color     string   `env:"COLOR" hidden:""`
 	NoColor   string   `env:"NO_COLOR" hidden:""`
 	HFToken   string   `env:"HF_TOKEN" hidden:""`
 
-	ExternalBackends             []string      `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
-	WebRTCNAT1To1IPs             []string      `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
-	WebRTCICEInterfaces          []string      `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
-	WebRTCUDPPort                int           `env:"LOCALAI_WEBRTC_UDP_PORT" help:"Shared UDP port for /v1/realtime WebRTC ICE traffic. Publish this port as UDP and allow it through the firewall." group:"api" name:"web-rtc-udp-port"`
-	BackendsPath                 string        `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
-	BackendsSystemPath           string        `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
-	ModelsPath                   string        `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
-	ArtifactDownloadConcurrency  int           `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
+	ExternalBackends            []string `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
+	WebRTCNAT1To1IPs            []string `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
+	WebRTCICEInterfaces         []string `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
+	WebRTCUDPPort               int      `env:"LOCALAI_WEBRTC_UDP_PORT" help:"Shared UDP port for /v1/realtime WebRTC ICE traffic. Publish this port as UDP and allow it through the firewall." group:"api" name:"web-rtc-udp-port"`
+	BackendsPath                string   `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
+	BackendsSystemPath          string   `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
+	ModelsPath                  string   `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
+	DownloadStagingPath         string   `env:"LOCALAI_DOWNLOAD_STAGING_PATH,DOWNLOAD_STAGING_PATH" type:"path" default:"${basepath}/downloading" help:"Path where in-flight downloads are staged before extraction" group:"storage"`
+	ArtifactDownloadConcurrency int      `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
+
+	MaxConcurrentBackendOperations int `env:"LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS" help:"How many backend install, upgrade and delete operations run at once. 1 (the default) runs them one after the other. Operations on the same backend always run one at a time" group:"backends" default:"1"`
+
 	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
 	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
 	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (collectiondb, agent state, tasks, jobs). Separates mutable data from configuration" group:"storage"`
@@ -59,7 +84,7 @@ type RunCMD struct {
 	BackendImagesBranchTag    string   `env:"LOCALAI_BACKEND_IMAGES_BRANCH_TAG,BACKEND_IMAGES_BRANCH_TAG" help:"Fallback branch tag for backend images" group:"backends" default:"master"`
 	BackendDevSuffix          string   `env:"LOCALAI_BACKEND_DEV_SUFFIX,BACKEND_DEV_SUFFIX" help:"Development suffix for backend images" group:"backends" default:"development"`
 	AutoUpgradeBackends       bool     `env:"LOCALAI_AUTO_UPGRADE_BACKENDS,AUTO_UPGRADE_BACKENDS" help:"Automatically upgrade backends when new versions are detected" group:"backends" default:"false"`
-	PreferDevelopmentBackends bool     `env:"LOCALAI_PREFER_DEV_BACKENDS,PREFER_DEV_BACKENDS" help:"Prefer development backend versions (shows development backends by default in UI)" group:"backends" default:"false"`
+	PreferDevelopmentBackends bool     `env:"LOCALAI_PREFER_DEV_BACKENDS,PREFER_DEV_BACKENDS" help:"Prefer compatible installed development backends for generic aliases and development downloads (requires restart)" group:"backends" default:"false"`
 	PreloadModels             string   `env:"LOCALAI_PRELOAD_MODELS,PRELOAD_MODELS" help:"A List of models to apply in JSON at start" group:"models"`
 	Models                    []string `env:"LOCALAI_MODELS,MODELS" help:"A List of model configuration URLs to load" group:"models"`
 	PreloadModelsConfig       string   `env:"LOCALAI_PRELOAD_MODELS_CONFIG,PRELOAD_MODELS_CONFIG" help:"A List of models to apply at startup. Path to a YAML config file" group:"models"`
@@ -81,6 +106,7 @@ type RunCMD struct {
 	DisableRuntimeSettings             bool     `env:"LOCALAI_DISABLE_RUNTIME_SETTINGS,DISABLE_RUNTIME_SETTINGS" default:"false" help:"Disables the runtime settings. When set to true, the server will not load the runtime settings from the runtime_settings.json file" group:"api"`
 	DisablePredownloadScan             bool     `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
 	RequireBackendIntegrity            bool     `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, backend installs without a configured signature verification policy (for OCI URIs) or SHA256 (for tarball/HTTP URIs) are rejected. Default is to warn and install. Set this in production once your gallery's verification: block is populated." group:"hardening" default:"false"`
+	DisableBackendInstall              bool     `env:"LOCALAI_DISABLE_BACKEND_INSTALL,DISABLE_BACKEND_INSTALL" help:"If true, refuse to install or upgrade backends from galleries, OCI images, URLs or paths, including automatic installs, so the running backend set stays exactly what was deployed and tested; only backends already present or provided via --backends-system-path are used." group:"hardening" default:"false"`
 	OpaqueErrors                       bool     `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
 	UseSubtleKeyComparison             bool     `env:"LOCALAI_SUBTLE_KEY_COMPARISON" default:"false" help:"If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resiliancy against timing attacks." group:"hardening"`
 	DisableApiKeyRequirementForHttpGet bool     `env:"LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET" default:"false" help:"If true, a valid API key is not required to issue GET requests to portions of the web ui. This should only be enabled in secure testing environments" group:"hardening"`
@@ -120,6 +146,8 @@ type RunCMD struct {
 	TracingMaxBodyBytes                int      `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
 	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
 	OpenResponsesStoreTTL              string   `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
+
+	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
 	DisableLocalAIAssistant bool `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
@@ -184,6 +212,7 @@ type RunCMD struct {
 	ModelLoadWait                string `env:"LOCALAI_MODEL_LOAD_WAIT" help:"How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with 503, a Retry-After header and live staging progress (default 60s). The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to 0 to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front." group:"distributed"`
 	StaleNodeThreshold           string `env:"LOCALAI_STALE_NODE_THRESHOLD" help:"How long a worker node may go without a durable heartbeat before the health monitor marks it offline (default 5m). Because a beat that only carries a fresher timestamp is held back by --node-heartbeat-checkpoint, this must stay comfortably wider than that interval; raise both together. Dead-node detection through the per-model gRPC health check and through request-time failure is unaffected by this knob." group:"distributed"`
 	NodeHeartbeatCheckpoint      string `env:"LOCALAI_NODE_HEARTBEAT_CHECKPOINT" help:"Minimum gap between durable heartbeat writes for a worker node (default 60s). A beat that only carries a fresher timestamp is dropped until this interval elapses; every field is compared against the value last written, so a node's first beat, a changed total VRAM/total disk/GPU vendor, and a free VRAM/RAM/disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set below the worker heartbeat interval to write on every beat." group:"distributed"`
+	ModelConfigResyncInterval    string `env:"LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL" help:"How often each frontend compares its model configs with the shared models directory (default 30s). Frontends normally learn about a model install, edit or removal from a message on NATS; this pass catches a change whose message a frontend missed, for example during a NATS reconnect, so an old config is served for at most this long. A pass reads only the config files and skips the parse when none of them changed." group:"distributed"`
 	NatsAccountSeed              string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
 	NatsServiceJWT               string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
 	NatsServiceSeed              string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
@@ -242,12 +271,23 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 	return d, nil
 }
 
-func (r *RunCMD) Run(ctx *cliContext.Context) error {
+func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
 
 	if r.Version {
 		fmt.Println(internal.Version)
 		return nil
+	}
+
+	diagnosticOpts := r.diagnosticsOptions()
+	if err := diagnosticOpts.Validate(); err != nil {
+		return err
+	}
+
+	if ctx.CredentialsFile == "" {
+		if err := LoadCredentials(resolveCredentialsFile("", r.DataPath)); err != nil {
+			return err
+		}
 	}
 
 	activatedListeners, err := systemdActivatedListeners()
@@ -274,18 +314,34 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		system.WithBackendSystemPath(r.BackendsSystemPath),
 		system.WithModelPath(r.ModelsPath),
 		system.WithBackendPath(r.BackendsPath),
+		system.WithStagingPath(r.DownloadStagingPath),
 		system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag),
 		system.WithBackendImagesBranchTag(r.BackendImagesBranchTag),
 		system.WithBackendDevSuffix(r.BackendDevSuffix),
 		system.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends),
+		system.WithRequireBackendIntegrity(r.RequireBackendIntegrity),
+		system.WithDisableBackendInstall(r.DisableBackendInstall),
 	)
 	if err != nil {
 		return err
 	}
 
+	// CLI context holds configuration, not a cancellation context.
+	runCtx, cancelRun := context.WithCancelCause(context.Background())
+	if !r.PreloadBackendOnly {
+		defer cancelRun(nil)
+	}
+	hostOps, err := config.ParseAddonHostOps(r.AddonHostOps)
+	if err != nil {
+		cancelRun(nil)
+		return fmt.Errorf("--addon-host-ops: %w", err)
+	}
 	opts := []config.AppOption{
-		config.WithContext(context.Background()),
+		config.WithAddonHostOps(hostOps),
+		config.WithProxyAPIKeyEnvLookup(os.Getenv),
+		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
+		config.WithMaxConcurrentBackendOperations(r.MaxConcurrentBackendOperations),
 		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
 			modelartifacts.WithHuggingFaceToken(r.HFToken),
 			modelartifacts.WithDownloadConcurrency(r.ArtifactDownloadConcurrency),
@@ -305,6 +361,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
 		config.WithBackendGalleries(r.BackendGalleries),
+		// The galleries the flags named also become library sources, and the
+		// library sources decide which galleries are read. This must stay
+		// after the two options above.
+		libraryOptionFor(r),
 		config.WithVRAMPersistentCache(r.VRAMPersistentCache),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
@@ -340,7 +400,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithMLXTunnelCallback(func(tunnels []string) {
 			hostfile := filepath.Join(os.TempDir(), "localai_mlx_hostfile.json")
 			data, _ := json.Marshal(tunnels)
-			os.WriteFile(hostfile, data, 0644)
+			if err := os.WriteFile(hostfile, data, 0600); err != nil {
+				xlog.Error("failed to write MLX hostfile", "path", hostfile, "error", err)
+				return
+			}
 			os.Setenv("MLX_DISTRIBUTED_HOSTFILE", hostfile)
 			xlog.Debug("setting MLX_DISTRIBUTED_HOSTFILE", "value", hostfile, "tunnels", tunnels)
 		}),
@@ -412,6 +475,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return err
 		}
 		opts = append(opts, config.WithNodeHeartbeatCheckpoint(d))
+	}
+	if r.ModelConfigResyncInterval != "" {
+		d, err := parseDistributedDuration("LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL", r.ModelConfigResyncInterval)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithModelConfigResyncInterval(d))
 	}
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))
@@ -551,6 +621,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	if r.AgentPoolDefaultModel != "" {
 		opts = append(opts, config.WithAgentPoolDefaultModel(r.AgentPoolDefaultModel))
 	}
+	if r.LegacyNavigation {
+		opts = append(opts, config.WithLegacyNavigation(true))
+	}
 	if r.DisableLocalAIAssistant {
 		opts = append(opts, config.WithDisableLocalAIAssistant(true))
 	}
@@ -605,6 +678,24 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	// Authentication
 	authEnabled := r.AuthEnabled || r.GitHubClientID != "" || r.OIDCClientID != ""
+	addonCfg, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, r.DataPath, authEnabled, addonRoleFlags{Role: r.AddonsRole, OwnerAddress: r.AddonsOwnerAddress, OwnerListen: r.AddonsOwnerListen, CarrierDir: r.AddonsCarrierDir})
+	if err != nil {
+		cancelRun(nil)
+		return err
+	}
+	addonCfg.Frontend = r.AddonsRole == addonRoleFrontend
+	if addonCfg.Enabled && r.AddonsRole == addonRoleFrontend && !authEnabled {
+		xlog.Warn("This add-on frontend has no account database, so its add-on pins are kept in this process only and differ between frontends")
+	}
+	if addonCfg.Enabled {
+		addonCfg.OfficialLibrary = r.AddonsOfficialLibrary
+		addonCfg.OfficialBackendLibrary = r.AddonsBackendLibrary
+		addonCfg.BackendMaxBytes = r.AddonsBackendMaxBytes
+		opts = append(opts, config.WithAddons(addonCfg))
+	} else if addonCfg.Frontend {
+		// Add-ons are off, but the role still forbids owner state.
+		opts = append(opts, config.WithAddons(config.AddonConfig{Frontend: true}))
+	}
 	if authEnabled {
 		opts = append(opts, config.WithAuthEnabled(true))
 
@@ -740,12 +831,22 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		opts = append(opts, config.EnableBackendGalleriesAutoload)
 	}
 
+	opts = append(opts, config.WithOfficialLibraries(r.OfficialLibraries))
+
 	if r.AutoUpgradeBackends {
 		opts = append(opts, config.WithAutoUpgradeBackends(r.AutoUpgradeBackends))
 	}
 
+	if r.AutoUpgradeAddons {
+		opts = append(opts, config.WithAutoUpgradeAddons(r.AutoUpgradeAddons))
+	}
+
 	if r.RequireBackendIntegrity {
 		opts = append(opts, config.WithRequireBackendIntegrity(r.RequireBackendIntegrity))
+	}
+
+	if r.DisableBackendInstall {
+		opts = append(opts, config.WithDisableBackendInstall(r.DisableBackendInstall))
 	}
 
 	if r.PreferDevelopmentBackends {
@@ -771,9 +872,59 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
+	var stopProfiler func() error
+	if diagnosticOpts.Pprof {
+		profiler, err := diagnostics.Start(diagnosticOpts)
+		if err != nil {
+			return err
+		}
+		monitorDone := make(chan struct{})
+		var profilerErr error
+		go func() {
+			defer close(monitorDone)
+			if err := <-profiler.Errors(); err != nil {
+				profilerErr = err
+				cancelRun(err)
+			}
+		}()
+		stopProfiler = func() error {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err := profiler.Shutdown(shutdownCtx)
+			<-monitorDone
+			return errors.Join(err, profilerErr)
+		}
+		defer func() {
+			result = errors.Join(result, stopProfiler())
+		}()
+		// Signals exit the process without running defers. Register private
+		// cleanup before application cleanup, which has no bounded shutdown.
+		signals.RegisterGracefulTerminationHandler(func() {
+			cancelRun(nil)
+			if err := stopProfiler(); err != nil {
+				xlog.Error("error while shutting down profiler", "error", err)
+			}
+		})
+	}
+	if diagnosticOpts.RequestPhaseTiming {
+		opts = append(opts, config.WithDiagnosticsRecorder(diagnostics.NewRecorder(diagnostics.LogEvent)))
+	}
+
 	app, err := application.New(opts...)
 	if err != nil {
 		return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
+	}
+
+	defer func() {
+		cancelRun(nil)
+		if stopProfiler != nil {
+			// Release the bounded private resource even if app.Shutdown blocks.
+			_ = stopProfiler()
+		}
+		result = errors.Join(result, app.Shutdown())
+	}()
+	if err := runCtx.Err(); err != nil {
+		return context.Cause(runCtx)
 	}
 
 	// Refuse to bind a public-internet address without authentication unless
@@ -812,6 +963,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	signals.RegisterGracefulTerminationHandler(func() {
+		cancelRun(nil)
 		if err := app.Shutdown(); err != nil {
 			xlog.Error("error while shutting down application", "error", err)
 		}
@@ -822,10 +974,33 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	// collection initialization.
 	go func() {
 		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
-		app.StartAgentPool()
+		if runCtx.Err() == nil {
+			app.StartAgentPool()
+		}
 	}()
 
-	return appHTTP.Start(listenAddress)
+	if !diagnosticOpts.Pprof {
+		return appHTTP.Start(listenAddress)
+	}
+	served := make(chan error, 1)
+	go func() { served <- appHTTP.Start(listenAddress) }()
+	select {
+	case err := <-served:
+		return errors.Join(err, context.Cause(runCtx))
+	case <-runCtx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		shutdownErr := appHTTP.Shutdown(shutdownCtx)
+		if shutdownErr != nil {
+			shutdownErr = errors.Join(shutdownErr, appHTTP.Close())
+		}
+		serveErr := <-served
+		// Only intentional shutdown makes ErrServerClosed an expected result.
+		if errors.Is(serveErr, nethttp.ErrServerClosed) {
+			serveErr = nil
+		}
+		return errors.Join(serveErr, context.Cause(runCtx), shutdownErr)
+	}
 }
 
 // waitForServerReady polls the given address until the HTTP server is

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import '../pages/auth.css'
 
-export default function Modal({ onClose, children, maxWidth = '600px' }) {
+export default function Modal({ onClose, children, maxWidth = '600px', ariaLabel }) {
   const dialogRef = useRef(null)
   const lastFocusRef = useRef(null)
   const onCloseRef = useRef(onClose)
@@ -14,7 +14,7 @@ export default function Modal({ onClose, children, maxWidth = '600px' }) {
     const dialog = dialogRef.current
     if (!dialog) return
 
-    const focusableSelector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    const focusableSelector = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     const getFocusable = () => dialog.querySelectorAll(focusableSelector)
 
     const firstFocusable = getFocusable()[0]
@@ -54,6 +54,7 @@ export default function Modal({ onClose, children, maxWidth = '600px' }) {
     <div
       role="dialog"
       aria-modal="true"
+      aria-label={ariaLabel}
       className="modal-backdrop"
       onClick={onClose}
     >

@@ -1,5 +1,6 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, useId } from 'react'
 import Popover from './Popover'
+import Icon from './Icon'
 
 // ActionMenu renders a kebab (three-dot) button that opens a popover with a
 // list of row actions. Replaces the inline cluster of icon buttons that made
@@ -20,6 +21,7 @@ import Popover from './Popover'
 //   Escape               — close, return focus to trigger
 export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel, compact = false }) {
   const triggerRef = useRef(null)
+  const menuId = useId()
   const [open, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(-1)
 
@@ -48,7 +50,12 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
   }
 
   const handleMenuKeyDown = (e) => {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Escape') {
+      // Keep the same Escape press from also closing a surrounding inspector.
+      e.preventDefault()
+      e.stopPropagation()
+      close()
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       setActiveIdx(i => Math.min(interactive.length - 1, (i < 0 ? -1 : i) + 1))
     } else if (e.key === 'ArrowUp') {
@@ -65,7 +72,7 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
       const item = interactive[activeIdx]
       if (item && !item.disabled) {
         close()
-        item.onClick?.()
+        item.onClick?.(triggerRef.current)
       }
     }
   }
@@ -86,12 +93,13 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
         onClick={(e) => { e.stopPropagation(); setOpen(v => !v) }}
         onKeyDown={handleTriggerKeyDown}
       >
-        <i className="fas fa-ellipsis-vertical" />
+        <Icon name="more-vertical" />
       </button>
       <Popover anchor={triggerRef} open={open} onClose={close} ariaLabel={ariaLabel}>
         <div
           role="menu"
           aria-label={ariaLabel}
+          aria-activedescendant={activeIdx >= 0 ? `${menuId}-item-${activeIdx}` : undefined}
           className="action-menu"
           onKeyDown={handleMenuKeyDown}
           // Capture focus when the menu opens so arrow keys work without the
@@ -108,7 +116,7 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
             if (item.type === 'badge') {
               return (
                 <div key={item.key || `b-${i}`} className="action-menu__badge" role="presentation">
-                  {item.icon && <i className={`fas ${item.icon}`} aria-hidden="true" />}
+                  {item.icon && <Icon name={item.icon} />}
                   <span>{item.label}</span>
                 </div>
               )
@@ -118,8 +126,10 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
             return (
               <button
                 key={item.key}
+                id={`${menuId}-item-${idx}`}
                 type="button"
                 role="menuitem"
+                tabIndex={-1}
                 disabled={item.disabled}
                 className={`action-menu__item${item.danger ? ' is-danger' : ''}${active ? ' is-active' : ''}`}
                 onMouseEnter={() => setActiveIdx(idx)}
@@ -127,10 +137,10 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
                   e.stopPropagation()
                   if (item.disabled) return
                   close()
-                  item.onClick?.()
+                  item.onClick?.(triggerRef.current)
                 }}
               >
-                {item.icon && <i className={`fas ${item.icon} action-menu__icon`} aria-hidden="true" />}
+                {item.icon && <Icon name={item.icon} className="action-menu__icon" />}
                 <span className="action-menu__label">{item.label}</span>
                 {item.shortcut && <span className="action-menu__shortcut">{item.shortcut}</span>}
               </button>

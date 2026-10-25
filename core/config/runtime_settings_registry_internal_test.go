@@ -72,6 +72,7 @@ var _ = Describe("runtime settings registry", func() {
 		src.Threads = 7
 		src.ContextSize = 8192
 		src.ArtifactDownloadConcurrency = 6
+		src.MaxConcurrentBackendOperations = 3
 		src.VRAMBudget = "12GiB"
 		src.F16 = true
 		src.Debug = true

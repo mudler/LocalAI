@@ -48,6 +48,8 @@ type recordingBackend struct {
 	// SoundGenerationRequest carries both `model` (staged path) and
 	// `ModelIdentity`; the spec below asserts they are populated independently.
 	soundGenModelField string
+	soundGenParams     map[string]string
+	soundGenOutput     []byte
 }
 
 func newRecordingBackend() *recordingBackend {
@@ -71,6 +73,12 @@ func (r *recordingBackend) GenerateImage(_ context.Context, in *pb.GenerateImage
 func (r *recordingBackend) SoundGeneration(_ context.Context, in *pb.SoundGenerationRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	r.record("SoundGeneration", in)
 	r.soundGenModelField = in.GetModel()
+	r.soundGenParams = in.GetParams()
+	if r.soundGenOutput != nil {
+		if err := os.WriteFile(in.GetDst(), r.soundGenOutput, 0o600); err != nil {
+			return nil, err
+		}
+	}
 	return &pb.Result{Success: true}, nil
 }
 
@@ -87,6 +95,11 @@ func (r *recordingBackend) Detect(_ context.Context, in *pb.DetectOptions, _ ...
 func (r *recordingBackend) Depth(_ context.Context, in *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
 	r.record("Depth", in)
 	return &pb.DepthResponse{}, nil
+}
+
+func (r *recordingBackend) Forecast(_ context.Context, in *pb.ForecastRequest, _ ...ggrpc.CallOption) (*pb.ForecastResponse, error) {
+	r.record("Forecast", in)
+	return &pb.ForecastResponse{}, nil
 }
 
 func (r *recordingBackend) VAD(_ context.Context, in *pb.VADRequest, _ ...ggrpc.CallOption) (*pb.VADResponse, error) {
@@ -239,6 +252,12 @@ var _ = Describe("modality requests carry the model identity", func() {
 		expectIdentity("Depth")
 	})
 
+	It("Forecast", func() {
+		_, err := backend.Forecast(ctx, &pb.ForecastRequest{PredictionLength: 1}, loader, appCfg, cfg)
+		Expect(err).ToNot(HaveOccurred())
+		expectIdentity("Forecast")
+	})
+
 	It("VAD", func() {
 		_, err := backend.VAD(&schema.VADRequest{Audio: []float32{0}}, ctx, loader, appCfg, cfg)
 		Expect(err).ToNot(HaveOccurred())
@@ -321,11 +340,13 @@ var _ = Describe("modality requests carry the model identity", func() {
 	// comparing it would reject valid requests. Both must arrive populated.
 	It("SoundGeneration", func() {
 		appCfg.GeneratedContentDir = GinkgoT().TempDir()
-		_, _, err := backend.SoundGeneration(ctx, "hello", nil, nil, nil, nil, nil, nil, "", "", nil, "", "", "", nil, loader, appCfg, cfg)
+		params := map[string]string{"style": "jazz", "cot": "true"}
+		_, _, err := backend.SoundGeneration(ctx, "hello", nil, nil, nil, nil, nil, nil, "", "", nil, "", "", "", nil, params, loader, appCfg, cfg)
 		Expect(err).ToNot(HaveOccurred())
 		expectIdentity("SoundGeneration")
 		Expect(rec.soundGenModelField).To(Equal(identityModelFile),
 			"the staged `model` field must still be sent, separately from the identity")
+		Expect(rec.soundGenParams).To(Equal(params))
 	})
 
 	It("ModelAudioTransform", func() {

@@ -132,6 +132,7 @@ impl Backend for KokorosService {
         Ok(Response::new(backend::Result {
             success: true,
             message: "Kokoros TTS model loaded".into(),
+            ..Default::default()
         }))
     }
 
@@ -180,11 +181,13 @@ impl Backend for KokorosService {
                     return Ok(Response::new(backend::Result {
                         success: false,
                         message: format!("Failed to write WAV: {}", e),
+                        ..Default::default()
                     }));
                 }
                 Ok(Response::new(backend::Result {
                     success: true,
                     message: String::new(),
+                    ..Default::default()
                 }))
             }
             Err(e) => {
@@ -192,9 +195,19 @@ impl Backend for KokorosService {
                 Ok(Response::new(backend::Result {
                     success: false,
                     message: format!("TTS error: {}", e),
+                    ..Default::default()
                 }))
             }
         }
+    }
+
+    type TTSLiveStream = ReceiverStream<Result<backend::Reply, Status>>;
+
+    async fn tts_live(
+        &self,
+        _req: Request<tonic::Streaming<backend::TtsRequest>>,
+    ) -> Result<Response<Self::TTSLiveStream>, Status> {
+        Err(Status::unimplemented("incremental text TTS is not supported"))
     }
 
     type TTSStreamStream = ReceiverStream<Result<backend::Reply, Status>>;
@@ -280,7 +293,7 @@ impl Backend for KokorosService {
         };
         Ok(Response::new(backend::StatusResponse {
             state,
-            memory: None,
+            ..Default::default()
         }))
     }
 
@@ -292,10 +305,27 @@ impl Backend for KokorosService {
         Ok(Response::new(backend::Result {
             success: true,
             message: "Model freed".into(),
+            ..Default::default()
         }))
     }
 
     // --- Unimplemented RPCs ---
+
+    type MotionStreamStream = ReceiverStream<Result<backend::MotionResponse, Status>>;
+
+    async fn motion_stream(
+        &self,
+        _: Request<tonic::Streaming<backend::MotionRequest>>,
+    ) -> Result<Response<Self::MotionStreamStream>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn slot_cache(
+        &self,
+        _: Request<backend::SlotCacheRequest>,
+    ) -> Result<Response<backend::SlotCacheResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
 
     async fn predict(
         &self,
@@ -344,6 +374,13 @@ impl Backend for KokorosService {
     async fn generate3_d(
         &self,
         _: Request<backend::Generate3DRequest>,
+    ) -> Result<Response<backend::Result>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn animate3_d(
+        &self,
+        _: Request<backend::Animate3DRequest>,
     ) -> Result<Response<backend::Result>, Status> {
         Err(Status::unimplemented("Not supported"))
     }

@@ -1,3 +1,5 @@
+import Icon from './Icon'
+
 // StatCard renders a single cluster/dashboard metric card. The left accent
 // bar + icon chip color is driven by `accentVar` (a CSS custom property name,
 // e.g. "--color-success") so the card reads as semantic without the caller
@@ -32,7 +34,7 @@ export default function StatCard({ icon, label, value, color, accentVar, onClick
         <div className="stat-card__value" style={{ color: accent }}>{value}</div>
       </div>
       <div className="stat-card__icon" style={accentVar ? { color: accent } : undefined}>
-        <i className={icon} />
+        <Icon name={icon} />
       </div>
     </div>
   )

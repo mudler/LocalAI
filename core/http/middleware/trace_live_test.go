@@ -3,6 +3,8 @@
 package middleware
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -105,4 +107,28 @@ var _ = Describe("live API traces", func() {
 
 		Expect(GetTraces()).To(BeEmpty())
 	})
+
+	DescribeTable("records the status of returned errors", func(handlerErr error, committed bool, expected int) {
+		app := newApp(GinkgoT().TempDir())
+		handler := TraceMiddleware(app)(func(c echo.Context) error {
+			if committed {
+				Expect(c.NoContent(http.StatusAccepted)).To(Succeed())
+			}
+			return handlerErr
+		})
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/error", http.NoBody)
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		ctx := e.NewContext(req, httptest.NewRecorder())
+		Expect(handler(ctx)).To(Equal(handlerErr))
+		Eventually(GetTraces).Should(ConsistOf(And(
+			HaveField("Response.Status", expected),
+			HaveField("Error", handlerErr.Error()),
+		)))
+	},
+		Entry("ordinary error", errors.New("inference failed"), false, http.StatusInternalServerError),
+		Entry("HTTP error", echo.NewHTTPError(http.StatusBadRequest, "invalid frames"), false, http.StatusBadRequest),
+		Entry("wrapped HTTP error", fmt.Errorf("validation: %w", echo.NewHTTPError(http.StatusBadRequest)), false, http.StatusBadRequest),
+		Entry("already committed response", errors.New("after response"), true, http.StatusAccepted),
+	)
 })

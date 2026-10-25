@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -47,7 +47,7 @@ func (f *fakeCleanupRegistry) RecordModelCleanupFailure(_ context.Context, _, _ 
 
 type fakeExactStopper struct {
 	mu      sync.Mutex
-	replies []messaging.ModelStopReply
+	replies []workerctl.ModelStopReply
 	errs    []error
 	calls   []NodeModel
 	block   chan struct{}
@@ -84,7 +84,7 @@ type blockingExactStopper struct {
 	calls   int
 }
 
-func (f *blockingExactStopper) StopModelReplica(_ context.Context, _ string, _ NodeModel, _ bool) (messaging.ModelStopReply, error) {
+func (f *blockingExactStopper) StopModelReplica(_ context.Context, _ string, _ NodeModel, _ bool) (workerctl.ModelStopReply, error) {
 	f.mu.Lock()
 	f.calls++
 	if f.calls == 1 {
@@ -92,10 +92,10 @@ func (f *blockingExactStopper) StopModelReplica(_ context.Context, _ string, _ N
 	}
 	f.mu.Unlock()
 	<-f.release
-	return messaging.ModelStopReply{Matched: true, Terminated: true}, nil
+	return workerctl.ModelStopReply{Matched: true, Terminated: true}, nil
 }
 
-func (f *fakeExactStopper) StopModelReplica(_ context.Context, _ string, replica NodeModel, _ bool) (messaging.ModelStopReply, error) {
+func (f *fakeExactStopper) StopModelReplica(_ context.Context, _ string, replica NodeModel, _ bool) (workerctl.ModelStopReply, error) {
 	if f.block != nil {
 		<-f.block
 	}
@@ -103,7 +103,7 @@ func (f *fakeExactStopper) StopModelReplica(_ context.Context, _ string, replica
 	defer f.mu.Unlock()
 	i := len(f.calls)
 	f.calls = append(f.calls, replica)
-	var reply messaging.ModelStopReply
+	var reply workerctl.ModelStopReply
 	var err error
 	if i < len(f.replies) {
 		reply = f.replies[i]
@@ -120,7 +120,7 @@ var _ = Describe("ModelCleanupService", func() {
 
 	It("deletes only replicas whose termination is confirmed", func() {
 		registry := &fakeCleanupRegistry{}
-		stopper := &fakeExactStopper{replies: []messaging.ModelStopReply{{Matched: true, Terminated: true}}}
+		stopper := &fakeExactStopper{replies: []workerctl.ModelStopReply{{Matched: true, Terminated: true}}}
 		service := NewModelCleanupService(registry, stopper)
 		service.now = func() time.Time { return now }
 		service.Cleanup(context.Background(), []NodeModel{{NodeID: "n1", ModelName: "m", ReplicaIndex: 3}}, false)
@@ -130,7 +130,7 @@ var _ = Describe("ModelCleanupService", func() {
 
 	It("treats exact process absence as idempotent success", func() {
 		registry := &fakeCleanupRegistry{}
-		stopper := &fakeExactStopper{replies: []messaging.ModelStopReply{{Matched: false, Terminated: true}}}
+		stopper := &fakeExactStopper{replies: []workerctl.ModelStopReply{{Matched: false, Terminated: true}}}
 		service := NewModelCleanupService(registry, stopper)
 		service.Cleanup(context.Background(), []NodeModel{{NodeID: "n1", ModelName: "m"}}, false)
 		Expect(registry.removed).To(HaveLen(1))
@@ -149,7 +149,7 @@ var _ = Describe("ModelCleanupService", func() {
 
 	It("retries transient failures and later removes the row", func() {
 		registry := &fakeCleanupRegistry{}
-		stopper := &fakeExactStopper{errs: []error{errors.New("timeout"), nil}, replies: []messaging.ModelStopReply{{}, {Matched: true, Terminated: true}}}
+		stopper := &fakeExactStopper{errs: []error{errors.New("timeout"), nil}, replies: []workerctl.ModelStopReply{{}, {Matched: true, Terminated: true}}}
 		service := NewModelCleanupService(registry, stopper)
 		r := NodeModel{NodeID: "n1", ModelName: "m"}
 		service.Cleanup(context.Background(), []NodeModel{r}, false)
@@ -160,7 +160,7 @@ var _ = Describe("ModelCleanupService", func() {
 
 	It("records a negative reply and tolerates a concurrent row deletion", func() {
 		registry := &fakeCleanupRegistry{}
-		stopper := &fakeExactStopper{replies: []messaging.ModelStopReply{{Matched: true, Terminated: false, Error: "address mismatch"}}}
+		stopper := &fakeExactStopper{replies: []workerctl.ModelStopReply{{Matched: true, Terminated: false, Error: "address mismatch"}}}
 		service := NewModelCleanupService(registry, stopper)
 		service.Cleanup(context.Background(), []NodeModel{{NodeID: "n1", ModelName: "m"}}, false)
 		Expect(registry.failures).To(Equal([]string{"address mismatch"}))
@@ -168,7 +168,7 @@ var _ = Describe("ModelCleanupService", func() {
 
 	It("leases due work so two runners do not own the same replica", func() {
 		registry := &fakeCleanupRegistry{due: []NodeModel{{NodeID: "n1", ModelName: "m"}}}
-		stopper := &fakeExactStopper{replies: []messaging.ModelStopReply{{Matched: true, Terminated: true}}}
+		stopper := &fakeExactStopper{replies: []workerctl.ModelStopReply{{Matched: true, Terminated: true}}}
 		a := NewModelCleanupService(registry, stopper)
 		b := NewModelCleanupService(registry, stopper)
 		a.runOnce(context.Background())

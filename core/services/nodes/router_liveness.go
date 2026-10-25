@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/mudler/xlog"
-	"github.com/nats-io/nats.go"
 )
 
 // maxNodeLivenessRetries bounds how many unreachable nodes a single scheduling
@@ -16,7 +15,7 @@ const maxNodeLivenessRetries = 3
 
 // nodeAnswersOnBus reports whether a node still has a live subscription.
 //
-// Only nats.ErrNoResponders means "absent". Any other outcome, a timeout or a
+// Only ErrNoRoute means "absent". Any other outcome, a timeout or a
 // transport hiccup, leaves the node eligible: wrongly excluding a node that is
 // merely slow costs real capacity, while the install that follows already
 // reports its own failure. When no command sender is configured there is no bus
@@ -27,7 +26,7 @@ func (r *SmartRouter) nodeAnswersOnBus(node *BackendNode) bool {
 		return true
 	}
 	err := r.unloader.PingNode(node.ID)
-	return !errors.Is(err, nats.ErrNoResponders)
+	return !errors.Is(err, ErrNoRoute)
 }
 
 // pickReachableNode calls selectNode until it yields a node that still answers

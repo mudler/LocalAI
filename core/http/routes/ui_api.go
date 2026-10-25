@@ -5,6 +5,7 @@ import "os"
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -22,7 +23,9 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -44,10 +47,12 @@ const (
 // usecaseFilters maps UI filter keys to ModelConfigUsecase flags for
 // capability-based gallery filtering.
 var usecaseFilters = map[string]config.ModelConfigUsecase{
+	config.UsecaseMotion:              config.FLAG_MOTION,
 	config.UsecaseChat:                config.FLAG_CHAT,
 	config.UsecaseImage:               config.FLAG_IMAGE,
 	config.UsecaseVideo:               config.FLAG_VIDEO,
 	config.Usecase3D:                  config.FLAG_3D,
+	config.Usecase3DAnimation:         config.FLAG_3D_ANIMATION,
 	config.UsecaseVision:              config.FLAG_VISION,
 	config.UsecaseTTS:                 config.FLAG_TTS,
 	config.UsecaseTranscript:          config.FLAG_TRANSCRIPT,
@@ -55,6 +60,7 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseEmbeddings:          config.FLAG_EMBEDDINGS,
 	config.UsecaseRerank:              config.FLAG_RERANK,
 	config.UsecaseDetection:           config.FLAG_DETECTION,
+	config.UsecaseForecast:            config.FLAG_FORECAST,
 	config.UsecaseVAD:                 config.FLAG_VAD,
 	config.UsecaseAudioTransform:      config.FLAG_AUDIO_TRANSFORM,
 	config.UsecaseDiarization:         config.FLAG_DIARIZATION,
@@ -820,12 +826,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			NodeStatus string `json:"node_status"`
 		}
 		type modelCapability struct {
-			ID           string                         `json:"id"`
-			Capabilities []string                       `json:"capabilities"`
-			Backend      string                         `json:"backend"`
-			Disabled     bool                           `json:"disabled"`
-			Pinned       bool                           `json:"pinned"`
-			VoiceCloning *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
+			UpscaleScale     int                            `json:"upscaleScale,omitempty"`
+			ThreeDOperations []schema.ThreeDOperation       `json:"three_d_operations,omitempty"`
+			ID               string                         `json:"id"`
+			Capabilities     []string                       `json:"capabilities"`
+			Backend          string                         `json:"backend"`
+			Disabled         bool                           `json:"disabled"`
+			Pinned           bool                           `json:"pinned"`
+			VoiceCloning     *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
 			// LoadedOn is populated only when the node registry is active
 			// (distributed mode). Lets the UI show "loaded on worker-1" without
 			// the operator having to expand every node manually. An empty slice
@@ -835,6 +843,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// Source="registry-only" marks models adopted from the cluster that
 			// have no local config yet (ghosts that the reconciler discovered).
 			Source string `json:"source,omitempty"`
+			// MCP reports that the model config declares MCP servers and MCP is
+			// enabled on this instance. Non-admin chat users cannot read the
+			// model config (config-json is admin-only), so this is how the chat
+			// UI learns it may offer server selection to users holding the
+			// `mcp` feature. Server names and commands stay behind
+			// /v1/mcp/servers/:model, which is gated by that feature.
+			MCP bool `json:"mcp,omitempty"`
 		}
 
 		// Join with the node registry when we have one (distributed mode). A
@@ -868,13 +883,16 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		for _, cfg := range modelConfigs {
 			seen[cfg.Name] = true
 			result = append(result, modelCapability{
-				ID:           cfg.Name,
-				Capabilities: cfg.KnownUsecaseStrings,
-				Backend:      cfg.Backend,
-				Disabled:     cfg.IsDisabled(),
-				Pinned:       cfg.IsPinned(),
-				VoiceCloning: config.VoiceCloningForModel(&cfg),
-				LoadedOn:     loadedByModel[cfg.Name],
+				ID:               cfg.Name,
+				Capabilities:     cfg.KnownUsecaseStrings,
+				UpscaleScale:     config.UpscaleScaleFromOptions(cfg),
+				ThreeDOperations: cfg.ThreeDOperations(),
+				Backend:          cfg.Backend,
+				Disabled:         cfg.IsDisabled(),
+				Pinned:           cfg.IsPinned(),
+				VoiceCloning:     config.VoiceCloningForModel(&cfg),
+				LoadedOn:         loadedByModel[cfg.Name],
+				MCP:              !appConfig.DisableMCP && cfg.MCP.HasMCPServers(),
 			})
 		}
 		for _, name := range modelsWithoutConfig {
@@ -1047,6 +1065,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		variant := c.QueryParam("variant")
 		xlog.Debug("API job submitted to install", "galleryID", galleryID, "variant", variant)
 
+		if refused, err := localai.RefuseModelWithoutBackend(c, appConfig, appConfig.Galleries, galleryID, variant, galleryService.BackendManager().BackendAvailable); refused {
+			return err
+		}
+
 		id, err := uuid.NewUUID()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
@@ -1160,8 +1182,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false,
-			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer))
+			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer),
+			gallery.WithBackendAvailability(galleryService.BackendManager().BackendAvailable))
 		if err != nil {
+			if errors.Is(err, gallery.ErrBackendInstallDisabled) {
+				return c.JSON(http.StatusConflict, map[string]any{
+					"error": err.Error(),
+					"code":  "backend_not_installed",
+				})
+			}
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
@@ -1202,6 +1231,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
+
+	// On-disk storage report: per-model sizes, shared files, missing refs
+	app.GET("/api/models/storage", localai.ModelStorageEndpoint(appConfig), adminMiddleware)
 
 	// Get installed model YAML config for the React model editor
 	app.GET("/api/models/edit/:name", func(c echo.Context) error {
@@ -1532,7 +1564,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"jobID":   uid,
 			"message": "Backend installation started",
 		})
-	}, adminMiddleware)
+	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 
 	// Install backend from external source (OCI image, URL, or path)
 	app.POST("/api/backends/install-external", func(c echo.Context) error {
@@ -1595,7 +1627,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"jobID":   uid,
 			"message": "External backend installation started",
 		})
-	}, adminMiddleware)
+	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 
 	app.POST("/api/backends/delete/:id", func(c echo.Context) error {
 		backendID := c.Param("id")
@@ -1764,7 +1796,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"statusUrl": fmt.Sprintf("/api/backends/job/%s", uid),
 			"message":   "Backend upgrade started",
 		})
-	}, adminMiddleware)
+	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 
 	// P2P APIs
 	app.GET("/api/p2p/workers", func(c echo.Context) error {
@@ -1891,6 +1923,22 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"reclaimer_enabled":   appConfig.MemoryReclaimerEnabled,
 			"reclaimer_threshold": appConfig.MemoryReclaimerThreshold,
 			"watchdog_interval":   watchdogInterval,
+		}
+
+		// The same host readings a distributed worker reports in its
+		// heartbeat, so a single-node install can draw the CPU and models-disk
+		// gauges the Nodes page draws for a cluster. Each is omitted on a
+		// failed read rather than zeroed: 0 cores or 0 free bytes would be a
+		// claim, not an absence.
+		if cpuInfo, err := xsysinfo.GetCPUInfo(); err == nil {
+			response["cpu"] = map[string]any{
+				"logical_cores": cpuInfo.LogicalCores,
+				"usage_percent": cpuInfo.UsagePercent,
+				"load_1":        cpuInfo.Load1,
+			}
+		}
+		if diskInfo, err := xsysinfo.GetDiskInfo(appConfig.SystemState.Model.ModelsPath); err == nil {
+			response["disk"] = diskInfo
 		}
 
 		// An additional field, never a rewrite of the local aggregate above:

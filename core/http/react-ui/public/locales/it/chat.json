@@ -103,7 +103,8 @@
   "toasts": {
     "selectModel": "Seleziona un modello",
     "copied": "Copiato negli appunti",
-    "copyFailed": "Impossibile copiare negli appunti"
+    "copyFailed": "Impossibile copiare negli appunti",
+    "pdfScannedAsImages": "{{name}} non ha un livello di testo (scansione). Allegate {{count}} di {{total}} pagine come immagini per un modello di visione."
   },
   "menu": {
     "trigger": "Chat",
@@ -121,5 +122,13 @@
   },
   "message": {
     "you": "You"
+  },
+  "addons": {
+    "note": "An add-on that is off here does nothing in this chat.",
+    "label": "Add-ons",
+    "title": "Add-on tools for this chat",
+    "heading": "Add-on tools",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
   }
 }

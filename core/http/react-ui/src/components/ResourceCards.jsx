@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getArtifactIcon, inferMetadataType } from '../utils/artifacts'
 import { apiUrl } from '../utils/basePath'
+import Icon from './Icon'
 
 export default function ResourceCards({ metadata, onOpenArtifact, messageIndex, agentName }) {
   const [expanded, setExpanded] = useState(false)
@@ -49,7 +50,7 @@ export default function ResourceCards({ metadata, onOpenArtifact, messageIndex, 
           {item.type === 'image' ? (
             <img src={item.url} alt={item.title} className="resource-card-thumb" />
           ) : (
-            <i className={`fas ${getArtifactIcon(item.type)}`} />
+            <Icon name={getArtifactIcon(item.type)} />
           )}
           <span className="resource-card-label">{item.title}</span>
         </div>

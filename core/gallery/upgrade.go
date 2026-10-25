@@ -11,7 +11,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 	cp "github.com/otiai10/copy"
@@ -24,6 +23,10 @@ type UpgradeInfo struct {
 	AvailableVersion string `json:"available_version"`
 	InstalledDigest  string `json:"installed_digest,omitempty"`
 	AvailableDigest  string `json:"available_digest,omitempty"`
+	// Reason says why the backend is flagged when version and digest alone
+	// would not flag it: the backend failed a request in a way that shows it
+	// is older than the server. Empty for ordinary version or digest upgrades.
+	Reason string `json:"reason,omitempty"`
 	// NodeDrift lists nodes whose installed version or digest differs from
 	// the cluster majority. Non-empty means the cluster has diverged and an
 	// upgrade will realign it. Empty in single-node mode.
@@ -130,6 +133,19 @@ func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, syste
 		installedDigest := installed.Metadata.Digest
 		galleryVersion := galleryEntry.Version
 
+		// A request showed this backend is older than the server, even though
+		// its tag, version or digest matches the gallery. See stale_backend.go.
+		if reason, stale := staleReason(installed.Metadata); stale {
+			result[installed.Metadata.Name] = UpgradeInfo{
+				BackendName:      installed.Metadata.Name,
+				InstalledVersion: installedVersion,
+				AvailableVersion: galleryVersion,
+				InstalledDigest:  installedDigest,
+				Reason:           reason,
+			}
+			continue
+		}
+
 		// Detect cluster drift: does every node report the same version+digest?
 		// In single-node mode this stays empty (Nodes is nil).
 		majority, drift := summarizeNodeDrift(installed.Nodes)
@@ -169,8 +185,8 @@ func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, syste
 		}
 
 		// Fall back to OCI digest comparison when versions are unavailable.
-		if downloader.URI(galleryEntry.URI).LooksLikeOCI() {
-			remoteDigest, err := oci.GetImageDigest(galleryEntry.URI, "", nil, nil)
+		if galleryURI := downloader.URI(galleryEntry.URI); galleryURI.LooksLikeRegistryOCI() {
+			remoteDigest, err := lookupImageDigest(galleryURI.OCIReference())
 			if err != nil {
 				xlog.Warn("Failed to get remote OCI digest for upgrade check", "backend", installed.Metadata.Name, "error", err)
 				continue
@@ -241,6 +257,9 @@ func summarizeNodeDrift(nodes []NodeBackendRef) (majority struct{ version, diges
 // UpgradeBackend upgrades a single backend to the latest gallery version using
 // an atomic swap with backup-based rollback on failure.
 func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, galleries []config.Gallery, backendName string, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
+	if systemState.DisableBackendInstall {
+		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, backendName)
+	}
 	// Look up the installed backend
 	installedBackends, err := ListSystemBackends(systemState)
 	if err != nil {
@@ -284,6 +303,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	if err != nil {
 		return fmt.Errorf("upgrade %q: %w", backendName, err)
 	}
+	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
 
 	backendPath := filepath.Join(systemState.Backend.BackendsPath, backendName)
 	tmpPath := backendPath + ".upgrade-tmp"
@@ -353,8 +373,8 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	}
 
 	// Record OCI digest if applicable (non-fatal on failure)
-	if uri.LooksLikeOCI() {
-		digest, digestErr := oci.GetImageDigest(galleryEntry.URI, "", nil, nil)
+	if uri.LooksLikeRegistryOCI() {
+		digest, digestErr := lookupImageDigest(uri.OCIReference())
 		if digestErr != nil {
 			xlog.Warn("Failed to get OCI image digest after upgrade", "uri", galleryEntry.URI, "error", digestErr)
 		} else {

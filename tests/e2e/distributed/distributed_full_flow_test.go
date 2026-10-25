@@ -13,6 +13,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 
@@ -256,12 +257,12 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		// by registering after each node. In practice, we rely on the test registering
 		// nodes before calling Route, so we subscribe to a catch-all pattern.
 		infra.NC.Conn().Subscribe("nodes.*.backend.install", func(msg *nats.Msg) {
-			reply := messaging.BackendInstallReply{Success: true}
+			reply := workerctl.BackendInstallReply{Success: true}
 			data, _ := json.Marshal(reply)
 			msg.Respond(data)
 		})
 		_, err := infra.NC.Conn().Subscribe("nodes.*.models.running", func(msg *nats.Msg) {
-			data, _ := json.Marshal(messaging.ModelsRunningReply{})
+			data, _ := json.Marshal(workerctl.ModelsRunningReply{})
 			_ = msg.Respond(data)
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -489,7 +490,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", nodes.DirectWorkerNetDialer())
 
 		// Create SmartRouter with the HTTPFileStager
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
@@ -558,7 +559,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", nodes.DirectWorkerNetDialer())
 
 		// Create SmartRouter with FileStager
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
@@ -616,7 +617,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", nodes.DirectWorkerNetDialer())
 
 		// Test AllocRemoteTemp + FetchRemote directly (the output retrieval path)
 		remoteTmpPath, err := stager.AllocRemoteTemp(ctx, node.ID)
@@ -662,7 +663,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", nodes.DirectWorkerNetDialer())
 
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
 
@@ -881,7 +882,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", nodes.DirectWorkerNetDialer())
 
 		// Create model files on the "frontend"
 		frontendModelsDir := GinkgoT().TempDir()
@@ -965,7 +966,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", nodes.DirectWorkerNetDialer())
 
 		// Create model files: .onnx and .onnx.json in a temp "models" dir
 		frontendModelsDir := GinkgoT().TempDir()

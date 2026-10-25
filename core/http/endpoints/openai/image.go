@@ -29,13 +29,15 @@ import (
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
+var imageDownloadClient = httpclient.New(httpclient.WithFollowRedirects(), httpclient.WithExternalOnly())
+
 func downloadFile(url string) (string, error) {
 	if err := utils.ValidateExternalURL(url); err != nil {
 		return "", fmt.Errorf("URL validation failed: %w", err)
 	}
 
 	// Get the data
-	resp, err := httpclient.New(httpclient.WithFollowRedirects()).Get(url)
+	resp, err := imageDownloadClient.Get(url)
 	if err != nil {
 		return "", err
 	}
@@ -160,9 +162,12 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			for range n {
 				prompts := strings.Split(i, "|")
 				positive_prompt := prompts[0]
-				negative_prompt := ""
+				negative_prompt := strings.TrimSpace(input.NegativePrompt)
 				if len(prompts) > 1 {
-					negative_prompt = prompts[1]
+					if negative_prompt != "" {
+						negative_prompt += ", "
+					}
+					negative_prompt += strings.TrimSpace(prompts[1])
 				}
 
 				step := config.Step

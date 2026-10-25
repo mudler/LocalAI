@@ -87,7 +87,7 @@ func (t *StagingTracker) SetPublisher(p messaging.Publisher) {
 // SubscribeBroadcasts subscribes to peer replicas' staging-progress broadcasts
 // and mirrors them into this tracker, so /api/operations on any replica surfaces
 // staging ops it did not originate. Returns the subscription for cleanup.
-func (t *StagingTracker) SubscribeBroadcasts(nc messaging.MessagingClient) (messaging.Subscription, error) {
+func (t *StagingTracker) SubscribeBroadcasts(nc messaging.Broadcaster) (messaging.Subscription, error) {
 	return messaging.SubscribeJSON(nc, messaging.SubjectStagingProgressWildcard, func(evt StagingProgressEvent) {
 		if evt.ModelID == "" {
 			return

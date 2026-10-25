@@ -36,6 +36,34 @@ Reasoning content (`<think>...</think>` blocks from DeepSeek R1, Qwen3, Gemma 4,
 
 No configuration required - the autoparser detects the tool call format for any `ggml`/`gguf` model that was trained with tool support.
 
+#### Migrating older Ministral 3 configurations
+
+The `mistralai_ministral-3-14b-reasoning-2512-multimodal` gallery entry uses the model's embedded template and llama.cpp's native tool parser.
+Older installations inherit the Mistral 0.3 prompt and JSON parser, which can return tool calls such as `pick_tool{...}` as text.
+
+For an existing installation, replace the model YAML's `template` and `function` sections with:
+
+```yaml
+template:
+  use_tokenizer_template: true
+function:
+  disable_no_action: true
+  automatic_tool_parsing_fallback: true
+  grammar:
+    disable: true
+```
+
+Set `use_jinja:true` in the existing `options` list:
+
+```yaml
+options:
+  - use_jinja:true
+```
+
+Remove the inherited `stopwords` list so llama.cpp controls the model's end-of-turn markers.
+Keep your model path, `mmproj`, sampling settings, and MCP configuration. Reload the model after saving the YAML.
+Gallery changes do not rewrite installed model configurations.
+
 ### vLLM / vLLM Omni
 
 The parser must be specified explicitly because vLLM itself doesn't auto-detect one. Pass it via the model `options`:
@@ -55,6 +83,13 @@ template:
 When you import a vLLM model through the LocalAI gallery, the importer looks up the model family and pre-fills `tool_parser:` and `reasoning_parser:` for you - you only need to override them for non-standard model names.
 
 Available tool parsers include `hermes`, `llama3_json`, `llama4_pythonic`, `mistral`, `qwen3_xml`, `deepseek_v3`, `granite4`, `kimi_k2`, `glm45`, and more. Available reasoning parsers include `deepseek_r1`, `qwen3`, `mistral`, `gemma4`, `granite`. See the upstream vLLM documentation for the full list.
+
+With `backend: vllm`, vLLM 0.30 or later, and a configured reasoning parser,
+streamed responses separate `delta.reasoning_content`, `delta.content`, and tool
+calls as tokens arrive. The final chunk does not repeat the generated text.
+If parsing fails during a stream, the backend buffers the remaining output and
+sends any matching, unsent suffixes in the final chunk. Older vLLM versions keep
+the previous streaming behavior and can include reasoning in `delta.content`.
 
 ### MLX / MLX-VLM
 

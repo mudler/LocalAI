@@ -28,6 +28,7 @@ func (b *modalityBackend) Load(opts *pb.ModelOptions) error {
 
 func (b *modalityBackend) GenerateImage(*pb.GenerateImageRequest) error { b.served++; return nil }
 func (b *modalityBackend) GenerateVideo(*pb.GenerateVideoRequest) error { b.served++; return nil }
+func (b *modalityBackend) Animate3D(*pb.Animate3DRequest) error         { b.served++; return nil }
 func (b *modalityBackend) TTS(*pb.TTSRequest) error                     { b.served++; return nil }
 
 func (b *modalityBackend) TTSStream(_ *pb.TTSRequest, ch chan []byte) error {
@@ -59,6 +60,11 @@ func (b *modalityBackend) Detect(*pb.DetectOptions) (pb.DetectResponse, error) {
 func (b *modalityBackend) Depth(*pb.DepthRequest) (pb.DepthResponse, error) {
 	b.served++
 	return pb.DepthResponse{}, nil
+}
+
+func (b *modalityBackend) Forecast(*pb.ForecastRequest) (pb.ForecastResponse, error) {
+	b.served++
+	return pb.ForecastResponse{}, nil
 }
 
 func (b *modalityBackend) FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error) {
@@ -112,15 +118,19 @@ var _ AIModel = (*modalityBackend)(nil)
 // server implements, sending `identity` in each request's ModelIdentity field.
 // One call per RPC, so the returned error count is also the RPC count.
 //
-// Rerank, Score and TokenClassify are absent on purpose: the generic Go server
-// does not implement them (they fall through to UnimplementedBackendServer), so
-// only the C++ and Python backends can enforce them.
+// Score and TokenClassify are absent on purpose: the generic Go server does
+// not implement them (they fall through to UnimplementedBackendServer), so
+// only the C++ and Python backends can enforce them. Rerank is different: the
+// Go server does serve it (see server_rerank_test.go), but only for backends
+// that opt in via RerankModel — modalityBackend does not, so it is left out
+// here too rather than adding a no-op implementation with nothing to guard.
 func callAllModalities(c Backend, identity string) map[string]error {
 	ctx := context.Background()
 	errs := map[string]error{}
 
 	_, errs["GenerateImage"] = c.GenerateImage(ctx, &pb.GenerateImageRequest{ModelIdentity: identity})
 	_, errs["GenerateVideo"] = c.GenerateVideo(ctx, &pb.GenerateVideoRequest{ModelIdentity: identity})
+	_, errs["Animate3D"] = c.Animate3D(ctx, &pb.Animate3DRequest{ModelIdentity: identity})
 	_, errs["TTS"] = c.TTS(ctx, &pb.TTSRequest{ModelIdentity: identity})
 	errs["TTSStream"] = c.TTSStream(ctx, &pb.TTSRequest{ModelIdentity: identity}, func(*pb.Reply) {})
 	_, errs["SoundGeneration"] = c.SoundGeneration(ctx, &pb.SoundGenerationRequest{ModelIdentity: identity})
@@ -128,6 +138,7 @@ func callAllModalities(c Backend, identity string) map[string]error {
 	errs["AudioTranscriptionStream"] = c.AudioTranscriptionStream(ctx, &pb.TranscriptRequest{ModelIdentity: identity}, func(*pb.TranscriptStreamResponse) {})
 	_, errs["Detect"] = c.Detect(ctx, &pb.DetectOptions{ModelIdentity: identity})
 	_, errs["Depth"] = c.Depth(ctx, &pb.DepthRequest{ModelIdentity: identity})
+	_, errs["Forecast"] = c.Forecast(ctx, &pb.ForecastRequest{ModelIdentity: identity})
 	_, errs["FaceVerify"] = c.FaceVerify(ctx, &pb.FaceVerifyRequest{ModelIdentity: identity})
 	_, errs["FaceAnalyze"] = c.FaceAnalyze(ctx, &pb.FaceAnalyzeRequest{ModelIdentity: identity})
 	_, errs["VoiceVerify"] = c.VoiceVerify(ctx, &pb.VoiceVerifyRequest{ModelIdentity: identity})

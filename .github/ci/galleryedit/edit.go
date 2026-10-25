@@ -25,6 +25,35 @@ var (
 	unsafeInName = regexp.MustCompile(`[:#{}\[\],&*?|>'"%@` + "`" + `]|^\s|\s$`)
 )
 
+// layout says where the variants key and its items sit in an entry. The
+// gallery keeps them at the top of the entry, the model library keeps them in
+// the model body.
+type layout struct {
+	keyVariants *regexp.Regexp
+	variantItem *regexp.Regexp
+	keyLine     string
+	itemPrefix  string
+	// afterName puts a new variants key right after the name line. Without
+	// it a new key goes after the last line of the entry, where the library
+	// keeps the end of the model body.
+	afterName bool
+}
+
+var galleryLayout = layout{
+	keyVariants: keyVariants,
+	variantItem: variantItem,
+	keyLine:     "  variants:",
+	itemPrefix:  "    - model: ",
+	afterName:   true,
+}
+
+var libraryLayout = layout{
+	keyVariants: regexp.MustCompile(`^    variants:\s*(.*)$`),
+	variantItem: regexp.MustCompile(`^      - `),
+	keyLine:     "    variants:",
+	itemPrefix:  "      - model: ",
+}
+
 // Entry is the positional view of one gallery entry: what it is called and
 // which lines it occupies. Nothing about what the entry MEANS belongs here, so
 // each caller keeps its own semantic decode and only hands over the coordinates.
@@ -55,8 +84,19 @@ func Scan(text string) (lines []string, starts []int) {
 	return lines, starts
 }
 
-// Apply splices every insert into the index lines and returns the new text.
+// Apply splices every insert into the gallery index lines and returns the new
+// text.
 func Apply(lines []string, inserts []Insert) ([]string, error) {
+	return apply(lines, inserts, galleryLayout)
+}
+
+// ApplyLibrary does the same for the model library, gallery/models/index.yaml,
+// where an entry keeps its variants under the model: body.
+func ApplyLibrary(lines []string, inserts []Insert) ([]string, error) {
+	return apply(lines, inserts, libraryLayout)
+}
+
+func apply(lines []string, inserts []Insert, l layout) ([]string, error) {
 	type edit struct {
 		at     int
 		remove int
@@ -71,16 +111,16 @@ func Apply(lines []string, inserts []Insert) ([]string, error) {
 
 		items := make([]string, 0, len(in.Variants))
 		for _, v := range in.Variants {
-			items = append(items, "    - model: "+QuoteName(v))
+			items = append(items, l.itemPrefix+QuoteName(v))
 		}
 
-		at, remove, err := insertionPoint(lines, in.Entry)
+		at, remove, err := insertionPoint(lines, in.Entry, l)
 		if err != nil {
 			return nil, err
 		}
 		block := items
-		if remove > 0 || !hasVariantsKey(lines, in.Entry) {
-			block = append([]string{"  variants:"}, items...)
+		if remove > 0 || !hasVariantsKey(lines, in.Entry, l) {
+			block = append([]string{l.keyLine}, items...)
 		}
 		edits = append(edits, edit{at: at, remove: remove, insert: block})
 	}
@@ -97,9 +137,9 @@ func Apply(lines []string, inserts []Insert) ([]string, error) {
 	return out, nil
 }
 
-func hasVariantsKey(lines []string, e Entry) bool {
+func hasVariantsKey(lines []string, e Entry, l layout) bool {
 	for i := e.StartLine; i < e.EndLine; i++ {
-		if keyVariants.MatchString(lines[i]) {
+		if l.keyVariants.MatchString(lines[i]) {
 			return true
 		}
 	}
@@ -112,9 +152,9 @@ func hasVariantsKey(lines []string, e Entry) bool {
 // An entry with no variants key gets one right after its name, which is where
 // the hand-written families put it. An entry with an empty "variants: []" has
 // that line replaced by a block. An entry with a block gets its items appended.
-func insertionPoint(lines []string, e Entry) (at int, remove int, err error) {
+func insertionPoint(lines []string, e Entry, l layout) (at int, remove int, err error) {
 	for i := e.StartLine; i < e.EndLine; i++ {
-		m := keyVariants.FindStringSubmatch(lines[i])
+		m := l.keyVariants.FindStringSubmatch(lines[i])
 		if m == nil {
 			continue
 		}
@@ -125,12 +165,19 @@ func insertionPoint(lines []string, e Entry) (at int, remove int, err error) {
 			return 0, 0, fmt.Errorf("entry %q writes its variants inline (%q); this job only edits block lists", e.Name, strings.TrimSpace(m[1]))
 		}
 		last := i
-		for j := i + 1; j < e.EndLine && variantItem.MatchString(lines[j]); j++ {
+		for j := i + 1; j < e.EndLine && l.variantItem.MatchString(lines[j]); j++ {
 			last = j
 		}
 		return last + 1, 0, nil
 	}
 
+	if !l.afterName {
+		last := e.EndLine - 1
+		for last > e.StartLine && strings.TrimSpace(lines[last]) == "" {
+			last--
+		}
+		return last + 1, 0, nil
+	}
 	if inlineName.MatchString(lines[e.StartLine]) {
 		return e.StartLine + 1, 0, nil
 	}

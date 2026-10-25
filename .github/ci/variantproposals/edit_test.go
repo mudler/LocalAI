@@ -33,45 +33,54 @@ var _ = Describe("ApplyFamilies", func() {
 		return n
 	}
 
-	It("adds a variants block right after the entry's name and touches nothing else", func() {
+	It("adds a variants block at the end of the model body and touches nothing else", func() {
 		ix := indexOf(
 			entryYAML("foo-model", "acme/repo", "foo-model-Q4_K_M.gguf", "aa"),
 			entryYAML("foo-model-q8_0", "acme/repo", "foo-model-Q8_0.gguf", "bb"),
 		)
 		out := apply(ix, []Family{{Parent: "foo-model", Proposals: []Proposal{{Variant: "foo-model-q8_0"}}}})
 
-		Expect(out[0]).To(Equal("- name: foo-model"))
-		Expect(out[1]).To(Equal("  variants:"))
-		Expect(out[2]).To(Equal("    - model: foo-model-q8_0"))
+		end := ix.Entries[0].EndLine
+		Expect(out[0]).To(Equal("- kind: model"))
+		Expect(out[end-1]).To(Equal(ix.Lines[end-1]))
+		Expect(out[end]).To(Equal("    variants:"))
+		Expect(out[end+1]).To(Equal("      - model: foo-model-q8_0"))
+		Expect(out[end+2]).To(Equal("- kind: model"))
 		Expect(len(out)).To(Equal(len(ix.Lines) + 2))
 		Expect(insertedLines(ix.Lines, out)).To(Equal(2))
 	})
 
 	It("appends to a variants block that already exists", func() {
-		ix := indexOf(`- name: partial
-  variants:
-    - model: partial-q8_0
-  url: u
-  overrides:
-    parameters:
-      model: partial-Q4_K_M.gguf
+		ix := indexOf(`- kind: model
+  id: partial
+  name: partial
+  model:
+    variants:
+      - model: partial-q8_0
+    url: u
+    overrides:
+      parameters:
+        model: partial-Q4_K_M.gguf
 `, entryYAML("partial-f16", "acme/repo", "partial-f16.gguf", "cc"))
 		out := apply(ix, []Family{{Parent: "partial", Proposals: []Proposal{{Variant: "partial-f16"}}}})
 
-		Expect(out[1]).To(Equal("  variants:"))
-		Expect(out[2]).To(Equal("    - model: partial-q8_0"))
-		Expect(out[3]).To(Equal("    - model: partial-f16"))
-		Expect(out[4]).To(Equal("  url: u"))
+		Expect(out[4]).To(Equal("    variants:"))
+		Expect(out[5]).To(Equal("      - model: partial-q8_0"))
+		Expect(out[6]).To(Equal("      - model: partial-f16"))
+		Expect(out[7]).To(Equal("    url: u"))
 	})
 
 	It("replaces an explicit empty list rather than leaving two variants keys", func() {
-		ix := indexOf(`- name: emptied
-  variants: []
-  url: u
+		ix := indexOf(`- kind: model
+  id: emptied
+  name: emptied
+  model:
+    variants: []
+    url: u
 `, entryYAML("emptied-q8_0", "acme/repo", "emptied-Q8_0.gguf", "cc"))
 		out := apply(ix, []Family{{Parent: "emptied", Proposals: []Proposal{{Variant: "emptied-q8_0"}}}})
 
-		Expect(strings.Join(out[:4], "\n")).To(Equal("- name: emptied\n  variants:\n    - model: emptied-q8_0\n  url: u"))
+		Expect(strings.Join(out[3:7], "\n")).To(Equal("  model:\n    variants:\n      - model: emptied-q8_0\n    url: u"))
 		Expect(strings.Count(strings.Join(out, "\n"), "variants:")).To(Equal(1))
 	})
 
@@ -81,7 +90,7 @@ var _ = Describe("ApplyFamilies", func() {
 			entryYAML("phi-2-chat:Q8_0", "acme/repo", "phi-2-chat-Q8_0.gguf", "bb"),
 		)
 		out := apply(ix, []Family{{Parent: "phi-2-chat", Proposals: []Proposal{{Variant: "phi-2-chat:Q8_0"}}}})
-		Expect(out[2]).To(Equal(`    - model: "phi-2-chat:Q8_0"`))
+		Expect(out[ix.Entries[0].EndLine+1]).To(Equal(`      - model: "phi-2-chat:Q8_0"`))
 
 		// The result has to still be a gallery, and the reference has to
 		// resolve to the entry it names.
@@ -119,35 +128,36 @@ var _ = Describe("ApplyFamilies", func() {
 })
 
 var _ = Describe("ParseIndex", func() {
-	It("records the anchor an entry defines and the anchor an entry merges", func() {
-		ix := indexOf(`- &anc
-  name: anchored
-  url: u
-`, `- !!merge <<: *anc
-  name: child
-`)
-		Expect(ix.Entries[0].AnchorName).To(Equal("anc"))
-		Expect(ix.Entries[1].MergesFrom).To(Equal("anc"))
-		Expect(ix.MergeChildren("anc")).To(HaveLen(1))
-	})
-
-	It("carries merged values into the child, so an inherited variants key is visible", func() {
-		ix := indexOf(`- &anc
-  name: anchored
-  url: u
-  variants:
-    - model: something
-`, `- !!merge <<: *anc
-  name: child
-`)
-		Expect(ix.Entries[1].HasVariants()).To(BeTrue())
-	})
-
 	It("refuses a list item that decodes to nothing", func() {
 		// Every line number the editor works from comes from pairing decoded
 		// entries with top level list items. If those two views can disagree,
 		// the editor writes into the wrong entry, so the parse refuses instead.
-		_, err := ParseIndex("- name: one\n  url: u\n-\n")
+		_, err := ParseIndex("- kind: model\n  id: one\n-\n")
 		Expect(err).To(MatchError(ContainSubstring("empty")))
+	})
+})
+
+var _ = Describe("the checked-in model library", func() {
+	It("parses, and a proposal edit keeps it parsing with the same entries", func() {
+		ix, err := LoadIndex("../../../gallery/models/index.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ix.Entries).ToNot(BeEmpty())
+		for _, e := range ix.Entries {
+			Expect(e.Name).ToNot(BeEmpty())
+		}
+
+		// Add one variant to the first and the last entry: the first has a
+		// block, the last may have none, and both must stay valid.
+		first, last := ix.Entries[0], ix.Entries[len(ix.Entries)-1]
+		out, err := ApplyFamilies(ix, []Family{
+			{Parent: first.Name, Proposals: []Proposal{{Variant: "x-added-one"}}},
+			{Parent: last.Name, Proposals: []Proposal{{Variant: "x-added-two"}}},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		reparsed, err := ParseIndex(strings.Join(out, "\n"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reparsed.Entries).To(HaveLen(len(ix.Entries)))
+		Expect(reparsed.Entries[0].Variants).To(ContainElement(VariantRef{Model: "x-added-one"}))
+		Expect(reparsed.Entries[len(ix.Entries)-1].Variants).To(ContainElement(VariantRef{Model: "x-added-two"}))
 	})
 })
