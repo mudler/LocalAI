@@ -2,9 +2,9 @@ package auth
 
 import "context"
 
-// UsageSourceStudio marks requests that the studio loop made in process, as a
+// UsageSourceChats marks requests that the chat loop made in process, as a
 // user it had already authenticated.
-const UsageSourceStudio = "studio"
+const UsageSourceChats = "chats"
 
 // internalUserKey is unexported, so only this package can read or write the
 // value. A network request has no Go context, so it cannot carry one.
@@ -12,7 +12,7 @@ type internalUserKey struct{}
 
 // WithInternalUser returns a context that makes Middleware accept a request as
 // u without a credential. It is for code in this process that already
-// authenticated u (the studio loop calling the chat route for its own user). It
+// authenticated u (the chat loop calling the chat route for its own user). It
 // replaces authentication only: the feature gate, model allowlist, quota and
 // every handler check still run for u.
 func WithInternalUser(ctx context.Context, u *User) context.Context {

@@ -45,7 +45,7 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 			if u, ok := internalUser(c.Request().Context()); ok {
 				c.Set(contextKeyUser, u)
 				c.Set(contextKeyRole, u.Role)
-				c.Set(contextKeySource, UsageSourceStudio)
+				c.Set(contextKeySource, UsageSourceChats)
 				return next(c)
 			}
 

@@ -50,6 +50,7 @@ const (
 	FeatureVideo               = "video"
 	Feature3D                  = "3d"
 	FeatureMotion              = "motion"
+	FeatureChats               = "chats"
 	FeatureEmbeddings          = "embeddings"
 	FeatureSound               = "sound"
 	FeatureRealtime            = "realtime"
@@ -84,7 +85,7 @@ var APIFeatures = []string{
 	FeatureRealtime, FeatureModeration, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
 	FeaturePIIFilter, FeatureDecisions, FeatureForecast,
-	FeatureChatHistory,
+	FeatureChatHistory, FeatureChats,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

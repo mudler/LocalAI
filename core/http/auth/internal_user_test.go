@@ -54,10 +54,10 @@ var _ = Describe("internal user marker", func() {
 		Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 	})
 
-	It("lets an in-process request through as the given user, with the studio source", func() {
+	It("lets an in-process request through as the given user, with the chats source", func() {
 		rec := doRequest(e, http.MethodPost, "/v1/studio-whoami", withInternalUser(user))
 		Expect(rec.Code).To(Equal(http.StatusOK))
-		Expect(rec.Body.String()).To(Equal(user.ID + "|" + auth.UsageSourceStudio))
+		Expect(rec.Body.String()).To(Equal(user.ID + "|" + auth.UsageSourceChats))
 	})
 
 	It("ignores identity headers that a client could send", func() {
