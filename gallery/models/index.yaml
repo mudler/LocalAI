@@ -51546,6 +51546,103 @@
       parameters:
         model: granite-embedding-125m-english-f16.gguf
 - kind: model
+  id: embeddinggemma-2-multimodal
+  name: embeddinggemma-2-multimodal
+  version: 0.0.0-gallery.25d79fe71c1f
+  description: |
+    EmbeddingGemma 2 as a multimodal embedding model: text, images and audio go into
+    one 768-dimensional vector space. This Q8_0 build pairs the 270M-parameter text
+    model with its Q8_0 vision and audio projector and runs on llama.cpp. Text and
+    image embeddings pass the project's acceptance checks. Audio retrieval is
+    experimental: two audio queries miss the acceptance margin. Use the model's task
+    prefixes for text queries and documents. The base model is Apache 2.0 and its
+    use must follow the Gemma Prohibited Use Policy.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/google/embeddinggemma-2
+    - https://huggingface.co/AtomicChat/embeddinggemma-2-GGUF
+  tags:
+    - embeddings
+    - multimodal
+    - vision
+    - audio
+    - gguf
+    - cpu
+    - gpu
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/embeddinggemma-2-multimodal/embeddinggemma-2-Q8_0.gguf
+        sha256: 60b2a9e5f0673aa25931d285a73ae712e447fcc3439330102a8eabea31da7c73
+        uri: https://huggingface.co/AtomicChat/embeddinggemma-2-GGUF/resolve/96a5415769c8a56d2557846c4ac23b9f724231be/embeddinggemma-2-Q8_0.gguf
+      - filename: llama-cpp/models/embeddinggemma-2-multimodal/mmproj-embeddinggemma-2-Q8_0.gguf
+        sha256: bebe3951e09e0b232422fb58c9d6f9f271640808a6bfd698f9c65696b315308c
+        uri: https://huggingface.co/AtomicChat/embeddinggemma-2-GGUF/resolve/96a5415769c8a56d2557846c4ac23b9f724231be/mmproj-embeddinggemma-2-Q8_0.gguf
+    overrides:
+      backend: llama-cpp
+      batch: 16384
+      context_size: 16384
+      embeddings: true
+      known_usecases:
+        - embeddings
+      mmproj: llama-cpp/models/embeddinggemma-2-multimodal/mmproj-embeddinggemma-2-Q8_0.gguf
+      options:
+        - parallel:1
+      parameters:
+        model: llama-cpp/models/embeddinggemma-2-multimodal/embeddinggemma-2-Q8_0.gguf
+- kind: model
+  id: qwen3-vl-reranker-2b-multimodal
+  name: qwen3-vl-reranker-2b-multimodal
+  version: 0.0.0-gallery.e3e173bf17d2
+  description: |
+    Qwen3-VL-Reranker-2B as a multimodal reranker: it scores text and image
+    documents against a text query. This Q4_K_M build from the gorse-io conversion
+    keeps the rerank chat template in the GGUF and ships the F16 vision projector, so
+    image documents are ranked as images and not as text. It runs on llama.cpp.
+    Other conversions of this model drop the template and cannot rank images.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-VL-Reranker-2B
+    - https://huggingface.co/gorse-io/Qwen3-VL-Reranker-2B-GGUF
+  tags:
+    - rerank
+    - reranker
+    - multimodal
+    - vision
+    - qwen3
+    - gguf
+    - cpu
+    - gpu
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/qwen3-vl-reranker-2b-multimodal/Qwen3-VL-Reranker-2B-Q4_K_M.gguf
+        sha256: 85c048fb57f2880049630fc056503f7171f9c286467e8c4f3b2246b2730a2234
+        uri: https://huggingface.co/gorse-io/Qwen3-VL-Reranker-2B-GGUF/resolve/7cad1be8762136c7f236f90170c87e1148fbb403/Qwen3-VL-Reranker-2B-Q4_K_M.gguf
+      - filename: llama-cpp/models/qwen3-vl-reranker-2b-multimodal/mmproj-Qwen3-VL-Reranker-2B-F16.gguf
+        sha256: c3a81543f73f754bdad60f5d777dbe6bbcfa54009d1517825ed6acf03f4d5e58
+        uri: https://huggingface.co/gorse-io/Qwen3-VL-Reranker-2B-GGUF/resolve/7cad1be8762136c7f236f90170c87e1148fbb403/mmproj-Qwen3-VL-Reranker-2B-F16.gguf
+    overrides:
+      backend: llama-cpp
+      batch: 8192
+      context_size: 8192
+      known_usecases:
+        - rerank
+      mmproj: llama-cpp/models/qwen3-vl-reranker-2b-multimodal/mmproj-Qwen3-VL-Reranker-2B-F16.gguf
+      options:
+        - parallel:1
+      parameters:
+        model: llama-cpp/models/qwen3-vl-reranker-2b-multimodal/Qwen3-VL-Reranker-2B-Q4_K_M.gguf
+      reranking: true
+- kind: model
   id: embeddinggemma-2
   name: embeddinggemma-2
   version: 0.0.0-gallery.cca9995ead4d
