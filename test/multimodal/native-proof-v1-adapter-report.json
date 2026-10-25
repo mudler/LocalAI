@@ -3,7 +3,7 @@
   "kind": "multimodal-adapter-proof-report",
   "contract_version": "multimodal-acceptance-v1",
   "contract_sha256": "4bf4a41b046fb1d9701056ee540da4be0dfbdc4dc17470855930b756bf6d8e46",
-  "vectors_sha256": "aa45492acb64168368544b3fe0df9fa58469e6aee55ac9f910e4614847c586f0",
+  "vectors_sha256": "54909a70eed785619b3e3af75a6e4ed9c4459703e6fdad9f1518a7461d66a310",
   "status": "FAIL",
   "partial": true,
   "failures": [
@@ -19,9 +19,9 @@
   },
   "dimensions": 768,
   "identity": {
-    "backend_sha256": "33fcd43b3d076130a45b4290d24d6afc3d6ede21e4c2177cfe040b7e02fbbf6b",
+    "backend_sha256": "fcb2490be7e260f605c9ecd5c7bdbe3f5b23868ec14acddd2635b53433dc4980",
     "llama_cpp": "78a8ae14be559b45f5f13ddee82c188b683d5d8d",
-    "localai": "f9f29d7207cfc7079936b3c229b77c1ceca1c12e",
+    "localai": "e9a78801832d697f538e7ce1f82ed589a3350c98",
     "model_file": "embeddinggemma-2-Q8_0.gguf",
     "model_sha256": "60b2a9e5f0673aa25931d285a73ae712e447fcc3439330102a8eabea31da7c73",
     "projector_file": "mmproj-embeddinggemma-2-Q8_0.gguf",
