@@ -76,9 +76,10 @@ requests (time to the first PCM chunk): RTX 5060 Ti 0.02/0.36/0.70/1.04 s with
 - Incremental synthesis (`TTSLive`, the realtime pipeline with
   `streaming.tts: true`) requires `max_batch:1` and is rejected otherwise
   (qwentts `docs/INCREMENTAL.md`).
-- ROCm on gfx1201 (RDNA4) hangs the GPU in hipBLASLt for batched matmuls;
-  `env: {ROCBLAS_USE_HIPBLASLT: "0"}` in the model config routes them to
-  rocBLAS. CUDA needs no workaround.
+- ROCm before 10.1 on gfx1201 (RDNA4) hangs the GPU in hipBLASLt for the
+  batched matmuls (fixed upstream by ROCm/rocm-libraries#8909; ROCm 10.1 runs
+  clean). On older stacks `env: {ROCBLAS_USE_HIPBLASLT: "0"}` in the model
+  config routes them to rocBLAS. CUDA needs no workaround.
 
 Request precedence is: a request `voice`, then `tts.voice`, then
 `tts.audio_path`. A saved profile supplies its private WAV and exact transcript
