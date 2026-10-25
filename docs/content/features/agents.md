@@ -17,6 +17,11 @@ LocalAGI is embedded in LocalAI. There is nothing separate to install or run.
 New to agents? The [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough takes you from an empty Agents page to an agent that answers a message and uses one tool.
 {{% /notice %}}
 
+{{% notice note %}}
+For chats where the server keeps the conversation, lets you queue messages while
+the model works and supports sub-agents, see [Chats]({{% relref "features/chats" %}}).
+{{% /notice %}}
+
 ## Overview
 
 The agent system provides:

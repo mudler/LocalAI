@@ -764,6 +764,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 		xlog.Info("LocalAI API server shutting down")
 	})
 
+	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application))
+
 	// The studio loop reaches the model through this router, in memory.
 	if sp := application.StudioProvider(); sp != nil {
 		sp.Transport().SetHandler(e)

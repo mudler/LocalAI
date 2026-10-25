@@ -3513,6 +3513,339 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List chats.",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "most conversations to return (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conversations, including sub-agent runs",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversationList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Start a chat.",
+                "parameters": [
+                    {
+                        "description": "model and optional title",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new conversation",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The conversation and its pending messages",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversationDetail"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/events": {
+            "get": {
+                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done and compacted. Events are live only; read the transcript for what came before.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stream a chat's events.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An event stream",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEvent"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/messages": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a chat's transcript.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "only lines after this sequence number",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most lines to return (default 200, at most 1000)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Transcript lines in order",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMessageList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Send a message to a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the message",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSendRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Whether a turn started, or the id of the waiting message",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSendResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/pending/{pid}": {
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Cancel a message that waits for the model.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "pending message id",
+                        "name": "pid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "cancelled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Edit a message that waits for the model.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "pending message id",
+                        "name": "pid",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new text",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPendingEdit"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "updated",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/send-now": {
+            "post": {
+                "description": "After a stop or a failed turn the waiting messages stay put. This starts a turn from them.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Send the waiting messages now.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "sent",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/stop": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop the running turn.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "stopped",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/conversations": {
             "get": {
                 "description": "Returns the live conversations, newest first, and in ` + "`" + `deleted` + "`" + ` the conversations the user deleted. A client must drop any local copy whose id appears in ` + "`" + `deleted` + "`" + ` instead of uploading it again.",
@@ -11180,6 +11513,234 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConversation": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "chat or subagent",
+                    "type": "string"
+                },
+                "last_turn": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "running": {
+                    "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed or interrupted.",
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConversationDetail": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "chat or subagent",
+                    "type": "string"
+                },
+                "last_turn": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "pending": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsPending"
+                    }
+                },
+                "running": {
+                    "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed or interrupted.",
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConversationList": {
+            "type": "object",
+            "properties": {
+                "conversations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConversation"
+                    }
+                }
+            }
+        },
+        "schema.ChatsCreateRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "description": "Model is the model the conversation talks to. It cannot change later.",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Title is optional; the conversation is named after its first message otherwise.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsEvent": {
+            "type": "object",
+            "properties": {
+                "after": {
+                    "type": "integer"
+                },
+                "before": {
+                    "description": "Before and After are context sizes in tokens, for compacted.",
+                    "type": "integer"
+                },
+                "ids": {
+                    "description": "IDs names the messages of pending_delivered, or the conversation of sub_agent_done.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "tool": {
+                    "description": "Tool is set for tool_start and tool_end.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsToolEvent"
+                        }
+                    ]
+                },
+                "turn": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsMessage": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "dur_ms": {
+                    "description": "DurMs is how long the model thought, for reasoning lines.",
+                    "type": "integer"
+                },
+                "role": {
+                    "description": "user, assistant, tool, checkpoint or reasoning",
+                    "type": "string"
+                },
+                "seq": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "turn": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsMessageList": {
+            "type": "object",
+            "properties": {
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMessage"
+                    }
+                }
+            }
+        },
+        "schema.ChatsPending": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "seq": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsPendingEdit": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSendRequest": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSendResponse": {
+            "type": "object",
+            "properties": {
+                "pending_id": {
+                    "type": "string"
+                },
+                "started": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsToolEvent": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "output": {
+                    "type": "string"
+                },
+                "summary": {
                     "type": "string"
                 }
             }

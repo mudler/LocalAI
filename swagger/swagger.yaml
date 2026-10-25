@@ -2417,6 +2417,163 @@ definitions:
       status_url:
         type: string
     type: object
+  schema.ChatsConversation:
+    properties:
+      created:
+        type: string
+      id:
+        type: string
+      kind:
+        description: chat or subagent
+        type: string
+      last_turn:
+        type: string
+      model:
+        type: string
+      parent_id:
+        type: string
+      running:
+        description: |-
+          Running is true while a turn runs. LastTurn is how the last finished turn
+          ended: done, stopped, failed or interrupted.
+        type: boolean
+      title:
+        type: string
+      updated:
+        type: string
+    type: object
+  schema.ChatsConversationDetail:
+    properties:
+      created:
+        type: string
+      id:
+        type: string
+      kind:
+        description: chat or subagent
+        type: string
+      last_turn:
+        type: string
+      model:
+        type: string
+      parent_id:
+        type: string
+      pending:
+        items:
+          $ref: '#/definitions/schema.ChatsPending'
+        type: array
+      running:
+        description: |-
+          Running is true while a turn runs. LastTurn is how the last finished turn
+          ended: done, stopped, failed or interrupted.
+        type: boolean
+      title:
+        type: string
+      updated:
+        type: string
+    type: object
+  schema.ChatsConversationList:
+    properties:
+      conversations:
+        items:
+          $ref: '#/definitions/schema.ChatsConversation'
+        type: array
+    type: object
+  schema.ChatsCreateRequest:
+    properties:
+      model:
+        description: Model is the model the conversation talks to. It cannot change
+          later.
+        type: string
+      title:
+        description: Title is optional; the conversation is named after its first
+          message otherwise.
+        type: string
+    type: object
+  schema.ChatsEvent:
+    properties:
+      after:
+        type: integer
+      before:
+        description: Before and After are context sizes in tokens, for compacted.
+        type: integer
+      ids:
+        description: IDs names the messages of pending_delivered, or the conversation
+          of sub_agent_done.
+        items:
+          type: string
+        type: array
+      kind:
+        type: string
+      text:
+        type: string
+      tool:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsToolEvent'
+        description: Tool is set for tool_start and tool_end.
+      turn:
+        type: integer
+    type: object
+  schema.ChatsMessage:
+    properties:
+      at:
+        type: string
+      dur_ms:
+        description: DurMs is how long the model thought, for reasoning lines.
+        type: integer
+      role:
+        description: user, assistant, tool, checkpoint or reasoning
+        type: string
+      seq:
+        type: integer
+      text:
+        type: string
+      turn:
+        type: integer
+    type: object
+  schema.ChatsMessageList:
+    properties:
+      messages:
+        items:
+          $ref: '#/definitions/schema.ChatsMessage'
+        type: array
+    type: object
+  schema.ChatsPending:
+    properties:
+      id:
+        type: string
+      seq:
+        type: integer
+      text:
+        type: string
+    type: object
+  schema.ChatsPendingEdit:
+    properties:
+      text:
+        type: string
+    type: object
+  schema.ChatsSendRequest:
+    properties:
+      text:
+        type: string
+    type: object
+  schema.ChatsSendResponse:
+    properties:
+      pending_id:
+        type: string
+      started:
+        type: boolean
+    type: object
+  schema.ChatsToolEvent:
+    properties:
+      name:
+        type: string
+      ok:
+        type: boolean
+      output:
+        type: string
+      summary:
+        type: string
+    type: object
   schema.Choice:
     properties:
       delta:
@@ -8290,6 +8447,227 @@ paths:
       summary: Upload a branding asset
       tags:
       - branding
+  /api/chats:
+    get:
+      parameters:
+      - description: most conversations to return (default 50, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Conversations, including sub-agent runs
+          schema:
+            $ref: '#/definitions/schema.ChatsConversationList'
+      summary: List chats.
+      tags:
+      - chats
+    post:
+      parameters:
+      - description: model and optional title
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsCreateRequest'
+      responses:
+        "201":
+          description: The new conversation
+          schema:
+            $ref: '#/definitions/schema.ChatsConversation'
+      summary: Start a chat.
+      tags:
+      - chats
+  /api/chats/{id}:
+    delete:
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: deleted
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Delete a chat.
+      tags:
+      - chats
+    get:
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The conversation and its pending messages
+          schema:
+            $ref: '#/definitions/schema.ChatsConversationDetail'
+      summary: Get a chat.
+      tags:
+      - chats
+  /api/chats/{id}/events:
+    get:
+      description: 'Server-sent events: text, reasoning, tool_start, tool_end, checkpoint,
+        turn_start, turn_end, error, pending_delivered, sub_agent_done and compacted.
+        Events are live only; read the transcript for what came before.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: An event stream
+          schema:
+            $ref: '#/definitions/schema.ChatsEvent'
+      summary: Stream a chat's events.
+      tags:
+      - chats
+  /api/chats/{id}/messages:
+    get:
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: only lines after this sequence number
+        in: query
+        name: after
+        type: integer
+      - description: most lines to return (default 200, at most 1000)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Transcript lines in order
+          schema:
+            $ref: '#/definitions/schema.ChatsMessageList'
+      summary: Read a chat's transcript.
+      tags:
+      - chats
+    post:
+      description: With no turn running the message starts one. With a turn running
+        it waits and reaches the model, with any others, at its next request.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsSendRequest'
+      responses:
+        "200":
+          description: Whether a turn started, or the id of the waiting message
+          schema:
+            $ref: '#/definitions/schema.ChatsSendResponse'
+      summary: Send a message to a chat.
+      tags:
+      - chats
+  /api/chats/{id}/pending/{pid}:
+    delete:
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: pending message id
+        in: path
+        name: pid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: cancelled
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Cancel a message that waits for the model.
+      tags:
+      - chats
+    patch:
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: pending message id
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: the new text
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsPendingEdit'
+      responses:
+        "200":
+          description: updated
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Edit a message that waits for the model.
+      tags:
+      - chats
+  /api/chats/{id}/send-now:
+    post:
+      description: After a stop or a failed turn the waiting messages stay put. This
+        starts a turn from them.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: sent
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Send the waiting messages now.
+      tags:
+      - chats
+  /api/chats/{id}/stop:
+    post:
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: stopped
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Stop the running turn.
+      tags:
+      - chats
   /api/conversations:
     delete:
       produces:
