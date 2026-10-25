@@ -78,9 +78,21 @@ export const UPLOAD_UPLOADING = 'uploading'
 export const UPLOAD_SAVED = 'saved'
 export const UPLOAD_FAILED = 'failed'
 
+async function uploadOriginal(upload, collection, name, file) {
+  try {
+    const form = new FormData()
+    form.append('file', file, name)
+    await upload(collection, form)
+    return { state: UPLOAD_SAVED, error: '' }
+  } catch (err) {
+    return { state: UPLOAD_FAILED, error: err?.message || String(err) }
+  }
+}
+
 // Uploads each original to `collection`, reporting every state change through
 // onStatus(statuses) with a fresh array. Resolves with the final statuses and
 // never rejects: a failed upload is a status, not an error for the caller.
+// Each status keeps its original in `file`, so a failed one can be retried.
 // With no collection or no originals it does nothing and calls nothing.
 export async function saveAttachmentsToCollection({ collection, entries, upload, onStatus = () => {}, idPrefix = 'up' }) {
   if (!collection) return []
@@ -88,7 +100,7 @@ export async function saveAttachmentsToCollection({ collection, entries, upload,
   if (originals.length === 0) return []
 
   let statuses = originals.map((o, i) => ({
-    id: `${idPrefix}-${i}`, name: o.name, collection, state: UPLOAD_UPLOADING, error: '',
+    id: `${idPrefix}-${i}`, name: o.name, file: o.file, collection, state: UPLOAD_UPLOADING, error: '',
   }))
   const set = (i, patch) => {
     statuses = statuses.map((s, j) => (j === i ? { ...s, ...patch } : s))
@@ -97,16 +109,21 @@ export async function saveAttachmentsToCollection({ collection, entries, upload,
   onStatus(statuses)
 
   await Promise.all(originals.map(async (o, i) => {
-    try {
-      const form = new FormData()
-      form.append('file', o.file, o.name)
-      await upload(collection, form)
-      set(i, { state: UPLOAD_SAVED })
-    } catch (err) {
-      set(i, { state: UPLOAD_FAILED, error: err?.message || String(err) })
-    }
+    set(i, await uploadOriginal(upload, collection, o.name, o.file))
   }))
   return statuses
+}
+
+// Uploads a failed status's original again, to the same collection. Reports
+// the change as patches for that status through onPatch(patch) and resolves
+// with the final patch; like the first attempt it never rejects. Anything but
+// a failed status with its original is left alone.
+export async function retryAttachmentUpload({ status, upload, onPatch = () => {} }) {
+  if (!status || status.state !== UPLOAD_FAILED || !status.file || !status.collection) return null
+  onPatch({ state: UPLOAD_UPLOADING, error: '' })
+  const result = await uploadOriginal(upload, status.collection, status.name, status.file)
+  onPatch(result)
+  return result
 }
 
 // Keep each original only once in Home's JSON handoff, even for a multi-page scan.

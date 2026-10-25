@@ -16,6 +16,7 @@ import {
   saveAttachmentsWhenReady,
   serializeAttachmentSources,
   restoreAttachmentSources,
+  retryAttachmentUpload,
 } from './attachmentCollection.js'
 
 function memoryStorage() {
@@ -158,6 +159,47 @@ test('a failed upload becomes a failed status with the reason and does not rejec
   ])
 })
 
+
+test('retry uploads the failed original again to the same collection', async () => {
+  const fail = new Set(['bad.csv'])
+  const { calls, upload } = recorder({ fail })
+  const [failed, saved] = await saveAttachmentsToCollection({
+    collection: 'docs',
+    entries: [
+      { name: 'bad.csv', type: 'text/csv', base64: b64('a,b'), source: new File(['a,b'], 'bad.csv') },
+      { name: 'ok.json', type: 'application/json', base64: b64('{}'), source: new File(['{}'], 'ok.json') },
+    ],
+    upload,
+  })
+  assert.equal(failed.state, UPLOAD_FAILED)
+
+  fail.clear()
+  const patches = []
+  const res = await retryAttachmentUpload({ status: failed, upload, onPatch: (p) => patches.push(p) })
+  assert.deepEqual(calls.map(c => [c.collection, c.name, c.text]).slice(2), [['docs', 'bad.csv', 'a,b']])
+  assert.deepEqual(patches, [{ state: UPLOAD_UPLOADING, error: '' }, { state: UPLOAD_SAVED, error: '' }])
+  assert.deepEqual(res, { state: UPLOAD_SAVED, error: '' })
+
+  // Only a failed status is retried: a saved one is never uploaded twice.
+  assert.equal(await retryAttachmentUpload({ status: saved, upload, onPatch: (p) => patches.push(p) }), null)
+  assert.equal(calls.length, 3)
+  assert.equal(patches.length, 2)
+})
+
+test('a retry that fails again reports the new reason and does not reject', async () => {
+  let n = 0
+  const upload = async () => { n++; throw new Error(`attempt ${n}`) }
+  const [failed] = await saveAttachmentsToCollection({
+    collection: 'docs',
+    entries: [{ name: 'x.txt', type: 'text/plain', base64: b64('x'), source: new File(['x'], 'x.txt') }],
+    upload,
+  })
+  assert.equal(failed.error, 'attempt 1')
+  const patches = []
+  const res = await retryAttachmentUpload({ status: failed, upload, onPatch: (p) => patches.push(p) })
+  assert.deepEqual(res, { state: UPLOAD_FAILED, error: 'attempt 2' })
+  assert.deepEqual(patches.map(p => p.state), [UPLOAD_UPLOADING, UPLOAD_FAILED])
+})
 
 test('Home handoff preserves one original PDF across rendered pages', async () => {
   const source = { name: 'scan.pdf', type: 'application/pdf', base64: b64('%PDF-original') }

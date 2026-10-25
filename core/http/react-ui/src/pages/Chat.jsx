@@ -56,6 +56,7 @@ import { useHubAuth } from '../components/hub/useHubAuth'
 import {
   canSaveAttachments, collectionNames, effectiveCollection,
   loadAttachmentCollection, saveAttachmentCollection, saveAttachmentsWhenReady, restoreAttachmentSources,
+  retryAttachmentUpload,
 } from '../utils/attachmentCollection'
 // eslint-disable-next-line no-unused-vars
 import AttachmentUploads from '../components/chat/AttachmentUploads'
@@ -300,6 +301,20 @@ function ChatPage() {
       onStatus: (statuses) => { if (uploadBatchRef.current === batch) setAttachmentUploads(statuses) },
     })
   }, [attachmentCollectionChoice, hubAuth.features, hubAuth.hasFeature])
+
+  // A retry belongs to the batch it was started in: a newer message or a chat
+  // switch replaces the strip, and the late answer must not write into it.
+  const retryAttachment = useCallback((status) => {
+    const batch = uploadBatchRef.current
+    retryAttachmentUpload({
+      status,
+      upload: (name, form) => agentCollectionsApi.upload(name, form),
+      onPatch: (patch) => {
+        if (uploadBatchRef.current !== batch) return
+        setAttachmentUploads(prev => prev.map(s => (s.id === status.id ? { ...s, ...patch } : s)))
+      },
+    })
+  }, [])
 
   const toggleFocusMode = (next) => {
     setFocusModeEnabled(next)
@@ -1350,7 +1365,7 @@ function ChatPage() {
         {/* Dock: the Home command bar under the thread */}
         <div className="cx-dock">
           <div className="cx-dock__in">
-            <AttachmentUploads uploads={attachmentUploads} onDismiss={() => setAttachmentUploads([])} />
+            <AttachmentUploads uploads={attachmentUploads} onDismiss={() => setAttachmentUploads([])} onRetry={retryAttachment} />
             <HomeComposer
               onDictateError={(m) => addToast(m, 'error')}
               message={input}

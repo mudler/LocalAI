@@ -5,9 +5,10 @@ import { UPLOAD_FAILED, UPLOAD_SAVED } from '../../utils/attachmentCollection'
 const ICONS = { [UPLOAD_SAVED]: 'check-circle', [UPLOAD_FAILED]: 'alert-circle' }
 
 // Where each attachment of the last message went: still uploading, saved to
-// the chosen collection, or failed with the server's reason. The chat reply
-// never waits for these.
-export default function AttachmentUploads({ uploads, onDismiss }) {
+// the chosen collection, or failed with the server's reason and a Retry. The
+// chat reply never waits for these. Retry and Dismiss appear once nothing is
+// in flight, so a retry never races the rest of its batch.
+export default function AttachmentUploads({ uploads, onDismiss, onRetry }) {
   const { t } = useTranslation('chat')
   if (!uploads || uploads.length === 0) return null
   const busy = uploads.some(u => u.state !== UPLOAD_SAVED && u.state !== UPLOAD_FAILED)
@@ -25,6 +26,16 @@ export default function AttachmentUploads({ uploads, onDismiss }) {
                   ? t('attachmentCollection.failed', { reason: u.error })
                   : t('attachmentCollection.uploading', { collection: u.collection })}
             </span>
+            {!busy && onRetry && u.state === UPLOAD_FAILED && u.file && (
+              <button
+                type="button"
+                className="dk-btn dk-btn--secondary dk-btn--sm cx-uploads__retry"
+                aria-label={t('attachmentCollection.retryLabel', { name: u.name })}
+                onClick={() => onRetry(u)}
+              >
+                <Icon name="refresh" /> {t('attachmentCollection.retry')}
+              </button>
+            )}
           </li>
         ))}
       </ul>

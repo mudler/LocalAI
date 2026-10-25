@@ -337,6 +337,8 @@
     "uploading": "saving to {{collection}}…",
     "saved": "saved to {{collection}}",
     "failed": "failed: {{reason}}",
-    "dismiss": "Dismiss upload status"
+    "dismiss": "Dismiss upload status",
+    "retry": "Retry",
+    "retryLabel": "Retry saving {{name}}"
   }
 }

@@ -566,6 +566,7 @@
 .cx-uploads__item[data-state="failed"],
 .cx-uploads__item[data-state="failed"] .lai-icon { color: var(--dk-error-text); }
 .cx-uploads__item[data-state="failed"] .cx-uploads__state { flex-shrink: 1; overflow-wrap: anywhere; }
+.cx-uploads__retry { flex-shrink: 0; }
 
 /* ---- Header ----------------------------------------------------------------- */
 .cx-page { --cx-float: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text)); }

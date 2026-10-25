@@ -117,6 +117,63 @@ test.describe('Chat - save attachments to a collection', () => {
     expect(uploads).toHaveLength(1)
   })
 
+  test('a failed upload can be retried and is then saved', async ({ page }) => {
+    await page.addInitScript(([k]) => localStorage.setItem(k, 'docs'), [STORE_KEY])
+    await mockCollections(page)
+    const uploads = []
+    await page.route('**/api/agents/collections/*/upload*', route => {
+      const body = route.request().postDataBuffer()?.toString('latin1') || ''
+      uploads.push({ url: route.request().url(), body })
+      if (uploads.length === 1) route.fulfill({ status: 500, json: { error: 'embedding model unavailable' } })
+      else route.fulfill({ json: { status: 'ok', filename: 'notes.txt', key: 'notes.txt' } })
+    })
+    await answerWith(page, 'Answered once.')
+    await openChat(page, chats)
+
+    await attachText(page)
+    await send(page)
+    await expect(page.getByText('Answered once.')).toBeVisible()
+    const status = page.getByTestId('chat-attachment-upload')
+    await expect(status).toContainText('failed: embedding model unavailable')
+
+    await status.getByRole('button', { name: 'Retry saving notes.txt' }).click()
+    await expect(status).toContainText('saved to docs')
+    await expect(status.getByRole('button', { name: 'Retry saving notes.txt' })).toHaveCount(0)
+    expect(uploads).toHaveLength(2)
+    expect(uploads[1].url).toContain('/api/agents/collections/docs/upload')
+    // The original file again, not a re-encoded copy.
+    expect(uploads[1].body).toContain('The launch is on Tuesday')
+    // Retrying the upload does not send the chat message again.
+    await expect(page.getByText('Answered once.')).toHaveCount(1)
+  })
+
+  test('no retry while an upload of the same message is still running', async ({ page }) => {
+    await page.addInitScript(([k]) => localStorage.setItem(k, 'docs'), [STORE_KEY])
+    await mockCollections(page)
+    let release
+    const slow = new Promise(resolve => { release = resolve })
+    await page.route('**/api/agents/collections/*/upload*', async route => {
+      const body = route.request().postDataBuffer()?.toString('latin1') || ''
+      if (body.includes('filename="bad.txt"')) return route.fulfill({ status: 500, json: { error: 'unsupported' } })
+      await slow
+      return route.fulfill({ json: { status: 'ok' } })
+    })
+    await answerWith(page, 'Ok.')
+    await openChat(page, chats)
+
+    await attachText(page, 'bad.txt', 'bad')
+    await page.locator('input[type=file][accept="image/*"]').setInputFiles({ name: 'chart.png', mimeType: 'image/png', buffer: PNG_BYTES })
+    await expect(page.locator('.home-file-tag', { hasText: 'chart.png' })).toBeVisible()
+    await send(page)
+
+    const failed = page.getByTestId('chat-attachment-upload').filter({ hasText: 'bad.txt' })
+    await expect(failed).toContainText('failed: unsupported')
+    await expect(failed.getByRole('button', { name: /Retry/ })).toHaveCount(0)
+    release()
+    await expect(page.getByTestId('chat-attachment-upload').filter({ hasText: 'chart.png' })).toContainText('saved to docs')
+    await expect(failed.getByRole('button', { name: 'Retry saving bad.txt' })).toBeVisible()
+  })
+
   test('Home auto-send keeps its upload while the collection list is pending', async ({ page }) => {
     await page.addInitScript(k => {
       localStorage.setItem(k, 'docs')
