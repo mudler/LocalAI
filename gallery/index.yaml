@@ -62680,6 +62680,254 @@
     parameters:
       model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-phonon-2.5-f16
+  description: |
+    Phonon 2.5, F16: a multilingual speech recognition model for 25 European languages, by Fermion Research. F16 file, full precision, about 1.4 GB.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    weights are released under CC-BY-4.0: credit Fermion Research.
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FermionResearch/Phonon-2.5
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - phonon
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/phonon-2.5-f16.gguf
+      sha256: 6be6fb7928c1732fd8b881aeaa2bb644fc2ff2464e5a88b3d1017fd34a931ee4
+      uri: huggingface://mudler/parakeet-cpp-gguf/phonon-2.5-f16.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-phonon-2.5-f16
+    parameters:
+      model: parakeet-cpp/phonon-2.5-f16.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-phonon-2.5-q8_0
+  description: |
+    Phonon 2.5, Q8_0: a multilingual speech recognition model for 25 European languages, by Fermion Research. Q8_0 quantized file, about 940 MB.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    weights are released under CC-BY-4.0: credit Fermion Research.
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FermionResearch/Phonon-2.5
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - phonon
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/phonon-2.5-q8_0.gguf
+      sha256: be2955ea73ca36fb84e69d95abbc2de67e06dec7bb45cc3f53db15c1dca8eee8
+      uri: huggingface://mudler/parakeet-cpp-gguf/phonon-2.5-q8_0.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-phonon-2.5-q8_0
+    parameters:
+      model: parakeet-cpp/phonon-2.5-q8_0.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-phonon-2.5-q4_k
+  description: |
+    Phonon 2.5, Q4_K: a multilingual speech recognition model for 25 European languages, by Fermion Research. Q4_K quantized file, about 675 MB, the smallest of the regular builds.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    weights are released under CC-BY-4.0: credit Fermion Research.
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FermionResearch/Phonon-2.5
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - phonon
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/phonon-2.5-q4_k.gguf
+      sha256: 1405f0cd3a71260c0029cf7ff73ab2619a383dbc4c21109923605a85886b1c7a
+      uri: huggingface://mudler/parakeet-cpp-gguf/phonon-2.5-q4_k.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-phonon-2.5-q4_k
+    parameters:
+      model: parakeet-cpp/phonon-2.5-q4_k.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-phonon-2.5-packed
+  description: |
+    Phonon 2.5, PACKED: a multilingual speech recognition model for 25 European languages, by Fermion Research. Packed weights, about 240 MB, the smallest file. It runs on the CPU only, because the GPU route for packed files is not in this build. For a GPU, use the f16, q8_0 or q4_k entry instead.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    weights are released under CC-BY-4.0: credit Fermion Research.
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FermionResearch/Phonon-2.5
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - phonon
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/phonon-2.5-packed.gguf
+      sha256: f0339284e385c89a73ebc860937f1c1c346311efee6a40d995f8623b2d8cf7a3
+      uri: huggingface://mudler/parakeet-cpp-gguf/phonon-2.5-packed.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-phonon-2.5-packed
+    parameters:
+      model: parakeet-cpp/phonon-2.5-packed.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-phonon-2.5-english-f16
+  description: |
+    Phonon 2.5 English, F16: the English-only speech recognition model of the Phonon 2.5 family, by Fermion Research. F16 file, full precision, about 1.4 GB.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    weights are released under CC-BY-4.0: credit Fermion Research.
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FermionResearch/Phonon-2.5-English
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - phonon
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/phonon-2.5-english-f16.gguf
+      sha256: e5556403115bf3941e769ae84e860c7d2e5d9aad89d986438c31a0e688dc417d
+      uri: huggingface://mudler/parakeet-cpp-gguf/phonon-2.5-english-f16.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-phonon-2.5-english-f16
+    parameters:
+      model: parakeet-cpp/phonon-2.5-english-f16.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-phonon-2.5-english-q8_0
+  description: |
+    Phonon 2.5 English, Q8_0: the English-only speech recognition model of the Phonon 2.5 family, by Fermion Research. Q8_0 quantized file, about 940 MB.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    weights are released under CC-BY-4.0: credit Fermion Research.
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FermionResearch/Phonon-2.5-English
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - phonon
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/phonon-2.5-english-q8_0.gguf
+      sha256: c484f673e7873761a31c38c2629afe0975dfb2025292730febd93f635489ad70
+      uri: huggingface://mudler/parakeet-cpp-gguf/phonon-2.5-english-q8_0.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-phonon-2.5-english-q8_0
+    parameters:
+      model: parakeet-cpp/phonon-2.5-english-q8_0.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-phonon-2.5-english-q4_k
+  description: |
+    Phonon 2.5 English, Q4_K: the English-only speech recognition model of the Phonon 2.5 family, by Fermion Research. Q4_K quantized file, about 675 MB, the smallest of the regular builds.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    weights are released under CC-BY-4.0: credit Fermion Research.
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FermionResearch/Phonon-2.5-English
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - phonon
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/phonon-2.5-english-q4_k.gguf
+      sha256: a0f89ff0bacbba1b6a8a8506a31b11e794550ff7290979c4e50cfd38f40d12c8
+      uri: huggingface://mudler/parakeet-cpp-gguf/phonon-2.5-english-q4_k.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-phonon-2.5-english-q4_k
+    parameters:
+      model: parakeet-cpp/phonon-2.5-english-q4_k.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-phonon-2.5-english-packed
+  description: |
+    Phonon 2.5 English, PACKED: the English-only speech recognition model of the Phonon 2.5 family, by Fermion Research. Packed weights, about 240 MB, the smallest file. It runs on the CPU only, because the GPU route for packed files is not in this build. For a GPU, use the f16, q8_0 or q4_k entry instead.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    weights are released under CC-BY-4.0: credit Fermion Research.
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FermionResearch/Phonon-2.5-English
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - phonon
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/phonon-2.5-english-packed.gguf
+      sha256: 0ee054a9dfe000884224999e4805c48bfb98343763c08b8133bd401e182a7ab2
+      uri: huggingface://mudler/parakeet-cpp-gguf/phonon-2.5-english-packed.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-phonon-2.5-english-packed
+    parameters:
+      model: parakeet-cpp/phonon-2.5-english-packed.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: orukeet
   description: |
     Orukeet is a 0.6B, 25-language fine-tune of Parakeet TDT v3 by Oruk.
