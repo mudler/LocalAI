@@ -29,6 +29,7 @@ class HttpReportTests(unittest.TestCase):
         endpoint += [spec(c.LEGACY_GROUP, n) for n in sorted(c.LEGACY_CASES)]
         self.suites = {
             'core-http-endpoints-openai': endpoint,
+            'core-http-endpoints-jina': [spec(c.RERANK_GROUP, n) for n in sorted(c.RERANK_CASES)],
             'core-http-middleware': [spec('Multimodal contracts', 'x')],
             'core-http-auth': [spec('Auth', 'y')],
             'core-backend': [spec(c.HTTP_GROUP, n) for n in sorted(c.BACKEND_CASES)],
@@ -72,6 +73,17 @@ class HttpReportTests(unittest.TestCase):
             self.save()
             with self.assertRaises(ValueError):
                 c.check(self.dir, 'rev')
+
+    def test_missing_or_repeated_rerank_cases(self):
+        self.suites['core-http-endpoints-jina'] = self.suites['core-http-endpoints-jina'][1:]
+        self.save()
+        with self.assertRaises(ValueError):
+            c.check(self.dir, 'rev')
+        self.setUp()
+        self.suites['core-http-endpoints-jina'].append(copy.deepcopy(self.suites['core-http-endpoints-jina'][0]))
+        self.save()
+        with self.assertRaises(ValueError):
+            c.check(self.dir, 'rev')
 
     def test_missing_backend_result_cases(self):
         self.suites['core-backend'] = self.suites['core-backend'][1:]

@@ -12,7 +12,8 @@ import sys
 
 HTTP_GROUP = 'Multimodal HTTP'
 LEGACY_GROUP = 'Legacy embedding response'
-PACKAGES = ('core-http-endpoints-openai', 'core-http-middleware', 'core-http-auth', 'core-backend',
+RERANK_GROUP = 'Multimodal rerank HTTP'
+PACKAGES = ('core-http-endpoints-openai', 'core-http-endpoints-jina', 'core-http-middleware', 'core-http-auth', 'core-backend',
             'core-services-routing-piiadapter')
 # Floor on passed specs of the PII adapter suite: the real total at the time of
 # the pin. Raise it when specs are added; never lower it.
@@ -91,6 +92,24 @@ LEGACY_CASES = {
     'returns base64 little endian floats when requested',
 }
 
+# Typed rerank: the text request is unchanged, media goes through the typed RPC in
+# order and is never retried as text, and every error status is mapped.
+RERANK_CASES = {
+    'keeps the text request on the text RPC with the same fields as before',
+    'sends a text query with text and image documents through the typed RPC in order',
+    'applies top_n to a typed request',
+    'sends text-only content objects to the text RPC because nothing can be dropped',
+    '400 on malformed structure and 422 on audio, before any fetch',
+    '422 when the reranker publishes no image input, with no fetch and no text score',
+    '501 when the backend does not publish the rerank protocol',
+    '501 when the worker answers UNIMPLEMENTED',
+    'maps backend limit and media errors',
+    '502 on a fetch failure and 413 when the fetched media exceeds the allowance',
+    '502 when the backend reports no consumption for media, or more than it was given',
+    '502 on an impossible result: repeated index, out of range, extra rows, NaN',
+    '429 when the preparation slot is taken, before any fetch',
+}
+
 BACKEND_CASES = {
     'returns a final vector unchanged',
     'accepts a final vector whose shape was not reported',
@@ -132,7 +151,7 @@ def load_specs(path, name):
     # skipped or pending; unrelated pre-existing specs of a shared package may
     # carry their own, unchanged, skip.
     for spec in specs:
-        ours = {HTTP_GROUP, LEGACY_GROUP} & set(spec['ContainerHierarchyTexts'])
+        ours = {HTTP_GROUP, LEGACY_GROUP, RERANK_GROUP} & set(spec['ContainerHierarchyTexts'])
         if ours or spec['State'] != 'skipped':
             require(spec['State'] == 'passed', name + ': not passed: ' + str(spec.get('LeafNodeText')))
     require(any(s['State'] == 'passed' for s in specs), name + ': nothing executed')
@@ -164,6 +183,9 @@ def check(scratch, revision, command='bash test/multimodal/verify.sh http'):
             require(statuses == REQUIRED_STATUSES, name + ': status cases do not cover the contract')
             counts[HTTP_GROUP] = len(http)
             counts[LEGACY_GROUP] = len(legacy)
+        if name == 'core-http-endpoints-jina':
+            rerank = require_cases(specs, RERANK_GROUP, RERANK_CASES, name)
+            counts[RERANK_GROUP] = len(rerank)
         if name == 'core-backend':
             result = require_cases(specs, HTTP_GROUP, BACKEND_CASES, name)
             counts[name + ': ' + HTTP_GROUP] = len(result)

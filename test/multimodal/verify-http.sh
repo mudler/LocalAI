@@ -40,6 +40,7 @@ run() {
         -ginkgo.json-report="$scratch/$name.json"
 }
 run core-http-endpoints-openai core/http/endpoints/openai
+run core-http-endpoints-jina core/http/endpoints/jina
 run core-http-middleware core/http/middleware
 run core-http-auth core/http/auth -tags auth
 run core-backend core/backend
