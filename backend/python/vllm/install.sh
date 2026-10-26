@@ -55,6 +55,11 @@ fi
 # first-match strategy would still pick the PyPI wheel, so allow it to consult
 # every configured index when resolving.
 if [ "x${BUILD_PROFILE}" == "xcublas13" ]; then
+    # vLLM 0.32+ requires Python >=3.11; match the portable Python used by
+    # the other Python 3.12 vLLM profiles before installRequirements.
+    PYTHON_VERSION="3.12"
+    PYTHON_PATCH="12"
+    PY_STANDALONE_TAG="20251120"
     EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
 fi
 
