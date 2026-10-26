@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -86,7 +87,14 @@ func (a *Application) initStudioFiles() {
 		a.closeStudioFilesDB(db)
 		return
 	}
-	a.studioFiles = files.New(ws)
+	f := files.New(ws)
+	if err := f.EnsureShared(context.Background()); err != nil {
+		xlog.Warn("Files disabled: cannot create the shared folders", "error", err)
+		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
+		a.closeStudioFilesDB(db)
+		return
+	}
+	a.studioFiles = f
 }
 
 // closeStudioFilesDB closes the private database of the workspace, never the

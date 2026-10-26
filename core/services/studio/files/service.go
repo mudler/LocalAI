@@ -29,6 +29,8 @@ type Service struct {
 	mu    sync.Mutex
 	homes map[string]bool // principals whose home is known to exist
 	admin workspace.Actor
+
+	sharedReady bool // the folders of shared and built-in skills exist
 }
 
 // New returns a Service on ws. The store must have been opened with
@@ -86,11 +88,21 @@ func (s *Service) EnsureHome(ctx context.Context, principal string) error {
 	if known {
 		return nil
 	}
+	if err := s.ensureShared(ctx); err != nil {
+		return err
+	}
 	if _, err := s.ws.Mkdir(ctx, s.admin, session.ChatsPath(principal)); err != nil && !errors.Is(err, workspace.ErrExists) {
 		return fmt.Errorf("files: create the home of a user: %w", err)
 	}
 	if err := s.ws.Grant(ctx, s.admin, principal, session.HomePath(principal), workspace.ModeWrite); err != nil {
 		return fmt.Errorf("files: give a user their home: %w", err)
+	}
+	// Everyone reads the shared and built-in skills; nobody but the server and
+	// an administrator writes them.
+	for _, p := range []string{SharedSkillsPath, BuiltinSkillsPath} {
+		if err := s.ws.Grant(ctx, s.admin, principal, p, workspace.ModeRead); err != nil {
+			return fmt.Errorf("files: let a user read %s: %w", p, err)
+		}
 	}
 	s.mu.Lock()
 	s.homes[principal] = true
