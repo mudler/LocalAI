@@ -152,11 +152,8 @@ endif
 # behind NEMO_SPEECH_GGML_PATCHED itself, which guards a Q8_PLANAR flag write
 # that a non-CUDA buffer already throws before reaching.
 #
-# So on macOS the series buys nothing, and it cannot be applied there anyway:
-# upstream's scripts/apply-ggml-patches.sh uses mapfile, a bash 4 builtin, and
-# macOS ships bash 3.2 as the only bash on the runner's PATH. Skip the patch
-# step and tell cmake the linked ggml is stock, which is exactly upstream's own
-# Metal configuration. Linux keeps applying the series unchanged.
+# On macOS keep ggml stock, matching upstream's Metal configuration. Upstream
+# CMake now manages the patch series; Linux keeps enabling it by default.
 ifeq ($(shell uname -s),Darwin)
 	GGML_PATCHED?=OFF
 else
@@ -175,28 +172,16 @@ sources/NeMo-Speech.cpp:
 	# NMT links llama.cpp; ja needs open_jtalk; zh needs cppjieba. flashlight and
 	# kenlm are deliberately not initialized, they are out of scope.
 	cd sources/NeMo-Speech.cpp && git submodule update --init --recursive \
-		ggml llama.cpp third_party/open_jtalk third_party/cppjieba third_party/cpp-httplib
+		llama.cpp third_party/open_jtalk third_party/cppjieba third_party/cpp-httplib
 
-# NEMO_SPEECH_GGML_PATCHED defaults ON and silently assumes the ggml-patches
-# series is applied. An unpatched checkout builds fine and produces wrong CUDA
-# encoder output, so a failure here must stop the build rather than warn.
+# ggml now comes from llama.cpp. Upstream's cmake/llama_cpp.cmake applies
+# patches/series to a build-directory copy when NEMO_SPEECH_GGML_PATCHED=ON
+# and fails configuration if a patch cannot apply.
 #
-# Upstream's own script is the right tool: it applies the series in filename
-# order, exits non-zero when a patch does not apply, and decides "already
-# applied" by comparing the full-series tree hash rather than a timestamp. That
-# makes it safe to run unconditionally, so there is no sentinel file to go stale
-# or to wedge the build when deleted.
-#
-# Both branches keep the order-only clone prerequisite: it is the only thing
-# that pulls sources/ in on a WITH_NORM=OFF tree, where the library rule has no
-# other prerequisite left.
-ifeq ($(GGML_PATCHED),ON)
+# Keep the order-only clone prerequisite so patch-ggml still initializes sources
+# before the runtime's CMake configuration.
 patch-ggml: | sources/NeMo-Speech.cpp
-	cd sources/NeMo-Speech.cpp && bash scripts/apply-ggml-patches.sh
-else
-patch-ggml: | sources/NeMo-Speech.cpp
-	@echo "[ggml-patch] skipped: NEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED), the series is CUDA-only"
-endif
+	@echo "[ggml-patch] managed by upstream CMake (NEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED))"
 
 # The Sparrowhawk/OpenFST text-normalization stack, as a target in its own right
 # keyed on a file the build script actually produces.
