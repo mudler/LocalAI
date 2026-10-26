@@ -56,7 +56,8 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if s.d.Media != nil {
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a)...)
 	}
-	return session.TurnTools{Tools: append(tools, s.spawnTool(a))}, nil
+	prompt, note, key := s.skillTurn(ctx, a.Principal, rec.SkillsOff)
+	return session.TurnTools{Tools: append(tools, s.spawnTool(a)), Prompt: prompt, Note: note, RefreshKey: key}, nil
 }
 
 func (s *Service) spawnTool(a workspace.Actor) session.Tool {

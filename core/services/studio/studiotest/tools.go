@@ -38,6 +38,7 @@ type ToolHarness struct {
 	results []ToolResult
 	sent    map[string][]string
 	tools   map[string][]string
+	prompts map[string]string
 }
 
 // Results returns every tool call so far.
@@ -72,6 +73,14 @@ func (h *ToolHarness) ToolNames(chat string) []string {
 	return append([]string(nil), h.tools[chat]...)
 }
 
+// TurnPrompt returns the block the chat's session was last started with, after
+// the system prompt: what the product adds for a turn, such as the skill index.
+func (h *ToolHarness) TurnPrompt(chat string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.prompts[chat]
+}
+
 // Start implements session.Harness.
 func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.HarnessSession, error) {
 	h.mu.Lock()
@@ -83,6 +92,10 @@ func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.
 		names[i] = t.Name
 	}
 	h.tools[env.Actor.ChatID] = names
+	if h.prompts == nil {
+		h.prompts = map[string]string{}
+	}
+	h.prompts[env.Actor.ChatID] = env.TurnPrompt
 	h.mu.Unlock()
 	return &toolSession{h: h, env: env}, nil
 }

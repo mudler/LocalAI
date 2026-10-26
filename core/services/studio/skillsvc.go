@@ -2,8 +2,11 @@ package studio
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 )
@@ -33,4 +36,39 @@ func (s *Service) SetSkillsOff(ctx context.Context, user, conv string, off []str
 		}
 	}
 	return s.d.Store.SetSkillsOff(ctx, principal(user), conv, clean)
+}
+
+// skillTurn resolves the skills of the chat's user and returns what the turn
+// gets: the index for the prompt, a note for the model when something could not
+// be read, and a key that changes only when a skill the index names changed.
+// A skill the chat switched off is not in the index and does not change the key.
+func (s *Service) skillTurn(ctx context.Context, p string, off []string) (prompt, note, key string) {
+	if !s.d.Files.Available() {
+		return "", "", ""
+	}
+	skip := make(map[string]bool, len(off))
+	for _, n := range off {
+		skip[n] = true
+	}
+	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p), skills.Options{
+		Off:    func(sk skills.Skill) bool { return skip[sk.Name] },
+		Logger: s.log,
+	})
+	if err != nil {
+		s.log.Warn("studio: skills unavailable", "user", p, "error", err)
+		return "", "", ""
+	}
+	var on []skills.Skill
+	h := sha256.New()
+	for _, sk := range list {
+		if sk.Invalid != "" || sk.Shadowed != "" || sk.Off {
+			continue
+		}
+		on = append(on, sk)
+		fmt.Fprintf(h, "%s\x00%s\x00%s\n", sk.Name, sk.GuestPath, sk.Hash)
+	}
+	if len(on) == 0 {
+		return "", strings.Join(notes, "; "), ""
+	}
+	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil))
 }
