@@ -28,6 +28,12 @@ function newChatsApi(page, initial) {
       await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, async route => {
         const req = route.request()
         if (req.method() === 'POST') {
+          if ((req.headers()['content-type'] || '').startsWith('multipart/')) {
+            record('POST', req.url(), { multipart: true, raw: req.postData() || '' })
+            return state.failSend
+              ? route.fulfill({ status: 500, json: { error: 'boom' } })
+              : route.fulfill({ json: { started: true } })
+          }
           record('POST', req.url(), req.postDataJSON())
           return (state.failSend ? route.fulfill({ status: 500, json: { error: 'boom' } }) : route.fulfill({ json: { started: false, pending_id: 'p9' } }))
         }
@@ -60,7 +66,7 @@ function newChatsApi(page, initial) {
       })
       await page.route('**/api/chats/c1', route => route.fulfill({ json: detail() }))
       await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({
-        json: { conversations: [{ ...detail(), pending: undefined }], persistent: state.persistent !== false },
+        json: { conversations: [{ ...detail(), pending: undefined }], persistent: state.persistent !== false, files: state.files !== false, files_reason: state.filesReason || '' },
       }))
     },
   }
@@ -172,5 +178,65 @@ test.describe('Chats page with a stubbed API', () => {
     await composer(page).press('Enter')
     await expect(page.getByRole('alert')).toBeVisible()
     await expect(composer(page)).toHaveValue('keep this text')
+  })
+
+  test.describe('attachments', () => {
+    const attach = (page, name = 'notes.txt', body = 'alpha') =>
+      page.getByTestId('chat-file-input').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from(body) })
+
+    test('an attached file is listed, can be removed, and goes with the message', async ({ page }) => {
+      const api = newChatsApi(page, { running: false, pending: [] })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await attach(page)
+      await expect(page.getByTestId('attachment')).toContainText('notes.txt')
+      await page.getByRole('button', { name: 'Remove notes.txt' }).click()
+      await expect(page.getByTestId('attachment')).toHaveCount(0)
+
+      await attach(page)
+      await composer(page).fill('read this')
+      await composer(page).press('Enter')
+      await expect.poll(() => api.state.calls.filter(c => c.body?.multipart).length).toBe(1)
+      const sent = api.state.calls.find(c => c.body?.multipart).body.raw
+      expect(sent).toContain('filename="notes.txt"')
+      expect(sent).toContain('read this')
+      await expect(page.getByTestId('attachment')).toHaveCount(0)
+    })
+
+    test('a message can go with files and no text', async ({ page }) => {
+      const api = newChatsApi(page, { running: false, pending: [] })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await attach(page, 'photo.png', 'png')
+      await page.getByRole('button', { name: 'Send' }).click()
+      await expect.poll(() => api.state.calls.filter(c => c.body?.multipart).length).toBe(1)
+    })
+
+    test('attaching is off while a turn runs, and says why', async ({ page }) => {
+      const api = newChatsApi(page, { running: true })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await expect(page.getByRole('button', { name: 'Attach a file' })).toBeDisabled()
+    })
+
+    test('with files off there is no attach control, and the reason is shown', async ({ page }) => {
+      const api = newChatsApi(page, { running: false, pending: [], files: false, filesReason: 'There is no data path, so files are off.' })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await expect(page.getByTestId('chat-file-input')).toHaveCount(0)
+      await expect(page.getByRole('note').filter({ hasText: 'files are off' })).toBeVisible()
+    })
+
+    test('a message that could not be sent keeps its text and its files', async ({ page }) => {
+      const api = newChatsApi(page, { running: false, pending: [], failSend: true })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await attach(page)
+      await composer(page).fill('keep me')
+      await composer(page).press('Enter')
+      await expect(page.getByRole('alert')).toBeVisible()
+      await expect(composer(page)).toHaveValue('keep me')
+      await expect(page.getByTestId('attachment')).toContainText('notes.txt')
+    })
   })
 })

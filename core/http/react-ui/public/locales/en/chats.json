@@ -51,5 +51,12 @@
     "send": "The message could not be sent.",
     "dismiss": "Dismiss"
   },
-  "memoryNotice": "Chats are kept in memory only. They are lost when the server restarts."
+  "memoryNotice": "Chats are kept in memory only. They are lost when the server restarts.",
+  "attach": {
+    "button": "Attach a file",
+    "busy": "Files go with a message that starts a turn. Wait for this one to end or stop it.",
+    "list": "Attached files",
+    "remove": "Remove {{name}}",
+    "off": "Files are off on this server."
+  }
 }

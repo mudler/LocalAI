@@ -326,3 +326,25 @@
     width: 200px;
   }
 }
+
+.ch-attached {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dk-space-2);
+}
+
+.ch-attached__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-1) var(--dk-space-2);
+  border-radius: var(--dk-radius-1);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+}
+
+.ch-attached__name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

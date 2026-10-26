@@ -21,6 +21,7 @@ export function useServerChat() {
   const [chats, setChats] = useState([])
   // Unknown until the list answers; only an explicit false shows the notice.
   const [persistent, setPersistent] = useState(true)
+  const [files, setFiles] = useState({ on: true, reason: '' })
   const [activeId, setActiveId] = useState(null)
   const [detail, setDetail] = useState(null)
   const [messages, setMessages] = useState([])
@@ -39,6 +40,7 @@ export function useServerChat() {
       // Sub-agent runs belong to their parent; the list shows chats only.
       setChats((data.conversations || []).filter(c => c.kind !== 'subagent'))
       setPersistent(data.persistent !== false)
+      setFiles({ on: data.files !== false, reason: data.files_reason || '' })
     } catch (e) {
       setError(e.message)
     }
@@ -164,10 +166,10 @@ export function useServerChat() {
   // Sends go out one after another, so two messages typed quickly reach the
   // server in the order they were typed and cannot swap on the wire.
   const sendChain = useRef(Promise.resolve())
-  const send = useCallback((id, text) => {
+  const send = useCallback((id, text, attached = []) => {
     setError('')
     const run = async () => {
-      const res = await chatsApi.send(id, text)
+      const res = await chatsApi.send(id, text, attached)
       if (res.started) setDetail(d => (d ? { ...d, running: true } : d))
       await refreshChat(id)
       return res
@@ -199,7 +201,7 @@ export function useServerChat() {
   }, [refreshList, select])
 
   return {
-    chats, persistent, activeId, detail, messages, live, notes, error, loading,
+    chats, persistent, files, activeId, detail, messages, live, notes, error, loading,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],

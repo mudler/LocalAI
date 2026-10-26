@@ -67,4 +67,21 @@ test.describe('Chats against the real server', () => {
     await expect(log(second).locator('.ch-msg--user')).toHaveText('shared chat')
     await second.close()
   })
+
+  test('a file attached to a message lands in the workspace, where the files page finds it', async ({ page }) => {
+    const name = `report-${Date.now()}.txt`
+    await offerMockModel(page)
+    await page.goto('/app/chats')
+    test.skip(await page.getByRole('note').filter({ hasText: 'files are off' }).isVisible(), 'files are off on this server build')
+    await page.getByTestId('chat-file-input').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from('orbital mechanics notes') })
+    await composer(page).fill('summarize the attachment')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(log(page).locator('.ch-msg--user').first()).toContainText('summarize the attachment', { timeout: 20_000 })
+    await expect(page.getByText('Working…')).toBeHidden({ timeout: 30_000 })
+
+    await page.goto('/app/files')
+    await page.getByRole('searchbox', { name: 'Search your files' }).fill('orbital mechanics')
+    await page.getByRole('searchbox', { name: 'Search your files' }).press('Enter')
+    await expect(page.getByTestId('ws-hit').filter({ hasText: name }).first()).toBeVisible()
+  })
 })

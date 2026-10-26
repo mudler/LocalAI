@@ -176,7 +176,16 @@ export const chatsApi = {
       after = got[got.length - 1].seq
     }
   },
-  send: (id, text) => postJSON(API_CONFIG.endpoints.chatMessages(id), { text }),
+  // With files the message goes as a form: the server saves the files in the
+  // chat's folder of the user's workspace and the model gets their paths.
+  send: async (id, text, files = []) => {
+    if (!files.length) return postJSON(API_CONFIG.endpoints.chatMessages(id), { text })
+    const form = new FormData()
+    form.append('text', text)
+    files.forEach(f => form.append('files', f, f.name))
+    const res = await fetch(apiUrl(API_CONFIG.endpoints.chatMessages(id)), { method: 'POST', body: form })
+    return handleResponse(res)
+  },
   editPending: (id, pid, text) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'PATCH', body: JSON.stringify({ text }) }),
   cancelPending: (id, pid) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'DELETE' }),
   sendNow: (id) => postJSON(API_CONFIG.endpoints.chatSendNow(id), {}),

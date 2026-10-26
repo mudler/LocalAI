@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
+import Icon from '../components/Icon'
 import ModelSelector from '../components/ModelSelector'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useServerChat } from '../hooks/useServerChat'
@@ -126,6 +127,8 @@ export default function Chats() {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [localError, setLocalError] = useState('')
+  const [attached, setAttached] = useState([])
+  const fileInput = useRef(null)
 
   // The address names the open chat. Opening one by id selects it, unless it is
   // already open (creating a chat selects it before the address changes).
@@ -138,10 +141,11 @@ export default function Chats() {
 
   const submit = useCallback(async () => {
     const text = draft.trim()
+    const sending = attached
     // Only the message that starts a chat must go once: it creates the chat. In
     // a chat that exists, every message goes, even while the last one is still
     // on its way, and the hook keeps them in order.
-    if (!text || (!activeId && busy)) return
+    if ((!text && sending.length === 0) || (!activeId && busy)) return
     setLocalError('')
     try {
       let target = activeId
@@ -153,16 +157,18 @@ export default function Chats() {
         navigate(`/app/chats/${target}`)
       }
       setDraft('')
-      await chat.send(target, text)
+      setAttached([])
+      await chat.send(target, text, sending)
     } catch (e) {
-      // The text was cleared to make room for the next message: give it back,
-      // unless the user has already typed something else.
+      // The text and files were cleared to make room for the next message: give
+      // them back, unless the user has already typed or attached something else.
       setDraft(d => d || text)
+      setAttached(a => (a.length ? a : sending))
       setLocalError(e.message || t('errors.send'))
     } finally {
       setBusy(false)
     }
-  }, [draft, busy, activeId, model, chat, select, navigate, t])
+  }, [draft, attached, busy, activeId, model, chat, select, navigate, t])
 
   const onKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -226,6 +232,9 @@ export default function Chats() {
         </div>
 
         <div className="ch-composer-wrap">
+          {!chat.files.on && (
+            <div className="ch-notice" role="note">{chat.files.reason || t('attach.off')}</div>
+          )}
           {!chat.persistent && (
             <div className="ch-notice" role="note">{t('memoryNotice')}</div>
           )}
@@ -237,6 +246,20 @@ export default function Chats() {
           )}
           <div className="ch-composer">
             {activeId && <PendingList chat={chat} t={t} />}
+            {attached.length > 0 && (
+              <ul className="ch-attached" aria-label={t('attach.list')}>
+                {attached.map((f, i) => (
+                  <li key={`${f.name}-${i}`} className="ch-attached__item" data-testid="attachment">
+                    <Icon name="file" />
+                    <span className="ch-attached__name">{f.name}</span>
+                    <button type="button" className="ch-link" aria-label={t('attach.remove', { name: f.name })}
+                      onClick={() => setAttached(a => a.filter((_, j) => j !== i))}>
+                      <Icon name="close" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <textarea
               className="ch-input"
               aria-label={t('composer.label')}
@@ -247,14 +270,33 @@ export default function Chats() {
               rows={2}
             />
             <div className="ch-actions">
-              <span className="ch-head__meta">{!activeId && model ? model : ''}</span>
+              <span className="ch-head__meta">
+                {chat.files.on && (
+                  <>
+                    <button type="button" className="ch-link" disabled={chat.running}
+                      aria-label={t('attach.button')} title={chat.running ? t('attach.busy') : t('attach.button')}
+                      onClick={() => fileInput.current?.click()}>
+                      <Icon name="plus" />
+                    </button>
+                    <input ref={fileInput} type="file" multiple hidden data-testid="chat-file-input"
+                      aria-label={t('attach.button')}
+                      onChange={(e) => {
+                        // Copy the files before the input is cleared: its list is live.
+                        const picked = Array.from(e.target.files)
+                        e.target.value = ''
+                        setAttached(a => [...a, ...picked])
+                      }} />
+                  </>
+                )}
+                {!activeId && model ? model : ''}
+              </span>
               <span className="ch-actions__right">
                 {chat.running && (
                   <button type="button" className="btn btn-secondary" onClick={() => chat.stop(activeId)}>
                     {t('composer.stop')}
                   </button>
                 )}
-                <button type="button" className="btn btn-primary" disabled={(!activeId && busy) || !draft.trim() || (!activeId && !model)} onClick={submit}>
+                <button type="button" className="btn btn-primary" disabled={(!activeId && busy) || (!draft.trim() && attached.length === 0) || (!activeId && !model)} onClick={submit}>
                   {t('composer.send')}
                 </button>
               </span>
