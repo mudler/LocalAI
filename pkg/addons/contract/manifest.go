@@ -90,6 +90,10 @@ type Capabilities struct {
 	// arguments and the host authority of each. A declared tool without a
 	// definition is not offered to models.
 	ToolDefinitions []ToolDefinition `json:"toolDefinitions,omitempty"`
+	// Actions says that a tool of the kind action is declared. The host starts
+	// no manifest that declares one without it, so reading the capabilities is
+	// enough to know that an add-on can change things without a confirmation.
+	Actions bool `json:"actions,omitempty"`
 	// AdminTools are tools that only the host's own UI-only resource
 	// management endpoints may run. They are never in Tools, never have a
 	// tool definition and never reach a model, a proposal, a typed dispatch
@@ -331,6 +335,11 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	c := m.Capabilities
 	if (!c.Service && len(c.Tools) == 0 && c.UI == nil) || !uniqueIDs(c.Tools) {
 		return fmt.Errorf("invalid capabilities")
+	}
+	for _, d := range c.ToolDefinitions {
+		if d.Kind == ToolKindAction && !c.Actions {
+			return fmt.Errorf("tool %s is an action tool but the add-on does not declare actions", d.Name)
+		}
 	}
 	if e := validateToolDefinitions(c.ToolDefinitions, c.Tools); e != nil {
 		return e

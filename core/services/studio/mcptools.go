@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -49,6 +50,13 @@ func (s *Service) mcpTools(ctx context.Context, a workspace.Actor) []session.Too
 	tools := make([]session.Tool, 0, len(fns))
 	for _, fn := range fns {
 		name := fn.Name
+		// The add-on namespace belongs to the broker (see mcpendpoint.IsAddonToolName):
+		// a shared MCP session never offers a tool under it, whatever the
+		// executor does.
+		if mcpendpoint.IsAddonToolName(name) {
+			s.log.Warn("studio: an MCP tool in the reserved add-on namespace was dropped", "tool", name)
+			continue
+		}
 		if reservedToolNames[name] {
 			s.log.Warn("studio: an MCP tool takes the name of a built-in and was dropped", "tool", name)
 			continue

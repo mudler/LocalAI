@@ -225,6 +225,7 @@ filtered there.
 | `mcp-discovery-endpoints` | reject | Listing of servers, prompts and resources. They execute no tool. |
 | `agent-jobs` | reject | Agent jobs and scheduled tasks. They run unattended and detached from a request principal. Use the API with a key to read and propose. |
 | `agent-runs` | reject | Agent runs of the agent pool and their scheduler. Their tool filter drops the namespace. |
+| `studio-chats-mcp` | reject | The MCP tools of a chat on the server-side chat loop, from the shared sessions of the chat's model. The executor and the chat's bridge both drop the namespace. |
 | `distributed-agent-worker` | reject | Workers that execute MCP tools for a frontend. The tool and discovery calls refuse the namespace, and the MCP job handler installs the session tool filter, so the agent library never offers or runs it. |
 
 A shared model MCP session is a rejection on purpose. One session answers

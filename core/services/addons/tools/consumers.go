@@ -138,6 +138,14 @@ var Consumers = []Consumer{
 		Enforcement: "the tool filter of every run drops the namespace, with or without an allow list",
 	},
 	{
+		ID:          "studio-chats-mcp",
+		Surface:     "the MCP tools of a chat on the server-side chat loop: the MCP servers of the chat's model, through the same shared sessions as every other chat of that model",
+		Files:       []string{"core/services/studio/mcptools.go", "core/application/studio_service.go"},
+		Decision:    Reject,
+		Reason:      "a model's MCP session is shared by every user of the model, so it carries no actor; add-on tools of a chat come through their own consumer, with the chat user's actor",
+		Enforcement: "the executor's DiscoverTools drops the add-on namespace and its ExecuteTool refuses it; the chat bridge drops it again before it offers a tool",
+	},
+	{
 		ID:          "distributed-agent-worker",
 		Surface:     "agent workers that execute MCP tools for a frontend over the agent control seam",
 		Files:       []string{"core/cli/agent_worker.go", "core/services/nodes/agent_rpc_nats.go"},

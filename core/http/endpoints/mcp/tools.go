@@ -425,6 +425,11 @@ func NamedSessionsFromMCPConfig(
 	return filtered, nil
 }
 
+// IsAddonToolName reports whether a tool name is in the add-on namespace, which
+// belongs to the broker. A consumer of shared MCP sessions uses it to drop such
+// a tool, so only the adapter's own importers name the namespace.
+func IsAddonToolName(name string) bool { return addontools.IsToolName(name) }
+
 // DiscoverMCPTools queries each session for its tools and converts them to functions.Function.
 // Deduplicates by tool name (first server wins).
 func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolInfo, error) {

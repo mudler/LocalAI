@@ -82,6 +82,13 @@ type Runtime interface {
 	OpenOutput(context.Context, Envelope, string) (io.ReadCloser, error)
 }
 
+// ActRuntime is a runtime that serves action tools. The host calls Act with an
+// envelope whose action and scope are act; the result is the tool's answer.
+// An add-on that declares no action tool does not implement it.
+type ActRuntime interface {
+	Act(context.Context, Envelope) (Result, error)
+}
+
 // UnmarshalJSON applies fixed default ingress bounds and structural validation.
 // Hosts with overrides decode using their transport's bounded decoder and call
 // Validate with their configured limits before admission.
@@ -111,9 +118,13 @@ func (v Envelope) Validate(now time.Time, l Limits) error {
 		return fmt.Errorf("incomplete or expired authority")
 	}
 	switch a.Scope {
-	case "read", "preview", "apply", "output":
+	case "read", "preview", "apply", "output", "act":
 	default:
 		return fmt.Errorf("invalid authority scope")
+	}
+	// The act scope belongs to the act action and to nothing else.
+	if (a.Scope == "act") != (r.Action == "act") {
+		return fmt.Errorf("the act scope and the act action go together")
 	}
 	var args map[string]json.RawMessage
 	if err := strictJSON(r.Arguments, &args, l.PayloadBytes); err != nil {

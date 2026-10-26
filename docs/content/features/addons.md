@@ -815,14 +815,16 @@ An envelope consists of `request` and host-issued `authority`. Request carries
 nonzero lifecycle `generation`, `action`, and object `arguments`. Authority
 carries `actor` (`userId`, `credentialId`, `mode`), `scope`, and RFC3339
 `expiresAt`. Modes are `named-user` and explicit `local-owner`; scopes are
-`read`, `preview`, `apply`, and `output`. Principal IDs are opaque nonempty
+`read`, `preview`, `apply`, `output` and `act`. The scope `act` and the action
+`act` go together: an envelope has one only with the other. Principal IDs are opaque nonempty
 strings up to 256 bytes. Syntactic validity is **not authentication**: the owner
 must create authority, verify current identity/credential/ACL and mode, and bind
 scope to the actual method. Never accept browser/model-provided approval.
 Call `Validate(now, limits)` at admission; unmarshalling checks structure and
 nonzero expiry but intentionally does not use the wall clock.
 
-`Runtime` provides Read, Preview, Apply, Receipt and OpenOutput. Preview is
+`Runtime` provides Read, Preview, Apply, Receipt and OpenOutput. A runtime that
+serves action tools also implements `ActRuntime` (`Act`), described below. Preview is
 `{operationId,revision:{schema,data},expiresAt,summary}`. Schema revision is
 nonzero; data revision can start at zero. Apply receives that exact revision
 separately and must reject stale schema or data. Receipt is
@@ -1290,6 +1292,29 @@ success using retained instance handles. Repair the storage fault, successfully
 close the manager, and create a new owner manager and supervisor to reconcile the
 durable journal. The existing Linux proc/pidfd identity checks still apply;
 ambiguous pending launches require operator recovery rather than an unsafe kill.
+
+## Action tools
+
+A tool of kind `action` does what a person asked a chat to do, at once, as that
+person, and in that person's own space. It is not confirmed in the browser and
+it is not a proposal. The sandbox add-on, which runs a command, and the office
+add-on, which edits a file the user owns, use it. An `action` tool is not for
+data of a shared resource: a change that others see keeps the confirmation of
+`write`, `schema` and `create`.
+
+- **Declaration.** The tool is in `capabilities.tools` with a definition of kind
+  `action`, and the manifest sets `capabilities.actions` to `true`. The host
+  refuses a manifest that declares an action tool without it. An action tool
+  names no resource: its schema has no `resourceId`, or requires it.
+- **Who may call it.** Only the chats consumer (`studio-chats-addons` in the
+  consumer table of [Tables](../tables/)). Every other consumer neither lists the
+  tool nor runs it: the old chat route, the direct API, agents and scripts.
+- **The call.** `POST /act` with an envelope whose action and scope are `act`.
+  The actor is the user of the chat. The answer is a `Result`. The call may run
+  up to `ActTimeout` (30 minutes), is never retried by the host, and an add-on
+  that dies during it gives the caller `outcome_unknown`.
+- **Undo.** What a tool does to the user's files is a change in the history of
+  their workspace, and it can be undone there.
 
 ## Host operations
 

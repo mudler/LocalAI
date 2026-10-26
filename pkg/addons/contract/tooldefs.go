@@ -22,6 +22,14 @@ const (
 	// ToolKindCreate proposes the creation of a resource. It names no
 	// resource: the host reserves one for the proposer.
 	ToolKindCreate = "create"
+	// ToolKindAction runs under the act action and changes things at once, as
+	// the calling user, with no browser confirmation: the add-on does what a
+	// person asked a chat to do, in that person's own space, and the change is
+	// undone from the history of the space. It names no resource. The host
+	// offers it to the chat consumer only; every other consumer neither lists
+	// nor runs it. An add-on that declares one must say so in its
+	// capabilities (actions).
+	ToolKindAction = "action"
 )
 
 // ResourceArgument is the tool argument that names the resource a tool works
@@ -110,7 +118,7 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 			return fmt.Errorf("invalid tool description")
 		}
 		switch d.Kind {
-		case ToolKindRead, ToolKindWrite, ToolKindSchema, ToolKindCreate:
+		case ToolKindRead, ToolKindWrite, ToolKindSchema, ToolKindCreate, ToolKindAction:
 		default:
 			return fmt.Errorf("invalid tool kind")
 		}
@@ -161,7 +169,7 @@ func ValidateToolSchema(raw json.RawMessage, kind string) error {
 	switch {
 	case kind == ToolKindCreate && has:
 		return fmt.Errorf("%s is absent for a create tool", ResourceArgument)
-	case kind != ToolKindCreate && kind != ToolKindRead && !has:
+	case kind != ToolKindCreate && kind != ToolKindRead && kind != ToolKindAction && !has:
 		return fmt.Errorf("%s is required for a tool of a resource", ResourceArgument)
 	}
 	req, _ := root["required"].([]any)
