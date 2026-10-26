@@ -27,6 +27,15 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/:id/send-now",
 			"POST /api/chats/:id/stop",
 			"GET /api/chats/:id/events",
+			"GET /api/chats/files",
+			"DELETE /api/chats/files",
+			"GET /api/chats/files/content",
+			"PUT /api/chats/files/content",
+			"POST /api/chats/files/folders",
+			"POST /api/chats/files/move",
+			"GET /api/chats/files/trash",
+			"POST /api/chats/files/undo",
+			"GET /api/chats/files/history",
 		))
 		Expect(APIFeatures).To(ContainElement(FeatureChats))
 		Expect(AllFeatures).To(ContainElement(FeatureChats))

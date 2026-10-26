@@ -111,6 +111,41 @@ model access rules and quotas as a direct request to `/v1/chat/completions`.
 
 With authentication off, chats belong to one anonymous owner.
 
+## Your files
+
+Each user has a personal workspace: folders at any depth, uploads, a Trash and
+a history with undo. Paths in the API are inside your own home folder, which is
+`/`. You cannot name another user's files, and a path with `..` is refused.
+
+```bash
+curl -X PUT  ".../api/chats/files/content?path=/Reports/q1.txt" --data-binary @q1.txt
+curl         ".../api/chats/files?path=/Reports"                    # list a folder
+curl         ".../api/chats/files/content?path=/Reports/q1.txt"     # download
+curl -X POST ".../api/chats/files/move" -d '{"from": "/Reports/q1.txt", "to": "/Archive/q1.txt"}'
+curl -X DELETE ".../api/chats/files?path=/Archive"                  # to the Trash
+curl         ".../api/chats/files/trash"                            # what can be restored
+curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
+```
+
+- **Nothing is erased.** A delete goes to the Trash, and undo restores it as a new change. A change you made after the deletion that conflicts with the restore makes it answer `409`; with `skip_conflicts` the rest is restored.
+- **Two uploads, one name.** An upload replaces a file only when it says which version it started from (`base`). Otherwise both are kept, and the new one is named `name (from you).ext`; the answer says so in `conflict_of`.
+- **Downloads are safe.** Files are served as downloads. With `inline=1` an image, PDF, plain text, audio or video is shown by the browser; anything else, HTML and SVG included, never runs as a page.
+- **Attachments.** Send a message as `multipart/form-data` with a `text` field and `files`. The files are saved in the chat's own folder under `Chats/` and the model gets their paths. Files go only with a message that starts a turn: with a turn running, the answer is `409`.
+- **A file is at most 256 MiB.**
+
+Files need a place to live. Where the tree and the bytes go:
+
+| Setup | Tree | File contents |
+|---|---|---|
+| Authentication on | The auth database. | The data path, or the object store in a cluster. |
+| No database, a data path set | A private SQLite file under `<data path>/chats`. | A folder under the data path. |
+| No data path | none | none: files are off. |
+
+When files are off, every files route and every attachment answers `409` with
+the reason, the list endpoint returns `"files": false` and `files_reason`, and
+everything else in the chats works. In a cluster the bytes go to the object
+store, so a file written through one frontend is read through another.
+
 ## Storage
 
 | Setup | Where conversations live |

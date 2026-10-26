@@ -2477,6 +2477,12 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsConversation'
         type: array
+      files:
+        description: Files is false when the workspace is off; FilesReason then says
+          why.
+        type: boolean
+      files_reason:
+        type: string
       persistent:
         description: |-
           Persistent is false when conversations live in memory and are lost when
@@ -2518,6 +2524,83 @@ definitions:
       turn:
         type: integer
     type: object
+  schema.ChatsFile:
+    properties:
+      conflict_of:
+        description: |-
+          ConflictOf is set when an upload kept both files: it is the path the
+          caller asked for, and Path is where the new content went.
+        type: string
+      kind:
+        description: file or dir
+        type: string
+      name:
+        type: string
+      path:
+        type: string
+      rev:
+        type: integer
+      size:
+        type: integer
+      version:
+        type: integer
+    type: object
+  schema.ChatsFileConflict:
+    properties:
+      path:
+        type: string
+      reason:
+        type: string
+    type: object
+  schema.ChatsFileList:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/schema.ChatsFile'
+        type: array
+      path:
+        type: string
+    type: object
+  schema.ChatsFileOp:
+    properties:
+      from:
+        type: string
+      kind:
+        description: create, write, move or delete
+        type: string
+      path:
+        type: string
+    type: object
+  schema.ChatsFolderRequest:
+    properties:
+      path:
+        type: string
+    type: object
+  schema.ChatsHistory:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/schema.ChatsHistoryEntry'
+        type: array
+    type: object
+  schema.ChatsHistoryEntry:
+    properties:
+      at:
+        type: string
+      chat:
+        type: string
+      kind:
+        description: user, agent, upload or undo
+        type: string
+      ops:
+        items:
+          $ref: '#/definitions/schema.ChatsFileOp'
+        type: array
+      rev:
+        type: integer
+      title:
+        type: string
+    type: object
   schema.ChatsMessage:
     properties:
       at:
@@ -2541,6 +2624,13 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsMessage'
         type: array
+    type: object
+  schema.ChatsMoveRequest:
+    properties:
+      from:
+        type: string
+      to:
+        type: string
     type: object
   schema.ChatsPending:
     properties:
@@ -2578,6 +2668,42 @@ definitions:
         type: string
       summary:
         type: string
+    type: object
+  schema.ChatsTrash:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/schema.ChatsTrashEntry'
+        type: array
+    type: object
+  schema.ChatsTrashEntry:
+    properties:
+      at:
+        type: string
+      paths:
+        items:
+          type: string
+        type: array
+      rev:
+        type: integer
+      title:
+        type: string
+    type: object
+  schema.ChatsUndoRequest:
+    properties:
+      rev:
+        type: integer
+      skip_conflicts:
+        type: boolean
+    type: object
+  schema.ChatsUndoResponse:
+    properties:
+      conflicts:
+        items:
+          $ref: '#/definitions/schema.ChatsFileConflict'
+        type: array
+      rev:
+        type: integer
     type: object
   schema.Choice:
     properties:
@@ -8562,8 +8688,12 @@ paths:
       tags:
       - chats
     post:
-      description: With no turn running the message starts one. With a turn running
-        it waits and reaches the model, with any others, at its next request.
+      consumes:
+      - application/json
+      - multipart/form-data
+      description: |-
+        With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.
+        Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace and go only with a message that starts a turn.
       parameters:
       - description: conversation id
         in: path
@@ -8576,6 +8706,10 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsSendRequest'
+      - description: files to attach (multipart)
+        in: formData
+        name: files
+        type: file
       responses:
         "200":
           description: Whether a turn started, or the id of the waiting message
@@ -8671,6 +8805,184 @@ paths:
               type: boolean
             type: object
       summary: Stop the running turn.
+      tags:
+      - chats
+  /api/chats/files:
+    delete:
+      description: 'Nothing is erased: the deletion is a change that the Trash lists
+        and undo restores.'
+      parameters:
+      - description: file or folder inside your home
+        in: query
+        name: path
+        required: true
+        type: string
+      responses:
+        "200":
+          description: deleted
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Delete a file or folder.
+      tags:
+      - chats
+    get:
+      parameters:
+      - description: folder inside your home; default /
+        in: query
+        name: path
+        type: string
+      responses:
+        "200":
+          description: The folder's entries, sorted by name
+          schema:
+            $ref: '#/definitions/schema.ChatsFileList'
+        "409":
+          description: Files are off on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List a folder of your files.
+      tags:
+      - chats
+  /api/chats/files/content:
+    get:
+      description: Files are served as downloads. With inline=1 an image, PDF, plain
+        text, audio or video is shown by the browser instead. Ranges are supported.
+      parameters:
+      - description: file inside your home
+        in: query
+        name: path
+        required: true
+        type: string
+      - description: 1 to show a safe type in the browser
+        in: query
+        name: inline
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: The file
+          schema:
+            type: file
+      summary: Download a file.
+      tags:
+      - chats
+    put:
+      consumes:
+      - application/octet-stream
+      description: The request body is the file. A file that exists is replaced only
+        when the upload says which version it started from (base); otherwise both
+        are kept and the new one gets a conflict name, reported in conflict_of. overwrite=1
+        replaces without the check.
+      parameters:
+      - description: file inside your home; missing folders are created
+        in: query
+        name: path
+        required: true
+        type: string
+      - description: version of the existing file the upload started from
+        in: query
+        name: base
+        type: integer
+      - description: 1 to replace without the version check
+        in: query
+        name: overwrite
+        type: integer
+      responses:
+        "200":
+          description: The stored file
+          schema:
+            $ref: '#/definitions/schema.ChatsFile'
+        "413":
+          description: The file is too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Upload a file.
+      tags:
+      - chats
+  /api/chats/files/folders:
+    post:
+      parameters:
+      - description: the folder
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsFolderRequest'
+      responses:
+        "200":
+          description: The folder
+          schema:
+            $ref: '#/definitions/schema.ChatsFile'
+      summary: Create a folder.
+      tags:
+      - chats
+  /api/chats/files/history:
+    get:
+      parameters:
+      - description: folder or file inside your home; default /
+        in: query
+        name: path
+        type: string
+      - description: most entries to return (default 50, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Change sets, newest first
+          schema:
+            $ref: '#/definitions/schema.ChatsHistory'
+      summary: List the changes to your files.
+      tags:
+      - chats
+  /api/chats/files/move:
+    post:
+      parameters:
+      - description: from and to
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMoveRequest'
+      responses:
+        "200":
+          description: The moved entry
+          schema:
+            $ref: '#/definitions/schema.ChatsFile'
+      summary: Move or rename a file or folder.
+      tags:
+      - chats
+  /api/chats/files/trash:
+    get:
+      responses:
+        "200":
+          description: Deletions that nobody has undone, newest first
+          schema:
+            $ref: '#/definitions/schema.ChatsTrash'
+      summary: List the Trash.
+      tags:
+      - chats
+  /api/chats/files/undo:
+    post:
+      description: 'Restores what a change set changed, as a new change. When later
+        changes conflict, nothing changes and the answer is 409, unless skip_conflicts
+        is set: then the rest is restored and the conflicts are listed.'
+      parameters:
+      - description: the revision
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsUndoRequest'
+      responses:
+        "200":
+          description: The new revision and any conflicts that were skipped
+          schema:
+            $ref: '#/definitions/schema.ChatsUndoResponse'
+      summary: Undo a change.
       tags:
       - chats
   /api/conversations:

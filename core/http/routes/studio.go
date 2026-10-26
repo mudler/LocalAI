@@ -36,6 +36,16 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	}
 	h := studioendpoint.New(svc, models)
 	const base = "/api/chats"
+	// The files routes come before the "/:id" ones; "files" is not a chat id.
+	e.GET(base+"/files", h.ListFiles)
+	e.DELETE(base+"/files", h.DeleteFile)
+	e.GET(base+"/files/content", h.GetFileContent)
+	e.PUT(base+"/files/content", h.PutFileContent)
+	e.POST(base+"/files/folders", h.CreateFolder)
+	e.POST(base+"/files/move", h.MoveFile)
+	e.GET(base+"/files/trash", h.Trash)
+	e.POST(base+"/files/undo", h.UndoFiles)
+	e.GET(base+"/files/history", h.FileHistory)
 	e.POST(base, h.Create)
 	e.GET(base, h.List)
 	e.GET(base+"/:id", h.Get)

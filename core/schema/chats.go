@@ -31,6 +31,9 @@ type ChatsConversationList struct {
 	// Persistent is false when conversations live in memory and are lost when
 	// the server restarts.
 	Persistent bool `json:"persistent"`
+	// Files is false when the workspace is off; FilesReason then says why.
+	Files       bool   `json:"files"`
+	FilesReason string `json:"files_reason,omitempty"`
 }
 
 // ChatsConversationDetail is a conversation with the messages waiting for the model.
@@ -101,4 +104,88 @@ type ChatsToolEvent struct {
 	Summary string `json:"summary,omitempty"`
 	OK      bool   `json:"ok,omitempty"`
 	Output  string `json:"output,omitempty"`
+}
+
+// ChatsFile is a file or folder of the user's workspace. Paths are inside the
+// user's home folder, which is "/".
+type ChatsFile struct {
+	Path    string `json:"path"`
+	Name    string `json:"name"`
+	Kind    string `json:"kind"` // file or dir
+	Size    int64  `json:"size"`
+	Version int64  `json:"version"`
+	Rev     int64  `json:"rev"`
+	// ConflictOf is set when an upload kept both files: it is the path the
+	// caller asked for, and Path is where the new content went.
+	ConflictOf string `json:"conflict_of,omitempty"`
+}
+
+// ChatsFileList is a folder with its entries, sorted by name.
+type ChatsFileList struct {
+	Path    string      `json:"path"`
+	Entries []ChatsFile `json:"entries"`
+}
+
+// ChatsFolderRequest creates a folder.
+type ChatsFolderRequest struct {
+	Path string `json:"path"`
+}
+
+// ChatsMoveRequest moves or renames a file or folder.
+type ChatsMoveRequest struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+// ChatsUndoRequest undoes one change set.
+type ChatsUndoRequest struct {
+	Rev           int64 `json:"rev"`
+	SkipConflicts bool  `json:"skip_conflicts,omitempty"`
+}
+
+// ChatsFileConflict is something an undo could not revert.
+type ChatsFileConflict struct {
+	Path   string `json:"path"`
+	Reason string `json:"reason"`
+}
+
+// ChatsUndoResponse is the result of an undo.
+type ChatsUndoResponse struct {
+	Rev       int64               `json:"rev"`
+	Conflicts []ChatsFileConflict `json:"conflicts,omitempty"`
+}
+
+// ChatsTrashEntry is a deletion that can be undone.
+type ChatsTrashEntry struct {
+	Rev   int64     `json:"rev"`
+	Title string    `json:"title"`
+	At    time.Time `json:"at"`
+	Paths []string  `json:"paths"`
+}
+
+// ChatsTrash lists the deletions that can be undone, newest first.
+type ChatsTrash struct {
+	Entries []ChatsTrashEntry `json:"entries"`
+}
+
+// ChatsFileOp is one change of a change set.
+type ChatsFileOp struct {
+	Kind string `json:"kind"` // create, write, move or delete
+	Path string `json:"path"`
+	From string `json:"from,omitempty"`
+}
+
+// ChatsHistoryEntry is one change set.
+type ChatsHistoryEntry struct {
+	Rev   int64         `json:"rev"`
+	Title string        `json:"title"`
+	Kind  string        `json:"kind"` // user, agent, upload or undo
+	Chat  string        `json:"chat,omitempty"`
+	At    time.Time     `json:"at"`
+	Ops   []ChatsFileOp `json:"ops"`
+}
+
+// ChatsHistory lists change sets, newest first.
+type ChatsHistory struct {
+	Entries []ChatsHistoryEntry `json:"entries"`
 }

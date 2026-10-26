@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -16,8 +17,10 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 // Errors a ModelChecker returns.
@@ -52,6 +55,9 @@ func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 	return &Handlers{svc: svc, models: models}
 }
 
+// maxAttachBytes caps one message with its attachments.
+const maxAttachBytes = 1 << 30
+
 const (
 	defaultListLimit = 50
 	maxListLimit     = 200
@@ -79,6 +85,12 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusNotFound, "not_found", "conversation not found")
 	case errors.Is(err, store.ErrDelivered):
 		return fail(c, http.StatusConflict, "conflict", "the message was already delivered to the model")
+	case errors.Is(err, studiosvc.ErrFilesWhileRunning):
+		return fail(c, http.StatusConflict, "conflict", err.Error())
+	case errors.Is(err, files.ErrUnavailable):
+		return fail(c, http.StatusConflict, "files_off", err.Error())
+	case errors.Is(err, workspace.ErrTooLarge):
+		return fail(c, http.StatusRequestEntityTooLarge, "invalid_request_error", "an attachment is too large")
 	case errors.Is(err, studiosvc.ErrSubAgentReadOnly):
 		return fail(c, http.StatusConflict, "conflict", "a sub-agent conversation takes no messages from you")
 	case errors.Is(err, studiosvc.ErrNoModel):
@@ -153,7 +165,7 @@ func (h *Handlers) List(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	out := schema.ChatsConversationList{Conversations: make([]schema.ChatsConversation, 0, len(recs)), Persistent: h.svc.Persistent()}
+	out := schema.ChatsConversationList{Conversations: make([]schema.ChatsConversation, 0, len(recs)), Persistent: h.svc.Persistent(), Files: h.svc.Files().Available(), FilesReason: h.svc.Files().Unavailable()}
 	for _, rec := range recs {
 		conv, err := h.describe(c, user, rec)
 		if err != nil {
@@ -232,15 +244,46 @@ func (h *Handlers) Messages(c echo.Context) error {
 // @Description With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.
 // @Tags chats
 // @Param id path string true "conversation id"
+// @Description Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace and go only with a message that starts a turn.
+// @Accept json,mpfd
 // @Param request body schema.ChatsSendRequest true "the message"
+// @Param files formData file false "files to attach (multipart)"
 // @Success 200 {object} schema.ChatsSendResponse "Whether a turn started, or the id of the waiting message"
 // @Router /api/chats/{id}/messages [post]
 func (h *Handlers) Send(c echo.Context) error {
-	var req schema.ChatsSendRequest
-	if err := c.Bind(&req); err != nil || req.Text == "" {
+	var (
+		text string
+		up   []session.Upload
+	)
+	if strings.HasPrefix(c.Request().Header.Get("Content-Type"), "multipart/form-data") {
+		c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxAttachBytes)
+		form, err := c.MultipartForm()
+		if err != nil {
+			return fail(c, http.StatusBadRequest, "invalid_request_error", "the attachments could not be read")
+		}
+		defer func() { _ = form.RemoveAll() }()
+		if v := form.Value["text"]; len(v) > 0 {
+			text = v[0]
+		}
+		for _, fh := range form.File["files"] {
+			f, err := fh.Open()
+			if err != nil {
+				return fail(c, http.StatusBadRequest, "invalid_request_error", "an attachment could not be read")
+			}
+			defer f.Close()
+			up = append(up, session.Upload{Name: fh.Filename, Body: f})
+		}
+	} else {
+		var req schema.ChatsSendRequest
+		if err := c.Bind(&req); err != nil {
+			return fail(c, http.StatusBadRequest, "invalid_request_error", "text is required")
+		}
+		text = req.Text
+	}
+	if text == "" && len(up) == 0 {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "text is required")
 	}
-	res, err := h.svc.Send(c.Request().Context(), userID(c), c.Param("id"), req.Text)
+	res, err := h.svc.SendWithFiles(c.Request().Context(), userID(c), c.Param("id"), text, up)
 	if err != nil {
 		return failFor(c, err)
 	}

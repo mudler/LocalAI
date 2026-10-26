@@ -18,6 +18,7 @@ import (
 	studioendpoint "github.com/mudler/LocalAI/core/http/endpoints/studio"
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
@@ -34,7 +35,9 @@ type studioServer struct {
 	sessions map[string]string
 }
 
-func newStudioServer() *studioServer {
+func newStudioServer() *studioServer { return newStudioServerFiles(newTestFiles()) }
+
+func newStudioServerFiles(f *files.Service) *studioServer {
 	db, err := auth.InitDB(":memory:")
 	Expect(err).NotTo(HaveOccurred())
 	sqlDB, err := db.DB()
@@ -44,7 +47,7 @@ func newStudioServer() *studioServer {
 	st, err := store.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	h := studiotest.NewGateHarness()
-	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h})
+	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f})
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = svc.Close(context.Background()) })
 

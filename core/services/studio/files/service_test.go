@@ -88,3 +88,68 @@ func TestWithoutAWorkspaceTheServiceSaysWhy(t *testing.T) {
 		t.Fatalf("EnsureHome on a disabled service = %v, want ErrUnavailable", err)
 	}
 }
+
+func TestPathsAreRelativeToTheUsersHomeAndCannotEscapeIt(t *testing.T) {
+	f := newFiles(t)
+	abs, err := f.Abs("alice", "/Reports/q1.txt")
+	if err != nil || abs != session.HomePath("alice")+"/Reports/q1.txt" {
+		t.Fatalf("Abs = %q, %v", abs, err)
+	}
+	if got := f.Rel("alice", abs); got != "/Reports/q1.txt" {
+		t.Fatalf("Rel = %q", got)
+	}
+	if got, _ := f.Abs("alice", "/"); got != session.HomePath("alice") {
+		t.Fatalf("Abs(/) = %q, want the home", got)
+	}
+	for _, bad := range []string{"/../bob", "/a/../../bob", "/a\x00b", "/a//../..", "/.."} {
+		if got, err := f.Abs("alice", bad); err == nil {
+			t.Errorf("Abs(%q) = %q, want an error", bad, got)
+		}
+	}
+	// A path in another home is not shown as a relative path.
+	if got := f.Rel("alice", session.HomePath("bob")+"/x"); got != "" {
+		t.Errorf("Rel of another home = %q, want empty", got)
+	}
+}
+
+func TestADeletedFileIsInTheTrashUntilItIsRestored(t *testing.T) {
+	ctx := context.Background()
+	f := newFiles(t)
+	if err := f.EnsureHome(ctx, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	alice := f.Actor("alice")
+	put := func(rel string) {
+		abs, _ := f.Abs("alice", rel)
+		if _, err := f.Store().Put(ctx, alice, abs, strings.NewReader("data"), workspace.PutOptions{Overwrite: true}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put("/Docs/a.txt")
+	put("/Docs/b.txt")
+	absDocs, _ := f.Abs("alice", "/Docs")
+	if err := f.Store().Delete(ctx, alice, absDocs); err != nil {
+		t.Fatal(err)
+	}
+	trash, err := f.Trash(ctx, "alice", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trash) != 1 || len(trash[0].Paths) != 1 || trash[0].Paths[0] != "/Docs" {
+		t.Fatalf("trash = %+v, want one entry for the folder /Docs, not its files", trash)
+	}
+	if _, _, err := f.Store().Undo(ctx, alice, trash[0].Rev, workspace.UndoOptions{}); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	if after, _ := f.Trash(ctx, "alice", 50); len(after) != 0 {
+		t.Fatalf("trash after the restore = %+v, want empty", after)
+	}
+	bob := f.Actor("bob")
+	if err := f.EnsureHome(ctx, "bob"); err != nil {
+		t.Fatal(err)
+	}
+	if t2, _ := f.Trash(ctx, "bob", 50); len(t2) != 0 {
+		t.Fatalf("bob sees %+v in his trash", t2)
+	}
+	_ = bob
+}

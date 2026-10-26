@@ -3562,6 +3562,271 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/files": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List a folder of your files.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "folder inside your home; default /",
+                        "name": "path",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder's entries, sorted by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsFileList"
+                        }
+                    },
+                    "409": {
+                        "description": "Files are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Nothing is erased: the deletion is a change that the Trash lists and undo restores.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a file or folder.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "file or folder inside your home",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/content": {
+            "get": {
+                "description": "Files are served as downloads. With inline=1 an image, PDF, plain text, audio or video is shown by the browser instead. Ranges are supported.",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Download a file.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "file inside your home",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "1 to show a safe type in the browser",
+                        "name": "inline",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "The request body is the file. A file that exists is replaced only when the upload says which version it started from (base); otherwise both are kept and the new one gets a conflict name, reported in conflict_of. overwrite=1 replaces without the check.",
+                "consumes": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Upload a file.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "file inside your home; missing folders are created",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version of the existing file the upload started from",
+                        "name": "base",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "1 to replace without the version check",
+                        "name": "overwrite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The stored file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsFile"
+                        }
+                    },
+                    "413": {
+                        "description": "The file is too large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/folders": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Create a folder.",
+                "parameters": [
+                    {
+                        "description": "the folder",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsFolderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsFile"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/history": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the changes to your files.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "folder or file inside your home; default /",
+                        "name": "path",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most entries to return (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Change sets, newest first",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsHistory"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/move": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Move or rename a file or folder.",
+                "parameters": [
+                    {
+                        "description": "from and to",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMoveRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The moved entry",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsFile"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/trash": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the Trash.",
+                "responses": {
+                    "200": {
+                        "description": "Deletions that nobody has undone, newest first",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrash"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/undo": {
+            "post": {
+                "description": "Restores what a change set changed, as a new change. When later changes conflict, nothing changes and the answer is 409, unless skip_conflicts is set: then the rest is restored and the conflicts are listed.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Undo a change.",
+                "parameters": [
+                    {
+                        "description": "the revision",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsUndoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The new revision and any conflicts that were skipped",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsUndoResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}": {
             "get": {
                 "tags": [
@@ -3679,7 +3944,11 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.",
+                "description": "With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.\nSend JSON {\"text\"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace and go only with a message that starts a turn.",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
                 "tags": [
                     "chats"
                 ],
@@ -3700,6 +3969,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSendRequest"
                         }
+                    },
+                    {
+                        "type": "file",
+                        "description": "files to attach (multipart)",
+                        "name": "files",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -11600,6 +11875,13 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.ChatsConversation"
                     }
                 },
+                "files": {
+                    "description": "Files is false when the workspace is off; FilesReason then says why.",
+                    "type": "boolean"
+                },
+                "files_reason": {
+                    "type": "string"
+                },
                 "persistent": {
                     "description": "Persistent is false when conversations live in memory and are lost when\nthe server restarts.",
                     "type": "boolean"
@@ -11655,6 +11937,120 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsFile": {
+            "type": "object",
+            "properties": {
+                "conflict_of": {
+                    "description": "ConflictOf is set when an upload kept both files: it is the path the\ncaller asked for, and Path is where the new content went.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "file or dir",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsFileConflict": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsFileList": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsFile"
+                    }
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsFileOp": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "create, write, move or delete",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsFolderRequest": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsHistory": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsHistoryEntry"
+                    }
+                }
+            }
+        },
+        "schema.ChatsHistoryEntry": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "chat": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "user, agent, upload or undo",
+                    "type": "string"
+                },
+                "ops": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsFileOp"
+                    }
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsMessage": {
             "type": "object",
             "properties": {
@@ -11688,6 +12084,17 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsMessage"
                     }
+                }
+            }
+        },
+        "schema.ChatsMoveRequest": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
                 }
             }
         },
@@ -11746,6 +12153,62 @@ const docTemplate = `{
                 },
                 "summary": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsTrash": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsTrashEntry"
+                    }
+                }
+            }
+        },
+        "schema.ChatsTrashEntry": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsUndoRequest": {
+            "type": "object",
+            "properties": {
+                "rev": {
+                    "type": "integer"
+                },
+                "skip_conflicts": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsUndoResponse": {
+            "type": "object",
+            "properties": {
+                "conflicts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsFileConflict"
+                    }
+                },
+                "rev": {
+                    "type": "integer"
                 }
             }
         },

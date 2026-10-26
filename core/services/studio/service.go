@@ -32,6 +32,10 @@ const AnonymousPrincipal = "anonymous"
 // ErrNoModel means a conversation was created without a model.
 var ErrNoModel = errors.New("studio: a conversation needs a model")
 
+// ErrFilesWhileRunning means a message with files was sent while a turn runs.
+// Waiting messages are text, so files go only with the message that starts a turn.
+var ErrFilesWhileRunning = errors.New("studio: files can be attached when no turn is running; wait for it or stop it")
+
 // ErrSubAgentReadOnly means a user tried to send to a sub-agent conversation.
 // It runs with the tools its parent chose, so only the parent starts it.
 var ErrSubAgentReadOnly = errors.New("studio: a sub-agent conversation takes no messages from the user")
@@ -241,6 +245,10 @@ func (s *Service) Turn(ctx context.Context, user, conv string) (store.TurnInfo, 
 	return s.d.Store.Turn(ctx, principal(user), conv)
 }
 
+// Principal returns the owner ID the service uses for a user: the user's ID,
+// or the anonymous owner when authentication is off.
+func (s *Service) Principal(user string) string { return principal(user) }
+
 // Files returns the workspace of the chats. It is never nil.
 func (s *Service) Files() *files.Service { return s.d.Files }
 
@@ -276,6 +284,14 @@ func (s *Service) Events(ctx context.Context, user, conv string) (<-chan session
 // With a turn running the message waits and reaches the model, together with
 // any others, at the loop's next model request.
 func (s *Service) Send(ctx context.Context, user, conv, text string) (SendResult, error) {
+	return s.SendWithFiles(ctx, user, conv, text, nil)
+}
+
+// SendWithFiles is Send with files attached. The files are saved in the chat's
+// folder of the user's workspace and the model gets their paths. They go only
+// with the message that starts a turn: with a turn running it is
+// ErrFilesWhileRunning, and with files off it is files.ErrUnavailable.
+func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
 	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
 	if err != nil {
 		return SendResult{}, err
@@ -283,12 +299,15 @@ func (s *Service) Send(ctx context.Context, user, conv, text string) (SendResult
 	if rec.Kind == session.KindSubAgent {
 		return SendResult{}, ErrSubAgentReadOnly
 	}
-	return s.send(ctx, user, conv, text)
+	if len(up) > 0 && !s.d.Files.Available() {
+		return SendResult{}, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
+	}
+	return s.send(ctx, user, conv, text, up)
 }
 
-// send is Send without the check on the kind: the service itself starts
-// sub-agent conversations through it.
-func (s *Service) send(ctx context.Context, user, conv, text string) (SendResult, error) {
+// send is SendWithFiles without the check on the kind: the service itself
+// starts sub-agent conversations through it.
+func (s *Service) send(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
 	p := principal(user)
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return SendResult{}, err
@@ -310,7 +329,7 @@ func (s *Service) send(ctx context.Context, user, conv, text string) (SendResult
 			texts, ids[i] = append(texts, t.Text), t.ID
 		}
 		texts = append(texts, text)
-		if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n")); err != nil {
+		if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n"), up); err != nil {
 			_ = s.d.Store.RestorePending(ctx, p, conv, ids)
 			return SendResult{}, err
 		}
@@ -320,6 +339,9 @@ func (s *Service) send(ctx context.Context, user, conv, text string) (SendResult
 		}
 		return SendResult{Started: true}, nil
 	case errors.Is(err, store.ErrTurnRunning):
+		if len(up) > 0 {
+			return SendResult{}, ErrFilesWhileRunning
+		}
 		pend, err := s.d.Store.AddPending(ctx, p, conv, text)
 		if err != nil {
 			return SendResult{}, err
@@ -416,7 +438,7 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 	for i, t := range taken {
 		texts[i], ids[i] = t.Text, t.ID
 	}
-	if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n")); err != nil {
+	if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n"), nil); err != nil {
 		_ = s.d.Store.RestorePending(ctx, p, conv, ids)
 		return false, err
 	}
@@ -426,7 +448,7 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 }
 
 // startTurn runs text as a turn the claim runID already covers.
-func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string) error {
+func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up []session.Upload) error {
 	chat, err := s.chat(ctx, p, conv)
 	if err != nil {
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
@@ -448,7 +470,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string) er
 	s.mu.Lock()
 	s.runs[k] = &run{id: runID, end: end}
 	s.mu.Unlock()
-	if err := chat.Send(context.WithoutCancel(ctx), session.Message{Text: text}); err != nil {
+	if err := chat.Send(context.WithoutCancel(ctx), session.Message{Text: text, Files: up}); err != nil {
 		s.mu.Lock()
 		delete(s.runs, k)
 		s.mu.Unlock()
