@@ -38,7 +38,8 @@ func buildProcessKey(modelID, backend string, replicaIndex int) string {
 // upgrade path; force=false is the routine load path.
 //
 // The caller is responsible for holding s.lockBackend(req.Backend) for
-// the duration of the call so the gallery directory isn't raced.
+// the duration of the call so the gallery directory isn't raced. Production
+// serveInstall also holds lockInstallSlot through readiness and attachment.
 //
 //  1. If already running for this (model, replica) slot AND force is false,
 //     return existing address (the fast path used by routine load events that
@@ -271,6 +272,25 @@ func (s *backendSupervisor) lockBackend(name string) func() {
 	if !ok {
 		m = &sync.Mutex{}
 		s.backendLocks[name] = m
+	}
+	s.mu.Unlock()
+	m.Lock()
+	return m.Unlock
+}
+
+// lockInstallSlot protects one complete serveInstall transaction, including
+// readiness and operation attachment. It is acquired after lockBackend. Stops
+// (including upgrade's multi-slot stops) must not acquire it: they can interrupt
+// startup, and must not wait on an install holding an artifact lock they need.
+func (s *backendSupervisor) lockInstallSlot(key string) func() {
+	s.mu.Lock()
+	if s.installSlotLocks == nil {
+		s.installSlotLocks = make(map[string]*sync.Mutex)
+	}
+	m := s.installSlotLocks[key]
+	if m == nil {
+		m = &sync.Mutex{}
+		s.installSlotLocks[key] = m
 	}
 	s.mu.Unlock()
 	m.Lock()

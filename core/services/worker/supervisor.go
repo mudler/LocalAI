@@ -161,6 +161,10 @@ type backendSupervisor struct {
 	// download path doesn't race itself on the same directory.
 	backendLocks map[string]*sync.Mutex
 
+	// installSlotLocks serializes installs for a process key, even when their
+	// backend names (and therefore artifact locks) differ. Worker-local only.
+	installSlotLocks map[string]*sync.Mutex
+
 	// operations are the loads the watchdog bounds, by operation id. Guarded by
 	// mu. See operations.go.
 	operations map[string]*loadOperation
