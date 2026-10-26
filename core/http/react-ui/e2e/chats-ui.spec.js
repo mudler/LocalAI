@@ -240,3 +240,29 @@ test.describe('Chats page with a stubbed API', () => {
     })
   })
 })
+
+test.describe('Chat skills panel', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+
+  test('lists what the chat can use and sends the switches that change', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    const calls = []
+    await page.route(/\/api\/chats\/skills(\?.*)?$/, route => route.fulfill({ json: { skills: [
+      { name: 'review', description: 'Check a change', layer: 'personal', path: '/a', enabled: true, editable: true },
+      { name: 'notes', description: 'Keep notes', layer: 'shared', path: '/b', enabled: false, editable: false },
+      { name: 'old', description: 'Hidden', layer: 'shared', path: '/c', enabled: true, shadowed: 'personal', editable: false },
+    ] } }))
+    await page.route('**/api/chats/c1/skills', route => {
+      calls.push(route.request().postDataJSON())
+      return route.fulfill({ json: { off: route.request().postDataJSON().off } })
+    })
+    await page.goto('/app/chats/c1')
+    await page.getByText(/^Skills \(/).click()
+    await expect(page.getByRole('checkbox', { name: 'review' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'notes' })).not.toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'old' })).toHaveCount(0)
+    await page.getByRole('checkbox', { name: 'review' }).uncheck()
+    await expect.poll(() => calls.at(-1)).toEqual({ off: ['notes', 'review'] })
+  })
+})

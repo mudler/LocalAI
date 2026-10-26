@@ -230,6 +230,17 @@ export const filesApi = {
   search: (query, path = '/') => fetchJSON(API_CONFIG.endpoints.filesSearch + q({ q: query, path })),
 }
 
+// Chat skills: folders with a SKILL.md in four layers, switched per chat.
+const enc2 = encodeURIComponent
+export const chatSkillsApi = {
+  list: (chat) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : ''}`),
+  get: (layer, name) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`),
+  create: (body) => postJSON('/api/chats/skills', body),
+  update: (layer, name, body) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: (layer, name) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'DELETE' }),
+  setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/skills`, { method: 'PUT', body: JSON.stringify({ off }) }),
+}
+
 export const chatHistoryApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.conversations),
   get: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id)),

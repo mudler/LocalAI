@@ -1,0 +1,84 @@
+/* ==========================================================================
+   Chat skills: the skills a chat can use, by layer, and a form to write one.
+   Flat lists and hairlines, like the chats and files pages.
+   ========================================================================== */
+
+.cs-page {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-4);
+  padding: var(--dk-space-5) var(--dk-space-6);
+  overflow-y: auto;
+}
+
+.cs-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); }
+.cs-title { margin: 0; font-size: 1.25rem; font-weight: 600; }
+.cs-sub { margin: 0 0 var(--dk-space-2); font-size: 1rem; font-weight: 600; }
+.cs-muted { margin: 0; color: var(--color-text-muted); }
+
+.cs-group { display: flex; flex-direction: column; }
+
+.cs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+.cs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-2) var(--dk-space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.cs-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cs-row__name { font-weight: 600; }
+.cs-row__actions { display: flex; gap: var(--dk-space-2); flex: none; }
+
+.cs-tag {
+  align-self: flex-start;
+  padding: 0 var(--dk-space-2);
+  border-radius: var(--dk-radius-1);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.cs-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-3);
+  max-width: 720px;
+  padding: var(--dk-space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--dk-radius-2);
+}
+
+.cs-field { display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.cs-field > span { font-size: 0.8125rem; color: var(--color-text-secondary); }
+.cs-body { font-family: var(--font-mono, monospace); }
+.cs-actions { display: flex; gap: var(--dk-space-2); }
+
+.cs-notice {
+  padding: var(--dk-space-3) var(--dk-space-4);
+  border-radius: var(--dk-radius-2);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+.cs-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-2) var(--dk-space-4);
+  border-radius: var(--dk-radius-2);
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.cs-link { background: none; border: 0; padding: 0; color: var(--color-primary); cursor: pointer; font: inherit; }
+
+@media (max-width: 900px) {
+  .cs-page { padding: var(--dk-space-4); }
+}

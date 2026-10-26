@@ -58,5 +58,35 @@
     "list": "Attached files",
     "remove": "Remove {{name}}",
     "off": "Files are off on this server."
+  },
+  "skills": {
+    "summary": "Skills ({{on}} of {{total}} on)",
+    "none": "No skills yet.",
+    "manage": "Manage skills",
+    "off": "off for this chat"
+  },
+  "skillsPage": {
+    "title": "Skills",
+    "intro": "A skill is a folder with a SKILL.md that tells the model how to do one kind of task. Chats list the skills they can use and the model reads one when a task matches. The nearest skill wins when two have the same name.",
+    "new": "New skill",
+    "edit": "Edit skill",
+    "editButton": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "layer": "Where",
+    "name": "Name",
+    "description": "Description",
+    "body": "Instructions",
+    "groups": {
+      "personal": "Personal",
+      "folder": "In your folders",
+      "shared": "Shared",
+      "builtin": "Built in"
+    },
+    "shadowed": "overridden by {{layer}}",
+    "invalid": "Skipped: {{reason}}",
+    "empty": "You have no skills yet.",
+    "back": "Back to chats"
   }
 }

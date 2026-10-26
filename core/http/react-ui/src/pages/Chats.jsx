@@ -1,15 +1,66 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ModelSelector from '../components/ModelSelector'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useServerChat } from '../hooks/useServerChat'
+import { chatSkillsApi } from '../utils/api'
 import './chats.css'
 
 // First line of a tool entry: the transcript keeps the summary and a capped output.
 const firstLine = (text) => (text || '').split('\n')[0]
+
+
+// The skills a chat can use, with a switch each. Only the skill that wins is
+// listed: one that another overrides cannot be used anyway.
+function SkillsPanel({ chatId, filesOn, t }) {
+  const [skills, setSkills] = useState([])
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (!chatId || !filesOn) { setSkills([]); return undefined }
+    let live = true
+    chatSkillsApi.list(chatId)
+      .then((res) => { if (live) setSkills((res.skills || []).filter((s) => !s.shadowed && !s.invalid)) })
+      .catch(() => { if (live) setSkills([]) })
+    return () => { live = false }
+  }, [chatId, filesOn])
+  if (!chatId || !filesOn) return null
+  const toggle = async (name, on) => {
+    const next = skills.map((s) => (s.name === name ? { ...s, enabled: on } : s))
+    const off = next.filter((s) => !s.enabled).map((s) => s.name).sort()
+    const before = skills
+    setSkills(next)
+    setError('')
+    try {
+      await chatSkillsApi.setOff(chatId, off)
+    } catch (e) {
+      setSkills(before)
+      setError(e.message || t('errors.send'))
+    }
+  }
+  const on = skills.filter((s) => s.enabled).length
+  return (
+    <details className="ch-skills">
+      <summary>{t('skills.summary', { on, total: skills.length })}</summary>
+      {skills.length === 0 ? <p className="ch-head__meta">{t('skills.none')}</p> : (
+        <ul className="ch-skills__list">
+          {skills.map((s) => (
+            <li key={`${s.layer}-${s.name}`}>
+              <label title={s.description}>
+                <input type="checkbox" checked={s.enabled} aria-label={s.name} onChange={(e) => toggle(s.name, e.target.checked)} />
+                <span>{s.name}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="ch-error" role="alert">{error}</p>}
+      <Link className="ch-link" to="/app/chats/skills">{t('skills.manage')}</Link>
+    </details>
+  )
+}
 
 function Transcript({ messages, t }) {
   return messages.map((m) => {
@@ -200,6 +251,7 @@ export default function Chats() {
             </div>
           ))}
         </div>
+        {chat.files.on && <Link className="ch-link ch-list__skills" to="/app/chats/skills">{t('skills.manage')}</Link>}
       </aside>
 
       <section className="ch-main">
@@ -207,6 +259,7 @@ export default function Chats() {
           <h1 className="ch-head__title">{activeId ? title : t('title')}</h1>
           {activeChat?.model && <span className="ch-head__meta">{activeChat.model}</span>}
         </header>
+        <SkillsPanel chatId={activeId} filesOn={chat.files.on} t={t} />
 
         <div className="ch-scroll">
           <div className="ch-flow" role="log" aria-live="polite" aria-label={t('transcript')}>
