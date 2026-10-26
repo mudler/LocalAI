@@ -256,3 +256,71 @@ var _ = Describe("Chats files", Label("Chats"), func() {
 		}
 	})
 })
+
+// Skills through the whole server: written over HTTP, found by a chat, switched
+// off for it, read back. Skipped when the server has no workspace.
+var _ = Describe("Chats skills", Label("Chats"), func() {
+	skillsURL := func(p string) string { return chatsBase() + "/skills" + p }
+
+	BeforeEach(func() {
+		code, body := chatsDo(http.MethodGet, skillsURL(""), nil)
+		if code == http.StatusConflict {
+			Skip("files are off on this server: " + string(body))
+		}
+		Expect(code).To(Equal(http.StatusOK), string(body))
+	})
+
+	type skill struct {
+		Name    string `json:"name"`
+		Layer   string `json:"layer"`
+		Enabled bool   `json:"enabled"`
+		Path    string `json:"path"`
+	}
+	list := func(chat string) map[string]skill {
+		u := skillsURL("")
+		if chat != "" {
+			u += "?chat=" + chat
+		}
+		code, out := chatsDo(http.MethodGet, u, nil)
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		var res struct {
+			Skills []skill `json:"skills"`
+		}
+		Expect(json.Unmarshal(out, &res)).To(Succeed())
+		m := map[string]skill{}
+		for _, s := range res.Skills {
+			m[s.Name] = s
+		}
+		return m
+	}
+
+	It("writes a skill, offers it to a chat, switches it off for that chat only, and deletes it", func() {
+		name := fmt.Sprintf("e2e-%d", time.Now().UnixNano())
+		code, out := chatsDo(http.MethodPost, skillsURL(""), map[string]any{"layer": "personal", "name": name, "description": "Walk through the release checklist", "body": "Tick every box."})
+		Expect(code).To(Equal(http.StatusOK), string(out))
+
+		Expect(list("")[name].Layer).To(Equal("personal"))
+		Expect(list("")[name].Path).To(ContainSubstring("/workspace/home/.skills/" + name))
+
+		chat := chatsCreate()
+		other := chatsCreate()
+		Expect(list(chat)[name].Enabled).To(BeTrue())
+		code, out = chatsDo(http.MethodPut, chatsBase()+"/"+chat+"/skills", map[string]any{"off": []string{name}})
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		Expect(list(chat)[name].Enabled).To(BeFalse())
+		Expect(list(other)[name].Enabled).To(BeTrue(), "a switch belongs to one chat")
+
+		// A turn with the skill switched off still works.
+		chatsSend(chat, "hello")
+		Eventually(func() bool { return chatsIdle(chat) }, 30*time.Second, 200*time.Millisecond).Should(BeTrue())
+
+		code, _ = chatsDo(http.MethodDelete, skillsURL("/personal/"+name), nil)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(list("")).NotTo(HaveKey(name))
+	})
+
+	It("refuses a skill name that is not valid", func() {
+		code, _ := chatsDo(http.MethodPost, skillsURL(""), map[string]any{"layer": "personal", "name": "Not Valid", "description": "d", "body": "b"})
+		Expect(code).To(Equal(http.StatusBadRequest))
+	})
+})
