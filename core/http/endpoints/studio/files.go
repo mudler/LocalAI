@@ -379,3 +379,32 @@ func (h *Handlers) FileHistory(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, out)
 }
+
+// SearchFiles searches your files.
+// @Summary Search your files.
+// @Description Finds files by name and lines inside text files that contain the query, ignoring case. Only what you can read is searched. Large and binary files are found by name only.
+// @Tags chats
+// @Param q query string true "text to find"
+// @Param path query string false "search only below this folder; default /"
+// @Param limit query int false "most hits to return (default 50, at most 200)"
+// @Success 200 {object} schema.ChatsSearchResult "Name matches first, then lines"
+// @Router /api/chats/files/search [get]
+func (h *Handlers) SearchFiles(c echo.Context) error {
+	fc, ok := h.files(c)
+	if !ok {
+		return nil
+	}
+	q := strings.TrimSpace(c.QueryParam("q"))
+	if q == "" {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "q is required")
+	}
+	hits, err := fc.f.Search(c.Request().Context(), fc.p, q, c.QueryParam("path"), intParam(c, "limit", 50, 200))
+	if err != nil {
+		return failFile(c, err)
+	}
+	out := schema.ChatsSearchResult{Hits: make([]schema.ChatsSearchHit, 0, len(hits))}
+	for _, hit := range hits {
+		out.Hits = append(out.Hits, schema.ChatsSearchHit{Path: hit.Path, Kind: string(hit.Kind), Line: hit.Line, Snippet: hit.Snippet})
+	}
+	return c.JSON(http.StatusOK, out)
+}

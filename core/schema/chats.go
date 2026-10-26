@@ -189,3 +189,17 @@ type ChatsHistoryEntry struct {
 type ChatsHistory struct {
 	Entries []ChatsHistoryEntry `json:"entries"`
 }
+
+// ChatsSearchHit is a file whose name matches a search, or a line of a file
+// that contains the text.
+type ChatsSearchHit struct {
+	Path    string `json:"path"`
+	Kind    string `json:"kind"`
+	Line    int    `json:"line,omitempty"`
+	Snippet string `json:"snippet,omitempty"`
+}
+
+// ChatsSearchResult lists name matches first, then lines.
+type ChatsSearchResult struct {
+	Hits []ChatsSearchHit `json:"hits"`
+}

@@ -50,6 +50,9 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if err != nil {
 		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
 	}
+	// The file tools belong to the chat itself: a sub-agent never gets them,
+	// because its tools come from hostTools, which does not include them.
+	tools = append(tools, s.d.Files.Tools(a)...)
 	return session.TurnTools{Tools: append(tools, s.spawnTool(a))}, nil
 }
 

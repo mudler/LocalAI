@@ -3783,6 +3783,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/files/search": {
+            "get": {
+                "description": "Finds files by name and lines inside text files that contain the query, ignoring case. Only what you can read is searched. Large and binary files are found by name only.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Search your files.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "text to find",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "search only below this folder; default /",
+                        "name": "path",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most hits to return (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Name matches first, then lines",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSearchResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/files/trash": {
             "get": {
                 "tags": [
@@ -12117,6 +12155,34 @@ const docTemplate = `{
             "properties": {
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSearchHit": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "integer"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "snippet": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSearchResult": {
+            "type": "object",
+            "properties": {
+                "hits": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSearchHit"
+                    }
                 }
             }
         },

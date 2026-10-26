@@ -46,6 +46,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/files/trash", h.Trash)
 	e.POST(base+"/files/undo", h.UndoFiles)
 	e.GET(base+"/files/history", h.FileHistory)
+	e.GET(base+"/files/search", h.SearchFiles)
 	e.POST(base, h.Create)
 	e.GET(base, h.List)
 	e.GET(base+"/:id", h.Get)

@@ -85,6 +85,7 @@ var _ = Describe("Chats files endpoints", func() {
 		Entry("trash", http.MethodGet, "/api/chats/files/trash"),
 		Entry("undo", http.MethodPost, "/api/chats/files/undo"),
 		Entry("history", http.MethodGet, "/api/chats/files/history"),
+		Entry("search", http.MethodGet, "/api/chats/files/search?q=a"),
 	)
 
 	It("stores a file and reads it back, listing it in its folder", func() {
@@ -169,6 +170,21 @@ var _ = Describe("Chats files endpoints", func() {
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(s.names("alice", "/Archive")).To(Equal([]string{"b.txt"}))
 		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/files/trash", nil))["entries"].([]any)).To(BeEmpty())
+	})
+
+	It("searches the user's own files by name and by text", func() {
+		Expect(s.putFile("alice", "/Notes/budget.txt", "we discussed the Budget\nand hiring").Code).To(Equal(http.StatusOK))
+		Expect(s.putFile("bob", "/Notes/other.txt", "budget of bob").Code).To(Equal(http.StatusOK))
+		rec := s.do("alice", http.MethodGet, "/api/chats/files/search?q=budget", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		hits := decodeJSON(rec)["hits"].([]any)
+		paths := []string{}
+		for _, h := range hits {
+			paths = append(paths, h.(map[string]any)["path"].(string))
+		}
+		Expect(paths).To(Equal([]string{"/Notes/budget.txt", "/Notes/budget.txt"})) // the name, then the line
+		Expect(hits[1].(map[string]any)).To(HaveKeyWithValue("line", BeNumerically("==", 1)))
+		Expect(s.do("alice", http.MethodGet, "/api/chats/files/search?q=", nil).Code).To(Equal(http.StatusBadRequest))
 	})
 
 	It("lists the history of a folder", func() {

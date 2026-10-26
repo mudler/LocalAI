@@ -30,6 +30,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/files/trash", FeatureChats},
 	{"POST", "/api/chats/files/undo", FeatureChats},
 	{"GET", "/api/chats/files/history", FeatureChats},
+	{"GET", "/api/chats/files/search", FeatureChats},
 	{"POST", "/api/motion/sessions", FeatureMotion},
 	{"GET", "/api/motion/sessions/:id", FeatureMotion},
 	{"DELETE", "/api/motion/sessions/:id", FeatureMotion},

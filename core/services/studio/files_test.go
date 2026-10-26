@@ -153,3 +153,55 @@ func TestAFileCannotBeAttachedWhenFilesAreOff(t *testing.T) {
 		t.Fatalf("a turn started: %v", h.Sent())
 	}
 }
+
+func TestTheModelGetsFileToolsWhenFilesAreOnAndItsSubAgentsDoNot(t *testing.T) {
+	f := newFiles(t)
+	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
+		if text == "go" {
+			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"child job","wait":true}`}, {Say: "done"}}
+		}
+		return []studiotest.ToolStep{{Say: "ok"}}
+	}, func(d *studio.Deps) { d.Files = f })
+	id := create(t, svc, alice)
+	sent(t, svc, alice, id, "go")
+	idle(t, svc, alice, id)
+
+	parent := h.ToolNames(id)
+	for _, want := range []string{"read_file", "write_file", "list_files", "move_file", "delete_file", "search_files", "spawn_agent"} {
+		if !contains(parent, want) {
+			t.Errorf("the chat's tools %v lack %s", parent, want)
+		}
+	}
+	kids := childrenOf(t, svc, alice, id)
+	if len(kids) != 1 {
+		t.Fatalf("children = %d, want 1", len(kids))
+	}
+	for _, name := range h.ToolNames(kids[0].ID) {
+		if strings.HasSuffix(name, "_file") || name == "list_files" || name == "search_files" {
+			t.Errorf("the sub-agent got the file tool %s", name)
+		}
+	}
+}
+
+func TestTheModelGetsNoFileToolsWhenFilesAreOff(t *testing.T) {
+	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
+		return []studiotest.ToolStep{{Say: "ok"}}
+	}, func(d *studio.Deps) { d.Files = files.Disabled("off") })
+	id := create(t, svc, alice)
+	sent(t, svc, alice, id, "go")
+	idle(t, svc, alice, id)
+	for _, name := range h.ToolNames(id) {
+		if strings.HasSuffix(name, "_file") || name == "list_files" || name == "search_files" {
+			t.Errorf("a chat with files off got the tool %s", name)
+		}
+	}
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}

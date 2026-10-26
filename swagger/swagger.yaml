@@ -2646,6 +2646,24 @@ definitions:
       text:
         type: string
     type: object
+  schema.ChatsSearchHit:
+    properties:
+      kind:
+        type: string
+      line:
+        type: integer
+      path:
+        type: string
+      snippet:
+        type: string
+    type: object
+  schema.ChatsSearchResult:
+    properties:
+      hits:
+        items:
+          $ref: '#/definitions/schema.ChatsSearchHit'
+        type: array
+    type: object
   schema.ChatsSendRequest:
     properties:
       text:
@@ -8953,6 +8971,33 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsFile'
       summary: Move or rename a file or folder.
+      tags:
+      - chats
+  /api/chats/files/search:
+    get:
+      description: Finds files by name and lines inside text files that contain the
+        query, ignoring case. Only what you can read is searched. Large and binary
+        files are found by name only.
+      parameters:
+      - description: text to find
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: search only below this folder; default /
+        in: query
+        name: path
+        type: string
+      - description: most hits to return (default 50, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Name matches first, then lines
+          schema:
+            $ref: '#/definitions/schema.ChatsSearchResult'
+      summary: Search your files.
       tags:
       - chats
   /api/chats/files/trash:
