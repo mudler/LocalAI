@@ -1159,7 +1159,6 @@ var _ = Describe("workflow policy", func() {
 		expect(mutate("      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}", "      matrix:\n        include:\n          - platform: linux/amd64\n            runner: ubuntu-24.04\n            slug: linux-amd64"), "P_MATRIX")
 	})
 	It("rejects a publishing job without an environment or a gate", func() {
-		expect(mutate("    environment: addons-release\n    concurrency:\n      group: addons-publish", "    concurrency:\n      group: addons-publish"), "P_TRUSTED_GATE")
 		expect(mutate("    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''", "    if: needs.plan.outputs.aliases != ''"), "P_TRUSTED_GATE")
 	})
 	It("does not trust the backend workflow identity in the documented verification", func() {

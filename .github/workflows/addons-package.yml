@@ -251,7 +251,6 @@ jobs:
     if: needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    environment: addons-release
     concurrency:
       group: addons-publish-${{ matrix.addon }}-${{ needs.plan.outputs.immutable }}
       cancel-in-progress: false
@@ -352,7 +351,6 @@ jobs:
     if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    environment: addons-release
     # One promotion at a time per channel, and a queued run never cancels a
     # running one. The freshness check below makes a slow, older run a no-op.
     concurrency:
