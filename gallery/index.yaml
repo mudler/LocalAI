@@ -2914,7 +2914,7 @@
     - deepseek
   files:
     - filename: ds4flash.gguf
-      sha256: c7e6c252de95b1e96721bcda7b14df8b166fee22b7ee690f81d45eb5ef189b8d
+      sha256: a2d4d54069135061221b361fe1900c72518533ab46c571a451c160a48e3c26ab
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   overrides:
     backend: ds4
@@ -13669,7 +13669,7 @@
       sha256: 927d6bc9c4db38b953da1da8d8e1a473725253c7683471a6369e0ce74688cf94
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: 9e9f11dfba6f54b74f69fff635ac1643dbab3d95198233b256f279aafff3f566
+      sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
   overrides:
     backend: llama-cpp
@@ -13810,7 +13810,7 @@
       sha256: 995c2a82e1aaca7947075891ead093e38d1e7dc5c0b54e4debd1d01058229ff9
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: 9e9f11dfba6f54b74f69fff635ac1643dbab3d95198233b256f279aafff3f566
+      sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
   overrides:
     backend: llama-cpp
@@ -13863,7 +13863,7 @@
       sha256: 41826ae69333ab4f3577d53c0a8b427b306c63c88c6200b4eada32dda28d26b9
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX-Compact.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: 9e9f11dfba6f54b74f69fff635ac1643dbab3d95198233b256f279aafff3f566
+      sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
   overrides:
     backend: llama-cpp
@@ -13912,7 +13912,7 @@
       sha256: 63a3cd730a4f1e7f5b909c89550de32e5a27b33c697c62aed9da60a7bd4643ae
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: 9e9f11dfba6f54b74f69fff635ac1643dbab3d95198233b256f279aafff3f566
+      sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
   overrides:
     backend: llama-cpp
@@ -13964,7 +13964,7 @@
       sha256: 11edd0da4f28f587c0eb72ae2e417dfb0d02733360303045e21c9ba3aae8d114
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX-Compact.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: 9e9f11dfba6f54b74f69fff635ac1643dbab3d95198233b256f279aafff3f566
+      sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
   overrides:
     backend: llama-cpp
@@ -14015,7 +14015,7 @@
       sha256: b37a4225ba1eebaaac35b69dfeb78d1955d06fcb9f41fd334a4837cbdaff21c1
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-Q8_K_P.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: 9e9f11dfba6f54b74f69fff635ac1643dbab3d95198233b256f279aafff3f566
+      sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
   overrides:
     backend: llama-cpp
@@ -24889,7 +24889,7 @@
     - sherpa-onnx
   files:
     - filename: kokoro-int8-multi-lang-v1_0.tar.bz2
-      sha256: 4c3052abaa60943a341f193888cf6abd68787dae6ab8ae5c925a706caa247e4e
+      sha256: 72c347230107ef8a31098ec4d468a605244beef5f1ed00db97efa13518800653
       uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2
   overrides:
     known_usecases:
