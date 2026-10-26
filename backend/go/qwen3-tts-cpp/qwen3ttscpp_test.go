@@ -260,6 +260,14 @@ var _ = Describe("TTSLive with max_batch", func() {
 })
 
 var _ = Describe("batch warmup", func() {
+	It("reports failed syntheses instead of claiming warmup succeeded", func() {
+		original := CppTTSStream
+		DeferCleanup(func() { CppTTSStream = original })
+		CppTTSStream = func(_, _, _, _ string, _ unsafe.Pointer, _ int, _ string, _ int64, _ float32, _ int, _, _ float32, _ int, _, _ uintptr) int {
+			return 3
+		}
+		Expect(warmupBatch(3)).To(MatchError("3 of 3 synthesis requests failed"))
+	})
 	It("is on by default and can be disabled", func() {
 		Expect(parseOptions(nil).batchWarmup).To(BeTrue())
 		Expect(parseOptions([]string{"max_batch_warmup:false"}).batchWarmup).To(BeFalse())
