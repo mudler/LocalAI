@@ -17,6 +17,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -61,6 +62,9 @@ type Deps struct {
 	// HeartbeatEvery is how often a running turn tells the store it is alive.
 	// Zero means 15 seconds.
 	HeartbeatEvery time.Duration
+	// Files is the workspace of the chats. Nil or disabled: the chats have no
+	// files, and everything else works.
+	Files *files.Service
 	// Persistent is true when the store keeps conversations across a restart.
 	Persistent bool
 	// Harness replaces the nib harness. It is for tests.
@@ -139,7 +143,11 @@ func New(d Deps) (*Service, error) {
 		}
 		h = nibharness.New(nibharness.Config{LLM: s.llmFor})
 	}
-	mgr, err := session.New(session.Options{Store: d.Store, Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools, Logger: log})
+	if d.Files == nil {
+		d.Files = files.Disabled("")
+		s.d.Files = d.Files
+	}
+	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools, Logger: log})
 	if err != nil {
 		return nil, err
 	}
@@ -232,6 +240,9 @@ func (s *Service) Messages(ctx context.Context, user, conv string, after int64, 
 func (s *Service) Turn(ctx context.Context, user, conv string) (store.TurnInfo, error) {
 	return s.d.Store.Turn(ctx, principal(user), conv)
 }
+
+// Files returns the workspace of the chats. It is never nil.
+func (s *Service) Files() *files.Service { return s.d.Files }
 
 // Persistent reports whether conversations survive a restart of the server.
 func (s *Service) Persistent() bool { return s.d.Persistent }
@@ -496,6 +507,12 @@ func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, 
 
 // chat opens the conversation in the loop and makes sure its events are read.
 func (s *Service) chat(ctx context.Context, p, conv string) (*session.Chat, error) {
+	if s.d.Files.Available() {
+		// The loop needs the user's home before it opens a chat.
+		if err := s.d.Files.EnsureHome(ctx, p); err != nil {
+			return nil, err
+		}
+	}
 	chat, err := s.mgr.Open(ctx, workspace.Actor{Principal: p, ChatID: conv}, conv)
 	if err != nil {
 		return nil, err

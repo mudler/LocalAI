@@ -450,6 +450,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	// The chats service needs the cluster message bus, so it starts after distributed wiring.
+	application.initStudioFiles()
 	application.initStudioService()
 
 	// Start AgentJobService (after distributed wiring so it knows whether to use local or NATS)

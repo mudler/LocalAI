@@ -9,6 +9,18 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// OpenSQLiteFile opens a SQLite file with the settings of the auth database
+// (busy timeout, immediate write transactions) and creates no tables. Features
+// with their own tables use it when there is no shared database. It needs the
+// "auth" build tag, like InitDB.
+func OpenSQLiteFile(path string) (*gorm.DB, error) {
+	d, err := openSQLiteDialector(path)
+	if err != nil {
+		return nil, err
+	}
+	return gorm.Open(d, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+}
+
 // InitDB initializes the auth database. If databaseURL starts with "postgres://"
 // or "postgresql://", it connects to PostgreSQL; otherwise it treats the value
 // as a SQLite file path (use ":memory:" for in-memory).

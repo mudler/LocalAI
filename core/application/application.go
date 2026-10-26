@@ -45,6 +45,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
@@ -122,6 +123,9 @@ type Application struct {
 	studioProvider       *provider.Provider
 	studioService        *studio.Service
 	studioTempDir        string // removed at shutdown; set only in memory-only mode
+	studioFiles          *files.Service
+	studioFilesDB        *gorm.DB // private database of the workspace; nil when it uses authDB
+	studioFilesTemp      string   // blob cache folder of a cluster with no data path; removed at shutdown
 	authDB               *gorm.DB
 	metricsService       *monitoring.LocalAIMetricsService
 	statsRecorder        *billing.Recorder
@@ -605,6 +609,10 @@ func (a *Application) Shutdown() error {
 		}
 		if a.studioTempDir != "" {
 			_ = os.RemoveAll(a.studioTempDir)
+		}
+		a.closeStudioFilesDB(a.studioFilesDB)
+		if a.studioFilesTemp != "" {
+			_ = os.RemoveAll(a.studioFilesTemp)
 		}
 		if a.addonServer != nil {
 			_ = a.addonServer.Close()
