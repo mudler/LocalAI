@@ -964,12 +964,46 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 // unknown values silently keep the upstream default (DEEPSEEK)
             }
 
-        // --- reasoning budget (upstream --reasoning-budget) ---
-        // -1 unlimited, 0 disabled, >0 token budget for thinking blocks.
-        // Distinct from per-request `enable_thinking` (chat_template_kwargs).
-        } else if (!strcmp(optname, "enable_reasoning") || !strcmp(optname, "reasoning_budget")) {
+        // --- reasoning switch (upstream --reasoning) ---
+        // -1 auto, 0 off, 1 on. A token count does not belong in this field.
+        // 0 and 1 also set the chat-template enable_thinking default, as --reasoning does.
+        } else if (!strcmp(optname, "enable_reasoning")) {
             if (optval != NULL) {
-                try { params.enable_reasoning = std::stoi(optval_str); } catch (...) {}
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n < -1 || n > 1) {
+                        fprintf(stderr, "[llama-cpp] enable_reasoning=%d ignored (expected -1, 0 or 1)\n", n);
+                    } else {
+                        params.enable_reasoning = n;
+                        if (n == 1) {
+                            params.default_template_kwargs["enable_thinking"] = "true";
+                        } else if (n == 0) {
+                            params.default_template_kwargs["enable_thinking"] = "false";
+                        }
+                    }
+                } catch (...) {}
+            }
+
+        // --- reasoning budget (upstream --reasoning-budget) ---
+        // -1 unrestricted, 0 end the thinking block immediately, N>0 token cap.
+        // Absent option leaves llama.cpp's own default. Do not invent a number.
+        } else if (!strcmp(optname, "reasoning_budget") || !strcmp(optname, "thinking_budget")
+                || !strcmp(optname, "reasoning_budget_tokens") || !strcmp(optname, "thinking_budget_tokens")) {
+            if (optval != NULL) {
+                try {
+                    int n = std::stoi(optval_str);
+                    if (n < -1) {
+                        fprintf(stderr, "[llama-cpp] reasoning_budget=%d ignored (expected >= -1)\n", n);
+                    } else {
+                        params.sampling.reasoning_budget_tokens = n;
+                        fprintf(stderr, "[llama-cpp] reasoning_budget_tokens=%d\n", n);
+                    }
+                } catch (...) {}
+            }
+
+        } else if (!strcmp(optname, "reasoning_budget_message")) {
+            if (optval != NULL) {
+                params.sampling.reasoning_budget_message = optval_str;
             }
 
         // --- prefill assistant turn (upstream --no-prefill-assistant) ---

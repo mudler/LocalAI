@@ -679,7 +679,9 @@ These load-time options control how the backend parses `<think>` reasoning block
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `reasoning_format` | string | `deepseek` | Parser for reasoning/thinking blocks. One of `none`, `auto`, `deepseek`, `deepseek-legacy` (alias `deepseek_legacy`). |
-| `enable_reasoning` / `reasoning_budget` | int | `-1` | Reasoning budget in tokens: `-1` unlimited, `0` disabled, `>0` token cap for the thinking section. |
+| `enable_reasoning` | int | `-1` | Reasoning switch, same as llama.cpp `--reasoning`: `-1` auto, `0` off, `1` on. `0` and `1` also set the chat-template `enable_thinking` default. |
+| `reasoning_budget` | int | `-1` | Token budget for the thinking section, same as llama.cpp `--reasoning-budget`: `-1` unrestricted, `0` end thinking immediately, `>0` token cap. Aliases: `thinking_budget`, `reasoning_budget_tokens`, `thinking_budget_tokens`. A missing option leaves llama.cpp's default. |
+| `reasoning_budget_message` | string | empty | Text inserted before the end-of-thinking tag when the budget is exhausted. |
 | `prefill_assistant` | bool | `true` | When `false`, the trailing assistant message is not pre-filled by the chat template. |
 
 {{% notice note %}}
