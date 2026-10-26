@@ -85,3 +85,65 @@ func TestTwoFrontendsShareOneDatabaseAndKeepRevisionsApart(t *testing.T) {
 		t.Fatalf("history has %d change sets, want 20", len(seen))
 	}
 }
+
+// A restart with a data path keeps the files: the database file and the blob
+// folder are all there is, and a new process reads them as they were.
+func TestFilesSurviveReopeningTheDatabaseAndTheBlobFolder(t *testing.T) {
+	dir := t.TempDir()
+	dsn := "file:" + filepath.Join(dir, "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
+	open := func() (workspace.Store, func()) {
+		db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		blobs, err := blob.NewFS(filepath.Join(dir, "blobs"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		s, err := gormstore.New(db, blobs, gormstore.Options{Admin: wstest.Admin})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s, func() {
+			if raw, err := db.DB(); err == nil {
+				_ = raw.Close()
+			}
+		}
+	}
+	ctx := context.Background()
+	first, closeFirst := open()
+	wstest.MustPut(t, first, wstest.AdminActor, "/Docs/kept.txt", "still here")
+	if err := first.Delete(ctx, wstest.AdminActor, "/Docs/kept.txt"); err != nil {
+		t.Fatal(err)
+	}
+	wstest.MustPut(t, first, wstest.AdminActor, "/Docs/other.txt", "me too")
+	closeFirst()
+
+	second, closeSecond := open()
+	defer closeSecond()
+	if got := wstest.MustRead(t, second, wstest.AdminActor, "/Docs/other.txt"); got != "me too" {
+		t.Fatalf("after reopening, other.txt = %q", got)
+	}
+	// What was deleted is still undoable after the restart: nothing was erased.
+	hist, err := second.History(ctx, wstest.AdminActor, workspace.HistoryQuery{Path: "/Docs", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var deleteRev int64
+	for _, cs := range hist {
+		for _, op := range cs.Ops {
+			if op.Kind == workspace.OpDelete {
+				deleteRev = cs.Rev
+			}
+		}
+	}
+	if deleteRev == 0 {
+		t.Fatalf("the delete is not in the history after reopening: %+v", hist)
+	}
+	if _, _, err := second.Undo(ctx, wstest.AdminActor, deleteRev, workspace.UndoOptions{}); err != nil {
+		t.Fatalf("undo after reopening: %v", err)
+	}
+	if got := wstest.MustRead(t, second, wstest.AdminActor, "/Docs/kept.txt"); got != "still here" {
+		t.Fatalf("after the undo, kept.txt = %q", got)
+	}
+}

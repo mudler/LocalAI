@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -162,5 +164,95 @@ var _ = Describe("Chat completions stream", Label("Chats"), func() {
 		want, err := os.ReadFile(golden)
 		Expect(err).ToNot(HaveOccurred(), "record it with UPDATE_GOLDEN=1")
 		Expect(string(got)).To(Equal(string(want)))
+	})
+})
+
+// The files of a user, through the whole server: HTTP, the files service, the
+// workspace store and the blob store. Skipped when the server has no workspace
+// (a build without SQLite, or no data path).
+var _ = Describe("Chats files", Label("Chats"), func() {
+	filesURL := func(path string) string { return chatsBase() + "/files" + path }
+	query := func(p string) string { return "?path=" + url.QueryEscape(p) }
+
+	BeforeEach(func() {
+		code, body := chatsDo(http.MethodGet, filesURL(""), nil)
+		if code == http.StatusConflict {
+			Skip("files are off on this server: " + string(body))
+		}
+		Expect(code).To(Equal(http.StatusOK), string(body))
+	})
+
+	It("keeps a file, finds it, deletes it into the Trash and restores it", func() {
+		name := fmt.Sprintf("/E2E/note-%d.txt", time.Now().UnixNano())
+		req, err := http.NewRequest(http.MethodPut, filesURL("/content")+query(name), strings.NewReader("zeppelin schedule"))
+		Expect(err).ToNot(HaveOccurred())
+		resp, err := http.DefaultClient.Do(req)
+		Expect(err).ToNot(HaveOccurred())
+		resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		code, out := chatsDo(http.MethodGet, filesURL("/content")+query(name), nil)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(string(out)).To(Equal("zeppelin schedule"))
+
+		code, out = chatsDo(http.MethodGet, filesURL("/search")+"?q=zeppelin", nil)
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		Expect(string(out)).To(ContainSubstring(name))
+
+		code, _ = chatsDo(http.MethodDelete, filesURL("")+query(name), nil)
+		Expect(code).To(Equal(http.StatusOK))
+		code, _ = chatsDo(http.MethodGet, filesURL("/content")+query(name), nil)
+		Expect(code).To(Equal(http.StatusNotFound))
+
+		_, out = chatsDo(http.MethodGet, filesURL("/trash"), nil)
+		var trash struct {
+			Entries []struct {
+				Rev   int64    `json:"rev"`
+				Paths []string `json:"paths"`
+			} `json:"entries"`
+		}
+		Expect(json.Unmarshal(out, &trash)).To(Succeed())
+		var rev int64
+		for _, e := range trash.Entries {
+			for _, p := range e.Paths {
+				if p == name {
+					rev = e.Rev
+				}
+			}
+		}
+		Expect(rev).ToNot(BeZero(), string(out))
+		code, out = chatsDo(http.MethodPost, filesURL("/undo"), map[string]any{"rev": rev})
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		code, out = chatsDo(http.MethodGet, filesURL("/content")+query(name), nil)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(string(out)).To(Equal("zeppelin schedule"))
+	})
+
+	It("saves a file attached to a message in the chat's folder", func() {
+		id := chatsCreate()
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		Expect(mw.WriteField("text", "read the attachment")).To(Succeed())
+		fw, err := mw.CreateFormFile("files", "attached.txt")
+		Expect(err).ToNot(HaveOccurred())
+		_, _ = fw.Write([]byte("kestrel migration data"))
+		Expect(mw.Close()).To(Succeed())
+		resp, err := http.Post(chatsBase()+"/"+id+"/messages", mw.FormDataContentType(), &buf)
+		Expect(err).ToNot(HaveOccurred())
+		resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Eventually(func() bool { return chatsIdle(id) }, 30*time.Second, 200*time.Millisecond).Should(BeTrue())
+
+		code, out := chatsDo(http.MethodGet, filesURL("/search")+"?q=kestrel", nil)
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		Expect(string(out)).To(ContainSubstring("attached.txt"))
+		Expect(string(out)).To(ContainSubstring("/Chats/"))
+	})
+
+	It("refuses a path that leaves the user's home", func() {
+		for _, p := range []string{"/../etc/passwd", "/a/../../b"} {
+			code, _ := chatsDo(http.MethodGet, filesURL("/content")+query(p), nil)
+			Expect(code).To(Equal(http.StatusBadRequest), p)
+		}
 	})
 })

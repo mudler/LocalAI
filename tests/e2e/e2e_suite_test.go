@@ -715,6 +715,7 @@ var _ = BeforeSuite(func() {
 		config.WithSystemState(systemState),
 		config.WithDebug(true),
 		config.WithGeneratedContentDir(generatedDir),
+		config.WithDataPath(filepath.Join(tmpDir, "data")), // a workspace needs a data path
 		// Mirrors the CLI boundary (core/cli/run.go): the failover prober
 		// resolves api_key_env upstream credentials through this lookup.
 		// Without it, remote failover targets configured with api_key_env
