@@ -20,3 +20,6 @@ func (a Actor) Principals() []string { return a.principals() }
 
 // Label names the actor in conflict copies: the principal, or "chat <id>".
 func (a Actor) Label() string { return a.label() }
+
+// JoinChild joins a folder path and a child name.
+func JoinChild(dir, name string) string { return joinChild(dir, name) }

@@ -38,6 +38,10 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 	t.Run("History", func(t *testing.T) { testHistory(t, newStore) })
 	t.Run("Property", func(t *testing.T) { testProperty(t, newStore) })
 	t.Run("Concurrency", func(t *testing.T) { testConcurrency(t, newStore) })
+	t.Run("Materialize", func(t *testing.T) { testMaterialize(t, newStore) })
+	t.Run("Upper", func(t *testing.T) { testUpper(t, newStore) })
+	t.Run("UpperOwn", func(t *testing.T) { testUpperOwn(t, newStore) })
+	t.Run("SandboxAccess", func(t *testing.T) { testSandboxAccess(t, newStore) })
 }
 
 // Ctx returns the context the suite uses.
@@ -90,17 +94,4 @@ func Tree(t *testing.T, s workspace.Store) map[string]string {
 	}
 	walk("/")
 	return out
-}
-
-// latestRev returns the newest revision of the store, or 0 for an empty one.
-func latestRev(t *testing.T, s workspace.Store) int64 {
-	t.Helper()
-	h, err := s.History(Ctx(), AdminActor, workspace.HistoryQuery{Limit: 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(h) == 0 {
-		return 0
-	}
-	return h[0].Rev
 }

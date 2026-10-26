@@ -29,6 +29,10 @@ type Store interface {
 	Open(ctx context.Context, sha string) (io.ReadSeekCloser, error)
 	// Exists reports whether the blob is stored.
 	Exists(ctx context.Context, sha string) (bool, error)
+	// LinkTo makes dst a read-only file with the blob's bytes: a hard link when
+	// the blob is on the same file system, a copy otherwise. dst must not
+	// exist; its folder must. An unknown hash is workspace.ErrNotFound.
+	LinkTo(ctx context.Context, sha, dst string) error
 }
 
 var shaRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -96,4 +100,29 @@ func place(tmp, final string) error {
 		return err
 	}
 	return nil
+}
+
+// linkOrCopy makes dst a hard link to src, or a read-only copy when a link is
+// not possible, for example across file systems.
+func linkOrCopy(src, dst string) error {
+	if err := os.Link(src, dst); err == nil {
+		return nil
+	} else if errors.Is(err, os.ErrExist) {
+		return err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o444)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		_ = os.Remove(dst)
+		return err
+	}
+	return out.Close()
 }

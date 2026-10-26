@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -83,6 +85,26 @@ func TestStores(t *testing.T) {
 				}
 				if ok, _ := s.Exists(ctx, sum(string(big))); ok {
 					t.Fatal("an over-limit upload left a blob")
+				}
+			})
+			t.Run("a blob can be linked to a file in a folder, read-only", func(t *testing.T) {
+				h, _, _ := s.Put(ctx, strings.NewReader("linked bytes"), 0)
+				dst := filepath.Join(t.TempDir(), "out.txt")
+				if err := s.LinkTo(ctx, h, dst); err != nil {
+					t.Fatal(err)
+				}
+				got, err := os.ReadFile(dst)
+				if err != nil || string(got) != "linked bytes" {
+					t.Fatalf("linked file = %q, %v", got, err)
+				}
+				if st, _ := os.Stat(dst); st.Mode().Perm()&0o222 != 0 {
+					t.Fatalf("the linked file is writable (%v): it would let a guest change the blob", st.Mode())
+				}
+				if err := s.LinkTo(ctx, h, dst); err == nil {
+					t.Fatal("LinkTo replaced a file that exists")
+				}
+				if err := s.LinkTo(ctx, sum("never stored"), filepath.Join(t.TempDir(), "x")); !errors.Is(err, workspace.ErrNotFound) {
+					t.Fatalf("LinkTo of an unknown blob = %v, want ErrNotFound", err)
 				}
 			})
 			t.Run("an unknown or malformed hash is not found", func(t *testing.T) {

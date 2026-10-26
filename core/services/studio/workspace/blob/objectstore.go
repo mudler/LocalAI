@@ -101,3 +101,17 @@ func (s *objectStore) Exists(ctx context.Context, sha string) (bool, error) {
 	}
 	return s.os.Exists(ctx, key(sha))
 }
+
+// LinkTo links the blob from the local cache, downloading it first when this
+// frontend has not read it yet.
+func (s *objectStore) LinkTo(ctx context.Context, sha, dst string) error {
+	if !validSHA(sha) {
+		return workspace.ErrNotFound
+	}
+	r, err := s.Open(ctx, sha) // fills the cache
+	if err != nil {
+		return err
+	}
+	_ = r.Close()
+	return linkOrCopy(shaPath(s.cache, sha), dst)
+}

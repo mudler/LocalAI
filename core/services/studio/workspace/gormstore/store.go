@@ -110,6 +110,7 @@ var (
 	joinPath     = JoinPath
 	conflictName = ConflictName
 	foldName     = FoldName
+	joinChild    = JoinChild
 )
 
 // dialect holds what differs between the databases.
@@ -197,14 +198,4 @@ func mapUnique(err error) error {
 		return ErrExists
 	}
 	return err
-}
-
-// Materialize and CommitUpper belong to the sandbox.
-func (s *Workspace) Materialize(context.Context, View, string) (int64, error) {
-	return 0, fmt.Errorf("%w: materializing a view needs the sandbox", ErrInvalid)
-}
-
-// CommitUpper belongs to the sandbox.
-func (s *Workspace) CommitUpper(context.Context, View, Actor, int64, UpperSource, UpperOptions) (ChangeSet, []Conflict, error) {
-	return ChangeSet{}, nil, fmt.Errorf("%w: committing an upper layer needs the sandbox", ErrInvalid)
 }
