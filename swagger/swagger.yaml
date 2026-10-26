@@ -2676,6 +2676,85 @@ definitions:
       started:
         type: boolean
     type: object
+  schema.ChatsSkill:
+    properties:
+      description:
+        type: string
+      editable:
+        description: Editable is true when you may change or delete it here.
+        type: boolean
+      enabled:
+        description: Enabled is false when the chat has switched it off.
+        type: boolean
+      invalid:
+        description: Invalid says why a SKILL.md was skipped.
+        type: string
+      layer:
+        description: |-
+          Layer is where it comes from: folder (a .skills folder of your files),
+          personal, shared or builtin.
+        type: string
+      name:
+        type: string
+      path:
+        description: Path is the path of its SKILL.md as the model sees it.
+        type: string
+      shadowed:
+        description: Shadowed names the layer of a nearer skill with the same name,
+          which wins.
+        type: string
+    type: object
+  schema.ChatsSkillDetail:
+    properties:
+      body:
+        type: string
+      description:
+        type: string
+      editable:
+        type: boolean
+      layer:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.ChatsSkillList:
+    properties:
+      notes:
+        description: Notes say what could not be read or searched.
+        items:
+          type: string
+        type: array
+      skills:
+        items:
+          $ref: '#/definitions/schema.ChatsSkill'
+        type: array
+    type: object
+  schema.ChatsSkillSwitches:
+    properties:
+      "off":
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsSkillUpdate:
+    properties:
+      body:
+        type: string
+      description:
+        type: string
+    type: object
+  schema.ChatsSkillWrite:
+    properties:
+      body:
+        type: string
+      description:
+        type: string
+      layer:
+        description: personal or shared
+        type: string
+      name:
+        type: string
+    type: object
   schema.ChatsToolEvent:
     properties:
       name:
@@ -8807,6 +8886,30 @@ paths:
       summary: Send the waiting messages now.
       tags:
       - chats
+  /api/chats/{id}/skills:
+    put:
+      description: The list replaces the earlier one. The next turn of the chat gets
+        the index without the skills that are off.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the names of the skills that are off
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsSkillSwitches'
+      responses:
+        "200":
+          description: The switches now in force
+          schema:
+            $ref: '#/definitions/schema.ChatsSkillSwitches'
+      summary: Switch skills on and off for a chat.
+      tags:
+      - chats
   /api/chats/{id}/stop:
     post:
       parameters:
@@ -9028,6 +9131,115 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsUndoResponse'
       summary: Undo a change.
+      tags:
+      - chats
+  /api/chats/skills:
+    get:
+      description: 'Skills from every layer: .skills folders of your files, your personal
+        skills, the shared ones and the built-in ones. The nearest wins; a skill that
+        another overrides says so in shadowed. With chat set, the chat''s switches
+        are applied.'
+      parameters:
+      - description: a chat id, to apply its switches
+        in: query
+        name: chat
+        type: string
+      responses:
+        "200":
+          description: The skills
+          schema:
+            $ref: '#/definitions/schema.ChatsSkillList'
+      summary: List your skills.
+      tags:
+      - chats
+    post:
+      description: 'A skill is a folder with a SKILL.md: a name, a one-line description
+        and the procedure the model reads when a task matches. The personal layer
+        is yours; the shared layer needs an administrator.'
+      parameters:
+      - description: the skill
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsSkillWrite'
+      responses:
+        "200":
+          description: The skill
+          schema:
+            $ref: '#/definitions/schema.ChatsSkillDetail'
+      summary: Create a skill.
+      tags:
+      - chats
+  /api/chats/skills/{layer}/{name}:
+    delete:
+      description: The skill's folder goes to the Trash of your files, where it can
+        be restored. Shared skills need an administrator.
+      parameters:
+      - description: personal or shared
+        in: path
+        name: layer
+        required: true
+        type: string
+      - description: the skill's name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: deleted
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Delete a skill.
+      tags:
+      - chats
+    get:
+      parameters:
+      - description: personal, shared or builtin
+        in: path
+        name: layer
+        required: true
+        type: string
+      - description: the skill's name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The skill with its text
+          schema:
+            $ref: '#/definitions/schema.ChatsSkillDetail'
+      summary: Read a skill.
+      tags:
+      - chats
+    put:
+      parameters:
+      - description: personal or shared
+        in: path
+        name: layer
+        required: true
+        type: string
+      - description: the skill's name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: the new description and body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsSkillUpdate'
+      responses:
+        "200":
+          description: The skill
+          schema:
+            $ref: '#/definitions/schema.ChatsSkillDetail'
+      summary: Change a skill.
       tags:
       - chats
   /api/conversations:

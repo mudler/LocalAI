@@ -103,6 +103,31 @@ chats, as it does for `/v1/chat/completions`. A user needs the
 `mcp` feature, and `LOCALAI_DISABLE_MCP` turns MCP off for the whole instance.
 A tool cannot take the name of a built-in tool such as `spawn_agent`.
 
+## Skills
+
+A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way.
+
+Skills come from four places, nearest first, and the nearest wins when two have the same name:
+
+| Layer | Where | Who writes it |
+|---|---|---|
+| Folder | any `.skills` folder in your files | you |
+| Personal | `.skills` in your home folder | you |
+| Shared | for every user | an administrator |
+| Built-in | ships with the server | the server |
+
+The format is the same as the skills LocalAI already used, so an existing skill carries over by copying its folder into one of the places above. Git sources and zip import and export are not part of chats.
+
+```bash
+curl -X POST .../api/chats/skills -d '{"layer": "personal", "name": "review", "description": "Check a change before it ships", "body": "Read the diff.\nSay what you find."}'
+curl .../api/chats/skills?chat=3f1c...            # what the chat has, with its switches
+curl -X PUT .../api/chats/3f1c.../skills -d '{"off": ["review"]}'   # switch one off for this chat
+```
+
+A chat keeps its own switches. Turning a skill off takes it out of the index at the next turn. If another skill with the same name is further away, it shows through, as the list says. A deleted skill goes to the Trash like any file. Only an administrator writes shared skills, and everyone reads them. Your personal skills are as private as your files.
+
+The **Skills** page for chats lists them by layer and edits personal skills, and a panel in the chat switches them per chat.
+
 ## Who can see a chat
 
 A chat belongs to the user who started it. Another user's chat id always

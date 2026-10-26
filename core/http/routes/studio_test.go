@@ -52,8 +52,12 @@ func newStudioServerFiles(f *files.Service) *studioServer {
 	DeferCleanup(func() { _ = svc.Close(context.Background()) })
 
 	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}}
-	for _, id := range []string{"alice", "bob", "carol"} {
-		user := &auth.User{ID: id, Email: id + "@example.test", Name: id, Role: auth.RoleUser, Status: auth.StatusActive, Provider: auth.ProviderLocal}
+	for _, id := range []string{"alice", "bob", "carol", "root"} {
+		role := auth.RoleUser
+		if id == "root" {
+			role = auth.RoleAdmin
+		}
+		user := &auth.User{ID: id, Email: id + "@example.test", Name: id, Role: role, Status: auth.StatusActive, Provider: auth.ProviderLocal}
 		Expect(db.Create(user).Error).To(Succeed())
 		session, err := auth.CreateSession(db, id, "")
 		Expect(err).NotTo(HaveOccurred())

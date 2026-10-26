@@ -203,3 +203,57 @@ type ChatsSearchHit struct {
 type ChatsSearchResult struct {
 	Hits []ChatsSearchHit `json:"hits"`
 }
+
+// ChatsSkill is a skill a chat can use.
+type ChatsSkill struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	// Layer is where it comes from: folder (a .skills folder of your files),
+	// personal, shared or builtin.
+	Layer string `json:"layer"`
+	// Path is the path of its SKILL.md as the model sees it.
+	Path string `json:"path"`
+	// Enabled is false when the chat has switched it off.
+	Enabled bool `json:"enabled"`
+	// Shadowed names the layer of a nearer skill with the same name, which wins.
+	Shadowed string `json:"shadowed,omitempty"`
+	// Invalid says why a SKILL.md was skipped.
+	Invalid string `json:"invalid,omitempty"`
+	// Editable is true when you may change or delete it here.
+	Editable bool `json:"editable"`
+}
+
+// ChatsSkillList is the skills a user has.
+type ChatsSkillList struct {
+	Skills []ChatsSkill `json:"skills"`
+	// Notes say what could not be read or searched.
+	Notes []string `json:"notes,omitempty"`
+}
+
+// ChatsSkillWrite creates a skill.
+type ChatsSkillWrite struct {
+	Layer       string `json:"layer"` // personal or shared
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Body        string `json:"body"`
+}
+
+// ChatsSkillUpdate replaces a skill's description and body.
+type ChatsSkillUpdate struct {
+	Description string `json:"description"`
+	Body        string `json:"body"`
+}
+
+// ChatsSkillDetail is one skill with its text.
+type ChatsSkillDetail struct {
+	Name        string `json:"name"`
+	Layer       string `json:"layer"`
+	Description string `json:"description"`
+	Body        string `json:"body"`
+	Editable    bool   `json:"editable"`
+}
+
+// ChatsSkillSwitches sets the skills a chat has switched off.
+type ChatsSkillSwitches struct {
+	Off []string `json:"off"`
+}

@@ -3862,6 +3862,162 @@
                 }
             }
         },
+        "/api/chats/skills": {
+            "get": {
+                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your skills.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "a chat id, to apply its switches",
+                        "name": "chat",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The skills",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "A skill is a folder with a SKILL.md: a name, a one-line description and the procedure the model reads when a task matches. The personal layer is yours; the shared layer needs an administrator.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Create a skill.",
+                "parameters": [
+                    {
+                        "description": "the skill",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The skill",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillDetail"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/skills/{layer}/{name}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a skill.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "personal, shared or builtin",
+                        "name": "layer",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the skill's name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The skill with its text",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillDetail"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Change a skill.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "personal or shared",
+                        "name": "layer",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the skill's name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new description and body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillUpdate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The skill",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillDetail"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "The skill's folder goes to the Trash of your files, where it can be restored. Shared skills need an administrator.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a skill.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "personal or shared",
+                        "name": "layer",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the skill's name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}": {
             "get": {
                 "tags": [
@@ -4123,6 +4279,41 @@
                             "additionalProperties": {
                                 "type": "boolean"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/skills": {
+            "put": {
+                "description": "The list replaces the earlier one. The next turn of the chat gets the index without the skills that are off.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch skills on and off for a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the names of the skills that are off",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillSwitches"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The switches now in force",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillSwitches"
                         }
                     }
                 }
@@ -12199,6 +12390,119 @@
                 },
                 "started": {
                     "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsSkill": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "editable": {
+                    "description": "Editable is true when you may change or delete it here.",
+                    "type": "boolean"
+                },
+                "enabled": {
+                    "description": "Enabled is false when the chat has switched it off.",
+                    "type": "boolean"
+                },
+                "invalid": {
+                    "description": "Invalid says why a SKILL.md was skipped.",
+                    "type": "string"
+                },
+                "layer": {
+                    "description": "Layer is where it comes from: folder (a .skills folder of your files),\npersonal, shared or builtin.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is the path of its SKILL.md as the model sees it.",
+                    "type": "string"
+                },
+                "shadowed": {
+                    "description": "Shadowed names the layer of a nearer skill with the same name, which wins.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSkillDetail": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "editable": {
+                    "type": "boolean"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSkillList": {
+            "type": "object",
+            "properties": {
+                "notes": {
+                    "description": "Notes say what could not be read or searched.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSkill"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSkillSwitches": {
+            "type": "object",
+            "properties": {
+                "off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSkillUpdate": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSkillWrite": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "layer": {
+                    "description": "personal or shared",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },

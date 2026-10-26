@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 )
 
@@ -78,4 +79,30 @@ func (s *Service) skillTurn(ctx context.Context, p string, off []string) (prompt
 		return "", strings.Join(notes, "; "), ""
 	}
 	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil))
+}
+
+// Skills lists the skills the user has: every layer, with shadowed and skipped
+// ones marked. With conv set, the chat's switches are applied (Skill.Off); the
+// chat of another user is session.ErrNotFound. It is files.ErrUnavailable when
+// files are off.
+func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill, []string, error) {
+	if !s.d.Files.Available() {
+		return nil, nil, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
+	}
+	p := principal(user)
+	var off map[string]bool
+	if conv != "" {
+		rec, err := s.d.Store.GetChat(ctx, p, conv)
+		if err != nil {
+			return nil, nil, err
+		}
+		off = make(map[string]bool, len(rec.SkillsOff))
+		for _, n := range rec.SkillsOff {
+			off[n] = true
+		}
+	}
+	return skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p), skills.Options{
+		Off:    func(sk skills.Skill) bool { return off[sk.Name] },
+		Logger: s.log,
+	})
 }

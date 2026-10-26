@@ -50,6 +50,10 @@ func failFile(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, workspace.ErrNotFound), errors.Is(err, workspace.ErrReadOnly), errors.Is(err, workspace.ErrNotAdmin):
 		return fail(c, http.StatusNotFound, "not_found", "not found")
+	case errors.Is(err, files.ErrNotAdmin):
+		return fail(c, http.StatusForbidden, "forbidden", "only an administrator may change the shared skills")
+	case errors.Is(err, files.ErrBadSkill):
+		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	case errors.Is(err, workspace.ErrBadName):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "the path has a name that is not allowed")
 	case errors.Is(err, workspace.ErrExists):
