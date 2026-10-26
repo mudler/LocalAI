@@ -389,6 +389,16 @@ func API(application *application.Application) (*echo.Echo, error) {
 		return c.Blob(http.StatusOK, "image/svg+xml", data)
 	})
 
+	// iOS draws the home-screen icon from an apple-touch-icon PNG and ignores
+	// the SVG favicon, so it falls back to the first letter of the page title.
+	e.GET("/apple-touch-icon.png", func(c echo.Context) error {
+		data, err := embedDirStatic.ReadFile("static/apple-touch-icon.png")
+		if err != nil {
+			return c.NoContent(http.StatusNotFound)
+		}
+		return c.Blob(http.StatusOK, "image/png", data)
+	})
+
 	// Static files - use fs.Sub to create a filesystem rooted at "static"
 	staticFS, err := fs.Sub(embedDirStatic, "static")
 	if err != nil {
@@ -671,6 +681,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 					html := string(indexHTML)
 					html = strings.ReplaceAll(html, `="/assets/`, `="`+safePrefix+`assets/`)
 					html = strings.ReplaceAll(html, `="/favicon.svg"`, `="`+safePrefix+`favicon.svg"`)
+					html = strings.ReplaceAll(html, `="/apple-touch-icon.png"`, `="`+safePrefix+`apple-touch-icon.png"`)
 					indexHTML = []byte(html)
 				}
 				return c.HTMLBlob(http.StatusOK, indexHTML)

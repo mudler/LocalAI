@@ -469,6 +469,7 @@ var _ = Describe("API test", func() {
 				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
 				Expect(string(body)).ToNot(ContainSubstring(`="/assets/`), "asset URLs must include the prefix")
 				Expect(string(body)).ToNot(ContainSubstring(`="/favicon.svg"`), "favicon URL must include the prefix")
+				Expect(string(body)).ToNot(ContainSubstring(`="/apple-touch-icon.png"`), "touch icon URL must include the prefix")
 			})
 
 			// X-Forwarded-Prefix is attacker controllable on misconfigured
