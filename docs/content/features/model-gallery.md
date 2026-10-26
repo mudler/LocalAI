@@ -44,6 +44,18 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Qwen3.5-4B-3D-Coder preview
+
+[CCORE's Qwen3.5-4B-3D-Coder](https://huggingface.co/ccore/Qwen3.5-4B-3D-Coder)
+is an early preview for coding and Three.js scene generation. The gallery
+pins its Q8_0 checkpoint instead of following ongoing training updates.
+It accepts text, uses llama.cpp with a 32,768-token default context, and
+leaves multi-token prediction disabled as recommended by the publisher.
+
+```bash
+local-ai models install qwen3.5-4b-3d-coder-q8
+```
+
 ### Nemotron 3.5 Bolt E4B
 
 [Nemotron 3.5 Bolt E4B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16)

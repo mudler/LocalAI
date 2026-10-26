@@ -4,6 +4,42 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-4b-3d-coder-q8
+  description: |
+    CCORE's early preview fine-tune of Qwen3.5-4B for coding and Three.js
+    scene generation. This text-only Q8_0 build pins a preview
+    checkpoint and uses the embedded chat template. MTP is not enabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/ccore/Qwen3.5-4B-3D-Coder
+  tags:
+    - llm
+    - gguf
+    - coding
+    - preview
+    - cpu
+    - gpu
+  files:
+    - filename: Qwen3.5-4B-3D-Coder-Q8_0.gguf
+      sha256: 666ebe87dcbe4138888f07c4eb1bcb9be82e7a057a5c154c0104f4173690038c
+      uri: https://huggingface.co/ccore/Qwen3.5-4B-3D-Coder/resolve/c8b9b5e565967b81647b9e4c77feaa11782466cc/Qwen3.5-4B-3D-Coder-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Qwen3.5-4B-3D-Coder-Q8_0.gguf
+      repeat_penalty: 1.0
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: sage-a1.5-q4
   description: |
     Sage-A1.5 is a 35B mixture-of-experts model based on Qwen3.6 for

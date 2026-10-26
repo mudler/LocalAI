@@ -5,6 +5,50 @@
 # master reads it as the default model source; a tagged build reads the gallery
 # until the release cutover.
 - kind: model
+  id: qwen3.5-4b-3d-coder-q8
+  name: qwen3.5-4b-3d-coder-q8
+  version: 0.0.0-gallery.c8b9b5e56596
+  description: |
+    CCORE's early preview fine-tune of Qwen3.5-4B for coding and Three.js
+    scene generation. This text-only Q8_0 build pins a preview
+    checkpoint and uses the embedded chat template. MTP is not enabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/ccore/Qwen3.5-4B-3D-Coder
+  tags:
+    - llm
+    - gguf
+    - coding
+    - preview
+    - cpu
+    - gpu
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: Qwen3.5-4B-3D-Coder-Q8_0.gguf
+        sha256: 666ebe87dcbe4138888f07c4eb1bcb9be82e7a057a5c154c0104f4173690038c
+        uri: https://huggingface.co/ccore/Qwen3.5-4B-3D-Coder/resolve/c8b9b5e565967b81647b9e4c77feaa11782466cc/Qwen3.5-4B-3D-Coder-Q8_0.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        model: Qwen3.5-4B-3D-Coder-Q8_0.gguf
+        temperature: 0.7
+        top_k: 20
+        top_p: 0.95
+        repeat_penalty: 1.0
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: sage-a1.5-q4
   name: sage-a1.5-q4
   version: 0.0.0-gallery.88087a1aab17
@@ -90747,7 +90791,7 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: audio-cpp/htdemucs-f16.gguf
-        sha256: 27763c59d7e65f64bbb326dc0c15beec952291954b70a813b7f4b83ebe6bd0c9
+        sha256: f8c54ba35df95aafea7881eac214b58ec18a73cbcb6ff5a90f4b762631a286b6
         uri: huggingface://audio-cpp/audio.cpp-gguf/HTDemucs-GGUF/htdemucs-f16.gguf
     overrides:
       backend: audio-cpp
