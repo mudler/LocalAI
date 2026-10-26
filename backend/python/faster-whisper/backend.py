@@ -12,6 +12,7 @@ import backend_pb2
 import backend_pb2_grpc
 import torch
 from faster_whisper import WhisperModel
+from transcribe_options import transcribe_kwargs
 
 import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
@@ -55,8 +56,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         resultSegments = []
         text = ""
         try:
-            word_timestamps = "word" in request.timestamp_granularities
-            segments, info = self.model.transcribe(request.dst, beam_size=5, condition_on_previous_text=False, word_timestamps=word_timestamps)
+            options = transcribe_kwargs(request)
+            word_timestamps = options["word_timestamps"]
+            segments, info = self.model.transcribe(request.dst, **options)
             id = 0
             for segment in segments:
                 print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
