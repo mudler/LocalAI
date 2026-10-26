@@ -27,9 +27,10 @@ import (
 
 // backendProcess represents a single gRPC backend process.
 type backendProcess struct {
-	proc *process.Process
-	addr string // gRPC address (host:port)
-	port int
+	envVars map[string]string
+	proc    *process.Process
+	addr    string // gRPC address (host:port)
+	port    int
 	// serving marks a process that has answered a gRPC health check and is
 	// therefore actually listening on addr. It is the opening bracket of the
 	// lifecycle that stopping closes.
@@ -497,7 +498,16 @@ func (s *backendSupervisor) releasePort(port int) {
 // `backend` is the process key (modelID#replica); `backendName` is the gallery
 // backend it was started from, recorded so delete/stop can find this process
 // by backend name later.
-func (s *backendSupervisor) startBackend(backend, backendName, backendPath string) (string, error) {
+func (s *backendSupervisor) startBackend(backend, backendName, backendPath string, env ...map[string]string) (string, error) {
+	var snapshot map[string]string
+	if len(env) > 0 {
+		snapshot = maps.Clone(env[0])
+	}
+	if !s.processMatchesEnv(backend, snapshot) {
+		if err := s.stopBackendExact(backend, false); err != nil {
+			return "", err
+		}
+	}
 	// Mirrors the working directory pkg/model.startProcess hands the child.
 	backendDir := filepath.Dir(backendPath)
 
@@ -537,7 +547,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
 	clientAddr := fmt.Sprintf("127.0.0.1:%d", port)
 
-	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr, nil)
+	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr, snapshot)
 	if err != nil {
 		s.releasePortForKey(backend, port)
 		s.mu.Unlock()
@@ -557,6 +567,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	}
 
 	s.processes[backend] = &backendProcess{
+		envVars:      maps.Clone(snapshot),
 		proc:         proc,
 		addr:         clientAddr,
 		port:         port,
@@ -1166,4 +1177,16 @@ func (s *backendSupervisor) LoadedBackendAddresses() []string {
 		addrs = append(addrs, bp.addr)
 	}
 	return addrs
+}
+
+// An absent snapshot retains old-controller reuse semantics. An explicit
+// empty snapshot must still restart a slot that carries removed overrides.
+func (s *backendSupervisor) processMatchesEnv(key string, env map[string]string) bool {
+	if env == nil {
+		return true
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	bp := s.processes[key]
+	return bp == nil || maps.Equal(bp.envVars, env)
 }

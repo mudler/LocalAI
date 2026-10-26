@@ -73,7 +73,7 @@ func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, 
 		// running" again, and the cluster loops on a dead replica forever.
 		if addr := s.getAddr(processKey); addr != "" {
 			switch {
-			case !s.processMatchesBackend(processKey, req.Backend):
+			case !s.processMatchesBackend(processKey, req.Backend) || !s.processMatchesEnv(processKey, req.EnvVars):
 				// The slot is held by a process that must not serve this
 				// backend: either it was started from a DIFFERENT backend
 				// (this model's previous backend was deleted, or superseded by
@@ -169,7 +169,7 @@ func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, 
 	// Start the gRPC process on a new port (keyed by model, not just backend).
 	// req.Backend is recorded on the process so a later backend.delete/stop can
 	// find it by backend name.
-	return s.startBackend(processKey, req.Backend, backendPath)
+	return s.startBackend(processKey, req.Backend, backendPath, req.EnvVars)
 }
 
 // upgradeBackend stops every running process for `backend`, force-reinstalls
