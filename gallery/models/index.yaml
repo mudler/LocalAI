@@ -27665,6 +27665,88 @@
       template:
         use_tokenizer_template: true
 - kind: model
+  id: nanbeige4.3-33b-ad-q4
+  name: nanbeige4.3-33b-ad-q4
+  version: 0.0.0-gallery.b39515bab760
+  description: |
+    Nanbeige4.3-33B is a 33B dense model for reasoning, coding, and
+    agent tasks in English and Chinese. This AD-Q4_K_M GGUF build
+    uses llama.cpp with the embedded chat template and thinking enabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Nanbeige/Nanbeige4.3-33B
+    - https://huggingface.co/AtomicChat/Nanbeige4.3-33B-GGUF
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - coding
+    - cpu
+    - gpu
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: Nanbeige4.3-33B-AD-Q4_K_M.gguf
+        sha256: 409c92c4355c81928f0f2de5d49481fe7e4d0fa4d381aa28eddee0dc4b358c49
+        uri: https://huggingface.co/AtomicChat/Nanbeige4.3-33B-GGUF/resolve/b39515bab760dc8d6f7da7b4073847997971e2b7/Nanbeige4.3-33B-AD-Q4_K_M.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      options:
+        - use_jinja:true
+      parameters:
+        model: Nanbeige4.3-33B-AD-Q4_K_M.gguf
+        temperature: 0.6
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+    variants:
+      - model: nanbeige4.3-33b-q8
+- kind: model
+  id: nanbeige4.3-33b-q8
+  name: nanbeige4.3-33b-q8
+  version: 0.0.0-gallery.b39515bab760
+  description: |
+    Nanbeige4.3-33B is a 33B dense model for reasoning, coding, and
+    agent tasks in English and Chinese. This Q8_0 GGUF build
+    uses llama.cpp with the embedded chat template and thinking enabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Nanbeige/Nanbeige4.3-33B
+    - https://huggingface.co/AtomicChat/Nanbeige4.3-33B-GGUF
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - coding
+    - cpu
+    - gpu
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: Nanbeige4.3-33B-Q8_0.gguf
+        sha256: 4106cbb9ba85da731f88b7493a90343e0d8cd6c77974ed1af00a97c5262c22bc
+        uri: https://huggingface.co/AtomicChat/Nanbeige4.3-33B-GGUF/resolve/b39515bab760dc8d6f7da7b4073847997971e2b7/Nanbeige4.3-33B-Q8_0.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 32768
+      options:
+        - use_jinja:true
+      parameters:
+        model: Nanbeige4.3-33B-Q8_0.gguf
+        temperature: 0.6
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: nanbeige4.1-3b-q8
   name: nanbeige4.1-3b-q8
   version: 0.0.0-gallery.059aad7f7a84
