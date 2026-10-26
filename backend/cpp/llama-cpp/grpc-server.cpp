@@ -1002,8 +1002,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             }
 
         } else if (!strcmp(optname, "reasoning_budget_message")) {
-            if (optval != NULL) {
-                params.sampling.reasoning_budget_message = optval_str;
+            // The message can contain colons, which strtok splits above.
+            const size_t sep = opt.find(':');
+            if (sep != std::string::npos) {
+                params.sampling.reasoning_budget_message = opt.substr(sep + 1);
             }
 
         // --- prefill assistant turn (upstream --no-prefill-assistant) ---
