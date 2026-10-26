@@ -79,6 +79,7 @@ export function preloadRoute(path) {
 const Home = page('', () => import('./pages/Home'))
 const Chat = page('chat', () => import('./pages/Chat'))
 const Chats = page('chats', () => import('./pages/Chats'))
+const Workspace = page('workspace', () => import('./pages/Workspace'))
 const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
 // Referenced only from JSX below — same blind spot as Activity further down.
@@ -251,6 +252,7 @@ const appChildren = [
   { path: 'chat/:model', element: <Chat /> },
   { path: 'chats', element: <Feature feature="chats"><Chats /></Feature> },
   { path: 'chats/:id', element: <Feature feature="chats"><Chats /></Feature> },
+  { path: 'files', element: <Feature feature="chats"><Workspace /></Feature> },
   { path: 'image', element: <StudioTabRedirect legacy="image" /> },
   { path: 'image/:model', element: <StudioTabRedirect legacy="image" /> },
   { path: 'video', element: <StudioTabRedirect legacy="video" /> },

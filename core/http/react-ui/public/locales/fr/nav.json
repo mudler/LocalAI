@@ -92,7 +92,8 @@
     "prometheus": "Prometheus",
     "trafficModels": "Modèles",
     "addons": "Add-ons",
-    "chats": "Chats"
+    "chats": "Chats",
+    "files": "Fichiers"
   },
   "footer": {
     "github": "GitHub",

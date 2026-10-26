@@ -83,11 +83,17 @@ test('movePin moves one place and stops at the ends', () => {
 const user = { isAdmin: false, authEnabled: true, hasFeature: () => false, features: {}, hasBuiltin: false }
 
 test('Settings is not a primary item and Models is an administrator item', () => {
-  assert.deepEqual(primaryDestinations.map(i => i.path), ['/app/chat', '/app/chats', '/app/models', '/app/addons'])
+  assert.deepEqual(primaryDestinations.map(i => i.path), ['/app/chat', '/app/chats', '/app/files', '/app/models', '/app/addons'])
   const admin = visiblePrimary(primaryDestinations, { ...user, isAdmin: true, hasFeature: () => true })
-  assert.equal(admin.length, 4)
+  assert.equal(admin.length, 5)
   const member = visiblePrimary(primaryDestinations, { ...user, hasBuiltin: true })
   assert.deepEqual(member.map(i => i.path), ['/app/chat', '/app/addons'])
+})
+
+test('the files entry shows with the chats feature, like the chats entry', () => {
+  const paths = (ctx) => visiblePrimary(primaryDestinations, ctx).map(i => i.path)
+  assert.ok(paths({ ...user, hasFeature: (f) => f === 'chats' }).includes('/app/files'))
+  assert.ok(!paths(user).includes('/app/files'))
 })
 
 test('the chats entry shows only to a viewer who holds the chats feature', () => {

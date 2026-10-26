@@ -8,6 +8,8 @@ export const primaryDestinations = Object.freeze([
   { path: '/app/chat', icon: 'chat', labelKey: 'items.chat' },
   // Chats the server keeps. Shown to a viewer who holds the chats feature.
   { path: '/app/chats', icon: 'chat', labelKey: 'items.chats', feature: 'chats' },
+  // The user's own files: a workspace of folders, with a Trash and history.
+  { path: '/app/files', icon: 'folder', labelKey: 'items.files', feature: 'chats' },
   { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
   // Shown to a viewer who holds the addons feature or sees a built-in tile.
   { path: '/app/addons', icon: 'puzzle', labelKey: 'items.addons', addonsEntry: true },

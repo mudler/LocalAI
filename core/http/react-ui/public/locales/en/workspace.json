@@ -1,0 +1,41 @@
+{
+  "title": "Files",
+  "home": "Home",
+  "breadcrumb": "Folder path",
+  "up": "Up one folder",
+  "upload": "Upload",
+  "newFolder": "New folder",
+  "folderName": "Folder name",
+  "create": "Create",
+  "download": "Download",
+  "rename": "Rename",
+  "delete": "Move to Trash",
+  "dismiss": "Dismiss",
+  "empty": "This folder is empty. Drop files here or use Upload.",
+  "dropHint": "Drop files anywhere on this list to upload them here. Deleted files go to the Trash.",
+  "tabs": {
+    "label": "Views",
+    "files": "Files",
+    "trash": "Trash",
+    "history": "History"
+  },
+  "trash": {
+    "empty": "The Trash is empty.",
+    "restore": "Restore"
+  },
+  "history": {
+    "empty": "No changes yet.",
+    "undo": "Undo",
+    "agent": "chat"
+  },
+  "search": {
+    "label": "Search your files",
+    "placeholder": "Search names and text",
+    "results": "Search results",
+    "none": "Nothing found."
+  },
+  "preview": {
+    "label": "Preview",
+    "failed": "This file could not be shown."
+  }
+}

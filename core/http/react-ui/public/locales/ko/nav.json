@@ -67,7 +67,8 @@
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
-    "chats": "채팅 세션"
+    "chats": "채팅 세션",
+    "files": "파일"
   },
   "footer": {
     "github": "GitHub",

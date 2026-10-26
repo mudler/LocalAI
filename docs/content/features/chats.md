@@ -136,6 +136,8 @@ curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
 - **Pictures and recordings.** `describe_image` lets the model look at an image in your files and `transcribe_audio` turns a recording into text. A voice note attached to a message is transcribed on the way in and its transcript goes with your message; the file is kept as it is. They use helper models, which you choose in the settings (Chat image model, Chat transcription model). Left empty, the first installed model that can see images, or transcribe, is used. With none installed the tool says what to install. The helpers run as you, so your model access and quota apply.
 - **A file is at most 256 MiB.**
 
+The **Files** page in the sidebar is a file browser for all of this: folders with a breadcrumb, upload by button or drag and drop, rename, delete to the Trash, a Trash tab that restores, a History tab that undoes a change, one search box over names and text, and a preview of text and images.
+
 Files need a place to live. Where the tree and the bytes go:
 
 | Setup | Tree | File contents |

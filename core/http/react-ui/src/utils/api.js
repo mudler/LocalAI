@@ -188,6 +188,39 @@ export const chatsApi = {
 // Endpoints return 404 when the WebUI's chat history feature is disabled, so
 // every call here is best-effort: callers should fall back to localStorage on
 // failure rather than surfacing a user-visible error.
+// Files API: the user's own workspace. Paths are inside the user's home, "/".
+const q = (params) => {
+  const sp = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') sp.set(k, String(v)) })
+  const s = sp.toString()
+  return s ? `?${s}` : ''
+}
+export const filesApi = {
+  list: (path = '/') => fetchJSON(API_CONFIG.endpoints.files + q({ path })),
+  // The address that downloads a file, or with inline shows a safe type.
+  contentUrl: (path, inline = false) => apiUrl(API_CONFIG.endpoints.filesContent) + q({ path, inline: inline ? 1 : undefined }),
+  readText: async (path, limit = 64 * 1024) => {
+    const res = await fetch(filesApi.contentUrl(path), { headers: { Range: `bytes=0-${limit - 1}` } })
+    if (!res.ok) { await handleResponse(res) }
+    return res.text()
+  },
+  // Sends the file as the request body. Without base, a file that exists is
+  // kept and the new one gets a conflict name (see conflict_of in the answer).
+  upload: async (path, file, { base } = {}) => {
+    const res = await fetch(apiUrl(API_CONFIG.endpoints.filesContent) + q({ path, base }), {
+      method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: file,
+    })
+    return handleResponse(res)
+  },
+  mkdir: (path) => postJSON(API_CONFIG.endpoints.filesFolders, { path }),
+  move: (from, to) => postJSON(API_CONFIG.endpoints.filesMove, { from, to }),
+  remove: (path) => fetchJSON(API_CONFIG.endpoints.files + q({ path }), { method: 'DELETE' }),
+  trash: () => fetchJSON(API_CONFIG.endpoints.filesTrash),
+  undo: (rev, skipConflicts = false) => postJSON(API_CONFIG.endpoints.filesUndo, { rev, skip_conflicts: skipConflicts }),
+  history: (path = '/') => fetchJSON(API_CONFIG.endpoints.filesHistory + q({ path })),
+  search: (query, path = '/') => fetchJSON(API_CONFIG.endpoints.filesSearch + q({ q: query, path })),
+}
+
 export const chatHistoryApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.conversations),
   get: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id)),

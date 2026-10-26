@@ -1583,7 +1583,7 @@ clean-localai-proxy-backend:
 ########################################################
 
 build-ui-test-server: build-mock-backend react-ui protogen-go
-	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 
 test-ui-e2e: build-ui-test-server
 	cd core/http/react-ui && npm install && npx playwright install --with-deps chromium && npx playwright test
@@ -1603,14 +1603,14 @@ PLAYWRIGHT_WORKERS_FLAG = $(if $(UI_TEST_WORKERS),--workers=$(UI_TEST_WORKERS),)
 ## downloading it as `test-ui-e2e` does.
 test-ui: build-mock-backend protogen-go
 	cd core/http/react-ui && bun install && bun run build
-	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG)
 
 ## The stale-chunk specs need the production code-split bundle. The V8 coverage
 ## bundle below inlines dynamic imports to keep every page in its denominator.
 test-ui-stale-chunk: build-mock-backend protogen-go
 	cd core/http/react-ui && bun install && bun run build
-	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test --grep @production-chunks --workers=1
 
 ## React UI code coverage from the Playwright e2e suite. Builds a
@@ -1625,7 +1625,7 @@ test-ui-stale-chunk: build-mock-backend protogen-go
 test-ui-coverage: build-mock-backend protogen-go
 	trap 'rm -rf "$(CURDIR)/core/http/react-ui/dist"' EXIT; \
 	( cd core/http/react-ui && bun install && bun run build:coverage-v8 ) && \
-	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
+	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
 	( cd core/http/react-ui && rm -rf .nyc_output coverage && \
 	    sh $(CURDIR)/scripts/ensure-playwright-browser.sh && \
 	    PW_V8_COVERAGE=1 bunx playwright test --grep-invert @production-chunks $(PLAYWRIGHT_WORKERS_FLAG) && bun run coverage:report )

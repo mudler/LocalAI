@@ -65,6 +65,14 @@ export const API_CONFIG = {
     chatSendNow: (id) => `/api/chats/${encodeURIComponent(id)}/send-now`,
     chatStop: (id) => `/api/chats/${encodeURIComponent(id)}/stop`,
     chatEvents: (id) => `/api/chats/${encodeURIComponent(id)}/events`,
+    files: '/api/chats/files',
+    filesContent: '/api/chats/files/content',
+    filesFolders: '/api/chats/files/folders',
+    filesMove: '/api/chats/files/move',
+    filesTrash: '/api/chats/files/trash',
+    filesUndo: '/api/chats/files/undo',
+    filesHistory: '/api/chats/files/history',
+    filesSearch: '/api/chats/files/search',
 
     // Chat history (server-side persistence, #9432)
     conversations: '/api/conversations',

@@ -67,7 +67,8 @@
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
-    "chats": "聊天会话"
+    "chats": "聊天会话",
+    "files": "文件"
   },
   "footer": {
     "github": "GitHub",

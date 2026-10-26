@@ -67,7 +67,8 @@
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
     "addons": "Add-ons",
-    "chats": "Chats"
+    "chats": "Chats",
+    "files": "Files"
   },
   "footer": {
     "github": "GitHub",
