@@ -95,7 +95,7 @@ func (c *CloudProxy) Load(opts *pb.ModelOptions) error {
 		return fmt.Errorf("cloud-proxy: unknown mode %q", mode)
 	}
 
-	key, err := resolveAPIKey(po.GetApiKeyEnv(), po.GetApiKeyFile())
+	key, err := resolveAPIKey(po.GetApiKey(), po.GetApiKeyEnv(), po.GetApiKeyFile())
 	if err != nil {
 		return err
 	}
@@ -120,8 +120,20 @@ func (c *CloudProxy) Load(opts *pb.ModelOptions) error {
 // resolveAPIKey mirrors config.ProxyConfig.ResolveAPIKey. Duplicated
 // (a few lines) rather than importing core/config from a backend
 // binary — keeps backends independent of core's package layout.
-// Mutual-exclusion is enforced upstream in core/config.Validate.
-func resolveAPIKey(envName, filePath string) (string, error) {
+// Also validate here for callers that bypass core config validation.
+func resolveAPIKey(directKey, envName, filePath string) (string, error) {
+	sources := 0
+	for _, value := range []string{directKey, envName, filePath} {
+		if value != "" {
+			sources++
+		}
+	}
+	if sources > 1 {
+		return "", fmt.Errorf("cloud-proxy: api_key, api_key_env and api_key_file are mutually exclusive")
+	}
+	if directKey != "" {
+		return directKey, nil
+	}
 	if envName != "" {
 		v := os.Getenv(envName)
 		if v == "" {

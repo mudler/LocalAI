@@ -1204,6 +1204,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "input",
 			Order:       210,
 		},
+		"proxy.api_key": {
+			Section:     "proxy",
+			Label:       "Proxy API Key",
+			Description: "Plaintext administrator credential stored in model YAML/JSON. Use only one of api_key, api_key_env or api_key_file. Masking is not encryption.",
+			Component:   "password",
+			Order:       211,
+		},
 		"proxy.api_key_env": {
 			Section:     "proxy",
 			Label:       "Proxy API Key Env Var",
