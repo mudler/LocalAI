@@ -32,6 +32,31 @@ func toolPath(p string) string {
 	return p
 }
 
+// errSharedReadOnly is what a write to the shared or built-in skills gets.
+var errSharedReadOnly = errors.New("the shared and built-in skills are read-only")
+
+// readPath resolves a path a read tool was given: inside the home, or in a
+// shared skill layer. A path with .. is refused either way.
+func (s *Service) readPath(principal, p string) (string, error) {
+	p = strings.TrimSpace(p)
+	if shared := SharedGuestPath(p); shared != "" {
+		segs, err := workspace.SplitPath(shared)
+		if err != nil {
+			return "", err
+		}
+		return workspace.JoinPath(segs), nil
+	}
+	return s.Abs(principal, toolPath(p))
+}
+
+// writePath resolves a path a write tool was given: inside the home only.
+func (s *Service) writePath(principal, p string) (string, error) {
+	if SharedGuestPath(strings.TrimSpace(p)) != "" {
+		return "", errSharedReadOnly
+	}
+	return s.Abs(principal, toolPath(p))
+}
+
 // Tools returns the file tools of one chat: list, read, write, move and delete
 // files in the user's home, and search them. They act as the user in that chat,
 // so what they change is an agent change in the history, which the user can
@@ -57,7 +82,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var in struct{ Path string }
 				_ = json.Unmarshal(raw, &in)
-				abs, err := s.Abs(a.Principal, toolPath(in.Path))
+				abs, err := s.readPath(a.Principal, in.Path)
 				if err != nil {
 					return "", err
 				}
@@ -86,7 +111,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 					Offset, Limit int
 				}
 				_ = json.Unmarshal(raw, &in)
-				abs, err := s.Abs(a.Principal, toolPath(in.Path))
+				abs, err := s.readPath(a.Principal, in.Path)
 				if err != nil {
 					return "", err
 				}
@@ -132,7 +157,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err := json.Unmarshal(raw, &in); err != nil {
 					return "", workspace.ErrInvalid
 				}
-				abs, err := s.Abs(a.Principal, toolPath(in.Path))
+				abs, err := s.writePath(a.Principal, in.Path)
 				if err != nil {
 					return "", err
 				}
@@ -154,11 +179,11 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var in struct{ From, To string }
 				_ = json.Unmarshal(raw, &in)
-				from, err := s.Abs(a.Principal, toolPath(in.From))
+				from, err := s.writePath(a.Principal, in.From)
 				if err != nil {
 					return "", err
 				}
-				to, err := s.Abs(a.Principal, toolPath(in.To))
+				to, err := s.writePath(a.Principal, in.To)
 				if err != nil {
 					return "", err
 				}
@@ -175,7 +200,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var in struct{ Path string }
 				_ = json.Unmarshal(raw, &in)
-				abs, err := s.Abs(a.Principal, toolPath(in.Path))
+				abs, err := s.writePath(a.Principal, in.Path)
 				if err != nil {
 					return "", err
 				}

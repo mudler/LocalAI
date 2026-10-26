@@ -145,3 +145,83 @@ func TestSearchFindsNamesAndWordsInsideFilesAndSkipsWhatIsNotText(t *testing.T) 
 		t.Errorf("search read a file over the content limit: %q", out)
 	}
 }
+
+func TestTheModelReadsSharedAndBuiltInSkillsButCannotChangeThem(t *testing.T) {
+	f := newFiles(t)
+	b := newToolBox(t, f, "alice", "c1")
+	adminPut(t, f, "/skills/team/SKILL.md", skillMD("team", "for everyone"))
+	adminPut(t, f, "/skills/team/references/style.md", "use short words")
+	adminPut(t, f, "/builtin-skills/base/SKILL.md", skillMD("base", "built in"))
+
+	got, err := b.run("read_file", map[string]any{"path": "/workspace/shared-skills/team/SKILL.md"})
+	if err != nil || !strings.Contains(got, "Body of team") {
+		t.Fatalf("read_file of a shared skill = %q, %v", got, err)
+	}
+	ref, err := b.run("read_file", map[string]any{"path": "/workspace/shared-skills/team/references/style.md"})
+	if err != nil || ref != "use short words" {
+		t.Fatalf("read_file of a reference next to a shared skill = %q, %v", ref, err)
+	}
+	if got, err = b.run("read_file", map[string]any{"path": "/workspace/shared-builtin-skills/base/SKILL.md"}); err != nil || !strings.Contains(got, "Body of base") {
+		t.Fatalf("read_file of a built-in skill = %q, %v", got, err)
+	}
+	list, err := b.run("list_files", map[string]any{"path": "/workspace/shared-skills"})
+	if err != nil || !strings.Contains(list, "team/") {
+		t.Fatalf("list_files of the shared skills = %q, %v", list, err)
+	}
+
+	for name, args := range map[string]map[string]any{
+		"write_file":  {"path": "/workspace/shared-skills/team/SKILL.md", "content": "x"},
+		"delete_file": {"path": "/workspace/shared-skills/team"},
+		"move_file":   {"from": "/workspace/shared-skills/team", "to": "/stolen"},
+	} {
+		if _, err := b.run(name, args); err == nil || !strings.Contains(err.Error(), "read-only") {
+			t.Errorf("%s on a shared skill = %v, want a read-only refusal", name, err)
+		}
+	}
+	if got := wstestRead(t, f, "/skills/team/SKILL.md"); !strings.Contains(got, "Body of team") {
+		t.Fatalf("the shared skill changed: %q", got)
+	}
+}
+
+func TestASharedPathCannotLeadOutOfItsLayer(t *testing.T) {
+	f := newFiles(t)
+	b := newToolBox(t, f, "alice", "c1")
+	_ = f.EnsureHome(context.Background(), "bob")
+	userPut(t, f, "bob", "/.skills/private/SKILL.md", skillMD("private", "bob only"))
+	adminPut(t, f, "/skills/team/SKILL.md", skillMD("team", "for everyone"))
+	for _, p := range []string{
+		"/workspace/shared-skills/../users/bob/.skills/private/SKILL.md",
+		"/workspace/shared-skills/team/../../users/bob/.skills/private/SKILL.md",
+		"/workspace/shared-skills/..",
+	} {
+		if out, err := b.run("read_file", map[string]any{"path": p}); err == nil {
+			t.Errorf("read_file(%q) = %q, want an error", p, out)
+		}
+		if out, err := b.run("list_files", map[string]any{"path": p}); err == nil {
+			t.Errorf("list_files(%q) = %q, want an error", p, out)
+		}
+	}
+	// A name that only starts like the guest prefix is an ordinary path in the home.
+	if _, err := b.run("read_file", map[string]any{"path": "/workspace/shared-skills-extra/x"}); err == nil {
+		t.Error("a path that only looks like the shared prefix was read")
+	}
+}
+
+func wstestRead(t *testing.T, f *files.Service, abs string) string {
+	t.Helper()
+	r, _, err := f.Store().Open(context.Background(), workspace.Actor{Principal: files.AdminPrincipal}, abs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	b := new(strings.Builder)
+	buf := make([]byte, 4096)
+	for {
+		n, err := r.Read(buf)
+		b.Write(buf[:n])
+		if err != nil {
+			break
+		}
+	}
+	return b.String()
+}
