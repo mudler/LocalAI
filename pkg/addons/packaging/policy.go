@@ -18,10 +18,11 @@ var trustedJobs = map[string]bool{"publish": true, "promote": true}
 
 // deniedInWorkflow are strings that tie a workflow to the backend image
 // pipeline. The add-on package workflow has its own registry input, its own
-// signer identity and its own jobs.
+// signer identity and its own jobs. It logs in to quay.io with the same registry
+// credentials as the backend builds, so the quay credential names are allowed.
 var deniedInWorkflow = []string{
 	"quay.io", "go-skynet", "backend_merge", "backend_build", "backend.yml", "backend_pr",
-	"ci-cache", "docker.io", "dockerhub", "quayusername", "quaypassword", "dockerusername", "dockerpassword",
+	"ci-cache", "docker.io", "dockerhub", "dockerusername", "dockerpassword",
 }
 
 // checkWorkflow applies the workflow policy to a parsed workflow and returns

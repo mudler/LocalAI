@@ -2914,7 +2914,7 @@
     - deepseek
   files:
     - filename: ds4flash.gguf
-      sha256: ce715af0959dcac0d739e925aacd78fc3d2275b242f6c68a30914c39d5c7a991
+      sha256: c7e6c252de95b1e96721bcda7b14df8b166fee22b7ee690f81d45eb5ef189b8d
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   overrides:
     backend: ds4
@@ -73747,7 +73747,7 @@
     - ggml
   files:
     - filename: audio-cpp/htdemucs-f16.gguf
-      sha256: 27763c59d7e65f64bbb326dc0c15beec952291954b70a813b7f4b83ebe6bd0c9
+      sha256: f8c54ba35df95aafea7881eac214b58ec18a73cbcb6ff5a90f4b762631a286b6
       uri: huggingface://audio-cpp/audio.cpp-gguf/HTDemucs-GGUF/htdemucs-f16.gguf
   overrides:
     backend: audio-cpp
@@ -74848,7 +74848,7 @@
     - gpu
   files:
     - filename: llama-cpp/models/clef/Clef-Q4_K_M.gguf
-      sha256: 9997675e4c9e9016273372b5fdedbdda7ad14285bc722949e4b9daca62bf3822
+      sha256: 06a819954debafc9664ac6bf3898818185d21d7efe36d0f01009d9958bf6e1fd
       uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/Clef-Q4_K_M.gguf
     - filename: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
       sha256: 744ad2db24c336fc9120dd5ba06344c0601b9efd365fe96be01ce5c4e6ab64cf
@@ -74882,7 +74882,7 @@
     - gpu
   files:
     - filename: llama-cpp/models/clef/Clef-Q8_0.gguf
-      sha256: 537d3c88008b8a4bcdf12d9b79f1e3161fbe02f530b84048bb8f16461b01ddb3
+      sha256: 728801f58fcebb35e60bb2ac0cf63fc33e3137b07581da132c1f0f5c5e2149fe
       uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/Clef-Q8_0.gguf
     - filename: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
       sha256: 744ad2db24c336fc9120dd5ba06344c0601b9efd365fe96be01ce5c4e6ab64cf
@@ -74937,7 +74937,7 @@
     - gpu
   files:
     - filename: llama-cpp/models/clef-flash/Clef-Flash-Q4_K_M.gguf
-      sha256: 3626116623ca8d89641952471fac9ce12af84fb3517520029a2ac6f5146868a2
+      sha256: eef2968c238a80d49d340430f22410ea3db9934ad1c6fdb233a503cbf9a9b54e
       uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/Clef-Flash-Q4_K_M.gguf
     - filename: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
       sha256: 9dd8bc279f57d33b0697d4d0fe900fe751a24c9e3d30ab90969d4714ffc0722d
@@ -74971,7 +74971,7 @@
     - gpu
   files:
     - filename: llama-cpp/models/clef-flash/Clef-Flash-Q8_0.gguf
-      sha256: 87a232aa1f7495cfc90ce22f08bb3779655e1b05c991c84b21afa4c1c8c4e0f5
+      sha256: 25f801e2a27610b0ccc0cb1558d7eda3d7a304e34e2c4a04e3079357ff7d906e
       uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/Clef-Flash-Q8_0.gguf
     - filename: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
       sha256: 9dd8bc279f57d33b0697d4d0fe900fe751a24c9e3d30ab90969d4714ffc0722d

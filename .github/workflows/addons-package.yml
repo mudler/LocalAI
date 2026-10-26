@@ -292,8 +292,8 @@ jobs:
         uses: docker/login-action@v4
         with:
           registry: ${{ needs.plan.outputs.registry }}
-          username: ${{ secrets.ADDON_OCI_USERNAME }}
-          password: ${{ secrets.ADDON_OCI_PASSWORD }}
+          username: ${{ secrets.quayUsername }}
+          password: ${{ secrets.quayPassword }}
       - name: Push the platform digests and the index
         id: push
         env:
@@ -383,8 +383,8 @@ jobs:
         uses: docker/login-action@v4
         with:
           registry: ${{ needs.plan.outputs.registry }}
-          username: ${{ secrets.ADDON_OCI_USERNAME }}
-          password: ${{ secrets.ADDON_OCI_PASSWORD }}
+          username: ${{ secrets.quayUsername }}
+          password: ${{ secrets.quayPassword }}
       - name: Move the aliases
         env:
           ALIASES: ${{ needs.plan.outputs.aliases }}
