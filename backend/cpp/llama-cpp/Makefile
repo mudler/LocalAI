@@ -169,7 +169,19 @@ llama.cpp:
 	cd llama.cpp && \
 	git init && \
 	git remote add origin $(LLAMA_REPO)  && \
-	git fetch --all --tags && \
+	( \
+		attempt=1; \
+		until git fetch --all --tags; do \
+			if [ "$$attempt" -ge 3 ]; then \
+				echo "git fetch failed after $$attempt attempts" >&2; \
+				exit 1; \
+			fi; \
+			delay=$$((attempt * 3)); \
+			echo "git fetch attempt $$attempt failed; retrying in $${delay}s" >&2; \
+			sleep "$$delay" || exit 1; \
+			attempt=$$((attempt + 1)); \
+		done \
+	) && \
 	git checkout -b build $(LLAMA_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 
