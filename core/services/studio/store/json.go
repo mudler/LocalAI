@@ -210,6 +210,22 @@ func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error 
 	return nil
 }
 
+func (s *jsonStore) SetSkillsOff(_ context.Context, principal, id string, off []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	next := *c
+	next.Rec.SkillsOff = append([]string(nil), off...)
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Rec.SkillsOff = next.Rec.SkillsOff
+	return nil
+}
+
 func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

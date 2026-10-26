@@ -38,6 +38,7 @@ type chatRow struct {
 	LastTurn     string `gorm:"size:32"`
 	NextEntry    int64
 	NextPending  int64
+	SkillsOff    string `gorm:"type:text"` // JSON list of skill names
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -87,6 +88,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 		ID: r.ID, Principal: r.Principal, Title: r.Title, Folder: r.Folder,
 		Created: r.Created, Updated: r.Updated, HarnessState: append([]byte(nil), r.HarnessState...),
 		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Model: r.Model, Status: r.Status, Summary: r.Summary,
+	}
+	if r.SkillsOff != "" {
+		if err := json.Unmarshal([]byte(r.SkillsOff), &rec.SkillsOff); err != nil {
+			return rec, err
+		}
 	}
 	if r.Snapshot != "" {
 		var ref sandbox.SnapshotRef
@@ -172,6 +178,25 @@ func (s *gormStore) UpdateChat(ctx context.Context, rec session.ChatRecord) erro
 			"title": rec.Title, "folder": rec.Folder, "snapshot": snap, "harness_state": rec.HarnessState,
 			"turns": rec.Turns, "updated": rec.Updated, "status": rec.Status, "summary": rec.Summary,
 		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+func (s *gormStore) SetSkillsOff(ctx context.Context, principal, id string, off []string) error {
+	raw := ""
+	if len(off) > 0 {
+		b, err := json.Marshal(off)
+		if err != nil {
+			return err
+		}
+		raw = string(b)
+	}
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("skills_off", raw)
 	if res.Error != nil {
 		return res.Error
 	}

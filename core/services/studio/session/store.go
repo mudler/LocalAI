@@ -52,6 +52,10 @@ type ChatRecord struct {
 	// UpdateChat replaces both.
 	Status  string
 	Summary string
+	// SkillsOff holds the names of the skills this chat has switched off. It is
+	// read by GetChat and set by the store's SetSkillsOff; UpdateChat leaves it
+	// alone.
+	SkillsOff []string
 }
 
 // Chat kinds.

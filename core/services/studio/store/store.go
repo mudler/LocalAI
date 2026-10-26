@@ -87,6 +87,11 @@ type Store interface {
 	// original positions. The loop calls it when a model request failed.
 	RestorePending(ctx context.Context, principal, chatID string, ids []string) error
 
+	// SetSkillsOff sets the skills this chat has switched off. It is not part
+	// of UpdateChat: the loop saves its own copy of the record, which has no
+	// switches in it. ChatRecord.SkillsOff reads them back.
+	SetSkillsOff(ctx context.Context, principal, chatID string, off []string) error
+
 	// ClaimTurn gives runID the right to run a turn on the chat.
 	ClaimTurn(ctx context.Context, principal, chatID, runID string) error
 	// ReleaseTurn ends the claim and records how the turn ended.

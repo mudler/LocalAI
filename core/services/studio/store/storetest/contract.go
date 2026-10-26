@@ -60,6 +60,39 @@ func Run(t *testing.T, newStore New) {
 	// The loop's own transcript contract.
 	sessiontest.RunStoreSuite(t, func(t *testing.T) session.Store { return newStore(t) })
 
+	t.Run("skill switches round-trip, survive a chat update and belong to the owner", func(t *testing.T) {
+		s := newStore(t)
+		chat(t, s, "c1", "alice")
+		if err := s.SetSkillsOff(ctx(t), "alice", "c1", []string{"review", "notes"}); err != nil {
+			t.Fatal(err)
+		}
+		rec, err := s.GetChat(ctx(t), "alice", "c1")
+		if err != nil || len(rec.SkillsOff) != 2 || rec.SkillsOff[0] != "review" || rec.SkillsOff[1] != "notes" {
+			t.Fatalf("SkillsOff = %v, %v, want review and notes", rec.SkillsOff, err)
+		}
+		// The loop saves its own copy of the record at the end of a turn. That
+		// copy has no switches in it and must not wipe them.
+		stale := rec
+		stale.SkillsOff = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		if err := s.UpdateChat(ctx(t), stale); err != nil {
+			t.Fatal(err)
+		}
+		rec, _ = s.GetChat(ctx(t), "alice", "c1")
+		if rec.Title != "Renamed" || len(rec.SkillsOff) != 2 {
+			t.Fatalf("after UpdateChat: title %q, SkillsOff %v, want the switches kept", rec.Title, rec.SkillsOff)
+		}
+		if err := s.SetSkillsOff(ctx(t), "bob", "c1", []string{"x"}); !errors.Is(err, session.ErrNotFound) {
+			t.Fatalf("another principal's SetSkillsOff = %v, want ErrNotFound", err)
+		}
+		if err := s.SetSkillsOff(ctx(t), "alice", "c1", nil); err != nil {
+			t.Fatal(err)
+		}
+		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); len(rec.SkillsOff) != 0 {
+			t.Fatalf("after clearing: %v", rec.SkillsOff)
+		}
+	})
+
 	t.Run("kind, parent, model, status and summary round-trip", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "parent", "alice")
