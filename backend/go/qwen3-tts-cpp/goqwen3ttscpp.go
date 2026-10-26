@@ -13,6 +13,7 @@ import (
 	"github.com/ebitengine/purego"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/xlog"
 )
 
 var (
@@ -92,7 +93,9 @@ func (q *Qwen3TtsCpp) Load(opts *pb.ModelOptions) error {
 	}
 	q.maxBatch.Store(int32(q.opts.maxBatch))
 	if q.opts.maxBatch > 1 && q.opts.batchWarmup {
-		warmupBatch(q.opts.maxBatch)
+		if err := warmupBatch(q.opts.maxBatch); err != nil {
+			xlog.Warn("qwen3-tts batch warmup incomplete", "error", err)
+		}
 	}
 	return nil
 }
@@ -102,25 +105,33 @@ func (q *Qwen3TtsCpp) Load(opts *pb.ModelOptions) error {
 // its code-predictor and codec-stream graphs lazily per batch width; the
 // first request that hits a new width (e.g. two requests finishing in the
 // same step) otherwise stalls the whole batch for seconds (~5 s per width on
-// an RTX 5060 Ti). The staggered lengths make the slots finish one by one, so
-// every width from n down to 1 is built here, at load.
-func warmupBatch(n int) {
+// an RTX 5060 Ti). Staggered lengths encourage different batch widths, but
+// do not guarantee them. Modes requiring a speaker or instruction reject
+// these generic requests; report failures without preventing model load.
+func warmupBatch(n int) error {
 	streamCbOnce.Do(func() {
 		streamCbPtr = purego.NewCallback(streamCallback)
 	})
 	start := time.Now()
 	var wg sync.WaitGroup
+	var failed atomic.Int32
 	for i := 0; i < n; i++ {
 		text := strings.TrimSpace(strings.Repeat("Hello there. ", i+1))
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			// user_data 0 is never a registered route: chunks are dropped.
-			CppTTSStream(text, "", "", "", nil, 0, "", 0, 0, 0, 0, 0, 96, streamCbPtr, 0)
+			if rc := CppTTSStream(text, "", "", "", nil, 0, "", 0, 0, 0, 0, 0, 96, streamCbPtr, 0); rc != 0 {
+				failed.Add(1)
+			}
 		}()
 	}
 	wg.Wait()
+	if count := failed.Load(); count != 0 {
+		return fmt.Errorf("%d of %d synthesis requests failed", count, n)
+	}
 	fmt.Fprintf(os.Stderr, "[qwen3-tts-cpp] batch warmup (%d concurrent) done in %s\n", n, time.Since(start).Round(time.Millisecond))
+	return nil
 }
 
 // discoverTokenizer returns the first *tokenizer*.gguf in dir, or "".

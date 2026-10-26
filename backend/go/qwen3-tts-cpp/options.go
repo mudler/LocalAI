@@ -14,8 +14,8 @@ type loadOptions struct {
 	// maxBatch > 1 sizes qt's KV cache sets and lets its compute worker batch
 	// concurrent TTS/TTSStream requests on one handle (qt_init_params.max_batch).
 	maxBatch int
-	// batchWarmup runs a staggered concurrent synthesis at load so every
-	// batch width is built before the first real request (see warmupBatch).
+	// batchWarmup attempts staggered concurrent synthesis at load to reduce
+	// graph initialization delays (see warmupBatch).
 	batchWarmup bool
 }
 
