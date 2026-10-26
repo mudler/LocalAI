@@ -139,6 +139,18 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 				out, err := rt.Read(ctx, v)
 				reply(out, err)
 			}
+		case "/act":
+			// Only a runtime that serves action tools has the route.
+			ar, ok := rt.(contract.ActRuntime)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			var v contract.Envelope
+			if read(&v) && valid(v, "act") {
+				out, err := ar.Act(ctx, v)
+				reply(out, err)
+			}
 		case "/preview":
 			var v contract.Envelope
 			if read(&v) && valid(v, "preview") {

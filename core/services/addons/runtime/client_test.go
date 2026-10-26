@@ -268,3 +268,57 @@ var _ = Describe("Requests that never reach the wire", func() {
 		Expect(errors.Is(e, ErrNotSent)).To(BeFalse())
 	})
 })
+
+var _ = Describe("Action calls", func() {
+	actEnvelope := func() contract.Envelope {
+		e := envelope("act")
+		e.Request.Action = "act"
+		e.Request.Arguments = json.RawMessage(`{"tool":"run","command":"echo hi"}`)
+		return e
+	}
+	withActions := contract.Capabilities{Service: true, Tools: []string{"run"}, Actions: true,
+		ToolDefinitions: []contract.ToolDefinition{{Name: "run", Description: "Run a command.", Kind: contract.ToolKindAction,
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"additionalProperties":false}`)}}}
+
+	It("reaches an add-on that declares actions, as the actor of the envelope, under the act scope", func() {
+		s := supervisor()
+		i, e := s.Start(context.Background(), fixture("normal", withActions), 1)
+		Expect(e).NotTo(HaveOccurred())
+		r, e := i.Client.(contract.ActRuntime).Act(context.Background(), actEnvelope())
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(r.Payload)).To(And(ContainSubstring(`"actor":"alice"`), ContainSubstring(`"scope":"act"`), ContainSubstring("echo hi")))
+	})
+	It("never sends a call that is not an act call or has another scope", func() {
+		s := supervisor()
+		i, e := s.Start(context.Background(), fixture("normal", withActions), 1)
+		Expect(e).NotTo(HaveOccurred())
+		bad := actEnvelope()
+		bad.Authority.Scope = "read"
+		_, e = i.Client.(contract.ActRuntime).Act(context.Background(), bad)
+		Expect(e).To(MatchError(ErrNotSent))
+		bad = actEnvelope()
+		bad.Request.Action = "read"
+		_, e = i.Client.(contract.ActRuntime).Act(context.Background(), bad)
+		Expect(e).To(MatchError(ErrNotSent))
+	})
+	It("never sends an act call to an add-on that did not declare actions", func() {
+		s := supervisor()
+		i, e := s.Start(context.Background(), fixture("normal", contract.Capabilities{Service: true}), 1)
+		Expect(e).NotTo(HaveOccurred())
+		_, e = i.Client.(contract.ActRuntime).Act(context.Background(), actEnvelope())
+		Expect(e).To(MatchError(ErrNotSent))
+	})
+	It("stops an act call when the caller gives up", func() {
+		s := supervisor()
+		i, e := s.Start(context.Background(), fixture("normal", withActions), 1)
+		Expect(e).NotTo(HaveOccurred())
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		env := actEnvelope()
+		env.Request.Arguments = json.RawMessage(`{"tool":"run","slow":true}`)
+		start := time.Now()
+		_, e = i.Client.(contract.ActRuntime).Act(ctx, env)
+		Expect(e).To(HaveOccurred())
+		Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+	})
+})

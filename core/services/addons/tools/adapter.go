@@ -180,6 +180,10 @@ const ProposalNote = "Nothing has been changed. A person must review and confirm
 
 // ToolAdapter exposes add-on tools to model consumers.
 type ToolAdapter struct {
+	// actions says that this adapter serves action tools. Only the adapter of
+	// the chats consumer is built with it; every other consumer neither lists
+	// nor runs an action tool.
+	actions bool
 	backend Backend
 	newID   func() (string, error)
 }
@@ -187,6 +191,23 @@ type ToolAdapter struct {
 // NewToolAdapter returns an adapter over the owner.
 func NewToolAdapter(b Backend) *ToolAdapter {
 	return &ToolAdapter{backend: b, newID: randomOperationID}
+}
+
+// ActBackend is the owner side of action tools. It is separate from Backend so
+// that no consumer that holds only a Backend can run one.
+type ActBackend interface {
+	// Act runs an action tool for the actor and returns its answer. It never
+	// proposes and never repeats a call.
+	Act(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error)
+}
+
+var _ ActBackend = (*gateway.Gateway)(nil)
+
+// NewChatToolAdapter returns an adapter for the chats consumer: besides what
+// NewToolAdapter serves, it lists and runs action tools, as the chat's user,
+// with no confirmation. The owner it is given must be an ActBackend.
+func NewChatToolAdapter(b Backend) *ToolAdapter {
+	return &ToolAdapter{backend: b, newID: randomOperationID, actions: true}
 }
 
 func randomOperationID() (string, error) {
@@ -267,6 +288,9 @@ func (t *ToolAdapter) Discover(ctx context.Context, actor contract.Actor) ([]Too
 	var out []ToolDefinition
 	for _, a := range list {
 		for _, d := range a.ToolDefinitions {
+			if d.Kind == contract.ToolKindAction && !t.actions {
+				continue
+			}
 			if def, ok := definition(a, d); ok && len(out) < MaxTools {
 				out = append(out, def)
 			}
@@ -309,6 +333,9 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 			if d.Name != tool {
 				continue
 			}
+			if d.Kind == contract.ToolKindAction && !t.actions {
+				continue // not offered to this consumer, so not there
+			}
 			if x, ok := definition(a, d); ok {
 				app, def, found = a, x, true
 			}
@@ -344,6 +371,18 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 		return ToolResult{}, gateway.ErrUnavailable
 	}
 	request := contract.Request{AddonID: app.ID, ResourceID: resource, OperationID: op, Generation: app.Generation, Arguments: body}
+	if def.Kind == contract.ToolKindAction {
+		ab, ok := t.backend.(ActBackend)
+		if !ok {
+			return ToolResult{}, gateway.ErrUnavailable
+		}
+		request.Action = "act"
+		out, err := ab.Act(ctx, actor, request)
+		if err != nil {
+			return refusedResult(name, err)
+		}
+		return readResult(name, out)
+	}
 	if def.Kind == contract.ToolKindRead {
 		request.Action = "read"
 		out, err := t.backend.Dispatch(ctx, actor, request)

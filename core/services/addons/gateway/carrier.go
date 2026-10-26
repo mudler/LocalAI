@@ -42,6 +42,7 @@ type CarrierConfig struct {
 type Carrier struct {
 	config CarrierConfig
 	client *http.Client
+	long   *http.Client // for action calls, which have no overall timeout
 	caps   capsCache
 }
 type OutcomeUnknown struct {
@@ -96,7 +97,11 @@ func NewCarrier(c CarrierConfig) (*Carrier, error) {
 	h := httpclient.New(httpclient.WithTransport(t))
 	h.Timeout = 65 * time.Second
 	h.CheckRedirect = func(*http.Request, []*http.Request) error { return ErrForbidden }
-	return &Carrier{config: c, client: h}, nil
+	// An action call can run for minutes: its client has no overall timeout and
+	// its context carries the bound.
+	long := httpclient.New(httpclient.WithTransport(t))
+	long.CheckRedirect = h.CheckRedirect
+	return &Carrier{config: c, client: h, long: long}, nil
 }
 func (c *Carrier) ServerTLS() *tls.Config {
 	return &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: c.config.Roots, Certificates: []tls.Certificate{c.config.Certificate}}
@@ -350,7 +355,13 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			}
 			return
 		}
-		result, e := g.Dispatch(r.Context(), actor, wire.Request)
+		call := g.Dispatch
+		if wire.Request.Action == "act" {
+			// The owner runs an action call it was forwarded, for the actor
+			// the signature binds; Dispatch refuses the action.
+			call = g.Act
+		}
+		result, e := call(r.Context(), actor, wire.Request)
 		if e != nil {
 			typedError(w, e)
 			return
@@ -575,7 +586,11 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, e
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, e := c.client.Do(req)
+	client := c.client
+	if wire.Request.Action == "act" {
+		client = c.long
+	}
+	resp, e := client.Do(req)
 	if e != nil {
 		if wire.Proposal != nil {
 			return nil, uncertainProposal(*wire.Proposal, wire.Request.OperationID)
@@ -655,6 +670,14 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
 	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
+}
+
+// Act forwards an action call to the owner and waits for its answer, up to the
+// act timeout. A lost answer is an unknown outcome: the tool may have run.
+func (c *Carrier) Act(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
+	ctx, cancel := context.WithTimeout(ctx, contract.ActTimeout+time.Minute)
+	defer cancel()
+	return c.Dispatch(ctx, a, r)
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})

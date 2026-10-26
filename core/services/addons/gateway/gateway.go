@@ -88,6 +88,11 @@ type RelayRequest struct {
 }
 
 func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
+	// The act action has its own door, Act. A frontend that forwarded it from
+	// here would let the owner run it for a consumer that was never offered it.
+	if request.Action == "act" {
+		return contract.Result{}, ErrForbidden
+	}
 	if e := g.revalidate(ctx, actor); e != nil {
 		return contract.Result{}, e
 	}

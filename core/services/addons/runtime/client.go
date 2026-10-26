@@ -206,6 +206,27 @@ func (c *Client) Read(ctx context.Context, v contract.Envelope) (contract.Result
 	}
 	return r, e
 }
+
+var _ contract.ActRuntime = (*Client)(nil)
+
+// Act runs an action tool. It is sent only to an add-on that declared actions,
+// with the act action and the act scope, and it may run up to
+// contract.ActTimeout. It is never retried here: a call that may have run is
+// the caller's to report as an unknown outcome.
+func (c *Client) Act(ctx context.Context, v contract.Envelope) (contract.Result, error) {
+	var r contract.Result
+	if v.Request.Action != "act" || !c.registration.Capabilities.Actions {
+		return r, ErrNotSent
+	}
+	if e := c.valid(v, "act"); e != nil {
+		return r, e
+	}
+	e := c.call(ctx, "/act", &v, v, &r, contract.ActTimeout)
+	if e == nil {
+		e = r.Validate(c.limits)
+	}
+	return r, e
+}
 func (c *Client) Preview(ctx context.Context, v contract.Envelope) (contract.Preview, error) {
 	var r contract.Preview
 	if e := c.valid(v, "preview"); e != nil {

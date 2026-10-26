@@ -112,6 +112,26 @@ func main() {
 				reg.Protocol = 2
 			}
 			_ = json.NewEncoder(w).Encode(reg)
+		case "/act":
+			// An action tool: it answers for the actor of the envelope and says
+			// the scope it ran under. The action "slow" waits for the caller to give up.
+			var v contract.Envelope
+			if !read(&v) || !valid(v, "act") {
+				return
+			}
+			var args struct {
+				Slow bool `json:"slow"`
+			}
+			_ = json.Unmarshal(v.Request.Arguments, &args)
+			if args.Slow {
+				select {
+				case <-r.Context().Done():
+					return
+				case <-time.After(5 * time.Second):
+				}
+			}
+			payload, _ := json.Marshal(map[string]any{"actor": v.Authority.Actor.UserID, "scope": v.Authority.Scope, "arguments": v.Request.Arguments})
+			_ = json.NewEncoder(w).Encode(contract.Result{Payload: payload})
 		case "/read", "/preview":
 			var v contract.Envelope
 			if !read(&v) || !valid(v, r.URL.Path[1:]) {
