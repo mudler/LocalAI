@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockSettings } from './settings-fixtures.js'
+import { FIELDS } from '../src/utils/settingsSchema.js'
 
 const row = (page, key) => page.locator(`[data-field="${key}"]`)
 const group = (page, name) => page.getByRole('button', { name: new RegExp(`^${name}`) })
@@ -34,9 +35,14 @@ test.describe('Settings: groups and search', () => {
         seen.add(key)
       }
     }
-    // 55 settings plus the three branding images.
-    expect(seen.size).toBe(58)
-    await expect(page.getByLabel(/Search all 58 settings/)).toBeVisible()
+    // The schema is the list of settings the page owns (the three branding
+    // images included). Compare by name so a failure says which one is
+    // missing from every group or shown twice, not just a count.
+    const expected = FIELDS.map(f => f.key)
+    expect([...seen].filter(k => !expected.includes(k)), 'shown but not in the schema').toEqual([])
+    expect(expected.filter(k => !seen.has(k)), 'in the schema but in no group').toEqual([])
+    expect(seen.size).toBe(expected.length)
+    await expect(page.getByLabel(new RegExp(`Search all ${expected.length} settings`))).toBeVisible()
   })
 
   test('a group lists its settings, and the memory group shows memory use now', async ({ page }) => {

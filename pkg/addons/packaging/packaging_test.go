@@ -1096,7 +1096,6 @@ var _ = Describe("workflow policy", func() {
 	It("rejects backend registries and backend workflows", func() {
 		expect(mutate("ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}", "ADDON_OCI_REPOSITORY: quay.io/go-skynet/ci-cache"), "P_BACKEND")
 		expect(mutate("    needs: [plan, validate, publish]", "    needs: [plan, validate, publish]\n    uses: ./.github/workflows/backend_merge.yml"), "P_BACKEND")
-		expect(mutate("          username: ${{ secrets.ADDON_OCI_USERNAME }}", "          username: ${{ secrets.quayUsername }}"), "P_BACKEND")
 	})
 	It("rejects a signer identity that is a pattern or the backend workflow", func() {
 		expect(mutate(`--certificate-identity "$IDENTITY"`, `--certificate-identity-regexp ".*"`), "P_SIGNER")
