@@ -32,7 +32,11 @@ type Pending struct {
 	Text      string
 	Seq       int64 // send order within the chat
 	Delivered bool
-	At        time.Time
+	// Unconfirmed is true from the moment a request took the message until the
+	// host confirms the model has it recorded. A turn that is reaped gives such
+	// a message back.
+	Unconfirmed bool
+	At          time.Time
 }
 
 // TurnStatus is how a turn ended.
@@ -76,6 +80,9 @@ type Store interface {
 	// send order. A message is returned by one call only, however many callers
 	// race.
 	TakePending(ctx context.Context, principal, chatID string) ([]Pending, error)
+	// ConfirmPending says the named messages are recorded in the transcript, so
+	// a reaped turn no longer gives them back.
+	ConfirmPending(ctx context.Context, principal, chatID string, ids []string) error
 	// RestorePending makes the named messages undelivered again, in their
 	// original positions. The loop calls it when a model request failed.
 	RestorePending(ctx context.Context, principal, chatID string, ids []string) error
@@ -88,7 +95,8 @@ type Store interface {
 	// frontend that runs a turn calls it on a timer.
 	TouchTurn(ctx context.Context, principal, chatID, runID string) error
 	// ReapTurns ends every running turn whose last sign of life is before
-	// olderThan: the chat is free again and its last outcome is interrupted. A
+	// olderThan: the chat is free again, its last outcome is interrupted, and
+	// the messages a request took but nobody confirmed are undelivered again. A
 	// frontend that died leaves such turns behind. It returns the turns it ended.
 	ReapTurns(ctx context.Context, olderThan time.Time) ([]ReapedTurn, error)
 	// Turn returns the turn state of the chat.

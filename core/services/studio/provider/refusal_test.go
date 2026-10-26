@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mudler/cogito"
+
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
@@ -17,6 +19,10 @@ func TestARefusedRequestIsReportedWithAMarkerTheLoopRecognizes(t *testing.T) {
 		_, err := get(t, tr.Client(nil), context.Background(), "http://studio.invalid/v1/chat/completions")
 		if err == nil || !strings.Contains(err.Error(), mark) {
 			t.Errorf("status %d gave error %v, want one carrying %q", code, err, mark)
+		}
+		// No retry fixes a refusal: the model client must stop at once.
+		if !cogito.IsPermanent(err) {
+			t.Errorf("status %d: the error is not marked permanent, so the agent loop would retry it", code)
 		}
 	}
 }

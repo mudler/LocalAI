@@ -124,7 +124,7 @@ returns `"persistent": false`.
 
 If a server stops in the middle of a model request, the turn ends as
 interrupted. A message you sent while that turn ran and that the request had
-already taken can be lost; send it again.
+already taken is waiting again, and "Send now" starts it.
 
 A sub-agent conversation is read-only: it runs with the tools its parent chose,
 and a message to it answers `409`.

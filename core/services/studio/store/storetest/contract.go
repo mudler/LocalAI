@@ -262,6 +262,29 @@ func Run(t *testing.T, newStore New) {
 		}
 	})
 
+	t.Run("a reaped turn gives back the messages its model request took but never confirmed", func(t *testing.T) {
+		s := newStore(t)
+		chat(t, s, "c1", "alice")
+		if err := s.ClaimTurn(ctx(t), "alice", "c1", "r1"); err != nil {
+			t.Fatal(err)
+		}
+		lost, _ := s.AddPending(ctx(t), "alice", "c1", "taken, then the frontend died")
+		kept, _ := s.AddPending(ctx(t), "alice", "c1", "taken and recorded")
+		if _, err := s.TakePending(ctx(t), "alice", "c1"); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.ConfirmPending(ctx(t), "alice", "c1", []string{kept.ID}); err != nil {
+			t.Fatal(err)
+		}
+		if got, _ := s.ReapTurns(ctx(t), time.Now().Add(time.Hour)); len(got) != 1 {
+			t.Fatalf("reaped = %+v, want the one turn", got)
+		}
+		pend, _ := s.Pending(ctx(t), "alice", "c1")
+		if len(pend) != 1 || pend[0].ID != lost.ID || pend[0].Delivered {
+			t.Fatalf("pending after the reap = %+v, want only the unconfirmed message, undelivered", pend)
+		}
+	})
+
 	t.Run("touch is refused for another principal and for a run that does not hold the chat", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "c1", "alice")

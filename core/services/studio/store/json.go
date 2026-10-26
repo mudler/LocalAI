@@ -389,16 +389,39 @@ func (s *jsonStore) TakePending(_ context.Context, principal, id string) ([]Pend
 	next := *c
 	next.Pending = append([]Pending(nil), c.Pending...)
 	for i := range next.Pending {
-		next.Pending[i].Delivered = true
+		if !next.Pending[i].Delivered {
+			next.Pending[i].Delivered, next.Pending[i].Unconfirmed = true, true
+		}
 	}
 	if err := s.save(&next); err != nil {
 		return nil, err
 	}
 	c.Pending = next.Pending
 	for i := range taken {
-		taken[i].Delivered = true
+		taken[i].Delivered, taken[i].Unconfirmed = true, true
 	}
 	return taken, nil
+}
+
+func (s *jsonStore) ConfirmPending(_ context.Context, principal, id string, ids []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	next := *c
+	next.Pending = append([]Pending(nil), c.Pending...)
+	for _, pid := range ids {
+		if i := indexOf(next.Pending, pid); i >= 0 {
+			next.Pending[i].Unconfirmed = false
+		}
+	}
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Pending = next.Pending
+	return nil
 }
 
 func (s *jsonStore) RestorePending(_ context.Context, principal, id string, ids []string) error {
@@ -412,7 +435,7 @@ func (s *jsonStore) RestorePending(_ context.Context, principal, id string, ids 
 	next.Pending = append([]Pending(nil), c.Pending...)
 	for _, pid := range ids {
 		if i := indexOf(next.Pending, pid); i >= 0 {
-			next.Pending[i].Delivered = false
+			next.Pending[i].Delivered, next.Pending[i].Unconfirmed = false, false
 		}
 	}
 	if err := s.save(&next); err != nil {
@@ -471,11 +494,18 @@ func (s *jsonStore) ReapTurns(_ context.Context, olderThan time.Time) ([]ReapedT
 		}
 		next := *c
 		next.Run, next.RunSince, next.RunBeat, next.Last = "", time.Time{}, time.Time{}, TurnInterrupted
+		// What a request took and nobody confirmed was lost with the frontend.
+		next.Pending = append([]Pending(nil), c.Pending...)
+		for i := range next.Pending {
+			if next.Pending[i].Unconfirmed {
+				next.Pending[i].Delivered, next.Pending[i].Unconfirmed = false, false
+			}
+		}
 		if err := s.save(&next); err != nil {
 			return out, err
 		}
 		out = append(out, ReapedTurn{Principal: c.Rec.Principal, ChatID: c.Rec.ID, RunID: c.Run})
-		c.Run, c.RunSince, c.RunBeat, c.Last = next.Run, next.RunSince, next.RunBeat, next.Last
+		c.Run, c.RunSince, c.RunBeat, c.Last, c.Pending = next.Run, next.RunSince, next.RunBeat, next.Last, next.Pending
 	}
 	return out, nil
 }

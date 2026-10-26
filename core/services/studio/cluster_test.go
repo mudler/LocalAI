@@ -360,3 +360,25 @@ func TestATurnWhoseClaimWasReapedStopsInsteadOfRunningOn(t *testing.T) {
 		}
 	}
 }
+
+func TestAMessageTakenByADeadFrontendIsGivenBackWhenItsTurnIsReaped(t *testing.T) {
+	f := newFrontends(t, nil)
+	id := create(t, f.a, alice)
+	f.ha.FailRequest = 0
+	sent(t, f.a, alice, id, "first")
+	until(t, "the turn to start", func() bool { return len(f.ha.Sent()) == 1 })
+	sent(t, f.b, alice, id, "steer")
+	// A takes the steer at its next request, then the frontend dies: the
+	// request neither settles nor records it.
+	taken, err := f.st.TakePending(context.Background(), alice, id)
+	if err != nil || len(taken) != 1 {
+		t.Fatalf("TakePending = %v, %v", taken, err)
+	}
+	if _, err := f.b.ReapStale(context.Background(), -time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	pend, err := f.b.Pending(context.Background(), alice, id)
+	if err != nil || len(pend) != 1 || pend[0].Text != "steer" {
+		t.Fatalf("pending after the reap = %+v, %v, want the steer back", pend, err)
+	}
+}

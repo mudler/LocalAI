@@ -304,6 +304,7 @@ func (s *Service) send(ctx context.Context, user, conv, text string) (SendResult
 			return SendResult{}, err
 		}
 		if len(ids) > 0 {
+			s.confirm(p, conv, ids)
 			s.bus.Publish(key(p, conv), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
 		}
 		return SendResult{Started: true}, nil
@@ -408,6 +409,7 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 		_ = s.d.Store.RestorePending(ctx, p, conv, ids)
 		return false, err
 	}
+	s.confirm(p, conv, ids)
 	s.bus.Publish(key(p, conv), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
 	return true, nil
 }
@@ -616,8 +618,17 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 					s.log.Warn("studio: could not record a delivered message", "chat", a.ChatID, "error", aerr)
 				}
 			}
+			s.confirm(a.Principal, a.ChatID, ids)
 			s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
 		}
+	}
+}
+
+// confirm tells the store that the messages are in the transcript, so a turn
+// that is reaped later does not give them back.
+func (s *Service) confirm(p, conv string, ids []string) {
+	if err := s.d.Store.ConfirmPending(context.Background(), p, conv, ids); err != nil {
+		s.log.Warn("studio: could not confirm delivered messages", "chat", conv, "error", err)
 	}
 }
 

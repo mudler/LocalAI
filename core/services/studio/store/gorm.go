@@ -62,7 +62,9 @@ type pendingRow struct {
 	Seq       int64
 	Text      string `gorm:"type:text"`
 	Delivered bool
-	At        time.Time
+	// Unconfirmed: taken by a model request, not yet recorded (see Pending).
+	Unconfirmed bool
+	At          time.Time
 }
 
 func (pendingRow) TableName() string { return "studio_pending" }
@@ -276,7 +278,7 @@ func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit i
 }
 
 func toPending(r pendingRow) Pending {
-	return Pending{ID: r.ID, Text: r.Text, Seq: r.Seq, Delivered: r.Delivered, At: r.At}
+	return Pending{ID: r.ID, Text: r.Text, Seq: r.Seq, Delivered: r.Delivered, Unconfirmed: r.Unconfirmed, At: r.At}
 }
 
 func (s *gormStore) AddPending(ctx context.Context, principal, id, text string) (Pending, error) {
@@ -381,12 +383,13 @@ func (s *gormStore) TakePending(ctx context.Context, principal, id string) ([]Pe
 		if len(rows) == 0 {
 			return nil
 		}
-		if err := tx.Model(&pendingRow{}).Where("chat_id = ? AND delivered = ?", id, false).Update("delivered", true).Error; err != nil {
+		if err := tx.Model(&pendingRow{}).Where("chat_id = ? AND delivered = ?", id, false).
+			Updates(map[string]any{"delivered": true, "unconfirmed": true}).Error; err != nil {
 			return err
 		}
 		for _, r := range rows {
 			p := toPending(r)
-			p.Delivered = true
+			p.Delivered, p.Unconfirmed = true, true
 			out = append(out, p)
 		}
 		return nil
@@ -399,7 +402,17 @@ func (s *gormStore) RestorePending(ctx context.Context, principal, id string, id
 		if len(ids) == 0 {
 			return nil
 		}
-		return tx.Model(&pendingRow{}).Where("chat_id = ? AND id IN ?", id, ids).Update("delivered", false).Error
+		return tx.Model(&pendingRow{}).Where("chat_id = ? AND id IN ?", id, ids).
+			Updates(map[string]any{"delivered": false, "unconfirmed": false}).Error
+	})
+}
+
+func (s *gormStore) ConfirmPending(ctx context.Context, principal, id string, ids []string) error {
+	return s.withChatLock(ctx, principal, id, func(tx *gorm.DB) error {
+		if len(ids) == 0 {
+			return nil
+		}
+		return tx.Model(&pendingRow{}).Where("chat_id = ? AND id IN ?", id, ids).Update("unconfirmed", false).Error
 	})
 }
 
@@ -482,6 +495,11 @@ func (s *gormStore) ReapTurns(ctx context.Context, olderThan time.Time) ([]Reape
 			return out, res.Error
 		}
 		if res.RowsAffected == 1 {
+			// What a request took and nobody confirmed was lost with the frontend.
+			if err := s.db.WithContext(ctx).Model(&pendingRow{}).Where("chat_id = ? AND unconfirmed = ?", r.ID, true).
+				Updates(map[string]any{"delivered": false, "unconfirmed": false}).Error; err != nil {
+				return out, err
+			}
 			out = append(out, ReapedTurn{Principal: r.Principal, ChatID: r.ID, RunID: r.RunID})
 		}
 	}

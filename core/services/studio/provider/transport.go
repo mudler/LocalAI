@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/mudler/cogito"
+
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
@@ -65,10 +67,10 @@ func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch resp.StatusCode {
 	case http.StatusForbidden:
 		_ = resp.Body.Close()
-		return nil, errors.New("the model refused the request " + session.MarkNotAllowed)
+		return nil, cogito.Permanent(errors.New("the model refused the request " + session.MarkNotAllowed))
 	case http.StatusTooManyRequests:
 		_ = resp.Body.Close()
-		return nil, errors.New("the model refused the request " + session.MarkQuota)
+		return nil, cogito.Permanent(errors.New("the model refused the request " + session.MarkQuota))
 	}
 	return resp, nil
 }
