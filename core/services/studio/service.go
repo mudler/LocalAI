@@ -94,8 +94,8 @@ type Service struct {
 	log *slog.Logger
 
 	mu    sync.Mutex
-	runs  map[string]*run // the turn this process runs, by conversation
-	pumps map[string]bool // conversations whose events this process reads
+	runs  map[string]*run                 // the turn this process runs, by conversation
+	pumps map[string]<-chan session.Event // the event channel read for each conversation
 	locks map[string]*keyLock
 
 	// Sub-agents; see subagent.go.
@@ -134,7 +134,7 @@ func New(d Deps) (*Service, error) {
 	if bus == nil {
 		bus = NewLocalBus()
 	}
-	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]bool{}, locks: map[string]*keyLock{},
+	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, locks: map[string]*keyLock{},
 		children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
 	h := d.Harness
 	if h == nil {
@@ -518,26 +518,32 @@ func (s *Service) chat(ctx context.Context, p, conv string) (*session.Chat, erro
 		return nil, err
 	}
 	k := key(p, conv)
+	// A chat that was closed after its last turn has a new event channel when
+	// it reopens, so the pump is told apart by its channel, not by the chat:
+	// the pump of the old channel may not have noticed that it ended yet.
+	evs := chat.Events()
 	s.mu.Lock()
-	start := !s.pumps[k]
-	s.pumps[k] = true
+	start := s.pumps[k] != evs
+	s.pumps[k] = evs
 	s.mu.Unlock()
 	if start {
-		go s.pump(chat, p, conv)
+		go s.pump(chat, evs, p, conv)
 	}
 	return chat, nil
 }
 
 // pump reads the events of one chat for its lifetime, publishes them, and
 // settles the turn when it ends.
-func (s *Service) pump(chat *session.Chat, p, conv string) {
+func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv string) {
 	k := key(p, conv)
 	defer func() {
 		s.mu.Lock()
-		delete(s.pumps, k)
+		if s.pumps[k] == evs { // a newer pump may have taken the place
+			delete(s.pumps, k)
+		}
 		s.mu.Unlock()
 	}()
-	for ev := range chat.Events() {
+	for ev := range evs {
 		s.bus.Publish(k, ev)
 		switch ev.Kind {
 		case session.KindError:
