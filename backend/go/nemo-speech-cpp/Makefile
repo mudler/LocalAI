@@ -242,23 +242,29 @@ $(ITN_MARKER): | sources/NeMo-Speech.cpp
 # compiler could ever have emitted it. Only these two lines are affected: gcc 14
 # reports exactly two errors over the whole OpenFST include closure, both here.
 #
-# Guarded on both sides so a pinned-version bump cannot silently no-op it: the
-# first check fails if neither the broken nor the fixed spelling is present, the
-# last fails if the broken one survives.
+# The newer OpenFST pin fixes both assignments with fst::WrapUnique. Accept
+# that form unchanged; otherwise require both legacy assignments to be known
+# before patching, and reject unknown or incomplete forms rather than no-op.
 patch-itn-headers:
 	@test -f $(ITN_FST_HEADER) || { \
 		echo "ERROR: $(ITN_FST_HEADER) missing; the ITN prefix is not installed." >&2; \
 		exit 1; }
-	@grep -q 'isymbols_ = impl.isymbols_' $(ITN_FST_HEADER) || \
-	 grep -q 'isymbols_.reset(impl.isymbols_' $(ITN_FST_HEADER) || { \
-		echo "ERROR: FstImpl::operator= in $(ITN_FST_HEADER) matches neither the" >&2; \
-		echo "       known-broken nor the patched form. OpenFST changed upstream;" >&2; \
-		echo "       re-check whether this patch is still needed before removing it." >&2; \
-		exit 1; }
-	sed -i -E 's|^([[:space:]]*)([io]symbols_) = (impl\.[io]symbols_ \? impl\.[io]symbols_->Copy\(\) : nullptr);$$|\1\2.reset(\3);|' $(ITN_FST_HEADER)
-	@if grep -q 'symbols_ = impl.[io]symbols_' $(ITN_FST_HEADER); then \
-		echo "ERROR: the FstImpl::operator= patch did not apply to $(ITN_FST_HEADER)." >&2; \
-		exit 1; \
+	@if grep -Fq 'isymbols_ = fst::WrapUnique(impl.isymbols_ ? impl.isymbols_->Copy() : nullptr);' $(ITN_FST_HEADER) && \
+	    grep -Fq 'osymbols_ = fst::WrapUnique(impl.osymbols_ ? impl.osymbols_->Copy() : nullptr);' $(ITN_FST_HEADER); then \
+		echo "OpenFST copy assignment already fixed upstream."; \
+	else \
+		for symbol in isymbols_ osymbols_; do \
+			grep -Fq "$$symbol = impl.$$symbol ? impl.$$symbol->Copy() : nullptr;" $(ITN_FST_HEADER) || \
+			grep -Fq "$$symbol.reset(impl.$$symbol ? impl.$$symbol->Copy() : nullptr);" $(ITN_FST_HEADER) || { \
+				echo "ERROR: FstImpl::operator= in $(ITN_FST_HEADER) has an unknown $$symbol assignment." >&2; \
+				echo "       OpenFST changed upstream; re-check whether this patch is still needed." >&2; \
+				exit 1; }; \
+		done; \
+		sed -i -E 's|^([[:space:]]*)([io]symbols_) = (impl\.[io]symbols_ \? impl\.[io]symbols_->Copy\(\) : nullptr);$$|\1\2.reset(\3);|' $(ITN_FST_HEADER) || exit 1; \
+		if grep -q 'symbols_ = impl.[io]symbols_' $(ITN_FST_HEADER); then \
+			echo "ERROR: the FstImpl::operator= patch did not apply to $(ITN_FST_HEADER)." >&2; \
+			exit 1; \
+		fi; \
 	fi
 
 itn: $(ITN_MARKER)
