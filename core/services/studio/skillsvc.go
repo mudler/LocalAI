@@ -58,16 +58,23 @@ func (s *Service) skillTurn(ctx context.Context, p string, off []string) (prompt
 		s.log.Warn("studio: skills unavailable", "user", p, "error", err)
 		return "", "", ""
 	}
+	// The key covers every valid skill file, switched off or not: a switch takes
+	// a line out of the index without changing a file, and must not refresh the
+	// sandbox. A shadowed skill is left out, because it is never read.
 	var on []skills.Skill
 	h := sha256.New()
+	valid := 0
 	for _, sk := range list {
-		if sk.Invalid != "" || sk.Shadowed != "" || sk.Off {
+		if sk.Invalid != "" || sk.Shadowed != "" {
 			continue
 		}
-		on = append(on, sk)
+		valid++
 		fmt.Fprintf(h, "%s\x00%s\x00%s\n", sk.Name, sk.GuestPath, sk.Hash)
+		if !sk.Off {
+			on = append(on, sk)
+		}
 	}
-	if len(on) == 0 {
+	if valid == 0 {
 		return "", strings.Join(notes, "; "), ""
 	}
 	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil))
