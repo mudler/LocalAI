@@ -14,6 +14,7 @@ import (
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/media"
 )
 
 // legacyAPIKeyUserID is the synthetic user the auth middleware gives a request
@@ -59,6 +60,7 @@ func (a *Application) initStudioService() {
 		ContextTokens: a.studioContextTokens,
 		Persistent:    a.studioStoreKind != "memory",
 		Files:         a.StudioFiles(),
+		Media:         media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel),
 	})
 	if err != nil {
 		xlog.Warn("Chats disabled: failed to start the service", "error", err)

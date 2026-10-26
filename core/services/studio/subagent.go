@@ -53,6 +53,9 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// The file tools belong to the chat itself: a sub-agent never gets them,
 	// because its tools come from hostTools, which does not include them.
 	tools = append(tools, s.d.Files.Tools(a)...)
+	if s.d.Media != nil {
+		tools = append(tools, s.d.Media.Tools(s.d.Files, a)...)
+	}
 	return session.TurnTools{Tools: append(tools, s.spawnTool(a))}, nil
 }
 

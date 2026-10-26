@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import SearchableModelSelect from '../SearchableModelSelect'
 import Icon from '../Icon'
-import { CAP_CHAT } from '../../utils/capabilities'
+import { CAP_CHAT, CAP_TRANSCRIPT, CAP_VISION } from '../../utils/capabilities'
 import {
   FIELD_BY_KEY, getValue, setValue, isChanged, hasDefault, groupOf, OLD_SECTIONS,
 } from '../../utils/settingsSchema'
@@ -83,7 +83,7 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
         <div className="st-model">
           <SearchableModelSelect
             value={value} onChange={set} placeholder={field.placeholder}
-            capability={field.key === 'agent_pool_default_model' ? CAP_CHAT : undefined}
+            capability={MODEL_CAPABILITY[field.key]}
           />
         </div>
       )
@@ -150,6 +150,13 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
         />
       )
   }
+}
+
+// The capability a model setting's picker is limited to.
+const MODEL_CAPABILITY = {
+  agent_pool_default_model: CAP_CHAT,
+  chats_vision_model: CAP_VISION,
+  chats_transcription_model: CAP_TRANSCRIPT,
 }
 
 // One setting: its name and words on the left, its control on the right, and

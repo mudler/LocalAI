@@ -78,6 +78,8 @@ type RuntimeSettings struct {
 	// Agent Pool settings
 	AgentPoolEnabled          *bool   `json:"agent_pool_enabled,omitempty"`
 	AgentPoolDefaultModel     *string `json:"agent_pool_default_model,omitempty"`
+	ChatsVisionModel          *string `json:"chats_vision_model,omitempty"`        // model that describes images for the chats
+	ChatsTranscriptionModel   *string `json:"chats_transcription_model,omitempty"` // model that transcribes audio for the chats
 	AgentPoolEmbeddingModel   *string `json:"agent_pool_embedding_model,omitempty"`
 	AgentPoolMaxChunkingSize  *int    `json:"agent_pool_max_chunking_size,omitempty"`
 	AgentPoolChunkOverlap     *int    `json:"agent_pool_chunk_overlap,omitempty"`

@@ -3,6 +3,7 @@ package studio_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,8 +11,10 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -204,4 +207,68 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+func newMediaService(t *testing.T) (*media.Service, *provider.Provider) {
+	t.Helper()
+	p := provider.New()
+	p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"text":"buy milk and call the dentist"}`))
+	}))
+	users := func(_ context.Context, id string) (*auth.User, error) {
+		return &auth.User{ID: id, Status: auth.StatusActive}, nil
+	}
+	return media.New(p, users, func(c media.Capability) string { return "any-model" }), p
+}
+
+func TestAVoiceNoteBecomesTextInTheMessageTheModelGets(t *testing.T) {
+	f := newFiles(t)
+	m, p := newMediaService(t)
+	h := studiotest.NewGateHarness()
+	st, _ := store.NewJSON("")
+	svc, err := studio.New(studio.Deps{Store: st, Provider: p, StateDir: t.TempDir(), Harness: h, Files: f, Media: m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = svc.Close(context.Background()) })
+	id := create(t, svc, alice)
+	if _, err := svc.SendWithFiles(context.Background(), alice, id, "my day", []session.Upload{upload("memo.m4a", "AUDIO")}); err != nil {
+		t.Fatal(err)
+	}
+	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
+	got := h.Sent()[0]
+	if !strings.Contains(got, "my day") || !strings.Contains(got, "buy milk and call the dentist") || !strings.Contains(got, "memo.m4a") {
+		t.Fatalf("the model got %q, want the text, the voice note's name and its transcript", got)
+	}
+	h.Gate <- struct{}{}
+	idle(t, svc, alice, id)
+}
+
+func TestAnAttachmentWhileATurnRunsIsRefusedBeforeAnyTranscription(t *testing.T) {
+	f := newFiles(t)
+	m, p := newMediaService(t)
+	calls := 0
+	p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = w.Write([]byte(`{"text":"x"}`))
+	}))
+	h := studiotest.NewGateHarness()
+	st, _ := store.NewJSON("")
+	svc, err := studio.New(studio.Deps{Store: st, Provider: p, StateDir: t.TempDir(), Harness: h, Files: f, Media: m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = svc.Close(context.Background()) })
+	id := create(t, svc, alice)
+	sent(t, svc, alice, id, "go")
+	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
+	if _, err := svc.SendWithFiles(context.Background(), alice, id, "x", []session.Upload{upload("memo.m4a", "A")}); !errors.Is(err, studio.ErrFilesWhileRunning) {
+		t.Fatalf("SendWithFiles = %v, want ErrFilesWhileRunning", err)
+	}
+	if calls != 0 {
+		t.Fatalf("a transcription ran for a refused attachment (%d calls)", calls)
+	}
+	h.Gate <- struct{}{}
+	idle(t, svc, alice, id)
 }

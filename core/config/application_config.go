@@ -288,6 +288,12 @@ type ApplicationConfig struct {
 	// Agent Pool (LocalAGI integration)
 	AgentPool AgentPoolConfig
 
+	// ChatsVisionModel and ChatsTranscriptionModel are the models the chats'
+	// media tools use to describe images and transcribe audio. Empty: the first
+	// installed model with that capability.
+	ChatsVisionModel        string
+	ChatsTranscriptionModel string
+
 	// Authentication & Authorization
 	Auth AuthConfig
 

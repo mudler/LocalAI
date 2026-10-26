@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -69,6 +70,9 @@ type Deps struct {
 	// Files is the workspace of the chats. Nil or disabled: the chats have no
 	// files, and everything else works.
 	Files *files.Service
+	// Media runs the image and audio helper tools and transcribes voice notes.
+	// Nil: neither.
+	Media *media.Service
 	// Persistent is true when the store keeps conversations across a restart.
 	Persistent bool
 	// Harness replaces the nib harness. It is for tests.
@@ -301,6 +305,20 @@ func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up
 	}
 	if len(up) > 0 && !s.d.Files.Available() {
 		return SendResult{}, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
+	}
+	if len(up) > 0 {
+		// A turn that runs takes no files: say so before spending a model call on a voice note.
+		if info, terr := s.d.Store.Turn(ctx, principal(user), conv); terr == nil && info.Running {
+			return SendResult{}, ErrFilesWhileRunning
+		}
+	}
+	if len(up) > 0 && s.d.Media != nil {
+		// Voice notes are transcribed before the turn starts, and the
+		// transcripts go with the message; the files are kept as they are.
+		var perr error
+		if text, up, perr = s.d.Media.PrepareUploads(ctx, principal(user), text, up); perr != nil {
+			return SendResult{}, perr
+		}
 	}
 	return s.send(ctx, user, conv, text, up)
 }
