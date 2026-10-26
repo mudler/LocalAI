@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/workerledger"
 	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,18 +29,20 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 
 	It("are killed, group and grandchild, when the next worker starts", func() {
 		if runtime.GOOS != "linux" {
-			Skip("the orphan sweep identifies a process by the start time in /proc, which only Linux has; elsewhere it kills nothing")
+			Skip("the orphan sweep identifies a process by the start time in /proc, which is verified only on Linux here; macOS ps identity is covered by the fallback spec, not by a native run")
 		}
 		proc, grandchild := startGroupProcess()
 		killGroupAtEnd(grandchild)
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
 		pid, err := strconv.Atoi(proc.CurrentPID())
 		Expect(err).ToNot(HaveOccurred())
-		newProcessLedger(path).add("model#0", pid)
+		Expect(newProcessLedger(path).add("model#0", pid)).To(Succeed())
 
 		// The worker dies here: its in-memory state is gone, only the file is left.
 		restarted := newProcessLedger(path)
-		Expect(restarted.sweepStale()).To(Equal(1))
+		killed, err := restarted.sweepStale()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(killed).To(Equal(1))
 
 		Eventually(func() bool { return grandAlive(grandchild) }, 10*time.Second, 50*time.Millisecond).Should(BeFalse(),
 			"an orphaned grandchild keeps GPU memory and a port")
@@ -48,13 +51,13 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 
 	It("kills a group whose leader already exited but whose grandchild lives on", func() {
 		if runtime.GOOS != "linux" {
-			Skip("the orphan sweep identifies a process by the start time in /proc, which only Linux has; elsewhere it kills nothing")
+			Skip("the orphan sweep identifies a process by the start time in /proc, which is verified only on Linux here; macOS ps identity is covered by the fallback spec, not by a native run")
 		}
 		proc, grandchild := startGroupProcess()
 		killGroupAtEnd(grandchild)
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
 		pid, _ := strconv.Atoi(proc.CurrentPID())
-		newProcessLedger(path).add("model#0", pid)
+		Expect(newProcessLedger(path).add("model#0", pid)).To(Succeed())
 		// Only the leader dies.
 		Expect(syscallKill(pid)).To(Succeed())
 		// A killed leader may stay a zombie until it is reaped. Dead or zombie
@@ -62,7 +65,9 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 		Eventually(func() bool { return leaderGone(pid) }, 20*time.Second, 50*time.Millisecond).Should(BeTrue())
 		Expect(grandAlive(grandchild)).To(BeTrue())
 
-		Expect(newProcessLedger(path).sweepStale()).To(Equal(1))
+		killed, err := newProcessLedger(path).sweepStale()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(killed).To(Equal(1))
 		Eventually(func() bool { return grandAlive(grandchild) }, 10*time.Second, 50*time.Millisecond).Should(BeFalse())
 	})
 
@@ -73,11 +78,13 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
 		pid, _ := strconv.Atoi(other.CurrentPID())
 		ledger := newProcessLedger(path)
-		ledger.add("model#0", pid)
+		Expect(ledger.add("model#0", pid)).To(Succeed())
 		// The recorded start time no longer matches: the pid belongs to someone else.
 		ledger.corruptStartTimeForTest("model#0")
 
-		Expect(newProcessLedger(path).sweepStale()).To(BeZero())
+		killed, err := newProcessLedger(path).sweepStale()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(killed).To(BeZero())
 		Expect(pidAlive(other.CurrentPID())).To(BeTrue())
 	})
 
@@ -88,11 +95,14 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
 		pid, _ := strconv.Atoi(other.CurrentPID())
 		ledger := newProcessLedger(path)
-		ledger.add("model#0", pid)
-		ledger.remove("model#0")
+		Expect(ledger.add("model#0", pid)).To(Succeed())
+		Expect(other.Stop()).To(Succeed())
+		Eventually(func() bool { return pidAlive(other.CurrentPID()) }, 10*time.Second, 50*time.Millisecond).Should(BeFalse())
+		Expect(ledger.release("model#0")).To(Succeed())
 
-		Expect(newProcessLedger(path).sweepStale()).To(BeZero())
-		Expect(pidAlive(other.CurrentPID())).To(BeTrue())
+		killed, err := newProcessLedger(path).sweepStale()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(killed).To(BeZero())
 	})
 
 	It("kills nothing where start times cannot be read, as on macOS", func() {
@@ -102,14 +112,16 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
 		pid, _ := strconv.Atoi(other.CurrentPID())
 		ledger := newProcessLedger(path)
-		ledger.add("model#0", pid) // recorded with a start time, as on Linux
+		Expect(ledger.add("model#0", pid)).To(Succeed()) // recorded with a start time, as on Linux
 		ledger.corruptStartTimeForTest("model#0")
 
-		real := readStartTime
-		readStartTime = func(int) string { return "" } // no /proc
-		DeferCleanup(func() { readStartTime = real })
+		real := workerledger.ReadStartTime
+		workerledger.ReadStartTime = func(int) string { return "" } // no /proc
+		DeferCleanup(func() { workerledger.ReadStartTime = real })
 
-		Expect(ledger.sweepStale()).To(BeZero(), "with no way to tell whose it is, nothing is killed")
+		killed, err := ledger.sweepStale()
+		Expect(err).To(HaveOccurred(), "ownership of a live group that cannot be identified blocks startup")
+		Expect(killed).To(BeZero(), "with no way to tell whose it is, nothing is killed")
 		Expect(pidAlive(other.CurrentPID())).To(BeTrue())
 	})
 
@@ -120,19 +132,25 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
 		pid, _ := strconv.Atoi(other.CurrentPID())
 		ledger := newProcessLedger(path)
-		ledger.add("model#0", pid)
+		Expect(ledger.add("model#0", pid)).To(Succeed())
 		ledger.forgetStartTimeForTest("model#0") // as on a system with no /proc
 
-		Expect(newProcessLedger(path).sweepStale()).To(BeZero())
+		killed, err := newProcessLedger(path).sweepStale()
+		Expect(err).To(HaveOccurred(), "an unidentifiable live group blocks startup instead of being forgotten")
+		Expect(killed).To(BeZero())
 		Expect(pidAlive(other.CurrentPID())).To(BeTrue())
 	})
 
 	It("is a no-op with no ledger file", func() {
-		Expect(newProcessLedger(filepath.Join(GinkgoT().TempDir(), "missing.json")).sweepStale()).To(BeZero())
+		killed, err := newProcessLedger(filepath.Join(GinkgoT().TempDir(), "missing.json")).sweepStale()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(killed).To(BeZero())
 		var none *processLedger
-		Expect(none.sweepStale()).To(BeZero())
-		none.add("x", 1) // must not panic
-		none.remove("x")
+		killed, err = none.sweepStale()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(killed).To(BeZero())
+		Expect(none.add("x", 1)).To(Succeed()) // must not panic
+		Expect(none.release("x")).To(Succeed())
 	})
 })
 

@@ -75,7 +75,9 @@ func (sm *SystrayManager) toggleLocalAI() {
 
 // openWebUI opens the LocalAI WebUI in the default browser
 func (sm *SystrayManager) openWebUI() {
-	if !sm.launcher.IsRunning() {
+	// A worker has no local server: its entry opens the deployment UI, which
+	// does not depend on the worker running.
+	if !sm.launcher.IsRunning() && sm.launcher.GetConfig().Mode != roleWorker {
 		return // LocalAI is not running
 	}
 
@@ -98,29 +100,52 @@ func (sm *SystrayManager) updateStartStopItem() {
 	sm.recreateMenu()
 }
 
+// roleMenuItems builds the start/stop and open-UI entries for a role. In worker
+// mode there is no local server UI, so the entry opens the deployment UI.
+func roleMenuItems(role string, running, hasDeploymentURL bool, toggle, openUI func()) []*fyne.MenuItem {
+	if role == roleWorker {
+		label := "Start worker"
+		if running {
+			label = "Stop worker"
+		}
+		items := []*fyne.MenuItem{fyne.NewMenuItem(label, toggle)}
+		if hasDeploymentURL {
+			items = append(items, fyne.NewMenuItem("Open deployment UI", openUI))
+		}
+		return items
+	}
+	label := "▶️ Start LocalAI"
+	if running {
+		label = "🛑 Stop LocalAI"
+	}
+	items := []*fyne.MenuItem{fyne.NewMenuItem(label, toggle)}
+	if running {
+		items = append(items, fyne.NewMenuItem("Open WebUI", openUI))
+	}
+	return items
+}
+
 // recreateMenu recreates the entire menu with updated state
 func (sm *SystrayManager) recreateMenu() {
 	if sm.desk == nil {
 		return
 	}
 
-	// Determine the action based on LocalAI installation and running state
-	var actionItem *fyne.MenuItem
-	if !sm.launcher.GetReleaseManager().IsLocalAIInstalled() {
+	// Determine the actions based on LocalAI installation, mode and running state
+	installed := sm.launcher.GetReleaseManager().IsLocalAIInstalled()
+	role := roleStandalone
+	if cfg := sm.launcher.GetConfig(); cfg != nil && cfg.Mode == roleWorker {
+		role = roleWorker
+	}
+	_, urlErr := sm.launcher.DeploymentURL()
+	var roleItems []*fyne.MenuItem
+	if !installed {
 		// LocalAI not installed - show install option
-		actionItem = fyne.NewMenuItem("📥 Install Latest Version", func() {
+		roleItems = []*fyne.MenuItem{fyne.NewMenuItem("📥 Install Latest Version", func() {
 			sm.launcher.showDownloadLocalAIDialog()
-		})
-	} else if sm.launcher.IsRunning() {
-		// LocalAI is running - show stop option
-		actionItem = fyne.NewMenuItem("🛑 Stop LocalAI", func() {
-			sm.toggleLocalAI()
-		})
+		})}
 	} else {
-		// LocalAI is installed but not running - show start option
-		actionItem = fyne.NewMenuItem("▶️ Start LocalAI", func() {
-			sm.toggleLocalAI()
-		})
+		roleItems = roleMenuItems(role, sm.launcher.IsRunning(), urlErr == nil, sm.toggleLocalAI, sm.openWebUI)
 	}
 
 	menuItems := []*fyne.MenuItem{}
@@ -155,18 +180,7 @@ func (sm *SystrayManager) recreateMenu() {
 	}
 
 	// Core actions
-	menuItems = append(menuItems,
-		actionItem,
-	)
-
-	// Only show WebUI option if LocalAI is installed
-	if sm.launcher.GetReleaseManager().IsLocalAIInstalled() && sm.launcher.IsRunning() {
-		menuItems = append(menuItems,
-			fyne.NewMenuItem("Open WebUI", func() {
-				sm.openWebUI()
-			}),
-		)
-	}
+	menuItems = append(menuItems, roleItems...)
 
 	menuItems = append(menuItems,
 		fyne.NewMenuItemSeparator(),

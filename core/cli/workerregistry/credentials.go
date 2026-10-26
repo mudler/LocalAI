@@ -175,7 +175,7 @@ func (m *NATSCredentialManager) RefreshLoop(ctx context.Context) error {
 		}
 
 		res, err := m.register(ctx)
-		if err == nil && res.NatsJWT != "" && res.NatsUserSeed != "" {
+		if err == nil && res.Status != statusPending && res.NatsJWT != "" && res.NatsUserSeed != "" {
 			m.store(res)
 			failures = 0
 			xlog.Info("Refreshed NATS credentials", "node", res.ID)

@@ -10,12 +10,22 @@ import (
 	"github.com/mudler/LocalAI/core/cli"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/workerstatus"
 	"github.com/mudler/xlog"
 
 	_ "github.com/mudler/LocalAI/swagger"
 )
 
 func main() {
+	// Capability probes must not load credentials or user .env files. The same
+	// command is registered with Kong for help and normal CLI discovery.
+	if len(os.Args) == 2 && os.Args[1] == "worker-status-capability" {
+		if (&workerstatus.CapabilityCommand{}).Run() != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
 	var err error
 
 	// Initialize xlog at a level of INFO, we will set the desired level after we parse the CLI options

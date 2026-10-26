@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -37,6 +38,30 @@ type LauncherUI struct {
 	autoStartCheck    *widget.Check
 	startOnBootCheck  *widget.Check
 
+	// Mode selection and the worker profile. Both profiles keep their drafts in
+	// these widgets when the owner switches.
+	modeRadio       *widget.RadioGroup
+	localBox        *fyne.Container
+	workerBox       *fyne.Container
+	frontendEntry   *widget.Entry
+	tokenEntry      *widget.Entry
+	clearTokenCheck *widget.Check
+	advertisedEntry *widget.Entry
+	nodeNameEntry   *widget.Entry
+	grpcMaxEntry    *widget.Entry
+	natsURLEntry    *widget.Entry
+	tlsCAEntry      *widget.Entry
+	tlsCertEntry    *widget.Entry
+	tlsKeyEntry     *widget.Entry
+	jwtEntry        *widget.Entry
+	clearJWTCheck   *widget.Check
+	seedEntry       *widget.Entry
+	clearSeedCheck  *widget.Check
+	workerEnvEntry  *widget.Entry
+	plaintextCheck  *widget.Check
+	previewLabel    *widget.Label
+	joinExplanation *widget.Label
+
 	// Environment Variables
 	envVarsData              []EnvVar
 	newEnvKeyEntry           *widget.Entry
@@ -66,7 +91,30 @@ func NewLauncherUI() *LauncherUI {
 	statusLabel := widget.NewLabel("Initializing...")
 	statusLabel.Truncation = fyne.TextTruncateEllipsis
 
+	maskedEntry := func() *widget.Entry {
+		e := widget.NewPasswordEntry()
+		return e
+	}
 	return &LauncherUI{
+		modeRadio:         widget.NewRadioGroup([]string{modeLocalLabel, modeJoinLabel}, nil),
+		frontendEntry:     widget.NewEntry(),
+		tokenEntry:        maskedEntry(),
+		clearTokenCheck:   widget.NewCheck("Clear the saved registration token", nil),
+		advertisedEntry:   widget.NewEntry(),
+		nodeNameEntry:     widget.NewEntry(),
+		grpcMaxEntry:      widget.NewEntry(),
+		natsURLEntry:      widget.NewEntry(),
+		tlsCAEntry:        widget.NewEntry(),
+		tlsCertEntry:      widget.NewEntry(),
+		tlsKeyEntry:       widget.NewEntry(),
+		jwtEntry:          maskedEntry(),
+		clearJWTCheck:     widget.NewCheck("Clear the saved NATS JWT", nil),
+		seedEntry:         maskedEntry(),
+		clearSeedCheck:    widget.NewCheck("Clear the saved NATS user seed", nil),
+		workerEnvEntry:    widget.NewMultiLineEntry(),
+		plaintextCheck:    widget.NewCheck("I accept plaintext http:// or nats:// inside a protected network (this session only)", nil),
+		previewLabel:      widget.NewLabel(""),
+		joinExplanation:   widget.NewLabel("Joining contributes this machine's inference capacity to an existing deployment. It does not create a deployment."),
 		statusLabel:       statusLabel,
 		versionLabel:      widget.NewLabel("Version: Unknown"),
 		startStopButton:   widget.NewButton("Start LocalAI", nil),
@@ -76,7 +124,7 @@ func NewLauncherUI() *LauncherUI {
 		backendsPathEntry: widget.NewEntry(),
 		addressEntry:      widget.NewEntry(),
 		logLevelSelect:    widget.NewSelect([]string{"error", "warn", "info", "debug", "trace"}, nil),
-		autoStartCheck:    widget.NewCheck("Start LocalAI when the launcher opens", nil),
+		autoStartCheck:    widget.NewCheck("Start selected mode when launcher opens", nil),
 		startOnBootCheck:  widget.NewCheck("Start LocalAI on system boot", nil),
 		logText:           widget.NewMultiLineEntry(),
 		progressBar:       widget.NewProgressBar(),
@@ -111,11 +159,14 @@ func (ui *LauncherUI) createConfigTab() *fyne.Container {
 		ui.backendsPathEntry,
 	))
 
-	// Server configuration
-	serverCard := widget.NewCard("Server", "", container.NewVBox(
+	// Server configuration (local mode)
+	serverCard := widget.NewCard("Server", "", container.NewGridWithColumns(2,
+		widget.NewLabel("Address:"),
+		ui.addressEntry,
+	))
+	// Shared by both modes
+	sharedCard := widget.NewCard("Startup", "", container.NewVBox(
 		container.NewGridWithColumns(2,
-			widget.NewLabel("Address:"),
-			ui.addressEntry,
 			widget.NewLabel("Log Level:"),
 			ui.logLevelSelect,
 		),
@@ -131,12 +182,150 @@ func (ui *LauncherUI) createConfigTab() *fyne.Container {
 	// Environment Variables section
 	envCard := ui.createEnvironmentSection()
 
+	ui.localBox = container.NewVBox(serverCard, envCard)
+	ui.workerBox = ui.createWorkerSection()
+	ui.workerBox.Hide()
+	ui.modeRadio.Horizontal = true
+	ui.modeRadio.Required = true
+	ui.modeRadio.OnChanged = func(selected string) { ui.showMode(selected) }
+	ui.modeRadio.SetSelected(modeLocalLabel)
+
 	return container.NewVBox(
+		widget.NewCard("Mode", "Run LocalAI here, or join an existing distributed server. Only one runs at a time.", ui.modeRadio),
 		pathsCard,
-		serverCard,
-		envCard,
+		sharedCard,
+		ui.localBox,
+		ui.workerBox,
 		saveButton,
 	)
+}
+
+const (
+	modeLocalLabel = "Run locally"
+	modeJoinLabel  = "Join a distributed server"
+)
+
+// showMode shows one profile's settings. The other profile's widgets keep
+// their drafts.
+func (ui *LauncherUI) showMode(selected string) {
+	if ui.localBox == nil || ui.workerBox == nil {
+		return
+	}
+	if selected == modeJoinLabel {
+		ui.localBox.Hide()
+		ui.workerBox.Show()
+	} else {
+		ui.workerBox.Hide()
+		ui.localBox.Show()
+	}
+	ui.refreshModeControls()
+}
+
+// selectedRole is the role the controls act on: the saved mode, so a draft
+// switch does not relabel a running role's controls.
+func (ui *LauncherUI) selectedRole() string {
+	if ui.launcher != nil && ui.launcher.config != nil && ui.launcher.config.Mode == roleWorker {
+		return roleWorker
+	}
+	return roleStandalone
+}
+
+func (ui *LauncherUI) refreshModeControls() {
+	ui.UpdateRunningState(ui.launcher != nil && ui.launcher.IsRunning())
+}
+
+// createWorkerSection builds the "Join a distributed server" settings.
+func (ui *LauncherUI) createWorkerSection() *fyne.Container {
+	ui.frontendEntry.SetPlaceHolder("https://controller.example")
+	ui.advertisedEntry.SetPlaceHolder("worker.example:50051")
+	ui.nodeNameEntry.SetPlaceHolder("optional")
+	ui.grpcMaxEntry.SetPlaceHolder("65535")
+	ui.natsURLEntry.SetPlaceHolder("tls://nats.example:4222")
+	ui.workerEnvEntry.SetPlaceHolder("KEY=VALUE, one per line")
+	ui.workerEnvEntry.SetMinRowsVisible(3)
+	ui.joinExplanation.Wrapping = fyne.TextWrapWord
+	ui.previewLabel.Wrapping = fyne.TextWrapWord
+	ui.plaintextCheck.OnChanged = func(v bool) {
+		if ui.launcher != nil {
+			ui.launcher.SetPlaintextAcknowledged(v)
+		}
+	}
+	refresh := func(string) { ui.refreshPreview() }
+	ui.advertisedEntry.OnChanged = refresh
+	ui.grpcMaxEntry.OnChanged = refresh
+
+	connection := widget.NewCard("Connection", "", container.NewVBox(
+		ui.joinExplanation,
+		container.NewGridWithColumns(2,
+			widget.NewLabel("Frontend URL:"), ui.frontendEntry,
+			widget.NewLabel("Registration token:"), ui.tokenEntry,
+			widget.NewLabel("Advertised address:"), ui.advertisedEntry,
+			widget.NewLabel("Node name:"), ui.nodeNameEntry,
+		),
+		ui.clearTokenCheck,
+		ui.previewLabel,
+	))
+	advanced := widget.NewAccordion(widget.NewAccordionItem("Advanced connection settings", container.NewVBox(
+		container.NewGridWithColumns(2,
+			widget.NewLabel("NATS URL:"), ui.natsURLEntry,
+			widget.NewLabel("NATS CA file:"), ui.tlsCAEntry,
+			widget.NewLabel("NATS client certificate:"), ui.tlsCertEntry,
+			widget.NewLabel("NATS client key:"), ui.tlsKeyEntry,
+			widget.NewLabel("Maximum gRPC port:"), ui.grpcMaxEntry,
+			widget.NewLabel("NATS JWT override:"), ui.jwtEntry,
+			widget.NewLabel("NATS user seed override:"), ui.seedEntry,
+		),
+		ui.clearJWTCheck,
+		ui.clearSeedCheck,
+		ui.plaintextCheck,
+		widget.NewLabel("Runtime environment overrides:"),
+		ui.workerEnvEntry,
+		widget.NewLabel("Secrets are stored in plaintext in a protected file; they are not encrypted. Leave a secret blank to keep the saved value."),
+	)))
+	return container.NewVBox(connection, advanced)
+}
+
+func (ui *LauncherUI) refreshPreview() {
+	text, err := reachabilityPreview(ui.advertisedEntry.Text, ui.grpcMaxEntry.Text)
+	if err != nil {
+		text = err.Error()
+	}
+	ui.previewLabel.SetText(text)
+}
+
+// collectConfig builds the candidate configuration from the widgets: both
+// profiles, the selected mode, and masked secrets kept unless changed.
+func (ui *LauncherUI) collectConfig() (*Config, error) {
+	config := ui.launcher.GetConfig()
+	config.ModelsPath = ui.modelsPathEntry.Text
+	config.BackendsPath = ui.backendsPathEntry.Text
+	config.Address = ui.addressEntry.Text
+	config.LogLevel = ui.logLevelSelect.Selected
+	autoStart := ui.autoStartCheck.Checked
+	config.AutoStart = &autoStart
+	config.StartOnBoot = ui.startOnBootCheck.Checked
+	config.EnvironmentVars = make(map[string]string)
+	for _, envVar := range ui.envVarsData {
+		config.EnvironmentVars[envVar.Key] = envVar.Value
+	}
+	form := workerForm{
+		FrontendURL: ui.frontendEntry.Text, AdvertisedAddress: ui.advertisedEntry.Text, NodeName: ui.nodeNameEntry.Text,
+		GRPCMaxPort: ui.grpcMaxEntry.Text, NATSURL: ui.natsURLEntry.Text, TLSCA: ui.tlsCAEntry.Text,
+		TLSCert: ui.tlsCertEntry.Text, TLSKey: ui.tlsKeyEntry.Text, EnvLines: ui.workerEnvEntry.Text,
+		Token: secretEdit{Replacement: ui.tokenEntry.Text, Clear: ui.clearTokenCheck.Checked},
+		JWT:   secretEdit{Replacement: ui.jwtEntry.Text, Clear: ui.clearJWTCheck.Checked},
+		Seed:  secretEdit{Replacement: ui.seedEntry.Text, Clear: ui.clearSeedCheck.Checked},
+	}
+	next, err := form.Apply(config)
+	if err != nil {
+		return nil, err
+	}
+	if ui.modeRadio.Selected == modeJoinLabel {
+		next.Mode = roleWorker
+	} else {
+		next.Mode = roleStandalone
+	}
+	return next, nil
 }
 
 // createEnvironmentSection creates the environment variables section for the config tab
@@ -206,9 +395,6 @@ func (ui *LauncherUI) addEnvironmentVariable() {
 	key := ui.newEnvKeyEntry.Text
 	value := ui.newEnvValueEntry.Text
 
-	log.Printf("addEnvironmentVariable: attempting to add %s=%s", key, value)
-	log.Printf("addEnvironmentVariable: current ui.envVarsData has %d items: %v", len(ui.envVarsData), ui.envVarsData)
-
 	if key == "" {
 		log.Printf("addEnvironmentVariable: key is empty, showing error")
 		dialog.ShowError(fmt.Errorf("environment variable name cannot be empty"), ui.launcher.window)
@@ -218,15 +404,12 @@ func (ui *LauncherUI) addEnvironmentVariable() {
 	// Check if key already exists
 	for _, envVar := range ui.envVarsData {
 		if envVar.Key == key {
-			log.Printf("addEnvironmentVariable: key %s already exists, showing error", key)
 			dialog.ShowError(fmt.Errorf("environment variable '%s' already exists", key), ui.launcher.window)
 			return
 		}
 	}
 
-	log.Printf("addEnvironmentVariable: adding new env var %s=%s", key, value)
 	ui.envVarsData = append(ui.envVarsData, EnvVar{Key: key, Value: value})
-	log.Printf("addEnvironmentVariable: after adding, ui.envVarsData has %d items: %v", len(ui.envVarsData), ui.envVarsData)
 
 	fyne.Do(func() {
 		if ui.updateEnvironmentDisplay != nil {
@@ -237,9 +420,7 @@ func (ui *LauncherUI) addEnvironmentVariable() {
 		ui.newEnvValueEntry.SetText("")
 	})
 
-	log.Printf("addEnvironmentVariable: calling saveEnvironmentVariables")
-	// Save to configuration
-	ui.saveEnvironmentVariables()
+	// The new variable is a draft until Save, like every other setting.
 }
 
 // removeEnvironmentVariable removes an environment variable by index
@@ -251,34 +432,6 @@ func (ui *LauncherUI) removeEnvironmentVariable(index int) {
 				ui.updateEnvironmentDisplay()
 			}
 		})
-		ui.saveEnvironmentVariables()
-	}
-}
-
-// saveEnvironmentVariables saves environment variables to the configuration
-func (ui *LauncherUI) saveEnvironmentVariables() {
-	if ui.launcher == nil {
-		log.Printf("saveEnvironmentVariables: launcher is nil")
-		return
-	}
-
-	config := ui.launcher.GetConfig()
-	log.Printf("saveEnvironmentVariables: before - Environment vars: %v", config.EnvironmentVars)
-
-	config.EnvironmentVars = make(map[string]string)
-	for _, envVar := range ui.envVarsData {
-		config.EnvironmentVars[envVar.Key] = envVar.Value
-		log.Printf("saveEnvironmentVariables: adding %s=%s", envVar.Key, envVar.Value)
-	}
-
-	log.Printf("saveEnvironmentVariables: after - Environment vars: %v", config.EnvironmentVars)
-	log.Printf("saveEnvironmentVariables: calling SetConfig with %d environment variables", len(config.EnvironmentVars))
-
-	err := ui.launcher.SetConfig(config)
-	if err != nil {
-		log.Printf("saveEnvironmentVariables: failed to save config: %v", err)
-	} else {
-		log.Printf("saveEnvironmentVariables: config saved successfully")
 	}
 }
 
@@ -318,14 +471,8 @@ func (ui *LauncherUI) setupBindings() {
 		ui.checkForUpdates()
 	}
 
-	// Log level selection
-	ui.logLevelSelect.OnChanged = func(selected string) {
-		if ui.launcher != nil {
-			config := ui.launcher.GetConfig()
-			config.LogLevel = selected
-			ui.launcher.SetConfig(config)
-		}
-	}
+	// The log level is a draft until Save; a change may need the running role
+	// stopped, which only the save flow can ask for.
 }
 
 // startLocalAI starts the LocalAI service
@@ -333,7 +480,7 @@ func (ui *LauncherUI) startLocalAI() {
 	fyne.Do(func() {
 		ui.startStopButton.Disable()
 	})
-	ui.UpdateStatus("Starting LocalAI...")
+	ui.UpdateStatus("Starting...")
 
 	go func() {
 		err := ui.launcher.StartLocalAI()
@@ -343,10 +490,7 @@ func (ui *LauncherUI) startLocalAI() {
 				dialog.ShowError(err, ui.launcher.window)
 			})
 		} else {
-			fyne.Do(func() {
-				ui.startStopButton.SetText("Stop LocalAI")
-				ui.webUIButton.Enable()
-			})
+			ui.UpdateRunningState(true)
 		}
 		fyne.Do(func() {
 			ui.startStopButton.Enable()
@@ -359,19 +503,17 @@ func (ui *LauncherUI) stopLocalAI() {
 	fyne.Do(func() {
 		ui.startStopButton.Disable()
 	})
-	ui.UpdateStatus("Stopping LocalAI...")
+	ui.UpdateStatus("Stopping...")
 
 	go func() {
 		err := ui.launcher.StopLocalAI()
 		if err != nil {
+			// Stop stays available until shutdown is confirmed.
 			fyne.DoAndWait(func() {
 				dialog.ShowError(err, ui.launcher.window)
 			})
 		} else {
-			fyne.Do(func() {
-				ui.startStopButton.SetText("Start LocalAI")
-				ui.webUIButton.Disable()
-			})
+			ui.UpdateRunningState(false)
 		}
 		fyne.Do(func() {
 			ui.startStopButton.Enable()
@@ -392,38 +534,43 @@ func (ui *LauncherUI) openWebUI() {
 	fyne.CurrentApp().OpenURL(parsedURL)
 }
 
-// saveConfiguration saves the current configuration
+// saveConfiguration validates and persists both profiles and the selected mode.
+// A change that affects a running role asks for a confirmed stop first.
 func (ui *LauncherUI) saveConfiguration() {
-	log.Printf("saveConfiguration: starting to save configuration")
-
-	config := ui.launcher.GetConfig()
-	log.Printf("saveConfiguration: current config Environment vars: %v", config.EnvironmentVars)
-	log.Printf("saveConfiguration: ui.envVarsData has %d items: %v", len(ui.envVarsData), ui.envVarsData)
-
-	config.ModelsPath = ui.modelsPathEntry.Text
-	config.BackendsPath = ui.backendsPathEntry.Text
-	config.Address = ui.addressEntry.Text
-	config.LogLevel = ui.logLevelSelect.Selected
-	autoStart := ui.autoStartCheck.Checked
-	config.AutoStart = &autoStart
-	config.StartOnBoot = ui.startOnBootCheck.Checked
-
-	// Ensure environment variables are included in the configuration
-	config.EnvironmentVars = make(map[string]string)
-	for _, envVar := range ui.envVarsData {
-		config.EnvironmentVars[envVar.Key] = envVar.Value
-		log.Printf("saveConfiguration: adding env var %s=%s", envVar.Key, envVar.Value)
-	}
-
-	log.Printf("saveConfiguration: final config Environment vars: %v", config.EnvironmentVars)
-
-	err := ui.launcher.SetConfig(config)
+	candidate, err := ui.collectConfig()
 	if err != nil {
-		log.Printf("saveConfiguration: failed to save config: %v", err)
 		dialog.ShowError(err, ui.launcher.window)
-	} else {
-		log.Printf("saveConfiguration: config saved successfully")
+		return
+	}
+	err = ui.launcher.ApplySettings(candidate, false)
+	switch {
+	case err == nil:
 		dialog.ShowInformation("Configuration", "Configuration saved successfully", ui.launcher.window)
+		ui.LoadConfiguration()
+	case errors.Is(err, errStopRequired):
+		message := widget.NewLabel("This change needs the running role to stop first. Stop and apply waits until the runtime and its backend processes are confirmed gone, saves the settings, and does not start anything. Active inference may be interrupted.")
+		message.Wrapping = fyne.TextWrapWord
+		dialog.NewCustomConfirm("Stop and apply?", "Stop and apply", "Cancel", message, func(stop bool) {
+			if !stop {
+				return // Cancel leaves the active configuration unchanged
+			}
+			ui.UpdateStatus("Stopping...")
+			go func() {
+				applyErr := ui.launcher.ApplySettings(candidate, true)
+				fyne.Do(func() {
+					if applyErr != nil {
+						ui.UpdateStatus("Failed: " + applyErr.Error())
+						dialog.ShowError(applyErr, ui.launcher.window)
+						return
+					}
+					ui.UpdateStatus("Settings applied. Start the selected mode when you are ready.")
+					ui.LoadConfiguration()
+				})
+			}()
+		}, ui.launcher.window).Show()
+	default:
+		log.Printf("saveConfiguration: failed to save config")
+		dialog.ShowError(err, ui.launcher.window)
 	}
 }
 
@@ -549,7 +696,11 @@ func (ui *LauncherUI) OnLogUpdate(logLine string) {
 	if ui.logText != nil {
 		fyne.Do(func() {
 			currentText := ui.logText.Text
-			ui.logText.SetText(currentText + logLine)
+			text := currentText + logLine
+			if len(text) > maxLogBuffer {
+				text = text[len(text)-maxLogBuffer:]
+			}
+			ui.logText.SetText(text)
 
 			// Auto-scroll to bottom (simplified)
 			ui.logText.CursorRow = len(ui.logText.Text)
@@ -580,16 +731,47 @@ func (ui *LauncherUI) LoadConfiguration() {
 	}
 
 	config := ui.launcher.GetConfig()
-	log.Printf("UI LoadConfiguration: loading config - ModelsPath=%s, BackendsPath=%s, Address=%s, LogLevel=%s",
-		config.ModelsPath, config.BackendsPath, config.Address, config.LogLevel)
-	log.Printf("UI LoadConfiguration: Environment vars: %v", config.EnvironmentVars)
 
 	ui.modelsPathEntry.SetText(config.ModelsPath)
 	ui.backendsPathEntry.SetText(config.BackendsPath)
 	ui.addressEntry.SetText(config.Address)
 	ui.logLevelSelect.SetSelected(config.LogLevel)
-	ui.autoStartCheck.SetChecked(config.AutoStart == nil || *config.AutoStart)
+	ui.autoStartCheck.SetChecked(autoStartChecked(config))
 	ui.startOnBootCheck.SetChecked(config.StartOnBoot)
+
+	// Worker profile. Secret values are never loaded into widgets.
+	form := newWorkerForm(config)
+	ui.frontendEntry.SetText(form.FrontendURL)
+	ui.advertisedEntry.SetText(form.AdvertisedAddress)
+	ui.nodeNameEntry.SetText(form.NodeName)
+	ui.grpcMaxEntry.SetText(form.GRPCMaxPort)
+	ui.natsURLEntry.SetText(form.NATSURL)
+	ui.tlsCAEntry.SetText(form.TLSCA)
+	ui.tlsCertEntry.SetText(form.TLSCert)
+	ui.tlsKeyEntry.SetText(form.TLSKey)
+	ui.workerEnvEntry.SetText(form.EnvLines)
+	for _, m := range []struct {
+		entry *widget.Entry
+		clear *widget.Check
+		saved bool
+	}{{ui.tokenEntry, ui.clearTokenCheck, form.Token.Saved}, {ui.jwtEntry, ui.clearJWTCheck, form.JWT.Saved}, {ui.seedEntry, ui.clearSeedCheck, form.Seed.Saved}} {
+		m.entry.SetText("")
+		m.clear.SetChecked(false)
+		if m.saved {
+			m.entry.SetPlaceHolder("Saved. Leave blank to keep, or type a new value.")
+			m.clear.Show()
+		} else {
+			m.entry.SetPlaceHolder("Not set")
+			m.clear.Hide()
+		}
+	}
+	ui.plaintextCheck.SetChecked(ui.launcher.PlaintextAcknowledged())
+	ui.refreshPreview()
+	if config.Mode == roleWorker {
+		ui.modeRadio.SetSelected(modeJoinLabel)
+	} else {
+		ui.modeRadio.SetSelected(modeLocalLabel)
+	}
 
 	// Load environment variables
 	ui.envVarsData = []EnvVar{}
@@ -609,17 +791,52 @@ func (ui *LauncherUI) LoadConfiguration() {
 	log.Printf("UI LoadConfiguration: configuration loaded successfully")
 }
 
-// UpdateRunningState updates UI based on LocalAI running state
+// autoStartChecked is the automatic-start checkbox state for a profile. Legacy
+// standalone profiles keep their default-enabled behavior; a worker profile
+// starts only when the owner chose it.
+func autoStartChecked(c *Config) bool {
+	if c.Mode == roleWorker {
+		return c.AutoStart != nil && *c.AutoStart
+	}
+	return c.AutoStart == nil || *c.AutoStart
+}
+
+// UpdateRunningState updates UI based on the running state, named for the role.
+// Stop stays available while a runtime or unresolved ownership of one exists.
 func (ui *LauncherUI) UpdateRunningState(isRunning bool) {
-	fyne.Do(func() {
-		if isRunning {
+	update := func() {
+		worker := ui.selectedRole() == roleWorker
+		switch {
+		case worker && isRunning:
+			ui.startStopButton.SetText("Stop worker")
+		case worker:
+			ui.startStopButton.SetText("Start worker")
+		case isRunning:
 			ui.startStopButton.SetText("Stop LocalAI")
+		default:
+			ui.startStopButton.SetText("Start LocalAI")
+		}
+		if worker {
+			ui.webUIButton.SetText("Open deployment UI")
+			if _, err := ui.launcher.DeploymentURL(); err == nil {
+				ui.webUIButton.Enable()
+			} else {
+				ui.webUIButton.Disable()
+			}
+			return
+		}
+		ui.webUIButton.SetText("Open WebUI")
+		if isRunning {
 			ui.webUIButton.Enable()
 		} else {
-			ui.startStopButton.SetText("Start LocalAI")
 			ui.webUIButton.Disable()
 		}
-	})
+	}
+	if ui.launcher != nil && ui.launcher.app == nil {
+		update()
+		return
+	}
+	fyne.Do(update)
 }
 
 // WelcomeDontShowAgainChecked reports the initial state of the welcome
