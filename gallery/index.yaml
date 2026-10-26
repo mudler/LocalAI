@@ -73735,7 +73735,7 @@
   files:
     - filename: audio-cpp/stable-audio-3-small-sfx-q8_0.gguf
       sha256: 5bb1ec653134e63dac46264e336ae198a2590195fc996fcd0605021215e9b26f
-      uri: huggingface://audio-cpp/audio.cpp-gguf/Stable-Audio-3-Small-SFX-GGUF/stable-audio-3-small-sfx-q8_0.gguf
+      uri: https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/199a4a17b9e16d6b8c3cad4a982327b031e5cf8d/Stable-Audio-3-Small-SFX-GGUF/stable-audio-3-small-sfx-q8_0.gguf
   overrides:
     backend: audio-cpp
     known_usecases:
