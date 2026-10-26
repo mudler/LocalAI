@@ -320,10 +320,9 @@ stage-libs: sources/NeMo-Speech.cpp/build/bin/libnemo_speech_asr_c.so
 	# no counterpart, its implementation and ABI live in the same object.
 	cp -af sources/NeMo-Speech.cpp/build/bin/libnemo_speech_asr.* .
 	cp -af sources/NeMo-Speech.cpp/build/bin/libnemo_speech_nmt.* .
-	# nemo_speech_text_normalization is STATIC but links sparrowhawk, fstfar and
-	# fst PUBLIC, so those become DT_NEEDED on libnemo_speech_asr.so. They live in
-	# a project-local prefix that nothing else on the system provides, so without
-	# staging them here the packaged backend cannot dlopen at all.
+	# ASR and TTS now share nemo_speech_text_normalization as a separate DSO.
+	# Stage it alongside its Sparrowhawk/OpenFST dependencies from the local
+	# prefix so the packaged backend can resolve the whole normalization stack.
 	#
 	# Keyed on the prefix existing rather than on WITH_NORM, so this stages what
 	# the tree actually built. A WITH_NORM=ON build cannot reach here without the
@@ -331,6 +330,7 @@ stage-libs: sources/NeMo-Speech.cpp/build/bin/libnemo_speech_asr_c.so
 	# library that needs Sparrowhawk somehow arrives unstaged, package.sh's
 	# closure guard fails the build rather than shipping it.
 	@if [ -d "$(ITN_LIB_DIR)" ]; then \
+		cp -af sources/NeMo-Speech.cpp/build/bin/libnemo_speech_text_normalization.* . || exit 1; \
 		echo "cp -af $(ITN_LIB_DIR)/*.so* ."; \
 		cp -af $(ITN_LIB_DIR)/*.so* .; \
 	fi

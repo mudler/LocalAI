@@ -40,14 +40,13 @@ for lib in libnemo_speech_asr_c libnemo_speech_asr libnemo_speech_tts libnemo_sp
 	fi
 done
 
-# Text normalization (WITH_NORM=ON, Linux only) links Sparrowhawk and OpenFST
-# into libnemo_speech_asr.so. Those live in a project-local prefix that the
-# Makefile stages here, so anything staged that is not a nemo_speech object is
-# part of that stack. Absent on a WITH_NORM=OFF build, which is why this is a
-# glob that tolerates no matches rather than a required list.
+# Text normalization (WITH_NORM=ON, Linux only) is a shared NeMo library with
+# Sparrowhawk/OpenFST dependencies. Bundle it and the prefix libraries staged
+# by the Makefile. Absent on a WITH_NORM=OFF build, so tolerate no matches.
 shopt -s nullglob
 for so in "$CURDIR"/*.so "$CURDIR"/*.so.* "$CURDIR"/*.dylib; do
 	case "$(basename "$so")" in
+		libnemo_speech_text_normalization.*) ;;
 		libnemo_speech_*) continue ;;
 	esac
 	cp -avf "$so" "$CURDIR/package/lib/"
