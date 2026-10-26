@@ -29,7 +29,7 @@ function newChatsApi(page, initial) {
         const req = route.request()
         if (req.method() === 'POST') {
           record('POST', req.url(), req.postDataJSON())
-          return route.fulfill({ json: { started: false, pending_id: 'p9' } })
+          return (state.failSend ? route.fulfill({ status: 500, json: { error: 'boom' } }) : route.fulfill({ json: { started: false, pending_id: 'p9' } }))
         }
         return route.fulfill({ json: { messages: [{ seq: 1, turn: 1, role: 'user', text: 'compare the quotes', at: '2026-10-25T10:00:00Z' }] } })
       })
@@ -60,7 +60,7 @@ function newChatsApi(page, initial) {
       })
       await page.route('**/api/chats/c1', route => route.fulfill({ json: detail() }))
       await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({
-        json: { conversations: [{ ...detail(), pending: undefined }] },
+        json: { conversations: [{ ...detail(), pending: undefined }], persistent: state.persistent !== false },
       }))
     },
   }
@@ -147,5 +147,30 @@ test.describe('Chats page with a stubbed API', () => {
 
     await expect(composer(page)).toHaveValue('line one\nline two')
     expect(api.state.calls.filter(c => c.url.endsWith('/messages'))).toHaveLength(0)
+  })
+
+  test('says that history will not survive a restart when chats live in memory', async ({ page }) => {
+    const api = newChatsApi(page, { persistent: false })
+    await api.install()
+    await page.goto('/app/chats')
+    await expect(page.getByRole('note').filter({ hasText: 'restart' })).toBeVisible()
+  })
+
+  test('says nothing about restarts when chats are kept', async ({ page }) => {
+    const api = newChatsApi(page)
+    await api.install()
+    await page.goto('/app/chats')
+    await expect(page.getByTestId('chats-page')).toBeVisible()
+    await expect(page.getByRole('note').filter({ hasText: 'restart' })).toHaveCount(0)
+  })
+
+  test('a message that could not be sent stays in the composer', async ({ page }) => {
+    const api = newChatsApi(page, { failSend: true })
+    await api.install()
+    await page.goto('/app/chats/c1')
+    await composer(page).fill('keep this text')
+    await composer(page).press('Enter')
+    await expect(page.getByRole('alert')).toBeVisible()
+    await expect(composer(page)).toHaveValue('keep this text')
   })
 })

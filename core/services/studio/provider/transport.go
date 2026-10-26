@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
 // Transport serves HTTP requests by calling a handler in the same process. No
@@ -55,7 +56,21 @@ func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if u.user != nil {
 		req = req.Clone(auth.WithInternalUser(req.Context(), u.user))
 	}
-	return u.t.RoundTrip(req)
+	resp, err := u.t.RoundTrip(req)
+	if err != nil {
+		return resp, err
+	}
+	// A refusal ends the turn with a reason the user can act on. The marker
+	// is how the loop recognizes it through the model client's own wrapping.
+	switch resp.StatusCode {
+	case http.StatusForbidden:
+		_ = resp.Body.Close()
+		return nil, errors.New("the model refused the request " + session.MarkNotAllowed)
+	case http.StatusTooManyRequests:
+		_ = resp.Body.Close()
+		return nil, errors.New("the model refused the request " + session.MarkQuota)
+	}
+	return resp, nil
 }
 
 // RoundTrip runs the handler in a goroutine and returns as soon as it has

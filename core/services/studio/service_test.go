@@ -336,3 +336,28 @@ func TestDeleteStopsARunningTurnFirst(t *testing.T) {
 		t.Fatalf("Get after delete = %v", err)
 	}
 }
+
+// A new message must not overtake the ones that wait before it.
+func TestANewMessageStartsATurnBehindTheOnesWaitingBeforeIt(t *testing.T) {
+	h := studiotest.NewGateHarness()
+	svc := newService(t, h)
+	id := create(t, svc, alice)
+	sent(t, svc, alice, id, "start")
+	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+	sent(t, svc, alice, id, "old")
+	if err := svc.Stop(context.Background(), alice, id); err != nil {
+		t.Fatal(err)
+	}
+	until(t, "the turn to stop", func() bool { return !turn(t, svc, alice, id).Running })
+
+	if r := sent(t, svc, alice, id, "new"); !r.Started {
+		t.Fatalf("Send = %+v, want a started turn", r)
+	}
+	until(t, "the second turn", func() bool { return len(h.Sent()) == 2 })
+	if got := h.Sent()[1]; got != "old\n\nnew" {
+		t.Fatalf("the turn started with %q, want the waiting message first", got)
+	}
+	if got := pendingTexts(t, svc, alice, id); len(got) != 0 {
+		t.Fatalf("pending = %v, want none: the waiting message went with the turn", got)
+	}
+}

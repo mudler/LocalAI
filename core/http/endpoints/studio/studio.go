@@ -79,6 +79,8 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusNotFound, "not_found", "conversation not found")
 	case errors.Is(err, store.ErrDelivered):
 		return fail(c, http.StatusConflict, "conflict", "the message was already delivered to the model")
+	case errors.Is(err, studiosvc.ErrSubAgentReadOnly):
+		return fail(c, http.StatusConflict, "conflict", "a sub-agent conversation takes no messages from you")
 	case errors.Is(err, studiosvc.ErrNoModel):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	default:
@@ -151,7 +153,7 @@ func (h *Handlers) List(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	out := schema.ChatsConversationList{Conversations: make([]schema.ChatsConversation, 0, len(recs))}
+	out := schema.ChatsConversationList{Conversations: make([]schema.ChatsConversation, 0, len(recs)), Persistent: h.svc.Persistent()}
 	for _, rec := range recs {
 		conv, err := h.describe(c, user, rec)
 		if err != nil {

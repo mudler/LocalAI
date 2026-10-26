@@ -11599,6 +11599,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsConversation"
                     }
+                },
+                "persistent": {
+                    "description": "Persistent is false when conversations live in memory and are lost when\nthe server restarts.",
+                    "type": "boolean"
                 }
             }
         },

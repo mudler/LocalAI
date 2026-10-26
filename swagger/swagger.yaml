@@ -2477,6 +2477,11 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsConversation'
         type: array
+      persistent:
+        description: |-
+          Persistent is false when conversations live in memory and are lost when
+          the server restarts.
+        type: boolean
     type: object
   schema.ChatsCreateRequest:
     properties:

@@ -164,7 +164,18 @@ export const chatsApi = {
   create: (model, title) => postJSON(API_CONFIG.endpoints.chats, title ? { model, title } : { model }),
   get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
-  messages: (id, after = 0) => fetchJSON(`${API_CONFIG.endpoints.chatMessages(id)}?after=${after}&limit=1000`),
+  // The server returns at most 1000 entries a call, oldest first, so a long
+  // chat is read page by page: the newest messages are on the last page.
+  messages: async (id, after = 0) => {
+    let all = []
+    for (;;) {
+      const page = await fetchJSON(`${API_CONFIG.endpoints.chatMessages(id)}?after=${after}&limit=1000`)
+      const got = page.messages || []
+      all = all.concat(got)
+      if (got.length < 1000) return { ...page, messages: all }
+      after = got[got.length - 1].seq
+    }
+  },
   send: (id, text) => postJSON(API_CONFIG.endpoints.chatMessages(id), { text }),
   editPending: (id, pid, text) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'PATCH', body: JSON.stringify({ text }) }),
   cancelPending: (id, pid) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'DELETE' }),

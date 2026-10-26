@@ -112,7 +112,7 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	s.allowed[childKey] = subset
 	s.mu.Unlock()
 	done := s.waitFor(childKey)
-	if _, err := s.Send(context.WithoutCancel(ctx), a.Principal, childID, task); err != nil {
+	if _, err := s.send(context.WithoutCancel(ctx), a.Principal, childID, task); err != nil {
 		s.forgetChild(parentKey, childID)
 		return "", err
 	}
@@ -182,6 +182,10 @@ func (s *Service) registerChild(parentKey string, c *child) error {
 
 func (s *Service) forgetChild(parentKey, id string) {
 	s.mu.Lock()
+	// The child's tool list is needed only while its turn runs.
+	if p, _, ok := strings.Cut(parentKey, "\x00"); ok {
+		delete(s.allowed, key(p, id))
+	}
 	delete(s.children[parentKey], id)
 	if len(s.children[parentKey]) == 0 {
 		delete(s.children, parentKey)
@@ -253,7 +257,7 @@ func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-ch
 		return
 	}
 	msg := fmt.Sprintf("[Sub-agent finished: %s]\n%s", title, s.finalText(ctx, childID))
-	if _, err := s.Send(ctx, a.Principal, a.ChatID, msg); err != nil {
+	if _, err := s.send(ctx, a.Principal, a.ChatID, msg); err != nil {
 		s.log.Warn("studio: could not tell the parent that a sub-agent finished", "chat", a.ChatID, "error", err)
 	}
 }

@@ -19,6 +19,8 @@ const emptyLive = () => ({ text: '', reasoning: '', tools: [] })
 // waiting message reaches the model) and whenever the stream reconnects.
 export function useServerChat() {
   const [chats, setChats] = useState([])
+  // Unknown until the list answers; only an explicit false shows the notice.
+  const [persistent, setPersistent] = useState(true)
   const [activeId, setActiveId] = useState(null)
   const [detail, setDetail] = useState(null)
   const [messages, setMessages] = useState([])
@@ -36,6 +38,7 @@ export function useServerChat() {
       const data = await chatsApi.list()
       // Sub-agent runs belong to their parent; the list shows chats only.
       setChats((data.conversations || []).filter(c => c.kind !== 'subagent'))
+      setPersistent(data.persistent !== false)
     } catch (e) {
       setError(e.message)
     }
@@ -196,7 +199,7 @@ export function useServerChat() {
   }, [refreshList, select])
 
   return {
-    chats, activeId, detail, messages, live, notes, error, loading,
+    chats, persistent, activeId, detail, messages, live, notes, error, loading,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],

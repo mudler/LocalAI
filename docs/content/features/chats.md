@@ -60,8 +60,8 @@ Waiting messages reach the model together, in the order you sent them, at its
 next request. Until then you can change or remove one:
 
 ```bash
-curl -X PATCH  .../conversations/3f1c.../pending/p2 -d '{"text": "Use euros."}'
-curl -X DELETE .../conversations/3f1c.../pending/p2
+curl -X PATCH  .../api/chats/3f1c.../pending/p2 -d '{"text": "Use euros."}'
+curl -X DELETE .../api/chats/3f1c.../pending/p2
 ```
 
 Once a message has reached the model, both calls answer `409`. A
@@ -72,8 +72,8 @@ starts the next turn. After a **stop** or a **failed turn**, nothing starts by
 itself: the messages stay, and you decide.
 
 ```bash
-curl -X POST .../conversations/3f1c.../stop       # end the running turn
-curl -X POST .../conversations/3f1c.../send-now   # start a turn from the waiting messages
+curl -X POST .../api/chats/3f1c.../stop       # end the running turn
+curl -X POST .../api/chats/3f1c.../send-now   # start a turn from the waiting messages
 ```
 
 ## Sub-agents
@@ -118,6 +118,16 @@ With authentication off, chats belong to one anonymous owner.
 | Authentication on (SQLite or PostgreSQL) | The auth database. |
 | No database, a data path set | JSON files under `<data path>/chats`. They survive a restart. |
 | No database and no data path | Memory only. They are lost on restart. |
+
+When chats live in memory, the chats page says so, and the list endpoint
+returns `"persistent": false`.
+
+If a server stops in the middle of a model request, the turn ends as
+interrupted. A message you sent while that turn ran and that the request had
+already taken can be lost; send it again.
+
+A sub-agent conversation is read-only: it runs with the tools its parent chose,
+and a message to it answers `409`.
 
 The JSON files are for one LocalAI process. A cluster needs PostgreSQL, as
 [distributed mode]({{% relref "features/distributed-mode" %}}) already does.

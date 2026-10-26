@@ -28,6 +28,9 @@ type ChatsConversation struct {
 // ChatsConversationList is the response of the list endpoint.
 type ChatsConversationList struct {
 	Conversations []ChatsConversation `json:"conversations"`
+	// Persistent is false when conversations live in memory and are lost when
+	// the server restarts.
+	Persistent bool `json:"persistent"`
 }
 
 // ChatsConversationDetail is a conversation with the messages waiting for the model.

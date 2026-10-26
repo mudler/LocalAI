@@ -234,3 +234,129 @@ func TestAMessageQueuedJustAfterTheTurnEndedStartsTheNextTurn(t *testing.T) {
 		t.Fatalf("Send = %+v", r)
 	}
 }
+
+func TestATurnOnOneFrontendIsSeenByTheNextTurnOnAnother(t *testing.T) {
+	f := newFrontends(t, nil)
+	id := create(t, f.a, alice)
+	runTurn := func(svc *studio.Service, h *studiotest.GateHarness, text string) {
+		sent(t, svc, alice, id, text)
+		until(t, "the turn to start", func() bool { return len(h.Sent()) > 0 && h.Sent()[len(h.Sent())-1] == text })
+		h.Gate <- struct{}{}
+		until(t, "the turn to end", func() bool { return !turn(t, svc, alice, id).Running })
+	}
+	runTurn(f.a, f.ha, "one")
+	runTurn(f.b, f.hb, "two")
+	runTurn(f.a, f.ha, "three")
+
+	rec, err := f.st.GetChat(context.Background(), alice, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.Turns != 3 {
+		t.Fatalf("the chat has %d turns after three, one on each of A, B, A: A kept a stale count", rec.Turns)
+	}
+	entries, err := f.st.Entries(context.Background(), id, 0, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var turns []int
+	for _, e := range entries {
+		if e.Role == session.RoleUser {
+			turns = append(turns, e.Turn)
+		}
+	}
+	if len(turns) != 3 || turns[0] != 1 || turns[1] != 2 || turns[2] != 3 {
+		t.Fatalf("user messages are in turns %v, want 1 2 3", turns)
+	}
+}
+
+// afterTake runs a hook once, right after the second TakePending that finds
+// nothing. The first is the model request of a turn; the second is the
+// follow-up that claimed the chat, found no message and is about to let go.
+type afterTake struct {
+	store.Store
+	mu    sync.Mutex
+	hook  func()
+	empty int
+}
+
+func (a *afterTake) TakePending(ctx context.Context, p, c string) ([]store.Pending, error) {
+	out, err := a.Store.TakePending(ctx, p, c)
+	a.mu.Lock()
+	var h func()
+	if len(out) == 0 && a.hook != nil {
+		if a.empty++; a.empty == 2 {
+			h, a.hook = a.hook, nil
+		}
+	}
+	a.mu.Unlock()
+	if h != nil {
+		h()
+	}
+	return out, err
+}
+
+func TestAMessageQueuedWhileAFollowUpFindsNothingStillStarts(t *testing.T) {
+	var hook *afterTake
+	f := newFrontends(t, func(s store.Store) store.Store { hook = &afterTake{Store: s}; return hook })
+	id := create(t, f.a, alice)
+	sent(t, f.a, alice, id, "first")
+	until(t, "the turn to start", func() bool { return len(f.ha.Sent()) == 1 })
+	hook.mu.Lock()
+	hook.hook = func() { // B sends while A's claim is still held, before A lets go
+		if _, err := f.b.Send(context.Background(), alice, id, "late"); err != nil {
+			t.Error(err)
+		}
+	}
+	hook.mu.Unlock()
+	f.ha.Gate <- struct{}{}
+	until(t, "the late message to start a turn", func() bool {
+		for _, h := range []*studiotest.GateHarness{f.ha, f.hb} {
+			for _, s := range h.Sent() {
+				if s == "late" {
+					return true
+				}
+			}
+		}
+		return false
+	})
+}
+
+// touchLost answers every heartbeat as the store does for a turn that was
+// reaped: the run no longer holds the chat.
+type touchLost struct {
+	store.Store
+	lost atomic.Bool
+}
+
+func (a *touchLost) TouchTurn(ctx context.Context, p, c, run string) error {
+	if a.lost.Load() {
+		return store.ErrNotClaimed
+	}
+	return a.Store.TouchTurn(ctx, p, c, run)
+}
+
+func TestATurnWhoseClaimWasReapedStopsInsteadOfRunningOn(t *testing.T) {
+	var lost *touchLost
+	f := newFrontends(t, func(s store.Store) store.Store { lost = &touchLost{Store: s}; return lost })
+	id := create(t, f.a, alice)
+	events, cancel, err := f.a.Events(context.Background(), alice, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+	sent(t, f.a, alice, id, "go")
+	until(t, "the turn to start", func() bool { return len(f.ha.Sent()) == 1 })
+	lost.lost.Store(true)
+	timeout := time.After(10 * time.Second)
+	for {
+		select {
+		case e := <-events:
+			if e.Kind == session.KindTurnEnd {
+				return
+			}
+		case <-timeout:
+			t.Fatal("the turn kept running after its claim was lost")
+		}
+	}
+}

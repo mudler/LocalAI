@@ -57,6 +57,7 @@ func (a *Application) initStudioService() {
 		StateDir:      stateDir,
 		MCP:           a.studioMCP,
 		ContextTokens: a.studioContextTokens,
+		Persistent:    a.studioStoreKind != "memory",
 	})
 	if err != nil {
 		xlog.Warn("Chats disabled: failed to start the service", "error", err)

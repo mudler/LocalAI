@@ -162,6 +162,13 @@ var _ = Describe("Chats endpoints", func() {
 		Expect(ids).NotTo(ContainElement(bobID))
 	})
 
+	It("says whether history survives a restart", func() {
+		rec := s.do("alice", http.MethodGet, "/api/chats", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		// This server keeps its chats in memory.
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("persistent", false))
+	})
+
 	It("answers not found, never forbidden, for another user's conversation", func() {
 		id := s.create("alice")
 		for _, c := range []struct{ method, path string }{

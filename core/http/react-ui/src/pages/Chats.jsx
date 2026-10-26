@@ -155,6 +155,9 @@ export default function Chats() {
       setDraft('')
       await chat.send(target, text)
     } catch (e) {
+      // The text was cleared to make room for the next message: give it back,
+      // unless the user has already typed something else.
+      setDraft(d => d || text)
       setLocalError(e.message || t('errors.send'))
     } finally {
       setBusy(false)
@@ -223,6 +226,9 @@ export default function Chats() {
         </div>
 
         <div className="ch-composer-wrap">
+          {!chat.persistent && (
+            <div className="ch-notice" role="note">{t('memoryNotice')}</div>
+          )}
           {shownError && (
             <div className="ch-error" role="alert">
               <span>{shownError}</span>

@@ -31,6 +31,10 @@ const AnonymousPrincipal = "anonymous"
 // ErrNoModel means a conversation was created without a model.
 var ErrNoModel = errors.New("studio: a conversation needs a model")
 
+// ErrSubAgentReadOnly means a user tried to send to a sub-agent conversation.
+// It runs with the tools its parent chose, so only the parent starts it.
+var ErrSubAgentReadOnly = errors.New("studio: a sub-agent conversation takes no messages from the user")
+
 // UserLookup returns the active user with this ID. It is nil when auth is off.
 type UserLookup func(ctx context.Context, id string) (*auth.User, error)
 
@@ -57,6 +61,8 @@ type Deps struct {
 	// HeartbeatEvery is how often a running turn tells the store it is alive.
 	// Zero means 15 seconds.
 	HeartbeatEvery time.Duration
+	// Persistent is true when the store keeps conversations across a restart.
+	Persistent bool
 	// Harness replaces the nib harness. It is for tests.
 	Harness session.Harness
 	Logger  *slog.Logger
@@ -227,6 +233,9 @@ func (s *Service) Turn(ctx context.Context, user, conv string) (store.TurnInfo, 
 	return s.d.Store.Turn(ctx, principal(user), conv)
 }
 
+// Persistent reports whether conversations survive a restart of the server.
+func (s *Service) Persistent() bool { return s.d.Persistent }
+
 // Pending lists the messages waiting for the model.
 func (s *Service) Pending(ctx context.Context, user, conv string) ([]store.Pending, error) {
 	return s.d.Store.Pending(ctx, principal(user), conv)
@@ -256,6 +265,19 @@ func (s *Service) Events(ctx context.Context, user, conv string) (<-chan session
 // With a turn running the message waits and reaches the model, together with
 // any others, at the loop's next model request.
 func (s *Service) Send(ctx context.Context, user, conv, text string) (SendResult, error) {
+	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	if err != nil {
+		return SendResult{}, err
+	}
+	if rec.Kind == session.KindSubAgent {
+		return SendResult{}, ErrSubAgentReadOnly
+	}
+	return s.send(ctx, user, conv, text)
+}
+
+// send is Send without the check on the kind: the service itself starts
+// sub-agent conversations through it.
+func (s *Service) send(ctx context.Context, user, conv, text string) (SendResult, error) {
 	p := principal(user)
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return SendResult{}, err
@@ -265,8 +287,24 @@ func (s *Service) Send(ctx context.Context, user, conv, text string) (SendResult
 	runID := newID()
 	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
 	case err == nil:
-		if err := s.startTurn(ctx, p, conv, runID, text); err != nil {
+		// Messages that wait go first: the new one must not overtake them.
+		taken, terr := s.d.Store.TakePending(ctx, p, conv)
+		if terr != nil {
+			_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
+			return SendResult{}, terr
+		}
+		texts := make([]string, 0, len(taken)+1)
+		ids := make([]string, len(taken))
+		for i, t := range taken {
+			texts, ids[i] = append(texts, t.Text), t.ID
+		}
+		texts = append(texts, text)
+		if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n")); err != nil {
+			_ = s.d.Store.RestorePending(ctx, p, conv, ids)
 			return SendResult{}, err
+		}
+		if len(ids) > 0 {
+			s.bus.Publish(key(p, conv), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
 		}
 		return SendResult{Started: true}, nil
 	case errors.Is(err, store.ErrTurnRunning):
@@ -351,6 +389,14 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 	taken, err := s.d.Store.TakePending(ctx, p, conv)
 	if err != nil || len(taken) == 0 {
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnDone)
+		if err == nil {
+			// A message may have been queued on another frontend while this claim
+			// was held: it saw a running turn and did not start one. Look again
+			// now that the claim is free.
+			if left, perr := s.d.Store.Pending(ctx, p, conv); perr == nil && len(left) > 0 {
+				return s.startFromPending(ctx, p, conv)
+			}
+		}
 		return false, err
 	}
 	texts := make([]string, len(taken))
@@ -413,9 +459,20 @@ func (s *Service) heartbeat(ctx context.Context, p, conv, runID string) {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			if err := s.d.Store.TouchTurn(ctx, p, conv, runID); err != nil && ctx.Err() == nil {
-				s.log.Warn("studio: could not record a turn's heartbeat", "chat", conv, "error", err)
+			err := s.d.Store.TouchTurn(ctx, p, conv, runID)
+			if err == nil || ctx.Err() != nil {
+				continue
 			}
+			if errors.Is(err, store.ErrNotClaimed) {
+				// Another frontend reaped this turn as dead and may have started a
+				// new one. Two turns on one chat must not run: stop this one.
+				s.log.Warn("studio: a turn lost its claim and is stopping", "chat", conv)
+				if serr := s.stopLocal(context.Background(), p, conv); serr != nil {
+					s.log.Warn("studio: could not stop a turn that lost its claim", "chat", conv, "error", serr)
+				}
+				return
+			}
+			s.log.Warn("studio: could not record a turn's heartbeat", "chat", conv, "error", err)
 		}
 	}
 }
@@ -471,14 +528,14 @@ func (s *Service) pump(chat *session.Chat, p, conv string) {
 			}
 			s.mu.Unlock()
 		case session.KindTurnEnd:
-			s.finishTurn(p, conv)
+			s.finishTurn(chat, p, conv)
 		}
 	}
 }
 
 // finishTurn records how the turn ended and, after a normal end only, starts
 // the next turn from messages that arrived too late for the last request.
-func (s *Service) finishTurn(p, conv string) {
+func (s *Service) finishTurn(chat *session.Chat, p, conv string) {
 	ctx := context.Background()
 	k := key(p, conv)
 	unlock := s.lock(k)
@@ -493,6 +550,11 @@ func (s *Service) finishTurn(p, conv string) {
 	if r.end != nil {
 		r.end()
 	}
+	// Another frontend may run the next turn, so nothing of this chat is kept in
+	// memory past its turn, and is saved before the claim is given up: the next turn here loads the record again.
+	if err := chat.Close(); err != nil {
+		s.log.Warn("studio: could not close the chat after its turn", "chat", conv, "error", err)
+	}
 	status := store.TurnDone
 	switch {
 	case r.stopped:
@@ -502,7 +564,12 @@ func (s *Service) finishTurn(p, conv string) {
 	}
 	if err := s.d.Store.ReleaseTurn(ctx, p, conv, r.id, status); err != nil {
 		s.log.Warn("studio: could not release the turn", "chat", conv, "error", err)
-		return
+		if !errors.Is(err, store.ErrNotClaimed) {
+			return
+		}
+		// The claim was reaped: the turn is over all the same. Whoever holds the
+		// chat now decides what runs next; this one only cleans up after itself.
+		status = store.TurnInterrupted
 	}
 	s.notifyWaiters(k, status)
 	if status != store.TurnDone {

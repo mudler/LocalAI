@@ -195,6 +195,12 @@
   color: var(--color-error);
 }
 
+.ch-notice {
+  padding: var(--dk-space-2) var(--dk-space-4);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+}
+
 .ch-empty {
   margin: auto;
   max-width: 420px;

@@ -50,5 +50,6 @@
   "errors": {
     "send": "The message could not be sent.",
     "dismiss": "Dismiss"
-  }
+  },
+  "memoryNotice": "Chats are kept in memory only. They are lost when the server restarts."
 }

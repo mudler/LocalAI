@@ -3,6 +3,7 @@ package studio_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -250,4 +251,25 @@ func TestStoppingTheParentStopsItsRunningSubAgents(t *testing.T) {
 	}
 	child := childrenOf(t, svc, alice, id)[0].ID
 	until(t, "the child to stop", func() bool { return turn(t, svc, alice, child).Last == store.TurnStopped })
+}
+
+// A sub-agent conversation runs with the tools its parent chose. A message
+// from the user would start it with none, so it is read-only.
+func TestAUserCannotSendToASubAgentConversation(t *testing.T) {
+	svc, _ := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
+		if text == "go" {
+			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"job","wait":true}`}, {Say: "done"}}
+		}
+		return []studiotest.ToolStep{{Say: "ok"}}
+	})
+	id := create(t, svc, alice)
+	sent(t, svc, alice, id, "go")
+	idle(t, svc, alice, id)
+	kids := childrenOf(t, svc, alice, id)
+	if len(kids) != 1 {
+		t.Fatalf("children = %d, want 1", len(kids))
+	}
+	if _, err := svc.Send(context.Background(), alice, kids[0].ID, "more"); !errors.Is(err, studio.ErrSubAgentReadOnly) {
+		t.Fatalf("Send to a sub-agent conversation = %v, want ErrSubAgentReadOnly", err)
+	}
 }

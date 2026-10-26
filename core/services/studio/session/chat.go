@@ -33,7 +33,10 @@ type Upload struct {
 // Fixed texts of error events and of the checkpoint. They never carry the
 // text of an internal error.
 const (
-	reasonAgent      = "The agent stopped because of an error."
+	reasonAgent = "The agent stopped because of an error."
+	// ReasonNotAllowed and ReasonQuota tell the user why the model refused.
+	ReasonNotAllowed = "The model refused the request: you are not allowed to use it."
+	ReasonQuota      = "The model refused the request: your quota is used up or the server is busy."
 	reasonTranscript = "The transcript could not be saved."
 	reasonSave       = "The chat could not be saved."
 	reasonRefresh    = "The files you attached are not in the sandbox yet."
@@ -190,7 +193,9 @@ func (c *Chat) persist(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("session: save the chat: %w", err)
 		}
-		rec.HarnessState = cur.HarnessState
+		// Only the time is ours: another frontend may have changed the rest.
+		cur.Updated = rec.Updated
+		rec = cur
 	}
 	if err := c.m.o.Store.UpdateChat(ctx, rec); err != nil {
 		c.m.log.Error("session: update chat", "chat", c.id, "error", err)
@@ -336,8 +341,9 @@ func (c *Chat) reopen(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		// The whole record: another frontend may have run turns since.
 		c.mu.Lock()
-		c.rec.HarnessState, c.released = rec.HarnessState, false
+		c.rec, c.released, c.turn = rec, false, rec.Turns
 		c.mu.Unlock()
 	}
 	if err := c.startHarness(ctx); err != nil {
@@ -422,8 +428,26 @@ func capTool(t *ToolEvent) *ToolEvent {
 // generic reason otherwise.
 func fixedReason(text string) string {
 	switch text {
-	case reasonAgent, reasonTranscript, reasonSave, reasonRefresh, reasonCheckpoint:
+	case reasonAgent, reasonTranscript, reasonSave, reasonRefresh, reasonCheckpoint, ReasonNotAllowed, ReasonQuota:
 		return text
+	}
+	return reasonAgent
+}
+
+// Marks the model client puts in the error of a refused request, so that the
+// loop can tell the user why without showing the text of an internal error.
+const (
+	MarkNotAllowed = "[studio:not-allowed]"
+	MarkQuota      = "[studio:quota]"
+)
+
+// reasonFor picks the fixed reason for an error that ended a turn.
+func reasonFor(err error) string {
+	switch msg := err.Error(); {
+	case strings.Contains(msg, MarkNotAllowed):
+		return ReasonNotAllowed
+	case strings.Contains(msg, MarkQuota):
+		return ReasonQuota
 	}
 	return reasonAgent
 }
@@ -725,7 +749,7 @@ func (c *Chat) runTurn(text string, refresh bool) int {
 		c.mu.Unlock()
 		if err != nil && !(stopped && (errors.Is(err, context.Canceled) || ctx.Err() != nil)) {
 			c.m.log.Error("session: the harness failed", "chat", c.id, "turn", n, "error", err)
-			c.emit(Event{Kind: KindError, Turn: n, Text: reasonAgent})
+			c.emit(Event{Kind: KindError, Turn: n, Text: reasonFor(err)})
 		}
 	}
 	c.flushReasoning(context.Background(), n)
