@@ -81,6 +81,7 @@ func (h *Handlers) ListConnectors(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 201 {object} schema.ChatsConnector "The binding"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/connectors [post]
 func (h *Handlers) CreateConnector(c echo.Context) error {
 	host, ok := h.connectorHost(c)
@@ -123,6 +124,7 @@ func (h *Handlers) GetConnector(c echo.Context) error {
 // @Param id path string true "the binding's id"
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 200 {object} schema.ChatsConnector "The binding"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/connectors/{id} [put]
 func (h *Handlers) UpdateConnector(c echo.Context) error {
 	host, ok := h.connectorHost(c)

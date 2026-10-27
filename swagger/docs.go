@@ -3177,6 +3177,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversation"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Refused",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -3244,6 +3256,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgent"
                         }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -3277,6 +3295,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgent"
                         }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -3298,6 +3322,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "Deleted"
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -3340,6 +3370,12 @@ const docTemplate = `{
                         "description": "The binding",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -3398,6 +3434,12 @@ const docTemplate = `{
                         "description": "The binding",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -3704,6 +3746,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsFile"
                         }
                     },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "413": {
                         "description": "The file is too large",
                         "schema": {
@@ -3735,6 +3783,12 @@ const docTemplate = `{
                         "description": "The folder",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsFile"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -3793,6 +3847,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsFile"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -3830,6 +3890,12 @@ const docTemplate = `{
                         "description": "Name matches first, then lines",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSearchResult"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -3874,6 +3940,18 @@ const docTemplate = `{
                         "description": "The new revision and any conflicts that were skipped",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsUndoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The state of the server does not allow it (a feature that is off, or a conflict)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -3958,6 +4036,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsMCPConnector"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -4015,6 +4099,12 @@ const docTemplate = `{
                         "description": "The connector",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsMCPConnector"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -4170,6 +4260,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsNotificationCount"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -4234,6 +4330,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsNotificationCount"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -4276,6 +4378,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "Subscribed"
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -4298,6 +4406,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "Unsubscribed"
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -4349,6 +4463,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSkillDetail"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -4380,6 +4500,12 @@ const docTemplate = `{
                         "description": "The skill with its text",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSkillDetail"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -4420,6 +4546,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSkillDetail"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -4453,6 +4585,12 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "boolean"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -4496,6 +4634,12 @@ const docTemplate = `{
                         "description": "The trigger",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -4666,6 +4810,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsTrigger"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -4819,6 +4969,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversationDetail"
                         }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -4845,6 +5001,12 @@ const docTemplate = `{
                                 "type": "boolean"
                             }
                         }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -4870,6 +5032,18 @@ const docTemplate = `{
                         "description": "The add-ons and their switches",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAddonList"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -4904,6 +5078,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAddonList"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -4932,6 +5118,12 @@ const docTemplate = `{
                         "description": "An event stream",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsEvent"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -4968,6 +5160,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsToolsPanel"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -5002,6 +5206,12 @@ const docTemplate = `{
                         "description": "The MCP result",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsMCPAppCallResult"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -5043,6 +5253,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsMCPAppResource"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -5079,6 +5295,12 @@ const docTemplate = `{
                         "description": "Transcript lines in order",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsMessageList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -5123,6 +5345,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSendResponse"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -5157,6 +5391,12 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "boolean"
                             }
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -5200,6 +5440,18 @@ const docTemplate = `{
                                 "type": "boolean"
                             }
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -5228,6 +5480,12 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "boolean"
                             }
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -5264,6 +5522,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSkillSwitches"
                         }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -5292,6 +5562,12 @@ const docTemplate = `{
                                 "type": "boolean"
                             }
                         }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -5317,6 +5593,18 @@ const docTemplate = `{
                         "description": "The tools and their switches",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsToolsPanel"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }

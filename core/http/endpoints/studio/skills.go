@@ -70,6 +70,7 @@ func (h *Handlers) ListSkills(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsSkillWrite true "the skill"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/skills [post]
 func (h *Handlers) CreateSkill(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -96,6 +97,7 @@ func (h *Handlers) CreateSkill(c echo.Context) error {
 // @Param layer path string true "personal, shared or builtin"
 // @Param name path string true "the skill's name"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill with its text"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/skills/{layer}/{name} [get]
 func (h *Handlers) GetSkill(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -124,6 +126,7 @@ func (h *Handlers) skillDetail(c echo.Context, fc fileCall, layer skills.Layer, 
 // @Param name path string true "the skill's name"
 // @Param request body schema.ChatsSkillUpdate true "the new description and body"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/skills/{layer}/{name} [put]
 func (h *Handlers) UpdateSkill(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -151,6 +154,7 @@ func (h *Handlers) UpdateSkill(c echo.Context) error {
 // @Param layer path string true "personal or shared"
 // @Param name path string true "the skill's name"
 // @Success 200 {object} map[string]bool "deleted"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/skills/{layer}/{name} [delete]
 func (h *Handlers) DeleteSkill(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -174,6 +178,8 @@ func (h *Handlers) DeleteSkill(c echo.Context) error {
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsSkillSwitches true "the names of the skills that are off"
 // @Success 200 {object} schema.ChatsSkillSwitches "The switches now in force"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/skills [put]
 func (h *Handlers) SetChatSkills(c echo.Context) error {
 	var req schema.ChatsSkillSwitches

@@ -101,6 +101,7 @@ func (h *Handlers) ListTriggers(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsTriggerWrite true "the trigger"
 // @Success 201 {object} schema.ChatsTrigger "The trigger"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/triggers [post]
 func (h *Handlers) CreateTrigger(c echo.Context) error {
 	host, ok := h.triggerHost(c)
@@ -143,6 +144,7 @@ func (h *Handlers) GetTrigger(c echo.Context) error {
 // @Param id path string true "the trigger's id"
 // @Param request body schema.ChatsTriggerWrite true "the trigger"
 // @Success 200 {object} schema.ChatsTrigger "The trigger"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/triggers/{id} [put]
 func (h *Handlers) UpdateTrigger(c echo.Context) error {
 	host, ok := h.triggerHost(c)

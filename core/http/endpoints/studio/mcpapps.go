@@ -45,6 +45,7 @@ func failApp(c echo.Context, err error) error {
 // @Param server query string true "connector:<id> or the name of an MCP server of the model"
 // @Param uri query string true "the ui:// resource"
 // @Success 200 {object} schema.ChatsMCPAppResource "The page and its metadata"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/{id}/mcp-apps/resource [get]
 func (h *Handlers) GetMCPAppResource(c echo.Context) error {
 	server, uri := c.QueryParam("server"), c.QueryParam("uri")
@@ -69,6 +70,7 @@ func (h *Handlers) GetMCPAppResource(c echo.Context) error {
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsMCPAppCall true "the call"
 // @Success 200 {object} schema.ChatsMCPAppCallResult "The MCP result"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/{id}/mcp-apps/call [post]
 func (h *Handlers) CallMCPAppTool(c echo.Context) error {
 	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxAppCallBody)

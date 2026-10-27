@@ -25,6 +25,8 @@ func addonList(c echo.Context, h *Handlers) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsAddonList "The add-ons and their switches"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/addons [get]
 func (h *Handlers) ListChatAddons(c echo.Context) error { return addonList(c, h) }
 
@@ -35,6 +37,8 @@ func (h *Handlers) ListChatAddons(c echo.Context) error { return addonList(c, h)
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsAddonSwitches true "the IDs of the add-ons that are off"
 // @Success 200 {object} schema.ChatsAddonList "The add-ons and their switches now in force"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/addons [put]
 func (h *Handlers) SetChatAddons(c echo.Context) error {
 	var req schema.ChatsAddonSwitches

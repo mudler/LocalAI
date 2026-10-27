@@ -74,6 +74,7 @@ func (h *Handlers) ListMCPConnectors(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsMCPConnectorWrite true "the connector"
 // @Success 201 {object} schema.ChatsMCPConnector "The connector"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/mcp-connectors [post]
 func (h *Handlers) CreateMCPConnector(c echo.Context) error {
 	host, ok := h.mcpHost(c)
@@ -116,6 +117,7 @@ func (h *Handlers) GetMCPConnector(c echo.Context) error {
 // @Param id path string true "the connector's id"
 // @Param request body schema.ChatsMCPConnectorWrite true "the connector"
 // @Success 200 {object} schema.ChatsMCPConnector "The connector"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/mcp-connectors/{id} [put]
 func (h *Handlers) UpdateMCPConnector(c echo.Context) error {
 	host, ok := h.mcpHost(c)
@@ -228,6 +230,8 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsToolsPanel "The tools and their switches"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/tools [get]
 func (h *Handlers) ListChatTools(c echo.Context) error { return toolsPanel(c, h) }
 
@@ -238,6 +242,8 @@ func (h *Handlers) ListChatTools(c echo.Context) error { return toolsPanel(c, h)
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsMCPSwitches true "what is off"
 // @Success 200 {object} schema.ChatsToolsPanel "The tools and their switches now in force"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/mcp [put]
 func (h *Handlers) SetChatMCP(c echo.Context) error {
 	var req schema.ChatsMCPSwitches
