@@ -39,6 +39,34 @@ func textOf(content json.RawMessage) string {
 	return strings.Join(out, "\n")
 }
 
+// toolOf reads the name and the text of a tool message. The old page stored the
+// call and the result as JSON text in the content, {"type":"tool_call","name":
+// ...} and {"type":"tool_result","name":...,"result":...}; the fields beside the
+// content are the fallback for a message without that form.
+func toolOf(name string, content json.RawMessage) (toolName, text string) {
+	toolName, text = name, strings.TrimSpace(textOf(content))
+	var body struct {
+		Name   string          `json:"name"`
+		Result json.RawMessage `json:"result"`
+	}
+	if json.Unmarshal([]byte(text), &body) != nil || body.Name == "" && body.Result == nil {
+		return toolName, text
+	}
+	if body.Name != "" {
+		toolName = body.Name
+	}
+	text = ""
+	if body.Result != nil {
+		var s string
+		if json.Unmarshal(body.Result, &s) == nil {
+			text = strings.TrimSpace(s)
+		} else if string(body.Result) != "null" {
+			text = string(body.Result)
+		}
+	}
+	return toolName, text
+}
+
 // entriesOf maps the messages of the old page to transcript lines: user and
 // assistant text, thinking as reasoning, and each tool call or result as one
 // tool line. It keeps the newest MaxMessages.
@@ -64,9 +92,11 @@ func entriesOf(history json.RawMessage, at time.Time) []EntryIn {
 				out = append(out, EntryIn{Role: "reasoning", Text: text, At: at})
 			}
 		case "tool_call":
-			out = append(out, EntryIn{Role: "tool", Text: "called " + m.Name, At: at})
+			name, _ := toolOf(m.Name, m.Content)
+			out = append(out, EntryIn{Role: "tool", Text: "called " + name, At: at})
 		case "tool_result":
-			line := "result of " + m.Name
+			name, text := toolOf(m.Name, m.Content)
+			line := "result of " + name
 			if text != "" {
 				if len(text) > 500 {
 					// Cut on a rune boundary: a cut inside a character is not text.
@@ -79,7 +109,7 @@ func entriesOf(history json.RawMessage, at time.Time) []EntryIn {
 				line += ": " + text
 			}
 			// A result joins the call before it, so one tool use is one line.
-			if n := len(out); n > 0 && out[n-1].Role == "tool" && out[n-1].Text == "called "+m.Name {
+			if n := len(out); n > 0 && out[n-1].Role == "tool" && out[n-1].Text == "called "+name {
 				out[n-1].Text = line
 			} else {
 				out = append(out, EntryIn{Role: "tool", Text: line, At: at})

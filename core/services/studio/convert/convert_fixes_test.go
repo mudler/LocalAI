@@ -300,3 +300,29 @@ func TestAToolResultIsCutOnARuneBoundary(t *testing.T) {
 		t.Fatalf("invalid UTF-8: %q", got)
 	}
 }
+
+// The old page kept a tool call and its result as messages whose content is a
+// JSON text: the name and the result are inside it, not beside it.
+func TestAToolUseOfTheOldPageIsReadFromTheJSONOfItsMessages(t *testing.T) {
+	db := newDB(t)
+	exec(t, db, `CREATE TABLE chat_conversations (user_id text, conv_id text, content text, version integer, deleted_at datetime)`)
+	call := mustJSON(map[string]any{"type": "tool_call", "name": "search", "arguments": map[string]any{"q": "x"}})
+	result := mustJSON(map[string]any{"type": "tool_result", "name": "search", "result": "found it"})
+	history := []any{
+		map[string]any{"role": "user", "content": "look"},
+		map[string]any{"role": "tool_call", "content": string(call), "expanded": false},
+		map[string]any{"role": "tool_result", "content": string(result), "expanded": false},
+		map[string]any{"role": "assistant", "content": "done"},
+	}
+	conv := mustJSON(map[string]any{"name": "T", "model": "m", "history": history})
+	exec(t, db, `INSERT INTO chat_conversations (user_id, conv_id, content, version) VALUES (?, 'c', ?, 1)`, alice, conv)
+	tg := newTargets()
+	run(t, convert.Sources{DB: db, AuthEnabled: true}, tg, memMarks(t))
+	entries := tg.chats[alice][0].Entries
+	if len(entries) != 3 {
+		t.Fatalf("entries = %+v", entries)
+	}
+	if got := entries[1]; got.Role != "tool" || got.Text != "result of search: found it" {
+		t.Fatalf("tool line = %+v", got)
+	}
+}
