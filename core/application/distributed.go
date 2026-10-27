@@ -27,7 +27,6 @@ import (
 // DistributedServices holds all services initialized for distributed mode.
 type DistributedServices struct {
 	Nats         *messaging.Client
-	WorkQueue    messaging.WorkQueue
 	AgentControl mcpTools.AgentControl
 	Store        storage.ObjectStore
 	Registry     *nodes.NodeRegistry
@@ -214,8 +213,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		routerAuthToken,
 		!cfg.Distributed.DisablePerModelHealthCheck,
 	)
-
-	workQueue := messaging.NewNATSWorkQueue(natsClient)
 
 	// Initialize Phase 4 stores (MCP, Gallery, FineTune, Skills)
 	distStores, err := distributed.InitStores(authDB)
@@ -446,7 +443,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	success = true
 	return &DistributedServices{
 		Nats:         natsClient,
-		WorkQueue:    workQueue,
 		AgentControl: nodes.NewNATSAgentControl(natsClient),
 		Store:        store,
 		Registry:     registry,

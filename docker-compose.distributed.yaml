@@ -184,10 +184,9 @@ services:
   # a model request arrives.
 
   # --- Agent Worker ---
-  # Dedicated process for agent chat execution.
-  # Receives chat jobs from NATS, runs cogito LLM calls via the LocalAI API,
-  # and publishes results back via NATS for SSE delivery.
-  # No database access needed — config and skills are sent in the NATS payload.
+  # Dedicated process that runs the MCP servers of the models, such as stdio
+  # servers that need docker. The frontend sends it tool calls and discovery
+  # requests over NATS. No database access needed.
 
   agent-worker-1:
     # image: localai/localai:latest-cpu

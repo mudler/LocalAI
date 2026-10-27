@@ -14,9 +14,9 @@ var _ = Describe("Subject rules", func() {
 		func(subject string) {
 			Expect(messaging.ValidateSubject(subject)).To(Succeed())
 		},
-		Entry("job queue", "jobs.new"),
-		Entry("single-token wildcard", "jobs.*.cancel"),
-		Entry("two wildcards", "agent.*.events.*"),
+		Entry("gallery cancel", "gallery.op1.cancel"),
+		Entry("single-token wildcard", "gallery.*.cancel"),
+		Entry("two wildcards", "nodes.*.files.*"),
 		Entry("control subject", "nodes.abc.backend.install"),
 		Entry("mcp request", "mcp.tools.execute"),
 		Entry("finetune progress", "finetune.job1.progress"),
@@ -52,11 +52,19 @@ var _ = Describe("Subject rules", func() {
 		func(root string) {
 			Expect(messaging.ValidateSubject(root + ".x")).To(Succeed())
 		},
-		Entry("jobs", "jobs"), Entry("agent", "agent"), Entry("gallery", "gallery"),
+		Entry("gallery", "gallery"),
 		Entry("cache", "cache"), Entry("staging", "staging"), Entry("prefixcache", "prefixcache"),
 		Entry("responses", "responses"), Entry("state", "state"), Entry("finetune", "finetune"),
 		Entry("chats", "chats"),
 		Entry("nodes", "nodes"), Entry("mcp", "mcp"),
+	)
+
+	DescribeTable("refuses the roots of the removed agent and job queues",
+		func(subject string) {
+			Expect(errors.Is(messaging.ValidateSubject(subject), messaging.ErrUnservedSubject)).To(BeTrue())
+		},
+		Entry("agent.execute", "agent.execute"), Entry("agent cancel", "agent.a1.cancel"),
+		Entry("jobs.new", "jobs.new"), Entry("job progress", "jobs.j1.progress"),
 	)
 
 	It("refuses an unknown root", func() {
@@ -67,22 +75,16 @@ var _ = Describe("Subject rules", func() {
 		const id = "11111111-2222-3333-4444-555555555555"
 		// When you add a subject constant or constructor, add it here too.
 		subjects := []string{
-			messaging.SubjectJobsNew, messaging.SubjectMCPCIJobsNew, messaging.SubjectAgentExecute,
 			messaging.SubjectMCPToolExecute, messaging.SubjectMCPDiscovery,
 			messaging.SubjectGalleryOpStart, messaging.SubjectGalleryOpEnd,
-			messaging.SubjectCacheInvalidateSkills, messaging.SubjectCacheInvalidateModels,
+			messaging.SubjectCacheInvalidateModels,
 			messaging.SubjectCacheInvalidateBackends,
 			messaging.SubjectPrefixCacheObserve, messaging.SubjectPrefixCacheInvalidate,
 			messaging.SubjectPrefixCachePressure, messaging.SubjectPrefixCacheResidency,
-			messaging.SubjectJobResultWildcard,
-			messaging.SubjectJobProgressWildcard, messaging.SubjectAgentCancelWildcard,
 			messaging.SubjectGalleryCancelWildcard, messaging.SubjectGalleryProgressWildcard,
 			messaging.SubjectResponseCancelWildcard,
-			messaging.SubjectAgentEvents("agent1", "user1"),
-			messaging.SubjectJobProgress(id), messaging.SubjectJobResult(id),
 			messaging.SubjectFineTuneProgress(id), messaging.SubjectGalleryProgress(id),
 			messaging.SubjectStagingProgress(id),
-			messaging.SubjectJobCancel(id), messaging.SubjectAgentCancel(id),
 			messaging.SubjectFineTuneCancel(id), messaging.SubjectGalleryCancel(id),
 			messaging.SubjectResponseCancel(id),
 			messaging.SubjectCacheInvalidateCollection("c1"), messaging.SubjectSyncStateDelta("s1"),

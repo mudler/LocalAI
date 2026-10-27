@@ -10,7 +10,6 @@ connections to a worker. Only the carrier files import `nats.go`
 | Seam | Interface | Lives in | Today |
 |---|---|---|---|
 | Fan-out | `messaging.Broadcaster` | `core/services/messaging` | NATS client |
-| Queues | `messaging.WorkQueue` (producer), `messaging.WorkConsumer` (worker), keyed by `messaging.WorkKind` | `core/services/messaging` (`workqueue.go`) | `NewNATSWorkQueue`, `NewNATSWorkConsumer` |
 | Control verbs, frontend half | `nodes.NodeCommandSender`, `nodes.FileStager` | `core/services/nodes` | `RemoteUnloaderAdapter`, `S3NATSFileStager` over NATS request/reply; `HTTPFileStager` over HTTP |
 | Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer` |
 | Agent RPC, frontend half | `AgentControl` (package `mcp`) | `core/http/endpoints/mcp` | `nodes.NATSAgentControl` |
@@ -23,23 +22,11 @@ carrier share one wire format without importing each other.
 
 ## Queues
 
-`WorkKind` names the work (`WorkTask`, `WorkMCPCI`, `WorkAgentRun`).
-`natsRoute` in `workqueue_nats.go` is the one place a kind becomes a subject and
-a queue group. A nil error from `Enqueue` means the carrier accepted the
-payload, not that a consumer exists. The NATS carrier ignores the ctx of
-`Enqueue`.
-
-`Consume(ctx, kind, maxInFlight, h)` keeps two concurrency models on purpose.
-With `maxInFlight` 1 the handler runs inline on the NATS delivery goroutine and
-a panic is not recovered. Any other value spawns a recovered goroutine per
-delivery; when bounded, the slot is taken on the delivery goroutine. 0 and
-negative values are unbounded. `Unsubscribe` stops delivery, then waits for
-running handlers, so a handler must not call it. The agent worker asks for
-MCP CI with 1 (`startMCPCIConsumer`) and for agent runs with the dispatcher's
-`maxConcurrent` (0 from the CLI); specs pin both.
-`WithAgentRunRoute` lets an agent worker move the agent-run subject and group.
-An empty subject keeps `agent.execute`; an empty queue is kept and makes a
-plain subscription, as an explicitly empty `LOCALAI_AGENT_QUEUE` always did.
+There are none. The agent-run, MCP CI and job queues were removed with the old
+agents and jobs; chat runs and triggers use the database and advisory locks
+(`.agents/distributed-state.md`). A new queue is a new interface in
+`core/services/messaging`, with its own subject root added to
+`broadcastRoots` in `subject_rules.go`.
 
 ## Control verbs
 
@@ -150,8 +137,7 @@ other seams against a real server, also through Docker.
   `ForgetNode`.
 - `clientFor` returns no error; a carrier with no dialer for a node needs that
   path.
-- The agent worker still uses NATS directly for its connection and for agent
-  events (`agents.NewEventBridge`).
+- The agent worker still uses NATS directly for its connection.
 - `ReplicaReconcilerOptions` has no `ClientFactory` field. Without a
   `Prober`, `NewReplicaReconciler` builds its own `tokenClientFactory`, so a
   carrier that dials through another factory must add the field.
@@ -163,16 +149,5 @@ other seams against a real server, also through Docker.
 - `natsControlServer.subject` refuses a verb it has no subject for, so
   registration fails. A verb that only one carrier serves needs a per-carrier
   opt-out where the verbs are registered.
-- `WorkHandler` returns only an error. A carrier whose stream handler must send
-  a terminal reply derives it from the `jobs.<id>.result` event the handler
-  publishes on `events` (`handleMCPCIJob` does this).
-- Not additive: the agent-run consumer (`NATSDispatcher.runDelivery`) ignores
-  the per-delivery `events` publisher and publishes through the process-wide
-  `EventBridge`, which is built on the NATS client. A second carrier must
-  change `NATSDispatcher` and `EventBridge`, for example by binding
-  `handleJob`'s publishes to `events` through a bridge view that shares the
-  cancel registry.
 - `controlHandler`'s `undecodable` return is the recorded exception described
   under Control verbs.
-- Agent cancel has no production sender (`EventBridge.CancelExecution` has no
-  caller), so it is not part of the agent RPC seam.

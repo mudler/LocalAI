@@ -12,40 +12,11 @@ func sanitizeSubjectToken(s string) string {
 // NATS subject constants for the distributed architecture.
 // Following the notetaker pattern: <entity>.<action>
 
-// Job Distribution (Queue Groups — load-balanced, one consumer gets each message)
-const (
-	SubjectJobsNew      = "jobs.new"
-	SubjectMCPCIJobsNew = "jobs.mcp-ci.new"
-	SubjectAgentExecute = "agent.execute"
-	QueueWorkers        = "workers"
-)
-
 // Status Updates (Pub/Sub — all subscribers get every message, for SSE bridging)
-// These use parameterized subjects: e.g. SubjectAgentEvents("myagent", "user1")
 const (
-	subjectAgentEventsPrefix = "agent."
-	subjectJobProgressPrefix = "jobs."
-	subjectFineTunePrefix    = "finetune."
-	subjectGalleryPrefix     = "gallery."
+	subjectFineTunePrefix = "finetune."
+	subjectGalleryPrefix  = "gallery."
 )
-
-// SubjectAgentEvents returns the NATS subject for agent SSE events.
-func SubjectAgentEvents(agentName, userID string) string {
-	if userID == "" {
-		userID = "anonymous"
-	}
-	return subjectAgentEventsPrefix + sanitizeSubjectToken(agentName) + ".events." + sanitizeSubjectToken(userID)
-}
-
-// SubjectJobProgress returns the NATS subject for job progress updates.
-func SubjectJobProgress(jobID string) string {
-	return subjectJobProgressPrefix + sanitizeSubjectToken(jobID) + ".progress"
-}
-
-// SubjectJobResult returns the NATS subject for the final job result (terminal state).
-func SubjectJobResult(jobID string) string {
-	return subjectJobProgressPrefix + sanitizeSubjectToken(jobID) + ".result"
-}
 
 // MCP Tool Execution (Request-Reply via NATS — load-balanced across agent workers)
 const (
@@ -92,8 +63,6 @@ const (
 
 // Control Signals (Pub/Sub — targeted cancellation)
 const (
-	subjectJobCancelPrefix      = "jobs."
-	subjectAgentCancelPrefix    = "agent."
 	subjectFineTuneCancelPrefix = "finetune."
 	subjectGalleryCancelPrefix  = "gallery."
 	subjectResponseCancelPrefix = "responses."
@@ -101,23 +70,10 @@ const (
 
 // Wildcard subjects for NATS subscriptions that match all IDs.
 const (
-	SubjectJobResultWildcard       = "jobs.*.result"
-	SubjectJobProgressWildcard     = "jobs.*.progress"
-	SubjectAgentCancelWildcard     = "agent.*.cancel"
 	SubjectGalleryCancelWildcard   = "gallery.*.cancel"
 	SubjectGalleryProgressWildcard = "gallery.*.progress"
 	SubjectResponseCancelWildcard  = "responses.*.cancel"
 )
-
-// SubjectJobCancel returns the NATS subject to cancel a running job.
-func SubjectJobCancel(jobID string) string {
-	return subjectJobCancelPrefix + sanitizeSubjectToken(jobID) + ".cancel"
-}
-
-// SubjectAgentCancel returns the NATS subject to cancel agent execution.
-func SubjectAgentCancel(agentID string) string {
-	return subjectAgentCancelPrefix + sanitizeSubjectToken(agentID) + ".cancel"
-}
 
 // SubjectFineTuneCancel returns the NATS subject to stop fine-tuning.
 func SubjectFineTuneCancel(jobID string) string {
@@ -273,7 +229,6 @@ func SubjectNodeFilesListDir(nodeID string) string {
 
 // Cache Invalidation (Pub/Sub — broadcast to all instances)
 const (
-	SubjectCacheInvalidateSkills = "cache.invalidate.skills"
 	// SubjectCacheInvalidateModels is broadcast by the replica that completed
 	// a model install/delete. Peers subscribe and re-run
 	// ModelConfigLoader.LoadModelConfigsFromPath so a chat completion routed

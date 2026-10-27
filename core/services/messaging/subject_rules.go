@@ -14,11 +14,11 @@ import (
 var (
 	// broadcastRoots carry fan-out and the competing-consumer subjects.
 	broadcastRoots = map[string]struct{}{
-		"jobs": {}, "agent": {}, "gallery": {}, "cache": {},
+		"gallery": {}, "cache": {},
 		"staging": {}, "prefixcache": {}, "responses": {}, "state": {},
 		"finetune": {}, "chats": {},
 	}
-	// controlRoots carry request/reply to one node or one agent worker.
+	// controlRoots carry request/reply to one node or one agent worker (the MCP tool and discovery RPC).
 	controlRoots = map[string]struct{}{
 		"nodes": {}, "mcp": {},
 	}

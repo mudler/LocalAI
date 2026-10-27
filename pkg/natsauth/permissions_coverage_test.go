@@ -84,19 +84,23 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 	Context("agent worker", func() {
 		// node_type "agent"; subjects from core/cli/agent_worker.go.
 		pub, sub := natsauth.WorkerPermissions(nodeID, "agent")
-		_ = pub
 
 		subscribed := []string{
-			messaging.SubjectAgentExecute,            // dispatcher (default --agent-subject)
 			messaging.SubjectMCPToolExecute,          // QueueSubscribeReply
 			messaging.SubjectMCPDiscovery,            // QueueSubscribeReply
-			messaging.SubjectMCPCIJobsNew,            // QueueSubscribe — jobs.mcp-ci.new
 			messaging.SubjectNodeBackendStop(nodeID), // Subscribe — MCP session cleanup
 		}
 		for _, subject := range subscribed {
 			It("allows subscribing to "+subject, func() {
 				Expect(anyAllows(sub, subject)).To(BeTrue(),
 					"agent JWT sub allow-list %v does not cover %s — the agent worker subscribes to it", sub, subject)
+			})
+		}
+
+		for _, subject := range []string{"agent.execute", "agent.a1.cancel", "jobs.new", "jobs.mcp-ci.new", "jobs.j1.progress", "jobs.j1.result"} {
+			It("no longer allows "+subject, func() {
+				Expect(anyAllows(sub, subject)).To(BeFalse(), "agent JWT sub allow-list %v still covers the removed subject %s", sub, subject)
+				Expect(anyAllows(pub, subject)).To(BeFalse(), "agent JWT pub allow-list %v still covers the removed subject %s", pub, subject)
 			})
 		}
 	})
