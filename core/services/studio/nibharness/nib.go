@@ -132,6 +132,12 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 		},
 	})
 	cfg.WorkingDir = env.Dir
+	// The host lists its own skills in the prompt; nib's (about-nib, and the
+	// load_skill tool that reads them) do not apply to a chat.
+	cfg.Skills = nil
+	if llm != nil {
+		llm = forHost(llm)
+	}
 	cfg.LLM = llm
 	cfg.InputSource = env.Inputs
 	cfg.LSPAutoDetect = new(bool)
