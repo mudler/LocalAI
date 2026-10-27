@@ -88,7 +88,7 @@ type ReplicaUnloader interface {
 
 // LoadOperationInstaller starts a backend as a load operation the worker bounds.
 type LoadOperationInstaller interface {
-	InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error)
+	InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent), env ...map[string]string) (*workerctl.BackendInstallReply, error)
 }
 
 // LoadOperationStopper is the only path that kills remote load work. It stops

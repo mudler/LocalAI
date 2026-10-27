@@ -1522,3 +1522,30 @@ Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, R
 - **Prefill/decode disaggregation routing** ([#10068](https://github.com/mudler/LocalAI/issues/10068)): route prefill and decode to separate pools with KV transfer.
 - **Per-user fairness (VTC)** ([#10069](https://github.com/mudler/LocalAI/issues/10069)): balance per-user token usage against pod load.
 - **Minor tuning + MCP parity** ([#10070](https://github.com/mudler/LocalAI/issues/10070)): per-model TTL override, probabilistic LRU updates, and MCP scheduling-config tool parity.
+
+## Per-model worker environment
+
+A model's `env` map is sent with each backend installation as a complete
+per-process snapshot. The worker applies it only to that model replica's child
+process, on top of the worker's inherited environment; it never changes the
+frontend or worker daemon environment. Models sharing a backend executable can
+therefore use different credentials or runtime settings without sharing them.
+An empty string is an explicit value, not an instruction to remove a variable.
+
+When a slot is installed again with changed overrides (including removal of the
+last override), the worker restarts its child rather than reusing a process with
+stale settings. Removing an override restores the worker's inherited value, if
+one exists. Unload/reload a running model after changing its environment; this
+is not live environment mutation of an already loaded child.
+
+This requires updated frontends **and** workers. Legacy install requests omit
+the snapshot and retain legacy reuse behavior; older workers ignore the added
+field and cannot provide per-model environment isolation. Upgrade workers before
+relying on this feature. Environment snapshots may contain secrets and travel
+over the control transport: restrict NATS access and enable its authentication
+and TLS for untrusted networks. They are not secret-store references.
+
+Install coalescing is per frontend instance and includes a keyed identity of
+the snapshot, so concurrent installs with different environments do not share an
+install reply. The worker owns process-local snapshots; they are rebuilt from
+model configuration on each install, not persisted as a new cluster state store.

@@ -1,10 +1,15 @@
 package workerctl
 
+import "encoding/json"
+
 // BackendInstallRequest is the payload for a backend.install control request.
 type BackendInstallRequest struct {
-	Backend          string `json:"backend"`
-	ModelID          string `json:"model_id,omitempty"`
-	BackendGalleries string `json:"backend_galleries,omitempty"`
+	// EnvVars is a complete per-process snapshot. nil means a legacy caller;
+	// a non-nil empty map explicitly removes previous model overrides.
+	EnvVars          map[string]string `json:"-"`
+	Backend          string            `json:"backend"`
+	ModelID          string            `json:"model_id,omitempty"`
+	BackendGalleries string            `json:"backend_galleries,omitempty"`
 	// URI is set for external installs (OCI image, URL, or path). When non-empty
 	// the worker routes to InstallExternalBackend instead of the gallery lookup.
 	URI   string `json:"uri,omitempty"`
@@ -187,4 +192,31 @@ type BackendDeleteReply struct {
 	// to read silence as a completed cleanup, which is precisely the wrong
 	// conclusion against an older worker.
 	ReportsStoppedProcesses bool `json:"reports_stopped_processes,omitempty"`
+}
+
+// MarshalJSON omits legacy snapshots without collapsing an explicit empty map.
+func (r BackendInstallRequest) MarshalJSON() ([]byte, error) {
+	type wire BackendInstallRequest
+	var env *map[string]string
+	if r.EnvVars != nil {
+		env = &r.EnvVars
+	}
+	return json.Marshal(struct {
+		wire
+		EnvVars *map[string]string `json:"env_vars,omitempty"`
+	}{wire(r), env})
+}
+
+func (r *BackendInstallRequest) UnmarshalJSON(data []byte) error {
+	type wire BackendInstallRequest
+	var decoded struct {
+		wire
+		EnvVars map[string]string `json:"env_vars"`
+	}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*r = BackendInstallRequest(decoded.wire)
+	r.EnvVars = decoded.EnvVars
+	return nil
 }

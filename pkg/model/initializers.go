@@ -75,7 +75,7 @@ const (
 func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string, string) (*Model, error) {
 	return func(modelID, modelName, modelFile string) (*Model, error) {
 
-		xlog.Debug("Loading Model with gRPC", "modelID", modelID, "file", modelFile, "backend", backend, "options", *o)
+		xlog.Debug("Loading Model with gRPC", "modelID", modelID, "file", modelFile, "backend", backend)
 
 		// Distributed mode: delegate to the model router if set. No load
 		// event is emitted here: this branch runs per inference request and
@@ -180,7 +180,6 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 	}
 
 	xlog.Debug("Wait for the service to start up")
-	xlog.Debug("Options", "options", o.gRPCOptions)
 
 	// Wait for the service to start up
 	ready := false
@@ -212,7 +211,7 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 	options.ModelFile = modelFile
 	options.ModelPath = ml.ModelPath
 
-	xlog.Debug("GRPC: Loading model with options", "options", options)
+	xlog.Debug("GRPC: Loading model", "modelID", modelID, "backend", backend)
 
 	res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, options)
 	if err != nil {
