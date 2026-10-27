@@ -21,7 +21,8 @@ The name of this variable is old: it now turns off the collections only.
 3. It calls the embedding model to turn each chunk into a vector, and stores the vectors in the vector engine.
 4. A search embeds the query and returns the closest chunks.
 
-The embedding calls go to the LocalAI API of the same server, so the embedding
+The embedding calls go to the LocalAI API of the same server, inside the
+process, so they need no API key and work with user accounts. The embedding
 model must be installed. The default is `granite-embedding-107m-multilingual`.
 
 ## Who sees a collection
@@ -46,7 +47,7 @@ When collections are off, the paths do not exist.
 | `GET /{name}/entries-raw/{entry}` | | The file as you uploaded it |
 | `POST /{name}/search` | `{"query": "...", "max_results": 5}` | `{"results": [...], "count": n}` |
 | `DELETE /{name}/entry/delete` | `{"entry": "file.pdf"}` | `{"remaining_entries": [...], "count": n}` |
-| `POST /{name}/reset` | | Deletes every entry. `{"status": "ok"}` |
+| `POST /{name}/reset` | | Deletes every entry and keeps the collection and its sources. `{"status": "ok"}` |
 | `GET /{name}/sources` | | `{"sources": [...], "count": n}` |
 | `POST /{name}/sources` | `{"url": "https://...", "update_interval": 60}` | Follows the URL. `{"status": "ok"}` |
 | `DELETE /{name}/sources` | `{"url": "https://..."}` | Stops following the URL |
@@ -66,6 +67,7 @@ Notes:
 - `update_interval` is in minutes. A value below 1 means 60.
 - Names and entries with special characters, such as `:`, must be URL-encoded in the path.
 - A `404` means the collection or the entry does not exist for you.
+- A search for more passages than the collection holds returns all of them. An empty collection returns none.
 - An upload can fail with `409` when the embedding model changed and the vectors have a different size. Restart LocalAI to embed the collection again, or reset the collection.
 
 ### Admin options
@@ -92,8 +94,8 @@ Set these as environment variables or flags. Most can also be set in the
 | `LOCALAI_COLLECTIONS_EMBEDDING_MODEL` | `granite-embedding-107m-multilingual` | The model that makes the embeddings. |
 | `LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE` | `400` | The largest size of a chunk. |
 | `LOCALAI_COLLECTIONS_CHUNK_OVERLAP` | `0` | How much neighbouring chunks overlap. |
-| `LOCALAI_COLLECTIONS_API_URL` | The LocalAI API of this server | The API that the embedding calls go to. |
-| `LOCALAI_COLLECTIONS_API_KEY` | The first API key of LocalAI | The key for those calls. |
+| `LOCALAI_COLLECTIONS_API_URL` | The LocalAI API of this server | The API that the embedding calls go to. Set it only with a key: the calls then leave the process. |
+| `LOCALAI_COLLECTIONS_API_KEY` | The first API key of LocalAI | The key for those calls. Without it the embedding calls run inside the process and need none. |
 | `LOCALAI_COLLECTIONS_DEFAULT_MODEL` | empty | The default model of the collections service. |
 
 ## PostgreSQL vector engine

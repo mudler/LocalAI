@@ -194,7 +194,6 @@ var _ = Describe("Permissions and the registry of the new routes", Label("platfo
 		})
 
 		It("documents the collections routes in swagger", func() {
-			knownGap("PLAT-4", "no /api/collections route (or the deprecated alias) has a swagger annotation, so none is served in swagger.json or /api/instructions")
 			_, out := anon.do(http.MethodGet, "/swagger/doc.json", nil)
 			Expect(string(out)).To(ContainSubstring(`"/api/collections"`))
 		})

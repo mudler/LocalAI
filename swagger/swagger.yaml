@@ -2736,6 +2736,13 @@ definitions:
         items:
           type: string
         type: array
+      confirm_accept_any:
+        description: |-
+          ConfirmAcceptAny must be the exact text "accept any message" in the
+          request that turns accept_any on (a create with accept_any, or an update
+          that changes it from off to on). Anyone who can message the bot then uses
+          the agent's tools as you, so the server asks you to say you mean it.
+        type: string
       enabled:
         type: boolean
       name:
@@ -3886,6 +3893,134 @@ definitions:
       message:
         $ref: '#/definitions/schema.Message'
       text:
+        type: string
+    type: object
+  schema.CollectionCreateRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  schema.CollectionEntries:
+    properties:
+      count:
+        type: integer
+      entries:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.CollectionEntryContent:
+    properties:
+      chunk_count:
+        type: integer
+      content:
+        type: string
+    type: object
+  schema.CollectionEntryDeleteRequest:
+    properties:
+      entry:
+        type: string
+    type: object
+  schema.CollectionEntryDeleteResponse:
+    properties:
+      count:
+        type: integer
+      remaining_entries:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.CollectionGroup:
+    properties:
+      collections:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.CollectionHit:
+    properties:
+      content:
+        type: string
+      id:
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      similarity:
+        type: number
+    type: object
+  schema.CollectionList:
+    properties:
+      collections:
+        items:
+          type: string
+        type: array
+      count:
+        type: integer
+      user_groups:
+        additionalProperties:
+          $ref: '#/definitions/schema.CollectionGroup'
+        description: |-
+          UserGroups holds the collections of the other users. Only an administrator
+          who asks for all users gets it.
+        type: object
+    type: object
+  schema.CollectionSearchRequest:
+    properties:
+      max_results:
+        description: |-
+          MaxResults is how many passages to return. A value below 1 picks a
+          default, and a value above the number of stored passages returns them all.
+        type: integer
+      query:
+        type: string
+    type: object
+  schema.CollectionSearchResponse:
+    properties:
+      count:
+        type: integer
+      results:
+        items:
+          $ref: '#/definitions/schema.CollectionHit'
+        type: array
+    type: object
+  schema.CollectionSource:
+    properties:
+      last_update:
+        type: string
+      update_interval:
+        type: integer
+      url:
+        type: string
+    type: object
+  schema.CollectionSourceRequest:
+    properties:
+      update_interval:
+        description: UpdateInterval is the minutes between two fetches. Default 60.
+        type: integer
+      url:
+        type: string
+    type: object
+  schema.CollectionSources:
+    properties:
+      count:
+        type: integer
+      sources:
+        items:
+          $ref: '#/definitions/schema.CollectionSource'
+        type: array
+    type: object
+  schema.CollectionStatus:
+    properties:
+      filename:
+        type: string
+      key:
+        description: Key names the new entry.
+        type: string
+      name:
+        type: string
+      status:
         type: string
     type: object
   schema.CompressionMetadata:
@@ -9656,7 +9791,7 @@ paths:
       - multipart/form-data
       description: |-
         With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.
-        Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace and go only with a message that starts a turn.
+        Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace. With a turn running the files are saved at once and the message waits like any other, with their paths in its text.
       parameters:
       - description: conversation id
         in: path
@@ -10069,7 +10204,9 @@ paths:
       description: 'Needs the bot token (kept sealed, never returned) and an agent
         of yours that names a model. The allowlist is empty at first, so nobody is
         accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone
-        who can message the bot then uses the agent''s tools). At most 10 bindings.'
+        who can message the bot then uses the agent''s tools; the request that turns
+        it on must also carry confirm_accept_any set to "accept any message", or it
+        is a 400). At most 10 bindings.'
       parameters:
       - description: the binding
         in: body
@@ -11139,6 +11276,301 @@ paths:
       summary: Confirm a trigger proposal.
       tags:
       - chats
+  /api/collections:
+    get:
+      description: The knowledge-base collections of the caller. An administrator
+        can ask for all users with all_users=true.
+      responses:
+        "200":
+          description: The collections
+          schema:
+            $ref: '#/definitions/schema.CollectionList'
+      summary: List your collections.
+      tags:
+      - collections
+    post:
+      description: Makes an empty collection under the name in the body.
+      parameters:
+      - description: The name of the collection
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.CollectionCreateRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/schema.CollectionStatus'
+      summary: Create a collection.
+      tags:
+      - collections
+  /api/collections/{name}/entries:
+    get:
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The entries
+          schema:
+            $ref: '#/definitions/schema.CollectionEntries'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List the entries of a collection.
+      tags:
+      - collections
+  /api/collections/{name}/entries-raw/{entry}:
+    get:
+      description: Serves the file as it was uploaded.
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Entry key
+        in: path
+        name: entry
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The original file
+          schema:
+            type: file
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Download the file of an entry.
+      tags:
+      - collections
+  /api/collections/{name}/entries/{entry}:
+    get:
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Entry key
+        in: path
+        name: entry
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The text and its number of passages
+          schema:
+            $ref: '#/definitions/schema.CollectionEntryContent'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Read the text of an entry.
+      tags:
+      - collections
+  /api/collections/{name}/entry/delete:
+    delete:
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: The entry
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.CollectionEntryDeleteRequest'
+      responses:
+        "200":
+          description: The entries left
+          schema:
+            $ref: '#/definitions/schema.CollectionEntryDeleteResponse'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete one entry of a collection.
+      tags:
+      - collections
+  /api/collections/{name}/reset:
+    post:
+      description: Deletes every entry and keeps the collection and the sources it
+        follows.
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Done
+          schema:
+            $ref: '#/definitions/schema.CollectionStatus'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Empty a collection.
+      tags:
+      - collections
+  /api/collections/{name}/search:
+    post:
+      description: Returns the passages that match the query best. Asking for more
+        passages than the collection holds returns all of them; an empty collection
+        returns none.
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: The query
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.CollectionSearchRequest'
+      responses:
+        "200":
+          description: The passages
+          schema:
+            $ref: '#/definitions/schema.CollectionSearchResponse'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Search a collection.
+      tags:
+      - collections
+  /api/collections/{name}/sources:
+    delete:
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: The URL
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.CollectionSourceRequest'
+      responses:
+        "200":
+          description: Done
+          schema:
+            $ref: '#/definitions/schema.CollectionStatus'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Stop a collection following a URL.
+      tags:
+      - collections
+    get:
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The sources
+          schema:
+            $ref: '#/definitions/schema.CollectionSources'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List the URLs a collection follows.
+      tags:
+      - collections
+    post:
+      description: The server fetches the URL again at the given interval.
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: The URL and the interval in minutes
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.CollectionSourceRequest'
+      responses:
+        "200":
+          description: Done
+          schema:
+            $ref: '#/definitions/schema.CollectionStatus'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Make a collection follow a URL.
+      tags:
+      - collections
+  /api/collections/{name}/upload:
+    post:
+      description: Uploads a file as multipart form field `file`. The server cuts
+        it into passages and embeds them with the collections embedding model.
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: The file to add
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "200":
+          description: The entry key
+          schema:
+            $ref: '#/definitions/schema.CollectionStatus'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Add a file to a collection.
+      tags:
+      - collections
   /api/failover:
     get:
       produces:

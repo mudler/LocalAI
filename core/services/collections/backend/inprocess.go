@@ -218,11 +218,16 @@ func (b *backendInProcess) vectorSearch(collection, query string, maxResults int
 			maxResults = 1
 		}
 	}
-	candidates := maxResults
+	// Engines such as chromem reject a request for more results than the
+	// collection holds, so never ask for more than the chunk count. An empty
+	// collection has nothing to find.
+	chunks := kb.Count()
+	if chunks == 0 {
+		return []SearchResult{}, maxResults, nil
+	}
+	candidates := min(maxResults, chunks)
 	if settings.RerankerModel != "" {
-		// Engines such as chromem reject a request for more results than
-		// the collection holds, so do not widen past the chunk count.
-		candidates = max(maxResults, min(maxResults*rerankCandidateFactor, kb.Count()))
+		candidates = max(candidates, min(maxResults*rerankCandidateFactor, chunks))
 	}
 	results, err := kb.Search(query, candidates)
 	if err != nil {
@@ -351,6 +356,9 @@ func NewInProcessBackend(cfg *Config) (Backend, *State) {
 
 	openaiConfig := openai.DefaultConfig(cfg.LLMAPIKey)
 	openaiConfig.BaseURL = cfg.LLMAPIURL
+	if cfg.HTTPClient != nil {
+		openaiConfig.HTTPClient = cfg.HTTPClient
+	}
 	openAIClient := openai.NewClientWithConfig(openaiConfig)
 	backend := &backendInProcess{state: st, cfg: cfg, openAIClient: openAIClient}
 	st.backend = backend

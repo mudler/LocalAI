@@ -60,7 +60,6 @@ var _ = Describe("Collections", Label("platform", "collections"), Ordered, func(
 	})
 
 	It("embeds an upload when authentication is on and no static API key is set", func() {
-		knownGap("PLAT-3", "the collections service calls the server's own /v1/embeddings without a credential, so an upload answers 500 (401 from itself) with --auth-enabled and no --api-keys")
 		bare := startInstance(startOpts{Name: "collections-bare", Auth: true,
 			Models: map[string]string{"mock-embed.yaml": mockEmbedModel},
 			Args:   []string{"--collections-embedding-model", "mock-embed"}})
@@ -98,7 +97,6 @@ var _ = Describe("Collections", Label("platform", "collections"), Ordered, func(
 	})
 
 	It("searches a collection that has fewer passages than the number asked for", func() {
-		knownGap("PLAT-11", "a search with max_results above the number of passages answers 500 (nResults must be <= the number of documents); the search_collections tool asks for 5 by default")
 		admin.mustJSON(http.MethodPost, "/api/collections", obj{"name": "small"}, http.StatusCreated)
 		for _, n := range []int{0, 5, 20} {
 			code, out := admin.do(http.MethodPost, "/api/collections/small/search", obj{"query": "anything", "max_results": n})
@@ -107,7 +105,7 @@ var _ = Describe("Collections", Label("platform", "collections"), Ordered, func(
 		code, out := upload(admin, "/api/collections", "small", "one.txt", "one short passage")
 		Expect(code).To(Equal(http.StatusOK), string(out))
 		chat := admin.newChat(nil)
-		msgs := admin.turn(chat, callMarker("search_collections", obj{"collection": "small", "query": "passage"})+" go")
+		msgs := admin.turn(chat, callMarker("search_collection", obj{"collection": "small", "query": "passage"})+" go")
 		Expect(anyContains(toolResults(msgs), "the search failed")).To(BeFalse(), fmt.Sprint(toolResults(msgs)))
 	})
 
@@ -152,7 +150,6 @@ var _ = Describe("Collections", Label("platform", "collections"), Ordered, func(
 		Expect(code).To(Equal(http.StatusOK), string(out))
 		Expect(decode(out)["remaining_entries"]).NotTo(ContainElement(oldKey))
 		admin.mustJSON(http.MethodPost, "/api/collections/notes/reset", nil, http.StatusOK)
-		knownGap("PLAT-12", "POST /api/collections/{name}/reset removes the collection itself (its entries then answer 404); the docs say it deletes every entry")
 		Expect(admin.mustJSON(http.MethodGet, "/api/collections", nil, http.StatusOK)["collections"]).To(ContainElement("notes"))
 		Expect(admin.mustJSON(http.MethodGet, "/api/collections/notes/entries", nil, http.StatusOK)["count"]).To(BeZero())
 	})

@@ -794,12 +794,24 @@ func (a *Application) StartCollections() {
 			bus = d.Nats
 		}
 	}
-	svc, err := collections.New(a.applicationConfig, bus)
+	svc, err := collections.New(a.applicationConfig, bus, a.collectionsOptions()...)
 	if err != nil {
 		xlog.Error("Failed to start the collections service", "error", err)
 		return
 	}
 	a.collectionsService.Store(svc)
+}
+
+// collectionsOptions makes the collections reach the embeddings route inside the
+// process, as a service user, so they work with user accounts and no static API
+// key. Without the studio provider the service calls the API over the network.
+func (a *Application) collectionsOptions() []collections.Option {
+	sp := a.StudioProvider()
+	if sp == nil {
+		return nil
+	}
+	svcUser := &auth.User{ID: "collections-service", Name: "Collections", Role: auth.RoleAdmin, Status: auth.StatusActive}
+	return []collections.Option{collections.WithHTTPClient(sp.Transport().Client(svcUser))}
 }
 
 // AddonManager is nil unless the deployment explicitly enables addons.

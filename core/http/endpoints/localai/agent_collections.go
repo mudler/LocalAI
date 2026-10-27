@@ -9,6 +9,12 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 )
 
+// ListCollectionsEndpoint handles /api/collections (GET).
+// @Summary List your collections.
+// @Description The knowledge-base collections of the caller. An administrator can ask for all users with all_users=true.
+// @Tags collections
+// @Success 200 {object} schema.CollectionList "The collections"
+// @Router /api/collections [get]
 func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -48,6 +54,13 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// CreateCollectionEndpoint handles /api/collections (POST).
+// @Summary Create a collection.
+// @Description Makes an empty collection under the name in the body.
+// @Tags collections
+// @Param request body schema.CollectionCreateRequest true "The name of the collection"
+// @Success 201 {object} schema.CollectionStatus "Created"
+// @Router /api/collections [post]
 func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -65,6 +78,15 @@ func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// UploadToCollectionEndpoint handles /api/collections/{name}/upload (POST).
+// @Summary Add a file to a collection.
+// @Description Uploads a file as multipart form field `file`. The server cuts it into passages and embeds them with the collections embedding model.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param file formData file true "The file to add"
+// @Success 200 {object} schema.CollectionStatus "The entry key"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/upload [post]
 func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -111,6 +133,13 @@ func isEmbeddingDimensionMismatch(err error) bool {
 		strings.Contains(msg, " dimensions, not ")
 }
 
+// ListCollectionEntriesEndpoint handles /api/collections/{name}/entries (GET).
+// @Summary List the entries of a collection.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Success 200 {object} schema.CollectionEntries "The entries"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/entries [get]
 func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -129,6 +158,14 @@ func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFun
 	}
 }
 
+// GetCollectionEntryContentEndpoint handles /api/collections/{name}/entries/{entry} (GET).
+// @Summary Read the text of an entry.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param entry path string true "Entry key"
+// @Success 200 {object} schema.CollectionEntryContent "The text and its number of passages"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/entries/{entry} [get]
 func GetCollectionEntryContentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -152,6 +189,15 @@ func GetCollectionEntryContentEndpoint(app *application.Application) echo.Handle
 	}
 }
 
+// SearchCollectionEndpoint handles /api/collections/{name}/search (POST).
+// @Summary Search a collection.
+// @Description Returns the passages that match the query best. Asking for more passages than the collection holds returns all of them; an empty collection returns none.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param request body schema.CollectionSearchRequest true "The query"
+// @Success 200 {object} schema.CollectionSearchResponse "The passages"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/search [post]
 func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -177,6 +223,14 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// ResetCollectionEndpoint handles /api/collections/{name}/reset (POST).
+// @Summary Empty a collection.
+// @Description Deletes every entry and keeps the collection and the sources it follows.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Success 200 {object} schema.CollectionStatus "Done"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/reset [post]
 func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -191,6 +245,14 @@ func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// DeleteCollectionEntryEndpoint handles /api/collections/{name}/entry/delete (DELETE).
+// @Summary Delete one entry of a collection.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param request body schema.CollectionEntryDeleteRequest true "The entry"
+// @Success 200 {object} schema.CollectionEntryDeleteResponse "The entries left"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/entry/delete [delete]
 func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -215,6 +277,15 @@ func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFun
 	}
 }
 
+// AddCollectionSourceEndpoint handles /api/collections/{name}/sources (POST).
+// @Summary Make a collection follow a URL.
+// @Description The server fetches the URL again at the given interval.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param request body schema.CollectionSourceRequest true "The URL and the interval in minutes"
+// @Success 200 {object} schema.CollectionStatus "Done"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/sources [post]
 func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -239,6 +310,14 @@ func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc 
 	}
 }
 
+// RemoveCollectionSourceEndpoint handles /api/collections/{name}/sources (DELETE).
+// @Summary Stop a collection following a URL.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param request body schema.CollectionSourceRequest true "The URL"
+// @Success 200 {object} schema.CollectionStatus "Done"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/sources [delete]
 func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -257,6 +336,14 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 }
 
 // GetCollectionEntryRawFileEndpoint serves the original uploaded binary file.
+// @Summary Download the file of an entry.
+// @Description Serves the file as it was uploaded.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param entry path string true "Entry key"
+// @Success 200 {file} binary "The original file"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/entries-raw/{entry} [get]
 func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -277,6 +364,13 @@ func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.Handle
 	}
 }
 
+// ListCollectionSourcesEndpoint handles /api/collections/{name}/sources (GET).
+// @Summary List the URLs a collection follows.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Success 200 {object} schema.CollectionSources "The sources"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/sources [get]
 func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
