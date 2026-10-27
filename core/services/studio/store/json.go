@@ -341,6 +341,24 @@ func (s *jsonStore) SetMcpOff(_ context.Context, principal, id string, off []str
 	return nil
 }
 
+func (s *jsonStore) ListChildren(_ context.Context, principal, parentID string) ([]session.ChatRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []session.ChatRecord
+	for _, c := range s.chats {
+		if r := c.Rec; r.Principal == principal && r.ParentID == parentID && r.Kind == session.KindSubAgent {
+			out = append(out, cloneRec(r))
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].Created.Equal(out[j].Created) {
+			return out[i].Created.Before(out[j].Created)
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out, nil
+}
+
 func (s *jsonStore) SetChatMeta(_ context.Context, principal, id string, m session.ChatMeta) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

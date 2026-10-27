@@ -4961,6 +4961,112 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/agents": {
+            "get": {
+                "description": "Each sub-agent run is its own conversation. This lists the runs of one chat with their state, from the shared store, so runs started on any frontend show. A chat runs at most background_limit in the background at once. Live starts and ends arrive as sub_agent_started and sub_agent_done events.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the sub-agents of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The sub-agent runs",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSubAgentList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/agents/{agent_id}/messages": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a sub-agent's transcript.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id of the parent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "sub-agent run id",
+                        "name": "agent_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "only lines after this sequence number",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most lines to return (default 200, at most 1000)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Transcript lines in order",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMessageList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/agents/{agent_id}/stop": {
+            "post": {
+                "description": "Ends the run's turn, wherever it runs. The parent goes on and sees a failed sub-agent.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop a sub-agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id of the parent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "sub-agent run id",
+                        "name": "agent_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "stopped",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/events": {
             "get": {
                 "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done and compacted. Events are live only; read the transcript for what came before.",
@@ -14303,6 +14409,49 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSubAgent": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_turn": {
+                    "type": "string"
+                },
+                "running": {
+                    "description": "Running is true while the run's turn is going. LastTurn is how its last\nturn ended: done, stopped, failed or interrupted.",
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSubAgentList": {
+            "type": "object",
+            "properties": {
+                "background_limit": {
+                    "description": "BackgroundLimit is how many a chat may run in the background at once.",
+                    "type": "integer"
+                },
+                "running": {
+                    "description": "Running is how many of them run now, on any frontend of the server.",
+                    "type": "integer"
+                },
+                "sub_agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSubAgent"
+                    }
                 }
             }
         },

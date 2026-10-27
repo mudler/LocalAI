@@ -134,7 +134,7 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	parentKey := key(a.Principal, a.ChatID)
 	childID := newID()
 	title := "Sub-agent: " + truncate(task, 60)
-	if err := s.registerChild(parentKey, &child{id: childID, title: title, background: !wait}); err != nil {
+	if err := s.registerChild(ctx, a.Principal, a.ChatID, &child{id: childID, title: title, background: !wait}); err != nil {
 		return "", err
 	}
 	now := parent.Updated
@@ -144,6 +144,7 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 		s.forgetChild(parentKey, childID)
 		return "", err
 	}
+	s.bus.Publish(parentKey, session.Event{Kind: session.KindSubAgentStarted, IDs: []string{childID}, Text: title})
 	childKey := key(a.Principal, childID)
 	s.mu.Lock()
 	s.allowed[childKey] = subset
@@ -207,14 +208,27 @@ func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string
 }
 
 // registerChild records a running sub-agent, refusing a background one past
-// the limit.
-func (s *Service) registerChild(parentKey string, c *child) error {
+// the limit. The limit counts the parent's running sub-agents in the store, so
+// it holds across frontends: a sub-agent that a turn on another frontend
+// started still counts. Children registered here but not yet running count too.
+func (s *Service) registerChild(ctx context.Context, p, conv string, c *child) error {
+	parentKey := key(p, conv)
+	running := map[string]bool{}
+	if c.background {
+		kids, err := s.runningChildren(ctx, p, conv)
+		if err != nil {
+			return err
+		}
+		for _, k := range kids {
+			running[k.ID] = true
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if c.background {
-		n := 0
-		for _, k := range s.children[parentKey] {
-			if k.background {
+		n := len(running)
+		for id, k := range s.children[parentKey] {
+			if k.background && !running[id] {
 				n++
 			}
 		}
@@ -227,6 +241,29 @@ func (s *Service) registerChild(parentKey string, c *child) error {
 	}
 	s.children[parentKey][c.id] = c
 	return nil
+}
+
+// runningChildren returns the sub-agent chats of a conversation whose turn
+// runs now, on any frontend.
+func (s *Service) runningChildren(ctx context.Context, p, conv string) ([]session.ChatRecord, error) {
+	kids, err := s.d.Store.ListChildren(ctx, p, conv)
+	if err != nil {
+		return nil, err
+	}
+	var out []session.ChatRecord
+	for _, k := range kids {
+		info, err := s.d.Store.Turn(ctx, p, k.ID)
+		if err != nil {
+			if errors.Is(err, session.ErrNotFound) {
+				continue // deleted meanwhile
+			}
+			return nil, err
+		}
+		if info.Running {
+			out = append(out, k)
+		}
+	}
+	return out, nil
 }
 
 func (s *Service) forgetChild(parentKey, id string) {
@@ -336,21 +373,23 @@ func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-ch
 	}
 }
 
-// stopChildren stops every running sub-agent of a conversation.
+// stopChildren stops every running sub-agent of a conversation, wherever its
+// turn runs: the store knows the children, and Stop reaches a turn on another
+// frontend over the bus.
 func (s *Service) stopChildren(p, conv string) {
-	s.mu.Lock()
-	var ids []string
-	for id := range s.children[key(p, conv)] {
-		ids = append(ids, id)
-	}
-	s.mu.Unlock()
-	for _, id := range ids {
-		go func(id string) {
-			if err := s.Stop(context.Background(), p, id); err != nil {
-				s.log.Warn("studio: could not stop a sub-agent", "chat", id, "error", err)
+	go func() {
+		ctx := context.Background()
+		kids, err := s.runningChildren(ctx, p, conv)
+		if err != nil {
+			s.log.Warn("studio: could not list the sub-agents to stop", "chat", conv, "error", err)
+			return
+		}
+		for _, k := range kids {
+			if err := s.Stop(ctx, p, k.ID); err != nil {
+				s.log.Warn("studio: could not stop a sub-agent", "chat", k.ID, "error", err)
 			}
-		}(id)
-	}
+		}
+	}()
 }
 
 func truncate(s string, n int) string {

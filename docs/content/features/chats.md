@@ -170,8 +170,19 @@ later as a message in the conversation and as a `sub_agent_done` event.
   list with `kind` set to `subagent` and a `parent_id`.
 - A sub-agent gets the parent's tools, or a subset the parent names. It cannot
   start sub-agents of its own.
-- A chat runs at most four sub-agents in the background at once.
-- Stopping a turn, or a turn that fails, stops its running sub-agents.
+- A chat runs at most four sub-agents in the background at once. The count
+  comes from the shared store, so it holds when turns of the same chat run on
+  different frontends of a cluster.
+- Stopping a chat, or a turn that fails, stops its running sub-agents, also
+  when they run on another frontend and when the parent has no turn left.
+- A `sub_agent_started` event (with the run's id and title) and a
+  `sub_agent_done` event mark the run in the parent's event stream.
+
+```bash
+curl .../api/chats/3f1c.../agents                      # runs, their state, the limit
+curl .../api/chats/3f1c.../agents/9ab2.../messages     # one run's transcript
+curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
+```
 
 ## Long conversations
 

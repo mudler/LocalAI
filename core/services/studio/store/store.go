@@ -100,6 +100,9 @@ type Store interface {
 	// the way SetAddonsOff does for add-ons.
 	SetMcpOff(ctx context.Context, principal, chatID string, off []string) error
 
+	// ListChildren returns the sub-agent chats of a parent chat, oldest first.
+	ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error)
+
 	// SetChatMeta changes the title, the model and the settings of a chat. It
 	// does not touch Updated or the transcript. The caller makes sure no turn
 	// runs when it changes Title or Model, because the loop saves its own copy

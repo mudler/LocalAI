@@ -280,6 +280,10 @@ func (h *Handlers) Messages(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	return c.JSON(http.StatusOK, messageList(entries))
+}
+
+func messageList(entries []session.Entry) schema.ChatsMessageList {
 	out := schema.ChatsMessageList{Messages: make([]schema.ChatsMessage, 0, len(entries))}
 	for _, e := range entries {
 		m := schema.ChatsMessage{
@@ -290,7 +294,7 @@ func (h *Handlers) Messages(c echo.Context) error {
 		}
 		out.Messages = append(out.Messages, m)
 	}
-	return c.JSON(http.StatusOK, out)
+	return out
 }
 
 // Send gives the conversation a message.

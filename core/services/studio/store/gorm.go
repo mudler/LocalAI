@@ -28,7 +28,7 @@ type chatRow struct {
 	HarnessState []byte
 	Turns        int
 	Kind         string
-	ParentID     string `gorm:"size:128"`
+	ParentID     string `gorm:"index;size:128"`
 	Model        string
 	Status       string
 	Summary      string `gorm:"type:text"`
@@ -273,6 +273,24 @@ func (s *gormStore) SetMcpOff(ctx context.Context, principal, id string, off []s
 		return session.ErrNotFound
 	}
 	return nil
+}
+
+func (s *gormStore) ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error) {
+	var rows []chatRow
+	err := s.db.WithContext(ctx).Where("principal = ? AND parent_id = ? AND kind = ?", principal, parentID, session.KindSubAgent).
+		Order("created ASC, id ASC").Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]session.ChatRecord, 0, len(rows))
+	for _, r := range rows {
+		rec, err := r.record()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rec)
+	}
+	return out, nil
 }
 
 func (s *gormStore) SetChatMeta(ctx context.Context, principal, id string, m session.ChatMeta) error {

@@ -17,6 +17,9 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -450,5 +453,64 @@ var _ = Describe("Chats transcript edits", func() {
 		Expect(s.do("bob", http.MethodPost, "/api/chats/import", noModel).Code).To(Equal(http.StatusBadRequest))
 		unknown := map[string]any{"chat": exported, "model": "nope"}
 		Expect(s.do("bob", http.MethodPost, "/api/chats/import", unknown).Code).To(Equal(http.StatusBadRequest))
+	})
+})
+
+var _ = Describe("Chats sub-agent API", func() {
+	It("lists, reads and stops the sub-agents of a chat, and announces them in the event stream", func() {
+		never := make(chan struct{})
+		DeferCleanup(func() { close(never) })
+		h := &studiotest.ToolHarness{Script: func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"dig deeper","wait":false}`}}
+			}
+			return []studiotest.ToolStep{{Block: never}}
+		}}
+		s := newStudioServerWith(newTestFiles(), func(d *studio.Deps) {
+			d.Harness = h
+			d.HostTools = func(context.Context, workspace.Actor) ([]session.Tool, error) {
+				return []session.Tool{{Name: "search", Description: "search", Schema: json.RawMessage(`{"type":"object"}`),
+					Run: func(context.Context, json.RawMessage) (string, error) { return "found", nil }}}, nil
+			}
+		})
+		id := s.create("alice")
+		events := s.readEvents("alice", id, func() {
+			defer GinkgoRecover()
+			s.do("alice", http.MethodPost, "/api/chats/"+id+"/messages", map[string]any{"text": "go"})
+		}, func(kind string) bool { return kind == "sub_agent_started" })
+		started := events[len(events)-1]
+		Expect(started["ids"]).To(HaveLen(1))
+		child := started["ids"].([]any)[0].(string)
+		s.waitIdle("alice", id)
+
+		list := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+id+"/agents", nil))
+		Expect(list).To(HaveKeyWithValue("background_limit", BeNumerically("==", 4)))
+		Eventually(func() any {
+			return decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+id+"/agents", nil))["running"]
+		}, 20*time.Second).Should(BeNumerically("==", 1))
+		runs := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+id+"/agents", nil))["sub_agents"].([]any)
+		Expect(runs[0].(map[string]any)).To(And(HaveKeyWithValue("id", child), HaveKeyWithValue("running", true)))
+
+		Eventually(func() []string {
+			rec := s.do("alice", http.MethodGet, "/api/chats/"+id+"/agents/"+child+"/messages", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var texts []string
+			for _, m := range decodeJSON(rec)["messages"].([]any) {
+				texts = append(texts, m.(map[string]any)["text"].(string))
+			}
+			return texts
+		}, 20*time.Second).Should(ContainElement("dig deeper"))
+
+		// Only the owner, and only through the child's own parent.
+		Expect(s.do("bob", http.MethodGet, "/api/chats/"+id+"/agents", nil).Code).To(Equal(http.StatusNotFound))
+		other := s.create("alice")
+		Expect(s.do("alice", http.MethodGet, "/api/chats/"+other+"/agents/"+child+"/messages", nil).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("alice", http.MethodPost, "/api/chats/"+other+"/agents/"+child+"/stop", nil).Code).To(Equal(http.StatusNotFound))
+
+		Expect(s.do("alice", http.MethodPost, "/api/chats/"+id+"/agents/"+child+"/stop", nil).Code).To(Equal(http.StatusOK))
+		Eventually(func() any {
+			runs := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+id+"/agents", nil))["sub_agents"].([]any)
+			return runs[0].(map[string]any)["last_turn"]
+		}, 20*time.Second).Should(Equal("stopped"))
 	})
 })

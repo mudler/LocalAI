@@ -544,6 +544,9 @@ func (s *Service) Stop(ctx context.Context, user, conv string) error {
 	s.mu.Lock()
 	local := s.runs[k] != nil
 	s.mu.Unlock()
+	// The sub-agents of a conversation stop with it, even when the parent has
+	// no turn left to stop: a background sub-agent can outlive the turn.
+	s.stopChildren(p, conv)
 	if !local {
 		s.bus.Control(k, ControlMsg{Stop: true})
 		return nil

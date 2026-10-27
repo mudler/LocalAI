@@ -3387,6 +3387,38 @@ definitions:
       name:
         type: string
     type: object
+  schema.ChatsSubAgent:
+    properties:
+      created:
+        type: string
+      id:
+        type: string
+      last_turn:
+        type: string
+      running:
+        description: |-
+          Running is true while the run's turn is going. LastTurn is how its last
+          turn ended: done, stopped, failed or interrupted.
+        type: boolean
+      title:
+        type: string
+      updated:
+        type: string
+    type: object
+  schema.ChatsSubAgentList:
+    properties:
+      background_limit:
+        description: BackgroundLimit is how many a chat may run in the background
+          at once.
+        type: integer
+      running:
+        description: Running is how many of them run now, on any frontend of the server.
+        type: integer
+      sub_agents:
+        items:
+          $ref: '#/definitions/schema.ChatsSubAgent'
+        type: array
+    type: object
   schema.ChatsToolApp:
     properties:
       cut:
@@ -9070,6 +9102,80 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsAddonList'
       summary: Switch the tools of add-ons on and off for a chat.
+      tags:
+      - chats
+  /api/chats/{id}/agents:
+    get:
+      description: Each sub-agent run is its own conversation. This lists the runs
+        of one chat with their state, from the shared store, so runs started on any
+        frontend show. A chat runs at most background_limit in the background at once.
+        Live starts and ends arrive as sub_agent_started and sub_agent_done events.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The sub-agent runs
+          schema:
+            $ref: '#/definitions/schema.ChatsSubAgentList'
+      summary: List the sub-agents of a chat.
+      tags:
+      - chats
+  /api/chats/{id}/agents/{agent_id}/messages:
+    get:
+      parameters:
+      - description: conversation id of the parent
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: sub-agent run id
+        in: path
+        name: agent_id
+        required: true
+        type: string
+      - description: only lines after this sequence number
+        in: query
+        name: after
+        type: integer
+      - description: most lines to return (default 200, at most 1000)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Transcript lines in order
+          schema:
+            $ref: '#/definitions/schema.ChatsMessageList'
+      summary: Read a sub-agent's transcript.
+      tags:
+      - chats
+  /api/chats/{id}/agents/{agent_id}/stop:
+    post:
+      description: Ends the run's turn, wherever it runs. The parent goes on and sees
+        a failed sub-agent.
+      parameters:
+      - description: conversation id of the parent
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: sub-agent run id
+        in: path
+        name: agent_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: stopped
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Stop a sub-agent.
       tags:
       - chats
   /api/chats/{id}/events:

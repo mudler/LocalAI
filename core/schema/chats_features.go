@@ -84,3 +84,25 @@ type ChatsImportRequest struct {
 	// Model replaces the model of the file. It is needed when the file names none.
 	Model string `json:"model,omitempty"`
 }
+
+// ChatsSubAgent is a sub-agent run of a chat. Its transcript is read with
+// GET /api/chats/{id}/agents/{agent_id}/messages.
+type ChatsSubAgent struct {
+	ID      string    `json:"id"`
+	Title   string    `json:"title"`
+	Created time.Time `json:"created"`
+	Updated time.Time `json:"updated"`
+	// Running is true while the run's turn is going. LastTurn is how its last
+	// turn ended: done, stopped, failed or interrupted.
+	Running  bool   `json:"running"`
+	LastTurn string `json:"last_turn,omitempty"`
+}
+
+// ChatsSubAgentList lists the sub-agent runs of a chat.
+type ChatsSubAgentList struct {
+	SubAgents []ChatsSubAgent `json:"sub_agents"`
+	// Running is how many of them run now, on any frontend of the server.
+	Running int `json:"running"`
+	// BackgroundLimit is how many a chat may run in the background at once.
+	BackgroundLimit int `json:"background_limit"`
+}

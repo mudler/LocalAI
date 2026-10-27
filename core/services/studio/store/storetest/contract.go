@@ -95,6 +95,26 @@ func Run(t *testing.T, newStore New) {
 		}
 	})
 
+	t.Run("children of a chat belong to the owner and the parent", func(t *testing.T) {
+		s := newStore(t)
+		chat(t, s, "p1", "alice")
+		chat(t, s, "p2", "alice")
+		for i, spec := range []struct{ id, owner, parent string }{{"k1", "alice", "p1"}, {"k2", "alice", "p1"}, {"k3", "alice", "p2"}, {"k4", "bob", "p1"}} {
+			rec := session.ChatRecord{ID: spec.id, Principal: spec.owner, Title: "child", Kind: session.KindSubAgent, ParentID: spec.parent,
+				Created: t0.Add(time.Duration(i) * time.Second), Updated: t0}
+			if err := s.CreateChat(ctx(t), rec); err != nil {
+				t.Fatal(err)
+			}
+		}
+		kids, err := s.ListChildren(ctx(t), "alice", "p1")
+		if err != nil || len(kids) != 2 || kids[0].ID != "k1" || kids[1].ID != "k2" {
+			t.Fatalf("ListChildren = %+v, %v, want k1 and k2", kids, err)
+		}
+		if kids, _ = s.ListChildren(ctx(t), "alice", "nothing"); len(kids) != 0 {
+			t.Fatalf("children of an unknown parent = %+v", kids)
+		}
+	})
+
 	t.Run("chat meta and truncation", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "c1", "alice")
