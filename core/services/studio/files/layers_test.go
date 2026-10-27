@@ -138,3 +138,45 @@ func TestBuiltInSkillsAreCopiedOnceAndUpdatedWhenTheyChange(t *testing.T) {
 		t.Fatalf("after the tree changed, built-in skill = %+v, want v2", got)
 	}
 }
+
+func TestABuiltInSkillThatLeavesTheTreeLeavesTheBuiltInLayer(t *testing.T) {
+	ctx := context.Background()
+	f := newFiles(t)
+	tree := fstest.MapFS{
+		"keep/SKILL.md":            {Data: []byte(skillMD("keep", "stays"))},
+		"gone/SKILL.md":            {Data: []byte(skillMD("gone", "removed later"))},
+		"gone/references/notes.md": {Data: []byte("notes")},
+		"keep/references/a.md":     {Data: []byte("a")},
+	}
+	if err := f.SyncBuiltin(ctx, tree); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.EnsureHome(ctx, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := resolve(t, f, "alice")["gone"]; !ok {
+		t.Fatal("the skill is not there before it leaves the tree")
+	}
+	delete(tree, "gone/SKILL.md")
+	delete(tree, "gone/references/notes.md")
+	delete(tree, "keep/references/a.md")
+	if err := f.SyncBuiltin(ctx, tree); err != nil {
+		t.Fatal(err)
+	}
+	got := resolve(t, f, "alice")
+	if _, ok := got["gone"]; ok {
+		t.Fatal("a skill that left the tree is still in the built-in layer")
+	}
+	if got["keep"].Description != "stays" {
+		t.Fatalf("keep = %+v", got["keep"])
+	}
+	admin := workspace.Actor{Principal: files.AdminPrincipal}
+	for _, p := range []string{files.BuiltinSkillsPath + "/gone", files.BuiltinSkillsPath + "/keep/references/a.md"} {
+		if _, err := f.Store().Stat(ctx, admin, p); err == nil {
+			t.Errorf("%s is still there", p)
+		}
+	}
+	if _, err := f.Store().Stat(ctx, admin, files.BuiltinSkillsPath+"/keep/SKILL.md"); err != nil {
+		t.Errorf("keep/SKILL.md: %v", err)
+	}
+}

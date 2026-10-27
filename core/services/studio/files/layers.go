@@ -80,28 +80,81 @@ func (s *Service) EnsureShared(ctx context.Context) error {
 	return s.ensureShared(ctx)
 }
 
-// SyncBuiltin copies a tree of skills into the built-in layer. A file that
+// SyncBuiltin makes the built-in layer hold the tree of skills. A file that
 // already holds the same bytes is left alone, so running it at every start
-// costs nothing and changes nothing.
+// costs nothing and changes nothing. A file or folder of the layer that is not
+// in the tree any more (a skill removed in a later release) is deleted, in one
+// change set.
 func (s *Service) SyncBuiltin(ctx context.Context, fsys fs.FS) error {
 	if err := s.EnsureShared(ctx); err != nil {
 		return err
 	}
-	return fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
+	wanted := map[string]bool{BuiltinSkillsPath: true}
+	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() || p == "." {
+		if p == "." {
+			return nil
+		}
+		target := path.Join(BuiltinSkillsPath, p)
+		wanted[target] = true
+		if d.IsDir() {
 			return nil
 		}
 		data, err := fs.ReadFile(fsys, p)
 		if err != nil {
 			return err
 		}
-		_, err = s.ws.Put(ctx, s.admin, path.Join(BuiltinSkillsPath, p), bytesReader(data), workspace.PutOptions{Overwrite: true})
+		_, err = s.ws.Put(ctx, s.admin, target, bytesReader(data), workspace.PutOptions{Overwrite: true})
 		if err != nil {
 			return fmt.Errorf("files: copy built-in skill file %s: %w", p, err)
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	return s.removeStaleBuiltin(ctx, wanted)
+}
+
+// removeStaleBuiltin deletes what the built-in layer holds beyond wanted.
+func (s *Service) removeStaleBuiltin(ctx context.Context, wanted map[string]bool) error {
+	var stale []string
+	var walk func(dir string) error
+	walk = func(dir string) error {
+		children, err := s.ws.List(ctx, s.admin, dir)
+		if err != nil {
+			return fmt.Errorf("files: list built-in skills %s: %w", dir, err)
+		}
+		for _, c := range children {
+			switch {
+			case !wanted[c.Path]:
+				stale = append(stale, c.Path) // a folder goes with everything below it
+			case c.Kind == workspace.KindDir:
+				if err := walk(c.Path); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	if err := walk(BuiltinSkillsPath); err != nil {
+		return err
+	}
+	if len(stale) == 0 {
+		return nil
+	}
+	tx, err := s.ws.Begin(ctx, s.admin, "Remove built-in skills that left the release")
+	if err != nil {
+		return err
+	}
+	for _, p := range stale {
+		if err := tx.Delete(ctx, p); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("files: remove built-in skill file %s: %w", p, err)
+		}
+	}
+	_, err = tx.Commit()
+	return err
 }
