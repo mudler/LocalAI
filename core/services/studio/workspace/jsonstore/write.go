@@ -14,7 +14,6 @@ import (
 type writer struct {
 	s      *Store
 	d      *data
-	ctx    context.Context
 	actor  workspace.Actor
 	title  string
 	kind   workspace.ChangeSetKind
@@ -31,7 +30,7 @@ func (s *Store) beginWrite(ctx context.Context, a workspace.Actor, title string,
 	}
 	s.mu.Lock()
 	s.d.beginTx()
-	return &writer{s: s, d: s.d, ctx: ctx, actor: a, title: title, kind: kind, rev: s.d.rev + 1, start: len(s.d.journal)}, nil
+	return &writer{s: s, d: s.d, actor: a, title: title, kind: kind, rev: s.d.rev + 1, start: len(s.d.journal)}, nil
 }
 
 // rollback drops the change set and releases the lock. It is safe to call

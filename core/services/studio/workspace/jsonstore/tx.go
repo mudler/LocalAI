@@ -8,7 +8,9 @@ import (
 )
 
 // localTx is an open change set. It holds the write lock of the store until
-// Commit or Rollback, so a caller must not call the store itself in between.
+// Commit or Rollback, so a caller must end it with one of them, and must not
+// call the store itself in between: that call would wait for the lock the
+// caller holds.
 type localTx struct {
 	w *writer
 }

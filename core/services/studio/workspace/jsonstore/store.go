@@ -212,6 +212,10 @@ func (s *Store) load() error {
 	if err != nil {
 		return err
 	}
+	if err := syncDir(s.dir); err != nil { // a new log file must survive a crash
+		_ = f.Close()
+		return err
+	}
 	s.log = f
 	if st, err := f.Stat(); err == nil {
 		s.logSize = st.Size()
