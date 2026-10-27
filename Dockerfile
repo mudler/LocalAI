@@ -297,6 +297,14 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV LD_FLAGS=${LD_FLAGS}
+# The default model and backend source of the binary. The Makefile picks the
+# gallery on a commit that carries a tag, so a tagged image would read other
+# sources than a release binary, which the release workflow cuts over to the
+# libraries. Pin the libraries here so both read the same sources.
+ARG LOCALAI_MODEL_SOURCE=library
+ARG LOCALAI_BACKEND_SOURCE=library
+ENV LOCALAI_MODEL_SOURCE=${LOCALAI_MODEL_SOURCE}
+ENV LOCALAI_BACKEND_SOURCE=${LOCALAI_BACKEND_SOURCE}
 
 RUN echo "GO_TAGS: $GO_TAGS" && echo "TARGETARCH: $TARGETARCH"
 
