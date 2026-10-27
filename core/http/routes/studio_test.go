@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
@@ -50,7 +51,9 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	st, err := store.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	h := studiotest.NewGateHarness()
-	deps := studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f}
+	ag, err := agents.NewJSON("")
+	Expect(err).NotTo(HaveOccurred())
+	deps := studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f, Agents: ag}
 	if mod != nil {
 		mod(&deps)
 	}

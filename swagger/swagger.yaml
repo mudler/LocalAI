@@ -334,6 +334,15 @@ definitions:
       component:
         example: NotesSettings
         type: string
+      extensions:
+        description: 'Extensions are set for a files.preview slot: the file extensions
+          it handles.'
+        example:
+        - docx
+        - xlsx
+        items:
+          type: string
+        type: array
       id:
         example: notes-nav
         type: string
@@ -343,6 +352,7 @@ definitions:
         - chat.message.actions
         - app.nav
         - settings.sections
+        - files.preview
         example: settings.sections
         type: string
     type: object
@@ -2440,8 +2450,81 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsAgent:
+    properties:
+      addons:
+        items:
+          type: string
+        type: array
+      collections:
+        items:
+          type: string
+        type: array
+      created:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      mcp_servers:
+        items:
+          type: string
+        type: array
+      model:
+        type: string
+      name:
+        type: string
+      skills:
+        items:
+          type: string
+        type: array
+      updated:
+        type: string
+    type: object
+  schema.ChatsAgentList:
+    properties:
+      agents:
+        items:
+          $ref: '#/definitions/schema.ChatsAgent'
+        type: array
+    type: object
+  schema.ChatsAgentWrite:
+    properties:
+      addons:
+        items:
+          type: string
+        type: array
+      collections:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      instructions:
+        type: string
+      mcp_servers:
+        items:
+          type: string
+        type: array
+      model:
+        type: string
+      name:
+        type: string
+      skills:
+        items:
+          type: string
+        type: array
+    type: object
   schema.ChatsConversation:
     properties:
+      agent_id:
+        description: |-
+          AgentID is the saved agent the chat runs with. Origin is trigger or
+          connector for a chat that started by itself, and OriginID names the trigger
+          or binding.
+        type: string
       created:
         type: string
       id:
@@ -2452,6 +2535,10 @@ definitions:
       last_turn:
         type: string
       model:
+        type: string
+      origin:
+        type: string
+      origin_id:
         type: string
       parent_id:
         type: string
@@ -2467,6 +2554,12 @@ definitions:
     type: object
   schema.ChatsConversationDetail:
     properties:
+      agent_id:
+        description: |-
+          AgentID is the saved agent the chat runs with. Origin is trigger or
+          connector for a chat that started by itself, and OriginID names the trigger
+          or binding.
+        type: string
       created:
         type: string
       id:
@@ -2477,6 +2570,10 @@ definitions:
       last_turn:
         type: string
       model:
+        type: string
+      origin:
+        type: string
+      origin_id:
         type: string
       parent_id:
         type: string
@@ -2514,6 +2611,11 @@ definitions:
     type: object
   schema.ChatsCreateRequest:
     properties:
+      agent_id:
+        description: |-
+          AgentID starts the chat with one of your saved agents. The agent's model,
+          when it has one, replaces Model, which is then optional.
+        type: string
       model:
         description: Model is the model the conversation talks to. It cannot change
           later.
@@ -8990,6 +9092,90 @@ paths:
               type: boolean
             type: object
       summary: Stop the running turn.
+      tags:
+      - chats
+  /api/chats/agents:
+    get:
+      responses:
+        "200":
+          description: Your agents, sorted by name
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentList'
+      summary: List your saved agents.
+      tags:
+      - chats
+    post:
+      description: 'An agent is a definition: instructions and exact lists of the
+        MCP servers, add-ons, collections and skills a chat with it may use. A chat
+        gets what the lists name and you may use at that moment, never more. Start
+        a chat with it by passing agent_id to POST /api/chats.'
+      parameters:
+      - description: the agent
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsAgentWrite'
+      responses:
+        "201":
+          description: The saved agent
+          schema:
+            $ref: '#/definitions/schema.ChatsAgent'
+      summary: Save an agent.
+      tags:
+      - chats
+  /api/chats/agents/{id}:
+    delete:
+      description: Chats that ran with it keep their history; their next turn runs
+        without the agent's tools.
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Deleted
+      summary: Delete a saved agent.
+      tags:
+      - chats
+    get:
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The agent
+          schema:
+            $ref: '#/definitions/schema.ChatsAgent'
+      summary: Read a saved agent.
+      tags:
+      - chats
+    put:
+      description: The body replaces every field. Chats that already run with the
+        agent use the new definition from their next turn.
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the agent
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsAgentWrite'
+      responses:
+        "200":
+          description: The saved agent
+          schema:
+            $ref: '#/definitions/schema.ChatsAgent'
+      summary: Replace a saved agent.
       tags:
       - chats
   /api/chats/files:

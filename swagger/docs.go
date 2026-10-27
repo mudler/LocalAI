@@ -3562,6 +3562,127 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/agents": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your saved agents.",
+                "responses": {
+                    "200": {
+                        "description": "Your agents, sorted by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "An agent is a definition: instructions and exact lists of the MCP servers, add-ons, collections and skills a chat with it may use. A chat gets what the lists name and you may use at that moment, never more. Start a chat with it by passing agent_id to POST /api/chats.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Save an agent.",
+                "parameters": [
+                    {
+                        "description": "the agent",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The saved agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgent"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a saved agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgent"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "The body replaces every field. Chats that already run with the agent use the new definition from their next turn.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Replace a saved agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the agent",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The saved agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgent"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Chats that ran with it keep their history; their next turn runs without the agent's tools.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a saved agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
         "/api/chats/files": {
             "get": {
                 "tags": [
@@ -9284,6 +9405,17 @@ const docTemplate = `{
                     "type": "string",
                     "example": "NotesSettings"
                 },
+                "extensions": {
+                    "description": "Extensions are set for a files.preview slot: the file extensions it handles.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "docx",
+                        "xlsx"
+                    ]
+                },
                 "id": {
                     "type": "string",
                     "example": "notes-nav"
@@ -9294,7 +9426,8 @@ const docTemplate = `{
                         "chat.composer.actions",
                         "chat.message.actions",
                         "app.nav",
-                        "settings.sections"
+                        "settings.sections",
+                        "files.preview"
                     ],
                     "example": "settings.sections"
                 }
@@ -12116,9 +12249,115 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAgent": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentList": {
+            "type": "object",
+            "properties": {
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgent"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAgentWrite": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsConversation": {
             "type": "object",
             "properties": {
+                "agent_id": {
+                    "description": "AgentID is the saved agent the chat runs with. Origin is trigger or\nconnector for a chat that started by itself, and OriginID names the trigger\nor binding.",
+                    "type": "string"
+                },
                 "created": {
                     "type": "string"
                 },
@@ -12133,6 +12372,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "model": {
+                    "type": "string"
+                },
+                "origin": {
+                    "type": "string"
+                },
+                "origin_id": {
                     "type": "string"
                 },
                 "parent_id": {
@@ -12153,6 +12398,10 @@ const docTemplate = `{
         "schema.ChatsConversationDetail": {
             "type": "object",
             "properties": {
+                "agent_id": {
+                    "description": "AgentID is the saved agent the chat runs with. Origin is trigger or\nconnector for a chat that started by itself, and OriginID names the trigger\nor binding.",
+                    "type": "string"
+                },
                 "created": {
                     "type": "string"
                 },
@@ -12167,6 +12416,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "model": {
+                    "type": "string"
+                },
+                "origin": {
+                    "type": "string"
+                },
+                "origin_id": {
                     "type": "string"
                 },
                 "parent_id": {
@@ -12215,6 +12470,10 @@ const docTemplate = `{
         "schema.ChatsCreateRequest": {
             "type": "object",
             "properties": {
+                "agent_id": {
+                    "description": "AgentID starts the chat with one of your saved agents. The agent's model,\nwhen it has one, replaces Model, which is then optional.",
+                    "type": "string"
+                },
                 "model": {
                     "description": "Model is the model the conversation talks to. It cannot change later.",
                     "type": "string"

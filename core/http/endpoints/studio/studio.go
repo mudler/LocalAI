@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -97,6 +98,14 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusConflict, "conflict", "a sub-agent conversation takes no messages from you")
 	case errors.Is(err, studiosvc.ErrNoModel):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+	case errors.Is(err, agents.ErrNotFound):
+		return fail(c, http.StatusNotFound, "not_found", "agent not found")
+	case errors.Is(err, agents.ErrNameTaken):
+		return fail(c, http.StatusConflict, "conflict", "you already have an agent with this name")
+	case errors.Is(err, agents.ErrInvalid):
+		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), agents.ErrInvalid.Error()+": "))
+	case errors.Is(err, studiosvc.ErrAgentsOff):
+		return fail(c, http.StatusConflict, "agents_off", err.Error())
 	default:
 		xlog.Error("studio: request failed", "path", c.Request().URL.Path, "error", err)
 		return fail(c, http.StatusInternalServerError, "server_error", "the request failed")
@@ -106,6 +115,7 @@ func failFor(c echo.Context, err error) error {
 func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConversation {
 	return schema.ChatsConversation{
 		ID: rec.ID, Title: rec.Title, Model: rec.Model, Kind: rec.Kind, ParentID: rec.ParentID,
+		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID,
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
 	}
 }
@@ -129,11 +139,21 @@ func (h *Handlers) Create(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
 	}
-	if req.Model == "" {
+	model := req.Model
+	if req.AgentID != "" {
+		ag, err := h.svc.Agent(c.Request().Context(), userID(c), req.AgentID)
+		if err != nil {
+			return failFor(c, err)
+		}
+		if ag.Model != "" {
+			model = ag.Model
+		}
+	}
+	if model == "" {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "model is required")
 	}
 	if h.models != nil {
-		switch err := h.models.Check(c.Request().Context(), auth.GetUser(c), req.Model); {
+		switch err := h.models.Check(c.Request().Context(), auth.GetUser(c), model); {
 		case errors.Is(err, ErrUnknownModel):
 			return fail(c, http.StatusBadRequest, "invalid_request_error", "unknown model")
 		case errors.Is(err, ErrModelNotAllowed):
@@ -143,7 +163,7 @@ func (h *Handlers) Create(c echo.Context) error {
 		}
 	}
 	user := userID(c)
-	rec, err := h.svc.Create(c.Request().Context(), user, studiosvc.CreateInput{Title: req.Title, Model: req.Model})
+	rec, err := h.svc.Create(c.Request().Context(), user, studiosvc.CreateInput{Title: req.Title, Model: req.Model, AgentID: req.AgentID})
 	if err != nil {
 		return failFor(c, err)
 	}

@@ -8,15 +8,57 @@ type ChatsCreateRequest struct {
 	Title string `json:"title,omitempty"`
 	// Model is the model the conversation talks to. It cannot change later.
 	Model string `json:"model"`
+	// AgentID starts the chat with one of your saved agents. The agent's model,
+	// when it has one, replaces Model, which is then optional.
+	AgentID string `json:"agent_id,omitempty"`
+}
+
+// ChatsAgent is a saved agent. The four lists are exact grants: an empty list
+// grants nothing, and a chat gets only what you may use at that moment.
+type ChatsAgent struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Description  string    `json:"description"`
+	Instructions string    `json:"instructions"`
+	Model        string    `json:"model,omitempty"`
+	MCPServers   []string  `json:"mcp_servers"`
+	Addons       []string  `json:"addons"`
+	Collections  []string  `json:"collections"`
+	Skills       []string  `json:"skills"`
+	Created      time.Time `json:"created"`
+	Updated      time.Time `json:"updated"`
+}
+
+// ChatsAgentWrite creates or replaces a saved agent.
+type ChatsAgentWrite struct {
+	Name         string   `json:"name"`
+	Description  string   `json:"description,omitempty"`
+	Instructions string   `json:"instructions,omitempty"`
+	Model        string   `json:"model,omitempty"`
+	MCPServers   []string `json:"mcp_servers,omitempty"`
+	Addons       []string `json:"addons,omitempty"`
+	Collections  []string `json:"collections,omitempty"`
+	Skills       []string `json:"skills,omitempty"`
+}
+
+// ChatsAgentList is the response of the agent list endpoint.
+type ChatsAgentList struct {
+	Agents []ChatsAgent `json:"agents"`
 }
 
 // ChatsConversation is a chat and the state of its turn.
 type ChatsConversation struct {
-	ID       string    `json:"id"`
-	Title    string    `json:"title"`
-	Model    string    `json:"model"`
-	Kind     string    `json:"kind"` // chat or subagent
-	ParentID string    `json:"parent_id,omitempty"`
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Model    string `json:"model"`
+	Kind     string `json:"kind"` // chat or subagent
+	ParentID string `json:"parent_id,omitempty"`
+	// AgentID is the saved agent the chat runs with. Origin is trigger or
+	// connector for a chat that started by itself, and OriginID names the trigger
+	// or binding.
+	AgentID  string    `json:"agent_id,omitempty"`
+	Origin   string    `json:"origin,omitempty"`
+	OriginID string    `json:"origin_id,omitempty"`
 	Created  time.Time `json:"created"`
 	Updated  time.Time `json:"updated"`
 	// Running is true while a turn runs. LastTurn is how the last finished turn
