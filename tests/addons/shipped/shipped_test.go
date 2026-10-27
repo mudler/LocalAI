@@ -354,6 +354,8 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 			Expect(doc["kind"]).To(Equal("applied"), fmt.Sprint(doc))
 			a := doc["applied"].(map[string]any)
 			res, change := a["resourceId"].(string), a["changeId"].(string)
+			// Nobody watches the job, and it still follows what the engine reports.
+			Eventually(func() string { return jobStatus(jobs("fine-tuning")) }, 30*time.Second, 300*time.Millisecond).Should(Equal("training"))
 			u := admin.human("POST", "/api/addons/resources/"+res+"/changes/"+change+"/undo", map[string]any{"operationId": opID("u"), "generation": generation(admin.installed("fine-tuning"))}, res)
 			Expect(u.Status).To(Equal(200), u.String())
 		})
@@ -430,21 +432,30 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 			}
 		})
 		It("says in plain words why no isolated backend can run, and that the host backend is the only one usable", func() {
-			doc := toolResult(admin.toolCall("sandbox__status", map[string]any{}))
-			res, _ := doc["result"].(map[string]any)
+			r := admin.dispatch("sandbox", generation(admin.installed("sandbox")), "read", map[string]any{"tool": "status"}, "")
+			Expect(r.Status).To(Equal(200), r.String())
+			res := payload(r)
 			Expect(res["canRun"]).To(BeFalse())
 			text := fmt.Sprint(res["backends"])
 			Expect(text).To(ContainSubstring("no guest image"))
 			Expect(text).To(ContainSubstring("name:host usable:true"))
 		})
+		It("gives a chat the stand-in tool that says no backend works, instead of tools that cannot run", func() {
+			msg := admin.toolCall("sandbox__unavailable", map[string]any{})
+			Expect(msg).To(ContainSubstring("no sandbox backend works on this host, so commands cannot run"))
+			Expect(admin.toolOffered("sandbox__bash", map[string]any{"command": "echo hi"})).To(BeFalse())
+		})
+		It("refuses the settings tools to a model and to a user who is not an administrator", func() {
+			Expect(admin.toolOffered("sandbox__set-backend", map[string]any{"backend": "host"})).To(BeFalse())
+			gen := generation(admin.installed("sandbox"))
+			r := member.dispatch("sandbox", gen, "read", map[string]any{"tool": "set-backend", "backend": "host"}, "")
+			Expect(r.Status).To(Equal(200), r.String())
+			Expect(fmt.Sprint(payload(r))).To(ContainSubstring("only an administrator can change this setting"))
+		})
 		It("lets an administrator choose the host backend with the typed confirmation", func() {
 			gen := generation(admin.installed("sandbox"))
 			Expect(admin.dispatch("sandbox", gen, "read", map[string]any{"tool": "confirm-host", "phrase": "I understand that commands run on this host without isolation"}, "").Status).To(Equal(200))
 			Expect(admin.dispatch("sandbox", gen, "read", map[string]any{"tool": "set-backend", "backend": "host"}, "").Status).To(Equal(200))
-		})
-		It("answers 'This host cannot run commands.' when no backend is usable", func() {
-			msg := admin.toolCallIn(newLetterChat(admin), "sandbox__bash", map[string]any{"command": "echo hi"})
-			Expect(msg).To(ContainSubstring("This host cannot run commands."))
 		})
 		It("runs a command on the host backend and writes the result into the user's files", func() {
 			Expect(os.WriteFile(filepath.Join(w.dataDir, "addons", "data", "sandbox", "settings.json"), []byte(`{"backend":"host","hostConfirmed":true}`), 0o600)).To(Succeed())
