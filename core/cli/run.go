@@ -70,7 +70,7 @@ type RunCMD struct {
 
 	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
 	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
-	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (collectiondb, agent state, tasks, jobs). Separates mutable data from configuration" group:"storage"`
+	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (chats, files, collections, jobs). Separates mutable data from configuration. Use - to keep nothing on disk: chats then live in memory and files are off" group:"storage"`
 	LocalaiConfigDir             string        `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json)" group:"storage"`
 	LocalaiConfigDirPollInterval time.Duration `env:"LOCALAI_CONFIG_DIR_POLL_INTERVAL" help:"Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to an interval to poll the LocalAI Config Dir (example: 1m)" group:"storage"`
 	// The alias on this option is there to preserve functionality with the old `--config-file` parameter
@@ -274,10 +274,25 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 	return d, nil
 }
 
+// NoDataPath is the value of --data-path that keeps nothing on disk: the chats
+// then live in memory and files are off. An empty value cannot say this, because
+// the option has a default and the command line parser reads an empty path as
+// "keep the default".
+const NoDataPath = "-"
+
+// normalizeDataPath turns NoDataPath into the empty path the rest of the server
+// reads as "no data path".
+func (r *RunCMD) normalizeDataPath() {
+	if r.DataPath == NoDataPath {
+		r.DataPath = ""
+	}
+}
+
 func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
 	r.RemovedAgentOptions.warn()
 	r.resolveLegacyCollections()
+	r.normalizeDataPath()
 
 	if r.Version {
 		fmt.Println(internal.Version)

@@ -587,6 +587,9 @@ func (s *Service) Stop(ctx context.Context, user, conv string) error {
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return err
 	}
+	// The sub-agents of the chat stop with it, also when its own turn has
+	// ended and they run on in the background.
+	s.stopChildren(p, conv)
 	k := key(p, conv)
 	s.mu.Lock()
 	local := s.runs[k] != nil

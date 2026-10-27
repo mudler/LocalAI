@@ -386,7 +386,7 @@ store, so a file written through one frontend is read through another.
 |---|---|
 | Authentication on (SQLite or PostgreSQL) | The auth database. |
 | No database, a data path set | JSON files under `<data path>/chats`. They survive a restart. |
-| No database and no data path | Memory only. They are lost on restart. |
+| No database and no data path (`--data-path=-`) | Memory only. They are lost on restart, and files are off. |
 
 When chats live in memory, the chats page says so, and the list endpoint
 returns `"persistent": false`.

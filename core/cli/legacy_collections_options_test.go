@@ -94,11 +94,15 @@ var _ = Describe("collections options and their legacy names", func() {
 		Expect(r.DisableChats).To(BeTrue(), "the chats switch was not given, so the old name sets it")
 	})
 
-	It("starts without a data path when it is given empty, for the memory-only mode", func() {
-		r := parse("--data-path=")
+	It("starts without a data path when it is given as -, for the memory-only mode", func() {
+		r := parse("--data-path=" + NoDataPath)
+		Expect(r.DataPath).To(Equal(NoDataPath), "kong keeps the dash")
+		r.normalizeDataPath()
 		Expect(r.DataPath).To(BeEmpty())
-		GinkgoT().Setenv("LOCALAI_DATA_PATH", "")
-		Expect(parse().DataPath).To(BeEmpty())
+		other := parse("--data-path=/somewhere")
+		other.normalizeDataPath()
+		Expect(other.DataPath).To(Equal("/somewhere"))
+		Expect(parse("--data-path=/somewhere", "--data-path="+NoDataPath).DataPath).To(Equal(NoDataPath), "the last one wins")
 	})
 
 	It("lets the new name win when both are set", func() {
