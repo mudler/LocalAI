@@ -266,11 +266,11 @@ var nonToolChar = regexp.MustCompile(`[^A-Za-z0-9_-]+`)
 // prefixName is "<connector>_<tool>" in the characters a tool name may have, at
 // most 64 of them.
 func prefixName(connector, tool string) string {
-	p := strings.Trim(nonToolChar.ReplaceAllString(connector, "_"), "_")
+	p := strings.ToLower(strings.Trim(nonToolChar.ReplaceAllString(connector, "-"), "-_"))
 	if p == "" {
 		p = "connector"
 	}
-	name := p + "_" + tool
+	name := p + "__" + tool
 	if len(name) > 64 {
 		name = name[:64]
 	}

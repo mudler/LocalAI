@@ -194,7 +194,7 @@ func TestTwoConnectorsWithTheSameToolNameAreBothPrefixed(t *testing.T) {
 	id := create(t, r.svc, alice)
 	r.turn(t, id, "hi")
 	names := r.h.ToolNames(id)
-	for _, want := range []string{"Docs_dup", "Mail_dup", "only_docs", "Mail_crm_lookup", "crm_lookup"} {
+	for _, want := range []string{"docs__dup", "mail__dup", "only_docs", "mail__crm_lookup", "crm_lookup"} {
 		if !slices.Contains(names, want) {
 			t.Errorf("tools %v lack %s", names, want)
 		}
