@@ -54,6 +54,10 @@ var _ = Describe("GET /api/features and the addons gate", func() {
 		Expect(got).To(HaveKeyWithValue("quantization", false))
 	})
 
+	It("reports chats as true when the chats service runs", func() {
+		Expect(features()).To(HaveKeyWithValue("chats", true))
+	})
+
 	It("reports them as true with the owner present", func() {
 		if goruntime.GOOS != "linux" {
 			Skip("the add-on runtime exists on Linux only")
