@@ -30,6 +30,23 @@ import (
 // of root.
 var geteuid = os.Geteuid
 
+// commandPath is the PATH of every command.
+const commandPath = "/usr/local/bin:/usr/bin:/bin"
+
+// lookPath finds a program in commandPath. A name with a slash is used as it is.
+func lookPath(name string) (string, error) {
+	if strings.Contains(name, "/") {
+		return name, nil
+	}
+	for _, dir := range filepath.SplitList(commandPath) {
+		p := filepath.Join(dir, name)
+		if fi, err := os.Stat(p); err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0o111 != 0 {
+			return p, nil
+		}
+	}
+	return "", fmt.Errorf("host: %q not found in %s", name, commandPath)
+}
+
 // Options configures the backend.
 type Options struct {
 	// Root is the folder the sandboxes live in. It must be an absolute path.
@@ -183,10 +200,16 @@ func (s *hostSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 		}
 		s.b.log(s.env.Actor.Principal, line)
 	}
-	cmd := exec.Command(c.Args[0], c.Args[1:]...)
+	// The program is looked up in the path the command gets, not in the
+	// add-on's own: the supervisor starts the add-on with no PATH at all.
+	prog, err := lookPath(c.Args[0])
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(prog, c.Args[1:]...)
 	cmd.Dir = filepath.Join(s.work(), filepath.FromSlash(rel))
 	// A fixed environment: nothing of the add-on's own reaches the command.
-	cmd.Env = append([]string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=" + s.home(), "LANG=C", "TZ=UTC"}, c.Env...)
+	cmd.Env = append([]string{"PATH=" + commandPath, "HOME=" + s.home(), "LANG=C", "TZ=UTC"}, c.Env...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = c.Stdin, c.Stdout, c.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.WaitDelay = 200 * time.Millisecond

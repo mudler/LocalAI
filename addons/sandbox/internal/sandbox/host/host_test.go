@@ -107,6 +107,23 @@ func TestLeftoversOfAnEarlierRunAreRemoved(t *testing.T) {
 	}
 }
 
+func TestACommandRunsWhenTheAddonHasNoPath(t *testing.T) {
+	t.Setenv("PATH", "")
+	b, err := host.New(host.Options{Root: t.TempDir()})
+	if err != nil {
+		t.Skip(err)
+	}
+	sb := newSandbox(t, b)
+	var out strings.Builder
+	p, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"sh", "-c", "echo ran"}, Stdout: &out})
+	if err != nil {
+		t.Fatalf("a command did not start with no PATH in the add-on: %v", err)
+	}
+	if code, err := p.Wait(); err != nil || code != 0 || out.String() != "ran\n" {
+		t.Fatalf("code %d, err %v, out %q", code, err, out.String())
+	}
+}
+
 func TestARelativeRootIsRefused(t *testing.T) {
 	if _, err := host.New(host.Options{Root: "relative/dir"}); err == nil {
 		t.Error("a relative root was accepted")
