@@ -435,6 +435,30 @@ func (c *client) toolCallIn(chat, tool string, args map[string]any) string {
 	return tool0
 }
 
+// toolOffered scripts one add-on tool call and says whether the chat ran it. A
+// tool the chat was not offered is not run: the scripted turn ends without a
+// tool message.
+func (c *client) toolOffered(tool string, args map[string]any) bool {
+	GinkgoHelper()
+	raw, err := json.Marshal(args)
+	Expect(err).NotTo(HaveOccurred())
+	chat := c.chat()
+	text := "Please run ADDON_TOOL_CALL:addon__" + tool + ":" + base64.RawURLEncoding.EncodeToString(raw)
+	r := c.do("POST", "/api/chats/"+chat+"/messages", map[string]string{"text": text}, nil)
+	Expect(r.Status).To(Equal(200), r.String())
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) {
+		msgs, _ := c.get("/api/chats/" + chat + "/messages?after=0").JSON()["messages"].([]any)
+		for _, m := range msgs {
+			if m.(map[string]any)["role"] == "tool" {
+				return true
+			}
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	return false
+}
+
 // toolResult decodes the JSON document of a tool message ("name: label\n{...}").
 func toolResult(msg string) map[string]any {
 	GinkgoHelper()

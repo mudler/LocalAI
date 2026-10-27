@@ -203,16 +203,15 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 			Expect(query(admin)).To(HaveLen(2))
 		})
 		It("answers a conflict of the add-on (a table that exists) as a refusal, not as an outage", func() {
-			knownGap("G2", "a duplicate table or column is reported as 'proposal call unavailable; repeat the same call'")
-			doc := toolResult(admin.toolCall("tables__tables-create", map[string]any{"resourceId": res, "table": entries}))
-			Expect(doc["kind"]).To(Equal("error"))
+			msg := admin.toolCall("tables__tables-create", map[string]any{"resourceId": res, "table": entries})
+			doc := toolResult(msg)
+			Expect(doc["kind"]).To(Equal("error"), msg)
 			Expect(fmt.Sprint(doc)).NotTo(ContainSubstring("unavailable"))
 			p := key.do("POST", "/api/addons/proposals", map[string]any{"addonId": "tables", "operationId": opID("p"), "generation": 1, "resourceId": res,
 				"action": "schema", "arguments": map[string]any{"tool": "tables-create", "table": entries}}, nil)
 			Expect(p.Status).To(BeNumerically("<", 500), p.String())
 		})
 		It("answers a resource the user cannot reach as a typed refusal, not as an internal string", func() {
-			knownGap("G3", "a foreign or unknown resource id gives 'addon policy denied: addon forwarding denied' as a raw tool error")
 			msg := admin.toolCall("tables__rows-insert", map[string]any{"resourceId": "rcdeadbeef", "table": entries, "rows": []map[string]any{{"Item": "x"}}})
 			Expect(toolResult(msg)["kind"]).To(Equal("error"), msg)
 		})
@@ -358,16 +357,20 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 			u := admin.human("POST", "/api/addons/resources/"+res+"/changes/"+change+"/undo", map[string]any{"operationId": opID("u"), "generation": generation(admin.installed("fine-tuning"))}, res)
 			Expect(u.Status).To(Equal(200), u.String())
 		})
-		It("denies the tools to a user without the fine-tuning and quantization permissions", func() {
-			Expect(member.toolCall("fine-tuning__fine-tune-list", map[string]any{})).NotTo(ContainSubstring(`"kind":"result"`))
-			Expect(member.toolCall("quantization__quantize-list", map[string]any{})).NotTo(ContainSubstring(`"kind":"result"`))
+		It("does not offer the tools to a user without the fine-tuning and quantization permissions", func() {
+			Expect(member.toolOffered("fine-tuning__fine-tune-list", map[string]any{})).To(BeFalse())
+			Expect(member.toolOffered("quantization__quantize-list", map[string]any{})).To(BeFalse())
 			Expect(member.get("/api/fine-tuning/jobs").Status).To(Equal(403))
 			Expect(member.get("/api/quantization/jobs").Status).To(Equal(403))
+			// The administrator, who holds both, still gets them.
+			Expect(toolResult(admin.toolCall("fine-tuning__fine-tune-list", map[string]any{}))["kind"]).To(Equal("result"))
 		})
 		It("explains a denial of the user's permission instead of reporting an outage", func() {
-			knownGap("G6", "a user without the fine_tuning permission gets 'addon runtime unavailable or invalid protocol'")
-			msg := member.toolCall("fine-tuning__fine-tune-list", map[string]any{})
-			Expect(msg).NotTo(ContainSubstring("unavailable"))
+			gen := generation(admin.installed("fine-tuning"))
+			r := member.dispatch("fine-tuning", gen, "read", map[string]any{"tool": "fine-tune-list"}, "")
+			Expect(r.Status).To(Equal(403), r.String())
+			Expect(r.ErrType()).To(Equal("not_permitted"), r.String())
+			Expect(string(r.Body)).NotTo(ContainSubstring("unavailable"))
 		})
 	})
 
@@ -400,7 +403,6 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 			Expect(fmt.Sprint(other["result"])).To(ContainSubstring("not found"))
 		})
 		It("creates, reads and edits Word, Excel and PowerPoint files and keeps one undoable history", func() {
-			knownGap("G0", "the host never copies Capabilities.Actions from the manifest, so every action tool is denied ('addon forwarding denied')")
 			chat := newLetterChat(admin)
 			doc := toolResult(admin.toolCallIn(chat, "office__create-docx", map[string]any{"path": "/Reports/plan.docx", "title": "Plan",
 				"blocks": []map[string]any{{"kind": "heading", "level": 1, "text": "Q1 plan"}, {"kind": "paragraph", "text": "Ship the thing."}}}))
@@ -415,7 +417,6 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 			Expect(fmt.Sprint(p["result"])).To(ContainSubstring("ok:true"))
 		})
 		It("runs an action tool in every chat, whatever the chat id looks like", func() {
-			knownGap("G1", "the chat id rides in ResourceID and must match ^[a-z][a-z0-9-]*$, but chat ids are random hex: 10 of 16 start with a digit")
 			chat := newDigitChat(admin)
 			msg := admin.toolCallIn(chat, "office__create-docx", map[string]any{"path": "/Reports/digit.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "a"}}})
 			Expect(fmt.Sprint(toolResult(msg)["result"])).To(ContainSubstring("ok:true"), msg)
@@ -437,18 +438,15 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 			Expect(text).To(ContainSubstring("name:host usable:true"))
 		})
 		It("lets an administrator choose the host backend with the typed confirmation", func() {
-			knownGap("G5", "set-backend and confirm-host have no tool definition, so the host refuses them as reads with a resource: the Sandbox settings cannot be changed")
 			gen := generation(admin.installed("sandbox"))
 			Expect(admin.dispatch("sandbox", gen, "read", map[string]any{"tool": "confirm-host", "phrase": "I understand that commands run on this host without isolation"}, "").Status).To(Equal(200))
 			Expect(admin.dispatch("sandbox", gen, "read", map[string]any{"tool": "set-backend", "backend": "host"}, "").Status).To(Equal(200))
 		})
 		It("answers 'This host cannot run commands.' when no backend is usable", func() {
-			knownGap("G0", "action tools never reach the add-on")
 			msg := admin.toolCallIn(newLetterChat(admin), "sandbox__bash", map[string]any{"command": "echo hi"})
 			Expect(msg).To(ContainSubstring("This host cannot run commands."))
 		})
 		It("runs a command on the host backend and writes the result into the user's files", func() {
-			knownGap("G0", "action tools never reach the add-on")
 			Expect(os.WriteFile(filepath.Join(w.dataDir, "addons", "data", "sandbox", "settings.json"), []byte(`{"backend":"host","hostConfirmed":true}`), 0o600)).To(Succeed())
 			gen := generation(admin.installed("sandbox"))
 			Expect(admin.dispatch("sandbox", gen, "disable", nil, "").Status).To(Equal(200))

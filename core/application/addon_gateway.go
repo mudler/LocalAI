@@ -42,7 +42,13 @@ func (a *Application) AddonToolProvider() *mcpTools.AddonToolProvider {
 	if a.addonGateway == nil {
 		return nil
 	}
-	return mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
+	p := mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
+	if db := a.AuthDB(); db != nil {
+		has := addonFeatureCheck(db)
+		hostOps := a.applicationConfig.AddonHostOps
+		p = p.WithHidden(func(actor contract.Actor) map[string]bool { return addonsWithoutFeature(hostOps, has, actor) })
+	}
+	return p
 }
 
 // AddonHostOps is the host operation channel of the add-on supervisor, or nil
@@ -574,12 +580,11 @@ type studioAddons struct {
 // does nothing for a person without the feature, so its tools are not offered.
 var hostOpFeatures = map[string]string{"finetune.": auth.FeatureFineTuning, "quantize.": auth.FeatureQuantization}
 
-// filterByFeature drops the tools of the add-ons whose host operations need a
-// feature the actor does not hold, so a model is not offered a tool that can
-// only answer "no permission". Local-owner mode has no accounts and keeps all.
-func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has func(userID, feature string) bool, actor contract.Actor) []studio.AddonTool {
+// addonsWithoutFeature names the add-ons whose host operations need a feature
+// the actor does not hold. Local-owner mode has no accounts and hides none.
+func addonsWithoutFeature(hostOps map[string][]string, has func(userID, feature string) bool, actor contract.Actor) map[string]bool {
 	if has == nil || actor.Mode == auth.AddonModeLocalOwner {
-		return tools
+		return nil
 	}
 	denied := map[string]bool{}
 	for addon, prefixes := range hostOps {
@@ -589,6 +594,14 @@ func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has 
 			}
 		}
 	}
+	return denied
+}
+
+// filterByFeature drops the tools of the add-ons whose host operations need a
+// feature the actor does not hold, so a model is not offered a tool that can
+// only answer "no permission". Local-owner mode has no accounts and keeps all.
+func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has func(userID, feature string) bool, actor contract.Actor) []studio.AddonTool {
+	denied := addonsWithoutFeature(hostOps, has, actor)
 	if len(denied) == 0 {
 		return tools
 	}
