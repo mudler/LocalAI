@@ -3413,6 +3413,7 @@ An add-on that holds `sandbox=workspace.` or `office=workspace.` in the host ope
 - `workspace.materialize` builds a read-only tree of some folders of the user in a directory of the add-on's own data directory.
 - `workspace.commit` takes the `upper.tar` layer the add-on left in such a directory and commits it as one change set. It needs an `act` request.
 - `workspace.changes` lists the change sets after a revision.
+- `workspace.admin` answers only when the user of the request is an administrator, and is refused for anyone else. An add-on uses it to guard a setting; it never decides who is an administrator itself.
 - `workspace.export` copies one file of the user into the data directory, and `workspace.import` (an `act` request) writes one file of the data directory into the files of the user, with the version check of the files API.
 
 Every call runs as the user of the live request, never as a user named in the arguments. Folders are named relative to the home of that user, and `dir` is a relative folder inside the add-on's data directory; an absolute path, a parent reference or a symbolic link is refused.
@@ -3438,3 +3439,23 @@ The Sandbox add-on lets a chat run commands and code. Its tools are action tools
 - **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left.
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 30 minutes at most).
 - **Without a backend.** When the host has no way to run sandboxes, every tool answers "This host cannot run commands." and nothing runs.
+
+### Sandbox backends and settings
+
+The add-on runs commands in one of these backends, chosen on the Settings page by an administrator:
+
+| Choice | What it is |
+|---|---|
+| Automatic | KVM (Cloud Hypervisor) when the host has it, otherwise gVisor, otherwise nothing. It never picks the host backend, not even as a last resort. |
+| gVisor | `runsc` with user namespaces. Needs `runsc` next to the add-on or on `PATH`, `taskset`, and on some systems an AppArmor profile (`gvisor-profile` prints it). |
+| KVM | Cloud Hypervisor with `virtiofsd`, `bwrap`, `mke2fs`, `debugfs` and `/dev/kvm`. |
+| Off | No sandbox. Every tool answers that the host cannot run commands. |
+| Host | Runs commands on the host as the user LocalAI runs as, with no isolation. |
+
+The page shows which backend runs now, and for each other backend the one thing that is missing and how to fix it. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
+
+The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, and the page shows a notice for as long as the host backend is the one in use. Treat the machine as one that code can harm.
+
+The choice is kept in the add-on's data directory. Changing it removes the running sandboxes; what they did is already in the users' files.
+
+The guest image and `runsc` are not part of the add-on's source. A release sets `main.guestImage` (the image, by digest) and `main.runscSHA256` (the checksum of the `runsc` it was tested with) at build time. A build without a guest image reports that on the page, and only the host backend can run.

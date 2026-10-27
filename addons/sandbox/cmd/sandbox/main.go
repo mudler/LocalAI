@@ -8,7 +8,6 @@ package main
 import (
 	"context"
 	"os"
-	"path/filepath"
 
 	"github.com/mudler/xlog"
 
@@ -20,21 +19,28 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
+// hostAdmin asks the host whether the user of a request is an administrator.
+type hostAdmin struct{ c *hostclient.Client }
+
+func (a hostAdmin) IsAdmin(ctx context.Context, operationID string) bool {
+	return a.c.Do(ctx, operationID, "workspace.admin", nil, nil) == nil
+}
+
 func main() {
 	os.Exit(protocol.Run(os.Args, func(s protocol.Startup) contract.Runtime {
-		store := remote.New(hostclient.New(s), s.DataDir)
-		m, err := manager.New(manager.Options{
-			Backend:  backendFor(s.DataDir),
-			Store:    store,
-			StateDir: filepath.Join(s.DataDir, "sandboxes"),
-		})
+		client := hostclient.New(s)
+		sel, err := newSelector(s.DataDir)
 		if err != nil {
-			// A manager that cannot start serves no sandbox; every tool then
-			// answers that the host cannot run commands.
+			// Without settings no sandbox runs; every tool says so.
+			xlog.Error("sandbox: cannot read the settings", "error", err)
+			return tools.New(unavailable{}, nil, hostAdmin{client})
+		}
+		m, err := manager.New(manager.Options{Backend: sel.Backend, Store: remote.New(client, s.DataDir)})
+		if err != nil {
 			xlog.Error("sandbox: cannot start the manager", "error", err)
-			return tools.New(unavailable{})
+			return tools.New(unavailable{}, nil, hostAdmin{client})
 		}
 		m.Start(context.Background())
-		return tools.New(m)
+		return tools.New(m, settingsAdapter{Selector: sel, m: m}, hostAdmin{client})
 	}))
 }

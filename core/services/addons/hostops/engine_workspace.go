@@ -143,6 +143,11 @@ func RegisterWorkspace(b *Broker, h *WorkspaceHost) error {
 		{Op: "workspace.export", Scope: "read", Feature: featureChats, Timeout: actOpTimeout, Handler: h.export},
 		{Op: "workspace.import", Scope: "act", Feature: featureChats, Timeout: actOpTimeout, Handler: h.importFile},
 		{Op: "workspace.changes", Scope: "read", Feature: featureChats, Handler: h.changes},
+		// workspace.admin answers only for an administrator; for anyone else the
+		// broker refuses it. An add-on uses it to guard a setting.
+		{Op: "workspace.admin", Scope: "read", Feature: featureChats, Admin: true, Handler: func(context.Context, Call) (json.RawMessage, error) {
+			return json.RawMessage(`{"admin":true}`), nil
+		}},
 	}
 	for _, s := range specs {
 		if err := b.Register(s); err != nil {

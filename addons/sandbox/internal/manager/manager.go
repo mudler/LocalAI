@@ -406,6 +406,10 @@ func (m *Manager) Start(ctx context.Context) {
 	}()
 }
 
+// Reset destroys every sandbox, as Close does, and keeps the manager usable.
+// The administrator changed the backend, so the old sandboxes are of no use.
+func (m *Manager) Reset(ctx context.Context) { _ = m.Close(ctx) }
+
 // Close destroys every sandbox. What the code did is already in the files.
 func (m *Manager) Close(ctx context.Context) error {
 	m.mu.Lock()

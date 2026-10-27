@@ -16,13 +16,44 @@ import (
 	"regexp"
 
 	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/manager"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-// Tools is the declared tool set, in manifest order.
+// Tools are the code tools: action tools a model may call in a chat.
 var Tools = []string{"bash", "read", "write", "edit", "glob", "grep"}
+
+// The settings tools. status is offered to everyone; set-backend and
+// confirm-host are declared without a definition, so no model is offered them,
+// and each asks the host whether the caller is an administrator.
+const (
+	ToolStatus      = "status"
+	ToolSetBackend  = "set-backend"
+	ToolConfirmHost = "confirm-host"
+)
+
+// Declared is everything the manifest lists under capabilities.tools.
+func Declared() []string {
+	return append(append([]string{}, Tools...), ToolStatus, ToolSetBackend, ToolConfirmHost)
+}
+
+// Settings is the choice of backend. *backends.Selector implements all but
+// Reset, which the add-on's main adds: it removes the sandboxes of the old
+// choice.
+type Settings interface {
+	Status() backends.Status
+	Set(backends.Setting) error
+	ConfirmHost(phrase string) error
+	Reset()
+}
+
+// Admin tells whether the user of a request is an administrator. The host
+// answers; the add-on never decides it.
+type Admin interface {
+	IsAdmin(ctx context.Context, operationID string) bool
+}
 
 // maxAnswer bounds the text of an answer; the tools cut their own output at
 // 64 KiB, this is the margin for their notes.
@@ -37,10 +68,17 @@ var _ Runner = (*manager.Manager)(nil)
 
 var operationShape = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
-type runtime struct{ run Runner }
+type runtime struct {
+	run      Runner
+	settings Settings
+	admin    Admin
+}
 
-// New returns the runtime of the executable.
-func New(r Runner) contract.Runtime { return &runtime{run: r} }
+// New returns the runtime of the executable. settings and admin may be nil:
+// the settings tools then refuse.
+func New(r Runner, s Settings, a Admin) contract.Runtime {
+	return &runtime{run: r, settings: s, admin: a}
+}
 
 var errNoTool = errors.New("this tool is not served by the sandbox add-on")
 
@@ -61,10 +99,61 @@ func Definitions() []contract.ToolDefinition {
 		}
 		out = append(out, contract.ToolDefinition{Name: t.Name, Kind: contract.ToolKindAction, Description: t.Description, InputSchema: raw})
 	}
-	return out
+	return append(out, contract.ToolDefinition{
+		Name: ToolStatus, Kind: contract.ToolKindRead,
+		Description: "Say whether this host can run commands in a sandbox now, and which backend runs them.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
+	})
 }
 
-func (*runtime) Read(context.Context, contract.Envelope) (contract.Result, error) {
+// Read serves the settings tools.
+func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
+	var a struct {
+		Tool    string `json:"tool"`
+		Backend string `json:"backend"`
+		Phrase  string `json:"phrase"`
+	}
+	if json.Unmarshal(env.Request.Arguments, &a) != nil {
+		return contract.Result{}, protocol.ErrBadRequest
+	}
+	op := env.Request.OperationID
+	if !operationShape.MatchString(op) {
+		return contract.Result{}, protocol.ErrBadRequest
+	}
+	refuse := func(msg string) (contract.Result, error) {
+		return contract.Result{Payload: payload(map[string]any{"ok": false, "error": msg})}, nil
+	}
+	admin := r.admin != nil && r.admin.IsAdmin(ctx, op)
+	switch a.Tool {
+	case ToolStatus:
+		if r.settings == nil {
+			return refuse("the sandbox is not set up")
+		}
+		st := r.settings.Status()
+		out := map[string]any{"ok": true, "canRun": st.Active != "", "setting": st.Setting, "active": st.Active, "hostNotice": st.HostNotice, "admin": admin}
+		if admin {
+			out["backends"], out["hostConfirmed"], out["note"] = st.Backends, st.HostConfirmed, st.Note
+		}
+		return contract.Result{Payload: payload(out)}, nil
+	case ToolSetBackend, ToolConfirmHost:
+		if r.settings == nil || !admin {
+			return refuse("only an administrator can change this setting")
+		}
+		var err error
+		if a.Tool == ToolSetBackend {
+			if err = r.settings.Set(backends.Setting(a.Backend)); err == nil {
+				// The sandboxes of the old choice are gone; what they did is
+				// already in the users' files.
+				r.settings.Reset()
+			}
+		} else {
+			err = r.settings.ConfirmHost(a.Phrase)
+		}
+		if err != nil {
+			return refuse(err.Error())
+		}
+		return contract.Result{Payload: payload(map[string]any{"ok": true})}, nil
+	}
 	return contract.Result{}, protocol.ErrBadRequest
 }
 

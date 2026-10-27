@@ -149,6 +149,16 @@
           ],
           "type": "object"
         }
+      },
+      {
+        "name": "status",
+        "description": "Say whether this host can run commands in a sandbox now, and which backend runs them.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
       }
     ],
     "tools": [
@@ -157,7 +167,10 @@
       "write",
       "edit",
       "glob",
-      "grep"
+      "grep",
+      "status",
+      "set-backend",
+      "confirm-host"
     ],
     "ui": {
       "css": [
@@ -174,7 +187,14 @@
         "max": 2,
         "min": 2
       },
-      "title": "Sandbox"
+      "title": "Sandbox",
+      "slots": [
+        {
+          "id": "settings",
+          "slot": "settings.sections",
+          "component": "SandboxSettings"
+        }
+      ]
     }
   },
   "dataFormat": {

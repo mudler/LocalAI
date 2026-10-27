@@ -48,10 +48,18 @@ func RunBackendSuite(t *testing.T, newBackend NewBackend) {
 // real backend cannot skip a part of the suite.
 type skipper interface{ skips(feature string) bool }
 
+// Skipper is implemented by a backend that cannot do part of the suite, and
+// says which part. A backend with an isolation to prove must not implement it
+// for that part.
+type Skipper interface{ Skips(feature string) bool }
+
 func need(t *testing.T, b sandbox.Backend, feature string) {
 	t.Helper()
 	if s, ok := b.(skipper); ok && s.skips(feature) {
 		t.Skipf("the fake backend has no %s", feature)
+	}
+	if s, ok := b.(Skipper); ok && s.Skips(feature) {
+		t.Skipf("this backend has no %s", feature)
 	}
 }
 

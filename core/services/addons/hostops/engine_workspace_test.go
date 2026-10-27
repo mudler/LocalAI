@@ -159,6 +159,18 @@ var _ = Describe("Workspace host operations", func() {
 		Expect(out.Error.Code).To(Equal("bad_request"))
 	})
 
+	It("tells an administrator apart from anybody else", func() {
+		f := newWSFixture()
+		f.b.SetAdminCheck(func(a contract.Actor) bool { return a.UserID == "root" })
+		f.live("root", "op1", "read")
+		code, out := f.call("secret", "op1", "workspace.admin", `{}`)
+		Expect(code).To(Equal(http.StatusOK), "%+v", out.Error)
+		f.live("alice", "op2", "read")
+		code, out = f.call("secret", "op2", "workspace.admin", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error.Code).To(Equal("feature"))
+	})
+
 	It("lists the changes after a revision", func() {
 		f := newWSFixture()
 		f.put("alice", "/proj/a.txt", "x")

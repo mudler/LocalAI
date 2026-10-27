@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/manager"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
@@ -39,7 +40,7 @@ func env(tool, user, conv string, args map[string]any) contract.Envelope {
 
 func act(t *testing.T, r tools.Runner, e contract.Envelope) (map[string]any, error) {
 	t.Helper()
-	res, err := tools.New(r).(contract.ActRuntime).Act(context.Background(), e)
+	res, err := tools.New(r, nil, nil).(contract.ActRuntime).Act(context.Background(), e)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +97,7 @@ func TestWhatTheModelCanFixIsAnAnswerAndAnOutageIsAnError(t *testing.T) {
 }
 
 func TestOnlyTheActPathServesTheTools(t *testing.T) {
-	rt := tools.New(&fakeRunner{})
+	rt := tools.New(&fakeRunner{}, nil, nil)
 	e := env("bash", "alice", "conv1", map[string]any{"command": "x"})
 	if _, err := rt.Read(context.Background(), e); err == nil {
 		t.Error("Read served a sandbox tool")
@@ -127,7 +128,7 @@ func TestTheManifestDeclaresTheToolsOfTheRuntime(t *testing.T) {
 	_ = json.Unmarshal(raw, &doc)
 	caps := doc["capabilities"].(map[string]any)
 	if os.Getenv("UPDATE_MANIFEST") == "1" {
-		caps["tools"] = tools.Tools
+		caps["tools"] = tools.Declared()
 		caps["toolDefinitions"] = tools.Definitions()
 		caps["actions"] = true
 		out, _ := json.MarshalIndent(doc, "", "  ")
@@ -140,7 +141,7 @@ func TestTheManifestDeclaresTheToolsOfTheRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the manifest does not parse: %v", err)
 	}
-	if !reflect.DeepEqual(m.Capabilities.Tools, tools.Tools) || !m.Capabilities.Actions {
+	if !reflect.DeepEqual(m.Capabilities.Tools, tools.Declared()) || !m.Capabilities.Actions {
 		t.Errorf("tools = %v, actions = %v", m.Capabilities.Tools, m.Capabilities.Actions)
 	}
 	want := tools.Definitions()
@@ -159,8 +160,108 @@ func TestTheManifestDeclaresTheToolsOfTheRuntime(t *testing.T) {
 		}
 	}
 	for _, d := range want {
-		if d.Kind != contract.ToolKindAction {
-			t.Errorf("%s is not an action tool: code runs at once, as the user", d.Name)
+		switch d.Name {
+		case "status":
+			if d.Kind != contract.ToolKindRead {
+				t.Errorf("status must be a read tool")
+			}
+		default:
+			if d.Kind != contract.ToolKindAction {
+				t.Errorf("%s is not an action tool: code runs at once, as the user", d.Name)
+			}
 		}
+		if d.Name == "set-backend" || d.Name == "confirm-host" {
+			t.Errorf("%s is offered to models; only the settings page may call it", d.Name)
+		}
+	}
+}
+
+// fakeSettings records what the admin tools did.
+type fakeSettings struct {
+	st      backends.Status
+	set     []backends.Setting
+	phrases []string
+	reset   int
+	err     error
+}
+
+func (f *fakeSettings) Status() backends.Status { return f.st }
+func (f *fakeSettings) Set(b backends.Setting) error {
+	f.set = append(f.set, b)
+	return f.err
+}
+func (f *fakeSettings) ConfirmHost(p string) error { f.phrases = append(f.phrases, p); return f.err }
+func (f *fakeSettings) Reset()                     { f.reset++ }
+
+type fakeAdmin map[string]bool
+
+func (a fakeAdmin) IsAdmin(_ context.Context, opID string) bool { return a[opID] }
+
+func read(t *testing.T, rt contract.Runtime, tool, user string, args map[string]any, op string) map[string]any {
+	t.Helper()
+	e := env(tool, user, "", args)
+	e.Request.Action = "read"
+	e.Authority.Scope = "read"
+	e.Request.OperationID = op
+	res, err := rt.Read(context.Background(), e)
+	if err != nil {
+		t.Fatalf("%s: %v", tool, err)
+	}
+	var out map[string]any
+	_ = json.Unmarshal(res.Payload, &out)
+	return out
+}
+
+func TestAnyoneSeesWhetherCodeCanRunButOnlyAnAdminSeesWhy(t *testing.T) {
+	set := &fakeSettings{st: backends.Status{Setting: backends.Auto, Active: "gvisor", Backends: []backends.BackendState{{Name: "kvm", Reason: "/dev/kvm: permission denied"}}}}
+	rt := tools.New(&fakeRunner{}, set, fakeAdmin{"opadmin": true})
+	user := read(t, rt, "status", "alice", map[string]any{}, "opuser")
+	if user["ok"] != true || user["canRun"] != true || user["active"] != "gvisor" {
+		t.Fatalf("status for a user = %v", user)
+	}
+	if _, has := user["backends"]; has {
+		t.Errorf("a user sees the details of the host: %v", user)
+	}
+	admin := read(t, rt, "status", "root", map[string]any{}, "opadmin")
+	if _, has := admin["backends"]; !has || admin["admin"] != true {
+		t.Fatalf("status for an admin = %v", admin)
+	}
+	none := tools.New(&fakeRunner{}, &fakeSettings{st: backends.Status{Setting: backends.Auto}}, fakeAdmin{})
+	if got := read(t, none, "status", "alice", map[string]any{}, "x1"); got["canRun"] != false {
+		t.Errorf("no backend, but canRun = %v", got["canRun"])
+	}
+}
+
+func TestOnlyAnAdminChangesTheBackendAndTheChangeResetsTheSandboxes(t *testing.T) {
+	set := &fakeSettings{}
+	rt := tools.New(&fakeRunner{}, set, fakeAdmin{"opadmin": true})
+	denied := read(t, rt, "set-backend", "alice", map[string]any{"backend": "host"}, "opuser")
+	if denied["ok"] != false || len(set.set) != 0 {
+		t.Fatalf("a user changed the backend: %v %v", denied, set.set)
+	}
+	if got := read(t, rt, "confirm-host", "alice", map[string]any{"phrase": backends.HostPhrase}, "opuser"); got["ok"] != false || len(set.phrases) != 0 {
+		t.Fatalf("a user confirmed the host: %v", got)
+	}
+	ok := read(t, rt, "set-backend", "root", map[string]any{"backend": "gvisor"}, "opadmin")
+	if ok["ok"] != true || len(set.set) != 1 || set.set[0] != backends.GVisor || set.reset != 1 {
+		t.Fatalf("admin set-backend = %v %v reset %d", ok, set.set, set.reset)
+	}
+	set.err = backends.ErrNotConfirmed
+	bad := read(t, rt, "set-backend", "root", map[string]any{"backend": "host"}, "opadmin")
+	if bad["ok"] != false || set.reset != 1 {
+		t.Fatalf("a refused change = %v, reset %d", bad, set.reset)
+	}
+	set.err = nil
+	read(t, rt, "confirm-host", "root", map[string]any{"phrase": backends.HostPhrase}, "opadmin")
+	if len(set.phrases) != 1 || set.phrases[0] != backends.HostPhrase {
+		t.Fatalf("phrases = %v", set.phrases)
+	}
+}
+
+func TestWithoutTheHostTellingWhoIsAnAdminNobodyIs(t *testing.T) {
+	set := &fakeSettings{}
+	rt := tools.New(&fakeRunner{}, set, nil)
+	if got := read(t, rt, "set-backend", "root", map[string]any{"backend": "off"}, "op1"); got["ok"] != false || len(set.set) != 0 {
+		t.Fatalf("set-backend with no admin check = %v", got)
 	}
 }

@@ -1,3 +1,9 @@
 .sandbox-page { max-width: 44rem; margin: 0 auto; padding: var(--dk-space-6, 1.5rem) var(--dk-space-4, 1rem); }
 .sandbox-page__title { margin: 0 0 var(--dk-space-3, 0.75rem); }
 .sandbox-page__rules { padding-left: var(--dk-space-5, 1.25rem); display: grid; gap: var(--dk-space-2, 0.5rem); }
+.sandbox-settings { display: grid; gap: var(--dk-space-3, 0.75rem); }
+.sandbox-settings__notice { padding: var(--dk-space-2, 0.5rem) var(--dk-space-3, 0.75rem); border: 1px solid currentColor; border-radius: var(--dk-radius-sm, 4px); font-weight: 600; }
+.sandbox-settings__warning { padding: var(--dk-space-3, 0.75rem); border: 1px solid currentColor; border-radius: var(--dk-radius-sm, 4px); display: grid; gap: var(--dk-space-2, 0.5rem); }
+.sandbox-settings__backends { margin: 0; padding-left: var(--dk-space-5, 1.25rem); display: grid; gap: var(--dk-space-1, 0.25rem); }
+.sandbox-settings__field { display: grid; gap: var(--dk-space-1, 0.25rem); }
+.sandbox-settings__error { margin: 0; }
