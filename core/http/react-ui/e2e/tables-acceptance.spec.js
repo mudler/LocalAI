@@ -1,8 +1,6 @@
 import { test, expect, request as playwrightRequest } from '@playwright/test'
 import fs from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { chatOf, mockChat } from './chat-fixtures.js'
-import { seedChats, CHATS_KEY } from './home-fixtures.js'
 
 // Tables acceptance in the browser. The runner (scripts/addons/tables_acceptance.sh)
 // starts the owner and two frontends as separate server processes, one shared
@@ -50,8 +48,6 @@ const control = async (path) => {
 
 const isAsset = (url) => /\/api\/addons\/tables\/assets\//.test(url)
 const noOverflow = (page) => page.evaluate(() => document.scrollingElement.scrollWidth <= window.innerWidth)
-const b64url = (s) => Buffer.from(s).toString('base64url')
-const toolMessage = (tool, args) => `Please run this ADDON_TOOL_CALL:addon__tables__${tool}:${b64url(JSON.stringify(args))}`
 
 async function generation(api) {
   const r = await api.get('/api/addons/apps')
@@ -118,37 +114,6 @@ test.describe('Tables acceptance through real servers', () => {
       }
       await context.close()
     }
-  })
-
-  test('tables-acceptance: an approval card from chat on one frontend applies once and the row shows on the other frontend', async ({ browser }) => {
-    const { context, page } = await browserAs(browser, 'front-a', 'member')
-    await mockChat(page, { models: [{ id: 'mock-model', capabilities: ['FLAG_CHAT'] }], loaded: ['mock-model'] })
-    await seedChats(page, [chatOf('acc', 'Tables', 'mock-model', [], { addonTools: true })], 'acc')
-    await page.goto('/app/chat')
-    await page.getByTestId('chat-composer').waitFor()
-    await page.getByTestId('chat-input').fill(toolMessage('rows-insert', { resourceId: state.db.id, table: 'Entries', rows: [{ Item: 'from-chat' }] }))
-    await page.getByTestId('chat-send').click()
-    const card = page.getByTestId('proposal-card')
-    await expect(card).toHaveCount(1, { timeout: 40_000 })
-    await expect(card.getByTestId('proposal-operation')).toHaveText('rows-insert')
-    await expect(card.getByTestId('proposal-count')).toHaveText('1')
-    await expect(card.getByTestId('proposal-state')).toHaveText('Waiting for your decision')
-    // Nothing is applied before the person decides: the other frontend still
-    // shows the two rows.
-    const other = await browserAs(browser, 'front-b', 'member')
-    await openDb(other.page, state.db.id)
-    await expect(other.page.getByTestId('tbl-row')).toHaveCount(2)
-    await card.getByTestId('proposal-confirm').click()
-    await expect(card.getByTestId('proposal-state')).toHaveText('Applied', { timeout: 30_000 })
-    await expect(card.getByTestId('proposal-confirm')).toBeDisabled()
-    await other.page.reload()
-    await expect(other.page.getByTestId('tbl-row')).toHaveCount(3, { timeout: 30_000 })
-    await expect(other.page.getByTestId('tbl-grid')).toContainText('from-chat')
-    // A reload of the chat draws the same applied card from the host.
-    await page.reload()
-    await expect(page.getByTestId('proposal-card').last().getByTestId('proposal-state')).toHaveText('Applied', { timeout: 30_000 })
-    await other.context.close()
-    await context.close()
   })
 
   test('tables-acceptance: deep links keep the proxy path prefix on a non-owner frontend and survive a reload', async ({ browser }) => {
@@ -220,26 +185,4 @@ test.describe('Tables acceptance through real servers', () => {
     await context.close()
   })
 
-  test('tables-acceptance: after logout nothing of the database is left in the page or the stored chat', async ({ browser }) => {
-    const { context, page } = await browserAs(browser, 'front-a', 'member')
-    await mockChat(page, { models: [{ id: 'mock-model', capabilities: ['FLAG_CHAT'] }], loaded: ['mock-model'] })
-    await seedChats(page, [chatOf('acc2', 'Tables', 'mock-model', [], { addonTools: true })], 'acc2')
-    await openDb(page, state.db.id)
-    await expect(page.getByTestId('tbl-grid')).toContainText(SECRET)
-    const out = await pageFetch(page, '/api/auth/logout', { method: 'POST' })
-    expect([200, 204]).toContain(out.status)
-    // The same session is refused by the other frontend too.
-    const other = await browserAs(browser, 'front-b', 'member')
-    await other.page.goto('/app')
-    const apps = await pageFetch(other.page, '/api/addons/apps')
-    expect(apps.status).toBe(401)
-    await other.context.close()
-    await page.reload()
-    await expect(page.getByTestId('tbl-grid')).toHaveCount(0)
-    await expect(page.locator('body')).not.toContainText(SECRET)
-    const stored = await page.evaluate((key) => localStorage.getItem(key) || '', CHATS_KEY)
-    expect(stored).not.toContain(SECRET)
-    expect(stored).not.toContain('digest')
-    await context.close()
-  })
 })

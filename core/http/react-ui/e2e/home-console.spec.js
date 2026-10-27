@@ -1,10 +1,10 @@
 import { test, expect } from './coverage-fixtures.js'
-import { mockHome, mockUser, seedChats, sampleChats, CHATS_KEY, LOADED } from './home-fixtures.js'
+import { mockHome, mockUser, LOADED } from './home-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
 
 // The Home console: command bar, slash menu, memory strip, resume list, first
 // run and the phone layout. Data is stubbed the way the other Home specs do it;
-// conversations are written to the browser storage the Chat page reads.
+// the resume strip reads the newest chat the server keeps.
 
 const GB = 1024 * 1024 * 1024
 
@@ -13,14 +13,9 @@ async function ready(page) {
   await expect(page.locator('.home-greeting')).toBeVisible({ timeout: 15_000 })
 }
 
-async function storedChats(page) {
-  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) || '{}'), CHATS_KEY)
-}
-
 test.describe('Home slash menu', () => {
   test.beforeEach(async ({ page }) => {
     await mockHome(page)
-    await seedChats(page)
   })
 
   test('typing a slash opens the grouped action list', async ({ page }) => {
@@ -38,7 +33,7 @@ test.describe('Home slash menu', () => {
     await page.locator('.home-textarea').fill('/')
     const names = await page.locator('.dk-cmd-name').allTextContents()
     expect(names).toEqual([
-      '/model', '/new', '/chat', '/assistant',
+      '/model', '/new', '/chat',
       '/gallery', '/installed', '/import', '/stop',
       '/settings', '/docs',
     ])
@@ -137,17 +132,11 @@ test.describe('Home slash menu', () => {
     await expect(page.locator('.home-loaded')).toBeVisible()
   })
 
-  test('/new opens an empty chat on the chosen model', async ({ page }) => {
+  test('/new opens the chats page on the chosen model', async ({ page }) => {
     await ready(page)
-    const before = (await storedChats(page)).chats.length
     await page.locator('.home-textarea').fill('/new')
     await page.locator('.home-textarea').press('Enter')
-    await expect(page).toHaveURL(/\/app\/chat/)
-    await expect.poll(async () => {
-      const data = await storedChats(page)
-      const active = data.chats.find(c => c.id === data.activeChatId)
-      return data.chats.length === before + 1 && active?.history.length === 0 && active?.model
-    }).toBe('qwen3-8b-instruct')
+    await expect(page).toHaveURL(/\/app\/chats\?model=qwen3-8b-instruct$/)
   })
 
   test('a person who is not an admin sees only the actions they can use', async ({ page }) => {
@@ -171,7 +160,6 @@ test.describe('Home slash menu', () => {
 test.describe('Home model chip', () => {
   test.beforeEach(async ({ page }) => {
     await mockHome(page)
-    await seedChats(page)
   })
 
   test('shows warm and cold models and picks with the keyboard', async ({ page }) => {
@@ -345,142 +333,35 @@ test.describe('Home in a cluster', () => {
 })
 
 test.describe('Home resume list', () => {
-  const now = new Date('2026-10-09T12:00:00Z').getTime()
+  const chat = { id: 'c1', title: 'Rewrite the release notes', model: 'qwen3-8b-instruct', kind: 'chat', created: '2026-10-09T10:00:00Z', updated: '2026-10-09T11:00:00Z' }
   test.beforeEach(async ({ page }) => {
-    await page.clock.setFixedTime(now)
+    await page.clock.setFixedTime(new Date('2026-10-09T12:00:00Z').getTime())
     await mockHome(page)
-    await seedChats(page, sampleChats(now))
   })
 
-  test('groups conversations by day, one card per day', async ({ page }) => {
+  test('it shows the newest chat the server keeps and opens it', async ({ page }) => {
+    let asked = ''
+    await page.route('**/api/chats?limit=1', route => { asked = route.request().url(); return route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }) })
+    await page.route('**/api/chats/c1', route => route.fulfill({ json: { conversation: chat } }))
     await ready(page)
-    await expect(page.getByTestId('home-day-today').locator('.home-day__label')).toContainText('Today')
-    await expect(page.getByTestId('home-day-yesterday').locator('.home-day__label')).toContainText('Yesterday')
-    await expect(page.getByTestId('home-day-week').locator('.home-day__label')).toContainText('Earlier this week')
-    await expect(page.getByTestId('home-day-today').getByTestId('home-conversation')).toHaveCount(2)
-    await expect(page.getByTestId('home-day-yesterday').getByTestId('home-conversation')).toHaveCount(2)
-    await expect(page.getByTestId('home-day-week').getByTestId('home-conversation')).toHaveCount(1)
+    const row = page.getByTestId('home-conversation')
+    await expect(row).toHaveCount(1)
+    await expect(row).toContainText('Rewrite the release notes')
+    await expect(row).toContainText('qwen3-8b-instruct')
+    expect(asked).toContain('limit=1')
+    await row.getByRole('button').first().click()
+    await expect(page).toHaveURL(/\/app\/chats\/c1$/)
   })
 
-  test('a row shows time, title, reply preview, model and message count', async ({ page }) => {
+  test('a row has no delete button: chats are deleted on the chats page', async ({ page }) => {
+    await page.route('**/api/chats?limit=1', route => route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }))
     await ready(page)
-    const row = page.getByTestId('home-conversation').first()
-    await expect(row.locator('.home-row__time')).toHaveText(/^\d\d:\d\d$/)
-    await expect(row.locator('.home-row__title')).toHaveText('Rewrite the 3.4 release notes for clarity')
-    await expect(row.locator('.home-row__reply')).toContainText('Anytime.')
-    await expect(row.locator('.home-row__model')).toHaveText('qwen3-8b-instruct')
-    await expect(row.locator('.home-row__count')).toHaveText('6 messages')
+    await expect(page.getByTestId('home-conversation')).toHaveCount(1)
+    await expect(page.locator('.home-row__delete')).toHaveCount(0)
   })
 
-  test('a conversation with an image carries an eye', async ({ page }) => {
-    await ready(page)
-    const row = page.getByTestId('home-conversation').filter({ hasText: 'architecture diagram' })
-    await expect(row.locator('.home-row__model svg')).toBeVisible()
-  })
-
-  test('hover swaps the count for Resume and offers delete', async ({ page }) => {
-    await ready(page)
-    const row = page.getByTestId('home-conversation').nth(1)
-    await expect(row.locator('.home-row__count')).toBeVisible()
-    await expect(row.locator('.home-row__resume')).toBeHidden()
-    await row.hover()
-    await expect(row.locator('.home-row__count')).toBeHidden()
-    await expect(row.locator('.home-row__resume')).toBeVisible()
-    await expect(row.getByRole('button', { name: /delete conversation/i })).toBeVisible()
-  })
-
-  test('j and k move between rows; Enter resumes the focused one', async ({ page }) => {
-    await ready(page)
-    await page.locator('.home-greeting').click()
-    await page.keyboard.press('j')
-    await expect(page.locator('.home-row__open').nth(0)).toBeFocused()
-    await page.keyboard.press('j')
-    await expect(page.locator('.home-row__open').nth(1)).toBeFocused()
-    await page.keyboard.press('k')
-    await expect(page.locator('.home-row__open').nth(0)).toBeFocused()
-    await page.keyboard.press('j')
-    await page.keyboard.press('j')
-    await page.keyboard.press('Enter')
-    await expect(page).toHaveURL(/\/app\/chat/)
-    const data = await storedChats(page)
-    expect(data.activeChatId).toBe('c-yday-a')
-  })
-
-  test('j and k are ignored while typing', async ({ page }) => {
-    await ready(page)
-    await page.locator('.home-textarea').fill('jk')
-    await expect(page.locator('.home-textarea')).toHaveValue('jk')
-    await expect(page.locator('.home-row__open').first()).not.toBeFocused()
-  })
-
-  test('clicking a row resumes that conversation in Chat', async ({ page }) => {
-    await ready(page)
-    await page.getByTestId('home-conversation').filter({ hasText: 'invoice' }).locator('.home-row__open').click()
-    await expect(page).toHaveURL(/\/app\/chat/)
-    expect((await storedChats(page)).activeChatId).toBe('c-yday-b')
-  })
-
-  test('delete hides the row and offers undo; undo brings it back', async ({ page }) => {
-    await ready(page)
-    const title = 'Why does llama-cpp stall at a 4096 context'
-    const row = page.getByTestId('home-conversation').filter({ hasText: title })
-    await row.hover()
-    await row.getByRole('button', { name: /delete conversation/i }).click()
-    await expect(page.getByTestId('home-conversation').filter({ hasText: title })).toHaveCount(0)
-    const toast = page.getByTestId('home-undo-toast')
-    await expect(toast).toContainText(title)
-    // The chat is kept until the undo time ends.
-    expect((await storedChats(page)).chats.map(c => c.id)).toContain('c-today-b')
-    await toast.getByRole('button', { name: 'Undo' }).click()
-    await expect(page.getByTestId('home-conversation').filter({ hasText: title })).toHaveCount(1)
-    await expect(toast).toHaveCount(0)
-    expect((await storedChats(page)).chats.map(c => c.id)).toContain('c-today-b')
-  })
-
-  test('without undo the delete becomes final when the time ends', async ({ page }) => {
-    await page.clock.install({ time: now })
-    await ready(page)
-    const row = page.getByTestId('home-conversation').filter({ hasText: 'invoice' })
-    await row.hover()
-    await row.getByRole('button', { name: /delete conversation/i }).click()
-    await expect(page.getByTestId('home-undo-toast')).toBeVisible()
-    await page.clock.runFor(6500)
-    await expect(page.getByTestId('home-undo-toast')).toHaveCount(0)
-    expect((await storedChats(page)).chats.map(c => c.id)).not.toContain('c-yday-b')
-  })
-
-  test('the Delete key removes the focused row and moves focus on', async ({ page }) => {
-    await ready(page)
-    await page.locator('.home-greeting').click()
-    await page.keyboard.press('j')
-    await page.keyboard.press('Delete')
-    await expect(page.getByTestId('home-conversation')).toHaveCount(4)
-    await expect(page.locator('.home-row__open').first()).toBeFocused()
-    await expect(page.getByTestId('home-undo-toast')).toBeVisible()
-  })
-
-  test('old conversations wait behind one button', async ({ page }) => {
-    const chats = sampleChats(now)
-    const old = Array.from({ length: 8 }, (_, i) => ({
-      ...chats[0],
-      id: `old-${i}`,
-      name: `Old chat ${i}`,
-      updatedAt: now - (10 + i) * 24 * 60 * 60 * 1000,
-    }))
-    await page.addInitScript(([key, data]) => localStorage.setItem(key, JSON.stringify(data)),
-      [CHATS_KEY, { chats: [...chats, ...old], activeChatId: chats[0].id }])
-    await ready(page)
-    await expect(page.getByTestId('home-conversation')).toHaveCount(8)
-    await page.getByRole('button', { name: /show 5 older conversations/i }).click()
-    await expect(page.getByTestId('home-conversation')).toHaveCount(13)
-    await expect(page.getByTestId('home-day-older').locator('.home-day__label')).toContainText('Older')
-  })
-
-  test('with no conversations it says where they will appear', async ({ page }) => {
-    await page.addInitScript((key) => localStorage.removeItem(key), CHATS_KEY)
-    await page.unroute('**/api/features')
-    await mockHome(page)
-    await page.addInitScript((key) => localStorage.setItem(key, JSON.stringify({ chats: [], activeChatId: null })), CHATS_KEY)
+  test('with no chats it says where they will appear', async ({ page }) => {
+    await page.route('**/api/chats?limit=1', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
     await ready(page)
     await expect(page.locator('.home-empty')).toContainText('Your conversations will wait here')
   })
@@ -558,128 +439,67 @@ test.describe('Home first run', () => {
 })
 
 test.describe('Home send hand-off', () => {
-  async function record(page) {
-    await page.addInitScript(() => {
-      window.__handoff = null
-      const set = Storage.prototype.setItem
-      Storage.prototype.setItem = function (key, value) {
-        if (key === 'localai_index_chat_data') window.__handoff = JSON.parse(value)
-        return set.call(this, key, value)
-      }
-    })
-  }
-
   test.beforeEach(async ({ page }) => {
     await mockHome(page)
-    await seedChats(page)
-    await record(page)
   })
 
-  test('Send hands the message and model to Chat and opens it', async ({ page }) => {
-    await ready(page)
-    const send = page.locator('.home-send-btn')
-    await expect(send).toBeDisabled()
-    await page.locator('.home-textarea').fill('Compare the release plans')
-    await expect(send).toBeEnabled()
-    await send.click()
-    await expect(page).toHaveURL(/\/app\/chat\/qwen3-8b-instruct/)
-    const handoff = await page.evaluate(() => window.__handoff)
-    expect(handoff).toMatchObject({
-      message: 'Compare the release plans',
-      model: 'qwen3-8b-instruct',
-      newChat: true,
-      mcpMode: false,
-      mcpServers: [],
-      clientMCPServers: [],
-      files: [],
+  // The chats page starts the chat on its own: it creates it with the model and
+  // sends the typed text as the first message.
+  async function serverChats(page) {
+    const seen = { created: null, sent: null }
+    await page.route('**/api/chats?limit=1', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
+    await page.route('**/api/chats', async route => {
+      if (route.request().method() === 'POST') {
+        seen.created = route.request().postDataJSON()
+        return route.fulfill({ status: 201, json: { id: 'n1', title: 'New chat', model: seen.created.model, kind: 'chat', created: '2026-10-09T10:00:00Z', updated: '2026-10-09T10:00:00Z', running: false } })
+      }
+      return route.fulfill({ json: { conversations: [], persistent: true, files: true } })
     })
+    await page.route('**/api/chats/n1/messages', route => {
+      if (route.request().method() === 'POST') {
+        seen.sent = route.request().postDataJSON()
+        return route.fulfill({ json: { started: true } })
+      }
+      return route.fulfill({ json: { entries: [] } })
+    })
+    await page.route('**/api/chats/n1', route => route.fulfill({ json: { conversation: { id: 'n1', title: 'New chat', model: 'qwen3-8b-instruct', kind: 'chat' }, pending: [] } }))
+    return seen
+  }
+
+  test('Send opens the chats page and starts the chat with the typed text and the model', async ({ page }) => {
+    const seen = await serverChats(page)
+    await ready(page)
+    await page.locator('.home-textarea').fill('Summarise the release notes')
+    await page.locator('.home-send-btn').click()
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    expect(seen.created.model).toBe('qwen3-8b-instruct')
+    await expect.poll(() => seen.sent?.text).toBe('Summarise the release notes')
   })
 
   test('Enter sends and Shift+Enter adds a line', async ({ page }) => {
+    const seen = await serverChats(page)
     await ready(page)
     const box = page.locator('.home-textarea')
-    await box.fill('first')
+    await box.fill('line one')
     await box.press('Shift+Enter')
-    await box.type('second')
-    await expect(box).toHaveValue('first\nsecond')
+    await box.type('line two')
+    await expect(box).toHaveValue('line one\nline two')
     await box.press('Enter')
-    await expect(page).toHaveURL(/\/app\/chat\//)
-    expect((await page.evaluate(() => window.__handoff)).message).toBe('first\nsecond')
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    await expect.poll(() => seen.sent?.text).toBe('line one\nline two')
   })
 
-  test('the picked model travels with it', async ({ page }) => {
+  test('Send stays off until there is text', async ({ page }) => {
     await ready(page)
-    await page.getByTestId('home-model-chip').click()
-    await page.getByRole('option', { name: /gemma-4-e4b/ }).click()
-    await page.locator('.home-textarea').fill('hello')
-    await page.locator('.home-send-btn').click()
-    await expect(page).toHaveURL(/\/app\/chat\/gemma-4-e4b-it-qat-q4_0/)
-    expect((await page.evaluate(() => window.__handoff)).model).toBe('gemma-4-e4b-it-qat-q4_0')
-  })
-
-  test('attachments travel with it', async ({ page }) => {
-    await ready(page)
-    await page.locator('input[type=file][accept*="pdf"]').setInputFiles({
-      name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('Meeting notes'),
-    })
-    const tag = page.locator('.home-file-tag', { hasText: 'notes.txt' })
-    await expect(tag).toBeVisible()
-    // An attachment alone is enough to send.
-    await expect(page.locator('.home-send-btn')).toBeEnabled()
-    await page.locator('.home-textarea').fill('Summarise')
-    await page.locator('.home-send-btn').click()
-    await expect(page).toHaveURL(/\/app\/chat\//)
-    const handoff = await page.evaluate(() => window.__handoff)
-    expect(handoff.files).toHaveLength(1)
-    expect(handoff.files[0]).toMatchObject({ name: 'notes.txt', textContent: 'Meeting notes' })
-  })
-
-  test('an attachment can be removed before sending', async ({ page }) => {
-    await ready(page)
-    await page.locator('input[type=file][accept*="pdf"]').setInputFiles({
-      name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('x'),
-    })
-    await page.getByRole('button', { name: 'Remove notes.txt' }).click()
-    await expect(page.locator('.home-file-tag')).toHaveCount(0)
     await expect(page.locator('.home-send-btn')).toBeDisabled()
+    await page.locator('.home-textarea').fill('hi')
+    await expect(page.locator('.home-send-btn')).toBeEnabled()
   })
 
-  test('the MCP selection travels with it', async ({ page }) => {
-    await page.route('**/api/models/config-json/qwen3-8b-instruct', route => route.fulfill({
-      json: { name: 'qwen3-8b-instruct', mcp: { remote: 'mcpServers:\n  ordino:\n    url: http://ordino:8080/mcp' } },
-    }))
-    await page.route('**/v1/mcp/servers/qwen3-8b-instruct', route => route.fulfill({
-      json: { model: 'qwen3-8b-instruct', servers: [{ name: 'ordino', type: 'remote', tools: [{ name: 't' }] }] },
-    }))
-    await ready(page)
-    await page.locator('.chat-mcp-dropdown > button').click()
-    await page.getByRole('button', { name: 'Servers', exact: true }).click()
-    await page.locator('.chat-mcp-server-item', { hasText: 'ordino' }).getByRole('checkbox').check()
-    await page.locator('.home-textarea').fill('use the tool')
-    await page.locator('.home-send-btn').click()
-    await expect(page).toHaveURL(/\/app\/chat\//)
-    expect((await page.evaluate(() => window.__handoff)).mcpServers).toEqual(['ordino'])
-  })
-
-  test('the assistant line opens a chat in assistant mode and then steps aside', async ({ page }) => {
-    await ready(page)
-    const tip = page.getByTestId('home-assistant-tip')
-    await expect(tip).toContainText('Manage LocalAI by chatting')
-    await tip.getByRole('button', { name: 'Open assistant' }).click()
-    await expect(page).toHaveURL(/\/app\/chat$/)
-    const handoff = await page.evaluate(() => window.__handoff)
-    expect(handoff).toMatchObject({ localaiAssistant: true, newChat: true })
-  })
-
-  test('the assistant line can be dismissed and stays dismissed', async ({ page }) => {
-    await ready(page)
-    await page.getByTestId('home-assistant-tip').getByRole('button', { name: 'Dismiss' }).click()
-    await expect(page.getByTestId('home-assistant-tip')).toHaveCount(0)
-    await page.reload()
-    await expect(page.locator('.home-greeting')).toBeVisible()
-    await expect(page.getByTestId('home-assistant-tip')).toHaveCount(0)
-    // It moves to the library row.
-    await expect(page.getByTestId('home-library')).toContainText('Manage by chat')
+  test('the old chat address opens the chats page and keeps the model as a hint', async ({ page }) => {
+    await page.route('**/api/chats?limit=1', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
+    await page.goto('/app/chat/qwen3-8b-instruct')
+    await expect(page).toHaveURL(/\/app\/chats\?model=qwen3-8b-instruct$/)
   })
 })
 
@@ -688,44 +508,6 @@ test.describe('Home on a phone', () => {
 
   test.beforeEach(async ({ page }) => {
     await mockHome(page)
-    await seedChats(page)
-  })
-
-  test('nothing scrolls sideways', async ({ page }) => {
-    await ready(page)
-    await expect(page.getByTestId('home-conversation').first()).toBeVisible()
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-    expect(overflow).toBeLessThanOrEqual(0)
-  })
-
-  test('the command bar, strip and resume list fit the width', async ({ page }) => {
-    await ready(page)
-    for (const sel of ['.home-cmd', '.home-strip', '.home-day__card']) {
-      const box = await page.locator(sel).first().boundingBox()
-      expect(box.x).toBeGreaterThanOrEqual(0)
-      expect(box.x + box.width).toBeLessThanOrEqual(390)
-    }
-    // The hints that need a keyboard are hidden.
-    await expect(page.locator('.home-slash-hint')).toBeHidden()
-    await expect(page.locator('.home-resume__keys')).toBeHidden()
-  })
-
-  test('Send stays on the right and the three attach buttons stay', async ({ page }) => {
-    await ready(page)
-    await expect(page.locator('.home-attach-btn')).toHaveCount(3)
-    const send = await page.locator('.home-send-btn').boundingBox()
-    const cmd = await page.locator('.home-cmd').boundingBox()
-    expect(send.x + send.width).toBeGreaterThan(cmd.x + cmd.width - 16)
-  })
-
-  test('a conversation can be deleted without a hover', async ({ page }) => {
-    await ready(page)
-    const row = page.getByTestId('home-conversation').first()
-    const del = row.getByRole('button', { name: /delete conversation/i })
-    await expect(del).toBeVisible()
-    await del.click()
-    await expect(page.getByTestId('home-undo-toast')).toBeVisible()
-    await expect(page.getByTestId('home-conversation')).toHaveCount(4)
   })
 
   test('the slash list stays inside the screen', async ({ page }) => {
@@ -752,7 +534,6 @@ test.describe('Home reduced motion', () => {
   test('rows and menus do not animate', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await mockHome(page)
-    await seedChats(page)
     await ready(page)
     await page.locator('.home-textarea').fill('/')
     const name = await page.locator('.home-slash').evaluate(el => getComputedStyle(el).animationName)

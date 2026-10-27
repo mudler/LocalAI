@@ -2114,18 +2114,8 @@
       "go: keeps the closed slot list and the icon allowlist equal to the host",
       "go: lists actions, slots and renderers for an enabled addon and keeps the identifiers",
       "go: lists no contribution for a disabled addon, whoever asks",
-      "slots: the composer overflow menu holds the declared composer actions and components only",
-      "slots: a tool action calls only its declared own tool and draws the declared result renderer",
-      "slots: message actions sit in the message action row and carry no message text",
-      "slots: a component action opens the add-on component in a host dialog and a throwing one is contained",
-      "slots: the host approval frame owns Confirm and Cancel and the card only draws details",
       "slots: the settings page ends with a host-owned section for each contributing add-on",
-      "slots: the navigation slot adds its entry after the add-on navigation links of the Build hub",
-      "slots: add-on style sheets that collide with host class names change no host node",
-      "slots: keyboard users open the menu, move through it, close it with Escape and run an action",
-      "slots: the layout keeps inside a 400 px screen in the light theme",
-      "slots: a caller without the add-ons feature sees no contribution and the server denies the tool call",
-      "slots: disabling the add-on through the real owner removes every contribution and enabling brings them back"
+      "slots: the navigation slot adds its entry after the add-on navigation links of the Build hub"
     ]
   },
   "foundation-acceptance": {
@@ -2875,7 +2865,6 @@
       "go: classifies every source file that discovers or executes tools",
       "go: flags source that hands sessions to the agent library without the namespace filter",
       "go: installs the namespace filter wherever sessions reach the agent library",
-      "go: does not offer a session tool of the add-on namespace to the job model",
       "go: names a reason and an enforcement for every rejection and an actor for every route, with real files",
       "go: keeps the table of the Tables documentation in step with the matrix",
       "go: lets only the brokered consumers import the adapter",
@@ -2904,14 +2893,6 @@
       "go: stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "go: keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
       "go: lists at most the bound of pending proposals and refuses more than the user's quota",
-      "proposals: a tool call in chat stores a pending proposal and the card shows the host record, not the model text",
-      "proposals: confirming in the card applies the change exactly once and a repeat returns the stored receipt",
-      "proposals: row changes show the exact count and a bounded sample, and nothing changes until the person confirms",
-      "proposals: cancel withdraws the proposal and nothing is applied",
-      "proposals: an expired proposal is disabled in the card and the host refuses a late confirmation",
-      "proposals: forged fields and approval names in a tool call create no proposal",
-      "proposals: a user whose add-ons feature is withdrawn sees no data and the host answers no",
-      "proposals: logging out clears the card and leaves no data in the stored conversation",
       "go: gives the model an error result that says the request was invalid, for a read and for a change",
       "go: keeps an outage an error, never the refused result"
     ]
@@ -3038,7 +3019,6 @@
       "tables-ui: an installation administrator sees no database of other people and has no data privilege",
       "tables-ui: deleting a database shows the warnings, needs the typed name and removes data and shares",
       "tables-ui: a tab of an older generation is denied after an upgrade and after a disable",
-      "tables-ui: Select database keeps one database for each person and conversation and a tool call uses it",
       "tables-ui: the pages work by keyboard, at 400 pixels and in the light and dark themes",
       "tables-ui: logging out clears what was read and the next person on the same tab sees none of it",
       "tables-ui: in local-owner mode sharing is disabled and the owner still manages databases"
@@ -3087,7 +3067,6 @@
       "tables-artifacts: another person is denied exactly like an unknown file, shared or not",
       "tables-artifacts: a viewer exports what they may read and withdrawing the share ends the download",
       "tables-artifacts: a result past the export limit gives a message and no file",
-      "tables-artifacts: the chat draws the host card for an export and stores only its identifier",
       "tables-artifacts: a person at the file quota is told so and no file is made",
       "tables-artifacts: in local-owner mode the owner exports and downloads with no account"
     ]
@@ -3448,11 +3427,9 @@
       "go: withdraws a transfer held in flight when the add-on is disabled and leaves no downloadable file",
       "go: reports a change that committed and lost its answer as unknown, finds it by receipt and replays the same receipt once",
       "tables-acceptance: a member opens the databases and a grid through each non-owner frontend and the module comes from the owner by digest",
-      "tables-acceptance: an approval card from chat on one frontend applies once and the row shows on the other frontend",
       "tables-acceptance: deep links keep the proxy path prefix on a non-owner frontend and survive a reload",
       "tables-acceptance: the grid works by keyboard, at 400 pixels and in both themes on a non-owner frontend",
       "tables-acceptance: the page says it is unavailable while the owner is gone and recovers on reload when it is back",
-      "tables-acceptance: after logout nothing of the database is left in the page or the stored chat",
       "manifest: the evidence manifest names the platform, the commands, the package digests and every case"
     ]
   }

@@ -26,8 +26,8 @@ test.describe('404', () => {
 
   test('the links go where they say', async ({ page }) => {
     await page.goto('/app/no-such-page')
-    await page.getByTestId('not-found').getByRole('link', { name: 'Chat' }).click()
-    await expect(page).toHaveURL(/\/app\/chat$/)
+    await page.getByTestId('not-found').getByRole('link', { name: 'Chats' }).click()
+    await expect(page).toHaveURL(/\/app\/chats$/)
     await page.goto('/app/no-such-page')
     await page.getByTestId('not-found').getByRole('link', { name: 'Go home' }).click()
     await expect(page).toHaveURL(/\/app\/?$/)
@@ -37,7 +37,7 @@ test.describe('404', () => {
     await mockAccess(page, { status: 'member' })
     await page.goto('/app/no-such-page')
     const places = page.getByTestId('not-found').getByRole('navigation', { name: 'Where to go' })
-    await expect(places.getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(places.getByRole('link', { name: 'Home' })).toBeVisible()
     await expect(places.getByRole('link', { name: 'Models' })).toHaveCount(0)
     await expect(places.getByRole('link', { name: 'Operate' })).toHaveCount(0)
   })

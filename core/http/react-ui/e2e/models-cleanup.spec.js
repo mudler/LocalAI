@@ -149,7 +149,7 @@ test.describe('Cleanup sheet - what it knows and what it does not', () => {
 
   test('the first look shows skeleton rows while the facts are read', async ({ page }) => {
     await mockLedger(page)
-    await page.route('**/api/agents*', async (route) => {
+    await page.route('**/api/chats/agents', async (route) => {
       await new Promise((r) => setTimeout(r, 1500))
       return route.fulfill({ json: { agents: [] } })
     })
@@ -315,8 +315,8 @@ test.describe('Cleanup sheet - removal with an undo window', () => {
   test('leaving the page during the window deletes nothing and says so', async ({ page }) => {
     const state = await removeSafe(page)
     await page.keyboard.press('Escape')
-    await page.getByRole('link', { name: 'Chat', exact: true }).first().click()
-    await expect(page).toHaveURL(/\/app\/chat/)
+    await page.getByRole('link', { name: 'Chats', exact: true }).first().click()
+    await expect(page).toHaveURL(/\/app\/chats/)
     await expect(page.getByText('You left the page, so 1 model was not deleted.')).toBeVisible()
     await page.clock.fastForward(120_000)
     expect(state.deletes).toHaveLength(0)

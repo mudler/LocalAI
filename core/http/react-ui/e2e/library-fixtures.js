@@ -1,7 +1,6 @@
-// Shared fixtures for the Skills and Memory specs: stubbed API routes for
-// skills, git repositories, collections and the agents that use them. The
-// stubs keep the agent configs in memory, so a save changes what the next
-// read returns, as the real server does.
+// Shared fixtures for the Memory specs: stubbed API routes for the skills, the
+// collections and the saved agents that use them. The stubs keep the agents in
+// memory, so a save changes what the next read returns, as the real server does.
 
 export const SKILLS = [
   { name: 'summarise-pdf', description: 'Summarise a PDF into a short brief with page references.', content: 'Read the file the user attached. Write five lines, each with a page number.\n'.repeat(6), license: 'MIT', readOnly: false },
@@ -11,23 +10,13 @@ export const SKILLS = [
   { name: 'weekly-digest', description: 'Collect the week into a digest.', content: 'Collect what changed.\n'.repeat(2), readOnly: true },
 ]
 
-export const AGENT_CONFIGS = {
-  'research-assistant': {
-    name: 'research-assistant', model: 'qwen3-14b-instruct', system_prompt: 'You are a careful research assistant. Search first, read two sources, then summarise.',
-    enable_skills: true, selected_skills: ['summarise-pdf', 'query-database'], enable_kb: false, skills_mode: 'prompt',
-  },
-  handbook: {
-    name: 'handbook', model: 'qwen3-8b-instruct', system_prompt: 'You answer questions about staff policies.',
-    enable_skills: true, selected_skills: ['summarise-pdf'], enable_kb: true, kb_mode: 'auto_search', kb_results: 3,
-  },
-  'support-desk': {
-    name: 'support-desk', model: 'qwen3-8b-instruct', system_prompt: 'You help customers.',
-    enable_skills: true, selected_skills: ['triage-issue'], enable_kb: false, skills_mode: 'tools',
-  },
-  'idle-agent': {
-    name: 'idle-agent', model: 'qwen3-8b-instruct', system_prompt: 'Idle.', enable_skills: false, enable_kb: false,
-  },
-}
+// Saved agents of the chats: exact lists of the skills and collections each may use.
+export const AGENTS = [
+  { id: 'a1', name: 'research-assistant', description: '', instructions: 'You are a careful research assistant. Search first, read two sources, then summarise.', model: 'qwen3-14b-instruct', mcp_servers: [], addons: [], collections: [], skills: ['summarise-pdf', 'query-database'] },
+  { id: 'a2', name: 'handbook', description: '', instructions: 'You answer questions about staff policies.', model: 'qwen3-8b-instruct', mcp_servers: [], addons: [], collections: ['handbook'], skills: ['summarise-pdf'] },
+  { id: 'a3', name: 'support-desk', description: '', instructions: 'You help customers.', model: 'qwen3-8b-instruct', mcp_servers: [], addons: [], collections: [], skills: ['triage-issue'] },
+  { id: 'a4', name: 'idle-agent', description: '', instructions: 'Idle.', model: 'qwen3-8b-instruct', mcp_servers: [], addons: [], collections: [], skills: [] },
+]
 
 export const COLLECTIONS = ['handbook', 'release-notes', 'meeting-notes']
 
@@ -37,85 +26,45 @@ export const PASSAGES = [
   { content: 'If the VPN drops every few minutes, switch the protocol to TCP in the client settings.', similarity: 0.51, metadata: { filename: 'vpn-setup.md' } },
 ]
 
-const META = {
-  Fields: [
-    { name: 'name', label: 'Name', type: 'text', required: true, tags: { section: 'BasicInfo' } },
-    { name: 'model', label: 'Model', type: 'text', required: true, tags: { section: 'ModelSettings' } },
-    { name: 'enable_kb', label: 'Knowledge base', type: 'checkbox', tags: { section: 'MemorySettings' } },
-    { name: 'system_prompt', label: 'System prompt', type: 'textarea', tags: { section: 'PromptsGoals' } },
-    { name: 'enable_skills', label: 'Skills', type: 'checkbox', tags: { section: 'AdvancedSettings' } },
-    { name: 'skills_mode', label: 'Skills mode', type: 'text', tags: { section: 'AdvancedSettings' } },
-  ],
-  Connectors: [], Actions: [], Filters: [], DynamicPrompts: [],
-}
-
 const clone = value => JSON.parse(JSON.stringify(value))
 
 // Stub every endpoint the two pages read or write. Returns what the page sent
 // and the live state, so a spec can assert on both.
 export async function mockLibrary(page, {
   skills = SKILLS,
-  agents = AGENT_CONFIGS,
+  agents = AGENTS,
   collections = COLLECTIONS,
   entries = { handbook: ['employee-handbook.pdf', 'vpn-setup.md'] },
   sources = { handbook: [{ url: 'https://docs.example.org/guide', update_interval: 60, last_update: '2026-10-05T09:30:00Z' }] },
   passages = PASSAGES,
   uploadError = null,
-  skillsStatus = 200,
   agentsStatus = 200,
-  repos = [],
-  resources = { scripts: [{ path: 'scripts/extract.py', size: 1200 }], references: [{ path: 'references/style.md', size: 300 }], assets: [] },
-  features = { distributed: false, localai_assistant: true, agents: true, skills: true, collections: true, mcp: true },
+  features = { distributed: false, localai_assistant: true, collections: true, mcp: true },
 } = {}) {
-  const state = { agents: clone(agents), collections: [...collections], entries: clone(entries), sources: clone(sources), repos: clone(repos) }
-  const seen = { saves: [], searches: [], uploads: [], sourcePosts: [], creates: [], resets: [], imports: 0 }
+  const state = { agents: clone(agents), collections: [...collections], entries: clone(entries), sources: clone(sources) }
+  const seen = { saves: [], searches: [], uploads: [], sourcePosts: [], creates: [], resets: [] }
   const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
 
   await page.route('**/api/features', route => json(route, features))
-  await page.route('**/api/agents/config/metadata', route => json(route, META))
 
-  // Agents: list, config and save.
-  await page.route(/\/api\/agents(\?.*)?$/, route => {
+  // Saved agents of the chats: list and save.
+  await page.route('**/api/chats/agents', route => {
     if (agentsStatus !== 200) return json(route, { error: 'boom' }, agentsStatus)
-    return json(route, { agents: Object.keys(state.agents), statuses: Object.fromEntries(Object.keys(state.agents).map(n => [n, true])) })
+    return json(route, { agents: state.agents })
   })
-  await page.route(/\/api\/agents\/[^/?]+\/config(\?.*)?$/, route => {
-    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[3])
-    return state.agents[name] ? json(route, state.agents[name]) : json(route, { error: 'Agent not found' }, 404)
-  })
-  await page.route(/\/api\/agents\/[^/?]+(\?.*)?$/, async route => {
-    const url = new URL(route.request().url())
-    const name = decodeURIComponent(url.pathname.split('/')[3])
-    if (['skills', 'collections', 'git-repos', 'config', 'import', 'actions'].includes(name)) return route.fallback()
-    if (route.request().method() === 'PUT') {
-      const body = route.request().postDataJSON()
-      seen.saves.push({ name, body })
-      state.agents[name] = body
-      return json(route, { status: 'ok' })
-    }
-    return state.agents[name] ? json(route, { active: true }) : json(route, { error: 'Agent not found' }, 404)
+  await page.route(/\/api\/chats\/agents\/[^/?]+$/, route => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[4])
+    if (route.request().method() !== 'PUT') return route.fallback()
+    const body = route.request().postDataJSON()
+    seen.saves.push({ name: body.name, body })
+    state.agents = state.agents.map(a => (a.id === id ? { ...a, ...body, id } : a))
+    return json(route, state.agents.find(a => a.id === id))
   })
 
-  // Skills.
-  await page.route(/\/api\/agents\/skills(\?.*)?$/, route => {
-    if (skillsStatus !== 200) return json(route, { error: 'skills unavailable' }, skillsStatus)
-    return json(route, { skills })
-  })
-  await page.route('**/api/agents/skills/search?**', route => {
-    const q = (new URL(route.request().url()).searchParams.get('q') || '').toLowerCase()
-    return json(route, skills.filter(s => s.name.includes(q) || (s.description || '').toLowerCase().includes(q)))
-  })
-  await page.route(/\/api\/agents\/skills\/[^/]+\/resources(\?.*)?$/, route => json(route, { ...resources, readOnly: false }))
-  await page.route('**/api/agents/skills/import', route => { seen.imports += 1; return json(route, { status: 'ok' }) })
-  await page.route(/\/api\/agents\/git-repos(\/.*)?(\?.*)?$/, route => {
-    const req = route.request()
-    if (req.method() === 'POST' && !req.url().includes('/sync') && !req.url().includes('/toggle')) {
-      const body = req.postDataJSON()
-      state.repos.push({ id: `r${state.repos.length + 1}`, url: body.url, name: body.url.split('/').pop(), enabled: true })
-      return json(route, { status: 'ok' })
-    }
-    return json(route, req.method() === 'GET' ? state.repos : { status: 'ok' })
-  })
+  // Skills of the chats.
+  await page.route(/\/api\/chats\/skills(\?.*)?$/, route => json(route, {
+    skills: skills.map(sk => ({ name: sk.name, description: sk.description, layer: 'personal', path: `/skills/${sk.name}`, enabled: true, shadowed: '', invalid: '' })),
+  }))
 
   // Collections.
   await page.route(/\/api\/agents\/collections(\?.*)?$/, route => {

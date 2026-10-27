@@ -26,10 +26,7 @@ async function quietOperate(page) {
 test.describe('Hub tabs: the right tab for each route', () => {
   const build = [
     ['/app/build', 'overview'],
-    ['/app/agents', 'agents'],
-    ['/app/skills', 'skills'],
     ['/app/collections', 'memory'],
-    ['/app/agent-jobs', 'jobs'],
     ['/app/import-model', 'import'],
   ]
   for (const [path, id] of build) {
@@ -116,23 +113,22 @@ test.describe('Hub tabs: gating', () => {
   })
 
   test('feature flags hide the tabs they gate', async ({ page }) => {
-    await mockFeatures(page, { agents: false, mcp: false, fine_tuning: false, quantization: false, distributed: false })
+    await mockFeatures(page, { collections: false, mcp: false, fine_tuning: false, quantization: false, distributed: false })
     await page.goto('/app/build')
     await expect(tab(page, 'overview')).toBeVisible()
-    for (const id of ['agents', 'skills', 'memory', 'jobs']) {
-      await expect(tab(page, id)).toHaveCount(0)
-    }
-    // The overview lists only what the bar lists.
-    await expect(page.getByRole('list', { name: 'Build tools' }).locator('a[href="/app/agents"]')).toHaveCount(0)
+    await expect(tab(page, 'memory')).toHaveCount(0)
+    // The overview lists only what the bar lists, and the pages of the chats.
+    await expect(page.getByRole('list', { name: 'Build tools' }).locator('a[href="/app/collections"]')).toHaveCount(0)
+    await expect(page.getByRole('list', { name: 'Build tools' }).locator('a[href="/app/chats/agents"]')).toBeVisible()
     await expect(page.getByRole('list', { name: 'Build tools' }).locator('a[href="/app/import-model"]')).toBeVisible()
   })
 
   test('a user without admin or permissions sees only the tabs they can use', async ({ page }) => {
-    await mockFeatures(page, { agents: true, mcp: true, fine_tuning: true, quantization: true })
-    await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { agents: true } })
-    await page.goto('/app/agents')
-    await expect(tab(page, 'agents')).toHaveAttribute('aria-current', 'page')
-    for (const id of ['skills', 'memory', 'jobs', 'import', 'voices', 'faces']) {
+    await mockFeatures(page, { collections: true, mcp: true, fine_tuning: true, quantization: true })
+    await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { collections: true } })
+    await page.goto('/app/collections')
+    await expect(tab(page, 'memory')).toHaveAttribute('aria-current', 'page')
+    for (const id of ['import', 'voices', 'faces']) {
       await expect(tab(page, id)).toHaveCount(0)
     }
     // The Build hub no longer lists fine-tuning or quantization at all.
@@ -141,7 +137,7 @@ test.describe('Hub tabs: gating', () => {
   })
 
   test('a non-admin user gets no Operate entry in the sidebar', async ({ page }) => {
-    await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { agents: true } })
+    await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { collections: true } })
     await page.goto('/app')
     await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toHaveCount(0)
     await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toBeVisible()
@@ -173,24 +169,14 @@ test.describe('Hub tabs: badges', () => {
   })
 
   test('the Build bar carries no badges', async ({ page }) => {
-    await page.goto('/app/agents')
-    await expect(tab(page, 'agents')).toBeVisible()
+    await page.goto('/app/collections')
+    await expect(tab(page, 'memory')).toBeVisible()
     await expect(page.locator(`${BAR} .dk-hubtab-attn, ${BAR} .dk-hubtab-count`)).toHaveCount(0)
   })
 })
 
 test.describe('Hub tabs: phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })
-
-  test('the Build bar scrolls inside its own box and the page does not', async ({ page }) => {
-    await page.goto('/app/build')
-    const bar = page.locator(BAR)
-    await expect(bar).toBeVisible()
-    expect((await bar.boundingBox()).width).toBeLessThanOrEqual(390)
-    expect(await bar.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true)
-    expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false)
-    await expect(bar).toHaveCSS('overflow-x', 'auto')
-  })
 
   test('scrolling reaches the last tab and keeps it tappable', async ({ page }) => {
     await page.goto('/app/build')

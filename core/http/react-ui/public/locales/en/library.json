@@ -30,7 +30,7 @@
     "estimate": "Estimates use characters divided by four.",
     "toolsMode": "Loaded when the model asks for it",
     "tokens": "+{{count}} tokens per message (estimate)",
-    "collectionNote": "An agent reads the collection that has its own name.",
+    "collectionNote": "An agent can search the collections on its list.",
     "kbOn": "Turns its knowledge base on",
     "noAgentNamed": "No agent is named {{name}}. Create an agent with that name to use this collection.",
     "close": "Close"
@@ -86,7 +86,7 @@
     "skillTokens": "{{count}} tokens",
     "skillTokensTools": "0 up front",
     "memoryTitle": "Memory that would be sent",
-    "memoryNone": "This agent has no knowledge base. Turn it on in the agent to use a collection.",
+    "memoryNone": "No collection is on this agent's list. Add one to the agent to use it.",
     "memoryNoCollection": "This agent's knowledge base is on, but no collection named {{name}} exists yet.",
     "memoryTools": "This agent searches only when the model asks. Nothing is added to the message up front.",
     "memoryTesting": "Collection {{name}}, only for this test",

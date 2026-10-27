@@ -68,7 +68,8 @@
     "prometheus": "Prometheus",
     "addons": "Add-ons",
     "chats": "Chats",
-    "files": "Files"
+    "files": "Files",
+    "triggers": "Triggers"
   },
   "footer": {
     "github": "GitHub",
@@ -92,16 +93,16 @@
     "overviewEmpty": "No build tools are available to your account.",
     "toolsLabel": "Build tools",
     "descriptions": {
-      "agents": "Create and run agents that use your models and tools.",
-      "skills": "Reusable instructions that agents can load on demand.",
+      "agents": "Saved agents: instructions and the tools, add-ons, collections and skills a chat may use.",
+      "skills": "Reusable instructions that a chat can load when a task matches.",
       "memory": "Document collections that agents can search.",
-      "jobs": "Scheduled and one-off tasks that agents run for you.",
       "fineTune": "Train a model on your own data.",
       "quantize": "Shrink a model to run on smaller hardware.",
       "import": "Add a model from a file, a URL or a Hugging Face repository.",
       "voices": "Identify speakers and keep a library of voice profiles.",
       "faces": "Detect, compare and match faces.",
-      "addons": "Install, turn on and open add-ons."
+      "addons": "Install, turn on and open add-ons.",
+      "triggers": "Start a chat by itself, on a schedule or when a file arrives."
     }
   }
 }

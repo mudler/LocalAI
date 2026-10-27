@@ -31,7 +31,7 @@ test.describe('Add-on navigation', () => {
     await setup(page)
     await page.goto('/app')
     const nav = page.getByRole('navigation')
-    await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Home' })).toBeVisible()
     // Apps, then the pinned apps in pin order; Apps is the only add-on entry.
     await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
     const pinned = nav.getByTestId('apps-pinned-link')
@@ -329,7 +329,7 @@ test.describe('Add-on navigation', () => {
     await page.goto('/app')
     await expect(page.getByTestId('apps-show-all')).toHaveCount(0)
     // Home, Models and Chat head the old sidebar; Studio and Talk are add-ons and are not in it.
-    await expect(page.getByRole('navigation').getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Home' })).toBeVisible()
     await expect(page.getByRole('navigation').getByRole('link', { name: 'Studio' })).toHaveCount(0)
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
   })
@@ -988,7 +988,7 @@ test.describe('Add-on navigation: the addons feature gate', () => {
     await setup(page, { features: OFF, user: ADMIN })
     await page.goto('/app')
     const nav = page.getByRole('navigation')
-    await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Home' })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(0)
     await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
     await expect(nav.getByRole('link', { name: /Fine-?tun/i })).toHaveCount(0)
@@ -1015,7 +1015,7 @@ test.describe('Add-on navigation: the addons feature gate', () => {
       await setup(page, { features: OFF, user: ADMIN })
       await page.goto(address)
       await expect(page).toHaveURL(/\/app\/?$/)
-      await expect(page.getByRole('navigation').getByRole('link', { name: 'Chat' })).toBeVisible()
+      await expect(page.getByRole('navigation').getByRole('link', { name: 'Home' })).toBeVisible()
       expect(calls).toEqual([])
     })
   }

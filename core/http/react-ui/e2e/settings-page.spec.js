@@ -18,7 +18,7 @@ test.describe('Settings: groups and search', () => {
     const names = await page.locator('.st-group .st-group__label').allTextContents()
     expect(names).toEqual([
       'Memory and models', 'Speed and defaults', 'Backends and galleries', 'Access and security',
-      'Debugging and traces', 'Agents and responses', 'Swarm and sharing', 'Look and feel',
+      'Debugging and traces', 'Chats and collections', 'Swarm and sharing', 'Look and feel',
     ])
     await expect(page.locator('.st-group[aria-current="true"]')).toHaveText(/Memory and models/)
     await expect(page.getByRole('heading', { level: 2, name: /Memory and models/ })).toBeVisible()
@@ -131,9 +131,9 @@ test.describe('Settings: defaults and hints', () => {
   test('says when a setting applies only where the server says so', async ({ page }) => {
     await expect(row(page, 'watchdog_idle_timeout')).toContainText('Applies now')
     await expect(row(page, 'max_active_backends')).toContainText('Applies now')
-    await group(page, 'Agents and responses').click()
-    await expect(row(page, 'agent_pool_enable_logs')).toContainText('Needs restart')
-    await expect(row(page, 'agent_job_retention_days')).toContainText('Applies now')
+    await group(page, 'Chats and collections').click()
+    await expect(row(page, 'agent_pool_enabled')).toContainText('Needs restart')
+    await expect(row(page, 'chats_vision_model')).toContainText('Applies now')
     await group(page, 'Speed and defaults').click()
     await expect(row(page, 'threads')).not.toContainText('Applies now')
     await expect(row(page, 'threads')).not.toContainText('Needs restart')
@@ -197,12 +197,12 @@ test.describe('Settings: pending, diff, apply, discard and undo', () => {
   })
 
   test('a restart-only change is counted and warned about', async ({ page }) => {
-    await group(page, 'Agents and responses').click()
-    await sw(page, 'agent_pool_enable_logs').click()
+    await group(page, 'Chats and collections').click()
+    await sw(page, 'agent_pool_enabled').click()
     await expect(page.getByTestId('settings-pending')).toContainText('1 pending')
     await expect(page.getByTestId('settings-pending')).toContainText('1 needs a restart')
     await page.getByRole('button', { name: 'Show diff' }).click()
-    await expect(page.getByLabel('Checks')).toContainText('Restart LocalAI for Agent logs')
+    await expect(page.getByLabel('Checks')).toContainText('Restart LocalAI for Collections')
   })
 
   test('apply sends only the changed keys, then offers undo', async ({ page }) => {

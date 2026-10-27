@@ -476,7 +476,7 @@ test.describe('Model page - an installed model', () => {
     await expect(used).toContainText('Agent')
     await expect(used).toContainText('default-chat')
     await expect(used).toContainText('Alias')
-    await expect(used.getByRole('link', { name: 'research-helper' })).toHaveAttribute('href', '/app/agents/research-helper/edit')
+    await expect(used.getByRole('link', { name: 'research-helper' })).toHaveAttribute('href', '/app/chats/agents')
   })
 
   test('a model nothing uses says so', async ({ page }) => {

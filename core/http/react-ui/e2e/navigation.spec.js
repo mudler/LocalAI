@@ -21,11 +21,11 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('the sidebar has Chat, Models and Add-ons, no Settings and no Create tier', async ({ page }) => {
+  test('the sidebar has Chats, Models and Add-ons, no Settings and no Create tier', async ({ page }) => {
     await stubAddonRoutes(page)
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
-    for (const href of ['/app/chat', '/app/models', '/app/addons']) {
+    for (const href of ['/app/chats', '/app/models', '/app/addons']) {
       await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`).first()).toBeVisible()
     }
     // Settings lives under the Operate hub, not in the sidebar.
@@ -71,15 +71,17 @@ test.describe('Navigation', () => {
   })
 
   test('Build hub lists its tools as tabs', async ({ page }) => {
-    await page.goto('/app/agents')
+    await page.goto('/app/collections')
     const bar = page.locator('.dk-hubtabs')
     await expect(bar).toBeVisible()
-    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'import']) {
+    for (const id of ['overview', 'memory', 'import']) {
       await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
     }
+    // The agents, triggers and skills are pages of the chats, not tabs.
+    await expect(bar.locator('[data-hub-tab="agents"], [data-hub-tab="skills"], [data-hub-tab="jobs"], [data-hub-tab="triggers"]')).toHaveCount(0)
     await expect(bar.locator('[data-hub-tab="fine-tune"], [data-hub-tab="quantize"]')).toHaveCount(0)
     await expect(bar.locator('[data-hub-tab="faces"]')).toHaveCount(0)
-    await expect(bar.locator('[data-hub-tab="agents"]')).toHaveAttribute('aria-current', 'page')
+    await expect(bar.locator('[data-hub-tab="memory"]')).toHaveAttribute('aria-current', 'page')
   })
 
   test('the Build overview lists the tools with a line each', async ({ page }) => {
@@ -92,7 +94,9 @@ test.describe('Navigation', () => {
     const list = page.getByRole('list', { name: 'Build tools' })
     // Each tool is a row with its sentence and an Open link.
     const row = (path) => list.locator('li.bt-tool', { has: page.locator(`a[href="${path}"]`) })
-    await expect(row('/app/agents')).toContainText('Create and run agents')
+    await expect(row('/app/chats/agents')).toContainText('Saved agents')
+    await expect(list.locator('a[href="/app/chats/triggers"]')).toBeVisible()
+    await expect(list.locator('a[href="/app/chats/skills"]')).toBeVisible()
     await expect(list.locator('a[href="/app/fine-tune"]')).toBeVisible()
   })
 

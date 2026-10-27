@@ -132,7 +132,7 @@ test.describe('Operate overview', () => {
       route.fulfill({ json: NO_UPGRADES })
     })
     await page.route('**/api/operations', route => route.fulfill({ json: [] }))
-    await page.goto('/app/chat')
+    await page.goto('/app/chats')
     await expect(page.locator('.sidebar')).toBeVisible()
     await page.waitForTimeout(1500)
     // Nobody asked for this data outside Operate; a dashboard-shaped poll on

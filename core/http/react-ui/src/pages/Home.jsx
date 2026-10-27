@@ -23,7 +23,7 @@ import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { useAddonPage } from '../addons/useAddonPage'
-import { backendControlApi, chatsApi, systemApi, nodesApi } from '../utils/api'
+import { backendControlApi, chatsApi, modelsApi, systemApi, nodesApi } from '../utils/api'
 import { greetingKey } from '../utils/greeting'
 import { resumeItems } from '../utils/homeConversations'
 // eslint-disable-next-line no-unused-vars

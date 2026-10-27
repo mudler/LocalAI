@@ -5,7 +5,7 @@ import { mockLibrary } from './library-fixtures.js'
 // on the collection alone, and what the API reports about sources and files.
 
 test.describe('Memory library', () => {
-  test('a collection is used by the agent that carries its name, and otherwise by nobody', async ({ page }) => {
+  test('a collection is used by the agents that list it, and otherwise by nobody', async ({ page }) => {
     await mockLibrary(page)
     await page.goto('/app/collections')
     await expect(page.getByTestId('collection-used-handbook')).toHaveText('Used by handbook')
@@ -16,7 +16,7 @@ test.describe('Memory library', () => {
     }
   })
 
-  test('an agent with the knowledge base off does not use its collection', async ({ page }) => {
+  test('an agent that does not list a collection does not use it', async ({ page }) => {
     await mockLibrary(page, { collections: ['idle-agent'] })
     await page.goto('/app/collections')
     await expect(page.getByTestId('collection-used-idle-agent')).toHaveText('Not used yet')
@@ -138,37 +138,38 @@ test.describe('Memory library', () => {
     await expect(dialog).toHaveCount(0)
   })
 
-  test('Add to... offers only the agent that carries the collection name', async ({ page }) => {
-    const { seen } = await mockLibrary(page, { collections: ['idle-agent', 'release-notes'] })
-    await page.goto('/app/collections/idle-agent')
-    await page.getByTestId('add-to-button').click()
-    const menu = page.getByTestId('add-to-menu')
-    await expect(menu).toContainText('An agent reads the collection that has its own name')
-    await expect(menu.getByTestId('add-to-idle-agent')).toContainText('Turns its knowledge base on')
-    await expect(menu.locator('[data-testid^="add-to-"][data-testid$="research-assistant"]')).toHaveCount(0)
-    await menu.getByRole('button', { name: 'Add to idle-agent' }).click()
-    await expect.poll(() => seen.saves.length).toBe(1)
-    expect(seen.saves[0].body).toMatchObject({ name: 'idle-agent', enable_kb: true })
-    await expect(page.getByTestId('collection-used-idle-agent')).toHaveText('Used by idle-agent')
-  })
-
-  test('with no agent of that name Add to... says how a collection gets used', async ({ page }) => {
-    await mockLibrary(page)
+  test('Add to... offers every saved agent and adds the collection to its list', async ({ page }) => {
+    const { seen } = await mockLibrary(page)
     await page.goto('/app/collections/release-notes')
     await page.getByTestId('add-to-button').click()
-    await expect(page.getByTestId('add-to-menu')).toContainText('No agent is named release-notes')
+    const menu = page.getByTestId('add-to-menu')
+    await expect(menu).toContainText('An agent can search the collections on its list')
+    for (const name of ['research-assistant', 'handbook', 'support-desk', 'idle-agent']) {
+      await expect(menu.getByTestId(`add-to-${name}`)).toBeVisible()
+    }
+    await menu.getByRole('button', { name: 'Add to idle-agent' }).click()
+    await expect.poll(() => seen.saves.length).toBe(1)
+    expect(seen.saves[0].body).toMatchObject({ name: 'idle-agent', collections: ['release-notes'] })
+    await expect(page.getByTestId('collection-used-release-notes')).toHaveText('Used by idle-agent')
   })
 
-  test('removing a collection from an agent turns its knowledge base off, and Undo restores it', async ({ page }) => {
+  test('with no saved agent Add to... says how a collection gets used', async ({ page }) => {
+    await mockLibrary(page, { agents: [] })
+    await page.goto('/app/collections/release-notes')
+    await page.getByTestId('add-to-button').click()
+    await expect(page.getByTestId('add-to-menu')).toContainText('No agents yet')
+  })
+
+  test('removing a collection from an agent takes it off the list, and Undo restores it', async ({ page }) => {
     const { seen } = await mockLibrary(page)
     await page.goto('/app/collections/handbook')
     await page.getByRole('button', { name: 'Remove from handbook' }).click()
     await expect.poll(() => seen.saves.length).toBe(1)
-    expect(seen.saves[0].body).toMatchObject({ name: 'handbook', enable_kb: false })
+    expect(seen.saves[0].body).toMatchObject({ name: 'handbook', collections: [] })
     await expect(page.getByTestId('collection-used-handbook')).toHaveText('Not used yet')
     await page.getByTestId('library-undo-toast').getByRole('button', { name: 'Undo' }).click()
     await expect.poll(() => seen.saves.length).toBe(2)
-    expect(seen.saves[1].body).toMatchObject({ name: 'handbook', enable_kb: true })
+    expect(seen.saves[1].body).toMatchObject({ name: 'handbook', collections: ['handbook'] })
   })
 
   test('the disclosure names the endpoints and says where files stay', async ({ page }) => {

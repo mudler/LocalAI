@@ -25,7 +25,8 @@ test.describe('Build landing', () => {
     await expect(tool(page, 'import')).toContainText('Bring in a model from Hugging Face')
     await expect(tool(page, 'quantize')).toContainText('Make a model smaller')
     await expect(tool(page, 'fine-tune')).toContainText('Teach a model your own data')
-    await expect(tool(page, 'agents')).toContainText('Create and run agents')
+    await expect(tool(page, 'agents')).toContainText('Saved agents')
+    await expect(tool(page, 'triggers')).toContainText('on a schedule')
     // The flow strip names the make-a-model steps in order.
     await expect(page.getByRole('list', { name: /path from a model/i }).locator('li')).toHaveText(['Import', 'Quantize', 'Fine-Tune', 'Chat'])
   })
@@ -103,11 +104,12 @@ test.describe('Build landing', () => {
   })
 
   test('a tool switched off by a feature flag is left out', async ({ page }) => {
-    await setup(page, { features: { agents: false, mcp: false, fine_tuning: false, quantization: true, distributed: false } })
+    await setup(page, { features: { collections: false, mcp: false, fine_tuning: false, quantization: true, distributed: false } })
     await page.goto('/app/build')
     await expect(tool(page, 'fine-tune')).toHaveCount(0)
     await expect(tool(page, 'quantize')).toBeVisible()
-    await expect(tool(page, 'agents')).toHaveCount(0)
+    await expect(tool(page, 'memory')).toHaveCount(0)
+    await expect(tool(page, 'agents')).toBeVisible()
     await expect(page.getByRole('list', { name: 'Build tools' }).locator('a[href="/app/import-model"]')).toBeVisible()
   })
 

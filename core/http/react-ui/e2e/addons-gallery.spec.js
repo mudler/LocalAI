@@ -252,7 +252,7 @@ test.describe('Add-ons: apps', () => {
     await expect.poll(() => state.log.appsList).toBe(4)
     await expect(page.getByText('may be out of date')).toHaveCount(0)
     // Leaving the page stops the requests.
-    await page.evaluate(() => { window.history.pushState({}, '', '/app/chat'); window.dispatchEvent(new PopStateEvent('popstate')) })
+    await page.evaluate(() => { window.history.pushState({}, '', '/app/chats'); window.dispatchEvent(new PopStateEvent('popstate')) })
     await expect(page.locator('[data-app="notes"]')).toHaveCount(0)
     const seen = state.log.appsList
     await page.clock.runFor(180_000)
@@ -261,7 +261,7 @@ test.describe('Add-ons: apps', () => {
 })
 
 test.describe('Add-ons: registry polling', () => {
-  const leave = (page) => page.evaluate(() => { window.history.pushState({}, '', '/app/chat'); window.dispatchEvent(new PopStateEvent('popstate')) })
+  const leave = (page) => page.evaluate(() => { window.history.pushState({}, '', '/app/chats'); window.dispatchEvent(new PopStateEvent('popstate')) })
   const contributing = (over = {}) => app({ ui: { entry: '/api/addons/notes/assets/' + 'c'.repeat(64) + '/ui.js', css: [], sdk: { min: 1, max: 2 }, pages: ['home'], navigation: ['home'] }, ...over })
 
   test('apps: an add-on that contributes UI keeps the list current off the page and its disable stops the reads', async ({ page }) => {
@@ -302,7 +302,7 @@ test.describe('Add-ons: registry polling', () => {
     await signIn(page, MEMBER, {})
     await page.clock.install()
     const state = await mockAddons(page, { apps: [contributing()] })
-    await page.goto('/app/chat')
+    await page.goto('/app/chats')
     await page.clock.runFor(120_000)
     await page.goto('/app/addons')
     await page.clock.runFor(120_000)

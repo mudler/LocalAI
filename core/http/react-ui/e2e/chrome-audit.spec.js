@@ -6,8 +6,8 @@ import { installStudioAddons } from './studio-addon.js'
 // whose sprite target is missing or that has no size), and controls left with
 // the user agent's own chrome, which is a pale grey button on a dark ground.
 const ROUTES = [
-  '/app', '/app/chat', '/app/models', '/app/studio', '/app/talk',
-  '/app/agents', '/app/skills', '/app/collections', '/app/agent-jobs',
+  '/app', '/app/chats', '/app/models', '/app/studio', '/app/talk',
+  '/app/chats/agents', '/app/chats/skills', '/app/collections', '/app/chats/triggers',
   '/app/models?view=installed', '/app/backends', '/app/activity', '/app/operate',
   '/app/settings', '/app/traces', '/app/usage', '/app/nodes', '/app/p2p',
   '/app/account',

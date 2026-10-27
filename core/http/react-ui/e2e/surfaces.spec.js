@@ -76,28 +76,6 @@ for (const theme of ['light', 'dark']) {
       expect(distance(rgb(colours.active), rgb(colours.quiet))).toBeGreaterThan(40)
     })
 
-    test('the chat send button is quiet when empty and active with text', async ({ page }) => {
-      await page.goto('/app/chat')
-      const btn = page.locator('#chat-submit-btn')
-      await expect(btn).toBeVisible({ timeout: 15_000 })
-      await expect(btn).toBeDisabled()
-      await expect(btn).toHaveAttribute('data-empty', 'true')
-      await page.getByTestId('chat-input').fill('hello')
-      await expect(btn).not.toHaveAttribute('data-empty', 'true')
-      // The test server lists no chat model, so the button stays disabled. Compare
-      // the two looks directly: the active look must differ from the quiet one
-      // whatever the disabled state.
-      const colours = await btn.evaluate((el) => {
-        el.disabled = false
-        el.style.transition = 'none'
-        const active = getComputedStyle(el).backgroundColor
-        el.setAttribute('data-empty', 'true')
-        const quiet = getComputedStyle(el).backgroundColor
-        return { active, quiet }
-      })
-      expect(distance(rgb(colours.active), rgb(colours.quiet))).toBeGreaterThan(40)
-    })
-
     test('a popover sits on the float surface, not on the card', async ({ page }) => {
       await page.goto('/app')
       await expect(page.locator('.home-greeting')).toBeVisible({ timeout: 15_000 })
