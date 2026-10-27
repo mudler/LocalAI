@@ -24,4 +24,7 @@ const (
 	// KeyChatsTriggers elects the one frontend that runs the triggers of the
 	// chats. It is held for as long as the frontend lives.
 	KeyChatsTriggers int64 = 111
+	// KeyChatsConnectors elects the one frontend that polls the bots of the chat
+	// connectors. It is held for as long as the frontend lives.
+	KeyChatsConnectors int64 = 112
 )

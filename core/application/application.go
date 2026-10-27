@@ -46,6 +46,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -129,6 +130,9 @@ type Application struct {
 	studioInbox          *notify.Service
 	studioTriggers       *studio.Triggers
 	studioTriggersStop   context.CancelFunc
+	studioConnStore      connectors.Store
+	studioConnectors     *studio.Connectors
+	studioConnectorsStop context.CancelFunc
 	studioProvider       *provider.Provider
 	studioService        *studio.Service
 	studioTempDir        string // removed at shutdown; set only in memory-only mode
@@ -613,6 +617,12 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		if a.studioConnectorsStop != nil {
+			a.studioConnectorsStop()
+		}
+		if a.studioConnectors != nil {
+			a.studioConnectors.Close()
+		}
 		if a.studioTriggersStop != nil {
 			a.studioTriggersStop()
 		}

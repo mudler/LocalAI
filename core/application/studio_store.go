@@ -6,6 +6,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -35,6 +36,7 @@ func (a *Application) initStudioStore() {
 		ag   agents.Store
 		nt   notify.Store
 		ps   notify.PushStore
+		cs   connectors.Store
 		kind string
 		err  error
 	)
@@ -43,7 +45,9 @@ func (a *Application) initStudioStore() {
 		if s, err = store.NewGORM(a.authDB); err == nil {
 			if ag, err = agents.NewGORM(a.authDB); err == nil {
 				if nt, err = notify.NewGORM(a.authDB); err == nil {
-					ps, err = notify.NewGORMPush(a.authDB)
+					if ps, err = notify.NewGORMPush(a.authDB); err == nil {
+						cs, err = connectors.NewGORM(a.authDB)
+					}
 				}
 			}
 		}
@@ -53,7 +57,9 @@ func (a *Application) initStudioStore() {
 		if s, err = store.NewJSON(dir); err == nil {
 			if ag, err = agents.NewJSON(filepath.Join(dir, "agents")); err == nil {
 				if nt, err = notify.NewJSON(filepath.Join(dir, "notifications")); err == nil {
-					ps, err = notify.NewJSONPush(filepath.Join(dir, "push"))
+					if ps, err = notify.NewJSONPush(filepath.Join(dir, "push")); err == nil {
+						cs, err = connectors.NewJSON(filepath.Join(dir, "connectors"))
+					}
 				}
 			}
 		}
@@ -61,7 +67,9 @@ func (a *Application) initStudioStore() {
 	default:
 		if s, err = store.NewJSON(""); err == nil {
 			if ag, err = agents.NewJSON(""); err == nil {
-				nt, err = notify.NewJSON("")
+				if nt, err = notify.NewJSON(""); err == nil {
+					cs, err = connectors.NewJSON("")
+				}
 			}
 		}
 		kind = "memory"
@@ -70,5 +78,5 @@ func (a *Application) initStudioStore() {
 		xlog.Warn("Chats disabled: failed to initialise its store", "kind", kind, "error", err)
 		return
 	}
-	a.studioStore, a.studioAgents, a.studioNotify, a.studioPush, a.studioStoreKind = s, ag, nt, ps, kind
+	a.studioStore, a.studioAgents, a.studioNotify, a.studioPush, a.studioConnStore, a.studioStoreKind = s, ag, nt, ps, cs, kind
 }

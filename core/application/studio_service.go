@@ -57,6 +57,13 @@ func (a *Application) initStudioService() {
 	}
 	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
 	a.studioInbox = inbox
+	// A notification of a run goes to the Telegram chat of a binding too. The
+	// connector manager is set later, so the hook looks it up when it runs.
+	inbox.OnAdd(func(n notify.Notification) {
+		if c := a.studioConnectors; c != nil {
+			c.Forward(context.Background(), n)
+		}
+	})
 	var pusher *notify.Pusher
 	if a.studioPush != nil {
 		pusher = notify.NewPusher(notify.PusherOptions{Store: a.studioPush})
@@ -93,6 +100,7 @@ func (a *Application) initStudioService() {
 	}
 	a.studioService = svc
 	a.startStudioReaper(svc)
+	a.startStudioConnectors(svc)
 	a.startStudioTriggers(svc)
 }
 
