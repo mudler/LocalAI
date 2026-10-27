@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/mudler/LocalAI/core/services/collections"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"io"
 	"math/rand/v2"
 	"net/http"
 	"os"
@@ -140,8 +141,8 @@ type Application struct {
 	studioService        *studio.Service
 	studioTempDir        string // removed at shutdown; set only in memory-only mode
 	studioFiles          *files.Service
-	studioFilesDB        *gorm.DB // private database of the workspace; nil when it uses authDB
-	studioFilesTemp      string   // blob cache folder of a cluster with no data path; removed at shutdown
+	studioFilesIndex     io.Closer // the JSON index of the workspace; nil when it uses the database
+	studioFilesTemp      string    // blob cache folder of a cluster with no data path; removed at shutdown
 	authDB               *gorm.DB
 	metricsService       *monitoring.LocalAIMetricsService
 	statsRecorder        *billing.Recorder
@@ -625,7 +626,9 @@ func (a *Application) Shutdown() error {
 		if a.studioTempDir != "" {
 			_ = os.RemoveAll(a.studioTempDir)
 		}
-		a.closeStudioFilesDB(a.studioFilesDB)
+		if a.studioFilesIndex != nil {
+			_ = a.studioFilesIndex.Close()
+		}
 		if a.studioFilesTemp != "" {
 			_ = os.RemoveAll(a.studioFilesTemp)
 		}

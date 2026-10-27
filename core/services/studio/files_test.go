@@ -8,9 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -21,29 +18,20 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
-	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/jsonstore"
 )
 
 func newFiles(t *testing.T) *files.Service {
 	t.Helper()
-	dsn := "file:" + filepath.Join(t.TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
 	blobs, err := blob.NewFS(filepath.Join(t.TempDir(), "blobs"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws, err := gormstore.New(db, blobs, gormstore.Options{Admin: files.AdminPrincipal})
+	ws, err := jsonstore.New(filepath.Join(t.TempDir(), "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal})
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if raw, err := db.DB(); err == nil {
-			_ = raw.Close()
-		}
-	})
+	t.Cleanup(func() { _ = ws.Close() })
 	return files.New(ws)
 }
 
@@ -126,19 +114,29 @@ func TestAnAttachedFileLandsInTheChatFolderAndTheModelGetsItsPath(t *testing.T) 
 	idle(t, svc, alice, id)
 }
 
-func TestAFileCannotBeAttachedWhileATurnRuns(t *testing.T) {
+func TestAFileSentWhileATurnRunsIsSavedAndQueuedWithItsPath(t *testing.T) {
 	f := newFiles(t)
 	h := studiotest.NewGateHarness()
 	svc := newServiceWithFiles(t, h, f)
 	id := create(t, svc, alice)
 	sent(t, svc, alice, id, "start")
 	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
-	_, err := svc.SendWithFiles(context.Background(), alice, id, "and this", []session.Upload{upload("x.txt", "x")})
-	if !errors.Is(err, studio.ErrFilesWhileRunning) {
-		t.Fatalf("SendWithFiles during a turn = %v, want ErrFilesWhileRunning", err)
+	res, err := svc.SendWithFiles(context.Background(), alice, id, "and this", []session.Upload{upload("x.txt", "extra")})
+	if err != nil || res.Started || res.PendingID == "" {
+		t.Fatalf("SendWithFiles during a turn = %+v, %v; want a waiting message", res, err)
 	}
-	if got := pendingTexts(t, svc, alice, id); len(got) != 0 {
-		t.Fatalf("a refused attachment left pending messages %v", got)
+	got := pendingTexts(t, svc, alice, id)
+	if len(got) != 1 || !strings.Contains(got[0], "and this") || !strings.Contains(got[0], "/workspace/home/Chats/") || !strings.Contains(got[0], "x.txt") {
+		t.Fatalf("waiting messages = %q, want the text and the guest path of x.txt", got)
+	}
+	// The file is saved already, in the chat folder, as the user.
+	kids, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, session.ChatsPath(alice))
+	if err != nil || len(kids) != 1 {
+		t.Fatalf("chat folders = %v, %v, want one", kids, err)
+	}
+	inner, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, kids[0].Path)
+	if err != nil || len(inner) != 1 || inner[0].Name != "x.txt" {
+		t.Fatalf("chat folder holds %v, %v, want x.txt", inner, err)
 	}
 	h.Gate <- struct{}{}
 	idle(t, svc, alice, id)
@@ -245,13 +243,11 @@ func TestAVoiceNoteBecomesTextInTheMessageTheModelGets(t *testing.T) {
 	idle(t, svc, alice, id)
 }
 
-func TestAnAttachmentWhileATurnRunsIsRefusedBeforeAnyTranscription(t *testing.T) {
+func TestAVoiceNoteSentWhileATurnRunsIsTranscribedAndQueued(t *testing.T) {
 	f := newFiles(t)
 	m, p := newMediaService(t)
-	calls := 0
 	p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		_, _ = w.Write([]byte(`{"text":"x"}`))
+		_, _ = w.Write([]byte(`{"text":"buy milk"}`))
 	}))
 	h := studiotest.NewGateHarness()
 	st, _ := store.NewJSON("")
@@ -263,11 +259,12 @@ func TestAnAttachmentWhileATurnRunsIsRefusedBeforeAnyTranscription(t *testing.T)
 	id := create(t, svc, alice)
 	sent(t, svc, alice, id, "go")
 	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
-	if _, err := svc.SendWithFiles(context.Background(), alice, id, "x", []session.Upload{upload("memo.m4a", "A")}); !errors.Is(err, studio.ErrFilesWhileRunning) {
-		t.Fatalf("SendWithFiles = %v, want ErrFilesWhileRunning", err)
+	if res, err := svc.SendWithFiles(context.Background(), alice, id, "x", []session.Upload{upload("memo.m4a", "A")}); err != nil || res.PendingID == "" {
+		t.Fatalf("SendWithFiles = %+v, %v; want a waiting message", res, err)
 	}
-	if calls != 0 {
-		t.Fatalf("a transcription ran for a refused attachment (%d calls)", calls)
+	got := pendingTexts(t, svc, alice, id)
+	if len(got) != 1 || !strings.Contains(got[0], "buy milk") || !strings.Contains(got[0], "memo.m4a") {
+		t.Fatalf("waiting messages = %q, want the transcript and the voice note's path", got)
 	}
 	h.Gate <- struct{}{}
 	idle(t, svc, alice, id)

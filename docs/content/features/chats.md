@@ -273,7 +273,7 @@ curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
 - **Nothing is erased.** A delete goes to the Trash, and undo restores it as a new change. A change you made after the deletion that conflicts with the restore makes it answer `409`; with `skip_conflicts` the rest is restored.
 - **Two uploads, one name.** An upload replaces a file only when it says which version it started from (`base`). Otherwise both are kept, and the new one is named `name (from you).ext`; the answer says so in `conflict_of`.
 - **Downloads are safe.** Files are served as downloads. With `inline=1` an image, PDF, plain text, audio or video is shown by the browser; anything else, HTML and SVG included, never runs as a page.
-- **Attachments.** Send a message as `multipart/form-data` with a `text` field and `files`. The files are saved in the chat's own folder under `Chats/` and the model gets their paths. Files go only with a message that starts a turn: with a turn running, the answer is `409`.
+- **Attachments.** Send a message as `multipart/form-data` with a `text` field and `files`. The files are saved in the chat's own folder under `Chats/` and the model gets their paths. With a turn running the files are saved at once and the message waits like any other, with the paths of the files in its text; the model reads them by path when the message reaches it. A sandbox that started before the files arrived sees them from the next turn.
 - **Search.** `GET /api/chats/files/search?q=budget` finds files by name and lines inside text files, ignoring case. There is no index: large files (over 1 MiB) and binary files are found by name only, and a very large workspace is scanned up to a limit.
 - **The model can use your files.** A chat with files on gives the model `list_files`, `read_file`, `write_file`, `move_file`, `delete_file` and `search_files`, for your home folder only. What it changes is listed in the history as an agent change of that chat, and you can undo it; a delete goes to the Trash. Sub-agents do not get these tools.
 - **Pictures and recordings.** `describe_image` lets the model look at an image in your files and `transcribe_audio` turns a recording into text. A voice note attached to a message is transcribed on the way in and its transcript goes with your message; the file is kept as it is. They use helper models, which you choose in the settings (Chat image model, Chat transcription model). Left empty, the first installed model that can see images, or transcribe, is used. With none installed the tool says what to install. The helpers run as you, so your model access and quota apply.
@@ -281,18 +281,38 @@ curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
 
 The **Files** page in the sidebar is a file browser for all of this: folders with a breadcrumb, upload by button or drag and drop, rename, delete to the Trash, a Trash tab that restores, a History tab that undoes a change, one search box over names and text, and a preview of text and images.
 
-Files need a place to live. Where the tree and the bytes go:
+Files need a place to live. The choice is made at start and is explicit: with a
+database the tree goes there, and without one it goes in a JSON index.
 
 | Setup | Tree | File contents |
 |---|---|---|
-| Authentication on | The auth database. | The data path, or the object store in a cluster. |
-| No database, a data path set | A private SQLite file under `<data path>/chats`. | A folder under the data path. |
+| Authentication on, with a SQLite file | The auth database (pure-Go SQLite, in any build). | A folder under the data path. |
+| Authentication on, with PostgreSQL | The auth database. | The data path, or the object store in a cluster. |
+| No database, a data path set | A JSON index in `<data path>/chats/workspace`. | A folder under the data path. |
 | No data path | none | none: files are off. |
+
+The JSON index is a plain folder: `index.json` is a snapshot and `index.log` is
+the changes since, one record per line. A change is written and synced before
+the call returns, a start replays the log and drops a last record that a crash
+cut short (the damaged log is kept next to it as `index.log.damaged-<time>`),
+and the log is folded into a new snapshot when it passes 16 MiB. Files, uploads,
+attachments, skills, the Trash, undo and the limits behave as they do on a
+database, because both stores pass the same test suite. One LocalAI process
+owns that folder, because its lock lives in the process: a second process on the
+same folder would overwrite the first one's index, so use a database when more
+than one frontend serves the files. There is no move between the two indexes:
+files kept in a JSON index are not copied into a database when you turn
+authentication on, and the other way round. Copy them with the files API.
 
 When files are off, every files route and every attachment answers `409` with
 the reason, the list endpoint returns `"files": false` and `files_reason`, and
-everything else in the chats works. In a cluster the bytes go to the object
-store, so a file written through one frontend is read through another.
+everything else in the chats works.
+
+In a cluster the bytes go to the object store, so a file written through one
+frontend is read through another. That needs S3 (the storage URL setting).
+Without it the object store is a folder of each frontend, so files are off in
+that cluster, with a reason that says so, instead of every frontend keeping its
+own copy.
 
 ## Storage
 

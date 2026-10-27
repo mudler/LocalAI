@@ -2,17 +2,19 @@ package application
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/mudler/xlog"
-	"gorm.io/gorm"
 
-	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/jsonstore"
 )
 
 // studioMaxFileSize limits one file of a workspace.
@@ -29,13 +31,20 @@ func (a *Application) StudioFiles() *files.Service {
 
 // initStudioFiles builds the workspace of the chats.
 //
-// The tree lives in the auth database when there is one, and otherwise in a
-// private SQLite file under the data path. The bytes live in the object store
-// of a cluster, and otherwise in a folder under the data path. With no data
-// path there is nowhere to keep files, so they are off.
+// The choice of the index is explicit. With a database (the auth database: a
+// SQLite file or PostgreSQL) the tree lives there, in the GORM store. With no
+// database it is a folder under the data path with a JSON index, in the JSON
+// store; a build without cgo and without any build tag has it too. The bytes
+// live in the object store of a cluster, and otherwise in a folder under the
+// data path. With no data path there is nowhere to keep files, so they are
+// off. Moving files from one index to the other is not supported.
 func (a *Application) initStudioFiles() {
 	dp := a.applicationConfig.DataPath
 	dist := a.Distributed()
+	if reason := clusterFilesBlocker(a.applicationConfig, dist != nil && dist.Store != nil); reason != "" {
+		a.studioFiles = files.Disabled(reason)
+		return
+	}
 	if dp == "" && (a.authDB == nil || dist == nil || dist.Store == nil) {
 		a.studioFiles = files.Disabled("There is no data path, so files are off. Start LocalAI with a data path to keep files.")
 		return
@@ -54,20 +63,6 @@ func (a *Application) initStudioFiles() {
 		root = tmpCache
 	}
 
-	db := a.authDB
-	if db == nil {
-		var err error
-		if err = os.MkdirAll(root, 0o700); err == nil {
-			db, err = auth.OpenSQLiteFile(filepath.Join(root, "workspace.db"))
-		}
-		if err != nil {
-			xlog.Warn("Files disabled: cannot open the workspace database", "error", err)
-			a.studioFiles = files.Disabled("Files are off: the workspace database could not be opened.")
-			return
-		}
-		a.studioFilesDB = db
-	}
-
 	var blobs blob.Store
 	var err error
 	if dist != nil && dist.Store != nil {
@@ -78,21 +73,21 @@ func (a *Application) initStudioFiles() {
 	if err != nil {
 		xlog.Warn("Files disabled: cannot open the blob store", "error", err)
 		a.studioFiles = files.Disabled("Files are off: their storage could not be opened.")
-		a.closeStudioFilesDB(db)
 		return
 	}
-	ws, err := gormstore.New(db, blobs, gormstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})
+	ws, closer, err := a.openWorkspaceIndex(root, blobs)
 	if err != nil {
 		xlog.Warn("Files disabled: cannot start the workspace", "error", err)
 		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
-		a.closeStudioFilesDB(db)
 		return
 	}
 	f := files.New(ws)
 	if err := f.EnsureShared(context.Background()); err != nil {
 		xlog.Warn("Files disabled: cannot create the shared folders", "error", err)
 		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
-		a.closeStudioFilesDB(db)
+		if closer != nil {
+			_ = closer.Close()
+		}
 		return
 	}
 	// The office skills ship with the server. A copy that fails leaves the
@@ -100,17 +95,33 @@ func (a *Application) initStudioFiles() {
 	if err := f.SyncBuiltin(context.Background(), builtinskills.FS()); err != nil {
 		xlog.Warn("Could not write the built-in skills", "error", err)
 	}
-	a.studioFiles = f
+	a.studioFiles, a.studioFilesIndex = f, closer
 }
 
-// closeStudioFilesDB closes the private database of the workspace, never the
-// shared auth database.
-func (a *Application) closeStudioFilesDB(db *gorm.DB) {
-	if db == nil || db != a.studioFilesDB {
-		return
+// clusterFilesBlocker returns why files cannot work in this cluster, or "" when
+// they can. The bytes of a file go to the cluster's object store so that every
+// frontend reads what another wrote. Without S3 the object store is a folder
+// on the frontend itself, and each frontend would keep its own copy of every
+// file, so files are off instead of silently wrong.
+func clusterFilesBlocker(cfg *config.ApplicationConfig, clustered bool) string {
+	if clustered && cfg.Distributed.StorageURL == "" {
+		return "Files are off: in a cluster they need S3 object storage (the storage URL setting), because without it each frontend would keep its own copy of every file."
 	}
-	if raw, err := db.DB(); err == nil {
-		_ = raw.Close()
+	return ""
+}
+
+// openWorkspaceIndex opens the index of the workspace: the GORM store on the
+// auth database when there is one, and the JSON store in a folder under root
+// otherwise. The returned closer is nil for the shared database, which the
+// application closes itself.
+func (a *Application) openWorkspaceIndex(root string, blobs blob.Store) (workspace.Store, io.Closer, error) {
+	if a.authDB != nil {
+		ws, err := gormstore.New(a.authDB, blobs, gormstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})
+		return ws, nil, err
 	}
-	a.studioFilesDB = nil
+	ws, err := jsonstore.New(filepath.Join(root, "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})
+	if err != nil {
+		return nil, nil, err
+	}
+	return ws, ws, nil
 }

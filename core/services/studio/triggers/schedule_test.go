@@ -10,7 +10,7 @@ func mustLoc(t *testing.T, name string) *time.Location {
 	t.Helper()
 	loc, err := time.LoadLocation(name)
 	if err != nil {
-		t.Skipf("time zone %s is not available: %v", name, err)
+		t.Fatalf("time zone %s is not available: %v", name, err)
 	}
 	return loc
 }

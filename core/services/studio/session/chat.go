@@ -654,6 +654,18 @@ func (c *Chat) queuePending(ctx context.Context, msg Message, text string) error
 	return c.send(ctx, msg, true)
 }
 
+// Attach stores files in the chat folder and returns text followed by their
+// guest paths, as a message that carries them. The caller sends the result.
+// It works while a turn runs: the files are in the workspace at once, and the
+// model reads them by path when the message reaches it.
+func (c *Chat) Attach(ctx context.Context, text string, files []Upload) (string, error) {
+	paths, err := c.saveUploads(ctx, files)
+	if err != nil {
+		return "", err
+	}
+	return composeMessage(strings.TrimSpace(text), paths), nil
+}
+
 func (c *Chat) turnNow() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()

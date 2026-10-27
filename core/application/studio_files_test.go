@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-//go:build auth
-
 package application
 
 import (
@@ -14,8 +12,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// Files need a database for the tree and a place for the bytes. Without a data
-// path there is neither, and the chats say so.
+// Files need an index for the tree and a place for the bytes. With a database
+// the index is there; without one it is a folder with a JSON index. Without a
+// data path there is nowhere to keep either, and the chats say so.
 var _ = Describe("studio files at startup", func() {
 	newApp := func(opts ...config.AppOption) *Application {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -32,12 +31,13 @@ var _ = Describe("studio files at startup", func() {
 		return app
 	}
 
-	It("keeps files in a private SQLite file under the data path when there is no database", func() {
+	It("keeps files in a folder with a JSON index when there is no database", func() {
 		dir := GinkgoT().TempDir()
 		app := newApp(config.WithDataPath(dir))
 		Expect(app.StudioFiles().Available()).To(BeTrue(), app.StudioFiles().Unavailable())
-		Expect(filepath.Join(dir, "chats", "workspace.db")).To(BeAnExistingFile())
+		Expect(filepath.Join(dir, "chats", "workspace", "index.log")).To(BeAnExistingFile())
 		Expect(filepath.Join(dir, "chats", "blobs")).To(BeADirectory())
+		Expect(filepath.Join(dir, "chats", "workspace.db")).NotTo(BeAnExistingFile())
 	})
 
 	It("shares the auth database when there is one", func() {
@@ -45,7 +45,7 @@ var _ = Describe("studio files at startup", func() {
 		app := newApp(config.WithDataPath(dir), config.WithAuthEnabled(true),
 			config.WithAuthDatabaseURL(filepath.Join(GinkgoT().TempDir(), "auth.db")))
 		Expect(app.StudioFiles().Available()).To(BeTrue(), app.StudioFiles().Unavailable())
-		Expect(filepath.Join(dir, "chats", "workspace.db")).NotTo(BeAnExistingFile())
+		Expect(filepath.Join(dir, "chats", "workspace")).NotTo(BeADirectory())
 		Expect(app.authDB.Migrator().HasTable("studio_ws_nodes")).To(BeTrue())
 	})
 
@@ -55,5 +55,24 @@ var _ = Describe("studio files at startup", func() {
 		Expect(app.StudioFiles().Unavailable()).To(ContainSubstring("data path"))
 		_, err := os.Stat("chats")
 		Expect(err).To(HaveOccurred()) // nothing was created in the working directory
+	})
+})
+
+// The bytes of a file go to the cluster's object store. Without S3 that store
+// is a folder of one frontend, so a cluster without S3 has no files.
+var _ = Describe("files in a cluster", func() {
+	It("are off without S3, and say why", func() {
+		cfg := &config.ApplicationConfig{}
+		Expect(clusterFilesBlocker(cfg, true)).To(And(ContainSubstring("S3"), ContainSubstring("own copy")))
+	})
+
+	It("work with S3", func() {
+		cfg := &config.ApplicationConfig{}
+		cfg.Distributed.StorageURL = "http://s3.example:9000"
+		Expect(clusterFilesBlocker(cfg, true)).To(BeEmpty())
+	})
+
+	It("are not limited outside a cluster", func() {
+		Expect(clusterFilesBlocker(&config.ApplicationConfig{}, false)).To(BeEmpty())
 	})
 })

@@ -9,9 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
@@ -34,13 +32,13 @@ func TestAFileOverTheLimitIsRefusedAndLeavesNothing(t *testing.T) {
 // share a revision.
 func TestTwoFrontendsShareOneDatabaseAndKeepRevisionsApart(t *testing.T) {
 	dir := t.TempDir()
-	dsn := "file:" + filepath.Join(dir, "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
+	dbPath := filepath.Join(dir, "ws.db")
 	blobs, err := blob.NewFS(filepath.Join(dir, "blobs"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	open := func() workspace.Store {
-		db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+		db, err := auth.OpenSQLiteFile(dbPath)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -90,9 +88,9 @@ func TestTwoFrontendsShareOneDatabaseAndKeepRevisionsApart(t *testing.T) {
 // folder are all there is, and a new process reads them as they were.
 func TestFilesSurviveReopeningTheDatabaseAndTheBlobFolder(t *testing.T) {
 	dir := t.TempDir()
-	dsn := "file:" + filepath.Join(dir, "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
+	dbPath := filepath.Join(dir, "ws.db")
 	open := func() (workspace.Store, func()) {
-		db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+		db, err := auth.OpenSQLiteFile(dbPath)
 		if err != nil {
 			t.Fatal(err)
 		}

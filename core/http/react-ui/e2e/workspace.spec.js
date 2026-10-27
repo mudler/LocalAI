@@ -15,8 +15,8 @@ test.describe('Files against the real server', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/files')
     await expect(page_(page)).toBeVisible()
-    // A server built without SQLite (no auth tag) has no workspace: nothing to test.
-    test.skip(await page.getByTestId('files-off').isVisible(), 'files are off on this server build')
+    // Every build has a workspace: a database, or a JSON index when there is none.
+    await expect(page.getByTestId('files-off')).toHaveCount(0)
   })
 
   test('uploads a file, previews it, renames it, and finds it by its text', async ({ page }) => {

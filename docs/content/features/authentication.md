@@ -552,14 +552,15 @@ Legacy API keys and user authentication can be used simultaneously. When both ar
 
 ## Build Requirements
 
-The user authentication system requires CGO for SQLite support. It is enabled with the `auth` build tag, which is included by default in Docker builds.
+User authentication needs no build tag and no C compiler. The SQLite database
+is opened with a pure-Go driver, so a binary built with `CGO_ENABLED=0` and no
+tags (the release binaries) can keep accounts in a SQLite file, and the same
+driver serves the chats and their files. PostgreSQL is chosen by the
+`postgres://` form of the database URL, as before.
 
 ```bash
-# Building from source with auth support
-GO_TAGS=auth make build
-
-# Or directly with go build
-go build -tags auth ./...
+go build ./cmd/local-ai
 ```
 
-The default Dockerfile includes `GO_TAGS="auth"`, so all Docker images ship with auth support. When building from source without the `auth` tag, setting `LOCALAI_AUTH=true` has no effect - the system operates without authentication.
+The `auth` build tag is only left on some tests. The pure-Go driver reads and
+writes the file format of SQLite, so an existing `database.db` opens as it is.

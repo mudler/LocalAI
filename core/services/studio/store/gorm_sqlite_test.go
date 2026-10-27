@@ -1,5 +1,3 @@
-//go:build auth
-
 package store_test
 
 import (
@@ -8,19 +6,19 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/store/storetest"
 )
 
-// openSQLite opens a file database with the settings the auth database uses in
-// production: a busy timeout, and the write lock taken at BEGIN.
+// openSQLite opens a file database the way LocalAI does in production: the
+// pure-Go driver, a busy timeout, and the write lock taken at BEGIN.
 func openSQLite(t *testing.T, path string) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(path+"?_busy_timeout=5000&_txlock=immediate"), &gorm.Config{})
+	db, err := auth.OpenSQLiteFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}

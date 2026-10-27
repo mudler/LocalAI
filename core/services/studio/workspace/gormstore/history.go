@@ -109,25 +109,6 @@ func (s *Workspace) visibleOps(ctx context.Context, a Actor, rev int64, ops []Op
 	return out, changed, nil
 }
 
-// genericTitle names a change set by its kind alone, without paths.
-func genericTitle(cs ChangeSet) string {
-	switch cs.Kind {
-	case ChangeUndo:
-		return "Undo"
-	case ChangeAgent:
-		return "Agent changes"
-	case ChangeUpload:
-		return "Upload"
-	}
-	switch {
-	case strings.HasPrefix(cs.Title, "Move "):
-		return "Move"
-	case strings.HasPrefix(cs.Title, "Delete "):
-		return "Delete"
-	}
-	return "Changes"
-}
-
 // visible limits cs to what the actor can see.
 func (s *Workspace) visible(ctx context.Context, a Actor, cs ChangeSet) (ChangeSet, error) {
 	ops, changed, err := s.visibleOps(ctx, a, cs.Rev, cs.Ops)
@@ -136,7 +117,7 @@ func (s *Workspace) visible(ctx context.Context, a Actor, cs ChangeSet) (ChangeS
 	}
 	cs.Ops = ops
 	if changed {
-		cs.Title = genericTitle(cs)
+		cs.Title = GenericTitle(cs)
 	}
 	return cs, nil
 }
