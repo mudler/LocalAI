@@ -229,9 +229,16 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 	}
 	pending := 0
 	for _, m := range mine {
-		if m.Proposed {
-			pending++
+		if !m.Proposed {
+			continue
 		}
+		// A model that proposes the same thing again, in this chat or the next,
+		// gets the proposal that waits.
+		if m.Name == t.Name && m.Prompt == t.Prompt && m.Kind == t.Kind && m.Schedule == t.Schedule &&
+			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model {
+			return m, nil
+		}
+		pending++
 	}
 	switch {
 	case pending >= maxProposals:

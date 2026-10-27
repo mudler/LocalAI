@@ -179,3 +179,32 @@ func TestADeletedTriggerLeavesItsChatsAndNothingRuns(t *testing.T) {
 		t.Fatalf("the chat of a deleted trigger is gone: %v", err)
 	}
 }
+
+func TestTheSameProposalIsKeptOnce(t *testing.T) {
+	r := newTrigRig(t, proposeScript(goodProposal))
+	ctx := context.Background()
+	src, err := r.svc.Create(ctx, alice, studio.CreateInput{Model: "src-model"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 3 {
+		sent(t, r.svc, alice, src.ID, "propose")
+		idle(t, r.svc, alice, src.ID)
+	}
+	props, err := r.host.Proposals(ctx, alice)
+	if err != nil || len(props) != 1 {
+		t.Fatalf("proposals = %d, %v; want the one", len(props), err)
+	}
+	// Another prompt is another proposal.
+	in := studio.TriggerInput{Name: "Morning digest", Prompt: "Summarise the week.", Kind: triggers.KindSchedule, Schedule: "weekdays 09:00", TZ: "Europe/Rome", Model: "src-model"}
+	if _, err := r.host.ProposeTrigger(ctx, alice, in); err != nil {
+		t.Fatal(err)
+	}
+	if props, _ := r.host.Proposals(ctx, alice); len(props) != 2 {
+		t.Fatalf("proposals = %d, want 2", len(props))
+	}
+	// Once confirmed, a new proposal of the same text may wait again.
+	if _, err := r.host.ConfirmProposal(ctx, alice, props[0].ID, ""); err != nil {
+		t.Fatal(err)
+	}
+}
