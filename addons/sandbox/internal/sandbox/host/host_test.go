@@ -212,3 +212,23 @@ func TestARelativeRootIsRefused(t *testing.T) {
 	_ = os.Getenv
 	_ = errors.New
 }
+
+func TestTheWorkingFolderStaysInsideTheWorkspace(t *testing.T) {
+	b := newBackend(t, host.Options{Root: t.TempDir()})
+	sb := newSandbox(t, b)
+	for _, dir := range []string{"/workspace/../..", "/workspace/proj/../../..", "/workspacefoo", "/tmp", "/"} {
+		if _, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"true"}, Dir: dir}); err == nil {
+			t.Errorf("a command ran in %q", dir)
+		}
+	}
+	for _, dir := range []string{"/workspace", "/workspace/", "/workspace/proj", "/workspace/proj/../proj"} {
+		p, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"true"}, Dir: dir})
+		if err != nil {
+			t.Errorf("a command did not run in %q: %v", dir, err)
+			continue
+		}
+		if _, err := p.Wait(); err != nil {
+			t.Errorf("wait in %q: %v", dir, err)
+		}
+	}
+}
