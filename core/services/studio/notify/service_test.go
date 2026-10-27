@@ -117,3 +117,38 @@ func TestAHookSeesEveryStoredNotification(t *testing.T) {
 		t.Fatalf("hook saw %v", seen)
 	}
 }
+
+// The 90-day limit holds when a user reads, not only when a new notification
+// arrives: a user who stops getting notifications must not keep old ones in view.
+func TestOldNotificationsAreNotShownEvenWhenNothingNewArrives(t *testing.T) {
+	st, err := notify.NewJSON("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
+	clock := now
+	svc := notify.NewService(notify.Options{Store: st, Clock: func() time.Time { return clock }})
+	ctx := context.Background()
+	if _, err := svc.Add(ctx, notify.Notification{Principal: "u1", Kind: notify.KindRunEnded, Title: "old"}); err != nil {
+		t.Fatal(err)
+	}
+	clock = now.Add(notify.MaxAge / 2)
+	if _, err := svc.Add(ctx, notify.Notification{Principal: "u1", Kind: notify.KindRunEnded, Title: "middle"}); err != nil {
+		t.Fatal(err)
+	}
+	clock = now.Add(notify.MaxAge + time.Hour) // "old" is now past the limit; "middle" is not
+	got, _ := svc.List(ctx, "u1", false, 0)
+	if len(got) != 1 || got[0].Title != "middle" {
+		t.Fatalf("list = %+v, want only the notification inside the limit", got)
+	}
+	if unread, _ := svc.List(ctx, "u1", true, 0); len(unread) != 1 {
+		t.Fatalf("unread list = %+v", unread)
+	}
+	if n, _ := svc.Count(ctx, "u1"); n != 1 {
+		t.Fatalf("count = %d, want 1: an expired notification must not count", n)
+	}
+	clock = now.Add(2*notify.MaxAge + time.Hour)
+	if n, _ := svc.Count(ctx, "u1"); n != 0 {
+		t.Fatalf("count = %d after both expired", n)
+	}
+}

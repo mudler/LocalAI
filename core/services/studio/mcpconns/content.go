@@ -44,6 +44,7 @@ func (s *Service) live(ctx context.Context, user, id string) (Connector, *sessio
 	}
 	if c.Transport == TransportStdio {
 		if err := s.stdioAllowed(ctx, user); err != nil {
+			s.drop(c.ID)
 			return Connector{}, nil, err
 		}
 	}

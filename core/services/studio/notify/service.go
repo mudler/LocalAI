@@ -64,12 +64,26 @@ func (s *Service) Subscribe(principal string) (<-chan Notification, func()) {
 
 // List returns the principal's notifications, newest first.
 func (s *Service) List(ctx context.Context, principal string, unreadOnly bool, limit int) ([]Notification, error) {
-	return s.st.List(ctx, principal, unreadOnly, limit)
+	all, err := s.st.List(ctx, principal, unreadOnly, limit)
+	if err != nil {
+		return nil, err
+	}
+	// The store trims by age only when a notification is added. Reading must not
+	// show what is past MaxAge: a person who gets none for months would see old ones.
+	cutoff := s.clock().Add(-MaxAge)
+	kept := all[:0]
+	for _, n := range all {
+		if !n.Created.Before(cutoff) {
+			kept = append(kept, n)
+		}
+	}
+	return kept, nil
 }
 
 // Count returns the number of unread notifications.
 func (s *Service) Count(ctx context.Context, principal string) (int, error) {
-	return s.st.Count(ctx, principal)
+	unread, err := s.List(ctx, principal, true, 0)
+	return len(unread), err
 }
 
 // MarkRead marks notifications read.
