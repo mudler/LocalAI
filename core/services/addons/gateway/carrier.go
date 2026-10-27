@@ -26,6 +26,7 @@ import (
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/xlog"
 )
 
 // Pins bind deployment identities to exact leaf certificates, in addition to CA
@@ -69,13 +70,13 @@ func NewCarrier(c CarrierConfig) (*Carrier, error) {
 	c.Limits = limits
 	u, e := url.Parse(c.OwnerAddress)
 	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.Roots == nil || len(c.Certificate.Certificate) == 0 || !validSigningKey(c) {
-		return nil, ErrForbidden
+		return nil, deny("carrier-config-invalid", c.InstanceID, nil)
 	}
 	if _, ok := c.Pins[c.OwnerID]; !ok {
-		return nil, ErrForbidden
+		return nil, deny("owner-pin-missing", c.OwnerID, nil)
 	}
 	if _, ok := c.Pins[c.InstanceID]; !ok {
-		return nil, ErrForbidden
+		return nil, deny("instance-pin-missing", c.InstanceID, nil)
 	}
 	pins := make(map[string][32]byte)
 	for k, v := range c.Pins {
@@ -88,14 +89,17 @@ func NewCarrier(c CarrierConfig) (*Carrier, error) {
 	t.DisableKeepAlives = true
 	t.MaxResponseHeaderBytes = 16 << 10
 	t.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: c.Roots, Certificates: []tls.Certificate{c.Certificate}, VerifyConnection: func(s tls.ConnectionState) error {
-		if len(s.VerifiedChains) == 0 || len(s.PeerCertificates) == 0 || sha256.Sum256(s.PeerCertificates[0].Raw) != pins[c.OwnerID] {
-			return ErrForbidden
+		if len(s.VerifiedChains) == 0 || len(s.PeerCertificates) == 0 {
+			return deny("owner-chain-unverified", c.OwnerID, nil)
+		}
+		if sha256.Sum256(s.PeerCertificates[0].Raw) != pins[c.OwnerID] {
+			return deny("owner-pin-mismatch", c.OwnerID, nil)
 		}
 		return nil
 	}}
 	h := httpclient.New(httpclient.WithTransport(t))
 	h.Timeout = 65 * time.Second
-	h.CheckRedirect = func(*http.Request, []*http.Request) error { return ErrForbidden }
+	h.CheckRedirect = func(*http.Request, []*http.Request) error { return deny("owner-redirect", c.OwnerID, nil) }
 	return &Carrier{config: c, client: h}, nil
 }
 func (c *Carrier) ServerTLS() *tls.Config {
@@ -103,20 +107,20 @@ func (c *Carrier) ServerTLS() *tls.Config {
 }
 func (c *Carrier) peer(r *http.Request) (PeerIdentity, error) {
 	if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 {
-		return PeerIdentity{}, ErrForbidden
+		return PeerIdentity{}, deny("peer-unverified", "", nil)
 	}
 	pin := sha256.Sum256(r.TLS.PeerCertificates[0].Raw)
 	id := ""
 	for k, v := range c.config.Pins {
 		if v == pin {
 			if id != "" {
-				return PeerIdentity{}, ErrForbidden
+				return PeerIdentity{}, deny("peer-pin-ambiguous", id, nil)
 			}
 			id = k
 		}
 	}
 	if id == "" {
-		return PeerIdentity{}, ErrForbidden
+		return PeerIdentity{}, deny("peer-pin-unknown", "", nil)
 	}
 	return PeerIdentity{ID: id, Verified: true}, nil
 }
@@ -148,7 +152,7 @@ func decode(r io.Reader, dst any) error {
 	}
 	var more any
 	if d.Decode(&more) != io.EOF {
-		return ErrForbidden
+		return deny("trailing-data", "", nil)
 	}
 	return nil
 }
@@ -493,7 +497,7 @@ func (c *Carrier) relayBudget(kind string) (int64, error) {
 	case "json":
 		return min(l.Bytes, 2<<20), nil
 	}
-	return 0, ErrForbidden
+	return 0, deny("relay-kind-unknown", c.config.InstanceID, fmt.Errorf("kind %q", r2k(kind)))
 }
 
 // audience asks the owner for the audience its envelopes must name.
@@ -556,8 +560,11 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, e
 	}
 	body, e := json.Marshal(wire)
-	if e != nil || len(body) > 2<<20 {
-		return nil, ErrForbidden
+	if e != nil {
+		return nil, deny("request-encode-failed", c.config.InstanceID, e)
+	}
+	if len(body) > 2<<20 {
+		return nil, deny("body-too-large", c.config.InstanceID, nil)
 	}
 	var nonce [32]byte
 	if _, e = rand.Read(nonce[:]); e != nil {
@@ -565,7 +572,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	}
 	if len(c.config.SigningKey) != ed25519.PrivateKeySize {
 		// Only an owner can lack a key, and an owner never forwards.
-		return nil, ErrForbidden
+		return nil, deny("signing-key-missing", c.config.InstanceID, nil)
 	}
 	m := ForwardedRequest{PeerID: c.config.InstanceID, Audience: audience, Actor: a, OperationID: wire.Request.OperationID, Nonce: hex.EncodeToString(nonce[:]), ExpiresAt: time.Now().Add(30 * time.Second), Body: body}
 	m.Sign(c.config.SigningKey)
@@ -598,9 +605,14 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 				return nil, resourceReplyError(resp.Body, resp.StatusCode, wire.Request.OperationID)
 			}
 			var b sdkWire
-			if decode(io.LimitReader(resp.Body, 4096), &b) == nil && b.Type == wireSDK {
+			var seen bytes.Buffer
+			if decode(io.TeeReader(io.LimitReader(resp.Body, 4096), &limitedBuffer{buf: &seen, max: 128}), &b) == nil && b.Type == wireSDK {
 				return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
 			}
+			// The owner answered 403: the check that refused ran on the owner
+			// and is logged there. Only the owner's short plain-text reply is
+			// recorded here, never the request.
+			xlog.Warn("Addon forwarding check failed", "check", "owner-refused", "peer", c.config.OwnerID, "action", wire.Request.Action, "status", resp.StatusCode, "error", "owner replied: "+printableHead(seen.Bytes()))
 			return nil, ErrForbidden
 		}
 		if wire.Proposal != nil {
@@ -746,4 +758,37 @@ func (c *Carrier) artifactStatus(ctx context.Context, a contract.Actor, id strin
 		return Artifact{}, ErrUnavailable
 	}
 	return art, nil
+}
+
+// limitedBuffer keeps at most max bytes of what is written to it and drops the
+// rest without error, so a tee never stalls the reader.
+type limitedBuffer struct {
+	buf *bytes.Buffer
+	max int
+}
+
+func (l *limitedBuffer) Write(p []byte) (int, error) {
+	if room := l.max - l.buf.Len(); room > 0 {
+		l.buf.Write(p[:min(room, len(p))])
+	}
+	return len(p), nil
+}
+
+// printableHead returns b with every non-printable byte replaced, for a log line.
+func printableHead(b []byte) string {
+	out := make([]byte, 0, len(b))
+	for _, c := range b {
+		if c >= 0x20 && c < 0x7f {
+			out = append(out, c)
+		}
+	}
+	return string(out)
+}
+
+// r2k bounds a relay kind for a log line.
+func r2k(kind string) string {
+	if len(kind) > 32 {
+		return kind[:32]
+	}
+	return printableHead([]byte(kind))
 }

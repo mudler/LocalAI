@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
 )
 
 var ErrForbidden = errors.New("addon forwarding denied")
@@ -55,18 +56,59 @@ type ForwardVerifier struct {
 	seen       map[string]time.Time
 }
 
+// deny logs the one check that refused a forwarded request and returns the
+// generic denial. The log never carries a signature, key, body or credential.
+func deny(check, peerID string, err error) error {
+	if err == nil {
+		err = ErrForbidden
+	}
+	xlog.Warn("Addon forwarding check failed", "check", check, "peer", peerID, "error", err.Error())
+	return ErrForbidden
+}
+
 func (v *ForwardVerifier) Verify(ctx context.Context, peer PeerIdentity, message ForwardedRequest) (contract.Actor, error) {
-	denied := func() (contract.Actor, error) { return contract.Actor{}, ErrForbidden }
+	denied := func(check string) (contract.Actor, error) {
+		return contract.Actor{}, deny(check, peer.ID, nil)
+	}
 	now := time.Now()
 	key := v.Keys[peer.ID]
-	if ctx.Err() != nil || !peer.Verified || peer.ID == "" || peer.ID != message.PeerID || v.OwnerID == "" || message.Audience != v.OwnerID || len(key) != ed25519.PublicKeySize || len(message.Body) > int(contract.DefaultLimits().EnvelopeBytes) || len(message.Body) == 0 || len(message.Nonce) < 1 || len(message.Nonce) > 128 || message.OperationID == "" || len(message.OperationID) > 256 || !message.ExpiresAt.After(now) || message.ExpiresAt.After(now.Add(time.Minute)) || !ed25519.Verify(key, message.signingBytes(), message.Signature) {
-		return denied()
+	switch {
+	case ctx.Err() != nil:
+		return denied("context-done")
+	case !peer.Verified || peer.ID == "":
+		return denied("peer-unverified")
+	case peer.ID != message.PeerID:
+		return denied("peer-id-mismatch")
+	case v.OwnerID == "" || message.Audience != v.OwnerID:
+		return denied("audience-mismatch")
+	case len(key) != ed25519.PublicKeySize:
+		return denied("owner-key-missing")
+	case len(message.Body) > int(contract.DefaultLimits().EnvelopeBytes):
+		return denied("body-too-large")
+	case len(message.Body) == 0:
+		return denied("body-empty")
+	case len(message.Nonce) < 1 || len(message.Nonce) > 128:
+		return denied("nonce-invalid")
+	case message.OperationID == "" || len(message.OperationID) > 256:
+		return denied("operation-id-invalid")
+	case !message.ExpiresAt.After(now):
+		return denied("envelope-expired")
+	case message.ExpiresAt.After(now.Add(time.Minute)):
+		return denied("envelope-expiry-too-far")
+	case !ed25519.Verify(key, message.signingBytes(), message.Signature):
+		return denied("signature-invalid")
 	}
 	a := message.Actor
-	if a.UserID == "" || a.CredentialID == "" || len(a.UserID) > 256 || len(a.CredentialID) > 256 || (a.Mode != "named-user" && a.Mode != "local-owner") || v.Revalidate == nil {
-		return denied()
+	switch {
+	case a.UserID == "" || a.CredentialID == "" || len(a.UserID) > 256 || len(a.CredentialID) > 256:
+		return denied("actor-invalid")
+	case a.Mode != "named-user" && a.Mode != "local-owner":
+		return denied("actor-mode-invalid")
+	case v.Revalidate == nil:
+		return denied("revalidate-missing")
 	}
 	if err := ClassifyCheck(v.Revalidate(ctx, a)); err != nil {
+		xlog.Warn("Addon forwarding check failed", "check", "revalidate-failed", "peer", peer.ID, "error", err.Error())
 		return contract.Actor{}, err
 	}
 	v.mu.Lock()
@@ -81,10 +123,10 @@ func (v *ForwardVerifier) Verify(ctx context.Context, peer PeerIdentity, message
 	}
 	nonce := peer.ID + "\x00" + message.Nonce
 	if _, ok := v.seen[nonce]; ok {
-		return denied()
+		return denied("replayed-nonce")
 	}
 	if len(v.seen) >= 10000 {
-		return denied()
+		return denied("nonce-store-full")
 	}
 	v.seen[nonce] = message.ExpiresAt
 	return a, nil
@@ -98,7 +140,7 @@ type VerifierConfig struct {
 
 func NewForwardVerifier(c VerifierConfig) (*ForwardVerifier, error) {
 	if len(c.Keys) == 0 || c.Revalidate == nil {
-		return nil, ErrForbidden
+		return nil, deny("verifier-config-incomplete", "", nil)
 	}
 	var seed [32]byte
 	if _, err := rand.Read(seed[:]); err != nil {
@@ -107,7 +149,7 @@ func NewForwardVerifier(c VerifierConfig) (*ForwardVerifier, error) {
 	v := &ForwardVerifier{OwnerID: hex.EncodeToString(seed[:]), Keys: make(map[string]ed25519.PublicKey), Revalidate: c.Revalidate}
 	for id, key := range c.Keys {
 		if id == "" || len(key) != ed25519.PublicKeySize {
-			return nil, ErrForbidden
+			return nil, deny("verifier-key-invalid", id, nil)
 		}
 		v.Keys[id] = append(ed25519.PublicKey(nil), key...)
 	}
