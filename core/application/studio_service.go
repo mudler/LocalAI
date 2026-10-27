@@ -161,7 +161,10 @@ func (a *Application) studioUsers() studio.UserLookup {
 }
 
 // loadStudioUser returns the active user with this ID. A chat acts as its
-// owner, so an account that was disabled or never approved is refused.
+// owner, so an account that was disabled or never approved is refused, and so
+// is one whose chats feature an administrator switched off. The route gate
+// checks the feature for a request; this check is for what runs without one:
+// triggers, bots and background runs, which ask on every run.
 func (a *Application) loadStudioUser(ctx context.Context, id string) (*auth.User, error) {
 	if id == legacyAPIKeyUserID {
 		return &auth.User{ID: id, Name: "API Key User", Role: auth.RoleAdmin, Status: auth.StatusActive}, nil
@@ -178,6 +181,9 @@ func (a *Application) loadStudioUser(ctx context.Context, id string) (*auth.User
 	}
 	if u.Status != auth.StatusActive {
 		return nil, studio.ErrUserDisabled
+	}
+	if !auth.HasFeatureAccess(a.authDB, &u, auth.FeatureChats) {
+		return nil, studio.ErrChatsOff
 	}
 	return &u, nil
 }
