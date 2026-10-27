@@ -29,7 +29,9 @@ func toolFrontends(t *testing.T, scriptA, scriptB func(workspace.Actor, string) 
 		svc, err := studio.New(studio.Deps{
 			Store: st, Provider: provider.New(), StateDir: t.TempDir(), Harness: h,
 			Bus: studio.NewBroadcastBus(net, nil), HeartbeatEvery: 10 * time.Millisecond,
-			HostTools: func(context.Context, workspace.Actor) ([]session.Tool, error) { return []session.Tool{searchTool()}, nil },
+			HostTools: func(context.Context, workspace.Actor) ([]session.Tool, error) {
+				return []session.Tool{searchTool()}, nil
+			},
 		})
 		if err != nil {
 			t.Fatal(err)
