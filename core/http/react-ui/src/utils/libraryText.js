@@ -11,6 +11,7 @@ export function usedByLine(t, users, status) {
   return t('library:usedBy.lineMore', { name: users[0].name, count: users.length - 1 })
 }
 
+// eslint-disable-next-line no-unused-vars
 export function agentHref(name) {
-  return `/app/agents/${encodeURIComponent(name)}`
+  return '/app/chats/agents'
 }

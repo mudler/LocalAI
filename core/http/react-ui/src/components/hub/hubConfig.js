@@ -4,20 +4,20 @@
 //
 // A hub is a page-level tab bar. Each tab owns one or more existing routes
 // (`items`). A tab with several routes shows a second, quieter row of links
-// under the bar. Routes stay flat (`/app/agents`, `/app/nodes/:id`); a tab is
+// under the bar. Routes stay flat (`/app/chats/agents`, `/app/nodes/:id`); a tab is
 // highlighted when the current path is one of its item paths or sits under
 // one, so sub-pages such as `nodes/:id` keep the right tab lit.
 //
 // Gating is per item and decides the tab: a tab shows when at least one of its
 // items is visible to the viewer, so a tab nobody can use is never drawn.
-// `/api/features` only emits: agents, mcp, fine_tuning, quantization,
+// `/api/features` only emits: collections, mcp, fine_tuning, quantization,
 // distributed, backend_install, localai_assistant. Capability-style flags (face_recognition,
 // skills, ...) come from hasFeature(), not the features map.
 //
 // Item and tab fields:
 //   path          route the item links to
 //   labelKey      `nav` i18n key of the item label
-//   adminOnly, authOnly, feature, requiresAgentPool, unlessFeature  gating
+//   adminOnly, authOnly, feature, requiresCollections, unlessFeature  gating
 //   match         extra path prefixes that belong to the tab (sub-pages)
 //   showWhen      tab only: `/api/features` flag that must be on
 //   showWhenOff   tab only: `/api/features` flag that must be off (answered false)
@@ -33,8 +33,31 @@ import { FEATURE_ADDONS } from '../../utils/capabilities.js'
 // Fine-tuning and quantization are add-on pages now and have no tab in the Build
 // bar. The Build overview still lists them as cards: their old routes open the
 // add-on while it is usable and the core page otherwise, so a user without the
-// add-on keeps a way in.
+// add-on keeps a way in. The saved agents, triggers and skills live on pages of
+// the chats; they are cards too, so the Chats entry of the sidebar stays the one
+// that lights up there.
 export const buildOverviewTools = [
+  {
+    id: 'agents',
+    labelKey: 'items.agents',
+    descriptionKey: 'hub.descriptions.agents',
+    icon: 'robot',
+    items: [{ path: '/app/chats/agents', labelKey: 'items.agents', feature: 'chats' }],
+  },
+  {
+    id: 'triggers',
+    labelKey: 'items.triggers',
+    descriptionKey: 'hub.descriptions.triggers',
+    icon: 'checklist',
+    items: [{ path: '/app/chats/triggers', labelKey: 'items.triggers', feature: 'chats' }],
+  },
+  {
+    id: 'skills',
+    labelKey: 'items.skills',
+    descriptionKey: 'hub.descriptions.skills',
+    icon: 'sparkles',
+    items: [{ path: '/app/chats/skills', labelKey: 'items.skills', feature: 'chats' }],
+  },
   {
     id: 'fine-tune',
     labelKey: 'items.fineTune',
@@ -64,25 +87,11 @@ export const buildHub = {
       items: [{ path: '/app/build', labelKey: 'items.overview' }],
     },
     {
-      id: 'agents',
-      labelKey: 'items.agents',
-      descriptionKey: 'hub.descriptions.agents',
-      icon: 'robot',
-      items: [{ path: '/app/agents', labelKey: 'items.agents', feature: 'agents', requiresAgentPool: true }],
-    },
-    {
-      id: 'skills',
-      labelKey: 'items.skills',
-      descriptionKey: 'hub.descriptions.skills',
-      icon: 'sparkles',
-      items: [{ path: '/app/skills', labelKey: 'items.skills', feature: 'skills', requiresAgentPool: true }],
-    },
-    {
       id: 'memory',
       labelKey: 'items.memory',
       descriptionKey: 'hub.descriptions.memory',
       icon: 'database',
-      items: [{ path: '/app/collections', labelKey: 'items.memory', feature: 'collections', requiresAgentPool: true }],
+      items: [{ path: '/app/collections', labelKey: 'items.memory', feature: 'collections', requiresCollections: true }],
     },
     {
       id: 'addons',
@@ -97,13 +106,6 @@ export const buildHub = {
       items: [{ path: '/app/addons', labelKey: 'items.addons', feature: FEATURE_ADDONS, exact: true }],
       // Add-on pages that declare navigation are listed in the second row.
       addonNavigation: true,
-    },
-    {
-      id: 'jobs',
-      labelKey: 'items.jobs',
-      descriptionKey: 'hub.descriptions.jobs',
-      icon: 'checklist',
-      items: [{ path: '/app/agent-jobs', labelKey: 'items.jobs', feature: 'mcp', requiresAgentPool: true }],
     },
     {
       id: 'import',
@@ -210,7 +212,7 @@ export const hubs = [buildHub, operateHub]
 export function isHubItemVisible(item, { isAdmin, authEnabled, hasFeature, features }) {
   if (item.adminOnly && !isAdmin) return false
   if (item.authOnly && !authEnabled) return false
-  if (item.requiresAgentPool && features.agents === false) return false
+  if (item.requiresCollections && features.collections === false) return false
   if (item.feature && features[item.feature] === false) return false
   if (item.feature && !hasFeature(item.feature)) return false
   // Hidden until /api/features has answered: showing it and then swapping it

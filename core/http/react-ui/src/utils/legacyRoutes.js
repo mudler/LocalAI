@@ -47,11 +47,30 @@ export function studioRedirect(legacy, model, search = '', hash = '') {
   return studioAddress({ tab: STUDIO_TABS[legacy], model, search, hash })
 }
 
+// The old chat, agents, jobs and skills pages became pages of the chats. This is
+// where an old address opens now. The query string and the hash are kept. The
+// model of /app/chat/<model> travels as ?model=<id> and the chats page selects it.
+export function chatsRedirect(pathname, search = '', hash = '') {
+  const path = pathname.replace(/\/+$/, '')
+  const params = new URLSearchParams(search)
+  const model = /^\/app\/chat\/([^/]+)$/.exec(path)
+  if (model) params.set('model', decodeURIComponent(model[1]))
+  let target = '/app/chats'
+  if (/^\/app\/agents(\/|$)/.test(path)) target = '/app/chats/agents'
+  else if (/^\/app\/agent-jobs(\/|$)/.test(path)) target = '/app/chats/triggers'
+  else if (/^\/app\/skills(\/|$)/.test(path)) target = '/app/chats/skills'
+  const query = params.toString()
+  return `${target}${query ? `?${query}` : ''}${hash}`
+}
+
 // One row per old route of the spec's migration table that changes or keeps
-// its path. `kind` is 'same' (no redirect), 'studio-tab' (a Studio tab) or
-// 'addon-page' (a page of an add-on).
+// its path. `kind` is 'same' (no redirect), 'chats' (a page of the chats),
+// 'studio-tab' (a Studio tab) or 'addon-page' (a page of an add-on).
 export const MIGRATION_ROUTES = Object.freeze([
-  { from: '/app/chat', to: '/app/chat', kind: 'same' },
+  { from: '/app/chat', to: '/app/chats', kind: 'chats' },
+  { from: '/app/agents', to: '/app/chats/agents', kind: 'chats' },
+  { from: '/app/agent-jobs', to: '/app/chats/triggers', kind: 'chats' },
+  { from: '/app/skills', to: '/app/chats/skills', kind: 'chats' },
   { from: '/app/models', to: '/app/models', kind: 'same' },
   { from: '/app/settings', to: '/app/settings', kind: 'same' },
   { from: '/app/studio', to: '/app/addons/studio/studio', kind: 'addon-page' },

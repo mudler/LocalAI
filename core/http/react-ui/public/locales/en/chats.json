@@ -250,5 +250,33 @@
       "listed_one": "1 listed sender",
       "listed_other": "{{count}} listed senders"
     }
+  },
+  "conversionPage": {
+    "title": "Converted from the old chat",
+    "intro": "The old chat, agents, tasks, skills and Telegram connectors were converted when this server started. Triggers and connectors are switched off until you turn them on. A chat keeps what was said, not what the model remembered.",
+    "notRun": "No conversion has run on this server.",
+    "nothing": "Nothing of yours needed converting.",
+    "allUsers": "All users:",
+    "count": {
+      "converted": "{{count}} converted",
+      "skipped": "{{count}} skipped",
+      "failed": "{{count}} failed",
+      "dropped": "{{count}} dropped"
+    },
+    "kind": {
+      "agent": "Agent",
+      "trigger": "Trigger",
+      "skill": "Skill",
+      "chat": "Chat",
+      "connector": "Connector"
+    },
+    "status": {
+      "converted": "Converted",
+      "skipped": "Skipped",
+      "failed": "Failed",
+      "dropped": "Dropped"
+    },
+    "openTriggers": "Triggers",
+    "openConnectors": "Connectors"
   }
 }

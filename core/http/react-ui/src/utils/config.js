@@ -74,31 +74,10 @@ export const API_CONFIG = {
     filesHistory: '/api/chats/files/history',
     filesSearch: '/api/chats/files/search',
 
-    // Chat history (server-side persistence, #9432)
-    conversations: '/api/conversations',
-    conversation: (id) => `/api/conversations/${encodeURIComponent(id)}`,
-    conversationsBulk: '/api/conversations/bulk',
-
-    // Agent jobs
-    agentTasks: '/api/agent/tasks',
-    agentTask: (id) => `/api/agent/tasks/${id}`,
-    executeAgentTask: (name) => `/api/agent/tasks/${name}/execute`,
-    agentJobs: '/api/agent/jobs',
-    agentJob: (id) => `/api/agent/jobs/${id}`,
-    cancelAgentJob: (id) => `/api/agent/jobs/${id}/cancel`,
-    executeAgentJob: '/api/agent/jobs/execute',
-
     // Progress of a cold load still staging a model onto a worker
     modelLoadStatus: (id) => `/api/models/${encodeURIComponent(id)}/load-status`,
 
     // OpenAI-compatible endpoints
-    chatCompletions: '/v1/chat/completions',
-    mcpChatCompletions: '/v1/mcp/chat/completions',
-    mcpServers: (model) => `/v1/mcp/servers/${model}`,
-    mcpPrompts: (model) => `/v1/mcp/prompts/${model}`,
-    mcpGetPrompt: (model, prompt) => `/v1/mcp/prompts/${model}/${encodeURIComponent(prompt)}`,
-    mcpResources: (model) => `/v1/mcp/resources/${model}`,
-    mcpReadResource: (model) => `/v1/mcp/resources/${model}/read`,
     completions: '/v1/completions',
     imageGenerations: '/v1/images/generations',
     audioSpeech: '/v1/audio/speech',

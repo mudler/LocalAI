@@ -58,27 +58,6 @@ async function postJSON(endpoint, body, options = {}) {
   })
 }
 
-// SSE streaming for chat completions
-export async function streamChat(body, signal) {
-  const response = await fetch(apiUrl(API_CONFIG.endpoints.chatCompletions), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, stream: true }),
-    signal,
-  })
-
-  if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}`
-    try {
-      const data = await response.json()
-      if (data?.error?.message) errorMessage = data.error.message
-    } catch (_e) { /* not JSON */ }
-    throw new Error(errorMessage)
-  }
-
-  return response.body
-}
-
 // Models API
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
@@ -151,16 +130,10 @@ export const backendsApi = {
   upgrade: (name) => postJSON(API_CONFIG.endpoints.upgradeBackend(name), {}),
 }
 
-// Chat API (non-streaming)
-export const chatApi = {
-  complete: (body) => postJSON(API_CONFIG.endpoints.chatCompletions, body),
-  mcpComplete: (body) => postJSON(API_CONFIG.endpoints.mcpChatCompletions, body),
-}
-
 // Chats API: conversations the server keeps. A message sent while a turn runs
 // waits and reaches the model, with any others, at its next request.
 export const chatsApi = {
-  list: () => fetchJSON(API_CONFIG.endpoints.chats),
+  list: (limit) => fetchJSON(limit ? `${API_CONFIG.endpoints.chats}?limit=${limit}` : API_CONFIG.endpoints.chats),
   // With an agent, its model (when it has one) replaces model.
   create: (model, title, agentId) => postJSON(API_CONFIG.endpoints.chats, {
     ...(model ? { model } : {}), ...(title ? { title } : {}), ...(agentId ? { agent_id: agentId } : {}),
@@ -196,10 +169,6 @@ export const chatsApi = {
   eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
 }
 
-// Chat History API — server-side conversation persistence (#9432).
-// Endpoints return 404 when the WebUI's chat history feature is disabled, so
-// every call here is best-effort: callers should fall back to localStorage on
-// failure rather than surfacing a user-visible error.
 // Files API: the user's own workspace. Paths are inside the user's home, "/".
 const q = (params) => {
   const sp = new URLSearchParams()
@@ -295,35 +264,16 @@ export const chatNotificationsApi = {
   eventsUrl: () => apiUrl('/api/chats/notifications/events'),
 }
 
+// What the conversion of the old chat, agents and skills did, for the viewer.
+export const chatConversionApi = {
+  get: () => fetchJSON('/api/chats/conversion'),
+}
+
 // Browser push for the inbox.
 export const chatPushApi = {
   key: () => fetchJSON('/api/chats/push/key'),
   subscribe: (subscription) => postJSON('/api/chats/push/subscribe', subscription),
   unsubscribe: (endpoint) => fetchJSON('/api/chats/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
-}
-
-export const chatHistoryApi = {
-  list: () => fetchJSON(API_CONFIG.endpoints.conversations),
-  get: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id)),
-  save: (conv) => fetchJSON(API_CONFIG.endpoints.conversation(conv.id), {
-    method: 'PUT',
-    body: JSON.stringify(conv),
-  }),
-  bulkReplace: (conversations) => fetchJSON(API_CONFIG.endpoints.conversationsBulk, {
-    method: 'PUT',
-    body: JSON.stringify({ conversations }),
-  }),
-  delete: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id), { method: 'DELETE' }),
-  deleteAll: () => fetchJSON(API_CONFIG.endpoints.conversations, { method: 'DELETE' }),
-}
-
-// MCP API
-export const mcpApi = {
-  listServers: (model) => fetchJSON(API_CONFIG.endpoints.mcpServers(model)),
-  listPrompts: (model) => fetchJSON(API_CONFIG.endpoints.mcpPrompts(model)),
-  getPrompt: (model, name, args) => postJSON(API_CONFIG.endpoints.mcpGetPrompt(model, name), { arguments: args }),
-  listResources: (model) => fetchJSON(API_CONFIG.endpoints.mcpResources(model)),
-  readResource: (model, uri) => postJSON(API_CONFIG.endpoints.mcpReadResource(model), { uri }),
 }
 
 // Resources API
@@ -428,30 +378,6 @@ export const p2pApi = {
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     return response.text()
   },
-}
-
-// Agent Jobs API
-export const agentJobsApi = {
-  listTasks: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentTasks}${allUsers ? '?all_users=true' : ''}`),
-  getTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id)),
-  createTask: (body) => postJSON(API_CONFIG.endpoints.agentTasks, body),
-  updateTask: (id, body) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'PUT', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }),
-  deleteTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'DELETE' }),
-  executeTask: (name, body = {}) => postJSON(API_CONFIG.endpoints.executeAgentTask(name), body),
-  listJobs: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentJobs}${allUsers ? '?all_users=true' : ''}`),
-  getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
-  cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
-  executeJob: (body) => postJSON(API_CONFIG.endpoints.executeAgentJob, body),
-  // Run a finished job's task again with the parameters and media it had. There
-  // is no retry call, so this is a new job.
-  rerunJob: (job) => postJSON(API_CONFIG.endpoints.executeAgentJob, {
-    task_id: job.task_id,
-    parameters: job.parameters || {},
-    ...(job.images?.length ? { images: job.images } : {}),
-    ...(job.videos?.length ? { videos: job.videos } : {}),
-    ...(job.audios?.length ? { audios: job.audios } : {}),
-    ...(job.files?.length ? { files: job.files } : {}),
-  }),
 }
 
 // Image generation
@@ -623,25 +549,6 @@ export const systemApi = {
   info: () => fetchJSON(API_CONFIG.endpoints.system),
 }
 
-export const agentsApi = {
-  list: (allUsers) => fetchJSON(`/api/agents${allUsers ? '?all_users=true' : ''}`),
-  create: (config) => postJSON('/api/agents', config),
-  get: (name, userId) => fetchJSON(`/api/agents/${enc(name)}${userQ(userId)}`),
-  getConfig: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/config${userQ(userId)}`),
-  update: (name, config, userId) => fetchJSON(`/api/agents/${enc(name)}${userQ(userId)}`, { method: 'PUT', body: JSON.stringify(config), headers: { 'Content-Type': 'application/json' } }),
-  delete: (name, userId) => fetchJSON(`/api/agents/${enc(name)}${userQ(userId)}`, { method: 'DELETE' }),
-  pause: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/pause${userQ(userId)}`, { method: 'PUT' }),
-  resume: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/resume${userQ(userId)}`, { method: 'PUT' }),
-  status: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/status${userQ(userId)}`),
-  observables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`),
-  clearObservables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`, { method: 'DELETE' }),
-  chat: (name, message, userId, history = []) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message, history }),
-  export: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/export${userQ(userId)}`),
-  import: (formData) => fetch(apiUrl('/api/agents/import'), { method: 'POST', body: formData }).then(handleResponse),
-  configMeta: () => fetchJSON('/api/agents/config/metadata'),
-  sseUrl: (name, userId) => `/api/agents/${enc(name)}/sse${userQ(userId)}`,
-}
-
 export const agentCollectionsApi = {
   list: (allUsers) => fetchJSON(`/api/agents/collections${allUsers ? '?all_users=true' : ''}`),
   create: (name) => postJSON('/api/agents/collections', { name }),
@@ -657,28 +564,6 @@ export const agentCollectionsApi = {
     update_interval: interval === undefined ? undefined : Number(interval),
   }),
   removeSource: (name, url, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
-}
-
-// Skills API
-export const skillsApi = {
-  list: (allUsers) => fetchJSON(`/api/agents/skills${allUsers ? '?all_users=true' : ''}`),
-  search: (q) => fetchJSON(`/api/agents/skills/search?q=${enc(q)}`),
-  get: (name, userId) => fetchJSON(`/api/agents/skills/${enc(name)}${userQ(userId)}`),
-  create: (data) => postJSON('/api/agents/skills', data),
-  update: (name, data, userId) => fetchJSON(`/api/agents/skills/${enc(name)}${userQ(userId)}`, { method: 'PUT', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } }),
-  delete: (name, userId) => fetchJSON(`/api/agents/skills/${enc(name)}${userQ(userId)}`, { method: 'DELETE' }),
-  import: (file) => { const fd = new FormData(); fd.append('file', file); return fetch(apiUrl('/api/agents/skills/import'), { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
-  exportUrl: (name, userId) => apiUrl(`/api/agents/skills/export/${enc(name)}${userQ(userId)}`),
-  listResources: (name, userId) => fetchJSON(`/api/agents/skills/${enc(name)}/resources${userQ(userId)}`),
-  getResource: (name, path, opts, userId) => fetchJSON(`/api/agents/skills/${enc(name)}/resources/${path}${opts?.json ? '?encoding=base64' : ''}${userId ? `${opts?.json ? '&' : '?'}user_id=${enc(userId)}` : ''}`),
-  createResource: (name, path, file) => { const fd = new FormData(); fd.append('file', file); fd.append('path', path); return fetch(apiUrl(`/api/agents/skills/${enc(name)}/resources`), { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
-  updateResource: (name, path, content) => postJSON(`/api/agents/skills/${enc(name)}/resources/${path}`, { content }),
-  deleteResource: (name, path) => fetchJSON(`/api/agents/skills/${enc(name)}/resources/${path}`, { method: 'DELETE' }),
-  listGitRepos: () => fetchJSON('/api/agents/git-repos'),
-  addGitRepo: (url) => postJSON('/api/agents/git-repos', { url }),
-  syncGitRepo: (id) => postJSON(`/api/agents/git-repos/${enc(id)}/sync`, {}),
-  toggleGitRepo: (id) => postJSON(`/api/agents/git-repos/${enc(id)}/toggle`, {}),
-  deleteGitRepo: (id) => fetchJSON(`/api/agents/git-repos/${enc(id)}`, { method: 'DELETE' }),
 }
 
 // Usage API

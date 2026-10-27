@@ -1,9 +1,8 @@
-// The Library: skills and memory collections, and where they are used.
+// The Library: memory collections, and where they are used.
 //
-// Nothing here is guessed. An agent reads skills through its own config
-// (`enable_skills`, `selected_skills`, `skills_mode`) and reads one collection,
-// the one that carries the agent's own name (`enable_kb`, `kb_mode`,
-// `kb_results`). The Chat page reads neither, so Chat never counts as a user.
+// Nothing here is guessed. A saved agent of the chats lists the collections and
+// the skills it may use (`collections`, `skills`): those lists are the only
+// pointers. A chat without an agent counts as no user.
 
 // Characters divided by four. It is an estimate and every screen says so.
 const CHARS_PER_TOKEN = 4
@@ -13,94 +12,54 @@ export function estimateTokens(text) {
   return n === 0 ? 0 : Math.max(1, Math.round(n / CHARS_PER_TOKEN))
 }
 
-function selectedOf(config) {
-  return Array.isArray(config?.selected_skills) ? config.selected_skills.filter(Boolean) : []
+// The skills an agent may use. The list is exact: an empty list grants none.
+export function agentSkills(config) {
+  const names = Array.isArray(config?.skills) ? config.skills.filter(Boolean) : []
+  return { on: names.length > 0, all: false, names }
 }
 
-// The skills an agent loads. An empty selection means every skill, which is
-// how the server filters them. `names` may hold a name whose skill was deleted.
-export function agentSkills(config, allNames = []) {
-  if (!config || !config.enable_skills) return { on: false, all: false, names: [] }
-  const selected = selectedOf(config)
-  if (selected.length === 0) return { on: true, all: true, names: [...allNames] }
-  return { on: true, all: false, names: selected }
+// The index of the skills is in the prompt; the model reads a skill when a task
+// matches, so a skill adds nothing up front.
+export function skillsMode() {
+  return 'tools'
 }
 
-// 'prompt' puts the whole skill in the system prompt, 'tools' only lets the
-// model ask for it, 'both' does both.
-export function skillsMode(config) {
-  return config?.skills_mode || 'prompt'
+// Collections are searched by the model when it asks, never on every message.
+export function kbSearchesEveryMessage() {
+  return false
 }
 
-// 'auto_search' searches on every message, 'tools' leaves it to the model.
-export function kbMode(config) {
-  if (config?.kb_mode) return config.kb_mode
-  if (config?.kb_auto_search && config?.kb_as_tools) return 'both'
-  if (config?.kb_as_tools) return 'tools'
-  return 'auto_search'
+export function kbResults() {
+  return 5
 }
 
-export function kbSearchesEveryMessage(config) {
-  const mode = kbMode(config)
-  return !!config?.enable_kb && (mode === 'auto_search' || mode === 'both')
+// Agents that may use a skill. `agents` is [{ name, config }].
+export function skillUsers(agents, skill) {
+  return agents.filter(agent => agentSkills(agent.config).names.includes(skill)).map(agent => ({ name: agent.name, all: false }))
 }
 
-export function kbResults(config) {
-  const n = Number(config?.kb_results)
-  return Number.isFinite(n) && n > 0 ? n : 5
-}
-
-// Agents that load a skill. `agents` is [{ name, config }].
-export function skillUsers(agents, skill, allNames) {
-  const out = []
-  for (const agent of agents) {
-    const s = agentSkills(agent.config, allNames)
-    if (s.names.includes(skill)) out.push({ name: agent.name, all: s.all })
-  }
-  return out
-}
-
-// A collection is read by the agent that has the same name, when its
-// knowledge base is on. The agent config holds no other pointer.
+// Agents that may search a collection.
 export function collectionUsers(agents, collection) {
   return agents
-    .filter(agent => agent.name === collection && agent.config?.enable_kb)
+    .filter(agent => (agent.config?.collections || []).includes(collection))
     .map(agent => ({ name: agent.name, all: false }))
 }
 
-// Config after adding a skill to an agent. Returns null when the agent
-// already loads it.
-export function withSkill(config, skill, allNames) {
-  const s = agentSkills(config, allNames)
-  if (s.names.includes(skill)) return null
-  const base = selectedOf(config)
-  return { ...config, enable_skills: true, selected_skills: [...(s.on ? s.names : base), skill] }
+// Config after granting a collection. Returns null when it is granted already.
+export function withCollection(config, collection) {
+  const have = config?.collections || []
+  return have.includes(collection) ? null : { ...config, collections: [...have, collection] }
 }
 
-// Config after taking a skill away. An empty selection would mean "every
-// skill", so removing the last one switches skills off instead.
-export function withoutSkill(config, skill, allNames) {
-  const s = agentSkills(config, allNames)
-  if (!s.names.includes(skill)) return null
-  const rest = s.names.filter(n => n !== skill)
-  if (rest.length === 0) return { config: { ...config, enable_skills: false, selected_skills: [] }, switchedOff: true }
-  return { config: { ...config, selected_skills: rest }, switchedOff: false }
+// Config after taking a collection away. Returns null when it was not granted.
+export function withoutCollection(config, collection) {
+  const have = config?.collections || []
+  return have.includes(collection) ? { ...config, collections: have.filter(c => c !== collection) } : null
 }
 
-export function withKb(config) {
-  return config?.enable_kb ? null : { ...config, enable_kb: true }
-}
-
-export function withoutKb(config) {
-  return config?.enable_kb ? { ...config, enable_kb: false } : null
-}
-
-// Estimated tokens a skill adds to every message of an agent. In 'tools' mode
-// the content is read only when the model asks for it, so nothing is added up
-// front.
-export function skillLoadTokens(skill, config) {
-  const mode = skillsMode(config)
-  return mode === 'tools' ? 0 : estimateTokens(skill?.content || '')
+// A skill adds no tokens before the model asks for it.
+export function skillLoadTokens() {
+  return 0
 }
 
 export function sumTokens(items) {

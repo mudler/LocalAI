@@ -2862,7 +2862,6 @@
       "unit: tools: the card facts come from the stored proposal and never from model text",
       "unit: tools: stale, expired, blocked and settled proposals cannot be decided",
       "unit: tools: a confirmation names the displayed proposal and its digest and nothing a model supplied",
-      "unit: tools: the add-on tools switch is offered only when an add-on offers tools",
       "go: accepts the Tables definitions and classifies every model-facing tool",
       "go: keeps the schema bytes of a parsed manifest equal to what the runtime echoes back",
       "go: rejects a definition that declares an identity, role, approval or operation property",

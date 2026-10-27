@@ -20,8 +20,8 @@ import { AddToMenu, PassageList, UsedByStrip } from '../components/library/Libra
 // eslint-disable-next-line no-unused-vars
 import SimulateSheet from '../components/library/SimulateSheet'
 import { usedByLine } from '../utils/libraryText'
-import { collectionUsers, entryName, normaliseSource, withKb, withoutKb } from '../utils/library'
-import { skillsApi } from '../utils/api'
+import { collectionUsers, entryName, normaliseSource, withCollection, withoutCollection } from '../utils/library'
+import { chatSkillsApi } from '../utils/api'
 import './library.css'
 
 const DEFAULT_PASSAGES = 10
@@ -80,8 +80,8 @@ export default function Collections() {
 
   // Skills only feed the Simulate sheet.
   useEffect(() => {
-    skillsApi.list(false)
-      .then(data => setSkills(Array.isArray(data) ? data : (Array.isArray(data?.skills) ? data.skills : [])))
+    chatSkillsApi.list()
+      .then(data => setSkills(Array.isArray(data?.skills) ? data.skills.filter(sk => !sk.shadowed && !sk.invalid) : []))
       .catch(() => setSkills([]))
   }, [])
 
@@ -158,14 +158,14 @@ export default function Collections() {
   const addToAgent = async (collection, agent) => {
     const config = facts.agents.find(a => a.name === agent)?.config
     if (!config) { addToast(t('library:toasts.updateFailed', { agent, message: t('library:usedBy.unread') }), 'error'); return }
-    const next = withKb(config)
+    const next = withCollection(config, collection)
     if (!next) return
     if (await saveFor(agent, next)) addToast(t('library:toasts.collectionAdded', { name: collection, agent }), 'success')
   }
 
   const removeFromAgent = async (collection, agent) => {
     const config = facts.agents.find(a => a.name === agent)?.config
-    const next = config && withoutKb(config)
+    const next = config && withoutCollection(config, collection)
     if (!next) return
     if (!(await saveFor(agent, next))) return
     setUndo({
@@ -591,7 +591,7 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
       {own && (
         <>
           <UsedByStrip users={users} status={status} onRemove={onRemove} busy={busy}>
-            <AddToMenu kind="collection" name={name} agents={agents} allSkillNames={[]} status={status} onAdd={onAdd} busy={busy} />
+            <AddToMenu kind="collection" name={name} agents={agents} status={status} onAdd={onAdd} busy={busy} />
           </UsedByStrip>
           {unused && (
             <div className="lib-notused" data-testid="collection-not-used">

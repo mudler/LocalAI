@@ -43,10 +43,9 @@ export function UsedByStrip({ users, status, onRemove, busy, children }) {
   )
 }
 
-// The Add to... menu. A skill can go to any agent; a collection can go only to
-// the agent that carries its name, because that is the collection an agent
-// reads. Each row says what the addition costs where that can be worked out.
-export function AddToMenu({ kind, name, skill, agents, allSkillNames, status, onAdd, busy, buttonClass = 'dk-btn dk-btn--secondary dk-btn--sm' }) {
+// The Add to... menu: a skill or a collection can go to any saved agent, by
+// adding it to the agent's list.
+export function AddToMenu({ kind, name, agents, status, onAdd, busy, buttonClass = 'dk-btn dk-btn--secondary dk-btn--sm' }) {
   const { t } = useTranslation('library')
   const [open, setOpen] = useState(false)
   const root = useRef(null)
@@ -63,19 +62,17 @@ export function AddToMenu({ kind, name, skill, agents, allSkillNames, status, on
     }
   }, [open])
 
-  const rows = kind === 'collection' ? agents.filter(a => a.name === name) : agents
+  const rows = agents
   const hasAgent = rows.length > 0
 
   const rowFor = agent => {
     if (kind === 'collection') {
-      const on = !!agent.config?.enable_kb
-      return { on, hint: on ? '' : t('add.kbOn') }
+      return { on: (agent.config?.collections || []).includes(name), hint: '' }
     }
-    const s = agentSkills(agent.config, allSkillNames)
+    const s = agentSkills(agent.config)
     const on = s.names.includes(name)
     if (on) return { on, hint: '' }
-    const tokens = skillLoadTokens(skill, agent.config)
-    const hint = skillsMode(agent.config) === 'tools' ? t('add.toolsMode') : t('add.tokens', { count: tokens })
+    const hint = skillsMode() === 'tools' ? t('add.toolsMode') : t('add.tokens', { count: skillLoadTokens() })
     return { on, hint }
   }
 
@@ -101,8 +98,8 @@ export function AddToMenu({ kind, name, skill, agents, allSkillNames, status, on
             <p className="lib-addmenu__empty">{t('usedBy.unread')}</p>
           ) : !hasAgent ? (
             <div className="lib-addmenu__empty">
-              <p>{kind === 'collection' ? t('add.noAgentNamed', { name }) : t('add.noAgents')}</p>
-              <Link className="dk-link" to="/app/agents/new">{t('add.createAgent')}</Link>
+              <p>{t('add.noAgents')}</p>
+              <Link className="dk-link" to="/app/chats/agents">{t('add.createAgent')}</Link>
             </div>
           ) : (
             <>

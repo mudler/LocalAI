@@ -27,10 +27,7 @@ const FALLBACK_FEATURES = {
     { key: 'sound', label: 'Sound Generation', default: true },
   ],
   agent_features: [
-    { key: 'agents', label: 'Agents', default: false },
-    { key: 'skills', label: 'Skills', default: false },
     { key: 'collections', label: 'Collections', default: false },
-    { key: 'mcp_jobs', label: 'MCP CI Jobs', default: false },
   ],
   general_features: [{ key: 'fine_tuning', label: 'Fine-Tuning', default: false }],
 }

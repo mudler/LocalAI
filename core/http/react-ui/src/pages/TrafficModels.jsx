@@ -96,7 +96,7 @@ export default function TrafficModels() {
           <Icon name="cube" className="dk-empty-icon" />
           <h2 className="dk-empty-title">{t('models.emptyTitle')}</h2>
           <p className="dk-empty-text">{t('models.emptyText')}</p>
-          <div className="tf-empty__acts"><Link className="dk-btn dk-btn--primary" to="/app/chat">{t('overview.emptyChat')}</Link></div>
+          <div className="tf-empty__acts"><Link className="dk-btn dk-btn--primary" to="/app/chats">{t('overview.emptyChat')}</Link></div>
         </div>
       ) : (
         <>

@@ -659,8 +659,8 @@ test('registry: the legacy Add-ons tab lists page links only when the registry h
   // A viewer who may not use add-ons has no tab and so no links.
   assert.deepEqual(visibleItems(tab, { ...auth, hasFeature: () => false, addonNavigation: nav }), [])
   // Other tabs never pick up add-on links.
-  const agents = buildHub.tabs.find(t => t.id === 'agents')
-  assert.deepEqual(visibleItems(agents, { ...auth, addonNavigation: nav }).map(i => i.path), ['/app/agents'])
+  const memory = buildHub.tabs.find(t => t.id === 'memory')
+  assert.deepEqual(visibleItems(memory, { ...auth, addonNavigation: nav }).map(i => i.path), ['/app/collections'])
 })
 
 test('registry: the list is read off the Add-ons page only for a viewer with the feature and a UI contribution', () => {

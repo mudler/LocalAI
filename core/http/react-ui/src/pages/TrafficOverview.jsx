@@ -98,7 +98,7 @@ export default function TrafficOverview() {
           <h2 className="dk-empty-title">{t('overview.emptyTitle')}</h2>
           <p className="dk-empty-text">{t('overview.emptyText')}</p>
           <div className="tf-empty__acts">
-            <Link className="dk-btn dk-btn--primary" to="/app/chat">{t('overview.emptyChat')}</Link>
+            <Link className="dk-btn dk-btn--primary" to="/app/chats">{t('overview.emptyChat')}</Link>
             <Link className="dk-btn dk-btn--secondary" to="/app/traffic/prometheus">{t('overview.emptyApi')}</Link>
           </div>
         </div>

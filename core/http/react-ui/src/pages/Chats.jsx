@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ChatInbox from '../components/ChatInbox'
 import ModelSelector from '../components/ModelSelector'
@@ -226,7 +226,9 @@ export default function Chats() {
   const inbox = useInbox()
   const { select, activeId } = chat
   const location = useLocation()
-  const [model, setModel] = useState('')
+  // An old chat link or the Home page names a model with ?model=; it is only a hint.
+  const [searchParams] = useSearchParams()
+  const [model, setModel] = useState(searchParams.get('model') || '')
   const [agents, setAgents] = useState([])
   // An agent chosen on the agents page arrives in the location state.
   const [agentId, setAgentId] = useState(location.state?.agentId || '')
@@ -285,6 +287,21 @@ export default function Chats() {
       setBusy(false)
     }
   }, [draft, attached, busy, activeId, model, needsModel, agentId, chat, select, navigate, t])
+
+  // The Home page hands over the first message in the location state. It goes
+  // once, when a model is known; without one the text waits in the box.
+  const startRef = useRef(location.state?.start || '')
+  useEffect(() => {
+    if (startRef.current) setDraft(startRef.current)
+  }, [])
+  useEffect(() => {
+    const start = startRef.current
+    if (!start || draft !== start || activeId || busy || (!model && needsModel)) return
+    startRef.current = ''
+    // Clear the state first: Back must not send the message again.
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    submit()
+  }, [draft, activeId, busy, model, needsModel, submit, navigate, location.pathname, location.search])
 
   const onKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {

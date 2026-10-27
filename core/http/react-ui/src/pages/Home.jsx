@@ -6,8 +6,6 @@ import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { CAP_CHAT } from '../utils/capabilities'
 // eslint-disable-next-line no-unused-vars
-import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
-// eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import HomeConnect from '../components/HomeConnect'
@@ -21,28 +19,19 @@ import HomeMemoryStrip from '../components/home/HomeMemoryStrip'
 import HomeResume from '../components/home/HomeResume'
 // eslint-disable-next-line no-unused-vars
 import HomeFirstRun from '../components/home/HomeFirstRun'
-// eslint-disable-next-line no-unused-vars
-import HomeUndoToast from '../components/home/HomeUndoToast'
 import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { useAddonPage } from '../addons/useAddonPage'
-import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
-import { readAttachmentText, renderPdfPages, PdfNoTextError } from '../utils/pdf'
+import { backendControlApi, chatsApi, systemApi, nodesApi } from '../utils/api'
 import { greetingKey } from '../utils/greeting'
-import {
-  listConversations, setActiveConversation, removeConversation,
-} from '../utils/homeConversations'
-import { chatsStorageKey } from '../utils/chatStore'
+import { resumeItems } from '../utils/homeConversations'
 // eslint-disable-next-line no-unused-vars
 import Skeleton from '../components/Skeleton'
 import { staggerStyle } from '../hooks/useStagger'
 import Icon from '../components/Icon'
 
 const DOCS_URL = 'https://localai.io'
-const ASSISTANT_TIP_KEY = 'localai_assistant_tip_dismissed'
-// How long a row stays visible while it leaves, before the undo toast takes over.
-const LEAVE_MS = 180
 
 function isTyping(el) {
   if (!el) return false
@@ -58,9 +47,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { t, i18n } = useTranslation('home')
-  const { isAdmin, user } = useAuth()
-  // The signed-in account's own chat cache (see chatStore).
-  const chatsKey = chatsStorageKey(user?.id)
+  const { isAdmin } = useAuth()
   const branding = useBranding()
   const { resources } = useResources()
   const { operations } = useOperations()
@@ -72,46 +59,21 @@ export default function Home() {
   const [selectedModel, setSelectedModel] = useState('')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
-  const [imageFiles, setImageFiles] = useState([])
-  const [audioFiles, setAudioFiles] = useState([])
-  const [textFiles, setTextFiles] = useState([])
-  const [mcpMode, setMcpMode] = useState(false)
-  const [mcpAvailable, setMcpAvailable] = useState(false)
-  const [mcpServerList, setMcpServerList] = useState([])
-  const [mcpServersLoading, setMcpServersLoading] = useState(false)
-  const [mcpServerListError, setMcpServerListError] = useState('')
-  const [mcpSelectedServers, setMcpSelectedServers] = useState([])
-  const [clientMCPSelectedIds, setClientMCPSelectedIds] = useState([])
-  const [assistantAvailable, setAssistantAvailable] = useState(false)
-  // Progressive disclosure: the assistant line is a first-run affordance. Once
-  // the admin has used it, or dismissed the line, it moves into the Library row
-  // and the /assistant action.
-  const [assistantUsed, setAssistantUsed] = useState(() => {
-    try { return localStorage.getItem('localai_assistant_used') === '1' } catch { return false }
-  })
-  const [tipDismissed, setTipDismissed] = useState(() => {
-    try { return localStorage.getItem(ASSISTANT_TIP_KEY) === '1' } catch { return false }
-  })
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
   const [clusterData, setClusterData] = useState(null)
   const [stripOpen, setStripOpen] = useState(false)
-  const [conversations, setConversations] = useState(() => listConversations(chatsKey))
-  const [leavingId, setLeavingId] = useState(null)
-  const [pendingDelete, setPendingDelete] = useState(null)
+  const [conversations, setConversations] = useState([])
   const textareaRef = useRef(null)
   const pickerRef = useRef(null)
   const stripRef = useRef(null)
-  const pendingRef = useRef(null)
-  const leaveTimer = useRef(null)
 
-  // Detect distributed mode + assistant feature availability in one fetch.
+  // Detect distributed mode.
   useEffect(() => {
     fetch(apiUrl('/api/features'))
       .then(r => r.json())
       .then(data => {
         setDistributedMode(!!data.distributed)
-        setAssistantAvailable(!!data.localai_assistant)
       })
       .catch(() => {})
   }, [])
@@ -185,150 +147,22 @@ export default function Home() {
 
   usePolling(fetchSystemInfo, 5000)
 
-  // Check MCP availability when selected model changes
-  useEffect(() => {
-    if (!selectedModel) {
-      setMcpAvailable(false)
-      setMcpMode(false)
-      setMcpSelectedServers([])
-      return
-    }
-    let cancelled = false
-    modelsApi.getConfigJson(selectedModel).then(cfg => {
-      if (cancelled) return
-      const hasMcp = !!(cfg?.mcp?.remote || cfg?.mcp?.stdio)
-      setMcpAvailable(hasMcp)
-      if (!hasMcp) {
-        setMcpMode(false)
-        setMcpSelectedServers([])
-      }
-    }).catch(() => {
-      if (!cancelled) {
-        setMcpAvailable(false)
-        setMcpMode(false)
-        setMcpSelectedServers([])
-      }
-    })
-    return () => { cancelled = true }
-  }, [selectedModel])
-
-  const allFiles = useMemo(
-    () => [...imageFiles, ...audioFiles, ...textFiles],
-    [imageFiles, audioFiles, textFiles],
-  )
-
-  const addFiles = useCallback(async (fileList, setter) => {
-    const newFiles = []
-    for (const file of fileList) {
-      const base64 = await fileToBase64(file)
-      const entry = { name: file.name, type: file.type, base64 }
-      if (!file.type.startsWith('image/') && !file.type.startsWith('audio/')) {
-        try {
-          entry.textContent = await readAttachmentText(file)
-        } catch (err) {
-          // A scan has no text layer: send its pages as images for a vision model.
-          if (err instanceof PdfNoTextError) {
-            try {
-              const { pages, total } = await renderPdfPages(file)
-              setImageFiles(prev => [...prev, ...pages])
-              addToast(t('input.pdfScannedAsImages', { name: file.name, count: pages.length, total }), 'info')
-              continue
-            } catch {
-              // fall through to the read error below
-            }
-          }
-          addToast(t('input.pdfReadFailed', { name: file.name }), 'error')
-          continue
-        }
-      }
-      newFiles.push(entry)
-    }
-    setter(prev => [...prev, ...newFiles])
-  }, [addToast, t])
-
-  const attach = useCallback((kind, files) => {
-    addFiles(files, kind === 'image' ? setImageFiles : kind === 'audio' ? setAudioFiles : setTextFiles)
-  }, [addFiles])
-
-  const removeFile = useCallback((file) => {
-    const removeFn = (prev) => prev.filter(f => f !== file)
-    if (file.type?.startsWith('image/')) setImageFiles(removeFn)
-    else if (file.type?.startsWith('audio/')) setAudioFiles(removeFn)
-    else setTextFiles(removeFn)
-  }, [])
-
-  const fetchMcpServers = useCallback(async () => {
-    if (!selectedModel) return
-    setMcpServersLoading(true)
-    setMcpServerListError('')
-    try {
-      const data = await mcpApi.listServers(selectedModel)
-      const servers = data?.servers || []
-      setMcpServerList(servers)
-      const unavailable = new Set(servers.filter(server => server.error).map(server => server.name))
-      setMcpSelectedServers(prev => prev.filter(name => !unavailable.has(name)))
-    } catch (e) {
-      setMcpServerList([])
-      setMcpServerListError(e.body?.message || e.message || 'Failed to discover MCP servers')
-    } finally {
-      setMcpServersLoading(false)
-    }
-  }, [selectedModel])
-
-  const toggleMcpServer = useCallback((serverName) => {
-    setMcpSelectedServers(prev =>
-      prev.includes(serverName) ? prev.filter(s => s !== serverName) : [...prev, serverName]
-    )
-  }, [])
-
+  // A message typed here starts a chat on the chats page with the chosen model.
   const doSubmit = useCallback(() => {
     const text = message.trim()
-    if (!text && allFiles.length === 0) return
+    if (!text) return
     if (!selectedModel) {
       addToast(t('input.selectModelToast'), 'warning')
       return
     }
-
-    const chatData = {
-      message: text,
-      model: selectedModel,
-      files: allFiles,
-      mcpMode,
-      mcpServers: mcpSelectedServers,
-      clientMCPServers: clientMCPSelectedIds,
-      newChat: true,
-    }
-    localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
     setSending(true)
-    navigate(`/app/chat/${encodeURIComponent(selectedModel)}`)
-  }, [message, allFiles, selectedModel, mcpMode, mcpSelectedServers, clientMCPSelectedIds, addToast, navigate, t])
+    navigate(`/app/chats?model=${encodeURIComponent(selectedModel)}`, { state: { start: text } })
+  }, [message, selectedModel, addToast, navigate, t])
 
-  // Quick-launch: open a fresh chat already in assistant mode without
-  // requiring an initial message or model selection. Useful when an admin
-  // wants to start the assistant from a cold home page.
-  const openAssistantChat = useCallback(() => {
-    const chatData = {
-      model: selectedModel || '',
-      mcpMode: false,
-      localaiAssistant: true,
-      newChat: true,
-    }
-    localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
-    try { localStorage.setItem('localai_assistant_used', '1') } catch { /* ignore */ }
-    setAssistantUsed(true)
-    navigate('/app/chat')
-  }, [navigate, selectedModel])
-
-  // An empty new chat: Chat opens a fresh conversation on the chosen model.
+  // An empty new chat on the chosen model.
   const openNewChat = useCallback(() => {
-    localStorage.setItem('localai_index_chat_data', JSON.stringify({ model: selectedModel || '', mcpMode: false, newChat: true }))
-    navigate('/app/chat')
+    navigate(selectedModel ? `/app/chats?model=${encodeURIComponent(selectedModel)}` : '/app/chats')
   }, [navigate, selectedModel])
-
-  const dismissTip = useCallback(() => {
-    try { localStorage.setItem(ASSISTANT_TIP_KEY, '1') } catch { /* ignore */ }
-    setTipDismissed(true)
-  }, [])
 
   const handleStopModel = async (modelName) => {
     setConfirmDialog({
@@ -370,69 +204,15 @@ export default function Home() {
 
   // ----- Conversations -----------------------------------------------------
 
-  const refreshConversations = useCallback(() => setConversations(listConversations(chatsKey)), [chatsKey])
-
-  // Another tab can write chats, and Chat writes them after a short delay. Read
-  // again when the tab changes or comes back into focus.
+  // The newest chat the server keeps. The list is best effort: a server without
+  // chats leaves the strip empty.
   useEffect(() => {
-    const onStorage = (e) => { if (!e.key || e.key === chatsKey) refreshConversations() }
-    window.addEventListener('storage', onStorage)
-    window.addEventListener('focus', refreshConversations)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      window.removeEventListener('focus', refreshConversations)
-    }
-  }, [chatsKey, refreshConversations])
-
-  // A delete is final when its undo time ends. Until then the chat stays in
-  // storage and only the row is hidden.
-  const commitDelete = useCallback(() => {
-    const id = pendingRef.current
-    if (!id) return
-    pendingRef.current = null
-    removeConversation(id, chatsKey)
-    setPendingDelete(null)
-    refreshConversations()
-  }, [chatsKey, refreshConversations])
-
-  const commitRef = useRef(commitDelete)
-  commitRef.current = commitDelete
-  useEffect(() => () => {
-    clearTimeout(leaveTimer.current)
-    commitRef.current()
+    let live = true
+    chatsApi.list(1).then(r => { if (live) setConversations(resumeItems(r.conversations)) }).catch(() => { if (live) setConversations([]) })
+    return () => { live = false }
   }, [])
 
-  const requestDelete = useCallback((conv) => {
-    commitDelete()
-    clearTimeout(leaveTimer.current)
-    const hide = () => {
-      pendingRef.current = conv.id
-      setLeavingId(null)
-      setPendingDelete({ id: conv.id, title: conv.title })
-    }
-    if (reducedMotion()) {
-      hide()
-    } else {
-      setLeavingId(conv.id)
-      leaveTimer.current = setTimeout(hide, LEAVE_MS)
-    }
-  }, [commitDelete])
-
-  const undoDelete = useCallback(() => {
-    pendingRef.current = null
-    setPendingDelete(null)
-  }, [])
-
-  const resumeConversation = useCallback((conv) => {
-    commitDelete()
-    if (setActiveConversation(conv.id, chatsKey)) navigate('/app/chat')
-    else refreshConversations()
-  }, [chatsKey, commitDelete, navigate, refreshConversations])
-
-  const visibleConversations = useMemo(
-    () => conversations.filter(c => c.id !== pendingDelete?.id),
-    [conversations, pendingDelete],
-  )
+  const resumeConversation = useCallback((conv) => navigate(`/app/chats/${encodeURIComponent(conv.id)}`), [navigate])
 
   // ----- Derived state -----------------------------------------------------
 
@@ -443,7 +223,7 @@ export default function Home() {
   const loadedIds = useMemo(() => new Set(loadedModels.map(m => m.id)), [loadedModels])
 
   // Staging a model onto a worker is the one load this page can see: the
-  // operations list reports it. An OOM on a single host surfaces in Chat.
+  // operations list reports it. An OOM on a single host surfaces in the chat.
   const stagingOp = operations.find(op => op.taskType === 'staging' && !op.error && !op.isQueued && !op.isDeletion)
   const failedOp = operations.find(op => op.taskType === 'staging' && op.error)
   const stripBusy = !!stagingOp || !!failedOp
@@ -452,16 +232,15 @@ export default function Home() {
   // Studio is an add-on: its command is offered only while it is installed.
   const studioPage = useAddonPage('studio', 'studio')
   const slashContext = useMemo(
-    () => ({ isAdmin, assistantAvailable, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage) }),
-    [isAdmin, assistantAvailable, hasModels, firstRun, loadedCount, studioPage],
+    () => ({ isAdmin, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage) }),
+    [isAdmin, hasModels, firstRun, loadedCount, studioPage],
   )
 
   const runAction = useCallback((id) => {
     switch (id) {
       case 'model': pickerRef.current?.open(); break
       case 'new': openNewChat(); break
-      case 'chat': navigate('/app/chat'); break
-      case 'assistant': openAssistantChat(); break
+      case 'chat': navigate('/app/chats'); break
       case 'gallery': navigate('/app/models'); break
       case 'installed': navigate('/app/models?view=installed'); break
       case 'import': navigate('/app/import-model'); break
@@ -474,7 +253,7 @@ export default function Home() {
       case 'docs': window.open(DOCS_URL, '_blank', 'noopener,noreferrer'); break
       default: break
     }
-  }, [navigate, openNewChat, openAssistantChat, studioPage])
+  }, [navigate, openNewChat, studioPage])
 
   // "/" from anywhere that is not a text field starts a command.
   useEffect(() => {
@@ -497,7 +276,7 @@ export default function Home() {
   )
 
   const cluster = distributedMode && clusterData ? clusterData : null
-  const hasInput = message.trim().length > 0 || allFiles.length > 0
+  const hasInput = message.trim().length > 0
   const canSend = !!selectedModel && hasInput && !sending
   const sendTitle = !selectedModel ? t('input.selectModelFirst') : t('input.sendMessage')
 
@@ -523,7 +302,6 @@ export default function Home() {
     )
   }
 
-  const showTip = isAdmin && assistantAvailable && !assistantUsed && !tipDismissed && !firstRun
   const picker = (
     <HomeModelPicker
       ref={pickerRef}
@@ -535,29 +313,6 @@ export default function Home() {
       placeholder={firstRun ? t('picker.noneSelected') : undefined}
     />
   )
-  const mcp = (
-    <UnifiedMCPDropdown
-      serverMCPAvailable={mcpAvailable}
-      mcpServerList={mcpServerList}
-      mcpServersLoading={mcpServersLoading}
-      serverListError={mcpServerListError}
-      selectedServers={mcpSelectedServers}
-      onToggleServer={toggleMcpServer}
-      onSelectAllServers={() => {
-        const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
-        const allSelected = allNames.every(n => mcpSelectedServers.includes(n))
-        setMcpSelectedServers(allSelected ? [] : allNames)
-      }}
-      onFetchServers={fetchMcpServers}
-      clientMCPActiveIds={clientMCPSelectedIds}
-      onClientToggle={(id) => setClientMCPSelectedIds(prev =>
-        prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-      )}
-      onClientAdded={(server) => setClientMCPSelectedIds(prev => [...prev, server.id])}
-      onClientRemoved={(id) => setClientMCPSelectedIds(prev => prev.filter(s => s !== id))}
-    />
-  )
-
   return (
     <div className="home-page">
       <div className="home-col reveal-stagger">
@@ -577,10 +332,6 @@ export default function Home() {
             sendTitle={sendTitle}
             textareaRef={textareaRef}
             picker={picker}
-            mcp={mcp}
-            files={allFiles}
-            onRemoveFile={removeFile}
-            onAttach={attach}
             placeholder={firstRun ? t('input.placeholderFirstRun') : undefined}
             slashContext={slashContext}
             onRunAction={runAction}
@@ -641,18 +392,6 @@ export default function Home() {
             ) : null}
           </div>
 
-          {showTip && (
-            <div className="home-tip" data-testid="home-assistant-tip">
-              <Icon name="sparkles" />
-              <span><b>{t('assistant.title')}.</b> {t('assistant.description')}</span>
-              <button type="button" className="home-link" onClick={openAssistantChat} title={t('assistant.tooltip')}>
-                {t('assistant.open')}
-              </button>
-              <button type="button" className="home-tip__close" onClick={dismissTip} aria-label={t('assistant.dismiss')} title={t('assistant.dismiss')}>
-                <Icon name="close" />
-              </button>
-            </div>
-          )}
         </div>
 
         {firstRun && (
@@ -668,13 +407,11 @@ export default function Home() {
 
         <div style={staggerStyle(4)}>
           <HomeResume
-            items={visibleConversations}
-            leavingId={leavingId}
+            items={conversations}
             onResume={resumeConversation}
-            onDelete={requestDelete}
             emptyHint={(
               <div className="home-examples" aria-label={t('jump.examples')}>
-                {(isAdmin ? ['/gallery', '/import'] : []).concat(isAdmin && assistantAvailable ? ['/assistant'] : [], studioPage ? ['/studio'] : []).map(c => (
+                {(isAdmin ? ['/gallery', '/import'] : []).concat(studioPage ? ['/studio'] : []).map(c => (
                   <code key={c}>{c}</code>
                 ))}
               </div>
@@ -696,11 +433,6 @@ export default function Home() {
               <button type="button" className="home-ghost" onClick={() => navigate('/app/import-model')}>
                 {t('quickLinks.importModel')} <code>/import</code>
               </button>
-              {assistantAvailable && !showTip && (
-                <button type="button" className="home-ghost" onClick={openAssistantChat} title={t('assistant.tooltip')}>
-                  {t('quickLinks.manageByChat')} <code>/assistant</code>
-                </button>
-              )}
             </>
           )}
           <a className="home-ghost" href={DOCS_URL} target="_blank" rel="noopener noreferrer">
@@ -710,15 +442,6 @@ export default function Home() {
 
         <HomeConnect />
       </div>
-
-      {pendingDelete && (
-        <HomeUndoToast
-          key={pendingDelete.id}
-          message={t('jump.deleted', { title: pendingDelete.title })}
-          onUndo={undoDelete}
-          onExpire={commitDelete}
-        />
-      )}
 
       <ConfirmDialog
         open={!!confirmDialog}

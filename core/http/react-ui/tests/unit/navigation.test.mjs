@@ -83,11 +83,11 @@ test('movePin moves one place and stops at the ends', () => {
 const user = { isAdmin: false, authEnabled: true, hasFeature: () => false, features: {}, hasBuiltin: false }
 
 test('Settings is not a primary item and Models is an administrator item', () => {
-  assert.deepEqual(primaryDestinations.map(i => i.path), ['/app/chat', '/app/chats', '/app/files', '/app/models', '/app/addons'])
+  assert.deepEqual(primaryDestinations.map(i => i.path), ['/app/chats', '/app/files', '/app/models', '/app/addons'])
   const admin = visiblePrimary(primaryDestinations, { ...user, isAdmin: true, hasFeature: () => true })
-  assert.equal(admin.length, 5)
+  assert.equal(admin.length, 4)
   const member = visiblePrimary(primaryDestinations, { ...user, hasBuiltin: true })
-  assert.deepEqual(member.map(i => i.path), ['/app/chat', '/app/addons'])
+  assert.deepEqual(member.map(i => i.path), ['/app/addons'])
 })
 
 test('the files entry shows with the chats feature, like the chats entry', () => {
@@ -187,7 +187,10 @@ test('sidebar hubs keep their own routes, and Apps does not claim them', async (
     assert.equal(hubOwnsPath(build, p, auth), false, `Build owns ${p}`)
   }
   assert.equal(hubOwnsPath(build, '/app/build', auth), true)
-  assert.equal(hubOwnsPath(build, '/app/agents', auth), true)
+  // The agents, triggers and skills pages belong to the chats, not to the Build hub.
+  assert.equal(hubOwnsPath(build, '/app/chats/agents', auth), false)
+  const { buildOverviewTools } = await import('../../src/components/hub/hubConfig.js')
+  assert.deepEqual(buildOverviewTools.filter(t => ['agents', 'triggers', 'skills'].includes(t.id)).map(t => t.items[0].path), ['/app/chats/agents', '/app/chats/triggers', '/app/chats/skills'])
   assert.equal(hubOwnsPath(operate, '/app/build', auth), false)
   // The primary Apps entry matches /app/addons and its subpaths only.
   const apps = '/app/addons'

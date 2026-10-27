@@ -77,13 +77,13 @@ export function preloadRoute(path) {
 }
 
 const Home = page('', () => import('./pages/Home'))
-const Chat = page('chat', () => import('./pages/Chat'))
 const Chats = page('chats', () => import('./pages/Chats'))
 const Workspace = page('workspace', () => import('./pages/Workspace'))
 const ChatSkills = page('chats', () => import('./pages/ChatSkills'))
 const ChatAgents = page('chats', () => import('./pages/ChatAgents'))
 const ChatTriggers = page('chats', () => import('./pages/ChatTriggers'))
 const ChatConnectors = page('chats', () => import('./pages/ChatConnectors'))
+const ChatConversion = page('chats', () => import('./pages/ChatConversion'))
 const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
 // Referenced only from JSX below — same blind spot as Activity further down.
@@ -98,19 +98,7 @@ const Activity = page('activity', () => import('./pages/Activity'))
 const Settings = page('settings', () => import('./pages/Settings'))
 const Traces = page('traces', () => import('./pages/Traces'))
 const P2P = page('p2p', () => import('./pages/P2P'))
-const Agents = page('agents', () => import('./pages/Agents'))
-const AgentCreate = page(null, () => import('./pages/AgentCreate'))
-// eslint-disable-next-line no-unused-vars
-const AgentPage = page(null, () => import('./pages/AgentPage'))
-// eslint-disable-next-line no-unused-vars
-const AgentRun = page(null, () => import('./pages/AgentRun'))
-const AgentStatus = page(null, () => import('./pages/AgentStatus'))
 const Collections = page('collections', () => import('./pages/Collections'))
-const Skills = page('skills', () => import('./pages/Skills'))
-const SkillEdit = page(null, () => import('./pages/SkillEdit'))
-const AgentJobs = page('agent-jobs', () => import('./pages/AgentJobs'))
-const AgentTaskDetails = page(null, () => import('./pages/AgentTaskDetails'))
-const AgentJobDetails = page(null, () => import('./pages/AgentJobDetails'))
 const ModelEditor = page(null, () => import('./pages/ModelEditor'))
 // Rendered by Models, through its <Outlet/>: the list stays mounted behind it.
 // eslint-disable-next-line no-unused-vars
@@ -158,17 +146,15 @@ import HubLayout from './components/hub/HubLayout'
 import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
-import { addonPageAddress, studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
+import { addonPageAddress, chatsRedirect, studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
 import { buildHub, operateHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
-// The Agent chat page became the agent's own page and its runs. An old chat
-// link opens the agent page and keeps the user in the query.
-// eslint-disable-next-line no-unused-vars, react-refresh/only-export-components
-function AgentChatRedirect() {
-  const { name } = useParams()
-  const { search } = useLocation()
-  return <Navigate to={`/app/agents/${encodeURIComponent(name)}${search}`} replace />
+// The old chat, agents, jobs and skills pages became pages of the chats. An old
+// address opens the matching one and keeps the query string and the hash.
+function ChatsRedirect() {
+  const { pathname, search, hash } = useLocation()
+  return <Navigate to={chatsRedirect(pathname, search, hash)} replace />
 }
 
 // An old generator link opens the same generator inside the Studio add-on. The
@@ -252,13 +238,14 @@ function Feature({ feature, disabled, children }) {
 
 const appChildren = [
   { index: true, element: <Home /> },
-  { path: 'chat', element: <Chat /> },
-  { path: 'chat/:model', element: <Chat /> },
+  { path: 'chat', element: <ChatsRedirect /> },
+  { path: 'chat/:model', element: <ChatsRedirect /> },
   { path: 'chats', element: <Feature feature="chats"><Chats /></Feature> },
   { path: 'chats/skills', element: <Feature feature="chats"><ChatSkills /></Feature> },
   { path: 'chats/agents', element: <Feature feature="chats"><ChatAgents /></Feature> },
   { path: 'chats/triggers', element: <Feature feature="chats"><ChatTriggers /></Feature> },
   { path: 'chats/connectors', element: <Feature feature="chats"><ChatConnectors /></Feature> },
+  { path: 'chats/conversion', element: <Feature feature="chats"><ChatConversion /></Feature> },
   { path: 'chats/:id', element: <Feature feature="chats"><Chats /></Feature> },
   { path: 'files', element: <Feature feature="chats"><Workspace /></Feature> },
   { path: 'image', element: <StudioTabRedirect legacy="image" /> },
@@ -301,14 +288,8 @@ const appChildren = [
     element: <HubLayout config={buildHub} />,
     children: [
       { path: 'build', element: <BuildOverview /> },
-      { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
-      { path: 'agents/:name', element: <Feature feature="agents"><AgentPage /></Feature> },
-      { path: 'agents/:name/status', element: <Feature feature="agents"><AgentStatus /></Feature> },
-      { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
       { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
       { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
-      { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
-      { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
       { path: 'fine-tune', element: <AddonsOffRedirect><AddonRedirect addon="fine-tuning" page="jobs" /></AddonsOffRedirect> },
       { path: 'quantize', element: <AddonsOffRedirect><AddonRedirect addon="quantization" page="jobs" /></AddonsOffRedirect> },
       { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
@@ -319,16 +300,13 @@ const appChildren = [
       { path: 'import-model', element: <Admin><ImportModel /></Admin> },
     ],
   },
-  // Build deep flows: full-width, no tab bar.
-  { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
-  { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
-  { path: 'agents/:name/runs/:id', element: <Feature feature="agents"><AgentRun /></Feature> },
-  { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChatRedirect /></Feature> },
-  { path: 'skills/new', element: <Feature feature="skills"><SkillEdit /></Feature> },
-  { path: 'skills/edit/:name', element: <Feature feature="skills"><SkillEdit /></Feature> },
-  { path: 'agent-jobs/tasks/new', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-  { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-  { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
+  // The old agent, skill and job pages: they redirect to the chats pages.
+  { path: 'agents/*', element: <ChatsRedirect /> },
+  { path: 'agents', element: <ChatsRedirect /> },
+  { path: 'skills/*', element: <ChatsRedirect /> },
+  { path: 'skills', element: <ChatsRedirect /> },
+  { path: 'agent-jobs/*', element: <ChatsRedirect /> },
+  { path: 'agent-jobs', element: <ChatsRedirect /> },
 
   // Operate hub (admin): one tab bar over the runtime, cluster, traffic and
   // settings pages.

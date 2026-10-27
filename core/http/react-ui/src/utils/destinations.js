@@ -9,7 +9,7 @@ import { primaryDestinations, visiblePrimary } from './navigationModel.js'
 export const topDestinations = [
   { path: '/app', icon: 'home', labelKey: 'items.home' },
   { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
-  { path: '/app/chat', icon: 'chat', labelKey: 'items.chat' },
+  { path: '/app/chats', icon: 'chat', labelKey: 'items.chats', feature: 'chats' },
 ]
 
 function visible(item, { isAdmin, authEnabled, hasFeature, features }) {
