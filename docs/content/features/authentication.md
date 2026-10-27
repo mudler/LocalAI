@@ -133,6 +133,12 @@ LocalAI does not move this data to an account. Nothing is deleted. A trigger or 
 bot of the anonymous owner has no account to run as, so its next run is skipped and
 it is switched off with the reason "its owner no longer exists".
 
+What the server converts from older releases (agents, tasks, skills, Telegram
+connectors and saved chats) is given to the account that owned it. An item with
+no owner, made before accounts existed, is not converted when auth is on: the
+report at `/app/chats/conversion` lists it as skipped, and you make it again
+under the intended account. See [Chats migration]({{% relref "chats-migration" %}}).
+
 Before switching an existing instance:
 
 1. Switch off the triggers and Telegram bindings you want to keep, while auth is still off.
@@ -143,7 +149,7 @@ Before switching an existing instance:
 5. Restrict access during bootstrap and register the intended administrator first.
 6. Import the chats and agents under the intended user (`POST /api/chats/import`,
    `POST /api/chats/agents/import`). Recreate collections there as needed.
-7. Verify credentials and required data before resuming triggers and bots.
+7. Open the conversion report and check each item, and verify credentials and required data, before resuming triggers and bots.
 
 The first registered user becomes admin and bypasses approval or invite requirements.
 Setting `LOCALAI_ADMIN_EMAIL` promotes that email address, but does **not** reserve

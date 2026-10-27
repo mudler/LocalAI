@@ -119,7 +119,7 @@ and undo what it changed, and it is marked with its trigger. There are two kinds
 | `file` | When a file arrives in a folder of your files | `folder` (a path inside your files, such as `/Contracts`), `quiet_seconds` (default 30) |
 
 A schedule is one of `daily 08:00`, `weekdays 09:30`, `weekly mon,thu 09:30`,
-`monthly 15 08:00`, `once 2026-12-24 18:00` or five cron fields (numbers only: month and day names such as `mon` or `jan` are not accepted). A time that
+`monthly 15 08:00`, `once 2026-12-24 18:00` or five cron fields. The cron fields are numbers, lists, ranges and steps (`*/15`, `1-5`, `1,15`); names such as `mon` or `jan` are not read, and `weekly` takes day names. A time that
 does not exist in the time zone (a daylight-saving gap) moves to the first valid
 minute after it, and a repeated hour runs once. `GET /api/chats/triggers/preview?when=...&tz=...`
 shows the next times and says what the text means.
@@ -174,8 +174,14 @@ In a cluster, one frontend runs the triggers at a time: the one that holds an
 advisory lock in the database. A due time or a file version is one unique row,
 so it runs once even when two frontends try. If that frontend stops, another
 takes over, ends the runs whose chat is over as failed ("interrupted by a
-restart"), and goes on. Triggers need the database; the JSON store is for a
-single process.
+restart") and tells the owner, and goes on. Triggers need the database; the
+JSON store is for a single process.
+
+The same holds for one server. A run that a stop or a restart cuts short is
+recorded as interrupted, its chat shows the turn as interrupted (not done, even
+if some text was written), and its owner gets a "failed" notification. The
+triggers are checked every 5 seconds, so a schedule starts within 5 seconds of
+its time and a file trigger within 5 seconds of the end of its quiet time.
 
 ### API
 

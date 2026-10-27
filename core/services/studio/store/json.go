@@ -285,7 +285,7 @@ func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error 
 	next.Rec.Title, next.Rec.Folder, next.Rec.Snapshot = rec.Title, rec.Folder, rec.Snapshot
 	next.Rec.HarnessState = append([]byte(nil), rec.HarnessState...)
 	next.Rec.Turns, next.Rec.Updated = rec.Turns, rec.Updated
-	next.Rec.Status, next.Rec.Summary = rec.Status, rec.Summary
+	next.Rec.Status = rec.Status
 	if err := s.save(&next); err != nil {
 		return err
 	}
@@ -465,6 +465,54 @@ func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) (
 	}
 	c.entries = append(c.entries, e)
 	return e.Seq, nil
+}
+
+func (s *jsonStore) AppendEntries(_ context.Context, id string, entries []session.Entry) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.chats[id]
+	if !ok {
+		return session.ErrNotFound
+	}
+	if len(entries) == 0 {
+		return nil
+	}
+	next := int64(1)
+	if n := len(c.entries); n > 0 {
+		next = c.entries[n-1].Seq + 1
+	}
+	batch := make([]session.Entry, len(entries))
+	var lines []byte
+	for i, e := range entries {
+		e.Seq = next + int64(i)
+		if e.At.IsZero() {
+			e.At = time.Now().UTC()
+		}
+		e.Dur = e.Dur.Truncate(time.Millisecond)
+		batch[i] = e
+		if s.dir != "" {
+			raw, err := json.Marshal(e)
+			if err != nil {
+				return err
+			}
+			lines = append(append(lines, raw...), '\n')
+		}
+	}
+	if s.dir != "" {
+		f, err := os.OpenFile(s.file(id, ".entries"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		_, werr := f.Write(lines)
+		if cerr := f.Close(); werr == nil {
+			werr = cerr
+		}
+		if werr != nil {
+			return werr
+		}
+	}
+	c.entries = append(c.entries, batch...)
+	return nil
 }
 
 func (s *jsonStore) Entries(_ context.Context, id string, after int64, limit int) ([]session.Entry, error) {

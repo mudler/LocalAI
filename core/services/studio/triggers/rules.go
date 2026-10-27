@@ -32,6 +32,13 @@ var rulesCutNote = fmt.Sprintf("(The folder rules were cut to fit %d KiB. The ru
 // The text is untrusted: anyone who can write a folder on the path controls
 // it, so a host that sends it to an agent must treat it as untrusted input.
 func Rules(ctx context.Context, store workspace.Store, actor workspace.Actor, folder string) (string, error) {
+	return RulesAs(ctx, store, actor, folder, nil)
+}
+
+// RulesAs is Rules with a name for each folder in the heading of its part. A
+// host that keeps users' folders below an internal path gives the path the user
+// knows. A nil name uses the workspace path.
+func RulesAs(ctx context.Context, store workspace.Store, actor workspace.Actor, folder string, name func(dir string) string) (string, error) {
 	if folder == "" || folder[0] != '/' || path.Clean(folder) != folder {
 		return "", fmt.Errorf("triggers: %q is not a clean workspace path", folder)
 	}
@@ -54,7 +61,11 @@ func Rules(ctx context.Context, store workspace.Store, actor workspace.Actor, fo
 		if !ok || text == "" { // an empty file would leave a bare heading
 			continue
 		}
-		parts = append(parts, part{head: "# Folder rules: " + dir + "\n\n", text: text + "\n\n"})
+		shown := dir
+		if name != nil {
+			shown = name(dir)
+		}
+		parts = append(parts, part{head: "# Folder rules: " + shown + "\n\n", text: text + "\n\n"})
 	}
 	size := func(p part) int { return len(p.head) + len(p.text) }
 	total, cut := 0, false

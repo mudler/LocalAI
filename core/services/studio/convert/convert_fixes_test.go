@@ -300,3 +300,55 @@ func TestAToolResultIsCutOnARuneBoundary(t *testing.T) {
 		t.Fatalf("invalid UTF-8: %q", got)
 	}
 }
+
+// The old page kept a tool call and its result as messages whose content is a
+// JSON text: the name and the result are inside it, not beside it.
+func TestAToolUseOfTheOldPageIsReadFromTheJSONOfItsMessages(t *testing.T) {
+	db := newDB(t)
+	exec(t, db, `CREATE TABLE chat_conversations (user_id text, conv_id text, content text, version integer, deleted_at datetime)`)
+	call := mustJSON(map[string]any{"type": "tool_call", "name": "search", "arguments": map[string]any{"q": "x"}})
+	result := mustJSON(map[string]any{"type": "tool_result", "name": "search", "result": "found it"})
+	history := []any{
+		map[string]any{"role": "user", "content": "look"},
+		map[string]any{"role": "tool_call", "content": string(call), "expanded": false},
+		map[string]any{"role": "tool_result", "content": string(result), "expanded": false},
+		map[string]any{"role": "assistant", "content": "done"},
+	}
+	conv := mustJSON(map[string]any{"name": "T", "model": "m", "history": history})
+	exec(t, db, `INSERT INTO chat_conversations (user_id, conv_id, content, version) VALUES (?, 'c', ?, 1)`, alice, conv)
+	tg := newTargets()
+	run(t, convert.Sources{DB: db, AuthEnabled: true}, tg, memMarks(t))
+	entries := tg.chats[alice][0].Entries
+	if len(entries) != 3 {
+		t.Fatalf("entries = %+v", entries)
+	}
+	if got := entries[1]; got.Role != "tool" || got.Text != "result of search: found it" {
+		t.Fatalf("tool line = %+v", got)
+	}
+}
+
+// Pictures and files of the old page are not carried over; the report says so.
+func TestAttachmentsOfTheOldPageAreCountedInTheReport(t *testing.T) {
+	db := newDB(t)
+	exec(t, db, `CREATE TABLE chat_conversations (user_id text, conv_id text, content text, version integer, deleted_at datetime)`)
+	history := []any{
+		map[string]any{"role": "user", "content": []any{
+			map[string]any{"type": "text", "text": "what is this?"},
+			map[string]any{"type": "image_url", "image_url": map[string]any{"url": "data:image/png;base64,AAAA"}},
+		}, "files": []any{map[string]any{"name": "a.pdf", "type": "file"}, map[string]any{"name": "b.wav", "type": "audio"}}},
+		map[string]any{"role": "assistant", "content": "a cat"},
+	}
+	conv := mustJSON(map[string]any{"name": "Pics", "model": "m", "createdAt": 1700000000000, "history": history})
+	exec(t, db, `INSERT INTO chat_conversations (user_id, conv_id, content, version) VALUES (?, 'c', ?, 1)`, alice, conv)
+	tg := newTargets()
+	r := run(t, convert.Sources{DB: db, AuthEnabled: true}, tg, memMarks(t))
+	it, ok := find(r, convert.KindChat, "Pics")
+	if !ok || it.Status != convert.StatusConverted || !strings.Contains(it.Reason, "3 attachments") {
+		t.Fatalf("item = %+v", it)
+	}
+	for _, e := range tg.chats[alice][0].Entries {
+		if strings.Contains(e.Text, "base64") {
+			t.Fatalf("image data in the transcript: %q", e.Text)
+		}
+	}
+}

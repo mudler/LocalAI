@@ -30,7 +30,8 @@ Trust has three parts, and they are different:
   the OpenAI-compatible chat route only after the proposer's own browser session
   confirms it. The one exception is the chats on the server (`/api/chats`), their
   agents and their triggers: turning an add-on on for a chat or an agent is the
-  consent, and the change is applied at once with an undo where the add-on keeps
+  consent, and the change is applied at once, with the credential of the chat turn,
+  for the user who turned the add-on on, and with an undo where the add-on keeps
   one (see [Proposals and confirmation](#proposals-and-confirmation)). Prompt text,
   a model and an addon cannot supply that approval.
 
@@ -1356,13 +1357,15 @@ A tool of kind `action` does what a person asked a chat to do, at once, as that
 person, and in that person's own space. It is not confirmed in the browser and
 it is not a proposal. The sandbox add-on, which runs a command, and the office
 add-on, which edits a file the user owns, use it. An `action` tool is not for
-data of a shared resource: a change that others see keeps the confirmation of
-`write`, `schema` and `create`.
+data of a shared resource: a change that others see is a `write`, `schema` or
+`create` tool, which the OpenAI-compatible route leaves as a proposal for a
+person to confirm.
 
 - **Declaration.** The tool is in `capabilities.tools` with a definition of kind
   `action`, and the manifest sets `capabilities.actions` to `true`. The host
   refuses a manifest that declares an action tool without it. An action tool
-  names no resource: its schema has no `resourceId`, or requires it.
+  names no resource: if its schema has a `resourceId`, the host ignores the
+  value the model gives and sets it to the ID of the conversation.
 - **Who may call it.** Only the chats consumer (`studio-chats-addons` in the
   consumer table of [Tables](../tables/)). Every other consumer neither lists the
   tool nor runs it: the old chat route, the direct API, agents and scripts.
@@ -3578,7 +3581,7 @@ The add-on runs commands in one of these backends, chosen on the Settings page b
 
 The page shows which backend runs now, and for each other backend the one thing that is missing and how to fix it. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
 
-The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, in the LocalAI log with the prefix `[sandbox]` (LocalAI writes everything an add-on prints to its output or error into its own log, one line at a time, cut at 4096 bytes), and the page shows a notice for as long as the host backend is the one in use. Treat the machine as one that code can harm.
+The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, in the LocalAI log with the prefix `[sandbox]` (LocalAI writes everything an add-on prints to its output or error into its own log, one line at a time, cut at 4096 bytes), and the sandbox settings page (for administrators) shows a notice for as long as the host backend is the one in use. The model sees it in the answer of the status tool. Treat the machine as one that code can harm.
 
 The choice is kept in the add-on's data directory. Changing it removes the running sandboxes; what they did is already in the users' files.
 

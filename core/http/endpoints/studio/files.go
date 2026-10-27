@@ -192,6 +192,7 @@ func (h *Handlers) GetFileContent(c echo.Context) error {
 // @Accept application/octet-stream
 // @Success 200 {object} schema.ChatsFile "The stored file"
 // @Failure 413 {object} schema.ErrorResponse "The file is too large"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/files/content [put]
 func (h *Handlers) PutFileContent(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -222,6 +223,7 @@ func (h *Handlers) PutFileContent(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsFolderRequest true "the folder"
 // @Success 200 {object} schema.ChatsFile "The folder"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/files/folders [post]
 func (h *Handlers) CreateFolder(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -248,6 +250,7 @@ func (h *Handlers) CreateFolder(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsMoveRequest true "from and to"
 // @Success 200 {object} schema.ChatsFile "The moved entry"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/files/move [post]
 func (h *Handlers) MoveFile(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -322,6 +325,8 @@ func (h *Handlers) Trash(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsUndoRequest true "the revision"
 // @Success 200 {object} schema.ChatsUndoResponse "The new revision and any conflicts that were skipped"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 409 {object} schema.ErrorResponse "The state of the server does not allow it (a feature that is off, or a conflict)"
 // @Router /api/chats/files/undo [post]
 func (h *Handlers) UndoFiles(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -392,6 +397,7 @@ func (h *Handlers) FileHistory(c echo.Context) error {
 // @Param path query string false "search only below this folder; default /"
 // @Param limit query int false "most hits to return (default 50, at most 200)"
 // @Success 200 {object} schema.ChatsSearchResult "Name matches first, then lines"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/files/search [get]
 func (h *Handlers) SearchFiles(c echo.Context) error {
 	fc, ok := h.files(c)

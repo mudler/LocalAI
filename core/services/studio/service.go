@@ -236,7 +236,17 @@ func New(d Deps) (*Service, error) {
 	return s, nil
 }
 
-// Close stops every chat.
+// isClosed says whether Close has been called.
+func (s *Service) isClosed() bool {
+	select {
+	case <-s.closed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Close stops every chat. A turn that it cuts short is recorded as interrupted.
 func (s *Service) Close(ctx context.Context) error {
 	select {
 	case <-s.closed:
@@ -796,6 +806,10 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) {
 		status = store.TurnStopped
 	case r.failed:
 		status = store.TurnFailed
+	case s.isClosed():
+		// The server is going down: the turn was cut short, its text is partial,
+		// and nothing starts after it. The owner of a run is told.
+		status = store.TurnInterrupted
 	}
 	if err := s.releaseTurn(ctx, p, conv, r.id, status); err != nil {
 		s.log.Warn("studio: could not release the turn", "chat", conv, "error", err)

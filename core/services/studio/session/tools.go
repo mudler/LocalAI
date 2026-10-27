@@ -50,6 +50,11 @@ type Acquire func(ctx context.Context) (sandbox.Sandbox, func(), error)
 
 // NewTools returns the six tools of a chat. Each runs in the sandbox that
 // acquire returns.
+//
+// LocalAI does not call it: it sets no Options.Sandbox, and the code of a chat
+// runs through the sandbox add-on, which keeps its own copy of these tools in
+// addons/sandbox/internal/codetools. This one stays for a host that gives the
+// manager a sandbox. A change to the behaviour of a tool belongs in both.
 func NewTools(acquire Acquire) []Tool {
 	r := &runner{acquire: acquire}
 	return []Tool{

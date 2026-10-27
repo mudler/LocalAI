@@ -32,7 +32,7 @@ var (
 
 // Defaults of the trigger host.
 const (
-	DefaultTriggerTick = 30 * time.Second
+	DefaultTriggerTick = 5 * time.Second
 	DefaultRunLimit    = 15 * time.Minute
 	maxTriggersPerUser = 50
 	stopWait           = 20 * time.Second
@@ -185,7 +185,7 @@ func (h *Triggers) ensureRunner() (*triggers.Runner, error) {
 	}
 	opts := triggers.Options{
 		Store: h.o.Store, Admin: workspace.Actor{Principal: files.AdminPrincipal},
-		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick,
+		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted,
 		Logf: func(format string, args ...any) { h.log.Warn("studio: " + fmt.Sprintf(format, args...)) },
 	}
 	if h.svc.d.Files.Available() {
@@ -427,7 +427,8 @@ func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run trigg
 		if t.Kind == triggers.KindFile {
 			folder = t.Folder
 		}
-		rules, err := triggers.Rules(ctx, h.svc.d.Files.Store(), h.svc.d.Files.Actor(t.Owner), folder)
+		rules, err := triggers.RulesAs(ctx, h.svc.d.Files.Store(), h.svc.d.Files.Actor(t.Owner), folder,
+			func(dir string) string { return h.RelPath(t.Owner, dir) })
 		if err != nil {
 			h.log.Warn("studio: could not read the folder rules for a run", "error", err)
 		} else if rules != "" {
@@ -576,6 +577,17 @@ func (h *Triggers) finish(run triggers.Run, t triggers.Trigger, chatID string, s
 		body = h.svc.finalText(ctx, chatID)
 	}
 	h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", body)
+}
+
+// tellInterrupted tells the owner of a run that a restart cut short. The Runner
+// calls it once for each such run, when it ends the run.
+func (h *Triggers) tellInterrupted(run triggers.Run) {
+	ctx := context.Background()
+	t, err := h.o.Store.GetTrigger(ctx, run.TriggerID)
+	if err != nil {
+		return // the trigger is gone, and so is its owner's interest
+	}
+	h.tell(ctx, t, run.ChatID, notify.KindRunFailed, notify.StatusFailed, t.Name+" failed", run.Reason)
 }
 
 // reconcile finishes the runs that no supervisor of this process watches and

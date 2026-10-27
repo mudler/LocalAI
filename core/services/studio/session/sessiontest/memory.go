@@ -105,6 +105,22 @@ func (s *memoryStore) AppendEntry(_ context.Context, chatID string, e session.En
 	return e.Seq, nil
 }
 
+func (s *memoryStore) AppendEntries(_ context.Context, chatID string, entries []session.Entry) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.chats[chatID]; !ok {
+		return session.ErrNotFound
+	}
+	for _, e := range entries {
+		e.Seq = int64(len(s.entries[chatID]) + 1)
+		if e.At.IsZero() {
+			e.At = time.Now().UTC()
+		}
+		s.entries[chatID] = append(s.entries[chatID], e)
+	}
+	return nil
+}
+
 func (s *memoryStore) Entries(_ context.Context, chatID string, after int64, limit int) ([]session.Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

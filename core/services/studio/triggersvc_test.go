@@ -492,6 +492,16 @@ func TestARunLeftRunningByAFrontendThatDiedIsFailedByTheNextLeader(t *testing.T)
 	if err != nil || got.Status != triggers.StatusFailed || got.Reason != triggers.ReasonInterrupted {
 		t.Fatalf("run = %+v, %v", got, err)
 	}
+	// The owner is told: a run that a restart cut short is a failed run.
+	list, err := r.inbox.List(ctx, alice, false, 10)
+	if err != nil || len(list) != 1 || list[0].Kind != notify.KindRunFailed || !strings.Contains(list[0].Body, "restart") {
+		t.Fatalf("notifications = %+v, %v", list, err)
+	}
+	// And only once.
+	r.pass(t)
+	if list, _ := r.inbox.List(ctx, alice, false, 10); len(list) != 1 {
+		t.Fatalf("notifications after another pass = %d", len(list))
+	}
 }
 
 func TestTwoFrontendsOnOneStoreRunADueTimeOnceAndTheNextLeaderEndsADeadRun(t *testing.T) {
@@ -546,5 +556,43 @@ func TestTwoFrontendsOnOneStoreRunADueTimeOnceAndTheNextLeaderEndsADeadRun(t *te
 	}
 	if info, _ := sh.chats.Turn(ctx, alice, run.ChatID); info.Running {
 		t.Fatal("the chat is still held")
+	}
+}
+
+// The model sees paths of the user's home ("/Contracts"), never the internal
+// path of the workspace.
+func TestARunNamesFoldersAsTheUserSeesThem(t *testing.T) {
+	sh := newShared(t)
+	ctx := context.Background()
+	if err := sh.files.EnsureHome(ctx, alice); err != nil {
+		t.Fatal(err)
+	}
+	act := sh.files.Actor(alice)
+	folder, _ := sh.files.Abs(alice, "/Contracts")
+	if _, err := sh.files.Store().Mkdir(ctx, act, folder); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sh.files.Store().Put(ctx, act, folder+"/AGENTS.md", strings.NewReader("Be brief."), workspace.PutOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	r := sh.rig(t, func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }, studio.TriggerOptions{})
+	tr := r.schedule(t, studio.TriggerInput{Kind: triggers.KindFile, Folder: "/Contracts", Quiet: time.Second, Name: "Contracts"})
+	r.pass(t)
+	if _, err := sh.files.Store().Put(ctx, act, folder+"/a.txt", strings.NewReader("hello"), workspace.PutOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	r.pass(t)
+	sh.clock.Advance(2 * time.Second)
+	r.pass(t)
+	run := r.waitEnded(t, tr.ID)
+	sent := r.h.Sent(r.chatOf(t, run).ID)
+	if len(sent) != 1 {
+		t.Fatalf("sent = %q", sent)
+	}
+	if !strings.Contains(sent[0], "# Folder rules: /Contracts") || strings.Contains(sent[0], folder) {
+		t.Fatalf("the first message holds an internal path (%s):\n%s", folder, sent[0])
+	}
+	if got := r.host.RelPath(alice, run.File); got != "/Contracts/a.txt" {
+		t.Fatalf("RelPath = %q", got)
 	}
 }

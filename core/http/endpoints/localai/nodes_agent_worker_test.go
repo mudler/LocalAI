@@ -86,11 +86,15 @@ var _ = Describe("Agent worker registration", func() {
 		legacy := &auth.User{ID: "legacy-worker", Name: "agent-worker:agent-1", Provider: auth.ProviderAgentWorker,
 			Subject: node.ID, Role: "user", Status: "active", CreatedAt: time.Now()}
 		Expect(db.Create(legacy).Error).To(Succeed())
+		Expect(db.Create(&auth.UserAPIKey{ID: "legacy-key", UserID: legacy.ID, Name: "worker", KeyHash: "legacy-hash", KeyPrefix: "lak-1234", Role: "user"}).Error).To(Succeed())
 		Expect(registry.UpdateAuthRefs(context.Background(), node.ID, legacy.ID, "legacy-key")).To(Succeed())
 
 		register(true)
 
 		Expect(countUsers()).To(BeZero())
+		var keys int64
+		Expect(db.Model(&auth.UserAPIKey{}).Where("user_id = ?", legacy.ID).Count(&keys).Error).To(Succeed())
+		Expect(keys).To(BeZero(), "the key of the removed worker account must go with it")
 		again, err := registry.GetByName(context.Background(), "agent-1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(again.AuthUserID).To(BeEmpty())

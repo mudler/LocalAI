@@ -66,6 +66,7 @@ func (h *Handlers) CountNotifications(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsNotificationsRead true "ids or all"
 // @Success 200 {object} schema.ChatsNotificationCount "The number still unread"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/notifications/read [post]
 func (h *Handlers) ReadNotifications(c echo.Context) error {
 	var req schema.ChatsNotificationsRead
@@ -84,6 +85,7 @@ func (h *Handlers) ReadNotifications(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsNotificationsDelete true "the ids"
 // @Success 200 {object} schema.ChatsNotificationCount "The number still unread"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/notifications [delete]
 func (h *Handlers) DeleteNotifications(c echo.Context) error {
 	var req schema.ChatsNotificationsDelete

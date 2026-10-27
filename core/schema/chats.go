@@ -351,6 +351,9 @@ type ChatsSearchResult struct {
 
 // ChatsSkill is a skill a chat can use.
 type ChatsSkill struct {
+	// ID is "layer:name". A switch with the ID turns off the skill of that
+	// layer; a switch with the plain name turns off the skill that wins.
+	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Layer is where it comes from: folder (a .skills folder of your files),
@@ -641,6 +644,16 @@ type ChatsConversion struct {
 	Items  []ChatsConversionItem `json:"items"`
 	// Totals is set for an administrator: the counts of all users together.
 	Totals *ChatsConversionTotals `json:"totals,omitempty"`
+}
+
+// ChatsBrowserImport is the outcome of an upload of the chats the old chat page
+// kept in the browser.
+type ChatsBrowserImport struct {
+	// Imported chats are new. Skipped ones were there already, or have no
+	// creation date or no message to import. Failed ones could not be stored.
+	Imported int `json:"imported"`
+	Skipped  int `json:"skipped"`
+	Failed   int `json:"failed"`
 }
 
 // ChatsMCPConnector is an MCP server that you defined, for your chats. Its token,

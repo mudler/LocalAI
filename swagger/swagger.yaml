@@ -2643,6 +2643,18 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsBrowserImport:
+    properties:
+      failed:
+        type: integer
+      imported:
+        description: |-
+          Imported chats are new. Skipped ones were there already, or have no
+          creation date or no message to import. Failed ones could not be stored.
+        type: integer
+      skipped:
+        type: integer
+    type: object
   schema.ChatsChatHit:
     properties:
       chat:
@@ -2736,6 +2748,13 @@ definitions:
         items:
           type: string
         type: array
+      confirm_accept_any:
+        description: |-
+          ConfirmAcceptAny must be the exact text "accept any message" in the
+          request that turns accept_any on (a create with accept_any, or an update
+          that changes it from off to on). Anyone who can message the bot then uses
+          the agent's tools as you, so the server asks you to say you mean it.
+        type: string
       enabled:
         type: boolean
       name:
@@ -3507,6 +3526,11 @@ definitions:
       enabled:
         description: Enabled is false when the chat has switched it off.
         type: boolean
+      id:
+        description: |-
+          ID is "layer:name". A switch with the ID turns off the skill of that
+          layer; a switch with the plain name turns off the skill that wins.
+        type: string
       invalid:
         description: Invalid says why a SKILL.md was skipped.
         type: string
@@ -9203,6 +9227,14 @@ paths:
           description: The new conversation
           schema:
             $ref: '#/definitions/schema.ChatsConversation'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Refused
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Start a chat.
       tags:
       - chats
@@ -9221,6 +9253,10 @@ paths:
             additionalProperties:
               type: boolean
             type: object
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Delete a chat.
       tags:
       - chats
@@ -9236,6 +9272,10 @@ paths:
           description: The conversation and its pending messages
           schema:
             $ref: '#/definitions/schema.ChatsConversationDetail'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Get a chat.
       tags:
       - chats
@@ -9278,6 +9318,14 @@ paths:
           description: The add-ons and their switches
           schema:
             $ref: '#/definitions/schema.ChatsAddonList'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: List the add-ons a chat can use.
       tags:
       - chats
@@ -9301,6 +9349,14 @@ paths:
           description: The add-ons and their switches now in force
           schema:
             $ref: '#/definitions/schema.ChatsAddonList'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Switch the tools of add-ons on and off for a chat.
       tags:
       - chats
@@ -9396,6 +9452,10 @@ paths:
           description: An event stream
           schema:
             $ref: '#/definitions/schema.ChatsEvent'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Stream a chat's events.
       tags:
       - chats
@@ -9472,6 +9532,14 @@ paths:
           description: The tools and their switches now in force
           schema:
             $ref: '#/definitions/schema.ChatsToolsPanel'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Switch MCP servers and connectors on and off for a chat.
       tags:
       - chats
@@ -9501,6 +9569,10 @@ paths:
           description: The MCP result
           schema:
             $ref: '#/definitions/schema.ChatsMCPAppCallResult'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Call a tool for an MCP App.
       tags:
       - chats
@@ -9537,6 +9609,10 @@ paths:
           description: The page and its metadata
           schema:
             $ref: '#/definitions/schema.ChatsMCPAppResource'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Read the page of an MCP App.
       tags:
       - chats
@@ -9647,6 +9723,10 @@ paths:
           description: Transcript lines in order
           schema:
             $ref: '#/definitions/schema.ChatsMessageList'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Read a chat's transcript.
       tags:
       - chats
@@ -9656,7 +9736,7 @@ paths:
       - multipart/form-data
       description: |-
         With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.
-        Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace and go only with a message that starts a turn.
+        Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace. With a turn running the files are saved at once and the message waits like any other, with their paths in its text.
       parameters:
       - description: conversation id
         in: path
@@ -9678,6 +9758,14 @@ paths:
           description: Whether a turn started, or the id of the waiting message
           schema:
             $ref: '#/definitions/schema.ChatsSendResponse'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Send a message to a chat.
       tags:
       - chats
@@ -9731,6 +9819,10 @@ paths:
             additionalProperties:
               type: boolean
             type: object
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Cancel a message that waits for the model.
       tags:
       - chats
@@ -9759,6 +9851,14 @@ paths:
             additionalProperties:
               type: boolean
             type: object
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Edit a message that waits for the model.
       tags:
       - chats
@@ -9798,20 +9898,27 @@ paths:
             additionalProperties:
               type: boolean
             type: object
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Send the waiting messages now.
       tags:
       - chats
   /api/chats/{id}/skills:
     put:
-      description: The list replaces the earlier one. The next turn of the chat gets
-        the index without the skills that are off.
+      description: The list replaces the earlier one. An entry is a skill name, which
+        turns off the skill that wins so that one of the same name further away shows
+        through, or the id "layer:name" from the skill list, which turns off the skill
+        of that layer. The next turn of the chat gets the index without the skills
+        that are off.
       parameters:
       - description: conversation id
         in: path
         name: id
         required: true
         type: string
-      - description: the names of the skills that are off
+      - description: the names or ids of the skills that are off
         in: body
         name: request
         required: true
@@ -9822,6 +9929,14 @@ paths:
           description: The switches now in force
           schema:
             $ref: '#/definitions/schema.ChatsSkillSwitches'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Switch skills on and off for a chat.
       tags:
       - chats
@@ -9840,6 +9955,10 @@ paths:
             additionalProperties:
               type: boolean
             type: object
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Stop the running turn.
       tags:
       - chats
@@ -9859,6 +9978,14 @@ paths:
           description: The tools and their switches
           schema:
             $ref: '#/definitions/schema.ChatsToolsPanel'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: List the tools a chat can switch on and off.
       tags:
       - chats
@@ -9905,6 +10032,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Delete a saved agent.
       tags:
       - chats
@@ -9920,6 +10051,10 @@ paths:
           description: The agent
           schema:
             $ref: '#/definitions/schema.ChatsAgent'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Read a saved agent.
       tags:
       - chats
@@ -9943,6 +10078,10 @@ paths:
           description: The saved agent
           schema:
             $ref: '#/definitions/schema.ChatsAgent'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Replace a saved agent.
       tags:
       - chats
@@ -10069,7 +10208,9 @@ paths:
       description: 'Needs the bot token (kept sealed, never returned) and an agent
         of yours that names a model. The allowlist is empty at first, so nobody is
         accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone
-        who can message the bot then uses the agent''s tools). At most 10 bindings.'
+        who can message the bot then uses the agent''s tools; the request that turns
+        it on must also carry confirm_accept_any set to "accept any message", or it
+        is a 400). At most 10 bindings.'
       parameters:
       - description: the binding
         in: body
@@ -10082,6 +10223,10 @@ paths:
           description: The binding
           schema:
             $ref: '#/definitions/schema.ChatsConnector'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Create a connector binding.
       tags:
       - chats
@@ -10136,6 +10281,10 @@ paths:
           description: The binding
           schema:
             $ref: '#/definitions/schema.ChatsConnector'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Replace a connector binding.
       tags:
       - chats
@@ -10334,6 +10483,10 @@ paths:
           description: The stored file
           schema:
             $ref: '#/definitions/schema.ChatsFile'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "413":
           description: The file is too large
           schema:
@@ -10355,6 +10508,10 @@ paths:
           description: The folder
           schema:
             $ref: '#/definitions/schema.ChatsFile'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Create a folder.
       tags:
       - chats
@@ -10391,6 +10548,10 @@ paths:
           description: The moved entry
           schema:
             $ref: '#/definitions/schema.ChatsFile'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Move or rename a file or folder.
       tags:
       - chats
@@ -10418,6 +10579,10 @@ paths:
           description: Name matches first, then lines
           schema:
             $ref: '#/definitions/schema.ChatsSearchResult'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Search your files.
       tags:
       - chats
@@ -10448,6 +10613,15 @@ paths:
           description: The new revision and any conflicts that were skipped
           schema:
             $ref: '#/definitions/schema.ChatsUndoResponse'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The state of the server does not allow it (a feature that is
+            off, or a conflict)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Undo a change.
       tags:
       - chats
@@ -10469,6 +10643,37 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConversation'
       summary: Import an exported chat.
+      tags:
+      - chats
+  /api/chats/import/browser:
+    post:
+      consumes:
+      - application/json
+      description: 'Send the value of the browser''s localStorage key "localai_chats_data"
+        as it is: {"chats": [...]}. Each chat with a creation date and a message becomes
+        one of your chats, with its transcript. A chat that you have already, with
+        the same title and creation time, is skipped, so the upload can be repeated.
+        The import changes nothing in the browser; the page clears its copy when the
+        answer says nothing failed.'
+      parameters:
+      - description: 'the stored value, {chats: [...]}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: What was imported
+          schema:
+            $ref: '#/definitions/schema.ChatsBrowserImport'
+        "400":
+          description: The body is not the stored form
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Import the chats that the old chat page kept in your browser.
       tags:
       - chats
   /api/chats/mcp-connectors:
@@ -10506,6 +10711,10 @@ paths:
           description: The connector
           schema:
             $ref: '#/definitions/schema.ChatsMCPConnector'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Create an MCP connector.
       tags:
       - chats
@@ -10561,6 +10770,10 @@ paths:
           description: The connector
           schema:
             $ref: '#/definitions/schema.ChatsMCPConnector'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Replace an MCP connector.
       tags:
       - chats
@@ -10632,6 +10845,10 @@ paths:
           description: The number still unread
           schema:
             $ref: '#/definitions/schema.ChatsNotificationCount'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Delete notifications.
       tags:
       - chats
@@ -10696,6 +10913,10 @@ paths:
           description: The number still unread
           schema:
             $ref: '#/definitions/schema.ChatsNotificationCount'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Mark notifications read.
       tags:
       - chats
@@ -10724,6 +10945,10 @@ paths:
       responses:
         "204":
           description: Unsubscribed
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Unsubscribe a browser from push.
       tags:
       - chats
@@ -10742,6 +10967,10 @@ paths:
       responses:
         "204":
           description: Subscribed
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Subscribe a browser to push.
       tags:
       - chats
@@ -10802,6 +11031,10 @@ paths:
           description: The skill
           schema:
             $ref: '#/definitions/schema.ChatsSkillDetail'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Create a skill.
       tags:
       - chats
@@ -10827,6 +11060,10 @@ paths:
             additionalProperties:
               type: boolean
             type: object
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Delete a skill.
       tags:
       - chats
@@ -10847,6 +11084,10 @@ paths:
           description: The skill with its text
           schema:
             $ref: '#/definitions/schema.ChatsSkillDetail'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Read a skill.
       tags:
       - chats
@@ -10873,6 +11114,10 @@ paths:
           description: The skill
           schema:
             $ref: '#/definitions/schema.ChatsSkillDetail'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Change a skill.
       tags:
       - chats
@@ -10906,6 +11151,10 @@ paths:
           description: The trigger
           schema:
             $ref: '#/definitions/schema.ChatsTrigger'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Create a trigger.
       tags:
       - chats
@@ -10960,6 +11209,10 @@ paths:
           description: The trigger
           schema:
             $ref: '#/definitions/schema.ChatsTrigger'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Replace a trigger.
       tags:
       - chats

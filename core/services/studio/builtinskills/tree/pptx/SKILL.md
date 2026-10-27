@@ -5,6 +5,8 @@ description: Work with Microsoft PowerPoint `.pptx` files using the installed `p
 
 # PPTX with paper-pptx
 
+> The tools named here are installed in the guest image of the sandbox add-on (gVisor or a virtual machine). The host backend does not have them: check that the import works before you rely on it.
+
 `paper-pptx` is an upgraded distribution of `python-pptx`. It keeps the familiar import and ordinary API:
 
 ```python

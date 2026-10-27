@@ -229,9 +229,16 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 	}
 	pending := 0
 	for _, m := range mine {
-		if m.Proposed {
-			pending++
+		if !m.Proposed {
+			continue
 		}
+		// A model that proposes the same thing again, in this chat or the next,
+		// gets the proposal that waits.
+		if m.Name == t.Name && m.Prompt == t.Prompt && m.Kind == t.Kind && m.Schedule == t.Schedule &&
+			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model {
+			return m, nil
+		}
+		pending++
 	}
 	switch {
 	case pending >= maxProposals:
@@ -424,6 +431,15 @@ func (h *Triggers) NextRun(t triggers.Trigger) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return sch.Next(h.o.Clock(), loc)
+}
+
+// RelPath returns a path of the owner's home as the owner sees it ("/Inbox/a.txt"),
+// or the path itself when it is outside the home.
+func (h *Triggers) RelPath(user, abs string) string {
+	if rel := h.svc.d.Files.Rel(principal(user), abs); rel != "" {
+		return rel
+	}
+	return abs
 }
 
 // RelFolder returns a file trigger's folder as a path in its owner's home.

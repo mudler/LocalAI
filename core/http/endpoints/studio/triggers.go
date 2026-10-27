@@ -31,8 +31,12 @@ func utcPtr(t time.Time) *time.Time {
 	return &u
 }
 
-func runOut(r triggers.Run) schema.ChatsTriggerRun {
-	return schema.ChatsTriggerRun{ID: r.ID, Status: string(r.Status), Reason: r.Reason, ChatID: r.ChatID, File: r.File,
+func runOut(host *studiosvc.Triggers, user string, r triggers.Run) schema.ChatsTriggerRun {
+	file := r.File
+	if file != "" {
+		file = host.RelPath(user, file)
+	}
+	return schema.ChatsTriggerRun{ID: r.ID, Status: string(r.Status), Reason: r.Reason, ChatID: r.ChatID, File: file,
 		Due: r.Due.UTC(), Started: utcPtr(r.Started), Ended: utcPtr(r.Ended)}
 }
 
@@ -45,7 +49,7 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 	}
 	if withLast {
 		if runs, err := host.TriggerRuns(ctx, t.Owner, t.ID, 1); err == nil && len(runs) == 1 {
-			r := runOut(runs[0])
+			r := runOut(host, t.Owner, runs[0])
 			out.LastRun = &r
 		}
 	}
@@ -101,6 +105,7 @@ func (h *Handlers) ListTriggers(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsTriggerWrite true "the trigger"
 // @Success 201 {object} schema.ChatsTrigger "The trigger"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/triggers [post]
 func (h *Handlers) CreateTrigger(c echo.Context) error {
 	host, ok := h.triggerHost(c)
@@ -143,6 +148,7 @@ func (h *Handlers) GetTrigger(c echo.Context) error {
 // @Param id path string true "the trigger's id"
 // @Param request body schema.ChatsTriggerWrite true "the trigger"
 // @Success 200 {object} schema.ChatsTrigger "The trigger"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/triggers/{id} [put]
 func (h *Handlers) UpdateTrigger(c echo.Context) error {
 	host, ok := h.triggerHost(c)
@@ -222,7 +228,7 @@ func (h *Handlers) RunTrigger(c echo.Context) error {
 	if err != nil {
 		return failTrigger(c, err)
 	}
-	return c.JSON(http.StatusAccepted, runOut(run))
+	return c.JSON(http.StatusAccepted, runOut(host, userID(c), run))
 }
 
 // TriggerRuns lists the runs of a trigger.
@@ -243,7 +249,7 @@ func (h *Handlers) TriggerRuns(c echo.Context) error {
 	}
 	out := schema.ChatsTriggerRunList{Runs: make([]schema.ChatsTriggerRun, 0, len(runs))}
 	for _, r := range runs {
-		out.Runs = append(out.Runs, runOut(r))
+		out.Runs = append(out.Runs, runOut(host, userID(c), r))
 	}
 	return c.JSON(http.StatusOK, out)
 }

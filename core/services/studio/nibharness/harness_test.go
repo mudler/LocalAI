@@ -221,3 +221,29 @@ func TestNoCompactionInALargeContext(t *testing.T) {
 		t.Fatalf("a 1900-token prompt in a 200000-token context compacted %d times", compacted)
 	}
 }
+
+// nib adds text about itself to the system prompt: a skill that documents nib,
+// the load_skill tool that reads skills, and how to add MCP servers from nib's
+// command line. None of it is true for a chat of LocalAI, where the model has no
+// such skill, tool or command.
+func TestThePromptHasNothingOfNibItself(t *testing.T) {
+	llm := &recordingLLM{}
+	hs := start(t, llm, session.HarnessEnv{})
+	send(t, hs, "hello")
+	var system string
+	for _, req := range llm.messages {
+		for _, m := range req {
+			if m.Role == "system" {
+				system += m.Content + "\n"
+			}
+		}
+	}
+	if !strings.Contains(system, "You are a test.") {
+		t.Fatalf("the host prompt is missing: %q", system)
+	}
+	for _, leak := range []string{"about-nib", "load_skill", "mcp add", "AI terminal assistant", "self_read"} {
+		if strings.Contains(system, leak) {
+			t.Errorf("the system prompt holds %q", leak)
+		}
+	}
+}

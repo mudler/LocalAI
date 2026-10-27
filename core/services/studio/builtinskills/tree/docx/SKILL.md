@@ -5,6 +5,8 @@ description: Work with Microsoft Word `.docx` files using the installed `paper-d
 
 # DOCX with paper-docx
 
+> The tools named here are installed in the guest image of the sandbox add-on (gVisor or a virtual machine). The host backend does not have them: check that the import works before you rely on it.
+
 `paper-docx` is an upgraded distribution of `python-docx`. It keeps the familiar import and ordinary API:
 
 ```python

@@ -30,6 +30,10 @@ type Store interface {
 	// ChatRecord.Updated; the caller updates the chat with UpdateChat. It
 	// returns the Seq it set (0 with an error).
 	AppendEntry(ctx context.Context, chatID string, e Entry) (int64, error)
+	// AppendEntries adds entries in order as one write: all or none. It is the
+	// way to store a long transcript, one write for a batch instead of one per
+	// entry. An empty list does nothing.
+	AppendEntries(ctx context.Context, chatID string, entries []Entry) error
 	// Entries returns up to limit entries with Seq greater than after, in order.
 	Entries(ctx context.Context, chatID string, after int64, limit int) ([]Entry, error)
 }
@@ -49,10 +53,10 @@ type ChatRecord struct {
 	// Model is the model the chat talks to. It does not change after CreateChat.
 	Model string
 	// Status is the last turn outcome ("", "done", "stopped", "failed",
-	// "interrupted"). Summary is the text of the last compaction, for display.
-	// UpdateChat replaces both.
-	Status  string
-	Summary string
+	// "interrupted"). UpdateChat replaces it. The text of a compaction is not
+	// kept here: nib reports only the sizes, and keeps the summary in the
+	// harness state.
+	Status string
 	// SkillsOff holds the names of the skills this chat has switched off. It is
 	// read by GetChat and set by the store's SetSkillsOff; UpdateChat leaves it
 	// alone.

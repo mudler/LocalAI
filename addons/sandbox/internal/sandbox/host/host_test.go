@@ -22,12 +22,24 @@ import (
 
 func TestTheHostBackendPassesTheConformanceSuite(t *testing.T) {
 	sbtest.RunBackendSuite(t, func(t *testing.T) sandbox.Backend {
-		b, err := host.New(host.Options{Root: t.TempDir()})
-		if err != nil {
-			t.Skipf("the host backend is not available here: %v", err)
-		}
-		return b
+		return newBackend(t, host.Options{Root: t.TempDir()})
 	})
+}
+
+// newBackend returns the backend. The only construction error that may skip a
+// test is the refusal of root, which TestItNeverRunsAsRoot checks for
+// real; any other error is a failure.
+func newBackend(t *testing.T, o host.Options) *host.Backend {
+	t.Helper()
+	b, err := host.New(o)
+	if err == nil {
+		return b
+	}
+	if os.Geteuid() == 0 && errors.Is(err, sandbox.ErrUnsupported) {
+		t.Skipf("the host backend refuses root: %v", err) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
+	}
+	t.Fatalf("host.New: %v", err)
+	return nil
 }
 
 func newSandbox(t *testing.T, b sandbox.Backend) sandbox.Sandbox {
@@ -55,14 +67,11 @@ func newSandbox(t *testing.T, b sandbox.Backend) sandbox.Sandbox {
 func TestEveryCommandIsLoggedWithTheUser(t *testing.T) {
 	var mu sync.Mutex
 	var lines []string
-	b, err := host.New(host.Options{Root: t.TempDir(), Log: func(who, cmd string) {
+	b := newBackend(t, host.Options{Root: t.TempDir(), Log: func(who, cmd string) {
 		mu.Lock()
 		lines = append(lines, who+": "+cmd)
 		mu.Unlock()
 	}})
-	if err != nil {
-		t.Skip(err)
-	}
 	sb := newSandbox(t, b)
 	p, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"sh", "-c", "echo hi"}})
 	if err != nil {
@@ -80,10 +89,7 @@ func TestEveryCommandIsLoggedWithTheUser(t *testing.T) {
 
 func TestACommandSeesNothingOfTheAddonEnvironment(t *testing.T) {
 	t.Setenv("LOCALAI_TEST_SECRET", "do-not-leak")
-	b, err := host.New(host.Options{Root: t.TempDir()})
-	if err != nil {
-		t.Skip(err)
-	}
+	b := newBackend(t, host.Options{Root: t.TempDir()})
 	sb := newSandbox(t, b)
 	var out strings.Builder
 	p, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"sh", "-c", "env"}, Stdout: &out})
@@ -103,9 +109,7 @@ func TestLeftoversOfAnEarlierRunAreRemoved(t *testing.T) {
 	if err := os.MkdirAll(root+"/sb-old/work", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := host.New(host.Options{Root: root}); err != nil {
-		t.Skip(err)
-	}
+	newBackend(t, host.Options{Root: root})
 	if _, err := os.Stat(root + "/sb-old"); !os.IsNotExist(err) {
 		t.Errorf("the leftover is still there: %v", err)
 	}
@@ -113,10 +117,7 @@ func TestLeftoversOfAnEarlierRunAreRemoved(t *testing.T) {
 
 func TestACommandRunsWhenTheAddonHasNoPath(t *testing.T) {
 	t.Setenv("PATH", "")
-	b, err := host.New(host.Options{Root: t.TempDir()})
-	if err != nil {
-		t.Skip(err)
-	}
+	b := newBackend(t, host.Options{Root: t.TempDir()})
 	sb := newSandbox(t, b)
 	var out strings.Builder
 	p, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"sh", "-c", "echo ran"}, Stdout: &out})
@@ -131,10 +132,7 @@ func TestACommandRunsWhenTheAddonHasNoPath(t *testing.T) {
 func suspendedWithABackgroundProcess(t *testing.T) (*host.Backend, sandbox.SnapshotRef, string, int) {
 	t.Helper()
 	root := t.TempDir()
-	b, err := host.New(host.Options{Root: root})
-	if err != nil {
-		t.Skip(err)
-	}
+	b := newBackend(t, host.Options{Root: root})
 	sb := newSandbox(t, b)
 	var out strings.Builder
 	p, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"sh", "-c", "sleep 300 </dev/null >/dev/null 2>&1 & echo $!"}, Stdout: &out})
@@ -213,4 +211,24 @@ func TestARelativeRootIsRefused(t *testing.T) {
 	}
 	_ = os.Getenv
 	_ = errors.New
+}
+
+func TestTheWorkingFolderStaysInsideTheWorkspace(t *testing.T) {
+	b := newBackend(t, host.Options{Root: t.TempDir()})
+	sb := newSandbox(t, b)
+	for _, dir := range []string{"/workspace/../..", "/workspace/proj/../../..", "/workspacefoo", "/tmp", "/"} {
+		if _, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"true"}, Dir: dir}); err == nil {
+			t.Errorf("a command ran in %q", dir)
+		}
+	}
+	for _, dir := range []string{"/workspace", "/workspace/", "/workspace/proj", "/workspace/proj/../proj"} {
+		p, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"true"}, Dir: dir})
+		if err != nil {
+			t.Errorf("a command did not run in %q: %v", dir, err)
+			continue
+		}
+		if _, err := p.Wait(); err != nil {
+			t.Errorf("wait in %q: %v", dir, err)
+		}
+	}
 }

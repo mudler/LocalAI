@@ -56,6 +56,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/:id/addons", h.SetChatAddons)
 	e.GET(base+"/files/search", h.SearchFiles)
 	e.GET(base+"/conversion", h.Conversion)
+	e.POST(base+"/import/browser", h.ImportBrowserChats)
 	e.GET(base+"/notifications", h.ListNotifications)
 	e.DELETE(base+"/notifications", h.DeleteNotifications)
 	e.GET(base+"/notifications/count", h.CountNotifications)

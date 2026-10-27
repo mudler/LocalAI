@@ -73,7 +73,7 @@ Notes:
 With authentication on, an admin can add these query parameters:
 
 - `?all_users=true` on `GET /` also returns the collections of every other user, in `user_groups`, keyed by user ID.
-- `?user_id=<id>` on every path except `GET /` and `POST /` works on the collections of that user. The ID must be a user ID (a UUID).
+- `?user_id=<id>` on every path except `GET /` and `POST /` works on the collections of that user. Only an administrator may use it.
 
 Other users cannot use either parameter. `user_id` is ignored for them and they always work on their own collections.
 

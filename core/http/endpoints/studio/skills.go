@@ -7,6 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 )
@@ -57,7 +58,7 @@ func (h *Handlers) ListSkills(c echo.Context) error {
 	out := schema.ChatsSkillList{Skills: make([]schema.ChatsSkill, 0, len(list)), Notes: notes}
 	for _, sk := range list {
 		out.Skills = append(out.Skills, schema.ChatsSkill{
-			Name: sk.Name, Description: sk.Description, Layer: string(sk.Layer), Path: sk.GuestPath,
+			ID: studiosvc.SkillID(sk), Name: sk.Name, Description: sk.Description, Layer: string(sk.Layer), Path: sk.GuestPath,
 			Enabled: !sk.Off, Shadowed: string(sk.Shadowed), Invalid: sk.Invalid, Editable: editable(c, sk.Layer),
 		})
 	}
@@ -70,6 +71,7 @@ func (h *Handlers) ListSkills(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsSkillWrite true "the skill"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/skills [post]
 func (h *Handlers) CreateSkill(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -96,6 +98,7 @@ func (h *Handlers) CreateSkill(c echo.Context) error {
 // @Param layer path string true "personal, shared or builtin"
 // @Param name path string true "the skill's name"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill with its text"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/skills/{layer}/{name} [get]
 func (h *Handlers) GetSkill(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -124,6 +127,7 @@ func (h *Handlers) skillDetail(c echo.Context, fc fileCall, layer skills.Layer, 
 // @Param name path string true "the skill's name"
 // @Param request body schema.ChatsSkillUpdate true "the new description and body"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/skills/{layer}/{name} [put]
 func (h *Handlers) UpdateSkill(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -151,6 +155,7 @@ func (h *Handlers) UpdateSkill(c echo.Context) error {
 // @Param layer path string true "personal or shared"
 // @Param name path string true "the skill's name"
 // @Success 200 {object} map[string]bool "deleted"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/skills/{layer}/{name} [delete]
 func (h *Handlers) DeleteSkill(c echo.Context) error {
 	fc, ok := h.files(c)
@@ -169,11 +174,13 @@ func (h *Handlers) DeleteSkill(c echo.Context) error {
 
 // SetChatSkills sets the skills a chat has switched off.
 // @Summary Switch skills on and off for a chat.
-// @Description The list replaces the earlier one. The next turn of the chat gets the index without the skills that are off.
+// @Description The list replaces the earlier one. An entry is a skill name, which turns off the skill that wins so that one of the same name further away shows through, or the id "layer:name" from the skill list, which turns off the skill of that layer. The next turn of the chat gets the index without the skills that are off.
 // @Tags chats
 // @Param id path string true "conversation id"
-// @Param request body schema.ChatsSkillSwitches true "the names of the skills that are off"
+// @Param request body schema.ChatsSkillSwitches true "the names or ids of the skills that are off"
 // @Success 200 {object} schema.ChatsSkillSwitches "The switches now in force"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/skills [put]
 func (h *Handlers) SetChatSkills(c echo.Context) error {
 	var req schema.ChatsSkillSwitches

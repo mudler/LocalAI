@@ -17,6 +17,9 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 		// model_exports is false only when this instance does not see the
 		// owner's models path; an unknown check leaves it true.
 		return c.JSON(200, map[string]bool{
+			// chats is false only when the service could not be built, in which
+			// case /api/chats is not registered.
+			"chats":             app.StudioService() != nil,
 			"collections":       appConfig.Collections.Enabled,
 			"mcp":               !appConfig.DisableMCP,
 			"addons":            addons,

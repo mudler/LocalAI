@@ -16,6 +16,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -223,7 +224,13 @@ func (s *hostSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 	if dir == "" {
 		dir = sandbox.DefaultDir
 	}
-	rel, ok := strings.CutPrefix(dir, sandbox.DefaultDir)
+	// Clean first: "/workspace/../.." must not leave the workspace, and
+	// "/workspacefoo" is not a folder of it.
+	clean := path.Clean(dir)
+	rel, ok := strings.CutPrefix(clean, sandbox.DefaultDir+"/")
+	if clean == sandbox.DefaultDir {
+		rel, ok = "", true
+	}
 	if !ok {
 		return nil, fmt.Errorf("host: dir %q is outside %s", dir, sandbox.DefaultDir)
 	}

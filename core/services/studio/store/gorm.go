@@ -31,7 +31,6 @@ type chatRow struct {
 	ParentID     string `gorm:"index;size:128"`
 	Model        string
 	Status       string
-	Summary      string `gorm:"type:text"`
 	RunID        string `gorm:"size:128"`
 	RunSince     time.Time
 	RunBeat      time.Time
@@ -94,7 +93,7 @@ func (r chatRow) record() (session.ChatRecord, error) {
 	rec := session.ChatRecord{
 		ID: r.ID, Principal: r.Principal, Title: r.Title, Folder: r.Folder,
 		Created: r.Created, Updated: r.Updated, HarnessState: append([]byte(nil), r.HarnessState...),
-		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Model: r.Model, Status: r.Status, Summary: r.Summary,
+		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Model: r.Model, Status: r.Status,
 		AgentID: r.AgentID, Origin: r.Origin, OriginID: r.OriginID, Assistant: r.Assistant,
 	}
 	if r.SkillsOff != "" {
@@ -143,7 +142,7 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 	row := chatRow{
 		ID: rec.ID, Principal: rec.Principal, Title: rec.Title, Folder: rec.Folder,
 		Created: rec.Created, Updated: rec.Updated, Snapshot: snap, HarnessState: rec.HarnessState,
-		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Model: rec.Model, Status: rec.Status, Summary: rec.Summary,
+		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Model: rec.Model, Status: rec.Status,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
 	}
 	if rec.Settings != (session.ChatSettings{}) {
@@ -207,7 +206,7 @@ func (s *gormStore) UpdateChat(ctx context.Context, rec session.ChatRecord) erro
 	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", rec.ID, rec.Principal).
 		Updates(map[string]any{
 			"title": rec.Title, "folder": rec.Folder, "snapshot": snap, "harness_state": rec.HarnessState,
-			"turns": rec.Turns, "updated": rec.Updated, "status": rec.Status, "summary": rec.Summary,
+			"turns": rec.Turns, "updated": rec.Updated, "status": rec.Status,
 		})
 	if res.Error != nil {
 		return res.Error
@@ -408,6 +407,41 @@ func (s *gormStore) AppendEntry(ctx context.Context, id string, e session.Entry)
 		return 0, err
 	}
 	return stored, nil
+}
+
+func (s *gormStore) AppendEntries(ctx context.Context, id string, entries []session.Entry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		first, err := lock(tx, "", id, "next_entry")
+		if err != nil {
+			return err
+		}
+		// lock took one number; take the rest of the batch with it.
+		if extra := int64(len(entries) - 1); extra > 0 {
+			if err := tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("next_entry", gorm.Expr("next_entry + ?", extra)).Error; err != nil {
+				return err
+			}
+		}
+		rows := make([]entryRow, len(entries))
+		for i, e := range entries {
+			if e.At.IsZero() {
+				e.At = time.Now().UTC()
+			}
+			card := ""
+			if e.Card != nil {
+				raw, err := json.Marshal(e.Card)
+				if err != nil {
+					return err
+				}
+				card = string(raw)
+			}
+			rows[i] = entryRow{ChatID: id, Seq: first + int64(i), Turn: e.Turn, Role: e.Role, Text: e.Text, Rev: e.Rev,
+				DurMs: e.Dur.Milliseconds(), Card: card, At: e.At}
+		}
+		return tx.CreateInBatches(&rows, 100).Error
+	})
 }
 
 func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit int) ([]session.Entry, error) {

@@ -44,6 +44,7 @@ func (h *Handlers) PushKey(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsPushSubscription true "the browser's subscription"
 // @Success 204 "Subscribed"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/push/subscribe [post]
 func (h *Handlers) PushSubscribe(c echo.Context) error {
 	p, ok := h.pusher(c)
@@ -68,6 +69,7 @@ func (h *Handlers) PushSubscribe(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsPushUnsubscribe true "the endpoint"
 // @Success 204 "Unsubscribed"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/push/subscribe [delete]
 func (h *Handlers) PushUnsubscribe(c echo.Context) error {
 	p, ok := h.pusher(c)

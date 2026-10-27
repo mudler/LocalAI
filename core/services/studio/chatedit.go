@@ -151,7 +151,7 @@ func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.E
 	if err != nil {
 		return "", err
 	}
-	rec.HarnessState, rec.Summary, rec.Updated = s.rebuildState(kept), "", time.Now().UTC()
+	rec.HarnessState, rec.Updated = s.rebuildState(kept), time.Now().UTC()
 	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
 		return "", err
 	}

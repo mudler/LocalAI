@@ -32,8 +32,20 @@ An agent that the old pool deleted (a row with status `deleted`) is not
 converted, and neither are its periodic trigger and its Telegram connector.
 
 A converted chat keeps what was said, not the model's memory of it. A
-conversation kept only in a browser cannot be converted: it was never on the
-server.
+conversation kept only in a browser was never on the server, so the start does
+not convert it. Upload it instead:
+
+```bash
+curl -X POST .../api/chats/import/browser -H 'Content-Type: application/json' \
+  -d "$(cat localai_chats_data.json)"
+```
+
+The body is the value of the browser's local storage key `localai_chats_data`
+(in the browser tools: Application, Local Storage, copy the value) as it is. A
+chat with a creation date and at least one message becomes one of your chats,
+with its text, thinking and tool lines. The answer holds `imported`, `skipped`
+and `failed`. A chat that you have already, with the same title and creation
+time, is skipped, so you can upload again.
 
 Nothing converted acts by itself. Switch a trigger, a Telegram connector or an
 MCP connector on after you have read it. A converted MCP connector keeps the
@@ -63,7 +75,7 @@ curl .../api/chats/conversion
 It returns your items: `kind` (`agent`, `trigger`, `skill`, `chat`,
 `connector`), `name`, `status` (`converted`, `skipped`, `failed`, `dropped`)
 and a `reason`. It never holds a token or the text of a prompt. An
-administrator also gets `totals` for all users. Each user with something new
+administrator also gets `totals` for all users, and the items that had no owner (made before accounts existed, skipped when accounts are on). A chat that had pictures, audio or files says how many attachments were not kept. Each user with something new
 gets one notification in the [inbox](/features/chats-agents/).
 
 A run is safe to repeat. A converted item is marked and is not converted

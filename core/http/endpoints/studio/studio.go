@@ -147,6 +147,8 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 // @Tags chats
 // @Param request body schema.ChatsCreateRequest true "model and optional title"
 // @Success 201 {object} schema.ChatsConversation "The new conversation"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 403 {object} schema.ErrorResponse "Refused"
 // @Router /api/chats [post]
 func (h *Handlers) Create(c echo.Context) error {
 	var req schema.ChatsCreateRequest
@@ -229,6 +231,7 @@ func (h *Handlers) List(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsConversationDetail "The conversation and its pending messages"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id} [get]
 func (h *Handlers) Get(c echo.Context) error {
 	user, id := userID(c), c.Param("id")
@@ -258,6 +261,7 @@ func (h *Handlers) Get(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} map[string]bool "deleted"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id} [delete]
 func (h *Handlers) Delete(c echo.Context) error {
 	if err := h.svc.Delete(c.Request().Context(), userID(c), c.Param("id")); err != nil {
@@ -273,6 +277,7 @@ func (h *Handlers) Delete(c echo.Context) error {
 // @Param after query int false "only lines after this sequence number"
 // @Param limit query int false "most lines to return (default 200, at most 1000)"
 // @Success 200 {object} schema.ChatsMessageList "Transcript lines in order"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/messages [get]
 func (h *Handlers) Messages(c echo.Context) error {
 	after, _ := strconv.ParseInt(c.QueryParam("after"), 10, 64)
@@ -308,6 +313,8 @@ func messageList(entries []session.Entry) schema.ChatsMessageList {
 // @Param request body schema.ChatsSendRequest true "the message"
 // @Param files formData file false "files to attach (multipart)"
 // @Success 200 {object} schema.ChatsSendResponse "Whether a turn started, or the id of the waiting message"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/messages [post]
 func (h *Handlers) Send(c echo.Context) error {
 	var (
@@ -367,6 +374,8 @@ func (h *Handlers) Send(c echo.Context) error {
 // @Param pid path string true "pending message id"
 // @Param request body schema.ChatsPendingEdit true "the new text"
 // @Success 200 {object} map[string]bool "updated"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/pending/{pid} [patch]
 func (h *Handlers) EditPending(c echo.Context) error {
 	var req schema.ChatsPendingEdit
@@ -385,6 +394,7 @@ func (h *Handlers) EditPending(c echo.Context) error {
 // @Param id path string true "conversation id"
 // @Param pid path string true "pending message id"
 // @Success 200 {object} map[string]bool "cancelled"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/pending/{pid} [delete]
 func (h *Handlers) CancelPending(c echo.Context) error {
 	if err := h.svc.CancelPending(c.Request().Context(), userID(c), c.Param("id"), c.Param("pid")); err != nil {
@@ -399,6 +409,7 @@ func (h *Handlers) CancelPending(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} map[string]bool "sent"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/send-now [post]
 func (h *Handlers) SendNow(c echo.Context) error {
 	if err := h.svc.SendNow(c.Request().Context(), userID(c), c.Param("id")); err != nil {
@@ -412,6 +423,7 @@ func (h *Handlers) SendNow(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} map[string]bool "stopped"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/stop [post]
 func (h *Handlers) Stop(c echo.Context) error {
 	if err := h.svc.Stop(c.Request().Context(), userID(c), c.Param("id")); err != nil {
@@ -427,6 +439,7 @@ func (h *Handlers) Stop(c echo.Context) error {
 // @Param id path string true "conversation id"
 // @Produce text/event-stream
 // @Success 200 {object} schema.ChatsEvent "An event stream"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/events [get]
 func (h *Handlers) Events(c echo.Context) error {
 	events, cancel, err := h.svc.Events(c.Request().Context(), userID(c), c.Param("id"))

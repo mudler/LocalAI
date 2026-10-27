@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -34,8 +35,12 @@ var _ = Describe("Chats MCP apps endpoints", func() {
 		conn string // alice's connector ref
 		bobs string // bob's connector ref
 		chat string
+		// noMCP turns the MCP feature off for every user, as an administrator or
+		// LOCALAI_DISABLE_MCP does.
+		noMCP atomic.Bool
 	)
 	BeforeEach(func() {
+		noMCP.Store(false)
 		srv := mcp.NewServer(&mcp.Implementation{Name: "spec", Version: "1"}, nil)
 		add := func(name string, meta mcp.Meta) {
 			mcp.AddTool(srv, &mcp.Tool{Name: name, Meta: meta}, func(_ context.Context, _ *mcp.CallToolRequest, in specZone) (*mcp.CallToolResult, any, error) {
@@ -66,6 +71,7 @@ var _ = Describe("Chats MCP apps endpoints", func() {
 				Store:        ms,
 				Key:          func(ctx context.Context) ([]byte, error) { return cs.EnsureKey(ctx, connectors.NewKey) },
 				AllowPrivate: func() bool { return true },
+				Permitted:    func(context.Context, string) bool { return !noMCP.Load() },
 			})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(conns.Close)
@@ -116,6 +122,17 @@ var _ = Describe("Chats MCP apps endpoints", func() {
 		meta := b["meta"].(map[string]any)
 		Expect(meta["csp"].(map[string]any)["connectDomains"]).To(ConsistOf("https://api.example.com"))
 		Expect(meta).To(HaveKeyWithValue("prefersBorder", true))
+	})
+
+	It("needs the MCP feature, even for a connector and a page that were fine a moment ago", func() {
+		Expect(s.do("alice", http.MethodGet, resourcePath(chat, conn, "ui://clock/app.html"), nil).Code).To(Equal(http.StatusOK))
+		noMCP.Store(true)
+		rec := s.do("alice", http.MethodGet, resourcePath(chat, conn, "ui://clock/app.html"), nil)
+		Expect(rec.Code).To(Equal(http.StatusForbidden), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("mcp_app_refused"))
+		rec = s.do("alice", http.MethodPost, callPath(chat), map[string]any{"server": conn, "tool": "get-time"})
+		Expect(rec.Code).To(Equal(http.StatusForbidden), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("mcp_app_refused"))
 	})
 
 	It("refuses what the chat may not read", func() {

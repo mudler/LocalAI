@@ -53,6 +53,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"DELETE", "/api/chats/notifications", FeatureChats},
 	{"GET", "/api/chats/notifications/count", FeatureChats},
 	{"GET", "/api/chats/conversion", FeatureChats},
+	{"POST", "/api/chats/import/browser", FeatureChats},
 	{"POST", "/api/chats/notifications/read", FeatureChats},
 	{"GET", "/api/chats/notifications/events", FeatureChats},
 	{"GET", "/api/chats/triggers", FeatureChats},

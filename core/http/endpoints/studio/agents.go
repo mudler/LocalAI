@@ -85,6 +85,7 @@ func (h *Handlers) CreateAgent(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Success 200 {object} schema.ChatsAgent "The agent"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/agents/{id} [get]
 func (h *Handlers) GetAgent(c echo.Context) error {
 	a, err := h.svc.Agent(c.Request().Context(), userID(c), c.Param("id"))
@@ -101,6 +102,7 @@ func (h *Handlers) GetAgent(c echo.Context) error {
 // @Param id path string true "the agent's id"
 // @Param request body schema.ChatsAgentWrite true "the agent"
 // @Success 200 {object} schema.ChatsAgent "The saved agent"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/agents/{id} [put]
 func (h *Handlers) UpdateAgent(c echo.Context) error {
 	a, err := h.agentIn(c)
@@ -121,6 +123,7 @@ func (h *Handlers) UpdateAgent(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Success 204 "Deleted"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/agents/{id} [delete]
 func (h *Handlers) DeleteAgent(c echo.Context) error {
 	if err := h.svc.DeleteAgent(c.Request().Context(), userID(c), c.Param("id")); err != nil {
