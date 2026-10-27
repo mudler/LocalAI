@@ -836,7 +836,7 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 				return
 			}
 			for _, t := range texts {
-				if aerr := s.d.Store.AppendEntry(ctx, a.ChatID, session.Entry{Turn: turn, Role: session.RoleUser, Text: t}); aerr != nil {
+				if _, aerr := s.d.Store.AppendEntry(ctx, a.ChatID, session.Entry{Turn: turn, Role: session.RoleUser, Text: t}); aerr != nil {
 					s.log.Warn("studio: could not record a delivered message", "chat", a.ChatID, "error", aerr)
 				}
 			}

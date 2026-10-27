@@ -258,6 +258,7 @@
         }
       }
     ],
+    "undo": true,
     "resources": {
       "noun": "fine-tuning job",
       "create": "fine-tune-start",

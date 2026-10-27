@@ -57,6 +57,11 @@ type ToolEvent struct {
 	Summary string // at most 200 bytes: the command line or the path
 	OK      bool   // tool_end only
 	Output  string // tool_end only, at most 2 KiB
+	// Seq is the sequence number of the transcript entry of this call, on
+	// tool_end. It is 0 when the entry could not be stored. The interface
+	// uses it to read that one entry and to keep the same element for the
+	// call when the transcript is read again.
+	Seq int64 `json:",omitempty"`
 	// Card points the product's interface at a card that belongs to this
 	// result. A host tool sets it with SetToolCard; the chat attaches it to
 	// the tool_end of that call. It is nil when the tool set none or the call

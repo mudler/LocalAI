@@ -342,12 +342,12 @@ func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
 	return nil
 }
 
-func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) error {
+func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	c, ok := s.chats[id]
 	if !ok {
-		return session.ErrNotFound
+		return 0, session.ErrNotFound
 	}
 	// Continue after the last Seq, not the count: a skipped damaged line leaves a gap.
 	e.Seq = 1
@@ -361,22 +361,22 @@ func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) e
 	if s.dir != "" {
 		raw, err := json.Marshal(e)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		f, err := os.OpenFile(s.file(id, ".entries"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		_, werr := f.Write(append(raw, '\n'))
 		if cerr := f.Close(); werr == nil {
 			werr = cerr
 		}
 		if werr != nil {
-			return werr
+			return 0, werr
 		}
 	}
 	c.entries = append(c.entries, e)
-	return nil
+	return e.Seq, nil
 }
 
 func (s *jsonStore) Entries(_ context.Context, id string, after int64, limit int) ([]session.Entry, error) {

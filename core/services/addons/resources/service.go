@@ -1245,7 +1245,7 @@ func (s *Service) Resume(ctx context.Context) {
 // Operation looks the receipt of a UI mutation up. It is read-only toward the
 // add-on and available to the owner role only. kind is rename or delete.
 func (s *Service) Operation(ctx context.Context, actor contract.Actor, resourceID, kind, operationID, hash string) (gateway.OperationStatus, error) {
-	if kind != "rename" && kind != "delete" && kind != "apply" || !validOperation(operationID) {
+	if kind != "rename" && kind != "delete" && kind != "apply" && kind != "undo" || !validOperation(operationID) {
 		return gateway.OperationStatus{}, gateway.ErrInvalidRequest
 	}
 	if hash != "" && (kind != "apply" || !sha256Hex.MatchString(hash)) {
@@ -1268,7 +1268,7 @@ func (s *Service) Operation(ctx context.Context, actor contract.Actor, resourceI
 	}
 	var key policy.ResourceKey
 	var err error
-	if kind == "apply" {
+	if kind == "apply" || kind == "undo" {
 		// Editors apply changes, so they look their own receipts up. The
 		// wire operation is derived from the actor: nobody reads another
 		// person's receipt.

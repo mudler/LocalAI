@@ -5,6 +5,7 @@
 import { classifyResponse, newOperationId } from '../components/catalog/catalogState.js'
 import { classifyRecovery } from '../components/addons/recoveryState.js'
 import { classifyUpdate } from '../components/addons/updateState.js'
+import { classifyUndo } from './addonUndo.js'
 
 export class AddonsError extends Error {
   constructor(info) {
@@ -117,6 +118,17 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
       async stop(id, { operationId, generation }, signal) {
         const out = await call(`/api/addons/apps/${encodeURIComponent(id)}/stop`, { method: 'POST', body: { operationId, generation }, signal })
         return normalizeOperation(out?.payload)
+      },
+    },
+    // The undo of one change a chat made at once, by the person's own action.
+    // The confirmation header names the resource, which only a same-origin
+    // fetch of this page can set; a tool or an API key cannot.
+    changes: {
+      undo(resourceId, changeId, { operationId, generation }, signal) {
+        return call(`/api/addons/resources/${encodeURIComponent(resourceId)}/changes/${encodeURIComponent(changeId)}/undo`, {
+          method: 'POST', body: { operationId, generation }, signal, classify: classifyUndo,
+          headers: { 'X-LocalAI-Confirm': resourceId },
+        })
       },
     },
     // Data recovery of one add-on. Every mutation is the administrator's own

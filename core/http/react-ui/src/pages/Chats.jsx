@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ChatAppFrame from '../components/ChatAppFrame'
+import { conversationItems } from '../utils/chatLive'
 import ChatInbox from '../components/ChatInbox'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ModelSelector from '../components/ModelSelector'
@@ -11,6 +12,9 @@ import { useInbox } from '../hooks/useInbox'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useServerChat } from '../hooks/useServerChat'
 import { addonChange } from '../utils/addonChange'
+import { addonsApi } from '../utils/addonsClient'
+import { runUndo, undoMessageKey } from '../utils/addonUndo'
+import { newOperationId } from '../components/catalog/catalogState'
 import { chatAddonsApi, chatAgentsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
 import { connectorRef, toggleOff, toolsCounts } from '../utils/chatMCP'
 import './chats.css'
@@ -153,17 +157,82 @@ function ToolsPanel({ chatId, t }) {
   )
 }
 
-function Transcript({ chatId, messages, onSend, t }) {
-  return messages.map((m) => {
+// One tool call under its line, in the transcript and in the live turn. Both use
+// this component at the same key, so the frame of an MCP App stays mounted when
+// the live call is replaced by its transcript line. note is the add-on change
+// note; app is the full app (frame); loading and fallback are the live states of
+// an app whose card is being read or could not be read.
+function ToolEntry({ chatId, line, note, app, loading, fallback, onSend, t }) {
+  return (
+    <div className="ch-tools">
+      <div className="ch-tool"><span>{line}</span></div>
+      {note ?? null}
+      {app ? <ChatAppFrame chatId={chatId} app={app} onSend={onSend} t={t} /> : null}
+      {!app && loading ? <div className="ch-app" data-testid="chat-app"><div className="ch-app__state">{t('app.loading')}</div></div> : null}
+      {!app && !loading && fallback !== undefined ? (
+        <div className="ch-app" data-testid="chat-app">
+          <div className="ch-app__state" data-testid="chat-app-fallback">
+            <div>{t('app.unavailable', { reason: t('app.notRead') })}</div>
+            {fallback && <pre className="ch-app__text">{fallback}</pre>}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+// The transcript and the live turn as one list (chatLive.js gives the keys), so
+// a call that moves from the live turn to the transcript is the same element.
+function Conversation({ chatId, messages, live, onSend, t }) {
+  return conversationItems(messages, live).map((item) => {
+    if (item.type === 'reasoning') {
+      return (
+        <details key={item.key} className="ch-thought">
+          <summary>{t('reasoning')}</summary>
+          <div className="ch-thought__text">{item.text}</div>
+        </details>
+      )
+    }
+    if (item.type === 'text') return <div key={item.key} className="ch-msg">{item.text}</div>
+    if (item.type === 'tools') {
+      return (
+        <div key={item.key} className="ch-tools">
+          {item.tools.map((tool, i) => (
+            <div key={i} className={`ch-tool${tool.state === 'failed' ? ' ch-tool--failed' : ''}`}>
+              <span>{tool.name}{tool.summary ? ` ${tool.summary}` : ''}</span>
+              <span className="ch-tool__state">
+                {tool.state === 'running' ? t('tool.running') : tool.state === 'failed' ? t('tool.failed') : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    if (item.type === 'app') {
+      const tool = item.tool
+      return (
+        <ToolEntry
+          key={item.key}
+          chatId={chatId}
+          line={`${tool.name}${tool.summary ? ` ${tool.summary}` : ''}`}
+          app={tool.appState === 'ready' ? tool.app : undefined}
+          loading={tool.appState === 'loading'}
+          fallback={tool.appState === 'failed' ? tool.output || '' : undefined}
+          onSend={onSend}
+          t={t}
+        />
+      )
+    }
+    const m = item.m
     if (m.role === 'user') {
-      return <div key={m.seq} className="ch-msg ch-msg--user">{m.text}</div>
+      return <div key={item.key} className="ch-msg ch-msg--user">{m.text}</div>
     }
     if (m.role === 'assistant') {
-      return <div key={m.seq} className="ch-msg">{m.text}</div>
+      return <div key={item.key} className="ch-msg">{m.text}</div>
     }
     if (m.role === 'reasoning') {
       return (
-        <details key={m.seq} className="ch-thought">
+        <details key={item.key} className="ch-thought">
           <summary>{t('reasoning')}{m.dur_ms ? ` ${Math.max(1, Math.round(m.dur_ms / 1000))} s` : ''}</summary>
           <div className="ch-thought__text">{m.text}</div>
         </details>
@@ -171,11 +240,15 @@ function Transcript({ chatId, messages, onSend, t }) {
     }
     if (m.role === 'tool') {
       return (
-        <div key={m.seq} className="ch-tools">
-          <div className="ch-tool"><span>{firstLine(m.text)}</span></div>
-          <ChangeNote text={m.text} t={t} />
-          {m.app && <ChatAppFrame chatId={chatId} app={m.app} onSend={onSend} t={t} />}
-        </div>
+        <ToolEntry
+          key={item.key}
+          chatId={chatId}
+          line={firstLine(m.text)}
+          note={<ChangeNote text={m.text} t={t} />}
+          app={m.app}
+          onSend={onSend}
+          t={t}
+        />
       )
     }
     return null // checkpoints are for the sandbox's undo, not for reading
@@ -193,33 +266,45 @@ function ChangeNote({ text, t }) {
     <div className="ch-tool__change">
       {c.count > 0 ? t('tool.applied', { addon: c.addonId, count: c.count }) : t('tool.appliedNone', { addon: c.addonId })}
       {' '}
-      {c.undoable ? t('tool.undoable') : t('tool.notUndoable')}
+      {c.undoable
+        ? <UndoChange change={c} t={t} />
+        : (c.reason ? t('tool.notUndoableWhy', { reason: c.reason }) : t('tool.notUndoable'))}
     </div>
   )
 }
 
-function LiveTurn({ live, t }) {
+// The Undo button of a change the add-on kept a change set for. It is the
+// person's own action: a model has no way to press it. The operation ID is kept
+// for the life of the card, so a repeat after an unknown outcome is the same
+// undo and never a second one. After use the card says what happened, and a
+// refusal (the data moved on, the record expired) says why and changes nothing.
+function UndoChange({ change, t }) {
+  const [state, setState] = useState({ kind: 'idle' })
+  const op = useRef('')
+  const press = async () => {
+    if (!op.current) op.current = newOperationId()
+    setState({ kind: 'busy' })
+    const out = await runUndo({ api: addonsApi, addonId: change.addonId, resourceId: change.resourceId, changeId: change.changeId, operationId: op.current })
+    // A refusal is final: the card stops offering Undo. An unknown outcome and an
+    // outage keep the operation ID, so the next press repeats the same undo.
+    if (out.kind !== 'unknown' && out.kind !== 'unavailable') op.current = ''
+    setState(out)
+  }
+  if (state.kind === 'busy') return <span role="status">{t('tool.undoing')}</span>
+  if (state.kind === 'done' || state.kind === 'already_undone') {
+    return <span role="status" data-testid="undo-result">{t(undoMessageKey(state.kind), { summary: change.undo })}</span>
+  }
+  const retry = state.kind === 'unknown' || state.kind === 'unavailable'
   return (
     <>
-      {live.reasoning && (
-        <details className="ch-thought">
-          <summary>{t('reasoning')}</summary>
-          <div className="ch-thought__text">{live.reasoning}</div>
-        </details>
+      {state.kind !== 'idle' && (
+        <span role="status" data-testid="undo-result">{t(undoMessageKey(state.kind), { detail: state.message || '' })}{retry ? ' ' : ''}</span>
       )}
-      {live.tools.length > 0 && (
-        <div className="ch-tools">
-          {live.tools.map((tool, i) => (
-            <div key={i} className={`ch-tool${tool.state === 'failed' ? ' ch-tool--failed' : ''}`}>
-              <span>{tool.name}{tool.summary ? ` ${tool.summary}` : ''}</span>
-              <span className="ch-tool__state">
-                {tool.state === 'running' ? t('tool.running') : tool.state === 'failed' ? t('tool.failed') : tool.app ? t('app.live') : ''}
-              </span>
-            </div>
-          ))}
-        </div>
+      {(state.kind === 'idle' || retry) && (
+        <button type="button" className="ch-link" data-testid="undo-change" title={change.undo || undefined} onClick={press}>
+          {t('tool.undo')}
+        </button>
       )}
-      {live.text && <div className="ch-msg">{live.text}</div>}
     </>
   )
 }
@@ -461,8 +546,7 @@ export default function Chats() {
                 )}
               </div>
             )}
-            {activeId && <Transcript chatId={activeId} messages={chat.messages} onSend={(text) => chat.send(activeId, text)} t={t} />}
-            {activeId && <LiveTurn live={chat.live} t={t} />}
+            {activeId && <Conversation chatId={activeId} messages={chat.messages} live={chat.live} onSend={(text) => chat.send(activeId, text)} t={t} />}
             {/* The one live region: it announces that a turn runs or ended, not every streamed word. */}
             <div className="ch-status" role="status" aria-live="polite">
               {chat.running ? t('status.working')

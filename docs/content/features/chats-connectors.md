@@ -213,7 +213,8 @@ time limit to start and to answer. It runs on the frontend, as the LocalAI proce
 ### MCP Apps
 
 A connector can offer MCP Apps: tools that declare an interactive HTML page in
-`_meta.ui.resourceUri`. Chats show the page under the tool line. The server
+`_meta.ui.resourceUri`. Chats show the page under the tool line as soon as the
+call ends, while the turn goes on. The server
 holds the MCP connection, so the page works for a connector like any other tool:
 the page is read from the connector, and its tool calls go to the connector,
 with the connector's own credential. The credential never reaches the browser.

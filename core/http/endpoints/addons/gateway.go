@@ -31,7 +31,9 @@ type AddonError struct {
 	// invalid_request (400, for
 	// example a missing deletion confirmation or an unsupported operation),
 	// quota_reached (403) and not_selected (404, no resource is selected for
-	// the conversation).
+	// the conversation). The undo of a change says why it was refused in
+	// the type: stale (409, with the words of what changed), not_found (404),
+	// expired (410), already_undone (409) or cannot_undo (409).
 	Type string `json:"type" example:"outcome_unknown"`
 	// Message describes the failure and never carries owner details.
 	Message string `json:"message"`
@@ -173,6 +175,24 @@ func decode(c echo.Context, v any) error {
 	}
 	return nil
 }
+
+// undoStatus is the status and the default message of a refused undo, by its
+// code. The code is the type of the error, so a client tells the refusals
+// apart without reading the message.
+func undoStatus(code string) (int, string) {
+	switch code {
+	case contract.UndoNotFound:
+		return 404, "No change set with this ID: it was never kept, was too large to keep or was dropped"
+	case contract.UndoExpired:
+		return 410, "The change set expired and the change can no longer be undone"
+	case contract.UndoAlreadyUndone:
+		return 409, "The change was undone already"
+	case contract.UndoCannot:
+		return 409, "The change cannot be undone"
+	}
+	return 409, "The data changed after this change, so it cannot be undone without overwriting later work"
+}
+
 func resultError(c echo.Context, e error) error {
 	// The add-on's own refusal of a request is a typed 400 from every path,
 	// never an outage banner.
@@ -197,6 +217,14 @@ func resultError(c echo.Context, e error) error {
 	var refusal *contract.SDKRefusal
 	if errors.As(e, &refusal) {
 		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: "sdk_incompatible", Code: 403, Message: refusal.Error()}})
+	}
+	var refused *gateway.UndoRefused
+	if errors.As(e, &refused) {
+		status, msg := undoStatus(refused.Code)
+		if refused.Detail != "" {
+			msg = refused.Detail
+		}
+		return c.JSON(status, AddonErrorResponse{Error: AddonError{Type: refused.Code, Code: status, Message: msg}})
 	}
 	for _, t := range []struct {
 		err     error

@@ -29,11 +29,11 @@ func TestFinalTextOfALongChildIsItsLastAnswer(t *testing.T) {
 	if err := st.CreateChat(ctx, session.ChatRecord{ID: "kid", Principal: "alice"}); err != nil {
 		t.Fatal(err)
 	}
-	_ = st.AppendEntry(ctx, "kid", session.Entry{Role: session.RoleAssistant, Text: "early"})
+	_, _ = st.AppendEntry(ctx, "kid", session.Entry{Role: session.RoleAssistant, Text: "early"})
 	for i := 0; i < 2500; i++ {
-		_ = st.AppendEntry(ctx, "kid", session.Entry{Role: session.RoleTool, Text: fmt.Sprint("t", i)})
+		_, _ = st.AppendEntry(ctx, "kid", session.Entry{Role: session.RoleTool, Text: fmt.Sprint("t", i)})
 	}
-	_ = st.AppendEntry(ctx, "kid", session.Entry{Role: session.RoleAssistant, Text: "final"})
+	_, _ = st.AppendEntry(ctx, "kid", session.Entry{Role: session.RoleAssistant, Text: "final"})
 	if got := svc.finalText(ctx, "kid"); got != "final" {
 		t.Fatalf("finalText = %q, want %q", got, "final")
 	}

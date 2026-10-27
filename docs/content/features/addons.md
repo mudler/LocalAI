@@ -1399,6 +1399,7 @@ Two more optional capability fields describe the UI-only resource management (se
 
 | Field | Meaning and bounds |
 |---|---|
+| `capabilities.undo` | Boolean. The add-on keeps a change set for the writes a chat makes at once and answers the host's undo calls (see [Undoing a change a chat made](#undoing-a-change-a-chat-made)). It changes no tool and offers nothing to a model. |
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. |
 
@@ -1438,7 +1439,7 @@ require it.
   `POST /api/addons/apps/{id}/start` and `.../stop` list and control the addons as
   apps. See [Apps](#apps).
 - `GET`/`POST /api/addons/resources`, `.../resources/{resourceId}/grants`,
-  `.../grants/{userId}`, `.../users`, `.../rename`, `.../delete`, `.../operations/{operationId}`
+  `.../grants/{userId}`, `.../users`, `.../rename`, `.../delete`, `.../changes/{changeId}/undo`, `.../operations/{operationId}`
   and `/api/addons/conversations/{conversationId}/selection/{addonId}` list, create,
   share, rename and delete a person's resources and keep the resource a conversation
   works on. They are UI-only. See [UI-only resource management](#ui-only-resource-management).
@@ -1681,9 +1682,10 @@ chat's user. The chats adapter stores the proposal and confirms it in the same
 call with the credential of a chat turn, so the same admission, revision
 and receipt rules hold, a failed call leaves no pending proposal, and no API
 key, MCP session or browser request can use that credential. The result says
-what was applied and whether it can be undone. No change tool of Tables,
-Fine-tuning or Quantization keeps a change set, so their results say that the
-change cannot be undone. `GET /api/addons/proposals?state=pending`
+what was applied and whether it can be undone: Tables, Fine-tuning and
+Quantization keep a change set for the changes they can roll back, and the result
+carries `undoable`, the `changeId` and a one-line `undo`. See
+[Undoing a change a chat made](#undoing-a-change-a-chat-made). `GET /api/addons/proposals?state=pending`
 lists the caller's own pending proposals (newest first, at most 32). See
 [Tables](../tables/#model-tools-and-approval-cards) for the tool names, the
 approval card and the inventory of tool consumers.
@@ -1911,7 +1913,8 @@ the route-feature registry.
 | `POST /api/addons/resources/{resourceId}/rename` | owner role, own session | Rename through the add-on. |
 | `POST /api/addons/resources/{resourceId}/delete` | owner role, own session | Delete the resource and its data. |
 | `POST /api/addons/resources/{resourceId}/apply` | role of the tool, own session | One data or schema change through a declared write or schema tool, with no card. |
-| `GET /api/addons/resources/{resourceId}/operations/{operationId}?kind=` | owner role (rename, delete) or a role that may write (apply), own session | Read-only receipt lookup of a rename, a deletion or a change. |
+| `POST /api/addons/resources/{resourceId}/changes/{changeId}/undo` | the role of the change, own session | Undo one change a chat made at once, by the change set the add-on kept. |
+| `GET /api/addons/resources/{resourceId}/operations/{operationId}?kind=` | owner role (rename, delete) or a role that may write (apply, undo), own session | Read-only receipt lookup of a rename, a deletion, a change or an undo. |
 | `GET`/`PUT`/`DELETE /api/addons/conversations/{conversationId}/selection/{addonId}` | any caller with the feature | The resource a conversation works on. |
 
 "Own session" means the same rules as a confirmation: a browser session cookie, a
@@ -2012,6 +2015,57 @@ mutation:
   host does not hold (for example after a restart) is `state: unknown`, which is safe to
   answer by repeating the same request. A client that compares `requestHash` before it
   believes `committed` never mistakes another change for its own.
+
+### Undoing a change a chat made
+
+A write, schema or create tool called from a chat, an agent or a trigger is applied at once
+(there is no card), so undo is the safety net. An add-on that declares `capabilities.undo`
+keeps a change set for the changes it can roll back, in its own storage, and says so in the
+receipt of the change: the receipt payload has an `undo` object, `{"id", "available",
+"summary", "reason"}`. The host copies it into the tool result as `undoable`, `changeId`,
+`undo` (what an undo does, one line) and `reason` (why nothing was kept), and the chat shows an
+Undo button on the entry. The model is told that the person can undo it and that it cannot.
+
+`POST /api/addons/resources/{resourceId}/changes/{changeId}/undo` takes `{operationId,
+generation}`. The change ID is the one the tool result named. It runs under these rules:
+
+- **Humans only.** It accepts only the person's own browser session, with the rules of
+  every UI-only mutation: a same-origin fetch, `X-LocalAI-Confirm` equal to the resource ID,
+  and no API key, bearer token, tool, agent or MCP marker. This is deliberate. It is never a
+  tool and no MCP tool maps to it, so a model cannot undo its own work or anyone else's
+  without the person.
+- **Role.** The role of the undo is the role of the change, which the add-on reports:
+  `write` changes need the editor role, `schema` changes and creations the owner role. Other
+  callers get the answer of an unknown resource.
+- **Stale.** The undo is applied against the revision the add-on has just reported. If the
+  resource moved on after the change, the answer is `409` with type `stale` and a message that
+  says what changed; nothing is overwritten.
+- **Typed refusals.** `not_found` (`404`: never kept, too large to keep, or dropped),
+  `expired` (`410`: past the 7 days of retention), `already_undone` (`409`), `cannot_undo`
+  (`409`: for example the job it started has finished) and `stale` (`409`). The type of the
+  error is the code. `outcome_unknown` and `outcome_blocked` behave as for every mutation.
+- **Idempotent.** The same `operationId` with the same change is one undo and returns the same
+  result; after `outcome_unknown` look the receipt up with `kind=undo`.
+- **Result.** `{resourceId, changeId, operationId, revision, summary, deleted}`. `deleted` is
+  true when the change was the creation of a resource: the host deletes it with its own delete,
+  and only while the add-on says nothing touched it since.
+
+For an add-on author: declare `"undo": true` in `capabilities`, add the key `undo` to the
+receipt payload of every change, and answer two calls that are never in `capabilities.tools`,
+so no model can name them. The read tool `changes-get` takes `{change}` and answers
+`{id, class, state, summary, detail, current, deletes}` with `class` `write` or `schema` and
+`state` `available`, `stale`, `expired`, `undone`, `cannot` or `not_found`. The apply with the
+action `undo` and the tool `changes-undo` takes `{change}` and the revision `current`, and
+answers a committed receipt, or a rejected receipt whose payload is `{"error": code,
+"message"}`. The add-on checks the action and the scope itself. Tables, Fine-tuning and
+Quantization implement it; Fine-tuning and Quantization undo only the start of a job, by
+stopping it while it runs.
+
+In a cluster the undo travels the same carrier as every resource call: a frontend forwards it
+to the owner, which calls the add-on, and the typed refusal crosses the carrier as the same
+typed error. The change sets are state of the add-on, in its own storage on the owner (for
+Tables inside each database file), so they are covered by the add-on's backups, restores and
+purges and need no extra shared state on the frontends; the carrier and the owner keep none.
 
 An SDK-based page does not call the route itself. `sdk.resources.apply` (see
 [the SDK](#the-resource-calls-of-the-sdk)) sends it for the add-on and generation the SDK is

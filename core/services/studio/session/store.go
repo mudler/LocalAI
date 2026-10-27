@@ -27,8 +27,9 @@ type Store interface {
 	DeleteChat(ctx context.Context, principal, chatID string) error
 	// AppendEntry adds e at the end of the chat's transcript. The store sets
 	// Seq (1, 2, 3 ...) and, when e.At is zero, At. It does not change
-	// ChatRecord.Updated; the caller updates the chat with UpdateChat.
-	AppendEntry(ctx context.Context, chatID string, e Entry) error
+	// ChatRecord.Updated; the caller updates the chat with UpdateChat. It
+	// returns the Seq it set (0 with an error).
+	AppendEntry(ctx context.Context, chatID string, e Entry) (int64, error)
 	// Entries returns up to limit entries with Seq greater than after, in order.
 	Entries(ctx context.Context, chatID string, after int64, limit int) ([]Entry, error)
 }

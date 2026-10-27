@@ -451,7 +451,7 @@ func (h *Handlers) Events(c echo.Context) error {
 func eventJSON(ev session.Event) schema.ChatsEvent {
 	out := schema.ChatsEvent{Kind: string(ev.Kind), Turn: ev.Turn, Text: ev.Text, IDs: ev.IDs, Before: ev.Before, After: ev.After}
 	if ev.Tool != nil {
-		out.Tool = &schema.ChatsToolEvent{Name: ev.Tool.Name, Summary: ev.Tool.Summary, OK: ev.Tool.OK, Output: ev.Tool.Output}
+		out.Tool = &schema.ChatsToolEvent{Name: ev.Tool.Name, Summary: ev.Tool.Summary, OK: ev.Tool.OK, Output: ev.Tool.Output, Seq: ev.Tool.Seq}
 		if ev.Tool.Card != nil {
 			out.Tool.App = appJSON(ev.Tool.Card.App, false)
 		}

@@ -248,6 +248,9 @@ type ResourceManager interface {
 	Rename(ctx context.Context, actor contract.Actor, resourceID string, r RenameResourceRequest) (ResourceInfo, error)
 	Delete(ctx context.Context, actor contract.Actor, resourceID string, r DeleteResourceRequest) (DeleteResult, error)
 	Apply(ctx context.Context, actor contract.Actor, resourceID string, r ApplyResourceRequest) (ApplyResult, error)
+	// Undo rolls back one change a chat made at once, by the change set the
+	// add-on kept for it.
+	Undo(ctx context.Context, actor contract.Actor, resourceID, changeID string, r UndoRequest) (UndoResult, error)
 	Operation(ctx context.Context, actor contract.Actor, resourceID, kind, operationID, requestHash string) (OperationStatus, error)
 	Selection(ctx context.Context, actor contract.Actor, conversationID, addonID string) (Selection, error)
 	Select(ctx context.Context, actor contract.Actor, conversationID, addonID, resourceID string) (Selection, error)
@@ -269,6 +272,7 @@ const (
 	resourceRename     = "rename"
 	resourceDelete     = "delete"
 	resourceApply      = "apply"
+	resourceUndo       = "undo"
 	resourceStatus     = "status"
 	resourceSelGet     = "selection-get"
 	resourceSelPut     = "selection-put"
@@ -294,6 +298,7 @@ type ResourceCall struct {
 	Arguments      json.RawMessage   `json:"arguments,omitempty"`
 	Tool           string            `json:"tool,omitempty"`
 	RequestHash    string            `json:"requestHash,omitempty"`
+	ChangeID       string            `json:"changeId,omitempty"`
 }
 
 // mutating says whether the call can change state that has an operation
@@ -381,6 +386,8 @@ func (g *Gateway) resourceLocal(ctx context.Context, a contract.Actor, request c
 		out, err = g.Resources.Delete(ctx, a, call.ResourceID, DeleteResourceRequest{OperationID: request.OperationID, Generation: call.Generation, Revision: call.Revision, Confirm: call.Confirm})
 	case resourceApply:
 		out, err = g.Resources.Apply(ctx, a, call.ResourceID, ApplyResourceRequest{OperationID: request.OperationID, Generation: call.Generation, Revision: call.Revision, Tool: call.Tool, Arguments: call.Arguments})
+	case resourceUndo:
+		out, err = g.Resources.Undo(ctx, a, call.ResourceID, call.ChangeID, UndoRequest{OperationID: request.OperationID, Generation: call.Generation})
 	case resourceStatus:
 		out, err = g.Resources.Operation(ctx, a, call.ResourceID, call.Kind, call.UserID, call.RequestHash)
 	case resourceSelGet:
@@ -507,6 +514,9 @@ type resourceWire struct {
 	Type        string `json:"type"`
 	OperationID string `json:"operationId,omitempty"`
 	BlockedBy   string `json:"blockedBy,omitempty"`
+	// Code and Detail type a refused undo.
+	Code   string `json:"code,omitempty"`
+	Detail string `json:"detail,omitempty"`
 }
 
 const (
@@ -516,6 +526,7 @@ const (
 	wireQuota           = "quota_reached"
 	wireNotSelected     = "not_selected"
 	wireOpConflict      = "operation_conflict"
+	wireUndoRefused     = "undo_refused"
 )
 
 // resourceFailure writes the owner's typed failure of a resource call, so a
@@ -531,6 +542,9 @@ func resourceFailure(w http.ResponseWriter, call ResourceCall, id string, e erro
 		body.Type, body.OperationID = wireOutcomeUnknown, unknown.OperationID
 	case errors.As(e, &blocked) && blocked.BlockedBy != "" && StatusFor(e) == http.StatusForbidden:
 		status, body.Type, body.BlockedBy = http.StatusForbidden, wireOutcomeBlocked, blocked.BlockedBy
+	case isUndoRefused(e):
+		u, _ := asUndoRefused(e)
+		status, body.Type, body.Code, body.Detail = http.StatusConflict, wireUndoRefused, u.Code, u.Detail
 	case errors.Is(e, ErrSharingDisabled):
 		status, body.Type = http.StatusConflict, wireSharingDisabled
 	case errors.Is(e, ErrStale):
@@ -578,6 +592,10 @@ func resourceReplyError(r io.Reader, status int, id string) error {
 		case wireOutcomeBlocked:
 			if b.BlockedBy != "" && len(b.BlockedBy) <= 256 && status == http.StatusForbidden {
 				return &OutcomeBlocked{BlockedBy: b.BlockedBy, Cause: ErrForbidden}
+			}
+		case wireUndoRefused:
+			if ValidUndoCode(b.Code) {
+				return &UndoRefused{Code: b.Code, Detail: contract.CleanUndoText(b.Detail)}
 			}
 		case wireSharingDisabled:
 			return ErrSharingDisabled

@@ -495,7 +495,7 @@ func Seed(t *testing.T, s store.Store) {
 	if err := s.CreateChat(ctx(t), session.ChatRecord{ID: "seed", Principal: "alice", Title: "Kept", Created: t0, Updated: t0}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AppendEntry(ctx(t), "seed", session.Entry{Role: "user", Text: "hello"}); err != nil {
+	if _, err := s.AppendEntry(ctx(t), "seed", session.Entry{Role: "user", Text: "hello"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AddPending(ctx(t), "alice", "seed", "waiting"); err != nil {

@@ -47,7 +47,7 @@ func (s *Service) ImportChat(ctx context.Context, user, title, model string, cre
 		if e.Role == session.RoleReasoning && len(text) > session.MaxReasoningBytes {
 			text = strings.ToValidUTF8(text[:session.MaxReasoningBytes], "")
 		}
-		if err := s.d.Store.AppendEntry(ctx, rec.ID, session.Entry{Role: e.Role, Text: text, At: e.At.UTC()}); err != nil {
+		if _, err := s.d.Store.AppendEntry(ctx, rec.ID, session.Entry{Role: e.Role, Text: text, At: e.At.UTC()}); err != nil {
 			return fail(err)
 		}
 	}

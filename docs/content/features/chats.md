@@ -134,7 +134,17 @@ A tool of an MCP server can declare an interactive HTML page in
 defines. When the model calls such a tool, the chat shows the page under the tool
 line, with the arguments and the result of the call. This works for your
 [connectors](/features/chats-connectors/#mcp-apps) and for the MCP servers of the
-chat's model. The page appears when the turn ends, or when you open the chat again.
+chat's model. The page appears as soon as the tool call ends, while the turn
+goes on, and it stays when the turn ends or the chat is opened again.
+
+A live `tool_end` event carries the reference of the app (server, tool, resource,
+visibility) and `seq`, the number of the call's line in the transcript. The
+arguments and the full result are not in the event. A client that wants them reads
+that one line with `GET /api/chats/{id}/messages?after=<seq-1>&limit=1`, which has
+the same checks and size limits as the whole transcript. Because the line is in
+the shared store, this works whichever frontend runs the turn. A client that
+misses the event or cannot read the line shows the text result, and finds the
+app in the transcript when the turn ends.
 
 The MCP connection stays on the server, so two routes of the chat carry the page
 and its calls. Both answer only for a server that the chat may use at that moment:
@@ -226,7 +236,7 @@ When you may use collections, a chat has two more tools: `list_collections` and 
 A chat can use the tools of the add-ons you may use. The chat panel lists them with a switch for each add-on; a switch applies to that chat from its next turn. A tool runs as you, in your chat, and never as a user a model names.
 
 - A tool that only reads gives the model its result.
-- A tool that changes an add-on's data (rows, a schema, a new database, a job) changes it at once. Turning an add-on on for a chat or an agent is your consent, so there is no confirmation card. The model is told what was changed and whether it can be undone, and the tool entry in the chat says the same. Most data changes cannot be undone today: Tables, Fine-tuning and Quantization keep no history of them. The file changes of a sandbox or an Office document are different: they are one change in the history of your files and you can undo them there. Reads and changes use your own permissions, and a change on data that moved since it was read is refused, not applied. A scheduled or file-triggered run uses the same rule, but a run with no agent gets no tool that changes anything: name the add-on in an agent to allow it.
+- A tool that changes an add-on's data (rows, a schema, a new database, a job) changes it at once. Turning an add-on on for a chat or an agent is your consent, so there is no confirmation card. The model is told what was changed and whether it can be undone, and the tool entry in the chat says the same. Undo is the safety net, so a change the add-on kept a change set for shows an **Undo** button on its entry: Tables keeps one for every row and schema change and for a new database, and Fine-tuning and Quantization keep one for a job start (an undo stops the job while it runs). After you press it the entry says "Undone", or why it could not be: the data changed after the change (undoing would overwrite later work, and nothing is changed), the change is older than 7 days, or the job already finished. Only you can press it: the model is told the change can be undone but has no tool for it, and an API key cannot call it. Some changes keep no change set, such as one whose data was too large to keep, stopping a job or exporting a model; their entry says "This cannot be undone" and gives the reason. The file changes of a sandbox or an Office document are different: they are one change in the history of your files and you can undo them there. Reads and changes use your own permissions, and a change on data that moved since it was read is refused, not applied. A scheduled or file-triggered run uses the same rule, but a run with no agent gets no tool that changes anything: name the add-on in an agent to allow it.
 - An *action* tool, such as running a command in a sandbox, runs at once and only in a chat. No other place that offers add-on tools (the OpenAI-compatible API, MCP, agents) lists or runs one.
 - A sub-agent gets the add-on tools its parent names, or all of the parent's tools when the parent names none.
 

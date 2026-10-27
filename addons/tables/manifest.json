@@ -569,6 +569,7 @@
     "adminTools": [
       "databases-delete"
     ],
+    "undo": true,
     "resources": {
       "noun": "database",
       "create": "databases-create",

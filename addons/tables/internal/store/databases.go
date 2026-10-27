@@ -74,6 +74,14 @@ type Options struct {
 	ExportMaxRows  int
 	ExportMaxBytes int64
 	ExportTimeout  time.Duration
+	// ChangeRetention is how long a change set can be undone, MaxChangeBytes
+	// bounds the inverse of one change and MaxChangesTotal the inverses one
+	// database keeps. They default to the Default* constants of changes.go.
+	ChangeRetention time.Duration
+	MaxChangeBytes  int64
+	MaxChangesTotal int64
+	// Now is the clock of the change sets. Tests set it.
+	Now func() time.Time
 }
 type DatabaseInfo struct {
 	ResourceID string            `json:"resourceId"`
@@ -449,6 +457,13 @@ func (s *Store) build(ctx context.Context, id, name, opID string) error {
 			_, err = tx.ExecContext(ctx, "INSERT INTO tables_operations(operation_id,kind,schema_revision,data_revision,applied_at) VALUES(?,?,?,?,?)", opID, "create", 1, 0, time.Now().UTC().Format(time.RFC3339Nano))
 		}
 		if err == nil {
+			// The creation is the first change of the database. Undoing it
+			// removes the database, which only the host can do; the line
+			// says whether that is still possible and until when.
+			_, err = tx.ExecContext(ctx, "INSERT INTO tables_changes(operation_id,class,kind,summary,before_schema,before_data,after_schema,after_data,inverse,bytes,created_ns) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+				opID, contract.ChangeClassSchema, kindDatabaseCreate, contract.CleanUndoText("Delete the new database "+name), 0, 0, 1, 0, "{}", 0, s.now().UnixNano())
+		}
+		if err == nil {
 			err = tx.Commit()
 		} else {
 			_ = tx.Rollback()
@@ -561,7 +576,7 @@ func (s *Store) Rename(ctx context.Context, resourceID, name, operationID string
 			return contract.Receipt{}, ErrConflict
 		}
 		if op.State == "committed" {
-			return op.receipt(), nil
+			return s.decorate(ctx, op), nil
 		}
 	}
 	db, err := s.openDatabase(resourceID)
@@ -595,8 +610,21 @@ func (s *Store) Rename(ctx context.Context, resourceID, name, operationID string
 		operationID, "rename", m.Revision.Schema, m.Revision.Data, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 		return contract.Receipt{}, capacityError(err)
 	}
+	if _, err = tx.ExecContext(ctx, catalogSchema); err != nil {
+		return contract.Receipt{}, capacityError(err)
+	}
 	if _, err = tx.ExecContext(ctx, "UPDATE tables_meta SET value=? WHERE key='name'", name); err != nil {
 		return contract.Receipt{}, capacityError(err)
+	}
+	// A rename is recorded once: a repeat of the same operation finds its line.
+	if _, found, e := readChange(ctx, tx, operationID); e != nil {
+		return contract.Receipt{}, e
+	} else if !found && m.Name != name {
+		rec := s.newRecorder(contract.ChangeClassSchema, kindDatabaseRename)
+		rec.set(inverse{Op: invRenameDatabase, Name: m.Name, To: name}, fmt.Sprintf("Rename the database back to %s", m.Name))
+		if _, err = s.record(ctx, tx, rec, operationID, m.Revision, m.Revision); err != nil {
+			return contract.Receipt{}, err
+		}
 	}
 	if err = tx.Commit(); err != nil {
 		return contract.Receipt{}, capacityError(err)
@@ -609,7 +637,7 @@ func (s *Store) Rename(ctx context.Context, resourceID, name, operationID string
 	if err != nil {
 		return contract.Receipt{}, err
 	}
-	return row.receipt(), nil
+	return s.decorate(ctx, row), nil
 }
 
 // Delete removes the database resourceID: its file and the journal files
@@ -730,5 +758,5 @@ func (s *Store) Receipt(ctx context.Context, operationID string) (contract.Recei
 	if !found {
 		return contract.Receipt{OperationID: operationID, State: contract.ReceiptUnknown}, nil
 	}
-	return op.receipt(), nil
+	return s.decorate(ctx, op), nil
 }

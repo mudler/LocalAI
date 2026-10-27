@@ -9,7 +9,8 @@ Spec: https://modelcontextprotocol.io/extensions/apps/overview
 The MCP connection is on the **server**, not in the browser. There is no browser MCP client, no `AppBridge` and no CORS proxy in this path.
 
 1. A turn calls a tool that has `_meta.ui.resourceUri`. The tool wrapper (`core/services/studio/mcpapps.go`, `withApp`) runs the tool, keeps the full MCP result, and sets a card on the call with `session.SetToolCard`. The card holds the app reference: server (`connector:<id>` or the model's server name), tool, resource URI, visibility, input and result.
-2. The card is stored with the tool entry of the transcript. `GET /api/chats/{id}/messages` returns it as `app` (with `input` and `result`). The live `tool_end` event carries the reference only (the bus drops the payload).
+2. The card is stored with the tool entry of the transcript. `GET /api/chats/{id}/messages` returns it as `app` (with `input` and `result`). The live `tool_end` event carries the reference only (the bus drops the payload) and `seq`, the number of that transcript entry. The entry is stored before the event is sent, in the shared store, so any frontend can serve it.
+   The page shows the app live: on `tool_end` it reads that one entry with `GET /api/chats/{id}/messages?after=<seq-1>&limit=1` and renders the app in the tool card at once. The live card and the transcript line have the same key (`tool-<seq>`, `src/utils/chatLive.js`) in one flat list, so the frame is not remounted when the turn ends and the transcript is read again. If the entry cannot be read, the card shows the result as text and the transcript read at the turn end brings the app.
 3. `ChatAppFrame.jsx` reads the page with `GET /api/chats/{id}/mcp-apps/resource?server=&uri=` and renders it in `<iframe sandbox="allow-scripts">` with a CSP meta tag put before the page. `src/utils/chatApps.js` (`createHost`) is the host side of the JSON-RPC bridge. A tool call of the page goes to `POST /api/chats/{id}/mcp-apps/call`.
 4. The server checks on every request that the chat may use the server now (chat owner, not switched off in the tools panel, agent grant, connector owned and enabled), that the resource is declared by a tool of that server, and that the tool's `_meta.ui.visibility` includes `"app"`.
 
@@ -19,8 +20,8 @@ A tool whose visibility lacks `"model"` is not offered to the model.
 
 - Go, the rules of the routes: `core/services/studio/mcpapps_test.go` (a real MCP server over HTTP with a clock app, a connector and a model server) and `core/http/routes/studio_mcpapps_test.go` (status codes, auth, no secret in an answer).
 - Go, the parts: `pkg/mcpapps`, `core/http/endpoints/mcp/apps_test.go`, `core/services/studio/mcpconns/apps_test.go`, `core/services/studio/session/cardapp_test.go`.
-- UI units: `node tests/unit/run.mjs chatapps.test.mjs` (CSP, srcdoc, the host bridge, no DOM).
-- Playwright, API stubbed: `e2e/chats-apps.spec.js` (sandbox attribute, bridge round trip, isolation probes, suggestions and links, foreign `postMessage`, fallback, phone width).
+- UI units: `node tests/unit/run.mjs chatapps.test.mjs` (CSP, srcdoc, the host bridge, no DOM) and `chatlive.test.mjs` (live tool calls, stable keys, the merge of the live turn into the transcript).
+- Playwright, API stubbed: `e2e/chats-apps.spec.js` (sandbox attribute, bridge round trip, isolation probes, suggestions and links, foreign `postMessage`, fallback, phone width) and, with the event stream faked, the live cases: the app shows when `tool_end` arrives and the frame is not reloaded when the turn ends or the stream reconnects, and a card that cannot be read falls back to text.
 
 Playwright runs one process at a time, against the server on port 8089. Build the UI and the test server first:
 
@@ -46,12 +47,12 @@ curl -s -X POST http://localhost:3001/mcp \
 1. Run LocalAI with chats on and the `mcp` feature for your user. Connectors refuse private addresses by default; for a server on localhost an administrator sets `mcp_connectors_allow_private`.
 2. Open **Chats**, **Connectors**, **MCP server**, and add `http://localhost:3001/mcp`. Use **Test connection**, then enable it.
 3. Start a chat and send "What time is it?".
-4. When the turn ends, the clock app appears under the `get-time` tool line.
+4. The clock app appears under the `get-time` tool line as soon as the tool call ends, before the answer is complete.
 
 ## What to verify
 
 - [ ] The tool is offered to the model; a tool with `visibility: ["app"]` is not.
-- [ ] The app shows under its tool line when the turn ends, and again after a reload of the page.
+- [ ] The app shows under its tool line as soon as the call ends (during the turn), is not reloaded or duplicated when the turn ends, and shows again after a reload of the page.
 - [ ] The iframe has `sandbox="allow-scripts"` and nothing else, and the page cannot read the host (no cookies, no storage, no parent DOM, no network).
 - [ ] A click in the app that calls a tool reaches the server (`POST .../mcp-apps/call`) and the result comes back.
 - [ ] `ui/message` shows a suggestion that you send or dismiss; `ui/open-link` shows an Open link that works after a click and refuses `javascript:` and `data:`.

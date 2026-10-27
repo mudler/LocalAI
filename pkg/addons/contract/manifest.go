@@ -102,7 +102,11 @@ type Capabilities struct {
 	// Resources says which tools the UI-only resource management endpoints
 	// use for this add-on's resources (create, rename, inspect, delete).
 	Resources *ResourceTools `json:"resources,omitempty"`
-	UI        *UI            `json:"ui,omitempty"`
+	// Undo says that the add-on keeps a change set for the writes a chat
+	// makes at once and answers the host's undo calls (see undo.go). It is a
+	// promise about storage only: the add-on's tools stay as declared.
+	Undo bool `json:"undo,omitempty"`
+	UI   *UI  `json:"ui,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to

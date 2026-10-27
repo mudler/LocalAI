@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatsApi } from '../utils/api'
 import { eventPayload, retryDelay } from '../utils/streamRetry'
+import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted } from '../utils/chatLive'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
@@ -10,14 +11,18 @@ const EVENT_KINDS = [
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
 
-const emptyLive = () => ({ text: '', reasoning: '', tools: [] })
-
 // State of the chats the server keeps: the list, one open chat with its
 // transcript and waiting messages, and the live events of a running turn.
 //
 // Events are live only. The transcript is the record, so the hook reads it
 // again whenever something that changes it happens (a turn starts or ends, a
 // waiting message reaches the model) and whenever the stream reconnects.
+//
+// The live turn stays on screen until the transcript that holds it has been
+// read, and both change in one step (chatLive.js draws them as one list), so
+// nothing flickers, shows twice or remounts at the end of a turn. An MCP App is
+// shown as soon as its tool call ends: the event names the transcript line of
+// the call and the hook reads that one line for the input and the result.
 export function useServerChat() {
   const [chats, setChats] = useState([])
   // Unknown until the list answers; only an explicit false shows the notice.
@@ -35,6 +40,9 @@ export function useServerChat() {
   const reconnectRef = useRef(null)
   const activeRef = useRef(null)
   const attemptRef = useRef(0)
+  // Counts the turns started, so that the end of one turn does not clear the
+  // live view of the next.
+  const epochRef = useRef(0)
 
   const refreshList = useCallback(async () => {
     try {
@@ -52,16 +60,23 @@ export function useServerChat() {
 
   // Reads the chat again. It answers 'gone' when the server no longer has it
   // (deleted in another tab), which ends the stream: there is nothing to follow.
-  const refreshChat = useCallback(async (id) => {
+  // With endEpoch (the epoch of a turn that ended) the live view is dropped in
+  // the same step as the transcript is replaced, unless a newer turn has started.
+  const refreshChat = useCallback(async (id, endEpoch) => {
+    const endLive = () => {
+      if (endEpoch !== undefined && endEpoch === epochRef.current) setLive(emptyLive())
+    }
     try {
       const [d, m] = await Promise.all([chatsApi.get(id), chatsApi.messages(id)])
       if (activeRef.current !== id) return 'stale'
       setDetail(d)
       setMessages(m.messages || [])
+      endLive()
       return 'ok'
     } catch (e) {
       if (activeRef.current !== id) return 'stale'
       setError(e.message)
+      endLive()
       return e?.status === 404 ? 'gone' : 'error'
     }
   }, [])
@@ -91,31 +106,30 @@ export function useServerChat() {
 
     const on = {
       turn_start: () => {
+        epochRef.current++
+        setLive(emptyLive())
         setDetail(d => (d ? { ...d, running: true } : d))
         refreshChat(id)
       },
       text: (e) => setLive(l => ({ ...l, text: l.text + (e.text || '') })),
       reasoning: (e) => setLive(l => ({ ...l, reasoning: l.reasoning + (e.text || '') })),
-      tool_start: (e) => setLive(l => ({
-        ...l, tools: [...l.tools, { name: e.tool?.name || '', summary: e.tool?.summary || '', state: 'running' }],
-      })),
-      tool_end: (e) => setLive(l => {
-        const tools = [...l.tools]
-        for (let i = tools.length - 1; i >= 0; i--) {
-          if (tools[i].state === 'running' && tools[i].name === (e.tool?.name || '')) {
-            tools[i] = { ...tools[i], state: e.tool?.ok ? 'done' : 'failed', output: e.tool?.output || '', app: Boolean(e.tool?.app) }
-            break
-          }
-        }
-        return { ...l, tools }
-      }),
+      tool_start: (e) => setLive(l => toolStart(l, e.tool)),
+      tool_end: (e) => {
+        setLive(l => toolEnd(l, e.tool))
+        if (!liveCardWanted(e.tool)) return
+        // The event holds the reference of the app only. The line of the call has
+        // the input and the result: read that one line, then show the app.
+        const seq = e.tool.seq
+        chatsApi.card(id, seq)
+          .then((lines) => cardFromMessages(lines, seq), () => null)
+          .then((card) => { if (activeRef.current === id) setLive(l => cardResult(l, seq, card)) })
+      },
       pending_delivered: () => refreshChat(id),
       compacted: (e) => setNotes(n => [...n, { kind: 'compacted', before: e.before, after: e.after }]),
       sub_agent_done: (e) => setNotes(n => [...n, { kind: 'subAgentDone', title: e.text || '' }]),
       error: (e) => { if (e.text) setError(e.text) },
       turn_end: () => {
-        setLive(emptyLive())
-        refreshChat(id)
+        refreshChat(id, epochRef.current)
         refreshList()
       },
     }
@@ -147,6 +161,7 @@ export function useServerChat() {
   const select = useCallback(async (id) => {
     activeRef.current = id
     setActiveId(id)
+    epochRef.current++
     setLive(emptyLive())
     setNotes([])
     setError('')

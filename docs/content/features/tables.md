@@ -110,8 +110,10 @@ In the chats (`/api/chats`), the agents and the triggers, a change made with
 these tools is applied at once: turning Tables on for the chat or the agent is
 the consent. LocalAI still previews the change, checks the person's role and the
 revision the model read, and records the receipt, so a stale change is refused
-and a repeated operation applies once. A Tables change cannot be undone, and the
-tool result tells the model so. On every other surface (the OpenAI-compatible
+and a repeated operation applies once. Because nothing waits for a confirmation,
+undo is the safety net: Tables keeps a change set for every row and schema change
+a chat makes, and the chat shows an Undo button on it (see
+[Undo of a chat change](#undo-of-a-chat-change)). On every other surface (the OpenAI-compatible
 API, MCP, an API key), a change made from chat is a proposal: the model asks,
 LocalAI previews the change, and a person confirms it in the host confirmation
 card. A rename uses
@@ -185,9 +187,12 @@ The chats are the one exception. Their adapter stores the proposal and confirms
 it in the same call, for the signed-in owner of the chat, with the credential of
 a chat turn. No HTTP request can carry that credential, so a key, an MCP session
 or a browser tab cannot use it. The result is
-`{"kind":"applied","applied":{id,addonId,resourceId,action,count,undoable:false},"note":...}`,
-and the note tells the model to say plainly what changed and that it cannot be
-undone. A call the add-on refuses or finds stale leaves nothing waiting: the
+`{"kind":"applied","applied":{id,addonId,resourceId,action,count,undoable,changeId,undo,reason},"note":...}`.
+`undoable` is true when Tables kept a change set: `changeId` names it and `undo`
+says in one line what an undo does. Otherwise `reason` says why not, for example
+that the data was too large to keep. The note tells the model to say plainly what
+changed and whether the person can undo it, and that only the person can: the
+model has no tool for it. A call the add-on refuses or finds stale leaves nothing waiting: the
 proposal is withdrawn and the model gets the error. A call whose outcome is not
 known is not repeated and not withdrawn: it is reported, and the operation ID
 resolves it.
@@ -253,6 +258,60 @@ A shared model MCP session is a rejection on purpose. One session answers
 every user of a model and keeps no current-user state, so it could not carry
 an actor. A deployment that needs add-on tools for an agent uses the
 `/api/addons` routes with that agent's own key.
+
+### Undo of a chat change
+
+A change a chat, an agent or a trigger makes at once can be undone, within the
+limits below. Tables records the inverse of the change inside the database file,
+in the same transaction as the change, bound to the revision the change produced.
+
+| Change | What is kept | What an undo does |
+|---|---|---|
+| `rows-insert` | the row IDs | deletes exactly those rows |
+| `rows-update` | the previous values of the columns the change set, for each row | puts the previous values back |
+| `rows-delete` | every value of every deleted row, with its row ID | inserts the rows again under the same IDs |
+| `tables-create` | the table | drops the table |
+| `tables-rename`, `columns-rename`, `databases-rename` | the previous name | renames it back |
+| `columns-add` | the column | removes the column |
+| `columns-drop` | the column definition (type, required, unique, default) and the values of every row | adds the column back under its own identifier with its data and its rules |
+| `tables-drop` | the table definition, every row and the row counter | recreates the table with its rows and row IDs |
+| `databases-create` | nothing: the creation itself | deletes the database, only while nothing touched it since |
+
+The rules:
+
+- **Stale.** A change set is bound to the revision of the change. It can be undone
+  only while the database is still at that revision, so an undo never overwrites later
+  work. Any later change of any table makes it stale, and the answer says what changed
+  after it (for example, "inserted 1 row into People"). One refinement keeps this
+  useful: an undo is itself a revision with the state of the one before the change,
+  so a run of changes unwinds from the newest to the oldest. A rename of the
+  database does not move the revision, so its change set is stale only when the
+  database was renamed again.
+- **Idempotent.** An undo has an operation ID. The same ID with the same change is one
+  undo and returns the same receipt; another ID for a change that is undone already
+  is `already_undone`.
+- **Bounds.** The inverse of one change is at most 4 MiB, and a database keeps at most
+  64 MiB of inverses, dropping the oldest first. A change whose inverse would be larger,
+  such as dropping a large table, keeps none, and its result says so at apply time:
+  `undoable` is false with the reason "cannot be undone: the data it changed is too
+  large to keep". Tables never claims an undo it cannot carry out.
+- **Retention.** A change set can be undone for 7 days. After that the answer is
+  `expired` and the stored data is dropped. This period is fixed in this version; no
+  setting changes it.
+- **No redo.** An undo is a recorded change of the database, but it has no change set of
+  its own, so it cannot be undone in turn. Make the change again instead.
+- **Roles.** The role of an undo is the role of the change: owners and editors undo a
+  data change, only the owner undoes a schema change or the creation of a database.
+- **Not a tool.** The undo is the person's own action from a browser tab (see
+  [Undoing a change a chat made](../addons/#undoing-a-change-a-chat-made)). An API key, an
+  MCP session, an agent or a model cannot call it, and no tool name for it exists. This is
+  a decision: the model is told the change ID and that the person can undo it, so it
+  cannot silently undo its own work or anyone else's.
+
+Change sets live in the database file, in the table `tables_changes`. They are part of
+every backup and restore of the add-on's data, keep their retention across a restore
+(the time is absolute), and are removed with the database when it is deleted or purged.
+Nothing else holds them.
 
 ### Several frontends
 
@@ -678,7 +737,9 @@ leaves that database exactly as it was, and the store version is recorded last, 
 run that stopped resumes. Data in a newer format than the executable reads stops the
 start with exit status 9 and is left as it is: the host then keeps the add-on
 unavailable instead of running it on data it cannot read. No step exists yet because
-the first format is the only one.
+the first format is the only one. The table of change sets (`tables_changes`) is
+created when a database first needs it and is ignored by a build that does not know
+it, so it needs no migration.
 
 ## Limits
 

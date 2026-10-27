@@ -136,6 +136,7 @@
         }
       }
     ],
+    "undo": true,
     "resources": {
       "noun": "quantization job",
       "create": "quantize-start",

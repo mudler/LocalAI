@@ -322,6 +322,85 @@ test.describe('Chat add-on changes', () => {
     await expect(page.getByText('This cannot be undone.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Confirm' })).toHaveCount(0)
   })
+
+  test('says why a change cannot be undone when the add-on said so', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    const applied = '{"kind":"applied","tool":"addon__tables__rows-delete","applied":{"id":"o1","addonId":"tables","action":"write","count":900,"undoable":false,"reason":"cannot be undone: the data it changed is too large to keep"},"note":"n"}'
+    await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: [
+      { seq: 1, turn: 1, role: 'user', text: 'delete the old rows', at: '2026-10-25T10:00:00Z' },
+      { seq: 2, turn: 1, role: 'tool', text: `addon__tables__rows-delete: {"table":"t"}\n${applied}`, at: '2026-10-25T10:00:01Z' },
+    ] } }))
+    await page.goto('/app/chats/c1')
+    await expect(page.getByText('This cannot be undone: the data it changed is too large to keep.')).toBeVisible()
+    await expect(page.getByTestId('undo-change')).toHaveCount(0)
+  })
+
+  // A change the add-on kept a change set for has an Undo button instead of the
+  // sentence that it cannot be undone. The button calls the host's route as the
+  // person's own tab: the resource in the confirmation header, one operation ID.
+  const undoable = '{"kind":"applied","tool":"addon__tables__rows-insert","applied":{"id":"o1","addonId":"tables","resourceId":"r0123456789abcdef0123456789abcde","action":"write","count":2,"undoable":true,"changeId":"t0123abc","undo":"Delete the 2 rows added to People"},"note":"n"}'
+  const RES = 'r0123456789abcdef0123456789abcde'
+  async function withUndoableChange(page, answer) {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: [
+      { seq: 1, turn: 1, role: 'user', text: 'add two rows', at: '2026-10-25T10:00:00Z' },
+      { seq: 2, turn: 1, role: 'tool', text: `addon__tables__rows-insert: {"table":"t"}\n${undoable}`, at: '2026-10-25T10:00:01Z' },
+    ] } }))
+    await page.route('**/api/addons/apps', route => route.fulfill({ json: { apps: [{ id: 'tables', generation: 3 }] } }))
+    const calls = []
+    await page.route(`**/api/addons/resources/${RES}/changes/t0123abc/undo`, route => {
+      const req = route.request()
+      calls.push({ headers: req.headers(), body: req.postDataJSON() })
+      return answer(route, calls.length)
+    })
+    await page.goto('/app/chats/c1')
+    return calls
+  }
+
+  test('offers Undo for a change that has a change set, and says Undone after it', async ({ page }) => {
+    const calls = await withUndoableChange(page, route => route.fulfill({ json: { resourceId: RES, changeId: 't0123abc', operationId: 'x', revision: { schema: 2, data: 3 } } }))
+    await expect(page.getByText('Changed tables: 2 applied.')).toBeVisible()
+    await expect(page.getByText('This cannot be undone.')).toHaveCount(0)
+    const button = page.getByTestId('undo-change')
+    await expect(button).toHaveText('Undo')
+    await expect(button).toHaveAttribute('title', 'Delete the 2 rows added to People')
+    await button.click()
+    await expect(page.getByTestId('undo-result')).toHaveText('Undone.')
+    await expect(page.getByTestId('undo-change')).toHaveCount(0)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].headers['x-localai-confirm']).toBe(RES)
+    expect(calls[0].body.generation).toBe(3)
+    expect(calls[0].body.operationId).toBeTruthy()
+  })
+
+  test('explains a stale refusal with what changed, and does not offer Undo again', async ({ page }) => {
+    await withUndoableChange(page, route => route.fulfill({ status: 409, json: { error: { type: 'stale', code: 409, message: 'after this change the database inserted 1 row into People' } } }))
+    await page.getByTestId('undo-change').click()
+    await expect(page.getByTestId('undo-result')).toContainText('The data changed after this change')
+    await expect(page.getByTestId('undo-result')).toContainText('inserted 1 row into People')
+    await expect(page.getByTestId('undo-change')).toHaveCount(0)
+  })
+
+  test('says an old change is too old to undo', async ({ page }) => {
+    await withUndoableChange(page, route => route.fulfill({ status: 410, json: { error: { type: 'expired', code: 410, message: 'The change set expired' } } }))
+    await page.getByTestId('undo-change').click()
+    await expect(page.getByTestId('undo-result')).toHaveText('Not undone. This change is too old to undo.')
+    await expect(page.getByTestId('undo-change')).toHaveCount(0)
+  })
+
+  test('keeps the same operation ID when the outcome is unknown, so a second press is not a second undo', async ({ page }) => {
+    const calls = await withUndoableChange(page, (route, n) => (n === 1
+      ? route.fulfill({ status: 503, json: { error: { type: 'outcome_unknown', operationId: 'x' } } })
+      : route.fulfill({ json: { resourceId: RES, changeId: 't0123abc' } })))
+    await page.getByTestId('undo-change').click()
+    await expect(page.getByTestId('undo-result')).toContainText('Not sure the undo went through')
+    await page.getByTestId('undo-change').click()
+    await expect(page.getByTestId('undo-result')).toHaveText('Undone.')
+    expect(calls).toHaveLength(2)
+    expect(calls[1].body.operationId).toBe(calls[0].body.operationId)
+  })
 })
 
 test.describe('Chat add-ons panel', () => {

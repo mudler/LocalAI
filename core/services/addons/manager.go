@@ -1015,7 +1015,7 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 		return contract.Capabilities{}, ErrForbidden
 	}
 	c := receipt.Manifest.Capabilities
-	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...)}
+	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...), Undo: c.Undo}
 	out.ToolDefinitions = append([]contract.ToolDefinition(nil), c.ToolDefinitions...)
 	if c.Resources != nil {
 		r := *c.Resources

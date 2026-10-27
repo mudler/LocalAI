@@ -112,6 +112,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/addons/resources/:resourceId/rename", FeatureAddons},
 	{"POST", "/api/addons/resources/:resourceId/delete", FeatureAddons},
 	{"POST", "/api/addons/resources/:resourceId/apply", FeatureAddons},
+	{"POST", "/api/addons/resources/:resourceId/changes/:changeId/undo", FeatureAddons},
 	{"GET", "/api/addons/resources/:resourceId/operations/:operationId", FeatureAddons},
 	{"GET", "/api/addons/conversations/:conversationId/selection/:addonId", FeatureAddons},
 	{"PUT", "/api/addons/conversations/:conversationId/selection/:addonId", FeatureAddons},

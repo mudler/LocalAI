@@ -35,7 +35,9 @@ definitions:
           invalid_request (400, for
           example a missing deletion confirmation or an unsupported operation),
           quota_reached (403) and not_selected (404, no resource is selected for
-          the conversation).
+          the conversation). The undo of a change says why it was refused in
+          the type: stale (409, with the words of what changed), not_found (404),
+          expired (410), already_undone (409) or cannot_undo (409).
         example: outcome_unknown
         type: string
     type: object
@@ -1601,6 +1603,41 @@ definitions:
         - viewer
         - editor
         example: viewer
+        type: string
+    type: object
+  gateway.UndoRequest:
+    properties:
+      generation:
+        description: Generation is the installed generation the caller listed.
+        example: 3
+        type: integer
+      operationId:
+        description: |-
+          OperationID names the undo. Repeating it with the same change returns
+          the same result and undoes once; after outcome_unknown it is what to
+          repeat.
+        example: undo-1
+        type: string
+    type: object
+  gateway.UndoResult:
+    properties:
+      changeId:
+        type: string
+      deleted:
+        description: |-
+          Deleted is true when the undo removed the resource itself: the change
+          was its creation.
+        type: boolean
+      operationId:
+        type: string
+      resourceId:
+        type: string
+      revision:
+        allOf:
+        - $ref: '#/definitions/contract.Revision'
+        description: Revision is the revision after the undo.
+      summary:
+        description: Summary says in one line what the undo did.
         type: string
     type: object
   gateway.UserList:
@@ -3282,6 +3319,12 @@ definitions:
         type: boolean
       output:
         type: string
+      seq:
+        description: |-
+          Seq is the sequence number of the call's transcript line, on tool_end. A
+          client that wants the app's input and result reads that one line with
+          GET /api/chats/{id}/messages?after=<seq-1>&limit=1.
+        type: integer
       summary:
         type: string
     type: object
@@ -8031,6 +8074,87 @@ paths:
       summary: Change a resource's data or schema by the person's own action (UI only)
       tags:
       - Addons
+  /api/addons/resources/{resourceId}/changes/{changeId}/undo:
+    post:
+      consumes:
+      - application/json
+      description: 'Rolls back one change an add-on tool made at once from a chat,
+        an agent or a trigger, by the change set the add-on kept for it. The change
+        ID is the one the tool result named. It is the person''s own action in the
+        person''s own browser tab and never a tool: no model, agent, API key or MCP
+        session can call it, so a model cannot undo its own work or anyone else''s.
+        The role it needs is the role the change needed: owners and editors undo a
+        data change, only the owner role undoes a schema change or the creation of
+        a database. The undo is one more recorded change, applied against the revision
+        the add-on just reported: if the resource moved on after the change (any later
+        revision) the answer is 409 with type stale and the words of what changed,
+        and nothing is overwritten. The other refusals are typed too: not_found (404:
+        never kept, too large to keep, or dropped), expired (410: past the retention
+        of 7 days), already_undone (409) and cannot_undo (409: the work it started
+        has finished). Repeating the same operationId with the same change returns
+        the same result and undoes once; after outcome_unknown, look the receipt up
+        with kind=undo. The undo of a creation deletes the database, only while nothing
+        touched it since. Accepted only from the person''s own browser session: a
+        same-origin fetch whose X-LocalAI-Confirm header equals the resource ID, with
+        no API key and no tool, agent or MCP marker. No MCP tool maps to this route.'
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: 'Change ID: the operation ID of the change, as named by the tool
+          result'
+        in: path
+        name: changeId
+        required: true
+        type: string
+      - description: Undo request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.UndoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The committed undo
+          schema:
+            $ref: '#/definitions/gateway.UndoResult'
+        "400":
+          description: Malformed request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature denied, role too low or unknown
+            resource, or type outcome_blocked
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "404":
+          description: Type not_found
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type stale (the data moved on after the change, or the generation
+            moved), already_undone, cannot_undo or operation_conflict
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "410":
+          description: Type expired
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or type outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Undo a change a chat made at once (UI only)
+      tags:
+      - Addons
   /api/addons/resources/{resourceId}/delete:
     post:
       consumes:
@@ -8246,14 +8370,14 @@ paths:
   /api/addons/resources/{resourceId}/operations/{operationId}:
     get:
       description: Read-only receipt lookup after an outcome_unknown answer. kind
-        is rename (operationId is the one the rename carried), delete or apply (the
-        operationId of a change; any role that may write looks up its own). The state
-        is pending, committed, rejected or unknown; it never applies anything. The
-        owner role may look up a rename or a deletion and the roles that may write
-        look up their own changes, from the owner's own browser session (same-origin
-        fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished
-        the resource is gone and the lookup is denied like any unknown resource. No
-        MCP tool maps to this route.
+        is rename (operationId is the one the rename carried), delete, apply or undo
+        (the operationId of a change or of an undo; any role that may write looks
+        up its own). The state is pending, committed, rejected or unknown; it never
+        applies anything. The owner role may look up a rename or a deletion and the
+        roles that may write look up their own changes, from the owner's own browser
+        session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After
+        a deletion finished the resource is gone and the lookup is denied like any
+        unknown resource. No MCP tool maps to this route.
       parameters:
       - description: Resource ID
         in: path
@@ -8270,6 +8394,7 @@ paths:
         - rename
         - delete
         - apply
+        - undo
         in: query
         name: kind
         required: true

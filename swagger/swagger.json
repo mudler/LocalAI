@@ -1471,6 +1471,96 @@
                 }
             }
         },
+        "/api/addons/resources/{resourceId}/changes/{changeId}/undo": {
+            "post": {
+                "description": "Rolls back one change an add-on tool made at once from a chat, an agent or a trigger, by the change set the add-on kept for it. The change ID is the one the tool result named. It is the person's own action in the person's own browser tab and never a tool: no model, agent, API key or MCP session can call it, so a model cannot undo its own work or anyone else's. The role it needs is the role the change needed: owners and editors undo a data change, only the owner role undoes a schema change or the creation of a database. The undo is one more recorded change, applied against the revision the add-on just reported: if the resource moved on after the change (any later revision) the answer is 409 with type stale and the words of what changed, and nothing is overwritten. The other refusals are typed too: not_found (404: never kept, too large to keep, or dropped), expired (410: past the retention of 7 days), already_undone (409) and cannot_undo (409: the work it started has finished). Repeating the same operationId with the same change returns the same result and undoes once; after outcome_unknown, look the receipt up with kind=undo. The undo of a creation deletes the database, only while nothing touched it since. Accepted only from the person's own browser session: a same-origin fetch whose X-LocalAI-Confirm header equals the resource ID, with no API key and no tool, agent or MCP marker. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Undo a change a chat made at once (UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Change ID: the operation ID of the change, as named by the tool result",
+                        "name": "changeId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Undo request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.UndoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The committed undo",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.UndoResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature denied, role too low or unknown resource, or type outcome_blocked",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Type not_found",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type stale (the data moved on after the change, or the generation moved), already_undone, cannot_undo or operation_conflict",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "410": {
+                        "description": "Type expired",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or type outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/resources/{resourceId}/delete": {
             "post": {
                 "description": "Permanently deletes the resource, its data and every grant, as the owner's own explicit action. It is never a chat operation and never an uninstall. The request must carry the generation and revision the owner listed and confirm, which must equal the resource's display name exactly. The owner marks the resource as deleting (inaccessible to everyone, no new admission), stops and waits for admitted work, checks the revision, cancels pending proposals, asks the add-on to delete and only then removes the record and the grants. A crash leaves a deleting record that the owner finishes at startup; an unconfirmed one returns to use. A 503 with type outcome_unknown means the deletion is confirmed and being finished: repeat the same call, the resource is inaccessible meanwhile. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). No MCP tool maps to this route and the add-on's delete tool is not offered to any model.",
@@ -1739,7 +1829,7 @@
         },
         "/api/addons/resources/{resourceId}/operations/{operationId}": {
             "get": {
-                "description": "Read-only receipt lookup after an outcome_unknown answer. kind is rename (operationId is the one the rename carried), delete or apply (the operationId of a change; any role that may write looks up its own). The state is pending, committed, rejected or unknown; it never applies anything. The owner role may look up a rename or a deletion and the roles that may write look up their own changes, from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished the resource is gone and the lookup is denied like any unknown resource. No MCP tool maps to this route.",
+                "description": "Read-only receipt lookup after an outcome_unknown answer. kind is rename (operationId is the one the rename carried), delete, apply or undo (the operationId of a change or of an undo; any role that may write looks up its own). The state is pending, committed, rejected or unknown; it never applies anything. The owner role may look up a rename or a deletion and the roles that may write look up their own changes, from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished the resource is gone and the lookup is denied like any unknown resource. No MCP tool maps to this route.",
                 "produces": [
                     "application/json"
                 ],
@@ -1766,7 +1856,8 @@
                         "enum": [
                             "rename",
                             "delete",
-                            "apply"
+                            "apply",
+                            "undo"
                         ],
                         "type": "string",
                         "description": "Operation kind",
@@ -9423,7 +9514,7 @@
                     "type": "string"
                 },
                 "type": {
-                    "description": "Type is addon_error, outcome_unknown when a mutation may have run,\nproposal_unavailable when a proposal call could not be served and the\nsame call can be repeated by the same proposal ID after reading it, or\noutcome_blocked (403) when another operation on the resource has an\nunresolved outcome and the caller is the resource's owner role. The\nresource management routes add sharing_disabled (409, local-owner mode\nhas no named users to share with), stale (409, the generation or the\nrevision the caller saw is out of date), operation_conflict (409, the\noperation ID was used for another request and nothing was applied),\ninvalid_request (400, for\nexample a missing deletion confirmation or an unsupported operation),\nquota_reached (403) and not_selected (404, no resource is selected for\nthe conversation).",
+                    "description": "Type is addon_error, outcome_unknown when a mutation may have run,\nproposal_unavailable when a proposal call could not be served and the\nsame call can be repeated by the same proposal ID after reading it, or\noutcome_blocked (403) when another operation on the resource has an\nunresolved outcome and the caller is the resource's owner role. The\nresource management routes add sharing_disabled (409, local-owner mode\nhas no named users to share with), stale (409, the generation or the\nrevision the caller saw is out of date), operation_conflict (409, the\noperation ID was used for another request and nothing was applied),\ninvalid_request (400, for\nexample a missing deletion confirmation or an unsupported operation),\nquota_reached (403) and not_selected (404, no resource is selected for\nthe conversation). The undo of a change says why it was refused in\nthe type: stale (409, with the words of what changed), not_found (404),\nexpired (410), already_undone (409) or cannot_undo (409).",
                     "type": "string",
                     "example": "outcome_unknown"
                 }
@@ -11438,6 +11529,51 @@
                         "editor"
                     ],
                     "example": "viewer"
+                }
+            }
+        },
+        "gateway.UndoRequest": {
+            "type": "object",
+            "properties": {
+                "generation": {
+                    "description": "Generation is the installed generation the caller listed.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "operationId": {
+                    "description": "OperationID names the undo. Repeating it with the same change returns\nthe same result and undoes once; after outcome_unknown it is what to\nrepeat.",
+                    "type": "string",
+                    "example": "undo-1"
+                }
+            }
+        },
+        "gateway.UndoResult": {
+            "type": "object",
+            "properties": {
+                "changeId": {
+                    "type": "string"
+                },
+                "deleted": {
+                    "description": "Deleted is true when the undo removed the resource itself: the change\nwas its creation.",
+                    "type": "boolean"
+                },
+                "operationId": {
+                    "type": "string"
+                },
+                "resourceId": {
+                    "type": "string"
+                },
+                "revision": {
+                    "description": "Revision is the revision after the undo.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.Revision"
+                        }
+                    ]
+                },
+                "summary": {
+                    "description": "Summary says in one line what the undo did.",
+                    "type": "string"
                 }
             }
         },
@@ -13829,6 +13965,10 @@
                 },
                 "output": {
                     "type": "string"
+                },
+                "seq": {
+                    "description": "Seq is the sequence number of the call's transcript line, on tool_end. A\nclient that wants the app's input and result reads that one line with\nGET /api/chats/{id}/messages?after=\u003cseq-1\u003e\u0026limit=1.",
+                    "type": "integer"
                 },
                 "summary": {
                     "type": "string"

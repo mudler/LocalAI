@@ -35,10 +35,11 @@ An add-on you turn on for a chat, or name in an agent, is allowed to change
 your data in that chat. A tool call that adds rows, changes a schema, creates a
 database or starts a job is applied at once, as you, with the same permission
 and stale-data checks as the Add-ons page. There is no confirmation card. The
-model is told what was applied, and the tool entry in the chat says it. Most of
-these changes cannot be undone, and the result says so; file changes of the
-Sandbox and Office add-ons are one change set in the history of your files and
-can be undone there. A trigger or a scheduled run behaves the same, with no
+model is told what was applied, and the tool entry in the chat says it. A change the add-on kept a change set for can be undone from the
+chat with an Undo button (Tables rows, schema and databases, and Fine-tuning and
+Quantization job starts); the result says whether a change can be undone and, if
+not, why. File changes of the Sandbox and Office add-ons are one change set in the
+history of your files and can be undone there. A trigger or a scheduled run behaves the same, with no
 proposal waiting for a browser. Other ways to call add-on tools, such as the
 OpenAI-compatible API and MCP, still store a proposal that only your own
 browser session can confirm.

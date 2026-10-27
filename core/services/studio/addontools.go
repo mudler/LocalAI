@@ -25,8 +25,9 @@ type AddonTool struct {
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
 // user; the host decides what that user may see and do, and turns a result into
-// text for the model (a change the chat made says what was done and that it
-// cannot be undone; one that stays a proposal asks the user to confirm it).
+// text for the model (a change the chat made says what was done and whether the
+// user can undo it, with the change ID; one that stays a proposal asks the user
+// to confirm it).
 type AddonTools interface {
 	// Tools lists the tools the user may use now.
 	Tools(ctx context.Context, user string) ([]AddonTool, error)

@@ -300,8 +300,9 @@ func lock(tx *gorm.DB, principal, id, column string) (int64, error) {
 	return n, nil
 }
 
-func (s *gormStore) AppendEntry(ctx context.Context, id string, e session.Entry) error {
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+func (s *gormStore) AppendEntry(ctx context.Context, id string, e session.Entry) (int64, error) {
+	var stored int64
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		seq, err := lock(tx, "", id, "next_entry")
 		if err != nil {
 			return err
@@ -317,11 +318,19 @@ func (s *gormStore) AppendEntry(ctx context.Context, id string, e session.Entry)
 			}
 			card = string(raw)
 		}
-		return tx.Create(&entryRow{
+		if err := tx.Create(&entryRow{
 			ChatID: id, Seq: seq, Turn: e.Turn, Role: e.Role, Text: e.Text, Rev: e.Rev,
 			DurMs: e.Dur.Milliseconds(), Card: card, At: e.At,
-		}).Error
+		}).Error; err != nil {
+			return err
+		}
+		stored = seq
+		return nil
 	})
+	if err != nil {
+		return 0, err
+	}
+	return stored, nil
 }
 
 func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit int) ([]session.Entry, error) {

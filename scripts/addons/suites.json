@@ -501,7 +501,11 @@
       "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
       "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
       "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
-      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
+      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend",
+      "crosses the owner's wire as the same typed error, whatever the frontend",
+      "does not trust a code the host does not know, and cleans the detail the add-on wrote",
+      "is a stale view for a caller that only knows ErrStale, and a denial otherwise",
+      "is a mutation on the carrier: a lost answer is an unknown outcome, never a plain outage"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -561,7 +565,11 @@
           "is the typed invalid request on the owner for a read, never an outage",
           "is the typed invalid request on the owner for a proposal call",
           "is the typed invalid request on the owner for a json relay",
-          "is the same typed answer from a forwarding frontend"
+          "is the same typed answer from a forwarding frontend",
+          "crosses the owner's wire as the same typed error, whatever the frontend",
+          "does not trust a code the host does not know, and cleans the detail the add-on wrote",
+          "is a stale view for a caller that only knows ErrStale, and a denial otherwise",
+          "is a mutation on the carrier: a lost answer is an unknown outcome, never a plain outage"
         ]
       },
       {
@@ -1388,7 +1396,11 @@
       "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
       "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
       "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
-      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
+      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend",
+      "crosses the owner's wire as the same typed error, whatever the frontend",
+      "does not trust a code the host does not know, and cleans the detail the add-on wrote",
+      "is a stale view for a caller that only knows ErrStale, and a denial otherwise",
+      "is a mutation on the carrier: a lost answer is an unknown outcome, never a plain outage"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -1490,7 +1502,11 @@
           "is the typed invalid request on the owner for a read, never an outage",
           "is the typed invalid request on the owner for a proposal call",
           "is the typed invalid request on the owner for a json relay",
-          "is the same typed answer from a forwarding frontend"
+          "is the same typed answer from a forwarding frontend",
+          "crosses the owner's wire as the same typed error, whatever the frontend",
+          "does not trust a code the host does not know, and cleans the detail the add-on wrote",
+          "is a stale view for a caller that only knows ErrStale, and a denial otherwise",
+          "is a mutation on the carrier: a lost answer is an unknown outcome, never a plain outage"
         ]
       },
       {
@@ -2268,7 +2284,28 @@
           "migrates every database in its own transaction, records the version last and repeats as a no-op",
           "leaves a database whose step fails exactly as it was and resumes on the next run",
           "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing",
-          "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request"
+          "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request",
+          "records an inverse for an insert and removes exactly those rows on undo",
+          "restores the previous values of an update, for the columns it set only",
+          "brings deleted rows back with their row IDs and every value, nulls included",
+          "is idempotent by operation ID: the same ID returns the same receipt and undoes once",
+          "refuses the same operation ID for another change",
+          "refuses a stale undo with what changed and overwrites nothing",
+          "refuses an undo whose expected revision moved between the read and the apply",
+          "unwinds in order: undoing the latest change makes the earlier one undoable again",
+          "keeps no change set that is too large and says so at apply time",
+          "expires a change set after the retention and drops what it held",
+          "keeps the total of change sets of one database bounded by dropping the oldest",
+          "answers not found for a change that never existed or belongs to a read",
+          "removes a created table again and refuses once it was touched",
+          "renames a table or a column back",
+          "removes an added column again, with its unique index",
+          "restores a dropped column with its data, its type, required and unique flags",
+          "restores a dropped table with its columns, rows and row IDs",
+          "says a dropped column or table was too large to keep, at apply time",
+          "renames the database back only while it still has the new name",
+          "undoes a creation only while the database is untouched, and marks that the resource is deleted",
+          "keeps the change sets in the database file, so deleting the database removes them"
         ]
       },
       {
@@ -2296,7 +2333,14 @@
           "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
           "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
           "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-          "lists at most the bound of pending proposals and refuses more than the user's quota"
+          "lists at most the bound of pending proposals and refuses more than the user's quota",
+          "tells the model and the chat that a data change can be undone, and undoes it from the person's own tab",
+          "never lets a key, a tool call, another session or a stranger undo, so a model cannot undo its own work",
+          "refuses a stale undo with what changed, and unwinds from the newest change to the oldest",
+          "answers not_found for a change nobody recorded",
+          "restores a dropped column with its data and puts a dropped table back",
+          "undoes the creation of a database only while nothing touched it, and deletes it then",
+          "lets an editor undo a data change but not a schema change"
         ]
       }
     ],
@@ -2391,7 +2435,35 @@
       "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-      "lists at most the bound of pending proposals and refuses more than the user's quota"
+      "lists at most the bound of pending proposals and refuses more than the user's quota",
+      "records an inverse for an insert and removes exactly those rows on undo",
+      "restores the previous values of an update, for the columns it set only",
+      "brings deleted rows back with their row IDs and every value, nulls included",
+      "is idempotent by operation ID: the same ID returns the same receipt and undoes once",
+      "refuses the same operation ID for another change",
+      "refuses a stale undo with what changed and overwrites nothing",
+      "refuses an undo whose expected revision moved between the read and the apply",
+      "unwinds in order: undoing the latest change makes the earlier one undoable again",
+      "keeps no change set that is too large and says so at apply time",
+      "expires a change set after the retention and drops what it held",
+      "keeps the total of change sets of one database bounded by dropping the oldest",
+      "answers not found for a change that never existed or belongs to a read",
+      "removes a created table again and refuses once it was touched",
+      "renames a table or a column back",
+      "removes an added column again, with its unique index",
+      "restores a dropped column with its data, its type, required and unique flags",
+      "restores a dropped table with its columns, rows and row IDs",
+      "says a dropped column or table was too large to keep, at apply time",
+      "renames the database back only while it still has the new name",
+      "undoes a creation only while the database is untouched, and marks that the resource is deleted",
+      "keeps the change sets in the database file, so deleting the database removes them",
+      "tells the model and the chat that a data change can be undone, and undoes it from the person's own tab",
+      "never lets a key, a tool call, another session or a stranger undo, so a model cannot undo its own work",
+      "refuses a stale undo with what changed, and unwinds from the newest change to the oldest",
+      "answers not_found for a change nobody recorded",
+      "restores a dropped column with its data and puts a dropped table back",
+      "undoes the creation of a database only while nothing touched it, and deletes it then",
+      "lets an editor undo a data change but not a schema change"
     ]
   },
   "tables-schema": {
@@ -2492,7 +2564,28 @@
           "migrates every database in its own transaction, records the version last and repeats as a no-op",
           "leaves a database whose step fails exactly as it was and resumes on the next run",
           "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing",
-          "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request"
+          "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request",
+          "records an inverse for an insert and removes exactly those rows on undo",
+          "restores the previous values of an update, for the columns it set only",
+          "brings deleted rows back with their row IDs and every value, nulls included",
+          "is idempotent by operation ID: the same ID returns the same receipt and undoes once",
+          "refuses the same operation ID for another change",
+          "refuses a stale undo with what changed and overwrites nothing",
+          "refuses an undo whose expected revision moved between the read and the apply",
+          "unwinds in order: undoing the latest change makes the earlier one undoable again",
+          "keeps no change set that is too large and says so at apply time",
+          "expires a change set after the retention and drops what it held",
+          "keeps the total of change sets of one database bounded by dropping the oldest",
+          "answers not found for a change that never existed or belongs to a read",
+          "removes a created table again and refuses once it was touched",
+          "renames a table or a column back",
+          "removes an added column again, with its unique index",
+          "restores a dropped column with its data, its type, required and unique flags",
+          "restores a dropped table with its columns, rows and row IDs",
+          "says a dropped column or table was too large to keep, at apply time",
+          "renames the database back only while it still has the new name",
+          "undoes a creation only while the database is untouched, and marks that the resource is deleted",
+          "keeps the change sets in the database file, so deleting the database removes them"
         ]
       },
       {
@@ -2520,7 +2613,14 @@
           "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
           "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
           "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-          "lists at most the bound of pending proposals and refuses more than the user's quota"
+          "lists at most the bound of pending proposals and refuses more than the user's quota",
+          "tells the model and the chat that a data change can be undone, and undoes it from the person's own tab",
+          "never lets a key, a tool call, another session or a stranger undo, so a model cannot undo its own work",
+          "refuses a stale undo with what changed, and unwinds from the newest change to the oldest",
+          "answers not_found for a change nobody recorded",
+          "restores a dropped column with its data and puts a dropped table back",
+          "undoes the creation of a database only while nothing touched it, and deletes it then",
+          "lets an editor undo a data change but not a schema change"
         ]
       }
     ],
@@ -2615,7 +2715,35 @@
       "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-      "lists at most the bound of pending proposals and refuses more than the user's quota"
+      "lists at most the bound of pending proposals and refuses more than the user's quota",
+      "records an inverse for an insert and removes exactly those rows on undo",
+      "restores the previous values of an update, for the columns it set only",
+      "brings deleted rows back with their row IDs and every value, nulls included",
+      "is idempotent by operation ID: the same ID returns the same receipt and undoes once",
+      "refuses the same operation ID for another change",
+      "refuses a stale undo with what changed and overwrites nothing",
+      "refuses an undo whose expected revision moved between the read and the apply",
+      "unwinds in order: undoing the latest change makes the earlier one undoable again",
+      "keeps no change set that is too large and says so at apply time",
+      "expires a change set after the retention and drops what it held",
+      "keeps the total of change sets of one database bounded by dropping the oldest",
+      "answers not found for a change that never existed or belongs to a read",
+      "removes a created table again and refuses once it was touched",
+      "renames a table or a column back",
+      "removes an added column again, with its unique index",
+      "restores a dropped column with its data, its type, required and unique flags",
+      "restores a dropped table with its columns, rows and row IDs",
+      "says a dropped column or table was too large to keep, at apply time",
+      "renames the database back only while it still has the new name",
+      "undoes a creation only while the database is untouched, and marks that the resource is deleted",
+      "keeps the change sets in the database file, so deleting the database removes them",
+      "tells the model and the chat that a data change can be undone, and undoes it from the person's own tab",
+      "never lets a key, a tool call, another session or a stranger undo, so a model cannot undo its own work",
+      "refuses a stale undo with what changed, and unwinds from the newest change to the oldest",
+      "answers not_found for a change nobody recorded",
+      "restores a dropped column with its data and puts a dropped table back",
+      "undoes the creation of a database only while nothing touched it, and deletes it then",
+      "lets an editor undo a data change but not a schema change"
     ]
   },
   "tables-rows": {
@@ -2716,7 +2844,28 @@
           "migrates every database in its own transaction, records the version last and repeats as a no-op",
           "leaves a database whose step fails exactly as it was and resumes on the next run",
           "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing",
-          "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request"
+          "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request",
+          "records an inverse for an insert and removes exactly those rows on undo",
+          "restores the previous values of an update, for the columns it set only",
+          "brings deleted rows back with their row IDs and every value, nulls included",
+          "is idempotent by operation ID: the same ID returns the same receipt and undoes once",
+          "refuses the same operation ID for another change",
+          "refuses a stale undo with what changed and overwrites nothing",
+          "refuses an undo whose expected revision moved between the read and the apply",
+          "unwinds in order: undoing the latest change makes the earlier one undoable again",
+          "keeps no change set that is too large and says so at apply time",
+          "expires a change set after the retention and drops what it held",
+          "keeps the total of change sets of one database bounded by dropping the oldest",
+          "answers not found for a change that never existed or belongs to a read",
+          "removes a created table again and refuses once it was touched",
+          "renames a table or a column back",
+          "removes an added column again, with its unique index",
+          "restores a dropped column with its data, its type, required and unique flags",
+          "restores a dropped table with its columns, rows and row IDs",
+          "says a dropped column or table was too large to keep, at apply time",
+          "renames the database back only while it still has the new name",
+          "undoes a creation only while the database is untouched, and marks that the resource is deleted",
+          "keeps the change sets in the database file, so deleting the database removes them"
         ]
       },
       {
@@ -2744,7 +2893,14 @@
           "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
           "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
           "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-          "lists at most the bound of pending proposals and refuses more than the user's quota"
+          "lists at most the bound of pending proposals and refuses more than the user's quota",
+          "tells the model and the chat that a data change can be undone, and undoes it from the person's own tab",
+          "never lets a key, a tool call, another session or a stranger undo, so a model cannot undo its own work",
+          "refuses a stale undo with what changed, and unwinds from the newest change to the oldest",
+          "answers not_found for a change nobody recorded",
+          "restores a dropped column with its data and puts a dropped table back",
+          "undoes the creation of a database only while nothing touched it, and deletes it then",
+          "lets an editor undo a data change but not a schema change"
         ]
       }
     ],
@@ -2839,7 +2995,35 @@
       "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-      "lists at most the bound of pending proposals and refuses more than the user's quota"
+      "lists at most the bound of pending proposals and refuses more than the user's quota",
+      "records an inverse for an insert and removes exactly those rows on undo",
+      "restores the previous values of an update, for the columns it set only",
+      "brings deleted rows back with their row IDs and every value, nulls included",
+      "is idempotent by operation ID: the same ID returns the same receipt and undoes once",
+      "refuses the same operation ID for another change",
+      "refuses a stale undo with what changed and overwrites nothing",
+      "refuses an undo whose expected revision moved between the read and the apply",
+      "unwinds in order: undoing the latest change makes the earlier one undoable again",
+      "keeps no change set that is too large and says so at apply time",
+      "expires a change set after the retention and drops what it held",
+      "keeps the total of change sets of one database bounded by dropping the oldest",
+      "answers not found for a change that never existed or belongs to a read",
+      "removes a created table again and refuses once it was touched",
+      "renames a table or a column back",
+      "removes an added column again, with its unique index",
+      "restores a dropped column with its data, its type, required and unique flags",
+      "restores a dropped table with its columns, rows and row IDs",
+      "says a dropped column or table was too large to keep, at apply time",
+      "renames the database back only while it still has the new name",
+      "undoes a creation only while the database is untouched, and marks that the resource is deleted",
+      "keeps the change sets in the database file, so deleting the database removes them",
+      "tells the model and the chat that a data change can be undone, and undoes it from the person's own tab",
+      "never lets a key, a tool call, another session or a stranger undo, so a model cannot undo its own work",
+      "refuses a stale undo with what changed, and unwinds from the newest change to the oldest",
+      "answers not_found for a change nobody recorded",
+      "restores a dropped column with its data and puts a dropped table back",
+      "undoes the creation of a database only while nothing touched it, and deletes it then",
+      "lets an editor undo a data change but not a schema change"
     ]
   },
   "tables-tools": {

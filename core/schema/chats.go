@@ -209,6 +209,10 @@ type ChatsToolEvent struct {
 	Summary string `json:"summary,omitempty"`
 	OK      bool   `json:"ok,omitempty"`
 	Output  string `json:"output,omitempty"`
+	// Seq is the sequence number of the call's transcript line, on tool_end. A
+	// client that wants the app's input and result reads that one line with
+	// GET /api/chats/{id}/messages?after=<seq-1>&limit=1.
+	Seq int64 `json:"seq,omitempty"`
 	// App is the reference of the MCP App of the call, on tool_end. It has no
 	// input and no result: read the transcript line for them.
 	App *ChatsToolApp `json:"app,omitempty"`

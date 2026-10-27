@@ -88,8 +88,10 @@ var _ = Describe("Tables tools under the real owner", Label("application"), func
 		Expect(json.Unmarshal([]byte(text), &made)).To(Succeed(), text)
 		Expect(made.Kind).To(Equal(tools.ResultApplied), text)
 		Expect(made.Applied.ResourceID).NotTo(BeEmpty())
-		Expect(made.Applied.Undoable).To(BeFalse())
-		Expect(made.Note).To(ContainSubstring("cannot be undone"))
+		// The add-on kept a change set for the creation, so the chat can offer an undo.
+		Expect(made.Applied.Undoable).To(BeTrue())
+		Expect(made.Applied.ChangeID).NotTo(BeEmpty())
+		Expect(made.Note).To(ContainSubstring("can undo it"))
 		// The data exists for its owner and nothing waits for a browser.
 		Expect(accessibleTo(h, "alice")).To(ContainElement(made.Applied.ResourceID))
 		Expect(h.pending("alice")).To(BeEmpty())

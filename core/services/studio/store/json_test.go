@@ -73,7 +73,7 @@ func TestJSONTornTranscriptLine(t *testing.T) {
 	}
 	newChat(t, first, "a")
 	for _, txt := range []string{"one", "two"} {
-		if err := first.AppendEntry(ctx, "a", session.Entry{Role: "user", Text: txt}); err != nil {
+		if _, err := first.AppendEntry(ctx, "a", session.Entry{Role: "user", Text: txt}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -94,7 +94,7 @@ func TestJSONTornTranscriptLine(t *testing.T) {
 	if len(es) != 2 {
 		t.Fatalf("entries = %d, want the 2 complete ones", len(es))
 	}
-	if err := second.AppendEntry(ctx, "a", session.Entry{Role: "user", Text: "three"}); err != nil {
+	if _, err := second.AppendEntry(ctx, "a", session.Entry{Role: "user", Text: "three"}); err != nil {
 		t.Fatal(err)
 	}
 	third, err := store.NewJSON(dir)
@@ -127,7 +127,7 @@ func TestJSONCorruptRecordSkipped(t *testing.T) {
 	if _, err := second.GetChat(ctx, "alice", "good"); err != nil {
 		t.Fatalf("good chat: %v", err)
 	}
-	if err := second.AppendEntry(ctx, "good", session.Entry{Role: "user", Text: "x"}); err != nil {
+	if _, err := second.AppendEntry(ctx, "good", session.Entry{Role: "user", Text: "x"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := second.GetChat(ctx, "alice", "bad"); err == nil {

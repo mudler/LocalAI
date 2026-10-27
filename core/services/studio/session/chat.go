@@ -168,11 +168,14 @@ func (c *Chat) emit(e Event) {
 	b.push(e)
 }
 
-func (c *Chat) appendEntry(ctx context.Context, e Entry) {
-	if err := c.m.o.Store.AppendEntry(ctx, c.id, e); err != nil {
+func (c *Chat) appendEntry(ctx context.Context, e Entry) int64 {
+	seq, err := c.m.o.Store.AppendEntry(ctx, c.id, e)
+	if err != nil {
 		c.m.log.Error("session: append entry", "chat", c.id, "error", err)
 		c.emit(Event{Kind: KindError, Text: reasonTranscript})
+		return 0
 	}
+	return seq
 }
 
 // persist stores the chat record. It returns the store's error: the caller
@@ -390,7 +393,7 @@ func (c *Chat) onHarnessEvent(e Event) {
 			if e.Tool.OK {
 				e.Tool.Card = c.takeCard(e.Tool.Name, e.Tool.Output)
 			}
-			c.appendEntry(ctx, Entry{Turn: turn, Role: RoleTool, Card: e.Tool.Card, Text: e.Tool.Name + ": " + e.Tool.Summary + "\n" + e.Tool.Output})
+			e.Tool.Seq = c.appendEntry(ctx, Entry{Turn: turn, Role: RoleTool, Card: e.Tool.Card, Text: e.Tool.Name + ": " + e.Tool.Summary + "\n" + e.Tool.Output})
 		}
 	case KindError:
 		// An error event carries one of the fixed reasons, never the text
@@ -424,6 +427,7 @@ func capTool(t *ToolEvent) *ToolEvent {
 	}
 	cp := *t
 	cp.Card = nil // only a host tool sets a card, through the chat
+	cp.Seq = 0    // only the chat knows the entry of a call
 	cp.Name = CapText(cp.Name, maxSummary)
 	cp.Summary = CapText(cp.Summary, maxSummary)
 	cp.Output = CapText(cp.Output, maxOutput)
@@ -501,7 +505,7 @@ func (c *Chat) flushReasoning(ctx context.Context, turn int) {
 	}
 	dur := max(time.Since(first), time.Millisecond)
 	e := Entry{Turn: turn, Role: RoleReasoning, Text: t, Dur: dur}
-	if err := c.m.o.Store.AppendEntry(ctx, c.id, e); err != nil {
+	if _, err := c.m.o.Store.AppendEntry(ctx, c.id, e); err != nil {
 		c.m.log.Error("session: append reasoning entry", "chat", c.id, "error", err)
 	}
 }

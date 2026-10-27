@@ -22,6 +22,7 @@ type applyFake struct {
 	actors     []contract.Actor
 	confirmErr error
 	state      gateway.ProposalState
+	payload    json.RawMessage
 }
 
 func (f *applyFake) ConfirmProposal(_ context.Context, a contract.Actor, id, digest string) (gateway.Proposal, error) {
@@ -33,7 +34,11 @@ func (f *applyFake) ConfirmProposal(_ context.Context, a contract.Actor, id, dig
 	if f.confirmErr != nil {
 		return gateway.Proposal{}, f.confirmErr
 	}
-	r := &contract.Receipt{OperationID: id, State: contract.ReceiptCommitted, Result: contract.Result{Payload: json.RawMessage(`{"inserted":2}`)}}
+	pl := json.RawMessage(`{"inserted":2}`)
+	if f.payload != nil {
+		pl = f.payload
+	}
+	r := &contract.Receipt{OperationID: id, State: contract.ReceiptCommitted, Result: contract.Result{Payload: pl}}
 	return gateway.Proposal{ID: id, State: f.state, Receipt: r}, nil
 }
 
@@ -73,6 +78,75 @@ var _ = Describe("changes made at once for a chat", func() {
 		Expect(f.digests).To(Equal([]string{"d1"}))
 		Expect(f.actors).To(Equal([]contract.Actor{member}))
 		Expect(f.cancelled).To(BeEmpty())
+	})
+
+	It("says a change can be undone when the add-on kept a change set, with the change ID and what undo does", func() {
+		f, _, chats := build()
+		f.payload = args(`{"inserted":2,"undo":{"id":"t-op-1","available":true,"summary":"Delete the 2 rows added to Entries"}}`)
+		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Applied.Undoable).To(BeTrue())
+		Expect(res.Applied.ChangeID).To(Equal("t-op-1"))
+		Expect(res.Applied.Undo).To(Equal("Delete the 2 rows added to Entries"))
+		Expect(res.Applied.Reason).To(BeEmpty())
+		Expect(res.Note).To(ContainSubstring("can undo it"))
+		Expect(res.Note).NotTo(ContainSubstring("cannot be undone"))
+		Expect(res.Note).To(ContainSubstring("you cannot undo it"), "the model is told the undo is the person's")
+		Expect(string(res.JSON())).To(ContainSubstring(`"undoable":true`))
+	})
+
+	It("says why a change cannot be undone when the add-on says so, and never trusts an undo note with a bad ID", func() {
+		f, _, chats := build()
+		f.payload = args(`{"undo":{"available":false,"reason":"cannot be undone: the data it changed is too large to keep"}}`)
+		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Applied.Undoable).To(BeFalse())
+		Expect(res.Applied.ChangeID).To(BeEmpty())
+		Expect(res.Applied.Reason).To(ContainSubstring("too large"))
+		Expect(res.Note).To(ContainSubstring("cannot be undone"))
+		f.payload = args(`{"undo":{"id":"../../etc","available":true,"summary":"x"}}`)
+		res, err = chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Applied.Undoable).To(BeFalse())
+		Expect(res.Applied.ChangeID).To(BeEmpty())
+	})
+
+	It("gives a reason when the add-on says nothing about undo", func() {
+		_, _, chats := build()
+		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Applied.Undoable).To(BeFalse())
+		Expect(res.Applied.Reason).NotTo(BeEmpty())
+	})
+
+	It("keeps the result with the longest undo text small enough for the chat", func() {
+		f, _, chats := build()
+		long := make([]byte, 400)
+		for i := range long {
+			long[i] = 'u'
+		}
+		f.payload = args(`{"undo":{"id":"t-op-1","available":true,"summary":"` + string(long) + `"}}`)
+		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(res.Applied.Undo)).To(BeNumerically("<=", contract.MaxUndoText))
+		Expect(len(res.JSON())).To(BeNumerically("<", 1900))
+	})
+
+	It("stays under the chat's 2 KiB cap for the tool result even with every excerpt at its largest", func() {
+		f, _, chats := build()
+		str := func(n int) string {
+			b := make([]byte, n)
+			for i := range b {
+				b[i] = 'q'
+			}
+			return string(b)
+		}
+		f.proposal.Effects.Sample = args(`"` + str(tools.MaxAppliedBytes-2) + `"`)
+		f.payload = args(`{"r":"` + str(tools.MaxAppliedBytes-30) + `","undo":{"id":"` + str(60) + `","available":true,"summary":"` + str(contract.MaxUndoText) + `"}}`)
+		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Applied.Summary).NotTo(BeEmpty())
+		Expect(len(res.JSON())).To(BeNumerically("<=", 2048), "the chat cuts a longer result and the card would be lost")
 	})
 
 	It("keeps the result small enough for the chat to store as valid JSON", func() {

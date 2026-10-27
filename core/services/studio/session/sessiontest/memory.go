@@ -91,18 +91,18 @@ func (s *memoryStore) DeleteChat(_ context.Context, principal, chatID string) er
 	return nil
 }
 
-func (s *memoryStore) AppendEntry(_ context.Context, chatID string, e session.Entry) error {
+func (s *memoryStore) AppendEntry(_ context.Context, chatID string, e session.Entry) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.chats[chatID]; !ok {
-		return session.ErrNotFound
+		return 0, session.ErrNotFound
 	}
 	e.Seq = int64(len(s.entries[chatID]) + 1)
 	if e.At.IsZero() {
 		e.At = time.Now().UTC()
 	}
 	s.entries[chatID] = append(s.entries[chatID], e)
-	return nil
+	return e.Seq, nil
 }
 
 func (s *memoryStore) Entries(_ context.Context, chatID string, after int64, limit int) ([]session.Entry, error) {

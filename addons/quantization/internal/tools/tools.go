@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/internal/hostclient"
+	"github.com/mudler/LocalAI/addons/internal/jobundo"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -162,6 +163,13 @@ func (r *runtime) jobOf(env contract.Envelope) (job, error) {
 	return j, nil
 }
 
+func (r *runtime) entryOf(env contract.Envelope) (job, bool) {
+	if env.Request.ResourceID == "" {
+		return job{}, false
+	}
+	return r.j.job(env.Request.ResourceID)
+}
+
 func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
 	tool, err := toolOf(env)
 	if err != nil {
@@ -169,6 +177,8 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 	}
 	op := env.Request.OperationID
 	switch tool {
+	case contract.ToolChangesGet:
+		return r.readChange(ctx, env)
 	case ToolResourceExists:
 		j, ok := r.j.job(env.Request.ResourceID)
 		if !ok {
@@ -303,6 +313,9 @@ func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if err != nil {
 		return contract.Receipt{}, err
 	}
+	if tool == contract.ToolChangesUndo {
+		return r.applyUndo(ctx, env, rev)
+	}
 	// An operation that already committed is answered from its receipt: the
 	// engine ran once and runs no more.
 	if rec, ok := r.j.receipt(env.Request.OperationID); ok {
@@ -367,12 +380,13 @@ func (r *runtime) applyStart(ctx context.Context, env contract.Envelope) (contra
 	}
 	rec := contract.Receipt{
 		OperationID: op, State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: schema, Data: 1},
-		Result: contract.Result{Payload: payload(map[string]string{"status": started.Status, "message": started.Message})},
+		Result: contract.Result{Payload: jobundo.Merge(payload(map[string]string{"status": started.Status, "message": started.Message}),
+			contract.UndoNote{ID: op, Available: true, Summary: contract.CleanUndoText(fmt.Sprintf("Stop the quantization job %s while it runs", nameOf(a)))})},
 	}
 	// If this write fails the job runs without a mapping. The error is
 	// uncertain, so the host asks again with the same operation ID and the
 	// engine answers it with the same job.
-	if err := r.j.commit(res, &job{JobID: started.ID, Name: nameOf(a), Revision: 1}, rec); err != nil {
+	if err := r.j.commit(res, &job{JobID: started.ID, Name: nameOf(a), Revision: 1, StartOp: op, StartedNS: r.now().UnixNano()}, rec); err != nil {
 		return contract.Receipt{}, err
 	}
 	return rec, nil
@@ -402,6 +416,11 @@ func (r *runtime) mutate(ctx context.Context, env contract.Envelope, rev contrac
 	} else {
 		rec.Result.Payload = payload(map[string]any{})
 	}
+	reason := jobundo.ReasonStop
+	if op == "quantize.import" {
+		reason = jobundo.ReasonImport
+	}
+	rec.Result.Payload = jobundo.Merge(rec.Result.Payload, contract.UndoNote{Reason: reason})
 	if err := r.j.commit(env.Request.ResourceID, &next, rec); err != nil {
 		return contract.Receipt{}, err
 	}

@@ -155,6 +155,9 @@ export const chatsApi = {
       after = got[got.length - 1].seq
     }
   },
+  // One line of the transcript, by its seq: the card of a live tool call. The same
+  // route and checks as the whole transcript, so it is the chat owner's only.
+  card: async (id, seq) => (await fetchJSON(`${API_CONFIG.endpoints.chatMessages(id)}?after=${Number(seq) - 1}&limit=1`)).messages || [],
   // With files the message goes as a form: the server saves the files in the
   // chat's folder of the user's workspace and the model gets their paths.
   send: async (id, text, files = []) => {

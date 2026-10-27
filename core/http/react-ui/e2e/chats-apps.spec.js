@@ -176,6 +176,164 @@ test.describe('Chat MCP apps', () => {
     await expect(page.getByTestId('chat-app-frame')).toHaveCount(0)
   })
 
+  // A running turn, with the event stream faked: the page opens the chat, the test
+  // emits the events of the turn one by one, and the transcript is what the stub
+  // holds at that moment. The count of removed frames shows a remount.
+  test.describe('live, during the turn', () => {
+    const ref = { server: 'connector:abc', tool: 'get-time', resource_uri: 'ui://clock/app.html', visibility: ['model', 'app'] }
+    const user = { seq: 1, turn: 1, role: 'user', text: 'what time is it', at: '2026-10-25T10:00:00Z' }
+    const answer = { seq: 3, turn: 1, role: 'assistant', text: 'It is noon.', at: '2026-10-25T10:00:02Z' }
+
+    async function live(page, { cardStatus = 200 } = {}) {
+      const seen = { cards: 0, resources: 0, transcripts: 0, ended: false }
+      await page.addInitScript(() => {
+        window.__sources = []
+        window.EventSource = class {
+          constructor(url) {
+            this.url = url
+            this.l = {}
+            window.__sources.push(this)
+            setTimeout(() => this.onopen && this.onopen(), 0)
+          }
+          addEventListener(kind, fn) { (this.l[kind] = this.l[kind] || []).push(fn) }
+          close() { this.closed = true }
+        }
+        // Sends one event to the stream of the open chat.
+        window.__emit = (kind, payload) => {
+          const src = window.__sources.filter((x) => x.url.includes('/api/chats/c1/events') && !x.closed).pop()
+          for (const fn of (src && src.l[kind]) || []) fn({ data: JSON.stringify(payload) })
+        }
+        window.__removedFrames = 0
+        new MutationObserver((records) => {
+          for (const r of records) {
+            for (const n of r.removedNodes) {
+              if (n.nodeType === 1 && (n.tagName === 'IFRAME' || n.querySelector('iframe'))) window.__removedFrames++
+            }
+          }
+        }).observe(document, { childList: true, subtree: true })
+      })
+      await stub(page, {
+        resource: (route) => {
+          seen.resources++
+          return route.fulfill({ json: { uri: 'ui://clock/app.html', mime_type: 'text/html;profile=mcp-app', html: APP_HTML, meta: { csp: {} } } })
+        },
+      })
+      // The transcript is the user line until the turn ends; one line is read by its seq.
+      await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, (route) => {
+        if (route.request().method() === 'POST') return route.fulfill({ json: { started: true } })
+        const after = Number(new URL(route.request().url()).searchParams.get('after') || 0)
+        const limit = Number(new URL(route.request().url()).searchParams.get('limit') || 1000)
+        if (limit === 1) {
+          seen.cards++
+          if (cardStatus !== 200) return route.fulfill({ status: cardStatus, json: { error: { message: 'boom' } } })
+          return route.fulfill({ json: { messages: after === 1 ? [toolLine] : [] } })
+        }
+        seen.transcripts++
+        return route.fulfill({ json: { messages: seen.ended ? [user, toolLine, answer] : [user] } })
+      })
+      return seen
+    }
+
+    const tracked = (page) => page.evaluate(() => {
+      window.__frame = document.querySelector('[data-testid="chat-app-frame"]')
+      return Boolean(window.__frame)
+    })
+    const sameFrame = (page) => page.evaluate(() => window.__frame && window.__frame.isConnected && window.__frame === document.querySelector('[data-testid="chat-app-frame"]'))
+    const toolEnd = { kind: 'tool_end', tool: { name: 'get-time', ok: true, output: '12:00 UTC', seq: 2, app: ref } }
+
+    test('shows the app when the tool call ends, and keeps the same frame when the turn ends', async ({ page }) => {
+      const seen = await live(page)
+      await page.goto('/app/chats/c1')
+      await expect(page.getByText('what time is it')).toBeVisible()
+      await page.evaluate(() => {
+        window.__emit('turn_start', { kind: 'turn_start', turn: 1 })
+        window.__emit('tool_start', { kind: 'tool_start', tool: { name: 'get-time' } })
+      })
+      await expect(page.getByTestId('chat-app-frame')).toHaveCount(0)
+      await page.evaluate((e) => window.__emit('tool_end', e), toolEnd)
+
+      // The turn has not ended and the app is already there, with its input and result.
+      await expect(frame(page).locator('#out')).toHaveText('12:00 UTC')
+      await expect(frame(page).locator('#input')).toHaveText('{"zone":"UTC"}')
+      expect(seen.ended).toBe(false)
+      expect(seen.cards).toBe(1)
+      await expect(page.locator('.ch-tools').filter({ has: page.getByTestId('chat-app') })).toContainText('get-time')
+      await expect(page.locator('.ch-tools').filter({ has: page.getByTestId('chat-app') })).not.toContainText('when the turn ends')
+      expect(await tracked(page)).toBe(true)
+
+      // The app is alive: a click in it changes the page, and the change must survive.
+      await frame(page).locator('#call').click()
+      await expect(frame(page).locator('#reply')).toContainText('refreshed')
+
+      // Later events do not touch it.
+      await page.evaluate(() => {
+        window.__emit('text', { kind: 'text', text: 'It is' })
+        window.__emit('tool_start', { kind: 'tool_start', tool: { name: 'bash', summary: 'date' } })
+        window.__emit('tool_end', { kind: 'tool_end', tool: { name: 'bash', ok: true, output: 'x', seq: 3 } })
+      })
+      await expect(page.getByText('It is', { exact: true })).toBeVisible()
+      expect(await sameFrame(page)).toBe(true)
+
+      // The turn ends: the transcript replaces the live view in one step.
+      seen.ended = true
+      await page.evaluate(() => window.__emit('turn_end', { kind: 'turn_end', turn: 1 }))
+      await expect(page.getByText('It is noon.')).toBeVisible()
+      await expect(page.getByText('It is', { exact: true })).toHaveCount(0) // the live text is gone, not shown twice
+      await expect(page.getByTestId('chat-app')).toHaveCount(1)
+      await expect(page.getByTestId('chat-app-frame')).toHaveCount(1)
+      expect(await sameFrame(page)).toBe(true)
+      expect(await page.evaluate(() => window.__removedFrames)).toBe(0)
+      await expect(frame(page).locator('#reply')).toContainText('refreshed') // not reloaded
+      expect(seen.resources).toBe(1)
+    })
+
+    test('an app already shown stays when the stream reconnects and the transcript is read again', async ({ page }) => {
+      const seen = await live(page)
+      await page.goto('/app/chats/c1')
+      await expect(page.getByText('what time is it')).toBeVisible()
+      await page.evaluate(() => {
+        window.__emit('turn_start', { kind: 'turn_start', turn: 1 })
+        window.__emit('tool_start', { kind: 'tool_start', tool: { name: 'get-time' } })
+      })
+      await page.evaluate((e) => window.__emit('tool_end', e), toolEnd)
+      await expect(frame(page).locator('#out')).toHaveText('12:00 UTC')
+      expect(await tracked(page)).toBe(true)
+
+      // The connection breaks. The transcript now holds the call (the turn is still running).
+      seen.ended = true
+      const reads = seen.transcripts
+      await page.evaluate(() => { const s = window.__sources.filter((x) => !x.closed).pop(); s.onerror() })
+      await expect.poll(() => seen.transcripts).toBeGreaterThan(reads)
+      await expect.poll(() => page.evaluate(() => window.__sources.length)).toBeGreaterThan(1)
+      await expect(page.getByTestId('chat-app')).toHaveCount(1)
+      expect(await sameFrame(page)).toBe(true)
+      expect(await page.evaluate(() => window.__removedFrames)).toBe(0)
+      expect(seen.resources).toBe(1)
+    })
+
+    test('a card that cannot be read shows the result as text, and the turn end brings the app', async ({ page }) => {
+      const seen = await live(page, { cardStatus: 500 })
+      await page.goto('/app/chats/c1')
+      await expect(page.getByText('what time is it')).toBeVisible()
+      await page.evaluate(() => {
+        window.__emit('turn_start', { kind: 'turn_start', turn: 1 })
+        window.__emit('tool_start', { kind: 'tool_start', tool: { name: 'get-time' } })
+      })
+      await page.evaluate((e) => window.__emit('tool_end', e), toolEnd)
+      const fallback = page.getByTestId('chat-app-fallback')
+      await expect(fallback).toContainText('The view could not be loaded')
+      await expect(fallback).toContainText('12:00 UTC')
+      await expect(page.getByTestId('chat-app-frame')).toHaveCount(0)
+
+      // The transcript is read at the end of the turn and has the app.
+      seen.ended = true
+      await page.evaluate(() => window.__emit('turn_end', { kind: 'turn_end', turn: 1 }))
+      await expect(frame(page).locator('#out')).toHaveText('12:00 UTC')
+      await expect(page.getByTestId('chat-app-fallback')).toHaveCount(0)
+      await expect(page.getByTestId('chat-app')).toHaveCount(1)
+    })
+  })
+
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 } })
 

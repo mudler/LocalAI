@@ -102,6 +102,7 @@ type toolArgs struct {
 	Required bool            `json:"required"`
 	Unique   bool            `json:"unique"`
 	Default  json.RawMessage `json:"default"`
+	Change   string          `json:"change"`
 }
 
 func parse(env contract.Envelope) (toolArgs, error) {
@@ -151,6 +152,9 @@ func (t *Tables) Read(ctx context.Context, env contract.Envelope) (contract.Resu
 	id := env.Request.ResourceID
 	if a.Tool == ToolRowsQuery || a.Tool == ToolRowsAggregate || a.Tool == ToolRowsExport {
 		return t.readRows(ctx, env)
+	}
+	if a.Tool == contract.ToolChangesGet {
+		return t.readChange(ctx, env, a)
 	}
 	switch a.Tool {
 	case ToolResourceExists:
@@ -328,6 +332,9 @@ func (t *Tables) Apply(ctx context.Context, env contract.Envelope, rev contract.
 	}
 	if a.Tool == ToolDatabaseDelete {
 		return t.applyDelete(ctx, env, rev)
+	}
+	if a.Tool == contract.ToolChangesUndo {
+		return t.applyUndo(ctx, env, a, rev)
 	}
 	if _, ok := rowKinds[a.Tool]; ok {
 		return t.applyRows(ctx, env, rev)

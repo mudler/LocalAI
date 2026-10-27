@@ -160,8 +160,10 @@ type ProposalRef struct {
 
 // AppliedRef is what a chat learns of a change it made. The person enabled the
 // add-on for the chat or the agent, which is the consent, so the change is made
-// at once. Undoable is false for every change tool today: none of them records a
-// change set the person could roll back, and the note says so.
+// at once. The safety net is undo: when the add-on kept a change set for the
+// change, Undoable is true and ChangeID names it; the person undoes it from the
+// chat with a button, and the model cannot, because the undo route accepts the
+// person's own browser session only. When it kept none, Reason says why.
 type AppliedRef struct {
 	// ID is the operation ID of the change.
 	ID         string          `json:"id"`
@@ -174,6 +176,12 @@ type AppliedRef struct {
 	Result json.RawMessage `json:"result,omitempty"`
 	// Undoable says whether the person can roll the change back.
 	Undoable bool `json:"undoable"`
+	// ChangeID is the change set to undo, when Undoable.
+	ChangeID string `json:"changeId,omitempty"`
+	// Undo says in one line what the undo will do, when Undoable.
+	Undo string `json:"undo,omitempty"`
+	// Reason says why the change cannot be undone, when it cannot.
+	Reason string `json:"reason,omitempty"`
 }
 
 // ArtifactRef points at a private artifact. The bytes are fetched by the
@@ -203,8 +211,17 @@ type ToolResult struct {
 // ProposalNote is what the model is told after a proposal.
 const ProposalNote = "Nothing has been changed. A person must review and confirm this proposal in the approval card. Do not say the change was made."
 
-// AppliedNote is what the model is told after a change it made in a chat.
-const AppliedNote = "The change was made. It cannot be undone: the add-on keeps no history of it. Tell the person plainly what changed and that it cannot be undone."
+// AppliedNote is what the model is told after a change it made in a chat that
+// cannot be undone. The reason follows it in the result.
+const AppliedNote = "The change was made. It cannot be undone: see the reason. Tell the person plainly what changed and that it cannot be undone."
+
+// UndoableNote is what the model is told after a change it made in a chat that
+// the person can undo. Only the person can: the button is theirs.
+const UndoableNote = "The change was made. The person can undo it with the Undo button on this change in the chat; you cannot undo it. Tell the person plainly what changed and that they can undo it."
+
+// noUndoReason is the reason when the add-on kept no change set and said
+// nothing more.
+const noUndoReason = "the add-on keeps no change set for it"
 
 // Applier is the owner side of a change the chats consumer makes at once. It is
 // separate from Backend so that no consumer that holds only a Backend can apply
@@ -488,7 +505,25 @@ func (t *ToolAdapter) applyNow(ctx context.Context, actor contract.Actor, name s
 	if done.Receipt != nil && len(done.Receipt.Result.Payload) <= MaxAppliedBytes {
 		ref.Result = done.Receipt.Result.Payload
 	}
-	return ToolResult{Kind: ResultApplied, Tool: name, Applied: &ref, Note: AppliedNote}, nil
+	note := AppliedNote
+	n, _ := contract.ParseUndoNote(receiptPayload(done))
+	switch {
+	case n.Available:
+		ref.Undoable, ref.ChangeID, ref.Undo = true, n.ID, n.Summary
+		note = UndoableNote
+	case n.Reason != "":
+		ref.Reason = n.Reason
+	default:
+		ref.Reason = noUndoReason
+	}
+	return ToolResult{Kind: ResultApplied, Tool: name, Applied: &ref, Note: note}, nil
+}
+
+func receiptPayload(p gateway.Proposal) json.RawMessage {
+	if p.Receipt == nil {
+		return nil
+	}
+	return p.Receipt.Result.Payload
 }
 
 // refusedResult turns the add-on's own refusal into a result the model can act

@@ -5,6 +5,7 @@ package routes_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -162,5 +163,33 @@ var _ = Describe("Chats MCP apps endpoints", func() {
 		Expect(app).To(And(HaveKeyWithValue("server", conn), HaveKeyWithValue("tool", "get-time"), HaveKeyWithValue("resource_uri", "ui://clock/app.html")))
 		Expect(app["input"]).To(HaveKeyWithValue("zone", "UTC"))
 		Expect(app["result"]).To(HaveKey("structuredContent"))
+	})
+
+	It("gives one tool line with its app by its seq, for the live card, and refuses it to others", func() {
+		Expect(s.do("alice", http.MethodPost, "/api/chats/"+chat+"/messages", map[string]any{"text": "time?"}).Code).To(Equal(http.StatusOK))
+		Eventually(func() bool { return !s.detail("alice", chat)["running"].(bool) }, 20*time.Second, 20*time.Millisecond).Should(BeTrue())
+		var seq float64
+		Eventually(func() float64 {
+			for _, m := range decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+chat+"/messages", nil))["messages"].([]any) {
+				if _, ok := m.(map[string]any)["app"]; ok {
+					seq = m.(map[string]any)["seq"].(float64)
+				}
+			}
+			return seq
+		}, 10*time.Second).Should(BeNumerically(">", 0))
+
+		one := fmt.Sprintf("/api/chats/%s/messages?after=%d&limit=1", chat, int64(seq)-1)
+		rec := s.do("alice", http.MethodGet, one, nil)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		lines := decodeJSON(rec)["messages"].([]any)
+		Expect(lines).To(HaveLen(1))
+		line := lines[0].(map[string]any)
+		Expect(line).To(HaveKeyWithValue("seq", seq))
+		app := line["app"].(map[string]any)
+		Expect(app["input"]).To(HaveKeyWithValue("zone", "UTC"))
+		Expect(app["result"]).To(HaveKey("structuredContent"))
+
+		Expect(s.do("bob", http.MethodGet, one, nil).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("", http.MethodGet, one, nil).Code).To(Equal(http.StatusUnauthorized))
 	})
 })

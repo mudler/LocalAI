@@ -25,6 +25,12 @@ type job struct {
 	// Revision counts the changes a tool made to the job. It is the data
 	// revision of the resource, so a stale approval is noticed.
 	Revision uint64 `json:"revision"`
+	// StartOp is the operation that started the job: the change set a person
+	// can undo. StartedNS is when, in Unix nanoseconds, for the retention.
+	// UndoneBy is the operation that undid it.
+	StartOp   string `json:"startOp,omitempty"`
+	StartedNS int64  `json:"startedNs,omitempty"`
+	UndoneBy  string `json:"undoneBy,omitempty"`
 }
 
 type journalFile struct {

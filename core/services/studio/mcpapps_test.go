@@ -353,3 +353,42 @@ func TestTheCallRouteRefusesWhatTheAppMayNotCall(t *testing.T) {
 	_ = e.svc.SetMcpOff(ctx, alice, id, []string{e.ref()})
 	refused("a connector switched off in the chat", alice, id, e.ref(), "get-time")
 }
+
+// A live tool_end must name its transcript entry, so that the interface can read
+// the one card it needs and show the app at once, then keep the same element when
+// the transcript is read again.
+func TestTheToolEndOfAnAppNamesItsTranscriptEntry(t *testing.T) {
+	e := newAppsEnv(t, []sessiontest.Step{{Tool: "Clock_plain", Args: `{"zone":"UTC"}`}, {Tool: "Clock_get-time", Args: `{"zone":"UTC"}`}, {Say: "done"}})
+	id := create(t, e.svc, alice)
+	events, cancel, err := e.svc.Events(context.Background(), alice, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+	sent(t, e.svc, alice, id, "what time is it")
+	idle(t, e.svc, alice, id)
+
+	var ends []*session.ToolEvent
+	for drained := false; !drained; {
+		select {
+		case ev := <-events:
+			if ev.Kind == session.KindToolEnd {
+				ends = append(ends, ev.Tool)
+			}
+		default:
+			drained = true
+		}
+	}
+	tools := toolEntries(t, e.svc, alice, id)
+	if len(ends) != 2 || len(tools) != 2 {
+		t.Fatalf("ends = %d, tool entries = %d", len(ends), len(tools))
+	}
+	for i := range ends {
+		if ends[i].Seq == 0 || ends[i].Seq != tools[i].Seq {
+			t.Fatalf("tool_end %d has seq %d, its entry has %d", i, ends[i].Seq, tools[i].Seq)
+		}
+	}
+	if tools[0].Seq == tools[1].Seq {
+		t.Fatal("two calls share a seq")
+	}
+}

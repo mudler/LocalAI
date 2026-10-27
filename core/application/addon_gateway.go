@@ -598,8 +598,8 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 }
 
 // studioAddonText is what the model reads for a result. A change the chat made
-// comes as an "applied" document whose note says what was done and that it
-// cannot be undone. A change that stays a proposal (the owner could not apply
+// comes as an "applied" document whose note says what was done and whether the
+// person can undo it (undoable, changeId and a one-line undo, or a reason). A change that stays a proposal (the owner could not apply
 // it) is not applied, and the text says who can apply it.
 func studioAddonText(res addontools.ToolResult) string {
 	if res.Kind == addontools.ResultProposal && res.Proposal != nil {

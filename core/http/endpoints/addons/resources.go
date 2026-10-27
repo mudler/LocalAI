@@ -327,14 +327,57 @@ func ApplyResource(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Handler
 	}
 }
 
+// UndoResourceChange undoes one change a chat made at once.
+// @Summary Undo a change a chat made at once (UI only)
+// @Description Rolls back one change an add-on tool made at once from a chat, an agent or a trigger, by the change set the add-on kept for it. The change ID is the one the tool result named. It is the person's own action in the person's own browser tab and never a tool: no model, agent, API key or MCP session can call it, so a model cannot undo its own work or anyone else's. The role it needs is the role the change needed: owners and editors undo a data change, only the owner role undoes a schema change or the creation of a database. The undo is one more recorded change, applied against the revision the add-on just reported: if the resource moved on after the change (any later revision) the answer is 409 with type stale and the words of what changed, and nothing is overwritten. The other refusals are typed too: not_found (404: never kept, too large to keep, or dropped), expired (410: past the retention of 7 days), already_undone (409) and cannot_undo (409: the work it started has finished). Repeating the same operationId with the same change returns the same result and undoes once; after outcome_unknown, look the receipt up with kind=undo. The undo of a creation deletes the database, only while nothing touched it since. Accepted only from the person's own browser session: a same-origin fetch whose X-LocalAI-Confirm header equals the resource ID, with no API key and no tool, agent or MCP marker. No MCP tool maps to this route.
+// @Tags Addons
+// @Accept json
+// @Produce json
+// @Param resourceId path string true "Resource ID"
+// @Param changeId path string true "Change ID: the operation ID of the change, as named by the tool result"
+// @Param request body gateway.UndoRequest true "Undo request"
+// @Success 200 {object} gateway.UndoResult "The committed undo"
+// @Failure 400 {object} AddonErrorResponse "Malformed request"
+// @Failure 401 {object} AddonErrorResponse "Named authentication required"
+// @Failure 403 {object} AddonErrorResponse "Not a human surface, feature denied, role too low or unknown resource, or type outcome_blocked"
+// @Failure 409 {object} AddonErrorResponse "Type stale (the data moved on after the change, or the generation moved), already_undone, cannot_undo or operation_conflict"
+// @Failure 404 {object} AddonErrorResponse "Type not_found"
+// @Failure 410 {object} AddonErrorResponse "Type expired"
+// @Failure 503 {object} AddonErrorResponse "Unavailable, or type outcome_unknown (with operationId)"
+// @Router /api/addons/resources/{resourceId}/changes/{changeId}/undo [post]
+func UndoResourceChange(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	s := resolve(opts)
+	return func(c echo.Context) error {
+		a, e := actor(c, db, s)
+		if e != nil {
+			return denied(c, e)
+		}
+		if !humanSurface(c, s, a, c.Param("resourceId")) {
+			return failure(c, 403, "Undoing a change requires your own browser session")
+		}
+		var r gateway.UndoRequest
+		if decode(c, &r) != nil || r.OperationID == "" || r.Generation == 0 {
+			return failure(c, 400, "Invalid undo")
+		}
+		if g == nil {
+			return failure(c, 503, "Addons unavailable")
+		}
+		out, e := g.UndoResource(c.Request().Context(), a, c.Param("resourceId"), c.Param("changeId"), r)
+		if e != nil {
+			return resultError(c, e)
+		}
+		return c.JSON(200, out)
+	}
+}
+
 // GetResourceOperation looks a UI mutation's receipt up.
 // @Summary Look up the receipt of a rename or a deletion (owner, UI only)
-// @Description Read-only receipt lookup after an outcome_unknown answer. kind is rename (operationId is the one the rename carried), delete or apply (the operationId of a change; any role that may write looks up its own). The state is pending, committed, rejected or unknown; it never applies anything. The owner role may look up a rename or a deletion and the roles that may write look up their own changes, from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished the resource is gone and the lookup is denied like any unknown resource. No MCP tool maps to this route.
+// @Description Read-only receipt lookup after an outcome_unknown answer. kind is rename (operationId is the one the rename carried), delete, apply or undo (the operationId of a change or of an undo; any role that may write looks up its own). The state is pending, committed, rejected or unknown; it never applies anything. The owner role may look up a rename or a deletion and the roles that may write look up their own changes, from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished the resource is gone and the lookup is denied like any unknown resource. No MCP tool maps to this route.
 // @Tags Addons
 // @Produce json
 // @Param resourceId path string true "Resource ID"
 // @Param operationId path string true "Operation ID of the rename"
-// @Param kind query string true "Operation kind" Enums(rename,delete,apply)
+// @Param kind query string true "Operation kind" Enums(rename,delete,apply,undo)
 // @Param requestHash query string false "Apply only: the requestHash of the request the caller means (64 lowercase hex). A lookup whose hash is not the one the operation ID was used for is a 409 operation_conflict, never the other request's receipt"
 // @Success 200 {object} gateway.OperationStatus "Receipt state"
 // @Failure 400 {object} AddonErrorResponse "Unsupported kind or malformed requestHash"

@@ -63,7 +63,7 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "mine"}); err != nil {
+		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "mine"}); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := s.GetChat(ctx(t), "bob", "c1"); !errors.Is(err, session.ErrNotFound) {
@@ -104,7 +104,7 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		if err := s.DeleteChat(ctx(t), "alice", "nope"); !errors.Is(err, session.ErrNotFound) {
 			t.Fatalf("delete: %v", err)
 		}
-		if err := s.AppendEntry(ctx(t), "nope", session.Entry{Role: session.RoleUser, Text: "x"}); !errors.Is(err, session.ErrNotFound) {
+		if _, err := s.AppendEntry(ctx(t), "nope", session.Entry{Role: session.RoleUser, Text: "x"}); !errors.Is(err, session.ErrNotFound) {
 			t.Fatalf("append: %v", err)
 		}
 	})
@@ -236,11 +236,11 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			if i == 3 {
 				e.Role, e.Rev = session.RoleCheckpoint, 42
 			}
-			if err := s.AppendEntry(ctx(t), "c1", e); err != nil {
+			if _, err := s.AppendEntry(ctx(t), "c1", e); err != nil {
 				t.Fatal(err)
 			}
 		}
-		if err := s.AppendEntry(ctx(t), "c2", session.Entry{Role: session.RoleUser, Text: "other chat"}); err != nil {
+		if _, err := s.AppendEntry(ctx(t), "c2", session.Entry{Role: session.RoleUser, Text: "other chat"}); err != nil {
 			t.Fatal(err)
 		}
 		all, err := s.Entries(ctx(t), "c1", 0, 100)
@@ -269,7 +269,7 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "hi"}); err != nil {
+		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "hi"}); err != nil {
 			t.Fatal(err)
 		}
 		if err := s.DeleteChat(ctx(t), "alice", "c1"); err != nil {
@@ -285,7 +285,7 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		if err := s.CreateChat(ctx(t), rec("c1", "bob", t0)); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "new"}); err != nil {
+		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "new"}); err != nil {
 			t.Fatal(err)
 		}
 		es, _ := s.Entries(ctx(t), "c1", 0, 10)
@@ -299,7 +299,7 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			t.Fatal(err)
 		}
 		text := "line one\nline two\t'quoted' \"double\" ; DROP TABLE chats; -- é世\U0001F600"
-		if err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleAssistant, Text: text}); err != nil {
+		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleAssistant, Text: text}); err != nil {
 			t.Fatal(err)
 		}
 		es, _ := s.Entries(ctx(t), "c1", 0, 10)
@@ -318,7 +318,7 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			{Turn: 1, Role: session.RoleReasoning, Text: long, Dur: 1500 * time.Millisecond},
 			{Turn: 1, Role: session.RoleAssistant, Text: "a"},
 		} {
-			if err := s.AppendEntry(ctx(t), "c1", e); err != nil {
+			if _, err := s.AppendEntry(ctx(t), "c1", e); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -334,6 +334,21 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			t.Fatalf("neighbours = %+v %+v", es[0], es[2])
 		}
 	})
+	t.Run("TestAppendEntryReturnsTheSeqItStored", func(t *testing.T) {
+		s := newStore(t)
+		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
+			t.Fatal(err)
+		}
+		for want := int64(1); want <= 3; want++ {
+			seq, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "x"})
+			if err != nil || seq != want {
+				t.Fatalf("AppendEntry = %d, %v; want %d", seq, err, want)
+			}
+		}
+		if seq, err := s.AppendEntry(ctx(t), "nope", session.Entry{Role: session.RoleUser, Text: "x"}); !errors.Is(err, session.ErrNotFound) || seq != 0 {
+			t.Fatalf("a missing chat: %d, %v", seq, err)
+		}
+	})
 	t.Run("TestTheStoreKeepsTheAppOfACard", func(t *testing.T) {
 		s := newStore(t)
 		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
@@ -343,7 +358,7 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			Server: "connector:x", Tool: "get-time", ResourceURI: "ui://clock/app.html", Visibility: []string{"model", "app"},
 			Input: json.RawMessage(`{"zone":"UTC"}`), Result: json.RawMessage(`{"content":[{"type":"text","text":"12:00"}]}`),
 		}}
-		if err := s.AppendEntry(ctx(t), "c1", session.Entry{Turn: 1, Role: session.RoleTool, Text: "get-time", Card: card}); err != nil {
+		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Turn: 1, Role: session.RoleTool, Text: "get-time", Card: card}); err != nil {
 			t.Fatal(err)
 		}
 		es, err := s.Entries(ctx(t), "c1", 0, 10)
@@ -366,7 +381,7 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			{Turn: 1, Role: session.RoleTool, Text: "with card", Card: card},
 			{Turn: 1, Role: session.RoleTool, Text: "without card"},
 		} {
-			if err := s.AppendEntry(ctx(t), "c1", e); err != nil {
+			if _, err := s.AppendEntry(ctx(t), "c1", e); err != nil {
 				t.Fatal(err)
 			}
 		}
