@@ -90,6 +90,7 @@ require (
 	filippo.io/bigmod v0.1.1-0.20260103110540-f8a47775ebe5 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	filippo.io/keygen v0.0.0-20260114151900-8e2790ea4c5b // indirect
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.9 // indirect
@@ -150,6 +151,7 @@ require (
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/html/v2 v2.1.3 // indirect
 	github.com/gofiber/utils v1.1.0 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/certificate-transparency-go v1.3.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/hhrutter/tiff v1.0.6 // indirect

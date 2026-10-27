@@ -157,6 +157,29 @@ curl -N .../api/chats/notifications/events            # new ones as server-sent 
 Events are live only. A client that was away lists the inbox. In a cluster, a
 notification added on one frontend reaches the clients connected to any other.
 
+### Browser notifications
+
+The inbox page can ask the browser for permission and subscribe it to push. A
+notification is then pushed to that browser, with its title and link and nothing
+else, also when no LocalAI tab is open. Clicking it opens the chat.
+
+```
+curl .../api/chats/push/key                       # the server's VAPID public key
+curl -X POST .../api/chats/push/subscribe -d '{"endpoint": "https://...", "keys": {"p256dh": "...", "auth": "..."}}'
+curl -X DELETE .../api/chats/push/subscribe -d '{"endpoint": "https://..."}'
+```
+
+- The server makes its VAPID key pair the first time it is needed and keeps it
+  with the subscriptions: in the database, or in `push.json` (mode `0600`) under
+  the data path. With neither, push is off and these routes answer `409`.
+- The endpoint must be an `https` address on the public internet. The server
+  refuses private, loopback and link-local addresses, both when a browser
+  subscribes and when it sends, and it does not follow redirects.
+- You can have 10 subscribed browsers; the oldest go first. A subscription that
+  the push service reports gone is removed.
+- In a cluster, the frontend that stores a notification sends the push, so it is
+  sent once.
+
 ## Storage and clusters
 
 Saved agents and notifications are stored beside your chats: in the database when there is one,

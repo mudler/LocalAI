@@ -34,6 +34,7 @@ func (a *Application) initStudioStore() {
 		s    store.Store
 		ag   agents.Store
 		nt   notify.Store
+		ps   notify.PushStore
 		kind string
 		err  error
 	)
@@ -41,7 +42,9 @@ func (a *Application) initStudioStore() {
 	case a.authDB != nil:
 		if s, err = store.NewGORM(a.authDB); err == nil {
 			if ag, err = agents.NewGORM(a.authDB); err == nil {
-				nt, err = notify.NewGORM(a.authDB)
+				if nt, err = notify.NewGORM(a.authDB); err == nil {
+					ps, err = notify.NewGORMPush(a.authDB)
+				}
 			}
 		}
 		kind = "gorm"
@@ -49,7 +52,9 @@ func (a *Application) initStudioStore() {
 		dir := filepath.Join(a.applicationConfig.DataPath, "chats")
 		if s, err = store.NewJSON(dir); err == nil {
 			if ag, err = agents.NewJSON(filepath.Join(dir, "agents")); err == nil {
-				nt, err = notify.NewJSON(filepath.Join(dir, "notifications"))
+				if nt, err = notify.NewJSON(filepath.Join(dir, "notifications")); err == nil {
+					ps, err = notify.NewJSONPush(filepath.Join(dir, "push"))
+				}
 			}
 		}
 		kind = "json"
@@ -65,5 +70,5 @@ func (a *Application) initStudioStore() {
 		xlog.Warn("Chats disabled: failed to initialise its store", "kind", kind, "error", err)
 		return
 	}
-	a.studioStore, a.studioAgents, a.studioNotify, a.studioStoreKind = s, ag, nt, kind
+	a.studioStore, a.studioAgents, a.studioNotify, a.studioPush, a.studioStoreKind = s, ag, nt, ps, kind
 }

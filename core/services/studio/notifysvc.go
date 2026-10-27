@@ -64,3 +64,6 @@ func (s *Service) MarkChatNotificationsRead(ctx context.Context, user, conv stri
 		s.log.Warn("studio: could not mark a chat's notifications read", "chat", conv, "error", err)
 	}
 }
+
+// Pusher returns the browser push service, or nil when push is off.
+func (s *Service) Pusher() *notify.Pusher { return s.d.Push }

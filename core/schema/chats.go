@@ -430,3 +430,22 @@ type ChatsTriggerPreview struct {
 type ChatsTriggerConfirm struct {
 	TimeZone string `json:"time_zone,omitempty"`
 }
+
+// ChatsPushKey is the VAPID public key a browser needs to subscribe to push.
+type ChatsPushKey struct {
+	PublicKey string `json:"public_key"`
+}
+
+// ChatsPushSubscription is a browser's PushSubscription as it serialises to JSON.
+type ChatsPushSubscription struct {
+	Endpoint string `json:"endpoint"`
+	Keys     struct {
+		P256dh string `json:"p256dh"`
+		Auth   string `json:"auth"`
+	} `json:"keys"`
+}
+
+// ChatsPushUnsubscribe names the subscription to remove.
+type ChatsPushUnsubscribe struct {
+	Endpoint string `json:"endpoint"`
+}

@@ -121,10 +121,11 @@ type Application struct {
 	voiceRegistry        voicerecognition.Registry
 	voiceProfileStore    *voiceprofile.Store
 	chatHistoryStore     *chathistory.Store
-	studioStore          store.Store  // the studio loop's chats; see initStudioStore
-	studioStoreKind      string       // "gorm", "json" or "memory"
-	studioAgents         agents.Store // saved agents; same kind as the chats store
-	studioNotify         notify.Store // notifications; same kind as the chats store
+	studioStore          store.Store      // the studio loop's chats; see initStudioStore
+	studioStoreKind      string           // "gorm", "json" or "memory"
+	studioAgents         agents.Store     // saved agents; same kind as the chats store
+	studioNotify         notify.Store     // notifications; same kind as the chats store
+	studioPush           notify.PushStore // nil in memory-only mode: push needs somewhere to keep subscriptions
 	studioInbox          *notify.Service
 	studioTriggers       *studio.Triggers
 	studioTriggersStop   context.CancelFunc

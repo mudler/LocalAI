@@ -4106,6 +4106,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/push/key": {
+            "get": {
+                "description": "The VAPID public key a browser needs to subscribe to push for your notifications. 409 when the server cannot keep subscriptions (no database and no data path).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get the browser push key.",
+                "responses": {
+                    "200": {
+                        "description": "The key",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPushKey"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/push/subscribe": {
+            "post": {
+                "description": "Pass the endpoint and keys of a browser PushSubscription. A notification is then pushed to that browser with its title and link only. The endpoint must be an https address on the public internet. At most 10 browsers per user; the oldest go first.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Subscribe a browser to push.",
+                "parameters": [
+                    {
+                        "description": "the browser's subscription",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPushSubscription"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Subscribed"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Unsubscribe a browser from push.",
+                "parameters": [
+                    {
+                        "description": "the endpoint",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPushUnsubscribe"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Unsubscribed"
+                    }
+                }
+            }
+        },
         "/api/chats/skills": {
             "get": {
                 "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
@@ -13235,6 +13299,41 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsPushKey": {
+            "type": "object",
+            "properties": {
+                "public_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsPushSubscription": {
+            "type": "object",
+            "properties": {
+                "endpoint": {
+                    "type": "string"
+                },
+                "keys": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "p256dh": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "schema.ChatsPushUnsubscribe": {
+            "type": "object",
+            "properties": {
+                "endpoint": {
                     "type": "string"
                 }
             }

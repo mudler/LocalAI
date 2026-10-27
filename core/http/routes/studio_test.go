@@ -59,7 +59,10 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	ns, err := notify.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	nsvc := notify.NewService(notify.Options{Store: ns})
-	deps := studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f, Agents: ag, Notify: nsvc}
+	ps, err := notify.NewJSONPush("")
+	Expect(err).NotTo(HaveOccurred())
+	pusher := notify.NewPusher(notify.PusherOptions{Store: ps, CheckEndpoint: func(string) error { return nil }})
+	deps := studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f, Agents: ag, Notify: nsvc, Push: pusher}
 	if mod != nil {
 		mod(&deps)
 	}

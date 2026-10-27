@@ -38,6 +38,10 @@ var ErrNoModel = errors.New("studio: a conversation needs a model")
 // ErrAgentsOff means a chat named a saved agent but the service has no agent store.
 var ErrAgentsOff = errors.New("studio: saved agents are not available")
 
+// ErrPushOff means browser push is off: the server keeps nothing across a
+// restart, or it has no push service.
+var ErrPushOff = errors.New("studio: browser push is not available")
+
 // ErrNotificationsOff means the service has no inbox.
 var ErrNotificationsOff = errors.New("studio: notifications are not available")
 
@@ -73,6 +77,8 @@ type Deps struct {
 	Agents agents.Store
 	// Notify stores and delivers notifications. Nil: there is no inbox.
 	Notify *notify.Service
+	// Push sends notifications to browsers. Nil: browser push is off.
+	Push *notify.Pusher
 	// AddonTools supplies the tools of the installed add-ons the user may use.
 	// Nil: a chat has none.
 	AddonTools AddonTools

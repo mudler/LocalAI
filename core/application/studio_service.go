@@ -57,6 +57,19 @@ func (a *Application) initStudioService() {
 	}
 	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
 	a.studioInbox = inbox
+	var pusher *notify.Pusher
+	if a.studioPush != nil {
+		pusher = notify.NewPusher(notify.PusherOptions{Store: a.studioPush})
+		// The frontend that stores a notification pushes it, so a notification
+		// is pushed once in a cluster.
+		inbox.OnAdd(func(n notify.Notification) {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				pusher.Send(ctx, n)
+			}()
+		})
+	}
 	svc, err := studio.New(studio.Deps{
 		Bus:           bus,
 		Store:         a.studioStore,
@@ -66,6 +79,7 @@ func (a *Application) initStudioService() {
 		MCP:           a.studioMCP,
 		Agents:        a.studioAgents,
 		Notify:        inbox,
+		Push:          pusher,
 		AddonTools:    lateStudioAddons{a},
 		Collections:   studioCollections{a},
 		ContextTokens: a.studioContextTokens,

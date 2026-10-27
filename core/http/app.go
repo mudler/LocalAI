@@ -741,6 +741,16 @@ func API(application *application.Application) (*echo.Echo, error) {
 			// they only get a short TTL.
 			e.GET("/assets/*", serveReactSubdir("assets", immutableAssetCacheControl))
 			e.GET("/locales/*", serveReactSubdir("locales", "public, max-age=300"))
+			// The service worker of browser push. It must not be cached for
+			// long: a browser checks it for updates on its own schedule.
+			e.GET("/chats-sw.js", func(c echo.Context) error {
+				raw, err := fs.ReadFile(reactFS, "chats-sw.js")
+				if err != nil {
+					return echo.NewHTTPError(http.StatusNotFound)
+				}
+				c.Response().Header().Set("Cache-Control", "no-cache")
+				return c.Blob(http.StatusOK, "text/javascript; charset=utf-8", raw)
+			})
 		}
 	}
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())

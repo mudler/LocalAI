@@ -2820,6 +2820,28 @@ definitions:
       text:
         type: string
     type: object
+  schema.ChatsPushKey:
+    properties:
+      public_key:
+        type: string
+    type: object
+  schema.ChatsPushSubscription:
+    properties:
+      endpoint:
+        type: string
+      keys:
+        properties:
+          auth:
+            type: string
+          p256dh:
+            type: string
+        type: object
+    type: object
+  schema.ChatsPushUnsubscribe:
+    properties:
+      endpoint:
+        type: string
+    type: object
   schema.ChatsSearchHit:
     properties:
       kind:
@@ -9628,6 +9650,52 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsNotificationCount'
       summary: Mark notifications read.
+      tags:
+      - chats
+  /api/chats/push/key:
+    get:
+      description: The VAPID public key a browser needs to subscribe to push for your
+        notifications. 409 when the server cannot keep subscriptions (no database
+        and no data path).
+      responses:
+        "200":
+          description: The key
+          schema:
+            $ref: '#/definitions/schema.ChatsPushKey'
+      summary: Get the browser push key.
+      tags:
+      - chats
+  /api/chats/push/subscribe:
+    delete:
+      parameters:
+      - description: the endpoint
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsPushUnsubscribe'
+      responses:
+        "204":
+          description: Unsubscribed
+      summary: Unsubscribe a browser from push.
+      tags:
+      - chats
+    post:
+      description: Pass the endpoint and keys of a browser PushSubscription. A notification
+        is then pushed to that browser with its title and link only. The endpoint
+        must be an https address on the public internet. At most 10 browsers per user;
+        the oldest go first.
+      parameters:
+      - description: the browser's subscription
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsPushSubscription'
+      responses:
+        "204":
+          description: Subscribed
+      summary: Subscribe a browser to push.
       tags:
       - chats
   /api/chats/skills:
