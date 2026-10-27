@@ -33,6 +33,17 @@ const (
 	// room. The transcript keeps every message; only what the model sees
 	// shrinks. Event.Before and Event.After are token counts.
 	KindCompacted EventKind = "compacted"
+	// KindUsage reports what one model request used: Event.Usage holds the
+	// size of the context the request sent, the context limit, and the
+	// generation speed. The interface draws the context meter from it.
+	KindUsage EventKind = "usage"
+	// KindSubAgentStarted says that a sub-agent run began. Event.IDs holds its
+	// conversation id and Text its title.
+	KindSubAgentStarted EventKind = "sub_agent_started"
+	// KindTriggerProposed says that the chat proposed a trigger, which waits
+	// for the person to confirm, edit or dismiss it. Event.IDs holds the
+	// proposal id and Text the trigger's name.
+	KindTriggerProposed EventKind = "trigger_proposed"
 )
 
 // Event is one thing that happened in a chat.
@@ -49,6 +60,19 @@ type Event struct {
 	// Before and After are the size of the model's context in tokens, before
 	// and after a compaction (compacted only).
 	Before, After int
+	// Usage is set on KindUsage.
+	Usage *UsageEvent `json:",omitempty"`
+}
+
+// UsageEvent is the usage of one model request.
+type UsageEvent struct {
+	// Used is the number of tokens in the context the request sent. Limit is
+	// the context window the loop plans with, or 0 when it is not known.
+	Used, Limit int
+	// Completion is the number of tokens the request generated.
+	Completion int
+	// TokensPerSecond is the generation speed, or 0 when it is not known.
+	TokensPerSecond float64
 }
 
 // ToolEvent describes one tool call.
