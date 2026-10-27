@@ -17,7 +17,6 @@ import (
 	"github.com/mudler/nib/chat"
 	"github.com/mudler/nib/config"
 	"github.com/mudler/nib/types"
-	"github.com/mudler/xlog"
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -40,12 +39,6 @@ type Config struct {
 	// ContextTokens is the context window of the model. Zero lets nib ask
 	// the endpoint and fall back to 128000.
 	ContextTokens int
-	// LogLevel is the level of nib's process-wide logger: debug, info, warn or
-	// error. Empty leaves the process logger as the caller configured it, so
-	// the log level and format of the server apply. A value replaces the
-	// process-wide logger, and the first call of New sets it. At debug, nib
-	// logs tool arguments.
-	LogLevel string
 }
 
 // Model is the model one chat talks to.
@@ -59,17 +52,8 @@ type Model struct {
 
 // New returns a harness that starts one nib session per chat.
 func New(cfg Config) session.Harness {
-	if cfg.LogLevel != "" {
-		logOnce.Do(func() {
-			xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(cfg.LogLevel), "text"))
-		})
-	}
 	return &harness{cfg: cfg}
 }
-
-// logOnce sets nib's logger once per process: xlog.SetLogger is not safe to
-// call while a session runs, so the first New wins.
-var logOnce sync.Once
 
 type harness struct{ cfg Config }
 
