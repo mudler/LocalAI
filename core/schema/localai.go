@@ -85,7 +85,9 @@ type VideoRequest struct {
 // (TRELLIS.2 has no text-prompt path); the response is a binary glTF (.glb).
 type Model3DRequest struct {
 	BasicModelRequest
-	Image          string            `json:"image" yaml:"image"`                                         // conditioning image: URL, base64, or data URI (required)
+	Images         []string          `json:"images,omitempty" yaml:"images,omitempty"`                   // Pixal3D RGBA views: front, right, back, left
+	MeshScale      float64           `json:"mesh_scale,omitempty" yaml:"mesh_scale,omitempty"`           // required positive Pixal3D object scale
+	Image          string            `json:"image" yaml:"image"`                                         // TRELLIS conditioning image: URL, base64, or data URI
 	Seed           int32             `json:"seed,omitempty" yaml:"seed,omitempty"`                       // random seed; <=0 picks a random seed
 	Step           int32             `json:"step,omitempty" yaml:"step,omitempty"`                       // flow sampling steps (backend default 12)
 	CFGScale       float32           `json:"cfg_scale,omitempty" yaml:"cfg_scale,omitempty"`             // classifier-free guidance scale (backend default 7.5)
