@@ -40,4 +40,3 @@ func CheckMountPoints(v View) (map[int]string, error) {
 	}
 	return pts, nil
 }
-

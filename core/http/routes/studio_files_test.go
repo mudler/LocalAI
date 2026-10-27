@@ -236,11 +236,18 @@ var _ = Describe("Chats files endpoints", func() {
 			Expect(s.names("alice", "/Chats/"+folders[0])).To(Equal([]string{"notes.txt"}))
 		})
 
-		It("refuses an attachment while a turn runs", func() {
+		It("saves an attachment sent while a turn runs and queues the message with its path", func() {
 			id := s.create("alice")
 			Expect(s.do("alice", http.MethodPost, "/api/chats/"+id+"/messages", map[string]string{"text": "go"}).Code).To(Equal(http.StatusOK))
 			Eventually(func() int { return len(s.harness.Sent()) }).Should(Equal(1))
-			Expect(attach("alice", id, "more", "x.txt", "x").Code).To(Equal(http.StatusConflict))
+			rec := attach("alice", id, "more", "x.txt", "x")
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("started", false), HaveKey("pending_id")))
+			folders := s.names("alice", "/Chats")
+			Expect(folders).To(HaveLen(1))
+			Expect(s.names("alice", "/Chats/"+folders[0])).To(Equal([]string{"x.txt"}))
+			conv := s.do("alice", http.MethodGet, "/api/chats/"+id, nil)
+			Expect(conv.Body.String()).To(ContainSubstring("x.txt"))
 		})
 
 		It("refuses an attachment when files are off", func() {

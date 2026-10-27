@@ -88,8 +88,6 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusConflict, "conflict", "the message was already delivered to the model")
 	case errors.Is(err, studiosvc.ErrBadSkillName), errors.Is(err, studiosvc.ErrBadAddonID), errors.Is(err, studiosvc.ErrBadMCPSwitch):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
-	case errors.Is(err, studiosvc.ErrFilesWhileRunning):
-		return fail(c, http.StatusConflict, "conflict", err.Error())
 	case errors.Is(err, files.ErrUnavailable):
 		return fail(c, http.StatusConflict, "files_off", err.Error())
 	case errors.Is(err, workspace.ErrTooLarge):
@@ -292,7 +290,7 @@ func (h *Handlers) Messages(c echo.Context) error {
 // @Description With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.
 // @Tags chats
 // @Param id path string true "conversation id"
-// @Description Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace and go only with a message that starts a turn.
+// @Description Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace. With a turn running the files are saved at once and the message waits like any other, with their paths in its text.
 // @Accept json,mpfd
 // @Param request body schema.ChatsSendRequest true "the message"
 // @Param files formData file false "files to attach (multipart)"

@@ -49,10 +49,6 @@ var ErrConnectorsOff = errors.New("studio: connectors are not available")
 // ErrNotificationsOff means the service has no inbox.
 var ErrNotificationsOff = errors.New("studio: notifications are not available")
 
-// ErrFilesWhileRunning means a message with files was sent while a turn runs.
-// Waiting messages are text, so files go only with the message that starts a turn.
-var ErrFilesWhileRunning = errors.New("studio: files can be attached when no turn is running; wait for it or stop it")
-
 // ErrSubAgentReadOnly means a user tried to send to a sub-agent conversation.
 // It runs with the tools its parent chose, so only the parent starts it.
 var ErrSubAgentReadOnly = errors.New("studio: a sub-agent conversation takes no messages from the user")
@@ -417,9 +413,9 @@ func (s *Service) Send(ctx context.Context, user, conv, text string) (SendResult
 }
 
 // SendWithFiles is Send with files attached. The files are saved in the chat's
-// folder of the user's workspace and the model gets their paths. They go only
-// with the message that starts a turn: with a turn running it is
-// ErrFilesWhileRunning, and with files off it is files.ErrUnavailable.
+// folder of the user's workspace and the model gets their paths. With a turn
+// running they are saved at once and the message waits like any other, with
+// the paths in its text. With files off it is files.ErrUnavailable.
 func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
 	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
 	if err != nil {
@@ -430,12 +426,6 @@ func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up
 	}
 	if len(up) > 0 && !s.d.Files.Available() {
 		return SendResult{}, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
-	}
-	if len(up) > 0 {
-		// A turn that runs takes no files: say so before spending a model call on a voice note.
-		if info, terr := s.d.Store.Turn(ctx, principal(user), conv); terr == nil && info.Running {
-			return SendResult{}, ErrFilesWhileRunning
-		}
 	}
 	if len(up) > 0 && s.d.Media != nil {
 		// Voice notes are transcribed before the turn starts, and the
@@ -483,7 +473,11 @@ func (s *Service) send(ctx context.Context, user, conv, text string, up []sessio
 		return SendResult{Started: true}, nil
 	case errors.Is(err, store.ErrTurnRunning):
 		if len(up) > 0 {
-			return SendResult{}, ErrFilesWhileRunning
+			// The files are saved now, so the waiting message can carry their paths.
+			var aerr error
+			if text, aerr = s.attachWhileRunning(ctx, p, conv, text, up); aerr != nil {
+				return SendResult{}, aerr
+			}
 		}
 		pend, err := s.d.Store.AddPending(ctx, p, conv, text)
 		if err != nil {
@@ -501,6 +495,28 @@ func (s *Service) send(ctx context.Context, user, conv, text string, up []sessio
 	default:
 		return SendResult{}, err
 	}
+}
+
+// attachWhileRunning saves the files of a message that waits for a running
+// turn and returns the text with their paths. The turn may run on another
+// frontend; the files go to the shared workspace either way.
+func (s *Service) attachWhileRunning(ctx context.Context, p, conv, text string, up []session.Upload) (string, error) {
+	s.mu.Lock()
+	r := s.runs[key(p, conv)]
+	s.mu.Unlock()
+	if r != nil {
+		return r.chat.Attach(ctx, text, up)
+	}
+	chat, err := s.chat(ctx, p, conv)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if cerr := chat.Close(); cerr != nil {
+			s.log.Warn("studio: could not close the chat after saving attachments", "chat", conv, "error", cerr)
+		}
+	}()
+	return chat.Attach(ctx, text, up)
 }
 
 // SendNow starts a turn from the waiting messages. It is what the user chooses
