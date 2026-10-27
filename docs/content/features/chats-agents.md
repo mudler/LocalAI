@@ -88,7 +88,7 @@ and undo what it changed, and it is marked with its trigger. There are two kinds
 | `file` | When a file arrives in a folder of your files | `folder` (a path inside your files, such as `/Contracts`), `quiet_seconds` (default 30) |
 
 A schedule is one of `daily 08:00`, `weekdays 09:30`, `weekly mon,thu 09:30`,
-`monthly 15 08:00`, `once 2026-12-24 18:00` or five cron fields. A time that
+`monthly 15 08:00`, `once 2026-12-24 18:00` or five cron fields. The cron fields are numbers, lists, ranges and steps (`*/15`, `1-5`, `1,15`); names such as `mon` or `jan` are not read, and `weekly` takes day names. A time that
 does not exist in the time zone (a daylight-saving gap) moves to the first valid
 minute after it, and a repeated hour runs once. `GET /api/chats/triggers/preview?when=...&tz=...`
 shows the next times and says what the text means.

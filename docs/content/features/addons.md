@@ -26,9 +26,12 @@ Trust has three parts, and they are different:
   own data directory; it does not confine it. Install only packages you trust.
 - **Authority.** An addon never decides who a caller is or whether a change was
   approved. The host supplies the actor from the authenticated session or key,
-  decides every role, and applies a mutation from a chat, an agent or a script only
-  after the proposer's own browser session confirms it. Prompt text, a model and
-  an addon cannot supply that approval.
+  decides every role, and applies a mutation from a script or the OpenAI-compatible
+  route only after the proposer's own browser session confirms it. A chat, an agent
+  or a trigger that names the add-on applies it at once, with the credential of the
+  chat turn, for the user who turned the add-on on for it; the result says what an
+  undo does. An API key or an MCP session can never supply that approval. Prompt
+  text, a model and an addon cannot supply it either.
 
 Every addon requires an executable; a UI bundle alone is not an addon.
 
@@ -1299,13 +1302,15 @@ A tool of kind `action` does what a person asked a chat to do, at once, as that
 person, and in that person's own space. It is not confirmed in the browser and
 it is not a proposal. The sandbox add-on, which runs a command, and the office
 add-on, which edits a file the user owns, use it. An `action` tool is not for
-data of a shared resource: a change that others see keeps the confirmation of
-`write`, `schema` and `create`.
+data of a shared resource: a change that others see is a `write`, `schema` or
+`create` tool, which the OpenAI-compatible route leaves as a proposal for a
+person to confirm.
 
 - **Declaration.** The tool is in `capabilities.tools` with a definition of kind
   `action`, and the manifest sets `capabilities.actions` to `true`. The host
   refuses a manifest that declares an action tool without it. An action tool
-  names no resource: its schema has no `resourceId`, or requires it.
+  names no resource: if its schema has a `resourceId`, the host ignores the
+  value the model gives and sets it to the ID of the conversation.
 - **Who may call it.** Only the chats consumer (`studio-chats-addons` in the
   consumer table of [Tables](../tables/)). Every other consumer neither lists the
   tool nor runs it: the old chat route, the direct API, agents and scripts.
