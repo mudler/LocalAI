@@ -128,6 +128,21 @@ A chat keeps its own switches. Turning a skill off takes it out of the index at 
 
 The **Skills** page for chats lists them by layer and edits personal skills, and a panel in the chat switches them per chat.
 
+## Add-on tools
+
+A chat can use the tools of the add-ons you may use. The chat panel lists them with a switch for each add-on; a switch applies to that chat from its next turn. A tool runs as you, in your chat, and never as a user a model names.
+
+- A tool that only reads gives the model its result.
+- A tool that would change an add-on's data does not change it. The model is told that a proposal was stored, and you confirm it on the Add-ons page.
+- An *action* tool, such as running a command in a sandbox, runs at once and only in a chat. No other place that offers add-on tools (the OpenAI-compatible API, MCP, agents) lists or runs one.
+- A sub-agent gets the add-on tools its parent names, or all of the parent's tools when the parent names none.
+
+```bash
+curl -s localhost:8080/api/chats/$ID/addons
+# {"addons":[{"id":"office","tools":4,"off":false}]}
+curl -s -X PUT localhost:8080/api/chats/$ID/addons -d '{"off":["office"]}'
+```
+
 ## Who can see a chat
 
 A chat belongs to the user who started it. Another user's chat id always

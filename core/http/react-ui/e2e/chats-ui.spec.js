@@ -266,3 +266,55 @@ test.describe('Chat skills panel', () => {
     await expect.poll(() => calls.at(-1)).toEqual({ off: ['notes', 'review'] })
   })
 })
+
+test.describe('Chat add-ons panel', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+
+  test('lists the add-ons of the user and sends the switches that change', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    const calls = []
+    await page.route('**/api/chats/c1/addons', route => {
+      if (route.request().method() === 'PUT') {
+        const off = route.request().postDataJSON().off
+        calls.push(off)
+        return route.fulfill({ json: { addons: [
+          { id: 'office', tools: 4, off: off.includes('office') },
+          { id: 'sandbox', tools: 2, off: off.includes('sandbox') },
+        ] } })
+      }
+      return route.fulfill({ json: { addons: [
+        { id: 'office', tools: 4, off: false },
+        { id: 'sandbox', tools: 2, off: true },
+      ] } })
+    })
+    await page.goto('/app/chats/c1')
+    await page.getByText(/^Add-ons \(/).click()
+    await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'sandbox' })).not.toBeChecked()
+    await page.getByRole('checkbox', { name: 'office' }).uncheck()
+    await expect.poll(() => calls.at(-1)).toEqual(['office', 'sandbox'])
+  })
+
+  test('shows no panel when the user has no add-on tools', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
+    await page.goto('/app/chats/c1')
+    await expect(page.getByText(/^Add-ons \(/)).toHaveCount(0)
+  })
+
+  test('puts the switch back when the server refuses it', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route('**/api/chats/c1/addons', route => {
+      if (route.request().method() === 'PUT') return route.fulfill({ status: 400, json: { error: { message: 'no' } } })
+      return route.fulfill({ json: { addons: [{ id: 'office', tools: 4, off: false }] } })
+    })
+    await page.goto('/app/chats/c1')
+    await page.getByText(/^Add-ons \(/).click()
+    await page.getByRole('checkbox', { name: 'office' }).uncheck()
+    await expect(page.getByRole('alert')).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
+  })
+})

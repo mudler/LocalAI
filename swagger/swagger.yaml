@@ -2417,6 +2417,29 @@ definitions:
       status_url:
         type: string
     type: object
+  schema.ChatsAddon:
+    properties:
+      id:
+        type: string
+      "off":
+        type: boolean
+      tools:
+        type: integer
+    type: object
+  schema.ChatsAddonList:
+    properties:
+      addons:
+        items:
+          $ref: '#/definitions/schema.ChatsAddon'
+        type: array
+    type: object
+  schema.ChatsAddonSwitches:
+    properties:
+      "off":
+        items:
+          type: string
+        type: array
+    type: object
   schema.ChatsConversation:
     properties:
       created:
@@ -8737,6 +8760,47 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConversationDetail'
       summary: Get a chat.
+      tags:
+      - chats
+  /api/chats/{id}/addons:
+    get:
+      description: The add-ons whose tools the signed-in user may use now, each with
+        the chat's switch. Without the add-on host the list is empty.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The add-ons and their switches
+          schema:
+            $ref: '#/definitions/schema.ChatsAddonList'
+      summary: List the add-ons a chat can use.
+      tags:
+      - chats
+    put:
+      description: The list replaces the earlier one. The next turn of the chat gets
+        the tools of the add-ons that are on.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the IDs of the add-ons that are off
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsAddonSwitches'
+      responses:
+        "200":
+          description: The add-ons and their switches now in force
+          schema:
+            $ref: '#/definitions/schema.ChatsAddonList'
+      summary: Switch the tools of add-ons on and off for a chat.
       tags:
       - chats
   /api/chats/{id}/events:

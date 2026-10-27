@@ -4069,6 +4069,65 @@
                 }
             }
         },
+        "/api/chats/{id}/addons": {
+            "get": {
+                "description": "The add-ons whose tools the signed-in user may use now, each with the chat's switch. Without the add-on host the list is empty.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the add-ons a chat can use.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The add-ons and their switches",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAddonList"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "The list replaces the earlier one. The next turn of the chat gets the tools of the add-ons that are on.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch the tools of add-ons on and off for a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the IDs of the add-ons that are off",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAddonSwitches"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The add-ons and their switches now in force",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAddonList"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/events": {
             "get": {
                 "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done and compacted. Events are live only; read the transcript for what came before.",
@@ -12015,6 +12074,42 @@
                 },
                 "status_url": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAddon": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "off": {
+                    "type": "boolean"
+                },
+                "tools": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsAddonList": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAddon"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAddonSwitches": {
+            "type": "object",
+            "properties": {
+                "off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

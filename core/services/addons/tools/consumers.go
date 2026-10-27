@@ -146,6 +146,14 @@ var Consumers = []Consumer{
 		Enforcement: "the executor's DiscoverTools drops the add-on namespace and its ExecuteTool refuses it; the chat bridge drops it again before it offers a tool",
 	},
 	{
+		ID:          "studio-chats-addons",
+		Surface:     "the add-on tools of a chat on the server-side chat loop, listed and run by the chat's user for the chat's own turns, action tools included",
+		Evidence:    []string{"core/services/studio/addontools.go", "core/application/addon_gateway.go", "core/http/auth/addons.go"},
+		Decision:    Route,
+		Actor:       "the chat's user, built by the host for each call with the credential of a chat turn; the owner checks the account and the add-ons feature again on every call, and local-owner mode comes from deployment configuration",
+		Enforcement: "only the adapter built by NewChatToolAdapter serves action tools; a chat switches an add-on off with its own list, and a sub-agent gets only the tools its parent names",
+	},
+	{
 		ID:          "distributed-agent-worker",
 		Surface:     "agent workers that execute MCP tools for a frontend over the agent control seam",
 		Files:       []string{"core/cli/agent_worker.go", "core/services/nodes/agent_rpc_nats.go"},

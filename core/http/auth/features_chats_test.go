@@ -43,6 +43,8 @@ var _ = Describe("Chats feature registration", func() {
 			"PUT /api/chats/skills/:layer/:name",
 			"DELETE /api/chats/skills/:layer/:name",
 			"PUT /api/chats/:id/skills",
+			"GET /api/chats/:id/addons",
+			"PUT /api/chats/:id/addons",
 		))
 		Expect(APIFeatures).To(ContainElement(FeatureChats))
 		Expect(AllFeatures).To(ContainElement(FeatureChats))

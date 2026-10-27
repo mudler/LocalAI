@@ -52,6 +52,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/skills/:layer/:name", h.UpdateSkill)
 	e.DELETE(base+"/skills/:layer/:name", h.DeleteSkill)
 	e.PUT(base+"/:id/skills", h.SetChatSkills)
+	e.GET(base+"/:id/addons", h.ListChatAddons)
+	e.PUT(base+"/:id/addons", h.SetChatAddons)
 	e.GET(base+"/files/search", h.SearchFiles)
 	e.POST(base, h.Create)
 	e.GET(base, h.List)

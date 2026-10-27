@@ -14,7 +14,8 @@ import (
 var reservedToolNames = map[string]bool{"spawn_agent": true}
 
 // hostTools returns the tools a conversation has besides the ones the service
-// adds itself: those from Deps.HostTools and the MCP tools of its model.
+// adds itself: those from Deps.HostTools, the add-on tools of its user and the
+// MCP tools of its model.
 func (s *Service) hostTools(ctx context.Context, a workspace.Actor) ([]session.Tool, error) {
 	var tools []session.Tool
 	if s.d.HostTools != nil {
@@ -24,6 +25,7 @@ func (s *Service) hostTools(ctx context.Context, a workspace.Actor) ([]session.T
 		}
 		tools = append(tools, ts...)
 	}
+	tools = append(tools, s.addonTools(ctx, a)...)
 	return append(tools, s.mcpTools(ctx, a)...), nil
 }
 

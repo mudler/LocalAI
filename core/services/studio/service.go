@@ -58,6 +58,9 @@ type Deps struct {
 	// MCP returns the MCP tool executor for a user's chat with a model, or nil
 	// when the model has none. Its tools become the chat's tools. Nil: no MCP.
 	MCP func(ctx context.Context, user, model string) mcpendpoint.ToolExecutor
+	// AddonTools supplies the tools of the installed add-ons the user may use.
+	// Nil: a chat has none.
+	AddonTools AddonTools
 	// ContextTokens returns the context window of a model in tokens, or zero
 	// when it is not known (the harness then uses its default). Nil: zero.
 	ContextTokens func(model string) int

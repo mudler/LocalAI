@@ -65,6 +65,10 @@
     "manage": "Manage skills",
     "off": "off for this chat"
   },
+  "addons": {
+    "summary": "Add-ons ({{on}} of {{total}} on)",
+    "tools": "{{count}} tools"
+  },
   "skillsPage": {
     "title": "Skills",
     "intro": "A skill is a folder with a SKILL.md that tells the model how to do one kind of task. Chats list the skills they can use and the model reads one when a task matches. The nearest skill wins when two have the same name.",

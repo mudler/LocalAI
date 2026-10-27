@@ -93,6 +93,36 @@ func Run(t *testing.T, newStore New) {
 		}
 	})
 
+	t.Run("add-on switches round-trip, survive a chat update and belong to the owner", func(t *testing.T) {
+		s := newStore(t)
+		chat(t, s, "c1", "alice")
+		if err := s.SetAddonsOff(ctx(t), "alice", "c1", []string{"office", "sandbox"}); err != nil {
+			t.Fatal(err)
+		}
+		rec, err := s.GetChat(ctx(t), "alice", "c1")
+		if err != nil || len(rec.AddonsOff) != 2 || rec.AddonsOff[0] != "office" || rec.AddonsOff[1] != "sandbox" {
+			t.Fatalf("AddonsOff = %v, %v, want office and sandbox", rec.AddonsOff, err)
+		}
+		stale := rec
+		stale.AddonsOff = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		if err := s.UpdateChat(ctx(t), stale); err != nil {
+			t.Fatal(err)
+		}
+		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); rec.Title != "Renamed" || len(rec.AddonsOff) != 2 {
+			t.Fatalf("after UpdateChat: title %q, AddonsOff %v, want the switches kept", rec.Title, rec.AddonsOff)
+		}
+		if err := s.SetAddonsOff(ctx(t), "bob", "c1", []string{"x"}); !errors.Is(err, session.ErrNotFound) {
+			t.Fatalf("another principal's SetAddonsOff = %v, want ErrNotFound", err)
+		}
+		if err := s.SetAddonsOff(ctx(t), "alice", "c1", nil); err != nil {
+			t.Fatal(err)
+		}
+		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); len(rec.AddonsOff) != 0 {
+			t.Fatalf("after clearing: %v", rec.AddonsOff)
+		}
+	})
+
 	t.Run("kind, parent, model, status and summary round-trip", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "parent", "alice")

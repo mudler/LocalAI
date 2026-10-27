@@ -57,6 +57,7 @@ func (a *Application) initStudioService() {
 		Users:         a.studioUsers(),
 		StateDir:      stateDir,
 		MCP:           a.studioMCP,
+		AddonTools:    lateStudioAddons{a},
 		ContextTokens: a.studioContextTokens,
 		Persistent:    a.studioStoreKind != "memory",
 		Files:         a.StudioFiles(),

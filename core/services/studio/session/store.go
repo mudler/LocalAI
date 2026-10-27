@@ -56,6 +56,10 @@ type ChatRecord struct {
 	// read by GetChat and set by the store's SetSkillsOff; UpdateChat leaves it
 	// alone.
 	SkillsOff []string
+	// AddonsOff holds the IDs of the add-ons whose tools this chat has switched
+	// off. It is kept the way SkillsOff is: SetAddonsOff sets it, UpdateChat
+	// leaves it alone.
+	AddonsOff []string
 }
 
 // Chat kinds.

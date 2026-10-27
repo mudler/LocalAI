@@ -37,7 +37,10 @@ type studioServer struct {
 
 func newStudioServer() *studioServer { return newStudioServerFiles(newTestFiles()) }
 
-func newStudioServerFiles(f *files.Service) *studioServer {
+func newStudioServerFiles(f *files.Service) *studioServer { return newStudioServerWith(f, nil) }
+
+// newStudioServerWith lets a spec change the service's dependencies.
+func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer {
 	db, err := auth.InitDB(":memory:")
 	Expect(err).NotTo(HaveOccurred())
 	sqlDB, err := db.DB()
@@ -47,7 +50,11 @@ func newStudioServerFiles(f *files.Service) *studioServer {
 	st, err := store.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	h := studiotest.NewGateHarness()
-	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f})
+	deps := studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f}
+	if mod != nil {
+		mod(&deps)
+	}
+	svc, err := studio.New(deps)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = svc.Close(context.Background()) })
 

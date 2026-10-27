@@ -6,7 +6,7 @@ import Icon from '../components/Icon'
 import ModelSelector from '../components/ModelSelector'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useServerChat } from '../hooks/useServerChat'
-import { chatSkillsApi } from '../utils/api'
+import { chatAddonsApi, chatSkillsApi } from '../utils/api'
 import './chats.css'
 
 // First line of a tool entry: the transcript keeps the summary and a capped output.
@@ -58,6 +58,53 @@ function SkillsPanel({ chatId, filesOn, t }) {
       )}
       {error && <p className="ch-error" role="alert">{error}</p>}
       <Link className="ch-link" to="/app/chats/skills">{t('skills.manage')}</Link>
+    </details>
+  )
+}
+
+// The add-ons whose tools the chat can use, with a switch each. A user who has
+// none sees no panel.
+function AddonsPanel({ chatId, t }) {
+  const [addons, setAddons] = useState([])
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (!chatId) { setAddons([]); return undefined }
+    let live = true
+    chatAddonsApi.list(chatId)
+      .then((res) => { if (live) setAddons(res.addons || []) })
+      .catch(() => { if (live) setAddons([]) })
+    return () => { live = false }
+  }, [chatId])
+  if (!chatId || addons.length === 0) return null
+  const toggle = async (id, on) => {
+    const next = addons.map((a) => (a.id === id ? { ...a, off: !on } : a))
+    const off = next.filter((a) => a.off).map((a) => a.id).sort()
+    const before = addons
+    setAddons(next)
+    setError('')
+    try {
+      const res = await chatAddonsApi.setOff(chatId, off)
+      if (res?.addons) setAddons(res.addons)
+    } catch (e) {
+      setAddons(before)
+      setError(e.message || t('errors.send'))
+    }
+  }
+  const on = addons.filter((a) => !a.off).length
+  return (
+    <details className="ch-skills">
+      <summary>{t('addons.summary', { on, total: addons.length })}</summary>
+      <ul className="ch-skills__list">
+        {addons.map((a) => (
+          <li key={a.id}>
+            <label title={t('addons.tools', { count: a.tools })}>
+              <input type="checkbox" checked={!a.off} aria-label={a.id} onChange={(e) => toggle(a.id, e.target.checked)} />
+              <span>{a.id}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      {error && <p className="ch-error" role="alert">{error}</p>}
     </details>
   )
 }
@@ -260,6 +307,7 @@ export default function Chats() {
           {activeChat?.model && <span className="ch-head__meta">{activeChat.model}</span>}
         </header>
         <SkillsPanel chatId={activeId} filesOn={chat.files.on} t={t} />
+        <AddonsPanel chatId={activeId} t={t} />
 
         <div className="ch-scroll">
           <div className="ch-flow" role="log" aria-live="polite" aria-label={t('transcript')}>

@@ -4,6 +4,7 @@ package application
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -478,3 +479,97 @@ func artifactAddonState(status addonStatus) func(context.Context, string) (artif
 // session in that mode, so the confirmation boundary is the browser headers
 // only and does not stop a script that sets them.
 const localOwnerWarning = "addons: local-owner mode is enabled; unauthenticated callers share one authority over every addon resource and sharing is disabled; any caller that can reach this port can confirm addon proposals"
+
+// StudioAddonTools is the add-on broker as the chats use it, or nil when this
+// host has no add-on gateway. A chat is not a request: its turn runs after the
+// request ended and, in a cluster, can run on another frontend. The actor is
+// therefore built from the chat's user and the credential of a chat turn, and
+// the gateway checks the account and the add-ons feature again on every call.
+// The ownership mode comes from configuration, never from a request.
+func (a *Application) StudioAddonTools() studio.AddonTools {
+	if a.addonGateway == nil {
+		return nil
+	}
+	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway), mode: a.AddonOwnershipMode()}
+}
+
+// lateStudioAddons asks for the broker at each call: the chats service starts
+// before the add-on gateway does.
+type lateStudioAddons struct{ a *Application }
+
+func (l lateStudioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTool, error) {
+	b := l.a.StudioAddonTools()
+	if b == nil {
+		return nil, nil
+	}
+	return b.Tools(ctx, user)
+}
+
+func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
+	b := l.a.StudioAddonTools()
+	if b == nil {
+		return "", gateway.ErrUnavailable
+	}
+	return b.Call(ctx, user, conv, name, args)
+}
+
+type studioAddons struct {
+	adapter *addontools.ToolAdapter
+	mode    string
+}
+
+func (s *studioAddons) actor(user string) (contract.Actor, error) {
+	switch s.mode {
+	case auth.AddonModeLocalOwner:
+		return contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner}, nil
+	case auth.AddonModeNamedUser:
+		if user == "" || user == studio.AnonymousPrincipal || user == auth.AddonLocalOwnerID || user == "legacy-api-key" {
+			return contract.Actor{}, gateway.ErrForbidden
+		}
+		return contract.Actor{UserID: user, CredentialID: auth.AddonChatsCredential, Mode: auth.AddonModeNamedUser}, nil
+	}
+	return contract.Actor{}, gateway.ErrForbidden
+}
+
+func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTool, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	defs, err := s.adapter.Discover(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]studio.AddonTool, 0, len(defs))
+	for _, d := range defs {
+		raw, err := json.Marshal(d.Parameters)
+		if err != nil {
+			continue
+		}
+		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw})
+	}
+	return out, nil
+}
+
+func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return "", err
+	}
+	res, err := s.adapter.ExecuteIn(ctx, actor, conv, name, args)
+	if err != nil {
+		return "", err
+	}
+	return studioAddonText(res), nil
+}
+
+// studioAddonText is what the model reads for a result. A change an add-on
+// proposes is not applied, and the text says who can apply it.
+func studioAddonText(res addontools.ToolResult) string {
+	if res.Kind == addontools.ResultProposal && res.Proposal != nil {
+		return fmt.Sprintf("The add-on %s proposed a change (%s, proposal %s). Nothing has been changed. "+
+			"Tell the user to review and confirm it on the Add-ons page. Do not say the change was made.",
+			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID)
+	}
+	return res.JSON()
+}

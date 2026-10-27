@@ -241,6 +241,12 @@ export const chatSkillsApi = {
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/skills`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }
 
+// Chat add-ons: the add-ons whose tools a chat may use, switched per chat.
+export const chatAddonsApi = {
+  list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/addons`),
+  setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/addons`, { method: 'PUT', body: JSON.stringify({ off }) }),
+}
+
 export const chatHistoryApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.conversations),
   get: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id)),

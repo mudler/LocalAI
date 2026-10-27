@@ -257,3 +257,20 @@ type ChatsSkillDetail struct {
 type ChatsSkillSwitches struct {
 	Off []string `json:"off"`
 }
+
+// ChatsAddonSwitches sets the add-ons whose tools a chat has switched off.
+type ChatsAddonSwitches struct {
+	Off []string `json:"off"`
+}
+
+// ChatsAddon is one add-on whose tools the user may use, with the chat's switch.
+type ChatsAddon struct {
+	ID    string `json:"id"`
+	Tools int    `json:"tools"`
+	Off   bool   `json:"off"`
+}
+
+// ChatsAddonList lists the add-ons a chat can use.
+type ChatsAddonList struct {
+	Addons []ChatsAddon `json:"addons"`
+}
