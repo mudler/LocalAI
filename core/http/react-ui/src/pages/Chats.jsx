@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Icon from '../components/Icon'
+import ChatInbox from '../components/ChatInbox'
 import ModelSelector from '../components/ModelSelector'
+import { useInbox } from '../hooks/useInbox'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useServerChat } from '../hooks/useServerChat'
 import { chatAddonsApi, chatAgentsApi, chatSkillsApi } from '../utils/api'
@@ -221,6 +223,7 @@ export default function Chats() {
   const { id: routeId } = useParams()
   const navigate = useNavigate()
   const chat = useServerChat()
+  const inbox = useInbox()
   const { select, activeId } = chat
   const location = useLocation()
   const [model, setModel] = useState('')
@@ -237,7 +240,8 @@ export default function Chats() {
   // already open (creating a chat selects it before the address changes).
   useEffect(() => {
     const want = routeId || null
-    if (want !== activeId) select(want)
+    // Opening a chat marks its notifications read on the server: read the inbox again after.
+    if (want !== activeId) Promise.resolve(select(want)).finally(() => inbox.refresh())
   // activeId is read, not a trigger: only a change of address selects.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId])
@@ -301,13 +305,16 @@ export default function Chats() {
         <button type="button" className="btn btn-primary btn-full" onClick={() => navigate('/app/chats')}>
           {t('list.new')}
         </button>
+        <ChatInbox inbox={inbox} />
         <div className="ch-list__items">
           {chat.chats.length === 0 && <div className="ch-list__empty">{t('list.empty')}</div>}
           {chat.chats.map((c) => (
             <div key={c.id} className="ch-list__item" aria-current={c.id === activeId ? 'true' : undefined}>
               <button type="button" className="ch-list__open" onClick={() => navigate(`/app/chats/${c.id}`)}>
+                {c.origin === 'trigger' && <span title={t('list.automatic')} role="img" aria-label={t('list.automatic')}><Icon name="clock" /></span>}
                 <span className="ch-list__title">{c.title || t('list.untitled')}</span>
                 {c.running && <span className="ch-dot" role="img" aria-label={t('list.working')} />}
+                {inbox.unreadChatIds.has(c.id) && <span className="ch-dot ch-dot--unread" role="img" aria-label={t('list.unread')} data-testid="unread-dot" />}
               </button>
               <button type="button" className="ch-link ch-link--danger" aria-label={t('list.delete')} onClick={() => chat.remove(c.id)}>×</button>
             </div>
@@ -319,6 +326,7 @@ export default function Chats() {
           {chat.files.on && <Link className="ch-link ch-list__skills" to="/app/chats/skills">{t('skills.manage')}</Link>}
           <p className="ca-rail__group">{t('list.automation')}</p>
           <Link className="ch-link ch-list__skills" to="/app/chats/agents">{t('list.agents')}</Link>
+          <Link className="ch-link ch-list__skills" to="/app/chats/triggers">{t('list.triggers')}</Link>
         </nav>
       </aside>
 

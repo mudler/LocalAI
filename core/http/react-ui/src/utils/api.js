@@ -258,6 +258,37 @@ export const chatAgentsApi = {
   remove: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'DELETE' }),
 }
 
+// Triggers: work that starts by itself, as the user, in a new chat.
+export const chatTriggersApi = {
+  list: () => fetchJSON('/api/chats/triggers'),
+  create: (body) => postJSON('/api/chats/triggers', body),
+  update: (id, body) => fetchJSON(`/api/chats/triggers/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}`, { method: 'DELETE' }),
+  enable: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/enable`, {}),
+  disable: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/disable`, {}),
+  run: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/run`, {}),
+  runs: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/runs`),
+  preview: (when, tz) => fetchJSON(`/api/chats/triggers/preview${q({ when, tz, n: 3 })}`),
+  proposals: () => fetchJSON('/api/chats/triggers/proposals'),
+  confirm: (id, timeZone) => postJSON(`/api/chats/triggers/proposals/${enc2(id)}/confirm`, timeZone ? { time_zone: timeZone } : {}),
+  dismiss: (id) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`, { method: 'DELETE' }),
+}
+
+// The inbox: what ended while the user was elsewhere.
+export const chatNotificationsApi = {
+  list: (unread) => fetchJSON(`/api/chats/notifications${q({ unread: unread ? 1 : undefined, limit: 50 })}`),
+  read: (body) => postJSON('/api/chats/notifications/read', body),
+  remove: (ids) => fetchJSON('/api/chats/notifications', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+  eventsUrl: () => apiUrl('/api/chats/notifications/events'),
+}
+
+// Browser push for the inbox.
+export const chatPushApi = {
+  key: () => fetchJSON('/api/chats/push/key'),
+  subscribe: (subscription) => postJSON('/api/chats/push/subscribe', subscription),
+  unsubscribe: (endpoint) => fetchJSON('/api/chats/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
+}
+
 export const chatHistoryApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.conversations),
   get: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id)),

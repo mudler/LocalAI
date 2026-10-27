@@ -53,7 +53,9 @@
 }
 .ca-inbox__head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-2); }
 .ca-inbox__item { display: flex; flex-direction: column; gap: 2px; padding: var(--dk-space-2) 0; border-bottom: 1px solid var(--color-border-subtle); }
+.ca-inbox { font-size: 0.8125rem; }
 .ca-inbox__item--unread .ca-inbox__title { font-weight: 600; }
+.ca-inbox__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--dk-space-2); color: var(--color-text-muted); }
 .ca-inbox__title { color: var(--color-text-primary); text-align: left; }
 .ca-count {
   min-width: 1.25rem;

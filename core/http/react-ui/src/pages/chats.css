@@ -77,6 +77,9 @@
   background: var(--color-warning);
 }
 
+/* An unread result of a trigger: the color of an action, not of a warning. */
+.ch-dot--unread { background: var(--color-primary); }
+
 .ch-list__empty {
   color: var(--color-text-muted);
   padding: var(--dk-space-2) var(--dk-space-3);
