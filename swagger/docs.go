@@ -5493,7 +5493,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/skills": {
             "put": {
-                "description": "The list replaces the earlier one. The next turn of the chat gets the index without the skills that are off.",
+                "description": "The list replaces the earlier one. An entry is a skill name, which turns off the skill that wins so that one of the same name further away shows through, or the id \"layer:name\" from the skill list, which turns off the skill of that layer. The next turn of the chat gets the index without the skills that are off.",
                 "tags": [
                     "chats"
                 ],
@@ -5507,7 +5507,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "the names of the skills that are off",
+                        "description": "the names or ids of the skills that are off",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -14156,6 +14156,10 @@ const docTemplate = `{
                 "enabled": {
                     "description": "Enabled is false when the chat has switched it off.",
                     "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is \"layer:name\". A switch with the ID turns off the skill of that\nlayer; a switch with the plain name turns off the skill that wins.",
+                    "type": "string"
                 },
                 "invalid": {
                     "description": "Invalid says why a SKILL.md was skipped.",

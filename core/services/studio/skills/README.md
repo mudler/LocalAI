@@ -63,7 +63,8 @@ skills the deeper folder wins; at equal depth the path that sorts first wins.
 A skill that loses to one with the same name has `Shadowed` set to the layer
 of the winner and is not in the index. `Options.Off` runs before this rule, so
 if it turns off only a nearer skill, the one below it is uncovered. The chats
-switch by name (skillsvc.go), so for them all skills of that name go off. A skill that was
+turn off the winner for a plain name and one layer for `layer:name`
+(skillsvc.go). A skill that was
 switched off has `Off` set.
 
 ## Limits

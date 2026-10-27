@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
+	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
@@ -72,5 +74,76 @@ func TestTheRefreshKeyMovesOnlyWhenASkillFileDoes(t *testing.T) {
 	_, _, again := svc.skillTurn(ctx, "alice", nil, nil)
 	if again == base {
 		t.Fatal("a new skill left the key as it was")
+	}
+}
+
+// A switch with a plain name turns off the skill that wins, so the one below it
+// shows through; "layer:name" turns off that layer's skill only.
+func TestASkillSwitchTurnsOffTheWinnerOrTheNamedLayer(t *testing.T) {
+	dsn := "file:" + filepath.Join(t.TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	blobs, _ := blob.NewFS(filepath.Join(t.TempDir(), "blobs"))
+	ws, err := gormstore.New(db, blobs, gormstore.Options{Admin: files.AdminPrincipal})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := files.New(ws)
+	st, _ := store.NewJSON("")
+	svc, err := New(Deps{Store: st, Provider: provider.New(), StateDir: t.TempDir(), Files: f})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = svc.Close(context.Background())
+		if raw, err := db.DB(); err == nil {
+			_ = raw.Close()
+		}
+	})
+	ctx := context.Background()
+	if err := f.EnsureHome(ctx, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.EnsureShared(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.WriteSkill(ctx, "alice", skills.LayerPersonal, "report", "Personal report.", "Steps."); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.WriteSkill(ctx, files.AdminPrincipal, skills.LayerShared, "report", "Shared report.", "Steps."); err != nil {
+		t.Fatal(err)
+	}
+	index := func(off ...string) string {
+		p, _, _ := svc.skillTurn(ctx, "alice", off, nil)
+		return p
+	}
+	cases := []struct {
+		off         []string
+		personal    bool
+		shared      bool
+		explanation string
+	}{
+		{nil, true, false, "the nearest skill wins"},
+		{[]string{"report"}, false, true, "a plain name turns off the winner and uncovers the one below"},
+		{[]string{"personal:report"}, false, true, "the personal skill off"},
+		{[]string{"shared:report"}, true, false, "the shared skill is covered anyway"},
+		{[]string{"personal:report", "shared:report"}, false, false, "both layers off"},
+		{[]string{"report", "report"}, false, true, "a name twice is still one switch"},
+	}
+	for _, c := range cases {
+		got := index(c.off...)
+		if has := strings.Contains(got, "Personal report."); has != c.personal {
+			t.Errorf("%s: off %v: personal listed = %v", c.explanation, c.off, has)
+		}
+		if has := strings.Contains(got, "Shared report."); has != c.shared {
+			t.Errorf("%s: off %v: shared listed = %v", c.explanation, c.off, has)
+		}
+	}
+	for _, bad := range []string{"nolayer:report", "personal:", ":report", "personal:bad name", "a:b:c"} {
+		if err := svc.SetSkillsOff(ctx, "alice", "nope", []string{bad}); !errors.Is(err, ErrBadSkillName) {
+			t.Errorf("switch %q: %v, want ErrBadSkillName", bad, err)
+		}
 	}
 }

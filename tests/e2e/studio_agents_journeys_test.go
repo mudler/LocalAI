@@ -213,9 +213,10 @@ var _ = Describe("Chats saved agents", Label("Chats"), func() {
 
 	It("keeps the prompt free of nib's own skill and its load_skill tool", func() {
 		system, tools := agUpstreamRequest(agObj{"model": "cp-passthrough-openai"}, "hello")
-		leaked := strings.Contains(system, "about-nib") || strings.Contains(system, "load_skill tool")
-		agGap(leaked && !contains(tools, "load_skill"), "AG-SKL-02", "the prompt lists the about-nib skill and asks for a load_skill tool that is not offered")
 		Expect(system).NotTo(ContainSubstring("about-nib"))
+		Expect(system).NotTo(ContainSubstring("load_skill"))
+		Expect(system).NotTo(ContainSubstring("mcp add"))
+		Expect(tools).NotTo(ContainElement("load_skill"))
 	})
 })
 
@@ -298,9 +299,7 @@ var _ = Describe("Chats skill layers", Label("Chats"), func() {
 		code, out := chatsDo(http.MethodPut, chatsBase()+"/"+chat+"/skills", agObj{"off": []string{name}})
 		Expect(code).To(Equal(http.StatusOK), string(out))
 		got := layersOf(chat, name)
-		// The chat docs say the one further away shows through. A switch is by
-		// name today, so it turns every layer's skill of that name off.
-		agGap(!got["shared"].Enabled, "AG-SKL-01", "a switch is by name: turning off the personal skill also turns off the shared skill below it")
+		// The one further away shows through.
 		Expect(got["personal"].Enabled).To(BeFalse())
 		Expect(got["shared"].Enabled).To(BeTrue())
 	})

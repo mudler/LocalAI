@@ -99,7 +99,8 @@ type Skill struct {
 type Options struct {
 	// Off reports a skill that a chat switched off. It runs before the
 	// precedence rule, so turning off a nearer skill uncovers the one below
-	// it. It is called for valid skills only. Nil means all are on.
+	// it. It is called for valid skills only, nearest layer first, so for the
+	// skills of one name the winner comes first. Nil means all are on.
 	Off func(Skill) bool
 	// Logger, when set, gets one debug line per call with the number of
 	// folders that the folder walks listed. Nil logs nothing.
@@ -209,6 +210,9 @@ scan:
 		}
 	}
 
+	// Off is asked in precedence order, so a caller that turns off the first
+	// skill of a name turns off the one that wins.
+	sort.SliceStable(out, func(i, j int) bool { return less(out[i], out[j]) })
 	for i := range out {
 		if out[i].Invalid == "" && o.Off != nil && o.Off(out[i]) {
 			out[i].Off = true

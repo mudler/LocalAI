@@ -28,7 +28,7 @@ func (s *Service) SetSkillsOff(ctx context.Context, user, conv string, off []str
 	seen := make(map[string]bool, len(off))
 	clean := make([]string, 0, len(off))
 	for _, n := range off {
-		if !skills.ValidName(n) {
+		if !validSwitch(n) {
 			return fmt.Errorf("%w: %q", ErrBadSkillName, n)
 		}
 		if !seen[n] {
@@ -39,6 +39,49 @@ func (s *Service) SetSkillsOff(ctx context.Context, user, conv string, off []str
 	return s.d.Store.SetSkillsOff(ctx, principal(user), conv, clean)
 }
 
+// validSwitch says whether n names a skill switch: a skill name, or
+// "layer:name" for the skill of one layer.
+func validSwitch(n string) bool {
+	layer, name, qualified := strings.Cut(n, ":")
+	if !qualified {
+		return skills.ValidName(n)
+	}
+	switch skills.Layer(layer) {
+	case skills.LayerFolder, skills.LayerPersonal, skills.LayerShared, skills.LayerBuiltin:
+		return skills.ValidName(name)
+	}
+	return false
+}
+
+// SkillID is the id of a skill in a switch: its layer and name. A switch with
+// the plain name turns off only the skill that wins, so the one below shows
+// through; the id turns off the skill of that layer.
+func SkillID(sk skills.Skill) string { return string(sk.Layer) + ":" + sk.Name }
+
+// skillOff returns the Off function of Resolve for a list of switches. Resolve
+// calls it nearest layer first, so a plain name finds the winner first.
+func skillOff(off []string) func(skills.Skill) bool {
+	plain := map[string]bool{}
+	exact := map[string]bool{}
+	for _, n := range off {
+		if strings.Contains(n, ":") {
+			exact[n] = true
+		} else {
+			plain[n] = true
+		}
+	}
+	return func(sk skills.Skill) bool {
+		if exact[SkillID(sk)] {
+			return true
+		}
+		if plain[sk.Name] {
+			delete(plain, sk.Name) // the next skill of this name is the one below
+			return true
+		}
+		return false
+	}
+}
+
 // skillTurn resolves the skills of the chat's user and returns what the turn
 // gets: the index for the prompt, a note for the model when something could not
 // be read, and a key that changes only when a skill the index names changed.
@@ -47,12 +90,9 @@ func (s *Service) skillTurn(ctx context.Context, p string, off []string, sc *sco
 	if !s.d.Files.Available() {
 		return "", "", ""
 	}
-	skip := make(map[string]bool, len(off))
-	for _, n := range off {
-		skip[n] = true
-	}
+	skip := skillOff(off)
 	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p), skills.Options{
-		Off:    func(sk skills.Skill) bool { return skip[sk.Name] || (sc != nil && !sc.skills[sk.Name]) },
+		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
 		Logger: s.log,
 	})
 	if err != nil {
@@ -103,19 +143,16 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		return nil, nil, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
 	}
 	p := principal(user)
-	var off map[string]bool
+	var off []string
 	if conv != "" {
 		rec, err := s.d.Store.GetChat(ctx, p, conv)
 		if err != nil {
 			return nil, nil, err
 		}
-		off = make(map[string]bool, len(rec.SkillsOff))
-		for _, n := range rec.SkillsOff {
-			off[n] = true
-		}
+		off = rec.SkillsOff
 	}
 	return skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p), skills.Options{
-		Off:    func(sk skills.Skill) bool { return off[sk.Name] },
+		Off:    skillOff(off),
 		Logger: s.log,
 	})
 }

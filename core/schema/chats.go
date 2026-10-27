@@ -318,6 +318,9 @@ type ChatsSearchResult struct {
 
 // ChatsSkill is a skill a chat can use.
 type ChatsSkill struct {
+	// ID is "layer:name". A switch with the ID turns off the skill of that
+	// layer; a switch with the plain name turns off the skill that wins.
+	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Layer is where it comes from: folder (a .skills folder of your files),

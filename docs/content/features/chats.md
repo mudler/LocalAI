@@ -221,7 +221,7 @@ curl .../api/chats/skills?chat=3f1c...            # what the chat has, with its 
 curl -X PUT .../api/chats/3f1c.../skills -d '{"off": ["review"]}'   # switch one off for this chat
 ```
 
-A chat keeps its own switches. Turning a skill off takes it out of the index at the next turn. A switch names the skill, so it turns off every skill of that name, in every layer: a skill of the same name further away does not show through. A deleted skill goes to the Trash like any file. Only an administrator writes shared skills, and everyone reads them. Your personal skills are as private as your files.
+A chat keeps its own switches. Turning a skill off takes it out of the index at the next turn. A switch with the plain name turns off the skill that wins, so a skill of the same name further away shows through, as the list says. A switch with the id `layer:name` (the `id` in the skill list, for example `personal:review`) turns off the skill of that layer only. A deleted skill goes to the Trash like any file. Only an administrator writes shared skills, and everyone reads them. Your personal skills are as private as your files.
 
 The **Skills** page for chats lists them by layer and edits personal skills, and a panel in the chat switches them per chat.
 
