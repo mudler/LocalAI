@@ -1,9 +1,13 @@
 package config_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -30,6 +34,25 @@ var _ = Describe("collections runtime settings", func() {
 		Expect(*s.CollectionsDBPath).To(Equal("/p"))
 		Expect(*s.CollectionsVectorEngine).To(Equal("postgres"))
 		Expect(*s.CollectionsDatabaseURL).To(Equal("pg://x"))
+	})
+
+	It("warns once for each old key that it reads", func() {
+		var logs bytes.Buffer
+		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
+		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
+		config.ResetLegacyKeyWarnings()
+		for range 2 {
+			var s config.RuntimeSettings
+			Expect(json.Unmarshal([]byte(`{"agent_pool_vector_engine": "postgres", "agent_pool_enabled": true}`), &s)).To(Succeed())
+		}
+		Expect(strings.Count(logs.String(), "agent_pool_vector_engine")).To(Equal(1))
+		Expect(strings.Count(logs.String(), "agent_pool_enabled")).To(Equal(1))
+		Expect(logs.String()).To(ContainSubstring("collections_vector_engine"))
+
+		logs.Reset()
+		var s config.RuntimeSettings
+		Expect(json.Unmarshal([]byte(`{"collections_enabled": true}`), &s)).To(Succeed())
+		Expect(logs.String()).To(BeEmpty())
 	})
 
 	It("prefers the new key when both are present", func() {
