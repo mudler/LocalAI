@@ -2,8 +2,10 @@
 #
 # The sandbox runs code in gVisor or in a Cloud Hypervisor guest, and both are
 # Linux only, so the macOS platforms are listed and stay disabled. The Linux
-# packages carry the runsc of package/runsc.json: fetch-runtime.sh puts it in
-# the runtime directory of the build.
+# packages carry the runsc of package/runsc.json, the gvisor-profile tool, and
+# the Cloud Hypervisor and virtiofsd of package/kvm.json (virtiofsd on amd64
+# only: upstream publishes no static arm64 build). fetch-runtime.sh puts them
+# in the runtime directory of the build.
 #
 # A platform ships only while "enabled" is true. Enable a platform in the same
 # change that shows its native check passing on a runner of that platform;
@@ -31,6 +33,9 @@ platforms:
     native_check: executable-start
     runtime:
       - runsc
+      - gvisor-profile
+      - cloud-hypervisor
+      - virtiofsd
       - gvisor-bin/checkpointgofer
       - gvisor-bin/gvisor-sentry-prewarmer
       - gvisor-bin/gvisor_sentry
@@ -42,6 +47,8 @@ platforms:
     native_check: executable-start
     runtime:
       - runsc
+      - gvisor-profile
+      - cloud-hypervisor
       - gvisor-bin/checkpointgofer
       - gvisor-bin/gvisor-sentry-prewarmer
       - gvisor-bin/gvisor_sentry
