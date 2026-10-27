@@ -114,9 +114,9 @@ LocalAI includes a built-in AI agent platform with support for the [Model Contex
 To get started with agents:
 
 1. Install a model that supports tool calling (most modern LLMs do)
-2. Navigate to the **Agents** page in the web interface
-3. Create a new agent, configure its tools and system prompt
-4. Start chatting; the agent will use tools autonomously
+2. Open **Chats**, then **Agents**
+3. Create an agent: its instructions and the tools, collections and skills it may use
+4. Start a chat with it
 
 No separate installation required: agents are part of LocalAI. For a full step-by-step walkthrough, see [Build your first agent]({{% relref "getting-started/first-agent" %}}).
 

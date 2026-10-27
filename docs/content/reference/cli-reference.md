@@ -286,11 +286,10 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai tts` - Convert text to speech
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text
-- `local-ai agent` - Run agents standalone without the full LocalAI server
 - `local-ai mcp-server` - Run the LocalAI admin tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP)
 - `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic)
 - `local-ai p2p-worker` - Run workers to distribute workload via p2p (llama.cpp-only)
-- `local-ai agent-worker` - Start an agent worker for distributed mode (executes agent chats via NATS)
+- `local-ai agent-worker` - Start a worker for distributed mode (serves MCP tool calls via NATS)
 - `local-ai util` - Utility commands
 - `local-ai explorer` - Run P2P explorer
 - `local-ai federated` - Run LocalAI in federated mode

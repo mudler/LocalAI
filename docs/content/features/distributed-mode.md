@@ -914,7 +914,7 @@ Concretely, these two must point at different databases:
 | Variable | What it holds |
 |----------|---------------|
 | `LOCALAI_AUTH_DATABASE_URL` | Auth **and the distributed control plane** - nodes, replicas, load jobs |
-| `LOCALAI_AGENT_POOL_DATABASE_URL` | Agent collections and their embeddings |
+| `LOCALAI_AGENT_POOL_DATABASE_URL` | Collections and their embeddings |
 
 Different databases on the same PostgreSQL server is enough; they do not need separate
 servers. Different *schemas* in one database is **not** enough, because the cutoff is
@@ -956,7 +956,7 @@ This needs `LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres` and `LOCALAI_AGENT_POOL_D
 
 ## Agent Workers
 
-Agent workers are dedicated processes for executing agent chats and MCP CI jobs. Unlike backend workers (which run gRPC model inference), agent workers use cogito to orchestrate multi-step conversations with tool calls.
+An agent worker is a dedicated process that runs the MCP servers of your models, for example stdio servers that need docker. The frontend sends it MCP tool calls and discovery requests over NATS. It needs no database and runs no model.
 
 ```bash
 local-ai agent-worker \
@@ -966,12 +966,10 @@ local-ai agent-worker \
 ```
 
 Agent workers:
-- Execute agent chat messages dispatched via NATS
-- Run MCP CI jobs (with access to MCP servers via docker)
 - Handle MCP tool discovery and execution requests from the frontend
-- Get auto-provisioned API keys during registration for calling the inference API
+- Close their MCP sessions when a backend stops
 
-`LOCALAI_AGENT_SUBJECT` (default `agent.execute`) must be a subject that LocalAI serves. Use the `agent` root, for example `agent.execute`. The worker refuses to start with a subject whose root LocalAI does not serve (for example `tenant-a.agent.execute`) or with a `>` wildcard, because no message is carried on those subjects.
+The agent worker no longer runs agents or MCP CI jobs. The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted and ignored.
 
 In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
 
@@ -988,7 +986,6 @@ MCP servers configured in model configs work in distributed mode. The frontend r
 
 - **MCP discovery** (`GET /v1/mcp/servers/:model`): routed to agent workers which create sessions and return server info
 - **MCP tool execution** (during `/v1/chat/completions`): tool calls are routed to agent workers via NATS request-reply
-- **MCP CI jobs**: executed entirely on agent workers with access to docker for stdio-based MCP servers
 
 ## vLLM Multi-Node (Data-Parallel)
 

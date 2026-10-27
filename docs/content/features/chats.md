@@ -237,6 +237,10 @@ The JSON files are not supported in a cluster, as the Storage table says.
 An agent is a saved set of instructions and tool grants that a chat can start
 with. See [Saved agents, triggers and inbox](/features/chats-agents/).
 
+## Moving from the old chat
+
+The old chat page, the agents, the agent jobs and the old skills were replaced by the chats. At the first start the server converts what they left; see [Moving from the old chat and agents](/features/chats-migration/).
+
 ## API reference
 
 The routes are listed under the `chats` tag at `/swagger/index.html`, and

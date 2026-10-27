@@ -191,20 +191,11 @@ different tools share one loaded model.
 #### Agent Configuration (`agent`)
 
 - **`max_iterations`**: Maximum number of MCP tool execution loop iterations (default: 10). Each iteration allows the model to call tools and receive results before generating the next response.
-- **`max_generation_tokens`**: Output-token cap for each completion of an MCP agent job (default: the client default, 16384). `max_iterations` bounds the number of turns, not the length of one; this bounds a single completion that keeps generating. Raise it for reasoning models that think at length, lower it for models that should only pick a tool and answer briefly. It applies to agent jobs (`/api/agent/jobs`, also when run on a distributed agent worker); an MCP tool loop on `/v1/chat/completions` uses the request's own `max_tokens`.
+- **`max_generation_tokens`**: Accepted and ignored. It capped the completions of the agent jobs, which were removed with the old agents.
 
 ## Agent-scoped MCP servers
 
-The `mcp:` block above attaches MCP servers to a **model**: every request that uses that model config can reach those tools. LocalAI's [agents]({{% relref "features/agents" %}}) can also attach MCP servers to a single **agent**, independent of the model it runs on. This is the mechanism the Agents feature advertises as "MCP Servers".
-
-Use model-scoped MCP (the `mcp:` block in a model YAML) when the tools belong to the model itself and every caller of that model should get them. Use agent-scoped MCP when only one agent should have a given tool, or when different agents sharing the same model need different tools.
-
-Agent-scoped MCP servers are configured per agent, not in a model YAML:
-
-- **In the web UI:** open the **Agents** page, edit an agent, and fill in its **MCP Servers** (remote HTTP servers) and **MCP STDIO Servers** (local command servers) fields. The JSON shape is the same `mcpServers` map used above.
-- **In an agent config (JSON):** the agent stores remote servers under `mcp_servers` and local command servers under `mcp_stdio_servers`, so an exported/imported agent carries its MCP servers with it.
-
-An agent-scoped MCP server that is unreachable is a common reason an imported agent's tool "times out or is unavailable"; see the checklist in {{% relref "getting-started/first-agent" %}}.
+The `mcp:` block above attaches MCP servers to a **model**: every request that uses that model config can reach those tools. A [saved agent]({{% relref "features/chats-agents" %}}) of the chats can limit a chat to some of them: its `mcp_servers` list names the servers of the model's `mcp:` block that the chat may use. The agent cannot add a server of its own.
 
 ## Usage
 

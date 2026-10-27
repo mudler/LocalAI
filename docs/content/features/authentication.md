@@ -266,10 +266,6 @@ When authentication is enabled, the following endpoints require admin role:
 **P2P:**
 - `GET /api/p2p/*`
 
-**Agents & Jobs:**
-- All `/api/agents/*` endpoints
-- All `/api/agent/tasks/*` and `/api/agent/jobs/*` endpoints
-
 **User-Accessible Endpoints (all authenticated users):**
 - `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/completions`
 - `POST /v1/images/generations`, `POST /v1/audio/*`, `POST /tts`, `POST /vad`, `POST /video`

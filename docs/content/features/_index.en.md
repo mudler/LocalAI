@@ -20,8 +20,10 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 
 ## Agents
 
-- **[Agents]({{% relref "features/agents" %}})** - Autonomous AI agents with tools, knowledge base, and skills.
-- **[Agent Actions]({{% relref "features/agent-actions" %}})** - The catalog of actions an agent can run.
+- **[Chats]({{% relref "features/chats" %}})** - Conversations the server keeps, with files, sub-agents, skills and add-on tools.
+- **[Saved agents, triggers and inbox]({{% relref "features/chats-agents" %}})** - Instructions and exact tool grants, schedules, and notifications.
+- **[Telegram connector]({{% relref "features/chats-connectors" %}})** - Talk to an agent from Telegram.
+- **[Moving from the old chat and agents]({{% relref "features/chats-migration" %}})** - What was converted and what was dropped.
 - **[Model Context Protocol (MCP)]({{% relref "features/mcp" %}})** - Give a model external tools over MCP.
 - **[LocalAI Assistant]({{% relref "features/localai-assistant" %}})** - Chat to administer your LocalAI instance.
 - **[Terminal agent]({{% relref "features/terminal-agent" %}})** - `local-ai chat`, an agent in your shell that runs commands behind an approval gate.

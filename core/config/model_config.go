@@ -919,11 +919,9 @@ type AgentConfig struct {
 	LoopDetection         int  `yaml:"loop_detection,omitempty" json:"loop_detection,omitempty"`
 	MaxAdjustmentAttempts int  `yaml:"max_adjustment_attempts,omitempty" json:"max_adjustment_attempts,omitempty"`
 	ForceReasoningTool    bool `yaml:"force_reasoning_tool,omitempty" json:"force_reasoning_tool,omitempty"`
-	// MaxGenerationTokens caps the tokens a single completion may generate in
-	// the agent loop. Neither max_iterations nor loop_detection stops one
-	// completion that keeps generating; without a per-model value every model
-	// gets the client's fixed default, which is too low for some reasoning
-	// models and far above what others need. 0 keeps the client default.
+	// MaxGenerationTokens capped the tokens of one completion in the agent jobs
+	// that were removed. It is still read so a model file that sets it loads, and
+	// it does nothing.
 	MaxGenerationTokens int `yaml:"max_generation_tokens,omitempty" json:"max_generation_tokens,omitempty"`
 }
 

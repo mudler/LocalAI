@@ -117,19 +117,19 @@ Manage model and backend galleries:
 - **Load and pre-warm galleries on boot**: Load model galleries and pre-warm their remote size and VRAM estimates when LocalAI starts. Disable this setting to skip both startup operations.
 - **Autoload Backend Galleries**: Automatically load backend galleries on startup
 
-### Agent Pool Settings
+### Chats and Collections Settings
 
-Configure the built-in agent platform (see [Agents]({{%relref "features/agents" %}}) for full documentation):
+Configure the collections (the knowledge base) and the models the [chats]({{%relref "features/chats" %}}) use for media:
 
-- **Agent Pool Enabled**: Enable or disable the agent pool feature
-- **Default Model**: Default LLM model for new agents
+- **Collections**: Enable or disable the collections service
+- **Default model for collections**: Default LLM model of the collections service
+- **Chat image model** and **Chat transcription model**: the models the chats use to describe images and to transcribe audio
 - **Embedding Model**: Model used for knowledge base embeddings (default: `granite-embedding-107m-multilingual`)
 - **Max Chunking Size**: Maximum chunk size for document ingestion (default: `400`)
 - **Chunk Overlap**: Overlap between document chunks (default: `0`)
-- **Enable Logs**: Enable detailed agent logging
 - **Collection DB Path**: Custom path for the collections database
 
-> **Note:** Most agent pool settings require a restart to take effect.
+> **Note:** Most collection settings require a restart to take effect. The settings of the removed agent pool, agent jobs and agent hub (`agent_job_retention_days`, `agent_pool_enable_logs`, `agent_pool_agent_hub_url` and the like) are ignored when found in `runtime_settings.json`.
 
 ## Configuration Persistence
 
