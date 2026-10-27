@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -746,6 +747,13 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 			delete(m.instances, id)
 		}
 	}
+	type launch struct {
+		id         string
+		generation Generation
+		instance   addonruntime.Instance
+		err        error
+	}
+	var launches []*launch
 	for id, state := range m.journal.Addons {
 		if !state.Installed || !state.DesiredEnabled {
 			delete(m.startFailed, id)
@@ -762,22 +770,46 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 		}
 		for _, generation := range state.Generations {
 			if generation.Number == state.Generation {
-				instance, e := m.runtime.Start(ctx, generation.Receipt, generation.Number)
-				if e != nil {
-					if ctx.Err() != nil {
-						return e
-					}
-					m.startFailed[id] = e
-					break
-				}
-				delete(m.startFailed, id)
-				m.instances[id] = instance
+				launches = append(launches, &launch{id: id, generation: generation})
 				break
 			}
 		}
 	}
-	return nil
+	// Each add-on is a separate process that takes seconds to be ready, so
+	// they start side by side. The bound keeps a host with many add-ons from
+	// forking them all at once. The results are applied below, in the order of
+	// the journal, by this goroutine alone: the workers touch nothing of the
+	// manager.
+	slices.SortFunc(launches, func(a, b *launch) int { return strings.Compare(a.id, b.id) })
+	slots := make(chan struct{}, startConcurrency)
+	var wg sync.WaitGroup
+	for _, l := range launches {
+		wg.Add(1)
+		slots <- struct{}{}
+		go func() {
+			defer func() { <-slots; wg.Done() }()
+			l.instance, l.err = m.runtime.Start(ctx, l.generation.Receipt, l.generation.Number)
+		}()
+	}
+	wg.Wait()
+	var cancelled error
+	for _, l := range launches {
+		if l.err != nil {
+			if ctx.Err() != nil {
+				cancelled = l.err
+				continue
+			}
+			m.startFailed[l.id] = l.err
+			continue
+		}
+		delete(m.startFailed, l.id)
+		m.instances[l.id] = l.instance
+	}
+	return cancelled
 }
+
+// startConcurrency bounds how many add-on processes start at the same time.
+const startConcurrency = 4
 
 // Runtime returns the current ready incarnation, not the lifecycle stop handle
 // retained in instances. Authorization and operation replay decisions remain the

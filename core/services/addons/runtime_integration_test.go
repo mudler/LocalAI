@@ -243,3 +243,50 @@ var _ = Describe("Restart lifecycle cancellation", func() {
 		}
 	})
 })
+
+var _ = Describe("Runtime startup of many add-ons", func() {
+	It("starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum", func() {
+		cfg, c, installer := fixture()
+		dir := GinkgoT().TempDir()
+		real := filepath.Join(dir, "fixture-real")
+		out, e := exec.Command("go", "build", "-o", real, "../../../tests/addons/fixture/cmd").CombinedOutput()
+		Expect(e).NotTo(HaveOccurred(), string(out))
+		data, e := os.ReadFile("../../../tests/addons/fixtures/contracts/service.json")
+		Expect(e).NotTo(HaveOccurred())
+		base, e := contract.ParseManifest(data)
+		Expect(e).NotTo(HaveOccurred())
+		m, e := NewManager(ctx, cfg, c, installer, admin)
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(m.Close)
+		// Each add-on takes a second to be ready, as a real one that opens a
+		// database or probes the host does.
+		const count, boot = 8, time.Second
+		for i := 0; i < count; i++ {
+			id := fmt.Sprintf("slow%d", i)
+			pkg := filepath.Join(dir, id)
+			Expect(os.Mkdir(pkg, 0o700)).To(Succeed())
+			script := fmt.Sprintf("#!/bin/sh\nsleep %d\nexec %q \"$@\"\n", int(boot.Seconds()), real)
+			Expect(os.WriteFile(filepath.Join(pkg, "fixture"), []byte(script), 0o700)).To(Succeed())
+			manifest := base
+			manifest.ID, manifest.Executable = id, "fixture"
+			receipt := packages.PackageReceipt{Directory: pkg, Manifest: manifest}
+			raw, e := json.Marshal(receipt)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(pkg, "receipt.json"), raw, 0o400)).To(Succeed())
+			m.journal.Addons[id] = Status{AddonID: id, Installed: true, DesiredEnabled: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: receipt}}}
+		}
+		Expect(m.persist("test")).To(Succeed())
+		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(cfg.Root, "runtime"), Limits: contract.DefaultLimits(), ReadyTimeout: 10 * time.Second, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(ctx)).To(Succeed()) })
+		began := time.Now()
+		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+		took := time.Since(began)
+		r, e := s.Registry.Snapshot(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(r).To(HaveLen(count))
+		// Serial start takes count*boot (8s). Four at a time takes two waves.
+		Expect(took).To(BeNumerically("<", 5*time.Second), "started %d add-ons in %s", count, took)
+		GinkgoWriter.Printf("started %d add-ons of %s boot each in %s\n", count, boot, took)
+	})
+})
