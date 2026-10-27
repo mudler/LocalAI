@@ -118,6 +118,10 @@ func addonAnswer(prompt string) string {
 	if promptHasAddonFile(prompt) {
 		return "The file is ready to download."
 	}
+	// A chat applies a change at once: the host answers with an applied document.
+	if strings.Contains(prompt, `"kind":"applied"`) || strings.Contains(prompt, `"kind": "applied"`) {
+		return "The change was made and you can undo it."
+	}
 	return "The change is waiting for your confirmation."
 }
 
@@ -125,7 +129,8 @@ func addonAnswer(prompt string) string {
 // call: the broker's result documents carry a kind (a proposal, a result or an
 // error such as select_resource), and a refusal is prefixed.
 func promptHasAddonResult(prompt string) bool {
-	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) || strings.Contains(prompt, `"kind":"error"`) ||
+	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) || strings.Contains(prompt, `"kind":"error"`) || strings.Contains(prompt, `"kind":"applied"`) ||
+		strings.Contains(prompt, `"kind": "applied"`) ||
 		strings.Contains(prompt, `"kind": "proposal"`) || strings.Contains(prompt, `"kind": "result"`) || strings.Contains(prompt, `"kind": "error"`) || strings.Contains(prompt, "Error: ") ||
 		promptHasAddonFile(prompt)
 }
