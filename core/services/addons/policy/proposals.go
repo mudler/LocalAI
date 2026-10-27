@@ -811,10 +811,10 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 			if rctx.Err() != nil {
 				return rctx.Err()
 			}
-			if errors.Is(e, contract.ErrRefused) {
+			if refusal := previewRefusal(e); refusal != nil {
 				// The add-on judged the request invalid. A preview changes
 				// nothing, so nothing is stored and the ID stays free.
-				return gateway.Refused(e)
+				return refusal
 			}
 			return ErrUnavailable
 		}
@@ -843,6 +843,20 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		return e
 	})
 	return out, err
+}
+
+// previewRefusal types a failed preview that is the add-on's definite answer
+// as a refusal: an invalid request, or a conflict with what it holds (a table
+// that exists). A preview changes nothing, so neither is an outage and a
+// repeat of the same call is refused again. Any other failure returns nil.
+func previewRefusal(err error) error {
+	switch {
+	case errors.Is(err, contract.ErrRefused):
+		return gateway.Refused(err)
+	case errors.Is(err, addonruntime.ErrConflict):
+		return gateway.Refused(fmt.Errorf("%w: %w", contract.ErrRefused, err))
+	}
+	return nil
 }
 
 // proposeCreate stores a request to create a resource. The resource does not
@@ -922,8 +936,8 @@ func (b *Broker) proposeCreate(ctx context.Context, p *Policy, actor contract.Ac
 		if ctx.Err() != nil {
 			return Proposal{}, ctx.Err()
 		}
-		if errors.Is(err, contract.ErrRefused) {
-			return Proposal{}, gateway.Refused(err)
+		if refusal := previewRefusal(err); refusal != nil {
+			return Proposal{}, refusal
 		}
 		return Proposal{}, ErrUnavailable
 	}

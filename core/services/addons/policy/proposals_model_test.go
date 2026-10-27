@@ -79,3 +79,19 @@ var _ = Describe("TestBrokerFollowsModel", Label("proposals"), func() {
 		Expect(string(f.stored("op"))).To(Equal(modelStep("timeout-unknown-then-receipt-committed", "R40")))
 	})
 })
+
+var _ = Describe("a conflict found by the preview", Label("proposals"), func() {
+	ctx := context.Background()
+	It("is a refusal that changed nothing, not an outage, and leaves the ID free", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		f.rt.previewErr = addonruntime.ErrConflict // the add-on answered 409: the table exists
+		_, err := f.broker.Propose(ctx, owner, f.request(key, "op", "write", `{"rows":[1]}`))
+		Expect(err).To(MatchError(gateway.ErrInvalidRequest))
+		Expect(errors.Is(err, gateway.ErrUnavailable)).To(BeFalse())
+		f.rt.previewErr = nil
+		_, err = f.broker.Propose(ctx, owner, f.request(key, "op", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+	})
+})
