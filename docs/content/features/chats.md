@@ -136,6 +136,30 @@ curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
   makes a new chat of yours with the model of the file, or the one named in
   `model`, which you must be allowed to use.
 
+## Images, video and documents
+
+Attach files with `multipart/form-data` on `POST /api/chats/{id}/messages`
+(see above). What the model gets depends on the file and the model:
+
+- **Images.** When the chat's model takes images (a multimodal projector, or
+  `known_input_modalities` with `image` in its configuration) the image goes
+  to the model inside the message, as an `image_url` part. With a model that
+  does not, the model gets the file path and the `describe_image` tool, which
+  needs a helper vision model.
+- **Video.** `mp4`, `webm`, `mov`, `mkv` and `avi` files go to a model that
+  declares video input as a `video_url` part, with the next request after the
+  message and for that turn only. Other models get the path only.
+- **PDF, Word, Excel, PowerPoint and EPUB.** The text of the file is added to
+  the message, the first 20,000 characters of each document, and the model
+  reads the rest with the `read_document` tool (`offset` and `limit`). No
+  helper model is needed. A scanned PDF with no text layer is reported as
+  such.
+- **Audio.** A voice note is transcribed when a transcription model is set,
+  as before.
+
+The files are always kept in the chat's folder too. Images over 20 MB, videos
+over 100 MB and more than 128 MB of media in one message stay files only.
+
 ## Sub-agents
 
 The model can start a sub-agent for a self-contained task. By default it waits

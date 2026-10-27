@@ -111,11 +111,16 @@ func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // newLLMStudioServer is a chats server whose loop is the real nib harness and
 // whose model is llm.
-func newLLMStudioServer(llm *fakeLLM) *studioServer {
+func newLLMStudioServer(llm *fakeLLM) *studioServer { return newLLMStudioServerWith(llm, nil) }
+
+func newLLMStudioServerWith(llm *fakeLLM, mod func(*studio.Deps)) *studioServer {
 	return newStudioServerWith(newTestFiles(), func(d *studio.Deps) {
 		p := provider.New()
 		p.Transport().SetHandler(llm)
 		d.Provider, d.Harness = p, nil
+		if mod != nil {
+			mod(d)
+		}
 	})
 }
 

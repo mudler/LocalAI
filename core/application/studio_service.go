@@ -93,6 +93,7 @@ func (a *Application) initStudioService() {
 		Assistant:     studioAssistant{a},
 		Collections:   studioCollections{a},
 		ContextTokens: a.studioContextTokens,
+		Modalities:    a.studioModalities,
 		Persistent:    a.studioStoreKind != "memory",
 		Files:         a.StudioFiles(),
 		Media:         media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel),
@@ -188,6 +189,16 @@ func (a *Application) studioContextTokens(model string) int {
 		return 0
 	}
 	return *cfg.ContextSize
+}
+
+// studioModalities says which inputs a chat model takes natively, from its
+// configuration. An unknown model takes none.
+func (a *Application) studioModalities(model string) studio.Modalities {
+	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
+	if !ok {
+		return studio.Modalities{}
+	}
+	return studio.Modalities{Vision: cfg.VisionSupported(), Video: cfg.VideoInputSupported()}
 }
 
 // studioMCPServers picks the MCP servers a chat uses, by the chat route's

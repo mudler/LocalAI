@@ -121,7 +121,7 @@ func (s *Service) rerun(ctx context.Context, p, conv string, pick func([]session
 		}
 		return SendResult{}, err
 	}
-	if err := s.startTurn(ctx, p, conv, runID, text, nil); err != nil {
+	if err := s.startTurn(ctx, p, conv, runID, text, nil, nil); err != nil {
 		return SendResult{}, err
 	}
 	return SendResult{Started: true}, nil

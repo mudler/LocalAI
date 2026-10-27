@@ -35,6 +35,11 @@ type Params struct {
 	// OnUsage, when set, is called once for each model request that reports
 	// token counts. It asks the route for stream usage and timings.
 	OnUsage func(Usage)
+	// TakeVideos, when set, is asked for each chat request. The data: URIs it
+	// returns are added to the last user message as video_url parts. The agent
+	// harness drops audio and video parts, so videos go in here, once, with
+	// the request that follows the user's message.
+	TakeVideos func() []string
 }
 
 // Usage is what one model request used.
@@ -61,7 +66,7 @@ func (p *Provider) LLMWith(user *auth.User, model string, params Params) cogito.
 }
 
 func (p Params) isZero() bool {
-	return p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil
+	return p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil && p.TakeVideos == nil
 }
 
 type paramsTransport struct {
@@ -133,10 +138,61 @@ func (t *paramsTransport) rewrite(raw []byte) ([]byte, error) {
 	if err == nil && t.params.OnUsage != nil && string(m["stream"]) == "true" {
 		err = set("stream_options", map[string]bool{"include_usage": true})
 	}
+	if err == nil && t.params.TakeVideos != nil {
+		err = addVideos(m, t.params.TakeVideos())
+	}
 	if err != nil {
 		return nil, fmt.Errorf("studio provider: set the chat settings: %w", err)
 	}
 	return json.Marshal(m)
+}
+
+// addVideos appends video_url parts to the last user message of the request.
+func addVideos(m map[string]json.RawMessage, uris []string) error {
+	if len(uris) == 0 {
+		return nil
+	}
+	var msgs []json.RawMessage
+	if err := json.Unmarshal(m["messages"], &msgs); err != nil {
+		return err
+	}
+	for i := len(msgs) - 1; i >= 0; i-- {
+		var msg map[string]json.RawMessage
+		if err := json.Unmarshal(msgs[i], &msg); err != nil {
+			return err
+		}
+		if string(msg["role"]) != `"user"` {
+			continue
+		}
+		var parts []any
+		var text string
+		switch err := json.Unmarshal(msg["content"], &text); {
+		case err == nil:
+			parts = append(parts, map[string]string{"type": "text", "text": text})
+		default:
+			if err := json.Unmarshal(msg["content"], &parts); err != nil {
+				return err
+			}
+		}
+		for _, u := range uris {
+			parts = append(parts, map[string]any{"type": "video_url", "video_url": map[string]string{"url": u}})
+		}
+		content, err := json.Marshal(parts)
+		if err != nil {
+			return err
+		}
+		msg["content"] = content
+		if msgs[i], err = json.Marshal(msg); err != nil {
+			return err
+		}
+		raw, err := json.Marshal(msgs)
+		if err != nil {
+			return err
+		}
+		m["messages"] = raw
+		return nil
+	}
+	return nil
 }
 
 // usageBody passes a response through and reports the usage it carries when
