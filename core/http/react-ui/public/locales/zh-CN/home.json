@@ -110,5 +110,19 @@
     "createSummary": "Open a chat, image or voice session",
     "operate": "Operate",
     "operateSummary": "{{models}} models configured · nodes, activity and traces"
+  },
+  "slash": {
+    "agents": {
+      "label": "智能体",
+      "desc": "你保存的智能体、触发器和技能"
+    },
+    "mcp": {
+      "label": "MCP 连接器",
+      "desc": "你的对话可以使用的 MCP 服务器"
+    },
+    "memory": {
+      "label": "记忆",
+      "desc": "你的对话可以搜索的集合"
+    }
   }
 }

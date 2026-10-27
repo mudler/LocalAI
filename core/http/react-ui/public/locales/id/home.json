@@ -110,5 +110,19 @@
     "createSummary": "Open a chat, image or voice session",
     "operate": "Operate",
     "operateSummary": "{{models}} models configured · nodes, activity and traces"
+  },
+  "slash": {
+    "agents": {
+      "label": "Agen",
+      "desc": "Agen tersimpan, pemicu, dan keahlian Anda"
+    },
+    "mcp": {
+      "label": "Konektor MCP",
+      "desc": "Server MCP yang bisa dipakai obrolan Anda"
+    },
+    "memory": {
+      "label": "Memori",
+      "desc": "Koleksi yang bisa dicari obrolan Anda"
+    }
   }
 }

@@ -142,7 +142,7 @@ const Addons = page('addons', () => import('./pages/Addons'))
 const AddonRoute = page(null, () => import('./addons/AddonRoute'))
 // Only referenced from JSX below, which eslint cannot see.
 // eslint-disable-next-line no-unused-vars
-const BuildOverview = page('build', () => import('./pages/BuildOverview'))
+const MCPConnectors = page('mcp-connectors', () => import('./pages/MCPConnectors'))
 
 import HubLayout from './components/hub/HubLayout'
 // Only referenced from JSX below, which eslint cannot see.
@@ -151,7 +151,7 @@ import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
 import { addonPageAddress, chatsRedirect, studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
-import { buildHub, operateHub } from './components/hub/hubConfig'
+import { legacyAddonsHub, operateHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
 // The old chat page became the chats and the old agent-jobs pages became the
@@ -228,7 +228,7 @@ function AddonsShell() {
   const outletContext = useOutletContext()
   if (!featuresLoaded) return null
   if (features.addons === false) return <Navigate to="/app" replace />
-  if (features.addon_navigation === false) return <HubLayout config={buildHub} />
+  if (features.addon_navigation === false) return <HubLayout config={legacyAddonsHub} />
   return <Outlet context={outletContext} />
 }
 
@@ -296,8 +296,8 @@ const appChildren = [
   { path: 'account', element: <Account /> },
   // The Add-ons drawer. A viewer without the addons feature still reaches it
   // when a built-in tile is theirs to open (the built-in list is empty today).
-  // With the legacy switch on, both routes sit in the Build hub again, under
-  // its Add-ons tab, and need the addons feature as they did before.
+  // With the legacy switch on, both routes sit under the legacy Add-ons hub,
+  // and need the addons feature as they did before.
   {
     element: <AddonsShell />,
     children: [
@@ -306,24 +306,24 @@ const appChildren = [
     ],
   },
 
-  // Build hub: one tab bar over the tool landing pages. Deep create/edit/chat
-  // flows below render full-width, without the bar.
-  {
-    element: <HubLayout config={buildHub} />,
-    children: [
-      { path: 'build', element: <BuildOverview /> },
-      { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
-      { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
-      { path: 'fine-tune', element: <AddonsOffRedirect><AddonRedirect addon="fine-tuning" page="jobs" /></AddonsOffRedirect> },
-      { path: 'quantize', element: <AddonsOffRedirect><AddonRedirect addon="quantization" page="jobs" /></AddonsOffRedirect> },
-      { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
-      { path: 'face/:model', element: <AddonRedirect addon="face" page="recognition" withModel /> },
-      { path: 'voice', element: <AddonRedirect addon="voice" page="voice/recognition" /> },
-      { path: 'voice/:model', element: <AddonRedirect addon="voice" page="voice/recognition" withModel /> },
-      { path: 'voice-library', element: <AddonRedirect addon="voice" page="voice/library" /> },
-      { path: 'import-model', element: <Admin><ImportModel /></Admin> },
-    ],
-  },
+  // The Build hub is gone: its pages are top-level now. Memory (collections)
+  // and the agents have their own sidebar items, Import is part of adding a
+  // model, and fine-tuning, quantization, faces and voices are add-ons. The old
+  // landing address opens the models.
+  { path: 'build', element: <Navigate to="/app/models" replace /> },
+  { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
+  { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
+  { path: 'fine-tune', element: <AddonsOffRedirect><AddonRedirect addon="fine-tuning" page="jobs" /></AddonsOffRedirect> },
+  { path: 'quantize', element: <AddonsOffRedirect><AddonRedirect addon="quantization" page="jobs" /></AddonsOffRedirect> },
+  { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
+  { path: 'face/:model', element: <AddonRedirect addon="face" page="recognition" withModel /> },
+  { path: 'voice', element: <AddonRedirect addon="voice" page="voice/recognition" /> },
+  { path: 'voice/:model', element: <AddonRedirect addon="voice" page="voice/recognition" withModel /> },
+  { path: 'voice-library', element: <AddonRedirect addon="voice" page="voice/library" /> },
+  { path: 'import-model', element: <Admin><ImportModel /></Admin> },
+  // The user's MCP connectors have a page of their own; the old address was a
+  // tab of the messaging connectors.
+  { path: 'mcp-connectors', element: <Feature feature="chats"><MCPConnectors /></Feature> },
   // The old agent-jobs pages are the triggers now.
   { path: 'agent-jobs/*', element: <ChatsRedirect /> },
   { path: 'agent-jobs', element: <ChatsRedirect /> },

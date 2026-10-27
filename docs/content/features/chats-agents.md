@@ -59,7 +59,7 @@ was deleted.
 
 ### Pages
 
-The Agents page (`/app/agents`) lists your agents with the chats that ran with
+The Agents page (**Agents** in the sidebar, `/app/agents`) lists your agents with the chats that ran with
 each one, and a page for one agent (`/app/agents/{id}`) shows its definition, the
 triggers that start it and its chats. Create and edit an agent in a form of
 folds with a preview of the definition and of what changed. An agent exports to a

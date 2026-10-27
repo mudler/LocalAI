@@ -110,5 +110,19 @@
     "createSummary": "Open a chat, image or voice session",
     "operate": "Operate",
     "operateSummary": "{{models}} models configured · nodes, activity and traces"
+  },
+  "slash": {
+    "agents": {
+      "label": "에이전트",
+      "desc": "저장된 에이전트, 트리거, 스킬"
+    },
+    "mcp": {
+      "label": "MCP 커넥터",
+      "desc": "채팅이 쓸 수 있는 MCP 서버"
+    },
+    "memory": {
+      "label": "메모리",
+      "desc": "채팅이 검색할 수 있는 컬렉션"
+    }
   }
 }

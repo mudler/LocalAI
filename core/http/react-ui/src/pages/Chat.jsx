@@ -739,7 +739,7 @@ function ChatPage() {
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')} note={t('tools.note')}
         groups={toolGroups} error={switches.error} testId="chat-tools"
         footer={switches.connectors.length > 0 || switches.servers.length > 0
-          ? <button type="button" className="chat-mcp-select-all chat-switch-manage" onClick={() => navigate('/app/chats/connectors?kind=mcp')}>{tc('tools.manage')}</button>
+          ? <button type="button" className="chat-mcp-select-all chat-switch-manage" onClick={() => navigate('/app/mcp-connectors')}>{tc('tools.manage')}</button>
           : null}
       />
       <SwitchMenu

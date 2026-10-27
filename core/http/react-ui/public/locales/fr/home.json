@@ -113,5 +113,19 @@
   },
   "jump": {
     "heading": "Reprendre où vous en étiez"
+  },
+  "slash": {
+    "agents": {
+      "label": "Agents",
+      "desc": "Vos agents enregistrés, déclencheurs et compétences"
+    },
+    "mcp": {
+      "label": "Connecteurs MCP",
+      "desc": "Serveurs MCP que vos chats peuvent utiliser"
+    },
+    "memory": {
+      "label": "Mémoire",
+      "desc": "Collections que vos chats peuvent consulter"
+    }
   }
 }

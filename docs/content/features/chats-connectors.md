@@ -5,10 +5,10 @@ weight = 23
 url = "/features/chats-connectors/"
 +++
 
-The Connectors page of the [chats](/features/chats/) has two kinds of connector:
+The [chats](/features/chats/) have two kinds of connector, each on its own page:
 
-- **Telegram** binds a bot to one of your agents, so a person can talk to it from Telegram. This is the first half of this page.
-- **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
+- **Telegram** binds a bot to one of your agents, so a person can talk to it from Telegram. Messaging connectors are on the Connectors page (`/app/chats/connectors`, under **Agents** in the sidebar). This is the first half of this page.
+- **MCP server** gives your chats and agents more tools. MCP servers are on the **MCP connectors** page of the sidebar (`/app/mcp-connectors`). See [MCP servers](#mcp-servers).
 
 ## Telegram
 
@@ -132,7 +132,7 @@ when you save it.
 
 ### Add one
 
-On the Connectors page choose **MCP server**, then **New MCP server**. Give it a
+On the **MCP connectors** page choose **New MCP server**. Give it a
 name (unique among your connectors) and an address, and optionally a bearer
 token or other headers. Use **Test connection** to connect and list the tool
 names before you switch it on.

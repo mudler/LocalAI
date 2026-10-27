@@ -125,5 +125,19 @@
     "createSummary": "Abra uma sessão de chat, imagem ou voz",
     "operate": "Operar",
     "operateSummary": "{{models}} modelos configurados · nós, atividade e rastreamentos"
+  },
+  "slash": {
+    "agents": {
+      "label": "Agentes",
+      "desc": "Seus agentes salvos, gatilhos e habilidades"
+    },
+    "mcp": {
+      "label": "Conectores MCP",
+      "desc": "Servidores MCP que seus chats podem usar"
+    },
+    "memory": {
+      "label": "Memória",
+      "desc": "Coleções em que seus chats podem pesquisar"
+    }
   }
 }

@@ -69,7 +69,8 @@
     "prometheus": "Prometheus",
     "chats": "Chats",
     "files": "Berkas",
-    "triggers": "Pemicu"
+    "triggers": "Pemicu",
+    "mcpConnectors": "Konektor MCP"
   },
   "footer": {
     "github": "GitHub",

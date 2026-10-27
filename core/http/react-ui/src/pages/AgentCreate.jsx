@@ -303,7 +303,7 @@ export default function AgentCreate() {
             <GrantList testId="agent-connectors" options={connectorOptions} value={mcp.connectors}
               onChange={(v) => updateField('mcp_servers', joinAgentMCP(mcp.servers, v))}
               emptyText={t('create.noConnectors')} goneLabel={t('create.gone')} />
-            <p className="ag-note"><Link to="/app/chats/connectors?kind=mcp">{t('create.manageConnectors')}</Link></p>
+            <p className="ag-note"><Link to="/app/mcp-connectors">{t('create.manageConnectors')}</Link></p>
           </>
         )
       default:

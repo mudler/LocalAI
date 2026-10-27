@@ -95,7 +95,8 @@
     "addons": "Add-ons",
     "chats": "Chats",
     "files": "Fichiers",
-    "triggers": "Déclencheurs"
+    "triggers": "Déclencheurs",
+    "mcpConnectors": "Connecteurs MCP"
   },
   "footer": {
     "github": "GitHub",

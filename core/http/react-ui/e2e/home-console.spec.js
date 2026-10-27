@@ -35,8 +35,17 @@ test.describe('Home slash menu', () => {
     expect(names).toEqual([
       '/model', '/new', '/chat', '/assistant',
       '/gallery', '/installed', '/import', '/stop',
-      '/settings', '/docs',
+      '/agents', '/mcp', '/memory', '/settings', '/docs',
     ])
+  })
+
+  test('the /agents, /mcp and /memory commands open their pages', async ({ page }) => {
+    for (const [cmd, url] of [['agents', /\/app\/agents$/], ['mcp', /\/app\/mcp-connectors$/], ['memory', /\/app\/collections$/]]) {
+      await ready(page)
+      await page.locator('.home-textarea').fill('/')
+      await page.getByTestId(`home-slash-${cmd}`).click()
+      await expect(page).toHaveURL(url)
+    }
   })
 
   // Studio is an add-on: its command is offered only while it is installed.

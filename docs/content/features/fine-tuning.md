@@ -210,7 +210,7 @@ In a split deployment (`--addons-role=owner` and `--addons-role=frontend`), the 
 
 ## Web UI
 
-**Build → Fine-Tune** is one page that follows the job from set-up to result. A line at the top shows where you are: set up, check, run, result.
+The Fine-Tune page is one page that follows the job from set-up to result. A line at the top shows where you are: set up, check, run, result.
 
 1. **Set up** - Choose the base model, the dataset (a Hugging Face id or an uploaded file), the kind of training (an adapter, or the full model) and the epochs, batch size and learning rate. Method, backend, adapter settings, optimizer, evaluation, reward functions (GRPO) and extra options are under **More options**.
 2. **Check before you start** - A list of what is known before the job starts, redrawn as you change the form: whether the model and dataset are set, whether a fine-tuning backend is installed, how much GPU memory (or RAM, when there is no GPU) is free, how much space is free on the models disk, and whether a token is set. LocalAI does not estimate how much memory a job needs or how long it takes, because the server cannot know that before the job starts, so the page says so. A missing model or dataset blocks the start. A warning, such as a missing backend or no GPU, does not.
@@ -223,7 +223,7 @@ A user needs the fine-tuning permission. Without it, the page says the account c
 
 ### Fine-tuning is an add-on
 
-The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/fine-tuning/jobs` and can be shown in the sidebar. The Build hub no longer has a Fine-Tune tab.
+The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/fine-tuning/jobs` and can be shown in the sidebar. 
 
 The old link `/app/fine-tune` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
 

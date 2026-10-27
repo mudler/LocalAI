@@ -2401,7 +2401,7 @@ changes the order with **Move earlier** and **Move later** in the same menu. Pin
 capped at eight. A pin whose add-on is stopped opens the detail view; a pin whose add-on
 was removed or is hidden is not drawn. Operators who
 need the previous sidebar can set `LOCALAI_LEGACY_NAVIGATION=true` (flag
-`--legacy-navigation`); it also brings back the Add-ons tab of the Build hub, which then opens `/app/addons`. The switch is a rollback aid and is removed one release after the
+`--legacy-navigation`); it also brings back the Add-ons hub, a one-tab bar over `/app/addons` that the legacy sidebar lists. The switch is a rollback aid and is removed one release after the
 new navigation ships; the UI reads it from the `addon_navigation` key of `/api/features`.
 
 A tab is addressed as `/app/addons?tab=browse|libraries`; My add-ons has no `tab`. What the
@@ -2446,8 +2446,8 @@ A link with a model (`/app/image/<model>`) opens `/app/addons/studio/studio/imag
 `audio_diarization` or `audio_transform` feature still lands on the app home, as before.
 
 The legacy switch (`LOCALAI_LEGACY_NAVIGATION`) restores the old sidebar and the Add-ons
-tab of the Build hub only. These redirects do not depend on it: with the switch on, the
-old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, Chat and
+hub only. These redirects do not depend on it: with the switch on, the
+old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, Chats, Agents, MCP connectors, Memory and
 the hubs; Studio and Talk are in My add-ons, as add-ons.
 
 ### The Studio add-on
@@ -2491,7 +2491,7 @@ file of the web UI; other languages read the English text.
 
 The Voice add-on (`voice`) is a packaged add-on. It is not shipped with LocalAI: install it
 from **Find add-ons** with **Install and turn on**. Once it is usable, it appears in
-My add-ons and can be shown in the sidebar. The Build hub has no Voices tab.
+My add-ons and can be shown in the sidebar.
 
 The add-on has one page, `/app/addons/voice/voice`, and one entry in My add-ons. Its
 sections are tabs of that page, and the tab is the next segment of the address:
@@ -2525,7 +2525,7 @@ views, built from one source directory into each add-on.
 
 The Face add-on (`face`) is a packaged add-on, separate from the Voice add-on. It is not
 shipped with LocalAI: install it from **Find add-ons** with **Install and turn on**. Once it
-is usable, it appears in My add-ons and can be shown in the sidebar. The Build hub has no Faces tab.
+is usable, it appears in My add-ons and can be shown in the sidebar.
 
 | Page | Path | Who sees it |
 |---|---|---|
@@ -2547,7 +2547,6 @@ same views, built from one source directory into each add-on.
 The Fine-tuning add-on (`fine-tuning`) and the Quantization add-on (`quantization`) are
 packaged add-ons. They are not shipped with LocalAI: install them from **Find add-ons**
 with **Install and turn on**. Once usable, they appear in My add-ons and can be shown in the sidebar.
-The Build hub has no Fine-Tune or Quantize tab.
 
 | Add-on | Page | Path | Who sees it |
 |---|---|---|---|
@@ -3188,7 +3187,7 @@ text, history, the model or any host state.
 |---|---|---|
 | `chat.composer.actions` | In an overflow menu next to the attach buttons of the composer. Actions of placement `composer` are menu items. Components are drawn in the menu. | `conversationId`, `disabled` |
 | `chat.message.actions` | In the action row of each message. Actions of placement `message` are icon buttons. | `conversationId`, `messageId`, `role` |
-| `app.nav` | On the Add-ons page, below the tile grid. Under the legacy switch: at the end of the second navigation row of the Build hub's Add-ons tab, after the links of `ui.navigation`. | none |
+| `app.nav` | On the Add-ons page, below the tile grid. Under the legacy switch: at the end of the second navigation row of the Add-ons hub, after the links of `ui.navigation`. | none |
 | `settings.sections` | At the end of the Settings page, one section for each component, under a heading with the title and icon of the add-on. | none |
 | `files.preview` | On the Files page, in the preview of the selected file, between its size and its download link. The first component that handles the file's extension is drawn; the host's own view stays. | `path`, `name`, `extension` |
 

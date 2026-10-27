@@ -95,11 +95,6 @@ test('the face route and the face model route both open the Face add-on, the mod
   assert.ok(withModel?.includes('<AddonRedirect addon="face" page="recognition" withModel />'), 'face/:model does not redirect with withModel')
 })
 
-test('the Build hub has no Faces tab', async () => {
-  const { buildHub } = await import('../../src/components/hub/hubConfig.js')
-  assert.ok(!buildHub.tabs.some(t => t.id === 'faces' || t.id === 'voices'))
-})
-
 test('the fine-tune and quantize routes redirect to their add-on pages', () => {
   const lines = router.split('\n')
   const rows = [
@@ -113,17 +108,11 @@ test('the fine-tune and quantize routes redirect to their add-on pages', () => {
   }
 })
 
-test('the Build hub has no fine-tune or quantize tab', async () => {
-  const { buildHub } = await import('../../src/components/hub/hubConfig.js')
-  assert.ok(!buildHub.tabs.some(t => t.id === 'fine-tune' || t.id === 'quantize'))
-})
-
-test('the Build overview keeps the fine-tune and quantize cards, and links the agents, triggers and skills of the chats', async () => {
-  const { buildOverviewTools } = await import('../../src/components/hub/hubConfig.js')
-  assert.deepEqual(buildOverviewTools.map(t => [t.id, t.items[0].path]), [
-    ['agents', '/app/chats/agents'], ['triggers', '/app/chats/triggers'], ['skills', '/app/chats/skills'],
-    ['fine-tune', '/app/fine-tune'], ['quantize', '/app/quantize'],
-  ])
+test('the Build hub is gone and its address opens the models', async () => {
+  const { hubs } = await import('../../src/components/hub/hubConfig.js')
+  assert.ok(!hubs.some(h => h.id === 'build'))
+  const entry = router.split('\n').find(l => l.includes("{ path: 'build', element:"))
+  assert.ok(entry?.includes('<Navigate to="/app/models" replace />'))
 })
 
 test('the voice routes open the tabs of the one Voice page', () => {

@@ -21,11 +21,11 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('the sidebar has Chats, Models and Add-ons, no Settings and no Create tier', async ({ page }) => {
+  test('the sidebar has Chats, Files, Agents, MCP connectors, Memory, Models and Add-ons, no Settings and no Create tier', async ({ page }) => {
     await stubAddonRoutes(page)
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
-    for (const href of ['/app/chats', '/app/models', '/app/addons']) {
+    for (const href of ['/app/chats', '/app/files', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons']) {
       await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`).first()).toBeVisible()
     }
     // Settings lives under the Operate hub, not in the sidebar.
@@ -43,22 +43,49 @@ test.describe('Navigation', () => {
     }
   })
 
-  test('Build and Operate sit under a Workspace label', async ({ page }) => {
+  test('Operate sits under a Workspace label and there is no Build entry', async ({ page }) => {
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Workspace' })).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toBeVisible()
     await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toHaveCount(0)
   })
 
-  test('Build is a single entry that opens the Build hub', async ({ page }) => {
+  test('the old Build address opens the models, and Import starts from adding a model', async ({ page }) => {
+    await page.goto('/app/build')
+    await expect(page).toHaveURL(/\/app\/models/)
+    await page.goto('/app/model-editor')
+    await page.getByTestId('add-model-import').click()
+    await expect(page).toHaveURL(/\/app\/import-model$/)
+  })
+
+  test('Agents, MCP connectors and Memory are sidebar items, and their pages light them up', async ({ page }) => {
     await page.goto('/app')
-    const build = page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })
-    await expect(build).toBeVisible()
-    await build.click()
-    await expect(page).toHaveURL(/\/app\/build$/)
-    const bar = page.locator('.dk-hubtabs')
-    await expect(bar.locator('[data-hub-tab="overview"]')).toHaveAttribute('aria-current', 'page')
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toHaveClass(/active/)
+    const item = (href) => page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)
+    await item('/app/agents').click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    await expect(item('/app/agents')).toHaveClass(/active/)
+    // Triggers, skills and the messaging connectors belong to the agents.
+    for (const path of ['/app/triggers', '/app/skills', '/app/chats/connectors']) {
+      await page.goto(path)
+      await expect(item('/app/agents')).toHaveClass(/active/)
+      await expect(item('/app/chats')).not.toHaveClass(/active/)
+    }
+    await item('/app/mcp-connectors').click()
+    await expect(page.getByTestId('mcp-connectors-page')).toBeVisible()
+    await expect(item('/app/mcp-connectors')).toHaveClass(/active/)
+    await item('/app/collections').click()
+    await expect(page).toHaveURL(/\/app\/collections$/)
+    await expect(item('/app/collections')).toHaveClass(/active/)
+    // Memory is a page of its own now, not a tab of a hub.
+    await expect(page.locator('.dk-hubtabs')).toHaveCount(0)
+  })
+
+  test('the old MCP tab of the connectors opens the MCP connectors page', async ({ page }) => {
+    await page.goto('/app/chats/connectors?kind=mcp')
+    await expect(page).toHaveURL(/\/app\/mcp-connectors$/)
+    await expect(page.getByTestId('mcp-connectors-page')).toBeVisible()
+    await page.goto('/app/chats/connectors')
+    await expect(page.getByRole('tab', { name: 'MCP server' })).toHaveCount(0)
   })
 
   test('Operate is a single entry that opens the Operate hub', async ({ page }) => {
@@ -68,36 +95,6 @@ test.describe('Navigation', () => {
     await operate.click()
     await expect(page).toHaveURL(/\/app\/operate$/)
     await expect(page.locator('.dk-hubtabs [data-hub-tab="status"]')).toHaveAttribute('aria-current', 'page')
-  })
-
-  test('Build hub lists its tools as tabs', async ({ page }) => {
-    await page.goto('/app/collections')
-    const bar = page.locator('.dk-hubtabs')
-    await expect(bar).toBeVisible()
-    for (const id of ['overview', 'memory', 'import']) {
-      await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
-    }
-    // The agents, triggers and skills are pages of the chats, not tabs.
-    await expect(bar.locator('[data-hub-tab="agents"], [data-hub-tab="skills"], [data-hub-tab="jobs"], [data-hub-tab="triggers"]')).toHaveCount(0)
-    await expect(bar.locator('[data-hub-tab="fine-tune"], [data-hub-tab="quantize"]')).toHaveCount(0)
-    await expect(bar.locator('[data-hub-tab="faces"]')).toHaveCount(0)
-    await expect(bar.locator('[data-hub-tab="memory"]')).toHaveAttribute('aria-current', 'page')
-  })
-
-  test('the Build overview lists the tools with a line each', async ({ page }) => {
-    // The Fine-tuning tile is shown when the server has the switch on.
-    await page.route('**/api/features', async route => {
-      const real = await (await route.fetch()).json()
-      return route.fulfill({ json: { ...real, fine_tuning: true } })
-    })
-    await page.goto('/app/build')
-    const list = page.getByRole('list', { name: 'Build tools' })
-    // Each tool is a row with its sentence and an Open link.
-    const row = (path) => list.locator('li.bt-tool', { has: page.locator(`a[href="${path}"]`) })
-    await expect(row('/app/chats/agents')).toContainText('Saved agents')
-    await expect(list.locator('a[href="/app/chats/triggers"]')).toBeVisible()
-    await expect(list.locator('a[href="/app/chats/skills"]')).toBeVisible()
-    await expect(list.locator('a[href="/app/fine-tune"]')).toBeVisible()
   })
 
 })

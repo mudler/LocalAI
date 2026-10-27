@@ -257,7 +257,7 @@
     "title": "Connectors",
     "new": "New connector",
     "edit": "Edit connector",
-    "intro": "A connector links something to your chats. A Telegram bot lets people talk to one of your agents from Telegram. An MCP server gives your chats and agents more tools.",
+    "intro": "A connector links a messaging service to your chats. A Telegram bot lets people talk to one of your agents from Telegram. Your MCP servers are on the MCP connectors page.",
     "name": "Name",
     "token": "Bot token",
     "tokenHelp": "From @BotFather. It is kept sealed and never shown again.",
@@ -295,10 +295,7 @@
       "nobody": "nobody yet",
       "listed_one": "1 listed sender",
       "listed_other": "{{count}} listed senders"
-    },
-    "kindSwitch": "Kind of connector",
-    "kindTelegram": "Telegram",
-    "kindMCP": "MCP server"
+    }
   },
   "conversionPage": {
     "title": "Converted from the old chat",
@@ -395,6 +392,7 @@
       "done": "Imported {{count}}. They are switched off: test and turn them on below.",
       "failed": "{{name}} was not imported: {{error}}",
       "left": "The servers that were not imported stay in this browser."
-    }
+    },
+    "title": "MCP connectors"
   }
 }

@@ -9,7 +9,7 @@ import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { hubs, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
 import { topDestinations } from '../utils/destinations'
-import { primaryDestinations, visiblePrimary } from '../utils/navigationModel'
+import { primaryActive, primaryDestinations, visiblePrimary } from '../utils/navigationModel'
 import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
@@ -18,13 +18,14 @@ import AppsPinnedLinks from './AppsPinnedLinks'
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
-// The sidebar has two layouts. The four-item layout shows Home, Chat, Models
-// and Apps (the entry for the add-ons drawer), and Build and Operate under
-// Workspace. Pinned apps are listed under Apps. With the legacy switch on (features.addon_navigation === false)
-// it shows Home, Models and Chat, and Workspace. Build and Operate are single
-// entries; each opens a hub whose tab bar lives in hub/hubConfig.js (shared
-// with HubLayout). The legacy entries are shared with the 404 page, which
-// lists the same destinations.
+// The sidebar has two layouts. The primary layout shows Home, Chats, Files,
+// Agents, MCP connectors, Memory, Models and Add-ons (the entry for the add-ons
+// drawer), and Operate under Workspace. Pinned apps are listed under Add-ons.
+// With the legacy switch on (features.addon_navigation === false) it shows the
+// legacy entries of destinations.js, and Workspace. Operate is a single entry
+// that opens a hub whose tab bar lives in hub/hubConfig.js (shared with
+// HubLayout). The legacy entries are shared with the 404 page, which lists
+// the same destinations.
 const topItems = topDestinations
 
 const sections = [
@@ -219,7 +220,7 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="sidebar-section">
             {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
               <Fragment key={item.path}>
-                <NavItem item={item} onClose={onClose} collapsed={collapsed} />
+                <NavItem item={item} onClose={onClose} collapsed={collapsed} active={legacy || item.path === '/app' ? undefined : primaryActive(item, location.pathname)} />
                 {/* The Apps group: the pinned apps in pin order, under the Apps entry. */}
                 {!legacy && item.addonsEntry && features.addons !== false && !collapsed && <AppsPinnedLinks onClose={onClose} />}
               </Fragment>

@@ -138,7 +138,7 @@ export default function AgentPage() {
               ? <>
                 {info.tools.map(x => <Chip key={x} mono>{x}</Chip>)}
                 {info.mcp.map(x => <Chip key={`mcp-${x}`} mono>{`mcp: ${x}`}</Chip>)}
-                {info.connectors.map(x => <Chip key={`conn-${x}`} to="/app/chats/connectors?kind=mcp" icon="plug">{t('facts.connector')}</Chip>)}
+                {info.connectors.map(x => <Chip key={`conn-${x}`} to="/app/mcp-connectors" icon="plug">{t('facts.connector')}</Chip>)}
               </>
               : <span className="ag-muted">{t('chips.none')}</span>}
           </dd>
