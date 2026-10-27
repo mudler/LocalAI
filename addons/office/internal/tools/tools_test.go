@@ -322,6 +322,42 @@ func TestCreatedFilesAreValidAndReadBack(t *testing.T) {
 	}
 }
 
+func TestCreatePdfWritesAFileTheReadToolReads(t *testing.T) {
+	h := newHost(t)
+	o, raw := call(t, h, tools.ToolCreatePdf, map[string]any{"path": "/new.pdf", "title": "Report", "blocks": []map[string]any{
+		{"kind": "heading", "level": 1, "text": "Summary"},
+		{"kind": "paragraph", "text": "All good."},
+		{"kind": "bullets", "items": []string{"one", "two"}},
+		{"kind": "table", "header": []string{"name", "n"}, "rows": [][]string{{"a", "1"}}},
+	}})
+	if !o.OK {
+		t.Fatalf("create-pdf = %s", raw)
+	}
+	if !strings.HasPrefix(string(h.files["/new.pdf"]), "%PDF-") {
+		t.Fatalf("/new.pdf is not a PDF")
+	}
+	_, read := call(t, h, tools.ToolReadPdf, map[string]any{"path": "/new.pdf"})
+	for _, want := range []string{"Summary", "All good.", "one", "two"} {
+		if !strings.Contains(read, want) {
+			t.Errorf("created pdf lacks %q: %s", want, read)
+		}
+	}
+}
+
+func TestCreatePdfRefusesWhatItCannotWrite(t *testing.T) {
+	h := newHost(t)
+	for name, args := range map[string]map[string]any{
+		"unknown kind":        {"path": "/a.pdf", "blocks": []map[string]any{{"kind": "image"}}},
+		"text outside latin1": {"path": "/b.pdf", "blocks": []map[string]any{{"kind": "paragraph", "text": "\u4f60\u597d"}}},
+		"wrong extension":     {"path": "/c.txt", "blocks": []map[string]any{{"kind": "paragraph", "text": "x"}}},
+	} {
+		o, raw := call(t, h, tools.ToolCreatePdf, args)
+		if o.OK {
+			t.Errorf("%s: create-pdf accepted it: %s", name, raw)
+		}
+	}
+}
+
 func TestCreateOverAnExistingFileKeepsBoth(t *testing.T) {
 	h := newHost(t)
 	h.put("/new.docx", docxBytes(t, "already here"))

@@ -450,6 +450,90 @@
           ],
           "type": "object"
         }
+      },
+      {
+        "name": "create-pdf",
+        "description": "Create a PDF file from blocks. A block has a kind: heading (text, level 1 to 3), paragraph (text), bullets (items) or table (header and rows). The text must use Latin-1 characters only. If the path is taken, the old file stays and the new one is saved next to it.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "blocks": {
+              "description": "The blocks, in order.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "header": {
+                    "description": "table: the column titles.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 20,
+                    "type": "array"
+                  },
+                  "items": {
+                    "description": "bullets: the lines.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "kind": {
+                    "description": "The kind of block.",
+                    "enum": [
+                      "heading",
+                      "paragraph",
+                      "bullets",
+                      "table"
+                    ],
+                    "type": "string"
+                  },
+                  "level": {
+                    "description": "heading: 1 to 3.",
+                    "type": "integer"
+                  },
+                  "rows": {
+                    "description": "table: the rows, top to bottom.",
+                    "items": {
+                      "description": "One row.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "maxItems": 20,
+                      "type": "array"
+                    },
+                    "maxItems": 500,
+                    "type": "array"
+                  },
+                  "text": {
+                    "description": "heading and paragraph: the text.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "maxItems": 2000,
+              "type": "array"
+            },
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.pdf.",
+              "type": "string"
+            },
+            "title": {
+              "description": "The document title. Optional.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "blocks"
+          ],
+          "type": "object"
+        }
       }
     ],
     "tools": [
@@ -462,7 +546,8 @@
       "edit-pptx",
       "create-docx",
       "create-xlsx",
-      "create-pptx"
+      "create-pptx",
+      "create-pdf"
     ],
     "ui": {
       "css": [
@@ -479,19 +564,19 @@
         "max": 2,
         "min": 2
       },
-      "title": "Office",
       "slots": [
         {
-          "id": "preview",
-          "slot": "files.preview",
           "component": "OfficePreview",
           "extensions": [
             "docx",
             "xlsx",
             "pptx"
-          ]
+          ],
+          "id": "preview",
+          "slot": "files.preview"
         }
-      ]
+      ],
+      "title": "Office"
     }
   },
   "dataFormat": {

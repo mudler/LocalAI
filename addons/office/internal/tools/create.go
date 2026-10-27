@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/addons/office/internal/deck"
 	"github.com/mudler/LocalAI/addons/office/internal/deck/pptx"
 	"github.com/mudler/LocalAI/addons/office/internal/docx"
+	"github.com/mudler/LocalAI/addons/office/internal/pdf"
 	"github.com/mudler/LocalAI/addons/office/internal/xlsx"
 )
 
@@ -171,4 +172,52 @@ func (w *work) createPptx(raw json.RawMessage) (any, error) {
 		return nil, refuse("the deck cannot be written: %v", err)
 	}
 	return w.store(a.Path, ".pptx", buf.Bytes(), 0)
+}
+
+func (w *work) createPdf(raw json.RawMessage) (any, error) {
+	var a struct {
+		pathArgs
+		Title  string `json:"title"`
+		Blocks []struct {
+			Kind   string     `json:"kind"`
+			Level  int        `json:"level"`
+			Text   string     `json:"text"`
+			Items  []string   `json:"items"`
+			Header []string   `json:"header"`
+			Rows   [][]string `json:"rows"`
+		} `json:"blocks"`
+	}
+	if err := decode(raw, &a); err != nil {
+		return nil, err
+	}
+	if err := checkPath(a.Path, ".pdf"); err != nil {
+		return nil, err
+	}
+	if len(a.Blocks) == 0 || len(a.Blocks) > 2000 {
+		return nil, refuse("blocks must hold 1 to 2000 entries")
+	}
+	blocks := make([]pdf.Block, 0, len(a.Blocks))
+	for i, b := range a.Blocks {
+		switch b.Kind {
+		case "heading":
+			level := b.Level
+			if level == 0 {
+				level = 1
+			}
+			blocks = append(blocks, pdf.Heading{Level: level, Text: b.Text})
+		case "paragraph":
+			blocks = append(blocks, pdf.Paragraph{Text: b.Text})
+		case "bullets":
+			blocks = append(blocks, pdf.Bullets{Items: b.Items})
+		case "table":
+			blocks = append(blocks, pdf.Table{Header: b.Header, Rows: b.Rows})
+		default:
+			return nil, refuse("block %d: kind must be heading, paragraph, bullets or table", i+1)
+		}
+	}
+	data, err := pdf.Create(pdf.Spec{Title: a.Title, Pages: []pdf.Page{{Blocks: blocks}}})
+	if err != nil {
+		return nil, refuse("the PDF cannot be written: %v", err)
+	}
+	return w.store(a.Path, ".pdf", data, 0)
 }
