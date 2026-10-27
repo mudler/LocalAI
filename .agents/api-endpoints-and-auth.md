@@ -41,7 +41,7 @@ Add routes in the appropriate file under `core/http/routes/`. The file you use d
 |------|----------|
 | `routes/openai.go` | OpenAI-compatible API endpoints (`/v1/...`) |
 | `routes/localai.go` | LocalAI-specific endpoints (`/api/...`, `/models/...`, `/backends/...`) |
-| `routes/studio.go` | Chats endpoints (`/api/chats/...`) |
+| `routes/studio.go` | Chats endpoints (`/api/chats/...`, including `/api/chats/admin/...` behind the admin middleware) and the agent tasks and jobs (`/api/agent/...`, feature `mcp_jobs`) |
 | `routes/auth.go` | Auth endpoints (`/api/auth/...`) |
 | `routes/ui_api.go` | UI backend API endpoints |
 

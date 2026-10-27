@@ -56,6 +56,24 @@ always wins.
 Items that the conversion of the old agents makes after that first start belong to
 users who had the old permissions, which the rule already read.
 
+### What an administrator can see
+
+An administrator sees what every user has set up, each with its owner, and can
+stop it. The view is read-only apart from switch-off and delete, and never shows
+a bot token or an agent's instructions:
+
+| Route | What it does |
+|---|---|
+| `GET /api/chats/admin/agents` | Saved agents of every user |
+| `GET /api/chats/admin/triggers`, `GET .../triggers/{id}/runs` | Triggers with their last run, and the runs of one |
+| `GET /api/chats/admin/connectors` | Connector bindings |
+| `POST .../admin/triggers/{id}/disable`, `POST .../admin/connectors/{id}/disable` | Switch one off |
+| `DELETE .../admin/agents/{id}`, `.../admin/triggers/{id}`, `.../admin/connectors/{id}` | Delete one |
+
+The agent tasks and jobs have their own view: `?all_users=true` on
+`GET /api/agent/tasks` and `GET /api/agent/jobs` (see [Agent tasks and
+jobs](/features/agent-jobs/)).
+
 ## Switch the chats off
 
 The operator can switch the whole surface or one part off. A part that is off

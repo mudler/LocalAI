@@ -68,6 +68,12 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 | `--addons-owner-address` | | `https://host:port` of the add-on owner carrier, with no path. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_OWNER_ADDRESS` |
 | `--addons-owner-listen` | | `owner` role only: the address the carrier listens on. Empty listens on all interfaces, on the port of `--addons-owner-address` | `$LOCALAI_ADDONS_OWNER_LISTEN` |
 | `--addons-carrier-dir` | | Directory with the carrier key set from `local-ai util addons-carrier-keys`. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_CARRIER_DIR` |
+| `--addons-enabled` | `true` | Run the add-on owner. `--addons-enabled=false` turns add-ons off completely. See [The addons feature gate]({{% relref "features/addons#the-addons-feature-gate" %}}) | `$LOCALAI_ADDONS_ENABLED` |
+| `--addons-ownership-mode` | `local-owner` without authentication, `named-user` with it | `named-user` gives each account its own access to add-ons; `local-owner` makes every caller share one owner | `$LOCALAI_ADDONS_OWNERSHIP_MODE` |
+| `--auto-upgrade-addons` | `false` | Upgrade installed add-ons on their own when a newer version appears in their library | `$LOCALAI_AUTO_UPGRADE_ADDONS` |
+| `--addons-official-library` | `true` | Register the official add-on library on the first start | `$LOCALAI_ADDONS_OFFICIAL_LIBRARY` |
+| `--addons-backend-library` | `true` | Register the backend library on the first start | `$LOCALAI_ADDONS_BACKEND_LIBRARY` |
+| `--addons-backend-max-bytes` | `8589934592` | Largest compressed size, in bytes, of a backend image installed from a library | `$LOCALAI_ADDONS_BACKEND_MAX_BYTES` |
 | `--max-concurrent-backend-operations` | `1` | How many backend install, upgrade and delete operations run at once. `1` runs them one after the other. Operations on the same backend always run one at a time. In distributed mode it also bounds how many nodes one operation is sent to at the same time | `$LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS` |
 | `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only — a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
 
@@ -186,6 +192,37 @@ settings bypasses this automatic default.
 | `--disable-local-auth` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only setups) | `$LOCALAI_DISABLE_LOCAL_AUTH` |
 
 See [Authentication & Authorization]({{%relref "features/authentication" %}}) for full documentation.
+
+## Chats Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--disable-chats` | `false` | Turn off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts | `$LOCALAI_DISABLE_CHATS` |
+| `--disable-triggers` | `false` | Turn off the trigger runner and the triggers API; the rest of the chats stays on | `$LOCALAI_DISABLE_TRIGGERS` |
+| `--disable-connectors` | `false` | Turn off the connector bots (Telegram) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
+| `--agent-job-retention-days` | `30` | Days to keep ended agent jobs | `$LOCALAI_AGENT_JOB_RETENTION_DAYS`, `$AGENT_JOB_RETENTION_DAYS` |
+| `--mcp-ci-job-timeout` | `10m` | Longest an agent job may run | `$LOCALAI_MCP_CI_JOB_TIMEOUT` |
+| `--disable-agents` | `false` | Deprecated. Sets `--disable-chats` and `--disable-collections`, as the old agent pool switch did | `$LOCALAI_DISABLE_AGENTS` |
+
+See [Chats]({{% relref "features/chats#switch-the-chats-off" %}}) and [Agent tasks and jobs]({{% relref "features/agent-jobs" %}}).
+
+## Collections Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--disable-collections` | `false` | Disable the collections service (the knowledge base API under `/api/collections`) | `$LOCALAI_DISABLE_COLLECTIONS` |
+| `--collections-api-url` | the local server | API URL the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_URL` |
+| `--collections-api-key` | the first API key | API key the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_KEY` |
+| `--collections-default-model` | | Default model of the collections | `$LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
+| `--collections-state-dir` | the data path | State directory of the collections | `$LOCALAI_COLLECTIONS_STATE_DIR` |
+| `--collections-vector-engine` | `chromem` | Vector engine: `chromem` or `postgres` | `$LOCALAI_COLLECTIONS_VECTOR_ENGINE` |
+| `--collections-embedding-model` | `granite-embedding-107m-multilingual` | Embedding model of the collections | `$LOCALAI_COLLECTIONS_EMBEDDING_MODEL` |
+| `--collections-database-url` | | Database URL, for the `postgres` vector engine | `$LOCALAI_COLLECTIONS_DATABASE_URL` |
+| `--collections-max-chunking-size` | `400` | Maximum chunking size for collection documents | `$LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE` |
+| `--collections-chunk-overlap` | `0` | Chunk overlap size for collection documents | `$LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
+| `--collections-db-path` | | Where the vector engine keeps its data | `$LOCALAI_COLLECTIONS_DB_PATH` |
+
+See [Collections]({{% relref "features/collections" %}}). The old `--agent-pool-*` names still work and log a deprecation warning.
 
 ## Chat Flags
 

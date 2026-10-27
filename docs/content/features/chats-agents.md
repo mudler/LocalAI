@@ -69,8 +69,9 @@ curl -X POST .../api/chats -d '{"agent_id": "<id>", "model": "my-model"}'
 A `PUT` replaces every field. Chats that already run with the agent use the new
 definition from their next turn. Another user's agent is always `404`.
 
-Agents belong to the `chats` feature. They have no administration tools, as
-they are your own settings.
+Agents need the `agents` feature, which is off by default for a user (see
+[Chats permissions](/features/chats/#permissions)). They have no administration
+tools, as they are your own settings.
 
 ## Connectors
 

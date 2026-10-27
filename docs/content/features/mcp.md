@@ -191,7 +191,11 @@ different tools share one loaded model.
 #### Agent Configuration (`agent`)
 
 - **`max_iterations`**: Maximum number of MCP tool execution loop iterations (default: 10). Each iteration allows the model to call tools and receive results before generating the next response.
-- **`max_generation_tokens`**: Accepted and ignored. It capped the completions of the agent jobs, which were removed with the old agents.
+- **`max_attempts`**: How often a failed tool call is retried (chats and saved agents).
+- **`force_reasoning_tool`**: Make the model reason before it picks a tool (chats and saved agents).
+- **`max_generation_tokens`**: Accepted and ignored. It capped the completions of the old agent jobs.
+
+The planning, plan re-evaluation, loop detection and reasoning switches of the old agent loop (`enable_planning`, `enable_plan_re_evaluator`, `enable_reasoning`, `enable_mcp_prompts`, `disable_sink_state`, `loop_detection`, `max_adjustment_attempts`) are ignored; a model file that sets one still loads and the server logs a warning. See [Model configuration]({{% relref "advanced/model-configuration" %}}).
 
 ## Agent-scoped MCP servers
 
