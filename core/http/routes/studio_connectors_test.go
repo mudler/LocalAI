@@ -105,7 +105,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 		made := decodeJSON(create("alice", map[string]any{"kind": "telegram", "name": "B", "token": specToken, "agent_id": ag}))
 		Expect(made).To(And(HaveKeyWithValue("addon", "telegram"), HaveKeyWithValue("active", true)))
 
-		studioTelegram.Running = false
+		studioTelegram.SetRunning(false)
 		down := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/"+made["id"].(string), nil))
 		Expect(down).To(And(HaveKeyWithValue("active", false), HaveKeyWithValue("reason", "install the Telegram add-on")))
 		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/kinds", nil))["kinds"]).To(BeEmpty())

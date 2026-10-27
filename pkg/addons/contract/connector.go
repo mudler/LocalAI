@@ -61,7 +61,7 @@ const (
 	MaxConnectorKinds  = 4
 	MaxConnectorMedia  = 8
 	MaxPollSeconds     = 25
-	MaxConnectorSender = 128
+	MaxConnectorSender = 64 // the width of the sender column of the stores
 )
 
 // ConnectorKind is one kind of binding an add-on serves, such as telegram.

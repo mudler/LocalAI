@@ -94,10 +94,12 @@ func (r Runtime) send(ctx context.Context, api *API, token string, chat int64, t
 		id, err := api.Send(ctx, token, chat, part)
 		var ra *RetryAfter
 		if errors.As(err, &ra) {
+			timer := time.NewTimer(time.Duration(ra.Seconds) * time.Second)
 			select {
 			case <-ctx.Done():
+				timer.Stop()
 				return "", ctx.Err()
-			case <-time.After(time.Duration(ra.Seconds) * time.Second):
+			case <-timer.C:
 			}
 			id, err = api.Send(ctx, token, chat, part)
 		}

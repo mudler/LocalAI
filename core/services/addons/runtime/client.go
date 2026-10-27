@@ -227,6 +227,7 @@ func (c *Client) Act(ctx context.Context, v contract.Envelope) (contract.Result,
 	}
 	return r, e
 }
+
 var _ contract.ConnectorRuntime = (*Client)(nil)
 
 // Connector calls the connector route of an add-on that declared the

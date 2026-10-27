@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -268,6 +269,7 @@ func kindFor(kinds []ConnectorKind, b connectors.Binding) (ConnectorKind, bool) 
 func (c *Connectors) poll(ctx context.Context, id string) {
 	backoff := c.o.Backoff
 	conflicts := 0
+poll:
 	for ctx.Err() == nil && !c.closed() {
 		b, err := c.o.Store.GetBinding(ctx, id)
 		if err != nil || !b.Enabled {
@@ -325,8 +327,18 @@ func (c *Connectors) poll(ctx context.Context, id string) {
 			// again, so a changed allowlist, agent or token applies, and a
 			// binding that was switched off ends the loop.
 			if !u.Skip {
-				if err := c.Ingest(ctx, b.AddonID, contract.ConnectorInbound{BindingID: id, ConnectorMessage: u}); errors.Is(err, connectors.ErrForbidden) {
+				err := c.Ingest(ctx, b.AddonID, contract.ConnectorInbound{BindingID: id, ConnectorMessage: u})
+				switch {
+				case errors.Is(err, connectors.ErrForbidden):
 					return
+				case errors.Is(err, connectors.ErrInvalid):
+					// A malformed update can never succeed: log it and move past it.
+					c.log.Warn("studio: a connector update was refused", "binding", id, "kind", b.Kind, "error", err)
+				case err != nil:
+					// The store failed: keep the offset, so the update is read again.
+					c.log.Warn("studio: could not hand over a connector update", "binding", id, "error", err)
+					c.sleep(ctx, backoff)
+					continue poll
 				}
 			}
 			if err := c.o.Store.SetOffset(ctx, id, u.Cursor+1); err != nil {
@@ -440,6 +452,10 @@ func (c *Connectors) send(ctx context.Context, b connectors.Binding, req contrac
 // allowlist or the sender log.
 func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.ConnectorInbound) error {
 	b, err := c.o.Store.GetBinding(ctx, in.BindingID)
+	if err != nil && !errors.Is(err, connectors.ErrNotFound) {
+		// A store that fails is an outage, not a refusal: the caller may retry.
+		return fmt.Errorf("studio: read a connector binding: %w", err)
+	}
 	// A missing binding and another add-on's binding look the same to the caller.
 	if err != nil || b.AddonID != addonID || addonID == "" || !b.Enabled {
 		return connectors.ErrForbidden
@@ -450,6 +466,10 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 	}
 	if m.Chat == "" || m.SenderID == "" || len(m.SenderID) > contract.MaxConnectorSender || len(m.Chat) > contract.MaxConnectorSender || len(m.Media) > contract.MaxConnectorMedia {
 		return connectors.ErrInvalid
+	}
+	// The sender log keeps the name in a column of 255 characters.
+	if r := []rune(m.SenderName); len(r) > 200 {
+		m.SenderName = string(r[:200])
 	}
 	token, err := c.openToken(ctx, b)
 	if err != nil {

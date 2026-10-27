@@ -66,7 +66,7 @@ var _ = Describe("a connector add-on pushing a message", func() {
 		st = connStore(specT)
 		r = newConnRig(specT, sh, st, bot, connSay("pushed answer"), nil)
 		// A push-only add-on: stop the pull loop so the host operation is the only door.
-		r.tr.Running = true
+		r.tr.SetRunning(true)
 		b = r.bind(specT, studio.ConnectorInput{Allow: []string{"11"}})
 		inbox := hostops.New(hostops.NewInFlight(), func(string, string) bool { return false }, contract.DefaultLimits())
 		Expect(hostops.RegisterConnector(inbox, r.conns)).To(Succeed())
@@ -198,7 +198,7 @@ var _ = Describe("a binding made before connectors became add-ons", func() {
 		sh, bot := newShared(specT), newScriptedBot(specT)
 		st := connStore(specT)
 		r := newConnRig(specT, sh, st, bot, connSay("answered after the install"), nil)
-		r.tr.Running = false
+		r.tr.SetRunning(false)
 		b := r.bind(specT, studio.ConnectorInput{AcceptAny: true})
 		// What the old core stored: a telegram binding that names no add-on.
 		old, err := st.GetBinding(ctx, b.ID)
@@ -214,7 +214,7 @@ var _ = Describe("a binding made before connectors became add-ons", func() {
 		Expect(list[0].Reason).To(Equal("install the Telegram add-on"))
 		Consistently(func() int { return bot.pollCount() }, "300ms").Should(BeZero(), "no add-on, no poll")
 
-		r.tr.Running = true
+		r.tr.SetRunning(true)
 		r.conns.Notify()
 		bot.say(1, 5, "A", "", "hi")
 		Eventually(func() int { return len(bot.answers()) }, "10s").Should(Equal(1))
@@ -226,7 +226,7 @@ var _ = Describe("a binding made before connectors became add-ons", func() {
 	It("lets a client older than the add-ons create a telegram binding, and refuses an unknown kind", func() {
 		sh, bot := newShared(specT), newScriptedBot(specT)
 		r := newConnRig(specT, sh, connStore(specT), bot, connSay("ok"), nil)
-		r.tr.Running = false
+		r.tr.SetRunning(false)
 		ag, err := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Support", Model: "m"})
 		Expect(err).NotTo(HaveOccurred())
 		made, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "Old client", Token: "1:t", AgentID: ag.ID})

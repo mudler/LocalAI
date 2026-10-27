@@ -65,7 +65,9 @@ var _ = Describe("the connector route", func() {
 
 	It("answers who the bot is, types and edits", func() {
 		f := newFakeBot()
-		f.reply["getMe"] = func(map[string]any) (int, string) { return 200, `{"ok":true,"result":{"id":99,"username":"helper_bot"}}` }
+		f.reply["getMe"] = func(map[string]any) (int, string) {
+			return 200, `{"ok":true,"result":{"id":99,"username":"helper_bot"}}`
+		}
 		r := run(f)
 		me, err := r.Connector(ctx, contract.ConnectorRequest{Op: "me", Kind: "telegram", Token: secretToken})
 		Expect(err).NotTo(HaveOccurred())
