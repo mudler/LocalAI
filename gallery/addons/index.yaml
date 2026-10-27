@@ -198,3 +198,21 @@
     - "create-docx"
     - "create-xlsx"
     - "create-pptx"
+- id: "sandbox"
+  name: Sandbox
+  description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:sandbox-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Sandbox"
+    description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
+    mainPage: "sandbox"
+    icon: "ui/icon.png"

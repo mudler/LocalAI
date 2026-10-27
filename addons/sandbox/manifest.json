@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "sandbox",
+  "version": "0.1.0",
+  "executable": "sandbox",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": { "min": 1, "max": 1 },
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/sandbox.js",
+      "css": ["ui/sandbox.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["sandbox"],
+      "mainPage": "sandbox",
+      "icon": "ui/icon.png",
+      "title": "Sandbox",
+      "description": "Let your chats run commands and code in an isolated sandbox, with your files mounted."
+    }
+  }
+}
