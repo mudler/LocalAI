@@ -44,7 +44,7 @@
       {
         "name": "quantize-start",
         "kind": "create",
-        "description": "Propose a new quantization job. A person confirms it in the approval card; nothing starts before that. A model can only control jobs it started.",
+        "description": "Start a new quantization job. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. A model can only control jobs it started.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -97,7 +97,7 @@
       {
         "name": "quantize-stop",
         "kind": "write",
-        "description": "Propose stopping a quantization job that a tool started. A person confirms it. A model can only control jobs it started.",
+        "description": "Stop a quantization job that a tool started. Stopping cannot be undone. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. A model can only control jobs it started.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -115,7 +115,7 @@
       {
         "name": "quantize-import",
         "kind": "write",
-        "description": "Propose registering the result of a quantization job that a tool started as a model. Administrators only. A model can only control jobs it started.",
+        "description": "Register the result of a quantization job that a tool started as a model. Administrators only. Importing cannot be undone. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. A model can only control jobs it started.",
         "inputSchema": {
           "type": "object",
           "properties": {
