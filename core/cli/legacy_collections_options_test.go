@@ -85,6 +85,22 @@ var _ = Describe("collections options and their legacy names", func() {
 		Expect(r.DisableCollections).To(BeFalse())
 	})
 
+	It("lets an explicit new switch beat the old one, even when it says false", func() {
+		GinkgoT().Setenv("LOCALAI_DISABLE_AGENTS", "true")
+		GinkgoT().Setenv("LOCALAI_DISABLE_COLLECTIONS", "false")
+		r := parse()
+		r.resolveLegacyCollections()
+		Expect(r.DisableCollections).To(BeFalse(), "the new name wins")
+		Expect(r.DisableChats).To(BeTrue(), "the chats switch was not given, so the old name sets it")
+	})
+
+	It("starts without a data path when it is given empty, for the memory-only mode", func() {
+		r := parse("--data-path=")
+		Expect(r.DataPath).To(BeEmpty())
+		GinkgoT().Setenv("LOCALAI_DATA_PATH", "")
+		Expect(parse().DataPath).To(BeEmpty())
+	})
+
 	It("lets the new name win when both are set", func() {
 		GinkgoT().Setenv("LOCALAI_COLLECTIONS_VECTOR_ENGINE", "chromem")
 		GinkgoT().Setenv("LOCALAI_AGENT_POOL_VECTOR_ENGINE", "postgres")

@@ -107,6 +107,21 @@ type LegacyCollectionsOptions struct {
 	AgentPoolCollectionDBPath string `env:"LOCALAI_AGENT_POOL_COLLECTION_DB_PATH" hidden:"" help:"Deprecated: use --collections-db-path"`
 }
 
+// explicitlySet says whether the operator set an option, to any value: a bool
+// option reads false both when it is off and when it was never given, so the
+// environment and the command line are asked.
+func explicitlySet(env, flag string) bool {
+	if _, ok := os.LookupEnv(env); ok {
+		return true
+	}
+	for _, a := range os.Args[1:] {
+		if a == flag || strings.HasPrefix(a, flag+"=") {
+			return true
+		}
+	}
+	return false
+}
+
 // resolveLegacyCollections applies the old names of the collections options.
 // An old name sets the new option only when the new option is empty, so the new
 // name wins. Each old name that is in use gets one deprecation warning. It
@@ -141,8 +156,13 @@ func (r *RunCMD) resolveLegacyCollections() []string {
 		// the knowledge base. Keep that meaning: it now turns off the chats
 		// (agents, triggers, connectors, jobs) and the collections.
 		use("LOCALAI_DISABLE_AGENTS", "LOCALAI_DISABLE_CHATS and LOCALAI_DISABLE_COLLECTIONS")
-		r.DisableChats = true
-		r.DisableCollections = true
+		// A new name that is set, even to false, wins over the old one.
+		if !explicitlySet("LOCALAI_DISABLE_CHATS", "--disable-chats") {
+			r.DisableChats = true
+		}
+		if !explicitlySet("LOCALAI_DISABLE_COLLECTIONS", "--disable-collections") {
+			r.DisableCollections = true
+		}
 	}
 	str(l.AgentPoolAPIURL, &r.CollectionsAPIURL, "LOCALAI_AGENT_POOL_API_URL", "LOCALAI_COLLECTIONS_API_URL")
 	str(l.AgentPoolAPIKey, &r.CollectionsAPIKey, "LOCALAI_AGENT_POOL_API_KEY", "LOCALAI_COLLECTIONS_API_KEY")
