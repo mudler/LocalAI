@@ -48,6 +48,17 @@ type Config struct {
 	LogLevel string
 }
 
+// AgentOptions shape the tool loop of one chat. Zero values keep nib's own
+// defaults.
+type AgentOptions struct {
+	// Iterations caps the tool rounds of one turn.
+	Iterations int
+	// MaxAttempts is how often a failed tool call is retried.
+	MaxAttempts int
+	// ForceReasoning makes the model reason before it picks a tool.
+	ForceReasoning bool
+}
+
 // Model is the model one chat talks to.
 type Model struct {
 	LLM  cogito.LLM
@@ -55,6 +66,8 @@ type Model struct {
 	// ContextTokens is the model's context window in tokens. Zero uses the
 	// harness's ContextTokens.
 	ContextTokens int
+	// Agent sets the options of the tool loop of the model.
+	Agent AgentOptions
 }
 
 // New returns a harness that starts one nib session per chat.
@@ -109,13 +122,14 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 		transports = append(transports, tr)
 	}
 	model, ctxTokens := h.cfg.Model, h.cfg.ContextTokens
+	var agentOpts AgentOptions
 	var llm cogito.LLM
 	if h.cfg.LLM != nil {
 		m, err := h.cfg.LLM(env.Actor)
 		if err != nil {
 			return nil, fmt.Errorf("nib: model client: %w", err)
 		}
-		llm, model = m.LLM, m.Name
+		llm, model, agentOpts = m.LLM, m.Name, m.Agent
 		if m.ContextTokens > 0 {
 			ctxTokens = m.ContextTokens
 		}
@@ -147,6 +161,7 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 			Compaction:      types.CompactionConfig{MaxContextTokens: ctxTokens},
 		},
 	})
+	applyAgentOptions(&cfg, agentOpts)
 	cfg.WorkingDir = env.Dir
 	cfg.LLM = llm
 	cfg.InputSource = env.Inputs
@@ -175,6 +190,20 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 		return nil, err
 	}
 	return hs, nil
+}
+
+// applyAgentOptions copies the options a model sets into nib's config. A zero
+// value keeps what LoadWith filled in.
+func applyAgentOptions(cfg *types.Config, o AgentOptions) {
+	if o.Iterations > 0 {
+		cfg.AgentOptions.Iterations = o.Iterations
+	}
+	if o.MaxAttempts > 0 {
+		cfg.AgentOptions.MaxAttempts = o.MaxAttempts
+	}
+	if o.ForceReasoning {
+		cfg.AgentOptions.ForceReasoning = true
+	}
 }
 
 type hsession struct {

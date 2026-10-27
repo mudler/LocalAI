@@ -110,6 +110,9 @@ type Deps struct {
 	// ContextTokens returns the context window of a model in tokens, or zero
 	// when it is not known (the harness then uses its default). Nil: zero.
 	ContextTokens func(model string) int
+	// AgentOptions returns the tool-loop options of a model (its agent: block).
+	// Nil: nib's defaults.
+	AgentOptions func(model string) nibharness.AgentOptions
 	// Bus carries live events and control messages between the frontends that
 	// serve a chat. Nil: a bus for this process only.
 	Bus Bus
@@ -875,6 +878,9 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 	m := nibharness.Model{LLM: s.d.Provider.LLM(user, rec.Model), Name: rec.Model}
 	if s.d.ContextTokens != nil {
 		m.ContextTokens = s.d.ContextTokens(rec.Model)
+	}
+	if s.d.AgentOptions != nil {
+		m.Agent = s.d.AgentOptions(rec.Model)
 	}
 	return m, nil
 }

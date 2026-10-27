@@ -262,6 +262,7 @@ func readModelConfigsFromFileMeasured(file string, timing *loaderTimings, opts .
 	if err := yaml.Unmarshal(f, &configs); err == nil && len(configs) > 0 {
 		for _, cc := range configs {
 			cc.modelConfigFile = file
+			cc.warnRemovedAgentOptions()
 			// Stamp before SetDefaults: the revision describes what is on disk.
 			// SetDefaults folds in the GGUF guess, hardware defaults and
 			// app-level options, none of which are persisted configuration, and
@@ -283,6 +284,7 @@ func readModelConfigsFromFileMeasured(file string, timing *loaderTimings, opts .
 	}
 
 	c.modelConfigFile = file
+	c.warnRemovedAgentOptions()
 	c.syncKnownUsecasesFromString()
 	if err := c.StampPersistedConfigRevision(); err != nil {
 		return nil, fmt.Errorf("stamping config revision for %q: %w", c.Name, err)

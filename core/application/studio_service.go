@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/media"
+	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 )
 
@@ -94,6 +95,7 @@ func (a *Application) initStudioService() {
 		Assistant:     studioAssistant{a},
 		Collections:   studioCollections{a},
 		ContextTokens: a.studioContextTokens,
+		AgentOptions:  a.studioAgentOptions,
 		Persistent:    a.studioStoreKind != "memory",
 		Files:         a.StudioFiles(),
 		Media:         media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel),
@@ -198,6 +200,17 @@ func (a *Application) studioContextTokens(model string) int {
 		return 0
 	}
 	return *cfg.ContextSize
+}
+
+// studioAgentOptions is the agent: block of a model's config: the options of the
+// tool loop that nib supports. The planning, loop detection and reasoning
+// switches of the old loop have no counterpart and are ignored.
+func (a *Application) studioAgentOptions(model string) nibharness.AgentOptions {
+	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
+	if !ok {
+		return nibharness.AgentOptions{}
+	}
+	return nibharness.AgentOptions{Iterations: cfg.Agent.MaxIterations, MaxAttempts: cfg.Agent.MaxAttempts, ForceReasoning: cfg.Agent.ForceReasoningTool}
 }
 
 // studioMCPServers picks the MCP servers a chat uses, by the chat route's
