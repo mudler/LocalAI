@@ -140,14 +140,20 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 }
 
 // subset picks the tools a sub-agent gets from the parent's host tools. Nil
-// asks for all of them; a name the parent does not have is an error.
+// asks for all of them but the named-only ones; a name the parent does not have is an error.
 func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string) ([]session.Tool, error) {
 	have, err := s.hostTools(ctx, a)
 	if err != nil {
 		return nil, fmt.Errorf("could not list your tools: %w", err)
 	}
 	if names == nil {
-		return have, nil
+		kept := have[:0:0]
+		for _, t := range have {
+			if !namedOnlyTools[t.Name] {
+				kept = append(kept, t)
+			}
+		}
+		return kept, nil
 	}
 	byName := make(map[string]session.Tool, len(have))
 	for _, t := range have {

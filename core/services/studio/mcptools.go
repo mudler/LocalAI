@@ -26,6 +26,7 @@ func (s *Service) hostTools(ctx context.Context, a workspace.Actor) ([]session.T
 		tools = append(tools, ts...)
 	}
 	tools = append(tools, s.addonTools(ctx, a)...)
+	tools = append(tools, s.collectionTools(ctx, a)...)
 	return append(tools, s.mcpTools(ctx, a)...), nil
 }
 

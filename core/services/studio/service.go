@@ -61,6 +61,9 @@ type Deps struct {
 	// AddonTools supplies the tools of the installed add-ons the user may use.
 	// Nil: a chat has none.
 	AddonTools AddonTools
+	// Collections is the knowledge base a chat can search. Nil: no collection
+	// tools.
+	Collections Collections
 	// ContextTokens returns the context window of a model in tokens, or zero
 	// when it is not known (the harness then uses its default). Nil: zero.
 	ContextTokens func(model string) int
