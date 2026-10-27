@@ -413,6 +413,14 @@ prepare-e2e:
 run-e2e-image:
 	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --name e2e-tests-$(RANDOM) localai-tests
 
+# Runs the real local-ai binary with the packaged first-party add-ons. It needs
+# the generated gRPC code and the built UI (see .agents/building-and-testing.md)
+# and network access for the gVisor download of the Sandbox package; without
+# it set LOCALAI_E2E_RUNSC_DIR or the Sandbox package is skipped.
+.PHONY: test-addons-shipped
+test-addons-shipped:
+	$(GOCMD) test -tags auth -count=1 -timeout 40m -v ./tests/addons/shipped/
+
 test-e2e: build-mock-backend build-cloud-proxy-backend build-localai-proxy-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
