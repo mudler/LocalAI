@@ -83,3 +83,5 @@
 @media (max-width: 900px) {
   .cs-page { padding: var(--dk-space-4); }
 }
+
+.cs-group > .btn { align-self: flex-start; }

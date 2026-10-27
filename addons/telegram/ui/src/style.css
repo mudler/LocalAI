@@ -119,3 +119,6 @@
 .tg-runs li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--dk-space-2); }
 
 .tg-warning { flex-direction: column; align-items: flex-start; gap: var(--dk-space-2); }
+
+fieldset.tg-field { border: 0; padding: 0; margin: 0; min-width: 0; }
+.tg-field legend { padding: 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
