@@ -68,6 +68,7 @@ Notes:
 - Names and entries with special characters, such as `:`, must be URL-encoded in the path.
 - A `404` means the collection or the entry does not exist for you.
 - A search for more passages than the collection holds returns all of them. An empty collection returns none.
+- `/readyz` answers `200` only after the collections are ready, so `/api/collections` does not answer `503` once the server is in rotation.
 - An upload can fail with `409` when the embedding model changed and the vectors have a different size. Restart LocalAI to embed the collection again, or reset the collection.
 
 ### Admin options

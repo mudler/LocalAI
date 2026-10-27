@@ -913,6 +913,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		return err
 	}
 
+	// /readyz waits for the collections, which start once the server listens.
+	app.AwaitCollections()
+
 	appHTTP, err := http.API(app)
 	if err != nil {
 		xlog.Error("error during HTTP App construction", "error", err)
