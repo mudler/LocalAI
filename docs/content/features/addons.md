@@ -26,9 +26,13 @@ Trust has three parts, and they are different:
   own data directory; it does not confine it. Install only packages you trust.
 - **Authority.** An addon never decides who a caller is or whether a change was
   approved. The host supplies the actor from the authenticated session or key,
-  decides every role, and applies a mutation from a chat, an agent or a script only
-  after the proposer's own browser session confirms it. Prompt text, a model and
-  an addon cannot supply that approval.
+  decides every role, and applies a mutation from an API client, an MCP session or
+  the OpenAI-compatible chat route only after the proposer's own browser session
+  confirms it. The one exception is the chats on the server (`/api/chats`), their
+  agents and their triggers: turning an add-on on for a chat or an agent is the
+  consent, and the change is applied at once with an undo where the add-on keeps
+  one (see [Proposals and confirmation](#proposals-and-confirmation)). Prompt text,
+  a model and an addon cannot supply that approval.
 
 Every addon requires an executable; a UI bundle alone is not an addon.
 
@@ -1632,10 +1636,12 @@ Run `sh scripts/addons/verify.sh policy` for the policy suite.
 
 ## Proposals and confirmation
 
-Every data or schema mutation that comes from chat, an agent or an API client is a
-stored proposal first. A proposal is applied only by an explicit confirmation of that
-stored operation from the person's own browser session. Sharing and database deletion
-are never proposals and never tools.
+Every data or schema mutation that comes from an API client, an MCP session or the
+OpenAI-compatible chat route is a stored proposal first. A proposal is applied only
+by an explicit confirmation of that stored operation from the person's own browser
+session. The chats on the server, their agents and their triggers are the exception
+described under [Lifecycle](#lifecycle): there the add-on switch is the consent.
+Sharing and database deletion are never proposals and never tools.
 
 ### Declared tools
 
