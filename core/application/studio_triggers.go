@@ -21,6 +21,10 @@ func (a *Application) StudioTriggers() *studio.Triggers { return a.studioTrigger
 // the one that holds the advisory lock, which it keeps until it stops or loses
 // its database session.
 func (a *Application) startStudioTriggers(svc *studio.Service) {
+	if a.applicationConfig.DisableTriggers {
+		xlog.Info("Triggers are turned off (LOCALAI_DISABLE_TRIGGERS)")
+		return
+	}
 	var (
 		st  triggers.Store
 		err error

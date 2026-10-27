@@ -34,7 +34,6 @@ func warnDeprecatedFlags() {
 // they do nothing, but they are still accepted: a deployment that sets one keeps
 // starting. warn names the ones that were set, in one message.
 type RemovedAgentOptions struct {
-	AgentJobRetentionDays          string `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" hidden:"" help:"Removed; ignored"`
 	AgentPoolMultimodalModel       string `env:"LOCALAI_AGENT_POOL_MULTIMODAL_MODEL" hidden:"" help:"Removed; ignored"`
 	AgentPoolTranscriptionModel    string `env:"LOCALAI_AGENT_POOL_TRANSCRIPTION_MODEL" hidden:"" help:"Removed; ignored"`
 	AgentPoolTranscriptionLanguage string `env:"LOCALAI_AGENT_POOL_TRANSCRIPTION_LANGUAGE" hidden:"" help:"Removed; ignored"`
@@ -95,7 +94,7 @@ func (o RemovedAgentWorkerOptions) warn() { warnRemovedOptions(o.set()) }
 // and still work: resolveLegacyCollections copies each one into its new option
 // when the new option is not set.
 type LegacyCollectionsOptions struct {
-	DisableAgents             bool   `env:"LOCALAI_DISABLE_AGENTS" hidden:"" help:"Deprecated: use --disable-collections"`
+	DisableAgents             bool   `env:"LOCALAI_DISABLE_AGENTS" hidden:"" help:"Deprecated: use --disable-chats and --disable-collections"`
 	AgentPoolAPIURL           string `env:"LOCALAI_AGENT_POOL_API_URL" hidden:"" help:"Deprecated: use --collections-api-url"`
 	AgentPoolAPIKey           string `env:"LOCALAI_AGENT_POOL_API_KEY" hidden:"" help:"Deprecated: use --collections-api-key"`
 	AgentPoolDefaultModel     string `env:"LOCALAI_AGENT_POOL_DEFAULT_MODEL" hidden:"" help:"Deprecated: use --collections-default-model"`
@@ -138,7 +137,11 @@ func (r *RunCMD) resolveLegacyCollections() []string {
 	}
 	l := r.LegacyCollectionsOptions
 	if l.DisableAgents {
-		use("LOCALAI_DISABLE_AGENTS", "LOCALAI_DISABLE_COLLECTIONS")
+		// On master this one switch turned off the agent pool, which also held
+		// the knowledge base. Keep that meaning: it now turns off the chats
+		// (agents, triggers, connectors, jobs) and the collections.
+		use("LOCALAI_DISABLE_AGENTS", "LOCALAI_DISABLE_CHATS and LOCALAI_DISABLE_COLLECTIONS")
+		r.DisableChats = true
 		r.DisableCollections = true
 	}
 	str(l.AgentPoolAPIURL, &r.CollectionsAPIURL, "LOCALAI_AGENT_POOL_API_URL", "LOCALAI_COLLECTIONS_API_URL")

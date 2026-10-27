@@ -314,6 +314,22 @@ type ApplicationConfig struct {
 	// server with this flag; runtime-toggleable via /api/settings.
 	DisableLocalAIAssistant bool
 
+	// DisableChats turns off the whole chats surface: the /api/chats API, saved
+	// agents, triggers, connectors and the agent tasks and jobs. Nothing starts
+	// (no loop, bot or trigger runner).
+	DisableChats bool
+	// DisableTriggers and DisableConnectors turn off one part of the chats:
+	// the trigger runner, or the connector bots. The API for the part answers
+	// 404.
+	DisableTriggers   bool
+	DisableConnectors bool
+	// AgentJobRetentionDays is how long finished agent jobs are kept. Zero
+	// means DefaultAgentJobRetentionDays.
+	AgentJobRetentionDays int
+	// MCPCIJobTimeout is the longest an agent job may run. Zero means
+	// DefaultMCPCIJobTimeout.
+	MCPCIJobTimeout time.Duration
+
 	// MCPConnectorsAllowPrivate lets the MCP connectors that users define reach
 	// addresses on private networks (loopback, link-local, RFC 1918, metadata).
 	// Off by default: such an address lets a user probe the internal network
@@ -1223,6 +1239,31 @@ func WithLegacyNavigation(on bool) AppOption {
 		o.LegacyNavigation = on
 	}
 }
+
+// DisableChats, DisableTriggers and DisableConnectors are the options of the
+// operator switches LOCALAI_DISABLE_CHATS, LOCALAI_DISABLE_TRIGGERS and
+// LOCALAI_DISABLE_CONNECTORS.
+var (
+	DisableChats      = func(o *ApplicationConfig) { o.DisableChats = true }
+	DisableTriggers   = func(o *ApplicationConfig) { o.DisableTriggers = true }
+	DisableConnectors = func(o *ApplicationConfig) { o.DisableConnectors = true }
+)
+
+// WithAgentJobRetentionDays sets how long finished agent jobs are kept.
+func WithAgentJobRetentionDays(days int) AppOption {
+	return func(o *ApplicationConfig) { o.AgentJobRetentionDays = days }
+}
+
+// WithMCPCIJobTimeout sets the longest an agent job may run.
+func WithMCPCIJobTimeout(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) { o.MCPCIJobTimeout = d }
+}
+
+// Defaults of the agent jobs.
+const (
+	DefaultAgentJobRetentionDays = 30
+	DefaultMCPCIJobTimeout       = 10 * time.Minute
+)
 
 // WithDisableLocalAIAssistant hard-disables the in-process admin MCP server.
 // When set, the chat-handler branch for metadata.localai_assistant=true

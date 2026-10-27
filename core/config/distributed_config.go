@@ -80,8 +80,6 @@ type DistributedConfig struct {
 	// model-row cleanup on MarkUnhealthy / MarkDraining).
 	DisablePerModelHealthCheck bool
 
-	MCPCIJobTimeout time.Duration // MCP CI job execution timeout (default 10m)
-
 	BackendInstallTimeout time.Duration // NATS round-trip timeout for backend.install (default 15m)
 	BackendUpgradeTimeout time.Duration // NATS round-trip timeout for backend.upgrade (default 15m)
 	// ModelLoadTimeout is the gRPC deadline for the remote LoadModel call the
@@ -102,8 +100,6 @@ type DistributedConfig struct {
 	ModelLoadWait time.Duration
 
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
-
-	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
 
 	// DiskHeadroomDisabled turns off the scheduler's free-disk admission check,
 	// restoring the pre-#11054 behaviour where node selection ignores whether a
@@ -179,7 +175,6 @@ func (c DistributedConfig) Validate() error {
 		FlagHealthCheckInterval:     c.HealthCheckInterval,
 		FlagStaleNodeThreshold:      c.StaleNodeThreshold,
 		FlagNodeHeartbeatCheckpoint: c.NodeHeartbeatCheckpoint,
-		FlagMCPCIJobTimeout:         c.MCPCIJobTimeout,
 		FlagBackendInstallTimeout:   c.BackendInstallTimeout,
 		FlagBackendUpgradeTimeout:   c.BackendUpgradeTimeout,
 		FlagModelLoadTimeout:        c.ModelLoadTimeout,
@@ -438,7 +433,6 @@ const (
 	FlagHealthCheckInterval     = "health-check-interval"
 	FlagStaleNodeThreshold      = "stale-node-threshold"
 	FlagNodeHeartbeatCheckpoint = "node-heartbeat-checkpoint"
-	FlagMCPCIJobTimeout         = "mcp-ci-job-timeout"
 	FlagBackendInstallTimeout   = "backend-install-timeout"
 	FlagBackendUpgradeTimeout   = "backend-upgrade-timeout"
 	FlagModelLoadTimeout        = "model-load-timeout"
@@ -471,7 +465,6 @@ const (
 	// health check and by request-time failure, neither of which reads this.
 	DefaultStaleNodeThreshold      = 5 * time.Minute
 	DefaultNodeHeartbeatCheckpoint = 60 * time.Second
-	DefaultMCPCIJobTimeout         = 10 * time.Minute
 	DefaultBackendInstallTimeout   = 15 * time.Minute
 	DefaultBackendUpgradeTimeout   = 15 * time.Minute
 	DefaultModelLoadTimeout        = 5 * time.Minute
@@ -586,11 +579,6 @@ func (c DistributedConfig) StaleNodeThresholdOrDefault() time.Duration {
 // write per beat sets a value below the heartbeat interval instead.
 func (c DistributedConfig) NodeHeartbeatCheckpointOrDefault() time.Duration {
 	return cmp.Or(c.NodeHeartbeatCheckpoint, DefaultNodeHeartbeatCheckpoint)
-}
-
-// MCPCIJobTimeoutOrDefault returns the configured MCP CI job timeout or the default.
-func (c DistributedConfig) MCPCIJobTimeoutOrDefault() time.Duration {
-	return cmp.Or(c.MCPCIJobTimeout, DefaultMCPCIJobTimeout)
 }
 
 // MaxUploadSizeOrDefault returns the configured max upload size or the default.

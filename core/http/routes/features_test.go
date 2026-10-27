@@ -74,4 +74,55 @@ var _ = Describe("GET /api/features and the addons gate", func() {
 		Expect(got).To(HaveKeyWithValue("fine_tuning", true))
 		Expect(got).To(HaveKeyWithValue("quantization", true))
 	})
+
+	It("reports the chats, agents, triggers and connectors as running by default", func() {
+		got := features()
+		for _, k := range []string{"chats", "agents", "triggers", "connectors"} {
+			Expect(got).To(HaveKeyWithValue(k, true), k)
+		}
+	})
+
+	It("reports the whole chats surface off with LOCALAI_DISABLE_CHATS and keeps the collections", func() {
+		got := features(config.DisableChats)
+		for _, k := range []string{"chats", "agents", "triggers", "connectors"} {
+			Expect(got).To(HaveKeyWithValue(k, false), k)
+		}
+		Expect(got).To(HaveKeyWithValue("collections", true))
+	})
+
+	It("switches off the triggers or the connectors alone", func() {
+		got := features(config.DisableTriggers)
+		Expect(got).To(And(HaveKeyWithValue("chats", true), HaveKeyWithValue("triggers", false), HaveKeyWithValue("connectors", true)))
+		got = features(config.DisableConnectors)
+		Expect(got).To(And(HaveKeyWithValue("chats", true), HaveKeyWithValue("triggers", true), HaveKeyWithValue("connectors", false)))
+	})
+})
+
+var _ = Describe("the chats switched off", func() {
+	It("starts nothing and answers every chats path with chats_off", func() {
+		dir := GinkgoT().TempDir()
+		models, backends := filepath.Join(dir, "models"), filepath.Join(dir, "backends")
+		Expect(os.Mkdir(models, 0750)).To(Succeed())
+		Expect(os.Mkdir(backends, 0750)).To(Succeed())
+		state, err := system.GetSystemState(system.WithBackendPath(backends), system.WithModelPath(models))
+		Expect(err).NotTo(HaveOccurred())
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		app, err := application.New(config.WithContext(ctx), config.WithSystemState(state), config.DisableChats, config.WithDataPath(filepath.Join(dir, "data")))
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = app.Shutdown() })
+		Expect(app.StudioService()).To(BeNil())
+		Expect(app.StudioTriggers()).To(BeNil(), "no trigger runner may start")
+		Expect(app.StudioConnectors()).To(BeNil(), "no bot may start")
+		Expect(app.StudioStore()).To(BeNil())
+
+		e := echo.New()
+		routes.RegisterStudioRoutes(e, app.StudioService(), nil)
+		for _, path := range []string{"/api/chats", "/api/chats/agents", "/api/chats/triggers", "/api/chats/connectors/x/test"} {
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+			Expect(w.Code).To(Equal(http.StatusNotFound), path)
+			Expect(w.Body.String()).To(ContainSubstring("chats_off"), path)
+		}
+	})
 })

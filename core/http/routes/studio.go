@@ -2,12 +2,14 @@ package routes
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
 	studioendpoint "github.com/mudler/LocalAI/core/http/endpoints/studio"
+	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 )
 
@@ -27,11 +29,19 @@ func NewStudioModelChecker(app *application.Application) studioendpoint.ModelChe
 	})
 }
 
-// RegisterStudioRoutes registers the chats API. It does nothing without
-// a service. Authentication and the chats feature gate come from the global
-// middleware and the route-feature registry, so no route carries its own.
+// RegisterStudioRoutes registers the chats API. Without a service (the chats
+// are switched off or could not start) every /api/chats path answers 404 with
+// the reason, so a client sees "off" and not a missing route. Authentication and
+// the feature gates come from the global middleware and the route-feature
+// registry, so no route carries its own.
 func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker) {
 	if svc == nil {
+		off := func(c echo.Context) error {
+			return c.JSON(http.StatusNotFound, schema.ErrorResponse{Error: &schema.APIError{
+				Message: "the chats are turned off on this server", Code: http.StatusNotFound, Type: "chats_off"}})
+		}
+		e.Any("/api/chats", off)
+		e.Any("/api/chats/*", off)
 		return
 	}
 	h := studioendpoint.New(svc, models)

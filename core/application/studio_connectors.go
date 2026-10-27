@@ -31,6 +31,10 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	if a.studioConnStore == nil {
 		return
 	}
+	if a.applicationConfig.DisableConnectors {
+		xlog.Info("Connectors are turned off (LOCALAI_DISABLE_CONNECTORS)")
+		return
+	}
 	opts := studio.ConnectorOptions{Store: a.studioConnStore, Telegram: &connectors.Telegram{BaseURL: telegramBase}, Poll: 25}
 	if a.Distributed() != nil && a.authDB != nil {
 		lock := advisorylock.NewHeldLock(a.authDB, advisorylock.KeyChatsConnectors)

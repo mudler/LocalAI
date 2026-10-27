@@ -17,7 +17,7 @@ import (
 func (h *Handlers) triggerHost(c echo.Context) (*studiosvc.Triggers, bool) {
 	host := h.svc.Triggers()
 	if host == nil {
-		_ = failFor(c, studiosvc.ErrTriggersOff)
+		_ = failTrigger(c, studiosvc.ErrTriggersOff)
 		return nil, false
 	}
 	return host, true
@@ -67,6 +67,8 @@ func failTrigger(c echo.Context, err error) error {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), studiosvc.ErrBadTrigger.Error()+": "))
 	case errors.Is(err, studiosvc.ErrTooManyTriggers), errors.Is(err, studiosvc.ErrTooManyProposals):
 		return fail(c, http.StatusConflict, "conflict", err.Error())
+	case errors.Is(err, studiosvc.ErrTriggersOff):
+		return fail(c, http.StatusConflict, "triggers_off", err.Error())
 	case errors.Is(err, studiosvc.ErrTriggersClosed):
 		return fail(c, http.StatusServiceUnavailable, "server_error", "the server is shutting down")
 	}
