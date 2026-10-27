@@ -1,7 +1,7 @@
 package store
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/xlog"
 )
 
 // jsonStore keeps chats in memory and, when it has a directory, mirrors them to
@@ -55,20 +56,32 @@ func NewJSON(dir string) (Store, error) {
 		return nil, err
 	}
 	for _, p := range names {
+		// One damaged chat must not disable the feature for everyone: skip it,
+		// keep its files for inspection, and load the rest.
 		raw, err := os.ReadFile(p)
 		if err != nil {
-			return nil, err
+			xlog.Warn("studio store: skipping unreadable chat record", "file", filepath.Base(p), "error", err)
+			continue
 		}
 		var c chatState
-		if err := json.Unmarshal(raw, &c); err != nil {
-			return nil, fmt.Errorf("studio store: read %s: %w", p, err)
+		if err := json.Unmarshal(raw, &c); err != nil || c.Rec.ID == "" {
+			xlog.Warn("studio store: skipping damaged chat record", "file", filepath.Base(p), "error", err)
+			continue
 		}
 		if c.Run != "" {
 			// The process that held the claim is gone; the turn did not finish.
 			c.Run, c.Last = "", TurnInterrupted
 		}
+		// What a request took and nobody confirmed was lost with the process,
+		// the same reset ReapTurns applies.
+		for i := range c.Pending {
+			if c.Pending[i].Unconfirmed {
+				c.Pending[i].Delivered, c.Pending[i].Unconfirmed = false, false
+			}
+		}
 		if err := s.loadEntries(&c); err != nil {
-			return nil, err
+			xlog.Warn("studio store: skipping chat with unreadable transcript", "chat", c.Rec.ID, "error", err)
+			continue
 		}
 		s.chats[c.Rec.ID] = &c
 	}
@@ -81,25 +94,77 @@ func (s *jsonStore) file(id, ext string) string {
 	return filepath.Join(s.chatDir(), base64.RawURLEncoding.EncodeToString([]byte(id))+ext)
 }
 
+// loadEntries reads the transcript of c. A crash or a full disk can leave a
+// half-written last line, and the next append would then follow it on the same
+// line and damage a good entry. So a trailing line that is torn or does not
+// parse is dropped and the file is cut back to the last good newline.
 func (s *jsonStore) loadEntries(c *chatState) error {
-	f, err := os.Open(s.file(c.Rec.ID, ".entries"))
+	path := s.file(c.Rec.ID, ".entries")
+	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	for sc.Scan() {
+	good := 0 // length of the prefix that holds only complete, valid lines
+	warned := false
+	for off := 0; off < len(raw); {
+		end := bytes.IndexByte(raw[off:], '\n')
+		terminated := end >= 0
+		line := raw[off:]
+		next := len(raw)
+		if terminated {
+			line = raw[off : off+end]
+			next = off + end + 1
+		}
 		var e session.Entry
-		if err := json.Unmarshal(sc.Bytes(), &e); err != nil {
-			return fmt.Errorf("studio store: read transcript of %s: %w", c.Rec.ID, err)
+		if err := json.Unmarshal(line, &e); err != nil {
+			if len(bytes.TrimSpace(raw[next:])) == 0 {
+				// The last line: a torn write.
+				if !warned {
+					xlog.Warn("studio store: dropping torn last line of transcript", "chat", c.Rec.ID)
+				}
+				break
+			}
+			// A damaged line in the middle: keep the entries around it.
+			xlog.Warn("studio store: skipping damaged transcript line", "chat", c.Rec.ID, "offset", off)
+			warned = true
+			good = next
+			off = next
+			continue
 		}
 		c.entries = append(c.entries, e)
+		good = next
+		off = next
+		if !terminated {
+			// A complete entry that lost only its newline: restore it so the
+			// next append starts on its own line.
+			raw = append(raw, '\n')
+			good = len(raw)
+			break
+		}
 	}
-	return sc.Err()
+	if good != len(raw) || (len(raw) > 0 && raw[len(raw)-1] != '\n') {
+		return repairTranscript(path, raw[:good])
+	}
+	return nil
+}
+
+// repairTranscript rewrites the transcript with only its good prefix.
+func repairTranscript(path string, good []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	_, werr := f.Write(good)
+	if serr := f.Sync(); werr == nil {
+		werr = serr
+	}
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	return werr
 }
 
 // save rewrites the record file of c atomically.
@@ -116,10 +181,12 @@ func (s *jsonStore) save(c *chatState) error {
 		return err
 	}
 	_, werr := tmp.Write(raw)
+	// Without the sync a power loss after the rename can leave an empty record.
+	serr := tmp.Sync()
 	cerr := tmp.Close()
-	if werr != nil || cerr != nil {
+	if werr != nil || serr != nil || cerr != nil {
 		_ = os.Remove(tmp.Name())
-		return errors.Join(werr, cerr)
+		return errors.Join(werr, serr, cerr)
 	}
 	return os.Rename(tmp.Name(), s.file(c.Rec.ID, ".json"))
 }
@@ -266,7 +333,11 @@ func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) e
 	if !ok {
 		return session.ErrNotFound
 	}
-	e.Seq = int64(len(c.entries) + 1)
+	// Continue after the last Seq, not the count: a skipped damaged line leaves a gap.
+	e.Seq = 1
+	if n := len(c.entries); n > 0 {
+		e.Seq = c.entries[n-1].Seq + 1
+	}
 	if e.At.IsZero() {
 		e.At = time.Now().UTC()
 	}

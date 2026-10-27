@@ -49,6 +49,10 @@ type Item struct {
 type Report struct {
 	At    time.Time `json:"at"`
 	Items []Item    `json:"items"`
+	// Notable lists the items of a run that are news to their user: converted or
+	// dropped for the first time, or failed with a reason the report before did
+	// not hold. It is what a notification is about, and it is not stored.
+	Notable []Item `json:"-"`
 }
 
 // Counts returns how many items have each status.
@@ -95,10 +99,23 @@ type Sources struct {
 	// AuthEnabled says whether users have accounts. Without it every old item
 	// belongs to the one anonymous user.
 	AuthEnabled bool
+	// Zone is the IANA name of the zone the old cron tasks ran in, the server's
+	// local zone. It is empty when that zone is UTC or cannot be named; then
+	// ZoneNote says what the report tells about it. See LocalZone.
+	Zone, ZoneNote string
 }
 
 // ErrNameTaken means a target already has an agent with the name.
 var ErrNameTaken = errors.New("convert: the name is taken")
+
+// ErrInvalid means a target refused an item for good: its name, size or form
+// is not valid there. The item is dropped, not tried again.
+var ErrInvalid = errors.New("convert: the item is not valid")
+
+// ErrCollectionsUnavailable means the collections cannot be listed now (the
+// service is off or has not started). An agent that needs a collection grant is
+// then left for the next run.
+var ErrCollectionsUnavailable = errors.New("convert: the collections are not available")
 
 // AgentIn is a saved agent to make.
 type AgentIn struct {
@@ -109,6 +126,8 @@ type AgentIn struct {
 // TriggerIn is a schedule trigger to make, switched off.
 type TriggerIn struct {
 	Name, Prompt, Model, Schedule, AgentID string
+	// TZ is the zone of Schedule; empty is UTC.
+	TZ string
 }
 
 // EntryIn is one line of a transcript to import.
@@ -135,7 +154,8 @@ type BindingIn struct {
 // the old data named it: "" is the user of a server with no accounts.
 type Targets interface {
 	UserExists(ctx context.Context, user string) (bool, error)
-	// Collections lists the names of the user's collections.
+	// Collections lists the names of the user's collections. It returns an error
+	// wrapping ErrCollectionsUnavailable when the service is off or not started.
 	Collections(ctx context.Context, user string) ([]string, error)
 	// SaveAgent returns the new ID, or an error wrapping ErrNameTaken.
 	SaveAgent(ctx context.Context, user string, in AgentIn) (string, error)
@@ -143,6 +163,9 @@ type Targets interface {
 	SkillExists(ctx context.Context, user string, shared bool, name string) (bool, error)
 	WriteSkill(ctx context.Context, user string, shared bool, name, description, body string) error
 	ImportChat(ctx context.Context, user string, in ChatIn) error
+	// DiscardChat deletes the chats of the user with this title and creation
+	// time: what an import that a crash cut short left behind.
+	DiscardChat(ctx context.Context, user, title string, created time.Time) error
 	CreateBinding(ctx context.Context, user string, in BindingIn) error
 }
 

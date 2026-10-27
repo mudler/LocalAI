@@ -324,10 +324,27 @@
   gap: var(--dk-space-2);
 }
 
+/* The button that opens the list of chats exists only where the list does not
+   fit beside the thread. */
+.ch-railbtn { display: none; }
+
 @media (max-width: 720px) {
-  .ch-list {
-    width: 200px;
+  .ch-page { flex-direction: column; }
+  .ch-railbtn { display: inline-flex; align-self: center; }
+  .ch-head { flex-wrap: wrap; align-items: center; padding: var(--dk-space-3); }
+  /* Closed, the list is out of the way; open, it stacks above the thread. */
+  .ch-list { display: none; }
+  .ch-page--rail .ch-list {
+    display: flex;
+    width: auto;
+    max-height: 45%;
+    overflow-y: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
   }
+  /* The panel scrolls as a whole, so no part of it is squeezed. */
+  .ch-page--rail .ch-list > * { flex: none; }
+  .ch-page--rail .ch-list__items { overflow: visible; }
 }
 
 .ch-attached {

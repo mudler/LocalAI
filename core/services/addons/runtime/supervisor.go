@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -71,6 +70,10 @@ type Config struct {
 	// HostOps, when set, gives each add-on that its Allowed map names a
 	// host operation endpoint. Nil means no add-on gets one.
 	HostOps *HostOps
+	// Output receives each line an add-on writes to its standard output
+	// (stream "stdout") or error ("stderr"). Nil sends the lines to the LocalAI
+	// log with the add-on ID as a prefix.
+	Output func(addonID, stream, line string)
 }
 
 // HostOps wires the host operation channel into the supervisor. Allowed maps
@@ -366,17 +369,49 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	cmd.Dir = pkg.Directory
 	cmd.Env = []string{"LANG=C", "TZ=UTC"}
 	cmd.ExtraFiles = []*os.File{socket, child}
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	// The streams are pipes the supervisor owns, not an io.Writer on the
+	// command: with a writer, Wait would block while a child of the add-on
+	// still holds the pipe open.
+	sink := s.config.Output
+	if sink == nil {
+		sink = defaultOutput
+	}
+	outR, outW, e := os.Pipe()
+	if e != nil {
+		_ = parent.Close()
+		return nil, ErrRuntime
+	}
+	errR, errW, e := os.Pipe()
+	if e != nil {
+		_ = outR.Close()
+		_ = outW.Close()
+		_ = parent.Close()
+		return nil, ErrRuntime
+	}
+	cmd.Stdout, cmd.Stderr = outW, errW
+	closeOutput := func() {
+		_ = outW.Close()
+		_ = errW.Close()
+		_ = outR.Close()
+		_ = errR.Close()
+	}
 	if e = s.ledger.put(pkg.Manifest.ID, processIdentity{Incarnation: r.Incarnation, Pending: true}); e != nil {
+		closeOutput()
 		_ = parent.Close()
 		return nil, ErrRuntime
 	}
 	if e = cmd.Start(); e != nil {
+		closeOutput()
 		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
 		_ = parent.Close()
 		return nil, ErrRuntime
 	}
+	// The child has its own ends; the readers stop when it and its children
+	// close theirs.
+	_ = outW.Close()
+	_ = errW.Close()
+	go func() { logOutput(outR, pkg.Manifest.ID, "stdout", sink); _ = outR.Close() }()
+	go func() { logOutput(errR, pkg.Manifest.ID, "stderr", sink); _ = errR.Close() }()
 	p := &process{cmd: cmd, parent: parent, done: make(chan struct{}), registration: r}
 	c, e := newClient(r, hex.EncodeToString(credential), s.config.Limits)
 	if e != nil {

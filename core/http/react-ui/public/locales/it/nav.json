@@ -68,7 +68,8 @@
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
     "chats": "Chats",
-    "files": "File"
+    "files": "File",
+    "triggers": "Trigger"
   },
   "footer": {
     "github": "GitHub",
@@ -101,7 +102,8 @@
       "import": "Aggiungi un modello da un file, un URL o un repository Hugging Face.",
       "voices": "Identifica chi parla e gestisci una libreria di profili vocali.",
       "faces": "Rileva, confronta e abbina volti.",
-      "addons": "Installa componenti aggiuntivi e apri le app che offrono."
+      "addons": "Installa componenti aggiuntivi e apri le app che offrono.",
+      "triggers": "Avvia una chat da sola, a orari prefissati o quando arriva un file."
     }
   }
 }

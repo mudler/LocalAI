@@ -38,7 +38,8 @@
       "quantize": "Réduisez un modèle pour l'exécuter sur du matériel plus modeste.",
       "skills": "Instructions réutilisables que les agents chargent à la demande.",
       "voices": "Identifiez les locuteurs et conservez une bibliothèque de profils vocaux.",
-      "addons": "Install, turn on and open add-ons."
+      "addons": "Install, turn on and open add-ons.",
+      "triggers": "Démarrez un chat automatiquement, selon un calendrier ou à l'arrivée d'un fichier."
     }
   },
   "operate": {
@@ -93,7 +94,8 @@
     "trafficModels": "Modèles",
     "addons": "Add-ons",
     "chats": "Chats",
-    "files": "Fichiers"
+    "files": "Fichiers",
+    "triggers": "Déclencheurs"
   },
   "footer": {
     "github": "GitHub",

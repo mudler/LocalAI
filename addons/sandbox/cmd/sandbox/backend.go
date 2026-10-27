@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -41,7 +40,7 @@ func unsupported(format string, a ...any) error {
 // the add-on is checked against the checksum pinned for its architecture and
 // copied, with its helpers, into the data directory as executable files: the
 // package does not keep the executable bit, and the AppArmor profile of an
-// administrator names a path that stays the same. A runsc on PATH is the
+// administrator names a path that stays the same. A runsc in a system folder is the
 // administrator's own and is used as it is.
 func runscPath(dataDir string) (string, error) {
 	if exe, err := os.Executable(); err == nil {
@@ -50,9 +49,9 @@ func runscPath(dataDir string) (string, error) {
 			return p, err
 		}
 	}
-	p, err := exec.LookPath("runsc")
+	p, err := sandbox.LookPath("runsc", filepath.Join(dataDir, "runsc"))
 	if err != nil {
-		return "", unsupported("runsc was not found next to the add-on or on PATH")
+		return "", unsupported("runsc was not found next to the add-on or in a system folder")
 	}
 	return p, nil
 }

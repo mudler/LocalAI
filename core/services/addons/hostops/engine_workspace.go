@@ -48,6 +48,17 @@ type WorkspaceHost struct {
 	DataDir   func(addonID string) string
 }
 
+// principal maps the actor to the owner of the files. An empty answer from
+// Principal means the actor has no files here; the operation is refused
+// instead of falling back to some other user's home.
+func (h *WorkspaceHost) principal(c Call) (string, error) {
+	p := h.Principal(c.Actor)
+	if p == "" {
+		return "", fmt.Errorf("%w: no files for this user", ErrBadRequest)
+	}
+	return p, nil
+}
+
 type mountArg struct {
 	Path  string `json:"path"`
 	At    string `json:"at"`
@@ -58,7 +69,10 @@ func (h *WorkspaceHost) view(ctx context.Context, c Call, mounts []mountArg) (wo
 	if len(mounts) == 0 || len(mounts) > maxMounts {
 		return workspace.View{}, workspace.Actor{}, fmt.Errorf("%w: mounts must hold 1 to %d folders", ErrBadRequest, maxMounts)
 	}
-	p := h.Principal(c.Actor)
+	p, err := h.principal(c)
+	if err != nil {
+		return workspace.View{}, workspace.Actor{}, err
+	}
 	if err := h.Files.EnsureHome(ctx, p); err != nil {
 		return workspace.View{}, workspace.Actor{}, fmt.Errorf("%w: files are not available", ErrBadRequest)
 	}
@@ -198,11 +212,16 @@ func (h *WorkspaceHost) commit(ctx context.Context, c Call) (json.RawMessage, er
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.Open(filepath.Join(dir, upperName))
+	// The add-on writes this file, so it could make it a link to any archive
+	// of the host. Export and import refuse links for the same reason.
+	f, err := os.OpenFile(filepath.Join(dir, upperName), os.O_RDONLY|syscallNoFollow, 0)
 	if err != nil {
 		return nil, fmt.Errorf("%w: no %s in the directory", ErrBadRequest, upperName)
 	}
 	defer func() { _ = f.Close() }()
+	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() {
+		return nil, fmt.Errorf("%w: %s is not a file", ErrBadRequest, upperName)
+	}
 	v, actor, err := h.view(ctx, c, a.Mounts)
 	if err != nil {
 		return nil, err
@@ -236,7 +255,10 @@ func (h *WorkspaceHost) changes(ctx context.Context, c Call) (json.RawMessage, e
 	if a.Limit <= 0 || a.Limit > maxChangeSet {
 		a.Limit = maxChangeSet
 	}
-	p := h.Principal(c.Actor)
+	p, err := h.principal(c)
+	if err != nil {
+		return nil, err
+	}
 	if err := h.Files.EnsureHome(ctx, p); err != nil {
 		return nil, fmt.Errorf("%w: files are not available", ErrBadRequest)
 	}
@@ -291,7 +313,10 @@ func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, er
 	if err := decodeArgs(c.Arguments, &a); err != nil {
 		return nil, err
 	}
-	p := h.Principal(c.Actor)
+	p, err := h.principal(c)
+	if err != nil {
+		return nil, err
+	}
 	if err := h.Files.EnsureHome(ctx, p); err != nil {
 		return nil, fmt.Errorf("%w: files are not available", ErrBadRequest)
 	}
@@ -337,7 +362,10 @@ func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage
 	if err := decodeArgs(c.Arguments, &a); err != nil {
 		return nil, err
 	}
-	p := h.Principal(c.Actor)
+	p, err := h.principal(c)
+	if err != nil {
+		return nil, err
+	}
 	if err := h.Files.EnsureHome(ctx, p); err != nil {
 		return nil, fmt.Errorf("%w: files are not available", ErrBadRequest)
 	}

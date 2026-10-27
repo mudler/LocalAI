@@ -48,8 +48,8 @@ const socketTail = "/0123456789ab/ctl/port-65535.sock"
 // Sandboxes outlive the process that started them. New therefore stops the
 // ones that an earlier process left in StateDir: every session folder whose
 // state.json is missing, unreadable or not suspended is deleted with "runsc
-// delete --force", then removed. Suspended folders stay, because they hold a
-// checkpoint that Resume can use.
+// delete --force", then removed. Suspended folders are removed too, unless
+// Options.KeepSuspended is set: the caller that held their references is gone.
 func New(o Options) (*Backend, error) {
 	if geteuid() == 0 {
 		return nil, fmt.Errorf("%w: the backend must not run as root on the host: run it as an unprivileged user", sandbox.ErrUnsupported)
@@ -77,7 +77,7 @@ func New(o Options) (*Backend, error) {
 	if name == "" {
 		name = "runsc"
 	}
-	p, err := exec.LookPath(name)
+	p, err := sandbox.LookPath(name)
 	if err != nil {
 		return nil, fmt.Errorf("%w: runsc not found: %v", sandbox.ErrUnsupported, err)
 	}
@@ -108,7 +108,7 @@ func New(o Options) (*Backend, error) {
 	if st, err := os.Stat(bin); err != nil || !st.IsDir() {
 		return nil, fmt.Errorf("%w: the folder %s is missing: runsc needs its helper binaries next to it", sandbox.ErrUnsupported, bin)
 	}
-	if b.taskset, err = exec.LookPath("taskset"); err != nil {
+	if b.taskset, err = sandbox.LookPath("taskset"); err != nil {
 		return nil, fmt.Errorf("%w: taskset not found: %v", sandbox.ErrUnsupported, err)
 	}
 	b.cpus = allowedCPUs()
@@ -162,8 +162,9 @@ const sweepBudget = 30 * time.Second
 
 // sweep stops the sandboxes that an earlier process left in StateDir and
 // removes their folders. A folder is kept when its state.json says it is
-// suspended. A folder whose sandbox cannot be stopped is kept too, with a log
-// line, so that the runsc state stays reachable.
+// suspended and Options.KeepSuspended is set. A folder whose sandbox cannot be
+// stopped is kept too, with a log line, so that the runsc state stays
+// reachable.
 func (b *Backend) sweep() error {
 	ents, err := os.ReadDir(b.opts.StateDir)
 	if err != nil {
@@ -174,7 +175,7 @@ func (b *Backend) sweep() error {
 			continue
 		}
 		dir := filepath.Join(b.opts.StateDir, e.Name())
-		if st, err := loadState(dir); err == nil && st.Suspended {
+		if st, err := loadState(dir); err == nil && st.Suspended && b.opts.KeepSuspended {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), sweepBudget)

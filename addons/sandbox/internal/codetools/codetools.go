@@ -29,7 +29,7 @@ const (
 	MaxFile = 8 << 20
 	// DefaultTimeout and MaxTimeout bound a bash call.
 	DefaultTimeout = 2 * time.Minute
-	MaxTimeout     = 30 * time.Minute
+	MaxTimeout     = 28 * time.Minute // below the host's action timeout, with room to commit and answer
 )
 
 // GuestRoot is the working directory of the guest: the mounts are below it.
@@ -72,8 +72,8 @@ type Acquire func(ctx context.Context) (sandbox.Sandbox, func(), error)
 func NewTools(acquire Acquire) []Tool {
 	r := &runner{acquire: acquire}
 	return []Tool{
-		r.tool("bash", "Run a shell script with bash in "+GuestRoot+". Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800).",
-			`{"type":"object","properties":{"command":{"type":"string","description":"The script to run."},"timeoutSeconds":{"type":"integer","minimum":1,"maximum":1800}},"required":["command"]}`, r.bash),
+		r.tool("bash", "Run a shell script with bash in "+GuestRoot+". Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1680).",
+			`{"type":"object","properties":{"command":{"type":"string","description":"The script to run."},"timeoutSeconds":{"type":"integer","minimum":1,"maximum":1680}},"required":["command"]}`, r.bash),
 		r.tool("read", "Read lines of a text file. offset is the first line (default 1), limit the number of lines (default 2000).",
 			`{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer","minimum":1},"limit":{"type":"integer","minimum":1}},"required":["path"]}`, r.read),
 		r.tool("write", "Write a file. It replaces the file when it exists and creates the folders above it.",

@@ -24,21 +24,11 @@ export function skillsMode() {
   return 'tools'
 }
 
-// Collections are searched by the model when it asks, never on every message.
-export function kbSearchesEveryMessage() {
-  return false
-}
-
 export function kbResults() {
   return 5
 }
 
-// Agents that may use a skill. `agents` is [{ name, config }].
-export function skillUsers(agents, skill) {
-  return agents.filter(agent => agentSkills(agent.config).names.includes(skill)).map(agent => ({ name: agent.name, all: false }))
-}
-
-// Agents that may search a collection.
+// Agents that may search a collection. `agents` is [{ name, config }].
 export function collectionUsers(agents, collection) {
   return agents
     .filter(agent => (agent.config?.collections || []).includes(collection))

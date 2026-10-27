@@ -6,6 +6,8 @@
     "empty": "No chats yet.",
     "untitled": "New chat",
     "delete": "Delete chat",
+    "deleteNamed": "Delete chat {{title}}",
+    "toggle": "Chats",
     "working": "Working",
     "agentPicker": "Agent",
     "noAgent": "No agent",
@@ -60,7 +62,18 @@
   },
   "errors": {
     "send": "The message could not be sent.",
+    "delete": "The chat could not be deleted.",
     "dismiss": "Dismiss"
+  },
+  "confirmDelete": {
+    "title": "Delete {{name}}?",
+    "chat": "The chat and its messages are deleted for good.",
+    "agent": "Chats that use this agent are kept. Triggers that use it stop working.",
+    "trigger": "The trigger stops and its history of runs is deleted.",
+    "connector": "The bot stops answering, and the bot token saved with it is deleted. To set the bot up again you must enter the token again.",
+    "skill": "The skill file is deleted for good.",
+    "confirm": "Delete",
+    "pending": "Deleting"
   },
   "memoryNotice": "Chats are kept in memory only. They are lost when the server restarts.",
   "attach": {

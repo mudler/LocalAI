@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"sync/atomic"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,21 @@ func (c *actingClient) Act(_ context.Context, e contract.Envelope) (contract.Res
 	c.acts.Add(1)
 	b, _ := json.Marshal(map[string]string{"user": e.Authority.Actor.UserID, "scope": e.Authority.Scope, "action": e.Request.Action})
 	return contract.Result{Payload: b}, nil
+}
+
+// slowActClient answers an action call after a delay.
+type slowActClient struct {
+	actingClient
+	delay time.Duration
+}
+
+func (c *slowActClient) Act(ctx context.Context, e contract.Envelope) (contract.Result, error) {
+	select {
+	case <-time.After(c.delay):
+	case <-ctx.Done():
+		return contract.Result{}, ctx.Err()
+	}
+	return c.actingClient.Act(ctx, e)
 }
 
 // readOnlyClient is a runtime that does not serve action tools.
@@ -147,6 +163,25 @@ var _ = Describe("an action tool forwarded to the owner", Label("tools"), func()
 		_, err = frontend.Dispatch(context.Background(), actor, req)
 		Expect(err).To(HaveOccurred())
 		Expect(client.acts.Load()).To(Equal(int32(1)))
+	})
+
+	It("keeps the answer of a call that outlasts the write timeout of the owner server", func() {
+		client := &slowActClient{delay: 700 * time.Millisecond}
+		owner := &Gateway{Admission: &addonAdmitted{}, Resolver: strictResolver{}, Runtime: currentFixture{client}, Revalidate: ok,
+			Tools: capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"sample": {"run"}}}, defs: defs, actions: true}}
+		env := carrierFixtureWith(RelayLimits{}, func(c *Carrier) http.Handler {
+			h, e := c.OwnerHandler(owner)
+			Expect(e).NotTo(HaveOccurred())
+			// What http.Server does for its WriteTimeout, with a short one.
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(200 * time.Millisecond))
+				h.ServeHTTP(w, r)
+			})
+		})
+		frontend := &Gateway{Forward: env.carriers["front-a"], Revalidate: ok}
+		out, err := frontend.Act(context.Background(), actor, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(out.Payload)).To(ContainSubstring(`"user":"alice"`))
 	})
 
 	It("is an unknown outcome when the answer is lost", func() {

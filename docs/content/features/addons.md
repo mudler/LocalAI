@@ -3428,7 +3428,7 @@ The Office add-on reads and edits documents in the user's files, from a chat. It
 | `edit-docx`, `edit-xlsx`, `edit-pptx` | action | Apply a list of changes (at most 200) to a file. All of them are saved, or none. |
 | `create-docx`, `create-xlsx`, `create-pptx` | action | Make a new file. |
 
-The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.
+The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. Without accounts, the files are the same ones the chat and the Files page use. With accounts and `local-owner` mode, the `workspace.*` operations are refused, because the local owner is no account and has no files; use `named-user` mode for the Office and Sandbox add-ons. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.
 
 ## Sandbox
 
@@ -3436,8 +3436,8 @@ The Sandbox add-on lets a chat run commands and code. Its tools are action tools
 
 - **One sandbox per user and chat.** The key is the pair of the user and the conversation. The user comes from the host. Nobody else reaches the sandbox, and the model cannot name another user or chat.
 - **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, the sandbox's version is kept as a copy and the answer says so. A file change by someone else makes the sandbox rebuild its view of the files before the next call.
-- **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left.
-- **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 30 minutes at most).
+- **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When a suspended sandbox is removed, the host backend also stops the processes it left running.
+- **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
 - **Without a backend.** When the host has no way to run sandboxes, every tool answers "This host cannot run commands." and nothing runs.
 
 ### Sandbox backends and settings
@@ -3447,24 +3447,24 @@ The add-on runs commands in one of these backends, chosen on the Settings page b
 | Choice | What it is |
 |---|---|
 | Automatic | KVM (Cloud Hypervisor) when the host has it, otherwise gVisor, otherwise nothing. It never picks the host backend, not even as a last resort. |
-| gVisor | `runsc` with user namespaces. Needs `runsc` next to the add-on or on `PATH`, `taskset`, and on some systems an AppArmor profile (`gvisor-profile` prints it). |
+| gVisor | `runsc` with user namespaces. Needs `runsc` next to the add-on or in a system folder, `taskset`, and on some systems an AppArmor profile (`gvisor-profile` prints it). |
 | KVM | Cloud Hypervisor with `virtiofsd`, `bwrap`, `mke2fs`, `debugfs` and `/dev/kvm`. |
 | Off | No sandbox. Every tool answers that the host cannot run commands. |
 | Host | Runs commands on the host as the user LocalAI runs as, with no isolation. |
 
 The page shows which backend runs now, and for each other backend the one thing that is missing and how to fix it. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
 
-The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, and the page shows a notice for as long as the host backend is the one in use. Treat the machine as one that code can harm.
+The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, in the LocalAI log with the prefix `[sandbox]` (LocalAI writes everything an add-on prints to its output or error into its own log, one line at a time, cut at 4096 bytes), and the page shows a notice for as long as the host backend is the one in use. Treat the machine as one that code can harm.
 
 The choice is kept in the add-on's data directory. Changing it removes the running sandboxes; what they did is already in the users' files.
 
-The guest image and `runsc` are not part of the add-on's source. A release sets `main.guestImage` (the image, by digest) and `main.runscSHA256` (the checksum of the `runsc` it was tested with) at build time. A build without a guest image reports that on the page, and only the host backend can run.
+The guest image and `runsc` are not part of the add-on's source. A release sets `main.guestImage` (the image, by digest) at build time. The checksum of the `runsc` it was tested with is compiled into the add-on (`runscPins` in `addons/sandbox/cmd/sandbox/backend.go`), and a test keeps it equal to `package/runsc.json`. A build without a guest image reports that on the page, and only the host backend can run.
 
 ### Packaging and setting up the Sandbox add-on
 
 The Sandbox package is for Linux on amd64 and arm64. The macOS platforms are listed in its platform file and stay disabled.
 
-- **`runsc`.** `addons/sandbox/package/runsc.json` pins one gVisor release (20261012.0) with the URL, the checksum the release publishes for each tarball, and the checksum of the `runsc` inside it. `addons/sandbox/package/fetch-runtime.sh <os/arch> <dir>` downloads it, checks both checksums, and the release workflow puts `runsc` and `gvisor-bin/` in the package. At run time the add-on checks `runsc` against the pinned checksum, copies it with its helpers to `runsc/` in its data directory as executable files, and uses that copy. A `runsc` that does not match is never used. Without one in the package, a `runsc` on `PATH` is used as it is.
+- **`runsc`.** `addons/sandbox/package/runsc.json` pins one gVisor release (20261012.0) with the URL, the checksum the release publishes for each tarball, and the checksum of the `runsc` inside it. `addons/sandbox/package/fetch-runtime.sh <os/arch> <dir>` downloads it, checks both checksums, and the release workflow puts `runsc` and `gvisor-bin/` in the package. At run time the add-on checks `runsc` against the pinned checksum, copies it with its helpers to `runsc/` in its data directory as executable files, and uses that copy. A `runsc` that does not match is never used. Without one in the package, a `runsc` in a system folder (`/usr/local/sbin`, `/usr/local/bin`, `/usr/sbin`, `/usr/bin`, `/sbin`, `/bin`) is used as it is. The add-on does not read `PATH`: LocalAI starts it with none, so it looks for `runsc`, `taskset` and the KVM tools in those folders only.
 - **AppArmor.** On Ubuntu 24.04 and later, a program needs an AppArmor profile to make user namespaces. After the add-on has copied `runsc`, the page shows the path and the command that prints the profile for it:
 
   ```bash

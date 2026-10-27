@@ -9,7 +9,7 @@
     "toolDefinitions": [
       {
         "name": "bash",
-        "description": "Run a shell script with bash in /workspace. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800).",
+        "description": "Run a shell script with bash in /workspace. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1680).",
         "kind": "action",
         "inputSchema": {
           "additionalProperties": false,
@@ -19,7 +19,7 @@
               "type": "string"
             },
             "timeoutSeconds": {
-              "maximum": 1800,
+              "maximum": 1680,
               "minimum": 1,
               "type": "integer"
             }

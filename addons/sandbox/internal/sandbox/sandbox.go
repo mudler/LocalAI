@@ -33,6 +33,14 @@ type Backend interface {
 	Resume(ctx context.Context, snap SnapshotRef, env Env) (Sandbox, error)
 }
 
+// Discarder is implemented by a backend that must be told when a suspended
+// sandbox is not wanted any more, because the snapshot is more than a folder
+// the caller can remove (the host backend keeps the processes of a suspended
+// sandbox running). A snapshot of another backend is ignored.
+type Discarder interface {
+	Discard(ctx context.Context, snap SnapshotRef) error
+}
+
 // Env carries what a sandbox needs from the host at run time. Resume needs it
 // again.
 type Env struct {

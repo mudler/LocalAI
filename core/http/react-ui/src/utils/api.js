@@ -1,5 +1,6 @@
 import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
+import { chatsListPath } from './chatsQuery'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
@@ -133,7 +134,7 @@ export const backendsApi = {
 // Chats API: conversations the server keeps. A message sent while a turn runs
 // waits and reaches the model, with any others, at its next request.
 export const chatsApi = {
-  list: (limit) => fetchJSON(limit ? `${API_CONFIG.endpoints.chats}?limit=${limit}` : API_CONFIG.endpoints.chats),
+  list: (limit, kind) => fetchJSON(chatsListPath(API_CONFIG.endpoints.chats, limit, kind)),
   // With an agent, its model (when it has one) replaces model.
   create: (model, title, agentId) => postJSON(API_CONFIG.endpoints.chats, {
     ...(model ? { model } : {}), ...(title ? { title } : {}), ...(agentId ? { agent_id: agentId } : {}),

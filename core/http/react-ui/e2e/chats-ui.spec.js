@@ -180,6 +180,44 @@ test.describe('Chats page with a stubbed API', () => {
     await expect(composer(page)).toHaveValue('keep this text')
   })
 
+  test('deleting a chat asks first, then leaves the address of the deleted chat', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    let deletes = 0
+    await page.route('**/api/chats/c1', route => {
+      if (route.request().method() !== 'DELETE') return route.fallback()
+      deletes++
+      return route.fulfill({ status: 204, body: '' })
+    })
+    await page.goto('/app/chats/c1')
+    const del = page.getByRole('button', { name: 'Delete chat Quotes' })
+    await del.click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Delete Quotes?')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    expect(deletes).toBe(0)
+    await expect(page).toHaveURL(/\/app\/chats\/c1$/)
+
+    await del.click()
+    await dialog.getByRole('button', { name: 'Delete' }).click()
+    await expect.poll(() => deletes).toBe(1)
+    await expect(page).toHaveURL(/\/app\/chats$/)
+  })
+
+  test('a chat the server will not delete stays, and the reason shows', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route('**/api/chats/c1', route => (route.request().method() === 'DELETE'
+      ? route.fulfill({ status: 500, json: { error: { message: 'the store is read-only' } } })
+      : route.fallback()))
+    await page.goto('/app/chats/c1')
+    await page.getByRole('button', { name: 'Delete chat Quotes' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByRole('alert')).toContainText('the store is read-only')
+    await expect(page).toHaveURL(/\/app\/chats\/c1$/)
+    await expect(page.getByRole('button', { name: 'Delete chat Quotes' })).toBeVisible()
+  })
+
   test.describe('attachments', () => {
     const attach = (page, name = 'notes.txt', body = 'alpha') =>
       page.getByTestId('chat-file-input').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from(body) })

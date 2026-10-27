@@ -6,9 +6,13 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/host"
@@ -121,6 +125,85 @@ func TestACommandRunsWhenTheAddonHasNoPath(t *testing.T) {
 	}
 	if code, err := p.Wait(); err != nil || code != 0 || out.String() != "ran\n" {
 		t.Fatalf("code %d, err %v, out %q", code, err, out.String())
+	}
+}
+
+func suspendedWithABackgroundProcess(t *testing.T) (*host.Backend, sandbox.SnapshotRef, string, int) {
+	t.Helper()
+	root := t.TempDir()
+	b, err := host.New(host.Options{Root: root})
+	if err != nil {
+		t.Skip(err)
+	}
+	sb := newSandbox(t, b)
+	var out strings.Builder
+	p, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"sh", "-c", "sleep 300 </dev/null >/dev/null 2>&1 & echo $!"}, Stdout: &out})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(out.String()))
+	if err != nil {
+		t.Fatalf("pid %q: %v", out.String(), err)
+	}
+	t.Cleanup(func() { _ = syscall.Kill(pid, syscall.SIGKILL) })
+	ref, err := sb.Suspend(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b, ref, root, pid
+}
+
+func alive(pid int) bool {
+	// A killed child of init may stay a zombie for a moment.
+	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+	return err == nil && !strings.Contains(string(b), ") Z ")
+}
+
+func TestDiscardingASnapshotKillsItsProcessesAndRemovesItsFolder(t *testing.T) {
+	b, ref, root, pid := suspendedWithABackgroundProcess(t)
+	if !alive(pid) {
+		t.Fatal("the background process did not survive the suspend")
+	}
+	if err := b.Discard(context.Background(), ref); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 50 && alive(pid); i++ {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if alive(pid) {
+		t.Error("the process of the discarded snapshot still runs")
+	}
+	if left, _ := filepath.Glob(filepath.Join(root, "sb-*")); len(left) != 0 {
+		t.Errorf("folders left: %v", left)
+	}
+	if _, err := b.Resume(context.Background(), ref, sandbox.Env{}); err == nil {
+		t.Error("a discarded snapshot was resumed")
+	}
+	// A second discard, or one of another backend's snapshot, is harmless.
+	if err := b.Discard(context.Background(), ref); err != nil {
+		t.Error(err)
+	}
+	if err := b.Discard(context.Background(), sandbox.SnapshotRef{Backend: "gvisor", Path: "x"}); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestClosingTheBackendDiscardsWhatItHolds(t *testing.T) {
+	b, _, root, pid := suspendedWithABackgroundProcess(t)
+	if err := b.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 50 && alive(pid); i++ {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if alive(pid) {
+		t.Error("the process of a held sandbox still runs after Close")
+	}
+	if left, _ := filepath.Glob(filepath.Join(root, "sb-*")); len(left) != 0 {
+		t.Errorf("folders left: %v", left)
 	}
 }
 

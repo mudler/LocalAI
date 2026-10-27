@@ -39,6 +39,9 @@ type Event struct {
 	Tool   *ToolEvent   // tool_start, tool_end
 	Change *ChangeEvent // checkpoint
 	IDs    []string     // pending_delivered: the ids of the messages
+	// Fatal marks the error that ended the turn (error only). Other errors, such
+	// as a failed save or a recovered tool panic, leave the turn to finish.
+	Fatal bool
 	// Before and After are the size of the model's context in tokens, before
 	// and after a compaction (compacted only).
 	Before, After int

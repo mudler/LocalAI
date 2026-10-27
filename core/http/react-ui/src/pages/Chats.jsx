@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ChatInbox from '../components/ChatInbox'
+import ConfirmDialog from '../components/ConfirmDialog'
 import ModelSelector from '../components/ModelSelector'
 import { useInbox } from '../hooks/useInbox'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -237,6 +238,11 @@ export default function Chats() {
   const [localError, setLocalError] = useState('')
   const [attached, setAttached] = useState([])
   const fileInput = useRef(null)
+  // The chat asked to delete (waiting for the person to confirm) and whether the
+  // delete is on its way. Under 720px the list of chats is a panel the header opens.
+  const [toDelete, setToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [railOpen, setRailOpen] = useState(false)
 
   // The address names the open chat. Opening one by id selects it, unless it is
   // already open (creating a chat selects it before the address changes).
@@ -247,6 +253,9 @@ export default function Chats() {
   // activeId is read, not a trigger: only a change of address selects.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId])
+
+  // Opening a chat or starting a new one closes the panel of the list.
+  useEffect(() => { setRailOpen(false) }, [routeId])
 
   // The agents are best effort: a server without them leaves the picker out.
   useEffect(() => {
@@ -312,13 +321,27 @@ export default function Chats() {
 
   const shownError = localError || chat.error
   const dismissError = () => { setLocalError(''); chat.clearError() }
+  const confirmDelete = async () => {
+    const target = toDelete
+    setDeleting(true)
+    try {
+      await chat.remove(target.id)
+      // The address named the chat that is gone.
+      if (target.id === activeId) navigate('/app/chats')
+    } catch (e) {
+      setLocalError(e.message || t('errors.delete'))
+    } finally {
+      setDeleting(false)
+      setToDelete(null)
+    }
+  }
   const activeChat = chat.chats.find((c) => c.id === activeId)
   const title = activeChat?.title || t('list.untitled')
   const chatAgent = agents.find((a) => a.id === activeChat?.agent_id)
 
   return (
-    <div className="ch-page" data-testid="chats-page">
-      <aside className="ch-list" aria-label={t('list.label')}>
+    <div className={`ch-page${railOpen ? ' ch-page--rail' : ''}`} data-testid="chats-page">
+      <aside className="ch-list" id="ch-list" aria-label={t('list.label')}>
         <button type="button" className="btn btn-primary btn-full" onClick={() => navigate('/app/chats')}>
           {t('list.new')}
         </button>
@@ -333,7 +356,7 @@ export default function Chats() {
                 {c.running && <span className="ch-dot" role="img" aria-label={t('list.working')} />}
                 {inbox.unreadChatIds.has(c.id) && <span className="ch-dot ch-dot--unread" role="img" aria-label={t('list.unread')} data-testid="unread-dot" />}
               </button>
-              <button type="button" className="ch-link ch-link--danger" aria-label={t('list.delete')} onClick={() => chat.remove(c.id)}>×</button>
+              <button type="button" className="ch-link ch-link--danger" aria-label={t('list.deleteNamed', { title: c.title || t('list.untitled') })} onClick={() => setToDelete(c)}>×</button>
             </div>
           ))}
         </div>
@@ -350,6 +373,10 @@ export default function Chats() {
 
       <section className="ch-main">
         <header className="ch-head">
+          <button type="button" className="btn btn-secondary btn-sm ch-railbtn" aria-expanded={railOpen} aria-controls="ch-list"
+            onClick={() => setRailOpen((o) => !o)}>
+            {t('list.toggle')}
+          </button>
           <h1 className="ch-head__title">{activeId ? title : t('title')}</h1>
           {chatAgent && <span className="ch-head__meta" data-testid="chat-agent">{t('title_agent', { name: chatAgent.name })}</span>}
           {activeChat?.model && <span className="ch-head__meta">{activeChat.model}</span>}
@@ -358,13 +385,13 @@ export default function Chats() {
         <AddonsPanel chatId={activeId} t={t} />
 
         <div className="ch-scroll">
-          <div className="ch-flow" role="log" aria-live="polite" aria-label={t('transcript')}>
+          <div className="ch-flow" role="region" aria-label={t('transcript')}>
             {!activeId && (
               <div className="ch-empty">
                 <h2 className="ch-empty__title">{t('empty.title')}</h2>
                 <p className="ch-empty__body">{t('empty.body')}</p>
                 <label className="ch-empty__body" htmlFor="chats-model">{t('model')}</label>
-                <ModelSelector value={model} onChange={setModel} capability={CAP_CHAT} />
+                <ModelSelector id="chats-model" value={model} onChange={setModel} capability={CAP_CHAT} />
                 {agents.length > 0 && (
                   <>
                     <label className="ch-empty__body" htmlFor="chats-agent">{t('list.agentPicker')}</label>
@@ -378,9 +405,12 @@ export default function Chats() {
             )}
             {activeId && <Transcript messages={chat.messages} t={t} />}
             {activeId && <LiveTurn live={chat.live} t={t} />}
-            {chat.running && <div className="ch-status">{t('status.working')}</div>}
-            {activeId && !chat.running && chat.lastTurn === 'failed' && <div className="ch-status">{t('status.failed')}</div>}
-            {activeId && !chat.running && chat.lastTurn === 'interrupted' && <div className="ch-status">{t('status.interrupted')}</div>}
+            {/* The one live region: it announces that a turn runs or ended, not every streamed word. */}
+            <div className="ch-status" role="status" aria-live="polite">
+              {chat.running ? t('status.working')
+                : activeId && chat.lastTurn === 'failed' ? t('status.failed')
+                  : activeId && chat.lastTurn === 'interrupted' ? t('status.interrupted') : ''}
+            </div>
             {chat.notes.map((n, i) => (
               <div key={i} className="ch-note">
                 {n.kind === 'compacted' ? t('notes.compacted', { before: n.before, after: n.after }) : t('notes.subAgentDone', { title: n.title })}
@@ -462,6 +492,17 @@ export default function Chats() {
           </div>
         </div>
       </section>
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title={t('confirmDelete.title', { name: toDelete?.title || t('list.untitled') })}
+        message={t('confirmDelete.chat')}
+        confirmLabel={t('confirmDelete.confirm')}
+        pendingLabel={t('confirmDelete.pending')}
+        danger
+        pending={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   )
 }

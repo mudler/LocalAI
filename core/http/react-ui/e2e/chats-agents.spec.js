@@ -90,8 +90,29 @@ test.describe('Chat agents', () => {
     await expect(page.getByTestId('agent-row')).toContainText('Bare 2')
     expect(api.s.calls.find(c => c.method === 'PUT')).toMatchObject({ url: '/api/chats/agents/a1', body: { name: 'Bare 2' } })
 
-    await page.getByRole('button', { name: 'Delete' }).click()
+    // Deleting asks first: Cancel keeps the agent and sends nothing.
+    await page.getByTestId('agent-row').getByRole('button', { name: 'Delete' }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Delete Bare 2?')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.getByTestId('agent-row')).toHaveCount(1)
+    expect(api.s.calls.some(c => c.method === 'DELETE')).toBe(false)
+
+    await page.getByTestId('agent-row').getByRole('button', { name: 'Delete' }).click()
+    await dialog.getByRole('button', { name: 'Delete' }).click()
     await expect(page.getByTestId('agent-row')).toHaveCount(0)
+    expect(api.s.calls.filter(c => c.method === 'DELETE')).toHaveLength(1)
+  })
+
+  test('a delete the server refuses shows its reason and keeps the agent', async ({ page }) => {
+    const api = agentsApi(page, [{ id: 'a1', name: 'Bare', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [] }])
+    await api.install()
+    await page.route(/\/api\/chats\/agents\/a1$/, route => route.fulfill({ status: 500, json: { error: { message: 'the store is read-only' } } }))
+    await page.goto('/app/chats/agents')
+    await page.getByTestId('agent-row').getByRole('button', { name: 'Delete' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByRole('alert')).toContainText('the store is read-only')
+    await expect(page.getByTestId('agent-row')).toHaveCount(1)
   })
 
   test('shows the reason when the server refuses an agent', async ({ page }) => {

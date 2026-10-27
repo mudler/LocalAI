@@ -1,6 +1,6 @@
 {
   "release": "20261012.0",
-  "note": "gVisor release tarball: runsc and gvisor-bin/. sha512 is the checksum the release publishes next to the tarball; runscSha256 is the checksum of the runsc inside it, which the add-on checks before it uses it (addons/sandbox/cmd/sandbox/runsc.go keeps the same values).",
+  "note": "gVisor release tarball: runsc and gvisor-bin/. sha512 is the checksum the release publishes next to the tarball; runscSha256 is the checksum of the runsc inside it, which the add-on checks before it uses it (runscPins in addons/sandbox/cmd/sandbox/backend.go keeps the same values; a test compares them).",
   "platforms": {
     "linux/amd64": {
       "url": "https://storage.googleapis.com/gvisor/releases/release/20261012.0/x86_64/gvisor.tar.zstd",

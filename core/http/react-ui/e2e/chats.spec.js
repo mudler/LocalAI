@@ -9,7 +9,7 @@ import { test, expect } from './coverage-fixtures.js'
 // while the turn runs.
 
 const composer = (page) => page.getByRole('textbox', { name: 'Message' })
-const log = (page) => page.getByRole('log', { name: 'Conversation' })
+const log = (page) => page.getByRole('region', { name: 'Conversation' })
 
 // The test server's mock model is not tagged as chat-capable, so the model list
 // of the picker is empty. That one list is stubbed; the chat itself is not.

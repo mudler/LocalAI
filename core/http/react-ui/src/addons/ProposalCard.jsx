@@ -1,3 +1,4 @@
+// Not drawn by any page yet: the chats will show this card for an add-on proposal. The unit tests keep covering it.
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { addonsApi } from '../utils/addonsClient'

@@ -155,10 +155,10 @@ type RunCMD struct {
 	RemovedAgentOptions `embed:""`
 
 	// Collections (the knowledge base)
-	DisableAgents             bool   `env:"LOCALAI_DISABLE_AGENTS" default:"false" help:"Disable the agent pool feature" group:"agents"`
-	AgentPoolAPIURL           string `env:"LOCALAI_AGENT_POOL_API_URL" help:"Default API URL for agents (defaults to self-referencing LocalAI)" group:"agents"`
-	AgentPoolAPIKey           string `env:"LOCALAI_AGENT_POOL_API_KEY" help:"Default API key for agents (defaults to first LocalAI API key)" group:"agents"`
-	AgentPoolDefaultModel     string `env:"LOCALAI_AGENT_POOL_DEFAULT_MODEL" help:"Default model for agents" group:"agents"`
+	DisableAgents             bool   `env:"LOCALAI_DISABLE_AGENTS" default:"false" help:"Disable the collections service (the knowledge base API under /api/agents/collections)" group:"agents"`
+	AgentPoolAPIURL           string `env:"LOCALAI_AGENT_POOL_API_URL" help:"API URL the collections service uses for embeddings (defaults to self-referencing LocalAI)" group:"agents"`
+	AgentPoolAPIKey           string `env:"LOCALAI_AGENT_POOL_API_KEY" help:"API key the collections service uses for embeddings (defaults to first LocalAI API key)" group:"agents"`
+	AgentPoolDefaultModel     string `env:"LOCALAI_AGENT_POOL_DEFAULT_MODEL" help:"Default model of the collections service" group:"agents"`
 	AgentPoolStateDir         string `env:"LOCALAI_AGENT_POOL_STATE_DIR" help:"State directory for agent pool" group:"agents"`
 	AgentPoolVectorEngine     string `env:"LOCALAI_AGENT_POOL_VECTOR_ENGINE" default:"chromem" help:"Vector engine type for agent knowledge base" group:"agents"`
 	AgentPoolEmbeddingModel   string `env:"LOCALAI_AGENT_POOL_EMBEDDING_MODEL" default:"granite-embedding-107m-multilingual" help:"Embedding model for agent knowledge base" group:"agents"`
@@ -942,6 +942,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
 		if runCtx.Err() == nil {
 			app.StartCollections()
+			// The conversion of the old data needs the collections to grant them
+			// to the agents it converts, so it runs here and not at the start.
+			// Without the collections it has run already.
+			if app.ApplicationConfig().AgentPool.Enabled {
+				app.ConvertStudioData()
+			}
 		}
 	}()
 

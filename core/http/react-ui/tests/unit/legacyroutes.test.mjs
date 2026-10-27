@@ -158,3 +158,8 @@ test('every old chat, agent, job and skill route redirects, and no built-in page
   }
   assert.ok(!/pages\/(Chat|Agents|AgentCreate|AgentPage|AgentRun|AgentStatus|Skills|SkillEdit|AgentJobs|AgentTaskDetails|AgentJobDetails)'/.test(router))
 })
+
+test('chatsRedirect keeps a model name that is not valid percent-encoding as typed', () => {
+  assert.equal(chatsRedirect('/app/chat/100%'), '/app/chats?model=100%25')
+  assert.equal(chatsRedirect('/app/chat/a%zzb'), '/app/chats?model=a%25zzb')
+})

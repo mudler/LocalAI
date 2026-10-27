@@ -5,6 +5,7 @@ package main
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"io"
@@ -54,6 +55,14 @@ func main() {
 	// The host operation endpoint and credential, as received, so a test can
 	// assert that an add-on the host does not name gets neither.
 	_ = os.WriteFile("fixture.hostops", []byte(startup.HostEndpoint+"\n"+startup.HostCredential), 0600)
+	// The "log" mode writes to its output streams, as an add-on that reports
+	// what it does would; one line is far over any sane limit.
+	if config.Mode == "log" {
+		fmt.Fprintln(os.Stdout, "hello from stdout")
+		fmt.Fprintln(os.Stderr, "hello from stderr")
+		fmt.Fprintln(os.Stdout, strings.Repeat("x", 20000))
+		fmt.Fprint(os.Stdout, "no newline at the end")
+	}
 	if config.Mode == "exit-start" {
 		os.Exit(4)
 	}

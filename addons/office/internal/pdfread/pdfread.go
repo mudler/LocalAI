@@ -30,8 +30,8 @@ import (
 	"github.com/klippa-app/go-pdfium/webassembly"
 )
 
-// MaxBytes is the largest input Open and OpenWithPassword accept. It matches
-// the size limit of the Dante platform.
+// MaxBytes is the largest input Open and OpenWithPassword accept. It bounds
+// the memory one document can take.
 const MaxBytes = 256 << 20
 
 // Render DPI limits. Values outside the range are clamped.

@@ -6,6 +6,9 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/natsauth"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -106,7 +109,44 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 	})
 })
 
+// recordingBroadcaster remembers every subject it is asked to publish or
+// subscribe on, so a test can learn the subjects a component really uses
+// without duplicating the (unexported) subject builders.
+type recordingBroadcaster struct{ publishes, subscribes []string }
+
+type noopSub struct{}
+
+func (noopSub) Unsubscribe() error { return nil }
+
+func (r *recordingBroadcaster) Publish(subject string, _ any) error {
+	r.publishes = append(r.publishes, subject)
+	return nil
+}
+
+func (r *recordingBroadcaster) Subscribe(subject string, _ func([]byte)) (messaging.Subscription, error) {
+	r.subscribes = append(r.subscribes, subject)
+	return noopSub{}, nil
+}
+
+// chatsSubjects drives the real chats bus and notification fan-out and returns
+// the subjects they publish and subscribe on.
+func chatsSubjects() (pub, sub []string) {
+	rec := &recordingBroadcaster{}
+	bus := studio.NewBroadcastBus(rec, nil)
+	bus.Publish("user-1", session.Event{})
+	_, cancel := bus.Subscribe("user-1")
+	cancel()
+	bus.Control("user-1", studio.ControlMsg{})
+	bus.OnControl("user-1", func(studio.ControlMsg) {})()
+	fan := notify.NewBroadcastFanout(rec, nil)
+	fan.Publish("user-1", notify.Notification{})
+	_, cancel = fan.Subscribe("user-1")
+	cancel()
+	return rec.publishes, rec.subscribes
+}
+
 var allowPubRe = regexp.MustCompile(`--allow-pub "([^"]*)"`)
+var allowSubRe = regexp.MustCompile(`--allow-sub "([^"]*)"`)
 
 var _ = Describe("Documented NATS service-user permissions", func() {
 	// scripts/nats-auth-setup.sh ships the recommended service (frontend) JWT
@@ -123,6 +163,8 @@ var _ = Describe("Documented NATS service-user permissions", func() {
 		messaging.SubjectNodeBackendInstall("node-1"),
 		messaging.SubjectGalleryProgress("op-1"),
 	}
+	chatsPub, chatsSub := chatsSubjects()
+	frontendPublishes = append(frontendPublishes, chatsPub...)
 
 	It("cover every subject the frontend publishes", func() {
 		raw, err := os.ReadFile(scriptPath)
@@ -134,6 +176,20 @@ var _ = Describe("Documented NATS service-user permissions", func() {
 		for _, subject := range frontendPublishes {
 			Expect(anyAllows(allow, subject)).To(BeTrue(),
 				"service-user --allow-pub %v does not cover %s (frontend publishes it)", allow, subject)
+		}
+	})
+
+	It("cover every chats subject the frontend subscribes to", func() {
+		raw, err := os.ReadFile(scriptPath)
+		Expect(err).ToNot(HaveOccurred(), "cannot read %s", scriptPath)
+		m := allowSubRe.FindStringSubmatch(string(raw))
+		Expect(m).To(HaveLen(2), "no --allow-sub list found in %s", scriptPath)
+		allow := strings.Split(m[1], ",")
+
+		Expect(chatsSub).ToNot(BeEmpty())
+		for _, subject := range chatsSub {
+			Expect(anyAllows(allow, subject)).To(BeTrue(),
+				"service-user --allow-sub %v does not cover %s (frontend subscribes to it)", allow, subject)
 		}
 	})
 })

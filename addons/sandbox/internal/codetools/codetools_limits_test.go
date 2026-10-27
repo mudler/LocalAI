@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"strings"
 	"syscall"
 	"testing"
@@ -88,5 +89,13 @@ func TestOutputCapStopsTheProcess(t *testing.T) {
 		if el := time.Since(start); el > 5*time.Second {
 			t.Errorf("%s took %v; the process was not stopped at the cap", c.name, el)
 		}
+	}
+}
+
+// The host stops an action call at ActTimeout. A bash call that may run as
+// long must still leave time to commit its files and to answer.
+func TestABashCallEndsBeforeTheActionCallDoes(t *testing.T) {
+	if MaxTimeout+time.Minute > contract.ActTimeout {
+		t.Fatalf("MaxTimeout %v leaves no margin below the action timeout %v", MaxTimeout, contract.ActTimeout)
 	}
 }

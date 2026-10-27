@@ -256,3 +256,47 @@ func TestAVoiceNoteWithNoTranscriptionModelIsStillKept(t *testing.T) {
 		t.Fatalf("a request went out: %+v", fx.calls)
 	}
 }
+
+type countingReader struct {
+	left int64
+	read int64
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	if c.left <= 0 {
+		return 0, io.EOF
+	}
+	if int64(len(p)) > c.left {
+		p = p[:c.left]
+	}
+	for i := range p {
+		p[i] = 'a'
+	}
+	c.left -= int64(len(p))
+	c.read += int64(len(p))
+	return len(p), nil
+}
+
+// A voice note over the limit is kept whole, but PrepareUploads must not pull
+// it all into memory to say so: it reads one byte past the limit and leaves
+// the rest of the body streaming.
+func TestAnOversizedVoiceNoteIsNotReadIntoMemory(t *testing.T) {
+	const limit = 25 << 20
+	const total = 40 << 20
+	fx := newFixture(t, "", "whisper")
+	src := &countingReader{left: total}
+	_, up, err := fx.svc.PrepareUploads(context.Background(), "alice", "hi", []session.Upload{{Name: "long.wav", Body: src}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if src.read > limit+1 {
+		t.Fatalf("PrepareUploads consumed %d bytes, want at most %d", src.read, limit+1)
+	}
+	n, err := io.Copy(io.Discard, up[0].Body)
+	if err != nil || n != total {
+		t.Fatalf("the kept body has %d bytes, %v; want all %d", n, err, total)
+	}
+	if len(fx.calls) != 0 {
+		t.Fatalf("an oversized note was sent to the model: %+v", fx.calls)
+	}
+}

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 import Icon from '../components/Icon'
 import { useAuth } from '../context/AuthContext'
 import { chatSkillsApi } from '../utils/api'
@@ -23,6 +24,7 @@ export default function ChatSkills() {
   const [notes, setNotes] = useState([])
   const [off, setOff] = useState('')
   const [error, setError] = useState('')
+  const [toDelete, setToDelete] = useState(null)
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -72,6 +74,8 @@ export default function ChatSkills() {
       await load()
     } catch (e) { fail(e) }
   }
+
+  const confirmDelete = (sk) => { setToDelete(null); remove(sk) }
 
   if (off) {
     return (
@@ -149,7 +153,7 @@ export default function ChatSkills() {
                     {s.editable && (
                       <>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => edit(s)}>{t('skillsPage.editButton')}</button>
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => remove(s)}>{t('skillsPage.delete')}</button>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setToDelete(s)}>{t('skillsPage.delete')}</button>
                       </>
                     )}
                   </span>
@@ -161,6 +165,7 @@ export default function ChatSkills() {
       })}
       {skills.length === 0 && !form && <p className="cs-muted">{t('skillsPage.empty')}</p>}
       <p className="cs-muted"><Link to="/app/chats">{t('skillsPage.back')}</Link></p>
+      <ChatDeleteConfirm item={toDelete} kind="skill" onConfirm={confirmDelete} onCancel={() => setToDelete(null)} />
     </div>
   )
 }

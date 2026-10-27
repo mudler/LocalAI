@@ -208,7 +208,7 @@ export default function Home() {
   // chats leaves the strip empty.
   useEffect(() => {
     let live = true
-    chatsApi.list(1).then(r => { if (live) setConversations(resumeItems(r.conversations)) }).catch(() => { if (live) setConversations([]) })
+    chatsApi.list(1, 'chat').then(r => { if (live) setConversations(resumeItems(r.conversations)) }).catch(() => { if (live) setConversations([]) })
     return () => { live = false }
   }, [])
 

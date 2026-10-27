@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatsApi } from '../utils/api'
+import { eventPayload, retryDelay } from '../utils/streamRetry'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
@@ -7,7 +8,7 @@ const EVENT_KINDS = [
   'turn_end', 'error', 'pending_delivered', 'sub_agent_done', 'compacted',
 ]
 
-const RECONNECT_MS = 1000
+const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
 
 const emptyLive = () => ({ text: '', reasoning: '', tools: [] })
 
@@ -33,11 +34,14 @@ export function useServerChat() {
   const sourceRef = useRef(null)
   const reconnectRef = useRef(null)
   const activeRef = useRef(null)
+  const attemptRef = useRef(0)
 
   const refreshList = useCallback(async () => {
     try {
-      const data = await chatsApi.list()
-      // Sub-agent runs belong to their parent; the list shows chats only.
+      // Sub-agent runs belong to their parent; the list shows chats only. The
+      // server leaves the runs out before it applies the limit (200 is its
+      // maximum); the filter stays for a server that does not know kind.
+      const data = await chatsApi.list(200, 'chat')
       setChats((data.conversations || []).filter(c => c.kind !== 'subagent'))
       setPersistent(data.persistent !== false)
       setFiles({ on: data.files !== false, reason: data.files_reason || '' })
@@ -46,14 +50,19 @@ export function useServerChat() {
     }
   }, [])
 
+  // Reads the chat again. It answers 'gone' when the server no longer has it
+  // (deleted in another tab), which ends the stream: there is nothing to follow.
   const refreshChat = useCallback(async (id) => {
     try {
       const [d, m] = await Promise.all([chatsApi.get(id), chatsApi.messages(id)])
-      if (activeRef.current !== id) return
+      if (activeRef.current !== id) return 'stale'
       setDetail(d)
       setMessages(m.messages || [])
+      return 'ok'
     } catch (e) {
-      if (activeRef.current === id) setError(e.message)
+      if (activeRef.current !== id) return 'stale'
+      setError(e.message)
+      return e?.status === 404 ? 'gone' : 'error'
     }
   }, [])
 
@@ -80,9 +89,6 @@ export function useServerChat() {
     const source = new EventSource(chatsApi.eventsUrl(id))
     sourceRef.current = source
 
-    const parse = (ev) => {
-      try { return JSON.parse(ev.data) } catch { return {} }
-    }
     const on = {
       turn_start: () => {
         setDetail(d => (d ? { ...d, running: true } : d))
@@ -106,7 +112,7 @@ export function useServerChat() {
       pending_delivered: () => refreshChat(id),
       compacted: (e) => setNotes(n => [...n, { kind: 'compacted', before: e.before, after: e.after }]),
       sub_agent_done: (e) => setNotes(n => [...n, { kind: 'subAgentDone', title: e.text || '' }]),
-      error: (e) => setError(e.text || ''),
+      error: (e) => { if (e.text) setError(e.text) },
       turn_end: () => {
         setLive(emptyLive())
         refreshChat(id)
@@ -114,19 +120,27 @@ export function useServerChat() {
       },
     }
     for (const kind of EVENT_KINDS) {
-      source.addEventListener(kind, (ev) => on[kind]?.(parse(ev)))
+      source.addEventListener(kind, (ev) => {
+        // The browser fires its own "error" event when the connection breaks:
+        // it has no data and is not the server's error event.
+        const payload = eventPayload(ev)
+        if (payload) on[kind]?.(payload)
+      })
     }
+    source.onopen = () => { attemptRef.current = 0 }
     source.onerror = () => {
       // The stream carries only what happens after it connects, so a reconnect
       // reads the transcript again to close the gap.
       source.close()
       if (sourceRef.current === source) sourceRef.current = null
       if (activeRef.current !== id) return
-      reconnectRef.current = setTimeout(() => {
+      reconnectRef.current = setTimeout(async () => {
         if (activeRef.current !== id) return
+        // Read first: a chat deleted in another tab answers 404 and the stream stops.
+        const state = await refreshChat(id)
+        if (state === 'gone' || activeRef.current !== id) return
         connect(id)
-        refreshChat(id)
-      }, RECONNECT_MS)
+      }, retryDelay(attemptRef.current++, RECONNECT_MS))
     }
   }, [closeStream, refreshChat, refreshList])
 
@@ -138,6 +152,7 @@ export function useServerChat() {
     setError('')
     setDetail(null)
     setMessages([])
+    attemptRef.current = 0
     if (!id) {
       closeStream()
       return

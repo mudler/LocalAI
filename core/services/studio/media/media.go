@@ -227,11 +227,8 @@ func (s *Service) PrepareUploads(ctx context.Context, principal, text string, up
 		}
 		if int64(len(data)) > maxVoiceNote {
 			// Too large to transcribe here: keep it whole for the file tools.
-			rest, err := io.ReadAll(u.Body)
-			if err != nil {
-				return text, nil, err
-			}
-			out[i].Body = bytes.NewReader(append(data, rest...))
+			// Only the head is in memory; the rest of the body keeps streaming.
+			out[i].Body = io.MultiReader(bytes.NewReader(data), u.Body)
 			continue
 		}
 		out[i].Body = bytes.NewReader(data)

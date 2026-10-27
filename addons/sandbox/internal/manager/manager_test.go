@@ -114,6 +114,16 @@ type counting struct {
 	sandbox.Backend
 	mu               sync.Mutex
 	created, resumed int
+	discarded        []sandbox.SnapshotRef
+}
+
+// Discard records the snapshots the manager gave up, like the host backend
+// needs to be told.
+func (c *counting) Discard(_ context.Context, r sandbox.SnapshotRef) error {
+	c.mu.Lock()
+	c.discarded = append(c.discarded, r)
+	c.mu.Unlock()
+	return nil
 }
 
 func (c *counting) Create(ctx context.Context, s sandbox.Spec) (sandbox.Sandbox, error) {
@@ -331,5 +341,75 @@ func TestAnUnknownToolIsRefused(t *testing.T) {
 	}
 	if _, _, err := f.run(t, "alice", "", "bash", `{"command":"true"}`); err == nil {
 		t.Error("a call without a conversation was accepted")
+	}
+}
+
+func TestADayOldSuspendedSandboxIsDiscardedByItsBackend(t *testing.T) {
+	f := setup(t, nil)
+	f.run(t, "alice", "c1", "bash", `{"command":"true"}`)
+	*f.now = f.now.Add(11 * time.Minute)
+	f.m.Sweep(context.Background())
+	if len(f.b.discarded) != 0 {
+		t.Fatalf("discarded too early: %v", f.b.discarded)
+	}
+	*f.now = f.now.Add(25 * time.Hour)
+	f.m.Sweep(context.Background())
+	if len(f.b.discarded) != 1 || f.b.discarded[0].Path == "" {
+		t.Fatalf("discarded = %v, want the one snapshot", f.b.discarded)
+	}
+}
+
+func TestEvictingAndClosingDiscardSuspendedSandboxes(t *testing.T) {
+	f := setup(t, nil)
+	for i := 1; i <= 4; i++ {
+		*f.now = f.now.Add(time.Minute)
+		f.run(t, "alice", fmt.Sprintf("c%d", i), "bash", `{"command":"true"}`)
+	}
+	*f.now = f.now.Add(11 * time.Minute)
+	f.m.Sweep(context.Background()) // all four sleep
+	*f.now = f.now.Add(time.Minute)
+	f.run(t, "alice", "c5", "bash", `{"command":"true"}`) // c1 gives way
+	if len(f.b.discarded) != 1 {
+		t.Fatalf("after the eviction: %v", f.b.discarded)
+	}
+	_ = f.m.Close(context.Background())
+	if len(f.b.discarded) != 4 {
+		t.Fatalf("after Close: %d discarded, want the 3 suspended ones and the evicted one", len(f.b.discarded))
+	}
+}
+
+func TestSuspendedSandboxesDoNotUseUpTheTotalForOtherUsers(t *testing.T) {
+	f := setup(t, func(o *manager.Options) { o.PerUser, o.Total = 4, 3 })
+	for i := 1; i <= 3; i++ {
+		*f.now = f.now.Add(time.Minute)
+		f.run(t, fmt.Sprintf("u%d", i), "c", "bash", `{"command":"true"}`)
+	}
+	*f.now = f.now.Add(11 * time.Minute)
+	f.m.Sweep(context.Background()) // everybody sleeps
+	if _, _, err := f.run(t, "u4", "c", "bash", `{"command":"true"}`); err != nil {
+		t.Fatalf("a user with no sandbox was refused although the others sleep: %v", err)
+	}
+	if f.m.Count("") != 3 {
+		t.Errorf("total = %d, want 3", f.m.Count(""))
+	}
+	if len(f.b.discarded) != 1 {
+		t.Errorf("discarded = %v, want the oldest sleeper", f.b.discarded)
+	}
+}
+
+func TestAManagerCanLeaveTheStateDirAloneAtStart(t *testing.T) {
+	data := t.TempDir()
+	state := filepath.Join(data, "run")
+	if err := os.MkdirAll(filepath.Join(state, "gvisor", "sess"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	h := &host{t: t, dataDir: data, commits: map[string]map[string]string{}}
+	m, err := manager.New(manager.Options{Backend: func() (sandbox.Backend, error) { return nil, codetools.ErrNoSandbox }, Store: remote.New(h, data), StateDir: state, KeepStateDir: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = m.Close(context.Background()) }()
+	if _, err := os.Stat(filepath.Join(state, "gvisor", "sess")); err != nil {
+		t.Errorf("the backend's own folder was removed: %v", err)
 	}
 }

@@ -136,7 +136,13 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	s.mu.Unlock()
 	done := s.waitFor(childKey)
 	if _, err := s.send(context.WithoutCancel(ctx), a.Principal, childID, task, nil); err != nil {
+		// The child never ran: drop what was set up for it, or the waiter and
+		// an empty sub-agent conversation would stay behind.
+		s.forgetWaiter(childKey, done)
 		s.forgetChild(parentKey, childID)
+		if derr := s.d.Store.DeleteChat(context.WithoutCancel(ctx), a.Principal, childID); derr != nil {
+			s.log.Warn("studio: could not remove a sub-agent that did not start", "chat", childID, "error", derr)
+		}
 		return "", err
 	}
 
@@ -232,6 +238,22 @@ func (s *Service) waitFor(k string) <-chan store.TurnStatus {
 	return ch
 }
 
+// forgetWaiter removes a channel that waitFor returned and nobody will read.
+func (s *Service) forgetWaiter(k string, ch <-chan store.TurnStatus) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ws := s.waiters[k]
+	for i, w := range ws {
+		if (<-chan store.TurnStatus)(w) == ch {
+			s.waiters[k] = append(ws[:i:i], ws[i+1:]...)
+			break
+		}
+	}
+	if len(s.waiters[k]) == 0 {
+		delete(s.waiters, k)
+	}
+}
+
 func (s *Service) notifyWaiters(k string, status store.TurnStatus) {
 	s.mu.Lock()
 	ws := s.waiters[k]
@@ -254,18 +276,27 @@ func (s *Service) childResult(ctx context.Context, a workspace.Actor, childID st
 	}
 }
 
-// finalText is the last thing the sub-agent said.
+// finalText is the last thing the sub-agent said. A long run has more entries
+// than one page, so it reads to the end.
 func (s *Service) finalText(ctx context.Context, convID string) string {
-	entries, err := s.d.Store.Entries(ctx, convID, 0, 1000)
-	if err != nil {
-		return ""
-	}
-	for i := len(entries) - 1; i >= 0; i-- {
-		if entries[i].Role == session.RoleAssistant {
-			return entries[i].Text
+	const page = 1000
+	var after int64
+	last := ""
+	for {
+		entries, err := s.d.Store.Entries(ctx, convID, after, page)
+		if err != nil {
+			return last
 		}
+		for _, e := range entries {
+			if e.Role == session.RoleAssistant {
+				last = e.Text
+			}
+		}
+		if len(entries) < page {
+			return last
+		}
+		after = entries[len(entries)-1].Seq
 	}
-	return ""
 }
 
 // reportBack waits for a background sub-agent and tells the parent. A finished

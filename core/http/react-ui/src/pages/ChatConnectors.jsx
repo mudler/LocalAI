@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 import Icon from '../components/Icon'
 import NameList from '../components/ChatNameList'
 import { chatAgentsApi, chatConnectorsApi } from '../utils/api'
@@ -27,7 +28,10 @@ function Senders({ id, onAllowed, t }) {
           <span>{senderLine(s)}</span>
           {!s.allowed && (
             <button type="button" className="btn btn-secondary btn-sm"
-              onClick={async () => { await chatConnectorsApi.allow(id, s.id); load(); onAllowed() }}>{t('connectorsPage.allowButton')}</button>
+              onClick={async () => {
+                setError('')
+                try { await chatConnectorsApi.allow(id, s.id); load(); onAllowed() } catch (e) { setError(e?.message || '') }
+              }}>{t('connectorsPage.allowButton')}</button>
           )}
         </li>
       ))}
@@ -45,6 +49,7 @@ export default function ChatConnectors() {
   const [form, setForm] = useState(null)
   const [confirmed, setConfirmed] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [toDelete, setToDelete] = useState(null)
   const [openSenders, setOpenSenders] = useState('')
 
   const fail = useCallback((e) => {
@@ -83,6 +88,8 @@ export default function ChatConnectors() {
     setError('')
     try { await fn(); await load() } catch (e) { fail(e) }
   }
+
+  const confirmDelete = (c) => { setToDelete(null); act(() => chatConnectorsApi.remove(c.id)) }
 
   if (off) {
     return (
@@ -196,13 +203,14 @@ export default function ChatConnectors() {
               </button>
               <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOpenSenders(openSenders === c.id ? '' : c.id)}>{t('connectorsPage.senders')}</button>
               <button type="button" className="btn btn-secondary btn-sm" onClick={() => open({ ...emptyConnector(), ...c, token: '' })}>{t('connectorsPage.editButton')}</button>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => act(() => chatConnectorsApi.remove(c.id))}>{t('connectorsPage.delete')}</button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setToDelete(c)}>{t('connectorsPage.delete')}</button>
             </span>
           </li>
         ))}
       </ul>
       {items.length === 0 && !form && <p className="cs-muted">{t('connectorsPage.empty')}</p>}
       <p className="cs-muted"><Link to="/app/chats">{t('skillsPage.back')}</Link></p>
+      <ChatDeleteConfirm item={toDelete} kind="connector" onConfirm={confirmDelete} onCancel={() => setToDelete(null)} />
     </div>
   )
 }

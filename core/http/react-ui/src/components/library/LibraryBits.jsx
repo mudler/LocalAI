@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { agentHref } from '../../utils/libraryText'
-import { agentSkills, estimateTokens, passageScore, passageSource, passageText, skillLoadTokens, skillsMode } from '../../utils/library'
+import { estimateTokens, passageScore, passageSource, passageText } from '../../utils/library'
 
 // The strip in a pane: who uses this, each name a link to the agent with a
 // small x to take the item away, and the Add to... menu at the end.
@@ -43,9 +43,9 @@ export function UsedByStrip({ users, status, onRemove, busy, children }) {
   )
 }
 
-// The Add to... menu: a skill or a collection can go to any saved agent, by
-// adding it to the agent's list.
-export function AddToMenu({ kind, name, agents, status, onAdd, busy, buttonClass = 'dk-btn dk-btn--secondary dk-btn--sm' }) {
+// The Add to... menu: a collection can go to any saved agent, by adding it to
+// the agent's list. (Skills are granted on the chats' agents page.)
+export function AddToMenu({ name, agents, status, onAdd, busy, buttonClass = 'dk-btn dk-btn--secondary dk-btn--sm' }) {
   const { t } = useTranslation('library')
   const [open, setOpen] = useState(false)
   const root = useRef(null)
@@ -66,14 +66,7 @@ export function AddToMenu({ kind, name, agents, status, onAdd, busy, buttonClass
   const hasAgent = rows.length > 0
 
   const rowFor = agent => {
-    if (kind === 'collection') {
-      return { on: (agent.config?.collections || []).includes(name), hint: '' }
-    }
-    const s = agentSkills(agent.config)
-    const on = s.names.includes(name)
-    if (on) return { on, hint: '' }
-    const hint = skillsMode() === 'tools' ? t('add.toolsMode') : t('add.tokens', { count: skillLoadTokens() })
-    return { on, hint }
+    return { on: (agent.config?.collections || []).includes(name), hint: '' }
   }
 
   return (
@@ -92,8 +85,7 @@ export function AddToMenu({ kind, name, agents, status, onAdd, busy, buttonClass
       {open && (
         <div className="dk-popover dk-popover--end dk-pop lib-addmenu" role="dialog" aria-label={t('add.title', { name })} data-state="open" data-testid="add-to-menu">
           <p className="lib-addmenu__title">{t('add.title', { name })}</p>
-          {kind === 'skill' && hasAgent && <p className="lib-addmenu__sub">{t('add.estimate')}</p>}
-          {kind === 'collection' && <p className="lib-addmenu__sub">{t('add.collectionNote')}</p>}
+          <p className="lib-addmenu__sub">{t('add.collectionNote')}</p>
           {status === 'failed' ? (
             <p className="lib-addmenu__empty">{t('usedBy.unread')}</p>
           ) : !hasAgent ? (

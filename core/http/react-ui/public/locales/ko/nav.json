@@ -68,7 +68,8 @@
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
     "chats": "채팅 세션",
-    "files": "파일"
+    "files": "파일",
+    "triggers": "트리거"
   },
   "footer": {
     "github": "GitHub",
@@ -101,7 +102,8 @@
       "import": "파일, URL 또는 Hugging Face 저장소에서 모델을 추가합니다.",
       "voices": "화자를 식별하고 음성 프로필 라이브러리를 관리합니다.",
       "faces": "얼굴을 감지, 비교, 매칭합니다.",
-      "addons": "애드온을 설치하고 그것이 제공하는 앱을 엽니다."
+      "addons": "애드온을 설치하고 그것이 제공하는 앱을 엽니다.",
+      "triggers": "일정에 따라 또는 파일이 도착하면 채팅을 자동으로 시작합니다."
     }
   }
 }

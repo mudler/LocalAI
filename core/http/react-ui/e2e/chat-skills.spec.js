@@ -39,6 +39,27 @@ test('a skill written on the page shows in a chat, and its switch is remembered'
 
   // The skill can be deleted from its page, and goes to the Trash.
   await page.goto('/app/chats/skills')
-  await page.getByTestId('skill-row').filter({ hasText: name }).getByRole('button', { name: 'Delete' }).click()
-  await expect(page.getByTestId('skill-row').filter({ hasText: name })).toHaveCount(0)
+  // Deleting asks first: Cancel keeps the skill.
+  const row = page.getByTestId('skill-row').filter({ hasText: name })
+  await row.getByRole('button', { name: 'Delete' }).click()
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText(`Delete ${name}?`)
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(row).toHaveCount(1)
+  await row.getByRole('button', { name: 'Delete' }).click()
+  await dialog.getByRole('button', { name: 'Delete' }).click()
+  await expect(row).toHaveCount(0)
+})
+
+test('a skill delete the server refuses shows its reason and keeps the skill', async ({ page }) => {
+  await page.route('**/api/chats/skills*', route => (route.request().method() === 'DELETE'
+    ? route.fulfill({ status: 500, json: { error: { message: 'the skill folder is read-only' } } })
+    : route.fulfill({ json: { skills: [{ name: 'review', layer: 'personal', description: 'Check a change', path: '/a', enabled: true, editable: true }], notes: [] } })))
+  await page.route(/\/api\/chats\/skills\/[^?]+/, route => route.fulfill({ status: 500, json: { error: { message: 'the skill folder is read-only' } } }))
+  await page.goto('/app/chats/skills')
+  const row = page.getByTestId('skill-row').filter({ hasText: 'review' })
+  await row.getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+  await expect(page.getByRole('alert')).toContainText('the skill folder is read-only')
+  await expect(row).toHaveCount(1)
 })

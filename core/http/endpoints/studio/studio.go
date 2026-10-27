@@ -180,12 +180,17 @@ func (h *Handlers) Create(c echo.Context) error {
 // @Summary List chats.
 // @Tags chats
 // @Param limit query int false "most conversations to return (default 50, at most 200)"
-// @Success 200 {object} schema.ChatsConversationList "Conversations, including sub-agent runs"
+// @Param kind query string false "with chat, sub-agent runs are left out and the limit counts chats"
+// @Success 200 {object} schema.ChatsConversationList "Conversations, including sub-agent runs unless kind=chat"
 // @Router /api/chats [get]
 func (h *Handlers) List(c echo.Context) error {
 	limit := intParam(c, "limit", defaultListLimit, maxListLimit)
 	user := userID(c)
-	recs, err := h.svc.List(c.Request().Context(), user, limit)
+	list := h.svc.List
+	if c.QueryParam("kind") == "chat" {
+		list = h.svc.ListChats
+	}
+	recs, err := list(c.Request().Context(), user, limit)
 	if err != nil {
 		return failFor(c, err)
 	}

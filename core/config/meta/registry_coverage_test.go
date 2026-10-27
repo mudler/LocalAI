@@ -110,6 +110,7 @@ var grandfatheredUnregistered = []string{
 	"agent.loop_detection",
 	"agent.max_adjustment_attempts",
 	"agent.max_attempts",
+	"agent.max_generation_tokens", // accepted and ignored: the agent jobs it capped were removed
 	"agent.max_iterations",
 	"cfg_scale",
 	"chat_template_kwargs",

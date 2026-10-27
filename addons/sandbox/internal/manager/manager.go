@@ -46,7 +46,12 @@ type Options struct {
 	Store   *remote.Store
 	// StateDir is the folder the backend keeps its sandboxes in. Whatever an
 	// earlier run left in it is removed at start.
-	StateDir          string
+	StateDir string
+	// KeepStateDir leaves StateDir as it is at start. Set it when the backends
+	// keep their own folders in it: they stop the sandboxes an earlier process
+	// left before they remove the folders, and emptying the folder first
+	// would drop what they need to find those sandboxes.
+	KeepStateDir      bool
 	PerUser, Total    int
 	IdleAfter, MaxAge time.Duration
 	Now               func() time.Time
@@ -99,7 +104,7 @@ func New(o Options) (*Manager, error) {
 	if o.Now == nil {
 		o.Now = time.Now
 	}
-	if o.StateDir != "" {
+	if o.StateDir != "" && !o.KeepStateDir {
 		if err := clearDir(o.StateDir); err != nil {
 			return nil, err
 		}
@@ -170,7 +175,7 @@ func (m *Manager) Running() int {
 // the limits asks the oldest sandbox of the user to give way; past the total
 // limit it is refused.
 func (m *Manager) find(user, conv string) (*entry, error) {
-	var victim *entry
+	var victims []*entry
 	m.mu.Lock()
 	if e, ok := m.entries[key(user, conv)]; ok {
 		e.lastUse = m.o.Now()
@@ -178,8 +183,30 @@ func (m *Manager) find(user, conv string) (*entry, error) {
 		return e, nil
 	}
 	if len(m.entries) >= m.o.Total {
-		m.mu.Unlock()
-		return nil, ErrBusy
+		// Sandboxes that sleep for up to a day must not shut out a user who has
+		// none: the oldest sleeper of anybody gives way. A running or busy one
+		// is never touched.
+		all := make([]*entry, 0, len(m.entries))
+		for _, c := range m.entries {
+			all = append(all, c)
+		}
+		sort.Slice(all, func(i, j int) bool { return all[i].lastUse.Before(all[j].lastUse) })
+		for _, c := range all {
+			if !c.mu.TryLock() {
+				continue
+			}
+			if c.sb != nil {
+				c.mu.Unlock()
+				continue
+			}
+			victims = append(victims, c)
+			delete(m.entries, key(c.user, c.conv))
+			break
+		}
+		if len(victims) == 0 {
+			m.mu.Unlock()
+			return nil, ErrBusy
+		}
 	}
 	own := make([]*entry, 0, m.o.PerUser)
 	for _, e := range m.entries {
@@ -189,15 +216,22 @@ func (m *Manager) find(user, conv string) (*entry, error) {
 	}
 	if len(own) >= m.o.PerUser {
 		sort.Slice(own, func(i, j int) bool { return own[i].lastUse.Before(own[j].lastUse) })
+		evicted := false
 		for _, c := range own {
 			if c.mu.TryLock() { // an idle one; a busy one is not touched
-				victim = c
+				victims = append(victims, c)
 				delete(m.entries, key(c.user, c.conv))
+				evicted = true
 				break
 			}
 		}
-		if victim == nil {
+		if !evicted {
 			m.mu.Unlock()
+			for _, v := range victims { // the total's victim is gone already
+				v.gone = true
+				m.destroy(context.Background(), v)
+				v.mu.Unlock()
+			}
 			return nil, ErrBusy
 		}
 	}
@@ -205,10 +239,10 @@ func (m *Manager) find(user, conv string) (*entry, error) {
 	e := &entry{user: user, conv: conv, created: now, lastUse: now}
 	m.entries[key(user, conv)] = e
 	m.mu.Unlock()
-	if victim != nil {
-		victim.gone = true
-		m.destroy(context.Background(), victim)
-		victim.mu.Unlock()
+	for _, v := range victims {
+		v.gone = true
+		m.destroy(context.Background(), v)
+		v.mu.Unlock()
 	}
 	return e, nil
 }
@@ -233,6 +267,15 @@ func (m *Manager) destroy(ctx context.Context, e *entry) {
 		e.sb = nil
 	}
 	if e.snap != nil {
+		// Some backends keep more than a folder for a snapshot, so they are
+		// asked first; the folder is removed after, if it is ours.
+		if b, err := m.o.Backend(); err == nil {
+			if d, ok := b.(sandbox.Discarder); ok {
+				if err := d.Discard(dctx, *e.snap); err != nil {
+					xlog.Warn("sandbox: discarding a snapshot failed", "error", err)
+				}
+			}
+		}
 		if p := e.snap.Path; p != "" && m.o.StateDir != "" && strings.HasPrefix(filepath.Clean(p), filepath.Clean(m.o.StateDir)+string(filepath.Separator)) {
 			_ = os.RemoveAll(p)
 		}

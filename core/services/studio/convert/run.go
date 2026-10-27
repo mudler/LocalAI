@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,21 +30,97 @@ type agentRef struct {
 	id, model string
 }
 
+// Marks that are not the ID of what a source item became.
+const (
+	refDropped   = "dropped" // the item has no counterpart, or the target refused it for good
+	refExists    = "exists"  // a skill of that name was there already
+	refImporting = "importing:"
+)
+
+// Reasons of an item that an earlier run handled.
+const (
+	reasonConverted = "already converted"
+	reasonHandled   = "already handled"
+	reasonExists    = "a skill with this name exists already"
+)
+
 // Run converts what the old features left. A source that does not exist is not
-// an error. It returns the report, which it also stores in marks.
+// an error, and one that cannot be read is a failed item of the report, so the
+// other sources still convert. It returns the report of this run, which lists
+// what is news in Notable, and stores in marks the report of all runs: an item
+// keeps the status and reason of the run that handled it.
 func Run(ctx context.Context, src Sources, tg Targets, marks Marks) (Report, error) {
 	r := &run{src: src, tg: tg, marks: marks, agents: map[string]agentRef{}}
+	prev, _, _ := marks.Report(ctx) // no report yet, or an unreadable one: all is news
 	steps := []func(context.Context) error{r.agentsStep, r.tasksStep, r.skillsStep, r.historyStep}
 	for _, step := range steps {
 		if err := step(ctx); err != nil {
 			return Report{}, err
 		}
 	}
-	rep := Report{At: time.Now().UTC(), Items: r.items}
-	if err := marks.SaveReport(ctx, rep); err != nil {
+	rep := Report{At: time.Now().UTC(), Items: r.items, Notable: notable(r.items, prev)}
+	if err := marks.SaveReport(ctx, mergeReports(prev, rep)); err != nil {
 		return rep, err
 	}
 	return rep, nil
+}
+
+func itemKey(i Item) string { return i.Kind + "|" + i.User + "|" + i.Name }
+
+// notable picks the items that are news: handled for the first time, or failed
+// with a reason the report before did not hold. A failure that comes back the
+// same at each start is not news.
+func notable(items []Item, prev Report) []Item {
+	failed := map[string]bool{}
+	for _, i := range prev.Items {
+		if i.Status == StatusFailed {
+			failed[itemKey(i)+"|"+i.Reason] = true
+		}
+	}
+	var out []Item
+	for _, i := range items {
+		switch i.Status {
+		case StatusConverted, StatusDropped:
+			out = append(out, i)
+		case StatusFailed:
+			if !failed[itemKey(i)+"|"+i.Reason] {
+				out = append(out, i)
+			}
+		}
+	}
+	return out
+}
+
+func isRepeat(i Item) bool {
+	return i.Status == StatusSkipped && (i.Reason == reasonConverted || i.Reason == reasonHandled || i.Reason == reasonExists)
+}
+
+// mergeReports keeps the first word on an item: one that an earlier run
+// converted or dropped keeps its status and reason when a later run only finds
+// it handled. Items of earlier runs that this run did not meet stay.
+func mergeReports(prev, cur Report) Report {
+	first := map[string]Item{}
+	for _, i := range prev.Items {
+		if i.Status == StatusConverted || i.Status == StatusDropped || isRepeat(i) {
+			first[itemKey(i)] = i
+		}
+	}
+	out := Report{At: cur.At}
+	seen := map[string]bool{}
+	for _, i := range cur.Items {
+		k := itemKey(i)
+		if p, ok := first[k]; ok && isRepeat(i) {
+			i = p
+		}
+		seen[k] = true
+		out.Items = append(out.Items, i)
+	}
+	for _, p := range prev.Items {
+		if _, ok := first[itemKey(p)]; ok && !seen[itemKey(p)] {
+			out.Items = append(out.Items, p)
+		}
+	}
+	return out
 }
 
 func (r *run) add(kind, user, name, status, reason string) {
@@ -78,6 +155,53 @@ func (r *run) done(ctx context.Context, key string) (string, bool) {
 	return ref, err == nil && ok
 }
 
+// handled reports an item that an earlier run converted or dropped, and adds
+// its line to the report.
+func (r *run) handled(ctx context.Context, key, kind, user, name string) bool {
+	ref, ok := r.done(ctx, key)
+	if !ok || strings.HasPrefix(ref, refImporting) {
+		return false
+	}
+	switch ref {
+	case refDropped:
+		r.add(kind, user, name, StatusSkipped, reasonHandled)
+	case refExists:
+		r.add(kind, user, name, StatusSkipped, reasonExists)
+	default:
+		r.add(kind, user, name, StatusSkipped, reasonConverted)
+	}
+	return true
+}
+
+// drop marks an item that cannot convert, so that it is reported once and not
+// met again at each start.
+func (r *run) drop(ctx context.Context, key, kind, user, name, reason string) {
+	r.mark(ctx, key, refDropped)
+	r.add(kind, user, name, StatusDropped, reason)
+}
+
+// refused handles the error of a target: one that says the item is not valid
+// there is final, so the item is dropped; any other is tried again at the next
+// run.
+func (r *run) refused(ctx context.Context, key, kind, user, name string, err error) {
+	if errors.Is(err, ErrInvalid) {
+		r.drop(ctx, key, kind, user, name, strings.TrimPrefix(err.Error(), ErrInvalid.Error()+": "))
+		return
+	}
+	r.add(kind, user, name, StatusFailed, err.Error())
+}
+
+// zoneReason says in which zone a converted schedule runs.
+func (r *run) zoneReason() string {
+	switch {
+	case r.src.Zone != "":
+		return "; runs in the zone " + r.src.Zone
+	case r.src.ZoneNote != "":
+		return "; " + r.src.ZoneNote
+	}
+	return ""
+}
+
 func (r *run) mark(ctx context.Context, key, ref string) {
 	if err := r.marks.Mark(ctx, key, ref); err != nil {
 		r.add("", "", key, StatusFailed, "could not remember the conversion: "+err.Error())
@@ -88,16 +212,23 @@ func (r *run) mark(ctx context.Context, key, ref string) {
 
 func hasTable(db *gorm.DB, name string) bool { return db != nil && db.Migrator().HasTable(name) }
 
+// readJSONFile reads a JSON file. A file that is not there is not an error. An
+// error names the file, not the folder it is in, and no content: it ends up in a
+// report that the user reads.
 func readJSONFile(path string, out any) (bool, error) {
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	if err != nil {
-		return false, err
+		var pe *fs.PathError
+		if errors.As(err, &pe) {
+			err = pe.Err
+		}
+		return false, fmt.Errorf("could not read %s: %v", filepath.Base(path), err)
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
-		return false, fmt.Errorf("%s: %w", path, err)
+		return false, fmt.Errorf("%s is not valid JSON: %v", filepath.Base(path), err)
 	}
 	return true, nil
 }
@@ -125,12 +256,14 @@ type oldAgent struct {
 	cfg        map[string]any
 }
 
-func (r *run) readAgents() ([]oldAgent, error) {
+// readAgents reads the agents of the pool file and of the table. A source that
+// cannot be read is a failed item, and the other source is read all the same.
+func (r *run) readAgents() []oldAgent {
 	var out []oldAgent
 	if r.src.StateDir != "" {
 		pool := map[string]map[string]any{}
 		if _, err := readJSONFile(filepath.Join(r.src.StateDir, "pool.json"), &pool); err != nil {
-			return nil, err
+			r.add(KindAgent, "", "pool.json", StatusFailed, err.Error())
 		}
 		keys := make([]string, 0, len(pool))
 		for k := range pool {
@@ -151,18 +284,25 @@ func (r *run) readAgents() ([]oldAgent, error) {
 			Name   string `gorm:"column:name"`
 			Config string `gorm:"column:config"`
 		}
-		if err := r.src.DB.Table("agent_configs").Order("user_id, name").Find(&rows).Error; err != nil {
-			return nil, err
+		q := r.src.DB.Table("agent_configs")
+		// The old table deleted an agent by setting its status, not by removing the row.
+		if r.src.DB.Migrator().HasColumn("agent_configs", "status") {
+			q = q.Where("status IS NULL OR status <> ?", "deleted")
+		}
+		if err := q.Order("user_id, name").Find(&rows).Error; err != nil {
+			r.add(KindAgent, "", "agent_configs", StatusFailed, "could not read the table: "+err.Error())
+			return out
 		}
 		for _, row := range rows {
 			cfg := map[string]any{}
 			if json.Unmarshal([]byte(row.Config), &cfg) != nil {
+				r.add(KindAgent, row.UserID, row.Name, StatusFailed, "the stored configuration is not valid JSON")
 				continue
 			}
 			out = append(out, oldAgent{user: row.UserID, name: row.Name, cfg: cfg})
 		}
 	}
-	return out, nil
+	return out
 }
 
 // keptAgentFields are the fields that convert; every other field with a value is
@@ -216,11 +356,7 @@ func stringList(v any) []string {
 }
 
 func (r *run) agentsStep(ctx context.Context) error {
-	olds, err := r.readAgents()
-	if err != nil {
-		return err
-	}
-	for _, a := range olds {
+	for _, a := range r.readAgents() {
 		r.convertAgent(ctx, a)
 	}
 	return nil
@@ -234,13 +370,27 @@ func (r *run) convertAgent(ctx context.Context, a oldAgent) {
 	}
 	key := "agent|" + a.user + "|" + a.name
 	model := str(a.cfg, "model")
-	if ref, ok := r.done(ctx, key); ok {
+	if ref, ok := r.done(ctx, key); ok && !strings.HasPrefix(ref, refImporting) {
+		if ref == refDropped {
+			r.add(KindAgent, a.user, a.name, StatusSkipped, reasonHandled)
+			return
+		}
 		r.agents[a.user+"|"+a.name] = agentRef{id: ref, model: model}
-		r.add(KindAgent, a.user, a.name, StatusSkipped, "already converted")
+		r.add(KindAgent, a.user, a.name, StatusSkipped, reasonConverted)
 	} else {
 		in := AgentIn{Name: a.name, Description: str(a.cfg, "description"), Model: model, Instructions: instructions(a.cfg)}
 		if boolean(a.cfg, "enable_kb") {
-			cols, _ := r.tg.Collections(ctx, owner)
+			// The grant is the point of the knowledge base: an agent is never marked
+			// converted without it when the collections cannot be asked.
+			cols, err := r.tg.Collections(ctx, owner)
+			if err != nil {
+				reason := "could not list the collections: " + err.Error()
+				if errors.Is(err, ErrCollectionsUnavailable) {
+					reason = "the collections are not running, so the collection grant cannot be made: the agent converts at a start with them on"
+				}
+				r.add(KindAgent, a.user, a.name, StatusFailed, reason)
+				return
+			}
 			for _, c := range []string{a.name, a.user + ":" + a.name} {
 				for _, have := range cols {
 					if have == c {
@@ -257,7 +407,7 @@ func (r *run) convertAgent(ctx context.Context, a oldAgent) {
 		}
 		id, finalName, err := r.saveAgent(ctx, owner, in)
 		if err != nil {
-			r.add(KindAgent, a.user, a.name, StatusFailed, err.Error())
+			r.refused(ctx, key, KindAgent, a.user, a.name, err)
 			return
 		}
 		r.mark(ctx, key, id)
@@ -317,13 +467,12 @@ func (r *run) periodicTrigger(ctx context.Context, owner string, a oldAgent) {
 	}
 	ref, ok := r.agents[a.user+"|"+a.name]
 	name := a.name + " (periodic)"
-	if !ok || ref.model == "" {
-		r.add(KindTrigger, a.user, name, StatusDropped, "the agent has no model")
+	key := "trigger|" + a.user + "|agent|" + a.name
+	if r.handled(ctx, key, KindTrigger, a.user, name) {
 		return
 	}
-	key := "trigger|" + a.user + "|agent|" + a.name
-	if _, done := r.done(ctx, key); done {
-		r.add(KindTrigger, a.user, name, StatusSkipped, "already converted")
+	if !ok || ref.model == "" {
+		r.drop(ctx, key, KindTrigger, a.user, name, "the agent has no model")
 		return
 	}
 	interval := str(a.cfg, "periodic_runs")
@@ -332,7 +481,7 @@ func (r *run) periodicTrigger(ctx context.Context, owner string, a oldAgent) {
 	}
 	sched, ok := ScheduleFromInterval(interval)
 	if !ok {
-		r.add(KindTrigger, a.user, name, StatusDropped, "the interval "+interval+" has no schedule form")
+		r.drop(ctx, key, KindTrigger, a.user, name, "the interval "+interval+" has no schedule form")
 		return
 	}
 	prompt := str(a.cfg, "scheduler_task_template")
@@ -342,12 +491,12 @@ func (r *run) periodicTrigger(ctx context.Context, owner string, a oldAgent) {
 	if prompt == "" {
 		prompt = "Do your periodic work."
 	}
-	if err := r.tg.CreateTrigger(ctx, owner, TriggerIn{Name: name, Prompt: prompt, Model: ref.model, Schedule: sched, AgentID: ref.id}); err != nil {
-		r.add(KindTrigger, a.user, name, StatusFailed, err.Error())
+	if err := r.tg.CreateTrigger(ctx, owner, TriggerIn{Name: name, Prompt: prompt, Model: ref.model, Schedule: sched, AgentID: ref.id, TZ: r.src.Zone}); err != nil {
+		r.refused(ctx, key, KindTrigger, a.user, name, err)
 		return
 	}
 	r.mark(ctx, key, "trigger")
-	r.add(KindTrigger, a.user, name, StatusConverted, "switched off; every "+interval)
+	r.add(KindTrigger, a.user, name, StatusConverted, "switched off; every "+interval+r.zoneReason())
 }
 
 var usernameShape = regexp.MustCompile(`^[A-Za-z0-9_]{3,63}$`)
@@ -358,25 +507,24 @@ func (r *run) connectors(ctx context.Context, owner string, a oldAgent) {
 		cm, _ := c.(map[string]any)
 		typ := str(cm, "type")
 		name := a.name + ": " + typ
-		if typ != "telegram" {
-			r.add(KindConnector, a.user, name, StatusDropped, "the "+typ+" connector is not rebuilt")
+		key := fmt.Sprintf("connector|%s|%s|%s|%d", a.user, a.name, typ, i)
+		if r.handled(ctx, key, KindConnector, a.user, name) {
 			continue
 		}
-		key := fmt.Sprintf("connector|%s|%s|telegram|%d", a.user, a.name, i)
-		if _, done := r.done(ctx, key); done {
-			r.add(KindConnector, a.user, name, StatusSkipped, "already converted")
+		if typ != "telegram" {
+			r.drop(ctx, key, KindConnector, a.user, name, "the "+typ+" connector is not rebuilt")
 			continue
 		}
 		ref, ok := r.agents[a.user+"|"+a.name]
 		if !ok || ref.model == "" {
-			r.add(KindConnector, a.user, name, StatusDropped, "the agent has no model, so it cannot be bound")
+			r.drop(ctx, key, KindConnector, a.user, name, "the agent has no model, so it cannot be bound")
 			continue
 		}
 		conf := map[string]any{}
 		_ = json.Unmarshal([]byte(str(cm, "config")), &conf)
 		token := str(conf, "token")
 		if token == "" {
-			r.add(KindConnector, a.user, name, StatusDropped, "the connector has no token")
+			r.drop(ctx, key, KindConnector, a.user, name, "the connector has no token")
 			continue
 		}
 		var allow []string
@@ -387,7 +535,7 @@ func (r *run) connectors(ctx context.Context, owner string, a oldAgent) {
 			}
 		}
 		if err := r.tg.CreateBinding(ctx, owner, BindingIn{Name: a.name + " Telegram", Token: token, AgentID: ref.id, Allow: allow}); err != nil {
-			r.add(KindConnector, a.user, name, StatusFailed, err.Error())
+			r.refused(ctx, key, KindConnector, a.user, name, err)
 			continue
 		}
 		r.mark(ctx, key, "binding")

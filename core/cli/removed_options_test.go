@@ -46,3 +46,26 @@ var _ = Describe("RemovedAgentOptions", func() {
 		Expect(parse().set()).To(BeEmpty())
 	})
 })
+
+// The agent worker no longer runs agents or jobs. Its old options are accepted
+// and, when set, named in the same single warning.
+var _ = Describe("RemovedAgentWorkerOptions", func() {
+	parse := func(args ...string) AgentWorkerCMD {
+		var cmd AgentWorkerCMD
+		k, err := kong.New(&cmd)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = k.Parse(append([]string{"--nats-url=nats://x", "--register-to=http://x"}, args...))
+		Expect(err).ToNot(HaveOccurred())
+		return cmd
+	}
+
+	It("names only the removed options that are set", func() {
+		GinkgoT().Setenv("LOCALAI_API_TOKEN", "t")
+		GinkgoT().Setenv("LOCALAI_AGENT_QUEUE", "q")
+		Expect(parse().RemovedAgentWorkerOptions.set()).To(ConsistOf("LOCALAI_API_TOKEN", "LOCALAI_AGENT_QUEUE"))
+	})
+
+	It("names nothing when none is set", func() {
+		Expect(parse().RemovedAgentWorkerOptions.set()).To(BeEmpty())
+	})
+})

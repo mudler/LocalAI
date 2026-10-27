@@ -341,7 +341,7 @@ test.describe('Home resume list', () => {
 
   test('it shows the newest chat the server keeps and opens it', async ({ page }) => {
     let asked = ''
-    await page.route('**/api/chats?limit=1', route => { asked = route.request().url(); return route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }) })
+    await page.route('**/api/chats?limit=1&kind=chat', route => { asked = route.request().url(); return route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }) })
     await page.route('**/api/chats/c1', route => route.fulfill({ json: { conversation: chat } }))
     await ready(page)
     const row = page.getByTestId('home-conversation')
@@ -354,14 +354,14 @@ test.describe('Home resume list', () => {
   })
 
   test('a row has no delete button: chats are deleted on the chats page', async ({ page }) => {
-    await page.route('**/api/chats?limit=1', route => route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }))
+    await page.route('**/api/chats?limit=1&kind=chat', route => route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }))
     await ready(page)
     await expect(page.getByTestId('home-conversation')).toHaveCount(1)
     await expect(page.locator('.home-row__delete')).toHaveCount(0)
   })
 
   test('with no chats it says where they will appear', async ({ page }) => {
-    await page.route('**/api/chats?limit=1', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
+    await page.route('**/api/chats?limit=1&kind=chat', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
     await ready(page)
     await expect(page.locator('.home-empty')).toContainText('Your conversations will wait here')
   })
@@ -444,25 +444,29 @@ test.describe('Home send hand-off', () => {
   })
 
   // The chats page starts the chat on its own: it creates it with the model and
-  // sends the typed text as the first message.
+  // sends the typed text as the first message. The stubs answer in the shapes of
+  // the server: the list and the messages are objects, and a chat is the flat
+  // conversation with its waiting messages (core/schema/chats.go).
   async function serverChats(page) {
-    const seen = { created: null, sent: null }
-    await page.route('**/api/chats?limit=1', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
-    await page.route('**/api/chats', async route => {
+    const seen = { created: [], sent: [] }
+    const conversation = { id: 'n1', title: 'New chat', model: 'qwen3-8b-instruct', kind: 'chat', created: '2026-10-09T10:00:00Z', updated: '2026-10-09T10:00:00Z', running: false }
+    await page.route(/\/api\/chats(\?.*)?$/, async route => {
       if (route.request().method() === 'POST') {
-        seen.created = route.request().postDataJSON()
-        return route.fulfill({ status: 201, json: { id: 'n1', title: 'New chat', model: seen.created.model, kind: 'chat', created: '2026-10-09T10:00:00Z', updated: '2026-10-09T10:00:00Z', running: false } })
+        const body = route.request().postDataJSON()
+        seen.created.push(body)
+        return route.fulfill({ status: 201, json: { ...conversation, model: body.model } })
       }
       return route.fulfill({ json: { conversations: [], persistent: true, files: true } })
     })
-    await page.route('**/api/chats/n1/messages', route => {
+    await page.route(/\/api\/chats\/n1\/messages(\?.*)?$/, route => {
       if (route.request().method() === 'POST') {
-        seen.sent = route.request().postDataJSON()
+        seen.sent.push(route.request().postDataJSON())
         return route.fulfill({ json: { started: true } })
       }
-      return route.fulfill({ json: { entries: [] } })
+      return route.fulfill({ json: { messages: [] } })
     })
-    await page.route('**/api/chats/n1', route => route.fulfill({ json: { conversation: { id: 'n1', title: 'New chat', model: 'qwen3-8b-instruct', kind: 'chat' }, pending: [] } }))
+    await page.route('**/api/chats/n1/events', route => route.abort())
+    await page.route('**/api/chats/n1', route => route.fulfill({ json: { ...conversation, pending: [] } }))
     return seen
   }
 
@@ -472,8 +476,12 @@ test.describe('Home send hand-off', () => {
     await page.locator('.home-textarea').fill('Summarise the release notes')
     await page.locator('.home-send-btn').click()
     await expect(page).toHaveURL(/\/app\/chats\/n1$/)
-    expect(seen.created.model).toBe('qwen3-8b-instruct')
-    await expect.poll(() => seen.sent?.text).toBe('Summarise the release notes')
+    await expect.poll(() => seen.sent.length).toBe(1)
+    // Give a second, wrong send time to arrive before the counts are read.
+    await page.waitForTimeout(1500)
+    expect(seen.created).toHaveLength(1)
+    expect(seen.created[0].model).toBe('qwen3-8b-instruct')
+    expect(seen.sent).toEqual([{ text: 'Summarise the release notes' }])
   })
 
   test('Enter sends and Shift+Enter adds a line', async ({ page }) => {
@@ -486,7 +494,31 @@ test.describe('Home send hand-off', () => {
     await expect(box).toHaveValue('line one\nline two')
     await box.press('Enter')
     await expect(page).toHaveURL(/\/app\/chats\/n1$/)
-    await expect.poll(() => seen.sent?.text).toBe('line one\nline two')
+    await expect.poll(() => seen.sent.length).toBe(1)
+    await page.waitForTimeout(1500)
+    expect(seen.created).toHaveLength(1)
+    expect(seen.sent).toEqual([{ text: 'line one\nline two' }])
+  })
+
+  test('Back from the new chat sends nothing again', async ({ page }) => {
+    const seen = await serverChats(page)
+    await ready(page)
+    await page.locator('.home-textarea').fill('Only once')
+    await page.locator('.home-send-btn').click()
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    await expect.poll(() => seen.sent.length).toBe(1)
+
+    await page.goBack()
+    await expect(page).toHaveURL(/\/app\/chats(\?model=[^/]*)?$/)
+    await expect(page.getByRole('textbox', { name: 'Message' })).toHaveValue('')
+    await page.waitForTimeout(1500)
+    expect(seen.created).toHaveLength(1)
+    expect(seen.sent).toHaveLength(1)
+
+    await page.goForward()
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    await page.waitForTimeout(500)
+    expect(seen.sent).toHaveLength(1)
   })
 
   test('Send stays off until there is text', async ({ page }) => {
@@ -497,7 +529,7 @@ test.describe('Home send hand-off', () => {
   })
 
   test('the old chat address opens the chats page and keeps the model as a hint', async ({ page }) => {
-    await page.route('**/api/chats?limit=1', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
+    await page.route('**/api/chats?limit=1&kind=chat', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
     await page.goto('/app/chat/qwen3-8b-instruct')
     await expect(page).toHaveURL(/\/app\/chats\?model=qwen3-8b-instruct$/)
   })

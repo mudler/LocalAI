@@ -47,9 +47,12 @@ function Preview({ entry, t }) {
   useEffect(() => {
     setText(null)
     setFailed(false)
+    // A read that ends after another file was chosen must not show its text.
+    let current = true
     if (entry.kind === 'file' && TEXT_EXT.test(entry.name) && entry.size <= 5 * 1024 * 1024) {
-      filesApi.readText(entry.path).then(setText).catch(() => setFailed(true))
+      filesApi.readText(entry.path).then((v) => { if (current) setText(v) }).catch(() => { if (current) setFailed(true) })
     }
+    return () => { current = false }
   }, [entry.path, entry.kind, entry.name, entry.size])
   const download = filesApi.contentUrl(entry.path)
   return (

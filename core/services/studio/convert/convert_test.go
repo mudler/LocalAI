@@ -36,21 +36,37 @@ type fakeTargets struct {
 	chats    map[string][]convert.ChatIn
 	bindings map[string][]convert.BindingIn
 	failSave map[string]bool // agent names whose save fails
+	colErr   error           // what Collections returns
+	// invalidSave names the agents whose save is refused for good; trigErr is
+	// what CreateTrigger returns; importErr runs at each ImportChat and may
+	// leave a half chat behind, as a crash does.
+	invalidSave map[string]bool
+	trigErr     error
+	importErr   func(f *fakeTargets, user string, in convert.ChatIn) error
+	saves       int
 }
 
 func newTargets() *fakeTargets {
 	return &fakeTargets{users: map[string]bool{alice: true, bob: true, "": true}, cols: map[string][]string{},
 		agents: map[string][]convert.AgentIn{}, triggers: map[string][]convert.TriggerIn{}, skills: map[string]convert.SkillRec{},
-		chats: map[string][]convert.ChatIn{}, bindings: map[string][]convert.BindingIn{}, failSave: map[string]bool{}}
+		chats: map[string][]convert.ChatIn{}, bindings: map[string][]convert.BindingIn{}, failSave: map[string]bool{},
+		invalidSave: map[string]bool{}}
 }
 
 func (f *fakeTargets) UserExists(_ context.Context, u string) (bool, error) { return f.users[u], nil }
 func (f *fakeTargets) Collections(_ context.Context, u string) ([]string, error) {
+	if f.colErr != nil {
+		return nil, f.colErr
+	}
 	return f.cols[u], nil
 }
 func (f *fakeTargets) SaveAgent(_ context.Context, u string, in convert.AgentIn) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.saves++
+	if f.invalidSave[in.Name] {
+		return "", fmt.Errorf("%w: name", convert.ErrInvalid)
+	}
 	if f.failSave[in.Name] {
 		return "", errors.New("disk full")
 	}
@@ -66,6 +82,9 @@ func (f *fakeTargets) SaveAgent(_ context.Context, u string, in convert.AgentIn)
 func (f *fakeTargets) CreateTrigger(_ context.Context, u string, in convert.TriggerIn) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.trigErr != nil {
+		return f.trigErr
+	}
 	f.triggers[u] = append(f.triggers[u], in)
 	return nil
 }
@@ -88,7 +107,22 @@ func (f *fakeTargets) WriteSkill(_ context.Context, u string, shared bool, name,
 func (f *fakeTargets) ImportChat(_ context.Context, u string, in convert.ChatIn) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.importErr != nil {
+		return f.importErr(f, u, in)
+	}
 	f.chats[u] = append(f.chats[u], in)
+	return nil
+}
+func (f *fakeTargets) DiscardChat(_ context.Context, u, title string, created time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var keep []convert.ChatIn
+	for _, c := range f.chats[u] {
+		if c.Title != title || c.Created.UnixMilli() != created.UnixMilli() {
+			keep = append(keep, c)
+		}
+	}
+	f.chats[u] = keep
 	return nil
 }
 func (f *fakeTargets) CreateBinding(_ context.Context, u string, in convert.BindingIn) error {

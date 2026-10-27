@@ -68,7 +68,8 @@
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
     "chats": "Chats",
-    "files": "Berkas"
+    "files": "Berkas",
+    "triggers": "Pemicu"
   },
   "footer": {
     "github": "GitHub",
@@ -101,7 +102,8 @@
       "import": "Tambahkan model dari berkas, URL, atau repositori Hugging Face.",
       "voices": "Kenali pembicara dan simpan pustaka profil suara.",
       "faces": "Deteksi, bandingkan, dan cocokkan wajah.",
-      "addons": "Pasang add-on dan buka aplikasi yang disediakannya."
+      "addons": "Pasang add-on dan buka aplikasi yang disediakannya.",
+      "triggers": "Mulai obrolan secara otomatis, sesuai jadwal atau saat ada berkas masuk."
     }
   }
 }

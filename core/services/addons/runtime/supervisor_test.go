@@ -104,6 +104,31 @@ func supervisor() *Supervisor {
 }
 
 var service = contract.Capabilities{Service: true}
+
+var _ = Describe("Add-on output", func() {
+	It("goes to the log line by line with the add-on ID and a cap per line", func() {
+		var mu sync.Mutex
+		var got []string
+		s := supervisor()
+		s.config.Output = func(id, stream, line string) {
+			mu.Lock()
+			got = append(got, id+"|"+stream+"|"+line)
+			mu.Unlock()
+		}
+		i, e := s.Start(context.Background(), fixture("log", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		Eventually(func() []string { mu.Lock(); defer mu.Unlock(); return append([]string(nil), got...) }, 3*time.Second).Should(ContainElements(
+			"sample|stdout|hello from stdout", "sample|stderr|hello from stderr", "sample|stdout|"+strings.Repeat("x", maxOutputLine)+outputCut))
+		mu.Lock()
+		for _, l := range got {
+			Expect(len(l)).To(BeNumerically("<=", len("sample|stdout|")+maxOutputLine+len(outputCut)), "a line was not capped")
+		}
+		mu.Unlock()
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		// The partial last line is not lost when the add-on ends.
+		Eventually(func() []string { mu.Lock(); defer mu.Unlock(); return append([]string(nil), got...) }, 3*time.Second).Should(ContainElement("sample|stdout|no newline at the end"))
+	})
+})
 var _ = Describe("Managed subprocess", func() {
 	It("registers only ready generation bound service headless and UI capabilities", func() {
 		for _, c := range []contract.Capabilities{service, {Tools: []string{"read"}}, {Tools: []string{"read"}, UI: &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 1, Max: 2}}}} {

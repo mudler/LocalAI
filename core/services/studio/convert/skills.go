@@ -88,7 +88,9 @@ func (r *run) readSkills() []oldSkill {
 			Definition string `gorm:"column:definition"`
 			SourceType string `gorm:"column:source_type"`
 		}
-		if err := r.src.DB.Table("skills_metadata").Order("user_id, name").Find(&rows).Error; err == nil {
+		if err := r.src.DB.Table("skills_metadata").Order("user_id, name").Find(&rows).Error; err != nil {
+			r.add(KindSkill, "", "skills_metadata", StatusFailed, "could not read the table: "+err.Error())
+		} else {
 			for _, row := range rows {
 				out = append(out, oldSkill{user: row.UserID, shared: row.UserID == "", name: row.Name, text: row.Definition, git: row.SourceType == "git"})
 			}
@@ -118,29 +120,28 @@ func (r *run) convertSkill(ctx context.Context, s oldSkill) {
 		layer = s.user
 	}
 	key := "skill|" + layer + "|" + s.name
-	if _, done := r.done(ctx, key); done {
-		r.add(KindSkill, s.user, s.name, StatusSkipped, "already converted")
+	if r.handled(ctx, key, KindSkill, s.user, s.name) {
 		return
 	}
 	if s.git {
-		r.add(KindSkill, s.user, s.name, StatusDropped, "a skill from a git repository is not converted: add the repository's skills by hand")
+		r.drop(ctx, key, KindSkill, s.user, s.name, "a skill from a git repository is not converted: add the repository's skills by hand")
 		return
 	}
 	name, desc, body, ok := parseSkill(s.text)
 	if !ok {
-		r.add(KindSkill, s.user, s.name, StatusDropped, "SKILL.md has no description in its frontmatter")
+		r.drop(ctx, key, KindSkill, s.user, s.name, "SKILL.md has no description in its frontmatter")
 		return
 	}
 	if name == "" {
 		name = s.name
 	}
 	if exists, err := r.tg.SkillExists(ctx, owner, s.shared, name); err == nil && exists {
-		r.mark(ctx, key, "exists")
-		r.add(KindSkill, s.user, s.name, StatusSkipped, "a skill with this name exists already")
+		r.mark(ctx, key, refExists)
+		r.add(KindSkill, s.user, s.name, StatusSkipped, reasonExists)
 		return
 	}
 	if err := r.tg.WriteSkill(ctx, owner, s.shared, name, desc, body); err != nil {
-		r.add(KindSkill, s.user, s.name, StatusFailed, err.Error())
+		r.refused(ctx, key, KindSkill, s.user, s.name, err)
 		return
 	}
 	r.mark(ctx, key, name)

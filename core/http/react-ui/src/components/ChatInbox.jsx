@@ -41,7 +41,14 @@ export default function ChatInbox({ inbox }) {
   const { t } = useTranslation('chats')
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [error, setError] = useState('')
   if (inbox.off) return null
+
+  // A failed mark or delete shows under the inbox; the list is as the server has it.
+  const attempt = async (call) => {
+    setError('')
+    try { await call() } catch (e) { setError(e?.message || t('errors.send')) }
+  }
 
   const openItem = async (n) => {
     if (!n.read) await inbox.markRead([n.id]).catch(() => {})
@@ -56,11 +63,12 @@ export default function ChatInbox({ inbox }) {
           {inbox.unread > 0 && <span className="ca-count" data-testid="inbox-count" aria-label={t('inbox.unread', { count: inbox.unread })}>{inbox.unread}</span>}
         </button>
         {open && inbox.unread > 0 && (
-          <button type="button" className="ch-link" onClick={() => inbox.markAllRead()}>{t('inbox.markAll')}</button>
+          <button type="button" className="ch-link" onClick={() => attempt(() => inbox.markAllRead())}>{t('inbox.markAll')}</button>
         )}
       </div>
       {open && (
         <>
+          {error && <p className="ch-error" role="alert">{error}</p>}
           {inbox.items.length === 0 && <p className="cs-muted">{t('inbox.empty')}</p>}
           <ul className="cs-list">
             {inbox.items.map((n) => (
@@ -69,7 +77,7 @@ export default function ChatInbox({ inbox }) {
                 {n.body && <span className="cs-muted">{n.body}</span>}
                 <span className="ca-inbox__meta">
                   <span>{formatNext(n.created, '')}</span>
-                  <button type="button" className="ch-link ch-link--danger" onClick={() => inbox.remove([n.id])}>{t('inbox.delete')}</button>
+                  <button type="button" className="ch-link ch-link--danger" onClick={() => attempt(() => inbox.remove([n.id]))}>{t('inbox.delete')}</button>
                 </span>
               </li>
             ))}

@@ -16,6 +16,6 @@ LocalAI no longer has a separate agent platform. The agents, the agent jobs and 
 | Install skills from a hub or a git repository | Write [skills](/features/chats/) as folders with a `SKILL.md`, personal or shared |
 | Keep chat history | The chats are kept on the server for every user |
 
-The collections (the knowledge base) stay. A saved agent lists the collections it may search.
+The [collections](/features/collections/) (the knowledge base) stay. A saved agent lists the collections it may search.
 
 What the server did with your old data at the first start, and what it could not carry over, is on [Moving from the old chat and agents](/features/chats-migration/).

@@ -13,7 +13,7 @@ import (
 // claim carries its evidence and an honesty flag, and each slide carries its
 // build status. StudioToDeck converts a studio deck into the presenter Deck
 // so canvases, sharing and publishing keep working unchanged. The types
-// mirror web/dante/frontend/src/studio/types.ts.
+// match the slide model of the web client.
 
 // StudioStyle is the visual style of a studio deck.
 type StudioStyle string

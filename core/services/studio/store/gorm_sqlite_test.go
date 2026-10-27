@@ -3,12 +3,15 @@
 package store_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/store/storetest"
 )
@@ -51,4 +54,40 @@ func TestGORMSurvivesReopenOnSQLite(t *testing.T) {
 	}
 	storetest.Seed(t, open())
 	storetest.CheckSeed(t, open())
+}
+
+// ReapTurns frees the chat and restores its messages in one transaction: when
+// the restore fails the chat must stay claimed, or the lost messages could
+// never be given back.
+func TestGORMReapTurnsIsAtomic(t *testing.T) {
+	ctx := context.Background()
+	db := openSQLite(t, filepath.Join(t.TempDir(), "studio.db"))
+	s, err := store.NewGORM(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	if err := s.CreateChat(ctx, session.ChatRecord{ID: "a", Principal: "alice", Created: now, Updated: now}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddPending(ctx, "alice", "a", "m"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ClaimTurn(ctx, "alice", "a", "r1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.TakePending(ctx, "alice", "a"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`CREATE TRIGGER no_restore BEFORE UPDATE ON studio_pending
+		BEGIN SELECT RAISE(ABORT, 'forced'); END`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReapTurns(ctx, time.Now().Add(time.Hour)); err == nil {
+		t.Fatal("ReapTurns should fail when the restore fails")
+	}
+	info, err := s.Turn(ctx, "alice", "a")
+	if err != nil || !info.Running {
+		t.Fatalf("turn after failed reap = %+v, %v; want still running", info, err)
+	}
 }

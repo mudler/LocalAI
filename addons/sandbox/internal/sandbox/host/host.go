@@ -123,6 +123,40 @@ func (b *Backend) Resume(ctx context.Context, snap sandbox.SnapshotRef, env sand
 	return s, nil
 }
 
+// Discard drops a suspended sandbox: its processes are killed and its folder
+// is removed. A suspended host sandbox keeps its processes running, so without
+// this they would run until the add-on stops. A snapshot this backend does not
+// hold is ignored, which makes a second discard harmless.
+func (b *Backend) Discard(ctx context.Context, snap sandbox.SnapshotRef) error {
+	if snap.Backend != "host" {
+		return nil
+	}
+	b.mu.Lock()
+	s, ok := b.held[snap.Path]
+	delete(b.held, snap.Path)
+	b.mu.Unlock()
+	if !ok {
+		return nil
+	}
+	return s.Destroy(ctx)
+}
+
+// Close discards every suspended sandbox the backend still holds. The selector
+// calls it when the administrator moves to another backend.
+func (b *Backend) Close() error {
+	b.mu.Lock()
+	held := b.held
+	b.held = map[string]*hostSandbox{}
+	b.mu.Unlock()
+	var first error
+	for _, s := range held {
+		if err := s.Destroy(context.Background()); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
+}
+
 type hostSandbox struct {
 	b    *Backend
 	id   string

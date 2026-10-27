@@ -54,7 +54,12 @@ export function chatsRedirect(pathname, search = '', hash = '') {
   const path = pathname.replace(/\/+$/, '')
   const params = new URLSearchParams(search)
   const model = /^\/app\/chat\/([^/]+)$/.exec(path)
-  if (model) params.set('model', decodeURIComponent(model[1]))
+  if (model) {
+    // A stray % is not an error worth a crash: keep the name as it was typed.
+    let name = model[1]
+    try { name = decodeURIComponent(name) } catch { /* not valid encoding */ }
+    params.set('model', name)
+  }
   let target = '/app/chats'
   if (/^\/app\/agents(\/|$)/.test(path)) target = '/app/chats/agents'
   else if (/^\/app\/agent-jobs(\/|$)/.test(path)) target = '/app/chats/triggers'

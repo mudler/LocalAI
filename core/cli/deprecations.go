@@ -46,9 +46,20 @@ type RemovedAgentOptions struct {
 	AgentHubURL                    string `env:"LOCALAI_AGENT_HUB_URL" hidden:"" help:"Removed; ignored"`
 }
 
-// set returns the environment variable names of the removed options that have
-// a value.
-func (o RemovedAgentOptions) set() []string {
+// RemovedAgentWorkerOptions are the flags and environment variables of the old
+// agent worker, which ran agents and jobs and called the HTTP API. They do
+// nothing now and are accepted so a deployment that sets them keeps starting.
+type RemovedAgentWorkerOptions struct {
+	APIURL          string `env:"LOCALAI_API_URL" hidden:"" help:"Removed; ignored"`
+	APIToken        string `env:"LOCALAI_API_TOKEN" hidden:"" help:"Removed; ignored"`
+	Subject         string `env:"LOCALAI_AGENT_SUBJECT" hidden:"" help:"Removed; ignored"`
+	Queue           string `env:"LOCALAI_AGENT_QUEUE" hidden:"" help:"Removed; ignored"`
+	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" hidden:"" help:"Removed; ignored"`
+}
+
+// setOptions returns the first environment variable name of each field of the
+// options struct o that has a value.
+func setOptions(o any) []string {
 	var out []string
 	v, t := reflect.ValueOf(o), reflect.TypeOf(o)
 	for i := 0; i < t.NumField(); i++ {
@@ -62,9 +73,19 @@ func (o RemovedAgentOptions) set() []string {
 	return out
 }
 
-func (o RemovedAgentOptions) warn() {
-	if set := o.set(); len(set) > 0 {
+func warnRemovedOptions(set []string) {
+	if len(set) > 0 {
 		xlog.Warn("These options were removed with the old agents, jobs and skills; they are ignored", "options", strings.Join(set, ", "),
 			"message", "remove them from your configuration; see the chats migration page")
 	}
 }
+
+// set returns the environment variable names of the removed options that have
+// a value.
+func (o RemovedAgentOptions) set() []string { return setOptions(o) }
+
+func (o RemovedAgentOptions) warn() { warnRemovedOptions(o.set()) }
+
+func (o RemovedAgentWorkerOptions) set() []string { return setOptions(o) }
+
+func (o RemovedAgentWorkerOptions) warn() { warnRemovedOptions(o.set()) }

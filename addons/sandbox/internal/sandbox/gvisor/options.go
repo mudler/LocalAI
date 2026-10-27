@@ -30,6 +30,11 @@ type Options struct {
 	// is watched and not enforced, so the upper layer can pass it, and a
 	// checkpoint must still be able to save that work.
 	StageLimit int64
+	// KeepSuspended keeps the suspended sandboxes of an earlier process when
+	// New sweeps StateDir. Leave it off unless the caller stores snapshot
+	// references across restarts: otherwise nobody can resume them and their
+	// checkpoints fill the disk.
+	KeepSuspended bool
 }
 
 // Backend creates gVisor sandboxes.
@@ -48,7 +53,8 @@ type Backend struct {
 
 // Close releases the lock on StateDir, so that another New can use the
 // folder. It does not stop sandboxes: they outlive the backend, and the next
-// New on the same StateDir stops the ones that are not suspended. Close is
+// New on the same StateDir stops them (the suspended ones too, unless
+// KeepSuspended is set). Close is
 // safe to call twice.
 func (b *Backend) Close() error {
 	if b == nil {

@@ -1,8 +1,8 @@
 // Package deck defines the constrained slide-deck JSON contract shared by
 // the slides generation path and (later) shareable canvases. The shape and
-// the validation rules MIRROR the TypeScript validator in
-// web/dante/frontend/src/presenter/deck.ts so that a deck accepted by one
-// language is accepted by the other. Keep the two in lockstep.
+// the validation rules are the same as those of the deck validator in the
+// web client, so that a deck accepted by one language is accepted by the
+// other. Keep the two in lockstep.
 package deck
 
 import (

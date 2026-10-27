@@ -128,16 +128,29 @@ func (a *Application) RegisterAddonWorkspace(f *files.Service) error {
 	}
 	root := a.addonDataRoot
 	return hostops.RegisterWorkspace(a.addonHostOps.Broker, &hostops.WorkspaceHost{
-		Store: f.Store(),
-		Files: f,
-		Principal: func(actor contract.Actor) string {
-			if actor.UserID == "" {
-				return studio.AnonymousPrincipal
-			}
-			return actor.UserID
-		},
-		DataDir: func(id string) string { return filepath.Join(root, id) },
+		Store:     f.Store(),
+		Files:     f,
+		Principal: func(actor contract.Actor) string { return addonWorkspacePrincipal(a.authDB != nil)(actor) },
+		DataDir:   func(id string) string { return filepath.Join(root, id) },
 	})
+}
+
+// addonWorkspacePrincipal maps an add-on actor to the owner of the files.
+// Without accounts the chats and the Files page use the anonymous principal,
+// so the synthetic local-owner actor must land there too, or the add-ons would
+// work in a home the user never sees. With accounts the local-owner actor is
+// no person: it has no files, and the workspace operations refuse it rather
+// than share one account's home. An empty answer means refuse.
+func addonWorkspacePrincipal(hasAccounts bool) func(contract.Actor) string {
+	return func(actor contract.Actor) string {
+		if actor.UserID == "" || actor.UserID == auth.AddonLocalOwnerID {
+			if hasAccounts {
+				return ""
+			}
+			return studio.AnonymousPrincipal
+		}
+		return actor.UserID
+	}
 }
 
 // addonFeatureCheck answers whether an active account holds a feature, with

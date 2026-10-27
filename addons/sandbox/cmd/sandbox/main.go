@@ -8,6 +8,7 @@ package main
 import (
 	"context"
 	"os"
+	"path/filepath"
 
 	"github.com/mudler/xlog"
 
@@ -35,7 +36,16 @@ func main() {
 			xlog.Error("sandbox: cannot read the settings", "error", err)
 			return tools.New(unavailable{}, nil, hostAdmin{client})
 		}
-		m, err := manager.New(manager.Options{Backend: sel.Backend, Store: remote.New(client, s.DataDir)})
+		m, err := manager.New(manager.Options{
+			Backend: sel.Backend,
+			Store:   remote.New(client, s.DataDir),
+			// The backends keep their sandboxes under run/. The manager needs the
+			// folder to remove the snapshots it gives up, and leaves it alone at
+			// start because each backend stops the sandboxes of an earlier
+			// process itself before it removes their folders.
+			StateDir:     filepath.Join(s.DataDir, "run"),
+			KeepStateDir: true,
+		})
 		if err != nil {
 			xlog.Error("sandbox: cannot start the manager", "error", err)
 			return tools.New(unavailable{}, nil, hostAdmin{client})

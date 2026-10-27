@@ -157,6 +157,10 @@ type run struct {
 	id      string
 	stopped bool
 	failed  bool
+	// chat is the chat the turn runs on. Stop goes through it and never opens
+	// the chat again: a turn that ended has closed it, and a chat left open by
+	// a late Stop would hold stale state while another frontend runs the next turn.
+	chat *session.Chat
 	// end stops what the turn started besides the loop itself: the heartbeat and
 	// the listener for control messages.
 	end func()
@@ -217,6 +221,34 @@ func (s *Service) Close(ctx context.Context) error {
 // included; they have Kind session.KindSubAgent and a ParentID.
 func (s *Service) List(ctx context.Context, user string, limit int) ([]session.ChatRecord, error) {
 	return s.d.Store.ListChats(ctx, principal(user), session.ChatCursor{}, limit)
+}
+
+// ListChats returns the user's chats, newest first, without sub-agent runs. The
+// limit applies to chats, so a burst of newer runs cannot push older chats out
+// of the page: the store is read page by page until enough chats are found.
+func (s *Service) ListChats(ctx context.Context, user string, limit int) ([]session.ChatRecord, error) {
+	var out []session.ChatRecord
+	var cur session.ChatCursor
+	for {
+		page, err := s.d.Store.ListChats(ctx, principal(user), cur, 200)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range page {
+			if r.Kind == session.KindSubAgent {
+				continue
+			}
+			out = append(out, r)
+			if limit > 0 && len(out) >= limit {
+				return out, nil
+			}
+		}
+		if len(page) < 200 {
+			return out, nil
+		}
+		last := page[len(page)-1]
+		cur = session.ChatCursor{Updated: last.Updated, ID: last.ID}
+	}
 }
 
 func principal(user string) string {
@@ -482,11 +514,7 @@ func (s *Service) stopLocal(ctx context.Context, p, conv string) error {
 	if r == nil {
 		return nil
 	}
-	chat, err := s.chat(ctx, p, conv)
-	if err != nil {
-		return err
-	}
-	return chat.Stop(ctx)
+	return r.chat.Stop(ctx)
 }
 
 // startFromPending starts a turn whose message is the waiting messages joined
@@ -547,13 +575,17 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up
 	})
 	end := func() { stopBeat(); stopListening() }
 	s.mu.Lock()
-	s.runs[k] = &run{id: runID, end: end}
+	s.runs[k] = &run{id: runID, end: end, chat: chat}
 	s.mu.Unlock()
 	if err := chat.Send(context.WithoutCancel(ctx), session.Message{Text: text, Files: up}); err != nil {
 		s.mu.Lock()
 		delete(s.runs, k)
 		s.mu.Unlock()
 		end()
+		// s.chat opened the chat; with no turn running nothing else will close it.
+		if cerr := chat.Close(); cerr != nil {
+			s.log.Warn("studio: could not close the chat after a failed start", "chat", conv, "error", cerr)
+		}
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
 		return err
 	}
@@ -648,6 +680,11 @@ func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv str
 		s.bus.Publish(k, ev)
 		switch ev.Kind {
 		case session.KindError:
+			// Only the error that ended the turn fails it. A failed save or a
+			// recovered tool panic leaves a turn that finished normally.
+			if !ev.Fatal {
+				break
+			}
 			s.mu.Lock()
 			if r := s.runs[k]; r != nil {
 				r.failed = true
@@ -688,13 +725,12 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) {
 	case r.failed:
 		status = store.TurnFailed
 	}
-	if err := s.d.Store.ReleaseTurn(ctx, p, conv, r.id, status); err != nil {
+	if err := s.releaseTurn(ctx, p, conv, r.id, status); err != nil {
 		s.log.Warn("studio: could not release the turn", "chat", conv, "error", err)
-		if !errors.Is(err, store.ErrNotClaimed) {
-			return
-		}
-		// The claim was reaped: the turn is over all the same. Whoever holds the
-		// chat now decides what runs next; this one only cleans up after itself.
+		// The turn is over all the same, and a parent may wait for it. If the
+		// claim was reaped, whoever holds the chat now decides what runs next;
+		// if the store is failing, the reaper frees the chat later. Either way
+		// this one only cleans up after itself and reports a terminal status.
 		status = store.TurnInterrupted
 	}
 	s.notifyWaiters(k, status)
@@ -715,6 +751,30 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) {
 	}()
 }
 
+// releaseTurn ends the claim. A store can fail for a moment (a locked SQLite
+// database), and a chat left claimed stays "running" until the reaper finds
+// it, so the release is tried a few times first.
+func (s *Service) releaseTurn(ctx context.Context, p, conv, runID string, status store.TurnStatus) error {
+	const attempts = 5
+	wait := 25 * time.Millisecond
+	var err error
+	for i := 0; i < attempts; i++ {
+		if err = s.d.Store.ReleaseTurn(ctx, p, conv, runID, status); err == nil || errors.Is(err, store.ErrNotClaimed) {
+			return err
+		}
+		if i == attempts-1 {
+			break
+		}
+		select {
+		case <-time.After(wait):
+		case <-s.closed:
+			return err
+		}
+		wait *= 2
+	}
+	return err
+}
+
 // inputs is the source of pending messages for one chat's harness. It runs
 // before each model request: it takes what is waiting, and if the request
 // fails, puts it back.
@@ -730,6 +790,12 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 		for i, t := range taken {
 			texts[i], ids[i] = t.Text, t.ID
 		}
+		// The loop counts a turn in the record only when it ends, so the turn
+		// that runs now is the next one.
+		turn := 0
+		if rec, gerr := s.d.Store.GetChat(ctx, a.Principal, a.ChatID); gerr == nil {
+			turn = rec.Turns + 1
+		}
 		return texts, func(err error) {
 			if err != nil {
 				if rerr := s.d.Store.RestorePending(ctx, a.Principal, a.ChatID, ids); rerr != nil {
@@ -738,7 +804,7 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 				return
 			}
 			for _, t := range texts {
-				if aerr := s.d.Store.AppendEntry(ctx, a.ChatID, session.Entry{Role: session.RoleUser, Text: t}); aerr != nil {
+				if aerr := s.d.Store.AppendEntry(ctx, a.ChatID, session.Entry{Turn: turn, Role: session.RoleUser, Text: t}); aerr != nil {
 					s.log.Warn("studio: could not record a delivered message", "chat", a.ChatID, "error", aerr)
 				}
 			}

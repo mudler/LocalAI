@@ -542,19 +542,29 @@ func (s *gormStore) ReapTurns(ctx context.Context, olderThan time.Time) ([]Reape
 	var out []ReapedTurn
 	for _, r := range rows {
 		// Conditional on the same run and beat, so a turn that beat again
-		// after the read, or that already ended, is left alone.
-		res := s.db.WithContext(ctx).Model(&chatRow{}).
-			Where("id = ? AND run_id = ? AND run_beat < ?", r.ID, r.RunID, olderThan).
-			Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(TurnInterrupted)})
-		if res.Error != nil {
-			return out, res.Error
-		}
-		if res.RowsAffected == 1 {
-			// What a request took and nobody confirmed was lost with the frontend.
-			if err := s.db.WithContext(ctx).Model(&pendingRow{}).Where("chat_id = ? AND unconfirmed = ?", r.ID, true).
-				Updates(map[string]any{"delivered": false, "unconfirmed": false}).Error; err != nil {
-				return out, err
+		// after the read, or that already ended, is left alone. The restore of
+		// the lost messages shares the transaction: a reaped chat whose
+		// messages stayed marked delivered would drop them for good.
+		reaped := false
+		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			res := tx.Model(&chatRow{}).
+				Where("id = ? AND run_id = ? AND run_beat < ?", r.ID, r.RunID, olderThan).
+				Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(TurnInterrupted)})
+			if res.Error != nil {
+				return res.Error
 			}
+			if res.RowsAffected != 1 {
+				return nil
+			}
+			reaped = true
+			// What a request took and nobody confirmed was lost with the frontend.
+			return tx.Model(&pendingRow{}).Where("chat_id = ? AND unconfirmed = ?", r.ID, true).
+				Updates(map[string]any{"delivered": false, "unconfirmed": false}).Error
+		})
+		if err != nil {
+			return out, err
+		}
+		if reaped {
 			out = append(out, ReapedTurn{Principal: r.Principal, ChatID: r.ID, RunID: r.RunID})
 		}
 	}

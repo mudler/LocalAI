@@ -119,12 +119,23 @@ func TestNewAcceptsAGoodHost(t *testing.T) {
 	}
 }
 
+// The supervisor starts the add-on with no PATH at all.
+func TestNewFindsTasksetWithoutAPath(t *testing.T) {
+	r := fakeRunsc(t, t.TempDir(), "runsc version release-20261012.0", "", 0, true)
+	t.Setenv("PATH", "")
+	if _, err := New(opts(t, r)); err != nil {
+		t.Fatalf("with no PATH: %v", err)
+	}
+}
+
 func TestNewNeedsFoldersAndTaskset(t *testing.T) {
 	if _, err := New(Options{}); err == nil || errors.Is(err, sandbox.ErrUnsupported) {
 		t.Fatalf("empty options: %v", err)
 	}
 	r := fakeRunsc(t, t.TempDir(), "runsc version release-20261012.0", "", 0, true)
-	t.Setenv("PATH", t.TempDir()) // no taskset
+	old := sandbox.SystemPath
+	sandbox.SystemPath = t.TempDir() // no taskset
+	t.Cleanup(func() { sandbox.SystemPath = old })
 	if _, err := New(opts(t, r)); !errors.Is(err, sandbox.ErrUnsupported) || !strings.Contains(err.Error(), "taskset") {
 		t.Fatalf("without taskset: %v", err)
 	}
@@ -334,9 +345,35 @@ func TestNewRefusesANegativeStageLimit(t *testing.T) {
 	}
 }
 
+// Nobody owns a suspended sandbox of an earlier process: the manager that
+// held its reference is gone, so its checkpoint would stay for ever.
+func TestNewRemovesTheSuspendedSandboxesOfAnEarlierProcess(t *testing.T) {
+	r, _ := loggingRunsc(t, t.TempDir())
+	o := opts(t, r)
+	d := filepath.Join(o.StateDir, "bbbbbbbbbbbb")
+	if err := os.MkdirAll(filepath.Join(d, "runsc"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&state{Suspended: true}).save(d); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(d, "checkpoint"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	b, err := New(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { b.Close() })
+	if _, err := os.Stat(d); !os.IsNotExist(err) {
+		t.Errorf("the suspended folder is still there: %v", err)
+	}
+}
+
 func TestNewStopsTheSandboxesOfAnEarlierProcess(t *testing.T) {
 	r, calls := loggingRunsc(t, t.TempDir())
 	o := opts(t, r)
+	o.KeepSuspended = true
 	mk := func(id string, st *state) string {
 		d := filepath.Join(o.StateDir, id)
 		if err := os.MkdirAll(filepath.Join(d, "runsc"), 0o700); err != nil {

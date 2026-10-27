@@ -142,8 +142,28 @@ test.describe('Chat triggers', () => {
     await expect.poll(() => a.s.calls.some(c => c.url === '/api/chats/triggers/t1/disable')).toBe(true)
     await page.getByRole('button', { name: 'Run now' }).click()
     await expect.poll(() => a.s.calls.some(c => c.url === '/api/chats/triggers/t1/run')).toBe(true)
-    await page.getByRole('button', { name: 'Delete' }).click()
+    // Deleting asks first.
+    await page.getByTestId('trigger-row').getByRole('button', { name: 'Delete' }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Delete Morning digest?')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.getByTestId('trigger-row')).toHaveCount(1)
+    expect(a.s.calls.some(c => c.method === 'DELETE')).toBe(false)
+
+    await page.getByTestId('trigger-row').getByRole('button', { name: 'Delete' }).click()
+    await dialog.getByRole('button', { name: 'Delete' }).click()
     await expect(page.getByTestId('trigger-row')).toHaveCount(0)
+  })
+
+  test('a delete the server refuses shows its reason and keeps the trigger', async ({ page }) => {
+    const a = api(page)
+    await a.install()
+    await page.route(/\/api\/chats\/triggers\/t1$/, route => route.fulfill({ status: 500, json: { error: { message: 'the store is read-only' } } }))
+    await page.goto('/app/chats/triggers')
+    await page.getByTestId('trigger-row').getByRole('button', { name: 'Delete' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByRole('alert')).toContainText('the store is read-only')
+    await expect(page.getByTestId('trigger-row')).toHaveCount(1)
   })
 
   test('a proposal waits for the owner and is confirmed with the browser zone', async ({ page }) => {

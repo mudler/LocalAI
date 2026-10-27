@@ -946,15 +946,6 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		},
 
 		// --- MCP ---
-		"agent.max_generation_tokens": {
-			Section:     "agent",
-			Label:       "Max Generation Tokens",
-			Description: "Output-token cap for each completion of an agent job (/api/agent/jobs). Bounds a single completion that keeps generating, which max_iterations and loop_detection do not. Raise it for reasoning models that think at length. 0 or empty keeps the client default (16384).",
-			Component:   "number",
-			Min:         f64(0),
-			Order:       120,
-			Advanced:    true,
-		},
 		"mcp.remote": {
 			Section:     "mcp",
 			Label:       "Remote MCP Servers",

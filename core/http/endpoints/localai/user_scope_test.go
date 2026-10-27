@@ -11,7 +11,7 @@ import (
 )
 
 // Per-user isolation contract for the collections endpoints: a regular user is scoped
-// to their own data, admins and agent-worker service accounts can override
+// to their own data, only admins can override
 // scope via ?user_id=, and ?all_users=true is admin-only.
 var _ = Describe("Collections endpoint per-user isolation", func() {
 	var e *echo.Echo
@@ -76,32 +76,16 @@ var _ = Describe("Collections endpoint per-user isolation", func() {
 			Expect(canImpersonateUser(c)).To(BeTrue())
 		})
 
-		It("is true for agent-worker service accounts", func() {
+		It("is false for a user with the agent-worker provider", func() {
+			// The agent worker no longer calls the HTTP API, so nothing
+			// legitimate holds this provider. Rows an earlier release
+			// created must not keep a cross-user power.
 			c := makeContext("")
 			c.Set("auth_user", &auth.User{
 				ID: "worker-1", Role: auth.RoleUser,
 				Provider: auth.ProviderAgentWorker,
 			})
-			Expect(canImpersonateUser(c)).To(BeTrue())
-		})
-
-		It("ignores user-supplied 'provider' since the field is set server-side at registration", func() {
-			// Defense-in-depth: even if a user could somehow inject a
-			// Provider field into their session row (they can't via any
-			// supported flow), the role check is independent and a
-			// non-admin RoleUser still fails the impersonation gate.
-			c := makeContext("")
-			c.Set("auth_user", &auth.User{
-				ID: "alice", Role: auth.RoleUser,
-				// User claims to be an agent worker.
-				Provider: auth.ProviderAgentWorker,
-			})
-			// Per the current contract canImpersonate accepts this — but
-			// the path that mints ProviderAgentWorker is server-only
-			// (see core/services/nodes/registration.go). Pin the
-			// expectation so a future refactor that changes the rule
-			// here also has to change the lock below.
-			Expect(canImpersonateUser(c)).To(BeTrue())
+			Expect(canImpersonateUser(c)).To(BeFalse())
 		})
 	})
 
@@ -131,13 +115,13 @@ var _ = Describe("Collections endpoint per-user isolation", func() {
 			Expect(effectiveUserID(c)).To(Equal("alice"))
 		})
 
-		It("honors ?user_id= for agent-worker service accounts", func() {
+		It("ignores ?user_id= for a user with the agent-worker provider", func() {
 			c := makeContext("?user_id=alice")
 			c.Set("auth_user", &auth.User{
 				ID: "worker-1", Role: auth.RoleUser,
 				Provider: auth.ProviderAgentWorker,
 			})
-			Expect(effectiveUserID(c)).To(Equal("alice"))
+			Expect(effectiveUserID(c)).To(Equal("worker-1"))
 		})
 
 		It("falls back to caller's own ID when impersonation is allowed but query is empty", func() {

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
+import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 import Icon from '../components/Icon'
 import ModelSelector from '../components/ModelSelector'
 import { useAddonToolAddons } from '../addons/useAddonRegistry'
@@ -23,6 +24,7 @@ export default function ChatAgents() {
   // The model selector picks a model on its own, so the agent has a fixed model only when asked.
   const [fixModel, setFixModel] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [toDelete, setToDelete] = useState(null)
   const [skillNames, setSkillNames] = useState([])
   const [collectionNames, setCollectionNames] = useState([])
 
@@ -66,6 +68,8 @@ export default function ChatAgents() {
       await load()
     } catch (e) { fail(e) }
   }
+
+  const confirmDelete = (a) => { setToDelete(null); remove(a) }
 
   const openForm = (a) => { setForm(a); setFixModel(Boolean(a.model)) }
 
@@ -147,13 +151,14 @@ export default function ChatAgents() {
             <span className="cs-row__actions">
               <button type="button" className="btn btn-primary btn-sm" onClick={() => startChat(a)}>{t('agentsPage.chat')}</button>
               <button type="button" className="btn btn-secondary btn-sm" onClick={() => openForm({ ...emptyAgent(), ...a })}>{t('agentsPage.editButton')}</button>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => remove(a)}>{t('agentsPage.delete')}</button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setToDelete(a)}>{t('agentsPage.delete')}</button>
             </span>
           </li>
         ))}
       </ul>
       {agents.length === 0 && !form && <p className="cs-muted">{t('agentsPage.empty')}</p>}
       <p className="cs-muted"><Link to="/app/chats">{t('skillsPage.back')}</Link></p>
+      <ChatDeleteConfirm item={toDelete} kind="agent" onConfirm={confirmDelete} onCancel={() => setToDelete(null)} />
     </div>
   )
 }

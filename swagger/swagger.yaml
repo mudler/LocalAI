@@ -8463,9 +8463,13 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: with chat, sub-agent runs are left out and the limit counts chats
+        in: query
+        name: kind
+        type: string
       responses:
         "200":
-          description: Conversations, including sub-agent runs
+          description: Conversations, including sub-agent runs unless kind=chat
           schema:
             $ref: '#/definitions/schema.ChatsConversationList'
       summary: List chats.

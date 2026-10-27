@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 import Icon from '../components/Icon'
 import ModelSelector from '../components/ModelSelector'
 import { chatAgentsApi, chatTriggersApi, filesApi } from '../utils/api'
@@ -169,6 +170,7 @@ export default function ChatTriggers() {
   const [error, setError] = useState('')
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [toDelete, setToDelete] = useState(null)
   const [preview, setPreview] = useState({ text: '', error: '' })
   const [openRuns, setOpenRuns] = useState('')
 
@@ -224,6 +226,8 @@ export default function ChatTriggers() {
     setError('')
     try { await fn(); await load() } catch (e) { fail(e) }
   }
+
+  const confirmDelete = (tr) => { setToDelete(null); act(() => chatTriggersApi.remove(tr.id)) }
 
   if (off) {
     return (
@@ -346,13 +350,14 @@ export default function ChatTriggers() {
               <button type="button" className="btn btn-secondary btn-sm" onClick={() => act(() => chatTriggersApi.run(tr.id))}>{t('triggersPage.runNow')}</button>
               <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOpenRuns(openRuns === tr.id ? '' : tr.id)}>{t('triggersPage.runs')}</button>
               <button type="button" className="btn btn-secondary btn-sm" onClick={() => setForm(fromTrigger(tr))}>{t('agentsPage.editButton')}</button>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => act(() => chatTriggersApi.remove(tr.id))}>{t('agentsPage.delete')}</button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setToDelete(tr)}>{t('agentsPage.delete')}</button>
             </span>
           </li>
         ))}
       </ul>
       {triggers.length === 0 && !form && <p className="cs-muted">{t('triggersPage.empty')}</p>}
       <p className="cs-muted"><Link to="/app/chats">{t('skillsPage.back')}</Link></p>
+      <ChatDeleteConfirm item={toDelete} kind="trigger" onConfirm={confirmDelete} onCancel={() => setToDelete(null)} />
     </div>
   )
 }

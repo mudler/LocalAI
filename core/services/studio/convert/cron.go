@@ -2,6 +2,8 @@ package convert
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -33,4 +35,31 @@ func ScheduleFromCron(s string) (string, bool) {
 		return "", false
 	}
 	return strings.Join(f, " "), true
+}
+
+// LocalZone names the zone the server runs in, which the old cron tasks used.
+// The zone is empty, with no note, when it is UTC. It is empty with a note for
+// the report when the server's zone is local time that has no name: the
+// converted schedules then run in UTC.
+func LocalZone() (zone, note string) {
+	name := time.Local.String()
+	if name == "Local" || name == "" {
+		name = strings.TrimPrefix(os.Getenv("TZ"), ":")
+		if name == "" {
+			// /etc/localtime links into the zone database on most systems.
+			if link, err := filepath.EvalSymlinks("/etc/localtime"); err == nil {
+				if _, after, ok := strings.Cut(link, "zoneinfo/"); ok {
+					name = after
+				}
+			}
+		}
+	}
+	switch name {
+	case "UTC", "Etc/UTC", "GMT", "Z":
+		return "", ""
+	}
+	if _, err := time.LoadLocation(name); name == "" || name == "Local" || err != nil {
+		return "", "the server zone has no name, so the schedule now runs in UTC: check its time zone"
+	}
+	return name, ""
 }

@@ -21,6 +21,14 @@ changes or deletes the old data.
 | A skill folder (shared or personal) | A shared or personal skill |
 | A conversation saved in the database | A chat with its transcript (the newest 5000 messages) |
 
+A scheduled task ran in the time zone of the server. The trigger made from it
+keeps that zone, and the report names it. When the server's zone has no name
+(plain local time), the trigger runs in UTC and the report says so: check the
+schedule.
+
+An agent that the old pool deleted (a row with status `deleted`) is not
+converted, and neither are its periodic trigger and its Telegram connector.
+
 A converted chat keeps what was said, not the model's memory of it. A
 conversation kept only in a browser cannot be converted: it was never on the
 server.
@@ -49,7 +57,32 @@ administrator also gets `totals` for all users. Each user with something new
 gets one notification in the [inbox](/features/chats-agents/).
 
 A run is safe to repeat. A converted item is marked and is not converted
-again; one that failed is tried again at the next start.
+again. An item that cannot convert for good, such as a task with no cron text,
+a name or an instruction text that is too long, a skill name that is not valid,
+a cron text with month or day names, or more than 50 triggers, is marked as
+dropped, with the reason, and is not met again. One that failed for another
+reason, such as a full disk, is tried again at the next start.
+
+The report keeps the first word on an item: the status and the reason of the
+run that converted or dropped it (for example `renamed to Name (2)`, or
+`dropped: actions, mcp_servers`) stay when later starts only find it done.
+You are told once about what is new. A failure that comes back with the same
+reason at each start does not send a new notification.
+
+An agent with a knowledge base gets the grant on the collection named like it.
+The conversion runs after the collections have started. When the collections
+are off or cannot be listed, the agent is not converted: it is reported as
+failed and converts at a start with the collections on. It is never marked
+converted without its grant.
+
+A source that cannot be read (a cut `pool.json`, a broken `agent_tasks.json` of
+one user, an agent row whose configuration is not valid JSON) is a failed item.
+The other sources and users convert all the same.
+
+The history is read page by page and one conversation at a time, off the start-up
+path. A conversation is marked before its import. If the server stops in the
+middle of an import, the next start removes the half chat and imports again, so
+a chat is never twice.
 
 ## What stays
 
@@ -82,11 +115,11 @@ These flags and environment variables are accepted and do nothing, and the serve
 
 The `agent_job_retention_days`, `agent_pool_enable_logs` and `agent_pool_agent_hub_url` keys of `runtime_settings.json` are ignored too. The command `local-ai agent` is gone.
 
-Kept, because the collections use them: `LOCALAI_DISABLE_AGENTS` (it now turns off the collections), `LOCALAI_AGENT_POOL_STATE_DIR`, `LOCALAI_AGENT_POOL_DEFAULT_MODEL`, `LOCALAI_AGENT_POOL_API_URL`, `LOCALAI_AGENT_POOL_API_KEY`, `LOCALAI_AGENT_POOL_VECTOR_ENGINE`, `LOCALAI_AGENT_POOL_EMBEDDING_MODEL`, `LOCALAI_AGENT_POOL_DATABASE_URL`, `LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE`, `LOCALAI_AGENT_POOL_CHUNK_OVERLAP` and `LOCALAI_AGENT_POOL_COLLECTION_DB_PATH`.
+Kept, because the [collections](/features/collections/) use them: `LOCALAI_DISABLE_AGENTS` (it now turns off the collections), `LOCALAI_AGENT_POOL_STATE_DIR`, `LOCALAI_AGENT_POOL_DEFAULT_MODEL`, `LOCALAI_AGENT_POOL_API_URL`, `LOCALAI_AGENT_POOL_API_KEY`, `LOCALAI_AGENT_POOL_VECTOR_ENGINE`, `LOCALAI_AGENT_POOL_EMBEDDING_MODEL`, `LOCALAI_AGENT_POOL_DATABASE_URL`, `LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE`, `LOCALAI_AGENT_POOL_CHUNK_OVERLAP` and `LOCALAI_AGENT_POOL_COLLECTION_DB_PATH`.
 
 ## In a cluster
 
-The agent dispatch and job queues are gone from distributed mode: the NATS subjects `agent.*` and `jobs.*`, the queues and their permissions. The agent worker keeps serving the MCP tool and discovery calls. The old tables stay in the database untouched; the conversion reads them, and you can drop them when you no longer need them.
+The agent dispatch and job queues are gone from distributed mode: the NATS subjects `agent.*` and `jobs.*`, the queues and their permissions. The agent worker keeps serving the MCP tool and discovery calls. A worker no longer gets an API user or key when it registers, and the old worker user of a node is removed when that node registers again. On the collections routes, `?user_id=` is now for administrators only. If you made NATS credentials with `scripts/nats-auth-setup.sh`, make them again: the frontend user needs the `chats.>` subjects. The old tables stay in the database untouched; the conversion reads them, and you can drop them when you no longer need them.
 
 ## Storage and clusters
 

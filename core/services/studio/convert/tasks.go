@@ -27,7 +27,9 @@ type taskFile struct {
 	} `json:"tasks"`
 }
 
-func (r *run) readTasks() ([]oldTask, error) {
+// readTasks reads the task files and the table. A file or table that cannot be
+// read is a failed item, and the others are read all the same.
+func (r *run) readTasks() []oldTask {
 	var out []oldTask
 	add := func(user string, f taskFile) {
 		for _, t := range f.Tasks {
@@ -42,7 +44,7 @@ func (r *run) readTasks() ([]oldTask, error) {
 	if root != "" {
 		var f taskFile
 		if ok, err := readJSONFile(filepath.Join(root, "agent_tasks.json"), &f); err != nil {
-			return nil, err
+			r.add(KindTrigger, "", "agent_tasks.json", StatusFailed, err.Error())
 		} else if ok {
 			add("", f)
 		}
@@ -50,7 +52,7 @@ func (r *run) readTasks() ([]oldTask, error) {
 	for _, uid := range r.userDirs() {
 		var f taskFile
 		if ok, err := readJSONFile(filepath.Join(r.src.StateDir, "users", uid, "agent_tasks.json"), &f); err != nil {
-			return nil, err
+			r.add(KindTrigger, uid, "agent_tasks.json", StatusFailed, err.Error())
 		} else if ok {
 			add(uid, f)
 		}
@@ -69,7 +71,8 @@ func (r *run) readTasks() ([]oldTask, error) {
 		}
 		q := r.src.DB.Table("tasks")
 		if err := q.Order("user_id, name").Find(&rows).Error; err != nil {
-			return nil, err
+			r.add(KindTrigger, "", "tasks", StatusFailed, "could not read the table: "+err.Error())
+			return out
 		}
 		for _, row := range rows {
 			t := oldTask{user: row.UserID, id: row.ID, name: row.Name, model: row.Model, prompt: row.Prompt, cron: row.Cron}
@@ -81,17 +84,13 @@ func (r *run) readTasks() ([]oldTask, error) {
 			out = append(out, t)
 		}
 	}
-	return out, nil
+	return out
 }
 
 var templateVar = regexp.MustCompile(`\{\{\s*\.(\w+)\s*\}\}`)
 
 func (r *run) tasksStep(ctx context.Context) error {
-	tasks, err := r.readTasks()
-	if err != nil {
-		return err
-	}
-	for _, t := range tasks {
+	for _, t := range r.readTasks() {
 		r.convertTask(ctx, t)
 	}
 	return nil
@@ -104,8 +103,7 @@ func (r *run) convertTask(ctx context.Context, t oldTask) {
 		return
 	}
 	key := "task|" + t.user + "|" + t.id
-	if _, done := r.done(ctx, key); done {
-		r.add(KindTrigger, t.user, t.name, StatusSkipped, "already converted")
+	if r.handled(ctx, key, KindTrigger, t.user, t.name) {
 		return
 	}
 	var dropped []string
@@ -118,13 +116,13 @@ func (r *run) convertTask(ctx context.Context, t oldTask) {
 	sched, ok := ScheduleFromCron(t.cron)
 	switch {
 	case strings.TrimSpace(t.cron) == "":
-		r.add(KindTrigger, t.user, t.name, StatusDropped, "the task has no cron schedule: it only ran when called")
+		r.drop(ctx, key, KindTrigger, t.user, t.name, "the task has no cron schedule: it only ran when called")
 		return
 	case !ok:
-		r.add(KindTrigger, t.user, t.name, StatusDropped, "the cron text has no five-field form")
+		r.drop(ctx, key, KindTrigger, t.user, t.name, "the cron text has no five-field form")
 		return
 	case t.model == "" || strings.TrimSpace(t.prompt) == "":
-		r.add(KindTrigger, t.user, t.name, StatusDropped, "the task has no model or no prompt")
+		r.drop(ctx, key, KindTrigger, t.user, t.name, "the task has no model or no prompt")
 		return
 	}
 	prompt := templateVar.ReplaceAllStringFunc(t.prompt, func(m string) string {
@@ -133,15 +131,15 @@ func (r *run) convertTask(ctx context.Context, t oldTask) {
 		}
 		return m
 	})
-	reason := "switched off"
+	reason := "switched off" + r.zoneReason()
 	if strings.Contains(prompt, "{{") {
 		reason += "; template parts are left in the prompt as text"
 	}
 	if len(dropped) > 0 {
 		reason += "; dropped: " + strings.Join(dropped, ", ")
 	}
-	if err := r.tg.CreateTrigger(ctx, owner, TriggerIn{Name: t.name, Prompt: prompt, Model: t.model, Schedule: sched}); err != nil {
-		r.add(KindTrigger, t.user, t.name, StatusFailed, err.Error())
+	if err := r.tg.CreateTrigger(ctx, owner, TriggerIn{Name: t.name, Prompt: prompt, Model: t.model, Schedule: sched, TZ: r.src.Zone}); err != nil {
+		r.refused(ctx, key, KindTrigger, t.user, t.name, err)
 		return
 	}
 	r.mark(ctx, key, "trigger")

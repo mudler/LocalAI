@@ -46,11 +46,8 @@ func wantsAllUsers(c echo.Context) bool {
 }
 
 // effectiveUserID returns the user ID to scope operations to.
-// SECURITY: Only admins and agent-worker service accounts may supply
-// ?user_id=<id> to operate on another user's resources. Agent-worker users are
-// created exclusively server-side during node registration and need to access
-// collections on behalf of the user whose agent they are executing.
-// Regular callers always get their own ID regardless of query params.
+// SECURITY: Only admins may supply ?user_id=<id> to operate on another user's
+// resources. Regular callers always get their own ID regardless of query params.
 func effectiveUserID(c echo.Context) string {
 	if targetUID := c.QueryParam("user_id"); targetUID != "" && canImpersonateUser(c) {
 		if callerID := getUserID(c); callerID != targetUID {
@@ -62,13 +59,13 @@ func effectiveUserID(c echo.Context) string {
 }
 
 // canImpersonateUser returns true if the caller is allowed to use ?user_id= to
-// scope operations to another user. Allowed for admins and agent-worker service
-// accounts (ProviderAgentWorker is set server-side during node registration and
-// cannot be self-assigned).
+// scope operations to another user. Admins only: the agent worker no longer
+// calls the HTTP API, so the agent-worker provider carries no extra power (rows
+// an earlier release created are treated as ordinary users).
 func canImpersonateUser(c echo.Context) bool {
 	user := auth.GetUser(c)
 	if user == nil {
 		return false
 	}
-	return user.Role == auth.RoleAdmin || user.Provider == auth.ProviderAgentWorker
+	return user.Role == auth.RoleAdmin
 }

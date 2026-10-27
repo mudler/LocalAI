@@ -43,11 +43,7 @@ type AgentWorkerCMD struct {
 
 	// Removed: the worker no longer runs agents or jobs. These are accepted and
 	// ignored so a deployment that sets them keeps starting.
-	APIURL          string `env:"LOCALAI_API_URL" hidden:"" help:"Removed; ignored"`
-	APIToken        string `env:"LOCALAI_API_TOKEN" hidden:"" help:"Removed; ignored"`
-	Subject         string `env:"LOCALAI_AGENT_SUBJECT" hidden:"" help:"Removed; ignored"`
-	Queue           string `env:"LOCALAI_AGENT_QUEUE" hidden:"" help:"Removed; ignored"`
-	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" hidden:"" help:"Removed; ignored"`
+	RemovedAgentWorkerOptions `embed:""`
 
 	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (defaults to nats_jwt from registration)" group:"distributed"`
 	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"NATS user seed override (defaults to nats_user_seed from registration)" group:"distributed"`
@@ -69,6 +65,7 @@ func (cmd *AgentWorkerCMD) natsAuthRequired() bool {
 }
 
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
+	cmd.RemovedAgentWorkerOptions.warn()
 	xlog.Info("Starting agent worker", "nats", sanitize.URL(cmd.NatsURL), "register_to", cmd.RegisterTo)
 
 	// Register with frontend

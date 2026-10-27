@@ -52,7 +52,7 @@ func newWSFixture() *wsFixture {
 	f.b = New(f.inflight, always, contract.DefaultLimits())
 	Expect(RegisterWorkspace(f.b, &WorkspaceHost{
 		Store: ws, Files: fs,
-		Principal: func(a contract.Actor) string { return a.UserID },
+		Principal: func(a contract.Actor) string { return a.UserID }, // empty means no files
 		DataDir:   func(id string) string { return filepath.Join(data, id) },
 	})).To(Succeed())
 	f.h = f.b.Handler("sandbox", "secret", []string{"workspace."})
@@ -98,6 +98,15 @@ var _ = Describe("Workspace host operations", func() {
 		Expect(string(got)).To(Equal("hello"))
 	})
 
+	It("refuses every operation when the host maps the actor to no user", func() {
+		f := newWSFixture()
+		f.live("", "op1", "act")
+		for _, op := range []string{"workspace.materialize", "workspace.commit", "workspace.export", "workspace.import", "workspace.changes"} {
+			code, _ := f.call("secret", "op1", op, `{`+mounts+`,"dir":"run1","path":"/proj/a.txt","to":"x","from":"x","base":0}`)
+			Expect(code).To(Equal(http.StatusBadRequest), op)
+		}
+	})
+
 	It("never reaches the files of another user", func() {
 		f := newWSFixture()
 		f.put("bob", "/proj/secret.txt", "bob's")
@@ -138,6 +147,28 @@ var _ = Describe("Workspace host operations", func() {
 		var buf bytes.Buffer
 		_, _ = buf.ReadFrom(rc)
 		Expect(buf.String()).To(Equal("made by the sandbox"))
+	})
+
+	It("does not commit an upper layer that is a link or not a regular file", func() {
+		f := newWSFixture()
+		f.put("alice", "/proj/a.txt", "hello")
+		f.live("alice", "op1", "act")
+		code, _ := f.call("secret", "op1", "workspace.materialize", `{`+mounts+`,"dir":"run1"}`)
+		Expect(code).To(Equal(http.StatusOK))
+		// A valid archive outside the data directory, reached through a link.
+		outside := filepath.Join(GinkgoT().TempDir(), "other.tar")
+		Expect(os.WriteFile(outside, upperTar("proj/stolen.txt", "from outside"), 0o600)).To(Succeed())
+		upper := filepath.Join(f.data, "sandbox", "run1", "upper.tar")
+		Expect(os.Symlink(outside, upper)).To(Succeed())
+		code, _ = f.call("secret", "op1", "workspace.commit", `{`+mounts+`,"dir":"run1","base":0}`)
+		Expect(code).To(Equal(http.StatusBadRequest))
+		abs, _ := f.files.Abs("alice", "/proj/stolen.txt")
+		_, _, err := f.files.Store().Open(context.Background(), f.files.Actor("alice"), abs)
+		Expect(err).To(HaveOccurred())
+		Expect(os.Remove(upper)).To(Succeed())
+		Expect(os.Mkdir(upper, 0o700)).To(Succeed())
+		code, _ = f.call("secret", "op1", "workspace.commit", `{`+mounts+`,"dir":"run1","base":0}`)
+		Expect(code).To(Equal(http.StatusBadRequest))
 	})
 
 	It("lets a read envelope materialize but not commit", func() {

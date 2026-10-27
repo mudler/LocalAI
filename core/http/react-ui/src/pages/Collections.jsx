@@ -591,7 +591,7 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
       {own && (
         <>
           <UsedByStrip users={users} status={status} onRemove={onRemove} busy={busy}>
-            <AddToMenu kind="collection" name={name} agents={agents} status={status} onAdd={onAdd} busy={busy} />
+            <AddToMenu name={name} agents={agents} status={status} onAdd={onAdd} busy={busy} />
           </UsedByStrip>
           {unused && (
             <div className="lib-notused" data-testid="collection-not-used">

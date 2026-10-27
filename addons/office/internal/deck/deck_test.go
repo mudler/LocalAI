@@ -37,9 +37,9 @@ func TestValidateRejectsBadAccentAndMalformedJSON(t *testing.T) {
 	}
 }
 
-// --- Parity with web/dante/frontend/src/presenter/deck.ts ---
+// --- Parity with the deck validator of the web client ---
 
-// TS: bullets with a missing "items" is flagged. Mirror deck.test.ts.
+// A bullets block with a missing "items" is flagged, as in the web client.
 func TestValidateRejectsMissingBulletsItems(t *testing.T) {
 	errs := deck.Validate([]byte(`{"version":1,"theme":"midnight","slides":[{"layout":"single","blocks":[{"type":"bullets"}]}]}`))
 	found := false

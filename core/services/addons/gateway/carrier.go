@@ -360,6 +360,11 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			// The owner runs an action call it was forwarded, for the actor
 			// the signature binds; Dispatch refuses the action.
 			call = g.Act
+			// The server's write timeout is sized for short calls. An action
+			// may run up to ActTimeout, and its answer would be cut off on a
+			// connection that already expired, which the frontend would then
+			// report as an unknown outcome.
+			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(contract.ActTimeout + time.Minute))
 		}
 		result, e := call(r.Context(), actor, wire.Request)
 		if e != nil {

@@ -68,7 +68,8 @@
     "gpuHost": "GPU and host",
     "prometheus": "Prometheus",
     "chats": "聊天会话",
-    "files": "文件"
+    "files": "文件",
+    "triggers": "触发器"
   },
   "footer": {
     "github": "GitHub",
@@ -101,7 +102,8 @@
       "import": "从文件、URL 或 Hugging Face 仓库添加模型。",
       "voices": "识别说话人，并维护声音档案库。",
       "faces": "检测、比较和匹配人脸。",
-      "addons": "安装附加组件并打开它们提供的应用。"
+      "addons": "安装附加组件并打开它们提供的应用。",
+      "triggers": "按计划或在文件到达时自动开始对话。"
     }
   }
 }

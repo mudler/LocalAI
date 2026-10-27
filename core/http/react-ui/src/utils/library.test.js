@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  agentSkills, collectionUsers, estimateTokens, kbResults, kbSearchesEveryMessage,
-  normaliseSource, passageScore, passageSource, skillLoadTokens, skillsMode, skillUsers,
+  agentSkills, collectionUsers, estimateTokens, kbResults,
+  normaliseSource, passageScore, passageSource, skillLoadTokens, skillsMode,
   withCollection, withoutCollection,
 } from './library.js'
 
@@ -13,13 +13,12 @@ test('the skills of an agent are its exact list, and an empty list grants none',
   assert.deepEqual(agentSkills({ skills: ['cite', '', 'triage'] }), { on: true, all: false, names: ['cite', 'triage'] })
 })
 
-test('the users of a skill or a collection are the agents that list it', () => {
+test('the users of a collection are the agents that list it', () => {
   const agents = [
     { name: 'research', config: { skills: ['cite'], collections: ['papers'] } },
     { name: 'support', config: { skills: [], collections: ['papers', 'faq'] } },
     { name: 'bare', config: {} },
   ]
-  assert.deepEqual(skillUsers(agents, 'cite'), [{ name: 'research', all: false }])
   assert.deepEqual(collectionUsers(agents, 'papers').map(u => u.name), ['research', 'support'])
   assert.deepEqual(collectionUsers(agents, 'faq').map(u => u.name), ['support'])
   assert.deepEqual(collectionUsers(agents, 'none'), [])
@@ -39,7 +38,6 @@ test('the token estimate is characters divided by four, and a skill adds nothing
   assert.equal(estimateTokens('a'.repeat(400)), 100)
   assert.equal(skillLoadTokens(), 0)
   assert.equal(skillsMode(), 'tools')
-  assert.equal(kbSearchesEveryMessage(), false)
   assert.equal(kbResults(), 5)
 })
 

@@ -397,7 +397,13 @@ func (c *Chat) onHarnessEvent(e Event) {
 		// of an internal error.
 		e.Text = fixedReason(e.Text)
 		e.Tool = nil
+		// Only the chat knows whether an error ended the turn; a harness
+		// cannot claim it.
+		e.Fatal = false
 		c.flushReasoning(ctx, turn)
+	case KindCompacted:
+		// Only the token counts travel; the transcript keeps every message.
+		e.Text, e.Tool = "", nil
 	default:
 		return // turn_start, checkpoint and turn_end belong to the chat
 	}
@@ -749,7 +755,7 @@ func (c *Chat) runTurn(text string, refresh bool) int {
 		c.mu.Unlock()
 		if err != nil && !(stopped && (errors.Is(err, context.Canceled) || ctx.Err() != nil)) {
 			c.m.log.Error("session: the harness failed", "chat", c.id, "turn", n, "error", err)
-			c.emit(Event{Kind: KindError, Turn: n, Text: reasonFor(err)})
+			c.emit(Event{Kind: KindError, Turn: n, Text: reasonFor(err), Fatal: true})
 		}
 	}
 	c.flushReasoning(context.Background(), n)

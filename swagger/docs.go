@@ -3047,11 +3047,17 @@ const docTemplate = `{
                         "description": "most conversations to return (default 50, at most 200)",
                         "name": "limit",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "with chat, sub-agent runs are left out and the limit counts chats",
+                        "name": "kind",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Conversations, including sub-agent runs",
+                        "description": "Conversations, including sub-agent runs unless kind=chat",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversationList"
                         }

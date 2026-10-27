@@ -83,7 +83,7 @@ func New(opts Options) (*Backend, error) {
 		if name == "" {
 			name = t.name
 		}
-		p, err := exec.LookPath(name)
+		p, err := sandbox.LookPath(name)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s not found: %v", sandbox.ErrUnsupported, t.name, err)
 		}
