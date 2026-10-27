@@ -98,6 +98,8 @@ func readSheet(p parts, name string, shared []string) ([][]string, error) {
 		typ         string
 		val         strings.Builder
 		inCell, inV bool
+		inF         bool
+		formula     strings.Builder
 		inIS, inT   bool
 		nextRow     int
 		nextCol     int
@@ -119,6 +121,7 @@ func readSheet(p parts, name string, shared []string) ([][]string, error) {
 				inCell = true
 				typ, _ = attr(t, "t")
 				val.Reset()
+				formula.Reset()
 				nextCol++
 				cur = pos{nextRow, nextCol}
 				if r, ok := attr(t, "r"); ok {
@@ -131,6 +134,8 @@ func readSheet(p parts, name string, shared []string) ([][]string, error) {
 				nextRow, nextCol = cur.row, cur.col
 			case "v":
 				inV = inCell
+			case "f":
+				inF = inCell
 			case "is":
 				inIS = inCell
 			case "t":
@@ -140,13 +145,19 @@ func readSheet(p parts, name string, shared []string) ([][]string, error) {
 			switch t.Name.Local {
 			case "v":
 				inV = false
+			case "f":
+				inF = false
 			case "is":
 				inIS = false
 			case "t":
 				inT = false
 			case "c":
 				if inCell {
-					cells[cur] = cellText(typ, val.String(), shared)
+					text := cellText(typ, val.String(), shared)
+					if text == "" && formula.Len() > 0 {
+						text = "=" + strings.TrimPrefix(formula.String(), "=")
+					}
+					cells[cur] = text
 					maxRow, maxCol = max(maxRow, cur.row), max(maxCol, cur.col)
 				}
 				inCell = false
@@ -154,6 +165,9 @@ func readSheet(p parts, name string, shared []string) ([][]string, error) {
 		case xml.CharData:
 			if inV || inT {
 				val.Write(t)
+			}
+			if inF {
+				formula.Write(t)
 			}
 		}
 	})
