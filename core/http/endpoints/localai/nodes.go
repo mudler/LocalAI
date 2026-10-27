@@ -297,9 +297,17 @@ func revokeLegacyAgentWorkerAccount(ctx context.Context, authDB *gorm.DB, regist
 	}
 	// Delete only the account that was provisioned for a worker, never a
 	// user the reference might point to by mistake.
-	if err := authDB.Exec("DELETE FROM users WHERE id = ? AND provider = ?", node.AuthUserID, auth.ProviderAgentWorker).Error; err != nil {
-		xlog.Warn("Failed to remove legacy agent worker account", "node", node.Name, "user", node.AuthUserID, "error", err)
+	var n int64
+	if err := authDB.Model(&auth.User{}).Where("id = ? AND provider = ?", node.AuthUserID, auth.ProviderAgentWorker).Count(&n).Error; err != nil {
+		xlog.Warn("Failed to look up legacy agent worker account", "node", node.Name, "user", node.AuthUserID, "error", err)
 		return
+	}
+	if n > 0 {
+		// The cascade removes the keys and sessions with the user.
+		if err := auth.DeleteUserCascade(authDB, node.AuthUserID); err != nil {
+			xlog.Warn("Failed to remove legacy agent worker account", "node", node.Name, "user", node.AuthUserID, "error", err)
+			return
+		}
 	}
 	if err := registry.UpdateAuthRefs(ctx, node.ID, "", ""); err != nil {
 		xlog.Warn("Failed to clear legacy agent worker references", "node", node.Name, "error", err)
