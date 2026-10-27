@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -71,9 +70,6 @@ var _ = Describe("conversion of old data as the previous release wrote it", func
 		writeJSON(filepath.Join(data, "pool.json"), map[string]any{"alice:Helper": map[string]any{"name": "alice:Helper", "model": "m", "system_prompt": "Help."}})
 		app := boot("")
 		names := agentNames(app, "alice")
-		if len(names) == 0 {
-			Skip("known gap: AG-CONV-01: the pool, the skills and the connectors in the data path are not read when no collections state directory is set")
-		}
 		Expect(names).To(ConsistOf("Helper"))
 	})
 
@@ -108,9 +104,6 @@ var _ = Describe("conversion of old data as the previous release wrote it", func
 				tool += e.Text + "\n"
 			}
 		}
-		if strings.Contains(tool, `"type"`) || strings.Contains(tool, "of :") || strings.Contains(tool, "called \n") {
-			Skip("known gap: AG-CONV-02: the tool name lives in the content of an old tool line, so the converted line has no name and holds the raw JSON")
-		}
 		Expect(tool).To(ContainSubstring("get_weather"))
 		Expect(tool).NotTo(ContainSubstring(`"type": "tool_result"`), "no raw JSON in the transcript")
 	})
@@ -130,10 +123,7 @@ var _ = Describe("conversion of old data as the previous release wrote it", func
 				status, reason = i.Status, i.Reason
 			}
 		}
-		if status == "failed" {
-			Skip("known gap: AG-CONV-03: personal skills fail with '" + reason + "' until the user has a home folder")
-		}
-		Expect(status).To(Equal("converted"))
+		Expect(status).To(Equal("converted"), reason)
 	})
 })
 

@@ -1,6 +1,7 @@
 package application
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -77,7 +78,10 @@ func (a *Application) ConvertStudioData() {
 		ctx = context.Background()
 	}
 	zone, note := convert.LocalZone()
-	src := convert.Sources{StateDir: a.applicationConfig.Collections.StateDir, DataDir: a.applicationConfig.DataPath,
+	// The previous release kept the pool, the skills and the connectors in the
+	// state directory, else in the data path, else in the configuration folder.
+	stateDir := cmp.Or(a.applicationConfig.Collections.StateDir, a.applicationConfig.DataPath, a.applicationConfig.DynamicConfigsDir)
+	src := convert.Sources{StateDir: stateDir, DataDir: a.applicationConfig.DataPath,
 		DB: a.authDB, AuthEnabled: a.authDB != nil, Zone: zone, ZoneNote: note}
 	run := func() error {
 		rep, err := convert.Run(ctx, src, studioTargets{a: a, svc: svc}, a.studioMarks)
@@ -215,6 +219,12 @@ func (t studioTargets) SkillExists(ctx context.Context, user string, shared bool
 }
 
 func (t studioTargets) WriteSkill(ctx context.Context, user string, shared bool, name, description, body string) error {
+	if !shared {
+		// A user who has not opened the chats has no home folder yet.
+		if err := t.svc.Files().EnsureHome(ctx, t.skillActor(user, shared)); err != nil && !errors.Is(err, files.ErrUnavailable) {
+			return err
+		}
+	}
 	return invalid(t.svc.Files().WriteSkill(ctx, t.skillActor(user, shared), t.layer(shared), name, description, body))
 }
 
