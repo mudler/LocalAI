@@ -361,6 +361,28 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		}
 	}
 
+	// MOCK_LONG_STREAM keeps a turn open for a UI spec that stops it, reloads
+	// the page or types while it runs: a word every 200 ms for at most 30
+	// seconds, and the end of the request ends it at once. A prompt that also
+	// holds MOCK_LONG_STREAM_SHORT lasts about 3 seconds.
+	if strings.Contains(in.Prompt, "MOCK_LONG_STREAM") {
+		words := 150
+		if strings.Contains(in.Prompt, "MOCK_LONG_STREAM_SHORT") {
+			words = 15
+		}
+		for i := 0; i < words; i++ {
+			select {
+			case <-time.After(200 * time.Millisecond):
+			case <-stream.Context().Done():
+				return stream.Context().Err()
+			}
+			if err := stream.Send(&pb.Reply{Message: []byte("tick "), Tokens: int32(i + 1)}); err != nil { // #nosec G115 -- a small loop counter
+				return err
+			}
+		}
+		return nil
+	}
+
 	// Simulate C++ autoparser behavior: tool calls delivered via ChatDeltas
 	// with empty message (autoparser clears raw message during parsing).
 	if strings.Contains(in.Prompt, "AUTOPARSER_TOOL_CALL") {
