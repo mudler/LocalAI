@@ -409,6 +409,15 @@ func (h *Triggers) NextRun(t triggers.Trigger) (time.Time, bool) {
 	return sch.Next(h.o.Clock(), loc)
 }
 
+// RelPath returns a path of the owner's home as the owner sees it ("/Inbox/a.txt"),
+// or the path itself when it is outside the home.
+func (h *Triggers) RelPath(user, abs string) string {
+	if rel := h.svc.d.Files.Rel(principal(user), abs); rel != "" {
+		return rel
+	}
+	return abs
+}
+
 // RelFolder returns a file trigger's folder as a path in its owner's home.
 func (h *Triggers) RelFolder(t triggers.Trigger) string {
 	if t.Kind != triggers.KindFile {

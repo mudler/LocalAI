@@ -15,7 +15,7 @@ import (
 
 // Defaults of a Runner.
 const (
-	DefaultTick       = 30 * time.Second
+	DefaultTick       = 5 * time.Second
 	DefaultMaxRunning = 2
 	// maxCatchUp bounds the due times that one pass counts for one trigger.
 	maxCatchUp = 100000

@@ -28,7 +28,7 @@ var (
 
 // Defaults of the trigger host.
 const (
-	DefaultTriggerTick = 30 * time.Second
+	DefaultTriggerTick = 5 * time.Second
 	DefaultRunLimit    = 15 * time.Minute
 	maxTriggersPerUser = 50
 	stopWait           = 20 * time.Second
@@ -421,7 +421,8 @@ func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run trigg
 		if t.Kind == triggers.KindFile {
 			folder = t.Folder
 		}
-		rules, err := triggers.Rules(ctx, h.svc.d.Files.Store(), h.svc.d.Files.Actor(t.Owner), folder)
+		rules, err := triggers.RulesAs(ctx, h.svc.d.Files.Store(), h.svc.d.Files.Actor(t.Owner), folder,
+			func(dir string) string { return h.RelPath(t.Owner, dir) })
 		if err != nil {
 			h.log.Warn("studio: could not read the folder rules for a run", "error", err)
 		} else if rules != "" {
