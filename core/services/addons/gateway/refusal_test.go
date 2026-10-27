@@ -107,7 +107,7 @@ func (denyingRuntime) Read(context.Context, contract.Envelope) (contract.Result,
 }
 
 // unreachableAdmission denies every resource as the policy does.
-type unreachableAdmission struct{ admitted }
+type unreachableAdmission struct{}
 
 func (unreachableAdmission) Admit(context.Context, contract.Actor, ResourceKey, string, func(context.Context) error) error {
 	return ErrResourceUnreachable
