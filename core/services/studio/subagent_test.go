@@ -273,3 +273,24 @@ func TestAUserCannotSendToASubAgentConversation(t *testing.T) {
 		t.Fatalf("Send to a sub-agent conversation = %v, want ErrSubAgentReadOnly", err)
 	}
 }
+
+// A turn that the server's shutdown cuts short is interrupted, not done: its
+// text is partial, and a run of a trigger or a connector must not report it as
+// finished.
+func TestATurnCutShortByShutdownIsInterrupted(t *testing.T) {
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	svc, _ := newToolService(t, func(workspace.Actor, string) []studiotest.ToolStep {
+		return []studiotest.ToolStep{{Block: block}}
+	})
+	id := create(t, svc, alice)
+	sent(t, svc, alice, id, "work")
+	until(t, "the turn to run", func() bool { return turn(t, svc, alice, id).Running })
+	if err := svc.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	until(t, "the turn to be settled", func() bool { return !turn(t, svc, alice, id).Running })
+	if got := turn(t, svc, alice, id).Last; got != store.TurnInterrupted {
+		t.Fatalf("the turn ended as %q, want interrupted", got)
+	}
+}
