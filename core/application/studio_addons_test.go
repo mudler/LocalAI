@@ -133,3 +133,20 @@ func TestAnAddonThatNeedsTheWorkspaceIsUnavailableWhileFilesAreOff(t *testing.T)
 		t.Errorf("office with files on: reason = %q", got)
 	}
 }
+
+type forbiddenOwner struct{ changeOwner }
+
+func (forbiddenOwner) Apps(context.Context, contract.Actor) (apps.List, error) {
+	return apps.List{}, gateway.ErrForbidden
+}
+
+func TestAUserWithoutTheAddonsFeatureHasNoAddonTools(t *testing.T) {
+	s := &studioAddons{adapter: addontools.NewChatToolAdapter(forbiddenOwner{}), mode: auth.AddonModeNamedUser}
+	got, err := s.Tools(context.Background(), "alice")
+	if err != nil {
+		t.Fatalf("a refused user is not an error for the chats, got %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("tools = %v, want none", got)
+	}
+}

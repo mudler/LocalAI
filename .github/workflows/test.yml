@@ -96,6 +96,11 @@ jobs:
       # automatically without adding another workflow entry.
       - name: Test local-store integration
         run: PATH="$PATH:$HOME/go/bin" make test-stores
+      # Runs the real local-ai binary (MCP connectors and apps, collections,
+      # process flags, route permissions). The suite builds the binary, the
+      # mock backend and an MCP fixture itself and needs no Docker.
+      - name: Test platform e2e
+        run: PATH="$PATH:$HOME/go/bin" make test-e2e-platform
       - name: Upload coverage report
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

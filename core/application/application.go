@@ -210,6 +210,11 @@ type Application struct {
 	// load balancer's rotation.
 	startupComplete atomic.Bool
 
+	// collectionsPending is true from AwaitCollections until StartCollections
+	// returns. The collections start after the server listens, so for a few
+	// seconds /api/collections answers 503; /readyz waits for them.
+	collectionsPending atomic.Bool
+
 	shutdownOnce sync.Once
 }
 
@@ -222,7 +227,18 @@ func (a *Application) WebSocketTickets() *auth.WebSocketTickets {
 // Ready reports whether the application has finished starting up and can serve
 // traffic. It backs the /readyz probe and is safe to call from any goroutine,
 // including while startup is still running.
-func (a *Application) Ready() bool { return a.startupComplete.Load() }
+func (a *Application) Ready() bool {
+	return a.startupComplete.Load() && !a.collectionsPending.Load()
+}
+
+// AwaitCollections makes Ready wait until StartCollections has returned,
+// whether it started the service or failed. The process calls it before the
+// server listens, and only when it will start the collections.
+func (a *Application) AwaitCollections() {
+	if a.applicationConfig.Collections.Enabled {
+		a.collectionsPending.Store(true)
+	}
+}
 
 // markStartupComplete flips the application to ready. Called once, at the very
 // end of New(), so every startup step — model preload included — has finished
@@ -795,6 +811,7 @@ func (a *Application) CollectionsService() *collections.Service { return a.colle
 // after the HTTP server is listening, because the vector engines call the
 // embeddings API while they open a collection.
 func (a *Application) StartCollections() {
+	defer a.collectionsPending.Store(false)
 	if !a.applicationConfig.Collections.Enabled {
 		return
 	}
@@ -807,12 +824,24 @@ func (a *Application) StartCollections() {
 			bus = d.Nats
 		}
 	}
-	svc, err := collections.New(a.applicationConfig, bus)
+	svc, err := collections.New(a.applicationConfig, bus, a.collectionsOptions()...)
 	if err != nil {
 		xlog.Error("Failed to start the collections service", "error", err)
 		return
 	}
 	a.collectionsService.Store(svc)
+}
+
+// collectionsOptions makes the collections reach the embeddings route inside the
+// process, as a service user, so they work with user accounts and no static API
+// key. Without the studio provider the service calls the API over the network.
+func (a *Application) collectionsOptions() []collections.Option {
+	sp := a.StudioProvider()
+	if sp == nil {
+		return nil
+	}
+	svcUser := &auth.User{ID: "collections-service", Name: "Collections", Role: auth.RoleAdmin, Status: auth.StatusActive}
+	return []collections.Option{collections.WithHTTPClient(sp.Transport().Client(svcUser))}
 }
 
 // AddonManager is nil unless the deployment explicitly enables addons.

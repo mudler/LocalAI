@@ -232,6 +232,9 @@ func (b *backendInProcess) rerank(model, query string, results []SearchResult, m
 		req.Header.Set("Authorization", "Bearer "+b.cfg.LLMAPIKey)
 	}
 	client := &http.Client{Timeout: 60 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	if b.cfg.HTTPClient != nil {
+		client.Transport = b.cfg.HTTPClient.Transport
+	}
 	response, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("rerank request failed: %w", err)

@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -17,26 +18,45 @@ import (
 
 // fakeTelegram is a Bot API server for the connector. The application is built
 // with its address (see BeforeSuite), so a message queued here reaches a real
-// chat on the mock model and the answer comes back here.
+// chat on the mock model and the answer comes back here. Updates are kept per
+// bot token, as Telegram does, so each binding reads only its own.
 type fakeTelegram struct {
 	srv     *httptest.Server
 	restore func()
 
 	mu      sync.Mutex
-	pending []map[string]any
-	sent    []string
+	pending map[string][]map[string]any
+	sent    []tgSent
+	typing  map[string]int
+	refuse  map[string]int // token -> error code answered to getMe and getUpdates
+}
+
+// tgSent is one sendMessage the fake received.
+type tgSent struct {
+	Token  string
+	ChatID int64
+	Text   string
 }
 
 var telegram *fakeTelegram
 
 func startFakeTelegram() {
-	f := &fakeTelegram{}
+	f := &fakeTelegram{pending: map[string][]map[string]any{}, typing: map[string]int{}, refuse: map[string]int{}}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		var body map[string]any
 		_ = json.Unmarshal(raw, &body)
-		method := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+		path := strings.TrimPrefix(r.URL.Path, "/bot")
+		cut := strings.LastIndex(path, "/")
+		token, method := path[:cut], path[cut+1:]
 		w.Header().Set("Content-Type", "application/json")
+		f.mu.Lock()
+		code := f.refuse[token]
+		f.mu.Unlock()
+		if code != 0 && (method == "getMe" || method == "getUpdates") {
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"ok":false,"error_code":%d,"description":"refused"}`, code)))
+			return
+		}
 		switch method {
 		case "getMe":
 			_, _ = w.Write([]byte(`{"ok":true,"result":{"id":1,"username":"e2e_bot"}}`))
@@ -46,7 +66,7 @@ func startFakeTelegram() {
 			for {
 				f.mu.Lock()
 				var out []map[string]any
-				for _, u := range f.pending {
+				for _, u := range f.pending[token] {
 					if int64(u["update_id"].(int)) >= off {
 						out = append(out, u)
 					}
@@ -64,7 +84,13 @@ func startFakeTelegram() {
 			}
 		case "sendMessage":
 			f.mu.Lock()
-			f.sent = append(f.sent, body["text"].(string))
+			chat, _ := body["chat_id"].(float64)
+			f.sent = append(f.sent, tgSent{Token: token, ChatID: int64(chat), Text: body["text"].(string)})
+			f.mu.Unlock()
+			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
+		case "sendChatAction":
+			f.mu.Lock()
+			f.typing[token]++
 			f.mu.Unlock()
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 		default:
@@ -82,17 +108,46 @@ func stopFakeTelegram() {
 	}
 }
 
-func (f *fakeTelegram) say(id int, from int64, text string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.pending = append(f.pending, map[string]any{"update_id": id, "message": map[string]any{
+// say queues a private text message from a person.
+func (f *fakeTelegram) say(token string, id int, from int64, text string) {
+	f.queue(token, map[string]any{"update_id": id, "message": map[string]any{
 		"chat": map[string]any{"id": from, "type": "private"}, "from": map[string]any{"id": from, "first_name": "E2E"}, "text": text}})
 }
 
-func (f *fakeTelegram) answers() []string {
+// queue queues any update for a bot.
+func (f *fakeTelegram) queue(token string, update map[string]any) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]string(nil), f.sent...)
+	f.pending[token] = append(f.pending[token], update)
+}
+
+// sentBy lists what a bot sent.
+func (f *fakeTelegram) sentBy(token string) []tgSent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []tgSent
+	for _, s := range f.sent {
+		if s.Token == token {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func (f *fakeTelegram) typingCount(token string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.typing[token]
+}
+
+func (f *fakeTelegram) refuseToken(token string, code int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if code == 0 {
+		delete(f.refuse, token)
+		return
+	}
+	f.refuse[token] = code
 }
 
 // A person who messages a bound bot gets an answer from the agent on the mock
@@ -123,10 +178,10 @@ var _ = Describe("Chats connectors", Label("Chats"), func() {
 		Expect(code).To(Equal(http.StatusOK), string(out))
 		Expect(decode(out)).To(HaveKeyWithValue("bot_username", "e2e_bot"))
 
-		telegram.say(1, 99, "let me in")
-		telegram.say(2, 11, "hello bot")
-		Eventually(func() int { return len(telegram.answers()) }, 90*time.Second, 200*time.Millisecond).Should(BeNumerically(">=", 1))
-		Expect(telegram.answers()[0]).NotTo(BeEmpty())
+		telegram.say("42:E2E-token", 1, 99, "let me in")
+		telegram.say("42:E2E-token", 2, 11, "hello bot")
+		Eventually(func() int { return len(telegram.sentBy("42:E2E-token")) }, 90*time.Second, 200*time.Millisecond).Should(Equal(1))
+		Expect(telegram.sentBy("42:E2E-token")[0].Text).NotTo(BeEmpty())
 
 		code, out = chatsDo(http.MethodGet, chatsBase()+"/connectors/"+bindID+"/senders", nil)
 		Expect(code).To(Equal(http.StatusOK), string(out))

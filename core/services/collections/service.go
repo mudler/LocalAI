@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,9 @@ type Service struct {
 	apiURL    string
 	apiKey    string
 	bus       messaging.Broadcaster
+	// httpClient, when set, carries the embedding and rerank calls instead of
+	// the network; see WithHTTPClient.
+	httpClient *http.Client
 
 	root lagi.Backend
 
@@ -35,11 +39,23 @@ type Service struct {
 	cache map[string]lagi.Backend
 }
 
+// Option changes how New builds the service.
+type Option func(*Service)
+
+// WithHTTPClient makes the embedding and rerank calls go through c, a client
+// that reaches the server's own API inside the process and carries its own
+// identity. The service then needs no API key, so it works with user accounts
+// and no static key. A collections API key set by the operator still wins: the
+// calls then go over the network with that key.
+func WithHTTPClient(c *http.Client) Option {
+	return func(s *Service) { s.httpClient = c }
+}
+
 // New builds the service. bus, when not nil, is the cluster's message bus: the
 // root backend then shares its list of collections between frontends (with the
 // PostgreSQL vector engine). The embedding calls go to the server's own API, so
 // the caller starts the service after the API is listening.
-func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster) (*Service, error) {
+func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster, opts ...Option) (*Service, error) {
 	cfg := appConfig.Collections
 	stateDir := cmp.Or(cfg.StateDir, appConfig.DataPath, appConfig.DynamicConfigsDir, "agents")
 	if err := os.MkdirAll(stateDir, 0o750); err != nil {
@@ -59,6 +75,12 @@ func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster) (*Servi
 	}
 	s := &Service{appConfig: appConfig, storage: userStorage{baseDir: stateDir}, stateDir: stateDir, apiURL: apiURL, apiKey: apiKey, bus: bus,
 		cache: map[string]lagi.Backend{}}
+	for _, opt := range opts {
+		opt(s)
+	}
+	if cfg.APIKey != "" {
+		s.httpClient = nil
+	}
 	dbPath := cfg.CollectionDBPath
 	if dbPath == "" {
 		dbPath = filepath.Join(stateDir, "collections")
@@ -75,7 +97,7 @@ func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster) (*Servi
 func (s *Service) config(collectionDBPath, fileAssets string) *lagi.Config {
 	cfg := s.appConfig.Collections
 	return &lagi.Config{
-		LLMAPIURL: s.apiURL, LLMAPIKey: s.apiKey, LLMModel: cfg.DefaultModel,
+		LLMAPIURL: s.apiURL, LLMAPIKey: s.apiKey, LLMModel: cfg.DefaultModel, HTTPClient: s.httpClient,
 		CollectionDBPath: collectionDBPath, FileAssets: fileAssets,
 		VectorEngine: cfg.VectorEngine, EmbeddingModel: cfg.EmbeddingModel,
 		MaxChunkingSize: cfg.MaxChunkingSize, ChunkOverlap: cfg.ChunkOverlap, DatabaseURL: cfg.DatabaseURL,
@@ -133,7 +155,11 @@ func (s *Service) ListForUser(userID string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return b.ListCollections()
+	names, err := b.ListCollections()
+	if names == nil {
+		names = []string{}
+	}
+	return names, err
 }
 
 // CreateForUser creates a collection.
@@ -166,7 +192,11 @@ func (s *Service) ListEntriesForUser(userID, collection string) ([]string, error
 	if err != nil {
 		return nil, err
 	}
-	return b.ListEntries(collection)
+	entries, err := b.ListEntries(collection)
+	if err == nil && entries == nil {
+		entries = []string{}
+	}
+	return entries, err
 }
 
 // EntryContentForUser returns the text of an entry and its number of chunks.
@@ -187,13 +217,25 @@ func (s *Service) SearchForUser(userID, collection, query string, maxResults int
 	return b.Search(collection, query, maxResults)
 }
 
-// ResetForUser empties a collection.
+// ResetForUser removes every entry of a collection and keeps the collection and
+// the sources it follows. The backend's own reset drops the collection with its
+// content and, for a collection that ever had a source, cannot make it again
+// before a restart; deleting the entries one by one has neither effect.
 func (s *Service) ResetForUser(userID, collection string) error {
 	b, err := s.Backend(userID)
 	if err != nil {
 		return err
 	}
-	return b.Reset(collection)
+	entries, err := b.ListEntries(collection)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if _, err := b.DeleteEntry(collection, entry); err != nil {
+			return fmt.Errorf("delete entry %s: %w", entry, err)
+		}
+	}
+	return nil
 }
 
 // DeleteEntryForUser deletes an entry and returns the entries left.

@@ -2,6 +2,7 @@ package backend
 
 import (
 	"io"
+	"net/http"
 	"time"
 )
 
@@ -51,9 +52,12 @@ type CollectionModelSettings struct {
 type Config struct {
 	// ModelSettings resolves models before an operation acquires backend locks.
 	// Errors deny embedding and reranking operations; inspection and reset remain available.
-	ModelSettings    func(collectionName string) (CollectionModelSettings, error)
-	LLMAPIURL        string
-	LLMAPIKey        string
+	ModelSettings func(collectionName string) (CollectionModelSettings, error)
+	LLMAPIURL     string
+	LLMAPIKey     string
+	// HTTPClient, when set, carries the embedding and rerank calls. The host
+	// uses it to serve them inside its own process.
+	HTTPClient       *http.Client
 	LLMModel         string
 	CollectionDBPath string
 	FileAssets       string

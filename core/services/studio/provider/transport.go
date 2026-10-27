@@ -20,6 +20,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // Transport serves HTTP requests by calling a handler in the same process. No
@@ -84,6 +85,14 @@ func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	// A refusal ends the turn with a reason the user can act on. The marker
 	// is how the loop recognizes it through the model client's own wrapping.
+	if resp.Header.Get(model.LoadFailedHeader) != "" {
+		// The model's backend failed to start. Waiting does not fix a missing
+		// backend, and each retry only meets the same refusal, so the turn
+		// ends and tells the user why.
+		reason := loadFailureReason(resp)
+		_ = resp.Body.Close()
+		return nil, cogito.Permanent(errors.New("the model could not be loaded: " + reason))
+	}
 	switch resp.StatusCode {
 	case http.StatusForbidden:
 		_ = resp.Body.Close()
@@ -182,6 +191,20 @@ func dedupeToolsJSON(raw []byte) ([]byte, bool) {
 		return raw, false
 	}
 	return fixed, true
+}
+
+// loadFailureReason reads the message of a refusal caused by a failed model load.
+func loadFailureReason(resp *http.Response) string {
+	var body struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if json.Unmarshal(raw, &body) == nil && body.Error.Message != "" {
+		return body.Error.Message
+	}
+	return "its backend failed to start; check the model's configuration"
 }
 
 // RoundTrip runs the handler in a goroutine and returns as soon as it has

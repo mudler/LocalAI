@@ -392,6 +392,9 @@ func TestPrivateAddressesAreRefusedWhenTheConnectionIsMade(t *testing.T) {
 		if err != nil || p.Error == "" || len(p.Tools) != 0 {
 			t.Errorf("%s: probe = %+v %v", name, p, err)
 		}
+		if strings.Contains(p.Error, "mcpconns:") {
+			t.Errorf("%s: the reason shows the package prefix: %q", name, p.Error)
+		}
 		if tools, missing := e.svc.Resolve(ctx, "u1", []string{"x-" + name}, false); len(tools) != 0 || len(missing) != 1 {
 			t.Errorf("%s: resolve = %v %v", name, tools, missing)
 		}

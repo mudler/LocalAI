@@ -7021,65 +7021,42 @@
         },
         "/api/collections": {
             "get": {
-                "description": "With authentication on, an administrator can add all_users=true to also get the other users' collections in user_groups. Needs the collections feature.",
+                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. Needs the collections feature.",
                 "tags": [
                     "collections"
                 ],
-                "summary": "List collections.",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Set to 'true' for the administrator's cross-user listing",
-                        "name": "all_users",
-                        "in": "query"
-                    }
-                ],
+                "summary": "List your collections.",
                 "responses": {
                     "200": {
-                        "description": "collections and count",
+                        "description": "The collections",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/schema.CollectionList"
                         }
                     }
                 }
             },
             "post": {
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Makes an empty collection under the name in the body.",
                 "tags": [
                     "collections"
                 ],
                 "summary": "Create a collection.",
                 "parameters": [
                     {
-                        "description": "{\\",
+                        "description": "The name of the collection",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/schema.CollectionCreateRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "status and name",
+                        "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/schema.CollectionStatus"
                         }
                     }
                 }
@@ -7094,7 +7071,7 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -7102,14 +7079,13 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "entries and count",
+                        "description": "The entries",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/schema.CollectionEntries"
                         }
                     },
                     "404": {
-                        "description": "error",
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7122,24 +7098,22 @@
         },
         "/api/collections/{name}/entries-raw/{entry}": {
             "get": {
-                "produces": [
-                    "application/octet-stream"
-                ],
+                "description": "Serves the file as it was uploaded.",
                 "tags": [
                     "collections"
                 ],
-                "summary": "Download a collection entry as uploaded.",
+                "summary": "Download the file of an entry.",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Entry name (URL-encoded)",
+                        "description": "Entry key",
                         "name": "entry",
                         "in": "path",
                         "required": true
@@ -7147,13 +7121,13 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The file",
+                        "description": "The original file",
                         "schema": {
                             "type": "file"
                         }
                     },
                     "404": {
-                        "description": "error",
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7169,18 +7143,18 @@
                 "tags": [
                     "collections"
                 ],
-                "summary": "Read the text of a collection entry.",
+                "summary": "Read the text of an entry.",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Entry name (URL-encoded)",
+                        "description": "Entry key",
                         "name": "entry",
                         "in": "path",
                         "required": true
@@ -7188,14 +7162,13 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "content and chunk_count",
+                        "description": "The text and its number of passages",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/schema.CollectionEntryContent"
                         }
                     },
                     "404": {
-                        "description": "error",
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7208,41 +7181,37 @@
         },
         "/api/collections/{name}/entry/delete": {
             "delete": {
-                "consumes": [
-                    "application/json"
-                ],
                 "tags": [
                     "collections"
                 ],
-                "summary": "Delete an entry of a collection.",
+                "summary": "Delete one entry of a collection.",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "{\\",
+                        "description": "The entry",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/schema.CollectionEntryDeleteRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "remaining_entries and count",
+                        "description": "The entries left",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/schema.CollectionEntryDeleteResponse"
                         }
                     },
                     "404": {
-                        "description": "error",
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7255,14 +7224,15 @@
         },
         "/api/collections/{name}/reset": {
             "post": {
+                "description": "Deletes every entry and keeps the collection and the sources it follows.",
                 "tags": [
                     "collections"
                 ],
-                "summary": "Delete every entry of a collection.",
+                "summary": "Empty a collection.",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -7270,16 +7240,13 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "status",
+                        "description": "Done",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/schema.CollectionStatus"
                         }
                     },
                     "404": {
-                        "description": "error",
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7292,9 +7259,7 @@
         },
         "/api/collections/{name}/search": {
             "post": {
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Returns the passages that match the query best. Asking for more passages than the collection holds returns all of them; an empty collection returns none.",
                 "tags": [
                     "collections"
                 ],
@@ -7302,31 +7267,30 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "{\\",
+                        "description": "The query",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/schema.CollectionSearchRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "results and count",
+                        "description": "The passages",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/schema.CollectionSearchResponse"
                         }
                     },
                     "404": {
-                        "description": "error",
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7342,11 +7306,11 @@
                 "tags": [
                     "collections"
                 ],
-                "summary": "List the sources of a collection.",
+                "summary": "List the URLs a collection follows.",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -7354,14 +7318,13 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "sources and count",
+                        "description": "The sources",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/schema.CollectionSources"
                         }
                     },
                     "404": {
-                        "description": "error",
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7372,44 +7335,38 @@
                 }
             },
             "post": {
-                "description": "update_interval is in minutes; a value below 1 means 60.",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "The server fetches the URL again at the given interval, in minutes; a value below 1 means 60.",
                 "tags": [
                     "collections"
                 ],
-                "summary": "Follow a URL as a source of a collection.",
+                "summary": "Make a collection follow a URL.",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "{\\",
+                        "description": "The URL and the interval in minutes",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/schema.CollectionSourceRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "status",
+                        "description": "Done",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/schema.CollectionStatus"
                         }
                     },
                     "404": {
-                        "description": "error",
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7420,34 +7377,37 @@
                 }
             },
             "delete": {
-                "consumes": [
-                    "application/json"
-                ],
                 "tags": [
                     "collections"
                 ],
-                "summary": "Stop following a source of a collection.",
+                "summary": "Stop a collection following a URL.",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "{\\",
+                        "description": "The URL",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/schema.CollectionSourceRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "status",
+                        "description": "Done",
+                        "schema": {
+                            "$ref": "#/definitions/schema.CollectionStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7460,25 +7420,22 @@
         },
         "/api/collections/{name}/upload": {
             "post": {
-                "description": "Multipart form with the field file. 409 when the embedding model changed and the vectors have another size.",
-                "consumes": [
-                    "multipart/form-data"
-                ],
+                "description": "Uploads a file as multipart form field `file`. The server cuts it into passages and embeds them with the collections embedding model. 409 when the embedding model changed and the vectors have another size.",
                 "tags": [
                     "collections"
                 ],
-                "summary": "Upload a file to a collection.",
+                "summary": "Add a file to a collection.",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Collection name (URL-encoded)",
+                        "description": "Collection name",
                         "name": "name",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "file",
-                        "description": "The file",
+                        "description": "The file to add",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -7486,16 +7443,13 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "status, filename and key",
+                        "description": "The entry key",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/schema.CollectionStatus"
                         }
                     },
                     "404": {
-                        "description": "error",
+                        "description": "Collection not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7504,7 +7458,7 @@
                         }
                     },
                     "409": {
-                        "description": "error",
+                        "description": "The embedding model changed",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -12561,6 +12515,10 @@
                 "name": {
                     "description": "Name is one of capabilities.tools.",
                     "type": "string"
+                },
+                "uiOnly": {
+                    "description": "UIOnly marks a tool that only the add-on's own page may call, such as a\nsettings change that asks the host whether the caller is an\nadministrator. It is never offered to a model, a chat or an agent. The\npage has no resource to name, so it must be a read tool without one.",
+                    "type": "boolean"
                 }
             }
         },
@@ -17238,6 +17196,197 @@
                     "$ref": "#/definitions/schema.Message"
                 },
                 "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.CollectionCreateRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.CollectionEntries": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.CollectionEntryContent": {
+            "type": "object",
+            "properties": {
+                "chunk_count": {
+                    "type": "integer"
+                },
+                "content": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.CollectionEntryDeleteRequest": {
+            "type": "object",
+            "properties": {
+                "entry": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.CollectionEntryDeleteResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "remaining_entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.CollectionGroup": {
+            "type": "object",
+            "properties": {
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.CollectionHit": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "similarity": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.CollectionList": {
+            "type": "object",
+            "properties": {
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "user_groups": {
+                    "description": "UserGroups holds the collections of the other users. Only an administrator\nwho asks for all users gets it.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/schema.CollectionGroup"
+                    }
+                }
+            }
+        },
+        "schema.CollectionSearchRequest": {
+            "type": "object",
+            "properties": {
+                "max_results": {
+                    "description": "MaxResults is how many passages to return. A value below 1 picks a\ndefault, and a value above the number of stored passages returns them all.",
+                    "type": "integer"
+                },
+                "query": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.CollectionSearchResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.CollectionHit"
+                    }
+                }
+            }
+        },
+        "schema.CollectionSource": {
+            "type": "object",
+            "properties": {
+                "last_update": {
+                    "type": "string"
+                },
+                "update_interval": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.CollectionSourceRequest": {
+            "type": "object",
+            "properties": {
+                "update_interval": {
+                    "description": "UpdateInterval is the minutes between two fetches. Default 60.",
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.CollectionSources": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.CollectionSource"
+                    }
+                }
+            }
+        },
+        "schema.CollectionStatus": {
+            "type": "object",
+            "properties": {
+                "filename": {
+                    "type": "string"
+                },
+                "key": {
+                    "description": "Key names the new entry.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }

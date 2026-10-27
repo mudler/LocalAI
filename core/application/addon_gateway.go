@@ -676,6 +676,11 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 		return nil, nil
 	}
 	defs, err := s.adapter.Discover(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		// A user without the add-ons feature has no add-on tools. The chat
+		// and its tools panel still work.
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}

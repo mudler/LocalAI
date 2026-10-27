@@ -119,4 +119,45 @@ parameters: {model: owner/repo}
 
 		Expect(app.Ready()).To(BeTrue())
 	})
+
+	It("waits for the collections when the process says they are coming", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		app, err := New(
+			config.WithContext(ctx),
+			config.WithSystemState(state),
+			config.WithDataPath(GinkgoT().TempDir()),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = app.Shutdown() })
+
+		app.AwaitCollections()
+		Expect(app.Ready()).To(BeFalse(), "/readyz must not answer 200 while /api/collections answers 503")
+		app.StartCollections()
+		Expect(app.CollectionsService()).NotTo(BeNil())
+		Expect(app.Ready()).To(BeTrue())
+	})
+
+	It("is ready after the collections fail to start, so a replica is not kept out of rotation for good", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		app, err := New(
+			config.WithContext(ctx),
+			config.WithSystemState(state),
+			config.WithDataPath(GinkgoT().TempDir()),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = app.Shutdown() })
+		// A file where the state folder should be makes the service fail.
+		file := filepath.Join(GinkgoT().TempDir(), "file")
+		Expect(os.WriteFile(file, []byte("x"), 0o600)).To(Succeed())
+		app.ApplicationConfig().Collections.StateDir = filepath.Join(file, "state")
+
+		app.AwaitCollections()
+		app.StartCollections()
+		Expect(app.CollectionsService()).To(BeNil())
+		Expect(app.Ready()).To(BeTrue())
+	})
 })
