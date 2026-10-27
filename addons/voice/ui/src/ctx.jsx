@@ -1,4 +1,5 @@
 import en from './i18n/en.js'
+import zh from './i18n/zh-CN.js'
 import { modelFrom as pickModel } from './lib/model.js'
 
 // The one object every page factory of the Voice add-on receives. It binds the
@@ -9,11 +10,11 @@ export function createContext(sdk) {
   const h = React.createElement
   const Fragment = React.Fragment
   sdk.locale.define('en', Object.fromEntries(Object.entries(en).filter(([, v]) => typeof v === 'string')))
-  const lists = Object.fromEntries(Object.entries(en).filter(([, v]) => Array.isArray(v)))
+  sdk.locale.define('zh-CN', Object.fromEntries(Object.entries(zh).filter(([, v]) => typeof v === 'string')))
 
   const t = (key, vars) => sdk.locale.t(key, key, vars)
   // A list of strings or objects (the "why" and "stored" notes).
-  const list = (key) => lists[key] || []
+  const list = (key) => (sdk.locale.language() === 'zh-CN' ? zh[key] : en[key]) || en[key] || []
 
   // A link to a page of this add-on, as an anchor the shell navigates.
   function Link({ page, query, className, children, ...rest }) {

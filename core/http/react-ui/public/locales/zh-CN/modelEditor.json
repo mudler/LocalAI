@@ -1,0 +1,38 @@
+{
+  "title": {
+    "add": "添加模型",
+    "edit": "模型编辑器"
+  },
+  "actions": {
+    "models": "模型",
+    "saving": "保存中...",
+    "saved": "已保存",
+    "backTo": "返回{{page}}",
+    "templates": "模板",
+    "createModel": "创建模型",
+    "saveChanges": "保存更改",
+    "switchWarning": "切换标签页前请保存或放弃更改。",
+    "discardAndSwitch": "放弃并切换"
+  },
+  "forms": {
+    "modelName": {
+      "label": "模型名称",
+      "placeholder": "my-model-name",
+      "hint": "仅使用字母、数字、连字符、下划线和点。"
+    },
+    "empty": {
+      "nav": "使用上方搜索栏添加字段",
+      "title": "尚未配置字段",
+      "text": "使用上方搜索栏查找和添加配置字段。"
+    }
+  },
+  "subtitle": {
+    "chooseModelType": "选择模型类型以开始",
+    "newModel": "新模型"
+  },
+  "tabs": {
+    "interactive": "交互式",
+    "yaml": "YAML",
+    "yamlDescription": "直接编辑 YAML。创建模型时必须在 YAML 中设置模型名称。"
+  }
+}

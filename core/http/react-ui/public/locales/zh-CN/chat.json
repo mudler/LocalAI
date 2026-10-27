@@ -4,7 +4,10 @@
     "tool": "工具",
     "result": "结果",
     "toolResult": "{{name}} 的结果",
-    "thinking": "思考中..."
+    "thinking": "思考中...",
+    "toolCall": "工具调用",
+    "toolCalls_one": "{{count}} 次工具调用",
+    "toolCalls_other": "{{count}} 次工具调用"
   },
   "header": {
     "manageModeTooltip": "此聊天可以通过与 LocalAI 对话来安装模型、编辑配置和管理后端。",
@@ -12,7 +15,10 @@
     "chatSettings": "聊天设置",
     "modelInfoTitle": "模型信息：{{model}}",
     "editConfig": "编辑配置",
-    "close": "关闭"
+    "close": "关闭",
+    "chatName": "聊天名称",
+    "find": "在聊天中查找",
+    "more": "更多"
   },
   "modelInfo": {
     "backend": "后端",
@@ -27,7 +33,10 @@
   },
   "context": {
     "label": "上下文：{{percent}}%",
-    "labelWithTokens": "上下文：{{percent}}% （{{tokens}} 个 token）"
+    "labelWithTokens": "上下文：{{percent}}% （{{tokens}} 个 token）",
+    "title": "上下文",
+    "ofSize": "已用 {{size}} 个词元的 {{percent}}%",
+    "nearlyFull": "上下文即将用满。请新建聊天或在设置中增大上下文窗口。"
   },
   "settings": {
     "title": "聊天设置",
@@ -40,7 +49,20 @@
     "topK": "Top K",
     "contextSize": "上下文大小",
     "contextSizePlaceholder": "2048",
-    "clearHistory": "清除聊天记录"
+    "clearHistory": "清除聊天记录",
+    "focusMode": "专注模式",
+    "focusModeDesc": "对话进行时收起侧边栏并精简顶部栏。按 Esc 临时恢复；关闭此选项可保留完整布局。",
+    "appliesNext": "从下一条消息起生效。",
+    "systemPromptHelp": "在此聊天的每条消息之前发送。留空则使用模型默认值。",
+    "sampling": "采样",
+    "modelDefault": "模型默认值",
+    "reset": "重置",
+    "contextWindow": "上下文窗口",
+    "contextUsing": "已用 {{used}} / {{size}} 个词元（{{percent}}%）。此大小仅用于顶部用量显示，不会发送给模型。",
+    "contextHelp": "用于显示上下文占用情况，不会发送给模型。",
+    "behaviour": "行为",
+    "conversation": "当前对话",
+    "clearHelp": "移除所有消息，保留名称、模型和设置。"
   },
   "empty": {
     "manageTitle": "通过聊天管理 LocalAI",
@@ -64,7 +86,12 @@
     "noMessages": "暂无消息",
     "hintEnter": "回车发送",
     "hintShiftEnter": "Shift+回车换行",
-    "hintAttach": "附加文件"
+    "hintAttach": "附加文件",
+    "title": "我们来做些什么？",
+    "try": "试试",
+    "warmReady": "{{model}}已加载并就绪。",
+    "coldReady": "{{model}}尚未加载。首次回复时将加载模型。",
+    "hintKeys": "Enter 发送，Shift+Enter 换行。按 Ctrl K 查看所有聊天。"
   },
   "errors": {
     "viewTraces": "查看追踪以了解详情"
@@ -76,24 +103,41 @@
     "save": "保存",
     "cancel": "取消",
     "regenerate": "重新生成",
-    "jumpToLatest": "Jump to latest"
+    "jumpToLatest": "跳至最新消息",
+    "branch": "从这里分支"
   },
   "streaming": {
     "transferring": "正在传输模型...",
-    "transferringTo": "正在传输模型到 {{node}}..."
+    "transferringTo": "正在传输模型到 {{node}}...",
+    "onNode": "运行于 {{node}}",
+    "eta": "约剩余 {{value}}",
+    "modelState": {
+      "pending": "正在准备加载模型…",
+      "installing": "正在安装后端…",
+      "staging": "正在暂存模型文件…",
+      "loading": "正在加载模型…"
+    },
+    "waiting": "正在等待回复"
   },
   "tokens": {
-    "perSec": "{{count}} tok/s",
+    "perSec": "{{count}} 词元/秒",
     "peak": "峰值：{{count}} tok/s",
-    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
+    "usage": "{{prompt}} 输入 + {{completion}} 输出 = {{total}}",
+    "generating": "正在生成",
+    "ofContext": "{{used}} / {{size}} 个词元"
   },
   "input": {
     "placeholder": "消息...",
     "attachFile": "附加文件",
     "stopGenerating": "停止生成",
     "canvasTitle": "Canvas — 将代码块和媒体提取到侧边栏以便预览、复制和下载",
-    "canvasLabel": "Canvas",
-    "openCanvas": "打开 Canvas 面板"
+    "canvasLabel": "画布",
+    "openCanvas": "打开 Canvas 面板",
+    "send": "发送消息",
+    "placeholderModel": "向 {{model}} 发送消息…",
+    "placeholderNoModel": "安装模型以开始聊天",
+    "selectModelFirst": "请先选择模型",
+    "placeholderPick": "选择模型以开始"
   },
   "deleteAllDialog": {
     "title": "删除所有聊天",
@@ -104,7 +148,12 @@
     "selectModel": "请选择一个模型",
     "copied": "已复制到剪贴板",
     "copyFailed": "无法复制到剪贴板",
-    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。"
+    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。",
+    "chatCopied": "聊天已复制到剪贴板",
+    "forked": "已创建新聊天",
+    "pdfReadFailed": "无法读取 {{name}} 中的文本。文件可能是扫描件、已加密或已损坏。",
+    "addonToolsOn": "已为此聊天启用附加组件工具",
+    "addonToolsOff": "已为此聊天关闭附加组件工具"
   },
   "menu": {
     "trigger": "聊天",
@@ -118,17 +167,172 @@
     "deleteChat": "删除聊天",
     "newChat": "新对话",
     "clearAll": "清除全部",
-    "deleteAllTitle": "删除所有对话"
+    "deleteAllTitle": "删除所有对话",
+    "duplicate": "创建聊天副本",
+    "copyChat": "复制聊天",
+    "title": "对话",
+    "noModel": "无模型",
+    "group": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "week": "本周早些时候",
+      "older": "更早"
+    },
+    "keys": {
+      "move": "移动",
+      "open": "打开",
+      "rename": "重命名",
+      "delete": "删除"
+    },
+    "deleted": "已删除「{{title}}」",
+    "undo": "撤销",
+    "dismiss": "关闭"
   },
   "message": {
-    "you": "You"
+    "you": "你",
+    "assistant": "助手",
+    "system": "系统",
+    "attachedImage": "附加图片 {{n}}",
+    "openImage": "打开图片 {{n}}"
   },
   "addons": {
-    "note": "An add-on that is off here does nothing in this chat.",
-    "label": "Add-ons",
-    "title": "Add-on tools for this chat",
-    "heading": "Add-on tools",
-    "selectAll": "Select all",
-    "deselectAll": "Deselect all"
+    "note": "在此关闭的附加组件不会参与此聊天。",
+    "label": "附加组件",
+    "title": "此聊天的附加组件工具",
+    "heading": "附加组件工具",
+    "selectAll": "全选",
+    "deselectAll": "取消全选"
+  },
+  "reasoning": {
+    "effortLabel": "推理强度",
+    "effortTitle": "此聊天的推理强度",
+    "default": "模型默认值",
+    "level": {
+      "none": "无",
+      "minimal": "最低",
+      "low": "低",
+      "medium": "中",
+      "high": "高"
+    }
+  },
+  "error": {
+    "title": "回复失败",
+    "kept": "已生成的内容保留在上方。",
+    "retry": "重试",
+    "detail": "技术详情"
+  },
+  "clearDialog": {
+    "title": "清空此对话",
+    "message": "移除此聊天中的所有消息？名称、模型和设置将保留。",
+    "confirm": "清空对话"
+  },
+  "slash": {
+    "group": {
+      "chat": "聊天",
+      "view": "视图"
+    },
+    "model": {
+      "label": "切换模型",
+      "desc": "选择其他聊天模型"
+    },
+    "new": {
+      "label": "新建聊天",
+      "desc": "开始新对话"
+    },
+    "chats": {
+      "label": "对话",
+      "desc": "打开聊天列表"
+    },
+    "effort": {
+      "label": "推理强度",
+      "desc": "选择模型的思考强度"
+    },
+    "assistant": {
+      "label": "管理模式",
+      "desc": "允许此聊天管理 LocalAI"
+    },
+    "canvas": {
+      "label": "画布",
+      "desc": "在侧面板显示代码块和媒体"
+    },
+    "find": {
+      "label": "在聊天中查找",
+      "desc": "搜索此对话"
+    },
+    "settings": {
+      "label": "聊天设置",
+      "desc": "系统提示词、采样和上下文"
+    },
+    "export": {
+      "label": "导出为 Markdown",
+      "desc": "下载此对话"
+    },
+    "clear": {
+      "label": "清空对话",
+      "desc": "移除此聊天中的所有消息"
+    },
+    "addon-tools": {
+      "label": "附加组件工具",
+      "desc": "允许此聊天使用附加组件的工具"
+    }
+  },
+  "shortcuts": {
+    "title": "键盘快捷键",
+    "conversations": "打开对话列表",
+    "find": "搜索此聊天",
+    "actions": "操作",
+    "send": "发送",
+    "newline": "换行",
+    "editLast": "编辑你的上一条消息",
+    "inEmptyBox": "在空输入框中",
+    "stop": "停止回复",
+    "moveMessages": "在消息之间移动",
+    "onMessage": "在消息上：复制、编辑、重新生成、分支",
+    "close": "关闭"
+  },
+  "picker": {
+    "readyNow": "已就绪",
+    "fits": "{{amount}} GB 可用",
+    "spill": "{{amount}} GB 在 CPU 上运行",
+    "over": "超出本机内存 {{amount}} GB",
+    "memory": "内存",
+    "gpuMemory": "GPU 显存",
+    "memoryUsed": "已用 {{used}} / {{total}} {{unit}}"
+  },
+  "find": {
+    "placeholder": "搜索此聊天",
+    "count": "{{current}} / {{total}}",
+    "none": "无匹配项",
+    "previous": "上一处匹配",
+    "next": "下一处匹配",
+    "close": "关闭搜索"
+  },
+  "canvas": {
+    "title": "画布",
+    "artifact": "作品",
+    "artifacts": "作品",
+    "close": "关闭画布",
+    "fullscreen": "全屏",
+    "exitFullscreen": "退出全屏",
+    "resize": "调整画布大小（双击重置）",
+    "resizeHint": "拖动调整大小，双击重置",
+    "view": "查看",
+    "code": "代码",
+    "preview": "预览",
+    "download": "下载",
+    "htmlPreview": "HTML 预览"
+  },
+  "load": {
+    "title": "正在加载",
+    "bytes": "{{sent}} / {{total}}",
+    "queued": "你的消息已排队，模型就绪后会发送。点击停止可取消。",
+    "cold": "此模型尚未加载，因此首次回复需要更长时间。模型就绪后会立即发送你的消息。"
+  },
+  "noModel": {
+    "title": "聊天需要语言模型",
+    "body": "安装模型以开始聊天。安装期间会保留你的输入。",
+    "bodyMember": "此服务器尚未安装聊天模型。请联系管理员安装。",
+    "gallery": "浏览模型库",
+    "import": "导入模型"
   }
 }

@@ -1,8 +1,8 @@
 {
   "unsaved": {
-    "title": "Discard unsaved changes?",
-    "message": "You have unsaved changes that will be lost if you leave this page.",
-    "leave": "Leave"
+    "title": "放弃未保存的更改？",
+    "message": "你有未保存的更改，离开此页面将丢失这些更改。",
+    "leave": "离开"
   },
   "actions": {
     "save": "保存",
@@ -91,7 +91,8 @@
     "type": "类型",
     "value": "值",
     "search": "搜索...",
-    "selectPlaceholder": "选择一个选项..."
+    "selectPlaceholder": "选择一个选项...",
+    "noMatch": "无匹配项"
   },
   "time": {
     "now": "刚才",

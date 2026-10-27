@@ -22,7 +22,8 @@
     "disable": "禁用"
   },
   "search": {
-    "placeholder": "搜索技能..."
+    "placeholder": "搜索技能...",
+    "label": "搜索技能"
   },
   "git": {
     "title": "Git 仓库",
@@ -30,7 +31,8 @@
     "urlPlaceholder": "https://github.com/user/repo 或 git@github.com:user/repo.git",
     "noRepos": "未配置 Git 仓库。请在上方添加。",
     "disabled": "已禁用",
-    "removeRepo": "移除仓库"
+    "removeRepo": "移除仓库",
+    "urlLabel": "仓库 URL"
   },
   "card": {
     "noDescription": "无描述",
@@ -42,7 +44,10 @@
   "empty": {
     "title": "未找到技能",
     "text": "创建或导入一个技能以开始。",
-    "noPersonal": "您还没有任何技能。"
+    "noPersonal": "您还没有任何技能。",
+    "stepWrite": "编写技能，或从 .tar.gz 文件或 Git 仓库导入。",
+    "stepTry": "尝试一下：选择上下文，查看它会向提示词添加什么。",
+    "stepAdd": "需要使用时，将其添加到智能体。"
   },
   "sections": {
     "yourSkills": "您的技能",
@@ -75,5 +80,44 @@
     "toggleFailed": "切换失败",
     "removed": "仓库已移除",
     "removeFailed": "移除失败"
+  },
+  "filters": {
+    "label": "显示",
+    "all": "全部",
+    "used": "已使用",
+    "unused": "尚未使用"
+  },
+  "list": {
+    "label": "技能",
+    "none": "没有匹配的技能。"
+  },
+  "pane": {
+    "back": "所有技能",
+    "pick": "选择技能以查看其内容和使用情况。",
+    "tabs": "技能分区",
+    "tab": {
+      "overview": "概览",
+      "instructions": "指令",
+      "files": "文件"
+    },
+    "description": "描述",
+    "allowedTools": "允许的工具",
+    "compatibility": "兼容性",
+    "license": "许可证",
+    "licenseFact": "许可证 {{license}}",
+    "tokens": "约 {{count}} 个词元",
+    "tokensTitle": "估算方式：字符数除以四",
+    "tokensExplain": "在提示词模式下，使用此技能的智能体在每条消息中约携带 {{count}} 个词元。此数值由字符数除以四估算。",
+    "noContent": "此技能没有指令。",
+    "filesLoading": "正在加载文件…",
+    "filesFailed": "无法列出文件。",
+    "filesNone": "此技能没有脚本、参考资料或资源。",
+    "files": {
+      "scripts": "脚本",
+      "references": "参考资料",
+      "assets": "资源"
+    },
+    "startsWith": "开头内容",
+    "showAll": "显示所有指令"
   }
 }
