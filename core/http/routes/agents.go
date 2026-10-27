@@ -9,7 +9,7 @@ import (
 )
 
 func RegisterAgentPoolRoutes(e *echo.Echo, app *application.Application,
-	agentsMw, skillsMw, collectionsMw echo.MiddlewareFunc) {
+	agentsMw, skillsMw echo.MiddlewareFunc) {
 	if !app.ApplicationConfig().AgentPool.Enabled {
 		return
 	}
@@ -76,19 +76,4 @@ func RegisterAgentPoolRoutes(e *echo.Echo, app *application.Application,
 	gg.DELETE("/:id", localai.DeleteGitRepoEndpoint(app))
 	gg.POST("/:id/sync", localai.SyncGitRepoEndpoint(app))
 	gg.POST("/:id/toggle", localai.ToggleGitRepoEndpoint(app))
-
-	// Collections / Knowledge Base — require "collections" feature
-	cg := e.Group("/api/agents/collections", poolReadyMw, collectionsMw)
-	cg.GET("", localai.ListCollectionsEndpoint(app))
-	cg.POST("", localai.CreateCollectionEndpoint(app))
-	cg.POST("/:name/upload", localai.UploadToCollectionEndpoint(app))
-	cg.GET("/:name/entries", localai.ListCollectionEntriesEndpoint(app))
-	cg.GET("/:name/entries/*", localai.GetCollectionEntryContentEndpoint(app))
-	cg.GET("/:name/entries-raw/*", localai.GetCollectionEntryRawFileEndpoint(app))
-	cg.POST("/:name/search", localai.SearchCollectionEndpoint(app))
-	cg.POST("/:name/reset", localai.ResetCollectionEndpoint(app))
-	cg.DELETE("/:name/entry/delete", localai.DeleteCollectionEntryEndpoint(app))
-	cg.POST("/:name/sources", localai.AddCollectionSourceEndpoint(app))
-	cg.DELETE("/:name/sources", localai.RemoveCollectionSourceEndpoint(app))
-	cg.GET("/:name/sources", localai.ListCollectionSourcesEndpoint(app))
 }

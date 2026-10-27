@@ -975,6 +975,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	go func() {
 		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
 		if runCtx.Err() == nil {
+			app.StartCollections()
 			app.StartAgentPool()
 		}
 	}()

@@ -11,9 +11,9 @@ import (
 
 func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := getUserID(c)
-		cols, err := svc.ListCollectionsForUser(userID)
+		cols, err := svc.ListForUser(userID)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -25,15 +25,14 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 
 		// Admin cross-user aggregation
 		if wantsAllUsers(c) {
-			usm := svc.UserServicesManager()
-			if usm != nil {
-				userIDs, _ := usm.ListAllUserIDs()
+			{
+				userIDs, _ := svc.UserIDs()
 				userGroups := map[string]any{}
 				for _, uid := range userIDs {
 					if uid == userID {
 						continue
 					}
-					userCols, err := svc.ListCollectionsForUser(uid)
+					userCols, err := svc.ListForUser(uid)
 					if err != nil || len(userCols) == 0 {
 						continue
 					}
@@ -51,7 +50,7 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 
 func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := getUserID(c)
 		var payload struct {
 			Name string `json:"name"`
@@ -59,7 +58,7 @@ func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		if err := svc.CreateCollectionForUser(userID, payload.Name); err != nil {
+		if err := svc.CreateForUser(userID, payload.Name); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusCreated, map[string]string{"status": "ok", "name": payload.Name})
@@ -68,7 +67,7 @@ func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 
 func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		name := decodedParam(c, "name")
 		file, err := c.FormFile("file")
@@ -80,7 +79,7 @@ func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
 		defer src.Close()
-		key, err := svc.UploadToCollectionForUser(userID, name, file.Filename, src)
+		key, err := svc.UploadForUser(userID, name, file.Filename, src)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -114,9 +113,9 @@ func isEmbeddingDimensionMismatch(err error) bool {
 
 func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		entries, err := svc.ListCollectionEntriesForUser(userID, decodedParam(c, "name"))
+		entries, err := svc.ListEntriesForUser(userID, decodedParam(c, "name"))
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -132,14 +131,14 @@ func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFun
 
 func GetCollectionEntryContentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		entryParam := c.Param("*")
 		entry, err := url.PathUnescape(entryParam)
 		if err != nil {
 			entry = entryParam
 		}
-		content, chunkCount, err := svc.GetCollectionEntryContentForUser(userID, decodedParam(c, "name"), entry)
+		content, chunkCount, err := svc.EntryContentForUser(userID, decodedParam(c, "name"), entry)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -155,7 +154,7 @@ func GetCollectionEntryContentEndpoint(app *application.Application) echo.Handle
 
 func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		var payload struct {
 			Query      string `json:"query"`
@@ -164,7 +163,7 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		results, err := svc.SearchCollectionForUser(userID, decodedParam(c, "name"), payload.Query, payload.MaxResults)
+		results, err := svc.SearchForUser(userID, decodedParam(c, "name"), payload.Query, payload.MaxResults)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -180,9 +179,9 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 
 func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		if err := svc.ResetCollectionForUser(userID, decodedParam(c, "name")); err != nil {
+		if err := svc.ResetForUser(userID, decodedParam(c, "name")); err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
@@ -194,7 +193,7 @@ func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 
 func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		var payload struct {
 			Entry string `json:"entry"`
@@ -202,7 +201,7 @@ func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFun
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		remaining, err := svc.DeleteCollectionEntryForUser(userID, decodedParam(c, "name"), payload.Entry)
+		remaining, err := svc.DeleteEntryForUser(userID, decodedParam(c, "name"), payload.Entry)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -218,7 +217,7 @@ func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFun
 
 func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		var payload struct {
 			URL            string `json:"url"`
@@ -230,7 +229,7 @@ func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc 
 		if payload.UpdateInterval < 1 {
 			payload.UpdateInterval = 60
 		}
-		if err := svc.AddCollectionSourceForUser(userID, decodedParam(c, "name"), payload.URL, payload.UpdateInterval); err != nil {
+		if err := svc.AddSourceForUser(userID, decodedParam(c, "name"), payload.URL, payload.UpdateInterval); err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
@@ -242,7 +241,7 @@ func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc 
 
 func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		var payload struct {
 			URL string `json:"url"`
@@ -250,7 +249,7 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		if err := svc.RemoveCollectionSourceForUser(userID, decodedParam(c, "name"), payload.URL); err != nil {
+		if err := svc.RemoveSourceForUser(userID, decodedParam(c, "name"), payload.URL); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
@@ -260,14 +259,14 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 // GetCollectionEntryRawFileEndpoint serves the original uploaded binary file.
 func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		entryParam := c.Param("*")
 		entry, err := url.PathUnescape(entryParam)
 		if err != nil {
 			entry = entryParam
 		}
-		fpath, err := svc.GetCollectionEntryFilePathForUser(userID, decodedParam(c, "name"), entry)
+		fpath, err := svc.EntryFilePathForUser(userID, decodedParam(c, "name"), entry)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -280,9 +279,9 @@ func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.Handle
 
 func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		sources, err := svc.ListCollectionSourcesForUser(userID, decodedParam(c, "name"))
+		sources, err := svc.ListSourcesForUser(userID, decodedParam(c, "name"))
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})

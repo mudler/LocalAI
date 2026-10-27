@@ -8,8 +8,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio"
 )
 
-// studioCollections lets the chats search the collections of the agent pool.
-// It asks for the pool at each call: the pool starts after the chats service.
+// studioCollections lets the chats search the collections of the collections service.
+// It asks for the pool at each call: the service starts after the chats service.
 type studioCollections struct{ a *Application }
 
 // owner maps the chat's user to the user the collections are kept under. The
@@ -21,10 +21,10 @@ func (studioCollections) owner(user string) string {
 	return user
 }
 
-// Allowed holds when the pool runs and the user has the collections feature,
+// Allowed holds when the collections service runs and the user has the collections feature,
 // the rule of /api/agents/collections.
 func (c studioCollections) Allowed(ctx context.Context, user string) bool {
-	if c.a.AgentPoolService() == nil {
+	if c.a.CollectionsService() == nil {
 		return false
 	}
 	if c.a.authDB == nil {
@@ -35,19 +35,19 @@ func (c studioCollections) Allowed(ctx context.Context, user string) bool {
 }
 
 func (c studioCollections) List(ctx context.Context, user string) ([]string, error) {
-	svc := c.a.AgentPoolService()
+	svc := c.a.CollectionsService()
 	if svc == nil || !c.Allowed(ctx, user) {
 		return nil, studio.ErrNoCollection
 	}
-	return svc.ListCollectionsForUser(c.owner(user))
+	return svc.ListForUser(c.owner(user))
 }
 
 func (c studioCollections) Search(ctx context.Context, user, collection, query string, limit int) ([]studio.CollectionHit, error) {
-	svc := c.a.AgentPoolService()
+	svc := c.a.CollectionsService()
 	if svc == nil || !c.Allowed(ctx, user) {
 		return nil, studio.ErrNoCollection
 	}
-	res, err := svc.SearchCollectionForUser(c.owner(user), collection, query, limit)
+	res, err := svc.SearchForUser(c.owner(user), collection, query, limit)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, studio.ErrNoCollection

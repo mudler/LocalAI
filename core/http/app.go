@@ -530,7 +530,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
 	chatHistoryMw := auth.RequireFeature(application.AuthDB(), auth.FeatureChatHistory)
 	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw, chatHistoryMw)
-	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
+	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw)
+	routes.RegisterCollectionsRoutes(e, application, collectionsMw)
 	if addonsOn {
 		// Fine-tuning routes
 		fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)

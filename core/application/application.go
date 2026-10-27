@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/core/services/collections"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"math/rand/v2"
 	"net/http"
 	"os"
@@ -118,6 +120,7 @@ type Application struct {
 	galleryService       *galleryop.GalleryService
 	agentJobService      *agentpool.AgentJobService
 	agentPoolService     atomic.Pointer[agentpool.AgentPoolService]
+	collectionsService   atomic.Pointer[collections.Service]
 	faceRegistry         facerecognition.Registry
 	voiceRegistry        voicerecognition.Registry
 	voiceProfileStore    *voiceprofile.Store
@@ -830,6 +833,34 @@ func (a *Application) agentPoolOptions() agentpool.AgentPoolOptions {
 		}
 	}
 	return opts
+}
+
+// CollectionsService returns the knowledge-base collections of the server, or
+// nil while they start or when the feature is off.
+func (a *Application) CollectionsService() *collections.Service { return a.collectionsService.Load() }
+
+// StartCollections starts the collections service. Like the agent pool it runs
+// after the HTTP server is listening, because the vector engines call the
+// embeddings API while they open a collection.
+func (a *Application) StartCollections() {
+	if !a.applicationConfig.AgentPool.Enabled {
+		return
+	}
+	var bus messaging.Broadcaster
+	if d := a.Distributed(); d != nil {
+		if d.Registry != nil {
+			a.waitForHealthyWorker()
+		}
+		if d.Nats != nil {
+			bus = d.Nats
+		}
+	}
+	svc, err := collections.New(a.applicationConfig, bus)
+	if err != nil {
+		xlog.Error("Failed to start the collections service", "error", err)
+		return
+	}
+	a.collectionsService.Store(svc)
 }
 
 // StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
