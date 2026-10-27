@@ -49,7 +49,12 @@ func start(t *testing.T) *world { return startAddon(t, "sandbox") }
 // startAddon runs the add-on of that name: its executable is built, its
 // manifest is the one in the source tree and its host operations are the
 // workspace ones.
-func startAddon(t *testing.T, id string) *world {
+func startAddon(t *testing.T, id string) *world { return startAddonFrom(t, id, "") }
+
+// startAddonFrom is startAddon for a package that was built and extracted by
+// the release process (package.sh and addonpkg extract), when packageDir is
+// set: its executable, runtime files and manifest are used as they are.
+func startAddonFrom(t *testing.T, id, packageDir string) *world {
 	t.Helper()
 	if goruntime.GOOS != "linux" {
 		t.Skip("the sandbox add-on is Linux only")
@@ -59,13 +64,21 @@ func startAddon(t *testing.T, id string) *world {
 	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	build := exec.Command("go", "build", "-o", bin, "./addons/"+id+"/cmd/"+id)
-	build.Dir = repoRoot(t)
-	build.Env = append(os.Environ(), "CGO_ENABLED=0")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
+	manifestPath := filepath.Join(repoRoot(t), "addons", id, "manifest.json")
+	if packageDir != "" {
+		if err := os.CopyFS(filepath.Dir(bin), os.DirFS(packageDir)); err != nil {
+			t.Fatalf("copy the package: %v", err)
+		}
+		manifestPath = filepath.Join(packageDir, "manifest.json")
+	} else {
+		build := exec.Command("go", "build", "-o", bin, "./addons/"+id+"/cmd/"+id)
+		build.Dir = repoRoot(t)
+		build.Env = append(os.Environ(), "CGO_ENABLED=0")
+		if out, err := build.CombinedOutput(); err != nil {
+			t.Fatalf("build: %v\n%s", err, out)
+		}
 	}
-	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "addons", id, "manifest.json"))
+	raw, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatal(err)
 	}

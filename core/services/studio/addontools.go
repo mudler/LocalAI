@@ -36,6 +36,21 @@ type AddonTools interface {
 	Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error)
 }
 
+// AddonGate is implemented by a broker that knows when an add-on cannot work
+// for a user now: its backend is missing, or it needs the workspace and the
+// workspace is off. It is optional; a broker without it offers every tool.
+type AddonGate interface {
+	// Unavailable returns "" when the tools of the add-on can work, or a short
+	// plain reason when they cannot. workspace says whether the Files
+	// workspace is on, for an add-on that needs it. It must not fail a chat:
+	// when the broker cannot tell, it answers "".
+	Unavailable(ctx context.Context, user, addonID string, workspace bool) string
+}
+
+// unavailableToolName is the name of the stand-in tool of an add-on that
+// cannot work. It has the shape of the broker's tool names.
+func unavailableToolName(addonID string) string { return "addon__" + addonID + "__unavailable" }
+
 // ErrBadAddonID means a switch names something that is not an add-on ID, or
 // there are too many switches.
 var ErrBadAddonID = errors.New("studio: an add-on ID is not valid")
@@ -125,8 +140,23 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	}
 	have := map[string]bool{}
 	var tools []session.Tool
+	gate, _ := s.d.AddonTools.(AddonGate)
+	reasons := map[string]string{}
 	for _, d := range defs {
 		have[d.AddonID] = true
+		if gate != nil && !off[d.AddonID] && (sc == nil || sc.addons[d.AddonID]) {
+			reason, known := reasons[d.AddonID]
+			if !known {
+				reason = gate.Unavailable(ctx, a.Principal, d.AddonID, s.d.Files.Available())
+				reasons[d.AddonID] = reason
+				if reason != "" {
+					tools = append(tools, unavailableTool(d.AddonID, reason))
+				}
+			}
+			if reason != "" {
+				continue
+			}
+		}
 		if off[d.AddonID] || reservedToolNames[d.Name] || (sc != nil && !sc.addons[d.AddonID]) {
 			continue
 		}
@@ -158,4 +188,17 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 		}
 	}
 	return tools, missing
+}
+
+// unavailableTool is the one tool a chat gets for an add-on that cannot work:
+// it tells the model why, so the model does not try the others and the user
+// gets a plain answer.
+func unavailableTool(addonID, reason string) session.Tool {
+	msg := "The " + addonID + " add-on cannot be used in this chat: " + reason + ". Tell the user this instead of trying."
+	return session.Tool{
+		Name:        unavailableToolName(addonID),
+		Description: msg,
+		Schema:      json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
+		Run:         func(context.Context, json.RawMessage) (string, error) { return msg, nil },
+	}
 }

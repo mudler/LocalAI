@@ -21,7 +21,7 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
         ffmpeg libopenblas0 libopenblas-dev libopus0 sox \
-        hwdata && \
+        hwdata e2fsprogs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -419,6 +419,13 @@ RUN --mount=from=builder,src=/build/,dst=/mnt/build \
 
 # Make sure the models directory exists
 RUN mkdir -p /models /backends /data
+
+# The unprivileged user that entrypoint.sh drops to. The image still starts as
+# root so that the entrypoint can hand a volume created by an older image over
+# to this user; the Sandbox add-on refuses to run as root.
+RUN groupadd --gid 10001 localai && \
+    useradd --uid 10001 --gid 10001 --home-dir /home/localai --create-home --shell /usr/sbin/nologin localai && \
+    chown localai:localai /models /backends /data
 
 # Define the health check command.
 #

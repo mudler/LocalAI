@@ -265,3 +265,24 @@ func TestWithoutTheHostTellingWhoIsAnAdminNobodyIs(t *testing.T) {
 		t.Fatalf("set-backend with no admin check = %v", got)
 	}
 }
+
+func TestTheStatusToolAnswersWhenTheModelCallsItWithNoArguments(t *testing.T) {
+	set := &fakeSettings{st: backends.Status{Setting: backends.Auto, Active: "gvisor"}}
+	rt := tools.New(&fakeRunner{}, set, fakeAdmin{})
+	e := env("status", "alice", "", map[string]any{})
+	e.Request.Action = "read"
+	e.Authority.Scope = "read"
+	e.Request.OperationID = "opmodel0123456789"
+	e.Request.Arguments = json.RawMessage(`{}`)
+	res, err := rt.Read(context.Background(), e)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(res.Payload, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out["ok"] != true || out["canRun"] != true || out["active"] != "gvisor" {
+		t.Fatalf("status = %v", out)
+	}
+}

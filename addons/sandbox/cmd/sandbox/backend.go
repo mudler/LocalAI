@@ -56,6 +56,17 @@ func runscPath(dataDir string) (string, error) {
 	return p, nil
 }
 
+// packagedKVMTools installs the KVM programs that ship with the add-on, and
+// returns their paths. A build run from outside a package has none, and the
+// backend then looks in the system folders.
+func packagedKVMTools(dataDir string) (chv.Bins, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return chv.Bins{}, nil
+	}
+	return installKVMTools(filepath.Dir(exe), filepath.Join(dataDir, "kvm-bin"), runtime.GOARCH, kvmPins)
+}
+
 // errNoPackagedRunsc says the add-on's package carries no runsc.
 var errNoPackagedRunsc = errors.New("no runsc in the package")
 
@@ -93,6 +104,13 @@ func installRunsc(srcDir, dstDir, arch string, pins map[string]string) (string, 
 	if err := copyExecutable(src, dst); err != nil {
 		return "", err
 	}
+	// The tool that prints the AppArmor profile of this runsc. It sits next to
+	// runsc so that the administrator's command can name it.
+	if _, err := os.Stat(filepath.Join(srcDir, profileTool)); err == nil {
+		if err := copyExecutable(filepath.Join(srcDir, profileTool), filepath.Join(dstDir, profileTool)); err != nil {
+			return "", err
+		}
+	}
 	entries, err := os.ReadDir(filepath.Join(srcDir, "gvisor-bin"))
 	if err != nil {
 		return "", unsupported("the package has no gvisor-bin folder next to runsc")
@@ -107,7 +125,15 @@ func installRunsc(srcDir, dstDir, arch string, pins map[string]string) (string, 
 	return dst, nil
 }
 
+// profileTool is the name of the program that prints the AppArmor profile.
+const profileTool = "gvisor-profile"
+
 func helpersPresent(srcDir, dstDir string) bool {
+	if _, err := os.Stat(filepath.Join(srcDir, profileTool)); err == nil {
+		if _, err := os.Stat(filepath.Join(dstDir, profileTool)); err != nil {
+			return false
+		}
+	}
 	entries, err := os.ReadDir(filepath.Join(srcDir, "gvisor-bin"))
 	if err != nil {
 		return false
@@ -178,7 +204,17 @@ func newSelector(dataDir string) (*backends.Selector, error) {
 			if err := noImage(); err != nil {
 				return nil, err
 			}
-			return chv.New(chv.Options{StateDir: filepath.Join(dataDir, "run", "kvm"), CacheDir: filepath.Join(dataDir, "images", "kvm"), DefaultImage: guestImage})
+			bins, err := packagedKVMTools(dataDir)
+			if err != nil {
+				return nil, err
+			}
+			return chv.New(chv.Options{
+				StateDir:     filepath.Join(dataDir, "run", "kvm"),
+				CacheDir:     filepath.Join(dataDir, "images", "kvm"),
+				DefaultImage: guestImage,
+				Bin:          bins,
+				NoBwrap:      noBwrap(os.LookupEnv, inContainer(containerMarkers...)),
+			})
 		},
 		GVisor: func() (sandbox.Backend, error) {
 			if runtime.GOOS != "linux" {

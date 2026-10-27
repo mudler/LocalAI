@@ -265,6 +265,15 @@ podman run -ti --name local-ai -p 8080:8080 \
   docker.io/localai/localai:latest
 ```
 
+### Container user and existing volumes
+
+The image starts as root only to run `entrypoint.sh`, which gives the data folders (`/models`, `/backends`, `/configuration`, `/data`, `/tmp/generated`) to the user `localai` (uid and gid 10001) and then runs LocalAI as that user. The Sandbox add-on needs this, because it refuses to run as root. See [the Sandbox in the LocalAI container]({{% relref "features/addons#the-sandbox-in-the-localai-container" %}}) for the devices and permissions it needs.
+
+- **Volumes from an older image** are owned by root. The first start with this image changes their owner to 10001 (it logs this, and it can take a while on a large models folder). No manual step is needed.
+- `LOCALAI_UID` and `LOCALAI_GID` change the user. `docker run --user` or a Kubernetes `runAsUser` is respected, and the data folders must then be writable by that user.
+- `LOCALAI_RUN_AS_ROOT=true` keeps the old behaviour. The Sandbox add-on is then unavailable.
+- A bind mount whose owner cannot be changed (a read-only or network mount) must be made writable for uid 10001 on the storage side.
+
 ## Next Steps
 
 After installation:

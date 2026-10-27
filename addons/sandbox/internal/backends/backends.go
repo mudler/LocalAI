@@ -276,12 +276,22 @@ func (s *Selector) ConfirmHost(phrase string) error {
 func reason(err error) string {
 	r := strings.TrimPrefix(err.Error(), sandbox.ErrUnsupported.Error()+": ")
 	// The backend names its Go function for the profile; an administrator needs
-	// the command that prints it.
+	// the exact commands. The add-on ships the tool next to runsc.
 	if i := strings.Index(r, "gvisor.Profile("); i >= 0 {
 		if j := strings.Index(r[i:], ")"); j >= 0 {
 			path := strings.Trim(r[i+len("gvisor.Profile("):i+j], `"`)
-			r = r[:i] + "the profile that `gvisor-profile " + path + "` prints (see the Sandbox page of the documentation)" + r[i+j+1:]
+			tool := "gvisor-profile"
+			if p := filepath.Join(filepath.Dir(path), "gvisor-profile"); fileExists(p) {
+				tool = p
+			}
+			r = r[:i] + "the profile of " + path + ". Ubuntu 24.04 and later need it because AppArmor blocks user namespaces for unknown programs. " +
+				"Run this once as root on the machine that runs the add-on: `" + tool + " " + path +
+				" > /etc/apparmor.d/localai-runsc && apparmor_parser -r /etc/apparmor.d/localai-runsc`" + r[i+j+1:]
+			r = strings.TrimSuffix(strings.TrimSpace(r), " returns")
 		}
+	}
+	if strings.Contains(r, "must not run as root") {
+		r += ". The official LocalAI image starts as an unprivileged user unless LOCALAI_RUN_AS_ROOT=true is set; elsewhere, start LocalAI from an account that is not root"
 	}
 	return r
 }
@@ -336,4 +346,9 @@ func (s *Selector) Status() Status {
 	}
 	st.HostNotice = st.Active == string(Host)
 	return st
+}
+
+func fileExists(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.Mode().IsRegular()
 }

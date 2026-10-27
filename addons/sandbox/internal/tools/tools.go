@@ -116,6 +116,11 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 	if json.Unmarshal(env.Request.Arguments, &a) != nil {
 		return contract.Result{}, protocol.ErrBadRequest
 	}
+	// The model calls the status tool with no arguments; the page names the
+	// tool it wants.
+	if a.Tool == "" {
+		a.Tool = ToolStatus
+	}
 	op := env.Request.OperationID
 	if !operationShape.MatchString(op) {
 		return contract.Result{}, protocol.ErrBadRequest

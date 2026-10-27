@@ -224,8 +224,14 @@ func TestSwitchingClosesTheBackendThatWasRunning(t *testing.T) {
 	}
 }
 
-func TestTheAppArmorReasonNamesTheCommandNotAGoFunction(t *testing.T) {
-	err := fmt.Errorf("%w: runsc cannot make a user namespace (permission denied): an administrator must load the AppArmor profile that gvisor.Profile(%q) returns", sandbox.ErrUnsupported, "/data/runsc/runsc")
+func TestTheAppArmorReasonNamesTheExactAdminStep(t *testing.T) {
+	dir := t.TempDir()
+	runsc := filepath.Join(dir, "runsc")
+	tool := filepath.Join(dir, "gvisor-profile")
+	if err := os.WriteFile(tool, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := fmt.Errorf("%w: runsc cannot make a user namespace (permission denied): an administrator must load the AppArmor profile that gvisor.Profile(%q) returns", sandbox.ErrUnsupported, runsc)
 	s := open(t, kinds{kvm: unsupported, gvisor: err}, t.TempDir())
 	var got string
 	for _, b := range s.Status().Backends {
@@ -233,7 +239,36 @@ func TestTheAppArmorReasonNamesTheCommandNotAGoFunction(t *testing.T) {
 			got = b.Reason
 		}
 	}
-	if strings.Contains(got, "gvisor.Profile") || !strings.Contains(got, "gvisor-profile /data/runsc/runsc") {
+	for _, want := range []string{tool + " " + runsc, "/etc/apparmor.d/", "apparmor_parser -r", "Ubuntu 24.04"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("reason lacks %q: %q", want, got)
+		}
+	}
+	if strings.Contains(got, "gvisor.Profile") {
+		t.Errorf("reason names a Go function: %q", got)
+	}
+}
+
+func TestTheAppArmorReasonWithoutTheShippedToolStillNamesTheCommand(t *testing.T) {
+	err := fmt.Errorf("%w: runsc cannot make a user namespace (permission denied): an administrator must load the AppArmor profile that gvisor.Profile(%q) returns", sandbox.ErrUnsupported, "/opt/gvisor/runsc")
+	s := open(t, kinds{kvm: unsupported, gvisor: err}, t.TempDir())
+	var got string
+	for _, b := range s.Status().Backends {
+		if b.Name == "gvisor" {
+			got = b.Reason
+		}
+	}
+	if !strings.Contains(got, "gvisor-profile /opt/gvisor/runsc") || !strings.Contains(got, "apparmor_parser -r") {
 		t.Fatalf("reason = %q", got)
+	}
+}
+
+func TestTheRootRefusalSaysHowToRunUnprivileged(t *testing.T) {
+	err := fmt.Errorf("%w: the backend must not run as root on the host: run it as an unprivileged user", sandbox.ErrUnsupported)
+	s := open(t, kinds{kvm: err, gvisor: err}, t.TempDir())
+	for _, b := range s.Status().Backends {
+		if b.Name == "kvm" && (!strings.Contains(b.Reason, "LOCALAI_RUN_AS_ROOT") || !strings.Contains(b.Reason, "unprivileged")) {
+			t.Errorf("reason = %q", b.Reason)
+		}
 	}
 }

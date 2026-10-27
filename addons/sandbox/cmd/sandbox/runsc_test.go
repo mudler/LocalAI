@@ -121,3 +121,18 @@ func TestThePinsInTheCodeAreTheOnesTheReleaseDescribes(t *testing.T) {
 		}
 	}
 }
+
+func TestTheProfileToolIsCopiedNextToRunsc(t *testing.T) {
+	src, pin := pack(t, "runsc")
+	if err := os.WriteFile(filepath.Join(src, "gvisor-profile"), []byte("tool"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "runsc")
+	if _, err := installRunsc(src, dst, "amd64", map[string]string{"amd64": pin}); err != nil {
+		t.Fatal(err)
+	}
+	fi, err := os.Stat(filepath.Join(dst, "gvisor-profile"))
+	if err != nil || fi.Mode().Perm() != 0o755 {
+		t.Fatalf("gvisor-profile: %v %v", fi, err)
+	}
+}
