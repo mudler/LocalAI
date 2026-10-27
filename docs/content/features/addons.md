@@ -378,17 +378,70 @@ consequences:
 
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,
 LocalAI registers one library with the ID `official`. It is a YAML index of the
-first-party add-ons (Fine-tuning, Quantization, Voice and Face), kept in this
-repository at `gallery/addons/index.yaml` and read from the master branch:
+first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Office
+and Sandbox). The index has one entry for each enabled platform of each add-on, so an
+install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
+its own platform. The Sandbox add-on is Linux only. No add-on is built for Windows yet, so the
+official library lists nothing there.
+
+Which index the library reads depends on the build:
+
+| Build | Index | Entries | Signer the library requires |
+|---|---|---|---|
+| A release (the version is a `v<semver>` tag) | `addons-index.yaml`, an asset of that GitHub release | Pinned by digest to the packages the release built | The package workflow run of that tag (`refs/tags/v<semver>`) |
+| Any other build (master, a source build, a commit after a tag) | `gallery/addons/index.yaml` on the master branch | The mutable `development` builds | The package workflow run on master (`refs/heads/master`) |
 
 ```
 https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/addons/index.yaml
+https://github.com/mudler/LocalAI/releases/download/v<version>/addons-index.yaml
 ```
 
+So a release installs the immutable, tag-pinned packages that the same release built and
+signed, and never a development build signed by master. The first start writes the index
+and signer of the running build into `sources.json`. After an upgrade, the next start moves
+the `official` library to the index and signer of the new build; a library that you pointed at
+another URL is left as it is.
+
 The index has the same format as the other libraries (see
-[Catalog document and limits](#catalog-document-and-limits)). The library requires the
-signature of the add-on package workflow that runs on master, so a package that this
-workflow did not build and sign is refused at install.
+[Catalog document and limits](#catalog-document-and-limits)). A package that the named
+workflow run did not build and sign is refused at install.
+
+`gallery/addons/index.yaml` is generated, never edited by hand:
+
+```bash
+sh scripts/addons/catalog.sh --channel development \
+  --repository quay.io/go-skynet/local-ai-addons --out gallery/addons/index.yaml
+```
+
+CI runs the same command with `--check` and fails when the committed file is stale, for
+example when a platform is enabled in `addons/<id>/package/platforms.yaml` or a manifest
+changes. The release index is rendered by the add-on package workflow when a `v<semver>` tag
+is pushed and attached to the release when it is published (see
+[Preparing a release](https://github.com/mudler/LocalAI/blob/master/.agents/preparing-a-release.md)).
+
+### Add-ons that are not built in
+
+Studio, Talk, Voice, Face, Fine-tuning, Quantization and Office are not part of the LocalAI
+binary or image. A fresh install has none of them. The old links to the pages they replaced
+(see [Old links](#old-links)) open the add-on page, which says the add-on is not available
+until it is installed.
+
+To get them on a new install:
+
+1. Sign in as an administrator (with authentication off, you already are one) and open
+   **Add-ons**, then **Find add-ons**. The list is the official library for this machine's
+   operating system and architecture.
+2. Pick the add-on and choose **Install and turn on**. The install checks the signature
+   against the library policy before anything runs. Studio is the usual first one: it holds the
+   image, video, 3D, speech, sound and audio tools.
+3. The add-on then appears in **My add-ons**. Use **Show in sidebar** to pin it.
+
+An install needs the network to reach the library and the package registry. A machine
+without it can run a private library (see [Private catalog service](#private-catalog-service)) that
+mirrors the packages. `--addons-official-library=false` starts without the official library, and
+`--addons-enabled=false` turns the add-on owner off, so nothing can be installed.
+Installed add-ons live in the `addons` folder under the data path, so keep that path on a
+volume in a container, or the add-ons must be installed again after the container is replaced.
 
 The first start writes `sources.json`, and from then on that file is the record of
 your choices. If you remove the `official` library (in the Add-ons page or through the
@@ -3489,7 +3542,7 @@ The Office add-on reads and edits documents in the user's files, from a chat. It
 |---|---|---|
 | `read-docx`, `read-xlsx`, `read-pptx`, `read-pdf` | read | Return the text of a file: paragraphs with their index, cells row by row, slides with their shapes, pages. The answer is cut to about 48 KiB and says so. |
 | `edit-docx`, `edit-xlsx`, `edit-pptx` | action | Apply a list of changes (at most 200) to a file. All of them are saved, or none. |
-| `create-docx`, `create-xlsx`, `create-pptx` | action | Make a new file. |
+| `create-docx`, `create-xlsx`, `create-pptx`, `create-pdf` | action | Make a new file. `create-pdf` takes headings, paragraphs, bullets and tables, and writes Latin-1 text with the built-in font; text in other scripts is refused with a reason. It needs no sandbox. |
 
 The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. Without accounts, the files are the same ones the chat and the Files page use. With accounts and `local-owner` mode, the `workspace.*` operations are refused, because the local owner is no account and has no files; use `named-user` mode for the Office and Sandbox add-ons. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.
 
