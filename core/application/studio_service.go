@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mudler/xlog"
+	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -78,6 +79,7 @@ func (a *Application) initStudioService() {
 	}
 	a.studioService = svc
 	a.startStudioReaper(svc)
+	a.startStudioTriggers(svc)
 }
 
 // A turn beats every 15 seconds; one that has not beaten for this long belongs
@@ -137,10 +139,13 @@ func (a *Application) loadStudioUser(ctx context.Context, id string) (*auth.User
 	}
 	var u auth.User
 	if err := a.authDB.WithContext(ctx).Where("id = ?", id).Take(&u).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, studio.ErrNoUser
+		}
 		return nil, err
 	}
 	if u.Status != auth.StatusActive {
-		return nil, errors.New("the user is not active")
+		return nil, studio.ErrUserDisabled
 	}
 	return &u, nil
 }

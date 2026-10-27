@@ -21,4 +21,7 @@ const (
 	// KeyChatsReaper elects the one frontend that ends the chat turns whose
 	// frontend stopped beating.
 	KeyChatsReaper int64 = 110
+	// KeyChatsTriggers elects the one frontend that runs the triggers of the
+	// chats. It is held for as long as the frontend lives.
+	KeyChatsTriggers int64 = 111
 )

@@ -373,7 +373,7 @@ func (r *Runner) startQueued(ctx context.Context, now time.Time) error {
 			return ErrStopped
 		}
 		t, err := r.o.Store.GetTrigger(ctx, run.TriggerID)
-		manual := strings.HasPrefix(run.DueKey, manualPrefix)
+		manual := strings.HasPrefix(run.DueKey, ManualPrefix)
 		switch {
 		case errors.Is(err, ErrNotFound):
 			err = r.end(ctx, run, StatusSkipped, ReasonDropped, now)
@@ -396,8 +396,10 @@ func (r *Runner) startQueued(ctx context.Context, now time.Time) error {
 	return nil
 }
 
-// manualPrefix starts the DueKey of a run that RunNow made.
-const manualPrefix = "manual@"
+// ManualPrefix starts the DueKey of a run that RunNow made. A host that cannot
+// call RunNow (it does not lead) may claim a queued run with this prefix; the
+// leader starts it.
+const ManualPrefix = "manual@"
 
 // ReasonSwitchedOff is the reason of a queued run whose trigger was switched
 // off before the run started.
@@ -527,7 +529,7 @@ func (r *Runner) RunNow(ctx context.Context, triggerID string) (Run, error) {
 		return Run{}, err
 	}
 	id := newID()
-	run := Run{ID: id, TriggerID: t.ID, DueKey: manualPrefix + id, Due: now.UTC()}
+	run := Run{ID: id, TriggerID: t.ID, DueKey: ManualPrefix + id, Due: now.UTC()}
 	if err := r.admit(ctx, t, &run, now, true, true); err != nil {
 		return Run{}, err
 	}

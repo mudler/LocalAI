@@ -126,6 +126,8 @@ type Application struct {
 	studioAgents         agents.Store // saved agents; same kind as the chats store
 	studioNotify         notify.Store // notifications; same kind as the chats store
 	studioInbox          *notify.Service
+	studioTriggers       *studio.Triggers
+	studioTriggersStop   context.CancelFunc
 	studioProvider       *provider.Provider
 	studioService        *studio.Service
 	studioTempDir        string // removed at shutdown; set only in memory-only mode
@@ -610,6 +612,12 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		if a.studioTriggersStop != nil {
+			a.studioTriggersStop()
+		}
+		if a.studioTriggers != nil {
+			a.studioTriggers.Close()
+		}
 		if a.studioService != nil {
 			_ = a.studioService.Close(context.Background())
 		}

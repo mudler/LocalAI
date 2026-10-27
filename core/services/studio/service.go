@@ -134,6 +134,8 @@ type Service struct {
 	locks map[string]*keyLock
 
 	// Sub-agents; see subagent.go.
+	triggers *Triggers // set once by SetTriggers
+
 	children map[string]map[string]*child       // running sub-agents, by parent conversation
 	allowed  map[string][]session.Tool          // the tools of a sub-agent conversation
 	waiters  map[string][]chan store.TurnStatus // callers waiting for a turn to end

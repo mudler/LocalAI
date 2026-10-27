@@ -546,7 +546,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 		if err != nil {
 			continue
 		}
-		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw})
+		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind == contract.ToolKindAction})
 	}
 	return out, nil
 }

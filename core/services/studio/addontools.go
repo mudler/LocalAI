@@ -18,6 +18,9 @@ type AddonTool struct {
 	AddonID     string
 	Description string
 	Schema      json.RawMessage
+	// Action is true for a tool that acts at once as the user (runs code, edits
+	// files) instead of reading or proposing a change.
+	Action bool
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
@@ -124,6 +127,11 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	for _, d := range defs {
 		have[d.AddonID] = true
 		if off[d.AddonID] || reservedToolNames[d.Name] || (sc != nil && !sc.addons[d.AddonID]) {
+			continue
+		}
+		// An unattended run with no agent never gets a tool that acts at once:
+		// the owner's explicit grant, in an agent, is what allows it.
+		if d.Action && rec.Origin != "" && rec.AgentID == "" {
 			continue
 		}
 		name := d.Name
