@@ -183,9 +183,6 @@ func TestAOnceTimeMissedWhileDownRunsOnce(t *testing.T) {
 }
 
 func TestAScheduleIsReadInItsTimeZone(t *testing.T) {
-	if _, err := time.LoadLocation("Europe/Rome"); err != nil {
-		t.Skip("no tzdata")
-	}
 	r := newRig(t)
 	tr := schedule("t1", "daily 08:00")
 	tr.TZ = "Europe/Rome"
@@ -201,9 +198,6 @@ func TestAScheduleIsReadInItsTimeZone(t *testing.T) {
 }
 
 func TestADayInTheSpringGapStillRunsOnce(t *testing.T) {
-	if _, err := time.LoadLocation("America/New_York"); err != nil {
-		t.Skip("no tzdata")
-	}
 	start := time.Date(2026, 3, 7, 12, 0, 0, 0, time.UTC)
 	r := newRig(t)
 	r.clock.Set(start)
@@ -222,9 +216,6 @@ func TestADayInTheSpringGapStillRunsOnce(t *testing.T) {
 }
 
 func TestARepeatedHourRunsOnce(t *testing.T) {
-	if _, err := time.LoadLocation("America/New_York"); err != nil {
-		t.Skip("no tzdata")
-	}
 	start := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
 	r := newRig(t)
 	r.clock.Set(start)
@@ -284,9 +275,6 @@ func TestTheDailyCapHoldsAndResetsWithTheDay(t *testing.T) {
 }
 
 func TestTheDailyCapCountsTheDayOfTheTriggersTimeZone(t *testing.T) {
-	if _, err := time.LoadLocation("Pacific/Auckland"); err != nil {
-		t.Skip("no tzdata")
-	}
 	// Auckland is UTC+13 in October: its day 23 starts at 11:00 UTC on the 22nd.
 	start := time.Date(2026, 10, 22, 10, 0, 0, 0, time.UTC)
 	r := newRig(t)

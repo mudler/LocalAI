@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	_ "time/tzdata" // zone data in the binary: the image and a plain host may have none
 	"unicode"
 	"unicode/utf8"
 )
