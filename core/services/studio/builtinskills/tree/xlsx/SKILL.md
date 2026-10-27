@@ -5,6 +5,8 @@ description: Work with Excel `.xlsx` and `.xlsm` files using the installed `pape
 
 # XLSX with paper-xlsx
 
+> The tools named here are installed in the guest image of the sandbox add-on (gVisor or a virtual machine). The host backend does not have them: check that the import works before you rely on it.
+
 `paper-xlsx` is an upgraded distribution of `openpyxl` for making precise changes to existing Excel workbooks without regenerating unrelated OOXML. Its preserve mode retains the original package, splices supported edits into place, and refuses mutations it cannot map safely. It keeps the familiar import and ordinary API:
 
 ```python

@@ -5,6 +5,8 @@ description: Work with PDF files using the installed tools for fixed-page author
 
 # PDF documents
 
+> The tools named here are installed in the guest image of the sandbox add-on (gVisor or a virtual machine). The host backend does not have them: check that the import works before you rely on it.
+
 A PDF is a fixed-page package rather than a flow document. Existing PDFs generally expose pages,
 regions, form fields, annotations, overlays, and redactions rather than semantic paragraph reflow.
 A retained source such as DOCX, PPTX, a build script, or structured data may contain the editable
