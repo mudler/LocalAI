@@ -2554,6 +2554,18 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsBrowserImport:
+    properties:
+      failed:
+        type: integer
+      imported:
+        description: |-
+          Imported chats are new. Skipped ones were there already, or have no
+          creation date or no message to import. Failed ones could not be stored.
+        type: integer
+      skipped:
+        type: integer
+    type: object
   schema.ChatsConnector:
     properties:
       accept_any:
@@ -9689,6 +9701,37 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsUndoResponse'
       summary: Undo a change.
+      tags:
+      - chats
+  /api/chats/import:
+    post:
+      consumes:
+      - application/json
+      description: 'Send the value of the browser''s localStorage key "localai_chats_data"
+        as it is: {"chats": [...]}. Each chat with a creation date and a message becomes
+        one of your chats, with its transcript. A chat that you have already, with
+        the same title and creation time, is skipped, so the upload can be repeated.
+        The import changes nothing in the browser; the page clears its copy when the
+        answer says nothing failed.'
+      parameters:
+      - description: 'the stored value, {chats: [...]}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: What was imported
+          schema:
+            $ref: '#/definitions/schema.ChatsBrowserImport'
+        "400":
+          description: The body is not the stored form
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Import the chats that the old chat page kept in your browser.
       tags:
       - chats
   /api/chats/mcp-connectors:

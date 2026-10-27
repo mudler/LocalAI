@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/convert"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
@@ -55,4 +56,53 @@ func (s *Service) ImportChat(ctx context.Context, user, title, model string, cre
 		return fail(err)
 	}
 	return rec, nil
+}
+
+// BrowserImport is the outcome of ImportBrowserChats.
+type BrowserImport struct {
+	// Imported chats are new; Skipped ones were there already or hold nothing
+	// that can be imported; Failed ones could not be stored.
+	Imported, Skipped, Failed int
+}
+
+// ImportBrowserChats stores the chats the old chat page kept in the browser:
+// data is the value of localStorage "localai_chats_data". A chat the user has
+// already, with the same title and creation time, is skipped, so an upload can
+// be repeated.
+func (s *Service) ImportBrowserChats(ctx context.Context, user string, data []byte) (BrowserImport, error) {
+	chats, unusable, err := convert.ParseBrowserChats(data)
+	if err != nil {
+		return BrowserImport{}, err
+	}
+	out := BrowserImport{Skipped: unusable}
+	have, err := s.ListChats(ctx, user, 0)
+	if err != nil {
+		return out, err
+	}
+	type key struct {
+		title   string
+		created int64
+	}
+	seen := map[key]bool{}
+	for _, r := range have {
+		seen[key{r.Title, r.Created.UnixMilli()}] = true
+	}
+	for _, c := range chats {
+		k := key{c.Title, c.Created.UnixMilli()}
+		if seen[k] {
+			out.Skipped++
+			continue
+		}
+		entries := make([]ImportedEntry, len(c.Entries))
+		for i, e := range c.Entries {
+			entries[i] = ImportedEntry{Role: e.Role, Text: e.Text, At: e.At}
+		}
+		if _, err := s.ImportChat(ctx, user, c.Title, c.Model, c.Created, c.Updated, entries); err != nil {
+			out.Failed++
+			continue
+		}
+		seen[k] = true
+		out.Imported++
+	}
+	return out, nil
 }

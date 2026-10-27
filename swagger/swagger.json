@@ -3876,6 +3876,46 @@
                 }
             }
         },
+        "/api/chats/import": {
+            "post": {
+                "description": "Send the value of the browser's localStorage key \"localai_chats_data\" as it is: {\"chats\": [...]}. Each chat with a creation date and a message becomes one of your chats, with its transcript. A chat that you have already, with the same title and creation time, is skipped, so the upload can be repeated. The import changes nothing in the browser; the page clears its copy when the answer says nothing failed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Import the chats that the old chat page kept in your browser.",
+                "parameters": [
+                    {
+                        "description": "the stored value, {chats: [...]}",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "What was imported",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsBrowserImport"
+                        }
+                    },
+                    "400": {
+                        "description": "The body is not the stored form",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/mcp-connectors": {
             "get": {
                 "description": "An MCP connector is an MCP server that you defined. Your chats use the enabled ones next to the MCP servers of the model, and a saved agent can name one as connector:\u003cid\u003e. Tokens, headers and the environment of a local command are never returned. Needs the MCP feature.",
@@ -12868,6 +12908,21 @@
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "schema.ChatsBrowserImport": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "integer"
+                },
+                "imported": {
+                    "description": "Imported chats are new. Skipped ones were there already, or have no\ncreation date or no message to import. Failed ones could not be stored.",
+                    "type": "integer"
+                },
+                "skipped": {
+                    "type": "integer"
                 }
             }
         },

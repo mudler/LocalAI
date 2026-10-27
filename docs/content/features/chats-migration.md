@@ -32,8 +32,20 @@ An agent that the old pool deleted (a row with status `deleted`) is not
 converted, and neither are its periodic trigger and its Telegram connector.
 
 A converted chat keeps what was said, not the model's memory of it. A
-conversation kept only in a browser cannot be converted: it was never on the
-server.
+conversation kept only in a browser was never on the server, so the start does
+not convert it. Upload it instead:
+
+```bash
+curl -X POST .../api/chats/import -H 'Content-Type: application/json' \
+  -d "$(cat localai_chats_data.json)"
+```
+
+The body is the value of the browser's local storage key `localai_chats_data`
+(in the browser tools: Application, Local Storage, copy the value) as it is. A
+chat with a creation date and at least one message becomes one of your chats,
+with its text, thinking and tool lines. The answer holds `imported`, `skipped`
+and `failed`. A chat that you have already, with the same title and creation
+time, is skipped, so you can upload again.
 
 Nothing converted acts by itself. Switch a trigger, a Telegram connector or an
 MCP connector on after you have read it. A converted MCP connector keeps the

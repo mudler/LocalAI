@@ -61,6 +61,7 @@ var _ = Describe("Chats feature registration", func() {
 			"DELETE /api/chats/notifications",
 			"GET /api/chats/notifications/count",
 			"GET /api/chats/conversion",
+			"POST /api/chats/import",
 			"POST /api/chats/notifications/read",
 			"GET /api/chats/notifications/events",
 			"GET /api/chats/triggers",
