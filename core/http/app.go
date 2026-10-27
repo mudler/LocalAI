@@ -76,6 +76,7 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 		secs = 1
 	}
 	c.Response().Header().Set("Retry-After", strconv.Itoa(secs))
+	c.Response().Header().Set(model.LoadFailedHeader, "true")
 	return http.StatusServiceUnavailable
 }
 

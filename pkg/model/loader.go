@@ -126,6 +126,11 @@ type loadFailureState struct {
 	cooldownUntil time.Time
 }
 
+// LoadFailedHeader is set on an HTTP answer that refuses a request because the
+// last load of the model failed. A caller in this process reads it to end its
+// work with the reason instead of waiting for a load that keeps failing.
+const LoadFailedHeader = "X-Localai-Model-Load-Failed"
+
 // ModelLoadCooldownError is returned when a model load is skipped because a
 // recent attempt failed and the per-model cooldown window has not yet elapsed.
 // The HTTP layer maps it to 503 with a Retry-After header so a polling client

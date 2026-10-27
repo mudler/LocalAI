@@ -12,7 +12,6 @@ import (
 // loaded. The model here names a backend that does not exist.
 var _ = Describe("A turn whose model cannot load", Label("platform", "turns", "slow"), func() {
 	It("ends as failed within two minutes instead of staying running", func() {
-		knownGap("PLAT-8", "the turn keeps retrying the model load (about one try a second) and stays running for more than 150 seconds; only Stop ends it")
 		in := startInstance(startOpts{Name: "brokenmodel", Models: map[string]string{
 			"broken.yaml": "name: broken\nbackend: no-such-backend\nparameters:\n  model: broken.bin\n",
 		}})
