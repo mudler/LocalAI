@@ -12,7 +12,6 @@ import (
 // list names a function twice, so a chat must hand the model each tool once.
 var _ = Describe("The tool list of a turn", Label("platform", "tools"), func() {
 	It("names each tool once", func() {
-		knownGap("PLAT-10", "the studio tools spawn_agent and transcribe_audio share a name with tools the agent library enables for the same allowlist entry, so each is offered twice and the library's own tool answers the call; fixing it needs a change in the agent library (nib)")
 		in := startInstance(startOpts{Name: "toollist"})
 		chat := in.api.newChat(nil)
 		in.api.turn(chat, "hello")
