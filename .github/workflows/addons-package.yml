@@ -223,6 +223,16 @@ jobs:
         run: |
           npm ci --prefix core/http/react-ui
           node "addons/$ADDON/ui/build.mjs"
+      - name: Fetch the runtime files
+        env:
+          ADDON: ${{ matrix.addon }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          # An add-on that ships files besides its executable describes where
+          # they come from; the script checks their checksums.
+          if [ -f "addons/$ADDON/package/fetch-runtime.sh" ]; then
+            sh "addons/$ADDON/package/fetch-runtime.sh" "$PLATFORM" "$RUNNER_TEMP/runtime"
+          fi
       - name: Package this platform
         env:
           ADDON: ${{ matrix.addon }}
@@ -230,7 +240,9 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           SHA: ${{ github.sha }}
         run: |
-          sh scripts/addons/package.sh --config "addons/$ADDON/package/platforms.yaml" --layout "layout" --version "$VERSION" --platform "$PLATFORM" --revision "$SHA"
+          set -- --config "addons/$ADDON/package/platforms.yaml" --layout "layout" --version "$VERSION" --platform "$PLATFORM" --revision "$SHA"
+          if [ -d "$RUNNER_TEMP/runtime" ]; then set -- "$@" --runtime-dir "$RUNNER_TEMP/runtime"; fi
+          sh scripts/addons/package.sh "$@"
       - name: Native runtime check
         env:
           ADDON: ${{ matrix.addon }}

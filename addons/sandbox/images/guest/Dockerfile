@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 #
-# Guest image of the assistant-sdk sandbox: a Debian userland, the guest
+# Guest image of the Sandbox add-on: a Debian userland, the guest
 # kernel at /boot/vmlinux and the guest agent at /sbin/sandbox-agent. Build
 # it from the repository root:
 #
-#   docker buildx build -f sandbox/images/guest/Dockerfile .
+#   docker buildx build -f addons/sandbox/images/guest/Dockerfile .
 #
-# A product extends it with FROM.
+# The add-on is built with the digest of the result in main.guestImage.
 
 ARG DEBIAN=debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 ARG GOLANG=golang:1.26-trixie@sha256:f06b7122f888680048afb247c4e5f49c0069eb6c4c1ccae0f3f4834527a8d22c
@@ -33,7 +33,7 @@ RUN set -eux; \
     echo "${KERNEL_SHA256}  /linux.tar.xz" | sha256sum -c -; \
     tar -xf /linux.tar.xz --strip-components=1; \
     rm /linux.tar.xz
-COPY sandbox/images/guest/kernel.config sandbox/images/guest/kernel-x86_64.config sandbox/images/guest/kernel-arm64.config /config/
+COPY addons/sandbox/images/guest/kernel.config addons/sandbox/images/guest/kernel-x86_64.config addons/sandbox/images/guest/kernel-arm64.config /config/
 RUN set -eux; \
     case "${TARGETARCH}" in \
       amd64) arch=x86_64; image=vmlinux; prefix=x86_64-linux-gnu- ;; \
@@ -66,14 +66,14 @@ ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
-COPY sandbox/guestagent ./sandbox/guestagent
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags=-s -o /sandbox-agent ./sandbox/guestagent/cmd/sandbox-agent
+COPY addons/sandbox/internal/sandbox/guestagent ./addons/sandbox/internal/sandbox/guestagent
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags=-s -o /sandbox-agent ./addons/sandbox/internal/sandbox/guestagent/cmd/sandbox-agent
 
 FROM ${DEBIAN}
-ARG SDK_VERSION=dev
-LABEL org.opencontainers.image.source="https://github.com/localai-org/assistant-sdk" \
-      org.opencontainers.image.version="${SDK_VERSION}" \
-      org.opencontainers.image.description="Guest image of the assistant-sdk sandbox"
+ARG IMAGE_VERSION=dev
+LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.description="Guest image of the LocalAI Sandbox add-on"
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends bash ca-certificates curl git poppler-utils python3 python3-pip \
@@ -92,7 +92,7 @@ RUN set -eux; \
 # so "pip check" fails the build when the two sets do not fit together. The
 # apt package python3-pil stays on purpose: the pinned Pillow wheel shadows
 # it, and the Debian copy is the fallback if the wheel is ever removed.
-COPY sandbox/images/guest/python-requirements.txt sandbox/images/guest/check-python.py /tmp/guest-python/
+COPY addons/sandbox/images/guest/python-requirements.txt addons/sandbox/images/guest/check-python.py /tmp/guest-python/
 RUN set -eux; \
     PIP_BREAK_SYSTEM_PACKAGES=1 python3 -m pip install --no-cache-dir --no-deps --only-binary=:all: --require-hashes \
       -r /tmp/guest-python/python-requirements.txt; \

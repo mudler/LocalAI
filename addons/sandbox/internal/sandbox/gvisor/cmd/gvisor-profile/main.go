@@ -1,8 +1,8 @@
 // Command gvisor-profile prints the AppArmor profile that lets a runsc binary
 // make user namespaces. An administrator runs it once per runsc binary:
 //
-//	gvisor-profile /opt/gvisor/runsc | sudo tee /etc/apparmor.d/assistant-sdk-runsc
-//	sudo apparmor_parser -r /etc/apparmor.d/assistant-sdk-runsc
+//	gvisor-profile /opt/gvisor/runsc | sudo tee /etc/apparmor.d/localai-runsc
+//	sudo apparmor_parser -r /etc/apparmor.d/localai-runsc
 //
 // The profile names only that binary. It is the one step that needs root.
 package main

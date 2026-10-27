@@ -92,6 +92,6 @@ func ValidateProfilePath(p string) error {
 // changes the path needs its own profile.
 func Profile(runsc string) string {
 	sum := sha256.Sum256([]byte(runsc))
-	return fmt.Sprintf("abi <abi/4.0>,\ninclude <tunables/global>\n\nprofile assistant-sdk-runsc-%s %q flags=(unconfined) {\n  userns,\n}\n",
+	return fmt.Sprintf("abi <abi/4.0>,\ninclude <tunables/global>\n\nprofile localai-runsc-%s %q flags=(unconfined) {\n  userns,\n}\n",
 		hex.EncodeToString(sum[:4]), runsc)
 }

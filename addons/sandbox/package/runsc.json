@@ -1,0 +1,16 @@
+{
+  "release": "20261012.0",
+  "note": "gVisor release tarball: runsc and gvisor-bin/. sha512 is the checksum the release publishes next to the tarball; runscSha256 is the checksum of the runsc inside it, which the add-on checks before it uses it (addons/sandbox/cmd/sandbox/runsc.go keeps the same values).",
+  "platforms": {
+    "linux/amd64": {
+      "url": "https://storage.googleapis.com/gvisor/releases/release/20261012.0/x86_64/gvisor.tar.zstd",
+      "sha512": "ce2e1aeb853c104e854dea6644333a1dba0fbc9dd1646af97e1d013fdf810da6d4176dd96f2139d7b055e5382117c0d7c4567ebd64ed9bef47fdd15f80fd67ab",
+      "runscSha256": "56996c546dbafd5716e1d09e307a131d97eb3b6483c22a1178631751f3e0392f"
+    },
+    "linux/arm64": {
+      "url": "https://storage.googleapis.com/gvisor/releases/release/20261012.0/aarch64/gvisor.tar.zstd",
+      "sha512": "3459ca3e496465e5b6a1318563ede4bb079bdf11ae93f4bb8d71df3cd2f19bfa6db7c1035d2f9e97b4f4e57c298a4f18b42af7297c048ec7e14ec819223684e4",
+      "runscSha256": "5d08298bff7f2fb964566f09410f2d158502d63d496fcbedfbe9c1b6bd3132d7"
+    }
+  }
+}

@@ -3459,3 +3459,22 @@ The **Host** backend is for a machine that can run neither of the others. Choosi
 The choice is kept in the add-on's data directory. Changing it removes the running sandboxes; what they did is already in the users' files.
 
 The guest image and `runsc` are not part of the add-on's source. A release sets `main.guestImage` (the image, by digest) and `main.runscSHA256` (the checksum of the `runsc` it was tested with) at build time. A build without a guest image reports that on the page, and only the host backend can run.
+
+### Packaging and setting up the Sandbox add-on
+
+The Sandbox package is for Linux on amd64 and arm64. The macOS platforms are listed in its platform file and stay disabled.
+
+- **`runsc`.** `addons/sandbox/package/runsc.json` pins one gVisor release (20261012.0) with the URL, the checksum the release publishes for each tarball, and the checksum of the `runsc` inside it. `addons/sandbox/package/fetch-runtime.sh <os/arch> <dir>` downloads it, checks both checksums, and the release workflow puts `runsc` and `gvisor-bin/` in the package. At run time the add-on checks `runsc` against the pinned checksum, copies it with its helpers to `runsc/` in its data directory as executable files, and uses that copy. A `runsc` that does not match is never used. Without one in the package, a `runsc` on `PATH` is used as it is.
+- **AppArmor.** On Ubuntu 24.04 and later, a program needs an AppArmor profile to make user namespaces. After the add-on has copied `runsc`, the page shows the path and the command that prints the profile for it:
+
+  ```bash
+  go run ./addons/sandbox/internal/sandbox/gvisor/cmd/gvisor-profile /path/to/data/addons/sandbox/runsc/runsc \
+    | sudo tee /etc/apparmor.d/localai-runsc
+  sudo apparmor_parser -r /etc/apparmor.d/localai-runsc
+  ```
+
+  The profile names the binary by path, so a new `runsc` at a new path needs a new profile.
+- **The guest image.** The guest runs a Debian userland, the guest kernel and the guest agent. `addons/sandbox/images/guest/Dockerfile` builds it (`docker buildx build -f addons/sandbox/images/guest/Dockerfile .` from the repository root); the result is pushed to a registry and its digest goes into the build of the add-on: `-ldflags "-X main.guestImage=<registry>/<name>@sha256:..."`. A build without it reports "no guest image" for gVisor and KVM, and only the host backend can run.
+- **KVM.** `addons/sandbox/images/host/Dockerfile` builds an image with the host programs the KVM backend needs (Cloud Hypervisor, virtiofsd, bubblewrap, e2fsprogs) at pinned versions. On a machine without a container, install the same programs, and give the user LocalAI runs as access to `/dev/kvm`.
+
+What the source tree does not prove: the images and the `runsc` download are not built in the test suite, and the gVisor and KVM backends need a host that allows them. Their tests skip with the reason on a host that does not. The host backend and the whole path from a chat to a file in the user's files run in the tests.

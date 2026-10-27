@@ -274,7 +274,16 @@ func (s *Selector) ConfirmHost(phrase string) error {
 
 // reason is the sentence for a failed backend, without the error class.
 func reason(err error) string {
-	return strings.TrimPrefix(err.Error(), sandbox.ErrUnsupported.Error()+": ")
+	r := strings.TrimPrefix(err.Error(), sandbox.ErrUnsupported.Error()+": ")
+	// The backend names its Go function for the profile; an administrator needs
+	// the command that prints it.
+	if i := strings.Index(r, "gvisor.Profile("); i >= 0 {
+		if j := strings.Index(r[i:], ")"); j >= 0 {
+			path := strings.Trim(r[i+len("gvisor.Profile("):i+j], `"`)
+			r = r[:i] + "the profile that `gvisor-profile " + path + "` prints (see the Sandbox page of the documentation)" + r[i+j+1:]
+		}
+	}
+	return r
 }
 
 // BackendState is one backend as the status shows it.

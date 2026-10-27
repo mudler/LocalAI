@@ -1,7 +1,9 @@
 # Release platform matrix of the Sandbox add-on package.
 #
 # The sandbox runs code in gVisor or in a Cloud Hypervisor guest, and both are
-# Linux only, so the macOS platforms are listed and stay disabled.
+# Linux only, so the macOS platforms are listed and stay disabled. The Linux
+# packages carry the runsc of package/runsc.json: fetch-runtime.sh puts it in
+# the runtime directory of the build.
 #
 # A platform ships only while "enabled" is true. Enable a platform in the same
 # change that shows its native check passing on a runner of that platform;
@@ -27,10 +29,24 @@ platforms:
     enabled: true
     runner: ubuntu-24.04
     native_check: executable-start
+    runtime:
+      - runsc
+      - gvisor-bin/checkpointgofer
+      - gvisor-bin/gvisor-sentry-prewarmer
+      - gvisor-bin/gvisor_sentry
+      - gvisor-bin/runsc-fd-parking
+      - gvisor-bin/runsc-metric-server
   - platform: linux/arm64
     enabled: true
     runner: ubuntu-24.04-arm
     native_check: executable-start
+    runtime:
+      - runsc
+      - gvisor-bin/checkpointgofer
+      - gvisor-bin/gvisor-sentry-prewarmer
+      - gvisor-bin/gvisor_sentry
+      - gvisor-bin/runsc-fd-parking
+      - gvisor-bin/runsc-metric-server
   - platform: darwin/arm64
     enabled: false
     runner: macos-14

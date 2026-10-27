@@ -223,3 +223,17 @@ func TestSwitchingClosesTheBackendThatWasRunning(t *testing.T) {
 		t.Error("the backend was not closed when the choice changed")
 	}
 }
+
+func TestTheAppArmorReasonNamesTheCommandNotAGoFunction(t *testing.T) {
+	err := fmt.Errorf("%w: runsc cannot make a user namespace (permission denied): an administrator must load the AppArmor profile that gvisor.Profile(%q) returns", sandbox.ErrUnsupported, "/data/runsc/runsc")
+	s := open(t, kinds{kvm: unsupported, gvisor: err}, t.TempDir())
+	var got string
+	for _, b := range s.Status().Backends {
+		if b.Name == "gvisor" {
+			got = b.Reason
+		}
+	}
+	if strings.Contains(got, "gvisor.Profile") || !strings.Contains(got, "gvisor-profile /data/runsc/runsc") {
+		t.Fatalf("reason = %q", got)
+	}
+}

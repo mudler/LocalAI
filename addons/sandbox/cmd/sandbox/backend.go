@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -23,14 +24,11 @@ import (
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/host"
 )
 
-// The release sets these with -ldflags "-X main.guestImage=...". A build that
+// The release sets this with -ldflags "-X main.guestImage=...". A build that
 // does not has no guest image, and the isolated backends then say so.
 var (
 	// guestImage is the OCI reference, by digest, of the image the guest runs.
 	guestImage string
-	// runscSHA256 is the checksum of the runsc this release was tested with. When
-	// it is set, a runsc with another checksum is not used.
-	runscSHA256 string
 )
 
 // unsupported builds the error a constructor returns when the host cannot run
@@ -39,32 +37,116 @@ func unsupported(format string, a ...any) error {
 	return fmt.Errorf("%w: %s", sandbox.ErrUnsupported, fmt.Sprintf(format, a...))
 }
 
-// runscPath finds runsc: next to the executable (the package carries it), then
-// on PATH. When a checksum is pinned, only a runsc that matches is used.
-func runscPath() (string, error) {
-	candidates := []string{}
+// runscPath finds runsc and returns the path to use. A runsc that ships with
+// the add-on is checked against the checksum pinned for its architecture and
+// copied, with its helpers, into the data directory as executable files: the
+// package does not keep the executable bit, and the AppArmor profile of an
+// administrator names a path that stays the same. A runsc on PATH is the
+// administrator's own and is used as it is.
+func runscPath(dataDir string) (string, error) {
 	if exe, err := os.Executable(); err == nil {
-		candidates = append(candidates, filepath.Join(filepath.Dir(exe), "runsc"))
+		p, err := installRunsc(filepath.Dir(exe), filepath.Join(dataDir, "runsc"), runtime.GOARCH, runscPins)
+		if err == nil || !errors.Is(err, errNoPackagedRunsc) {
+			return p, err
+		}
 	}
-	if p, err := exec.LookPath("runsc"); err == nil {
-		candidates = append(candidates, p)
-	}
-	if len(candidates) == 0 {
+	p, err := exec.LookPath("runsc")
+	if err != nil {
 		return "", unsupported("runsc was not found next to the add-on or on PATH")
 	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err != nil {
-			continue
-		}
-		if runscSHA256 != "" {
-			sum, err := fileSHA256(c)
-			if err != nil || sum != strings.ToLower(runscSHA256) {
-				return "", unsupported("%s does not match the checksum this release pins for runsc", c)
+	return p, nil
+}
+
+// errNoPackagedRunsc says the add-on's package carries no runsc.
+var errNoPackagedRunsc = errors.New("no runsc in the package")
+
+// The runsc this release was tested with. package/runsc.json describes the
+// download; a test keeps the two equal.
+const runscRelease = "20261012.0"
+
+var runscPins = map[string]string{
+	"amd64": "56996c546dbafd5716e1d09e307a131d97eb3b6483c22a1178631751f3e0392f",
+	"arm64": "5d08298bff7f2fb964566f09410f2d158502d63d496fcbedfbe9c1b6bd3132d7",
+}
+
+// installRunsc copies the runsc and the gvisor-bin folder of srcDir into dstDir
+// when the runsc has the checksum pinned for arch.
+func installRunsc(srcDir, dstDir, arch string, pins map[string]string) (string, error) {
+	src := filepath.Join(srcDir, "runsc")
+	if _, err := os.Stat(src); err != nil {
+		return "", errNoPackagedRunsc
+	}
+	want := strings.ToLower(pins[arch])
+	if want == "" {
+		return "", unsupported("this release pins no runsc for %s", arch)
+	}
+	got, err := fileSHA256(src)
+	if err != nil || got != want {
+		return "", unsupported("%s does not match the checksum this release pins for runsc", src)
+	}
+	dst := filepath.Join(dstDir, "runsc")
+	if have, err := fileSHA256(dst); err == nil && have == want && helpersPresent(srcDir, dstDir) {
+		return dst, nil
+	}
+	if err := os.MkdirAll(filepath.Join(dstDir, "gvisor-bin"), 0o700); err != nil {
+		return "", err
+	}
+	if err := copyExecutable(src, dst); err != nil {
+		return "", err
+	}
+	entries, err := os.ReadDir(filepath.Join(srcDir, "gvisor-bin"))
+	if err != nil {
+		return "", unsupported("the package has no gvisor-bin folder next to runsc")
+	}
+	for _, e := range entries {
+		if e.Type().IsRegular() {
+			if err := copyExecutable(filepath.Join(srcDir, "gvisor-bin", e.Name()), filepath.Join(dstDir, "gvisor-bin", e.Name())); err != nil {
+				return "", err
 			}
 		}
-		return c, nil
 	}
-	return "", unsupported("runsc was not found next to the add-on or on PATH")
+	return dst, nil
+}
+
+func helpersPresent(srcDir, dstDir string) bool {
+	entries, err := os.ReadDir(filepath.Join(srcDir, "gvisor-bin"))
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.Type().IsRegular() {
+			if _, err := os.Stat(filepath.Join(dstDir, "gvisor-bin", e.Name())); err != nil {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// copyExecutable writes src to dst with mode 0755, through a temporary file.
+func copyExecutable(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".install-*")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	if _, err := io.Copy(tmp, in); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(0o755); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), dst)
 }
 
 func fileSHA256(p string) (string, error) {
@@ -106,7 +188,7 @@ func newSelector(dataDir string) (*backends.Selector, error) {
 			if err := noImage(); err != nil {
 				return nil, err
 			}
-			runsc, err := runscPath()
+			runsc, err := runscPath(dataDir)
 			if err != nil {
 				return nil, err
 			}
