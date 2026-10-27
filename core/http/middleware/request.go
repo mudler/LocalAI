@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
+	"github.com/mudler/LocalAI/pkg/embeddingmedia"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
@@ -181,7 +185,15 @@ func (re *RequestExtractor) setModelAndConfig(initializer func() schema.LocalAIR
 			if input == nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "unable to initialize body")
 			}
-			if err := c.Bind(input); err != nil {
+			if request, ok := input.(*schema.OpenAIRequest); ok && isEmbeddingRoute(c.Path()) {
+				if err := bindEmbeddingRequest(c, request); err != nil {
+					return err
+				}
+			} else if request, ok := input.(*schema.JINARerankRequest); ok && isRerankRoute(c.Path()) {
+				if err := bindRerankRequest(c, request); err != nil {
+					return err
+				}
+			} else if err := c.Bind(input); err != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed parsing request body: %v", err))
 			}
 
@@ -679,38 +691,16 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		config.TypicalP = input.TypicalP
 	}
 
-	xlog.Debug("input.Input", "input", fmt.Sprintf("%+v", input.Input))
-
-	switch inputs := input.Input.(type) {
-	case string:
-		if inputs != "" {
-			config.InputStrings = append(config.InputStrings, inputs)
-		}
-	case []any:
-		for _, pp := range inputs {
-			switch i := pp.(type) {
-			case string:
-				config.InputStrings = append(config.InputStrings, i)
-			case []any:
-				tokens := []int{}
-				inputStrings := []string{}
-				for _, ii := range i {
-					switch ii := ii.(type) {
-					case int:
-						tokens = append(tokens, ii)
-					case float64:
-						tokens = append(tokens, int(ii))
-					case string:
-						inputStrings = append(inputStrings, ii)
-					default:
-						xlog.Error("Unknown input type", "type", fmt.Sprintf("%T", ii))
-					}
-				}
-				config.InputToken = append(config.InputToken, tokens)
-				config.InputStrings = append(config.InputStrings, inputStrings...)
-			}
-		}
+	if len(input.EmbeddingInput) == 0 {
+		xlog.Debug("input.Input", "input", fmt.Sprintf("%+v", input.Input))
+	} else {
+		// Structured embedding input holds caller text and media locations.
+		xlog.Debug("input.Input", "structured_items", len(input.EmbeddingInput))
 	}
+
+	inputStrings, inputTokens := ParseLegacyEmbeddingInput(input.Input)
+	config.InputStrings = append(config.InputStrings, inputStrings...)
+	config.InputToken = append(config.InputToken, inputTokens...)
 
 	// Per-request Go-side pooling override for /v1/embeddings (LocalAI
 	// extension) — copy-if-set onto the per-request config like the Input
@@ -914,4 +904,126 @@ func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResp
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("unable to validate configuration after merging: %v", err))
 	}
 	return nil
+}
+
+// All embedding forms share the approved body cap, before generic JSON binding.
+// Keep the outer global reader in place: it may impose a smaller limit.
+func isEmbeddingRoute(path string) bool {
+	return path == "/embeddings" || path == "/v1/embeddings" || path == "/v1/engines/:model/embeddings"
+}
+
+// isRerankRoute is the rerank route, which accepts the same typed content as
+// embeddings and is bounded by the same body cap.
+func isRerankRoute(path string) bool { return path == "/v1/rerank" }
+
+// isBoundedMultimodalRoute lists every route that shares the embedding body cap.
+func isBoundedMultimodalRoute(path string) bool { return isEmbeddingRoute(path) || isRerankRoute(path) }
+
+// bindRerankRequest reads the body under the embedding cap, validates typed
+// content before JSON binding can reinterpret it, and then binds. A legacy body
+// (string query, string documents) passes through the default binder unchanged.
+func bindRerankRequest(c echo.Context, request *schema.JINARerankRequest) error {
+	limit := int64(embeddingmedia.MaxBodyBytes)
+	if c.Request().ContentLength > limit || embeddingBodyOverflowed(c) {
+		return echo.ErrStatusRequestEntityTooLarge
+	}
+	raw, err := io.ReadAll(io.LimitReader(c.Request().Body, limit+1))
+	if err != nil {
+		var httpErr *echo.HTTPError
+		if errors.As(err, &httpErr) && httpErr.Code == http.StatusRequestEntityTooLarge {
+			return echo.ErrStatusRequestEntityTooLarge
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed parsing request body: %v", err))
+	}
+	if embeddingBodyOverflowed(c) || embeddingmedia.CheckLimit(uint64(len(raw)), embeddingmedia.MaxBodyBytes) != nil {
+		return echo.ErrStatusRequestEntityTooLarge
+	}
+	typed, _, err := schema.ParseRerankRequest(raw)
+	if err != nil {
+		var classified *embeddingmedia.Error
+		if errors.As(err, &classified) {
+			return echo.NewHTTPError(classified.Status, classified.Code)
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid_rerank_input")
+	}
+	c.Request().Body = io.NopCloser(bytes.NewReader(raw))
+	if err := c.Bind(request); err != nil {
+		if typed != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid_rerank_input")
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed parsing request body: %v", err))
+	}
+	request.Typed = typed
+	return nil
+}
+
+func bindEmbeddingRequest(c echo.Context, request *schema.OpenAIRequest) error {
+	limit := int64(embeddingmedia.MaxBodyBytes)
+	if c.Request().ContentLength > limit || embeddingBodyOverflowed(c) {
+		return echo.ErrStatusRequestEntityTooLarge
+	}
+	raw, err := io.ReadAll(io.LimitReader(c.Request().Body, limit+1))
+	if err != nil {
+		var httpErr *echo.HTTPError
+		if errors.As(err, &httpErr) && httpErr.Code == http.StatusRequestEntityTooLarge {
+			return echo.ErrStatusRequestEntityTooLarge
+		}
+		return echo.NewHTTPError(400, "invalid_embedding_request")
+	}
+	if embeddingBodyOverflowed(c) || embeddingmedia.CheckLimit(uint64(len(raw)), embeddingmedia.MaxBodyBytes) != nil {
+		return echo.ErrStatusRequestEntityTooLarge
+	}
+	items, _, err := schema.ParseEmbeddingRequest(raw)
+	if err != nil {
+		var classified *embeddingmedia.Error
+		if errors.As(err, &classified) {
+			return echo.NewHTTPError(classified.Status, classified.Code)
+		}
+		return echo.NewHTTPError(400, "invalid_embedding_request")
+	}
+	c.Request().Body = io.NopCloser(bytes.NewReader(raw))
+	if err := c.Bind(request); err != nil {
+		return echo.NewHTTPError(400, "invalid_embedding_request")
+	}
+	request.EmbeddingInput = items
+	return nil
+}
+
+// ParseLegacyEmbeddingInput splits a legacy "input" value (a string, an array
+// of strings, or an array of token arrays) into the strings and token arrays
+// the embeddings endpoint sends to the backend. Endpoints call it again after
+// request rewriting middleware, such as PII redaction, so the backend receives
+// the rewritten text rather than the text captured at parse time.
+func ParseLegacyEmbeddingInput(value any) (strs []string, tokens [][]int) {
+	switch inputs := value.(type) {
+	case string:
+		if inputs != "" {
+			strs = append(strs, inputs)
+		}
+	case []any:
+		for _, pp := range inputs {
+			switch i := pp.(type) {
+			case string:
+				strs = append(strs, i)
+			case []any:
+				toks := []int{}
+				inputStrings := []string{}
+				for _, ii := range i {
+					switch ii := ii.(type) {
+					case int:
+						toks = append(toks, ii)
+					case float64:
+						toks = append(toks, int(ii))
+					case string:
+						inputStrings = append(inputStrings, ii)
+					default:
+						xlog.Error("Unknown input type", "type", fmt.Sprintf("%T", ii))
+					}
+				}
+				tokens = append(tokens, toks)
+				strs = append(strs, inputStrings...)
+			}
+		}
+	}
+	return strs, tokens
 }

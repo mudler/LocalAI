@@ -515,3 +515,91 @@ removal also stays blocked during targeted installation, scoped removal, and
 refresh, even if the URL
 target is cleared. Its confirmation rechecks current row conflicts before
 deleting. Standalone deletion and its system-backend protection are unchanged.
+
+## Typed multimodal embedding protocol
+
+`backend/backend.proto` defines protocol version 1 through the additive
+`MultimodalEmbedding(MultimodalEmbeddingRequest)` RPC. Existing `Embedding` and
+its field numbers are unchanged. A server without the new method returns
+`UNIMPLEMENTED`; callers must never retry structured content as legacy text.
+
+The request contains `model` (selected loaded instance identity), `options`
+(existing `PredictOptions`), ordered `parts`, and `budget`. Each `EmbeddingPart`
+is a oneof text string (including an explicitly empty string) or `EmbeddingMedia`
+with IMAGE/AUDIO/VIDEO kind, binary compressed `data`, and `format`. There is no
+media URL or path field. Identity must agree with any `options.ModelIdentity`;
+the Go server applies the existing loaded-model identity guard.
+
+`EmbeddingBudget` contains uint64 `remaining_` counters for `frames`, `pixels`,
+`audio_allocation_bytes`, `source_duration_milliseconds`, `temporary_bytes`,
+`preparation_milliseconds`, `compressed_bytes`, `text_bytes`, and `source_parts`.
+Zero means exhausted, not unlimited. `EmbeddingConsumption` reports actual values
+in the same units without the `remaining_` prefix. Audio allocation includes
+resampled buffers; a video's source duration is counted once, not again for its
+soundtrack. The response wraps the unchanged `EmbeddingResult` plus consumption.
+Callers deduct consumption before the next item; native implementations must
+independently enforce remaining allowances during preparation, not only report
+overruns afterward. A response for an item with media must carry `consumption`;
+a missing one is a corrupt result, because it would hide the frames, pixels,
+audio, duration and temporary bytes that item used. A text-only item may omit
+it. The Go server charges its own acquisition time and the exact media and text
+bytes it sent, and trusts the backend for the remaining units, bounded by the
+budget it supplied. It does not charge the RPC wall time, since that includes
+inference. The serialized request must be strictly below 50 MiB; the Go
+client rejects requests at or above the ceiling before dispatch.
+
+Backend errors use gRPC status codes, refined by a fixed message prefix. The
+Go server never forwards the message text to the client.
+
+| gRPC status | Message prefix | HTTP status |
+| --- | --- | --- |
+| `INVALID_ARGUMENT` | `unsupported_media_format` | 415 |
+| `INVALID_ARGUMENT` | any other | 400 |
+| `RESOURCE_EXHAUSTED` | `limit_exceeded` | 413 |
+| `RESOURCE_EXHAUSTED` | any other (backend busy) | 429 |
+| `OUT_OF_RANGE` | any | 413 |
+| `FAILED_PRECONDITION` | any | 422 |
+| `UNIMPLEMENTED` | any | 501 |
+| `DEADLINE_EXCEEDED` | any | 504 |
+| any other, including `CANCELED` while the client is connected | any | 502 |
+
+`ModelMetadataResponse.embedding_protocol_version` is 1 for this contract;
+`embedding_modalities` distinguishes TEXT, IMAGE, AUDIO, SILENT_VIDEO and
+AUDIOVISUAL_VIDEO. Missing/unknown versions or absent required capabilities must
+fail closed for structured input. This wire addition does not itself publish
+capabilities or implement native multimodal inference. Go models may implement
+`MultimodalEmbeddingModel`; models without that optional interface explicitly
+return `UNIMPLEMENTED`, without invoking legacy embeddings.
+
+The `llama-cpp` backend publishes version 1 for a model loaded for pooled
+embeddings. Its modalities come from what the loaded model has: `TEXT`, plus
+`IMAGE` and `AUDIO` when the projector reads them. It never publishes
+`SILENT_VIDEO` or `AUDIOVISUAL_VIDEO`, because decoding video needs an ffmpeg
+binary the backend does not ship. A video part answers `UNIMPLEMENTED`, and the
+frontend answers `501` before it fetches anything when the instance reads images
+but publishes no video. A fork of llama.cpp that lacks the needed mtmd API keeps
+the text path and publishes nothing.
+
+### Typed multimodal rerank protocol
+
+`MultimodalRerank(MultimodalRerankRequest)` carries a rerank request with media.
+It reuses `EmbeddingPart`, `EmbeddingBudget` and `EmbeddingConsumption`:
+`embedding_generation` and `model` bind it to the loaded instance, `query` is an
+ordered list of parts, `documents` is a list of `RerankDocument` (ordered parts),
+`top_n` crops the result, and `budget` holds the remaining request allowances.
+The response wraps the unchanged `RerankResult` plus consumption. The text
+`Rerank` RPC is unchanged and is never used for a request with media.
+
+`ModelMetadataResponse.rerank_protocol_version` is 1 and `rerank_modalities`
+lists `TEXT` and, for a reranker with a projector and a `rerank` chat template,
+`IMAGE`. Within a query or document the text parts precede the images, because
+llama.cpp appends the images to the text. The same request size ceiling,
+generation check, identity check and in-flight accounting apply as for
+`MultimodalEmbedding`.
+
+Go bindings are generated, not tracked. The wire verification uses installed
+protoc 3.21.12, protoc-gen-go v1.34.2 and protoc-gen-go-grpc 1.4.0 with the
+repository's source-relative protogen arguments. `bash test/multimodal/verify.sh
+wire` regenerates twice into scratch, compares outputs byte-for-byte, and runs
+the complete gRPC, model and node suites with report/count guards. It does not
+install tools, start application services, or download models.

@@ -6,6 +6,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/jina"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/embeddingmedia"
 
 	"github.com/mudler/LocalAI/pkg/model"
 )
@@ -17,7 +18,7 @@ func RegisterJINARoutes(app *echo.Echo,
 	appConfig *config.ApplicationConfig) {
 
 	// POST endpoint to mimic the reranking
-	rerankHandler := jina.JINARerankEndpoint(cl, ml, appConfig)
+	rerankHandler := jina.JINARerankEndpoint(cl, ml, appConfig, jina.WithPreparationLimiter(embeddingmedia.SharedPreparationLimiter()))
 	app.POST("/v1/rerank",
 		rerankHandler,
 		middleware.ExposeNodeHeader(appConfig),

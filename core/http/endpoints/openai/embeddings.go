@@ -48,11 +48,14 @@ func embeddingItem(embeddings []float32, index int, encodingFormat string) schem
 // one data item in the response), and `pooling`/`pooling_half_life_tokens`
 // select a Go-side pooling scheme over the backend's per-token vectors.
 // @Summary Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms.
+// @Description `input` is a string, an array of strings, an array of token arrays, a content object, or an array of strings and content objects. A content object is `{"content":[part,...]}` and each element produces exactly one vector. Parts are `text`, `image_url`, `input_audio` and `input_video` (alias `video_url`). Native backend support for media parts is pending; a model that cannot consume a requested modality returns 422 and a backend without the multimodal RPC returns 501.
 // @Tags embeddings
-// @Param request body schema.OpenAIRequest true "query params"
+// @Param request body schema.OpenAIRequest{input=[]schema.EmbeddingContentObject} true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/embeddings [post]
-func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+// @Router /embeddings [post]
+func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, opts ...EmbeddingsOption) echo.HandlerFunc {
+	options := newEmbeddingsOptions(opts)
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
@@ -69,6 +72,37 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 		// model so the client gets a 400, not a load-time failure.
 		if err := config.ValidatePooling(modelConfig.Pooling, modelConfig.PoolingHalfLifeTokens); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+
+		if len(input.EmbeddingInput) > 0 {
+			// Structured input never reaches the legacy RPC and is never logged:
+			// it carries caller text and media locations.
+			if len(input.Messages) > 0 {
+				return echo.NewHTTPError(http.StatusBadRequest, "invalid_embedding_input")
+			}
+			vectors, err := embedStructured(c, input, modelConfig, ml, appConfig, options)
+			if err != nil {
+				return err
+			}
+			items := make([]schema.Item, 0, len(vectors))
+			for i, v := range vectors {
+				items = append(items, embeddingItem(v, i, input.EncodingFormat))
+			}
+			middleware.StampUsage(c, input.Model, 0, 0)
+			return c.JSON(http.StatusOK, &schema.OpenAIResponse{
+				ID:      uuid.New().String(),
+				Created: int(time.Now().Unix()),
+				Model:   input.Model,
+				Data:    items,
+				Object:  "list",
+			})
+		}
+
+		// The PII middleware rewrites input.Input after the request middleware
+		// captured InputStrings. Re-read both from the current value so the
+		// backend receives the redacted text.
+		if input.Input != nil && len(input.Messages) == 0 {
+			modelConfig.InputStrings, modelConfig.InputToken = middleware.ParseLegacyEmbeddingInput(input.Input)
 		}
 
 		if len(input.Messages) > 0 {

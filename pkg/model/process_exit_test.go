@@ -5,12 +5,31 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// Process exit logging is asynchronous; both the writer and polling reader
+// must synchronize access without weakening the diagnostic assertions.
+type processExitLogBuffer struct {
+	mu     sync.Mutex
+	buffer bytes.Buffer
+}
+
+func (b *processExitLogBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buffer.Write(p)
+}
+func (b *processExitLogBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buffer.String()
+}
 
 var _ = Describe("backend process exit diagnostics", func() {
 	It("includes the exit code and final stderr line for an unexpected exit", func() {
@@ -20,7 +39,7 @@ var _ = Describe("backend process exit diagnostics", func() {
 		backendPath := filepath.Join(tmpDir, "failing-backend")
 		Expect(os.WriteFile(backendPath, []byte("#!/bin/sh\nprintf '%s' \"$TMPDIR\" > \"$0.tmpdir\"\necho 'first diagnostic' >&2\necho 'fatal metal pipeline error' >&2\nexit 42\n"), 0o700)).To(Succeed())
 
-		captured := &bytes.Buffer{}
+		captured := &processExitLogBuffer{}
 		handler := slog.NewTextHandler(captured, &slog.HandlerOptions{Level: slog.LevelWarn})
 		xlog.SetLogger(xlog.NewLoggerWithHandler(handler, xlog.LogLevelWarn))
 		DeferCleanup(func() {
@@ -30,6 +49,10 @@ var _ = Describe("backend process exit diagnostics", func() {
 		loader := NewModelLoader(&system.SystemState{Model: system.Model{ModelsPath: tmpDir}})
 		process, err := loader.startProcess(backendPath, "test-model", "127.0.0.1:65535", nil)
 		Expect(err).ToNot(HaveOccurred())
+		value, ok := loader.processRuntimes.Load(process)
+		Expect(ok).To(BeTrue())
+		runtime := value.(*backendProcessRuntime)
+		DeferCleanup(func() { <-runtime.diagnosticsDone })
 		Eventually(process.Done()).Should(BeClosed())
 		backendTemp, err := os.ReadFile(backendPath + ".tmpdir")
 		Expect(err).ToNot(HaveOccurred())

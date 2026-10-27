@@ -53,3 +53,87 @@ and test it with:
       "top_n": 3
     }'
 ```
+## Multimodal rerank
+
+The query and each document can be a string or a content object, with `text` and
+`image_url` parts, using the same content objects, media sources, resource limits
+and fetching rules as [multimodal embeddings]({{%relref "features/embeddings#multimodal-input" %}}).
+A request of one string query and string documents is unchanged.
+
+```bash
+curl http://localhost:8080/v1/rerank -X POST -H "Content-Type: application/json" -d '{
+  "model": "qwen3-vl-reranker",
+  "query": "A hand rings a brass bell.",
+  "documents": [
+    {"content": [{"type": "image_url", "image_url": {"url": "https://media.example.com/drum.png"}}]},
+    {"content": [{"type": "text", "text": "A bell"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,<base64>"}}]},
+    "Water pours from a jug into a glass."
+  ],
+  "top_n": 2
+}'
+```
+
+- Within one query or document, text parts come first and images follow: the
+  reranker appends images to the text, and LocalAI refuses text after an image
+  instead of reordering it (`400`). Audio and video parts are refused (`422`).
+- The result lists `index` and `relevance_score`. For a document sent as a content
+  object, `document.text` is the text you sent (empty for an image-only document),
+  never a URL or backend text.
+- **No silent fallback.** A request with images goes through the typed
+  `MultimodalRerank` RPC of the loaded instance. If the model cannot read images
+  the answer is `422`, if the backend does not publish the capability it is `501`,
+  and the request is never scored as text only. A content object made only of text
+  parts has nothing to drop and is scored as text.
+- The statuses and limits are those of embeddings: `413` for a bound, `415` for a
+  wrong media format, `429` when the two preparation slots are in use (they are
+  shared with embeddings), `502` for a failed fetch or an invalid result, `504` for
+  a deadline. The total of query and document parts is limited to 128, and the
+  body to 48 MiB.
+
+The `llama-cpp` backend supports this for reranker models with a projector and a
+`rerank` chat template in the GGUF, for example a Qwen3-VL reranker. Check that your
+GGUF carries the template: some conversions drop it, and such a model cannot rank
+images (`422`).
+
+```yaml
+name: qwen3-vl-reranker
+backend: llama-cpp
+reranking: true
+mmproj: mmproj-Qwen3-VL-Reranker-2B-F16.gguf
+context_size: 8192
+batch: 8192
+parameters:
+  model: Qwen3-VL-Reranker-2B-Q4_K_M.gguf
+```
+
+### The llama.cpp-style object
+
+The query and each document also accept the object that the llama.cpp server documents
+for `/v1/rerank` (the Jina format): `{"text": string | [string], "image": url | [url]}`.
+Both keys are optional, but one is required. A plain string means `{"text": "..."}`.
+It means exactly the same as the `content` shape: a `text` array is joined in order
+without separators, text comes first, and each `image` becomes one image part in order.
+
+```bash
+curl http://localhost:8080/v1/rerank -X POST -H "Content-Type: application/json" -d '{
+  "model": "qwen3-vl-reranker",
+  "query": {"text": "A hand rings a brass bell."},
+  "documents": [
+    {"image": "https://media.example.com/drum.png"},
+    {"text": "A bell", "image": ["data:image/png;base64,<base64>"]},
+    "Water pours from a jug into a glass."
+  ]
+}'
+```
+
+- `image` is an http(s) URL, a base64 data URI, or a raw base64 string (a PNG or JPEG
+  without the `data:` prefix). A raw string is decoded under the same size bounds as a
+  data URI and must match an image signature; it is never read as a file path. Local
+  paths and `file://` are refused with `400`, as is any other scheme.
+- Unknown keys are refused with `400`. An object that has `content` together with
+  `text` or `image` is refused with `400` (`rerank_mixed_shapes`). Use one shape per
+  query or document; the two shapes can be mixed across documents.
+- The limits, statuses, no-fallback rule and `document.text` are the same as for the
+  `content` shape.
+- Difference from llama.cpp: LocalAI serves `/v1/rerank` only, and does not accept the
+  TEI `texts` field.

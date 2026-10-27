@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "kind": "multimodal-adapter-proof-report",
+  "contract_version": "multimodal-acceptance-v1",
+  "contract_sha256": "4bf4a41b046fb1d9701056ee540da4be0dfbdc4dc17470855930b756bf6d8e46",
+  "vectors_sha256": "54909a70eed785619b3e3af75a6e4ed9c4459703e6fdad9f1518a7461d66a310",
+  "status": "FAIL",
+  "partial": true,
+  "failures": [
+    "text-to-audio-drum",
+    "text-to-audio-water"
+  ],
+  "counts": {
+    "declared": 14,
+    "scored": 9,
+    "passed": 7,
+    "failed": 2,
+    "not_applicable": 5
+  },
+  "dimensions": 768,
+  "identity": {
+    "backend_sha256": "fcb2490be7e260f605c9ecd5c7bdbe3f5b23868ec14acddd2635b53433dc4980",
+    "llama_cpp": "78a8ae14be559b45f5f13ddee82c188b683d5d8d",
+    "localai": "e9a78801832d697f538e7ce1f82ed589a3350c98",
+    "model_file": "embeddinggemma-2-Q8_0.gguf",
+    "model_sha256": "60b2a9e5f0673aa25931d285a73ae712e447fcc3439330102a8eabea31da7c73",
+    "projector_file": "mmproj-embeddinggemma-2-Q8_0.gguf",
+    "projector_sha256": "bebe3951e09e0b232422fb58c9d6f9f271640808a6bfd698f9c65696b315308c"
+  },
+  "cases": [
+    {
+      "id": "text-to-image-bell",
+      "direction": "text-to-image",
+      "status": "PASS",
+      "target": "image-bell",
+      "target_cosine": 0.741631034,
+      "best_distractor": "image-drum",
+      "best_distractor_cosine": 0.632052612,
+      "margin": 0.109578422,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "image-bell": 0.741631034,
+        "image-drum": 0.632052612,
+        "image-water": 0.545389716,
+        "image-typing": 0.549961728
+      }
+    },
+    {
+      "id": "text-to-image-drum",
+      "direction": "text-to-image",
+      "status": "PASS",
+      "target": "image-drum",
+      "target_cosine": 0.749375547,
+      "best_distractor": "image-bell",
+      "best_distractor_cosine": 0.670514611,
+      "margin": 0.078860937,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "image-drum": 0.749375547,
+        "image-bell": 0.670514611,
+        "image-water": 0.582502546,
+        "image-typing": 0.586081415
+      }
+    },
+    {
+      "id": "text-to-image-water",
+      "direction": "text-to-image",
+      "status": "PASS",
+      "target": "image-water",
+      "target_cosine": 0.756942255,
+      "best_distractor": "image-bell",
+      "best_distractor_cosine": 0.539874982,
+      "margin": 0.217067273,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "image-water": 0.756942255,
+        "image-bell": 0.539874982,
+        "image-drum": 0.51602948,
+        "image-typing": 0.496131815
+      }
+    },
+    {
+      "id": "text-to-audio-bell",
+      "direction": "text-to-audio",
+      "status": "PASS",
+      "target": "audio-bell",
+      "target_cosine": 0.667859681,
+      "best_distractor": "audio-typing",
+      "best_distractor_cosine": 0.637600287,
+      "margin": 0.030259394,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "audio-bell": 0.667859681,
+        "audio-drum": 0.630545922,
+        "audio-water": 0.635271879,
+        "audio-typing": 0.637600287
+      }
+    },
+    {
+      "id": "text-to-audio-drum",
+      "direction": "text-to-audio",
+      "status": "FAIL",
+      "target": "audio-drum",
+      "target_cosine": 0.699645973,
+      "best_distractor": "audio-typing",
+      "best_distractor_cosine": 0.693438928,
+      "margin": 0.006207045,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "audio-drum": 0.699645973,
+        "audio-bell": 0.656341371,
+        "audio-water": 0.670329494,
+        "audio-typing": 0.693438928
+      }
+    },
+    {
+      "id": "text-to-audio-water",
+      "direction": "text-to-audio",
+      "status": "FAIL",
+      "target": "audio-water",
+      "target_cosine": 0.587364285,
+      "best_distractor": "audio-typing",
+      "best_distractor_cosine": 0.582335196,
+      "margin": 0.00502909,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "audio-water": 0.587364285,
+        "audio-bell": 0.552658268,
+        "audio-drum": 0.563516927,
+        "audio-typing": 0.582335196
+      }
+    },
+    {
+      "id": "text-to-video-bell",
+      "status": "NOT_APPLICABLE",
+      "reason": "a fixture of an unpublished modality"
+    },
+    {
+      "id": "text-to-video-drum",
+      "status": "NOT_APPLICABLE",
+      "reason": "a fixture of an unpublished modality"
+    },
+    {
+      "id": "text-to-video-water",
+      "status": "NOT_APPLICABLE",
+      "reason": "a fixture of an unpublished modality"
+    },
+    {
+      "id": "media-to-text-bell",
+      "direction": "media-to-text",
+      "status": "PASS",
+      "target": "text-bell",
+      "target_cosine": 0.741631034,
+      "best_distractor": "text-drum",
+      "best_distractor_cosine": 0.670514611,
+      "margin": 0.071116423,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "text-bell": 0.741631034,
+        "text-drum": 0.670514611,
+        "text-water": 0.539874982,
+        "text-typing": 0.550267194
+      }
+    },
+    {
+      "id": "media-to-text-drum",
+      "direction": "media-to-text",
+      "status": "PASS",
+      "target": "text-drum",
+      "target_cosine": 0.699645973,
+      "best_distractor": "text-typing",
+      "best_distractor_cosine": 0.633360009,
+      "margin": 0.066285963,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "text-drum": 0.699645973,
+        "text-bell": 0.630545922,
+        "text-water": 0.563516927,
+        "text-typing": 0.633360009
+      }
+    },
+    {
+      "id": "media-to-text-water",
+      "status": "NOT_APPLICABLE",
+      "reason": "a fixture of an unpublished modality"
+    },
+    {
+      "id": "media-change",
+      "direction": "media-change",
+      "status": "PASS",
+      "distance": 0.08728146,
+      "required_distance": 0.001
+    },
+    {
+      "id": "soundtrack-change",
+      "status": "NOT_APPLICABLE",
+      "reason": "a fixture of an unpublished modality"
+    }
+  ]
+}

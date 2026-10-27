@@ -362,6 +362,18 @@ test-e2e-distributed: protogen-go
 	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
 
+# Multimodal embeddings and rerank through the real llama-cpp backend. Opt-in: it
+# needs a built grpc-server and model files, so it is labelled real-models and the
+# default e2e run skips it. Set MM_E2E_BACKEND (the llama-cpp grpc-server) and the
+# model files the specs you want need; a spec whose files are missing skips with a
+# reason. See tests/e2e/MULTIMODAL.md.
+#   MM_E2E_EMBED_MODEL, MM_E2E_EMBED_PROJECTOR     EmbeddingGemma 2 GGUF and projector
+#   MM_E2E_RERANK_MODEL, MM_E2E_RERANK_PROJECTOR   Qwen3-VL reranker GGUF and projector
+test-e2e-multimodal-embeddings: build-mock-backend protogen-go
+	@echo 'Running multimodal embeddings and rerank e2e (real models)'
+	MM_E2E_REAL=1 $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='MultimodalEmbeddingReal' -v ./tests/e2e
+	$(MAKE) clean-mock-backend
+
 # vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
 # cpu-vllm backend from the current working tree, then drives a
 # head + headless follower via testcontainers-go and asserts a chat

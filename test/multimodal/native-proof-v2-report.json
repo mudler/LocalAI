@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "kind": "multimodal-adapter-proof-report",
+  "contract_version": "multimodal-acceptance-v2-adapter",
+  "contract_sha256": "c66c35c72b83e5566bac2c3f98cd1342e3b53b36f06c3025923f21b2fe4bef72",
+  "vectors_sha256": "0c65bae4a875e9bfe8897a0f68e62697c252841fae97ab5a370dbd7aae3dec52",
+  "status": "FAIL",
+  "partial": false,
+  "failures": [
+    "text-to-audio-drum",
+    "audio-to-text-water"
+  ],
+  "counts": {
+    "declared": 14,
+    "scored": 14,
+    "passed": 12,
+    "failed": 2,
+    "not_applicable": 0
+  },
+  "dimensions": 768,
+  "identity": {
+    "backend_sha256": "fcb2490be7e260f605c9ecd5c7bdbe3f5b23868ec14acddd2635b53433dc4980",
+    "llama_cpp": "78a8ae14be559b45f5f13ddee82c188b683d5d8d",
+    "localai": "e9a78801832d697f538e7ce1f82ed589a3350c98",
+    "model_file": "embeddinggemma-2-Q8_0.gguf",
+    "model_sha256": "60b2a9e5f0673aa25931d285a73ae712e447fcc3439330102a8eabea31da7c73",
+    "projector_file": "mmproj-embeddinggemma-2-Q8_0.gguf",
+    "projector_sha256": "bebe3951e09e0b232422fb58c9d6f9f271640808a6bfd698f9c65696b315308c"
+  },
+  "cases": [
+    {
+      "id": "text-to-image-bell",
+      "direction": "text-to-image",
+      "status": "PASS",
+      "target": "image-bell",
+      "target_cosine": 0.739175007,
+      "best_distractor": "image-drum",
+      "best_distractor_cosine": 0.632052612,
+      "margin": 0.107122395,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "image-bell": 0.739175007,
+        "image-drum": 0.632052612,
+        "image-water": 0.544285293,
+        "image-typing": 0.540898877
+      }
+    },
+    {
+      "id": "text-to-image-drum",
+      "direction": "text-to-image",
+      "status": "PASS",
+      "target": "image-drum",
+      "target_cosine": 0.749375547,
+      "best_distractor": "image-bell",
+      "best_distractor_cosine": 0.673601839,
+      "margin": 0.075773708,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "image-drum": 0.749375547,
+        "image-bell": 0.673601839,
+        "image-water": 0.579218124,
+        "image-typing": 0.58386489
+      }
+    },
+    {
+      "id": "text-to-image-water",
+      "direction": "text-to-image",
+      "status": "PASS",
+      "target": "image-water",
+      "target_cosine": 0.76134475,
+      "best_distractor": "image-bell",
+      "best_distractor_cosine": 0.532875799,
+      "margin": 0.228468952,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "image-water": 0.76134475,
+        "image-bell": 0.532875799,
+        "image-drum": 0.51602948,
+        "image-typing": 0.493804876
+      }
+    },
+    {
+      "id": "text-to-audio-bell",
+      "direction": "text-to-audio",
+      "status": "PASS",
+      "target": "audio-bell",
+      "target_cosine": 0.667816864,
+      "best_distractor": "audio-typing",
+      "best_distractor_cosine": 0.639855889,
+      "margin": 0.027960976,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "audio-bell": 0.667816864,
+        "audio-drum": 0.604481082,
+        "audio-water": 0.634733656,
+        "audio-typing": 0.639855889
+      }
+    },
+    {
+      "id": "text-to-audio-drum",
+      "direction": "text-to-audio",
+      "status": "FAIL",
+      "target": "audio-drum",
+      "target_cosine": 0.677504278,
+      "best_distractor": "audio-typing",
+      "best_distractor_cosine": 0.69917631,
+      "margin": -0.021672032,
+      "required_margin": 0.01,
+      "rank_one": false,
+      "cosines": {
+        "audio-drum": 0.677504278,
+        "audio-bell": 0.657061471,
+        "audio-water": 0.676158379,
+        "audio-typing": 0.69917631
+      }
+    },
+    {
+      "id": "text-to-audio-water",
+      "direction": "text-to-audio",
+      "status": "PASS",
+      "target": "audio-water",
+      "target_cosine": 0.596904638,
+      "best_distractor": "audio-typing",
+      "best_distractor_cosine": 0.578789241,
+      "margin": 0.018115397,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "audio-water": 0.596904638,
+        "audio-bell": 0.54274246,
+        "audio-drum": 0.538392335,
+        "audio-typing": 0.578789241
+      }
+    },
+    {
+      "id": "image-to-text-bell",
+      "direction": "image-to-text",
+      "status": "PASS",
+      "target": "text-bell",
+      "target_cosine": 0.739175007,
+      "best_distractor": "text-drum",
+      "best_distractor_cosine": 0.673601839,
+      "margin": 0.065573168,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "text-bell": 0.739175007,
+        "text-drum": 0.673601839,
+        "text-water": 0.532875799,
+        "text-typing": 0.54642939
+      }
+    },
+    {
+      "id": "image-to-text-drum",
+      "direction": "image-to-text",
+      "status": "PASS",
+      "target": "text-drum",
+      "target_cosine": 0.749375547,
+      "best_distractor": "text-bell",
+      "best_distractor_cosine": 0.632052612,
+      "margin": 0.117322935,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "text-drum": 0.749375547,
+        "text-bell": 0.632052612,
+        "text-water": 0.51602948,
+        "text-typing": 0.542826732
+      }
+    },
+    {
+      "id": "image-to-text-water",
+      "direction": "image-to-text",
+      "status": "PASS",
+      "target": "text-water",
+      "target_cosine": 0.76134475,
+      "best_distractor": "text-drum",
+      "best_distractor_cosine": 0.579218124,
+      "margin": 0.182126626,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "text-water": 0.76134475,
+        "text-bell": 0.544285293,
+        "text-drum": 0.579218124,
+        "text-typing": 0.502847942
+      }
+    },
+    {
+      "id": "audio-to-text-bell",
+      "direction": "audio-to-text",
+      "status": "PASS",
+      "target": "text-bell",
+      "target_cosine": 0.667816864,
+      "best_distractor": "text-drum",
+      "best_distractor_cosine": 0.657061471,
+      "margin": 0.010755393,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "text-bell": 0.667816864,
+        "text-drum": 0.657061471,
+        "text-water": 0.54274246,
+        "text-typing": 0.606100044
+      }
+    },
+    {
+      "id": "audio-to-text-drum",
+      "direction": "audio-to-text",
+      "status": "PASS",
+      "target": "text-drum",
+      "target_cosine": 0.677504278,
+      "best_distractor": "text-typing",
+      "best_distractor_cosine": 0.626067279,
+      "margin": 0.051436999,
+      "required_margin": 0.01,
+      "rank_one": true,
+      "cosines": {
+        "text-drum": 0.677504278,
+        "text-bell": 0.604481082,
+        "text-water": 0.538392335,
+        "text-typing": 0.626067279
+      }
+    },
+    {
+      "id": "audio-to-text-water",
+      "direction": "audio-to-text",
+      "status": "FAIL",
+      "target": "text-water",
+      "target_cosine": 0.596904638,
+      "best_distractor": "text-drum",
+      "best_distractor_cosine": 0.676158379,
+      "margin": -0.07925374,
+      "required_margin": 0.01,
+      "rank_one": false,
+      "cosines": {
+        "text-water": 0.596904638,
+        "text-bell": 0.634733656,
+        "text-drum": 0.676158379,
+        "text-typing": 0.632264654
+      }
+    },
+    {
+      "id": "audio-change",
+      "direction": "media-change",
+      "status": "PASS",
+      "distance": 0.13289333,
+      "required_distance": 0.001
+    },
+    {
+      "id": "image-change",
+      "direction": "media-change",
+      "status": "PASS",
+      "distance": 0.085909871,
+      "required_distance": 0.001
+    }
+  ]
+}

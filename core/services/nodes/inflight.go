@@ -22,8 +22,8 @@ import (
 // on the correct row even when multiple replicas of the same model live on the same node.
 //
 // Embedding only grpc.ControlBackend (not the whole grpc.Backend) is what makes
-// the in-flight accounting safe by construction: the control-plane methods pass
-// through untracked, while every grpc.InferenceBackend method must be declared
+// the in-flight accounting safe by construction: control-plane methods other than
+// metadata admission pass through untracked, while every grpc.InferenceBackend method must be declared
 // explicitly below to satisfy grpc.Backend. Adding an inference method to the
 // interface therefore breaks this file's build (see the var assertion below)
 // until it is wrapped with track() - so a new inference path can't be added
@@ -37,7 +37,7 @@ type InFlightTrackingClient struct {
 	replicaIndex        int
 
 	firstOnce       sync.Once // guards onFirstComplete
-	onFirstComplete func()    // called once after the first tracked inference call completes
+	onFirstComplete func()    // called once after the first tracked call completes
 }
 
 // Compile-time contract: *InFlightTrackingClient must implement the FULL backend
@@ -58,7 +58,7 @@ func NewInFlightTrackingClient(inner grpc.Backend, registry InFlightTracker, nod
 }
 
 // OnFirstComplete registers a callback that fires once after the first tracked
-// inference call completes. This is used to release the initial in-flight
+// call (inference or metadata admission) completes. This is used to release the initial in-flight
 // reservation (set during model load) after the triggering request finishes,
 // so that in-flight returns to 0 when the model is idle.
 func (c *InFlightTrackingClient) OnFirstComplete(fn func()) {
@@ -74,7 +74,7 @@ func (c *InFlightTrackingClient) track(ctx context.Context) func() {
 		decCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		c.registry.DecrementInFlight(decCtx, c.nodeID, c.modelName, c.replicaIndex)
-		// Release the initial reservation after the first inference call completes
+		// Release the initial reservation after the first tracked call completes
 		if c.onFirstComplete != nil {
 			c.firstOnce.Do(c.onFirstComplete)
 		}
@@ -114,6 +114,15 @@ func (c *InFlightTrackingClient) reconcile(err error) error {
 	return err
 }
 
+// ModelMetadata is also an admission call: a recycled worker can refuse its
+// identity before inference is ever reached. Track it to release the routing
+// reservation on early refusal, and reconcile only worker-owned stale identities.
+func (c *InFlightTrackingClient) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.ControlBackend.ModelMetadata(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
 // --- Tracked inference methods ---
 
 func (c *InFlightTrackingClient) Predict(ctx context.Context, in *pb.PredictOptions, opts ...ggrpc.CallOption) (*pb.Reply, error) {
@@ -130,6 +139,18 @@ func (c *InFlightTrackingClient) PredictStream(ctx context.Context, in *pb.Predi
 func (c *InFlightTrackingClient) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...ggrpc.CallOption) (*pb.EmbeddingResult, error) {
 	defer c.track(ctx)()
 	res, err := c.inner.Embeddings(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...ggrpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.inner.MultimodalEmbedding(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
+func (c *InFlightTrackingClient) MultimodalRerank(ctx context.Context, in *pb.MultimodalRerankRequest, opts ...ggrpc.CallOption) (*pb.MultimodalRerankResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.inner.MultimodalRerank(ctx, in, opts...)
 	return res, c.reconcile(err)
 }
 

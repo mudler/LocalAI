@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "contract_version": "multimodal-acceptance-v2-adapter",
+  "supersedes": "multimodal-acceptance-v1",
+  "frozen": true,
+  "freeze_policy": "Queries, targets, distractors, thresholds and fixture hashes are frozen by the commit that adds this file, before any v2 score exists. No tuning after inference. Any revision needs a new contract version.",
+  "scope": {
+    "modalities": [
+      "text",
+      "image",
+      "audio"
+    ],
+    "excluded": "video: the llama-cpp backend does not publish a video capability, so there are no video queries",
+    "path": "LocalAI /v1/embeddings -> llama-cpp gRPC MultimodalEmbedding, one input item per request"
+  },
+  "space": {
+    "id": "single-candidate-v2",
+    "identity_fields": [
+      "model_sha256",
+      "projector_sha256",
+      "pooling",
+      "dimensions",
+      "preprocessing_version"
+    ],
+    "no_caption_ocr_transcription": true
+  },
+  "preprocessing": {
+    "version": "adapter-v1",
+    "text": "bare UTF-8, no retrieval prefix, no template, no separator",
+    "image": "the fixture PNG bytes, unchanged; the backend decodes them",
+    "audio": "the fixture WAV bytes, unchanged; the backend resamples to the projector rate, mono float32"
+  },
+  "thresholds": {
+    "retrieval_min_cosine_margin": 0.01,
+    "media_change_min_cosine_distance": 0.001,
+    "finite_nonzero_vectors": true,
+    "ties_pass": false,
+    "rank": 1,
+    "expected_dimensions": 768
+  },
+  "queries": [
+    {
+      "id": "text-to-image-bell",
+      "direction": "text-to-image",
+      "query_text": "A hand rings a brass bell.",
+      "query_fixture": null,
+      "target": "image-bell",
+      "distractors": [
+        "image-drum",
+        "image-water",
+        "image-typing"
+      ]
+    },
+    {
+      "id": "text-to-image-drum",
+      "direction": "text-to-image",
+      "query_text": "A hand strikes a small drum.",
+      "query_fixture": null,
+      "target": "image-drum",
+      "distractors": [
+        "image-bell",
+        "image-water",
+        "image-typing"
+      ]
+    },
+    {
+      "id": "text-to-image-water",
+      "direction": "text-to-image",
+      "query_text": "Water pours from a jug into a glass.",
+      "query_fixture": null,
+      "target": "image-water",
+      "distractors": [
+        "image-bell",
+        "image-drum",
+        "image-typing"
+      ]
+    },
+    {
+      "id": "text-to-audio-bell",
+      "direction": "text-to-audio",
+      "query_text": "A hand rings a brass bell.",
+      "query_fixture": null,
+      "target": "audio-bell",
+      "distractors": [
+        "audio-drum",
+        "audio-water",
+        "audio-typing"
+      ]
+    },
+    {
+      "id": "text-to-audio-drum",
+      "direction": "text-to-audio",
+      "query_text": "A hand strikes a small drum.",
+      "query_fixture": null,
+      "target": "audio-drum",
+      "distractors": [
+        "audio-bell",
+        "audio-water",
+        "audio-typing"
+      ]
+    },
+    {
+      "id": "text-to-audio-water",
+      "direction": "text-to-audio",
+      "query_text": "Water pours from a jug into a glass.",
+      "query_fixture": null,
+      "target": "audio-water",
+      "distractors": [
+        "audio-bell",
+        "audio-drum",
+        "audio-typing"
+      ]
+    },
+    {
+      "id": "image-to-text-bell",
+      "direction": "image-to-text",
+      "query_text": null,
+      "query_fixture": "image-bell",
+      "target": "text-bell",
+      "distractors": [
+        "text-drum",
+        "text-water",
+        "text-typing"
+      ]
+    },
+    {
+      "id": "image-to-text-drum",
+      "direction": "image-to-text",
+      "query_text": null,
+      "query_fixture": "image-drum",
+      "target": "text-drum",
+      "distractors": [
+        "text-bell",
+        "text-water",
+        "text-typing"
+      ]
+    },
+    {
+      "id": "image-to-text-water",
+      "direction": "image-to-text",
+      "query_text": null,
+      "query_fixture": "image-water",
+      "target": "text-water",
+      "distractors": [
+        "text-bell",
+        "text-drum",
+        "text-typing"
+      ]
+    },
+    {
+      "id": "audio-to-text-bell",
+      "direction": "audio-to-text",
+      "query_text": null,
+      "query_fixture": "audio-bell",
+      "target": "text-bell",
+      "distractors": [
+        "text-drum",
+        "text-water",
+        "text-typing"
+      ]
+    },
+    {
+      "id": "audio-to-text-drum",
+      "direction": "audio-to-text",
+      "query_text": null,
+      "query_fixture": "audio-drum",
+      "target": "text-drum",
+      "distractors": [
+        "text-bell",
+        "text-water",
+        "text-typing"
+      ]
+    },
+    {
+      "id": "audio-to-text-water",
+      "direction": "audio-to-text",
+      "query_text": null,
+      "query_fixture": "audio-water",
+      "target": "text-water",
+      "distractors": [
+        "text-bell",
+        "text-drum",
+        "text-typing"
+      ]
+    }
+  ],
+  "pairs": {
+    "image-change": {
+      "surrounding_text": "Find related evidence",
+      "left": "image-bell",
+      "right": "image-drum"
+    },
+    "audio-change": {
+      "surrounding_text": "Find related evidence",
+      "left": "audio-bell",
+      "right": "audio-drum"
+    }
+  },
+  "fixtures": {
+    "text-bell": {
+      "path": "text-bell.txt",
+      "sha256": "8428624d1a51223b8f8e2bdcb1696e4fa346d29715f8ec4dcbe98ed65cb3ccdd"
+    },
+    "image-bell": {
+      "path": "image-bell.png",
+      "sha256": "b847b9f20bd3b11fd77a8767eab7e9c9e764f89e00964de52a7adc65137b0b76"
+    },
+    "audio-bell": {
+      "path": "audio-bell.wav",
+      "sha256": "dc641a3b8728d1c10a7bd6dcb9a7f022f752700d7a037b9e408792cb01924edc"
+    },
+    "text-drum": {
+      "path": "text-drum.txt",
+      "sha256": "75ac1b1182b0c02b238ebcafd25f63d9b90de58097ff62b71d2c8d9ee89a3503"
+    },
+    "image-drum": {
+      "path": "image-drum.png",
+      "sha256": "7a40edf29d55ee66cb5249605c2dd9e6feba2ba2f5d5b93aa8fed91e9b1a097a"
+    },
+    "audio-drum": {
+      "path": "audio-drum.wav",
+      "sha256": "d4f18bf17f0af5dbc217c6c80c52e01eae687c7de41c2b586139cebfbceb57f9"
+    },
+    "text-water": {
+      "path": "text-water.txt",
+      "sha256": "8cb8b99377312bee31e79e6889ba8f2821e9c5d38fad2b8754cb753841d63e6a"
+    },
+    "image-water": {
+      "path": "image-water.png",
+      "sha256": "ec96983cdbbb0aa70c1d783f32384315fcd9cda7df00a300d984c474a66ae2d2"
+    },
+    "audio-water": {
+      "path": "audio-water.wav",
+      "sha256": "8e6c0b0ef96d5fb8b7ed8f08e2ff5b44a9447b237f473203504110aab9ee8a3e"
+    },
+    "text-typing": {
+      "path": "text-typing.txt",
+      "sha256": "3123f85b699130fa6277100b37baca0528f57f21c091044aad78e0b23923bc98"
+    },
+    "image-typing": {
+      "path": "image-typing.png",
+      "sha256": "55c357097e233d6bdf83f2161b44f227e2d06101957ca7187e6494ae8936cdef"
+    },
+    "audio-typing": {
+      "path": "audio-typing.wav",
+      "sha256": "e966b2732c3ae649c30c03b839feef9d927f96ea22a7987a8f8d712ee12e3bd8"
+    }
+  },
+  "regeneration": "python3 test/multimodal/native_probe/generate_fixtures_v2.py (numpy and PIL)"
+}

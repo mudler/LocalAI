@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/pkg/embeddingmedia"
 	"github.com/mudler/LocalAI/pkg/tokens"
 )
 
@@ -154,7 +155,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/moderations", moderationHandler, moderationMiddleware...)
 
 	// embeddings
-	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
+	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), openai.WithPreparationLimiter(embeddingmedia.SharedPreparationLimiter()))
 	embeddingMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,

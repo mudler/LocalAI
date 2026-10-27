@@ -64,6 +64,7 @@
 #include "parallel_params.h"
 #include "slot_cache.h"
 #include "message_content.h"
+#include "multimodal_embedding.h"
 #include "moe_cache_option.h"
 #include "passthrough_options.h"
 #include "stream_peer.h"
@@ -82,7 +83,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <chrono>
 #include <list>
+#include <random>
 #include <map>
 #include <ctime>
 #include <mutex>
@@ -1589,6 +1592,11 @@ private:
     // distributed route is rejected instead of answered from the wrong model
     // (#10952). Written under LoadModel, read by the inference RPCs.
     std::string loaded_model_identity;
+    // Opaque token of this load. The typed embedding and rerank RPCs carry it
+    // back, so a request prepared against a previous load (or a previous
+    // process) is refused instead of answered by a different model. Empty until
+    // a model is loaded.
+    std::string typed_generation;
 
 public:
     BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
@@ -1629,6 +1637,7 @@ public:
     grpc::Status LoadModel(ServerContext* context, const backend::ModelOptions* request, backend::Result* result) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
+        typed_generation.clear();
         // Implement LoadModel RPC
         common_params params;
         params_parse(ctx_server, request, params);
@@ -1760,6 +1769,7 @@ public:
         result->set_success(true);
         loaded_model = true;
         loaded_model_identity = request->model();
+        typed_generation = new_generation_token();
         // Store copy of params_base for use in parse_options and other methods
         params_base = params;
 
@@ -2995,36 +3005,205 @@ public:
         return grpc::Status::OK;
     }
 
-    grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) override {
-        auto auth = checkAuth(context);
-        if (!auth.ok()) return auth;
-        auto identity = checkModelIdentity(request);
-        if (!identity.ok()) return identity;
+
+    // 128 random bits, hex encoded.
+    static std::string new_generation_token() {
+        std::random_device rd;
+        static const char * hex = "0123456789abcdef";
+        std::string out;
+        for (int i = 0; i < 16; i++) {
+            const unsigned v = rd() & 0xff;
+            out += hex[v >> 4];
+            out += hex[v & 15];
+        }
+        return out;
+    }
+
+#if LOCALAI_HAS_MM_EMBED
+    // True when the loaded model runs in embedding mode with a pooled output.
+    bool typed_embedding_mode() const {
+        return params_base.embedding && params_base.pooling_type != LLAMA_POOLING_TYPE_RANK;
+    }
+    bool typed_rerank_mode() const {
+        return params_base.embedding && params_base.pooling_type == LLAMA_POOLING_TYPE_RANK;
+    }
+    bool has_vision() const { return ctx_server.impl->mctx != nullptr && mtmd_support_vision(ctx_server.impl->mctx); }
+    bool has_audio() const { return ctx_server.impl->mctx != nullptr && mtmd_support_audio(ctx_server.impl->mctx); }
+    bool has_rerank_template() const {
+        return llama_model_chat_template(ctx_server.impl->model_tgt, "rerank") != nullptr;
+    }
+
+    // Media decoding for embeddings must never reach a video decoder: the
+    // helper falls back to ffmpeg for bytes it cannot read as an image or audio
+    // clip. Pointing the lookup at a directory that does not exist keeps a
+    // corrupt image from starting a subprocess. Video is not supported here.
+    mtmd_helper_init_opt typed_init_opt() const {
+        mtmd_helper_init_opt opt = ctx_server.impl->init_opt;
+        opt.video_params.ffmpeg_bin_dir = "/nonexistent-localai-no-video";
+        return opt;
+    }
+
+    // Admission shared by the typed RPCs: the selected identity, the load
+    // generation, and the model state. Mirrors pkg/grpc/server.go.
+    grpc::Status admit_typed(const std::string & model, const std::string & generation) {
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
-        json body = parse_options(false, request, params_base, ctx_server.get_llama_context());
-
-        body["stream"] = false;
-
-        /*
-        if (llama_pooling_type(ctx_server.ctx) == LLAMA_POOLING_TYPE_NONE) {
-            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Pooling type 'none' is not OAI compatible. Please use a different pooling type");
+        if (model.empty()) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "missing model identity");
         }
-        */
+        if (!loaded_model_identity.empty() && loaded_model_identity != model) {
+            return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                                "llama-cpp: model identity mismatch: loaded \"" + loaded_model_identity +
+                                "\", requested \"" + model + "\"");
+        }
+        if (generation.empty() || typed_generation.empty()) {
+            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "typed generation unavailable");
+        }
+        if (generation != typed_generation) {
+            return grpc::Status(grpc::StatusCode::ABORTED, "typed generation changed; reopen session");
+        }
+        return grpc::Status::OK;
+    }
 
-        // for the shape of input/content, see tokenize_input_prompts()
-        json prompt = body.at("embeddings");
+    static grpc::Status to_status(const llama_grpc::mmembed::Failure & f) {
+        using llama_grpc::mmembed::Reason;
+        grpc::StatusCode code = grpc::StatusCode::INVALID_ARGUMENT;
+        if (f.reason == Reason::LimitExceeded) {
+            code = grpc::StatusCode::RESOURCE_EXHAUSTED;
+        } else if (f.reason == Reason::Deadline) {
+            code = grpc::StatusCode::DEADLINE_EXCEEDED;
+        }
+        return grpc::Status(code, llama_grpc::mmembed::reason_prefix(f.reason) + ": " + f.detail);
+    }
 
+    static llama_grpc::mmembed::Budget from_proto(const backend::EmbeddingBudget & b) {
+        llama_grpc::mmembed::Budget out;
+        out.frames                 = b.remaining_frames();
+        out.pixels                 = b.remaining_pixels();
+        out.audio_allocation_bytes = b.remaining_audio_allocation_bytes();
+        out.source_duration_ms     = b.remaining_source_duration_milliseconds();
+        out.temporary_bytes        = b.remaining_temporary_bytes();
+        out.preparation_ms         = b.remaining_preparation_milliseconds();
+        out.compressed_bytes       = b.remaining_compressed_bytes();
+        out.text_bytes             = b.remaining_text_bytes();
+        out.source_parts           = b.remaining_source_parts();
+        return out;
+    }
 
-        auto tokenized_prompts = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt, true, true LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
-        for (const auto & tokens : tokenized_prompts) {
-            // this check is necessary for models that do not add BOS token to the input
-            if (tokens.empty()) {
-                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Input content cannot be empty");
+    static void to_proto(const llama_grpc::mmembed::Consumption & c, backend::EmbeddingConsumption * out) {
+        out->set_frames(c.frames);
+        out->set_pixels(c.pixels);
+        out->set_audio_allocation_bytes(c.audio_allocation_bytes);
+        out->set_source_duration_milliseconds(c.source_duration_ms);
+        out->set_temporary_bytes(c.temporary_bytes);
+        out->set_preparation_milliseconds(c.preparation_ms);
+        out->set_compressed_bytes(c.compressed_bytes);
+        out->set_text_bytes(c.text_bytes);
+        out->set_source_parts(c.source_parts);
+    }
+
+    static uint64_t elapsed_ms_ceil(std::chrono::steady_clock::time_point since) {
+        const auto us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - since).count();
+        return (uint64_t) ((us + 999) / 1000);
+    }
+
+    // One ordered list of typed parts, turned into prompt text with one media
+    // marker per media part, plus the compressed media in the same order.
+    struct TypedPrompt {
+        std::string            text;        // text parts and markers, in order
+        std::string            only_text;   // text parts alone, no markers
+        std::vector<raw_buffer> files;      // images and audio, in order
+        bool                   saw_image = false;
+    };
+
+    // Charges and checks every part of `parts` before anything is decoded.
+    // allow_audio is false for rerank, which accepts text and images only.
+    // text_first makes an image followed by text an error: a reranker appends
+    // images to the text, so that order cannot be honoured.
+    template <typename Parts>
+    grpc::Status plan_typed_parts(const Parts & parts, llama_grpc::mmembed::Plan & plan, bool allow_audio, bool text_first,
+                                  std::chrono::steady_clock::time_point started, ServerContext * context, TypedPrompt & out) {
+        using namespace llama_grpc::mmembed;
+        const std::string marker = ctx_server.impl->mctx != nullptr ? std::string(get_media_marker()) : std::string();
+        for (const auto & part : parts) {
+            if (context->IsCancelled()) {
+                return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
             }
+            if (part.has_text()) {
+                if (text_first && out.saw_image) {
+                    return to_status(fail(Reason::InvalidInput, "text after image"));
+                }
+                if (contains_marker(part.text(), marker)) {
+                    return to_status(fail(Reason::InvalidInput, "text contains the media marker"));
+                }
+                Failure f = plan.add_text(part.text().size());
+                if (!f.ok()) return to_status(f);
+                out.text += part.text();
+                out.only_text += part.text();
+            } else if (part.has_media()) {
+                const auto & media = part.media();
+                const auto * data = reinterpret_cast<const uint8_t *>(media.data().data());
+                switch (media.kind()) {
+                    case backend::EmbeddingMedia::IMAGE: {
+                        if (!has_vision()) {
+                            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "model has no image input");
+                        }
+                        ImageInfo info;
+                        Failure f = plan.add_image(data, media.data().size(), info);
+                        if (!f.ok()) return to_status(f);
+                        out.saw_image = true;
+                        break;
+                    }
+                    case backend::EmbeddingMedia::AUDIO: {
+                        if (!allow_audio) {
+                            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "audio is not accepted here");
+                        }
+                        if (!has_audio()) {
+                            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "model has no audio input");
+                        }
+                        AudioInfo info;
+                        Failure f = plan.add_audio(data, media.data().size(), (uint64_t) std::max(0, mtmd_get_audio_sample_rate(ctx_server.impl->mctx)), info);
+                        if (!f.ok()) return to_status(f);
+                        break;
+                    }
+                    case backend::EmbeddingMedia::VIDEO:
+                        // Decoding video needs an ffmpeg binary that this backend
+                        // does not ship, so the capability is not published.
+                        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "video decoding unavailable");
+                    default:
+                        return to_status(fail(Reason::InvalidInput, "media kind"));
+                }
+                out.text += marker;
+                out.files.emplace_back(data, data + media.data().size());
+            } else {
+                return to_status(fail(Reason::InvalidInput, "empty part"));
+            }
+            Failure t = plan.check_time(elapsed_ms_ceil(started));
+            if (!t.ok()) return to_status(t);
         }
+        return grpc::Status::OK;
+    }
+#endif
 
+    // The server reports an input that does not fit as ERROR_TYPE_EXCEED_CONTEXT_SIZE
+    // in the chat path, but as a plain server error ("input (N tokens) is too large
+    // to process") when a non-causal task is larger than the physical batch. Both are
+    // a limit the client can act on, not a backend failure.
+    static bool is_context_overflow(const json & err) {
+        if (err.value("type", std::string()) == "exceed_context_size_error") {
+            return true;
+        }
+        return err.value("message", std::string()).find("is too large to process") != std::string::npos;
+    }
+
+    // Queues one embedding task per prompt, waits for all of them and fills the
+    // result. Shared by the legacy and the typed RPC so pooling, layout and usage
+    // accounting cannot differ. typed_errors maps a context overflow to the
+    // limit status the frontend turns into HTTP 413; the legacy RPC keeps its
+    // INTERNAL answer.
+    grpc::Status run_embedding_tasks(ServerContext * context, std::vector<server_tokens> & tokenized_prompts,
+                                     backend::EmbeddingResult * embeddingResult, bool typed_errors) {
         // Honor the load-time embd_normalize set via options:embd_normalize.
         // -1 none, 0 max-abs, 1 taxicab, 2 L2 (default), >2 p-norm.
         int embd_normalize = params_base.embd_normalize;
@@ -3053,7 +3232,11 @@ public:
         if (all_results.is_terminated) {
             return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
         } else if (all_results.error) {
-            return grpc::Status(grpc::StatusCode::INTERNAL, all_results.error->to_json().value("message", "Error in receiving results"));
+            const json err = all_results.error->to_json();
+            if (typed_errors && is_context_overflow(err)) {
+                return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED, "limit_exceeded: context");
+            }
+            return grpc::Status(grpc::StatusCode::INTERNAL, err.value("message", "Error in receiving results"));
         }
 
         // Extract the embeddings typed, straight from the task results (no
@@ -3092,6 +3275,82 @@ public:
         std::cout << "[DEBUG] Embedding vectors: " << n_vectors << " x " << dim << std::endl;
 
         return grpc::Status::OK;
+    }
+
+    grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
+        if (params_base.model.path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        json body = parse_options(false, request, params_base, ctx_server.get_llama_context());
+
+        body["stream"] = false;
+
+        /*
+        if (llama_pooling_type(ctx_server.ctx) == LLAMA_POOLING_TYPE_NONE) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Pooling type 'none' is not OAI compatible. Please use a different pooling type");
+        }
+        */
+
+        // for the shape of input/content, see tokenize_input_prompts()
+        json prompt = body.at("embeddings");
+
+
+        auto tokenized_prompts = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt, true, true LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
+        for (const auto & tokens : tokenized_prompts) {
+            // this check is necessary for models that do not add BOS token to the input
+            if (tokens.empty()) {
+                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Input content cannot be empty");
+            }
+        }
+
+        return run_embedding_tasks(context, tokenized_prompts, embeddingResult, /*typed_errors=*/false);
+    }
+
+
+    // Sorts rerank results by score, crops them to top_n and fills the reply.
+    // text_of gives the text shown for a document index.
+    template <typename Results, typename TextOf>
+    static void fill_rerank_result(Results & results, int top_n, TextOf text_of, backend::RerankResult * rerankResult) {
+        // Collect responses
+        std::vector<json> responses;
+        for (auto & res : results) {
+            GGML_ASSERT(dynamic_cast<server_task_result_rerank*>(res.get()) != nullptr);
+            responses.push_back(res->to_json());
+        }
+        // Sort responses by score in descending order
+        std::sort(responses.begin(), responses.end(), [](const json& a, const json& b) {
+            return a.value("score", 0.0f) > b.value("score", 0.0f);
+        });
+
+        // Crop results by request.top_n if specified
+        if (top_n > 0 && top_n < static_cast<int>(responses.size())) {
+            responses.resize(top_n);
+        }
+        // Set usage information
+        backend::Usage* usage = rerankResult->mutable_usage();
+        int total_tokens = 0;
+        int prompt_tokens = 0;
+
+        // Create document results
+        for (const auto& response : responses) {
+            backend::DocumentResult* doc_result = rerankResult->add_results();
+            doc_result->set_index(response.value("index", 0));
+            doc_result->set_text(text_of(response.value("index", 0)));
+            doc_result->set_relevance_score(response.value("score", 0.0f));
+
+            // Add tokens evaluated for this document
+            int tokens_evaluated = response.value("tokens_evaluated", 0);
+            total_tokens += tokens_evaluated;
+            prompt_tokens += tokens_evaluated;
+        }
+
+        // Set the total tokens in usage
+        usage->set_total_tokens(total_tokens);
+        usage->set_prompt_tokens(prompt_tokens);
     }
 
     grpc::Status Rerank(ServerContext* context, const backend::RerankRequest* request, backend::RerankResult* rerankResult) override {
@@ -3142,45 +3401,142 @@ public:
             return grpc::Status(grpc::StatusCode::INTERNAL, all_results.error->to_json().value("message", "Error in receiving results"));
         }
 
-        // Collect responses
-        std::vector<json> responses;
-        for (auto & res : all_results.results) {
-            GGML_ASSERT(dynamic_cast<server_task_result_rerank*>(res.get()) != nullptr);
-            responses.push_back(res->to_json());
-        }
-        // Sort responses by score in descending order
-        std::sort(responses.begin(), responses.end(), [](const json& a, const json& b) {
-            return a.value("score", 0.0f) > b.value("score", 0.0f);
-        });
-
-        // Crop results by request.top_n if specified
-        int top_n = request->top_n();
-        if (top_n > 0 && top_n < static_cast<int>(responses.size())) {
-            responses.resize(top_n);
-        }
-        // Set usage information
-        backend::Usage* usage = rerankResult->mutable_usage();
-        int total_tokens = 0;
-        int prompt_tokens = 0;
-
-        // Create document results
-        for (const auto& response : responses) {
-            backend::DocumentResult* doc_result = rerankResult->add_results();
-            doc_result->set_index(response.value("index", 0));
-            doc_result->set_text(request->documents(response.value("index", 0)));
-            doc_result->set_relevance_score(response.value("score", 0.0f));
-
-            // Add tokens evaluated for this document
-            int tokens_evaluated = response.value("tokens_evaluated", 0);
-            total_tokens += tokens_evaluated;
-            prompt_tokens += tokens_evaluated;
-        }
-
-        // Set the total tokens in usage
-        usage->set_total_tokens(total_tokens);
-        usage->set_prompt_tokens(prompt_tokens);
-
+        fill_rerank_result(all_results.results, request->top_n(), [&](int index) { return request->documents(index); }, rerankResult);
         return grpc::Status::OK;
+    }
+
+
+    // MultimodalEmbedding embeds one item made of ordered text, image and audio
+    // parts (protocol version 1). Media arrives as compressed bytes only. Every
+    // allowance in the budget is enforced here before the matching decode, not
+    // only reported afterwards: sizes are read from the container headers, so a
+    // small file that claims a huge image or a long clip is refused without
+    // allocating. There is no fallback to the text RPC.
+    grpc::Status MultimodalEmbedding(ServerContext* context, const backend::MultimodalEmbeddingRequest* request, backend::MultimodalEmbeddingResponse* response) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+#if !LOCALAI_HAS_MM_EMBED
+        (void) request; (void) response;
+        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "multimodal embedding unavailable");
+#else
+        using namespace llama_grpc::mmembed;
+        const auto started = std::chrono::steady_clock::now();
+        if (request->has_options() && !request->options().modelidentity().empty() && request->options().modelidentity() != request->model()) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "conflicting embedding model identity");
+        }
+        auto admitted = admit_typed(request->model(), request->embedding_generation());
+        if (!admitted.ok()) return admitted;
+        if (!typed_embedding_mode()) {
+            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "model is not loaded for pooled embeddings");
+        }
+        if (request->parts_size() == 0 || !request->has_budget()) {
+            return to_status(fail(Reason::InvalidInput, "parts and budget are required"));
+        }
+
+        Plan plan(from_proto(request->budget()));
+        TypedPrompt prompt;
+        auto planned = plan_typed_parts(request->parts(), plan, /*allow_audio=*/true, /*text_first=*/false, started, context, prompt);
+        if (!planned.ok()) return planned;
+
+        std::vector<server_tokens> tokenized;
+        try {
+            if (prompt.files.empty()) {
+                tokenized.push_back(tokenize_input_subprompt(ctx_server.impl->vocab, ctx_server.impl->mctx, json(prompt.text), true, true LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt)));
+            } else {
+                tokenized.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt.text, prompt.files, typed_init_opt()));
+            }
+        } catch (const std::exception & e) {
+            SRV_WRN("MultimodalEmbedding: preparation failed: %s\n", e.what());
+            return to_status(fail(Reason::InvalidInput, "media could not be decoded"));
+        }
+        if (tokenized[0].empty()) {
+            return to_status(fail(Reason::InvalidInput, "empty input"));
+        }
+        Failure t = plan.check_time(elapsed_ms_ceil(started));
+        if (!t.ok()) return to_status(t);
+
+        auto status = run_embedding_tasks(context, tokenized, response->mutable_result(), /*typed_errors=*/true);
+        if (!status.ok()) {
+            return status;
+        }
+        // Inference time is not preparation time, so report the preparation
+        // clock as it stood when decoding finished.
+        to_proto(plan.consumption(), response->mutable_consumption());
+        return grpc::Status::OK;
+#endif
+    }
+
+    // MultimodalRerank scores documents against a query where either side may
+    // carry images (protocol version 1). The prompt is built by llama.cpp from
+    // the rerank chat template of the model; this code only bounds and passes
+    // the media. Text-only requests do not use this RPC.
+    grpc::Status MultimodalRerank(ServerContext* context, const backend::MultimodalRerankRequest* request, backend::MultimodalRerankResponse* response) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+#if !(LOCALAI_HAS_MM_EMBED && LOCALAI_HAS_RERANK_FILES)
+        (void) request; (void) response;
+        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "multimodal rerank unavailable");
+#else
+        using namespace llama_grpc::mmembed;
+        const auto started = std::chrono::steady_clock::now();
+        auto admitted = admit_typed(request->model(), request->embedding_generation());
+        if (!admitted.ok()) return admitted;
+        if (!typed_rerank_mode() || !has_rerank_template()) {
+            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "model is not loaded for multimodal reranking");
+        }
+        if (request->query_size() == 0 || request->documents_size() == 0 || !request->has_budget()) {
+            return to_status(fail(Reason::InvalidInput, "query, documents and budget are required"));
+        }
+
+        Plan plan(from_proto(request->budget()));
+        TypedPrompt query;
+        auto planned = plan_typed_parts(request->query(), plan, /*allow_audio=*/false, /*text_first=*/true, started, context, query);
+        if (!planned.ok()) return planned;
+        std::vector<TypedPrompt> documents(request->documents_size());
+        for (int i = 0; i < request->documents_size(); i++) {
+            if (request->documents(i).parts_size() == 0) {
+                return to_status(fail(Reason::InvalidInput, "empty document"));
+            }
+            planned = plan_typed_parts(request->documents(i).parts(), plan, false, true, started, context, documents[i]);
+            if (!planned.ok()) return planned;
+        }
+
+        auto rd = ctx_server.get_response_reader();
+        try {
+            std::vector<server_task> tasks;
+            tasks.reserve(documents.size());
+            for (size_t i = 0; i < documents.size(); i++) {
+                auto tokens = format_prompt_rerank(ctx_server.impl->model_tgt, ctx_server.impl->vocab, ctx_server.impl->mctx,
+                                                   query.only_text, documents[i].only_text, query.files, documents[i].files,
+                                                   typed_init_opt());
+                server_task task = server_task(SERVER_TASK_TYPE_RERANK);
+                task.id = rd.queue_tasks.get_new_id();
+                task.index = i;
+                task.tokens = std::move(tokens);
+                tasks.push_back(std::move(task));
+            }
+            Failure t = plan.check_time(elapsed_ms_ceil(started));
+            if (!t.ok()) return to_status(t);
+            rd.post_tasks(std::move(tasks));
+        } catch (const std::exception & e) {
+            SRV_WRN("MultimodalRerank: preparation failed: %s\n", e.what());
+            return to_status(fail(Reason::InvalidInput, "media could not be decoded"));
+        }
+
+        auto all_results = rd.wait_for_all([&context]() { return context->IsCancelled(); });
+        if (all_results.is_terminated) {
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        } else if (all_results.error) {
+            const json err = all_results.error->to_json();
+            if (is_context_overflow(err)) {
+                return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED, "limit_exceeded: context");
+            }
+            return grpc::Status(grpc::StatusCode::INTERNAL, err.value("message", "Error in receiving results"));
+        }
+        fill_rerank_result(all_results.results, request->top_n(), [&](int index) { return documents[index].only_text; }, response->mutable_result());
+        to_proto(plan.consumption(), response->mutable_consumption());
+        return grpc::Status::OK;
+#endif
     }
 
 #ifndef LOCALAI_LLAMA_CPP_NO_TTS_TASK
@@ -4014,11 +4370,36 @@ public:
         return grpc::Status::OK;
     }
 
-    grpc::Status ModelMetadata(ServerContext* /*context*/, const backend::ModelOptions* /*request*/, backend::ModelMetadataResponse* response) override {
+    grpc::Status ModelMetadata(ServerContext* /*context*/, const backend::ModelOptions* request, backend::ModelMetadataResponse* response) override {
         // Check if model is loaded
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
+        if (request != nullptr && !request->model().empty() && !loaded_model_identity.empty() && request->model() != loaded_model_identity) {
+            return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                                "llama-cpp: model identity mismatch: loaded \"" + loaded_model_identity +
+                                "\", requested \"" + request->model() + "\"");
+        }
+
+        // Typed embedding and rerank capabilities come before any chat-template
+        // early return below: they do not depend on a template. Video is never
+        // published because this backend ships no video decoder.
+        response->set_embedding_generation(typed_generation);
+#if LOCALAI_HAS_MM_EMBED
+        if (typed_embedding_mode()) {
+            response->set_embedding_protocol_version(1);
+            response->add_embedding_modalities(backend::TEXT);
+            if (has_vision()) response->add_embedding_modalities(backend::IMAGE);
+            if (has_audio())  response->add_embedding_modalities(backend::AUDIO);
+        }
+#if LOCALAI_HAS_RERANK_FILES
+        if (typed_rerank_mode()) {
+            response->set_rerank_protocol_version(1);
+            response->add_rerank_modalities(backend::TEXT);
+            if (has_vision() && has_rerank_template()) response->add_rerank_modalities(backend::IMAGE);
+        }
+#endif
+#endif
 
         // Report the active multimodal media marker so the Go layer can emit the
         // same string when rendering prompts outside the tokenizer-template path.

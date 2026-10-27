@@ -195,6 +195,9 @@ See also: [Text Generation]({{%relref "features/text-generation" %}})
 | 400    | No `model` in the body and no embeddings model configured | `Bad Request` |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
+Structured (multimodal) input adds 413, 415, 422, 429, 501, 502 and 504; see
+[Order of work and errors]({{%relref "features/embeddings#order-of-work-and-errors" %}}).
+
 See also: [Embeddings]({{%relref "features/embeddings" %}})
 
 ### Image Generation - `POST /v1/images/generations`
@@ -259,6 +262,10 @@ See also: [Text to Audio]({{%relref "features/text-to-audio" %}})
 | 400    | Invalid or malformed request body | `Bad Request`                       |
 | 422    | `top_n` less than 1            | `top_n - should be greater than or equal to 1` |
 | 500    | Backend inference failure       | `Internal Server Error`              |
+
+Typed content (images) adds 400 (text after an image, malformed content), 413, 415,
+422 (audio or video part, or a model that cannot read images), 429, 501, 502 and
+504, with the meaning given for embeddings.
 
 See also: [Reranker]({{%relref "features/reranker" %}})
 

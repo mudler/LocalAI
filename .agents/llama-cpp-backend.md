@@ -14,6 +14,24 @@ The llama.cpp backend (`backend/cpp/llama-cpp/grpc-server.cpp`) is a gRPC adapta
 - Uses shared server infrastructure: `server-context.cpp`, `server-task.cpp`, `server-queue.cpp`, `server-common.cpp`
 - The gRPC server mirrors the HTTP server's functionality but uses gRPC instead of HTTP
 
+## Typed multimodal embedding and rerank
+
+`MultimodalEmbedding` and `MultimodalRerank` (text, image, audio; no video) live in
+`grpc-server.cpp`, with the bound checks in `multimodal_embedding.h` and its
+standalone unit test `multimodal_embedding_test.cpp` (run by `make test-backend-cpp`).
+Rules to keep when you touch them:
+- Every bound is decided from the container header before a decoder runs. Do not
+  decode first and check after. A zero allowance is exhausted.
+- `prepare.sh` writes `LOCALAI_HAS_MM_EMBED` (needs `process_mtmd_prompt` and the mtmd
+  init options) and `LOCALAI_HAS_RERANK_FILES`. Forks that lack the API must still
+  compile and must publish no capability.
+- Publish capabilities from what the loaded model has, never a fixed list. Do not
+  publish video until the backend ships a decoder.
+- Keep the `ffmpeg_bin_dir` override in `typed_init_opt()`: without it a corrupt image
+  can start an ffmpeg subprocess through the mtmd helper.
+- The real-model check is `tests/e2e/e2e_multimodal_embedding_real_test.go` (see
+  `tests/e2e/MULTIMODAL.md`).
+
 ## Common Issues When Updating llama.cpp
 
 When fixing compilation errors after upstream changes:
