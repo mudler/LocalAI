@@ -73,7 +73,6 @@ var _ = Describe("The process and the command line", Label("platform", "cli"), f
 		})
 
 		It("does not describe the data path as holding agent state or jobs", func() {
-			knownGap("PLAT-2", "the --data-path help still says it holds agent state, tasks and jobs")
 			out, err := run(60*time.Second, nil, "run", "--help")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(out).NotTo(MatchRegexp(`(?i)agent state, tasks, jobs`))

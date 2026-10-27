@@ -202,7 +202,7 @@ The container exposes the following volumes:
 | `/models` | Model files used for inferencing | `--models-path` | `$LOCALAI_MODELS_PATH` |
 | `/backends` | Custom backends for inferencing | `--backends-path` | `$LOCALAI_BACKENDS_PATH` |
 | `/configuration` | Dynamic config files (api_keys.json, external_backends.json, runtime_settings.json) | `--localai-config-dir` | `$LOCALAI_CONFIG_DIR` |
-| `/data` | Persistent data (collections, agent state, tasks, jobs) | `--data-path` | `$LOCALAI_DATA_PATH` |
+| `/data` | Persistent data (collections, chat files, JSON stores when there is no database) | `--data-path` | `$LOCALAI_DATA_PATH` |
 
 {{% notice warning %}}
 Container files that are not stored in a volume are lost when the container is
