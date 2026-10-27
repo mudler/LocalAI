@@ -29,6 +29,11 @@ func (h *Handlers) Conversion(c echo.Context) error {
 	out := schema.ChatsConversion{Done: ok, Items: []schema.ChatsConversionItem{}}
 	if ok {
 		own := rep.ForUser(userID(c))
+		if isAdmin(c) && userID(c) != "" {
+			// What had no owner when accounts were switched on belongs to nobody
+			// who could read it: the administrator gets it.
+			own.Items = append(own.Items, rep.ForUser("").Items...)
+		}
 		out.At = &rep.At
 		out.Counts = totalsOf(own)
 		for _, i := range own.Items {

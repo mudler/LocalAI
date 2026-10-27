@@ -75,7 +75,7 @@ curl .../api/chats/conversion
 It returns your items: `kind` (`agent`, `trigger`, `skill`, `chat`,
 `connector`), `name`, `status` (`converted`, `skipped`, `failed`, `dropped`)
 and a `reason`. It never holds a token or the text of a prompt. An
-administrator also gets `totals` for all users. Each user with something new
+administrator also gets `totals` for all users, and the items that had no owner (made before accounts existed, skipped when accounts are on). A chat that had pictures, audio or files says how many attachments were not kept. Each user with something new
 gets one notification in the [inbox](/features/chats-agents/).
 
 A run is safe to repeat. A converted item is marked and is not converted

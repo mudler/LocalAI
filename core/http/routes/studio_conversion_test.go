@@ -27,6 +27,22 @@ var _ = Describe("Chats conversion report endpoint", func() {
 		Expect(out["items"]).To(BeEmpty())
 	})
 
+	It("shows an administrator the items that have no owner, and nobody else", func() {
+		marks, err := convert.NewJSONMarks("")
+		Expect(err).NotTo(HaveOccurred())
+		s.svc.SetConversion(marks)
+		Expect(marks.SaveReport(context.Background(), convert.Report{Items: []convert.Item{
+			{Kind: convert.KindAgent, User: "", Name: "Root agent", Status: convert.StatusSkipped, Reason: "the item has no owner: make it again in the new pages"},
+			{Kind: convert.KindAgent, User: "alice", Name: "Helper", Status: convert.StatusConverted},
+		}})).To(Succeed())
+		root := decodeJSON(s.do("root", http.MethodGet, "/api/chats/conversion", nil))["items"].([]any)
+		Expect(root).To(HaveLen(1))
+		Expect(root[0].(map[string]any)).To(HaveKeyWithValue("name", "Root agent"))
+		alice := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/conversion", nil))["items"].([]any)
+		Expect(alice).To(HaveLen(1))
+		Expect(alice[0].(map[string]any)).To(HaveKeyWithValue("name", "Helper"))
+	})
+
 	It("lists only the caller's items, and gives an administrator the totals", func() {
 		marks, err := convert.NewJSONMarks("")
 		Expect(err).NotTo(HaveOccurred())

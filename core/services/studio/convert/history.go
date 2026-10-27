@@ -67,6 +67,34 @@ func toolOf(name string, content json.RawMessage) (toolName, text string) {
 	return toolName, text
 }
 
+// attachmentsOf counts what the old page attached to messages and the new chat
+// does not carry over: the files of a message and the parts of its content that
+// are not text (pictures, audio).
+func attachmentsOf(history json.RawMessage) int {
+	var msgs []struct {
+		Content json.RawMessage   `json:"content"`
+		Files   []json.RawMessage `json:"files"`
+	}
+	if json.Unmarshal(history, &msgs) != nil {
+		return 0
+	}
+	n := 0
+	for _, m := range msgs {
+		n += len(m.Files)
+		var parts []struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(m.Content, &parts) == nil {
+			for _, p := range parts {
+				if p.Type != "" && p.Type != "text" {
+					n++
+				}
+			}
+		}
+	}
+	return n
+}
+
 // entriesOf maps the messages of the old page to transcript lines: user and
 // assistant text, thinking as reasoning, and each tool call or result as one
 // tool line. It keeps the newest MaxMessages.
@@ -213,5 +241,9 @@ func (r *run) convertChat(ctx context.Context, ref convRef) {
 		return
 	}
 	r.mark(ctx, key, "chat")
-	r.add(KindChat, ref.UserID, title, StatusConverted, "")
+	reason := ""
+	if n := attachmentsOf(c.History); n > 0 {
+		reason = "pictures, audio and files are not converted: " + plural(n, "attachment")
+	}
+	r.add(KindChat, ref.UserID, title, StatusConverted, reason)
 }
