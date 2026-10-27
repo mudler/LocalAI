@@ -4,10 +4,18 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import { useWorkspace, joinPath, parentOf } from '../hooks/useWorkspace'
 import { filesApi } from '../utils/api'
+import AddonSlot from '../addons/AddonSlot'
 import './workspace.css'
 
 const TEXT_EXT = /\.(txt|md|markdown|json|ya?ml|csv|tsv|log|xml|html?|css|js|jsx|ts|tsx|py|go|rs|c|h|cpp|sh|sql|toml|ini)$/i
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i
+
+// The extension an add-on preview is matched on: lower case, without the dot.
+// A name with no extension, or one the slot would refuse, has none.
+function extensionOf(name) {
+  const m = /\.([A-Za-z0-9]{1,8})$/.exec(name || '')
+  return m ? m[1].toLowerCase() : ''
+}
 
 function size(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -48,6 +56,9 @@ function Preview({ entry, t }) {
     <aside className="ws-preview" aria-label={t('preview.label')}>
       <h2 className="ws-preview__name">{entry.name}</h2>
       <p className="ws-muted">{size(entry.size)}</p>
+      {entry.kind === 'file' && extensionOf(entry.name) && (
+        <AddonSlot slot="files.preview" context={{ path: entry.path, name: entry.name, extension: extensionOf(entry.name) }} />
+      )}
       {IMAGE_EXT.test(entry.name) && (
         <img className="ws-preview__image" src={filesApi.contentUrl(entry.path, true)} alt={entry.name} />
       )}

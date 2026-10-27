@@ -31,4 +31,16 @@ test.describe('Files page with a stubbed API', () => {
     await page.getByRole('button', { name: 'Dismiss' }).click()
     await expect(page.getByRole('alert')).toHaveCount(0)
   })
+
+  test('shows the host preview of a file no add-on previews, and no add-on frame', async ({ page }) => {
+    await page.route(/\/api\/chats\/files\/trash(\?.*)?$/, route => route.fulfill({ json: { entries: [] } }))
+    await page.route(/\/api\/chats\/files(\?.*)?$/, route => route.fulfill({ json: { path: '/', entries: [
+      { path: '/plan.docx', name: 'plan.docx', kind: 'file', size: 2048, version: 1 },
+    ] } }))
+    await page.goto('/app/files')
+    await page.getByTestId('ws-row').filter({ hasText: 'plan.docx' }).getByText('plan.docx').click()
+    await expect(page.getByRole('complementary', { name: 'Preview' })).toContainText('plan.docx')
+    await expect(page.getByTestId('addon-preview')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Download' }).first()).toBeVisible()
+  })
 })

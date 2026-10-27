@@ -183,9 +183,21 @@ function NavEntries({ items, props, label }) {
   )
 }
 
+// files.preview: the first contribution that handles the file's extension
+// draws it, in a frame the host owns. The host's own view stays below it.
+function Preview({ items, props, label }) {
+  const c = items.find(x => x.kind === 'component')
+  if (!c) return null
+  return (
+    <div className="ad-preview" data-testid="addon-preview" data-addon={c.addonId}>
+      <Contributed c={c} props={props} label={label} />
+    </div>
+  )
+}
+
 export default function AddonSlot({ slot, context, enabled = true }) {
   const { t } = useTranslation('addons')
-  const items = useSlotContributions(slot, enabled)
+  const items = useSlotContributions(slot, enabled, slot === 'files.preview' ? context?.extension : undefined)
   const props = useMemo(() => slotProps(slot, context), [slot, context])
   if (!enabled || items.length === 0 || props === null) return null
   const label = t('slots.unavailable')
@@ -194,6 +206,7 @@ export default function AddonSlot({ slot, context, enabled = true }) {
     case 'menu-item': return <ComposerMenu items={items} props={props} label={label} openLabel={t('slots.composerMore')} />
     case 'section': return <Sections items={items} props={props} label={label} />
     case 'nav': return <NavEntries items={items} props={props} label={label} />
+    case 'preview': return <Preview items={items} props={props} label={label} />
     default: return null
   }
 }

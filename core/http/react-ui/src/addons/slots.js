@@ -32,6 +32,9 @@ export const SLOTS = Object.freeze({
   'app.nav': Object.freeze({ props: freeze([]), placement: '', render: 'nav' }),
   // A titled section at the end of the Settings page, under a host heading.
   'settings.sections': Object.freeze({ props: freeze([]), placement: '', render: 'section' }),
+  // A preview of the file selected on the Files page, drawn in place of the
+  // host's plain view. A contribution names the extensions it handles.
+  'files.preview': Object.freeze({ props: freeze(['path', 'name', 'extension']), placement: '', render: 'preview' }),
 })
 
 export const SLOT_IDS = freeze(Object.keys(SLOTS))
@@ -43,6 +46,9 @@ const MAX_LABEL = 60
 const COMPONENT = /^[A-Z][A-Za-z0-9]{0,63}$/
 const PROPOSAL_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/
 const RESULT_CHARS = 4000
+const FILE_PATH = 1024
+const FILE_NAME = 255
+const EXTENSION = /^[a-z0-9]{1,8}$/
 
 const id = (v) => typeof v === 'string' && v !== '' && v.length <= MAX_ID
 
@@ -64,6 +70,10 @@ export function slotProps(slot, input) {
     } else if (name === 'disabled') {
       out.disabled = v === true
       continue
+    } else if (name === 'path' || name === 'name') {
+      if (typeof v !== 'string' || v === '' || v.length > (name === 'path' ? FILE_PATH : FILE_NAME)) return null
+    } else if (name === 'extension') {
+      if (typeof v !== 'string' || !EXTENSION.test(v)) return null
     }
     out[name] = v
   }
@@ -140,6 +150,7 @@ function componentOf(app, instance, slot, language) {
     addonTitle: localizedText(app, 'title', language) || app.id,
     appIcon: typeof app.icon === 'string' ? app.icon : '',
     Component,
+    extensions: Array.isArray(slot.extensions) ? slot.extensions.filter(e => typeof e === 'string') : [],
     sdk: instance.sdk || null,
   }
 }
@@ -150,7 +161,7 @@ function componentOf(app, instance, slot, language) {
 // instance of that same generation and package supplied the component. Any
 // other state (disabled, crashed, replaced, withdrawn, still loading) is an
 // empty list, so one list change unmounts every contribution of an add-on.
-export function slotContributions(slot, { apps = [], instances = [], language = 'en', allowed = false } = {}) {
+export function slotContributions(slot, { apps = [], instances = [], language = 'en', allowed = false, extension } = {}) {
   if (!allowed || !Object.hasOwn(SLOTS, slot)) return []
   const byId = new Map((instances || []).map(i => [i.id, i]))
   const out = []
@@ -165,7 +176,10 @@ export function slotContributions(slot, { apps = [], instances = [], language = 
     for (const s of app.ui.slots || []) {
       if (!s || s.slot !== slot) continue
       const c = componentOf(app, instance, s, language)
-      if (c) out.push(c)
+      if (!c) continue
+      // A preview is drawn only for an extension it declared.
+      if (slot === 'files.preview' && !(typeof extension === 'string' && c.extensions.includes(extension))) continue
+      out.push(c)
     }
   }
   return out

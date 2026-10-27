@@ -3124,9 +3124,16 @@ text, history, the model or any host state.
 | `chat.message.actions` | In the action row of each message. Actions of placement `message` are icon buttons. | `conversationId`, `messageId`, `role` |
 | `app.nav` | On the Add-ons page, below the tile grid. Under the legacy switch: at the end of the second navigation row of the Build hub's Add-ons tab, after the links of `ui.navigation`. | none |
 | `settings.sections` | At the end of the Settings page, one section for each component, under a heading with the title and icon of the add-on. | none |
+| `files.preview` | On the Files page, in the preview of the selected file, between its size and its download link. The first component that handles the file's extension is drawn; the host's own view stays. | `path`, `name`, `extension` |
 
 `messageId` is the position of the message in the conversation. `role` is `user`,
 `assistant`, `system` or `tool`.
+
+A `files.preview` contribution declares the extensions it handles, lower case and without a
+dot (`"extensions": ["docx", "xlsx"]`, one to 16, no repeats). No other slot has the field.
+`path` is the path of the file inside the user's files, `name` its name and `extension` its
+extension. The component reads the file through a read tool of its own add-on, as the user;
+the host never hands it file content.
 
 ### What the host guarantees
 

@@ -44,7 +44,7 @@ export function useAddonChatActions() {
 // Every contribution of `slot`, with the holds that keep the instances it
 // needs loaded. An instance withdrawn by a disable or a crash is loaded again
 // once the add-on is usable, so a slot comes back with the add-on.
-export function useSlotContributions(slot, enabled = true) {
+export function useSlotContributions(slot, enabled = true, extension) {
   const registry = useContext(RegistryContext)
   const acquire = registry ? registry.acquire : null
   const hold = registry ? registry.hold : null
@@ -79,8 +79,8 @@ export function useSlotContributions(slot, enabled = true) {
   }, [stale]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return useMemo(
-    () => slotContributions(slot, { apps, instances, language, allowed }),
-    [slot, apps, instances, language, allowed],
+    () => slotContributions(slot, { apps, instances, language, allowed, extension }),
+    [slot, apps, instances, language, allowed, extension],
   )
 }
 

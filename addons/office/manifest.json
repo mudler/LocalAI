@@ -479,7 +479,19 @@
         "max": 2,
         "min": 2
       },
-      "title": "Office"
+      "title": "Office",
+      "slots": [
+        {
+          "id": "preview",
+          "slot": "files.preview",
+          "component": "OfficePreview",
+          "extensions": [
+            "docx",
+            "xlsx",
+            "pptx"
+          ]
+        }
+      ]
     }
   },
   "dataFormat": {

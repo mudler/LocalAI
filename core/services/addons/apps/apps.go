@@ -159,8 +159,10 @@ type ChatActionView struct {
 // SlotView is a component the manifest places in a host slot.
 type SlotView struct {
 	ID        string `json:"id" example:"notes-nav"`
-	Slot      string `json:"slot" enums:"chat.composer.actions,chat.message.actions,app.nav,settings.sections" example:"settings.sections"`
+	Slot      string `json:"slot" enums:"chat.composer.actions,chat.message.actions,app.nav,settings.sections,files.preview" example:"settings.sections"`
 	Component string `json:"component" example:"NotesSettings"`
+	// Extensions are set for a files.preview slot: the file extensions it handles.
+	Extensions []string `json:"extensions,omitempty" example:"docx,xlsx"`
 }
 
 // AdminView carries the controls only an administrator is shown. The server
@@ -287,7 +289,7 @@ func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Ren
 	}
 	var slots []SlotView
 	for _, s := range u.Slots {
-		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component})
+		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component, Extensions: slices.Clone(s.Extensions)})
 	}
 	return actions, slots, slices.Clone(u.Renderers)
 }

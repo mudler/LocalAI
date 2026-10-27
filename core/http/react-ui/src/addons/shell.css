@@ -119,3 +119,4 @@
 .ad-artifact a.dk-btn--primary:hover,
 .ad-artifact a.dk-btn--primary:focus-visible { color: var(--dk-on-accent); text-decoration: none; }
 .ad-result { margin: 0; max-height: 40vh; overflow: auto; font-size: var(--dk-text-12, 12px); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ad-preview { margin: var(--dk-space-3, 12px) 0; }

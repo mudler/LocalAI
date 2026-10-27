@@ -1,5 +1,7 @@
 // The entry of the Office add-on. Its work happens in the chats: the tools read
 // and edit Word, Excel, PowerPoint and PDF files. This page only says so.
+import { createPreview } from './Preview.jsx'
+
 export function createAddon(sdk) {
   const { React } = sdk
   // eslint-disable-next-line no-unused-vars
@@ -10,7 +12,11 @@ export function createAddon(sdk) {
     'office.word': 'Word documents (.docx): read the text, replace text, add paragraphs and tables, create new ones.',
     'office.excel': 'Excel workbooks (.xlsx): read the sheets, set cells and formulas, add sheets, create new ones.',
     'office.powerpoint': 'PowerPoint decks (.pptx): read the slides, edit text and shapes, add slides, create new decks.',
-    'office.pdf': 'PDF files (.pdf): read the text and the form fields.',
+    'office.pdf': 'PDF files (.pdf): read the text.',
+    'office.preview.loading': 'Reading the file…',
+    'office.preview.truncated': 'Only the start of the file is shown.',
+    'office.preview.unsupported': 'This file cannot be previewed.',
+    'office.preview.unreadable': 'The file could not be read.',
   })
   const t = (key) => sdk.locale.t(key, key)
 
@@ -18,7 +24,7 @@ export function createAddon(sdk) {
     if (page !== 'office') return null
     return (
       <section data-testid="office-page" className="office-page">
-        <h1 className="office-page__title">{t('office.title')}</h1>
+        <h1 className="page-title office-page__title">{t('office.title')}</h1>
         <p>{t('office.intro')}</p>
         <ul className="office-page__kinds">
           <li>{t('office.word')}</li>
@@ -29,5 +35,6 @@ export function createAddon(sdk) {
       </section>
     )
   }
-  return { Component, components: {}, chatActions: [], dispose() {} }
+  const { OfficePreview, OfficePreviewView } = createPreview(sdk, t)
+  return { Component, components: { OfficePreview, OfficePreviewView }, chatActions: [], dispose() {} }
 }

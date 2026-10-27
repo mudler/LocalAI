@@ -1,3 +1,10 @@
 .office-page { max-width: 44rem; margin: 0 auto; padding: var(--dk-space-6, 1.5rem) var(--dk-space-4, 1rem); }
 .office-page__title { margin: 0 0 var(--dk-space-3, 0.75rem); }
 .office-page__kinds { padding-left: var(--dk-space-5, 1.25rem); display: grid; gap: var(--dk-space-2, 0.5rem); }
+.office-preview { display: grid; gap: var(--dk-space-2, 0.5rem); margin: var(--dk-space-3, 0.75rem) 0; max-height: 24rem; overflow: auto; }
+.office-preview__heading, .office-preview__para, .office-preview__slide h4, .office-preview__slide ul { margin: 0; }
+.office-preview__tablewrap { overflow-x: auto; }
+.office-preview__table { border-collapse: collapse; font-size: 0.85em; }
+.office-preview__table td { border: 1px solid var(--color-border, #8884); padding: 0.15rem 0.4rem; white-space: nowrap; }
+.office-preview__slide { padding: var(--dk-space-2, 0.5rem); border: 1px solid var(--color-border, #8884); border-radius: var(--dk-radius-sm, 4px); }
+.office-preview__note { margin: var(--dk-space-2, 0.5rem) 0; opacity: 0.75; }
