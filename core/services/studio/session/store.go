@@ -111,6 +111,8 @@ type ChatMeta struct {
 const (
 	OriginTrigger   = "trigger"
 	OriginConnector = "connector"
+	// OriginJob marks a chat that an agent job runs in; OriginID is the task.
+	OriginJob = "job"
 )
 
 // Chat kinds.

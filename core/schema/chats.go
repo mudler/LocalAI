@@ -733,3 +733,46 @@ type ChatsToolsPanel struct {
 	// Off is the list of MCP switches in force.
 	Off []string `json:"off"`
 }
+
+// ChatsAdminAgent is a saved agent as an administrator sees it: with its owner,
+// and without the instructions, which are the owner's text.
+type ChatsAdminAgent struct {
+	ID          string    `json:"id"`
+	Owner       string    `json:"owner"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Model       string    `json:"model,omitempty"`
+	MCPServers  []string  `json:"mcp_servers"`
+	Addons      []string  `json:"addons"`
+	Collections []string  `json:"collections"`
+	Skills      []string  `json:"skills"`
+	Created     time.Time `json:"created"`
+	Updated     time.Time `json:"updated"`
+}
+
+// ChatsAdminAgentList is the response of the administrator's agents listing.
+type ChatsAdminAgentList struct {
+	Agents []ChatsAdminAgent `json:"agents"`
+}
+
+// ChatsAdminTrigger is a trigger with its owner.
+type ChatsAdminTrigger struct {
+	Owner string `json:"owner"`
+	ChatsTrigger
+}
+
+// ChatsAdminTriggerList is the response of the administrator's triggers listing.
+type ChatsAdminTriggerList struct {
+	Triggers []ChatsAdminTrigger `json:"triggers"`
+}
+
+// ChatsAdminConnector is a connector binding with its owner. It never has the token.
+type ChatsAdminConnector struct {
+	Owner string `json:"owner"`
+	ChatsConnector
+}
+
+// ChatsAdminConnectorList is the response of the administrator's connectors listing.
+type ChatsAdminConnectorList struct {
+	Connectors []ChatsAdminConnector `json:"connectors"`
+}

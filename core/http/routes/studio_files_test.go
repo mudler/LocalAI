@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
@@ -263,5 +264,23 @@ var _ = Describe("Chats files endpoints", func() {
 			Expect(rec.Code).To(Equal(http.StatusConflict))
 			Expect(rec.Body.String()).To(ContainSubstring("files are off here"))
 		})
+	})
+})
+
+// errBody is a request body whose read fails the way echo's body limit does.
+type errBody struct{ err error }
+
+func (b errBody) Read([]byte) (int, error) { return 0, b.err }
+func (b errBody) Close() error             { return nil }
+
+var _ = Describe("An upload over the server's body limit", func() {
+	It("answers 413 and keeps no file, not a 500", func() {
+		s := newStudioServer()
+		req := s.request("alice", http.MethodPut, "/api/chats/files/content?path=/huge.bin", "")
+		req.Body = errBody{err: echo.ErrStatusRequestEntityTooLarge}
+		rec := httptest.NewRecorder()
+		s.e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusRequestEntityTooLarge), rec.Body.String())
+		Expect(s.do("alice", http.MethodGet, "/api/chats/files/content?path=/huge.bin", nil).Code).To(Equal(http.StatusNotFound))
 	})
 })

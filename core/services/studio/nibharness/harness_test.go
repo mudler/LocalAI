@@ -55,7 +55,7 @@ func (r *recordingLLM) CreateChatCompletion(ctx context.Context, req openai.Chat
 	}}, cogito.LLMUsage{PromptTokens: r.promptTokens, TotalTokens: r.promptTokens + 1}, nil
 }
 
-func start(t *testing.T, llm *recordingLLM, env session.HarnessEnv) session.HarnessSession {
+func start(t *testing.T, llm *recordingLLM, env session.HarnessEnv, tweak ...func(*nibharness.Model)) session.HarnessSession {
 	t.Helper()
 	ctxTokens := 0
 	if llm.contextTokens > 0 {
@@ -66,7 +66,11 @@ func start(t *testing.T, llm *recordingLLM, env session.HarnessEnv) session.Harn
 			if a.Principal != "alice" {
 				t.Errorf("LLM asked for actor %+v", a)
 			}
-			return nibharness.Model{LLM: llm, Name: "host-model", ContextTokens: ctxTokens}, nil
+			m := nibharness.Model{LLM: llm, Name: "host-model", ContextTokens: ctxTokens}
+			for _, f := range tweak {
+				f(&m)
+			}
+			return m, nil
 		},
 	})
 	env.Dir = t.TempDir()
@@ -245,5 +249,158 @@ func TestThePromptHasNothingOfNibItself(t *testing.T) {
 		if strings.Contains(system, leak) {
 			t.Errorf("the system prompt holds %q", leak)
 		}
+	}
+}
+
+// callingLLM asks for one call of a named tool on its first request, then answers.
+type callingLLM struct {
+	recordingLLM
+	call string
+}
+
+func (c *callingLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (cogito.LLMReply, cogito.LLMUsage, error) {
+	c.record("CreateChatCompletion", req.Messages, req.Tools)
+	c.mu.Lock()
+	first := len(c.tools) == 1
+	c.mu.Unlock()
+	msg := openai.ChatCompletionMessage{Role: "assistant", Content: "all done"}
+	if first {
+		msg = openai.ChatCompletionMessage{Role: "assistant", ToolCalls: []openai.ToolCall{{ID: "call-1", Type: "function",
+			Function: openai.FunctionCall{Name: c.call, Arguments: "{}"}}}}
+	}
+	return cogito.LLMReply{ChatCompletionResponse: openai.ChatCompletionResponse{Choices: []openai.ChatCompletionChoice{{Message: msg}}}},
+		cogito.LLMUsage{PromptTokens: 10, TotalTokens: 11}, nil
+}
+
+// A host tool named like a built-in tool of nib must not switch the built-in
+// on: the model would be offered two tools of one name with different schemas,
+// and the built-in would answer the call instead of the host tool. The model
+// still sees, and calls, the host tool by its own name.
+func TestAHostToolNamedLikeANibToolIsOfferedOnceAndRunsOnTheHost(t *testing.T) {
+	llm := &callingLLM{call: "spawn_agent"}
+	var mu sync.Mutex
+	ran := map[string]int{}
+	mk := func(name string) session.Tool {
+		return session.Tool{Name: name, Description: "host " + name, Schema: json.RawMessage(`{"type":"object"}`),
+			Run: func(context.Context, json.RawMessage) (string, error) {
+				mu.Lock()
+				defer mu.Unlock()
+				ran[name]++
+				return "ok", nil
+			}}
+	}
+	var events []session.Event
+	hs := start(t, &llm.recordingLLM, session.HarnessEnv{
+		Tools: []session.Tool{mk("spawn_agent"), mk("transcribe_audio"), mk("host_tool")},
+		Emit: func(e session.Event) {
+			mu.Lock()
+			defer mu.Unlock()
+			events = append(events, e)
+		},
+	}, func(m *nibharness.Model) { m.LLM = llm })
+	send(t, hs, "hello")
+
+	if len(llm.tools) == 0 {
+		t.Fatal("the model got no request")
+	}
+	seen := map[string]int{}
+	for _, n := range llm.tools[0] {
+		seen[n]++
+	}
+	for n, c := range seen {
+		if c > 1 {
+			t.Errorf("tool %q is offered %d times: %v", n, c, llm.tools[0])
+		}
+	}
+	for _, name := range []string{"spawn_agent", "transcribe_audio", "host_tool"} {
+		if seen[name] != 1 {
+			t.Errorf("the model is not offered %q exactly once: %v", name, llm.tools[0])
+		}
+	}
+	for _, native := range []string{"check_agent", "get_agent_result", "send_agent_message", "studio_spawn_agent"} {
+		if seen[native] > 0 {
+			t.Errorf("tool %q is offered: %v", native, llm.tools[0])
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if ran["spawn_agent"] != 1 {
+		t.Errorf("the host's spawn_agent ran %d times, want 1", ran["spawn_agent"])
+	}
+	named := false
+	for _, e := range events {
+		if e.Tool != nil && e.Tool.Name == "spawn_agent" {
+			named = true
+		}
+		if e.Tool != nil && strings.HasPrefix(e.Tool.Name, "studio_") {
+			t.Errorf("an event carries the alias %q", e.Tool.Name)
+		}
+	}
+	if !named {
+		t.Errorf("no tool event names spawn_agent: %+v", events)
+	}
+	// The history the model sees on the second request names the tool as the host does.
+	for _, m := range llm.messages[len(llm.messages)-1] {
+		for _, tc := range m.ToolCalls {
+			if tc.Function.Name != "spawn_agent" {
+				t.Errorf("the history names the call %q", tc.Function.Name)
+			}
+		}
+	}
+}
+
+// hangingLLM blocks every request until its context ends, and tells when it did.
+type hangingLLM struct {
+	recordingLLM
+	started   chan struct{}
+	cancelled chan struct{}
+}
+
+func (h *hangingLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (cogito.LLMReply, cogito.LLMUsage, error) {
+	select {
+	case h.started <- struct{}{}:
+	default:
+	}
+	<-ctx.Done()
+	select {
+	case h.cancelled <- struct{}{}:
+	default:
+	}
+	return cogito.LLMReply{}, cogito.LLMUsage{}, ctx.Err()
+}
+
+// Stopping a turn, and deleting a running chat, must cancel the model request
+// that is in flight, not leave it holding a slot of the backend.
+func TestInterruptCancelsTheModelRequestInFlight(t *testing.T) {
+	llm := &hangingLLM{started: make(chan struct{}, 1), cancelled: make(chan struct{}, 1)}
+	h := nibharness.New(nibharness.Config{
+		LLM: func(workspace.Actor) (nibharness.Model, error) { return nibharness.Model{LLM: llm, Name: "m"}, nil },
+	})
+	hs, err := h.Start(context.Background(), session.HarnessEnv{
+		Dir: t.TempDir(), SystemPrompt: "x", Actor: workspace.Actor{Principal: "alice", ChatID: "c1"}, Emit: func(session.Event) {},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = hs.Close() })
+	sent := make(chan error, 1)
+	go func() { sent <- hs.Send(context.Background(), "hello") }()
+	select {
+	case <-llm.started:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the model got no request")
+	}
+	if err := hs.Interrupt(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-llm.cancelled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Interrupt left the model request open")
+	}
+	select {
+	case <-sent:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Send did not return after Interrupt")
 	}
 }

@@ -909,21 +909,51 @@ type MCPConfig struct {
 
 // @Description Agent configuration
 type AgentConfig struct {
-	MaxAttempts           int  `yaml:"max_attempts,omitempty" json:"max_attempts,omitempty"`
-	MaxIterations         int  `yaml:"max_iterations,omitempty" json:"max_iterations,omitempty"`
-	EnableReasoning       bool `yaml:"enable_reasoning,omitempty" json:"enable_reasoning,omitempty"`
-	EnablePlanning        bool `yaml:"enable_planning,omitempty" json:"enable_planning,omitempty"`
-	EnableMCPPrompts      bool `yaml:"enable_mcp_prompts,omitempty" json:"enable_mcp_prompts,omitempty"`
-	EnablePlanReEvaluator bool `yaml:"enable_plan_re_evaluator,omitempty" json:"enable_plan_re_evaluator,omitempty"`
-	DisableSinkState      bool `yaml:"disable_sink_state,omitempty" json:"disable_sink_state,omitempty"`
-	LoopDetection         int  `yaml:"loop_detection,omitempty" json:"loop_detection,omitempty"`
-	MaxAdjustmentAttempts int  `yaml:"max_adjustment_attempts,omitempty" json:"max_adjustment_attempts,omitempty"`
-	ForceReasoningTool    bool `yaml:"force_reasoning_tool,omitempty" json:"force_reasoning_tool,omitempty"`
+	// MaxAttempts, MaxIterations and ForceReasoningTool shape the tool loop of
+	// the chats and of /v1/chat/completions: how often a failed tool call is
+	// retried, how many tool rounds one turn may take, and whether the model
+	// must reason before it picks a tool.
+	MaxAttempts        int  `yaml:"max_attempts,omitempty" json:"max_attempts,omitempty"`
+	MaxIterations      int  `yaml:"max_iterations,omitempty" json:"max_iterations,omitempty"`
+	ForceReasoningTool bool `yaml:"force_reasoning_tool,omitempty" json:"force_reasoning_tool,omitempty"`
 	// MaxGenerationTokens capped the tokens of one completion in the agent jobs
 	// that were removed. It is still read so a model file that sets it loads, and
 	// it does nothing.
 	MaxGenerationTokens int `yaml:"max_generation_tokens,omitempty" json:"max_generation_tokens,omitempty"`
+
+	// removed names the keys of the old agent loop that the file sets. The new
+	// loop has no planning, plan re-evaluation, loop detection or reasoning
+	// switch, so they are read, reported once at load and ignored.
+	removed []string
 }
+
+// removedAgentOptions are the agent: keys of the old (cogito) loop that the chats
+// loop does not support.
+var removedAgentOptions = []string{"enable_reasoning", "enable_planning", "enable_mcp_prompts", "enable_plan_re_evaluator",
+	"disable_sink_state", "loop_detection", "max_adjustment_attempts"}
+
+// UnmarshalYAML reads the agent options and notes the removed keys, so a model
+// file that still sets them keeps loading.
+func (a *AgentConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentConfig
+	if err := value.Decode((*plain)(a)); err != nil {
+		return err
+	}
+	var raw map[string]any
+	if err := value.Decode(&raw); err != nil {
+		return nil // the typed decode above already accepted the node
+	}
+	a.removed = a.removed[:0]
+	for _, k := range removedAgentOptions {
+		if _, ok := raw[k]; ok {
+			a.removed = append(a.removed, k)
+		}
+	}
+	return nil
+}
+
+// RemovedOptions returns the removed agent options that the model file sets.
+func (a AgentConfig) RemovedOptions() []string { return slices.Clone(a.removed) }
 
 // HasMCPServers returns true if any MCP servers (remote or stdio) are configured.
 func (c MCPConfig) HasMCPServers() bool {
@@ -2766,4 +2796,13 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	return true
+}
+
+// warnRemovedAgentOptions tells the operator that the file sets agent options
+// the chats loop does not have. They have no effect.
+func (c *ModelConfig) warnRemovedAgentOptions() {
+	if removed := c.Agent.RemovedOptions(); len(removed) > 0 {
+		xlog.Warn("Deprecated agent options are ignored: the chats loop has no planning, plan re-evaluation, loop detection or reasoning switch",
+			"model", c.Name, "file", c.modelConfigFile, "options", strings.Join(removed, ", "))
+	}
 }

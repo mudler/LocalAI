@@ -63,6 +63,17 @@ func Run(t *testing.T, newStore NewStore) {
 			t.Fatalf("enabled = %+v, %v", l, err)
 		}
 	})
+	t.Run("AllBindings", func(t *testing.T) {
+		s := newStore(t)
+		a, b := binding("a", "u1", "A"), binding("b", "u2", "B")
+		b.Enabled = false
+		_ = s.PutBinding(ctx, a)
+		_ = s.PutBinding(ctx, b)
+		l, err := s.AllBindings(ctx)
+		if err != nil || len(l) != 2 || l[0].ID != "a" || l[1].ID != "b" {
+			t.Fatalf("all = %+v, %v", l, err)
+		}
+	})
 	t.Run("ReturnedValuesAreCopies", func(t *testing.T) {
 		s := newStore(t)
 		_ = s.PutBinding(ctx, binding("b1", "u1", "Bot"))

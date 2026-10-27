@@ -4,9 +4,12 @@ package advisorylock
 // These keys are global across the database — avoid collisions with
 // other applications sharing the same PostgreSQL instance.
 const (
-	KeyCronScheduler       int64 = 100
-	KeyStaleNodeCleanup    int64 = 101
-	KeyGalleryDedup        int64 = 102
+	// 100, 101 and 102 were the cron scheduler, the stale node cleanup and the
+	// gallery dedup of earlier releases. Nothing takes them now; do not reuse
+	// them while an older frontend can still run in the same database.
+
+	// KeyAgentScheduler elects the one frontend that removes the agent jobs
+	// whose retention has passed.
 	KeyAgentScheduler      int64 = 103
 	KeyHealthCheck         int64 = 104
 	KeySchemaMigrate       int64 = 105

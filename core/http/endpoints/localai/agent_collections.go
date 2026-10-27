@@ -9,6 +9,13 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 )
 
+// ListCollectionsEndpoint handles the collections route "List collections"
+// @Summary List collections.
+// @Description With authentication on, an administrator can add all_users=true to also get the other users' collections in user_groups. Needs the collections feature.
+// @Tags collections
+// @Param all_users query string false "Set to 'true' for the administrator's cross-user listing"
+// @Success 200 {object} map[string]any "collections and count"
+// @Router /api/collections [get]
 func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -48,6 +55,14 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// CreateCollectionEndpoint handles the collections route "Create a collection"
+// @Summary Create a collection.
+// @Tags collections
+// @Accept json
+// @Param request body object true "{\"name\": \"docs\"}"
+// @Success 201 {object} map[string]string "status and name"
+// @Failure 400 {object} map[string]string "error"
+// @Router /api/collections [post]
 func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -65,6 +80,17 @@ func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// UploadToCollectionEndpoint handles the collections route "Upload a file to a collection"
+// @Summary Upload a file to a collection.
+// @Description Multipart form with the field file. 409 when the embedding model changed and the vectors have another size.
+// @Tags collections
+// @Accept mpfd
+// @Param name path string true "Collection name (URL-encoded)"
+// @Param file formData file true "The file"
+// @Success 200 {object} map[string]string "status, filename and key"
+// @Failure 404 {object} map[string]string "error"
+// @Failure 409 {object} map[string]string "error"
+// @Router /api/collections/{name}/upload [post]
 func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -111,6 +137,13 @@ func isEmbeddingDimensionMismatch(err error) bool {
 		strings.Contains(msg, " dimensions, not ")
 }
 
+// ListCollectionEntriesEndpoint handles the collections route "List the entries of a collection"
+// @Summary List the entries of a collection.
+// @Tags collections
+// @Param name path string true "Collection name (URL-encoded)"
+// @Success 200 {object} map[string]any "entries and count"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/collections/{name}/entries [get]
 func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -129,6 +162,14 @@ func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFun
 	}
 }
 
+// GetCollectionEntryContentEndpoint handles the collections route "Read the text of a collection entry"
+// @Summary Read the text of a collection entry.
+// @Tags collections
+// @Param name path string true "Collection name (URL-encoded)"
+// @Param entry path string true "Entry name (URL-encoded)"
+// @Success 200 {object} map[string]any "content and chunk_count"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/collections/{name}/entries/{entry} [get]
 func GetCollectionEntryContentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -152,6 +193,15 @@ func GetCollectionEntryContentEndpoint(app *application.Application) echo.Handle
 	}
 }
 
+// SearchCollectionEndpoint handles the collections route "Search a collection"
+// @Summary Search a collection.
+// @Tags collections
+// @Accept json
+// @Param name path string true "Collection name (URL-encoded)"
+// @Param request body object true "{\"query\": \"...\", \"max_results\": 5}"
+// @Success 200 {object} map[string]any "results and count"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/collections/{name}/search [post]
 func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -177,6 +227,13 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// ResetCollectionEndpoint handles the collections route "Delete every entry of a collection"
+// @Summary Delete every entry of a collection.
+// @Tags collections
+// @Param name path string true "Collection name (URL-encoded)"
+// @Success 200 {object} map[string]string "status"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/collections/{name}/reset [post]
 func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -191,6 +248,15 @@ func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// DeleteCollectionEntryEndpoint handles the collections route "Delete an entry of a collection"
+// @Summary Delete an entry of a collection.
+// @Tags collections
+// @Accept json
+// @Param name path string true "Collection name (URL-encoded)"
+// @Param request body object true "{\"entry\": \"file.pdf\"}"
+// @Success 200 {object} map[string]any "remaining_entries and count"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/collections/{name}/entry/delete [delete]
 func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -215,6 +281,16 @@ func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFun
 	}
 }
 
+// AddCollectionSourceEndpoint handles the collections route "Follow a URL as a source of a collection"
+// @Summary Follow a URL as a source of a collection.
+// @Description update_interval is in minutes; a value below 1 means 60.
+// @Tags collections
+// @Accept json
+// @Param name path string true "Collection name (URL-encoded)"
+// @Param request body object true "{\"url\": \"https://...\", \"update_interval\": 60}"
+// @Success 200 {object} map[string]string "status"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/collections/{name}/sources [post]
 func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -239,6 +315,14 @@ func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc 
 	}
 }
 
+// RemoveCollectionSourceEndpoint handles the collections route "Stop following a source of a collection"
+// @Summary Stop following a source of a collection.
+// @Tags collections
+// @Accept json
+// @Param name path string true "Collection name (URL-encoded)"
+// @Param request body object true "{\"url\": \"https://...\"}"
+// @Success 200 {object} map[string]string "status"
+// @Router /api/collections/{name}/sources [delete]
 func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -257,6 +341,15 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 }
 
 // GetCollectionEntryRawFileEndpoint serves the original uploaded binary file.
+// GetCollectionEntryRawFileEndpoint handles the collections route "Download a collection entry as uploaded"
+// @Summary Download a collection entry as uploaded.
+// @Tags collections
+// @Produce octet-stream
+// @Param name path string true "Collection name (URL-encoded)"
+// @Param entry path string true "Entry name (URL-encoded)"
+// @Success 200 {file} file "The file"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/collections/{name}/entries-raw/{entry} [get]
 func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
@@ -277,6 +370,13 @@ func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.Handle
 	}
 }
 
+// ListCollectionSourcesEndpoint handles the collections route "List the sources of a collection"
+// @Summary List the sources of a collection.
+// @Tags collections
+// @Param name path string true "Collection name (URL-encoded)"
+// @Success 200 {object} map[string]any "sources and count"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/collections/{name}/sources [get]
 func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()

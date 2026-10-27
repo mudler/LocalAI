@@ -147,7 +147,7 @@ func toolEntries(t *testing.T, svc *studio.Service, user, id string) []session.E
 func TestAConnectorToolWithAViewGivesTheTranscriptAnAppReference(t *testing.T) {
 	// The model's own server has the same tool names, so the connector's tools
 	// take the connector's name in front; the app still names the tool of the server.
-	e := newAppsEnv(t, []sessiontest.Step{{Tool: "Clock_get-time", Args: `{"zone":"UTC"}`}, {Tool: "Clock_plain", Args: `{"zone":"UTC"}`}, {Say: "done"}})
+	e := newAppsEnv(t, []sessiontest.Step{{Tool: "clock__get-time", Args: `{"zone":"UTC"}`}, {Tool: "clock__plain", Args: `{"zone":"UTC"}`}, {Say: "done"}})
 	id := create(t, e.svc, alice)
 	sent(t, e.svc, alice, id, "what time is it")
 	idle(t, e.svc, alice, id)
@@ -158,7 +158,7 @@ func TestAConnectorToolWithAViewGivesTheTranscriptAnAppReference(t *testing.T) {
 	}
 	var withApp, without session.Entry
 	for _, en := range tools {
-		if strings.HasPrefix(en.Text, "Clock_get-time") {
+		if strings.HasPrefix(en.Text, "clock__get-time") {
 			withApp = en
 		} else {
 			without = en
@@ -358,7 +358,7 @@ func TestTheCallRouteRefusesWhatTheAppMayNotCall(t *testing.T) {
 // the one card it needs and show the app at once, then keep the same element when
 // the transcript is read again.
 func TestTheToolEndOfAnAppNamesItsTranscriptEntry(t *testing.T) {
-	e := newAppsEnv(t, []sessiontest.Step{{Tool: "Clock_plain", Args: `{"zone":"UTC"}`}, {Tool: "Clock_get-time", Args: `{"zone":"UTC"}`}, {Say: "done"}})
+	e := newAppsEnv(t, []sessiontest.Step{{Tool: "clock__plain", Args: `{"zone":"UTC"}`}, {Tool: "clock__get-time", Args: `{"zone":"UTC"}`}, {Say: "done"}})
 	id := create(t, e.svc, alice)
 	events, cancel, err := e.svc.Events(context.Background(), alice, id)
 	if err != nil {

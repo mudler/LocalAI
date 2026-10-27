@@ -18,8 +18,77 @@ conversation.
 {{% notice note %}}
 Chats need the `chats` feature. It is on for every user by
 default. An administrator can switch it off for one user in the user's
-permissions.
+permissions. Saved agents, triggers, connectors and agent jobs are separate
+features that are off by default; see [Permissions](#permissions).
 {{% /notice %}}
+
+## Permissions
+
+With authentication on, an administrator grants features to each user in
+**Settings → Users and keys**. Plain chats are on by default. The parts that run
+without a person, or reach the outside world, are off by default for a user, and an
+administrator always has all of them:
+
+| Feature | Default for a user | What it allows |
+|---|---|---|
+| `chats` | on | Chats, files, skills, notifications, push, your MCP connectors. A chat needs no more. |
+| `agents` | off | Saved agents (`/api/chats/agents`) and starting a chat with one. |
+| `triggers` | off | Scheduled and file triggers (`/api/chats/triggers`): runs that start by themselves. |
+| `connectors` | off | Telegram bindings (`/api/chats/connectors`): a public door to one of your agents. |
+| `mcp_jobs` | off | The agent tasks and jobs API (`/api/agent/...`). |
+
+A command-line MCP server (stdio) in your MCP connectors stays for administrators
+only, whatever the features. A trigger or a connector whose owner loses its feature
+stops running: a trigger run is skipped with the reason, and the bot says it is not
+available. The owner can get the feature back without losing the definition.
+
+**Upgrading.** On the first start after the features were split, a one-time rule
+keeps what each existing user was using, and nothing else. The rule runs once; a
+user who registers later gets the defaults. A value an administrator stored
+always wins.
+
+- `agents`: kept if the user has the stored `agents` permission (the one the old
+  agent pool had) or owns a saved agent.
+- `triggers`: kept if the user owns a trigger, or had `agents` or `mcp_jobs`.
+- `connectors`: kept if the user owns a connector binding, or had `agents`.
+- `mcp_jobs`: stored as it was.
+
+Items that the conversion of the old agents makes after that first start belong to
+users who had the old permissions, which the rule already read.
+
+### What an administrator can see
+
+An administrator sees what every user has set up, each with its owner, and can
+stop it. The view is read-only apart from switch-off and delete, and never shows
+a bot token or an agent's instructions:
+
+| Route | What it does |
+|---|---|
+| `GET /api/chats/admin/agents` | Saved agents of every user |
+| `GET /api/chats/admin/triggers`, `GET .../triggers/{id}/runs` | Triggers with their last run, and the runs of one |
+| `GET /api/chats/admin/connectors` | Connector bindings |
+| `POST .../admin/triggers/{id}/disable`, `POST .../admin/connectors/{id}/disable` | Switch one off |
+| `DELETE .../admin/agents/{id}`, `.../admin/triggers/{id}`, `.../admin/connectors/{id}` | Delete one |
+
+The agent tasks and jobs have their own view: `?all_users=true` on
+`GET /api/agent/tasks` and `GET /api/agent/jobs` (see [Agent tasks and
+jobs](/features/agent-jobs/)).
+
+## Switch the chats off
+
+The operator can switch the whole surface or one part off. A part that is off
+starts nothing: no loop, no trigger runner, no bot. `GET /api/features` reports
+what runs (`chats`, `agents`, `triggers`, `connectors`).
+
+| Setting | Default | Effect |
+|---|---|---|
+| `LOCALAI_DISABLE_CHATS` | `false` | Turns off the chats: the `/api/chats` API (it answers `404` with the type `chats_off`), saved agents, triggers, connectors, notifications and the agent jobs. The files workspace of the add-ons is not affected. |
+| `LOCALAI_DISABLE_TRIGGERS` | `false` | Turns off the trigger runner. Trigger routes answer `409 triggers_off`. |
+| `LOCALAI_DISABLE_CONNECTORS` | `false` | Turns off the connector bots. Connector routes answer `409 connectors_off`. |
+| `LOCALAI_DISABLE_AGENTS` | `false` | Deprecated. It kept the meaning it had in the old agent pool, which also held the knowledge base: it sets `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`, and logs a warning. |
+
+`LOCALAI_DISABLE_COLLECTIONS` stays separate and turns off only the
+[collections](/features/collections/).
 
 ## Start a chat and send messages
 
@@ -47,6 +116,9 @@ curl -N localhost:8080/api/chats/3f1c.../events
 # stream carries only what happens after you connect.
 curl -s 'localhost:8080/api/chats/3f1c.../messages?after=0'
 ```
+
+A chat is named after the first line of its first message, unless you gave it a
+title. To rename it, see [Settings, rename and model change](#settings-rename-and-model-change).
 
 ## Keep typing while the model works
 
@@ -98,7 +170,7 @@ curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
   clears it.
 - `context_size` is the window, in tokens, that the loop plans with when it
   decides to compact the conversation. It does not reload the model.
-- A new `title` or `model` needs a chat with no turn running (409 otherwise).
+- A new `title` (1 to 80 characters) or `model` needs a chat with no turn running (409 otherwise).
   The history stays when the model changes.
 
 ### Context meter and speed
@@ -366,6 +438,19 @@ curl -s localhost:8080/api/chats/$ID/addons
 curl -s -X PUT localhost:8080/api/chats/$ID/addons -d '{"off":["office"]}'
 ```
 
+## Metrics
+
+With metrics on, `/metrics` counts every turn of the loop (a chat in the page, a
+saved agent, a trigger run, a connector message and an agent job):
+
+| Metric | Type | Labels |
+|---|---|---|
+| `localai_agent_runs_total` | counter | `agent` (the saved agent's name, empty for a plain chat), `origin` (`chat`, `trigger`, `connector` or `job`), `outcome` (`completed`, `error` or `cancelled`) |
+| `localai_agent_run_seconds` | histogram | the same labels |
+
+They keep the names the old agent pool had, so an existing dashboard works. The
+`origin` label is new.
+
 ## Who can see a chat
 
 A chat belongs to the user who started it. Another user's chat id always
@@ -440,7 +525,7 @@ own copy.
 |---|---|
 | Authentication on (SQLite or PostgreSQL) | The auth database. |
 | No database, a data path set | JSON files under `<data path>/chats`. They survive a restart. |
-| No database and no data path | Memory only. They are lost on restart. |
+| No database and no data path (`--data-path=-`) | Memory only. They are lost on restart, and files are off. |
 
 When chats live in memory, the chats page says so, and the list endpoint
 returns `"persistent": false`.

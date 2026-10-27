@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/media"
+	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 )
 
@@ -83,6 +84,7 @@ func (a *Application) initStudioService() {
 		Store:         a.studioStore,
 		Provider:      a.studioProvider,
 		Users:         a.studioUsers(),
+		Allowed:       a.studioFeatureAllowed,
 		StateDir:      stateDir,
 		MCP:           a.studioMCP,
 		MCPServers:    a.studioModelMCPServers,
@@ -95,6 +97,7 @@ func (a *Application) initStudioService() {
 		ContextTokens: a.studioContextTokens,
 		Modalities:    a.studioModalities,
 		MCPContent:    studioMCPContent{a: a},
+		AgentOptions:  a.studioAgentOptions,
 		Persistent:    a.studioStoreKind != "memory",
 		Files:         a.StudioFiles(),
 		Media:         media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel),
@@ -111,6 +114,7 @@ func (a *Application) initStudioService() {
 	a.startStudioReaper(svc)
 	a.startStudioConnectors(svc)
 	a.startStudioTriggers(svc)
+	a.startStudioJobs(svc)
 	a.prepareStudioConversion(svc)
 }
 
@@ -160,6 +164,15 @@ func (a *Application) studioUsers() studio.UserLookup {
 	return a.loadStudioUser
 }
 
+// studioFeatureAllowed says whether a chat owner may use a feature. With no
+// auth database everyone may.
+func (a *Application) studioFeatureAllowed(user *auth.User, feature string) bool {
+	if a.authDB == nil || user == nil {
+		return true
+	}
+	return auth.HasFeatureAccess(a.authDB, user, feature)
+}
+
 // loadStudioUser returns the active user with this ID. A chat acts as its
 // owner, so an account that was disabled or never approved is refused, and so
 // is one whose chats feature an administrator switched off. The route gate
@@ -206,6 +219,17 @@ func (a *Application) studioModalities(model string) studio.Modalities {
 		return studio.Modalities{}
 	}
 	return studio.Modalities{Vision: cfg.VisionSupported(), Video: cfg.VideoInputSupported()}
+}
+
+// studioAgentOptions is the agent: block of a model's config: the options of the
+// tool loop that nib supports. The planning, loop detection and reasoning
+// switches of the old loop have no counterpart and are ignored.
+func (a *Application) studioAgentOptions(model string) nibharness.AgentOptions {
+	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
+	if !ok {
+		return nibharness.AgentOptions{}
+	}
+	return nibharness.AgentOptions{Iterations: cfg.Agent.MaxIterations, MaxAttempts: cfg.Agent.MaxAttempts, ForceReasoning: cfg.Agent.ForceReasoningTool}
 }
 
 // studioMCPServers picks the MCP servers a chat uses, by the chat route's

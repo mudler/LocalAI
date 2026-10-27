@@ -98,6 +98,26 @@ func (m *MemStore) ListTriggers(_ context.Context, owner string) ([]triggers.Tri
 	return out, nil
 }
 
+// AllTriggers implements triggers.Store.
+func (m *MemStore) AllTriggers(_ context.Context) ([]triggers.Trigger, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []triggers.Trigger
+	for _, t := range m.triggers {
+		out = append(out, t)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Owner != out[j].Owner {
+			return out[i].Owner < out[j].Owner
+		}
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out, nil
+}
+
 // EnabledTriggers implements triggers.Store.
 func (m *MemStore) EnabledTriggers(_ context.Context) ([]triggers.Trigger, error) {
 	m.mu.Lock()

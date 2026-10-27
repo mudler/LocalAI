@@ -103,6 +103,8 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusConflict, "conflict", "a sub-agent conversation takes no messages from you")
 	case errors.Is(err, studiosvc.ErrNoModel):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+	case errors.Is(err, studiosvc.ErrChatBusy):
+		return fail(c, http.StatusConflict, "conflict", err.Error())
 	case errors.Is(err, agents.ErrNotFound):
 		return fail(c, http.StatusNotFound, "not_found", "agent not found")
 	case errors.Is(err, agents.ErrNameTaken):
@@ -161,6 +163,9 @@ func (h *Handlers) Create(c echo.Context) error {
 		if u := auth.GetUser(c); u != nil && u.Role != auth.RoleAdmin {
 			return failFor(c, studiosvc.ErrAssistantForbidden)
 		}
+	}
+	if req.AgentID != "" && !req.Assistant && !auth.FeatureAllowed(c, auth.FeatureAgents) {
+		return fail(c, http.StatusForbidden, "authorization_error", "feature not enabled for your account: "+auth.FeatureAgents)
 	}
 	model := req.Model
 	if req.AgentID != "" && !req.Assistant {

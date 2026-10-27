@@ -136,6 +136,18 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			t.Fatalf("EnabledTriggers = %+v, %v", got, err)
 		}
 	})
+	t.Run("all triggers of every owner, disabled ones too, sorted by owner and name", func(t *testing.T) {
+		s := newStore(t)
+		off := sample("b", "1", "Off")
+		off.Enabled = false
+		for _, tr := range []triggers.Trigger{sample("z", "2", "Z"), off, sample("a", "1", "A")} {
+			_ = s.PutTrigger(ctx, tr)
+		}
+		got, err := s.AllTriggers(ctx)
+		if err != nil || len(got) != 3 || got[0].ID != "a" || got[1].ID != "b" || got[2].ID != "z" {
+			t.Fatalf("AllTriggers = %+v, %v", got, err)
+		}
+	})
 	t.Run("deleting a trigger removes its runs and last due time", func(t *testing.T) {
 		s := newStore(t)
 		_ = s.PutTrigger(ctx, sample("t1", "1", "A"))

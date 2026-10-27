@@ -64,7 +64,7 @@ func InitDB(databaseURL string) (*gorm.DB, error) {
 		}
 	}
 
-	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}, &QuotaRule{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}, &QuotaRule{}, &DataMigration{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate auth tables: %w", err)
 	}
 

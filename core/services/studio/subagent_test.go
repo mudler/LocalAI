@@ -253,6 +253,34 @@ func TestStoppingTheParentStopsItsRunningSubAgents(t *testing.T) {
 	until(t, "the child to stop", func() bool { return turn(t, svc, alice, child).Last == store.TurnStopped })
 }
 
+// The parent's turn can end while a background child still runs. Stopping the
+// parent then still stops the child.
+func TestStoppingAParentWhoseTurnEndedStopsItsBackgroundSubAgent(t *testing.T) {
+	never := make(chan struct{})
+	t.Cleanup(func() { close(never) })
+	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
+		if text == "go" {
+			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"blocked child","wait":false}`}, {Say: "started it"}}
+		}
+		return []studiotest.ToolStep{{Block: never}}
+	})
+	id := create(t, svc, alice)
+	sent(t, svc, alice, id, "go")
+	until(t, "the child to run", func() bool {
+		k := childrenOf(t, svc, alice, id)
+		return len(k) == 1 && turn(t, svc, alice, k[0].ID).Running && len(h.Sent(k[0].ID)) == 1
+	})
+	until(t, "the parent's turn to end", func() bool {
+		i := turn(t, svc, alice, id)
+		return !i.Running && i.Last == store.TurnDone
+	})
+	if err := svc.Stop(context.Background(), alice, id); err != nil {
+		t.Fatal(err)
+	}
+	child := childrenOf(t, svc, alice, id)[0].ID
+	until(t, "the child to stop", func() bool { return turn(t, svc, alice, child).Last == store.TurnStopped })
+}
+
 // A sub-agent conversation runs with the tools its parent chose. A message
 // from the user would start it with none, so it is read-only.
 func TestAUserCannotSendToASubAgentConversation(t *testing.T) {

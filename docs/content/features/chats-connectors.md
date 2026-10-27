@@ -213,7 +213,7 @@ time limit to start and to answer. It runs on the frontend, as the LocalAI proce
 - **Tool names.** A tool cannot take the name of a built-in tool or the add-on
   namespace; it is dropped. When two connectors (or a connector and the model)
   offer a tool with the same name, each gets the connector's name in front:
-  `Docs_search`, `Mail_search`.
+  `docs__search`, `mail__search` (the connector's name in lower case, two underscores, the tool). The names do not change while the connectors stay as they are.
 - **Limits.** A call has a time limit of 60 seconds, and its output is cut at 64 KiB like the output of the chat's own tools.
 - **Per chat switches.** The tools panel of a chat lists the connectors and the
   model's MCP servers with a switch each. See [Chats](/features/chats/#mcp-tools).

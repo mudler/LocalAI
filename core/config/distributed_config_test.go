@@ -84,7 +84,6 @@ var _ = Describe("DistributedConfig flag-name constants", func() {
 		Entry("health check interval", config.FlagHealthCheckInterval, "health-check-interval"),
 		Entry("stale node threshold", config.FlagStaleNodeThreshold, "stale-node-threshold"),
 		Entry("node heartbeat checkpoint", config.FlagNodeHeartbeatCheckpoint, "node-heartbeat-checkpoint"),
-		Entry("MCP CI job timeout", config.FlagMCPCIJobTimeout, "mcp-ci-job-timeout"),
 		Entry("backend install timeout", config.FlagBackendInstallTimeout, "backend-install-timeout"),
 		Entry("backend upgrade timeout", config.FlagBackendUpgradeTimeout, "backend-upgrade-timeout"),
 		Entry("model load timeout", config.FlagModelLoadTimeout, "model-load-timeout"),

@@ -62,9 +62,16 @@ connectors again on the Connectors page.
 
 Every dropped field is named in the report, without its value. The main ones:
 actions, the prepare script of MCP servers, knowledge-base settings other than the
-collection grant, planning and memory switches, agent jobs and webhooks, skills
+collection grant, planning and memory switches, the webhooks of old tasks, skills
 from a git repository, skill resource files, and connectors other than
-Telegram. A name that is taken becomes `Name (2)`.
+Telegram. A name that is taken becomes `Name (2)`. A task is converted into a
+trigger; to run it through the [agent jobs API](/features/agent-jobs/) with
+parameters and a webhook, make it again as a task.
+
+The Telegram connector of the chats reads private text messages only. A bot
+converted from the old pool no longer answers photos, voice notes or group
+chats. Saved agents have no export or import: copy the definition through
+`GET /api/chats/agents/{id}` and `POST /api/chats/agents`.
 
 ## The report
 
@@ -116,32 +123,35 @@ These APIs answer `404`:
 
 | Removed | Use instead |
 |---|---|
-| `/api/agents` (agents, actions, SSE, export and import) | `/api/chats/agents` and `/api/chats` |
+| `/api/agents` (agents, actions, SSE) | `/api/chats/agents` and `/api/chats`. Export and import of an agent have no replacement. |
 | `/api/agents/skills` and `/api/agents/git-repos` | `/api/chats/skills` |
-| `/api/agent/tasks` and `/api/agent/jobs` | `/api/chats/triggers` |
 | `/api/conversations` | `/api/chats` |
 
 The [collections](/features/runtime-settings/#chats-and-collections-settings) API moved from `/api/agents/collections` to `/api/collections`. The old path still works and answers with a `Deprecation: true` header; switch to the new one.
 
 A request to `/v1/responses` whose `model` names a former agent is a plain request for a model of that name.
 
+The agent tasks and jobs API (`/api/agent/tasks` and `/api/agent/jobs`) is back, with the paths and JSON it had; see [Agent jobs](/features/agent-jobs/). A job is now a background chat of its owner. Scheduling a task is done with a [trigger](/features/chats-agents/#triggers), not with a cron text on the task.
+
 The pages `/app/chat`, `/app/agents`, `/app/agent-jobs` and `/app/skills` redirect to the matching page of the chats. The model in `/app/chat/<model>` becomes `?model=<model>` and the chats page selects it.
 
-The features `agents`, `skills`, `mcp_jobs` and `chat_history` are gone from the user permissions. A user that had them keeps the `chats` and `collections` features as they were; the old keys in a stored permission map are ignored.
+The features `skills` and `chat_history` are gone from the user permissions; their old keys in a stored permission map are ignored. The features `agents` and `mcp_jobs` are back, with `triggers` and `connectors` beside them, all off by default for a user; a stored `agents` or `mcp_jobs` value carries over, and a one-time rule keeps the access of the users who use them (see [Permissions](/features/chats/#permissions)).
 
 ## Options that are ignored now
 
 These flags and environment variables are accepted and do nothing, and the server logs one warning that names the ones that were set. Remove them from your configuration.
 
-`LOCALAI_AGENT_JOB_RETENTION_DAYS` (and `AGENT_JOB_RETENTION_DAYS`), `LOCALAI_AGENT_POOL_MULTIMODAL_MODEL`, `LOCALAI_AGENT_POOL_TRANSCRIPTION_MODEL`, `LOCALAI_AGENT_POOL_TRANSCRIPTION_LANGUAGE`, `LOCALAI_AGENT_POOL_TTS_MODEL`, `LOCALAI_AGENT_POOL_TIMEOUT`, `LOCALAI_AGENT_POOL_ENABLE_SKILLS`, `LOCALAI_AGENT_POOL_CUSTOM_ACTIONS_DIR`, `LOCALAI_AGENT_POOL_ENABLE_LOGS` and `LOCALAI_AGENT_HUB_URL`. For `local-ai agent-worker`: `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN`.
+`LOCALAI_AGENT_POOL_MULTIMODAL_MODEL`, `LOCALAI_AGENT_POOL_TRANSCRIPTION_MODEL`, `LOCALAI_AGENT_POOL_TRANSCRIPTION_LANGUAGE`, `LOCALAI_AGENT_POOL_TTS_MODEL`, `LOCALAI_AGENT_POOL_TIMEOUT`, `LOCALAI_AGENT_POOL_ENABLE_SKILLS`, `LOCALAI_AGENT_POOL_CUSTOM_ACTIONS_DIR`, `LOCALAI_AGENT_POOL_ENABLE_LOGS` and `LOCALAI_AGENT_HUB_URL`. For `local-ai agent-worker`: `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN`.
 
-The `agent_job_retention_days`, `agent_pool_enable_logs` and `agent_pool_agent_hub_url` keys of `runtime_settings.json` are ignored too. The command `local-ai agent` is gone.
+`LOCALAI_AGENT_JOB_RETENTION_DAYS` (and `AGENT_JOB_RETENTION_DAYS`) and `LOCALAI_MCP_CI_JOB_TIMEOUT` work again for the server: they set how long ended [agent jobs](/features/agent-jobs/) are kept and how long a job may run. For `local-ai agent-worker` the timeout is still ignored.
+
+The `agent_job_retention_days`, `agent_pool_enable_logs` and `agent_pool_agent_hub_url` keys of `runtime_settings.json` are ignored too: set the retention with the flag or the environment variable. The command `local-ai agent` is gone.
 
 Renamed, because the [collections](/features/collections/) use them. The old names still work and the server logs one deprecation warning for each one that is set. When both names are set, the new one wins.
 
 | Old name | New name |
 |---|---|
-| `LOCALAI_DISABLE_AGENTS` | `LOCALAI_DISABLE_COLLECTIONS` |
+| `LOCALAI_DISABLE_AGENTS` | `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`. The old name keeps its meaning (the whole agent pool, knowledge base included). `LOCALAI_DISABLE_TRIGGERS` and `LOCALAI_DISABLE_CONNECTORS` switch off one part. See [Chats](/features/chats/#switch-the-chats-off). |
 | `LOCALAI_AGENT_POOL_STATE_DIR` | `LOCALAI_COLLECTIONS_STATE_DIR` |
 | `LOCALAI_AGENT_POOL_DEFAULT_MODEL` | `LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
 | `LOCALAI_AGENT_POOL_API_URL` | `LOCALAI_COLLECTIONS_API_URL` |

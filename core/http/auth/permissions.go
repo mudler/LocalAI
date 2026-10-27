@@ -24,11 +24,44 @@ func GetCachedUserPermissions(c echo.Context, db *gorm.DB, userID string) (*User
 	return perm, nil
 }
 
+// FeatureAllowed says whether the user of a request may use a feature, for a
+// handler that must decide inside the route (for example when one field of a
+// body needs a feature the route itself does not). It reads the permissions
+// that RequireRouteFeature cached on the request, so it costs no query on a
+// route in RouteFeatureRegistry. With no authenticated user (authentication is
+// off) it allows; a user whose permissions were not loaded is refused.
+func FeatureAllowed(c echo.Context, feature string) bool {
+	user := GetUser(c)
+	if user == nil || user.Role == RoleAdmin {
+		return true
+	}
+	perm, ok := c.Get(contextKeyPermissions).(*UserPermission)
+	if !ok || perm == nil {
+		return false
+	}
+	if val, exists := perm.Permissions[feature]; exists {
+		return val
+	}
+	return isDefaultOnFeature(feature)
+}
+
 // Feature name constants — all code must use these, never bare strings.
 const (
 	// Agent features (default OFF for new users)
 	FeatureCollections      = "collections"
 	FeatureLocalAIAssistant = "localai_assistant"
+	// FeatureAgents gates saved agents (/api/chats/agents) and starting a chat
+	// with one. An agent narrows what a chat may use, but a person must still
+	// pick it.
+	FeatureAgents = "agents"
+	// FeatureTriggers gates scheduled and file triggers: unattended runs.
+	FeatureTriggers = "triggers"
+	// FeatureConnectors gates chat connectors (Telegram bots): a public
+	// door to a saved agent.
+	FeatureConnectors = "connectors"
+	// FeatureMCPJobs gates the agent tasks and jobs API (/api/agent/...), the
+	// name master gave it, so a permission stored there still applies.
+	FeatureMCPJobs = "mcp_jobs"
 
 	// General features (default OFF for new users)
 	FeatureAddons       = "addons"
@@ -68,7 +101,7 @@ const (
 )
 
 // AgentFeatures lists agent-related features (default OFF).
-var AgentFeatures = []string{FeatureCollections, FeatureLocalAIAssistant}
+var AgentFeatures = []string{FeatureCollections, FeatureLocalAIAssistant, FeatureAgents, FeatureTriggers, FeatureConnectors, FeatureMCPJobs}
 
 // GeneralFeatures lists general features (default OFF).
 var GeneralFeatures = []string{FeatureAddons, FeatureFineTuning, FeatureQuantization}

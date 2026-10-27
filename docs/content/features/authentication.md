@@ -120,24 +120,36 @@ localai run
 
 ### Enabling auth on an existing instance
 
-Enabling user authentication does not assign existing data to an account. What
-you made while authentication was off belongs to one shared "anonymous" owner, and
-that owner is not an account: chats, saved agents, triggers, Telegram bindings, MCP
-connectors, notifications and the files of the workspace. Authenticated users get
-separate storage, admins included, so after the switch nobody sees the anonymous
-data in the API or the Web UI. It stays in the database or on disk. Collections
-and their documents made without a user belong to the root storage area in the
-same way.
+Enabling user authentication does not assign existing data to an account. With
+authentication off, everything the chats made (chats, saved agents, triggers,
+connector bindings, MCP connectors, notifications and the files of the workspace)
+belongs to one anonymous owner, and that owner is not an account. Authenticated
+users, admins included, get separate storage, so the anonymous data stays in the
+database or on disk but no account can see it, in the API or the Web UI.
 
-LocalAI does not move this data to an account. Nothing is deleted. A trigger or a
-bot of the anonymous owner has no account to run as, so its next run is skipped and
-it is switched off with the reason "its owner no longer exists".
+What happens to each part when you switch authentication on:
 
-What the server converts from older releases (agents, tasks, skills, Telegram
-connectors and saved chats) is given to the account that owned it. An item with
-no owner, made before accounts existed, is not converted when auth is on: the
-report at `/app/chats/conversion` lists it as skipped, and you make it again
-under the intended account. See [Chats migration]({{% relref "chats-migration" %}}).
+- **Chats, saved agents, notifications and files** stay under the anonymous
+  owner. No user sees them. Copy what you need into the new account first (see
+  the steps below).
+- **Triggers and connector bindings** of the anonymous owner stop. The owner no
+  longer exists as a user, so the trigger runner skips the next run and switches
+  each trigger off with the reason "its owner no longer exists", and a connector
+  bot answers "not available" and is switched off.
+- **Collections** made without a user belong to the root storage area. With
+  authentication on, each user has their own collections (see
+  [Collections](/features/collections/)).
+- **Old agents, tasks, skills, Telegram connectors and saved chats** of the
+  previous agent pool are converted at start and given to the account that owned
+  them (see [Chats migration]({{% relref "chats-migration" %}})). With
+  authentication on, an old item that belongs to no user is not converted: the
+  report at `/app/chats/conversion` lists it as skipped, and you make it again
+  under the intended account.
+
+{{% notice warning %}}
+LocalAI does not migrate, delete or pause anything when you enable
+authentication. Nothing moves the anonymous data to an account.
+{{% /notice %}}
 
 Before switching an existing instance:
 
@@ -149,7 +161,11 @@ Before switching an existing instance:
 5. Restrict access during bootstrap and register the intended administrator first.
 6. Import the chats and agents under the intended user (`POST /api/chats/import`,
    `POST /api/chats/agents/import`). Recreate collections there as needed.
-7. Open the conversion report and check each item, and verify credentials and required data, before resuming triggers and bots.
+7. Grant the new accounts the features they need. Saved agents, triggers,
+   connectors and agent jobs are off by default for a user (see
+   [Chats permissions](/features/chats/#permissions)); an administrator has all of
+   them.
+8. Open the conversion report and check each item, and verify credentials and required data, before resuming triggers and bots.
 
 The first registered user becomes admin and bypasses approval or invite requirements.
 Setting `LOCALAI_ADMIN_EMAIL` promotes that email address, but does **not** reserve
@@ -161,10 +177,12 @@ agent. It does not hold files, trigger state, bot tokens or the long-term state 
 the model. Keep the backup: LocalAI has no automatic migration of the anonymous
 owner's data.
 
-A trigger or a Telegram bot acts as its owner. An administrator who switches the
-`chats` feature off for a user also stops what that user's triggers and bots do,
-at their next run or message; the trigger and the binding stay, and work again when
-the feature is given back.
+A trigger or a Telegram bot acts as its owner, with the owner's rights: the agent
+gets only what the owner may use at that moment, under the owner's quota and model
+allowlist. It does not use an API key of its own. An administrator who switches the
+`chats` feature off for a user, or the `triggers` or `connectors` feature, also
+stops what that user's triggers and bots do, at their next run or message; the
+trigger and the binding stay, and work again when the feature is given back.
 
 ### Configuration Reference
 
@@ -207,7 +225,7 @@ When disabled:
 
 There are two roles:
 
-- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, and user management.
+- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, the saved agents, triggers and connectors of every user (read-only, with switch-off and delete), and user management.
 - **User**: Access to inference endpoints only - chat completions, embeddings, image/video/audio generation, TTS, MCP chat, and their own usage statistics.
 
 The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted to admin via the admin user management API or by setting `LOCALAI_ADMIN_EMAIL` to their email address.

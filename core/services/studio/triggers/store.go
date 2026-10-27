@@ -23,6 +23,9 @@ type Store interface {
 	ListTriggers(ctx context.Context, owner string) ([]Trigger, error)
 	// EnabledTriggers returns every enabled trigger of every owner, sorted by ID.
 	EnabledTriggers(ctx context.Context) ([]Trigger, error)
+	// AllTriggers returns every trigger of every owner, sorted by owner, name
+	// and ID. It is for the administrator's view and for migrations.
+	AllTriggers(ctx context.Context) ([]Trigger, error)
 
 	// Claim stores a new run. It returns false, and stores nothing, when a run
 	// with the same TriggerID and DueKey exists, whatever its ID. It returns an

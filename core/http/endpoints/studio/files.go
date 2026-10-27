@@ -47,6 +47,11 @@ func (h *Handlers) files(c echo.Context) (fileCall, bool) {
 // failFile maps a workspace error to a response. A path the user cannot reach
 // is the same answer as one that does not exist.
 func failFile(c echo.Context, err error) error {
+	// The server's body limit fails the read of an upload with a 413 of its own.
+	var httpErr *echo.HTTPError
+	if errors.As(err, &httpErr) && httpErr.Code == http.StatusRequestEntityTooLarge {
+		err = workspace.ErrTooLarge
+	}
 	switch {
 	case errors.Is(err, workspace.ErrNotFound), errors.Is(err, workspace.ErrReadOnly), errors.Is(err, workspace.ErrNotAdmin):
 		return fail(c, http.StatusNotFound, "not_found", "not found")

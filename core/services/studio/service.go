@@ -81,6 +81,11 @@ type Deps struct {
 	// MCPContent reads the prompts and resources of the model's own MCP
 	// servers. Nil: they offer none.
 	MCPContent MCPContent
+	// Allowed says whether a user may use a feature (auth.FeatureTriggers,
+	// auth.FeatureConnectors) right now. The unattended parts ask it before each
+	// run, so an owner whose permission was taken away stops running, not only
+	// stops creating. Nil: everyone may.
+	Allowed func(user *auth.User, feature string) bool
 	// Connectors holds the MCP servers the users defined. Nil: none.
 	Connectors ConnectorTools
 	// MCPConnectors is the same service with its management calls, for the
@@ -104,6 +109,9 @@ type Deps struct {
 	// ContextTokens returns the context window of a model in tokens, or zero
 	// when it is not known (the harness then uses its default). Nil: zero.
 	ContextTokens func(model string) int
+	// AgentOptions returns the tool-loop options of a model (its agent: block).
+	// Nil: nib's defaults.
+	AgentOptions func(model string) nibharness.AgentOptions
 	// Bus carries live events and control messages between the frontends that
 	// serve a chat. Nil: a bus for this process only.
 	Bus Bus
@@ -169,6 +177,7 @@ type Service struct {
 
 	// Sub-agents; see subagent.go.
 	triggers   *Triggers        // set once by SetTriggers
+	jobs       *Jobs            // set once by SetJobs
 	connectors *Connectors      // set once by SetConnectors
 	conversion ConversionSource // set once by SetConversion
 
@@ -181,6 +190,7 @@ type Service struct {
 
 type run struct {
 	id      string
+	started time.Time
 	stopped bool
 	failed  bool
 	// chat is the chat the turn runs on. Stop goes through it and never opens
@@ -480,6 +490,7 @@ func (s *Service) send(ctx context.Context, user, conv, text string, up []sessio
 	runID := newID()
 	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
 	case err == nil:
+		s.nameAfter(ctx, p, conv, text)
 		// Messages that wait go first: the new one must not overtake them.
 		taken, terr := s.d.Store.TakePending(ctx, p, conv)
 		if terr != nil {
@@ -549,6 +560,24 @@ func (s *Service) attachWhileRunning(ctx context.Context, p, conv, text string, 
 	return chat.Attach(ctx, text, up)
 }
 
+// nameAfter gives a chat that still has the default title one made from its
+// first message. The caller holds the claim of the turn and the chat is not
+// open, so nothing writes the old title back. A failure only leaves the default.
+func (s *Service) nameAfter(ctx context.Context, p, conv, text string) {
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil || rec.Title != session.DefaultTitle || rec.Turns > 0 {
+		return
+	}
+	title := session.TitleFrom(text)
+	if title == "" {
+		return
+	}
+	rec.Title = title
+	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
+		s.log.Warn("studio: could not name a chat after its first message", "chat", conv, "error", err)
+	}
+}
+
 // SendNow starts a turn from the waiting messages. It is what the user chooses
 // after a Stop or a failure; nothing else starts them then.
 func (s *Service) SendNow(ctx context.Context, user, conv string) error {
@@ -569,6 +598,9 @@ func (s *Service) Stop(ctx context.Context, user, conv string) error {
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return err
 	}
+	// The sub-agents of the chat stop with it, also when its own turn has
+	// ended and they run on in the background.
+	s.stopChildren(p, conv)
 	k := key(p, conv)
 	s.mu.Lock()
 	local := s.runs[k] != nil
@@ -656,7 +688,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up
 	})
 	end := func() { stopBeat(); stopListening() }
 	s.mu.Lock()
-	s.runs[k] = &run{id: runID, end: end, chat: chat}
+	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
 	s.mu.Unlock()
 	images := s.keepVideos(k, parts)
 	if err := chat.Send(context.WithoutCancel(ctx), session.Message{Text: text, Files: up, Media: images}); err != nil {
@@ -819,6 +851,7 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) {
 		// this one only cleans up after itself and reports a terminal status.
 		status = store.TurnInterrupted
 	}
+	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
 	s.notifyWaiters(k, status)
 	if status != store.TurnDone {
 		// A stopped or failed turn takes its running sub-agents with it, and the
@@ -931,10 +964,14 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 		OnUsage:    func(u provider.Usage) { s.reportUsage(a, u, limit) },
 		TakeVideos: func() []string { return s.takeVideos(a.Principal, a.ChatID) },
 	}
-	return nibharness.Model{
+	m := nibharness.Model{
 		LLM: s.d.Provider.LLMWith(user, rec.Model, params), Name: rec.Model,
 		ContextTokens: limit, ReasoningEffort: set.ReasoningEffort,
-	}, nil
+	}
+	if s.d.AgentOptions != nil {
+		m.Agent = s.d.AgentOptions(rec.Model)
+	}
+	return m, nil
 }
 
 // reportUsage tells the watchers of the chat what one model request used.

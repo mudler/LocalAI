@@ -20,7 +20,6 @@ var ErrInvalidSettings = errors.New("studio: invalid chat settings")
 // Limits of the per-chat settings.
 const (
 	maxSystemPromptBytes = 32 << 10
-	maxTitleRunes        = 200
 	minContextSize       = 512
 	maxContextSize       = 4 << 20
 )
@@ -87,8 +86,8 @@ func (s *Service) Update(ctx context.Context, user, conv string, in UpdateInput)
 	}
 	var title string
 	if in.Title != nil {
-		if title = session.CleanTitle(*in.Title); title == "" || utf8.RuneCountInString(title) > maxTitleRunes {
-			return session.ChatRecord{}, fmt.Errorf("%w: the title must have 1 to %d characters", ErrInvalidSettings, maxTitleRunes)
+		if title = session.CleanTitle(*in.Title); title == "" || utf8.RuneCountInString(strings.TrimSpace(*in.Title)) > session.MaxTitleRunes {
+			return session.ChatRecord{}, fmt.Errorf("%w: the title must have 1 to %d characters", ErrInvalidSettings, session.MaxTitleRunes)
 		}
 	}
 	if in.Settings != nil {

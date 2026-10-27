@@ -41,6 +41,17 @@ type Config struct {
 	ContextTokens int
 }
 
+// AgentOptions shape the tool loop of one chat. Zero values keep nib's own
+// defaults.
+type AgentOptions struct {
+	// Iterations caps the tool rounds of one turn.
+	Iterations int
+	// MaxAttempts is how often a failed tool call is retried.
+	MaxAttempts int
+	// ForceReasoning makes the model reason before it picks a tool.
+	ForceReasoning bool
+}
+
 // Model is the model one chat talks to.
 type Model struct {
 	LLM  cogito.LLM
@@ -51,6 +62,8 @@ type Model struct {
 	// ReasoningEffort overrides the harness's own setting for this chat. Empty:
 	// the harness's setting.
 	ReasoningEffort string
+	// Agent sets the options of the tool loop of the model.
+	Agent AgentOptions
 }
 
 // New returns a harness that starts one nib session per chat.
@@ -96,13 +109,19 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 		transports = append(transports, tr)
 	}
 	model, ctxTokens, effort := h.cfg.Model, h.cfg.ContextTokens, h.cfg.ReasoningEffort
+	var agentOpts AgentOptions
 	var llm cogito.LLM
 	if h.cfg.LLM != nil {
 		m, err := h.cfg.LLM(env.Actor)
 		if err != nil {
 			return nil, fmt.Errorf("nib: model client: %w", err)
 		}
-		llm, model = m.LLM, m.Name
+		llm, model, agentOpts = m.LLM, m.Name, m.Agent
+		hostNames := make([]string, len(env.Tools))
+		for i, t := range env.Tools {
+			hostNames[i] = t.Name
+		}
+		llm = withAliases(llm, hostNames)
 		if m.ContextTokens > 0 {
 			ctxTokens = m.ContextTokens
 		}
@@ -137,6 +156,7 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 			Compaction:      types.CompactionConfig{MaxContextTokens: ctxTokens},
 		},
 	})
+	applyAgentOptions(&cfg, agentOpts)
 	cfg.WorkingDir = env.Dir
 	// The host lists its own skills in the prompt; nib's (about-nib, and the
 	// load_skill tool that reads them) do not apply to a chat.
@@ -173,12 +193,56 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 	return hs, nil
 }
 
+// applyAgentOptions copies the options a model sets into nib's config. A zero
+// value keeps what LoadWith filled in.
+func applyAgentOptions(cfg *types.Config, o AgentOptions) {
+	if o.Iterations > 0 {
+		cfg.AgentOptions.Iterations = o.Iterations
+	}
+	if o.MaxAttempts > 0 {
+		cfg.AgentOptions.MaxAttempts = o.MaxAttempts
+	}
+	if o.ForceReasoning {
+		cfg.AgentOptions.ForceReasoning = true
+	}
+}
+
 type hsession struct {
 	sess   *chat.Session
 	emit   func(session.Event)
 	stop   func()
 	cancel context.CancelFunc
 	once   sync.Once
+
+	thinkMu sync.Mutex
+	think   thinkSplitter
+}
+
+// emitAnswer sends a chunk of the answer, with inline <think> blocks told
+// apart as reasoning. Chunks arrive in order from one stream.
+func (h *hsession) emitAnswer(chunk string) {
+	h.thinkMu.Lock()
+	pieces := h.think.feed(chunk)
+	h.thinkMu.Unlock()
+	h.emitPieces(pieces)
+}
+
+// flushAnswer sends what the splitter held back at the end of a turn.
+func (h *hsession) flushAnswer() {
+	h.thinkMu.Lock()
+	pieces := h.think.flush()
+	h.thinkMu.Unlock()
+	h.emitPieces(pieces)
+}
+
+func (h *hsession) emitPieces(pieces []piece) {
+	for _, p := range pieces {
+		kind := session.KindText
+		if p.reasoning {
+			kind = session.KindReasoning
+		}
+		h.emit(session.Event{Kind: kind, Text: p.text})
+	}
 }
 
 func (h *hsession) callbacks() chat.Callbacks {
@@ -189,7 +253,7 @@ func (h *hsession) callbacks() chat.Callbacks {
 			}
 			switch ev.Kind {
 			case "content":
-				h.emit(session.Event{Kind: session.KindText, Text: ev.Content})
+				h.emitAnswer(ev.Content)
 			case "reasoning":
 				h.emit(session.Event{Kind: session.KindReasoning, Text: ev.Content})
 			}
@@ -199,12 +263,12 @@ func (h *hsession) callbacks() chat.Callbacks {
 		},
 		OnToolStart: func(ts chat.ToolStart) {
 			h.emit(session.Event{Kind: session.KindToolStart, Tool: &session.ToolEvent{
-				Name: ts.Name, Summary: session.Summarize(json.RawMessage(ts.Arguments)),
+				Name: hostName(ts.Name), Summary: session.Summarize(json.RawMessage(ts.Arguments)),
 			}})
 		},
 		OnToolResult: func(r chat.ToolResult) {
 			h.emit(session.Event{Kind: session.KindToolEnd, Tool: &session.ToolEvent{
-				Name: r.Name, Summary: session.Summarize(json.RawMessage(r.Arguments)),
+				Name: hostName(r.Name), Summary: session.Summarize(json.RawMessage(r.Arguments)),
 				OK: toolOK(r), Output: session.CapText(r.Result, 2048),
 			}})
 		},
@@ -243,6 +307,7 @@ func (h *hsession) send(ctx context.Context, text string, parts []chat.ContentPa
 		}
 	}()
 	_, err := h.sess.SendMessage(text, parts...)
+	h.flushAnswer()
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}

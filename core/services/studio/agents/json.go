@@ -124,6 +124,25 @@ func (s *jsonStore) List(_ context.Context, principal string) ([]Agent, error) {
 	return out, nil
 }
 
+func (s *jsonStore) ListAll(context.Context) ([]Agent, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]Agent, 0, len(s.byID))
+	for _, a := range s.byID {
+		out = append(out, a.clone())
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Principal != out[j].Principal {
+			return out[i].Principal < out[j].Principal
+		}
+		if ki, kj := NameKey(out[i].Name), NameKey(out[j].Name); ki != kj {
+			return ki < kj
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out, nil
+}
+
 func (s *jsonStore) Delete(_ context.Context, principal, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

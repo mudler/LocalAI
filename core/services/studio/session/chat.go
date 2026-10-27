@@ -8,7 +8,9 @@ import (
 	"io"
 	"log/slog"
 	"path"
+	"regexp"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -437,11 +439,15 @@ func capTool(t *ToolEvent) *ToolEvent {
 	return &cp
 }
 
-// fixedReason returns text when it is one of the fixed reasons, and the
+// fixedReason returns text when it is one of the fixed reasons, or one of the
+// reasons that reasonFor builds from an error without quoting it, and the
 // generic reason otherwise.
 func fixedReason(text string) string {
 	switch text {
 	case reasonAgent, reasonTranscript, reasonSave, reasonRefresh, reasonCheckpoint, ReasonNotAllowed, ReasonQuota:
+		return text
+	}
+	if strings.HasPrefix(text, reasonContextPrefix) || strings.HasPrefix(text, reasonModelFailedPrefix) || strings.HasPrefix(text, reasonUnknownToolPrefix) {
 		return text
 	}
 	return reasonAgent
@@ -454,15 +460,80 @@ const (
 	MarkQuota      = "[studio:quota]"
 )
 
-// reasonFor picks the fixed reason for an error that ended a turn.
+const (
+	reasonContextPrefix     = "The model's context window is too small"
+	reasonModelFailedPrefix = "The model failed"
+	reasonUnknownToolPrefix = "The model called a tool that is not available"
+)
+
+var (
+	numberRe     = regexp.MustCompile(`\d{3,}`)
+	httpStatusRe = regexp.MustCompile(`HTTP (\d{3})`)
+)
+
+// reasonFor picks the reason for an error that ended a turn. It names what the
+// user can act on and never quotes the error: an internal address or a stack
+// would not belong in a chat.
 func reasonFor(err error) string {
-	switch msg := err.Error(); {
+	msg := err.Error()
+	lower := strings.ToLower(msg)
+	switch {
 	case strings.Contains(msg, MarkNotAllowed):
 		return ReasonNotAllowed
 	case strings.Contains(msg, MarkQuota):
 		return ReasonQuota
+	case strings.Contains(lower, "context") && (strings.Contains(lower, "exceed") || strings.Contains(lower, "too long") ||
+		strings.Contains(lower, "too small") || strings.Contains(lower, "too large") || strings.Contains(lower, "overflow")):
+		return contextReason(msg)
+	case strings.Contains(msg, "not found in available tools"):
+		return unknownToolReason(msg)
+	case strings.Contains(msg, "the model failed "):
+		reason := reasonModelFailedPrefix + " several times in a row, so the turn was stopped."
+		if m := httpStatusRe.FindStringSubmatch(msg); m != nil {
+			reason = reasonModelFailedPrefix + " several times in a row (HTTP " + m[1] + "), so the turn was stopped. Check that the model and its backend are running."
+		}
+		return reason
 	}
 	return reasonAgent
+}
+
+var toolNameRe = regexp.MustCompile(`selected tool ([A-Za-z0-9_.:-]{1,64}) not found`)
+
+// unknownToolReason says that the model called a tool the chat does not offer.
+// When two connectors offer one tool name, the second is offered under the
+// connector's name, so the hint names that rule.
+func unknownToolReason(msg string) string {
+	reason := reasonUnknownToolPrefix
+	if m := toolNameRe.FindStringSubmatch(msg); m != nil {
+		reason += " (" + m[1] + ")"
+	}
+	return reason + ". A tool that two connectors both offer is offered as <connector>__<tool>. Try again, or switch the extra connectors off."
+}
+
+// contextReason explains that the built-in tools and the conversation do not
+// fit the model's context window, and by how much when the error says.
+func contextReason(msg string) string {
+	reason := reasonContextPrefix + " for the built-in tools and this conversation."
+	nums := numberRe.FindAllString(msg, -1)
+	if len(nums) >= 2 {
+		hi, lo := 0, 0
+		for i, n := range nums {
+			v, err := strconv.Atoi(n)
+			if err != nil {
+				continue
+			}
+			if i == 0 || v > hi {
+				hi = v
+			}
+			if i == 0 || v < lo {
+				lo = v
+			}
+		}
+		if hi > lo {
+			reason = reasonContextPrefix + " for the built-in tools and this conversation: it is about " + strconv.Itoa(hi-lo) + " tokens short."
+		}
+	}
+	return reason + " Use a model with a larger context window, or switch some tools off."
 }
 
 // addReasoning buffers a reasoning delta. Answer text that is still buffered

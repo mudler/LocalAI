@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -46,6 +47,9 @@ type studioServer struct {
 // studioTriggerOptions lets a spec set the clock or the limits of the trigger
 // host before the server is built. Reset it after the spec.
 var studioTriggerOptions func(*studio.TriggerOptions)
+
+// studioWebhooks sends the webhooks of the agent jobs; a spec sets a fake.
+var studioWebhooks studio.WebhookSender
 
 // studioTelegram is the Bot API client of the connector manager; a spec sets a fake.
 var studioTelegram *connectors.Telegram
@@ -92,6 +96,12 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	host, err := studio.NewTriggers(svc, trgOpts)
 	Expect(err).NotTo(HaveOccurred())
 	svc.SetTriggers(host)
+	js, err := jobs.NewJSON("")
+	Expect(err).NotTo(HaveOccurred())
+	jobHost, err := studio.NewJobs(svc, studio.JobOptions{Store: js, Webhooks: studioWebhooks})
+	Expect(err).NotTo(HaveOccurred())
+	svc.SetJobs(jobHost)
+	DeferCleanup(jobHost.Close)
 	cs, err := connectors.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: cs, Telegram: studioTelegram})
@@ -101,7 +111,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	DeferCleanup(host.Close)
 
 	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc}
-	for _, id := range []string{"alice", "bob", "carol", "root"} {
+	for _, id := range []string{"alice", "bob", "carol", "dave", "root"} {
 		role := auth.RoleUser
 		if id == "root" {
 			role = auth.RoleAdmin
@@ -111,6 +121,11 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 		session, err := auth.CreateSession(db, id, "")
 		Expect(err).NotTo(HaveOccurred())
 		s.sessions[id] = session
+	}
+	// alice and bob were granted the features that are off by default: saved
+	// agents, triggers and connectors. dave has none of them.
+	for _, id := range []string{"alice", "bob"} {
+		Expect(auth.UpdateUserPermissions(db, id, auth.PermissionMap{auth.FeatureAgents: true, auth.FeatureTriggers: true, auth.FeatureConnectors: true, auth.FeatureMCPJobs: true})).To(Succeed())
 	}
 	// carol had the default-on feature revoked by an admin.
 	Expect(auth.UpdateUserPermissions(db, "carol", auth.PermissionMap{auth.FeatureChats: false})).To(Succeed())
@@ -123,7 +138,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 		}
 		return nil
 	})
-	routes.RegisterStudioRoutes(s.e, svc, models)
+	routes.RegisterStudioRoutes(s.e, svc, models, auth.RequireAdmin())
 	return s
 }
 
@@ -186,6 +201,7 @@ var _ = Describe("Chats endpoints", func() {
 		Entry("list", http.MethodGet, "/api/chats"),
 		Entry("get", http.MethodGet, "/api/chats/c1"),
 		Entry("delete", http.MethodDelete, "/api/chats/c1"),
+		Entry("rename", http.MethodPatch, "/api/chats/c1"),
 		Entry("messages", http.MethodGet, "/api/chats/c1/messages"),
 		Entry("send", http.MethodPost, "/api/chats/c1/messages"),
 		Entry("edit pending", http.MethodPatch, "/api/chats/c1/pending/p1"),
@@ -194,6 +210,19 @@ var _ = Describe("Chats endpoints", func() {
 		Entry("stop", http.MethodPost, "/api/chats/c1/stop"),
 		Entry("events", http.MethodGet, "/api/chats/c1/events"),
 	)
+
+	It("renames a chat, refuses a bad title and another user's chat", func() {
+		id := s.create("alice")
+		rec := s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": "Trip plan"})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("title", "Trip plan"))
+		Expect(s.detail("alice", id)).To(HaveKeyWithValue("title", "Trip plan"))
+		Expect(s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": "  "}).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": strings.Repeat("x", 81)}).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodPatch, "/api/chats/"+id, "not json").Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("bob", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": "Mine"}).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("carol", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": "x"}).Code).To(Equal(http.StatusForbidden))
+	})
 
 	It("honours a revoked chats permission", func() {
 		Expect(s.do("carol", http.MethodGet, "/api/chats", nil).Code).To(Equal(http.StatusForbidden))

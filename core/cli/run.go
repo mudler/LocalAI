@@ -70,7 +70,7 @@ type RunCMD struct {
 
 	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
 	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
-	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (collectiondb, agent state, tasks, jobs). Separates mutable data from configuration" group:"storage"`
+	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (chats, files, collections, jobs). Separates mutable data from configuration. Use - to keep nothing on disk: chats then live in memory and files are off" group:"storage"`
 	LocalaiConfigDir             string        `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json)" group:"storage"`
 	LocalaiConfigDirPollInterval time.Duration `env:"LOCALAI_CONFIG_DIR_POLL_INTERVAL" help:"Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to an interval to poll the LocalAI Config Dir (example: 1m)" group:"storage"`
 	// The alias on this option is there to preserve functionality with the old `--config-file` parameter
@@ -153,6 +153,13 @@ type RunCMD struct {
 
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
+
+	// Chats: the chats API, saved agents, triggers, connectors and agent jobs
+	DisableChats          bool          `env:"LOCALAI_DISABLE_CHATS" default:"false" help:"Turn off the chats: the /api/chats API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts" group:"chats"`
+	DisableTriggers       bool          `env:"LOCALAI_DISABLE_TRIGGERS" default:"false" help:"Turn off the trigger runner and the triggers API (the rest of the chats stays on)" group:"chats"`
+	DisableConnectors     bool          `env:"LOCALAI_DISABLE_CONNECTORS" default:"false" help:"Turn off the connector bots (Telegram) and the connectors API (the rest of the chats stays on)" group:"chats"`
+	AgentJobRetentionDays int           `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Days to keep finished agent jobs" group:"chats"`
+	MCPCIJobTimeout       time.Duration `name:"mcp-ci-job-timeout" env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Longest an agent job may run" group:"chats"`
 
 	// Collections (the knowledge base)
 	DisableCollections         bool   `env:"LOCALAI_DISABLE_COLLECTIONS" default:"false" help:"Disable the collections service (the knowledge base API under /api/collections)" group:"collections"`
@@ -267,10 +274,25 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 	return d, nil
 }
 
+// NoDataPath is the value of --data-path that keeps nothing on disk: the chats
+// then live in memory and files are off. An empty value cannot say this, because
+// the option has a default and the command line parser reads an empty path as
+// "keep the default".
+const NoDataPath = "-"
+
+// normalizeDataPath turns NoDataPath into the empty path the rest of the server
+// reads as "no data path".
+func (r *RunCMD) normalizeDataPath() {
+	if r.DataPath == NoDataPath {
+		r.DataPath = ""
+	}
+}
+
 func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
 	r.RemovedAgentOptions.warn()
 	r.resolveLegacyCollections()
+	r.normalizeDataPath()
 
 	if r.Version {
 		fmt.Println(internal.Version)
@@ -604,6 +626,18 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if r.DisableMCP {
 		opts = append(opts, config.DisableMCP)
 	}
+
+	// Chats
+	if r.DisableChats {
+		opts = append(opts, config.DisableChats)
+	}
+	if r.DisableTriggers {
+		opts = append(opts, config.DisableTriggers)
+	}
+	if r.DisableConnectors {
+		opts = append(opts, config.DisableConnectors)
+	}
+	opts = append(opts, config.WithAgentJobRetentionDays(r.AgentJobRetentionDays), config.WithMCPCIJobTimeout(r.MCPCIJobTimeout))
 
 	// Collections
 	if r.DisableCollections {

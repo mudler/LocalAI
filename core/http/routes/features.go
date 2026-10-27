@@ -16,10 +16,16 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 		addons := app.AddonsFeature(c.Request().Context())
 		// model_exports is false only when this instance does not see the
 		// owner's models path; an unknown check leaves it true.
+		// The chats keys say what runs on this server, not what a user may use:
+		// the permissions of a user come from /api/auth/me. A part that was
+		// switched off, or that failed to start, reads false.
+		chats := app.StudioService() != nil
 		return c.JSON(200, map[string]bool{
-			// chats is false only when the service could not be built, in which
-			// case /api/chats is not registered.
-			"chats":             app.StudioService() != nil,
+			"chats":             chats,
+			"agents":            chats,
+			"triggers":          chats && app.StudioTriggers() != nil,
+			"connectors":        chats && app.StudioConnectors() != nil,
+			"agent_jobs":        chats && app.StudioJobs() != nil,
 			"collections":       appConfig.Collections.Enabled,
 			"mcp":               !appConfig.DisableMCP,
 			"addons":            addons,

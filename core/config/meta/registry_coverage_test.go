@@ -101,14 +101,7 @@ func TestAllFieldsHaveRegistryEntries(t *testing.T) {
 // Keep the list sorted (one-line-per-entry) so the diff is minimal
 // when an entry is removed or (rarely) added.
 var grandfatheredUnregistered = []string{
-	"agent.disable_sink_state",
-	"agent.enable_mcp_prompts",
-	"agent.enable_plan_re_evaluator",
-	"agent.enable_planning",
-	"agent.enable_reasoning",
 	"agent.force_reasoning_tool",
-	"agent.loop_detection",
-	"agent.max_adjustment_attempts",
 	"agent.max_attempts",
 	"agent.max_generation_tokens", // accepted and ignored: the agent jobs it capped were removed
 	"agent.max_iterations",

@@ -604,6 +604,21 @@ func swaggerPaths() map[string]bool {
 	return out
 }
 
+// featureOfChatsRoute is the feature that gates a path under /api/chats: the
+// automation parts have their own, off by default; the rest is chats.
+func featureOfChatsRoute(path string) string {
+	for prefix, feature := range map[string]string{
+		"/api/chats/agents":     auth.FeatureAgents,
+		"/api/chats/triggers":   auth.FeatureTriggers,
+		"/api/chats/connectors": auth.FeatureConnectors,
+	} {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return feature
+		}
+	}
+	return auth.FeatureChats
+}
+
 var _ = Describe("Chats route contract", func() {
 	It("gates and documents every route that is registered under /api/chats", func() {
 		s := newStudioServer()
@@ -620,9 +635,20 @@ var _ = Describe("Chats route contract", func() {
 			if !strings.HasPrefix(r.Path, "/api/chats") {
 				continue
 			}
-			count++
+			// The administrator views have no feature: they need the admin role
+			// (studio_admin_test.go checks that). They are still documented and
+			// need a login.
+			isAdmin := strings.HasPrefix(r.Path, "/api/chats/admin/")
+			if !isAdmin {
+				count++
+			}
+			if isAdmin {
+				Expect(documented).To(HaveKey(r.Method+" "+param.ReplaceAllString(r.Path, "{$1}")), "an admin route missing from swagger.json; run make swagger")
+				Expect(s.do("", r.Method, strings.NewReplacer(":id", "c1").Replace(r.Path), nil).Code).To(Equal(http.StatusUnauthorized), r.Method+" "+r.Path)
+				continue
+			}
 			Expect(gated).To(HaveKey(r.Method+" "+r.Path), "a chats route with no entry in the feature registry would pass ungated")
-			Expect(gated[r.Method+" "+r.Path]).To(Equal(auth.FeatureChats), r.Path)
+			Expect(gated[r.Method+" "+r.Path]).To(Equal(featureOfChatsRoute(r.Path)), r.Path)
 			Expect(documented).To(HaveKey(r.Method+" "+param.ReplaceAllString(r.Path, "{$1}")), "a chats route missing from swagger.json; run make swagger")
 			// Every route needs a login, whatever the feature says.
 			Expect(s.do("", r.Method, strings.NewReplacer(":id", "c1", ":pid", "p1", ":seq", "1", ":agent_id", "a1", ":layer", "personal", ":name", "n1", ":sender", "s1").Replace(r.Path), nil).Code).

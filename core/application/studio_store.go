@@ -30,8 +30,14 @@ func (a *Application) StudioStore() store.Store {
 }
 
 // initStudioStore picks the store. It must run after the auth database is
-// opened.
+// opened. With the chats switched off it builds nothing, and every later step
+// that needs the store (the service, the reaper, the triggers, the connectors)
+// finds it nil and does not start.
 func (a *Application) initStudioStore() {
+	if a.applicationConfig.DisableChats {
+		xlog.Info("Chats are turned off (LOCALAI_DISABLE_CHATS): no chats, agents, triggers, connectors or jobs will start")
+		return
+	}
 	var (
 		s    store.Store
 		ag   agents.Store
@@ -88,4 +94,9 @@ func (a *Application) initStudioStore() {
 	}
 	a.studioStore, a.studioAgents, a.studioNotify, a.studioPush, a.studioConnStore, a.studioStoreKind = s, ag, nt, ps, cs, kind
 	a.studioMCPStore = ms
+	if err := a.initStudioTriggerStore(); err != nil {
+		xlog.Warn("Triggers disabled: failed to initialise their store", "error", err)
+	}
+	a.initStudioJobStore()
+	a.migrateStudioPermissions()
 }

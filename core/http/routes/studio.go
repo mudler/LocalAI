@@ -2,12 +2,14 @@ package routes
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
 	studioendpoint "github.com/mudler/LocalAI/core/http/endpoints/studio"
+	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 )
 
@@ -27,16 +29,50 @@ func NewStudioModelChecker(app *application.Application) studioendpoint.ModelChe
 	})
 }
 
-// RegisterStudioRoutes registers the chats API. It does nothing without
-// a service. Authentication and the chats feature gate come from the global
-// middleware and the route-feature registry, so no route carries its own.
-func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker) {
+// RegisterStudioRoutes registers the chats API. Without a service (the chats
+// are switched off or could not start) every /api/chats path answers 404 with
+// the reason, so a client sees "off" and not a missing route. Authentication and
+// the feature gates come from the global middleware and the route-feature
+// registry, so no route carries its own; the administrator routes take adminMw.
+func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker, adminMw echo.MiddlewareFunc) {
 	if svc == nil {
+		off := func(c echo.Context) error {
+			return c.JSON(http.StatusNotFound, schema.ErrorResponse{Error: &schema.APIError{
+				Message: "the chats are turned off on this server", Code: http.StatusNotFound, Type: "chats_off"}})
+		}
+		e.Any("/api/chats", off)
+		e.Any("/api/chats/*", off)
 		return
 	}
 	h := studioendpoint.New(svc, models)
 	const base = "/api/chats"
 	// The files routes come before the "/:id" ones; "files" is not a chat id.
+	// The administrator's view of every user's agents, triggers and connectors.
+	// "admin" is not a chat id, and the static segment wins over "/:id".
+	e.GET(base+"/admin/agents", h.AdminListAgents, adminMw)
+	e.DELETE(base+"/admin/agents/:id", h.AdminDeleteAgent, adminMw)
+	e.GET(base+"/admin/triggers", h.AdminListTriggers, adminMw)
+	e.GET(base+"/admin/triggers/:id/runs", h.AdminTriggerRuns, adminMw)
+	e.POST(base+"/admin/triggers/:id/disable", h.AdminDisableTrigger, adminMw)
+	e.DELETE(base+"/admin/triggers/:id", h.AdminDeleteTrigger, adminMw)
+	e.GET(base+"/admin/connectors", h.AdminListConnectors, adminMw)
+	e.POST(base+"/admin/connectors/:id/disable", h.AdminDisableConnector, adminMw)
+	e.DELETE(base+"/admin/connectors/:id", h.AdminDeleteConnector, adminMw)
+	// The agent tasks and jobs keep the paths they had on master. They are
+	// gated by the mcp_jobs feature in the route-feature registry.
+	const agent = "/api/agent"
+	e.POST(agent+"/tasks", h.CreateTask)
+	e.GET(agent+"/tasks", h.ListTasks)
+	e.GET(agent+"/tasks/:id", h.GetTask)
+	e.PUT(agent+"/tasks/:id", h.UpdateTask)
+	e.DELETE(agent+"/tasks/:id", h.DeleteTask)
+	e.POST(agent+"/tasks/:name/execute", h.ExecuteTaskByName)
+	e.POST(agent+"/jobs/execute", h.ExecuteJob)
+	e.GET(agent+"/jobs", h.ListJobs)
+	e.GET(agent+"/jobs/:id", h.GetJob)
+	e.POST(agent+"/jobs/:id/cancel", h.CancelJob)
+	e.POST(agent+"/jobs/:id/rerun", h.RerunJob)
+	e.DELETE(agent+"/jobs/:id", h.DeleteJob)
 	e.GET(base+"/files", h.ListFiles)
 	e.DELETE(base+"/files", h.DeleteFile)
 	e.GET(base+"/files/content", h.GetFileContent)
