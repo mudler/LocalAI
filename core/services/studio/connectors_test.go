@@ -582,3 +582,39 @@ func TestTestAsksTelegramForTheBotAndAllowAddsASeenSender(t *testing.T) {
 	bot.say(2, 42, "Newcomer", "new", "now?")
 	waitFor(t, "the answer", func() bool { return len(bot.answers()) == 1 })
 }
+
+func TestForwardSendsARunNotificationToTheBoundChatOnce(t *testing.T) {
+	sh, bot := newShared(t), newScriptedBot(t)
+	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
+	r.bind(t, studio.ConnectorInput{NotifyChat: "314"})
+	r.bind(t, studio.ConnectorInput{Name: "No notify"})
+	off := r.bind(t, studio.ConnectorInput{Name: "Off", NotifyChat: "999"})
+	if _, err := r.conns.SetConnectorEnabled(context.Background(), alice, off.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	r.conns.Forward(context.Background(), notify.Notification{Principal: alice, Title: "Nightly failed", Body: "took longer than 15m", Link: "/app/chats/c1"})
+	r.conns.Forward(context.Background(), notify.Notification{Principal: "bob", Title: "Bob's", Body: "x"})
+	waitFor(t, "the message", func() bool { return len(bot.answers()) == 1 })
+	time.Sleep(60 * time.Millisecond)
+	bot.mu.Lock()
+	defer bot.mu.Unlock()
+	if len(bot.sent) != 1 || !strings.Contains(bot.sent[0], "Nightly failed") || !strings.Contains(bot.sent[0], "took longer") || strings.Contains(bot.sent[0], "/app/chats") || bot.sentTo[0] != 314 {
+		t.Fatalf("sent %q to %v", bot.sent, bot.sentTo)
+	}
+}
+
+func TestAFailedSendDoesNotFailTheNotification(t *testing.T) {
+	sh, bot := newShared(t), newScriptedBot(t)
+	bot.fail["sendMessage"] = func() (int, string) { return 400, `{"ok":false,"error_code":400,"description":"chat not found"}` }
+	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
+	r.bind(t, studio.ConnectorInput{NotifyChat: "314"})
+	// The inbox hook runs after the notification is stored.
+	r.inbox.OnAdd(func(n notify.Notification) { r.conns.Forward(context.Background(), n) })
+	n, err := r.inbox.Add(context.Background(), notify.Notification{Principal: alice, Title: "T", Body: "B"})
+	if err != nil || n.ID == 0 {
+		t.Fatalf("the notification was not stored: %v", err)
+	}
+	if got, _ := r.inbox.Count(context.Background(), alice); got != 1 {
+		t.Fatalf("unread = %d", got)
+	}
+}

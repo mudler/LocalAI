@@ -570,3 +570,35 @@ func (c *Connectors) answerOf(b connectors.Binding, chatID, errText string) stri
 func isAgentMissing(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "agents: not found")
 }
+
+// Forward sends a notification of a user to the Telegram chat of each enabled
+// binding of that user that has one. The title and the text go, never the link.
+// The inbox calls it on the frontend that stored the notification, so a
+// notification is sent once. It does not wait, and a failure is only logged.
+func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
+	if c.closed() {
+		return
+	}
+	bindings, err := c.o.Store.ListBindings(ctx, n.Principal)
+	if err != nil {
+		c.log.Warn("studio: could not list the bindings to forward a notification", "error", err)
+		return
+	}
+	text := strings.TrimSpace(n.Title + "\n" + n.Body)
+	for _, b := range bindings {
+		chat, perr := strconv.ParseInt(b.NotifyChat, 10, 64)
+		if !b.Enabled || b.NotifyChat == "" || perr != nil {
+			continue
+		}
+		token, err := c.openToken(ctx, b)
+		if err != nil {
+			c.log.Warn("studio: could not read a bot token to forward a notification", "binding", b.ID)
+			continue
+		}
+		c.wg.Add(1)
+		go func() {
+			defer c.wg.Done()
+			c.say(token, chat, text)
+		}()
+	}
+}
