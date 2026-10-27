@@ -89,7 +89,22 @@ else
 	GORELEASER=$(shell which goreleaser)
 endif
 
-TEST_PATHS?=./api/... ./pkg/... ./core/... ./backend/go/cloud-proxy/... ./backend/go/localai-proxy/... ./backend/go/local-store/... ./backend/go/valkey-store/... ./backend/go/qdrant-store/...
+## ./addons/... holds the Go tests of every add-on (sandbox, office, tables,
+## fine-tuning, quantization and the shared packages). The Sandbox add-on is
+## Linux only and does not compile elsewhere, so the add-on tests run on Linux
+## only. tests/addons/actione2e is the one
+## tests/addons suite that builds everything it needs itself; the other
+## tests/addons suites need the fixtures and executables that
+## scripts/addons/verify.sh prepares, so the addons-tests workflow runs them
+## through verify.sh.
+ifeq ($(OS),Linux)
+ADDON_TEST_PATHS:=./addons/... ./tests/addons/actione2e/...
+ADDON_COVERAGE_ROOTS:=./addons ./tests/addons/actione2e
+else
+ADDON_TEST_PATHS:=
+ADDON_COVERAGE_ROOTS:=
+endif
+TEST_PATHS?=./api/... ./pkg/... ./core/... $(ADDON_TEST_PATHS) ./backend/go/cloud-proxy/... ./backend/go/localai-proxy/... ./backend/go/local-store/... ./backend/go/valkey-store/... ./backend/go/qdrant-store/...
 
 ## Coverage output and the committed baseline that CI compares against.
 ## The gate is strict: total coverage must never decrease (no tolerance).
@@ -101,8 +116,8 @@ COVERAGE_BASELINE?=coverage-baseline.txt
 ## Coverage is collected one recursive root at a time and merged (see
 ## scripts/run-coverage.sh): passing several recursive roots to a single
 ## ginkgo invocation only keeps one root's coverprofile. Mirrors TEST_PATHS
-## minus ./api (which doesn't exist).
-COVERAGE_ROOTS?=./pkg ./core
+## minus ./api (which doesn't exist) and the backend/go modules.
+COVERAGE_ROOTS?=./pkg ./core $(ADDON_COVERAGE_ROOTS)
 ## Build tags for the coverage build. `auth` is required to compile the real
 ## auth implementation and its ~150 `//go:build auth` tests (otherwise they're
 ## invisible and the gate scores auth against a stub). `debug` matches `test`.
@@ -123,7 +138,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -1606,8 +1621,11 @@ test-ui: build-mock-backend protogen-go
 	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG)
 
-## The stale-chunk specs need the production code-split bundle. The V8 coverage
-## bundle below inlines dynamic imports to keep every page in its denominator.
+## The specs tagged @production-chunks need the production code-split bundle
+## the binary embeds: the stale-chunk recovery specs and the production bundle
+## walk (e2e/production-bundle.spec.js). The V8 coverage bundle below inlines
+## dynamic imports to keep every page in its denominator, so it skips them and
+## this target is the only run that tests the bundle that ships.
 test-ui-stale-chunk: build-mock-backend protogen-go
 	cd core/http/react-ui && bun install && bun run build
 	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
@@ -1638,6 +1656,59 @@ test-ui-coverage-baseline: test-ui-coverage
 
 test-ui-coverage-check: test-ui-coverage
 	sh $(CURDIR)/scripts/ui-coverage-check.sh core/http/react-ui/coverage/coverage-summary.json core/http/react-ui/coverage-baseline.txt
+
+## Node-only UI checks that need no server and no browser: eslint (errors
+## only, warnings are tracked by the editor), the inline-style ratchet, the
+## host UI unit tests, the UI unit tests of every add-on and the locale
+## completeness ratchet. Run `npm ci` in core/http/react-ui first.
+test-ui-unit: test-i18n
+	cd core/http/react-ui && npm run lint -- --quiet
+	cd core/http/react-ui && npm run lint:inline-styles
+	cd core/http/react-ui && npm run test:unit
+	@set -e; for dir in addons/*/ui; do \
+		[ -f "$$dir/test/run.mjs" ] || continue; \
+		echo "== $$dir"; \
+		(cd "$$dir" && node test/run.mjs > /dev/null); \
+	done
+
+## Every locale must have every namespace and key of English, except the gaps
+## recorded in core/http/react-ui/i18n-baseline.json, which may only shrink.
+test-i18n:
+	cd core/http/react-ui && node scripts/i18n-check.mjs
+
+## The PostgreSQL stores of the chats, agents, connectors, notifications,
+## workspace and triggers. They skip without a database, which would let a
+## cluster-only regression pass, so this target fails when the URL is unset or
+## when any of them skipped.
+test-postgres:
+	@test -n "$$LOCALAI_TEST_POSTGRES_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL is not set; point it at a database the tests may wipe' >&2; exit 1; }
+	@out=$$($(GOCMD) test -count=1 -v -tags "$(COVERAGE_TAGS)" -run 'OnPostgres|PushOnPostgres|PostgresStoreMeetsTheContract' ./core/services/studio/... 2>&1) || { printf '%s\n' "$$out"; exit 1; }; \
+	printf '%s\n' "$$out" | grep -E '^(--- (PASS|FAIL|SKIP)|ok |FAIL)' ; \
+	if printf '%s\n' "$$out" | grep -q -- '--- SKIP'; then echo 'a PostgreSQL test skipped' >&2; exit 1; fi; \
+	test "$$(printf '%s\n' "$$out" | grep -c -- '--- PASS')" -ge 7 || { echo 'fewer PostgreSQL tests ran than expected' >&2; exit 1; }
+
+## The multi-frontend paths run against the in-process bus (testutil.FakeBus)
+## under the race detector: two frontends, a worker and the cluster state, with
+## no containers. The container-based suite is test-e2e-distributed. The
+## galleryop and nodes packages are left out: some of their specs start
+## containers, and galleryop has a data race in a test (cancellable_phase_test.go
+## reassigns the gate channel the worker reads).
+test-distributed-fakebus:
+	$(GOCMD) test -race -count=1 -tags "$(COVERAGE_TAGS)" \
+		./core/services/testutil/... ./core/services/messaging/... ./core/services/studio/... \
+		./core/services/collections/... ./core/services/syncstate/... \
+		./core/services/modeladmin/... ./core/services/failover/...
+
+## The add-on suites of scripts/addons/suites.json that need the integration
+## build (UI server, mock backend, browser). ADDON_SUITES picks the ones to run;
+## `packaging` is left out because addons-package.yml runs it.
+## Prepare first with: sh scripts/addons/prepare.sh --prepare, then --integration
+ADDON_SUITES?=prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps gallery-ui esm-ui host-slots library-sources foundation-acceptance recovery updates tables-databases tables-schema tables-rows tables-tools tables-admin tables-ui tables-csv tables-acceptance
+test-addons-suites:
+	@set -e; for suite in $(ADDON_SUITES); do \
+		echo "== $$suite"; \
+		sh scripts/addons/verify.sh $$suite; \
+	done
 
 test-ui-e2e-docker:
 	docker build -t localai-ui-e2e -f tests/e2e-ui/Dockerfile .

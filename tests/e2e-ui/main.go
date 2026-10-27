@@ -191,9 +191,17 @@ func main() {
 		// the store the library routes read, the default sources of the three
 		// kinds. It stays off by default so the other specs never reach for a
 		// remote gallery.
+		// Add-ons are on, with no package installed, so the Add-ons page and
+		// its Libraries tab exist.
+		owner, err := localOwnerAddons(dataDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error preparing the add-on owner: %v\n", err)
+			os.Exit(1)
+		}
 		appOptions = append(appOptions,
 			config.WithStringGalleries(config.DefaultGalleriesJSON),
 			config.WithBackendGalleries(config.DefaultBackendGalleriesJSON),
+			config.WithAddons(owner),
 			library.Option(dataDir, true, false, true))
 	}
 	app, err := application.New(appOptions...)

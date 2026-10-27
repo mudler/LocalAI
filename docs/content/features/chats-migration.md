@@ -145,7 +145,7 @@ The keys of `runtime_settings.json` changed the same way: `agent_pool_enabled`, 
 
 ## In a cluster
 
-The agent dispatch and job queues are gone from distributed mode: the NATS subjects `agent.*` and `jobs.*`, the queues and their permissions. The agent worker keeps serving the MCP tool and discovery calls. A worker no longer gets an API user or key when it registers, and the old worker user of a node is removed when that node registers again. On the collections routes, `?user_id=` is now for administrators only. If you made NATS credentials with `scripts/nats-auth-setup.sh`, make them again: the frontend user needs the `chats.>` subjects. The old tables stay in the database untouched; the conversion reads them, and you can drop them when you no longer need them.
+The agent dispatch and job queues are gone from distributed mode: the NATS subjects `agent.*` and `jobs.*`, the queues and their permissions. The agent worker keeps serving the MCP tool and discovery calls. A worker no longer gets an API user or key when it registers, and the old worker user of a node is removed when that node registers again. On the collections routes, `?user_id=` is now for administrators only. If you made NATS credentials with `scripts/nats-auth-setup.sh`, make them again: the frontend user needs the `chats.>` and `responses.>` subjects (the latter carries the cross-frontend Open Responses cancel). The old tables stay in the database untouched; the conversion reads them, and you can drop them when you no longer need them.
 
 ## Storage and clusters
 

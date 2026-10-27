@@ -165,6 +165,9 @@ var _ = Describe("Documented NATS service-user permissions", func() {
 	}
 	chatsPub, chatsSub := chatsSubjects()
 	frontendPublishes = append(frontendPublishes, chatsPub...)
+	// The cross-frontend Open Responses cancel is published and subscribed
+	// on responses.<id>.cancel (core/http/endpoints/openresponses/sync.go).
+	frontendPublishes = append(frontendPublishes, messaging.SubjectResponseCancel("resp-1"))
 
 	It("cover every subject the frontend publishes", func() {
 		raw, err := os.ReadFile(scriptPath)
@@ -191,5 +194,18 @@ var _ = Describe("Documented NATS service-user permissions", func() {
 			Expect(anyAllows(allow, subject)).To(BeTrue(),
 				"service-user --allow-sub %v does not cover %s (frontend subscribes to it)", allow, subject)
 		}
+	})
+
+	It("cover the cross-frontend Open Responses cancel subscription", func() {
+		raw, err := os.ReadFile(scriptPath)
+		Expect(err).ToNot(HaveOccurred(), "cannot read %s", scriptPath)
+		m := allowSubRe.FindStringSubmatch(string(raw))
+		Expect(m).To(HaveLen(2), "no --allow-sub list found in %s", scriptPath)
+		allow := strings.Split(m[1], ",")
+
+		Expect(anyAllows(allow, messaging.SubjectResponseCancel("resp-1"))).To(BeTrue(),
+			"service-user --allow-sub %v does not cover the responses cancel subject", allow)
+		Expect(anyAllows(allow, messaging.SubjectResponseCancelWildcard)).To(BeTrue(),
+			"service-user --allow-sub %v does not cover the responses cancel wildcard", allow)
 	})
 })

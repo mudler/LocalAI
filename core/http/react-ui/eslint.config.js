@@ -29,4 +29,9 @@ export default [
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^(Icon|FaIcon)$' }],
     },
   },
+  {
+    // Playwright fixtures call their `use` callback; it is not a React hook.
+    files: ['e2e/**/*.js'],
+    rules: { 'react-hooks/rules-of-hooks': 'off' },
+  },
 ]

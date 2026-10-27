@@ -3623,5 +3623,21 @@
       "tables-acceptance: the page says it is unavailable while the owner is gone and recovers on reload when it is back",
       "manifest: the evidence manifest names the platform, the commands, the package digests and every case"
     ]
+  },
+  "library-sources": {
+    "kind": "shell",
+    "commands": [
+      [
+        "sh",
+        "scripts/addons/library_ui.sh"
+      ]
+    ],
+    "cases": [
+      "each page lists only its own kind, with a Default badge and no kind filter",
+      "adds a model source of your own, which has no Default badge and stays after a reload",
+      "turns a default off and removes it: it stays listed as removed, and restoring brings it back",
+      "shows the conflict message the store gives next to the source that clashes",
+      "turning it off hides the default galleries and shows the defaults as off, and on brings them back"
+    ]
   }
 }
