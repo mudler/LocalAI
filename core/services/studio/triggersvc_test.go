@@ -477,6 +477,16 @@ func TestARunLeftRunningByAFrontendThatDiedIsFailedByTheNextLeader(t *testing.T)
 	if err != nil || got.Status != triggers.StatusFailed || got.Reason != triggers.ReasonInterrupted {
 		t.Fatalf("run = %+v, %v", got, err)
 	}
+	// The owner is told: a run that a restart cut short is a failed run.
+	list, err := r.inbox.List(ctx, alice, false, 10)
+	if err != nil || len(list) != 1 || list[0].Kind != notify.KindRunFailed || !strings.Contains(list[0].Body, "restart") {
+		t.Fatalf("notifications = %+v, %v", list, err)
+	}
+	// And only once.
+	r.pass(t)
+	if list, _ := r.inbox.List(ctx, alice, false, 10); len(list) != 1 {
+		t.Fatalf("notifications after another pass = %d", len(list))
+	}
 }
 
 func TestTwoFrontendsOnOneStoreRunADueTimeOnceAndTheNextLeaderEndsADeadRun(t *testing.T) {

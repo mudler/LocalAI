@@ -49,6 +49,9 @@ type Options struct {
 	// process. Nil means no work is live. At the first pass, a running run
 	// that is not live becomes failed with "interrupted by a restart".
 	Live func(chatID string) bool
+	// Interrupted is called for each run that the first pass ended as
+	// interrupted, after the store recorded it. The host tells the owner.
+	Interrupted func(r Run)
 	// Clock gives the time; nil means time.Now. A test sets a fake one.
 	Clock func() time.Time
 	// Tick is the time between two passes of Run; zero means DefaultTick.
@@ -212,6 +215,9 @@ func (r *Runner) recover(ctx context.Context, now time.Time) error {
 		r.endChat(ctx, run.ID)
 		if err := r.o.Store.SetRunStatus(ctx, run); err != nil && !errors.Is(err, ErrNotFound) {
 			return err
+		}
+		if r.o.Interrupted != nil {
+			r.o.Interrupted(run)
 		}
 	}
 	return nil
