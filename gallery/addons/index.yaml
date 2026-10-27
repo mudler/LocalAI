@@ -186,3 +186,15 @@
     description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
     mainPage: "office"
     icon: "ui/icon.png"
+  toolCount: 10
+  tools:
+    - "read-docx"
+    - "read-xlsx"
+    - "read-pptx"
+    - "read-pdf"
+    - "edit-docx"
+    - "edit-xlsx"
+    - "edit-pptx"
+    - "create-docx"
+    - "create-xlsx"
+    - "create-pptx"

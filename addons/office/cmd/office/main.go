@@ -8,9 +8,14 @@ package main
 import (
 	"os"
 
-	"github.com/mudler/LocalAI/addons/internal/idle"
+	"github.com/mudler/LocalAI/addons/internal/hostclient"
+	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/addons/office/internal/tools"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 func main() {
-	os.Exit(idle.Run(os.Args))
+	os.Exit(protocol.Run(os.Args, func(s protocol.Startup) contract.Runtime {
+		return tools.New(hostclient.New(s), s.DataDir)
+	}))
 }

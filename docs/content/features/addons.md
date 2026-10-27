@@ -3406,3 +3406,15 @@ An add-on that holds `sandbox=workspace.` or `office=workspace.` in the host ope
 - `workspace.export` copies one file of the user into the data directory, and `workspace.import` (an `act` request) writes one file of the data directory into the files of the user, with the version check of the files API.
 
 Every call runs as the user of the live request, never as a user named in the arguments. Folders are named relative to the home of that user, and `dir` is a relative folder inside the add-on's data directory; an absolute path, a parent reference or a symbolic link is refused.
+
+## Office
+
+The Office add-on reads and edits documents in the user's files, from a chat. It is a package like the others (`office` in the add-on library) and uses the `workspace.*` host operations to take a file in and give the result back.
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `read-docx`, `read-xlsx`, `read-pptx`, `read-pdf` | read | Return the text of a file: paragraphs with their index, cells row by row, slides with their shapes, pages. The answer is cut to about 48 KiB and says so. |
+| `edit-docx`, `edit-xlsx`, `edit-pptx` | action | Apply a list of changes (at most 200) to a file. All of them are saved, or none. |
+| `create-docx`, `create-xlsx`, `create-pptx` | action | Make a new file. |
+
+The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.

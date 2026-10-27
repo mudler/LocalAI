@@ -206,6 +206,26 @@ var _ = Describe("Workspace host operations", func() {
 		Expect(code).To(Equal(http.StatusBadRequest))
 	})
 
+	It("keeps both files when the file changed after the add-on read it", func() {
+		f := newWSFixture()
+		f.put("alice", "/doc.txt", "first")
+		f.live("alice", "op1", "act")
+		Expect(os.WriteFile(filepath.Join(f.data, "sandbox", "mine.txt"), []byte("mine"), 0o600)).To(Succeed())
+		// The add-on read version 1 of the file; the user then saved another.
+		abs, _ := f.files.Abs("alice", "/doc.txt")
+		_, err := f.files.Store().Put(context.Background(), f.files.Actor("alice"), abs, strings.NewReader("second"), workspace.PutOptions{Overwrite: true})
+		Expect(err).ToNot(HaveOccurred())
+		code, out := f.call("secret", "op1", "workspace.import", `{"from":"mine.txt","path":"/doc.txt","baseVersion":1}`)
+		Expect(code).To(Equal(http.StatusOK), "%+v", out.Error)
+		var got struct {
+			Path       string `json:"path"`
+			ConflictOf string `json:"conflictOf"`
+		}
+		Expect(json.Unmarshal(out.Result, &got)).To(Succeed())
+		Expect(got.ConflictOf).To(Equal("/doc.txt"))
+		Expect(got.Path).ToNot(Equal("/doc.txt"))
+	})
+
 	It("commits once for a repeated operation", func() {
 		f := newWSFixture()
 		f.put("alice", "/proj/a.txt", "hello")

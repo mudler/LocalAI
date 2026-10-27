@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
@@ -93,6 +94,11 @@ func (a *Application) initStudioFiles() {
 		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
 		a.closeStudioFilesDB(db)
 		return
+	}
+	// The office skills ship with the server. A copy that fails leaves the
+	// chats as they are: the skills are help, not a need.
+	if err := f.SyncBuiltin(context.Background(), builtinskills.FS()); err != nil {
+		xlog.Warn("Could not write the built-in skills", "error", err)
 	}
 	a.studioFiles = f
 }

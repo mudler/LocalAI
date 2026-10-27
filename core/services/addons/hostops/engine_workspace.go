@@ -356,5 +356,11 @@ func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage
 	if err != nil {
 		return nil, workspaceErr(err)
 	}
-	return json.Marshal(map[string]any{"version": node.Version, "path": h.Files.Rel(p, node.Path)})
+	out := map[string]any{"version": node.Version, "path": h.Files.Rel(p, node.Path)}
+	if node.ConflictOf != "" {
+		// Someone changed the file after the add-on read it, so the store kept
+		// both. conflictOf is the path the add-on asked for.
+		out["conflictOf"] = h.Files.Rel(p, node.ConflictOf)
+	}
+	return json.Marshal(out)
 }

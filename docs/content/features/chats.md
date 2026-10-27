@@ -128,6 +128,8 @@ A chat keeps its own switches. Turning a skill off takes it out of the index at 
 
 The **Skills** page for chats lists them by layer and edits personal skills, and a panel in the chat switches them per chat.
 
+The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf` and `writing-skills`. The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox. For most edits the Office add-on's tools are simpler: they read, edit and create Word, Excel and PowerPoint files, and read PDF files, in your files.
+
 ## Collections
 
 When you may use collections, a chat has two more tools: `list_collections` and `search_collection` (`collection`, `query`, `limit`). They search your own collections, the ones of the Collections page, and nobody else's: a name that is not yours is answered "collection not found". An answer holds at most 20 passages and about 16 KiB. A sub-agent gets these tools only when its parent names them.
