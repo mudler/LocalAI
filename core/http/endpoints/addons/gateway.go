@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -232,6 +233,9 @@ func resultError(c echo.Context, e error) error {
 		kind    string
 		message string
 	}{
+		{gateway.ErrNotPermitted, 403, "not_permitted", "You do not have the permission this needs. An administrator can grant it"},
+		{gateway.ErrResourceUnreachable, 403, "resource_unreachable", "That resource does not exist or you have no access to it"},
+		{packages.ErrPackage, 403, "package_unverified", "The package could not be verified: it does not match its library entry, or it is not a valid add-on package. Nothing was installed"},
 		{gateway.ErrSharingDisabled, 409, "sharing_disabled", "Sharing is disabled: this installation has no named users to share with"},
 		{gateway.ErrStale, 409, "stale", "The view is out of date; reload it and repeat the action"},
 		{gateway.ErrOperationConflict, 409, "operation_conflict", "The operation ID was used for another request; nothing was applied. Repeat the change under a new operation ID"},

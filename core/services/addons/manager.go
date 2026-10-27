@@ -327,7 +327,8 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		}
 	}
 	// fail ends the operation. A cause that is an SDK refusal keeps its text for
-	// the administrator; the returned error still matches ErrOperationFailed.
+	// the administrator, and so does a package that failed verification; the
+	// returned error still matches ErrOperationFailed.
 	fail := func(cause ...error) (OperationStatus, error) {
 		op.Status.Phase = "failed"
 		m.journal.Operations[cmd.OperationID] = op
@@ -338,6 +339,11 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			var refusal *contract.SDKRefusal
 			if errors.As(c, &refusal) {
 				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, refusal)
+			}
+			if errors.Is(c, packages.ErrPackage) {
+				// The package is not what its library entry says. The text of
+				// ErrPackage is fixed, so it is safe to show.
+				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, packages.ErrPackage)
 			}
 		}
 		return op.Status, ErrOperationFailed

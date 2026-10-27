@@ -473,6 +473,7 @@ func typedError(w http.ResponseWriter, e error) {
 
 // Wire types of a 403 that says which denial it is.
 const (
+	wirePackage      = "package_unverified"
 	wireNotPermitted = "not_permitted"
 	wireUnreachable  = "resource_unreachable"
 )
@@ -482,6 +483,8 @@ func denialType(e error) string {
 	switch {
 	case errors.Is(e, ErrUnavailable):
 		return ""
+	case errors.Is(e, packages.ErrPackage) && errors.Is(e, addons.ErrOperationFailed):
+		return wirePackage
 	case errors.Is(e, ErrNotPermitted):
 		return wireNotPermitted
 	case errors.Is(e, ErrResourceUnreachable):
@@ -649,6 +652,8 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 				switch b.Type {
 				case wireSDK:
 					return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
+				case wirePackage:
+					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, packages.ErrPackage)
 				case wireNotPermitted:
 					return nil, ErrNotPermitted
 				case wireUnreachable:
