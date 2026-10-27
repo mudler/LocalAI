@@ -332,6 +332,41 @@ func (s *gormStore) AppendEntry(ctx context.Context, id string, e session.Entry)
 	return stored, nil
 }
 
+func (s *gormStore) AppendEntries(ctx context.Context, id string, entries []session.Entry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		first, err := lock(tx, "", id, "next_entry")
+		if err != nil {
+			return err
+		}
+		// lock took one number; take the rest of the batch with it.
+		if extra := int64(len(entries) - 1); extra > 0 {
+			if err := tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("next_entry", gorm.Expr("next_entry + ?", extra)).Error; err != nil {
+				return err
+			}
+		}
+		rows := make([]entryRow, len(entries))
+		for i, e := range entries {
+			if e.At.IsZero() {
+				e.At = time.Now().UTC()
+			}
+			card := ""
+			if e.Card != nil {
+				raw, err := json.Marshal(e.Card)
+				if err != nil {
+					return err
+				}
+				card = string(raw)
+			}
+			rows[i] = entryRow{ChatID: id, Seq: first + int64(i), Turn: e.Turn, Role: e.Role, Text: e.Text, Rev: e.Rev,
+				DurMs: e.Dur.Milliseconds(), Card: card, At: e.At}
+		}
+		return tx.CreateInBatches(&rows, 100).Error
+	})
+}
+
 func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit int) ([]session.Entry, error) {
 	var n int64
 	if err := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ?", id).Count(&n).Error; err != nil {

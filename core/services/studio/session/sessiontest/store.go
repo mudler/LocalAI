@@ -349,6 +349,38 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			t.Fatalf("a missing chat: %d, %v", seq, err)
 		}
 	})
+	t.Run("TestAppendEntriesStoresAWholeBatchInOrder", func(t *testing.T) {
+		s := newStore(t)
+		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "first"}); err != nil {
+			t.Fatal(err)
+		}
+		batch := []session.Entry{{Role: session.RoleUser, Text: "b1", At: t0}, {Role: session.RoleAssistant, Text: "b2", At: t0}, {Role: session.RoleTool, Text: "b3", At: t0}}
+		if err := s.AppendEntries(ctx(t), "c1", batch); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.AppendEntries(ctx(t), "c1", nil); err != nil {
+			t.Fatalf("an empty batch: %v", err)
+		}
+		seq, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "last"})
+		if err != nil || seq != 5 {
+			t.Fatalf("the entry after a batch got seq %d, %v; want 5", seq, err)
+		}
+		es, err := s.Entries(ctx(t), "c1", 0, 0)
+		if err != nil || len(es) != 5 {
+			t.Fatalf("entries = %+v, %v", es, err)
+		}
+		for i, want := range []string{"first", "b1", "b2", "b3", "last"} {
+			if es[i].Text != want || es[i].Seq != int64(i+1) {
+				t.Fatalf("entry %d = %q seq %d, want %q seq %d", i, es[i].Text, es[i].Seq, want, i+1)
+			}
+		}
+		if err := s.AppendEntries(ctx(t), "nope", batch); !errors.Is(err, session.ErrNotFound) {
+			t.Fatalf("a missing chat: %v", err)
+		}
+	})
 	t.Run("TestTheStoreKeepsTheAppOfACard", func(t *testing.T) {
 		s := newStore(t)
 		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {

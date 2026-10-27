@@ -30,6 +30,10 @@ type Store interface {
 	// ChatRecord.Updated; the caller updates the chat with UpdateChat. It
 	// returns the Seq it set (0 with an error).
 	AppendEntry(ctx context.Context, chatID string, e Entry) (int64, error)
+	// AppendEntries adds entries in order as one write: all or none. It is the
+	// way to store a long transcript, one write for a batch instead of one per
+	// entry. An empty list does nothing.
+	AppendEntries(ctx context.Context, chatID string, entries []Entry) error
 	// Entries returns up to limit entries with Seq greater than after, in order.
 	Entries(ctx context.Context, chatID string, after int64, limit int) ([]Entry, error)
 }
