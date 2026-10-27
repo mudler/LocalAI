@@ -297,6 +297,19 @@ curl -s localhost:8080/api/chats/$ID/addons
 curl -s -X PUT localhost:8080/api/chats/$ID/addons -d '{"off":["office"]}'
 ```
 
+## Metrics
+
+With metrics on, `/metrics` counts every turn of the loop (a chat in the page, a
+saved agent, a trigger run, a connector message and an agent job):
+
+| Metric | Type | Labels |
+|---|---|---|
+| `localai_agent_runs_total` | counter | `agent` (the saved agent's name, empty for a plain chat), `origin` (`chat`, `trigger`, `connector` or `job`), `outcome` (`completed`, `error` or `cancelled`) |
+| `localai_agent_run_seconds` | histogram | the same labels |
+
+They keep the names the old agent pool had, so an existing dashboard works. The
+`origin` label is new.
+
 ## Who can see a chat
 
 A chat belongs to the user who started it. Another user's chat id always

@@ -181,6 +181,7 @@ type Service struct {
 
 type run struct {
 	id      string
+	started time.Time
 	stopped bool
 	failed  bool
 	// chat is the chat the turn runs on. Stop goes through it and never opens
@@ -615,7 +616,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up
 	})
 	end := func() { stopBeat(); stopListening() }
 	s.mu.Lock()
-	s.runs[k] = &run{id: runID, end: end, chat: chat}
+	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
 	s.mu.Unlock()
 	if err := chat.Send(context.WithoutCancel(ctx), session.Message{Text: text, Files: up}); err != nil {
 		s.mu.Lock()
@@ -773,6 +774,7 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) {
 		// this one only cleans up after itself and reports a terminal status.
 		status = store.TurnInterrupted
 	}
+	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
 	s.notifyWaiters(k, status)
 	if status != store.TurnDone {
 		// A stopped or failed turn takes its running sub-agents with it, and the
