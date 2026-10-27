@@ -1,6 +1,7 @@
 package library
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -595,5 +596,22 @@ func TestMapGalleriesKeepsTheMirrorsOfAFlagGallery(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("the info lists the mirrors")
+	}
+}
+
+func TestAnAddonLibraryOnThisMachineOverPlainHTTPIsRefusedWhenAdded(t *testing.T) {
+	admin := LocalAdmin{Store: func() (*catalog.Sources, error) { return open(t, t.TempDir()), nil }}
+	for _, url := range []string{"http://127.0.0.1:9000/index.yaml", "http://localhost:9000/index.yaml", "http://[::1]:9000/index.yaml"} {
+		_, err := admin.Add(t.Context(), AddRequest{Kind: "addon", URL: url})
+		var bad *BadRequestError
+		if !errors.As(err, &bad) || !strings.Contains(bad.Message, "https") {
+			t.Errorf("%s: err = %v, want a bad request that asks for https", url, err)
+		}
+	}
+	// A remote library over https, and a gallery on this machine, stay allowed.
+	for _, req := range []AddRequest{{Kind: "addon", URL: "https://example.com/index.yaml"}, {Kind: "model", URL: "http://127.0.0.1:9000/index.yaml"}} {
+		if _, err := admin.Add(t.Context(), req); err != nil {
+			t.Errorf("%+v: %v", req, err)
+		}
 	}
 }
