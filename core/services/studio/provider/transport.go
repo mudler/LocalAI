@@ -5,12 +5,16 @@
 package provider
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/mudler/cogito"
 
@@ -46,21 +50,37 @@ func (t *Transport) handler() http.Handler {
 // Client returns an http.Client that sends its requests through t as user. A
 // nil user sends them with no identity, which works when auth is off.
 func (t *Transport) Client(user *auth.User) *http.Client {
-	return &http.Client{Transport: userTransport{t: t, user: user}}
+	return &http.Client{Transport: userTransport{t: t, user: user, fails: new(atomic.Int32)}}
 }
+
+// MaxModelFailures is how many requests of one client may fail in a row before
+// the client gives up for good. The loop above it retries a failed request with
+// a growing wait, so without a bound a model that is down keeps a turn "running"
+// for minutes and tells the user nothing.
+const MaxModelFailures = 4
 
 type userTransport struct {
 	t    *Transport
 	user *auth.User
+	// fails counts the failed requests since the last success. One client
+	// serves one turn.
+	fails *atomic.Int32
 }
 
 func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if u.fails.Load() >= MaxModelFailures {
+		return nil, u.giveUp("")
+	}
 	if u.user != nil {
 		req = req.Clone(auth.WithInternalUser(req.Context(), u.user))
 	}
+	req = dedupeTools(req)
 	resp, err := u.t.RoundTrip(req)
 	if err != nil {
-		return resp, err
+		if req.Context().Err() != nil {
+			return resp, err // the caller stopped; the model did not fail
+		}
+		return resp, u.failed(err.Error())
 	}
 	// A refusal ends the turn with a reason the user can act on. The marker
 	// is how the loop recognizes it through the model client's own wrapping.
@@ -72,7 +92,96 @@ func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		_ = resp.Body.Close()
 		return nil, cogito.Permanent(errors.New("the model refused the request " + session.MarkQuota))
 	}
+	if resp.StatusCode >= http.StatusInternalServerError {
+		// A server error may pass: the loop above retries it. The last one
+		// allowed is turned into a permanent error.
+		if u.fails.Add(1) >= MaxModelFailures {
+			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
+			_ = resp.Body.Close()
+			return nil, u.giveUp(fmt.Sprintf("HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(snippet))))
+		}
+		return resp, nil
+	}
+	u.fails.Store(0)
 	return resp, nil
+}
+
+// failed counts a request that did not get an answer. It returns an ordinary
+// error while retries remain and a permanent one after the last.
+func (u userTransport) failed(why string) error {
+	if u.fails.Add(1) >= MaxModelFailures {
+		return u.giveUp(why)
+	}
+	return errors.New("the model request failed: " + why)
+}
+
+func (u userTransport) giveUp(why string) error {
+	msg := fmt.Sprintf("the model failed %d times in a row", MaxModelFailures)
+	if why != "" {
+		msg += " (last: " + why + ")"
+	}
+	return cogito.Permanent(errors.New(msg))
+}
+
+// dedupeTools drops a tool that the request names a second time. Providers such
+// as OpenAI and Anthropic refuse a request with two tools of one name, and the
+// loop above assembles the list from several sources. The first one wins. A
+// request with no repeated tool is passed on as it is.
+func dedupeTools(req *http.Request) *http.Request {
+	if req.Method != http.MethodPost || req.Body == nil {
+		return req
+	}
+	raw, err := io.ReadAll(req.Body)
+	_ = req.Body.Close()
+	if err != nil {
+		req.Body = io.NopCloser(bytes.NewReader(raw))
+		return req
+	}
+	out := raw
+	if fixed, changed := dedupeToolsJSON(raw); changed {
+		out = fixed
+	}
+	req = req.Clone(req.Context())
+	req.Body = io.NopCloser(bytes.NewReader(out))
+	req.ContentLength = int64(len(out))
+	req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(out)), nil }
+	return req
+}
+
+func dedupeToolsJSON(raw []byte) ([]byte, bool) {
+	var doc map[string]json.RawMessage
+	if json.Unmarshal(raw, &doc) != nil || doc["tools"] == nil {
+		return raw, false
+	}
+	var tools []json.RawMessage
+	if json.Unmarshal(doc["tools"], &tools) != nil {
+		return raw, false
+	}
+	seen := make(map[string]bool, len(tools))
+	kept := make([]json.RawMessage, 0, len(tools))
+	for _, t := range tools {
+		var named struct {
+			Function struct {
+				Name string `json:"name"`
+			} `json:"function"`
+		}
+		if json.Unmarshal(t, &named) == nil && named.Function.Name != "" {
+			if seen[named.Function.Name] {
+				continue
+			}
+			seen[named.Function.Name] = true
+		}
+		kept = append(kept, t)
+	}
+	if len(kept) == len(tools) {
+		return raw, false
+	}
+	doc["tools"], _ = json.Marshal(kept)
+	fixed, err := json.Marshal(doc)
+	if err != nil {
+		return raw, false
+	}
+	return fixed, true
 }
 
 // RoundTrip runs the handler in a goroutine and returns as soon as it has

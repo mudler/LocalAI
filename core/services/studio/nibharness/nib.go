@@ -130,6 +130,11 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 			return nil, fmt.Errorf("nib: model client: %w", err)
 		}
 		llm, model, agentOpts = m.LLM, m.Name, m.Agent
+		hostNames := make([]string, len(env.Tools))
+		for i, t := range env.Tools {
+			hostNames[i] = t.Name
+		}
+		llm = withAliases(llm, hostNames)
 		if m.ContextTokens > 0 {
 			ctxTokens = m.ContextTokens
 		}
@@ -212,6 +217,36 @@ type hsession struct {
 	stop   func()
 	cancel context.CancelFunc
 	once   sync.Once
+
+	thinkMu sync.Mutex
+	think   thinkSplitter
+}
+
+// emitAnswer sends a chunk of the answer, with inline <think> blocks told
+// apart as reasoning. Chunks arrive in order from one stream.
+func (h *hsession) emitAnswer(chunk string) {
+	h.thinkMu.Lock()
+	pieces := h.think.feed(chunk)
+	h.thinkMu.Unlock()
+	h.emitPieces(pieces)
+}
+
+// flushAnswer sends what the splitter held back at the end of a turn.
+func (h *hsession) flushAnswer() {
+	h.thinkMu.Lock()
+	pieces := h.think.flush()
+	h.thinkMu.Unlock()
+	h.emitPieces(pieces)
+}
+
+func (h *hsession) emitPieces(pieces []piece) {
+	for _, p := range pieces {
+		kind := session.KindText
+		if p.reasoning {
+			kind = session.KindReasoning
+		}
+		h.emit(session.Event{Kind: kind, Text: p.text})
+	}
 }
 
 func (h *hsession) callbacks() chat.Callbacks {
@@ -222,7 +257,7 @@ func (h *hsession) callbacks() chat.Callbacks {
 			}
 			switch ev.Kind {
 			case "content":
-				h.emit(session.Event{Kind: session.KindText, Text: ev.Content})
+				h.emitAnswer(ev.Content)
 			case "reasoning":
 				h.emit(session.Event{Kind: session.KindReasoning, Text: ev.Content})
 			}
@@ -232,12 +267,12 @@ func (h *hsession) callbacks() chat.Callbacks {
 		},
 		OnToolStart: func(ts chat.ToolStart) {
 			h.emit(session.Event{Kind: session.KindToolStart, Tool: &session.ToolEvent{
-				Name: ts.Name, Summary: session.Summarize(json.RawMessage(ts.Arguments)),
+				Name: hostName(ts.Name), Summary: session.Summarize(json.RawMessage(ts.Arguments)),
 			}})
 		},
 		OnToolResult: func(r chat.ToolResult) {
 			h.emit(session.Event{Kind: session.KindToolEnd, Tool: &session.ToolEvent{
-				Name: r.Name, Summary: session.Summarize(json.RawMessage(r.Arguments)),
+				Name: hostName(r.Name), Summary: session.Summarize(json.RawMessage(r.Arguments)),
 				OK: toolOK(r), Output: session.CapText(r.Result, 2048),
 			}})
 		},
@@ -258,6 +293,7 @@ func (h *hsession) Send(ctx context.Context, text string) error {
 		}
 	}()
 	_, err := h.sess.SendMessage(text)
+	h.flushAnswer()
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
