@@ -57,19 +57,19 @@ func TestTheRefreshKeyMovesOnlyWhenASkillFileDoes(t *testing.T) {
 	put("review", "v1")
 	put("notes", "v1")
 
-	_, _, base := svc.skillTurn(ctx, "alice", nil)
+	_, _, base := svc.skillTurn(ctx, "alice", nil, nil)
 	if base == "" {
 		t.Fatal("no key for two skills")
 	}
-	if _, _, k := svc.skillTurn(ctx, "alice", []string{"review"}); k != base {
+	if _, _, k := svc.skillTurn(ctx, "alice", []string{"review"}, nil); k != base {
 		t.Fatalf("switching a skill off changed the key: %q != %q", k, base)
 	}
 	put("review", "v2")
-	if _, _, k := svc.skillTurn(ctx, "alice", nil); k == base {
+	if _, _, k := svc.skillTurn(ctx, "alice", nil, nil); k == base {
 		t.Fatal("a changed SKILL.md left the key as it was")
 	}
 	put("extra", "new")
-	_, _, again := svc.skillTurn(ctx, "alice", nil)
+	_, _, again := svc.skillTurn(ctx, "alice", nil, nil)
 	if again == base {
 		t.Fatal("a new skill left the key as it was")
 	}

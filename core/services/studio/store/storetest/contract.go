@@ -143,6 +143,27 @@ func Run(t *testing.T, newStore New) {
 		}
 	})
 
+	t.Run("agent and origin round-trip and survive UpdateChat", func(t *testing.T) {
+		s := newStore(t)
+		rec := session.ChatRecord{ID: "run1", Principal: "alice", Title: "Run", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3",
+			AgentID: "ag1", Origin: session.OriginTrigger, OriginID: "trg1"}
+		if err := s.CreateChat(ctx(t), rec); err != nil {
+			t.Fatal(err)
+		}
+		stale := rec
+		stale.AgentID, stale.Origin, stale.OriginID, stale.Title, stale.Updated = "other", "", "", "Renamed", t0.Add(time.Minute)
+		if err := s.UpdateChat(ctx(t), stale); err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.GetChat(ctx(t), "alice", "run1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.AgentID != "ag1" || got.Origin != session.OriginTrigger || got.OriginID != "trg1" || got.Title != "Renamed" {
+			t.Fatalf("got %+v", got)
+		}
+	})
+
 	t.Run("pending messages are taken once, in send order", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "c1", "alice")

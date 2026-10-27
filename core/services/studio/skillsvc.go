@@ -43,7 +43,7 @@ func (s *Service) SetSkillsOff(ctx context.Context, user, conv string, off []str
 // gets: the index for the prompt, a note for the model when something could not
 // be read, and a key that changes only when a skill the index names changed.
 // A skill the chat switched off is not in the index and does not change the key.
-func (s *Service) skillTurn(ctx context.Context, p string, off []string) (prompt, note, key string) {
+func (s *Service) skillTurn(ctx context.Context, p string, off []string, sc *scope) (prompt, note, key string) {
 	if !s.d.Files.Available() {
 		return "", "", ""
 	}
@@ -52,7 +52,7 @@ func (s *Service) skillTurn(ctx context.Context, p string, off []string) (prompt
 		skip[n] = true
 	}
 	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p), skills.Options{
-		Off:    func(sk skills.Skill) bool { return skip[sk.Name] },
+		Off:    func(sk skills.Skill) bool { return skip[sk.Name] || (sc != nil && !sc.skills[sk.Name]) },
 		Logger: s.log,
 	})
 	if err != nil {
@@ -73,6 +73,19 @@ func (s *Service) skillTurn(ctx context.Context, p string, off []string) (prompt
 		fmt.Fprintf(h, "%s\x00%s\x00%s\n", sk.Name, sk.GuestPath, sk.Hash)
 		if !sk.Off {
 			on = append(on, sk)
+		}
+	}
+	if sc != nil {
+		have := map[string]bool{}
+		for _, sk := range list {
+			if sk.Invalid == "" && sk.Shadowed == "" {
+				have[sk.Name] = true
+			}
+		}
+		for _, n := range sc.skillNames {
+			if !have[n] {
+				notes = append(notes, "skill "+n)
+			}
 		}
 	}
 	if valid == 0 {

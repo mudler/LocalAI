@@ -45,6 +45,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -119,8 +120,9 @@ type Application struct {
 	voiceRegistry        voicerecognition.Registry
 	voiceProfileStore    *voiceprofile.Store
 	chatHistoryStore     *chathistory.Store
-	studioStore          store.Store // the studio loop's chats; see initStudioStore
-	studioStoreKind      string      // "gorm", "json" or "memory"
+	studioStore          store.Store  // the studio loop's chats; see initStudioStore
+	studioStoreKind      string       // "gorm", "json" or "memory"
+	studioAgents         agents.Store // saved agents; same kind as the chats store
 	studioProvider       *provider.Provider
 	studioService        *studio.Service
 	studioTempDir        string // removed at shutdown; set only in memory-only mode

@@ -60,7 +60,20 @@ type ChatRecord struct {
 	// off. It is kept the way SkillsOff is: SetAddonsOff sets it, UpdateChat
 	// leaves it alone.
 	AddonsOff []string
+	// AgentID is the saved agent this chat runs with; empty for a plain chat.
+	// Origin says what started the chat ("" for a person, OriginTrigger,
+	// OriginConnector) and OriginID names the trigger or the connector binding.
+	// None of the three changes after CreateChat.
+	AgentID  string
+	Origin   string
+	OriginID string
 }
+
+// Chat origins.
+const (
+	OriginTrigger   = "trigger"
+	OriginConnector = "connector"
+)
 
 // Chat kinds.
 const (

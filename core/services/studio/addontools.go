@@ -99,28 +99,31 @@ func (s *Service) Addons(ctx context.Context, user, conv string) ([]AddonInfo, e
 }
 
 // addonTools turns the add-on tools the chat's user may use, less the add-ons
-// the chat switched off, into chat tools. A host that cannot answer gives no
-// tools and a warning; it never fails the chat.
-func (s *Service) addonTools(ctx context.Context, a workspace.Actor) []session.Tool {
+// the chat switched off and, for a chat with an agent, those the agent does not
+// name, into chat tools. A host that cannot answer gives no tools and a warning;
+// it never fails the chat. The second result names the add-ons the agent grants
+// that the user cannot use.
+func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session.ChatRecord, sc *scope) ([]session.Tool, []string) {
 	if s.d.AddonTools == nil {
-		return nil
-	}
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
-	if err != nil {
-		return nil
+		if sc != nil {
+			return nil, prefixed("add-on", sc.addonNames)
+		}
+		return nil, nil
 	}
 	defs, err := s.d.AddonTools.Tools(ctx, a.Principal)
 	if err != nil {
 		s.log.Warn("studio: add-on tools unavailable", "chat", a.ChatID, "error", err)
-		return nil
+		return nil, nil
 	}
 	off := make(map[string]bool, len(rec.AddonsOff))
 	for _, id := range rec.AddonsOff {
 		off[id] = true
 	}
+	have := map[string]bool{}
 	var tools []session.Tool
 	for _, d := range defs {
-		if off[d.AddonID] || reservedToolNames[d.Name] {
+		have[d.AddonID] = true
+		if off[d.AddonID] || reservedToolNames[d.Name] || (sc != nil && !sc.addons[d.AddonID]) {
 			continue
 		}
 		name := d.Name
@@ -137,5 +140,13 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor) []session.T
 			},
 		})
 	}
-	return tools
+	var missing []string
+	if sc != nil {
+		for _, id := range sc.addonNames {
+			if !have[id] {
+				missing = append(missing, "add-on "+id)
+			}
+		}
+	}
+	return tools, missing
 }

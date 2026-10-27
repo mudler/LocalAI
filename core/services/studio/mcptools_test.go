@@ -54,11 +54,11 @@ func lookupFn() functions.Function {
 
 func withMCP(f *fakeMCP) func(*studio.Deps) {
 	return func(d *studio.Deps) {
-		d.MCP = func(_ context.Context, user, model string) mcpendpoint.ToolExecutor {
+		d.MCP = func(_ context.Context, user, model string, _ []string, _ bool) (mcpendpoint.ToolExecutor, []string) {
 			if user != alice || model != "m" {
-				return nil
+				return nil, nil
 			}
-			return f
+			return f, nil
 		}
 	}
 }

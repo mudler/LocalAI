@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -57,6 +58,7 @@ func (a *Application) initStudioService() {
 		Users:         a.studioUsers(),
 		StateDir:      stateDir,
 		MCP:           a.studioMCP,
+		Agents:        a.studioAgents,
 		AddonTools:    lateStudioAddons{a},
 		Collections:   studioCollections{a},
 		ContextTokens: a.studioContextTokens,
@@ -162,31 +164,61 @@ func studioMCPServers(cfg *config.ModelConfig, permitted bool) []string {
 	return names
 }
 
+// studioAgentMCPServers picks the servers a saved agent names from the model's
+// configuration. Without the MCP feature none is used and all the names are
+// missing.
+func studioAgentMCPServers(cfg *config.ModelConfig, permitted bool, only []string) (servers, missing []string) {
+	if !permitted {
+		return nil, only
+	}
+	have, err := cfg.MCP.ServerNames()
+	if err != nil {
+		xlog.Error("Failed to parse MCP config", "model", cfg.Name, "error", err)
+		return nil, only
+	}
+	for _, n := range only {
+		if slices.Contains(have, n) {
+			servers = append(servers, n)
+		} else {
+			missing = append(missing, n)
+		}
+	}
+	return servers, missing
+}
+
 // studioMCP builds the MCP tool executor for a user's chat with a model. It is
 // the chat route's logic without the request: the executor reuses MCP sessions
 // cached by model name and config, and in a cluster routes calls to workers.
-func (a *Application) studioMCP(ctx context.Context, user, model string) mcpendpoint.ToolExecutor {
+// For a chat with a saved agent (limited), the servers are the ones the agent
+// names that the model's configuration has, whether or not the model picks them
+// by itself; the names it cannot use come back as missing.
+func (a *Application) studioMCP(ctx context.Context, user, model string, only []string, limited bool) (mcpendpoint.ToolExecutor, []string) {
 	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
 	if !ok || !cfg.MCP.HasMCPServers() || a.applicationConfig.DisableMCP {
-		return nil
+		return nil, only
 	}
 	permitted := true
 	if a.authDB != nil {
 		u, err := a.loadStudioUser(ctx, user)
 		permitted = err == nil && auth.HasFeatureAccess(a.authDB, u, auth.FeatureMCP)
 	}
-	servers := studioMCPServers(&cfg, permitted)
+	var servers, missing []string
+	if limited {
+		servers, missing = studioAgentMCPServers(&cfg, permitted, only)
+	} else {
+		servers = studioMCPServers(&cfg, permitted)
+	}
 	if len(servers) == 0 {
-		return nil
+		return nil, missing
 	}
 	remote, stdio, err := cfg.MCP.MCPConfigFromYAML()
 	if err != nil {
 		xlog.Error("Failed to parse MCP config", "model", model, "error", err)
-		return nil
+		return nil, missing
 	}
 	var control mcpendpoint.AgentControl
 	if d := a.Distributed(); d != nil {
 		control = d.AgentControl
 	}
-	return mcpendpoint.NewToolExecutor(ctx, control, cfg.MCPSessionKey(), remote, stdio, servers)
+	return mcpendpoint.NewToolExecutor(ctx, control, cfg.MCPSessionKey(), remote, stdio, servers), missing
 }

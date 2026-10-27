@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -45,12 +46,28 @@ var namedOnlyTools = map[string]bool{"list_collections": true, "search_collectio
 
 // collectionTools returns the two collection tools, or none when the server
 // has no collections or the user may not use them.
-func (s *Service) collectionTools(ctx context.Context, a workspace.Actor) []session.Tool {
+//
+// A chat with an agent gets them only when the agent names collections, and
+// then they list and search those collections only. The second result names the
+// granted collections the user does not have.
+func (s *Service) collectionTools(ctx context.Context, a workspace.Actor, sc *scope) ([]session.Tool, []string) {
 	c := s.d.Collections
-	if c == nil || !c.Allowed(ctx, a.Principal) {
-		return nil
+	if c == nil || !c.Allowed(ctx, a.Principal) || (sc != nil && len(sc.collections) == 0) {
+		return nil, nil
 	}
-	return []session.Tool{
+	var missing []string
+	if sc != nil {
+		mine, err := c.List(ctx, a.Principal)
+		if err == nil {
+			have := set(mine)
+			for _, n := range sc.collNames {
+				if !have[n] {
+					missing = append(missing, "collection "+n)
+				}
+			}
+		}
+	}
+	tools := []session.Tool{
 		{
 			Name:        "list_collections",
 			Description: "List the names of your collections, the knowledge bases you can search.",
@@ -59,6 +76,9 @@ func (s *Service) collectionTools(ctx context.Context, a workspace.Actor) []sess
 				names, err := c.List(ctx, a.Principal)
 				if err != nil {
 					return "", fmt.Errorf("could not list collections: %w", err)
+				}
+				if sc != nil {
+					names = slices.DeleteFunc(slices.Clone(names), func(n string) bool { return !sc.collections[n] })
 				}
 				if names == nil {
 					names = []string{}
@@ -92,6 +112,9 @@ func (s *Service) collectionTools(ctx context.Context, a workspace.Actor) []sess
 					limit = collectionDefaultHits
 				}
 				limit = min(limit, collectionMaxHits)
+				if sc != nil && !sc.collections[args.Collection] {
+					return "", errors.New("collection not found")
+				}
 				hits, err := c.Search(ctx, a.Principal, args.Collection, args.Query, limit)
 				if errors.Is(err, ErrNoCollection) {
 					return "", errors.New("collection not found")
@@ -103,6 +126,7 @@ func (s *Service) collectionTools(ctx context.Context, a workspace.Actor) []sess
 			},
 		},
 	}
+	return tools, missing
 }
 
 // collectionAnswer renders hits as JSON within the bounds above.

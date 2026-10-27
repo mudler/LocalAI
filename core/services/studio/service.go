@@ -17,6 +17,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
@@ -32,6 +33,9 @@ const AnonymousPrincipal = "anonymous"
 
 // ErrNoModel means a conversation was created without a model.
 var ErrNoModel = errors.New("studio: a conversation needs a model")
+
+// ErrAgentsOff means a chat named a saved agent but the service has no agent store.
+var ErrAgentsOff = errors.New("studio: saved agents are not available")
 
 // ErrFilesWhileRunning means a message with files was sent while a turn runs.
 // Waiting messages are text, so files go only with the message that starts a turn.
@@ -57,7 +61,12 @@ type Deps struct {
 	HostTools func(ctx context.Context, a workspace.Actor) ([]session.Tool, error)
 	// MCP returns the MCP tool executor for a user's chat with a model, or nil
 	// when the model has none. Its tools become the chat's tools. Nil: no MCP.
-	MCP func(ctx context.Context, user, model string) mcpendpoint.ToolExecutor
+	// With limited set, only the servers named in only are used, whether or not
+	// the model picks them by itself; missing returns the named servers the user
+	// cannot use. Without limited, only is nil and missing is empty.
+	MCP func(ctx context.Context, user, model string, only []string, limited bool) (exec mcpendpoint.ToolExecutor, missing []string)
+	// Agents holds the saved agents. Nil: a chat cannot name an agent.
+	Agents agents.Store
 	// AddonTools supplies the tools of the installed add-ons the user may use.
 	// Nil: a chat has none.
 	AddonTools AddonTools
@@ -90,7 +99,13 @@ type Deps struct {
 type CreateInput struct {
 	Title string
 	Model string
+	// AgentID is a saved agent of the user. The agent narrows the chat's tools
+	// and adds its instructions; its model, when it has one, replaces Model.
+	AgentID string
 }
+
+// Origin says what started a conversation when a person did not.
+type Origin struct{ Kind, ID string }
 
 // SendResult says what Send did with a message.
 type SendResult struct {
@@ -222,7 +237,27 @@ func (s *Service) lock(k string) func() {
 
 // Create starts a new conversation for user.
 func (s *Service) Create(ctx context.Context, user string, in CreateInput) (session.ChatRecord, error) {
-	if strings.TrimSpace(in.Model) == "" {
+	return s.CreateAs(ctx, user, in, Origin{})
+}
+
+// CreateAs creates a conversation of user that was started by origin: a person
+// (the zero Origin), a trigger or a connector. The agent, when named, must be
+// the user's own.
+func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
+	model := in.Model
+	if in.AgentID != "" {
+		if s.d.Agents == nil {
+			return session.ChatRecord{}, ErrAgentsOff
+		}
+		ag, err := s.d.Agents.Get(ctx, principal(user), in.AgentID)
+		if err != nil {
+			return session.ChatRecord{}, err
+		}
+		if ag.Model != "" {
+			model = ag.Model
+		}
+	}
+	if strings.TrimSpace(model) == "" {
 		return session.ChatRecord{}, ErrNoModel
 	}
 	title := in.Title
@@ -230,7 +265,8 @@ func (s *Service) Create(ctx context.Context, user string, in CreateInput) (sess
 		title = session.DefaultTitle
 	}
 	now := time.Now().UTC()
-	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: in.Model}
+	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
+		AgentID: in.AgentID, Origin: origin.Kind, OriginID: origin.ID}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		return session.ChatRecord{}, err
 	}

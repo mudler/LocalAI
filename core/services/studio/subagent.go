@@ -46,17 +46,31 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		s.mu.Unlock()
 		return session.TurnTools{Tools: tools}, nil
 	}
-	tools, err := s.hostTools(ctx, a)
+	tools, missing, err := s.scopedHostTools(ctx, a)
 	if err != nil {
 		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
 	}
+	sc := s.scopeOf(ctx, rec)
 	// The file tools belong to the chat itself: a sub-agent never gets them,
 	// because its tools come from hostTools, which does not include them.
 	tools = append(tools, s.d.Files.Tools(a)...)
 	if s.d.Media != nil {
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a)...)
 	}
-	prompt, note, key := s.skillTurn(ctx, a.Principal, rec.SkillsOff)
+	prompt, note, key := s.skillTurn(ctx, a.Principal, rec.SkillsOff, sc)
+	if sc != nil {
+		// Granted skills the user lacks come back from skillTurn as a note of
+		// their own; fold all the missing grants into one line.
+		var skillMissing []string
+		if note != "" {
+			skillMissing = strings.Split(note, "; ")
+		}
+		note = unavailable(missing, skillMissing)
+		if sc.instructions != "" {
+			// The instructions go first: the prompt is cut at its end.
+			prompt = strings.TrimSpace(sc.instructions + "\n\n" + prompt)
+		}
+	}
 	return session.TurnTools{Tools: append(tools, s.spawnTool(a)), Prompt: prompt, Note: note, RefreshKey: key}, nil
 }
 
