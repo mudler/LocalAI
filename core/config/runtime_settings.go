@@ -90,6 +90,10 @@ type RuntimeSettings struct {
 	// DistributedConfig.DiskHeadroomDisabled for UI clarity.
 	DistributedDiskHeadroomCheck *bool `json:"distributed_disk_headroom_check,omitempty"` // Reject nodes without room to store the model (default: true)
 
+	// MCP connectors that users define in the chats. Read at each connection, so
+	// flipping it takes effect without a restart.
+	MCPConnectorsAllowPrivate *bool `json:"mcp_connectors_allow_private,omitempty"` // let them reach private network addresses (default: false)
+
 	// LocalAI Assistant settings — read live by the chat handler at request
 	// entry, so flipping the toggle takes effect on the next request.
 	LocalAIAssistantEnabled *bool `json:"localai_assistant_enabled,omitempty"` // negation of DisableLocalAIAssistant for UI clarity

@@ -2865,6 +2865,112 @@ definitions:
       title:
         type: string
     type: object
+  schema.ChatsMCPConnector:
+    properties:
+      args:
+        items:
+          type: string
+        type: array
+      command:
+        type: string
+      created:
+        type: string
+      enabled:
+        type: boolean
+      has_env:
+        type: boolean
+      has_headers:
+        type: boolean
+      has_token:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      transport:
+        description: http or stdio
+        type: string
+      updated:
+        type: string
+      url:
+        type: string
+    type: object
+  schema.ChatsMCPConnectorList:
+    properties:
+      connectors:
+        items:
+          $ref: '#/definitions/schema.ChatsMCPConnector'
+        type: array
+    type: object
+  schema.ChatsMCPConnectorSwitch:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      "off":
+        type: boolean
+      reason:
+        type: string
+      usable:
+        type: boolean
+    type: object
+  schema.ChatsMCPConnectorTest:
+    properties:
+      error:
+        type: string
+      ok:
+        type: boolean
+      tools:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsMCPConnectorWrite:
+    properties:
+      args:
+        items:
+          type: string
+        type: array
+      command:
+        type: string
+      enabled:
+        type: boolean
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      token:
+        type: string
+      transport:
+        type: string
+      url:
+        type: string
+    type: object
+  schema.ChatsMCPServerSwitch:
+    properties:
+      name:
+        type: string
+      "off":
+        type: boolean
+      reason:
+        type: string
+      usable:
+        type: boolean
+    type: object
+  schema.ChatsMCPSwitches:
+    properties:
+      "off":
+        items:
+          type: string
+        type: array
+    type: object
   schema.ChatsMessage:
     properties:
       at:
@@ -3100,6 +3206,26 @@ definitions:
         type: string
       summary:
         type: string
+    type: object
+  schema.ChatsToolsPanel:
+    properties:
+      addons:
+        items:
+          $ref: '#/definitions/schema.ChatsAddon'
+        type: array
+      connectors:
+        items:
+          $ref: '#/definitions/schema.ChatsMCPConnectorSwitch'
+        type: array
+      "off":
+        description: Off is the list of MCP switches in force.
+        items:
+          type: string
+        type: array
+      servers:
+        items:
+          $ref: '#/definitions/schema.ChatsMCPServerSwitch'
+        type: array
     type: object
   schema.ChatsTrash:
     properties:
@@ -8600,6 +8726,32 @@ paths:
       summary: Stream a chat's events.
       tags:
       - chats
+  /api/chats/{id}/mcp:
+    put:
+      description: 'The list replaces the earlier one: the name of a server of the
+        model, or connector:<id>. A switch only takes away; a chat with a saved agent
+        never gets more than the agent grants. The next turn of the chat gets the
+        tools that are on.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: what is off
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMCPSwitches'
+      responses:
+        "200":
+          description: The tools and their switches now in force
+          schema:
+            $ref: '#/definitions/schema.ChatsToolsPanel'
+      summary: Switch MCP servers and connectors on and off for a chat.
+      tags:
+      - chats
   /api/chats/{id}/messages:
     get:
       parameters:
@@ -8766,6 +8918,25 @@ paths:
               type: boolean
             type: object
       summary: Stop the running turn.
+      tags:
+      - chats
+  /api/chats/{id}/tools:
+    get:
+      description: Add-ons, the MCP servers of the chat's model and your MCP connectors,
+        each with the chat's switch and whether it can be used now (with the reason
+        when not). A chat with a saved agent lists only what the agent grants.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The tools and their switches
+          schema:
+            $ref: '#/definitions/schema.ChatsToolsPanel'
+      summary: List the tools a chat can switch on and off.
       tags:
       - chats
   /api/chats/agents:
@@ -9250,6 +9421,153 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsUndoResponse'
       summary: Undo a change.
+      tags:
+      - chats
+  /api/chats/mcp-connectors:
+    get:
+      description: An MCP connector is an MCP server that you defined. Your chats
+        use the enabled ones next to the MCP servers of the model, and a saved agent
+        can name one as connector:<id>. Tokens, headers and the environment of a local
+        command are never returned. Needs the MCP feature.
+      responses:
+        "200":
+          description: Your connectors, sorted by name
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPConnectorList'
+      summary: List your MCP connectors.
+      tags:
+      - chats
+    post:
+      description: transport is http (a remote server, streamable HTTP with a fall
+        back to SSE) or stdio (a command run on the host, administrators only and
+        refused in distributed mode). The address of an http connector must be http
+        or https; an address on a private network is refused unless an administrator
+        allows it (the mcp_connectors_allow_private setting), and the check is made
+        again when the connection is opened. token, headers and env are sealed at
+        rest and never returned. At most 20 connectors; names are unique per user.
+        OAuth for remote servers is not supported.
+      parameters:
+      - description: the connector
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMCPConnectorWrite'
+      responses:
+        "201":
+          description: The connector
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPConnector'
+      summary: Create an MCP connector.
+      tags:
+      - chats
+  /api/chats/mcp-connectors/{id}:
+    delete:
+      description: Its open session is closed. A saved agent that names it gets a
+        note that it could not be used.
+      parameters:
+      - description: the connector's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Deleted
+      summary: Delete an MCP connector.
+      tags:
+      - chats
+    get:
+      parameters:
+      - description: the connector's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The connector
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPConnector'
+      summary: Read an MCP connector.
+      tags:
+      - chats
+    put:
+      description: The body replaces every field. token, headers and env keep the
+        stored value when left out, and are cleared by an empty one. The open session
+        of the connector is closed.
+      parameters:
+      - description: the connector's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the connector
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMCPConnectorWrite'
+      responses:
+        "200":
+          description: The connector
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPConnector'
+      summary: Replace an MCP connector.
+      tags:
+      - chats
+  /api/chats/mcp-connectors/{id}/disable:
+    post:
+      parameters:
+      - description: the connector's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The connector
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPConnector'
+      summary: Switch an MCP connector off.
+      tags:
+      - chats
+  /api/chats/mcp-connectors/{id}/enable:
+    post:
+      description: The address is checked again; one on a private network is refused
+        unless an administrator allows it.
+      parameters:
+      - description: the connector's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The connector
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPConnector'
+      summary: Switch an MCP connector on.
+      tags:
+      - chats
+  /api/chats/mcp-connectors/{id}/test:
+    post:
+      description: Connects with the stored definition, with the same address and
+        credential checks as a chat, and lists the tool names. It works for a connector
+        that is switched off. A server that cannot be used is a 200 with ok false
+        and the reason, which never holds a header value.
+      parameters:
+      - description: the connector's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The tools, or the reason
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPConnectorTest'
+      summary: Test an MCP connector.
       tags:
       - chats
   /api/chats/notifications:

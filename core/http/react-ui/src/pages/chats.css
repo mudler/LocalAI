@@ -394,4 +394,7 @@
 
 .ch-skills__list label { display: inline-flex; align-items: center; gap: var(--dk-space-1); cursor: pointer; }
 
+.ch-tools__group { margin: var(--dk-space-2) 0 0; color: var(--color-text-muted); font-size: 0.75rem; }
+.ch-tools__reason { margin-left: var(--dk-space-5); color: var(--color-text-muted); }
+
 .ch-list__skills { margin-top: auto; padding: var(--dk-space-2) var(--dk-space-3); }

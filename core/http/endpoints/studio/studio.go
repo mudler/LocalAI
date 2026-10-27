@@ -86,7 +86,7 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusNotFound, "not_found", "conversation not found")
 	case errors.Is(err, store.ErrDelivered):
 		return fail(c, http.StatusConflict, "conflict", "the message was already delivered to the model")
-	case errors.Is(err, studiosvc.ErrBadSkillName), errors.Is(err, studiosvc.ErrBadAddonID):
+	case errors.Is(err, studiosvc.ErrBadSkillName), errors.Is(err, studiosvc.ErrBadAddonID), errors.Is(err, studiosvc.ErrBadMCPSwitch):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	case errors.Is(err, studiosvc.ErrFilesWhileRunning):
 		return fail(c, http.StatusConflict, "conflict", err.Error())

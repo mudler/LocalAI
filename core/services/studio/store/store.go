@@ -96,6 +96,10 @@ type Store interface {
 	// SetSkillsOff does for skills.
 	SetAddonsOff(ctx context.Context, principal, chatID string, off []string) error
 
+	// SetMcpOff sets the MCP servers and connectors this chat has switched off,
+	// the way SetAddonsOff does for add-ons.
+	SetMcpOff(ctx context.Context, principal, chatID string, off []string) error
+
 	// ClaimTurn gives runID the right to run a turn on the chat.
 	ClaimTurn(ctx context.Context, principal, chatID, runID string) error
 	// ReleaseTurn ends the claim and records how the turn ended.

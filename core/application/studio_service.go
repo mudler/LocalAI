@@ -77,13 +77,15 @@ func (a *Application) initStudioService() {
 			}()
 		})
 	}
-	svc, err := studio.New(studio.Deps{
+	a.initStudioMCPConnectors()
+	deps := studio.Deps{
 		Bus:           bus,
 		Store:         a.studioStore,
 		Provider:      a.studioProvider,
 		Users:         a.studioUsers(),
 		StateDir:      stateDir,
 		MCP:           a.studioMCP,
+		MCPServers:    a.studioModelMCPServers,
 		Agents:        a.studioAgents,
 		Notify:        inbox,
 		Push:          pusher,
@@ -94,7 +96,11 @@ func (a *Application) initStudioService() {
 		Persistent:    a.studioStoreKind != "memory",
 		Files:         a.StudioFiles(),
 		Media:         media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel),
-	})
+	}
+	if a.studioMCPConns != nil {
+		deps.MCPConnectors = a.studioMCPConns
+	}
+	svc, err := studio.New(deps)
 	if err != nil {
 		xlog.Warn("Chats disabled: failed to start the service", "error", err)
 		return

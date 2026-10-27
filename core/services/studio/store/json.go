@@ -309,6 +309,22 @@ func (s *jsonStore) SetAddonsOff(_ context.Context, principal, id string, off []
 	return nil
 }
 
+func (s *jsonStore) SetMcpOff(_ context.Context, principal, id string, off []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	next := *c
+	next.Rec.McpOff = append([]string(nil), off...)
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Rec.McpOff = next.Rec.McpOff
+	return nil
+}
+
 func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -244,6 +244,7 @@ filtered there.
 | `legacy-mcp-chat` | reject | `POST /v1/mcp/chat/completions` passes no broker, so `addon_tools` gets the same typed answer. |
 | `mcp-discovery-endpoints` | reject | Listing of servers, prompts and resources. They execute no tool. |
 | `studio-chats-mcp` | reject | The MCP tools of a chat on the server-side chat loop, from the shared sessions of the chat's model. The executor and the chat's bridge both drop the namespace. |
+| `studio-chats-mcp-connectors` | reject | The tools of the MCP servers a user added as connectors. They are not add-on tools: they run on the user's own server with the connector's credential. The chat drops a tool in the add-on namespace or with the name of a built-in. |
 | `studio-chats-assistant` | reject | The LocalAI Assistant tools of an assistant chat, for an administrator while the setting is on. They are the instance management tools, not add-on tools. |
 | `studio-chats-addons` | route | The add-on tools of a chat, action tools included. The chat's user is the actor, with the credential of a chat turn; the account and the add-ons feature are checked again on every call. |
 | `distributed-agent-worker` | reject | Workers that execute MCP tools for a frontend. The tool and discovery calls refuse the namespace, and the frontend refuses it before the request is sent. |

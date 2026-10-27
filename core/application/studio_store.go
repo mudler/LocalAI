@@ -7,6 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -37,6 +38,7 @@ func (a *Application) initStudioStore() {
 		nt   notify.Store
 		ps   notify.PushStore
 		cs   connectors.Store
+		ms   mcpconns.Store
 		kind string
 		err  error
 	)
@@ -46,7 +48,9 @@ func (a *Application) initStudioStore() {
 			if ag, err = agents.NewGORM(a.authDB); err == nil {
 				if nt, err = notify.NewGORM(a.authDB); err == nil {
 					if ps, err = notify.NewGORMPush(a.authDB); err == nil {
-						cs, err = connectors.NewGORM(a.authDB)
+						if cs, err = connectors.NewGORM(a.authDB); err == nil {
+							ms, err = mcpconns.NewGORM(a.authDB)
+						}
 					}
 				}
 			}
@@ -58,7 +62,9 @@ func (a *Application) initStudioStore() {
 			if ag, err = agents.NewJSON(filepath.Join(dir, "agents")); err == nil {
 				if nt, err = notify.NewJSON(filepath.Join(dir, "notifications")); err == nil {
 					if ps, err = notify.NewJSONPush(filepath.Join(dir, "push")); err == nil {
-						cs, err = connectors.NewJSON(filepath.Join(dir, "connectors"))
+						if cs, err = connectors.NewJSON(filepath.Join(dir, "connectors")); err == nil {
+							ms, err = mcpconns.NewJSON(filepath.Join(dir, "mcp-connectors"))
+						}
 					}
 				}
 			}
@@ -68,7 +74,9 @@ func (a *Application) initStudioStore() {
 		if s, err = store.NewJSON(""); err == nil {
 			if ag, err = agents.NewJSON(""); err == nil {
 				if nt, err = notify.NewJSON(""); err == nil {
-					cs, err = connectors.NewJSON("")
+					if cs, err = connectors.NewJSON(""); err == nil {
+						ms, err = mcpconns.NewJSON("")
+					}
 				}
 			}
 		}
@@ -79,4 +87,5 @@ func (a *Application) initStudioStore() {
 		return
 	}
 	a.studioStore, a.studioAgents, a.studioNotify, a.studioPush, a.studioConnStore, a.studioStoreKind = s, ag, nt, ps, cs, kind
+	a.studioMCPStore = ms
 }

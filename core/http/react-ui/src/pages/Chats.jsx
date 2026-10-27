@@ -10,7 +10,8 @@ import { useInbox } from '../hooks/useInbox'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useServerChat } from '../hooks/useServerChat'
 import { addonChange } from '../utils/addonChange'
-import { chatAddonsApi, chatAgentsApi, chatSkillsApi } from '../utils/api'
+import { chatAddonsApi, chatAgentsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
+import { connectorRef, toggleOff, toolsCounts } from '../utils/chatMCP'
 import './chats.css'
 import './chatauto.css'
 
@@ -67,21 +68,28 @@ function SkillsPanel({ chatId, filesOn, t }) {
   )
 }
 
-// The add-ons whose tools the chat can use, with a switch each. A user who has
-// none sees no panel.
-function AddonsPanel({ chatId, t }) {
+// What the chat can use besides its built-in tools, with a switch each: add-ons,
+// the MCP servers of its model and the user's MCP connectors. A chat with an
+// agent lists only what the agent grants. What cannot be used now is shown, off
+// and with the reason. A user who has none of them sees no panel.
+function ToolsPanel({ chatId, t }) {
   const [addons, setAddons] = useState([])
+  const [mcp, setMcp] = useState({ servers: [], connectors: [], off: [] })
   const [error, setError] = useState('')
   useEffect(() => {
-    if (!chatId) { setAddons([]); return undefined }
+    if (!chatId) { setAddons([]); setMcp({ servers: [], connectors: [], off: [] }); return undefined }
     let live = true
     chatAddonsApi.list(chatId)
       .then((res) => { if (live) setAddons(res.addons || []) })
       .catch(() => { if (live) setAddons([]) })
+    chatToolsApi.list(chatId)
+      .then((res) => { if (live) setMcp({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] }) })
+      .catch(() => { if (live) setMcp({ servers: [], connectors: [], off: [] }) })
     return () => { live = false }
   }, [chatId])
-  if (!chatId || addons.length === 0) return null
-  const toggle = async (id, on) => {
+  const counts = toolsCounts({ addons, servers: mcp.servers, connectors: mcp.connectors })
+  if (!chatId || counts.total === 0) return null
+  const toggleAddon = async (id, on) => {
     const next = addons.map((a) => (a.id === id ? { ...a, off: !on } : a))
     const off = next.filter((a) => a.off).map((a) => a.id).sort()
     const before = addons
@@ -95,21 +103,51 @@ function AddonsPanel({ chatId, t }) {
       setError(e.message || t('errors.send'))
     }
   }
-  const on = addons.filter((a) => !a.off).length
+  const toggleMCP = async (key, on) => {
+    const before = mcp
+    const off = toggleOff(mcp.off, key, on)
+    setMcp({
+      servers: mcp.servers.map((s) => (s.name === key ? { ...s, off: !on } : s)),
+      connectors: mcp.connectors.map((c) => (connectorRef(c.id) === key ? { ...c, off: !on } : c)),
+      off,
+    })
+    setError('')
+    try {
+      const res = await chatToolsApi.setMcpOff(chatId, off)
+      setMcp({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
+    } catch (e) {
+      setMcp(before)
+      setError(e.message || t('errors.send'))
+    }
+  }
+  const summary = counts.mcp === 0 ? t('addons.summary', { on: counts.on, total: counts.total }) : t('tools.summary', { on: counts.on, total: counts.total })
+  const row = (key, label, off, usable, reason, onToggle, title) => (
+    <li key={key}>
+      <label title={title}>
+        <input type="checkbox" checked={usable !== false && !off} disabled={usable === false} aria-label={label} onChange={(e) => onToggle(e.target.checked)} />
+        <span>{label}</span>
+      </label>
+      {usable === false && reason && <span className="ch-tools__reason">{reason}</span>}
+    </li>
+  )
+  const group = (key, title, rows) => (rows.length > 0 && counts.mcp > 0 ? <p key={key} className="ch-tools__group">{title}</p> : null)
   return (
-    <details className="ch-skills">
-      <summary>{t('addons.summary', { on, total: addons.length })}</summary>
+    <details className="ch-skills" data-testid="tools-panel">
+      <summary>{summary}</summary>
+      {group('a', t('tools.addons'), addons)}
       <ul className="ch-skills__list">
-        {addons.map((a) => (
-          <li key={a.id}>
-            <label title={t('addons.tools', { count: a.tools })}>
-              <input type="checkbox" checked={!a.off} aria-label={a.id} onChange={(e) => toggle(a.id, e.target.checked)} />
-              <span>{a.id}</span>
-            </label>
-          </li>
-        ))}
+        {addons.map((a) => row(`a-${a.id}`, a.id, a.off, true, '', (on) => toggleAddon(a.id, on), t('addons.tools', { count: a.tools })))}
+      </ul>
+      {group('s', t('tools.servers'), mcp.servers)}
+      <ul className="ch-skills__list">
+        {mcp.servers.map((s) => row(`s-${s.name}`, s.name, s.off, s.usable, s.reason, (on) => toggleMCP(s.name, on)))}
+      </ul>
+      {group('c', t('tools.connectors'), mcp.connectors)}
+      <ul className="ch-skills__list">
+        {mcp.connectors.map((c) => row(`c-${c.id}`, c.name, c.off, c.usable, c.reason, (on) => toggleMCP(connectorRef(c.id), on)))}
       </ul>
       {error && <p className="ch-error" role="alert">{error}</p>}
+      {counts.mcp > 0 && <Link className="ch-link" to="/app/chats/connectors?kind=mcp">{t('tools.manage')}</Link>}
     </details>
   )
 }
@@ -400,7 +438,7 @@ export default function Chats() {
           {activeChat?.model && <span className="ch-head__meta">{activeChat.model}</span>}
         </header>
         <SkillsPanel chatId={activeId} filesOn={chat.files.on} t={t} />
-        <AddonsPanel chatId={activeId} t={t} />
+        <ToolsPanel chatId={activeId} t={t} />
 
         <div className="ch-scroll">
           <div className="ch-flow" role="region" aria-label={t('transcript')}>

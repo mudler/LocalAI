@@ -160,7 +160,7 @@ func TestTheStoredReportKeepsTheFirstReasonOfAnItem(t *testing.T) {
 				t.Fatal(err)
 			}
 			it, ok := find(stored, convert.KindAgent, "Support")
-			if !ok || it.Status != convert.StatusConverted || !strings.Contains(it.Reason, "renamed to Support (2)") || !strings.Contains(it.Reason, "mcp_servers") {
+			if !ok || it.Status != convert.StatusConverted || !strings.Contains(it.Reason, "renamed to Support (2)") || !strings.Contains(it.Reason, "actions") {
 				t.Fatalf("stored item = %+v", it)
 			}
 		})

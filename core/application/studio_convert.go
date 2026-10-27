@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -16,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/convert"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
@@ -166,7 +168,7 @@ func (t studioTargets) Collections(ctx context.Context, user string) ([]string, 
 
 func (t studioTargets) SaveAgent(ctx context.Context, user string, in convert.AgentIn) (string, error) {
 	ag, err := t.svc.SaveAgent(ctx, user, agents.Agent{Name: in.Name, Description: in.Description, Instructions: in.Instructions,
-		Model: in.Model, Collections: in.Collections, Skills: in.Skills})
+		Model: in.Model, Collections: in.Collections, Skills: in.Skills, MCPServers: connectorRefs(in.Connectors)})
 	if errors.Is(err, agents.ErrNameTaken) {
 		return "", convert.ErrNameTaken
 	}
@@ -245,6 +247,45 @@ func (t studioTargets) CreateBinding(ctx context.Context, user string, in conver
 	}
 	_, err := c.CreateConnector(ctx, user, studio.ConnectorInput{Name: in.Name, Token: in.Token, AgentID: in.AgentID, Allow: in.Allow, Enabled: false})
 	return invalid(err)
+}
+
+func connectorRefs(ids []string) []string {
+	var out []string
+	for _, id := range ids {
+		out = append(out, mcpconns.Prefix+id)
+	}
+	return out
+}
+
+func (t studioTargets) IsAdmin(ctx context.Context, user string) (bool, error) {
+	return t.a.studioIsAdmin(ctx, user), nil
+}
+
+// CreateMCPConnector makes a switched-off connector of the user. A connector
+// starts off so that nothing the old agent did runs until its owner has looked
+// at the address and turned it on.
+func (t studioTargets) CreateMCPConnector(ctx context.Context, user string, in convert.MCPIn) (string, error) {
+	svc := t.a.studioMCPConns
+	if svc == nil {
+		return "", errors.New("MCP connectors are not available")
+	}
+	mi := mcpconns.Input{Name: in.Name, Transport: in.Transport, URL: in.URL, Command: in.Command, Args: in.Args, Enabled: false}
+	if in.Token != "" {
+		mi.Token = &in.Token
+	}
+	if len(in.Env) > 0 {
+		mi.Env = &in.Env
+	}
+	c, err := svc.Create(ctx, user, mi)
+	switch {
+	case errors.Is(err, mcpconns.ErrNameTaken):
+		return "", convert.ErrNameTaken
+	case errors.Is(err, mcpconns.ErrInvalid):
+		return "", fmt.Errorf("%w: %s", convert.ErrInvalid, strings.TrimPrefix(err.Error(), mcpconns.ErrInvalid.Error()+": "))
+	case errors.Is(err, mcpconns.ErrForbidden):
+		return "", fmt.Errorf("%w: %s", convert.ErrInvalid, strings.TrimPrefix(err.Error(), mcpconns.ErrForbidden.Error()+": "))
+	}
+	return c.ID, err
 }
 
 // invalid marks an error that says the item is not valid for the service, so the

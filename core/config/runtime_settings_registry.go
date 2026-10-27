@@ -451,6 +451,13 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) bool { return !o.Distributed.DiskHeadroomDisabled },
 		func(o *ApplicationConfig, v bool) { o.Distributed.DiskHeadroomDisabled = !v }),
 
+	// MCP connectors: private network addresses are refused unless this is on.
+	// Read at each connection, so no restart.
+	field("mcp_connectors_allow_private",
+		func(s *RuntimeSettings) **bool { return &s.MCPConnectorsAllowPrivate },
+		func(o *ApplicationConfig) bool { return o.MCPConnectorsAllowPrivate },
+		func(o *ApplicationConfig, v bool) { o.MCPConnectorsAllowPrivate = v }),
+
 	// LocalAI Assistant: stored as the negation for UI clarity.
 	field("localai_assistant_enabled",
 		func(s *RuntimeSettings) **bool { return &s.LocalAIAssistantEnabled },

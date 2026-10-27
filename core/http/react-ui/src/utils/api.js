@@ -222,6 +222,31 @@ export const chatAddonsApi = {
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/addons`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }
 
+// The MCP servers that a model's own configuration names (it connects to them to
+// list their tools, through the sessions the chat reuses).
+export const modelMCPServersApi = {
+  list: (model) => fetchJSON(`/v1/mcp/servers/${enc2(model)}`),
+}
+
+// MCP connectors: the MCP servers a user defines for their chats. Tokens,
+// headers and environments only go in; the server never returns them.
+export const chatMCPConnectorsApi = {
+  list: () => fetchJSON('/api/chats/mcp-connectors'),
+  create: (body) => postJSON('/api/chats/mcp-connectors', body),
+  update: (id, body) => fetchJSON(`/api/chats/mcp-connectors/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: (id) => fetchJSON(`/api/chats/mcp-connectors/${enc2(id)}`, { method: 'DELETE' }),
+  enable: (id) => postJSON(`/api/chats/mcp-connectors/${enc2(id)}/enable`, {}),
+  disable: (id) => postJSON(`/api/chats/mcp-connectors/${enc2(id)}/disable`, {}),
+  test: (id) => postJSON(`/api/chats/mcp-connectors/${enc2(id)}/test`, {}),
+}
+
+// The MCP servers and connectors of a chat, with their switches. The add-ons
+// have their own calls above.
+export const chatToolsApi = {
+  list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/tools`),
+  setMcpOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/mcp`, { method: 'PUT', body: JSON.stringify({ off }) }),
+}
+
 // Saved agents: instructions and exact lists of what a chat may use.
 export const chatAgentsApi = {
   list: () => fetchJSON('/api/chats/agents'),

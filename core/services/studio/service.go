@@ -19,6 +19,7 @@ import (
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
@@ -76,6 +77,16 @@ type Deps struct {
 	// the model picks them by itself; missing returns the named servers the user
 	// cannot use. Without limited, only is nil and missing is empty.
 	MCP func(ctx context.Context, user, model string, only []string, limited bool) (exec mcpendpoint.ToolExecutor, missing []string)
+	// MCPServers lists the MCP servers the model's own configuration has, for a
+	// user: Auto says whether a chat with no agent uses it by itself. Empty when
+	// the user may not use MCP. It feeds the per-chat switches; nil: a switch of
+	// a model server has no effect on a chat with no agent.
+	MCPServers func(ctx context.Context, user, model string) []ModelMCPServer
+	// Connectors holds the MCP servers the users defined. Nil: none.
+	Connectors ConnectorTools
+	// MCPConnectors is the same service with its management calls, for the
+	// connectors API. When set and Connectors is not, it is used for both.
+	MCPConnectors *mcpconns.Service
 	// Agents holds the saved agents. Nil: a chat cannot name an agent.
 	Agents agents.Store
 	// Notify stores and delivers notifications. Nil: there is no inbox.
@@ -184,6 +195,9 @@ type keyLock struct {
 func New(d Deps) (*Service, error) {
 	if d.Store == nil || d.StateDir == "" {
 		return nil, errors.New("studio: a store and a state folder are required")
+	}
+	if d.Connectors == nil && d.MCPConnectors != nil {
+		d.Connectors = d.MCPConnectors
 	}
 	log := d.Logger
 	if log == nil {
@@ -874,3 +888,7 @@ func (s *Service) Delete(ctx context.Context, user, conv string) error {
 	s.stopChildren(p, conv)
 	return s.mgr.Delete(ctx, workspace.Actor{Principal: p, ChatID: conv}, conv)
 }
+
+// MCPConnectors returns the service that keeps the users' MCP connectors, or
+// nil when the chats have none.
+func (s *Service) MCPConnectors() *mcpconns.Service { return s.d.MCPConnectors }

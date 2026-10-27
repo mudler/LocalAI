@@ -1,8 +1,9 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
+import ChatMCPConnectors from './ChatMCPConnectors'
 import Icon from '../components/Icon'
 import NameList from '../components/ChatNameList'
 import { chatAgentsApi, chatConnectorsApi } from '../utils/api'
@@ -41,6 +42,8 @@ function Senders({ id, onAllowed, t }) {
 
 export default function ChatConnectors() {
   const { t } = useTranslation('chats')
+  const [params, setParams] = useSearchParams()
+  const kind = params.get('kind') === 'mcp' ? 'mcp' : 'telegram'
   const [items, setItems] = useState([])
   const [agents, setAgents] = useState([])
   const [off, setOff] = useState('')
@@ -91,10 +94,20 @@ export default function ChatConnectors() {
 
   const confirmDelete = (c) => { setToDelete(null); act(() => chatConnectorsApi.remove(c.id)) }
 
-  if (off) {
+  const kinds = (
+    <div className="cs-kinds" role="tablist" aria-label={t('connectorsPage.kindSwitch')}>
+      {[['telegram', 'kindTelegram'], ['mcp', 'kindMCP']].map(([k, label]) => (
+        <button key={k} type="button" role="tab" aria-selected={kind === k} className={`btn btn-sm ${kind === k ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setParams(k === 'mcp' ? { kind: 'mcp' } : {}, { replace: true })}>{t(`connectorsPage.${label}`)}</button>
+      ))}
+    </div>
+  )
+
+  if (off && kind === 'telegram') {
     return (
       <div className="cs-page" data-testid="chat-connectors-page">
         <h1 className="cs-title">{t('connectorsPage.title')}</h1>
+        {kinds}
         <div className="cs-notice" role="note">{off}</div>
       </div>
     )
@@ -104,11 +117,16 @@ export default function ChatConnectors() {
     <div className="cs-page" data-testid="chat-connectors-page">
       <header className="cs-head">
         <h1 className="cs-title">{t('connectorsPage.title')}</h1>
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => open(emptyConnector())}>
-          <Icon name="plus" /> {t('connectorsPage.new')}
-        </button>
+        {kind === 'telegram' && (
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => open(emptyConnector())}>
+            <Icon name="plus" /> {t('connectorsPage.new')}
+          </button>
+        )}
       </header>
       <p className="cs-muted">{t('connectorsPage.intro')}</p>
+      {kinds}
+      {kind === 'mcp' ? <ChatMCPConnectors /> : (
+      <>
 
       {error && (
         <div className="cs-error" role="alert">
@@ -209,6 +227,8 @@ export default function ChatConnectors() {
         ))}
       </ul>
       {items.length === 0 && !form && <p className="cs-muted">{t('connectorsPage.empty')}</p>}
+      </>
+      )}
       <p className="cs-muted"><Link to="/app/chats">{t('skillsPage.back')}</Link></p>
       <ChatDeleteConfirm item={toDelete} kind="connector" onConfirm={confirmDelete} onCancel={() => setToDelete(null)} />
     </div>

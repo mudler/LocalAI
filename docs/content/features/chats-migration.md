@@ -17,6 +17,8 @@ changes or deletes the old data.
 | An agent of the pool | A [saved agent](/features/chats-agents/): instructions, model, the collection named like the agent, selected skills |
 | An agent that ran by itself (periodic) | A [trigger](/features/chats-agents/) on the agent, **switched off** |
 | A scheduled task with a cron text | A trigger, **switched off**; `{{.name}}` parts of the prompt are filled from the task's parameters |
+| An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector](/features/chats-connectors/#mcp-servers) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
+| A local MCP command of an agent (`mcp_stdio_servers`) | The same, only when the owner is an administrator; otherwise it is dropped, with the reason |
 | A Telegram connector of an agent | A [connector binding](/features/chats-connectors/), **switched off**; the old `admins` become the allowlist |
 | A skill folder (shared or personal) | A shared or personal skill |
 | A conversation saved in the database | A chat with its transcript (the newest 5000 messages) |
@@ -33,13 +35,21 @@ A converted chat keeps what was said, not the model's memory of it. A
 conversation kept only in a browser cannot be converted: it was never on the
 server.
 
-Nothing converted acts by itself. Switch a trigger or a connector on after you
-have read it.
+Nothing converted acts by itself. Switch a trigger, a Telegram connector or an
+MCP connector on after you have read it. A converted MCP connector keeps the
+token or the environment it had, sealed on the server; test it, check its
+address (an address on a private network cannot be switched on unless an
+administrator allows it), then turn it on. The report names each one as
+`connector`, `Agent: MCP server 1`, without the address. The agent is converted
+with the connectors it names; if one of them fails for a reason that may pass
+(a full disk), the agent waits for the next start so that its grant is not lost.
+An agent that an earlier start already converted keeps what it had: make its MCP
+connectors again on the Connectors page.
 
 ## What is not converted
 
 Every dropped field is named in the report, without its value. The main ones:
-actions, MCP servers set on an agent, knowledge-base settings other than the
+actions, the prepare script of MCP servers, knowledge-base settings other than the
 collection grant, planning and memory switches, agent jobs and webhooks, skills
 from a git repository, skill resource files, and connectors other than
 Telegram. A name that is taken becomes `Name (2)`.
@@ -65,7 +75,7 @@ reason, such as a full disk, is tried again at the next start.
 
 The report keeps the first word on an item: the status and the reason of the
 run that converted or dropped it (for example `renamed to Name (2)`, or
-`dropped: actions, mcp_servers`) stay when later starts only find it done.
+`dropped: actions, enable_planning`) stay when later starts only find it done.
 You are told once about what is new. A failure that comes back with the same
 reason at each start does not send a new notification.
 

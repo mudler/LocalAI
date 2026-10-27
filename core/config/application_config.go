@@ -314,6 +314,12 @@ type ApplicationConfig struct {
 	// server with this flag; runtime-toggleable via /api/settings.
 	DisableLocalAIAssistant bool
 
+	// MCPConnectorsAllowPrivate lets the MCP connectors that users define reach
+	// addresses on private networks (loopback, link-local, RFC 1918, metadata).
+	// Off by default: such an address lets a user probe the internal network
+	// through the server. Runtime-toggleable via /api/settings.
+	MCPConnectorsAllowPrivate bool
+
 	// LegacyNavigation shows the previous sidebar. See WithLegacyNavigation.
 	LegacyNavigation bool
 

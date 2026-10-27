@@ -375,3 +375,65 @@ test.describe('Chat add-ons panel', () => {
     await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
   })
 })
+
+test.describe('Chat tools panel (MCP)', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+
+  const PANEL = {
+    servers: [{ name: 'crm', off: false, usable: true }, { name: 'manual', off: false, usable: false, reason: 'the model does not use this server unless a saved agent names it' }],
+    connectors: [
+      { id: 'c1', name: 'Docs', off: false, usable: true },
+      { id: 'c2', name: 'Parked', off: false, usable: false, reason: 'switched off on the Connectors page' },
+    ],
+    off: [],
+  }
+
+  test('lists add-ons, model servers and connectors with a switch each, and marks what cannot be used', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    const calls = []
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [{ id: 'office', tools: 4, off: false }] } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], ...PANEL } }))
+    await page.route('**/api/chats/c1/mcp', route => {
+      const off = route.request().postDataJSON().off
+      calls.push(off)
+      return route.fulfill({ json: { addons: [], servers: PANEL.servers.map(s => ({ ...s, off: off.includes(s.name) })), connectors: PANEL.connectors.map(c => ({ ...c, off: off.includes(`connector:${c.id}`) })), off } })
+    })
+    await page.goto('/app/chats/c1')
+    await expect(page.getByTestId('tools-panel').locator('summary')).toHaveText('Tools (3 of 5 on)')
+    await page.getByText(/^Tools \(/).click()
+    await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'crm' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Docs' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'manual' })).toBeDisabled()
+    await expect(page.getByRole('checkbox', { name: 'Parked' })).toBeDisabled()
+    await expect(page.getByText('switched off on the Connectors page')).toBeVisible()
+    await page.getByRole('checkbox', { name: 'Docs' }).uncheck()
+    await expect.poll(() => calls.at(-1)).toEqual(['connector:c1'])
+    await page.getByRole('checkbox', { name: 'crm' }).uncheck()
+    await expect.poll(() => calls.at(-1)).toEqual(['connector:c1', 'crm'])
+    await expect(page.getByTestId('tools-panel').locator('summary')).toHaveText('Tools (1 of 5 on)')
+  })
+
+  test('puts an MCP switch back when the server refuses it', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], ...PANEL } }))
+    await page.route('**/api/chats/c1/mcp', route => route.fulfill({ status: 400, json: { error: { message: 'no' } } }))
+    await page.goto('/app/chats/c1')
+    await page.getByText(/^Tools \(/).click()
+    await page.getByRole('checkbox', { name: 'Docs' }).uncheck()
+    await expect(page.getByRole('alert')).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: 'Docs' })).toBeChecked()
+  })
+
+  test('shows no panel when there is nothing to switch', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [] } }))
+    await page.goto('/app/chats/c1')
+    await expect(page.getByTestId('tools-panel')).toHaveCount(0)
+  })
+})

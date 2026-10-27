@@ -40,6 +40,7 @@ type chatRow struct {
 	NextPending  int64
 	SkillsOff    string `gorm:"type:text"` // JSON list of skill names
 	AddonsOff    string `gorm:"type:text"` // JSON list of add-on IDs
+	McpOff       string `gorm:"type:text"` // JSON list of MCP server names and connector:<id>
 	AgentID      string `gorm:"size:128"`
 	Origin       string `gorm:"size:32"`
 	OriginID     string `gorm:"size:128"`
@@ -102,6 +103,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 	}
 	if r.AddonsOff != "" {
 		if err := json.Unmarshal([]byte(r.AddonsOff), &rec.AddonsOff); err != nil {
+			return rec, err
+		}
+	}
+	if r.McpOff != "" {
+		if err := json.Unmarshal([]byte(r.McpOff), &rec.McpOff); err != nil {
 			return rec, err
 		}
 	}
@@ -228,6 +234,25 @@ func (s *gormStore) SetAddonsOff(ctx context.Context, principal, id string, off 
 		raw = string(b)
 	}
 	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("addons_off", raw)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+func (s *gormStore) SetMcpOff(ctx context.Context, principal, id string, off []string) error {
+	raw := ""
+	if len(off) > 0 {
+		b, err := json.Marshal(off)
+		if err != nil {
+			return err
+		}
+		raw = string(b)
+	}
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("mcp_off", raw)
 	if res.Error != nil {
 		return res.Error
 	}

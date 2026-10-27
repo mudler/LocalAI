@@ -49,6 +49,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/convert"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -131,6 +132,8 @@ type Application struct {
 	studioTriggers       *studio.Triggers
 	studioTriggersStop   context.CancelFunc
 	studioConnStore      connectors.Store
+	studioMCPStore       mcpconns.Store
+	studioMCPConns       *mcpconns.Service
 	studioConnectors     *studio.Connectors
 	studioConnectorsStop context.CancelFunc
 	studioProvider       *provider.Provider
@@ -601,6 +604,9 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		if a.studioMCPConns != nil {
+			a.studioMCPConns.Close()
+		}
 		if a.studioConnectorsStop != nil {
 			a.studioConnectorsStop()
 		}

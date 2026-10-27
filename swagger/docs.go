@@ -3788,6 +3788,205 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/mcp-connectors": {
+            "get": {
+                "description": "An MCP connector is an MCP server that you defined. Your chats use the enabled ones next to the MCP servers of the model, and a saved agent can name one as connector:\u003cid\u003e. Tokens, headers and the environment of a local command are never returned. Needs the MCP feature.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your MCP connectors.",
+                "responses": {
+                    "200": {
+                        "description": "Your connectors, sorted by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPConnectorList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "transport is http (a remote server, streamable HTTP with a fall back to SSE) or stdio (a command run on the host, administrators only and refused in distributed mode). The address of an http connector must be http or https; an address on a private network is refused unless an administrator allows it (the mcp_connectors_allow_private setting), and the check is made again when the connection is opened. token, headers and env are sealed at rest and never returned. At most 20 connectors; names are unique per user. OAuth for remote servers is not supported.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Create an MCP connector.",
+                "parameters": [
+                    {
+                        "description": "the connector",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPConnectorWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The connector",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/mcp-connectors/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read an MCP connector.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the connector's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The connector",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPConnector"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "The body replaces every field. token, headers and env keep the stored value when left out, and are cleared by an empty one. The open session of the connector is closed.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Replace an MCP connector.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the connector's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the connector",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPConnectorWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The connector",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPConnector"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Its open session is closed. A saved agent that names it gets a note that it could not be used.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete an MCP connector.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the connector's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/api/chats/mcp-connectors/{id}/disable": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch an MCP connector off.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the connector's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The connector",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/mcp-connectors/{id}/enable": {
+            "post": {
+                "description": "The address is checked again; one on a private network is refused unless an administrator allows it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch an MCP connector on.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the connector's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The connector",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/mcp-connectors/{id}/test": {
+            "post": {
+                "description": "Connects with the stored definition, with the same address and credential checks as a chat, and lists the tool names. It works for a connector that is switched off. A server that cannot be used is a 200 with ok false and the reason, which never holds a header value.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Test an MCP connector.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the connector's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The tools, or the reason",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPConnectorTest"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/notifications": {
             "get": {
                 "description": "The inbox: one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread.",
@@ -4607,6 +4806,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/mcp": {
+            "put": {
+                "description": "The list replaces the earlier one: the name of a server of the model, or connector:\u003cid\u003e. A switch only takes away; a chat with a saved agent never gets more than the agent grants. The next turn of the chat gets the tools that are on.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch MCP servers and connectors on and off for a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "what is off",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPSwitches"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The tools and their switches now in force",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsToolsPanel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/messages": {
             "get": {
                 "tags": [
@@ -4851,6 +5085,32 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "boolean"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/tools": {
+            "get": {
+                "description": "Add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the tools a chat can switch on and off.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The tools and their switches",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsToolsPanel"
                         }
                     }
                 }
@@ -12887,6 +13147,168 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsMCPConnector": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "command": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "has_env": {
+                    "type": "boolean"
+                },
+                "has_headers": {
+                    "type": "boolean"
+                },
+                "has_token": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "transport": {
+                    "description": "http or stdio",
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPConnectorList": {
+            "type": "object",
+            "properties": {
+                "connectors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPConnector"
+                    }
+                }
+            }
+        },
+        "schema.ChatsMCPConnectorSwitch": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "off": {
+                    "type": "boolean"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "usable": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsMCPConnectorTest": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsMCPConnectorWrite": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "command": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "transport": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPServerSwitch": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "off": {
+                    "type": "boolean"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "usable": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsMCPSwitches": {
+            "type": "object",
+            "properties": {
+                "off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsMessage": {
             "type": "object",
             "properties": {
@@ -13241,6 +13663,36 @@ const docTemplate = `{
                 },
                 "summary": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsToolsPanel": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAddon"
+                    }
+                },
+                "connectors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPConnectorSwitch"
+                    }
+                },
+                "off": {
+                    "description": "Off is the list of MCP switches in force.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "servers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPServerSwitch"
+                    }
                 }
             }
         },

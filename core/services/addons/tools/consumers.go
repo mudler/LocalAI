@@ -130,6 +130,14 @@ var Consumers = []Consumer{
 		Enforcement: "the executor's DiscoverTools drops the add-on namespace and its ExecuteTool refuses it; the chat bridge drops it again before it offers a tool",
 	},
 	{
+		ID:          "studio-chats-mcp-connectors",
+		Surface:     "the MCP tools of the MCP servers that a user defined as connectors, in the chats of that user and in the saved agents, triggers and sub-agents that use them",
+		Files:       []string{"core/services/studio/mcpconns/client.go", "core/services/studio/mcpconns/service.go"},
+		Decision:    Reject,
+		Reason:      "a connector is a server the user chose, not an add-on: its tools run on that server with the connector's own credential and never as the user of the add-on broker",
+		Enforcement: "the chat drops a connector tool in the add-on namespace or with the name of a built-in; the sessions belong to one user and the owner is checked on every use",
+	},
+	{
 		ID:          "studio-chats-assistant",
 		Surface:     "the LocalAI Assistant tools of an assistant chat on the server-side chat loop, offered to an administrator while the assistant setting is on",
 		Files:       []string{"core/application/studio_assistant.go"},

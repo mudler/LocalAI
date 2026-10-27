@@ -60,6 +60,10 @@ type ChatRecord struct {
 	// off. It is kept the way SkillsOff is: SetAddonsOff sets it, UpdateChat
 	// leaves it alone.
 	AddonsOff []string
+	// McpOff holds what this chat has switched off among its MCP tools: the
+	// name of a server of the model, or "connector:<id>" for a connector of the
+	// user. It is kept the way AddonsOff is.
+	McpOff []string
 	// AgentID is the saved agent this chat runs with; empty for a plain chat.
 	// Origin says what started the chat ("" for a person, OriginTrigger,
 	// OriginConnector) and OriginID names the trigger or the connector binding.

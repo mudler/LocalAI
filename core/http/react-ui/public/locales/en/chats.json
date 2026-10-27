@@ -78,7 +78,8 @@
     "connector": "The bot stops answering, and the bot token saved with it is deleted. To set the bot up again you must enter the token again.",
     "skill": "The skill file is deleted for good.",
     "confirm": "Delete",
-    "pending": "Deleting"
+    "pending": "Deleting",
+    "mcp": "The connector is deleted with its saved token, headers and environment. A saved agent that names it can no longer use it."
   },
   "memoryNotice": "Chats are kept in memory only. They are lost when the server restarts.",
   "attach": {
@@ -134,7 +135,7 @@
     "grants": "What a chat with this agent may use. An empty list gives nothing.",
     "addons": "Add-ons",
     "addonsHint": "Add-on ID",
-    "mcp": "MCP servers",
+    "mcp": "MCP servers of the model",
     "mcpHint": "Server name from the model's MCP configuration",
     "collections": "Collections",
     "collectionsHint": "Collection name",
@@ -147,7 +148,12 @@
     "chat": "Chat",
     "empty": "No agents yet.",
     "noGrants": "Gives no tools",
-    "fixModel": "Always use one model (otherwise you choose the model for each chat)"
+    "fixModel": "Always use one model (otherwise you choose the model for each chat)",
+    "mcpConnectors": "Your MCP connectors",
+    "connectorOff": "switched off",
+    "connectorGone": "{{id}} (deleted)",
+    "noConnectors": "You have no MCP connectors yet.",
+    "manageConnectors": "Manage connectors"
   },
   "title_agent": "Agent: {{name}}",
   "triggersPage": {
@@ -229,7 +235,7 @@
     "title": "Connectors",
     "new": "New connector",
     "edit": "Edit connector",
-    "intro": "A connector binds a Telegram bot to one of your agents. A person who messages the bot talks to that agent in a conversation of their own, as you, with only what the agent grants.",
+    "intro": "A connector links something to your chats. A Telegram bot lets people talk to one of your agents from Telegram. An MCP server gives your chats and agents more tools.",
     "name": "Name",
     "token": "Bot token",
     "tokenHelp": "From @BotFather. It is kept sealed and never shown again.",
@@ -267,7 +273,10 @@
       "nobody": "nobody yet",
       "listed_one": "1 listed sender",
       "listed_other": "{{count}} listed senders"
-    }
+    },
+    "kindSwitch": "Kind of connector",
+    "kindTelegram": "Telegram",
+    "kindMCP": "MCP server"
   },
   "conversionPage": {
     "title": "Converted from the old chat",
@@ -296,5 +305,74 @@
     },
     "openTriggers": "Triggers",
     "openConnectors": "Connectors"
+  },
+  "tools": {
+    "summary": "Tools ({{on}} of {{total}} on)",
+    "addons": "Add-ons",
+    "servers": "MCP servers of the model",
+    "connectors": "Your connectors",
+    "manage": "Manage connectors",
+    "tools": "{{count}} tools"
+  },
+  "mcpPage": {
+    "intro": "An MCP server gives your chats tools to call. Your chats use the ones that are on. A saved agent uses a connector only when you pick it in its list. The server must be reachable from this machine and must use http or https; sign-in with OAuth is not supported yet, so use a token or a header.",
+    "new": "New MCP server",
+    "edit": "Edit MCP server",
+    "name": "Name",
+    "transport": "Kind",
+    "http": "Remote server (http or https)",
+    "stdio": "Local command (administrators only)",
+    "url": "Address",
+    "urlHelp": "Addresses on private networks are refused unless an administrator allows them.",
+    "token": "Bearer token",
+    "tokenHelp": "Optional. Sent as an Authorization header. It is kept sealed and never shown again.",
+    "tokenSaved": "Saved. Type a new token to replace it.",
+    "clearToken": "Remove the saved token",
+    "headers": "Headers",
+    "headersHelp": "Optional. Values are kept sealed and never shown again.",
+    "headersSaved": "Headers are saved. Add rows to replace them.",
+    "clearHeaders": "Remove the saved headers",
+    "headerName": "Header name",
+    "headerValue": "Value",
+    "addHeader": "Add a header",
+    "removeRow": "Remove this row",
+    "command": "Command",
+    "args": "Arguments, one per line",
+    "env": "Environment",
+    "envHelp": "Optional. Values are kept sealed and never shown again.",
+    "envSaved": "An environment is saved. Add rows to replace it.",
+    "clearEnv": "Remove the saved environment",
+    "envName": "Variable",
+    "addEnv": "Add a variable",
+    "enabled": "On",
+    "enabledHelp": "Switch it on after a successful test.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "editButton": "Edit",
+    "delete": "Delete",
+    "test": "Test connection",
+    "testing": "Testing",
+    "testOk": "Connected. Tools: {{tools}}.",
+    "testNoTools": "Connected. The server offers no tools.",
+    "testFailed": "Could not connect: {{error}}",
+    "onFor": "{{name}} on",
+    "on": "On",
+    "empty": "No MCP servers yet.",
+    "tokenSet": "token saved",
+    "headersSet": "headers saved",
+    "envSet": "environment saved",
+    "local": "local command",
+    "forbidden": "MCP is not available to your account.",
+    "import": {
+      "title": "Servers kept in this browser",
+      "text": "The old chat page kept these MCP servers in this browser. Import them to keep them on the server, where every browser and session can use them. They are made switched off. Their tokens and headers go to the server and are then removed from this browser.",
+      "button": "Import {{count}} servers from this browser",
+      "buttonOne": "Import 1 server from this browser",
+      "busy": "Importing",
+      "headersCount": "{{count}} headers",
+      "done": "Imported {{count}}. They are switched off: test and turn them on below.",
+      "failed": "{{name}} was not imported: {{error}}",
+      "left": "The servers that were not imported stay in this browser."
+    }
   }
 }

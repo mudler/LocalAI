@@ -309,7 +309,8 @@ func (r *run) readAgents() []oldAgent {
 // counted as dropped.
 var keptAgentFields = map[string]bool{"name": true, "description": true, "model": true, "system_prompt": true, "permanent_goal": true,
 	"identity_guidance": true, "enable_kb": true, "enable_skills": true, "selected_skills": true, "skills_mode": true,
-	"standalone_job": true, "periodic_runs": true, "scheduler_task_template": true, "connectors": true}
+	"standalone_job": true, "periodic_runs": true, "scheduler_task_template": true, "connectors": true,
+	"mcp_servers": true, "mcp_stdio_servers": true}
 
 func str(m map[string]any, k string) string   { s, _ := m[k].(string); return strings.TrimSpace(s) }
 func boolean(m map[string]any, k string) bool { b, _ := m[k].(bool); return b }
@@ -379,6 +380,13 @@ func (r *run) convertAgent(ctx context.Context, a oldAgent) {
 		r.add(KindAgent, a.user, a.name, StatusSkipped, reasonConverted)
 	} else {
 		in := AgentIn{Name: a.name, Description: str(a.cfg, "description"), Model: model, Instructions: instructions(a.cfg)}
+		// The connectors come first: the agent names them by ID. Each is marked
+		// on its own, so a retry of the agent never makes one twice.
+		var ok bool
+		if in.Connectors, ok = r.mcpConnectors(ctx, owner, a); !ok {
+			r.add(KindAgent, a.user, a.name, StatusFailed, "its MCP servers could not all be converted: tried again at the next start")
+			return
+		}
 		if boolean(a.cfg, "enable_kb") {
 			// The grant is the point of the knowledge base: an agent is never marked
 			// converted without it when the collections cannot be asked.

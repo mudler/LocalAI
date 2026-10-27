@@ -6,10 +6,11 @@ import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 import Icon from '../components/Icon'
 import ModelSelector from '../components/ModelSelector'
 import { useAddonToolAddons } from '../addons/useAddonRegistry'
-import { agentCollectionsApi, chatAgentsApi, chatSkillsApi } from '../utils/api'
+import { agentCollectionsApi, chatAgentsApi, chatMCPConnectorsApi, chatSkillsApi, modelMCPServersApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import NameList from '../components/ChatNameList'
 import { agentPayload, emptyAgent, grantSummary } from '../utils/chatAgents'
+import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 import './chatskills.css'
 import './chatauto.css'
 
@@ -27,6 +28,8 @@ export default function ChatAgents() {
   const [toDelete, setToDelete] = useState(null)
   const [skillNames, setSkillNames] = useState([])
   const [collectionNames, setCollectionNames] = useState([])
+  const [connectorList, setConnectorList] = useState([])
+  const [modelServers, setModelServers] = useState([])
 
   const fail = useCallback((e) => {
     if (e?.status === 409 && e.body?.error?.type === 'agents_off') { setOff(e.body.error.message); return }
@@ -45,8 +48,25 @@ export default function ChatAgents() {
   // Suggestions are best effort: a failure leaves the field free text.
   useEffect(() => {
     chatSkillsApi.list().then((r) => setSkillNames([...new Set((r.skills || []).filter((s) => !s.invalid).map((s) => s.name))])).catch(() => {})
+    chatMCPConnectorsApi.list().then((r) => setConnectorList(r.connectors || [])).catch(() => {})
     agentCollectionsApi.list().then((r) => setCollectionNames((r.collections || []).map((c) => (typeof c === 'string' ? c : c.name)).filter(Boolean))).catch(() => {})
   }, [])
+
+  // The servers of the fixed model are suggestions; with no fixed model the field is free text.
+  const fixedModel = form?.model || ''
+  useEffect(() => {
+    if (!fixedModel) { setModelServers([]); return undefined }
+    let live = true
+    modelMCPServersApi.list(fixedModel).then((r) => { if (live) setModelServers((r.servers || []).map((s) => s.name).filter(Boolean)) }).catch(() => { if (live) setModelServers([]) })
+    return () => { live = false }
+  }, [fixedModel])
+
+  const mcp = splitAgentMCP(form?.mcp_servers)
+  // Connectors the agent holds by ID show by name; one that was deleted shows as such, so it can be removed.
+  const mcpRows = [
+    ...connectorList.map((c) => ({ id: c.id, name: c.name, enabled: c.enabled })),
+    ...mcp.connectors.filter((id) => !connectorList.some((c) => c.id === id)).map((id) => ({ id, name: t('agentsPage.connectorGone', { id }), gone: true })),
+  ]
 
   const save = async (e) => {
     e.preventDefault()
@@ -127,8 +147,20 @@ export default function ChatAgents() {
           <p className="cs-muted">{t('agentsPage.grants')}</p>
           <NameList label={t('agentsPage.addons')} hint={t('agentsPage.addonsHint')} value={form.addons}
             suggestions={addonList.map((a) => a.id)} onChange={(v) => setForm({ ...form, addons: v })} testId="agent-addons" />
-          <NameList label={t('agentsPage.mcp')} hint={t('agentsPage.mcpHint')} value={form.mcp_servers}
-            onChange={(v) => setForm({ ...form, mcp_servers: v })} testId="agent-mcp" />
+          <NameList label={t('agentsPage.mcp')} hint={t('agentsPage.mcpHint')} value={mcp.servers} suggestions={modelServers}
+            onChange={(v) => setForm({ ...form, mcp_servers: joinAgentMCP(v, mcp.connectors) })} testId="agent-mcp" />
+          <fieldset className="cs-field" data-testid="agent-connectors">
+            <legend>{t('agentsPage.mcpConnectors')}</legend>
+            {mcpRows.length === 0 && <span className="cs-muted">{t('agentsPage.noConnectors')}</span>}
+            {mcpRows.map((c) => (
+              <label key={c.id} className="ca-radio">
+                <input type="checkbox" checked={mcp.connectors.includes(c.id)}
+                  onChange={(e) => setForm({ ...form, mcp_servers: joinAgentMCP(mcp.servers, e.target.checked ? [...mcp.connectors, c.id] : mcp.connectors.filter((x) => x !== c.id)) })} />
+                <span>{c.name}{c.gone ? '' : c.enabled ? '' : ` (${t('agentsPage.connectorOff')})`}</span>
+              </label>
+            ))}
+            <Link to="/app/chats/connectors?kind=mcp">{t('agentsPage.manageConnectors')}</Link>
+          </fieldset>
           <NameList label={t('agentsPage.collections')} hint={t('agentsPage.collectionsHint')} value={form.collections}
             suggestions={collectionNames} onChange={(v) => setForm({ ...form, collections: v })} testId="agent-collections" />
           <NameList label={t('agentsPage.skills')} hint={t('agentsPage.skillsHint')} value={form.skills}

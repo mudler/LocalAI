@@ -44,13 +44,36 @@ type fakeTargets struct {
 	trigErr     error
 	importErr   func(f *fakeTargets, user string, in convert.ChatIn) error
 	saves       int
+	// admins are the users who may have a local command; mcp is what was made.
+	admins map[string]bool
+	mcp    map[string][]convert.MCPIn
+	// mcpErr is what CreateMCPConnector returns, by connector name; it runs
+	// before the name check.
+	mcpErr map[string]error
 }
 
 func newTargets() *fakeTargets {
 	return &fakeTargets{users: map[string]bool{alice: true, bob: true, "": true}, cols: map[string][]string{},
 		agents: map[string][]convert.AgentIn{}, triggers: map[string][]convert.TriggerIn{}, skills: map[string]convert.SkillRec{},
 		chats: map[string][]convert.ChatIn{}, bindings: map[string][]convert.BindingIn{}, failSave: map[string]bool{},
-		invalidSave: map[string]bool{}}
+		invalidSave: map[string]bool{},
+		admins:      map[string]bool{}, mcp: map[string][]convert.MCPIn{}, mcpErr: map[string]error{}}
+}
+
+func (f *fakeTargets) IsAdmin(_ context.Context, u string) (bool, error) { return f.admins[u], nil }
+func (f *fakeTargets) CreateMCPConnector(_ context.Context, u string, in convert.MCPIn) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.mcpErr[in.Name]; err != nil {
+		return "", err
+	}
+	for _, c := range f.mcp[u] {
+		if c.Name == in.Name {
+			return "", fmt.Errorf("%w: %s", convert.ErrNameTaken, in.Name)
+		}
+	}
+	f.mcp[u] = append(f.mcp[u], in)
+	return fmt.Sprintf("mcp-%s-%d", u[:1], len(f.mcp[u])), nil
 }
 
 func (f *fakeTargets) UserExists(_ context.Context, u string) (bool, error) { return f.users[u], nil }
@@ -215,7 +238,7 @@ func TestAnAgentOfThePoolBecomesASavedAgentWithItsGrantsAndTheRestIsCountedAsDro
 	if !ok || it.Status != convert.StatusConverted {
 		t.Fatalf("item = %+v", it)
 	}
-	for _, d := range []string{"mcp_servers", "actions", "enable_planning"} {
+	for _, d := range []string{"actions", "enable_planning"} {
 		if !strings.Contains(it.Reason, d) {
 			t.Errorf("the reason does not name the dropped field %s: %q", d, it.Reason)
 		}

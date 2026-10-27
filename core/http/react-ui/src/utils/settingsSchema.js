@@ -153,6 +153,9 @@ export const FIELDS = [
   { key: 'api_keys', group: 'access', was: 'apikeys', kind: 'lines', label: 'Shared API keys', sensitive: true, apply: 'live',
     desc: 'Keys that any client may use, one per line or separated by commas. Keys set in the environment stay and cannot be removed here. Per-user keys live under Users and keys.',
     placeholder: 'sk-key-1\nsk-key-2' },
+  { key: 'mcp_connectors_allow_private', group: 'access', was: 'agents', kind: 'bool', label: 'MCP connectors may reach private networks',
+    desc: 'Let the MCP servers that users add as connectors in the chats use addresses on private networks: this machine, link-local, private ranges and cloud metadata. Off, a connector can only reach public hosts, and every connection and redirect is checked at connect time. Turn it on only if your users are trusted: a connector can then probe your internal network through this server.',
+    default: false, fallback: false, apply: 'live' },
 
   // ---- Debugging and traces ------------------------------------------------
   { key: 'debug', group: 'debug', was: 'performance', kind: 'bool', label: 'Verbose debug logging',

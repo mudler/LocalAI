@@ -3,6 +3,8 @@
    the skills page; only the pieces that page does not have are here.
    ========================================================================== */
 
+.cs-kinds { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
+
 .ca-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--dk-space-1); }
 
 .ca-chip {

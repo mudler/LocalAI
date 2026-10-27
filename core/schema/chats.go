@@ -540,3 +540,81 @@ type ChatsConversion struct {
 	// Totals is set for an administrator: the counts of all users together.
 	Totals *ChatsConversionTotals `json:"totals,omitempty"`
 }
+
+// ChatsMCPConnector is an MCP server that you defined, for your chats. Its token,
+// headers and environment are never returned: the has_ fields say what is stored.
+type ChatsMCPConnector struct {
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Transport  string    `json:"transport"` // http or stdio
+	URL        string    `json:"url,omitempty"`
+	Command    string    `json:"command,omitempty"`
+	Args       []string  `json:"args"`
+	HasToken   bool      `json:"has_token"`
+	HasHeaders bool      `json:"has_headers"`
+	HasEnv     bool      `json:"has_env"`
+	Enabled    bool      `json:"enabled"`
+	Created    time.Time `json:"created"`
+	Updated    time.Time `json:"updated"`
+}
+
+// ChatsMCPConnectorWrite creates or replaces an MCP connector. token, headers and
+// env are write-only: left out they keep the stored value, and an empty value
+// clears it.
+type ChatsMCPConnectorWrite struct {
+	Name      string             `json:"name"`
+	Transport string             `json:"transport"`
+	URL       string             `json:"url,omitempty"`
+	Command   string             `json:"command,omitempty"`
+	Args      []string           `json:"args,omitempty"`
+	Token     *string            `json:"token,omitempty"`
+	Headers   *map[string]string `json:"headers,omitempty"`
+	Env       *map[string]string `json:"env,omitempty"`
+	Enabled   bool               `json:"enabled"`
+}
+
+// ChatsMCPConnectorList is the response of the MCP connector list endpoint.
+type ChatsMCPConnectorList struct {
+	Connectors []ChatsMCPConnector `json:"connectors"`
+}
+
+// ChatsMCPConnectorTest is the outcome of a connection test: the names of the
+// tools the server offers, or why it could not be used.
+type ChatsMCPConnectorTest struct {
+	OK    bool     `json:"ok"`
+	Tools []string `json:"tools"`
+	Error string   `json:"error,omitempty"`
+}
+
+// ChatsMCPSwitches sets the MCP servers and connectors a chat has switched off:
+// the name of a server of the model, or "connector:<id>" for a connector.
+type ChatsMCPSwitches struct {
+	Off []string `json:"off"`
+}
+
+// ChatsMCPServerSwitch is a server of the model with the chat's switch.
+type ChatsMCPServerSwitch struct {
+	Name   string `json:"name"`
+	Off    bool   `json:"off"`
+	Usable bool   `json:"usable"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// ChatsMCPConnectorSwitch is one of your connectors with the chat's switch.
+type ChatsMCPConnectorSwitch struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Off    bool   `json:"off"`
+	Usable bool   `json:"usable"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// ChatsToolsPanel lists what a chat can use besides its built-in tools: add-ons,
+// the MCP servers of its model and your connectors, each with the chat's switch.
+type ChatsToolsPanel struct {
+	Addons     []ChatsAddon              `json:"addons"`
+	Servers    []ChatsMCPServerSwitch    `json:"servers"`
+	Connectors []ChatsMCPConnectorSwitch `json:"connectors"`
+	// Off is the list of MCP switches in force.
+	Off []string `json:"off"`
+}

@@ -1,17 +1,24 @@
 +++
 disableToc = false
-title = "Chats: Telegram connector"
+title = "Chats: connectors (Telegram and MCP servers)"
 weight = 23
 url = "/features/chats-connectors/"
 +++
 
-A connector binds a Telegram bot to one of your [saved agents](/features/chats-agents/).
+The Connectors page of the [chats](/features/chats/) has two kinds of connector:
+
+- **Telegram** binds a bot to one of your agents, so a person can talk to it from Telegram. This is the first half of this page.
+- **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
+
+## Telegram
+
+A Telegram connector binds a bot to one of your [saved agents](/features/chats-agents/).
 A person who messages the bot talks to that agent, in a conversation of their
 own, and the answer comes back in Telegram. The conversation is a
 [chat](/features/chats/) of yours: it uses your quota and your model allowlist,
 and you can open it in LocalAI.
 
-## Set up a binding
+### Set up a binding
 
 1. Make a bot with `@BotFather` in Telegram and copy its token.
 2. Make an agent that names a model. A connector has no model of its own, so
@@ -105,8 +112,120 @@ restart). The JSON store is for one process.
 | Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. |
 | The reply being sent for a turn | Per instance | The frontend that took the message sends the answer. If it dies, the answer is lost; the message is not repeated. |
 
-## Other connectors
+### Other connectors
 
-Only Telegram is built. Slack, Discord, IRC, Matrix, email, GitHub and Twitter
+Only Telegram and MCP servers are built. Slack, Discord, IRC, Matrix, email, GitHub and Twitter
 connectors of the old agents are not rebuilt; the release that removes the old
 agents lists them as dropped.
+
+## MCP servers
+
+An MCP connector is an MCP server that you define. It is stored on the server,
+as one of your records, so every browser and session of yours sees the same list.
+(The old chat page kept such servers in the browser and reached them through a
+proxy; see [Import from this browser](#import-from-this-browser).)
+
+A connector is yours alone. Another user never sees, edits, tests or uses it.
+You need the `mcp` feature, and `LOCALAI_DISABLE_MCP` turns it off for the
+whole instance. Both are checked each time a chat uses a connector, not only
+when you save it.
+
+### Add one
+
+On the Connectors page choose **MCP server**, then **New MCP server**. Give it a
+name (unique among your connectors) and an address, and optionally a bearer
+token or other headers. Use **Test connection** to connect and list the tool
+names before you switch it on.
+
+```
+curl -X POST .../api/chats/mcp-connectors -d '{"name": "Docs", "transport": "http", "url": "https://mcp.example/mcp", "token": "...", "headers": {"X-Team": "blue"}, "enabled": false}'
+curl -X POST .../api/chats/mcp-connectors/<id>/test
+# {"ok": true, "tools": ["search", "fetch"]}
+curl -X POST .../api/chats/mcp-connectors/<id>/enable
+```
+
+`GET`, `PUT` and `DELETE /api/chats/mcp-connectors/{id}` read, replace and
+delete one, and `POST .../enable` and `.../disable` switch it. You can have 20.
+A test of a server that cannot be used is a `200` with `ok: false` and the
+reason.
+
+| Transport | What it is |
+|---|---|
+| `http` | A remote server. Streamable HTTP is tried first and the legacy SSE transport is the fall back. The address must be `http` or `https`, with no user name or password in it. |
+| `stdio` | A command run on the host of the frontend, with `command`, `args` and `env`. Administrators only, and refused in distributed mode. |
+
+OAuth sign-in for remote servers is not supported: use a token or a header.
+MCP Apps (interactive tool UIs) are not shown in chats.
+
+### Secrets
+
+The token, the headers and the environment of a command are sealed in the
+database or the JSON files, with the same key and the same method as the Telegram
+tokens, and tied to the connector and its owner. They are write-only: the API
+returns only `has_token`, `has_headers` and `has_env`. A `PUT` that leaves them
+out keeps the stored values; an empty value clears them. They are never logged,
+never put into a tool result or the model's context, and an error message never
+repeats them or the query of the address.
+
+### Which addresses a connector may reach
+
+A connector makes the server connect to an address you choose. To stop it being
+used to probe the internal network, a connector may reach only public hosts:
+
+- The check is made **when the connection is opened**, on every address the name
+  resolves to, and on every redirect. A name whose answer changes between the
+  check and the connection (DNS rebinding) is refused too.
+- Loopback, link-local, private (RFC 1918 and unique local), shared address space,
+  cloud metadata and unspecified addresses are refused, for IPv4 and IPv6.
+- An address that is plainly internal (an IP literal or `localhost`) is refused
+  when you save or switch on a connector. A disabled connector may be saved with
+  one, so that an import or a conversion can make it, but it cannot be switched on.
+
+An administrator can allow private addresses with the runtime setting
+`mcp_connectors_allow_private` (Settings, Access and security; default off; no
+restart needed). Turn it on only when your users are trusted: with it, a connector
+can reach services on the server's own network.
+
+A local command (`stdio`) runs without a shell, with a minimal environment
+(`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, `TZ`) plus the variables you sealed, and with a
+time limit to start and to answer. It runs on the frontend, as the LocalAI process.
+
+### How chats use them
+
+- **A chat with no agent** gets the tools of all your enabled connectors, next to
+  the MCP servers its model has.
+- **A saved agent** names a connector as `connector:<id>` in its `mcp_servers` list;
+  a name without the prefix is a server of the model. The agent form lists both.
+  The agent holds the ID, so renaming a connector does not break it.
+- **A connector that cannot be used** (switched off, deleted, not yours, the
+  address refused or the server down) gives the model a note, "unavailable this
+  turn: MCP connector Docs (cannot be reached)", and never fails the turn.
+- **Triggers and sub-agents** follow the rules of agents: a trigger with an agent
+  gets what the agent names; a sub-agent gets the tools its parent names.
+- **Tool names.** A tool cannot take the name of a built-in tool or the add-on
+  namespace; it is dropped. When two connectors (or a connector and the model)
+  offer a tool with the same name, each gets the connector's name in front:
+  `Docs_search`, `Mail_search`.
+- **Limits.** A call has a time limit of 60 seconds, and its output is cut at 64 KiB like the output of the chat's own tools.
+- **Per chat switches.** The tools panel of a chat lists the connectors and the
+  model's MCP servers with a switch each. See [Chats](/features/chats/#mcp-tools).
+
+### Import from this browser
+
+If the old chat page kept MCP servers in this browser (`localStorage`), the
+MCP page offers **Import N servers from this browser**. It shows each name and
+address, never a header value, and makes a switched-off connector for each one.
+A token or header leaves the browser only for a server the API accepted; the
+ones that failed stay in the browser with the reason.
+
+### Storage and clusters
+
+| State | Mode | How |
+|---|---|---|
+| The connectors and their sealed secrets | Shared | Rows in the database (JSON files under the data path for one process). |
+| The sealing key | Shared | The key of the Telegram connectors. |
+| Open MCP sessions | Per instance | Each frontend opens its own sessions, lazily, for its own users' calls, and closes them after 10 idle minutes and when a connector is edited, switched off or deleted. A frontend notices an edit made on another by the record's update time at the next use. A session is never shared between users. |
+| Local commands (`stdio`) | Refused | They would run on whichever frontend served the request. |
+
+Remote connectors connect from the frontend that runs the turn, not from an
+agent worker, so a server must be reachable from every frontend.

@@ -275,7 +275,7 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 			return "", err
 		}
 	}
-	model, srcSkills, srcAddons, err := h.runSettings(ctx, t)
+	model, srcSkills, srcAddons, srcMCP, err := h.runSettings(ctx, t)
 	if err != nil {
 		return "", err
 	}
@@ -303,6 +303,9 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 			return "", err
 		}
 		if err := h.svc.d.Store.SetAddonsOff(ctx, owner, rec.ID, srcAddons); err != nil {
+			return "", err
+		}
+		if err := h.svc.d.Store.SetMcpOff(ctx, owner, rec.ID, srcMCP); err != nil {
 			return "", err
 		}
 	}
@@ -369,12 +372,12 @@ func (h *Triggers) checkFolder(ctx context.Context, t triggers.Trigger) error {
 }
 
 // runSettings returns the model of a run and, for a trigger with no agent, the
-// switches of the chat that proposed it, as they are now.
-func (h *Triggers) runSettings(ctx context.Context, t triggers.Trigger) (model string, skillsOff, addonsOff []string, err error) {
+// switches (skills, add-ons, MCP) of the chat that proposed it, as they are now.
+func (h *Triggers) runSettings(ctx context.Context, t triggers.Trigger) (model string, skillsOff, addonsOff, mcpOff []string, err error) {
 	model = t.Model
 	if t.AgentID == "" && t.SourceChatID != "" {
 		if src, gerr := h.svc.d.Store.GetChat(ctx, t.Owner, t.SourceChatID); gerr == nil {
-			skillsOff, addonsOff = src.SkillsOff, src.AddonsOff
+			skillsOff, addonsOff, mcpOff = src.SkillsOff, src.AddonsOff, src.McpOff
 			if model == "" {
 				model = src.Model
 			}
@@ -387,9 +390,9 @@ func (h *Triggers) runSettings(ctx context.Context, t triggers.Trigger) (model s
 		}
 	}
 	if strings.TrimSpace(model) == "" {
-		return "", nil, nil, errors.New("no model: choose one for the trigger")
+		return "", nil, nil, nil, errors.New("no model: choose one for the trigger")
 	}
-	return model, skillsOff, addonsOff, nil
+	return model, skillsOff, addonsOff, mcpOff, nil
 }
 
 // runTitle is "<trigger name> · <date time> <zone>".

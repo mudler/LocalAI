@@ -20,7 +20,7 @@ An agent has:
 | `description` | A short note for you. |
 | `instructions` | Text added to the system prompt of every turn. At most 32 KiB. |
 | `model` | Optional. The chat uses this model. Without it, the chat is created with the model you choose. |
-| `mcp_servers` | Names of servers in the model's MCP configuration. |
+| `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors](/features/chats-connectors/#mcp-servers) as `connector:<id>`. The form lists both. |
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. |
@@ -73,7 +73,7 @@ they are your own settings.
 
 ## Connectors
 
-A [connector](/features/chats-connectors/) binds a Telegram bot to an agent, so a person can talk to it from Telegram.
+A [connector](/features/chats-connectors/) binds a Telegram bot to an agent, so a person can talk to it from Telegram. An [MCP connector](/features/chats-connectors/#mcp-servers) is a tool server that an agent can name in its `mcp_servers` list.
 
 ## Triggers
 

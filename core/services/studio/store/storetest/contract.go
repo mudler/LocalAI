@@ -93,6 +93,36 @@ func Run(t *testing.T, newStore New) {
 		}
 	})
 
+	t.Run("MCP switches round-trip, survive a chat update and belong to the owner", func(t *testing.T) {
+		s := newStore(t)
+		chat(t, s, "c1", "alice")
+		if err := s.SetMcpOff(ctx(t), "alice", "c1", []string{"search", "connector:abc"}); err != nil {
+			t.Fatal(err)
+		}
+		rec, err := s.GetChat(ctx(t), "alice", "c1")
+		if err != nil || len(rec.McpOff) != 2 || rec.McpOff[0] != "search" || rec.McpOff[1] != "connector:abc" {
+			t.Fatalf("McpOff = %v, %v", rec.McpOff, err)
+		}
+		stale := rec
+		stale.McpOff = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		if err := s.UpdateChat(ctx(t), stale); err != nil {
+			t.Fatal(err)
+		}
+		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); rec.Title != "Renamed" || len(rec.McpOff) != 2 {
+			t.Fatalf("after UpdateChat: title %q, McpOff %v, want the switches kept", rec.Title, rec.McpOff)
+		}
+		if err := s.SetMcpOff(ctx(t), "bob", "c1", []string{"x"}); !errors.Is(err, session.ErrNotFound) {
+			t.Fatalf("another principal's SetMcpOff = %v, want ErrNotFound", err)
+		}
+		if err := s.SetMcpOff(ctx(t), "alice", "c1", nil); err != nil {
+			t.Fatal(err)
+		}
+		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); len(rec.McpOff) != 0 {
+			t.Fatalf("after clearing: %v", rec.McpOff)
+		}
+	})
+
 	t.Run("add-on switches round-trip, survive a chat update and belong to the owner", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "c1", "alice")

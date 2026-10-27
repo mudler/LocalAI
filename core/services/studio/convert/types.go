@@ -121,6 +121,17 @@ var ErrCollectionsUnavailable = errors.New("convert: the collections are not ava
 type AgentIn struct {
 	Name, Description, Instructions, Model string
 	Collections, Skills                    []string
+	// Connectors are the IDs of MCP connectors the agent names, made before it.
+	Connectors []string
+}
+
+// MCPIn is an MCP connector to make, switched off. Transport is "http" or
+// "stdio". Token and Env are secrets: the target seals them, and nothing in a
+// report holds them.
+type MCPIn struct {
+	Name, Transport, URL, Token, Command string
+	Args                                 []string
+	Env                                  map[string]string
 }
 
 // TriggerIn is a schedule trigger to make, switched off.
@@ -167,6 +178,12 @@ type Targets interface {
 	// time: what an import that a crash cut short left behind.
 	DiscardChat(ctx context.Context, user, title string, created time.Time) error
 	CreateBinding(ctx context.Context, user string, in BindingIn) error
+	// IsAdmin says whether the user may have a local MCP command. A server with
+	// no accounts has one user, who is the administrator.
+	IsAdmin(ctx context.Context, user string) (bool, error)
+	// CreateMCPConnector makes a switched-off connector of the user and returns
+	// its ID, or an error wrapping ErrNameTaken or ErrInvalid.
+	CreateMCPConnector(ctx context.Context, user string, in MCPIn) (string, error)
 }
 
 // SkillRec is a skill as a target stores it (used by tests of the targets).

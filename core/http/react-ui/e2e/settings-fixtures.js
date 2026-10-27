@@ -24,7 +24,7 @@ export function settingsFixture(overrides = {}) {
     collections_embedding_model: 'bge-m3', collections_max_chunking_size: 400, collections_chunk_overlap: 0,
     collections_db_path: '', collections_vector_engine: 'chromem',
     collections_database_url: '', chats_vision_model: '', chats_transcription_model: '',
-    distributed_disk_headroom_check: true, localai_assistant_enabled: true,
+    distributed_disk_headroom_check: true, localai_assistant_enabled: true, mcp_connectors_allow_private: false,
     instance_name: 'Lab AI', instance_tagline: '',
     ...overrides,
   }

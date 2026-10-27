@@ -103,6 +103,30 @@ chats, as it does for `/v1/chat/completions`. A user needs the
 `mcp` feature, and `LOCALAI_DISABLE_MCP` turns MCP off for the whole instance.
 A tool cannot take the name of a built-in tool such as `spawn_agent`.
 
+You can also add MCP servers of your own, stored on the server: see
+[MCP servers](/features/chats-connectors/#mcp-servers). Your enabled connectors
+are offered to your chats next to the model's servers; the model's own
+configuration is not changed.
+
+### Switch tools off for one chat
+
+The chat panel, **Tools**, lists the add-ons you may use, the MCP servers of the
+chat's model and your connectors, with a switch each. What cannot be used now is
+shown off, with the reason (a connector that is switched off, a model server
+that the model does not use by itself). A switch takes effect at the next turn.
+Switches only take away: a chat with a [saved agent](/features/chats-agents/)
+lists only what the agent grants and never gets more than that. A trigger run with no
+agent copies the switches of the chat that proposed it.
+
+```bash
+curl -s localhost:8080/api/chats/$ID/tools
+# {"addons":[...],"servers":[{"name":"crm","off":false,"usable":true}],
+#  "connectors":[{"id":"c1","name":"Docs","off":false,"usable":true}],"off":[]}
+curl -s -X PUT localhost:8080/api/chats/$ID/mcp -d '{"off":["crm","connector:c1"]}'
+```
+
+`off` holds the name of a server of the model, or `connector:<id>`. At most 200 switches.
+
 ## Skills
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way.
@@ -223,6 +247,8 @@ The JSON files are for one LocalAI process. A cluster needs PostgreSQL, as
 In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend can serve any request about any chat.
 
 **State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once: a client that missed some reads the transcript.
+
+**MCP connectors.** The records of your [MCP connectors](/features/chats-connectors/#mcp-servers) are shared in PostgreSQL. The open MCP sessions are per instance: each frontend opens its own, and a local command (`stdio`) is refused in a cluster.
 
 **Where a turn runs.** The frontend that wins the claim runs the whole turn. The model calls it makes are routed to inference nodes, and its MCP tool calls are sent to agent workers, exactly as for any other request. Agent workers do not run chats: they have no database.
 
