@@ -65,13 +65,15 @@ Returns the instance version, all available endpoint URLs (flat and categorized)
     "model_storage": true,
     "backend_install": true,
     "mcp": true,
-    "agents": false,
+    "chats": true,
+    "agent_jobs": true,
+    "collections": true,
     "p2p": false
   }
 }
 ```
 
-The `capabilities` object reflects the current runtime configuration - for example, `mcp` is only `true` if MCP is enabled, and `backend_install` is `false` when the server runs with `--disable-backend-install` (backend install and upgrade endpoints then answer 403).
+The `capabilities` object reflects the current runtime configuration - for example, `mcp` is only `true` if MCP is enabled, `chats` and `agent_jobs` are `false` with `--disable-chats`, `collections` is `false` with `--disable-collections`, and `backend_install` is `false` when the server runs with `--disable-backend-install` (backend install and upgrade endpoints then answer 403).
 
 ## Instructions API
 
@@ -111,16 +113,35 @@ Returns a compact list of instruction areas:
 
 | Instruction | Description |
 |-------------|-------------|
-| `chat-inference` | Chat completions, text completions, embeddings (OpenAI-compatible) |
-| `audio` | Text-to-speech, transcription, voice activity detection, sound generation |
+| `motion` | Live human pose capture with Protobuf over WebSocket |
+| `agent-jobs` | Agent tasks and jobs: saved prompt templates run in the background, with webhooks |
+| `collections` | Collections: the knowledge base of documents the chats can search |
+| `chats` | Chats the server keeps: steering, sub-agents and live events |
+| `addons` | Owner-routed addon lifecycle and response relays |
+| `library-sources` | Library sources of add-ons, backends and models |
+| `addon-navigation` | The built-in tiles and the per-user pins of the Add-ons drawer |
+| `fine-tuning-quantization` | Export status of the fine-tuning and quantization add-ons |
+| `chat-inference` | OpenAI-compatible chat completions, text completions, and embeddings |
+| `moderation` | OpenAI-compatible text moderation using a local completion model |
+| `audio` | Text-to-speech, voice activity detection, transcription, speaker diarization, sound classification, and sound generation |
+| `voice-library` | Create, preview, list, and delete reusable voice-cloning reference profiles |
 | `images` | Image generation and inpainting |
-| `model-management` | Browse gallery, install, delete, manage models and backends |
-| `config-management` | Discover, read, and modify model config fields with VRAM estimation |
-| `monitoring` | System metrics, backend status, system information |
-| `mcp` | Model Context Protocol - tool-augmented chat with MCP servers |
-| `agents` | Agent task and job management |
-| `video` | Video generation from text prompts |
-| `chat-history` | Server-side persistence of web UI chat conversations, with tombstones for deletions (auth only) |
+| `model-management` | Browse the gallery, install, delete, and manage models and backends |
+| `config-management` | Discover, read, and modify model configuration fields with VRAM estimation |
+| `monitoring` | System metrics, backend status, API and backend traces, backend process logs, and system information |
+| `mcp` | Model Context Protocol — tool-augmented chat with MCP servers |
+| `video` | Video generation from text prompts with optional image or audio conditioning |
+| `3d` | 3D mesh generation, remeshing, and animation (binary glTF / GLB) |
+| `forecast` | Time-series forecasting: quantile trajectories for numeric series, with optional covariates |
+| `face-recognition` | Face verification (1:1), identification (1:N), embedding, and demographic analysis |
+| `voice-recognition` | Speaker verification (1:1), embedding, and demographic analysis from voice |
+| `decisions` | Typed local decisions through OpenAI-compatible /v1/decisions and SystemOne APIs |
+| `branding` | Whitelabel the instance: configure name, tagline, logo, and favicon |
+| `usage-and-billing` | Per-user token usage and request counts, with optional cost tracking |
+| `pii-filtering` | Inspect the NER-based PII filter applied to chat requests |
+| `middleware-admin` | Inspect and configure the routing-module middleware (PII filter and routing) |
+| `failover` | Model failover chains: target health, pinning and switch events |
+| `intelligent-routing` | Per-model `router:` configuration that classifies requests and rewrites the served model |
 
 ### Get an instruction guide
 

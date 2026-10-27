@@ -2487,6 +2487,129 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsAdminAgent:
+    properties:
+      addons:
+        items:
+          type: string
+        type: array
+      collections:
+        items:
+          type: string
+        type: array
+      created:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      mcp_servers:
+        items:
+          type: string
+        type: array
+      model:
+        type: string
+      name:
+        type: string
+      owner:
+        type: string
+      skills:
+        items:
+          type: string
+        type: array
+      updated:
+        type: string
+    type: object
+  schema.ChatsAdminAgentList:
+    properties:
+      agents:
+        items:
+          $ref: '#/definitions/schema.ChatsAdminAgent'
+        type: array
+    type: object
+  schema.ChatsAdminConnector:
+    properties:
+      accept_any:
+        type: boolean
+      agent_id:
+        type: string
+      allow:
+        items:
+          type: string
+        type: array
+      created:
+        type: string
+      enabled:
+        type: boolean
+      has_token:
+        type: boolean
+      id:
+        type: string
+      kind:
+        type: string
+      name:
+        type: string
+      notify_chat:
+        type: string
+      owner:
+        type: string
+    type: object
+  schema.ChatsAdminConnectorList:
+    properties:
+      connectors:
+        items:
+          $ref: '#/definitions/schema.ChatsAdminConnector'
+        type: array
+    type: object
+  schema.ChatsAdminTrigger:
+    properties:
+      agent_id:
+        type: string
+      daily_cap:
+        type: integer
+      enabled:
+        type: boolean
+      folder:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      last_run:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerRun'
+        description: LastRun is the newest run, if any.
+      model:
+        type: string
+      name:
+        type: string
+      next_run:
+        type: string
+      owner:
+        type: string
+      prompt:
+        type: string
+      quiet_seconds:
+        type: integer
+      schedule:
+        type: string
+      source_chat_id:
+        type: string
+      summary:
+        description: |-
+          Summary says when it runs in plain words. NextRun is set for a schedule
+          trigger that is on.
+        type: string
+      time_zone:
+        type: string
+    type: object
+  schema.ChatsAdminTriggerList:
+    properties:
+      triggers:
+        items:
+          $ref: '#/definitions/schema.ChatsAdminTrigger'
+        type: array
+    type: object
   schema.ChatsAgent:
     properties:
       addons:
@@ -4328,6 +4451,133 @@ definitions:
       total_tokens:
         type: integer
     type: object
+  schema.Job:
+    properties:
+      attachments:
+        description: |-
+          Images, Videos, Audios and Files are the number of attachments the job
+          was started with; the content is not kept.
+        type: integer
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      error:
+        description: Error message if failed
+        type: string
+      id:
+        description: UUID
+        type: string
+      parameters:
+        additionalProperties:
+          type: string
+        description: Template parameters
+        type: object
+      result:
+        description: Agent response
+        type: string
+      started_at:
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/schema.JobStatus'
+        description: pending, running, completed, failed, cancelled
+      task_id:
+        description: Reference to Task
+        type: string
+      traces:
+        description: Execution traces (reasoning, tool calls, tool results)
+        items:
+          $ref: '#/definitions/schema.JobTrace'
+        type: array
+      triggered_by:
+        description: '"manual", "cron", "api"'
+        type: string
+      webhook_error:
+        description: Error if webhook failed
+        type: string
+      webhook_sent:
+        description: Webhook delivery tracking
+        type: boolean
+      webhook_sent_at:
+        type: string
+    type: object
+  schema.JobExecutionRequest:
+    properties:
+      audios:
+        items:
+          type: string
+        type: array
+      files:
+        items:
+          type: string
+        type: array
+      images:
+        description: |-
+          Attachments for the job, as data URIs (data:<mime>;base64,<data>). An
+          address is not fetched: the server never makes a request on behalf of a
+          job's caller. They are saved in the owner's files for the job to read.
+        items:
+          type: string
+        type: array
+      parameters:
+        additionalProperties:
+          type: string
+        description: Optional, for templating
+        type: object
+      task_id:
+        description: Required
+        type: string
+      videos:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.JobExecutionResponse:
+    properties:
+      job_id:
+        description: unique job identifier
+        type: string
+      status:
+        description: initial status (pending)
+        type: string
+      url:
+        description: URL to poll for job status
+        type: string
+    type: object
+  schema.JobStatus:
+    enum:
+    - pending
+    - running
+    - completed
+    - failed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - JobStatusPending
+    - JobStatusRunning
+    - JobStatusCompleted
+    - JobStatusFailed
+    - JobStatusCancelled
+  schema.JobTrace:
+    properties:
+      arguments:
+        additionalProperties: {}
+        description: Tool arguments or result data
+        type: object
+      content:
+        description: The actual trace content
+        type: string
+      timestamp:
+        description: When this trace occurred
+        type: string
+      tool_name:
+        description: Tool name (for tool_call/tool_result)
+        type: string
+      type:
+        description: '"reasoning", "tool_call", "tool_result", "status"'
+        type: string
+    type: object
   schema.KnownBackend:
     properties:
       auto_detect:
@@ -4634,6 +4884,20 @@ definitions:
         type: object
       flagged:
         type: boolean
+    type: object
+  schema.MultimediaSourceConfig:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Custom headers for HTTP request (e.g., Authorization)
+        type: object
+      type:
+        description: '"image", "video", "audio", "file"'
+        type: string
+      url:
+        description: URL to fetch from
+        type: string
     type: object
   schema.NodeData:
     properties:
@@ -5807,6 +6071,63 @@ definitions:
         description: voice audio file or speaker id
         type: string
     type: object
+  schema.Task:
+    properties:
+      agent_id:
+        description: |-
+          AgentID is optional: a saved agent of the owner. The job gets only the
+          agent's grants and instructions, as a chat with that agent would.
+        type: string
+      created_at:
+        type: string
+      cron:
+        description: |-
+          Cron and CronParameters are refused: scheduling is done by the triggers of
+          the chats, which can run a saved agent on a schedule.
+        type: string
+      cron_parameters:
+        additionalProperties:
+          type: string
+        type: object
+      description:
+        description: Optional description
+        type: string
+      enabled:
+        description: Can be disabled without deletion; absent means enabled
+        type: boolean
+      id:
+        description: UUID
+        type: string
+      model:
+        description: |-
+          Model is the model the job talks to. It may be empty when agent_id names a
+          saved agent that has a model.
+        type: string
+      multimedia_sources:
+        description: 'MultimediaSources is refused: it fed the cron jobs, which are
+          triggers now.'
+        items:
+          $ref: '#/definitions/schema.MultimediaSourceConfig'
+        type: array
+      name:
+        description: User-friendly name
+        type: string
+      prompt:
+        description: Template prompt (supports Go template .param syntax)
+        type: string
+      updated_at:
+        type: string
+      webhooks:
+        description: |-
+          Webhook configuration (for notifications).
+          Supports multiple webhook endpoints.
+          Webhooks can handle both success and failure cases using template variables:
+          .Job (Job object), .Task (Task object), .Result (if successful),
+          .Error (if failed), .Status (job status string).
+        items:
+          $ref: '#/definitions/schema.WebhookConfig'
+        type: array
+    type: object
   schema.ThreeDInput:
     properties:
       label:
@@ -6146,6 +6467,23 @@ definitions:
         type: number
       verified:
         type: boolean
+    type: object
+  schema.WebhookConfig:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Custom headers (e.g., Authorization)
+        type: object
+      method:
+        description: 'HTTP method (POST, PUT, PATCH) - default: POST'
+        type: string
+      payload_template:
+        description: Optional template for payload
+        type: string
+      url:
+        description: Webhook endpoint URL
+        type: string
     type: object
   updates.State:
     enum:
@@ -8602,6 +8940,358 @@ paths:
       summary: Search the people a resource can be shared with (owner, UI only)
       tags:
       - Addons
+  /api/agent/jobs:
+    get:
+      description: Newest first. With all_users=true an administrator also gets the
+        jobs of the other users, read-only, in user_groups keyed by owner.
+      parameters:
+      - description: Filter by task ID
+        in: query
+        name: task_id
+        type: string
+      - description: Filter by status (pending, running, completed, failed, cancelled)
+        in: query
+        name: status
+        type: string
+      - description: Max number of jobs to return
+        in: query
+        name: limit
+        type: integer
+      - description: Set to 'true' for the administrator's cross-user listing
+        in: query
+        name: all_users
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: jobs
+          schema:
+            items:
+              $ref: '#/definitions/schema.Job'
+            type: array
+      summary: List agent jobs.
+      tags:
+      - agent-jobs
+  /api/agent/jobs/{id}:
+    delete:
+      description: A running job is stopped first.
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an agent job.
+      tags:
+      - agent-jobs
+    get:
+      description: status is pending, running, completed, failed or cancelled; result
+        is the last answer of the chat; traces are the reasoning and tool results.
+        An administrator can read any user's job.
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: job
+          schema:
+            $ref: '#/definitions/schema.Job'
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an agent job.
+      tags:
+      - agent-jobs
+  /api/agent/jobs/{id}/cancel:
+    post:
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cancel an agent job.
+      tags:
+      - agent-jobs
+  /api/agent/jobs/{id}/rerun:
+    post:
+      description: Starts a new job with the same task and parameters. Attachments
+        are not kept, so they are not sent again.
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: job
+          schema:
+            $ref: '#/definitions/schema.JobExecutionResponse'
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Run an agent job again.
+      tags:
+      - agent-jobs
+  /api/agent/jobs/execute:
+    post:
+      consumes:
+      - application/json
+      description: Starts a job for the task as a background chat of the caller and
+        answers at once; poll the job for its status and result. parameters fill the
+        prompt template. images, videos, audios and files are base64 data URIs (an
+        address is not fetched).
+      parameters:
+      - description: Job execution request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.JobExecutionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: job
+          schema:
+            $ref: '#/definitions/schema.JobExecutionResponse'
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Execute an agent job.
+      tags:
+      - agent-jobs
+  /api/agent/tasks:
+    get:
+      description: With all_users=true an administrator also gets the tasks of the
+        other users, read-only, in user_groups keyed by owner.
+      parameters:
+      - description: Set to 'true' for the administrator's cross-user listing
+        in: query
+        name: all_users
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: tasks
+          schema:
+            items:
+              $ref: '#/definitions/schema.Task'
+            type: array
+      summary: List agent tasks.
+      tags:
+      - agent-jobs
+    post:
+      consumes:
+      - application/json
+      description: 'A task is a prompt template (Go template syntax, parameters as
+        {{.name}}) run by a model, or by a saved agent (agent_id), as a background
+        chat. webhooks are called when a job of the task ends; header values are never
+        returned. cron, cron_parameters and multimedia_sources are refused: schedule
+        a saved agent with a trigger. Needs the mcp_jobs feature.'
+      parameters:
+      - description: Task definition
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Task'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: id
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create an agent task.
+      tags:
+      - agent-jobs
+  /api/agent/tasks/{id}:
+    delete:
+      description: The jobs of the task stay until their retention passes.
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an agent task.
+      tags:
+      - agent-jobs
+    get:
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: task
+          schema:
+            $ref: '#/definitions/schema.Task'
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an agent task.
+      tags:
+      - agent-jobs
+    put:
+      consumes:
+      - application/json
+      description: Replaces every field. A webhook header sent back as "[hidden]"
+        keeps its stored value.
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated task definition
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Task'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update an agent task.
+      tags:
+      - agent-jobs
+  /api/agent/tasks/{name}/execute:
+    post:
+      consumes:
+      - application/json
+      description: The body is an object of parameters for the prompt template.
+      parameters:
+      - description: Task name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Optional template parameters
+        in: body
+        name: parameters
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: job
+          schema:
+            $ref: '#/definitions/schema.JobExecutionResponse'
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Execute an agent task by name.
+      tags:
+      - agent-jobs
   /api/aliases:
     get:
       responses:
@@ -9205,6 +9895,171 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsToolsPanel'
       summary: List the tools a chat can switch on and off.
+      tags:
+      - chats
+  /api/chats/admin/agents:
+    get:
+      description: Read-only view with the owner of each agent. The instructions are
+        not returned.
+      responses:
+        "200":
+          description: Every user's agents, by owner and name
+          schema:
+            $ref: '#/definitions/schema.ChatsAdminAgentList'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the saved agents of every user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/agents/{id}:
+    delete:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: No such agent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a saved agent of any user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/connectors:
+    get:
+      description: Read-only view with the owner of each binding. The bot token is
+        never returned.
+      responses:
+        "200":
+          description: Every user's bindings, by name
+          schema:
+            $ref: '#/definitions/schema.ChatsAdminConnectorList'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the connector bindings of every user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/connectors/{id}:
+    delete:
+      parameters:
+      - description: Binding ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: No such binding
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a connector binding of any user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/connectors/{id}/disable:
+    post:
+      parameters:
+      - description: Binding ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The binding, now off
+          schema:
+            $ref: '#/definitions/schema.ChatsConnector'
+        "404":
+          description: No such binding
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Switch off a connector binding of any user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/triggers:
+    get:
+      description: Read-only view with the owner of each trigger and its last run.
+      responses:
+        "200":
+          description: Every user's triggers, by owner and name
+          schema:
+            $ref: '#/definitions/schema.ChatsAdminTriggerList'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the triggers of every user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/triggers/{id}:
+    delete:
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: No such trigger
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a trigger of any user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/triggers/{id}/disable:
+    post:
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The trigger, now off
+          schema:
+            $ref: '#/definitions/schema.ChatsAdminTrigger'
+        "404":
+          description: No such trigger
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Switch off a trigger of any user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/triggers/{id}/runs:
+    get:
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: How many runs, newest first (default 20, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The runs, newest first
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerRunList'
+        "404":
+          description: No such trigger
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the runs of a trigger of any user (administrators).
       tags:
       - chats
   /api/chats/agents:
@@ -10307,6 +11162,336 @@ paths:
       summary: Confirm a trigger proposal.
       tags:
       - chats
+  /api/collections:
+    get:
+      description: With authentication on, an administrator can add all_users=true
+        to also get the other users' collections in user_groups. Needs the collections
+        feature.
+      parameters:
+      - description: Set to 'true' for the administrator's cross-user listing
+        in: query
+        name: all_users
+        type: string
+      responses:
+        "200":
+          description: collections and count
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List collections.
+      tags:
+      - collections
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: '{\'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      responses:
+        "201":
+          description: status and name
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a collection.
+      tags:
+      - collections
+  /api/collections/{name}/entries:
+    get:
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: entries and count
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List the entries of a collection.
+      tags:
+      - collections
+  /api/collections/{name}/entries-raw/{entry}:
+    get:
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Entry name (URL-encoded)
+        in: path
+        name: entry
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: The file
+          schema:
+            type: file
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Download a collection entry as uploaded.
+      tags:
+      - collections
+  /api/collections/{name}/entries/{entry}:
+    get:
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Entry name (URL-encoded)
+        in: path
+        name: entry
+        required: true
+        type: string
+      responses:
+        "200":
+          description: content and chunk_count
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Read the text of a collection entry.
+      tags:
+      - collections
+  /api/collections/{name}/entry/delete:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: '{\'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      responses:
+        "200":
+          description: remaining_entries and count
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an entry of a collection.
+      tags:
+      - collections
+  /api/collections/{name}/reset:
+    post:
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: status
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete every entry of a collection.
+      tags:
+      - collections
+  /api/collections/{name}/search:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: '{\'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      responses:
+        "200":
+          description: results and count
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Search a collection.
+      tags:
+      - collections
+  /api/collections/{name}/sources:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: '{\'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      responses:
+        "200":
+          description: status
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Stop following a source of a collection.
+      tags:
+      - collections
+    get:
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: sources and count
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List the sources of a collection.
+      tags:
+      - collections
+    post:
+      consumes:
+      - application/json
+      description: update_interval is in minutes; a value below 1 means 60.
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: '{\'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      responses:
+        "200":
+          description: status
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Follow a URL as a source of a collection.
+      tags:
+      - collections
+  /api/collections/{name}/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Multipart form with the field file. 409 when the embedding model
+        changed and the vectors have another size.
+      parameters:
+      - description: Collection name (URL-encoded)
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: The file
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "200":
+          description: status, filename and key
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Upload a file to a collection.
+      tags:
+      - collections
   /api/failover:
     get:
       produces:

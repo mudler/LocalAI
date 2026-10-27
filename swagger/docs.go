@@ -2843,6 +2843,522 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/agent/jobs": {
+            "get": {
+                "description": "Newest first. With all_users=true an administrator also gets the jobs of the other users, read-only, in user_groups keyed by owner.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "List agent jobs.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by task ID",
+                        "name": "task_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (pending, running, completed, failed, cancelled)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max number of jobs to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set to 'true' for the administrator's cross-user listing",
+                        "name": "all_users",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "jobs",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/schema.Job"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/jobs/execute": {
+            "post": {
+                "description": "Starts a job for the task as a background chat of the caller and answers at once; poll the job for its status and result. parameters fill the prompt template. images, videos, audios and files are base64 data URIs (an address is not fetched).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Execute an agent job.",
+                "parameters": [
+                    {
+                        "description": "Job execution request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.JobExecutionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "job",
+                        "schema": {
+                            "$ref": "#/definitions/schema.JobExecutionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/jobs/{id}": {
+            "get": {
+                "description": "status is pending, running, completed, failed or cancelled; result is the last answer of the chat; traces are the reasoning and tool results. An administrator can read any user's job.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Get an agent job.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "job",
+                        "schema": {
+                            "$ref": "#/definitions/schema.Job"
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "A running job is stopped first.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Delete an agent job.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/jobs/{id}/cancel": {
+            "post": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Cancel an agent job.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/jobs/{id}/rerun": {
+            "post": {
+                "description": "Starts a new job with the same task and parameters. Attachments are not kept, so they are not sent again.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Run an agent job again.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "job",
+                        "schema": {
+                            "$ref": "#/definitions/schema.JobExecutionResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/tasks": {
+            "get": {
+                "description": "With all_users=true an administrator also gets the tasks of the other users, read-only, in user_groups keyed by owner.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "List agent tasks.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Set to 'true' for the administrator's cross-user listing",
+                        "name": "all_users",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "tasks",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/schema.Task"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "A task is a prompt template (Go template syntax, parameters as {{.name}}) run by a model, or by a saved agent (agent_id), as a background chat. webhooks are called when a job of the task ends; header values are never returned. cron, cron_parameters and multimedia_sources are refused: schedule a saved agent with a trigger. Needs the mcp_jobs feature.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Create an agent task.",
+                "parameters": [
+                    {
+                        "description": "Task definition",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Task"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "id",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/tasks/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Get an agent task.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "task",
+                        "schema": {
+                            "$ref": "#/definitions/schema.Task"
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replaces every field. A webhook header sent back as \"[hidden]\" keeps its stored value.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Update an agent task.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated task definition",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Task"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "The jobs of the task stay until their retention passes.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Delete an agent task.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/tasks/{name}/execute": {
+            "post": {
+                "description": "The body is an object of parameters for the prompt template.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Execute an agent task by name.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional template parameters",
+                        "name": "parameters",
+                        "in": "body",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "job",
+                        "schema": {
+                            "$ref": "#/definitions/schema.JobExecutionResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aliases": {
             "get": {
                 "tags": [
@@ -3176,6 +3692,258 @@ const docTemplate = `{
                         "description": "The new conversation",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/agents": {
+            "get": {
+                "description": "Read-only view with the owner of each agent. The instructions are not returned.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the saved agents of every user (administrators).",
+                "responses": {
+                    "200": {
+                        "description": "Every user's agents, by owner and name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAdminAgentList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/agents/{id}": {
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a saved agent of any user (administrators).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "404": {
+                        "description": "No such agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/connectors": {
+            "get": {
+                "description": "Read-only view with the owner of each binding. The bot token is never returned.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the connector bindings of every user (administrators).",
+                "responses": {
+                    "200": {
+                        "description": "Every user's bindings, by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAdminConnectorList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/connectors/{id}": {
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a connector binding of any user (administrators).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Binding ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "404": {
+                        "description": "No such binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/connectors/{id}/disable": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch off a connector binding of any user (administrators).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Binding ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The binding, now off",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    },
+                    "404": {
+                        "description": "No such binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/triggers": {
+            "get": {
+                "description": "Read-only view with the owner of each trigger and its last run.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the triggers of every user (administrators).",
+                "responses": {
+                    "200": {
+                        "description": "Every user's triggers, by owner and name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAdminTriggerList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/triggers/{id}": {
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a trigger of any user (administrators).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trigger ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "404": {
+                        "description": "No such trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/triggers/{id}/disable": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch off a trigger of any user (administrators).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trigger ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The trigger, now off",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAdminTrigger"
+                        }
+                    },
+                    "404": {
+                        "description": "No such trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/triggers/{id}/runs": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the runs of a trigger of any user (administrators).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trigger ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "How many runs, newest first (default 20, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The runs, newest first",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerRunList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -5277,6 +6045,502 @@ const docTemplate = `{
                         "description": "The tools and their switches",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsToolsPanel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections": {
+            "get": {
+                "description": "With authentication on, an administrator can add all_users=true to also get the other users' collections in user_groups. Needs the collections feature.",
+                "tags": [
+                    "collections"
+                ],
+                "summary": "List collections.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Set to 'true' for the administrator's cross-user listing",
+                        "name": "all_users",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "collections and count",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Create a collection.",
+                "parameters": [
+                    {
+                        "description": "{\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "status and name",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections/{name}/entries": {
+            "get": {
+                "tags": [
+                    "collections"
+                ],
+                "summary": "List the entries of a collection.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "entries and count",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections/{name}/entries-raw/{entry}": {
+            "get": {
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Download a collection entry as uploaded.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Entry name (URL-encoded)",
+                        "name": "entry",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections/{name}/entries/{entry}": {
+            "get": {
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Read the text of a collection entry.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Entry name (URL-encoded)",
+                        "name": "entry",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "content and chunk_count",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections/{name}/entry/delete": {
+            "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Delete an entry of a collection.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "{\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "remaining_entries and count",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections/{name}/reset": {
+            "post": {
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Delete every entry of a collection.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections/{name}/search": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Search a collection.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "{\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "results and count",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections/{name}/sources": {
+            "get": {
+                "tags": [
+                    "collections"
+                ],
+                "summary": "List the sources of a collection.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "sources and count",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "update_interval is in minutes; a value below 1 means 60.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Follow a URL as a source of a collection.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "{\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Stop following a source of a collection.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "{\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections/{name}/upload": {
+            "post": {
+                "description": "Multipart form with the field file. 409 when the embedding model changed and the vectors have another size.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Upload a file to a collection.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name (URL-encoded)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "The file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "status, filename and key",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -12772,6 +14036,192 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAdminAgent": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAdminAgentList": {
+            "type": "object",
+            "properties": {
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAdminAgent"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAdminConnector": {
+            "type": "object",
+            "properties": {
+                "accept_any": {
+                    "type": "boolean"
+                },
+                "agent_id": {
+                    "type": "string"
+                },
+                "allow": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "has_token": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notify_chat": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAdminConnectorList": {
+            "type": "object",
+            "properties": {
+                "connectors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAdminConnector"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAdminTrigger": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "daily_cap": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "folder": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "last_run": {
+                    "description": "LastRun is the newest run, if any.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerRun"
+                        }
+                    ]
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "next_run": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "quiet_seconds": {
+                    "type": "integer"
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "source_chat_id": {
+                    "type": "string"
+                },
+                "summary": {
+                    "description": "Summary says when it runs in plain words. NextRun is set for a schedule\ntrigger that is on.",
+                    "type": "string"
+                },
+                "time_zone": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAdminTriggerList": {
+            "type": "object",
+            "properties": {
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAdminTrigger"
+                    }
+                }
+            }
+        },
         "schema.ChatsAgent": {
             "type": "object",
             "properties": {
@@ -15440,6 +16890,178 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.Job": {
+            "type": "object",
+            "properties": {
+                "attachments": {
+                    "description": "Images, Videos, Audios and Files are the number of attachments the job\nwas started with; the content is not kept.",
+                    "type": "integer"
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error message if failed",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "UUID",
+                    "type": "string"
+                },
+                "parameters": {
+                    "description": "Template parameters",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "result": {
+                    "description": "Agent response",
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "pending, running, completed, failed, cancelled",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.JobStatus"
+                        }
+                    ]
+                },
+                "task_id": {
+                    "description": "Reference to Task",
+                    "type": "string"
+                },
+                "traces": {
+                    "description": "Execution traces (reasoning, tool calls, tool results)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.JobTrace"
+                    }
+                },
+                "triggered_by": {
+                    "description": "\"manual\", \"cron\", \"api\"",
+                    "type": "string"
+                },
+                "webhook_error": {
+                    "description": "Error if webhook failed",
+                    "type": "string"
+                },
+                "webhook_sent": {
+                    "description": "Webhook delivery tracking",
+                    "type": "boolean"
+                },
+                "webhook_sent_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.JobExecutionRequest": {
+            "type": "object",
+            "properties": {
+                "audios": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "images": {
+                    "description": "Attachments for the job, as data URIs (data:\u003cmime\u003e;base64,\u003cdata\u003e). An\naddress is not fetched: the server never makes a request on behalf of a\njob's caller. They are saved in the owner's files for the job to read.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "parameters": {
+                    "description": "Optional, for templating",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "task_id": {
+                    "description": "Required",
+                    "type": "string"
+                },
+                "videos": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.JobExecutionResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "description": "unique job identifier",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "initial status (pending)",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL to poll for job status",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.JobStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "JobStatusPending",
+                "JobStatusRunning",
+                "JobStatusCompleted",
+                "JobStatusFailed",
+                "JobStatusCancelled"
+            ]
+        },
+        "schema.JobTrace": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "description": "Tool arguments or result data",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "content": {
+                    "description": "The actual trace content",
+                    "type": "string"
+                },
+                "timestamp": {
+                    "description": "When this trace occurred",
+                    "type": "string"
+                },
+                "tool_name": {
+                    "description": "Tool name (for tool_call/tool_result)",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"reasoning\", \"tool_call\", \"tool_result\", \"status\"",
+                    "type": "string"
+                }
+            }
+        },
         "schema.KnownBackend": {
             "type": "object",
             "properties": {
@@ -15853,6 +17475,26 @@ const docTemplate = `{
                 },
                 "flagged": {
                     "type": "boolean"
+                }
+            }
+        },
+        "schema.MultimediaSourceConfig": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "description": "Custom headers for HTTP request (e.g., Authorization)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "description": "\"image\", \"video\", \"audio\", \"file\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL to fetch from",
+                    "type": "string"
                 }
             }
         },
@@ -17455,6 +19097,69 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.Task": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "description": "AgentID is optional: a saved agent of the owner. The job gets only the\nagent's grants and instructions, as a chat with that agent would.",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "cron": {
+                    "description": "Cron and CronParameters are refused: scheduling is done by the triggers of\nthe chats, which can run a saved agent on a schedule.",
+                    "type": "string"
+                },
+                "cron_parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "description": "Optional description",
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "Can be disabled without deletion; absent means enabled",
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "UUID",
+                    "type": "string"
+                },
+                "model": {
+                    "description": "Model is the model the job talks to. It may be empty when agent_id names a\nsaved agent that has a model.",
+                    "type": "string"
+                },
+                "multimedia_sources": {
+                    "description": "MultimediaSources is refused: it fed the cron jobs, which are triggers now.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.MultimediaSourceConfig"
+                    }
+                },
+                "name": {
+                    "description": "User-friendly name",
+                    "type": "string"
+                },
+                "prompt": {
+                    "description": "Template prompt (supports Go template .param syntax)",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "webhooks": {
+                    "description": "Webhook configuration (for notifications).\nSupports multiple webhook endpoints.\nWebhooks can handle both success and failure cases using template variables:\n.Job (Job object), .Task (Task object), .Result (if successful),\n.Error (if failed), .Status (job status string).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.WebhookConfig"
+                    }
+                }
+            }
+        },
         "schema.ThreeDInput": {
             "type": "object",
             "properties": {
@@ -17958,6 +19663,30 @@ const docTemplate = `{
                 },
                 "verified": {
                     "type": "boolean"
+                }
+            }
+        },
+        "schema.WebhookConfig": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "description": "Custom headers (e.g., Authorization)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "method": {
+                    "description": "HTTP method (POST, PUT, PATCH) - default: POST",
+                    "type": "string"
+                },
+                "payload_template": {
+                    "description": "Optional template for payload",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Webhook endpoint URL",
+                    "type": "string"
                 }
             }
         },
