@@ -120,50 +120,29 @@ localai run
 
 ### Enabling auth on an existing instance
 
-Enabling user authentication does not assign existing agent data to an account.
-Data created without user auth belongs to the root storage area (an empty user ID).
-Authenticated users get separate storage, including admins. Existing agents,
-collections, skills, tasks, jobs, and outputs can therefore disappear from their
-API and Web UI views while remaining on disk.
+Enabling user authentication does not assign existing data to an account. Data
+created without user auth belongs to no account: the chats, saved agents,
+triggers and files of a server without auth belong to one anonymous user, and
+the accounts you create later start with nothing. The old data stays on disk.
 
-In standalone (LocalAGI) mode, startup logs a warning when it finds root agents,
-collections, skills, or configured skill repositories. The warning includes counts
-and a link to this section. It checks the configured root collection path and
-excludes user-owned data. It does not inventory tasks, jobs, outputs, or agent state.
-An absent warning is not proof that every resource has an owner.
-
-{{% notice warning %}}
-The warning does not migrate, delete, or pause anything. Root agents still start,
-including their scheduled runs. Their requests to the local API need valid
-credentials after auth is enabled. Admin views do not provide a complete migration
-or export path for root data.
-{{% /notice %}}
+What the server converts from older releases (agents, tasks, skills, Telegram
+connectors and saved chats) is given to the account that owned it. An item with
+no owner, made before accounts existed, is not converted when auth is on: the
+report at `/app/chats/conversion` lists it as skipped, and you make it again
+under the intended account. See [Chats migration]({{% relref "chats-migration" %}}).
 
 Before switching an existing instance:
 
-1. Pause existing agents and scheduled work while auth is still off.
-2. Stop LocalAI and back up its data, agent state, and any separately configured collection storage or databases.
-3. Test the switch on a copy before changing the production instance.
-4. Restrict access during bootstrap and register the intended administrator first.
-5. Recreate or import agent configurations under the intended user. Recreate collections and skills there as needed.
-6. Verify credentials and required data before resuming agents.
+1. Stop LocalAI and back up its data folder and any separately configured collection storage or database.
+2. Test the switch on a copy before changing the production instance.
+3. Restrict access during bootstrap and register the intended administrator first.
+4. Recreate the agents, triggers and skills that had no owner under the intended account, and the collections as needed.
+5. Open the conversion report and check each item before you switch a trigger or a connector on.
 
 The first registered user becomes admin and bypasses approval or invite requirements.
 Setting `LOCALAI_ADMIN_EMAIL` promotes that email address, but does **not** reserve
 the first-admin role for it. Keep registration inaccessible to other users until
 bootstrap is complete.
-
-Recreating an agent configuration does not migrate its character, scheduler state,
-or long-term memory. Keep the backup: LocalAI has no automatic migration of the
-root storage area, and agent configuration export does not include this state.
-
-With user auth active, creating, importing, or updating an agent without
-`api_key` generates a new key owned by that user. The key inherits the owner's
-permissions; an admin-owned key can therefore grant admin access. Repeated updates
-that omit `api_key` can create additional keys. Supply an explicit key with the
-intended permissions when recreating or updating agents, and review existing keys
-in **Settings → Users and keys**. Existing root agents can use an explicit
-`api_key` or `LOCALAI_COLLECTIONS_API_KEY`; neither setting transfers ownership.
 
 ### Configuration Reference
 
@@ -206,7 +185,7 @@ When disabled:
 
 There are two roles:
 
-- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, agents, and user management.
+- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, and user management.
 - **User**: Access to inference endpoints only - chat completions, embeddings, image/video/audio generation, TTS, MCP chat, and their own usage statistics.
 
 The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted to admin via the admin user management API or by setting `LOCALAI_ADMIN_EMAIL` to their email address.
@@ -280,7 +259,7 @@ When authentication is enabled, the following endpoints require admin role:
 When auth is enabled, the React UI sidebar dynamically shows/hides sections based on the user's role:
 
 - **All users see**: Home, Chat, Images, Video, TTS, Sound, Talk, Usage, API docs link
-- **Admins also see**: Models, the Build console (Agents, Skills, Memory, Jobs, Training, Recognition), and the Operate console (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
+- **Admins also see**: Models, the Build console, and the Operate console (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
 
 Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
 

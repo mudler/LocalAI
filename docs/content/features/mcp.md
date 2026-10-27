@@ -645,59 +645,13 @@ mcp:
 
 ## Client-Side MCP (Browser)
 
-In addition to server-side MCP (where the backend connects to MCP servers), LocalAI supports **client-side MCP** where the browser connects directly to MCP servers. This is inspired by llama.cpp's WebUI and works alongside server-side MCP.
+The [chats]({{% relref "features/chats-connectors" %}}) connect to MCP servers from the server, through the MCP connectors of each user. They no longer connect from the browser, and the old chat page with its **MCP** chip and **Client** tab is gone.
 
-### How It Works
+The browser keeps one MCP client, for the pages that add-ons add to the interface. An add-on page can ask it to connect to an MCP server and call its tools. Those server configurations are stored in the browser's localStorage and are not shared with the server; custom headers (for example API keys) are stored there too, so use them with care on shared machines.
 
-1. **Add servers in the UI**: Click the **MCP** chip above the message box, open the **Client** tab, and add MCP server URLs
-2. **Browser connects directly**: The browser uses the MCP TypeScript SDK (`StreamableHTTPClientTransport` or `SSEClientTransport`) to connect to MCP servers
-3. **Tool discovery**: Connected servers' tools are sent as `tools` in the chat request body
-4. **Browser-side execution**: When the LLM calls a client-side tool, the browser executes it against the MCP server and sends the result back in a follow-up request
-5. **Agentic loop**: This continues (up to 10 turns) until the LLM produces a final response
+Because browsers enforce CORS, LocalAI provides a proxy at `/api/cors-proxy`. It forwards the method, headers and body of a request to the target URL and streams the response back with CORS headers. It can forward requests to any HTTP or HTTPS URL, and it is only available while MCP is on (`LOCALAI_DISABLE_MCP` is not set).
 
-### CORS Proxy
-
-Since browsers enforce CORS restrictions, LocalAI provides a built-in proxy at `/api/cors-proxy`. When "Use CORS proxy" is enabled (default), requests to external MCP servers are routed through:
-
-```
-/api/cors-proxy?url=https://remote-mcp-server.example.com/sse
-```
-
-The proxy forwards the request method, headers, and body to the target URL and streams the response back with appropriate CORS headers.
-
-### MCP Apps (Interactive Tool UIs)
-
-LocalAI supports the [MCP Apps extension](https://modelcontextprotocol.io/extensions/apps/overview), which allows MCP tools to declare interactive HTML UIs. When a tool has `_meta.ui.resourceUri` in its definition, calling that tool renders the app's HTML inline in the chat as a sandboxed iframe.
-
-**How it works:**
-
-- When the LLM calls a tool with `_meta.ui.resourceUri`, the browser fetches the HTML resource from the MCP server and renders it in an iframe
-- The iframe is sandboxed (`allow-scripts allow-forms`, no `allow-same-origin`) for security
-- The app can call server tools, send messages, and update context via the `AppBridge` protocol (JSON-RPC over `postMessage`)
-- Tools marked as app-only (`_meta.ui.visibility: "app-only"`) are hidden from the LLM and only callable by the app iframe
-- On page reload, apps render statically until the MCP connection is re-established
-
-For the server-side [chats](/features/chats/#interactive-tool-pages-mcp-apps), the MCP connection is on the server and the page reaches its server through two routes of the chat; the notes below are about the older browser-side chat.
-
-**Requirements:**
-
-- Only works with **client-side MCP** connections (the browser must be connected to the MCP server)
-- The MCP server must implement the Apps extension (`_meta.ui.resourceUri` on tools, resource serving)
-
-### Coexistence with Server-Side MCP
-
-Both modes work simultaneously in the same chat:
-
-- **Server-side MCP tools** are configured in model YAML files and executed by the backend. The backend handles these in its own agentic loop.
-- **Client-side MCP tools** are configured per-user in the browser and sent as `tools` in the request. When the LLM calls them, the browser executes them.
-
-If both sides have a tool with the same name, the server-side tool takes priority.
-
-### Security Considerations
-
-- The CORS proxy can forward requests to any HTTP/HTTPS URL. It is only available when MCP is enabled (`LOCALAI_DISABLE_MCP` is not set).
-- Client-side MCP server configurations are stored in the browser's localStorage and are not shared with the server.
-- Custom headers (e.g., API keys) for MCP servers are stored in localStorage. Use with caution on shared machines.
+For interactive tool pages (MCP Apps) in the chats, see [Interactive tool pages]({{% relref "features/chats" %}}).
 
 ## Disabling MCP Support
 

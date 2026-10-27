@@ -48,7 +48,7 @@
 - **Any model, any modality**: LLMs, vision, voice, image, and video behind one API
 - **Any hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
 - **Multi-user ready**: API key auth, user quotas, role-based access
-- **Built-in AI agents**: autonomous agents with tool use, RAG, MCP, and skills
+- **Built-in chats and agents**: conversations the server keeps, with saved agents, tools, MCP, skills, files, triggers and a Telegram connector
 - **Privacy-first**: your data never leaves your infrastructure
 
 ![A small LocalAI core with backends (llama.cpp, vLLM, MLX, whisper.cpp, stable-diffusion, kokoro, parakeet.cpp...) plugged in as separate on-demand images](docs/static/images/diagrams/composable-core.png)
@@ -70,10 +70,6 @@ Click to see more!
 #### User and auth
 
 https://github.com/user-attachments/assets/228fa9ad-81a3-4d43-bfb9-31557e14a36c
-
-#### Agents
-
-https://github.com/user-attachments/assets/6270b331-e21d-4087-a540-6290006b381a
 
 #### Usage metrics per user
 
