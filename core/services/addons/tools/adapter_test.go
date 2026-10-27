@@ -16,6 +16,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -235,6 +236,18 @@ var _ = Describe("Addon tool adapter", func() {
 				Expect(res.Code).To(Equal(tools.CodeInvalidRequest))
 				Expect(res.Proposal).To(BeNil())
 			}
+		})
+		It("passes on the reason the add-on gave, such as a missing engine, and not the generic class", func() {
+			reason := &addonruntime.Refusal{Status: 400, Reason: "quantization engine llama-cpp-quantization is not installed"}
+			f.proposeErr = fmt.Errorf("%w: %w", gateway.ErrInvalidRequest, reason)
+			res, e := a.Execute(context.Background(), member, "addon__tables__rows-insert", args(`{"resourceId":"db-one","table":"t","rows":[{}]}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Code).To(Equal(tools.CodeInvalidRequest))
+			Expect(res.Message).To(Equal("quantization engine llama-cpp-quantization is not installed"))
+			Expect(res.Note).To(Equal(tools.ReasonedNote))
+			f.proposeErr = fmt.Errorf("%w: %w", gateway.ErrInvalidRequest, &addonruntime.Refusal{Status: 400, Reason: "invalid request"})
+			res, _ = a.Execute(context.Background(), member, "addon__tables__rows-insert", args(`{"resourceId":"db-one","table":"t","rows":[{}]}`))
+			Expect(res.Message).To(BeEmpty(), "the bare class says nothing")
 		})
 		It("tells the model a missing permission and an unreachable resource in plain words, for a read and for a change", func() {
 			for err, code := range map[error]string{

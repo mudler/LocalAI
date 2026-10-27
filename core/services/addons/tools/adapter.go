@@ -32,6 +32,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/toolargs"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -140,6 +141,9 @@ const CodeInvalidRequest = "invalid_request"
 // InvalidNote is what the model is told when the add-on refused a call.
 const InvalidNote = "The add-on refused this request as invalid. Nothing was changed. Check the arguments against the tool description and correct them; do not repeat the same call and do not report an outage."
 
+// ReasonedNote is what the model is told when the add-on refused and said why.
+const ReasonedNote = "The add-on cannot do this now, and says why in message. Nothing was changed. Tell the person what it said in plain words; do not repeat the same call and do not report an outage."
+
 // CodeNotPermitted is the Code of a ResultError for a call the person is not
 // allowed to make, for example without the fine-tuning permission.
 const CodeNotPermitted = "not_permitted"
@@ -217,6 +221,9 @@ type ToolResult struct {
 	Artifacts []ArtifactRef   `json:"artifacts,omitempty"`
 	// Code says what the person is asked to do, for a ResultError.
 	Code string `json:"code,omitempty"`
+	// Message is the reason the add-on gave for refusing, in a short fixed
+	// sentence such as a missing engine. It is empty when the add-on gave none.
+	Message string `json:"message,omitempty"`
 	// Note is host text for the model: a proposal is not applied.
 	Note string `json:"note,omitempty"`
 }
@@ -551,9 +558,23 @@ func refusedResult(name string, err error) (ToolResult, error) {
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceUnreachable, Note: ResourceUnreachableNote}, nil
 	}
 	if errors.Is(err, gateway.ErrInvalidRequest) || errors.Is(err, contract.ErrRefused) {
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Note: InvalidNote}, nil
+		res := ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Note: InvalidNote, Message: refusalMessage(err)}
+		if res.Message != "" {
+			res.Note = ReasonedNote
+		}
+		return res, nil
 	}
 	return ToolResult{}, err
+}
+
+// refusalMessage is the reason in the add-on's refusal, unless it is only the
+// class every refusal has.
+func refusalMessage(err error) string {
+	var r *addonruntime.Refusal
+	if errors.As(err, &r) && r.Reason != "" && r.Reason != "invalid request" {
+		return r.Reason
+	}
+	return ""
 }
 
 // requiresResource reports a tool whose schema requires the resource.
