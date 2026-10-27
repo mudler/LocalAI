@@ -261,7 +261,6 @@ var _ = Describe("MCP connectors", Label("platform", "mcp"), Ordered, func() {
 			bobChat := bob.newChat(nil)
 			msgs := bob.turn(bobChat, callMarker("echo", obj{"text": "bob-try"})+" go")
 			Expect(anyContains(toolResults(msgs), "echo:bob-try")).To(BeFalse())
-			knownGap("PLAT-1", "GET /api/chats/{id}/tools answers 500 (addon forwarding denied) for a user without the addons feature")
 			tools := bob.mustJSON(http.MethodGet, "/api/chats/"+bobChat+"/tools", nil, http.StatusOK)
 			Expect(tools["connectors"]).To(BeEmpty())
 		})
