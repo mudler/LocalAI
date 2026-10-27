@@ -3,8 +3,10 @@ package studio_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -359,5 +361,64 @@ func TestANewMessageStartsATurnBehindTheOnesWaitingBeforeIt(t *testing.T) {
 	}
 	if got := pendingTexts(t, svc, alice, id); len(got) != 0 {
 		t.Fatalf("pending = %v, want none: the waiting message went with the turn", got)
+	}
+}
+
+func TestAChatIsNamedAfterItsFirstMessage(t *testing.T) {
+	h := studiotest.NewGateHarness()
+	svc := newService(t, h)
+	ctx := context.Background()
+	id := create(t, svc, alice)
+	if rec, _ := svc.Get(ctx, alice, id); rec.Title != session.DefaultTitle {
+		t.Fatalf("a new chat is called %q", rec.Title)
+	}
+	sent(t, svc, alice, id, "Plan the offsite budget\nfor the third quarter, with the venue costs we saw last year and a margin of ten percent")
+	rec, err := svc.Get(ctx, alice, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(rec.Title, "Plan the offsite budget") || strings.Contains(rec.Title, "\n") || utf8.RuneCountInString(rec.Title) > session.MaxTitleRunes {
+		t.Fatalf("the title is %q", rec.Title)
+	}
+	// A title the user chose, or an earlier one, is not replaced by a later message.
+	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
+	sent(t, svc, alice, id, "A second message")
+	if again, _ := svc.Get(ctx, alice, id); again.Title != rec.Title {
+		t.Fatalf("the title changed to %q", again.Title)
+	}
+	named, err := svc.Create(ctx, alice, studio.CreateInput{Model: "m", Title: "Mine"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent(t, svc, alice, named.ID, "something else entirely")
+	if got, _ := svc.Get(ctx, alice, named.ID); got.Title != "Mine" {
+		t.Fatalf("a chosen title became %q", got.Title)
+	}
+}
+
+func TestRenameChangesTheTitleOfAChatThatIsNotRunning(t *testing.T) {
+	h := studiotest.NewGateHarness()
+	svc := newService(t, h)
+	ctx := context.Background()
+	id := create(t, svc, alice)
+	rec, err := svc.Rename(ctx, alice, id, "  Budget\n 2027  ")
+	if err != nil || rec.Title != "Budget 2027" {
+		t.Fatalf("Rename = %+v, %v", rec, err)
+	}
+	if got, _ := svc.Get(ctx, alice, id); got.Title != "Budget 2027" {
+		t.Fatalf("stored title %q", got.Title)
+	}
+	for _, bad := range []string{"", "   ", strings.Repeat("x", session.MaxTitleRunes+1)} {
+		if _, err := svc.Rename(ctx, alice, id, bad); !errors.Is(err, studio.ErrBadTitle) {
+			t.Fatalf("Rename(%q) = %v, want ErrBadTitle", bad, err)
+		}
+	}
+	if _, err := svc.Rename(ctx, "bob", id, "Mine now"); !errors.Is(err, session.ErrNotFound) {
+		t.Fatalf("another user renamed it: %v", err)
+	}
+	sent(t, svc, alice, id, "go")
+	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
+	if _, err := svc.Rename(ctx, alice, id, "While running"); !errors.Is(err, studio.ErrChatBusy) {
+		t.Fatalf("Rename while a turn runs = %v, want ErrChatBusy", err)
 	}
 }

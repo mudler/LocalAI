@@ -197,6 +197,7 @@ var _ = Describe("Chats endpoints", func() {
 		Entry("list", http.MethodGet, "/api/chats"),
 		Entry("get", http.MethodGet, "/api/chats/c1"),
 		Entry("delete", http.MethodDelete, "/api/chats/c1"),
+		Entry("rename", http.MethodPatch, "/api/chats/c1"),
 		Entry("messages", http.MethodGet, "/api/chats/c1/messages"),
 		Entry("send", http.MethodPost, "/api/chats/c1/messages"),
 		Entry("edit pending", http.MethodPatch, "/api/chats/c1/pending/p1"),
@@ -205,6 +206,19 @@ var _ = Describe("Chats endpoints", func() {
 		Entry("stop", http.MethodPost, "/api/chats/c1/stop"),
 		Entry("events", http.MethodGet, "/api/chats/c1/events"),
 	)
+
+	It("renames a chat, refuses a bad title and another user's chat", func() {
+		id := s.create("alice")
+		rec := s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": "Trip plan"})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("title", "Trip plan"))
+		Expect(s.detail("alice", id)).To(HaveKeyWithValue("title", "Trip plan"))
+		Expect(s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": "  "}).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": strings.Repeat("x", 81)}).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodPatch, "/api/chats/"+id, "not json").Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("bob", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": "Mine"}).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("carol", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": "x"}).Code).To(Equal(http.StatusForbidden))
+	})
 
 	It("honours a revoked chats permission", func() {
 		Expect(s.do("carol", http.MethodGet, "/api/chats", nil).Code).To(Equal(http.StatusForbidden))

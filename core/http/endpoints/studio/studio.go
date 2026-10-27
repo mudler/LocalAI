@@ -96,8 +96,10 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusRequestEntityTooLarge, "invalid_request_error", "an attachment is too large")
 	case errors.Is(err, studiosvc.ErrSubAgentReadOnly):
 		return fail(c, http.StatusConflict, "conflict", "a sub-agent conversation takes no messages from you")
-	case errors.Is(err, studiosvc.ErrNoModel):
+	case errors.Is(err, studiosvc.ErrNoModel), errors.Is(err, studiosvc.ErrBadTitle):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+	case errors.Is(err, studiosvc.ErrChatBusy):
+		return fail(c, http.StatusConflict, "conflict", err.Error())
 	case errors.Is(err, agents.ErrNotFound):
 		return fail(c, http.StatusNotFound, "not_found", "agent not found")
 	case errors.Is(err, agents.ErrNameTaken):
@@ -217,6 +219,35 @@ func (h *Handlers) List(c echo.Context) error {
 			return failFor(c, err)
 		}
 		out.Conversations = append(out.Conversations, conv)
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+// Rename changes the title of a chat.
+// @Summary Rename a chat.
+// @Description A chat is named after its first message. The title is 1 to 80 characters. A chat with a turn running answers 409; stop it first.
+// @Tags chats
+// @Accept json
+// @Param id path string true "conversation id"
+// @Param request body schema.ChatsRenameRequest true "the new title"
+// @Success 200 {object} schema.ChatsConversation "The conversation"
+// @Failure 400 {object} schema.ErrorResponse "The title is empty or too long"
+// @Failure 404 {object} schema.ErrorResponse "No such chat"
+// @Failure 409 {object} schema.ErrorResponse "A turn is running"
+// @Router /api/chats/{id} [patch]
+func (h *Handlers) Rename(c echo.Context) error {
+	var req schema.ChatsRenameRequest
+	if err := c.Bind(&req); err != nil {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+	}
+	user := userID(c)
+	rec, err := h.svc.Rename(c.Request().Context(), user, c.Param("id"), req.Title)
+	if err != nil {
+		return failFor(c, err)
+	}
+	out, err := h.describe(c, user, rec)
+	if err != nil {
+		return failFor(c, err)
 	}
 	return c.JSON(http.StatusOK, out)
 }

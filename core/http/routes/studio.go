@@ -143,6 +143,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base, h.Create)
 	e.GET(base, h.List)
 	e.GET(base+"/:id", h.Get)
+	e.PATCH(base+"/:id", h.Rename)
 	e.DELETE(base+"/:id", h.Delete)
 	e.GET(base+"/:id/messages", h.Messages)
 	e.POST(base+"/:id/messages", h.Send)

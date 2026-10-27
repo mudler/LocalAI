@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+// ChatsRenameRequest changes the title of a chat.
+type ChatsRenameRequest struct {
+	// Title is the new title, 1 to 80 characters.
+	Title string `json:"title"`
+}
+
 // ChatsCreateRequest starts a chat.
 type ChatsCreateRequest struct {
 	// Title is optional; the conversation is named after its first message otherwise.

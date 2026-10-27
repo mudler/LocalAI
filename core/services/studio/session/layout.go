@@ -31,8 +31,9 @@ const (
 	// /workspace/shared-<name>. A mount name is one path segment.
 	GuestSharedPrefix = "shared-"
 	// DefaultTitle is the title of a new chat.
-	DefaultTitle  = "New chat"
-	maxTitleRunes = 80
+	DefaultTitle = "New chat"
+	// MaxTitleRunes is the longest title of a chat, in characters.
+	MaxTitleRunes = 80
 )
 
 // HomePath returns the home folder of principal.
@@ -63,8 +64,8 @@ func CleanTitle(s string) string {
 		b.WriteRune(r)
 	}
 	out := b.String()
-	if utf8.RuneCountInString(out) > maxTitleRunes {
-		out = string([]rune(out)[:maxTitleRunes])
+	if utf8.RuneCountInString(out) > MaxTitleRunes {
+		out = string([]rune(out)[:MaxTitleRunes])
 	}
 	return strings.TrimRight(out, " ")
 }
@@ -81,6 +82,28 @@ func fitBytes(s string, n int) string {
 		end += size
 	}
 	return s[:end]
+}
+
+// TitleFrom makes the title of a chat from its first message: the first line
+// that has text, cleaned, cut to MaxTitleRunes at a word boundary with an
+// ellipsis. It returns "" when the message has no usable text.
+func TitleFrom(text string) string {
+	for _, line := range strings.Split(text, "\n") {
+		t := CleanTitle(line)
+		if t == "" {
+			continue
+		}
+		r := []rune(t)
+		if len(r) <= MaxTitleRunes {
+			return t
+		}
+		cut := string(r[:MaxTitleRunes-1])
+		if i := strings.LastIndex(cut, " "); i > MaxTitleRunes/2 {
+			cut = cut[:i]
+		}
+		return strings.TrimRight(cut, " ,.;:") + "…"
+	}
+	return ""
 }
 
 // FolderName returns the name of a chat folder: the creation date and the

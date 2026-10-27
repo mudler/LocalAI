@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
@@ -35,6 +36,13 @@ const AnonymousPrincipal = "anonymous"
 
 // ErrNoModel means a conversation was created without a model.
 var ErrNoModel = errors.New("studio: a conversation needs a model")
+
+// ErrBadTitle means a new title is empty or too long.
+var ErrBadTitle = errors.New("studio: a title needs 1 to 80 characters")
+
+// ErrChatBusy means the chat has a turn running, so it cannot be renamed: the
+// running turn holds the record and would write the old title back.
+var ErrChatBusy = errors.New("studio: the chat has a turn running; wait for it or stop it")
 
 // ErrAgentsOff means a chat named a saved agent but the service has no agent store.
 var ErrAgentsOff = errors.New("studio: saved agents are not available")
@@ -470,6 +478,7 @@ func (s *Service) send(ctx context.Context, user, conv, text string, up []sessio
 	runID := newID()
 	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
 	case err == nil:
+		s.nameAfter(ctx, p, conv, text)
 		// Messages that wait go first: the new one must not overtake them.
 		taken, terr := s.d.Store.TakePending(ctx, p, conv)
 		if terr != nil {
@@ -511,6 +520,51 @@ func (s *Service) send(ctx context.Context, user, conv, text string, up []sessio
 	default:
 		return SendResult{}, err
 	}
+}
+
+// nameAfter gives a chat that still has the default title one made from its
+// first message. The caller holds the claim of the turn and the chat is not
+// open, so nothing writes the old title back. A failure only leaves the default.
+func (s *Service) nameAfter(ctx context.Context, p, conv, text string) {
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil || rec.Title != session.DefaultTitle || rec.Turns > 0 {
+		return
+	}
+	title := session.TitleFrom(text)
+	if title == "" {
+		return
+	}
+	rec.Title = title
+	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
+		s.log.Warn("studio: could not name a chat after its first message", "chat", conv, "error", err)
+	}
+}
+
+// Rename changes the title of a conversation of the user. A chat with a turn
+// running cannot be renamed (ErrChatBusy).
+func (s *Service) Rename(ctx context.Context, user, conv, title string) (session.ChatRecord, error) {
+	p := principal(user)
+	if utf8.RuneCountInString(strings.TrimSpace(title)) > session.MaxTitleRunes {
+		return session.ChatRecord{}, ErrBadTitle
+	}
+	title = session.CleanTitle(title)
+	if title == "" {
+		return session.ChatRecord{}, ErrBadTitle
+	}
+	unlock := s.lock(key(p, conv))
+	defer unlock()
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
+		return session.ChatRecord{}, err
+	}
+	if info, err := s.d.Store.Turn(ctx, p, conv); err == nil && info.Running {
+		return session.ChatRecord{}, ErrChatBusy
+	}
+	rec.Title = title
+	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
+		return session.ChatRecord{}, err
+	}
+	return rec, nil
 }
 
 // SendNow starts a turn from the waiting messages. It is what the user chooses
