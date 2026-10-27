@@ -166,3 +166,22 @@ func TestThePublicKeyIsStableAcrossPushers(t *testing.T) {
 		t.Fatalf("keys differ: %q %q", one, two)
 	}
 }
+
+// The tests above inject http.DefaultClient. The client a server really uses is
+// the default one, which must not dial a loopback or private address at send
+// time, even for an endpoint that passed the check when it was stored (a name
+// can change its address later).
+func TestTheDefaultClientDoesNotDialALoopbackAddress(t *testing.T) {
+	st, _ := notify.NewJSONPush("")
+	p := notify.NewPusher(notify.PusherOptions{Store: st, CheckEndpoint: func(string) error { return nil }})
+	fake := newFakePush(t)
+	k, a := browserKeys(t)
+	ctx := context.Background()
+	if err := p.Subscribe(ctx, "u1", fake.srv.URL+"/m", k, a); err != nil {
+		t.Fatal(err)
+	}
+	p.Send(ctx, notify.Notification{Principal: "u1", Title: "x"})
+	if fake.hits.Load() != 0 {
+		t.Fatalf("the default client reached a loopback server %d times", fake.hits.Load())
+	}
+}
