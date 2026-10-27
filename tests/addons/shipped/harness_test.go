@@ -196,7 +196,9 @@ func startServer(name string, auth bool, extraEnv []string, extraArgs ...string)
 	w.cmd.Stdout, w.cmd.Stderr = logFile, logFile
 	began := time.Now()
 	Expect(w.cmd.Start()).To(Succeed())
-	defer func() { GinkgoWriter.Printf("server %q answered after %s\n", name, time.Since(began).Round(100*time.Millisecond)) }()
+	defer func() {
+		GinkgoWriter.Printf("server %q answered after %s\n", name, time.Since(began).Round(100*time.Millisecond))
+	}()
 	Eventually(func() error {
 		resp, err := http.Get(w.base + "/api/features") // #nosec G107 -- loopback test server
 		if err != nil {
