@@ -81,6 +81,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/chats/mcp-connectors/:id/test", FeatureChats},
 	{"GET", "/api/chats/:id/tools", FeatureChats},
 	{"PUT", "/api/chats/:id/mcp", FeatureChats},
+	{"GET", "/api/chats/:id/mcp-apps/resource", FeatureChats},
+	{"POST", "/api/chats/:id/mcp-apps/call", FeatureChats},
 	{"GET", "/api/chats/agents", FeatureChats},
 	{"POST", "/api/chats/agents", FeatureChats},
 	{"GET", "/api/chats/agents/:id", FeatureChats},

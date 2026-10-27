@@ -127,6 +127,69 @@ curl -s -X PUT localhost:8080/api/chats/$ID/mcp -d '{"off":["crm","connector:c1"
 
 `off` holds the name of a server of the model, or `connector:<id>`. At most 200 switches.
 
+### Interactive tool pages (MCP Apps)
+
+A tool of an MCP server can declare an interactive HTML page in
+`_meta.ui.resourceUri`, as the [MCP Apps extension](https://modelcontextprotocol.io/extensions/apps/overview)
+defines. When the model calls such a tool, the chat shows the page under the tool
+line, with the arguments and the result of the call. This works for your
+[connectors](/features/chats-connectors/#mcp-apps) and for the MCP servers of the
+chat's model. The page appears when the turn ends, or when you open the chat again.
+
+The MCP connection stays on the server, so two routes of the chat carry the page
+and its calls. Both answer only for a server that the chat may use at that moment:
+not switched off in the chat's tools panel, named by the chat's agent if it has
+one, and, for a connector, yours and enabled. You need the `chats` and `mcp`
+features. Anything else is `403` with the type `mcp_app_refused`.
+
+```bash
+# The page of the app. server is connector:<id> or the name of a server of the model.
+curl -s "localhost:8080/api/chats/$ID/mcp-apps/resource?server=connector:c1&uri=ui://clock/app.html"
+# {"uri":"ui://clock/app.html","mime_type":"text/html;profile=mcp-app","html":"...","meta":{"csp":{...},"permissions":{},"prefersBorder":true}}
+
+# A tool call from the page.
+curl -s -X POST localhost:8080/api/chats/$ID/mcp-apps/call \
+  -d '{"server":"connector:c1","tool":"refresh","arguments":{"zone":"UTC"}}'
+# {"result":{"content":[{"type":"text","text":"..."}],"structuredContent":{...}}}
+```
+
+Rules the server applies:
+
+- The resource must be a `ui://` URI that a tool of the same server declares. No
+  other resource is read. It must be `text/html` (with the `mcp-app` profile or
+  none) and at most 4 MiB.
+- A tool call must name a tool of the same server whose `_meta.ui.visibility`
+  includes `"app"` (the default is `["model","app"]`). A tool in the add-on
+  namespace or with the name of a built-in tool is refused. The call has the same
+  time limit as a call of the model, its arguments are at most 16 KiB, and its
+  result is cut at 256 KiB.
+- A tool with `visibility: ["app"]` is not offered to the model.
+- The answers never hold a token or a header of a connector, and an error from the
+  server is cleaned of them.
+- In distributed mode, apps work for connectors. The MCP servers of the model run
+  on workers there, so their apps answer `409` with the type `mcp_app_unsupported`.
+
+The `tool_end` event and the transcript line of a call with a page carry
+`app`: `server`, `tool`, `resource_uri` and `visibility`. The transcript line also
+has `input` and `result` (the full MCP result, at most 256 KiB), which the page
+needs. The text of the line keeps its usual 2 KiB cut, and the model sees only the
+text of the result. The event has no `input` or `result`: read the transcript for them.
+
+The web interface shows the page in an iframe with `sandbox="allow-scripts"` and
+nothing else. The page has no access to the interface (no same-origin access, no
+cookies, no storage), cannot navigate the top window and cannot open windows. Its
+content security policy allows no network by default. A page can ask for `https`
+and `wss` origins with `_meta.ui.csp` (`connectDomains`, `resourceDomains`,
+`frameDomains` and `baseUriDomains`); the server and the interface drop anything
+else. Browser permissions such as the camera are not granted. The interface reads
+messages only from that frame and ignores the rest. It supports `ui/initialize`,
+`tools/call`, `ui/notifications/size-changed` (height between 60 and 600 pixels),
+`ui/message`, `ui/open-link` and `ui/request-display-mode`; any other request
+gets the JSON-RPC error "method not found". A message that the page sends with
+`ui/message` is shown as a suggestion that you send or dismiss, never sent by itself.
+A link from `ui/open-link` must be `http` or `https` and opens only when you click
+it. When the page cannot be loaded, the chat shows the result as text.
+
 ## Skills
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way.

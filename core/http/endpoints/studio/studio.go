@@ -276,9 +276,13 @@ func (h *Handlers) Messages(c echo.Context) error {
 	}
 	out := schema.ChatsMessageList{Messages: make([]schema.ChatsMessage, 0, len(entries))}
 	for _, e := range entries {
-		out.Messages = append(out.Messages, schema.ChatsMessage{
+		m := schema.ChatsMessage{
 			Seq: e.Seq, Turn: e.Turn, Role: e.Role, Text: e.Text, DurMs: e.Dur.Milliseconds(), At: e.At,
-		})
+		}
+		if e.Card != nil {
+			m.App = appJSON(e.Card.App, true)
+		}
+		out.Messages = append(out.Messages, m)
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -448,6 +452,9 @@ func eventJSON(ev session.Event) schema.ChatsEvent {
 	out := schema.ChatsEvent{Kind: string(ev.Kind), Turn: ev.Turn, Text: ev.Text, IDs: ev.IDs, Before: ev.Before, After: ev.After}
 	if ev.Tool != nil {
 		out.Tool = &schema.ChatsToolEvent{Name: ev.Tool.Name, Summary: ev.Tool.Summary, OK: ev.Tool.OK, Output: ev.Tool.Output}
+		if ev.Tool.Card != nil {
+			out.Tool.App = appJSON(ev.Tool.Card.App, false)
+		}
 	}
 	return out
 }

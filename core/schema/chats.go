@@ -1,6 +1,9 @@
 package schema
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // ChatsCreateRequest starts a chat.
 type ChatsCreateRequest struct {
@@ -121,8 +124,62 @@ type ChatsMessage struct {
 	Role string `json:"role"` // user, assistant, tool, checkpoint or reasoning
 	Text string `json:"text"`
 	// DurMs is how long the model thought, for reasoning lines.
-	DurMs int64     `json:"dur_ms,omitempty"`
-	At    time.Time `json:"at"`
+	DurMs int64 `json:"dur_ms,omitempty"`
+	// App is set on a tool line whose tool has an MCP App: the interactive page
+	// that goes with the result.
+	App *ChatsToolApp `json:"app,omitempty"`
+	At  time.Time     `json:"at"`
+}
+
+// ChatsToolApp tells the interface which MCP App belongs to a tool result. The
+// page itself and the calls of the page go through the two mcp-apps routes of
+// the chat. In a transcript line it carries the arguments and the full result
+// of the call, for the page to show; in a live event it is the reference only.
+type ChatsToolApp struct {
+	// Server is "connector:<id>" for one of your connectors, or the name of an
+	// MCP server of the model.
+	Server string `json:"server"`
+	// Tool is the name of the tool on that server.
+	Tool string `json:"tool"`
+	// ResourceURI is the ui:// resource that holds the page.
+	ResourceURI string `json:"resource_uri"`
+	// Visibility is who may call the tool: "model", "app" or both.
+	Visibility []string `json:"visibility"`
+	// Input is the arguments of the call, at most 16 KiB.
+	Input json.RawMessage `json:"input,omitempty" swaggertype:"object"`
+	// Result is the full MCP result of the call, at most 256 KiB.
+	Result json.RawMessage `json:"result,omitempty" swaggertype:"object"`
+	// Cut says that the input or the result was too large and is left out.
+	Cut bool `json:"cut,omitempty"`
+}
+
+// ChatsMCPAppResource is the page of an MCP App, read from its server.
+type ChatsMCPAppResource struct {
+	URI      string `json:"uri"`
+	MimeType string `json:"mime_type"`
+	// HTML is the page. It must run in a sandboxed frame with no access to the
+	// origin of the interface.
+	HTML string `json:"html"`
+	// Meta is the ui metadata of the resource as the MCP Apps specification
+	// names it, cleaned: csp (connectDomains, resourceDomains, frameDomains and
+	// baseUriDomains hold only https or wss origins), permissions and prefersBorder.
+	Meta map[string]any `json:"meta"`
+}
+
+// ChatsMCPAppCall asks to run a tool of an MCP server for its app.
+type ChatsMCPAppCall struct {
+	// Server is "connector:<id>" or the name of an MCP server of the chat's model.
+	Server string `json:"server"`
+	// Tool is a tool of that server whose visibility includes "app".
+	Tool string `json:"tool"`
+	// Arguments is a JSON object, at most 16 KiB.
+	Arguments json.RawMessage `json:"arguments,omitempty" swaggertype:"object"`
+}
+
+// ChatsMCPAppCallResult is the MCP result of the tool call: content,
+// structuredContent and isError as the MCP specification names them.
+type ChatsMCPAppCallResult struct {
+	Result json.RawMessage `json:"result" swaggertype:"object"`
 }
 
 // ChatsMessageList is the response of the transcript endpoint.
@@ -152,6 +209,9 @@ type ChatsToolEvent struct {
 	Summary string `json:"summary,omitempty"`
 	OK      bool   `json:"ok,omitempty"`
 	Output  string `json:"output,omitempty"`
+	// App is the reference of the MCP App of the call, on tool_end. It has no
+	// input and no result: read the transcript line for them.
+	App *ChatsToolApp `json:"app,omitempty"`
 }
 
 // ChatsFile is a file or folder of the user's workspace. Paths are inside the

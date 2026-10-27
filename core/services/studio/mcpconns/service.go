@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/pkg/mcpapps"
 )
 
 // AnonymousOwner is the owner of a server without accounts.
@@ -78,7 +79,12 @@ type Tool struct {
 	ConnectorID, Connector string
 	Name, Description      string
 	Schema                 json.RawMessage
-	Run                    func(ctx context.Context, args json.RawMessage) (string, error)
+	// Meta is the _meta of the tool, where MCP Apps declare their view.
+	Meta map[string]any
+	Run  func(ctx context.Context, args json.RawMessage) (string, error)
+	// RunApp runs the tool like Run, and also returns the full result for an
+	// app: the structured content that the model's text leaves out.
+	RunApp func(ctx context.Context, args json.RawMessage) (mcpapps.CallResult, error)
 }
 
 type session struct {
@@ -611,19 +617,26 @@ func (s *Service) toolsOf(ctx context.Context, user string, c Connector) ([]Tool
 				schema = raw
 			}
 		}
-		tools = append(tools, Tool{ConnectorID: c.ID, Connector: c.Name, Name: name, Description: t.Description, Schema: schema,
+		tools = append(tools, Tool{ConnectorID: c.ID, Connector: c.Name, Name: name, Description: t.Description, Schema: schema, Meta: t.Meta,
 			Run: func(ctx context.Context, args json.RawMessage) (string, error) {
-				return s.call(ctx, c, se, name, args)
+				out, _, err := s.call(ctx, c, se, name, args)
+				return out, err
+			},
+			RunApp: func(ctx context.Context, args json.RawMessage) (mcpapps.CallResult, error) {
+				out, raw, err := s.call(ctx, c, se, name, args)
+				return mcpapps.CallResult{Text: out, Result: raw}, err
 			}})
 	}
 	return tools, ""
 }
 
-func (s *Service) call(ctx context.Context, c Connector, se *session, name string, args json.RawMessage) (string, error) {
+// call runs a tool and returns the text for the model and the full result for
+// an app.
+func (s *Service) call(ctx context.Context, c Connector, se *session, name string, args json.RawMessage) (string, json.RawMessage, error) {
 	var in map[string]any
 	if len(args) > 0 && string(args) != "null" {
 		if err := json.Unmarshal(args, &in); err != nil {
-			return "", fmt.Errorf("the arguments of %s are not a JSON object", name)
+			return "", nil, fmt.Errorf("the arguments of %s are not a JSON object", name)
 		}
 	}
 	cctx, cancel := context.WithTimeout(ctx, s.o.CallTimeout)
@@ -638,10 +651,10 @@ func (s *Service) call(ctx context.Context, c Connector, se *session, name strin
 		}
 		s.mu.Unlock()
 		if cctx.Err() != nil {
-			return "", fmt.Errorf("the tool %s of %s did not answer within %s", name, c.Name, s.o.CallTimeout)
+			return "", nil, fmt.Errorf("the tool %s of %s did not answer within %s", name, c.Name, s.o.CallTimeout)
 		}
 		sec, _ := s.open(ctx, c)
-		return "", fmt.Errorf("the tool %s of %s failed: %s", name, c.Name, redact(err.Error(), c, sec))
+		return "", nil, fmt.Errorf("the tool %s of %s failed: %s", name, c.Name, redact(err.Error(), c, sec))
 	}
 	s.mu.Lock()
 	se.last = s.o.Clock()
@@ -666,5 +679,44 @@ func (s *Service) call(ctx context.Context, c Connector, se *session, name strin
 	if res.IsError {
 		out = "tool error: " + out
 	}
-	return out, nil
+	return out, mcpapps.FromCallResult(res), nil
+}
+
+// ReadResource reads a ui:// resource of the user's own enabled connector.
+// The caller decides whether a tool of the connector declared the resource.
+// An error never holds a secret of the connector.
+func (s *Service) ReadResource(ctx context.Context, user, id, uri string) (mcpapps.Resource, error) {
+	if err := s.permit(ctx, user); err != nil {
+		return mcpapps.Resource{}, err
+	}
+	if err := mcpapps.CheckURI(uri); err != nil {
+		return mcpapps.Resource{}, bad("%s", err)
+	}
+	c, err := s.owned(ctx, user, id)
+	if err != nil {
+		return mcpapps.Resource{}, err
+	}
+	if !c.Enabled {
+		return mcpapps.Resource{}, fmt.Errorf("%w: the connector is switched off", ErrForbidden)
+	}
+	if c.Transport == TransportStdio {
+		if err := s.stdioAllowed(ctx, user); err != nil {
+			return mcpapps.Resource{}, err
+		}
+	}
+	se, err := s.session(ctx, c)
+	if err != nil {
+		return mcpapps.Resource{}, err
+	}
+	cctx, cancel := context.WithTimeout(ctx, s.o.CallTimeout)
+	defer cancel()
+	res, err := se.conn.cs.ReadResource(cctx, &mcp.ReadResourceParams{URI: uri})
+	if err != nil {
+		sec, _ := s.open(ctx, c)
+		return mcpapps.Resource{}, fmt.Errorf("the connector could not read the resource: %s", redact(err.Error(), c, sec))
+	}
+	s.mu.Lock()
+	se.last = s.o.Clock()
+	s.mu.Unlock()
+	return mcpapps.FromReadResult(res, uri)
 }

@@ -5,6 +5,7 @@ package sessiontest
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -331,6 +332,28 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		}
 		if es[0].Dur != 0 || es[2].Dur != 0 || es[0].Role != session.RoleUser || es[2].Role != session.RoleAssistant {
 			t.Fatalf("neighbours = %+v %+v", es[0], es[2])
+		}
+	})
+	t.Run("TestTheStoreKeepsTheAppOfACard", func(t *testing.T) {
+		s := newStore(t)
+		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
+			t.Fatal(err)
+		}
+		card := &session.ToolCard{Kind: "mcp_app", ID: "abc123", App: &session.ToolApp{
+			Server: "connector:x", Tool: "get-time", ResourceURI: "ui://clock/app.html", Visibility: []string{"model", "app"},
+			Input: json.RawMessage(`{"zone":"UTC"}`), Result: json.RawMessage(`{"content":[{"type":"text","text":"12:00"}]}`),
+		}}
+		if err := s.AppendEntry(ctx(t), "c1", session.Entry{Turn: 1, Role: session.RoleTool, Text: "get-time", Card: card}); err != nil {
+			t.Fatal(err)
+		}
+		es, err := s.Entries(ctx(t), "c1", 0, 10)
+		if err != nil || len(es) != 1 || es[0].Card == nil || es[0].Card.App == nil {
+			t.Fatalf("entries = %+v %v", es, err)
+		}
+		a := es[0].Card.App
+		if a.Server != "connector:x" || a.ResourceURI != "ui://clock/app.html" || len(a.Visibility) != 2 ||
+			string(a.Input) != `{"zone":"UTC"}` || !strings.Contains(string(a.Result), "12:00") {
+			t.Fatalf("app = %+v", a)
 		}
 	})
 	t.Run("TestTheStoreSuiteAcceptsACard", func(t *testing.T) {

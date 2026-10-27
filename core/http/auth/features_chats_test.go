@@ -47,6 +47,8 @@ var _ = Describe("Chats feature registration", func() {
 			"PUT /api/chats/:id/addons",
 			"GET /api/chats/:id/tools",
 			"PUT /api/chats/:id/mcp",
+			"GET /api/chats/:id/mcp-apps/resource",
+			"POST /api/chats/:id/mcp-apps/call",
 			"GET /api/chats/mcp-connectors",
 			"POST /api/chats/mcp-connectors",
 			"GET /api/chats/mcp-connectors/:id",

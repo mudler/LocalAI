@@ -2,7 +2,11 @@
 // that sees the user's workspace.
 package session
 
-import "github.com/mudler/LocalAI/core/services/studio/workspace"
+import (
+	"encoding/json"
+
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
+)
 
 // EventKind tells what an Event carries.
 type EventKind string
@@ -65,7 +69,32 @@ type ToolEvent struct {
 // result. Kind is a product string (1 to 32 characters of [a-z0-9_]); ID is
 // opaque (1 to 128 printable ASCII characters). The session does not look at
 // either beyond that check.
-type ToolCard struct{ Kind, ID string }
+type ToolCard struct {
+	Kind, ID string
+	// App is set when the result belongs to an MCP App: an interactive view
+	// that the interface frames next to the result.
+	App *ToolApp `json:",omitempty"`
+}
+
+// ToolApp says which view belongs to a tool result and gives the view what
+// the tool call was and returned. The interface reads the page from the
+// server named by Server; the session only stores the reference.
+type ToolApp struct {
+	// Server is "connector:<id>" for a connector of the user, or the name of an
+	// MCP server of the model.
+	Server string
+	// Tool is the name of the tool on that server.
+	Tool string
+	// ResourceURI is the ui:// resource that holds the page.
+	ResourceURI string
+	// Visibility is who may call the tool: "model", "app" or both.
+	Visibility []string
+	// Input are the arguments of the call and Result the full MCP result, as
+	// JSON. They are cut to maxAppInput and maxAppResult; Cut says one was.
+	Input  json.RawMessage `json:",omitempty"`
+	Result json.RawMessage `json:",omitempty"`
+	Cut    bool            `json:",omitempty"`
+}
 
 // ChangeEvent describes the checkpoint at the end of a turn.
 type ChangeEvent struct {

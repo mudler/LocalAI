@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/pkg/mcpapps"
 )
 
 // Errors of the assistant chats.
@@ -77,13 +78,34 @@ func (s *Service) assistantTurn(ctx context.Context, rec session.ChatRecord) (to
 // toolsOf turns the tools of an executor into chat tools. A tool in the add-on
 // namespace or with the name of a built-in is dropped.
 func (s *Service) toolsOf(ctx context.Context, chat string, exec mcpendpoint.ToolExecutor) ([]session.Tool, error) {
+	return s.toolsOfApps(ctx, chat, exec, false)
+}
+
+// toolsOfApps is toolsOf. With apps set and an executor that serves MCP Apps,
+// a tool for the app only is left out, and a tool with a view attaches its app
+// to the result.
+func (s *Service) toolsOfApps(ctx context.Context, chat string, exec mcpendpoint.ToolExecutor, apps bool) ([]session.Tool, error) {
 	fns, err := exec.DiscoverTools(ctx)
 	if err != nil {
 		return nil, err
 	}
+	var ae mcpendpoint.AppExecutor
+	byName := map[string]mcpendpoint.AppTool{}
+	if apps {
+		if x, ok := exec.(mcpendpoint.AppExecutor); ok {
+			ae = x
+			for _, t := range x.AppTools() {
+				byName[t.Name] = t
+			}
+		}
+	}
 	tools := make([]session.Tool, 0, len(fns))
 	for _, fn := range fns {
 		name := fn.Name
+		app, hasApp := byName[name]
+		if hasApp && !app.UI.ForModel() {
+			continue // a tool for the app only is never offered to the model
+		}
 		if mcpendpoint.IsAddonToolName(name) {
 			s.log.Warn("studio: a tool in the reserved add-on namespace was dropped", "chat", chat, "tool", name)
 			continue
@@ -98,12 +120,15 @@ func (s *Service) toolsOf(ctx context.Context, chat string, exec mcpendpoint.Too
 				schema = raw
 			}
 		}
-		tools = append(tools, session.Tool{
-			Name: name, Description: fn.Description, Schema: schema,
-			Run: func(ctx context.Context, args json.RawMessage) (string, error) {
-				return exec.ExecuteTool(ctx, name, string(args))
-			},
-		})
+		run := func(ctx context.Context, args json.RawMessage) (string, error) {
+			return exec.ExecuteTool(ctx, name, string(args))
+		}
+		if hasApp && app.UI.ResourceURI != "" {
+			run = withApp(app.Server, name, app.UI, func(ctx context.Context, args json.RawMessage) (mcpapps.CallResult, error) {
+				return ae.ExecuteAppTool(ctx, app.Server, name, args)
+			})
+		}
+		tools = append(tools, session.Tool{Name: name, Description: fn.Description, Schema: schema, Run: run})
 	}
 	return tools, nil
 }

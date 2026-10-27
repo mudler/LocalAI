@@ -1,6 +1,7 @@
 package studio_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -141,6 +142,28 @@ func TestTheBroadcastBusTrimsAnEventThatIsTooBigToSend(t *testing.T) {
 	}
 	if len(e.Text) == 0 || len(e.Text) > 4000 || len(e.Tool.Output) > 4000 {
 		t.Fatalf("event was not trimmed: text=%d output=%d", len(e.Text), len(e.Tool.Output))
+	}
+}
+
+// The app of a card carries the input and the full result of the call. A
+// broadcast message is small, so another frontend gets the reference only; the
+// interface reads the rest from the transcript.
+func TestTheBroadcastBusSendsTheReferenceOfAnAppAndNotItsPayload(t *testing.T) {
+	net := testutil.NewFakeBus()
+	bus := studio.NewBroadcastBus(net, nil)
+	ch, cancel := bus.Subscribe("k")
+	defer cancel()
+	big := json.RawMessage(`"` + strings.Repeat("r", 100_000) + `"`)
+	bus.Publish("k", session.Event{Kind: session.KindToolEnd, Tool: &session.ToolEvent{Name: "get-time", OK: true,
+		Card: &session.ToolCard{Kind: "mcp_app", ID: "abc", App: &session.ToolApp{
+			Server: "clock", Tool: "get-time", ResourceURI: "ui://clock/app.html", Visibility: []string{"model", "app"}, Input: json.RawMessage(`{"a":1}`), Result: big}}}})
+	e := recv(t, ch)
+	if e.Tool == nil || e.Tool.Card == nil || e.Tool.Card.App == nil {
+		t.Fatalf("the reference was lost: %+v", e)
+	}
+	a := e.Tool.Card.App
+	if a.Server != "clock" || a.ResourceURI != "ui://clock/app.html" || a.Input != nil || a.Result != nil {
+		t.Fatalf("app = %+v", a)
 	}
 }
 

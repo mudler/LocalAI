@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/mcpapps"
 )
 
 // ConnectorTools is the user's own MCP servers as the chats see them. Both
@@ -222,6 +223,9 @@ func (s *Service) connectorTools(ctx context.Context, a workspace.Actor, rec ses
 			s.log.Warn("studio: a connector tool takes a reserved name and was dropped", "chat", a.ChatID, "connector", d.ConnectorID, "tool", d.Name)
 			continue
 		}
+		if !mcpapps.ParseUI(d.Meta).ForModel() {
+			continue // a tool for the app only is never offered to the model
+		}
 		uses[d.Name]++
 		ok = append(ok, d)
 	}
@@ -237,6 +241,9 @@ func (s *Service) connectorTools(ctx context.Context, a workspace.Actor, rec ses
 		}
 		taken[name] = true
 		run := d.Run
+		if ui := mcpapps.ParseUI(d.Meta); ui.ResourceURI != "" && d.RunApp != nil {
+			run = withApp(mcpconns.Prefix+d.ConnectorID, d.Name, ui, d.RunApp)
+		}
 		tools = append(tools, session.Tool{
 			Name: name, Description: d.Description, Schema: d.Schema,
 			Run: func(ctx context.Context, args json.RawMessage) (string, error) {

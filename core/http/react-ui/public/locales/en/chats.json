@@ -60,6 +60,17 @@
     "undoable": "This can be undone in the add-on.",
     "waiting": "{{addon}} left this change waiting; it was not applied."
   },
+  "app": {
+    "title": "Interactive view of {{tool}}",
+    "loading": "Loading the view",
+    "unavailable": "The view could not be loaded ({{reason}}). Here is the result as text.",
+    "live": "This tool has an interactive view. It appears when the turn ends.",
+    "suggests": "The app suggests this message",
+    "send": "Send",
+    "dismiss": "Dismiss",
+    "wantsLink": "The app wants to open {{host}}",
+    "open": "Open"
+  },
   "reasoning": "Thought",
   "notes": {
     "compacted": "The conversation was compacted to make room ({{before}} to {{after}} tokens).",

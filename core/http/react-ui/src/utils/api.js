@@ -172,6 +172,14 @@ export const chatsApi = {
   eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
 }
 
+// MCP Apps of a chat: the page that a tool's MCP server offers, and the tool
+// calls of that page. The server holds the MCP connection and checks that the
+// chat may use the server on every call.
+export const chatAppsApi = {
+  resource: (chat, server, uri) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/mcp-apps/resource?server=${encodeURIComponent(server)}&uri=${encodeURIComponent(uri)}`),
+  call: (chat, server, tool, args) => postJSON(`/api/chats/${encodeURIComponent(chat)}/mcp-apps/call`, { server, tool, arguments: args || {} }),
+}
+
 // Files API: the user's own workspace. Paths are inside the user's home, "/".
 const q = (params) => {
   const sp = new URLSearchParams()

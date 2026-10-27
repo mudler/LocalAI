@@ -115,6 +115,7 @@ func (b *broadcastBus) Publish(key string, ev session.Event) {
 // fit trims an event to maxEventBytes. Events are for display, and the
 // transcript has the full text, so a long one is cut and never dropped.
 func fit(ev session.Event) session.Event {
+	ev = withoutAppPayload(ev)
 	if size(ev) <= maxEventBytes {
 		return ev
 	}
@@ -129,6 +130,19 @@ func fit(ev session.Event) session.Event {
 		ev.IDs = nil
 		ev.Text = cut(ev.Text, 200)
 	}
+	return ev
+}
+
+// withoutAppPayload drops the input and the result that an app card carries.
+// They can be large and the transcript has them; the event keeps the reference.
+func withoutAppPayload(ev session.Event) session.Event {
+	if ev.Tool == nil || ev.Tool.Card == nil || ev.Tool.Card.App == nil {
+		return ev
+	}
+	t, c, a := *ev.Tool, *ev.Tool.Card, *ev.Tool.Card.App
+	a.Input, a.Result = nil, nil
+	c.App, t.Card = &a, &c
+	ev.Tool = &t
 	return ev
 }
 

@@ -103,7 +103,7 @@ export function useServerChat() {
         const tools = [...l.tools]
         for (let i = tools.length - 1; i >= 0; i--) {
           if (tools[i].state === 'running' && tools[i].name === (e.tool?.name || '')) {
-            tools[i] = { ...tools[i], state: e.tool?.ok ? 'done' : 'failed', output: e.tool?.output || '' }
+            tools[i] = { ...tools[i], state: e.tool?.ok ? 'done' : 'failed', output: e.tool?.output || '', app: Boolean(e.tool?.app) }
             break
           }
         }

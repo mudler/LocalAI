@@ -97,6 +97,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/mcp-connectors/:id/test", h.TestMCPConnector)
 	e.GET(base+"/:id/tools", h.ListChatTools)
 	e.PUT(base+"/:id/mcp", h.SetChatMCP)
+	e.GET(base+"/:id/mcp-apps/resource", h.GetMCPAppResource)
+	e.POST(base+"/:id/mcp-apps/call", h.CallMCPAppTool)
 	e.GET(base+"/agents", h.ListAgents)
 	e.POST(base+"/agents", h.CreateAgent)
 	e.GET(base+"/agents/:id", h.GetAgent)

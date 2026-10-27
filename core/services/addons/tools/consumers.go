@@ -125,9 +125,10 @@ var Consumers = []Consumer{
 		ID:          "studio-chats-mcp",
 		Surface:     "the MCP tools of a chat on the server-side chat loop: the MCP servers of the chat's model, through the same shared sessions as every other chat of that model",
 		Files:       []string{"core/services/studio/assistant.go", "core/application/studio_service.go"},
+		Evidence:    []string{"core/services/studio/mcpapps.go", "core/http/endpoints/mcp/apps.go"},
 		Decision:    Reject,
 		Reason:      "a model's MCP session is shared by every user of the model, so it carries no actor; add-on tools of a chat come through their own consumer, with the chat user's actor",
-		Enforcement: "the executor's DiscoverTools drops the add-on namespace and its ExecuteTool refuses it; the chat bridge drops it again before it offers a tool",
+		Enforcement: "the executor's DiscoverTools drops the add-on namespace and its ExecuteTool refuses it; the chat bridge drops it again before it offers a tool; the MCP Apps proxy of a chat (resource read and tool call for an app) refuses the namespace and the names of the built-ins, and reaches only a server the chat may use at that moment",
 	},
 	{
 		ID:          "studio-chats-mcp-connectors",
@@ -135,7 +136,7 @@ var Consumers = []Consumer{
 		Files:       []string{"core/services/studio/mcpconns/client.go", "core/services/studio/mcpconns/service.go"},
 		Decision:    Reject,
 		Reason:      "a connector is a server the user chose, not an add-on: its tools run on that server with the connector's own credential and never as the user of the add-on broker",
-		Enforcement: "the chat drops a connector tool in the add-on namespace or with the name of a built-in; the sessions belong to one user and the owner is checked on every use",
+		Enforcement: "the chat drops a connector tool in the add-on namespace or with the name of a built-in; the sessions belong to one user and the owner is checked on every use, also for the MCP Apps proxy, which refuses the namespace and the names of the built-ins too",
 	},
 	{
 		ID:          "studio-chats-assistant",

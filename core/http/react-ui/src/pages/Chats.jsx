@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
+import ChatAppFrame from '../components/ChatAppFrame'
 import ChatInbox from '../components/ChatInbox'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ModelSelector from '../components/ModelSelector'
@@ -152,7 +153,7 @@ function ToolsPanel({ chatId, t }) {
   )
 }
 
-function Transcript({ messages, t }) {
+function Transcript({ chatId, messages, onSend, t }) {
   return messages.map((m) => {
     if (m.role === 'user') {
       return <div key={m.seq} className="ch-msg ch-msg--user">{m.text}</div>
@@ -173,6 +174,7 @@ function Transcript({ messages, t }) {
         <div key={m.seq} className="ch-tools">
           <div className="ch-tool"><span>{firstLine(m.text)}</span></div>
           <ChangeNote text={m.text} t={t} />
+          {m.app && <ChatAppFrame chatId={chatId} app={m.app} onSend={onSend} t={t} />}
         </div>
       )
     }
@@ -211,7 +213,7 @@ function LiveTurn({ live, t }) {
             <div key={i} className={`ch-tool${tool.state === 'failed' ? ' ch-tool--failed' : ''}`}>
               <span>{tool.name}{tool.summary ? ` ${tool.summary}` : ''}</span>
               <span className="ch-tool__state">
-                {tool.state === 'running' ? t('tool.running') : tool.state === 'failed' ? t('tool.failed') : ''}
+                {tool.state === 'running' ? t('tool.running') : tool.state === 'failed' ? t('tool.failed') : tool.app ? t('app.live') : ''}
               </span>
             </div>
           ))}
@@ -459,7 +461,7 @@ export default function Chats() {
                 )}
               </div>
             )}
-            {activeId && <Transcript messages={chat.messages} t={t} />}
+            {activeId && <Transcript chatId={activeId} messages={chat.messages} onSend={(text) => chat.send(activeId, text)} t={t} />}
             {activeId && <LiveTurn live={chat.live} t={t} />}
             {/* The one live region: it announces that a turn runs or ended, not every streamed word. */}
             <div className="ch-status" role="status" aria-live="polite">

@@ -113,7 +113,7 @@ func (s *Service) modelMCPTools(ctx context.Context, a workspace.Actor, rec sess
 	if exec == nil || !exec.HasTools() {
 		return nil, missing
 	}
-	tools, err := s.toolsOf(ctx, a.ChatID, exec)
+	tools, err := s.toolsOfApps(ctx, a.ChatID, exec, true)
 	if err != nil {
 		s.log.Warn("studio: MCP tools unavailable", "chat", a.ChatID, "model", rec.Model, "error", err)
 		return nil, missing

@@ -398,3 +398,62 @@
 .ch-tools__reason { margin-left: var(--dk-space-5); color: var(--color-text-muted); }
 
 .ch-list__skills { margin-top: auto; padding: var(--dk-space-2) var(--dk-space-3); }
+
+/* MCP Apps: the interactive view of a tool, under its tool line. */
+.ch-app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-2);
+  min-width: 0;
+  max-width: 100%;
+  margin: var(--dk-space-2) 0;
+}
+
+.ch-app__frame {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 200px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color-scheme: normal;
+}
+
+.ch-app__frame--bordered {
+  border: 1px solid var(--color-border-subtle);
+}
+
+.ch-app__state {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-13);
+}
+
+.ch-app__text {
+  margin: var(--dk-space-1) 0 0;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+}
+
+.ch-app__ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--dk-text-13);
+}
+
+.ch-app__ask-label {
+  color: var(--color-text-muted);
+}
+
+.ch-app__ask-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

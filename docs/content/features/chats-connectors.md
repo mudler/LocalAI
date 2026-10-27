@@ -155,7 +155,7 @@ reason.
 | `stdio` | A command run on the host of the frontend, with `command`, `args` and `env`. Administrators only, and refused in distributed mode. |
 
 OAuth sign-in for remote servers is not supported: use a token or a header.
-MCP Apps (interactive tool UIs) are not shown in chats.
+A tool of a connector can have an interactive page; see [MCP Apps](#mcp-apps).
 
 ### Secrets
 
@@ -209,6 +209,25 @@ time limit to start and to answer. It runs on the frontend, as the LocalAI proce
 - **Limits.** A call has a time limit of 60 seconds, and its output is cut at 64 KiB like the output of the chat's own tools.
 - **Per chat switches.** The tools panel of a chat lists the connectors and the
   model's MCP servers with a switch each. See [Chats](/features/chats/#mcp-tools).
+
+### MCP Apps
+
+A connector can offer MCP Apps: tools that declare an interactive HTML page in
+`_meta.ui.resourceUri`. Chats show the page under the tool line. The server
+holds the MCP connection, so the page works for a connector like any other tool:
+the page is read from the connector, and its tool calls go to the connector,
+with the connector's own credential. The credential never reaches the browser.
+
+- Only the owner's chat, with the connector enabled and not switched off in the
+  tools panel of that chat, can read a page or call a tool for it. A saved agent
+  must name the connector.
+- Only a `ui://` resource that a tool of the connector declares is read.
+- A tool whose `_meta.ui.visibility` does not include `"app"` cannot be called
+  by a page. A tool whose visibility does not include `"model"` is not offered
+  to the model.
+
+See [Chats](/features/chats/#interactive-tool-pages-mcp-apps) for the routes and
+the sandbox.
 
 ### Import from this browser
 

@@ -321,14 +321,61 @@ func validCard(c ToolCard) bool {
 	return true
 }
 
+// Limits of the app of a card.
+const (
+	maxAppServer = 200
+	maxAppURI    = 2048
+	maxAppInput  = 16 << 10
+	maxAppResult = 256 << 10
+)
+
+// cleanCard returns a copy of c that is within the documented limits, and
+// whether the card is valid at all. A card with an app whose reference is bad is
+// invalid. An input or a result that is too long, or not JSON, is dropped and
+// the app is marked cut: the reference is still of use.
+func cleanCard(c ToolCard) (ToolCard, bool) {
+	if !validCard(c) {
+		return ToolCard{}, false
+	}
+	if c.App == nil {
+		return c, true
+	}
+	a := *c.App
+	if a.Server == "" || len(a.Server) > maxAppServer || len(a.Tool) > maxAppServer ||
+		!strings.HasPrefix(a.ResourceURI, "ui://") || len(a.ResourceURI) > maxAppURI {
+		return ToolCard{}, false
+	}
+	for _, r := range a.Server + a.Tool + a.ResourceURI {
+		if r < 0x21 && r != ' ' || r == 0x7f {
+			return ToolCard{}, false
+		}
+	}
+	a.Visibility = append([]string(nil), a.Visibility...)
+	if a.Input = bounded(a.Input, maxAppInput); a.Input == nil && c.App.Input != nil {
+		a.Cut = true
+	}
+	if a.Result = bounded(a.Result, maxAppResult); a.Result == nil && c.App.Result != nil {
+		a.Cut = true
+	}
+	c.App = &a
+	return c, true
+}
+
+// bounded returns raw when it is valid JSON of at most max bytes, else nil.
+func bounded(raw json.RawMessage, max int) json.RawMessage {
+	if len(raw) == 0 || len(raw) > max || !json.Valid(raw) {
+		return nil
+	}
+	return append(json.RawMessage(nil), raw...)
+}
+
 // addPendingCard records a successful host tool call until the harness reports
 // its end, with the card it set (nil when none). It logs a bad card without its
 // contents and keeps the call with no card.
 func (c *Chat) addPendingCard(name, output string, card *ToolCard) {
 	var keep *ToolCard
 	if card != nil {
-		if validCard(*card) {
-			cp := *card
+		if cp, ok := cleanCard(*card); ok {
 			keep = &cp
 		} else {
 			c.m.log.Warn("session: a host tool set an invalid card and it was dropped", "chat", c.id, "tool", name)

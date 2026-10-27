@@ -677,6 +677,8 @@ LocalAI supports the [MCP Apps extension](https://modelcontextprotocol.io/extens
 - Tools marked as app-only (`_meta.ui.visibility: "app-only"`) are hidden from the LLM and only callable by the app iframe
 - On page reload, apps render statically until the MCP connection is re-established
 
+For the server-side [chats](/features/chats/#interactive-tool-pages-mcp-apps), the MCP connection is on the server and the page reaches its server through two routes of the chat; the notes below are about the older browser-side chat.
+
 **Requirements:**
 
 - Only works with **client-side MCP** connections (the browser must be connected to the MCP server)

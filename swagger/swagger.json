@@ -4838,6 +4838,81 @@
                 }
             }
         },
+        "/api/chats/{id}/mcp-apps/call": {
+            "post": {
+                "description": "The page of an MCP App can call tools of its own server. The interface passes the call here. The tool must belong to the server named, the chat must be able to use that server now (the same checks as the resource route), and the tool's _meta.ui.visibility must include \"app\" (the default includes it). A tool in the add-on namespace or with a built-in's name is refused. The call has the timeout of a model's call and its result is cut at 256 KiB. Needs the MCP feature.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Call a tool for an MCP App.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the call",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPAppCall"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The MCP result",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPAppCallResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/mcp-apps/resource": {
+            "get": {
+                "description": "An MCP server can declare an interactive page for a tool (_meta.ui.resourceUri). The tool_end event and the transcript line of the call name the server and the resource. This route reads that page from the server, for the interface to show in a sandboxed frame. server is connector:\u003cid\u003e for one of your connectors, or the name of an MCP server of the chat's model. It answers only for a server the chat may use now (not switched off for the chat, granted by the chat's agent if it has one, a connector that is yours and enabled), only for a ui:// resource that a tool of that server declares, and only for text/html up to 4 MiB; anything else is 403. Needs the MCP feature. The answer is not cached and never holds a header or token of the connector.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the page of an MCP App.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "connector:\u003cid\u003e or the name of an MCP server of the model",
+                        "name": "server",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the ui:// resource",
+                        "name": "uri",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The page and its metadata",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPAppResource"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/messages": {
             "get": {
                 "tags": [
@@ -13144,6 +13219,51 @@
                 }
             }
         },
+        "schema.ChatsMCPAppCall": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "description": "Arguments is a JSON object, at most 16 KiB.",
+                    "type": "object"
+                },
+                "server": {
+                    "description": "Server is \"connector:\u003cid\u003e\" or the name of an MCP server of the chat's model.",
+                    "type": "string"
+                },
+                "tool": {
+                    "description": "Tool is a tool of that server whose visibility includes \"app\".",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPAppCallResult": {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "type": "object"
+                }
+            }
+        },
+        "schema.ChatsMCPAppResource": {
+            "type": "object",
+            "properties": {
+                "html": {
+                    "description": "HTML is the page. It must run in a sandboxed frame with no access to the\norigin of the interface.",
+                    "type": "string"
+                },
+                "meta": {
+                    "description": "Meta is the ui metadata of the resource as the MCP Apps specification\nnames it, cleaned: csp (connectDomains, resourceDomains, frameDomains and\nbaseUriDomains hold only https or wss origins), permissions and prefersBorder.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "mime_type": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsMCPConnector": {
             "type": "object",
             "properties": {
@@ -13309,6 +13429,14 @@
         "schema.ChatsMessage": {
             "type": "object",
             "properties": {
+                "app": {
+                    "description": "App is set on a tool line whose tool has an MCP App: the interactive page\nthat goes with the result.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsToolApp"
+                        }
+                    ]
+                },
                 "at": {
                     "type": "string"
                 },
@@ -13646,9 +13774,53 @@
                 }
             }
         },
+        "schema.ChatsToolApp": {
+            "type": "object",
+            "properties": {
+                "cut": {
+                    "description": "Cut says that the input or the result was too large and is left out.",
+                    "type": "boolean"
+                },
+                "input": {
+                    "description": "Input is the arguments of the call, at most 16 KiB.",
+                    "type": "object"
+                },
+                "resource_uri": {
+                    "description": "ResourceURI is the ui:// resource that holds the page.",
+                    "type": "string"
+                },
+                "result": {
+                    "description": "Result is the full MCP result of the call, at most 256 KiB.",
+                    "type": "object"
+                },
+                "server": {
+                    "description": "Server is \"connector:\u003cid\u003e\" for one of your connectors, or the name of an\nMCP server of the model.",
+                    "type": "string"
+                },
+                "tool": {
+                    "description": "Tool is the name of the tool on that server.",
+                    "type": "string"
+                },
+                "visibility": {
+                    "description": "Visibility is who may call the tool: \"model\", \"app\" or both.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsToolEvent": {
             "type": "object",
             "properties": {
+                "app": {
+                    "description": "App is the reference of the MCP App of the call, on tool_end. It has no\ninput and no result: read the transcript line for them.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsToolApp"
+                        }
+                    ]
+                },
                 "name": {
                     "type": "string"
                 },
