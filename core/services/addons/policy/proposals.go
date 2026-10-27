@@ -847,11 +847,11 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 
 // previewRefusal types a failed preview that is the add-on's definite answer
 // as a refusal: an invalid request, or a conflict with what it holds (a table
-// that exists). A preview changes nothing, so neither is an outage and a
+// that exists), or as a denial of the person. A preview changes nothing, so neither is an outage and a
 // repeat of the same call is refused again. Any other failure returns nil.
 func previewRefusal(err error) error {
 	switch {
-	case errors.Is(err, contract.ErrRefused):
+	case errors.Is(err, contract.ErrRefused), errors.Is(err, contract.ErrDenied):
 		return gateway.Refused(err)
 	case errors.Is(err, addonruntime.ErrConflict):
 		return gateway.Refused(fmt.Errorf("%w: %w", contract.ErrRefused, err))
@@ -1407,8 +1407,8 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		b.hooks.afterApply(id)
 	}
 	unknown := &gateway.OutcomeUnknown{OperationID: id}
-	if errors.Is(err, contract.ErrRefused) {
-		// The add-on refused the apply before it began: it is deterministic
+	if errors.Is(err, contract.ErrRefused) || errors.Is(err, contract.ErrDenied) {
+		// The add-on refused or denied the apply before it began: it is deterministic
 		// and nothing was applied, so the proposal ends as rejected and the
 		// resource is not blocked by an unresolved outcome.
 		b.settle(id, gateway.ProposalRejected, nil, "refused by the addon as invalid")

@@ -148,12 +148,46 @@ var _ = Describe("Invalid-request refusals of the add-on", func() {
 		Expect(r.Reason).NotTo(ContainSubstring("\x00"))
 	})
 	It("leaves 503, 500 and 404 as outages", func() {
-		for _, status := range []int{http.StatusServiceUnavailable, http.StatusInternalServerError, http.StatusNotFound, http.StatusForbidden} {
+		for _, status := range []int{http.StatusServiceUnavailable, http.StatusInternalServerError, http.StatusNotFound} {
 			c := refusing(status, "no")
 			_, e := c.Read(context.Background(), envelope("read"))
 			Expect(errors.Is(e, ErrRefused)).To(BeFalse(), http.StatusText(status))
 			Expect(e).To(MatchError(ErrRuntime))
 		}
+	})
+})
+
+var _ = Describe("Denials of the add-on", func() {
+	denying := func(body string) *Client {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, body, http.StatusForbidden)
+		}))
+		DeferCleanup(srv.Close)
+		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		return c
+	}
+	It("types the add-on's own 'forbidden' answer as a denial of the person, not as an outage", func() {
+		c := denying("forbidden")
+		for name, call := range map[string]func() error{
+			"read":    func() error { _, e := c.Read(context.Background(), envelope("read")); return e },
+			"preview": func() error { _, e := c.Preview(context.Background(), envelope("preview")); return e },
+			"apply": func() error {
+				_, e := c.Apply(context.Background(), envelope("apply"), contract.Revision{Schema: 1})
+				return e
+			},
+		} {
+			e := call()
+			Expect(errors.Is(e, ErrDenied)).To(BeTrue(), name)
+			Expect(errors.Is(e, contract.ErrDenied)).To(BeTrue(), name)
+			Expect(errors.Is(e, ErrRuntime)).To(BeFalse(), name)
+		}
+	})
+	It("keeps a 403 about the envelope itself an outage: it is a host fault, not a permission", func() {
+		_, e := denying("invalid authority").Read(context.Background(), envelope("read"))
+		Expect(e).To(MatchError(ErrRuntime))
+		Expect(errors.Is(e, ErrDenied)).To(BeFalse())
 	})
 })
 

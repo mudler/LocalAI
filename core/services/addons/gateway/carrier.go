@@ -460,7 +460,34 @@ func typedError(w http.ResponseWriter, e error) {
 		_ = json.NewEncoder(w).Encode(sdkWire{Type: wireSDK, Min: refusal.Min, Max: refusal.Max, Host: refusal.Host})
 		return
 	}
+	if t := denialType(e); t != "" {
+		// Typed apart from a plain denial, so a forwarding frontend tells the
+		// model "no permission" or "no such resource" like the owner does.
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: t})
+		return
+	}
 	http.Error(w, "addon request failed", StatusFor(e))
+}
+
+// Wire types of a 403 that says which denial it is.
+const (
+	wireNotPermitted = "not_permitted"
+	wireUnreachable  = "resource_unreachable"
+)
+
+// denialType is the wire type of a denial that callers tell apart, or "".
+func denialType(e error) string {
+	switch {
+	case errors.Is(e, ErrUnavailable):
+		return ""
+	case errors.Is(e, ErrNotPermitted):
+		return wireNotPermitted
+	case errors.Is(e, ErrResourceUnreachable):
+		return wireUnreachable
+	}
+	return ""
 }
 
 // wireSDK types the owner's refusal of an add-on built for another SDK range.
@@ -618,8 +645,15 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 				return nil, resourceReplyError(resp.Body, resp.StatusCode, wire.Request.OperationID)
 			}
 			var b sdkWire
-			if decode(io.LimitReader(resp.Body, 4096), &b) == nil && b.Type == wireSDK {
-				return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
+			if decode(io.LimitReader(resp.Body, 4096), &b) == nil {
+				switch b.Type {
+				case wireSDK:
+					return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
+				case wireNotPermitted:
+					return nil, ErrNotPermitted
+				case wireUnreachable:
+					return nil, ErrResourceUnreachable
+				}
 			}
 			return nil, ErrForbidden
 		}

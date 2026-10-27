@@ -47,6 +47,11 @@ var ErrNotSent = fmt.Errorf("addon request was not sent: %w", ErrRuntime)
 // It is not an ErrRuntime.
 var ErrRefused = fmt.Errorf("addon refused the request: %w", contract.ErrRefused)
 
+// ErrDenied is the add-on's own 403 "forbidden": the person lacks a permission
+// the request needs. Nothing was changed and it is deterministic, so it is
+// neither an outage nor an unknown outcome. It is not an ErrRuntime.
+var ErrDenied = fmt.Errorf("addon denied the request: %w", contract.ErrDenied)
+
 // Refusal is the typed form of ErrRefused. Reason is a short printable class
 // taken from the add-on's answer and bounded, so it is safe to log.
 type Refusal struct {

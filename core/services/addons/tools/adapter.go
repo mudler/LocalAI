@@ -140,6 +140,19 @@ const CodeInvalidRequest = "invalid_request"
 // InvalidNote is what the model is told when the add-on refused a call.
 const InvalidNote = "The add-on refused this request as invalid. Nothing was changed. Check the arguments against the tool description and correct them; do not repeat the same call and do not report an outage."
 
+// CodeNotPermitted is the Code of a ResultError for a call the person is not
+// allowed to make, for example without the fine-tuning permission.
+const CodeNotPermitted = "not_permitted"
+
+// NotPermittedNote is what the model is told when the person lacks a permission.
+const NotPermittedNote = "The person does not have the permission this tool needs. Nothing was changed. Tell them an administrator must grant it; do not repeat the call and do not report an outage."
+
+// CodeResourceUnreachable is the Code of a ResultError for a resource the person cannot reach.
+const CodeResourceUnreachable = "resource_unreachable"
+
+// ResourceUnreachableNote is what the model is told when a resource cannot be used.
+const ResourceUnreachableNote = "That resource does not exist or the person has no access to it. Nothing was changed. Ask which resource to use, or ask them to choose one; do not guess an ID and do not repeat the call."
+
 // SelectNote is what the model is told when no resource is selected.
 const SelectNote = "No resource is selected for this conversation. Ask the person to choose one with the Select action of the add-on in the chat, or to give its ID. Do not guess an ID."
 
@@ -526,10 +539,17 @@ func receiptPayload(p gateway.Proposal) json.RawMessage {
 	return p.Receipt.Result.Payload
 }
 
-// refusedResult turns the add-on's own refusal into a result the model can act
+// refusedResult turns the add-on's own refusal, a missing permission and an
+// unreachable resource into a result the model can act
 // on. Every other error, an outage and an unknown outcome included, passes
 // through unchanged.
 func refusedResult(name string, err error) (ToolResult, error) {
+	switch {
+	case errors.Is(err, gateway.ErrNotPermitted):
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotPermitted, Note: NotPermittedNote}, nil
+	case errors.Is(err, gateway.ErrResourceUnreachable):
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceUnreachable, Note: ResourceUnreachableNote}, nil
+	}
 	if errors.Is(err, gateway.ErrInvalidRequest) || errors.Is(err, contract.ErrRefused) {
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Note: InvalidNote}, nil
 	}

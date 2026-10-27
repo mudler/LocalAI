@@ -83,7 +83,7 @@ func (a Action) required() Role {
 var (
 	// ErrForbidden is a policy denial. It is the same error for a missing
 	// resource and for a resource the caller may not touch.
-	ErrForbidden = fmt.Errorf("addon policy denied: %w", gateway.ErrForbidden)
+	ErrForbidden = fmt.Errorf("addon policy denied: %w", gateway.ErrResourceUnreachable)
 	// ErrUnavailable means the policy could not decide. It is never a grant.
 	ErrUnavailable = fmt.Errorf("addon policy unavailable: %w", gateway.ErrUnavailable)
 	// ErrDrainPending means a revocation is durable and effective for new work,

@@ -97,3 +97,48 @@ var _ = Describe("an add-on's invalid-request refusal", func() {
 		Expect(w.Body.Len()).To(BeZero())
 	})
 })
+
+// denyingRuntime answers every read as the add-on's own denial of the person,
+// the way the runtime client reports the 403 "forbidden" of an add-on.
+type denyingRuntime struct{ contract.Runtime }
+
+func (denyingRuntime) Read(context.Context, contract.Envelope) (contract.Result, error) {
+	return contract.Result{}, addonruntime.ErrDenied
+}
+
+// unreachableAdmission denies every resource as the policy does.
+type unreachableAdmission struct{ admitted }
+
+func (unreachableAdmission) Admit(context.Context, contract.Actor, ResourceKey, string, func(context.Context) error) error {
+	return ErrResourceUnreachable
+}
+
+var _ = Describe("a denial that says which denial it is", func() {
+	ok := func(context.Context, contract.Actor) error { return nil }
+	actor := contract.Actor{UserID: "u", CredentialID: "key:k", Mode: "named-user"}
+	read := contract.Request{AddonID: "sample", Generation: 1, OperationID: "denied-read", Action: "read", Arguments: []byte(`{}`)}
+	frontend := func(g *Gateway) *Carrier {
+		_, cs := carrierFixture(func(c *Carrier) http.Handler {
+			h, e := c.OwnerHandler(g)
+			Expect(e).NotTo(HaveOccurred())
+			return h
+		})
+		return cs["front-a"]
+	}
+	It("is not permitted when the add-on denies the person, on the owner and on a forwarding frontend", func() {
+		g := &Gateway{Revalidate: ok, Admission: &admitted{}, Resolver: resolved{}, Runtime: currentFixture{denyingRuntime{}}}
+		_, e := g.Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrNotPermitted))
+		Expect(StatusFor(e)).To(Equal(http.StatusForbidden))
+		_, e = frontend(g).Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrNotPermitted))
+	})
+	It("is an unreachable resource when the policy denies it, on the owner and on a forwarding frontend", func() {
+		g := &Gateway{Revalidate: ok, Admission: unreachableAdmission{}, Resolver: resolved{}, Runtime: currentFixture{refusingRuntime{}}}
+		_, e := g.Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrResourceUnreachable))
+		_, e = frontend(g).Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrResourceUnreachable))
+		Expect(StatusFor(e)).To(Equal(http.StatusForbidden))
+	})
+})

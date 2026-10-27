@@ -236,6 +236,25 @@ var _ = Describe("Addon tool adapter", func() {
 				Expect(res.Proposal).To(BeNil())
 			}
 		})
+		It("tells the model a missing permission and an unreachable resource in plain words, for a read and for a change", func() {
+			for err, code := range map[error]string{
+				gateway.ErrNotPermitted:                             tools.CodeNotPermitted,
+				fmt.Errorf("x: %w", gateway.ErrNotPermitted):        tools.CodeNotPermitted,
+				gateway.ErrResourceUnreachable:                      tools.CodeResourceUnreachable,
+				fmt.Errorf("p: %w", gateway.ErrResourceUnreachable): tools.CodeResourceUnreachable,
+			} {
+				f.readErr, f.proposeErr = err, err
+				res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+				Expect(e).NotTo(HaveOccurred())
+				Expect(res.Kind).To(Equal(tools.ResultError))
+				Expect(res.Code).To(Equal(code))
+				Expect(res.Note).To(ContainSubstring("Nothing was changed"))
+				Expect(res.Note).NotTo(ContainSubstring("forwarding"))
+				res, e = a.Execute(context.Background(), member, "addon__tables__rows-insert", args(`{"resourceId":"db-one","table":"t","rows":[{}]}`))
+				Expect(e).NotTo(HaveOccurred())
+				Expect(res.Code).To(Equal(code))
+			}
+		})
 		It("keeps an outage an error, never the refused result", func() {
 			f.readErr = gateway.ErrUnavailable
 			_, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))

@@ -34,18 +34,31 @@ var (
 	// owner can act on: a missing confirmation, an unsupported operation, a
 	// bad name or role.
 	ErrInvalidRequest = fmt.Errorf("addon resource request is invalid: %w", ErrForbidden)
+	// ErrNotPermitted means the add-on checked a permission of the person and
+	// denied it: a host feature such as fine-tuning is not granted to them.
+	// Nothing was changed and a repeat is denied again.
+	ErrNotPermitted = fmt.Errorf("you do not have permission to do this: %w", ErrForbidden)
+	// ErrResourceUnreachable means the resource does not exist or the person
+	// has no access to it. The two are one answer on purpose.
+	ErrResourceUnreachable = fmt.Errorf("that resource does not exist or you have no access to it: %w", ErrForbidden)
 	// ErrNotSelected means no resource is selected for the conversation.
 	ErrNotSelected = fmt.Errorf("no resource is selected for the conversation: %w", ErrForbidden)
 	// ErrQuotaReached means the person reached the resource limits.
 	ErrQuotaReached = fmt.Errorf("addon resource quota reached: %w", ErrForbidden)
 )
 
-// Refused types the add-on's own invalid-request refusal as ErrInvalidRequest,
+// Refused types the add-on's own denial of the person as ErrNotPermitted and its
+// invalid-request refusal as ErrInvalidRequest,
 // so every path that reaches the runtime answers it the same way: a
 // deterministic 400 with nothing applied, never an outage and never an
 // unknown outcome. The runtime's cause stays in the chain. Every other error
 // passes through unchanged.
 func Refused(err error) error {
+	if err != nil && errors.Is(err, contract.ErrDenied) && !errors.Is(err, ErrNotPermitted) && !errors.Is(err, ErrUnavailable) {
+		// The add-on's own denial of the person: typed apart from a refusal of
+		// the arguments, so a caller can say "no permission" and not "invalid".
+		return fmt.Errorf("%w: %w", ErrNotPermitted, err)
+	}
 	if err == nil || errors.Is(err, ErrInvalidRequest) || !errors.Is(err, contract.ErrRefused) || errors.Is(err, ErrUnavailable) {
 		return err
 	}
