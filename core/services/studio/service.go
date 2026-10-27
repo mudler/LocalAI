@@ -82,6 +82,9 @@ type Deps struct {
 	// the user may not use MCP. It feeds the per-chat switches; nil: a switch of
 	// a model server has no effect on a chat with no agent.
 	MCPServers func(ctx context.Context, user, model string) []ModelMCPServer
+	// MCPContent reads the prompts and resources of the model's own MCP
+	// servers. Nil: they offer none.
+	MCPContent MCPContent
 	// Connectors holds the MCP servers the users defined. Nil: none.
 	Connectors ConnectorTools
 	// MCPConnectors is the same service with its management calls, for the

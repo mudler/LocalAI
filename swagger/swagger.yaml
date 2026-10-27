@@ -3115,6 +3115,93 @@ definitions:
       url:
         type: string
     type: object
+  schema.ChatsMCPContent:
+    properties:
+      text:
+        type: string
+    type: object
+  schema.ChatsMCPPrompt:
+    properties:
+      arguments:
+        items:
+          $ref: '#/definitions/schema.ChatsMCPPromptArg'
+        type: array
+      description:
+        type: string
+      name:
+        type: string
+      server:
+        type: string
+      title:
+        type: string
+    type: object
+  schema.ChatsMCPPromptArg:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      required:
+        type: boolean
+    type: object
+  schema.ChatsMCPPromptList:
+    properties:
+      prompts:
+        items:
+          $ref: '#/definitions/schema.ChatsMCPPrompt'
+        type: array
+    type: object
+  schema.ChatsMCPPromptRequest:
+    properties:
+      arguments:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      server:
+        type: string
+    type: object
+  schema.ChatsMCPReadRequest:
+    properties:
+      server:
+        type: string
+      uri:
+        type: string
+    type: object
+  schema.ChatsMCPRef:
+    properties:
+      arguments:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      server:
+        type: string
+      uri:
+        type: string
+    type: object
+  schema.ChatsMCPResource:
+    properties:
+      description:
+        type: string
+      mime_type:
+        type: string
+      name:
+        type: string
+      server:
+        type: string
+      uri:
+        type: string
+    type: object
+  schema.ChatsMCPResourceList:
+    properties:
+      resources:
+        items:
+          $ref: '#/definitions/schema.ChatsMCPResource'
+        type: array
+    type: object
   schema.ChatsMCPServerSwitch:
     properties:
       name:
@@ -3281,6 +3368,13 @@ definitions:
     type: object
   schema.ChatsSendRequest:
     properties:
+      context:
+        description: |-
+          Context adds MCP prompts and resources to this message as context. Each
+          is expanded on the server, as you, from a server the chat can use.
+        items:
+          $ref: '#/definitions/schema.ChatsMCPRef'
+        type: array
       text:
         type: string
     type: object
@@ -9355,6 +9449,92 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsMCPAppResource'
       summary: Read the page of an MCP App.
+      tags:
+      - chats
+  /api/chats/{id}/mcp/prompts:
+    get:
+      description: 'Lists the prompts of the MCP servers of the chat''s model and
+        of your connectors that this chat can use now: not switched off for the chat,
+        and granted by its saved agent when it has one. Add one to a message with
+        the context field of POST /api/chats/{id}/messages.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The prompts
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPPromptList'
+      summary: List the MCP prompts of a chat.
+      tags:
+      - chats
+    post:
+      description: Returns the text of the prompt with the given arguments. 403 mcp_refused
+        when the chat cannot use the server.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the prompt
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMCPPromptRequest'
+      responses:
+        "200":
+          description: The expanded prompt
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPContent'
+      summary: Expand an MCP prompt.
+      tags:
+      - chats
+  /api/chats/{id}/mcp/resources:
+    get:
+      description: Lists the resources of the MCP servers of the chat's model and
+        of your connectors that this chat can use now. Add one to a message with the
+        context field of POST /api/chats/{id}/messages.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The resources
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPResourceList'
+      summary: List the MCP resources of a chat.
+      tags:
+      - chats
+  /api/chats/{id}/mcp/resources/read:
+    post:
+      description: Returns the text of the resource (binary parts are left out, the
+        text is cut at 256 KiB). 403 mcp_refused when the chat cannot use the server.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the resource
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMCPReadRequest'
+      responses:
+        "200":
+          description: The resource text
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPContent'
+      summary: Read an MCP resource.
       tags:
       - chats
   /api/chats/{id}/messages:

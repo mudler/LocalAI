@@ -203,6 +203,31 @@ You can also add MCP servers of your own, stored on the server: see
 are offered to your chats next to the model's servers; the model's own
 configuration is not changed.
 
+### Prompts and resources as context
+
+MCP servers can offer prompts (ready-made instructions with arguments) and
+resources (documents the server holds). A chat can list them for the servers it
+can use now, which means the servers of the model, less the ones you switched
+off for the chat, or the ones the chat's saved agent grants, and your enabled
+connectors. You can add any of them to a message as context for that turn:
+
+```bash
+curl .../api/chats/3f1c.../mcp/prompts      # {"prompts":[{"server":"connector:ab12","name":"review","arguments":[...]}]}
+curl .../api/chats/3f1c.../mcp/resources    # {"resources":[{"server":"wiki","uri":"wiki://home"}]}
+# Preview one:
+curl -X POST .../api/chats/3f1c.../mcp/prompts -d '{"server":"connector:ab12","name":"review","arguments":{"lang":"Go"}}'
+curl -X POST .../api/chats/3f1c.../mcp/resources/read -d '{"server":"wiki","uri":"wiki://home"}'
+# Send them with a message. The server expands them as you and puts the text before yours.
+curl -X POST .../api/chats/3f1c.../messages -d '{"text":"Go ahead","context":[
+  {"server":"connector:ab12","name":"review","arguments":{"lang":"Go"}},
+  {"server":"wiki","uri":"wiki://home"}]}'
+```
+
+A server the chat cannot use is `403 mcp_refused`, and the message is not sent.
+A server that does not answer is `502 mcp_error`. Binary parts of a resource are
+left out, and the text is cut at 256 KiB. The expanded text is part of the
+message in the transcript.
+
 ### Switch tools off for one chat
 
 The chat panel, **Tools**, lists the add-ons you may use, the MCP servers of the

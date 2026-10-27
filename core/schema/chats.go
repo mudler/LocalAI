@@ -98,6 +98,9 @@ type ChatsConversationDetail struct {
 // ChatsSendRequest is a message to a conversation.
 type ChatsSendRequest struct {
 	Text string `json:"text"`
+	// Context adds MCP prompts and resources to this message as context. Each
+	// is expanded on the server, as you, from a server the chat can use.
+	Context []ChatsMCPRef `json:"context,omitempty"`
 }
 
 // ChatsSendResponse says what happened to a message. With a turn running the

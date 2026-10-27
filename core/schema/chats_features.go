@@ -106,3 +106,66 @@ type ChatsSubAgentList struct {
 	// BackgroundLimit is how many a chat may run in the background at once.
 	BackgroundLimit int `json:"background_limit"`
 }
+
+// ChatsMCPPromptArg is an argument of an MCP prompt.
+type ChatsMCPPromptArg struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+}
+
+// ChatsMCPPrompt is a prompt of an MCP server the chat can use. Server is the
+// name of a server of the model, or connector:<id>.
+type ChatsMCPPrompt struct {
+	Server      string              `json:"server"`
+	Name        string              `json:"name"`
+	Title       string              `json:"title,omitempty"`
+	Description string              `json:"description,omitempty"`
+	Arguments   []ChatsMCPPromptArg `json:"arguments,omitempty"`
+}
+
+// ChatsMCPPromptList lists the prompts a chat can use.
+type ChatsMCPPromptList struct {
+	Prompts []ChatsMCPPrompt `json:"prompts"`
+}
+
+// ChatsMCPResource is a resource of an MCP server the chat can use.
+type ChatsMCPResource struct {
+	Server      string `json:"server"`
+	URI         string `json:"uri"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	MimeType    string `json:"mime_type,omitempty"`
+}
+
+// ChatsMCPResourceList lists the resources a chat can use.
+type ChatsMCPResourceList struct {
+	Resources []ChatsMCPResource `json:"resources"`
+}
+
+// ChatsMCPPromptRequest expands a prompt.
+type ChatsMCPPromptRequest struct {
+	Server    string            `json:"server"`
+	Name      string            `json:"name"`
+	Arguments map[string]string `json:"arguments,omitempty"`
+}
+
+// ChatsMCPReadRequest reads a resource.
+type ChatsMCPReadRequest struct {
+	Server string `json:"server"`
+	URI    string `json:"uri"`
+}
+
+// ChatsMCPContent is the text of an expanded prompt or a read resource.
+type ChatsMCPContent struct {
+	Text string `json:"text"`
+}
+
+// ChatsMCPRef names a prompt (name and arguments) or a resource (uri) of an MCP
+// server to add to a message as context for that turn.
+type ChatsMCPRef struct {
+	Server    string            `json:"server"`
+	Name      string            `json:"name,omitempty"`
+	Arguments map[string]string `json:"arguments,omitempty"`
+	URI       string            `json:"uri,omitempty"`
+}

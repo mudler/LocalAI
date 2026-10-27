@@ -94,6 +94,7 @@ func (a *Application) initStudioService() {
 		Collections:   studioCollections{a},
 		ContextTokens: a.studioContextTokens,
 		Modalities:    a.studioModalities,
+		MCPContent:    studioMCPContent{a: a},
 		Persistent:    a.studioStoreKind != "memory",
 		Files:         a.StudioFiles(),
 		Media:         media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel),

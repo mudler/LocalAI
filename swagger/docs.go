@@ -5317,6 +5317,126 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/mcp/prompts": {
+            "get": {
+                "description": "Lists the prompts of the MCP servers of the chat's model and of your connectors that this chat can use now: not switched off for the chat, and granted by its saved agent when it has one. Add one to a message with the context field of POST /api/chats/{id}/messages.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the MCP prompts of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The prompts",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPPromptList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Returns the text of the prompt with the given arguments. 403 mcp_refused when the chat cannot use the server.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Expand an MCP prompt.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the prompt",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPPromptRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The expanded prompt",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPContent"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/mcp/resources": {
+            "get": {
+                "description": "Lists the resources of the MCP servers of the chat's model and of your connectors that this chat can use now. Add one to a message with the context field of POST /api/chats/{id}/messages.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the MCP resources of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The resources",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPResourceList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/mcp/resources/read": {
+            "post": {
+                "description": "Returns the text of the resource (binary parts are left out, the text is cut at 256 KiB). 403 mcp_refused when the chat cannot use the server.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read an MCP resource.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the resource",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPReadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The resource text",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPContent"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/messages": {
             "get": {
                 "tags": [
@@ -14049,6 +14169,141 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsMCPContent": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPPrompt": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPPromptArg"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "server": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPPromptArg": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsMCPPromptList": {
+            "type": "object",
+            "properties": {
+                "prompts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPPrompt"
+                    }
+                }
+            }
+        },
+        "schema.ChatsMCPPromptRequest": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "server": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPReadRequest": {
+            "type": "object",
+            "properties": {
+                "server": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPRef": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "server": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPResource": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "mime_type": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "server": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPResourceList": {
+            "type": "object",
+            "properties": {
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPResource"
+                    }
+                }
+            }
+        },
         "schema.ChatsMCPServerSwitch": {
             "type": "object",
             "properties": {
@@ -14304,6 +14559,13 @@ const docTemplate = `{
         "schema.ChatsSendRequest": {
             "type": "object",
             "properties": {
+                "context": {
+                    "description": "Context adds MCP prompts and resources to this message as context. Each\nis expanded on the server, as you, from a server the chat can use.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPRef"
+                    }
+                },
                 "text": {
                     "type": "string"
                 }

@@ -313,6 +313,7 @@ func (h *Handlers) Send(c echo.Context) error {
 	var (
 		text string
 		up   []session.Upload
+		refs []schema.ChatsMCPRef
 	)
 	if strings.HasPrefix(c.Request().Header.Get("Content-Type"), "multipart/form-data") {
 		c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxAttachBytes)
@@ -323,6 +324,12 @@ func (h *Handlers) Send(c echo.Context) error {
 		defer func() { _ = form.RemoveAll() }()
 		if v := form.Value["text"]; len(v) > 0 {
 			text = v[0]
+		}
+		if v := form.Value["context"]; len(v) > 0 {
+			var err error
+			if refs, err = parseContext(v[0]); err != nil {
+				return fail(c, http.StatusBadRequest, "invalid_request_error", "context must be a JSON list of prompts and resources")
+			}
 		}
 		for _, fh := range form.File["files"] {
 			f, err := fh.Open()
@@ -337,10 +344,14 @@ func (h *Handlers) Send(c echo.Context) error {
 		if err := c.Bind(&req); err != nil {
 			return fail(c, http.StatusBadRequest, "invalid_request_error", "text is required")
 		}
-		text = req.Text
+		text, refs = req.Text, req.Context
 	}
-	if text == "" && len(up) == 0 {
+	if text == "" && len(up) == 0 && len(refs) == 0 {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "text is required")
+	}
+	var err error
+	if text, err = h.svc.WithMCPContext(c.Request().Context(), userID(c), c.Param("id"), text, mcpRefs(refs)); err != nil {
+		return failMCPContent(c, err)
 	}
 	res, err := h.svc.SendWithFiles(c.Request().Context(), userID(c), c.Param("id"), text, up)
 	if err != nil {
