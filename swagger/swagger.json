@@ -3680,6 +3680,263 @@
                 }
             }
         },
+        "/api/chats/connectors": {
+            "get": {
+                "description": "A binding connects a Telegram bot to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your connector bindings.",
+                "responses": {
+                    "200": {
+                        "description": "Your bindings, sorted by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Needs the bot token (kept sealed, never returned) and an agent of yours that names a model. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools). At most 10 bindings.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Create a connector binding.",
+                "parameters": [
+                    {
+                        "description": "the binding",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a connector binding.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "The body replaces every field except the token, which is kept unless the request has a new one.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Replace a connector binding.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the binding",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Its offset, sender log and sender-to-chat map go; the chats it made stay.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a connector binding.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/disable": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch a connector binding off.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/enable": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch a connector binding on.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/senders": {
+            "get": {
+                "description": "The log of people who wrote to the bot, newest first, with whether they were accepted. A message from a sender who is not accepted is ignored, never answered.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the senders of a connector binding.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The senders",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorSenderList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/senders/{sender}/allow": {
+            "post": {
+                "description": "Adds a sender who already wrote to the bot to the allowlist.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Allow a sender of a connector binding.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the sender's id from the sender log",
+                        "name": "sender",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/test": {
+            "post": {
+                "description": "Asks Telegram for the bot of the stored token. 502 when Telegram refuses the token or cannot be reached.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Test a connector binding.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The bot",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorTest"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/files": {
             "get": {
                 "tags": [
@@ -12869,6 +13126,129 @@
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "schema.ChatsConnector": {
+            "type": "object",
+            "properties": {
+                "accept_any": {
+                    "type": "boolean"
+                },
+                "agent_id": {
+                    "type": "string"
+                },
+                "allow": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "has_token": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notify_chat": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorList": {
+            "type": "object",
+            "properties": {
+                "connectors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnector"
+                    }
+                }
+            }
+        },
+        "schema.ChatsConnectorSender": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "type": "boolean"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "first": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorSenderList": {
+            "type": "object",
+            "properties": {
+                "senders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorSender"
+                    }
+                }
+            }
+        },
+        "schema.ChatsConnectorTest": {
+            "type": "object",
+            "properties": {
+                "bot_id": {
+                    "type": "integer"
+                },
+                "bot_username": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorWrite": {
+            "type": "object",
+            "properties": {
+                "accept_any": {
+                    "type": "boolean"
+                },
+                "agent_id": {
+                    "type": "string"
+                },
+                "allow": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notify_chat": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
                 }
             }
         },

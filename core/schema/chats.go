@@ -449,3 +449,56 @@ type ChatsPushSubscription struct {
 type ChatsPushUnsubscribe struct {
 	Endpoint string `json:"endpoint"`
 }
+
+// ChatsConnector is a connector binding: a bot bound to one of your saved agents.
+// The bot token is never returned; has_token says whether one is stored.
+type ChatsConnector struct {
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Kind       string    `json:"kind"`
+	AgentID    string    `json:"agent_id"`
+	Enabled    bool      `json:"enabled"`
+	AcceptAny  bool      `json:"accept_any"`
+	Allow      []string  `json:"allow"`
+	NotifyChat string    `json:"notify_chat,omitempty"`
+	HasToken   bool      `json:"has_token"`
+	Created    time.Time `json:"created"`
+}
+
+// ChatsConnectorWrite creates or replaces a connector binding. token is needed to
+// create one; an update without it keeps the stored token.
+type ChatsConnectorWrite struct {
+	Name       string   `json:"name"`
+	Token      string   `json:"token,omitempty"`
+	AgentID    string   `json:"agent_id"`
+	Enabled    bool     `json:"enabled"`
+	AcceptAny  bool     `json:"accept_any"`
+	Allow      []string `json:"allow,omitempty"`
+	NotifyChat string   `json:"notify_chat,omitempty"`
+}
+
+// ChatsConnectorList is the response of the connector list endpoint.
+type ChatsConnectorList struct {
+	Connectors []ChatsConnector `json:"connectors"`
+}
+
+// ChatsConnectorTest is the bot that a token belongs to.
+type ChatsConnectorTest struct {
+	BotID       int64  `json:"bot_id"`
+	BotUsername string `json:"bot_username"`
+}
+
+// ChatsConnectorSender is a person who messaged a bot.
+type ChatsConnectorSender struct {
+	ID      string    `json:"id"`
+	Name    string    `json:"name"`
+	Count   int       `json:"count"`
+	First   time.Time `json:"first"`
+	Last    time.Time `json:"last"`
+	Allowed bool      `json:"allowed"`
+}
+
+// ChatsConnectorSenderList is the sender log of a binding, newest first.
+type ChatsConnectorSenderList struct {
+	Senders []ChatsConnectorSender `json:"senders"`
+}

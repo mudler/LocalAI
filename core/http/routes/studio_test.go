@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -44,6 +45,9 @@ type studioServer struct {
 // studioTriggerOptions lets a spec set the clock or the limits of the trigger
 // host before the server is built. Reset it after the spec.
 var studioTriggerOptions func(*studio.TriggerOptions)
+
+// studioTelegram is the Bot API client of the connector manager; a spec sets a fake.
+var studioTelegram *connectors.Telegram
 
 func newStudioServer() *studioServer { return newStudioServerFiles(newTestFiles()) }
 
@@ -84,6 +88,12 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	host, err := studio.NewTriggers(svc, trgOpts)
 	Expect(err).NotTo(HaveOccurred())
 	svc.SetTriggers(host)
+	cs, err := connectors.NewJSON("")
+	Expect(err).NotTo(HaveOccurred())
+	conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: cs, Telegram: studioTelegram})
+	Expect(err).NotTo(HaveOccurred())
+	svc.SetConnectors(conns)
+	DeferCleanup(conns.Close)
 	DeferCleanup(host.Close)
 
 	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc}
