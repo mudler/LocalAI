@@ -34,7 +34,6 @@ import (
 //	LOCALAI_E2E_WORK        scratch directory; a temporary one when unset
 //	LOCALAI_E2E_RUNSC_DIR   a directory made by addons/sandbox/package/fetch-runtime.sh; the Sandbox
 //	                        package is skipped when it is unset and the download fails
-//	LOCALAI_E2E_KNOWN_GAPS  set to "run" to run the specs that are skipped for a known gap
 
 const (
 	adminPassword = "correct-horse-battery"
@@ -56,14 +55,6 @@ type world struct {
 }
 
 var w world
-
-// knownGap skips a spec that documents a defect, unless the run asks for it.
-func knownGap(id, what string) {
-	GinkgoHelper()
-	if os.Getenv("LOCALAI_E2E_KNOWN_GAPS") != "run" {
-		Skip("known gap: " + id + ": " + what)
-	}
-}
 
 func repoRoot() string {
 	dir, err := os.Getwd()
