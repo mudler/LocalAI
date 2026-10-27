@@ -83,7 +83,11 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if aNote != "" {
 		note = strings.TrimSpace(note + " " + aNote)
 	}
-	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, RefreshKey: key}, nil
+	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
+		// The chat's own instructions come first: the prompt is cut at its end.
+		prompt = strings.TrimSpace(sp + "\n\n" + prompt)
+	}
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt}, nil
 }
 
 func (s *Service) spawnTool(a workspace.Actor) session.Tool {

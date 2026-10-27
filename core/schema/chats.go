@@ -74,6 +74,8 @@ type ChatsConversation struct {
 	// ended: done, stopped, failed or interrupted.
 	Running  bool   `json:"running"`
 	LastTurn string `json:"last_turn,omitempty"`
+	// Settings are the chat's own model settings, when it has any.
+	Settings *ChatsSettings `json:"settings,omitempty"`
 }
 
 // ChatsConversationList is the response of the list endpoint.
@@ -189,18 +191,35 @@ type ChatsMessageList struct {
 
 // ChatsEvent is one server-sent event of a conversation. Kind is text,
 // reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error,
-// pending_delivered, sub_agent_done or compacted.
+// pending_delivered, sub_agent_started, sub_agent_done, compacted, usage or
+// trigger_proposed.
 type ChatsEvent struct {
 	Kind string `json:"kind"`
 	Turn int    `json:"turn,omitempty"`
 	Text string `json:"text,omitempty"`
 	// Tool is set for tool_start and tool_end.
 	Tool *ChatsToolEvent `json:"tool,omitempty"`
-	// IDs names the messages of pending_delivered, or the conversation of sub_agent_done.
+	// IDs names the messages of pending_delivered, the conversation of
+	// sub_agent_started and sub_agent_done, or the proposal of trigger_proposed.
 	IDs []string `json:"ids,omitempty"`
 	// Before and After are context sizes in tokens, for compacted.
 	Before int `json:"before,omitempty"`
 	After  int `json:"after,omitempty"`
+	// Usage is set on usage events: what one model request used.
+	Usage *ChatsUsage `json:"usage,omitempty"`
+}
+
+// ChatsUsage is what one model request used. It feeds the context meter and
+// the tokens-per-second figure.
+type ChatsUsage struct {
+	// Used is the number of tokens in the context the request sent.
+	Used int `json:"used"`
+	// Limit is the context window the loop plans with, 0 when it is not known.
+	Limit int `json:"limit,omitempty"`
+	// Completion is the number of tokens the request generated.
+	Completion int `json:"completion"`
+	// TokensPerSecond is the generation speed, 0 when the backend gave no timing.
+	TokensPerSecond float64 `json:"tokens_per_second,omitempty"`
 }
 
 // ChatsToolEvent describes a tool call.

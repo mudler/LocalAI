@@ -76,6 +76,66 @@ curl -X POST .../api/chats/3f1c.../stop       # end the running turn
 curl -X POST .../api/chats/3f1c.../send-now   # start a turn from the waiting messages
 ```
 
+## Settings, rename and model change
+
+A chat keeps its own model settings. They apply from the next turn, and they
+are part of the chat: a fork and an export carry them.
+
+```bash
+curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
+  "title": "Trip plan",
+  "model": "another-model",
+  "settings": {"system_prompt": "Answer in short sentences.", "temperature": 0.3,
+               "top_p": 0.9, "top_k": 40, "reasoning_effort": "low", "context_size": 16384}
+}'
+```
+
+- `system_prompt` goes before the instructions of a saved agent.
+- `temperature` (0 to 2), `top_p` (above 0, at most 1), `top_k` and
+  `reasoning_effort` (`none`, `minimal`, `low`, `medium`, `high`) go to the
+  model with every request of the chat. A missing field means the model's own
+  default. `settings` replaces all of them, so send the whole object; `{}`
+  clears it.
+- `context_size` is the window, in tokens, that the loop plans with when it
+  decides to compact the conversation. It does not reload the model.
+- A new `title` or `model` needs a chat with no turn running (409 otherwise).
+  The history stays when the model changes.
+
+### Context meter and speed
+
+Each model request sends a `usage` event with `used` (tokens in the context
+the request sent), `limit` (the window the loop plans with, when known),
+`completion` (tokens generated) and `tokens_per_second` (when the backend
+reports timings).
+
+## Regenerate, edit, fork, search, export
+
+```bash
+# Answer the last message again. Your messages of that turn stay.
+curl -X POST .../api/chats/3f1c.../regenerate
+# Replace one of your messages and run the chat again from it. The messages
+# after it are removed. seq is the line number in the transcript.
+curl -X POST .../api/chats/3f1c.../messages/12/edit -d '{"text":"A better question"}'
+# Copy the chat up to and including line 14 into a new chat.
+curl -X POST .../api/chats/3f1c.../fork -d '{"from_seq":14,"title":"Other idea"}'
+# Find chats by title or by what was said (newest 500 chats).
+curl '.../api/chats/search?q=invoice'
+# Take a chat out as Markdown (default) or JSON, and bring a JSON file back in.
+curl '.../api/chats/3f1c.../export?format=json' > chat.json
+curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
+```
+
+- Regenerate and edit remove the lines after the cut point from the
+  transcript and from what the model sees. Files that the removed turns
+  changed stay changed, and tool calls of the kept part are not replayed to
+  the model, only the messages.
+- A fork has the model, the settings and the tool switches of the original. It
+  has no folder and no files of its own until you attach some.
+- The JSON export has `version`, `title`, `model`, `settings` and `messages`
+  (`role`, `text`, `at`). It holds no files and no model state. An import
+  makes a new chat of yours with the model of the file, or the one named in
+  `model`, which you must be allowed to use.
+
 ## Sub-agents
 
 The model can start a sub-agent for a self-contained task. By default it waits

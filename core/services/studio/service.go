@@ -867,11 +867,26 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 			return nibharness.Model{}, fmt.Errorf("studio: load the chat's user: %w", err)
 		}
 	}
-	m := nibharness.Model{LLM: s.d.Provider.LLM(user, rec.Model), Name: rec.Model}
-	if s.d.ContextTokens != nil {
-		m.ContextTokens = s.d.ContextTokens(rec.Model)
+	set := rec.Settings
+	limit := set.ContextSize
+	if limit == 0 && s.d.ContextTokens != nil {
+		limit = s.d.ContextTokens(rec.Model)
 	}
-	return m, nil
+	params := provider.Params{
+		Temperature: set.Temperature, TopP: set.TopP, TopK: set.TopK, ReasoningEffort: set.ReasoningEffort,
+		OnUsage: func(u provider.Usage) { s.reportUsage(a, u, limit) },
+	}
+	return nibharness.Model{
+		LLM: s.d.Provider.LLMWith(user, rec.Model, params), Name: rec.Model,
+		ContextTokens: limit, ReasoningEffort: set.ReasoningEffort,
+	}, nil
+}
+
+// reportUsage tells the watchers of the chat what one model request used.
+func (s *Service) reportUsage(a workspace.Actor, u provider.Usage, limit int) {
+	s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindUsage, Usage: &session.UsageEvent{
+		Used: u.PromptTokens, Limit: limit, Completion: u.CompletionTokens, TokensPerSecond: u.TokensPerSecond,
+	}})
 }
 
 // Delete removes a conversation and its transcript. A running turn is stopped

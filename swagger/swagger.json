@@ -3876,6 +3876,34 @@
                 }
             }
         },
+        "/api/chats/import": {
+            "post": {
+                "description": "Creates a new chat from a JSON export. The model of the file is used unless the request names another; it must be one you may use. The chat has no files and no tool state; the next message starts it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Import an exported chat.",
+                "parameters": [
+                    {
+                        "description": "the export and an optional model",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsImportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/mcp-connectors": {
             "get": {
                 "description": "An MCP connector is an MCP server that you defined. Your chats use the enabled ones next to the MCP servers of the model, and a saved agent can name one as connector:\u003cid\u003e. Tokens, headers and the environment of a local command are never returned. Needs the MCP feature.",
@@ -4255,6 +4283,38 @@
                 "responses": {
                     "204": {
                         "description": "Unsubscribed"
+                    }
+                }
+            }
+        },
+        "/api/chats/search": {
+            "get": {
+                "description": "Finds chats whose title or messages contain the text, ignoring case. The newest chats come first. It reads the newest 500 chats.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Search your chats.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "text to find",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most chats to return (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The matching chats",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsChatSearchResponse"
+                        }
                     }
                 }
             }
@@ -4804,6 +4864,39 @@
                         }
                     }
                 }
+            },
+            "patch": {
+                "description": "The settings (system prompt, temperature, top_p, top_k, reasoning effort, context size) are kept with the chat and apply from its next turn. A new title or model needs a chat with no turn running (409 otherwise).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Rename a chat, move it to another model or change its settings.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chat after the change",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    }
+                }
             }
         },
         "/api/chats/{id}/addons": {
@@ -4889,6 +4982,76 @@
                         "description": "An event stream",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsEvent"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/export": {
+            "get": {
+                "description": "Returns the chat as Markdown (format=markdown, the default) or as JSON (format=json), which POST /api/chats/import reads. Files, tool state and checkpoints are not exported.",
+                "produces": [
+                    "text/markdown",
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Export a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "markdown (default) or json",
+                        "name": "format",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chat (JSON format)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsExport"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/fork": {
+            "post": {
+                "description": "Copies the transcript up to and including the given line into a new chat with the same model, settings and tool switches. The original is not changed.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Fork a chat from a message.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "where to cut and the new title",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsForkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
                         }
                     }
                 }
@@ -5084,6 +5247,48 @@
                 }
             }
         },
+        "/api/chats/{id}/messages/{seq}/edit": {
+            "post": {
+                "description": "Replaces the text of your message with the given sequence number, removes everything after it, and starts a new turn. 409 while a turn runs; 400 when the line is not one of your messages.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Edit a message you sent and run the chat again from it.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "sequence number of the message in the transcript",
+                        "name": "seq",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new text",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEditRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The new turn started",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSendResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/pending/{pid}": {
             "delete": {
                 "tags": [
@@ -5156,6 +5361,32 @@
                             "additionalProperties": {
                                 "type": "boolean"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/regenerate": {
+            "post": {
+                "description": "Removes everything the model said after your last message (all your messages of that turn stay), then starts a new turn. Files that the removed turn changed stay changed. 409 while a turn runs.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Regenerate the last answer.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The new turn started",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSendResponse"
                         }
                     }
                 }
@@ -12871,6 +13102,37 @@
                 }
             }
         },
+        "schema.ChatsChatHit": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "$ref": "#/definitions/schema.ChatsConversation"
+                },
+                "in_title": {
+                    "description": "InTitle is true when the title matches.",
+                    "type": "boolean"
+                },
+                "seq": {
+                    "description": "Seq is the first matching transcript line, or 0 when only the title matches.",
+                    "type": "integer"
+                },
+                "snippet": {
+                    "description": "Snippet is the matching text with a little around it.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsChatSearchResponse": {
+            "type": "object",
+            "properties": {
+                "hits": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsChatHit"
+                    }
+                }
+            }
+        },
         "schema.ChatsConnector": {
             "type": "object",
             "properties": {
@@ -13034,6 +13296,14 @@
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed or interrupted.",
                     "type": "boolean"
                 },
+                "settings": {
+                    "description": "Settings are the chat's own model settings, when it has any.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsSettings"
+                        }
+                    ]
+                },
                 "title": {
                     "type": "string"
                 },
@@ -13087,6 +13357,14 @@
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed or interrupted.",
                     "type": "boolean"
+                },
+                "settings": {
+                    "description": "Settings are the chat's own model settings, when it has any.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsSettings"
+                        }
+                    ]
                 },
                 "title": {
                     "type": "string"
@@ -13205,6 +13483,14 @@
                 }
             }
         },
+        "schema.ChatsEditRequest": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsEvent": {
             "type": "object",
             "properties": {
@@ -13216,7 +13502,7 @@
                     "type": "integer"
                 },
                 "ids": {
-                    "description": "IDs names the messages of pending_delivered, or the conversation of sub_agent_done.",
+                    "description": "IDs names the messages of pending_delivered, the conversation of\nsub_agent_started and sub_agent_done, or the proposal of trigger_proposed.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -13238,6 +13524,60 @@
                 },
                 "turn": {
                     "type": "integer"
+                },
+                "usage": {
+                    "description": "Usage is set on usage events: what one model request used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsUsage"
+                        }
+                    ]
+                }
+            }
+        },
+        "schema.ChatsExport": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "string"
+                },
+                "exported_at": {
+                    "type": "string"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsExportMessage"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "settings": {
+                    "$ref": "#/definitions/schema.ChatsSettings"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsExportMessage": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
                 }
             }
         },
@@ -13317,6 +13657,19 @@
                 }
             }
         },
+        "schema.ChatsForkRequest": {
+            "type": "object",
+            "properties": {
+                "from_seq": {
+                    "description": "FromSeq is the last transcript line to copy; 0 copies everything.",
+                    "type": "integer"
+                },
+                "title": {
+                    "description": "Title names the new chat; it defaults to the old title and \"(fork)\".",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsHistory": {
             "type": "object",
             "properties": {
@@ -13351,6 +13704,18 @@
                     "type": "integer"
                 },
                 "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsImportRequest": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "$ref": "#/definitions/schema.ChatsExport"
+                },
+                "model": {
+                    "description": "Model replaces the model of the file. It is needed when the file names none.",
                     "type": "string"
                 }
             }
@@ -13797,6 +14162,34 @@
                 }
             }
         },
+        "schema.ChatsSettings": {
+            "type": "object",
+            "properties": {
+                "context_size": {
+                    "description": "ContextSize is the context window in tokens that the loop plans with\n(when it compacts the conversation), 0 for the model's own.",
+                    "type": "integer"
+                },
+                "reasoning_effort": {
+                    "description": "ReasoningEffort is none, minimal, low, medium or high.",
+                    "type": "string"
+                },
+                "system_prompt": {
+                    "description": "SystemPrompt is added to the chat's instructions, before the saved agent's.",
+                    "type": "string"
+                },
+                "temperature": {
+                    "description": "Temperature is between 0 and 2.",
+                    "type": "number"
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "top_p": {
+                    "description": "TopP is above 0 and at most 1.",
+                    "type": "number"
+                }
+            }
+        },
         "schema.ChatsSkill": {
             "type": "object",
             "properties": {
@@ -14231,6 +14624,47 @@
                     }
                 },
                 "rev": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "description": "Model moves the chat to another model; the history stays.",
+                    "type": "string"
+                },
+                "settings": {
+                    "description": "Settings replaces the chat's settings as a whole.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsSettings"
+                        }
+                    ]
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsUsage": {
+            "type": "object",
+            "properties": {
+                "completion": {
+                    "description": "Completion is the number of tokens the request generated.",
+                    "type": "integer"
+                },
+                "limit": {
+                    "description": "Limit is the context window the loop plans with, 0 when it is not known.",
+                    "type": "integer"
+                },
+                "tokens_per_second": {
+                    "description": "TokensPerSecond is the generation speed, 0 when the backend gave no timing.",
+                    "type": "number"
+                },
+                "used": {
+                    "description": "Used is the number of tokens in the context the request sent.",
                     "type": "integer"
                 }
             }

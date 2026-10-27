@@ -86,6 +86,11 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusNotFound, "not_found", "conversation not found")
 	case errors.Is(err, store.ErrDelivered):
 		return fail(c, http.StatusConflict, "conflict", "the message was already delivered to the model")
+	case errors.Is(err, studiosvc.ErrChatBusy):
+		return fail(c, http.StatusConflict, "conflict", "a turn is running; stop it first")
+	case errors.Is(err, studiosvc.ErrNothingToRegenerate), errors.Is(err, studiosvc.ErrNotUserMessage),
+		errors.Is(err, studiosvc.ErrInvalidSettings), errors.Is(err, studiosvc.ErrBadImport), errors.Is(err, session.ErrInvalid):
+		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), "studio: "))
 	case errors.Is(err, studiosvc.ErrBadSkillName), errors.Is(err, studiosvc.ErrBadAddonID), errors.Is(err, studiosvc.ErrBadMCPSwitch):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	case errors.Is(err, studiosvc.ErrFilesWhileRunning):
@@ -125,6 +130,7 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 		ID: rec.ID, Title: rec.Title, Model: rec.Model, Kind: rec.Kind, ParentID: rec.ParentID,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
+		Settings: settingsJSON(rec.Settings),
 	}
 }
 
@@ -450,6 +456,9 @@ func (h *Handlers) Events(c echo.Context) error {
 
 func eventJSON(ev session.Event) schema.ChatsEvent {
 	out := schema.ChatsEvent{Kind: string(ev.Kind), Turn: ev.Turn, Text: ev.Text, IDs: ev.IDs, Before: ev.Before, After: ev.After}
+	if u := ev.Usage; u != nil {
+		out.Usage = &schema.ChatsUsage{Used: u.Used, Limit: u.Limit, Completion: u.Completion, TokensPerSecond: u.TokensPerSecond}
+	}
 	if ev.Tool != nil {
 		out.Tool = &schema.ChatsToolEvent{Name: ev.Tool.Name, Summary: ev.Tool.Summary, OK: ev.Tool.OK, Output: ev.Tool.Output, Seq: ev.Tool.Seq}
 		if ev.Tool.Card != nil {
