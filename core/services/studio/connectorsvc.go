@@ -8,10 +8,14 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // ConnectorInput is the definition of a connector binding as its owner writes it.
 type ConnectorInput struct {
+	// Kind is the platform of the binding, such as telegram. It is fixed when the
+	// binding is made. Empty means telegram, for clients older than the add-ons.
+	Kind string
 	Name string
 	// Token is the bot token. It is needed to create a binding; an update
 	// without one keeps the stored token.
@@ -26,16 +30,80 @@ type ConnectorInput struct {
 	Enabled    bool
 }
 
+// legacyTitles name the platforms core served before connectors became
+// add-ons, for a binding whose add-on is not installed.
+var legacyTitles = map[string]string{"telegram": "Telegram"}
+
 // ConnectorInfo is a binding without its token.
 type ConnectorInfo struct {
 	connectors.Binding
 	HasToken bool
+	// Active is true when the add-on that serves the binding is running. A
+	// binding without its add-on is kept and starts working once the add-on is
+	// installed; Reason then says so in plain words.
+	Active bool
+	Reason string
 }
 
 func info(b connectors.Binding) ConnectorInfo {
 	has := len(b.Token) > 0
 	b.Token = nil
-	return ConnectorInfo{Binding: b, HasToken: has}
+	return ConnectorInfo{Binding: b, HasToken: has, Active: true}
+}
+
+// withState marks a binding whose add-on does not run.
+func (c *Connectors) withState(ctx context.Context, i ConnectorInfo) ConnectorInfo {
+	kinds, err := c.o.Transport.Kinds(ctx)
+	if err != nil {
+		return i
+	}
+	if _, ok := kindFor(kinds, i.Binding); ok {
+		return i
+	}
+	title := legacyTitles[i.Kind]
+	if title == "" {
+		title = i.AddonID
+	}
+	i.Active, i.Reason = false, "install the "+title+" add-on"
+	return i
+}
+
+// kindTitle is the name of the platform of a binding, for people.
+func (c *Connectors) kindTitle(ctx context.Context, b connectors.Binding) string {
+	if kinds, err := c.o.Transport.Kinds(ctx); err == nil {
+		if k, ok := kindFor(kinds, b); ok {
+			return k.Title
+		}
+	}
+	if t := legacyTitles[b.Kind]; t != "" {
+		return t
+	}
+	return b.Kind
+}
+
+// ConnectorKinds lists what the running connector add-ons serve, for the page
+// that adds a binding.
+func (c *Connectors) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error) {
+	return c.o.Transport.Kinds(ctx)
+}
+
+// resolveAddon finds the add-on that serves a kind. A kind core served before
+// the add-ons keeps its add-on even when it is not installed, so the binding
+// can be made now and starts when the add-on is installed.
+func (c *Connectors) resolveAddon(ctx context.Context, kind string) (string, error) {
+	kinds, err := c.o.Transport.Kinds(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, k := range kinds {
+		if k.ID == kind {
+			return k.AddonID, nil
+		}
+	}
+	if a := connectors.LegacyAddon[kind]; a != "" {
+		return a, nil
+	}
+	return "", connectorBad("no installed add-on serves the kind %q", kind)
 }
 
 func connectorBad(format string, a ...any) error {
@@ -103,7 +171,15 @@ func (c *Connectors) owned(ctx context.Context, user, id string) (connectors.Bin
 // CreateConnector makes a binding of the user.
 func (c *Connectors) CreateConnector(ctx context.Context, user string, in ConnectorInput) (ConnectorInfo, error) {
 	owner := principal(user)
-	b := connectors.Binding{ID: newID(), Owner: owner, Kind: connectors.KindTelegram, Name: strings.TrimSpace(in.Name), AgentID: in.AgentID,
+	kind := in.Kind
+	if kind == "" {
+		kind = connectors.KindTelegram
+	}
+	addon, err := c.resolveAddon(ctx, kind)
+	if err != nil {
+		return ConnectorInfo{}, err
+	}
+	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: addon, Name: strings.TrimSpace(in.Name), AgentID: in.AgentID,
 		Enabled: in.Enabled, AcceptAny: in.AcceptAny, Allow: in.Allow, NotifyChat: in.NotifyChat}
 	if err := connectors.Validate(b); err != nil {
 		return ConnectorInfo{}, err
@@ -136,7 +212,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return info(b), nil
+	return c.withState(ctx, info(b)), nil
 }
 
 // UpdateConnector replaces the definition of a binding of the user.
@@ -169,7 +245,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return info(b), nil
+	return c.withState(ctx, info(b)), nil
 }
 
 // SetConnectorEnabled switches a binding on or off.
@@ -185,13 +261,16 @@ func (c *Connectors) SetConnectorEnabled(ctx context.Context, user, id string, o
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return info(b), nil
+	return c.withState(ctx, info(b)), nil
 }
 
 // GetConnector returns a binding of the user, without its token.
 func (c *Connectors) GetConnector(ctx context.Context, user, id string) (ConnectorInfo, error) {
 	b, err := c.owned(ctx, user, id)
-	return info(b), err
+	if err != nil {
+		return ConnectorInfo{}, err
+	}
+	return c.withState(ctx, info(b)), nil
 }
 
 // ListConnectors returns the user's bindings, without their tokens.
@@ -202,7 +281,7 @@ func (c *Connectors) ListConnectors(ctx context.Context, user string) ([]Connect
 	}
 	out := make([]ConnectorInfo, len(all))
 	for i, b := range all {
-		out[i] = info(b)
+		out[i] = c.withState(ctx, info(b))
 	}
 	return out, nil
 }
@@ -222,17 +301,33 @@ func (c *Connectors) DeleteConnector(ctx context.Context, user, id string) error
 	return nil
 }
 
-// TestConnector asks Telegram who the bot of a binding is.
-func (c *Connectors) TestConnector(ctx context.Context, user, id string) (connectors.Bot, error) {
+// ErrConnectorAddon means the add-on that serves a binding does not run.
+var ErrConnectorAddon = errors.New("studio: the add-on of this connector is not running")
+
+// ConnectorBot is the identity of the bot of a binding.
+type ConnectorBot struct{ ID, Username string }
+
+// TestConnector asks the platform, through its add-on, who the bot of a binding is.
+func (c *Connectors) TestConnector(ctx context.Context, user, id string) (ConnectorBot, error) {
 	b, err := c.owned(ctx, user, id)
 	if err != nil {
-		return connectors.Bot{}, err
+		return ConnectorBot{}, err
+	}
+	if !c.withState(ctx, info(b)).Active {
+		return ConnectorBot{}, ErrConnectorAddon
 	}
 	token, err := c.openToken(ctx, b)
 	if err != nil {
-		return connectors.Bot{}, err
+		return ConnectorBot{}, err
 	}
-	return c.o.Telegram.Me(ctx, token)
+	resp, err := c.o.Transport.Call(ctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
+	if err == nil && resp.Error != nil {
+		err = resp.Error
+	}
+	if err != nil {
+		return ConnectorBot{}, err
+	}
+	return ConnectorBot{ID: resp.BotID, Username: resp.BotUsername}, nil
 }
 
 // ConnectorSenders lists who messaged the bot of a binding, newest first.
@@ -268,5 +363,5 @@ func (c *Connectors) AllowSender(ctx context.Context, user, id, senderID string)
 	if err := c.o.Store.PutBinding(ctx, b); err != nil {
 		return ConnectorInfo{}, err
 	}
-	return info(b), nil
+	return c.withState(ctx, info(b)), nil
 }

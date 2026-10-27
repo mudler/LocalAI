@@ -139,6 +139,14 @@ var Consumers = []Consumer{
 		Enforcement: "the chat drops a connector tool in the add-on namespace or with the name of a built-in; the sessions belong to one user and the owner is checked on every use, also for the MCP Apps proxy, which refuses the namespace and the names of the built-ins too",
 	},
 	{
+		ID:          "studio-chats-connector-addons",
+		Surface:     "the messages of a connector add-on (such as Telegram): the add-on route /connector, which the host calls to poll, send, edit and type, and the host operation connector.inbound, with which a push add-on delivers a message",
+		Evidence:    []string{"core/services/studio/connectors.go", "core/services/addons/hostops/connector.go", "core/services/addons/hostops/broker.go"},
+		Decision:    Reject,
+		Reason:      "the route and the operation carry messages, not tool calls: no tool of the add-on is listed or run through them, and the turn a message starts gets only the tools of the saved agent of the binding, through studio-chats-addons, as the binding's owner",
+		Enforcement: "connector.inbound is authorized by the live credential of the add-on's own incarnation and by the stored binding, which must name that add-on and be on; the owner and the agent come from the binding, and an argument that names a user, an actor or an owner is refused; the route takes the bot token per call and the add-on keeps none",
+	},
+	{
 		ID:          "studio-chats-assistant",
 		Surface:     "the LocalAI Assistant tools of an assistant chat on the server-side chat loop, offered to an administrator while the assistant setting is on",
 		Files:       []string{"core/application/studio_assistant.go"},

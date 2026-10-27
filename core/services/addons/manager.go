@@ -795,6 +795,51 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 	return m.runtime.Current(ctx, id, state.Generation)
 }
 
+// ConnectorKind is a kind of connector binding that a running add-on serves.
+type ConnectorKind struct {
+	AddonID string
+	contract.ConnectorKind
+}
+
+// ConnectorKinds lists the connector kinds of the add-ons that run now. An
+// add-on that is installed but not ready serves none, and a process that does
+// not own the runtime serves none.
+func (m *Manager) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.runtime == nil {
+		return nil, nil
+	}
+	registrations, e := m.runtime.Registry.Snapshot(ctx)
+	if e != nil {
+		return nil, e
+	}
+	var out []ConnectorKind
+	for _, r := range registrations {
+		if r.Capabilities.Connector == nil {
+			continue
+		}
+		for _, k := range r.Capabilities.Connector.Kinds {
+			out = append(out, ConnectorKind{AddonID: r.AddonID, ConnectorKind: k})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].AddonID+"/"+out[i].ID < out[j].AddonID+"/"+out[j].ID })
+	return out, nil
+}
+
+// Connector calls the connector route of a running add-on.
+func (m *Manager) Connector(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	instance, e := m.Runtime(ctx, addonID)
+	if e != nil {
+		return contract.ConnectorResponse{}, e
+	}
+	cr, ok := instance.Client.(contract.ConnectorRuntime)
+	if !ok {
+		return contract.ConnectorResponse{}, addonruntime.ErrRuntime
+	}
+	return cr.Connector(ctx, req)
+}
+
 // OperationStatus only observes lifecycle intent. It never resumes a command or
 // infers runtime completion from a completed journal publication.
 func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id string) (OperationStatus, error) {

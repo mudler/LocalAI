@@ -5,21 +5,64 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/studio"
-	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-// telegramBase is the Bot API address; only a test changes it.
-var telegramBase string
+// connectorTransportForTests replaces the transport of applications built after
+// UseConnectorTransportForTests.
+var connectorTransportForTests studio.ConnectorTransport
 
-// UseTelegramBaseURLForTests points the connectors of applications built after
-// the call at another Bot API address, and returns a function that restores the
-// real one. It exists so an end-to-end test can use a fake Bot API.
-func UseTelegramBaseURLForTests(base string) (restore func()) {
-	prev := telegramBase
-	telegramBase = base
-	return func() { telegramBase = prev }
+// UseConnectorTransportForTests makes the connectors of applications built after
+// the call talk through t instead of the add-on manager, and returns a function
+// that restores the real one. It exists so an end-to-end test can serve a
+// connector without an installed add-on.
+func UseConnectorTransportForTests(t studio.ConnectorTransport) (restore func()) {
+	prev := connectorTransportForTests
+	connectorTransportForTests = t
+	return func() { connectorTransportForTests = prev }
+}
+
+// connectorTransport reaches the connector add-ons through the add-on manager.
+// The manager looks them up on every call, so an add-on that is installed or
+// removed later is seen at once.
+type connectorTransport struct{ a *Application }
+
+func (t connectorTransport) Kinds(ctx context.Context) ([]studio.ConnectorKind, error) {
+	m := t.a.addonManager
+	if m == nil {
+		return nil, nil
+	}
+	kinds, err := m.ConnectorKinds(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]studio.ConnectorKind, len(kinds))
+	for i, k := range kinds {
+		out[i] = studio.ConnectorKind{AddonID: k.AddonID, ConnectorKind: k.ConnectorKind}
+	}
+	return out, nil
+}
+
+func (t connectorTransport) Call(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	if t.a.addonManager == nil {
+		return contract.ConnectorResponse{}, addonruntime.ErrRuntime
+	}
+	return t.a.addonManager.Connector(ctx, addonID, req)
+}
+
+// RegisterAddonConnector registers the host operation with which a connector
+// add-on pushes a message. It registers nothing when this process has no host
+// operation channel or no connector manager. The message goes through the same
+// function as a message the manager pulls itself.
+func (a *Application) RegisterAddonConnector() error {
+	if a.addonHostOps == nil || a.studioConnectors == nil {
+		return nil
+	}
+	return hostops.RegisterConnector(a.addonHostOps.Broker, a.studioConnectors)
 }
 
 // StudioConnectors returns the connector manager of the chats, or nil.
@@ -31,7 +74,11 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	if a.studioConnStore == nil {
 		return
 	}
-	opts := studio.ConnectorOptions{Store: a.studioConnStore, Telegram: &connectors.Telegram{BaseURL: telegramBase}, Poll: 25}
+	var tr studio.ConnectorTransport = connectorTransport{a}
+	if connectorTransportForTests != nil {
+		tr = connectorTransportForTests
+	}
+	opts := studio.ConnectorOptions{Store: a.studioConnStore, Transport: tr, Poll: contract.MaxPollSeconds}
 	if a.Distributed() != nil && a.authDB != nil {
 		lock := advisorylock.NewHeldLock(a.authDB, advisorylock.KeyChatsConnectors)
 		opts.Lead = func(ctx context.Context) bool {

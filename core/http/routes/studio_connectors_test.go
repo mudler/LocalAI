@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/addons/telegram/transport"
+	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -32,7 +33,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 			_, _ = w.Write([]byte(`{"ok":true,"result":{"id":555,"username":"spec_bot"}}`))
 		}))
 		DeferCleanup(bot.Close)
-		studioTelegram = &connectors.Telegram{BaseURL: bot.URL, Client: bot.Client()}
+		studioTelegram = studiotest.NewBotTransport(&transport.API{BaseURL: bot.URL, Client: bot.Client()})
 		DeferCleanup(func() { studioTelegram = nil })
 		s = newStudioServer()
 	})
@@ -42,6 +43,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 			Expect(s.do("", method, path, nil).Code).To(Equal(http.StatusUnauthorized))
 		},
 		Entry("list", http.MethodGet, "/api/chats/connectors"),
+		Entry("kinds", http.MethodGet, "/api/chats/connectors/kinds"),
 		Entry("create", http.MethodPost, "/api/chats/connectors"),
 		Entry("read", http.MethodGet, "/api/chats/connectors/c1"),
 		Entry("update", http.MethodPut, "/api/chats/connectors/c1"),
@@ -92,6 +94,23 @@ var _ = Describe("Chats connectors endpoints", func() {
 
 		Expect(s.do("alice", http.MethodDelete, "/api/chats/connectors/"+id, nil).Code).To(Equal(http.StatusNoContent))
 		Expect(s.do("alice", http.MethodGet, "/api/chats/connectors/"+id, nil).Code).To(Equal(http.StatusNotFound))
+	})
+
+	It("lists the kinds that a running add-on serves and marks a binding whose add-on does not run", func() {
+		kinds := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/kinds", nil))["kinds"].([]any)
+		Expect(kinds).To(HaveLen(1))
+		Expect(kinds[0]).To(And(HaveKeyWithValue("addon", "telegram"), HaveKeyWithValue("kind", "telegram"), HaveKeyWithValue("title", "Telegram")))
+
+		ag := agent("alice", "Support", "test-model")
+		made := decodeJSON(create("alice", map[string]any{"kind": "telegram", "name": "B", "token": specToken, "agent_id": ag}))
+		Expect(made).To(And(HaveKeyWithValue("addon", "telegram"), HaveKeyWithValue("active", true)))
+
+		studioTelegram.Running = false
+		down := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/"+made["id"].(string), nil))
+		Expect(down).To(And(HaveKeyWithValue("active", false), HaveKeyWithValue("reason", "install the Telegram add-on")))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/kinds", nil))["kinds"]).To(BeEmpty())
+		Expect(s.do("alice", http.MethodPost, "/api/chats/connectors/"+made["id"].(string)+"/test", nil).Code).To(Equal(http.StatusBadGateway))
+		Expect(create("alice", map[string]any{"kind": "carrier-pigeon", "name": "x", "token": specToken, "agent_id": ag}).Code).To(Equal(http.StatusBadRequest))
 	})
 
 	It("keeps bindings private to their owner", func() {

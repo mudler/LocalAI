@@ -586,6 +586,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 		if err := application.RegisterAddonWorkspace(application.StudioFiles()); err != nil {
 			return nil, err
 		}
+		if err := application.RegisterAddonConnector(); err != nil {
+			return nil, err
+		}
 	} else {
 		routes.RegisterAddonsUnavailable(e, "/api/fine-tuning")
 		routes.RegisterAddonsUnavailable(e, "/api/quantization")

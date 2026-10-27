@@ -1,18 +1,37 @@
 +++
 disableToc = false
-title = "Chats: connectors (Telegram and MCP servers)"
+title = "Chats: connectors (messaging add-ons and MCP servers)"
 weight = 23
 url = "/features/chats-connectors/"
 +++
 
-The [chats](/features/chats/) have two kinds of connector, each on its own page:
+The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
 
-- **Telegram** binds a bot to one of your agents, so a person can talk to it from Telegram. Messaging connectors are on the Connectors page (`/app/chats/connectors`, under **Agents** in the sidebar). This is the first half of this page.
-- **MCP server** gives your chats and agents more tools. MCP servers are on the **MCP connectors** page of the sidebar (`/app/mcp-connectors`). See [MCP servers](#mcp-servers).
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**, such as the [Telegram add-on](#telegram). This is the first half of this page.
+- An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
+
+## Connector add-ons
+
+Core keeps what is the same for every platform: the bindings, the sealed bot token,
+the allowlist, the sender log, one chat for each sender and the turn itself. The
+platform's API is spoken by an add-on that declares the `connector` capability (see
+[Connector add-ons]({{% relref "features/addons" %}}#connector-add-ons)). Install the add-on
+from the add-on gallery, and its page adds and edits the bindings of its platform.
+
+The Connectors page groups your bindings by add-on and links each group to the
+add-on's own page. With no connector add-on installed, the page says so and links
+to the gallery. `GET /api/chats/connectors/kinds` lists the platforms that a running
+add-on serves.
+
+A binding names the add-on that serves it. A binding made before connectors became
+add-ons names none, and belongs to the add-on of its kind: a Telegram binding keeps
+working as soon as the Telegram add-on is installed. Until then the binding is kept,
+switched as it was, and shown as not running with the reason "install the Telegram
+add-on"; nothing polls and nothing is lost.
 
 ## Telegram
 
-A Telegram connector binds a bot to one of your [saved agents](/features/chats-agents/).
+The Telegram add-on binds a bot to one of your [saved agents](/features/chats-agents/).
 A person who messages the bot talks to that agent, in a conversation of their
 own, and the answer comes back in Telegram. The conversation is a
 [chat](/features/chats/) of yours: it uses your quota and your model allowlist,
@@ -20,22 +39,24 @@ and you can open it in LocalAI.
 
 ### Set up a binding
 
-1. Make a bot with `@BotFather` in Telegram and copy its token.
-2. Make an agent that names a model. A connector has no model of its own, so
+1. Install the **Telegram** add-on from the add-on gallery.
+2. Make a bot with `@BotFather` in Telegram and copy its token.
+3. Make an agent that names a model. A connector has no model of its own, so
    an agent without a model cannot be bound.
-3. On the Connectors page, make a binding: a name, the token, the agent, and who
-   may use it.
-4. Use **Test**. LocalAI asks Telegram which bot the token belongs to.
-5. Write to the bot from an account on the allowlist.
+4. On the Connectors page open **Telegram**, and make a binding: a name, the token,
+   the agent, and who may use it.
+5. Use **Test**. LocalAI asks Telegram which bot the token belongs to.
+6. Write to the bot from an account on the allowlist.
 
 ```
-curl -X POST .../api/chats/connectors -d '{"name": "Support bot", "token": "123:abc", "agent_id": "<id>", "enabled": true, "allow": ["12345678"]}'
+curl -X POST .../api/chats/connectors -d '{"kind": "telegram", "name": "Support bot", "token": "123:abc", "agent_id": "<id>", "enabled": true, "allow": ["12345678"]}'
 curl -X POST .../api/chats/connectors/<id>/test
 curl .../api/chats/connectors/<id>/senders
 ```
 
 `GET`, `PUT` and `DELETE /api/chats/connectors/{id}` read, replace and delete a
 binding. `POST .../enable` and `.../disable` switch it. You can have 10 bindings.
+A binding says `active: false` and gives a `reason` while its add-on does not run.
 
 ## What a message gets
 
@@ -88,7 +109,9 @@ new one with an update; an update without a token keeps the old one. The key is
 `connectors.key` (mode `0600`) under the data path, or a row of the database that
 every frontend shares. LocalAI refuses a key file that other users can read.
 
-LocalAI only calls `https://api.telegram.org`. It reads updates by long polling,
+LocalAI passes the token to the add-on with each call and the add-on keeps none: it
+holds no token on disk and in memory only for the call. The add-on only calls
+`https://api.telegram.org`. LocalAI reads updates by long polling through the add-on,
 so it needs no public address.
 
 ## When a binding switches itself off
@@ -109,12 +132,14 @@ restart). The JSON store is for one process.
 | State | Mode | How |
 |---|---|---|
 | Bindings, offsets, sender log, sender chats, the key | Shared | Rows in the database. |
-| Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. |
+| Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. Add-ons run on the process that owns the add-ons, and the loops run only where the add-on answers. |
+| Where the next message is read from | Shared | The offset is stored with the binding. Core passes it to the add-on's poll call and stores the offset that the answer names. |
 | The reply being sent for a turn | Per instance | The frontend that took the message sends the answer. If it dies, the answer is lost; the message is not repeated. |
 
 ### Other connectors
 
-Only Telegram and MCP servers are built. Slack, Discord, IRC, Matrix, email, GitHub and Twitter
+Telegram and MCP servers are built. A Slack connector will be another connector
+add-on on the same capability. Discord, IRC, Matrix, email, GitHub and Twitter
 connectors of the old agents are not rebuilt; the release that removes the old
 agents lists them as dropped.
 
@@ -132,7 +157,7 @@ when you save it.
 
 ### Add one
 
-On the **MCP connectors** page choose **New MCP server**. Give it a
+On the **MCP connectors** page (`/app/mcp-connectors`) choose **New MCP server**. Give it a
 name (unique among your connectors) and an address, and optionally a bearer
 token or other headers. Use **Test connection** to connect and list the tool
 names before you switch it on.

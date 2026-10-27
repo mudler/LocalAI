@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/addons/telegram/transport"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	studioendpoint "github.com/mudler/LocalAI/core/http/endpoints/studio"
@@ -46,8 +47,9 @@ type studioServer struct {
 // host before the server is built. Reset it after the spec.
 var studioTriggerOptions func(*studio.TriggerOptions)
 
-// studioTelegram is the Bot API client of the connector manager; a spec sets a fake.
-var studioTelegram *connectors.Telegram
+// studioTelegram is the Telegram add-on transport of the connector manager; a spec
+// points it at a fake Bot API.
+var studioTelegram *studiotest.BotTransport
 
 func newStudioServer() *studioServer { return newStudioServerFiles(newTestFiles()) }
 
@@ -90,7 +92,11 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	svc.SetTriggers(host)
 	cs, err := connectors.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
-	conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: cs, Telegram: studioTelegram})
+	var ctr studio.ConnectorTransport = studioTelegram
+	if studioTelegram == nil {
+		ctr = studiotest.NewBotTransport(&transport.API{})
+	}
+	conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: cs, Transport: ctr})
 	Expect(err).NotTo(HaveOccurred())
 	svc.SetConnectors(conns)
 	DeferCleanup(conns.Close)

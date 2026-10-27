@@ -15,6 +15,7 @@ type bindingRow struct {
 	ID         string `gorm:"primaryKey;size:64"`
 	Owner      string `gorm:"index;size:255;not null"`
 	Kind       string `gorm:"size:32"`
+	AddonID    string `gorm:"size:64"`
 	Name       string `gorm:"size:255"`
 	AgentID    string `gorm:"size:128"`
 	Enabled    bool   `gorm:"index"`
@@ -76,14 +77,14 @@ func NewGORM(db *gorm.DB) (Store, error) {
 }
 
 func (r bindingRow) binding() (Binding, error) {
-	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
+	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
 		NotifyChat: r.NotifyChat, Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
 		if err := json.Unmarshal([]byte(r.Allow), &b.Allow); err != nil {
 			return b, err
 		}
 	}
-	return b, nil
+	return Normalize(b), nil
 }
 
 func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
@@ -92,7 +93,7 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(b.Allow)
 		allow = string(raw)
 	}
-	return s.db.WithContext(ctx).Save(&bindingRow{ID: b.ID, Owner: b.Owner, Kind: b.Kind, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
+	return s.db.WithContext(ctx).Save(&bindingRow{ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 

@@ -55,7 +55,7 @@ func TestValidate(t *testing.T) {
 	for name, b := range map[string]connectors.Binding{
 		"no name":    {Kind: connectors.KindTelegram, AgentID: "a"},
 		"long name":  {Name: strings.Repeat("n", 81), Kind: connectors.KindTelegram, AgentID: "a"},
-		"bad kind":   {Name: "b", Kind: "slack", AgentID: "a"},
+		"bad kind":   {Name: "b", Kind: "Not A Kind", AgentID: "a"},
 		"no agent":   {Name: "b", Kind: connectors.KindTelegram},
 		"bad allow":  {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"alice"}},
 		"short name": {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"@ab"}},
