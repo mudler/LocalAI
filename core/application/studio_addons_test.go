@@ -117,3 +117,19 @@ func TestAnAppliedChangeReachesTheModelAsADocumentThatSaysItCannotBeUndone(t *te
 		}
 	}
 }
+
+func TestAnAddonThatNeedsTheWorkspaceIsUnavailableWhileFilesAreOff(t *testing.T) {
+	s := &studioAddons{mode: auth.AddonModeNamedUser, hostOps: map[string][]string{"sandbox": {"workspace."}, "office": {"workspace."}, "fine-tuning": {"finetune."}}}
+	ctx := context.Background()
+	for _, id := range []string{"sandbox", "office"} {
+		if got := s.Unavailable(ctx, "alice", id, false); !strings.Contains(got, "workspace") {
+			t.Errorf("%s with files off: reason = %q", id, got)
+		}
+	}
+	if got := s.Unavailable(ctx, "alice", "fine-tuning", false); got != "" {
+		t.Errorf("an add-on that does not use the workspace was gated: %q", got)
+	}
+	if got := s.Unavailable(ctx, "alice", "office", true); got != "" {
+		t.Errorf("office with files on: reason = %q", got)
+	}
+}

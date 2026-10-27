@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -34,6 +35,16 @@ func (f *fakeAddons) Call(_ context.Context, user, conv, name string, args json.
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, fmt.Sprintf("%s|%s|%s|%s", user, conv, name, args))
 	return "result of " + name, nil
+}
+
+// gatedAddons is a fakeAddons that also knows which add-ons cannot work now.
+type gatedAddons struct {
+	*fakeAddons
+	reasons map[string]string
+}
+
+func (g gatedAddons) Unavailable(_ context.Context, _, addon string, _ bool) string {
+	return g.reasons[addon]
 }
 
 func addonTool(addon, tool string) studio.AddonTool {
@@ -151,5 +162,34 @@ func TestABrokenAddonHostDoesNotFailTheChat(t *testing.T) {
 	idle(t, svc, alice, id)
 	if got := turn(t, svc, alice, id).Last; got != "done" {
 		t.Fatalf("the turn ended %q, want done", got)
+	}
+}
+
+func TestAnAddonThatCannotWorkIsReplacedByAToolThatSaysSo(t *testing.T) {
+	fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: {
+		addonTool("office", "read-doc"),
+		{Name: "addon__sandbox__bash", AddonID: "sandbox", Action: true, Description: "bash", Schema: json.RawMessage(`{"type":"object"}`)},
+		addonTool("sandbox", "status"),
+	}}}
+	gate := gatedAddons{fakeAddons: fa, reasons: map[string]string{"sandbox": "no sandbox backend works on this host"}}
+	svc, h := newToolService(t, func(workspace.Actor, string) []studiotest.ToolStep {
+		return []studiotest.ToolStep{{Tool: "addon__sandbox__unavailable", Args: `{}`}, {Say: "ok"}}
+	}, func(d *studio.Deps) { d.AddonTools = gate })
+	id := create(t, svc, alice)
+	sent(t, svc, alice, id, "run it")
+	idle(t, svc, alice, id)
+	got := h.ToolNames(id)
+	if slices.Contains(got, "addon__sandbox__bash") || slices.Contains(got, "addon__sandbox__status") {
+		t.Errorf("tools = %v, the sandbox tools are still offered", got)
+	}
+	if !slices.Contains(got, "addon__sandbox__unavailable") || !slices.Contains(got, "addon__office__read-doc") {
+		t.Errorf("tools = %v, want the stand-in tool and the other add-on", got)
+	}
+	rs := h.ResultsFor("addon__sandbox__unavailable")
+	if len(rs) != 1 || rs[0].Err != nil || !strings.Contains(rs[0].Out, "no sandbox backend works on this host") {
+		t.Fatalf("results = %+v", rs)
+	}
+	if len(fa.calls) != 0 {
+		t.Errorf("the stand-in tool called the add-on: %v", fa.calls)
 	}
 }

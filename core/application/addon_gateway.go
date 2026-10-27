@@ -524,7 +524,7 @@ func (a *Application) StudioAddonTools() studio.AddonTools {
 	if a.addonGateway == nil {
 		return nil
 	}
-	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway), mode: a.AddonOwnershipMode()}
+	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway), mode: a.AddonOwnershipMode(), hostOps: a.applicationConfig.AddonHostOps}
 }
 
 // lateStudioAddons asks for the broker at each call: the chats service starts
@@ -539,6 +539,14 @@ func (l lateStudioAddons) Tools(ctx context.Context, user string) ([]studio.Addo
 	return b.Tools(ctx, user)
 }
 
+// Unavailable forwards to the broker when it can say why an add-on cannot work.
+func (l lateStudioAddons) Unavailable(ctx context.Context, user, addonID string, workspace bool) string {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonGate); ok {
+		return g.Unavailable(ctx, user, addonID, workspace)
+	}
+	return ""
+}
+
 func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
 	b := l.a.StudioAddonTools()
 	if b == nil {
@@ -550,6 +558,52 @@ func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, arg
 type studioAddons struct {
 	adapter *addontools.ToolAdapter
 	mode    string
+	// hostOps maps an add-on ID to the host operation prefixes it may call. An
+	// add-on that may call the workspace operations needs the Files workspace.
+	hostOps map[string][]string
+}
+
+// sandboxAddonID is the add-on that runs commands and code.
+const sandboxAddonID = "sandbox"
+
+// needsWorkspace says whether the add-on works on the files of the user.
+func (s *studioAddons) needsWorkspace(addonID string) bool {
+	for _, p := range s.hostOps[addonID] {
+		if strings.HasPrefix(p, "workspace.") {
+			return true
+		}
+	}
+	return false
+}
+
+// Unavailable says why the tools of an add-on cannot work now, or "". An
+// add-on that needs the Files workspace cannot work without it, and the
+// Sandbox cannot run anything on a host where no backend works.
+func (s *studioAddons) Unavailable(ctx context.Context, user, addonID string, workspace bool) string {
+	if !workspace && s.needsWorkspace(addonID) {
+		return "the Files workspace is off on this server, so there is no place for files or code"
+	}
+	if addonID != sandboxAddonID {
+		return ""
+	}
+	actor, err := s.actor(user)
+	if err != nil {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	res, err := s.adapter.Execute(ctx, actor, addontools.ToolName(sandboxAddonID, "status"), json.RawMessage(`{}`))
+	if err != nil || res.Kind != addontools.ResultData {
+		return ""
+	}
+	var st struct {
+		OK     bool `json:"ok"`
+		CanRun bool `json:"canRun"`
+	}
+	if json.Unmarshal(res.Result, &st) != nil || !st.OK || st.CanRun {
+		return ""
+	}
+	return "no sandbox backend works on this host, so commands cannot run"
 }
 
 func (s *studioAddons) actor(user string) (contract.Actor, error) {

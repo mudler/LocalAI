@@ -26,3 +26,19 @@ export function settingsModel(status) {
     note: text(status.note),
   }
 }
+
+// What the main page shows to every user, made from the answer of the status
+// tool. The state is "isolated" when gVisor or a virtual machine runs the
+// code, "host" when commands run on this machine, "cannot" when no backend
+// works and "unknown" when the answer cannot be read. The reasons of the
+// backends that do not work come only with the answer for an administrator.
+export function pageStatus(status) {
+  if (!status || typeof status !== 'object' || status.ok !== true) return { state: 'unknown', backend: '', reasons: [] }
+  const backend = text(status.active)
+  const reasons = status.admin === true && Array.isArray(status.backends)
+    ? status.backends.filter(b => b && typeof b === 'object' && b.usable !== true && text(b.reason)).map(b => ({ name: text(b.name), reason: text(b.reason) }))
+    : []
+  if (status.canRun !== true) return { state: 'cannot', backend: '', reasons }
+  if (status.hostNotice === true || backend === 'host') return { state: 'host', backend, reasons }
+  return { state: 'isolated', backend, reasons }
+}
