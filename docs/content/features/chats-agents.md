@@ -125,9 +125,15 @@ downtime, a missed schedule runs once, not once for each missed time.
 
 In a chat, the model can propose a trigger with `propose_trigger` and list yours
 with `list_triggers`. A proposal is not active and runs nothing. It waits for you
-on the Triggers page (`GET /api/chats/triggers/proposals`): confirm it
-(`POST .../proposals/{id}/confirm`, with your `time_zone` when it names none) or
-dismiss it (`DELETE .../proposals/{id}`). If a proposal was made in a chat that
+in the chat and on the Triggers page (`GET /api/chats/triggers/proposals`, with
+`?chat={id}` for the ones made in one chat). Change it first if you want
+(`PUT .../proposals/{id}` with the same body as a trigger; it stays a proposal),
+then confirm it (`POST .../proposals/{id}/confirm`, with your `time_zone` when it
+names none) or dismiss it (`DELETE .../proposals/{id}`). The chat carries the
+proposal: the tool line of `propose_trigger` has a `card` of kind
+`trigger_proposal` whose `id` is the proposal's id, in the live `tool_end` event
+and in the transcript, so it shows again after a reload, and a
+`trigger_proposed` event announces it to a client that is watching. If a proposal was made in a chat that
 has an agent, the trigger keeps that agent. At most 10 proposals wait at a time,
 and you can have 50 triggers.
 

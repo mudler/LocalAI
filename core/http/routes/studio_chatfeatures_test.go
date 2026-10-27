@@ -514,3 +514,65 @@ var _ = Describe("Chats sub-agent API", func() {
 		}, 20*time.Second).Should(Equal("stopped"))
 	})
 })
+
+var _ = Describe("Chats trigger proposals in the chat", func() {
+	It("makes a proposal record the chat stream carries, and lets the person edit, confirm or dismiss it", func() {
+		h := &studiotest.ToolHarness{Script: func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			name := strings.TrimPrefix(text, "propose ")
+			return []studiotest.ToolStep{{Tool: "propose_trigger", Args: fmt.Sprintf(`{"name":%q,"prompt":"Summarize the news","when":"daily 08:00","time_zone":"UTC"}`, name)}}
+		}}
+		s := newStudioServerWith(newTestFiles(), func(d *studio.Deps) { d.Harness = h })
+		id := s.create("alice")
+		events := s.readEvents("alice", id, func() {
+			defer GinkgoRecover()
+			s.do("alice", http.MethodPost, "/api/chats/"+id+"/messages", map[string]any{"text": "propose Morning news"})
+		}, func(kind string) bool { return kind == "turn_end" })
+
+		var proposalID string
+		var sawCard bool
+		for _, ev := range events {
+			if ev["kind"] == "trigger_proposed" {
+				Expect(ev["text"]).To(Equal("Morning news"))
+				proposalID = ev["ids"].([]any)[0].(string)
+			}
+			if tool, ok := ev["tool"].(map[string]any); ok && ev["kind"] == "tool_end" {
+				card := tool["card"].(map[string]any)
+				Expect(card).To(HaveKeyWithValue("kind", "trigger_proposal"))
+				sawCard = card["id"] == proposalID
+			}
+		}
+		Expect(proposalID).NotTo(BeEmpty(), "no trigger_proposed event in %v", events)
+		Expect(sawCard).To(BeTrue(), "tool_end carries no card for the proposal")
+
+		// The card stays in the transcript, so a reload still shows the proposal.
+		var cardID string
+		for _, m := range s.transcript("alice", id) {
+			if card, ok := m["card"].(map[string]any); ok && card["kind"] == "trigger_proposal" {
+				cardID = card["id"].(string)
+			}
+		}
+		Expect(cardID).To(Equal(proposalID))
+
+		// It is a record of this chat, and nothing runs yet.
+		other := s.create("alice")
+		mine := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/triggers/proposals?chat="+id, nil))["triggers"].([]any)
+		Expect(mine).To(HaveLen(1))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/triggers/proposals?chat="+other, nil))["triggers"]).To(BeEmpty())
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/triggers", nil))["triggers"]).To(BeEmpty())
+
+		// Edit: replaces the fields, stays a proposal.
+		url := "/api/chats/triggers/proposals/" + proposalID
+		Expect(s.do("bob", http.MethodPut, url, map[string]any{"name": "x"}).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("alice", http.MethodPut, url, map[string]any{"name": "", "prompt": "p", "kind": "schedule", "schedule": "daily 09:00"}).Code).To(Equal(http.StatusBadRequest))
+		edit := s.do("alice", http.MethodPut, url, map[string]any{"name": "Evening news", "prompt": "Summarize the evening news", "kind": "schedule", "schedule": "daily 19:30", "time_zone": "UTC", "model": "test-model", "enabled": true})
+		Expect(edit.Code).To(Equal(http.StatusOK), edit.Body.String())
+		Expect(decodeJSON(edit)).To(And(HaveKeyWithValue("name", "Evening news"), HaveKeyWithValue("enabled", false)))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/triggers", nil))["triggers"]).To(BeEmpty())
+		Expect(decodeJSON(s.do("alice", http.MethodGet, url[:len(url)-len(proposalID)-1], nil))["triggers"]).To(HaveLen(1))
+
+		confirm := s.do("alice", http.MethodPost, url+"/confirm", map[string]any{"time_zone": "UTC"})
+		Expect(confirm.Code).To(Equal(http.StatusOK), confirm.Body.String())
+		Expect(decodeJSON(confirm)).To(And(HaveKeyWithValue("name", "Evening news"), HaveKeyWithValue("enabled", true)))
+		Expect(s.do("alice", http.MethodPut, url, map[string]any{"name": "x", "prompt": "p", "kind": "schedule", "schedule": "daily 09:00"}).Code).To(Equal(http.StatusNotFound))
+	})
+})

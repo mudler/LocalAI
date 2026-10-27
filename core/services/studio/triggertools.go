@@ -13,6 +13,10 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
+// ProposalCardKind is the Kind of the tool card that points at a trigger
+// proposal; the card's ID is the proposal's ID.
+const ProposalCardKind = "trigger_proposal"
+
 const (
 	proposeTriggerName = "propose_trigger"
 	listTriggersName   = "list_triggers"
@@ -21,7 +25,7 @@ const (
 
 const proposeTriggerDescription = "Propose a trigger: a task that runs by itself, at a time or when a file arrives in a folder. " +
 	"Propose only when the user asks for something that repeats or that must happen at a given time or when a file arrives. " +
-	"A proposal does nothing by itself: the user must confirm it on the Triggers page, and until then it is not active, so never say that the trigger is active or will run. " +
+	"A proposal does nothing by itself: the user must confirm it in the chat or on the Triggers page, and until then it is not active, so never say that the trigger is active or will run. " +
 	"Give the name and the prompt that the run will get. " +
 	"when is a schedule text (\"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields) " +
 	"or {\"file_arrives_in\": folder} with a folder inside the user's files, such as /Contracts. " +
@@ -85,7 +89,11 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, rec sessi
 	if err != nil {
 		return "", errors.New(strings.TrimPrefix(err.Error(), ErrBadTrigger.Error()+": "))
 	}
-	return fmt.Sprintf("Proposed %q (%s). It is not active: the user must confirm it on the Triggers page. Do not say it will run until they do.", t.Name, h.summary(t)), nil
+	// The card lets the interface show Create, Edit and Dismiss on this tool
+	// line, also after a reload; the event tells a client that is watching.
+	session.SetToolCard(ctx, session.ToolCard{Kind: ProposalCardKind, ID: t.ID})
+	h.svc.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindTriggerProposed, IDs: []string{t.ID}, Text: t.Name})
+	return fmt.Sprintf("Proposed %q (%s). It is not active: the user must confirm it in the chat or on the Triggers page. Do not say it will run until they do.", t.Name, h.summary(t)), nil
 }
 
 func (h *Triggers) listTool(ctx context.Context, a workspace.Actor) (string, error) {

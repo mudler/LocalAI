@@ -130,7 +130,16 @@ type ChatsMessage struct {
 	// App is set on a tool line whose tool has an MCP App: the interactive page
 	// that goes with the result.
 	App *ChatsToolApp `json:"app,omitempty"`
-	At  time.Time     `json:"at"`
+	// Card is set on a tool line that points at a record, such as a trigger
+	// proposal (kind trigger_proposal, id the proposal's id).
+	Card *ChatsToolCard `json:"card,omitempty"`
+	At   time.Time      `json:"at"`
+}
+
+// ChatsToolCard points the interface at a record that belongs to a tool result.
+type ChatsToolCard struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
 }
 
 // ChatsToolApp tells the interface which MCP App belongs to a tool result. The
@@ -235,6 +244,8 @@ type ChatsToolEvent struct {
 	// App is the reference of the MCP App of the call, on tool_end. It has no
 	// input and no result: read the transcript line for them.
 	App *ChatsToolApp `json:"app,omitempty"`
+	// Card is the record the result points at, on tool_end; see ChatsMessage.
+	Card *ChatsToolCard `json:"card,omitempty"`
 }
 
 // ChatsFile is a file or folder of the user's workspace. Paths are inside the

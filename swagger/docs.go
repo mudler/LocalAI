@@ -4561,11 +4561,19 @@ const docTemplate = `{
         },
         "/api/chats/triggers/proposals": {
             "get": {
-                "description": "A model in a chat can propose a trigger. A proposal is not active and runs nothing; confirm it to turn it into a trigger that is on.",
+                "description": "A model in a chat can propose a trigger. A proposal is not active and runs nothing; confirm it to turn it into a trigger that is on. The chat shows it as a tool line with a card of kind trigger_proposal whose id is the proposal's id, and a trigger_proposed event announces it.",
                 "tags": [
                     "chats"
                 ],
                 "summary": "List trigger proposals.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "only the proposals made in this chat",
+                        "name": "chat",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "The proposals",
@@ -4577,6 +4585,39 @@ const docTemplate = `{
             }
         },
         "/api/chats/triggers/proposals/{id}": {
+            "put": {
+                "description": "The body replaces every field of the proposal, as for a trigger. The proposal stays a proposal: it is not active until you confirm it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Edit a trigger proposal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new fields",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The proposal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "tags": [
                     "chats"
@@ -14050,6 +14091,14 @@ const docTemplate = `{
                 "at": {
                     "type": "string"
                 },
+                "card": {
+                    "description": "Card is set on a tool line that points at a record, such as a trigger\nproposal (kind trigger_proposal, id the proposal's id).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsToolCard"
+                        }
+                    ]
+                },
                 "dur_ms": {
                     "description": "DurMs is how long the model thought, for reasoning lines.",
                     "type": "integer"
@@ -14491,6 +14540,17 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsToolCard": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsToolEvent": {
             "type": "object",
             "properties": {
@@ -14499,6 +14559,14 @@ const docTemplate = `{
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsToolApp"
+                        }
+                    ]
+                },
+                "card": {
+                    "description": "Card is the record the result points at, on tool_end; see ChatsMessage.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsToolCard"
                         }
                     ]
                 },

@@ -291,6 +291,7 @@ func messageList(entries []session.Entry) schema.ChatsMessageList {
 		}
 		if e.Card != nil {
 			m.App = appJSON(e.Card.App, true)
+			m.Card = &schema.ChatsToolCard{Kind: e.Card.Kind, ID: e.Card.ID}
 		}
 		out.Messages = append(out.Messages, m)
 	}
@@ -467,6 +468,7 @@ func eventJSON(ev session.Event) schema.ChatsEvent {
 		out.Tool = &schema.ChatsToolEvent{Name: ev.Tool.Name, Summary: ev.Tool.Summary, OK: ev.Tool.OK, Output: ev.Tool.Output, Seq: ev.Tool.Seq}
 		if ev.Tool.Card != nil {
 			out.Tool.App = appJSON(ev.Tool.Card.App, false)
+			out.Tool.Card = &schema.ChatsToolCard{Kind: ev.Tool.Card.Kind, ID: ev.Tool.Card.ID}
 		}
 	}
 	return out

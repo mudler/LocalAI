@@ -276,8 +276,9 @@ func (h *Handlers) PreviewTrigger(c echo.Context) error {
 
 // ListTriggerProposals lists the proposals that wait for an answer.
 // @Summary List trigger proposals.
-// @Description A model in a chat can propose a trigger. A proposal is not active and runs nothing; confirm it to turn it into a trigger that is on.
+// @Description A model in a chat can propose a trigger. A proposal is not active and runs nothing; confirm it to turn it into a trigger that is on. The chat shows it as a tool line with a card of kind trigger_proposal whose id is the proposal's id, and a trigger_proposed event announces it.
 // @Tags chats
+// @Param chat query string false "only the proposals made in this chat"
 // @Success 200 {object} schema.ChatsTriggerList "The proposals"
 // @Router /api/chats/triggers/proposals [get]
 func (h *Handlers) ListTriggerProposals(c echo.Context) error {
@@ -290,7 +291,11 @@ func (h *Handlers) ListTriggerProposals(c echo.Context) error {
 		return failTrigger(c, err)
 	}
 	out := schema.ChatsTriggerList{Triggers: make([]schema.ChatsTrigger, 0, len(list))}
+	chat := c.QueryParam("chat")
 	for _, t := range list {
+		if chat != "" && t.SourceChatID != chat {
+			continue
+		}
 		out.Triggers = append(out.Triggers, triggerOut(c.Request().Context(), host, t, false))
 	}
 	return c.JSON(http.StatusOK, out)
@@ -312,6 +317,30 @@ func (h *Handlers) ConfirmTriggerProposal(c echo.Context) error {
 	var req schema.ChatsTriggerConfirm
 	_ = c.Bind(&req)
 	t, err := host.ConfirmProposal(c.Request().Context(), userID(c), c.Param("id"), req.TimeZone)
+	if err != nil {
+		return failTrigger(c, err)
+	}
+	return c.JSON(http.StatusOK, triggerOut(c.Request().Context(), host, t, true))
+}
+
+// EditTriggerProposal changes a proposal.
+// @Summary Edit a trigger proposal.
+// @Description The body replaces every field of the proposal, as for a trigger. The proposal stays a proposal: it is not active until you confirm it.
+// @Tags chats
+// @Param id path string true "the proposal's id"
+// @Param request body schema.ChatsTriggerWrite true "the new fields"
+// @Success 200 {object} schema.ChatsTrigger "The proposal"
+// @Router /api/chats/triggers/proposals/{id} [put]
+func (h *Handlers) EditTriggerProposal(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	var req schema.ChatsTriggerWrite
+	if err := c.Bind(&req); err != nil {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+	}
+	t, err := host.EditProposal(c.Request().Context(), userID(c), c.Param("id"), triggerIn(req))
 	if err != nil {
 		return failTrigger(c, err)
 	}

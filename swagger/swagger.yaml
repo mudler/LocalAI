@@ -3143,6 +3143,12 @@ definitions:
           that goes with the result.
       at:
         type: string
+      card:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsToolCard'
+        description: |-
+          Card is set on a tool line that points at a record, such as a trigger
+          proposal (kind trigger_proposal, id the proposal's id).
       dur_ms:
         description: DurMs is how long the model thought, for reasoning lines.
         type: integer
@@ -3448,6 +3454,13 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsToolCard:
+    properties:
+      id:
+        type: string
+      kind:
+        type: string
+    type: object
   schema.ChatsToolEvent:
     properties:
       app:
@@ -3456,6 +3469,10 @@ definitions:
         description: |-
           App is the reference of the MCP App of the call, on tool_end. It has no
           input and no result: read the transcript line for them.
+      card:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsToolCard'
+        description: Card is the record the result points at, on tool_end; see ChatsMessage.
       name:
         type: string
       ok:
@@ -10672,7 +10689,14 @@ paths:
   /api/chats/triggers/proposals:
     get:
       description: A model in a chat can propose a trigger. A proposal is not active
-        and runs nothing; confirm it to turn it into a trigger that is on.
+        and runs nothing; confirm it to turn it into a trigger that is on. The chat
+        shows it as a tool line with a card of kind trigger_proposal whose id is the
+        proposal's id, and a trigger_proposed event announces it.
+      parameters:
+      - description: only the proposals made in this chat
+        in: query
+        name: chat
+        type: string
       responses:
         "200":
           description: The proposals
@@ -10693,6 +10717,29 @@ paths:
         "204":
           description: Dismissed
       summary: Dismiss a trigger proposal.
+      tags:
+      - chats
+    put:
+      description: 'The body replaces every field of the proposal, as for a trigger.
+        The proposal stays a proposal: it is not active until you confirm it.'
+      parameters:
+      - description: the proposal's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the new fields
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsTriggerWrite'
+      responses:
+        "200":
+          description: The proposal
+          schema:
+            $ref: '#/definitions/schema.ChatsTrigger'
+      summary: Edit a trigger proposal.
       tags:
       - chats
   /api/chats/triggers/proposals/{id}/confirm:

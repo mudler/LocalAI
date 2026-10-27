@@ -123,7 +123,14 @@ func (s *toolSession) Send(ctx context.Context, text string) error {
 		case step.Say != "":
 			s.env.Emit(session.Event{Kind: session.KindText, Text: step.Say})
 		case step.Tool != "":
+			s.env.Emit(session.Event{Kind: session.KindToolStart, Tool: &session.ToolEvent{Name: step.Tool, Summary: session.Summarize(json.RawMessage(step.Args))}})
 			out, err := s.call(ctx, step.Tool, step.Args)
+			text := out
+			if err != nil {
+				text = err.Error()
+			}
+			s.env.Emit(session.Event{Kind: session.KindToolEnd, Tool: &session.ToolEvent{Name: step.Tool,
+				Summary: session.Summarize(json.RawMessage(step.Args)), OK: err == nil, Output: session.CapText(text, 2048)}})
 			s.h.mu.Lock()
 			s.h.results = append(s.h.results, ToolResult{Chat: chat, Tool: step.Tool, Out: out, Err: err})
 			s.h.mu.Unlock()

@@ -278,6 +278,30 @@ func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (tr
 	return t, nil
 }
 
+// EditProposal replaces the fields of a proposal that waits for an answer. It
+// stays a proposal: it is not enabled and runs nothing until it is confirmed.
+func (h *Triggers) EditProposal(ctx context.Context, user, id string, in TriggerInput) (triggers.Trigger, error) {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	old, err := h.ownedProposal(ctx, user, id)
+	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	in.Enabled = false
+	t, err := h.build(ctx, old.Owner, in)
+	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	t.ID, t.Proposed = old.ID, true
+	if t.SourceChatID == "" {
+		t.SourceChatID = old.SourceChatID
+	}
+	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
+		return triggers.Trigger{}, err
+	}
+	return t, nil
+}
+
 // DismissProposal deletes a proposal.
 func (h *Triggers) DismissProposal(ctx context.Context, user, id string) error {
 	h.wmu.Lock()
