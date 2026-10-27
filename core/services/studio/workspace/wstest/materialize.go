@@ -55,7 +55,7 @@ func testMaterialize(t *testing.T, newStore NewStore) {
 		want := map[string]string{"work/a.txt": "a", "work/sub/b.txt": "b", "docs/d.txt": "d"}
 		for rel, content := range want {
 			p := filepath.Join(dir, filepath.FromSlash(rel))
-			got, err := os.ReadFile(p)
+			got, err := os.ReadFile(p) // #nosec G304 -- a test reads a file it wrote in its own temp directory
 			if err != nil || string(got) != content {
 				t.Errorf("%s = %q, %v", rel, got, err)
 			}
@@ -152,7 +152,7 @@ func testMaterialize(t *testing.T, newStore NewStore) {
 		if _, err := s.Materialize(Ctx(), v, dir); err != nil {
 			t.Fatal(err)
 		}
-		if got, err := os.ReadFile(filepath.Join(dir, "work", "in", "a.txt")); err != nil || string(got) != "a" {
+		if got, err := os.ReadFile(filepath.Join(dir, "work", "in", "a.txt")); err != nil || string(got) != "a" { // #nosec G304 -- a test reads a file it wrote in its own temp directory
 			t.Fatalf("got %q, %v", got, err)
 		}
 	})
@@ -170,7 +170,7 @@ func testMaterialize(t *testing.T, newStore NewStore) {
 		if _, err := s.Materialize(Ctx(), v, dir); err != nil {
 			t.Fatal(err)
 		}
-		if got, err := os.ReadFile(filepath.Join(dir, "w", "a.txt")); err != nil || string(got) != "a" {
+		if got, err := os.ReadFile(filepath.Join(dir, "w", "a.txt")); err != nil || string(got) != "a" { // #nosec G304 -- a test reads a file it wrote in its own temp directory
 			t.Fatalf("got %q, %v", got, err)
 		}
 	})

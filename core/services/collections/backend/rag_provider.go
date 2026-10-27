@@ -1,7 +1,7 @@
 package backend
 
 import (
-	"crypto/md5"
+	"crypto/md5" // #nosec G501 -- the hash only names a temporary file and protects nothing
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -32,7 +32,7 @@ func (a *internalRAGAdapter) Store(s string) error {
 	}
 	t := time.Now()
 	dateTime := t.Format("2006-01-02-15-04-05")
-	hash := md5.Sum([]byte(s))
+	hash := md5.Sum([]byte(s)) // #nosec G401 -- the hash only names a temporary file and protects nothing
 	fileName := fmt.Sprintf("%s-%s.txt", dateTime, hex.EncodeToString(hash[:]))
 	tempdir, err := os.MkdirTemp("", "localrag")
 	if err != nil {
@@ -40,7 +40,7 @@ func (a *internalRAGAdapter) Store(s string) error {
 	}
 	defer os.RemoveAll(tempdir)
 	f := filepath.Join(tempdir, fileName)
-	if err := os.WriteFile(f, []byte(s), 0644); err != nil {
+	if err := os.WriteFile(f, []byte(s), 0644); err != nil { // #nosec G306 -- the file is a temporary copy that kb.Store reads and removes
 		return err
 	}
 	meta := map[string]string{"created_at": t.Format(time.RFC3339)}

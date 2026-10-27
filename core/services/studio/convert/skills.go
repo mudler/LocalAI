@@ -68,7 +68,7 @@ func (r *run) readSkills() []oldSkill {
 			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 				continue
 			}
-			raw, err := os.ReadFile(filepath.Join(base, e.Name(), "SKILL.md"))
+			raw, err := os.ReadFile(filepath.Join(base, e.Name(), "SKILL.md")) // #nosec G304 -- the path is a skill folder of the local store
 			if err != nil {
 				continue
 			}

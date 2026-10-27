@@ -115,8 +115,14 @@ exec "$realgo" "\$@"
 STUB
 chmod 755 "$work/stubbin/go"
 : >"$work/gobuild.log"
+# The sandbox platforms name runtime files (gVisor binaries) that the release
+# build fetches. The check lays small stand-ins for them in a runtime directory.
+mkdir -p "$work/runtime/gvisor-bin"
+for f in runsc gvisor-bin/checkpointgofer gvisor-bin/gvisor-sentry-prewarmer gvisor-bin/gvisor_sentry gvisor-bin/runsc-fd-parking gvisor-bin/runsc-metric-server; do
+    printf 'stand-in\n' >"$work/runtime/$f"
+done
 for id in tables voice face fine-tuning quantization studio talk office sandbox; do
-    PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config "addons/$id/package/platforms.yaml" --layout "$work/stub-$id" --version 1.2.3 --platform "$host" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+    PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config "addons/$id/package/platforms.yaml" --layout "$work/stub-$id" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
 done
 grep -x './addons/tables/cmd/tables CGO_ENABLED=1' "$work/gobuild.log" >/dev/null
 for id in voice face fine-tuning quantization studio talk office sandbox; do

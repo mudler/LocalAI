@@ -85,7 +85,7 @@ func (a *backendCompactionAdapter) Store(path string) error {
 	if err := a.backend.createCollection(a.collection, settings); err != nil {
 		return err
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) // #nosec G304 -- the path is a file the operator asked to store in the collection
 	if err != nil {
 		return err
 	}

@@ -1,3 +1,5 @@
+//go:build auth
+
 // SPDX-License-Identifier: MIT
 package auth_test
 

@@ -214,7 +214,7 @@ func (h *WorkspaceHost) commit(ctx context.Context, c Call) (json.RawMessage, er
 	}
 	// The add-on writes this file, so it could make it a link to any archive
 	// of the host. Export and import refuse links for the same reason.
-	f, err := os.OpenFile(filepath.Join(dir, upperName), os.O_RDONLY|syscallNoFollow, 0)
+	f, err := os.OpenFile(filepath.Join(dir, upperName), os.O_RDONLY|syscallNoFollow, 0) // #nosec G304 -- the path is inside the host-owned workspace and is opened without following links
 	if err != nil {
 		return nil, fmt.Errorf("%w: no %s in the directory", ErrBadRequest, upperName)
 	}
@@ -336,7 +336,7 @@ func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, er
 	if node.Kind != workspace.KindFile || node.Size > maxCopyBytes {
 		return nil, fmt.Errorf("%w: not a file, or too large", ErrBadRequest)
 	}
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscallNoFollow, 0o600)
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscallNoFollow, 0o600) // #nosec G304 -- the destination is a host-chosen path and is opened without following links
 	if err != nil {
 		return nil, fmt.Errorf("%w: cannot write the file", ErrBadRequest)
 	}
@@ -377,7 +377,7 @@ func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(src, os.O_RDONLY|syscallNoFollow, 0)
+	f, err := os.OpenFile(src, os.O_RDONLY|syscallNoFollow, 0) // #nosec G304 -- the source is a host-chosen path and is opened without following links
 	if err != nil {
 		return nil, ErrNotFound
 	}

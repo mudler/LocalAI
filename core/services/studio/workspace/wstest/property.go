@@ -65,7 +65,7 @@ func randomOp(t *testing.T, s workspace.Store, rng *rand.Rand) workspace.ChangeS
 
 func runOps(t *testing.T, s workspace.Store, seed int64, n int) []int64 {
 	t.Helper()
-	rng := rand.New(rand.NewSource(seed))
+	rng := rand.New(rand.NewSource(seed)) // #nosec G404 -- a seeded generator makes the test reproducible
 	var revs []int64
 	for i := 0; i < n; i++ {
 		if cs := randomOp(t, s, rng); cs.Rev != 0 {

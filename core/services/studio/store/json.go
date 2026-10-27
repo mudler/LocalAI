@@ -58,7 +58,7 @@ func NewJSON(dir string) (Store, error) {
 	for _, p := range names {
 		// One damaged chat must not disable the feature for everyone: skip it,
 		// keep its files for inspection, and load the rest.
-		raw, err := os.ReadFile(p)
+		raw, err := os.ReadFile(p) // #nosec G304 -- the path is a file of the store directory
 		if err != nil {
 			xlog.Warn("studio store: skipping unreadable chat record", "file", filepath.Base(p), "error", err)
 			continue
@@ -100,7 +100,7 @@ func (s *jsonStore) file(id, ext string) string {
 // parse is dropped and the file is cut back to the last good newline.
 func (s *jsonStore) loadEntries(c *chatState) error {
 	path := s.file(c.Rec.ID, ".entries")
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- the path is a file of the store directory
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -153,7 +153,7 @@ func (s *jsonStore) loadEntries(c *chatState) error {
 
 // repairTranscript rewrites the transcript with only its good prefix.
 func repairTranscript(path string, good []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0o600) // #nosec G304 -- the path is a file of the store directory
 	if err != nil {
 		return err
 	}

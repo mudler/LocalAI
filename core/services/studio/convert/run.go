@@ -216,7 +216,7 @@ func hasTable(db *gorm.DB, name string) bool { return db != nil && db.Migrator()
 // error names the file, not the folder it is in, and no content: it ends up in a
 // report that the user reads.
 func readJSONFile(path string, out any) (bool, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- the path is a store file the conversion owns
 	if os.IsNotExist(err) {
 		return false, nil
 	}

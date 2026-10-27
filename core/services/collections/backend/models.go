@@ -61,7 +61,7 @@ func (b *backendInProcess) storedModel(name, desired string) (string, error) {
 
 func (b *backendInProcess) saveModel(name, model string) error {
 	path := b.identityPath(name)
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil { // #nosec G301 -- the settings directory is shared with the services that read it
 		return err
 	}
 	data, _ := json.Marshal(model)

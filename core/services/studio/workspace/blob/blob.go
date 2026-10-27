@@ -90,7 +90,7 @@ func place(tmp, final string) error {
 	if err := os.MkdirAll(filepath.Dir(final), 0o700); err != nil {
 		return err
 	}
-	if err := os.Chmod(tmp, 0o444); err != nil {
+	if err := os.Chmod(tmp, 0o444); err != nil { // #nosec G302 -- blobs are content addressed and read only on purpose
 		return err
 	}
 	if err := os.Rename(tmp, final); err != nil {
@@ -110,12 +110,12 @@ func linkOrCopy(src, dst string) error {
 	} else if errors.Is(err, os.ErrExist) {
 		return err
 	}
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304 -- the source is a host-owned file
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o444)
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o444) // #nosec G302 G304 -- blobs are content addressed and read only on purpose; the destination is a path of the blob store
 	if err != nil {
 		return err
 	}

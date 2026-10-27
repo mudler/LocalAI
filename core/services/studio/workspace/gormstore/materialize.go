@@ -62,7 +62,7 @@ func (s *Workspace) Materialize(ctx context.Context, v View, dir string) (int64,
 	if err != nil {
 		return 0, err
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { // #nosec G301 -- the materialized tree is read by the sandbox process
 		return 0, err
 	}
 	ents, err := os.ReadDir(dir)
@@ -132,7 +132,7 @@ func (s *Workspace) Materialize(ctx context.Context, v View, dir string) (int64,
 	}
 	for _, it := range items {
 		if it.dir {
-			if err := os.MkdirAll(it.path, 0o755); err != nil {
+			if err := os.MkdirAll(it.path, 0o755); err != nil { // #nosec G301 -- the materialized tree is read by the sandbox process
 				return 0, err
 			}
 			continue

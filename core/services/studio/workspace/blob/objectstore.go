@@ -38,7 +38,7 @@ func (s *objectStore) Put(ctx context.Context, r io.Reader, max int64) (string, 
 	ok, err := s.os.Exists(ctx, key(sha))
 	if err == nil && !ok {
 		var f *os.File
-		if f, err = os.Open(tmp); err == nil {
+		if f, err = os.Open(tmp); err == nil { // #nosec G304 -- the path is a file of the local blob cache
 			err = s.os.Put(ctx, key(sha), f)
 			_ = f.Close()
 		}
@@ -59,7 +59,7 @@ func (s *objectStore) Open(ctx context.Context, sha string) (io.ReadSeekCloser, 
 		return nil, workspace.ErrNotFound
 	}
 	local := shaPath(s.cache, sha)
-	if f, err := os.Open(local); err == nil {
+	if f, err := os.Open(local); err == nil { // #nosec G304 -- the path is a file of the local blob cache
 		return f, nil
 	}
 	ok, err := s.os.Exists(ctx, key(sha))
@@ -89,7 +89,7 @@ func (s *objectStore) Open(ctx context.Context, sha string) (io.ReadSeekCloser, 
 		_ = os.Remove(tmp)
 		return nil, err
 	}
-	return os.Open(local)
+	return os.Open(local) // #nosec G304 -- the path is a file of the local blob cache
 }
 
 func (s *objectStore) Exists(ctx context.Context, sha string) (bool, error) {

@@ -151,8 +151,8 @@ func (b *backendInProcess) upload(collection, filename string, fileBody io.Reade
 		return "", err
 	}
 	defer os.RemoveAll(tmpDir)
-	tmpPath := filepath.Join(tmpDir, filename)
-	out, err := os.Create(tmpPath)
+	tmpPath := filepath.Join(tmpDir, filepath.Base(filename))
+	out, err := os.Create(tmpPath) // #nosec G304 -- tmpPath is inside a fresh temp directory and the name is reduced to its base
 	if err != nil {
 		return "", err
 	}
@@ -355,8 +355,8 @@ func NewInProcessBackend(cfg *Config) (Backend, *State) {
 	backend := &backendInProcess{state: st, cfg: cfg, openAIClient: openAIClient}
 	st.backend = backend
 
-	os.MkdirAll(cfg.CollectionDBPath, 0755)
-	os.MkdirAll(cfg.FileAssets, 0755)
+	os.MkdirAll(cfg.CollectionDBPath, 0755) // #nosec G301 -- the collection directories are shared with the services that read them
+	os.MkdirAll(cfg.FileAssets, 0755)       // #nosec G301 -- the collection directories are shared with the services that read them
 
 	colls := rag.ListAllCollections(cfg.CollectionDBPath)
 	for _, c := range colls {

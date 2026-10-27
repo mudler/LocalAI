@@ -41,7 +41,7 @@ func (d DirSource) Walk(ctx context.Context, fn func(UpperEntry) error) error {
 		case m.IsRegular():
 			e.Kind = EntryFile
 			path := p
-			e.Open = func() (io.ReadCloser, error) { return os.Open(path) }
+			e.Open = func() (io.ReadCloser, error) { return os.Open(path) } // #nosec G304 -- the path comes from walking the upper directory the host owns
 		case m.IsDir():
 			e.Kind = EntryDir
 			e.Xattrs = overlayXattrs(p)

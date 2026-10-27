@@ -69,7 +69,7 @@ func testConcurrency(t *testing.T, newStore NewStore) {
 			wg.Add(1)
 			go func(g int) {
 				defer wg.Done()
-				rng := rand.New(rand.NewSource(int64(g)))
+				rng := rand.New(rand.NewSource(int64(g))) // #nosec G404 -- a seeded generator makes the test reproducible
 				for i := 0; i < 30; i++ {
 					p := "/m/" + names[rng.Intn(len(names))]
 					var err error
