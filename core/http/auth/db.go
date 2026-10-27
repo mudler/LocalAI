@@ -21,6 +21,15 @@ func OpenSQLiteFile(path string) (*gorm.DB, error) {
 	return gorm.Open(d, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 }
 
+// isMemorySQLite tells whether a database URL is an in-memory SQLite database.
+func isMemorySQLite(databaseURL string) bool {
+	if strings.HasPrefix(databaseURL, "postgres://") || strings.HasPrefix(databaseURL, "postgresql://") {
+		return false
+	}
+	u := strings.TrimPrefix(databaseURL, "file:")
+	return strings.HasPrefix(u, ":memory:")
+}
+
 // InitDB initializes the auth database. If databaseURL starts with "postgres://"
 // or "postgresql://", it connects to PostgreSQL; otherwise it treats the value
 // as a SQLite file path (use ":memory:" for in-memory).
@@ -43,6 +52,16 @@ func InitDB(databaseURL string) (*gorm.DB, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open auth database: %w", err)
+	}
+
+	// A SQLite ":memory:" database lives in one connection: a second connection
+	// of the pool would see an empty database with no tables. The chats run
+	// background work beside requests (triggers, notifications), so keep the pool
+	// at one connection for an in-memory database.
+	if isMemorySQLite(databaseURL) {
+		if sqlDB, err := db.DB(); err == nil {
+			sqlDB.SetMaxOpenConns(1)
+		}
 	}
 
 	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}, &QuotaRule{}); err != nil {

@@ -324,3 +324,80 @@ var _ = Describe("Chats skills", Label("Chats"), func() {
 		Expect(code).To(Equal(http.StatusBadRequest))
 	})
 })
+
+// Saved agents, triggers and the inbox through the whole server: a trigger that
+// the owner runs by hand is a chat of the owner on the mock model.
+var _ = Describe("Chats agents, triggers and inbox", Label("Chats"), func() {
+	type obj = map[string]any
+	decode := func(out []byte) obj {
+		var m obj
+		Expect(json.Unmarshal(out, &m)).To(Succeed(), string(out))
+		return m
+	}
+
+	It("starts a chat with a saved agent and answers it", func() {
+		code, out := chatsDo(http.MethodPost, chatsBase()+"/agents", obj{"name": "Helper e2e", "instructions": "Be brief.", "model": "mock-model"})
+		Expect(code).To(Equal(http.StatusCreated), string(out))
+		agentID := decode(out)["id"].(string)
+		DeferCleanup(func() { chatsDo(http.MethodDelete, chatsBase()+"/agents/"+agentID, nil) })
+
+		code, out = chatsDo(http.MethodPost, chatsBase(), obj{"agent_id": agentID})
+		Expect(code).To(Equal(http.StatusCreated), string(out))
+		chat := decode(out)
+		Expect(chat).To(HaveKeyWithValue("agent_id", agentID))
+		Expect(chat).To(HaveKeyWithValue("model", "mock-model"))
+		id := chat["id"].(string)
+		chatsSend(id, "hello")
+		Eventually(func() bool { return chatsIdle(id) }, 60*time.Second, 200*time.Millisecond).Should(BeTrue())
+		Expect(userTexts(chatsTranscript(id))).To(Equal([]string{"hello"}))
+	})
+
+	It("runs a trigger by hand as a chat of its owner and tells the owner", func() {
+		code, out := chatsDo(http.MethodPost, chatsBase()+"/triggers", obj{
+			"name": "Digest e2e", "prompt": "Say hello.", "kind": "schedule", "schedule": "daily 08:00", "time_zone": "UTC",
+			"enabled": true, "model": "mock-model",
+		})
+		Expect(code).To(Equal(http.StatusCreated), string(out))
+		trgID := decode(out)["id"].(string)
+		DeferCleanup(func() { chatsDo(http.MethodDelete, chatsBase()+"/triggers/"+trgID, nil) })
+
+		code, out = chatsDo(http.MethodGet, chatsBase()+"/notifications/count", nil)
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		before := int(decode(out)["unread"].(float64))
+
+		code, out = chatsDo(http.MethodPost, chatsBase()+"/triggers/"+trgID+"/run", nil)
+		Expect(code).To(Equal(http.StatusAccepted), string(out))
+		var run obj
+		Eventually(func() string {
+			code, out := chatsDo(http.MethodGet, chatsBase()+"/triggers/"+trgID+"/runs", nil)
+			Expect(code).To(Equal(http.StatusOK), string(out))
+			runs := decode(out)["runs"].([]any)
+			if len(runs) == 0 {
+				return ""
+			}
+			run = runs[0].(obj)
+			return run["status"].(string)
+		}, 90*time.Second, 200*time.Millisecond).Should(Equal("done"))
+
+		chatID := run["chat_id"].(string)
+		code, out = chatsDo(http.MethodGet, chatsBase()+"/"+chatID, nil)
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		Expect(decode(out)).To(And(HaveKeyWithValue("origin", "trigger"), HaveKeyWithValue("origin_id", trgID)))
+		Expect(userTexts(chatsTranscript(chatID))).To(ContainElement(ContainSubstring("Say hello.")))
+
+		// Opening the chat marked its notification read, so the count is as before.
+		code, out = chatsDo(http.MethodGet, chatsBase()+"/notifications?limit=50", nil)
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		found := false
+		for _, n := range decode(out)["notifications"].([]any) {
+			if n.(obj)["link"] == "/app/chats/"+chatID {
+				found = true
+				Expect(n.(obj)["kind"]).To(Equal("run_ended"))
+			}
+		}
+		Expect(found).To(BeTrue(), "no notification for the run")
+		code, out = chatsDo(http.MethodGet, chatsBase()+"/notifications/count", nil)
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		Expect(int(decode(out)["unread"].(float64))).To(Equal(before))
+	})
+})

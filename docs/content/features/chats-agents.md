@@ -182,7 +182,20 @@ curl -X DELETE .../api/chats/push/subscribe -d '{"endpoint": "https://..."}'
 
 ## Storage and clusters
 
-Saved agents and notifications are stored beside your chats: in the database when there is one,
-in JSON files under the data path otherwise, and in memory when there is no
-data path (the page then says persistent features are off). A cluster needs
-PostgreSQL, as the chats do. The JSON store is for a single process.
+Saved agents, triggers, runs, notifications and push subscriptions are stored
+beside your chats: in the database when there is one, in JSON files under the
+data path otherwise, and in memory when there is no data path (the page then says
+persistent features are off, and push is off). The JSON stores are for a single
+process.
+
+A cluster needs PostgreSQL, as the chats do. This is how each part of the state
+behaves with several frontends:
+
+| State | Mode | How |
+|---|---|---|
+| Agents, triggers, runs, notifications, push subscriptions | Shared | Rows in the database. Any frontend reads and writes them. |
+| Which frontend runs the triggers | Single runner | The frontend that holds the advisory lock (`KeyChatsTriggers`) runs the Runner. When it stops, another takes the lock. |
+| A due time or a file version | Shared | One unique row for each trigger and due key. Two frontends cannot start the same run. |
+| Quiet periods of waiting files, the memory of a run's own writes | Per leader | Kept by the Runner of the current leader. A new leader reads the change feed again from its saved position, which stays below the oldest waiting file, so a file that was waiting is found again. |
+| Live notifications | Shared, live only | Sent over the message bus to every frontend. A client that missed one lists the inbox, which is the record. |
+| The supervisor of a running run | Per instance | The frontend that started the run watches it. The leader also ends any run that nobody watches whose chat is over, so a run is not lost when its frontend dies. |

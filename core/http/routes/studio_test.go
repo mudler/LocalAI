@@ -37,7 +37,13 @@ type studioServer struct {
 	harness  *studiotest.GateHarness
 	sessions map[string]string
 	notify   *notify.Service
+	host     *studio.Triggers
+	svc      *studio.Service
 }
+
+// studioTriggerOptions lets a spec set the clock or the limits of the trigger
+// host before the server is built. Reset it after the spec.
+var studioTriggerOptions func(*studio.TriggerOptions)
 
 func newStudioServer() *studioServer { return newStudioServerFiles(newTestFiles()) }
 
@@ -71,12 +77,16 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	DeferCleanup(func() { _ = svc.Close(context.Background()) })
 	ts, err := triggers.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
-	host, err := studio.NewTriggers(svc, studio.TriggerOptions{Store: ts, Tick: time.Hour})
+	trgOpts := studio.TriggerOptions{Store: ts, Tick: time.Hour}
+	if studioTriggerOptions != nil {
+		studioTriggerOptions(&trgOpts)
+	}
+	host, err := studio.NewTriggers(svc, trgOpts)
 	Expect(err).NotTo(HaveOccurred())
 	svc.SetTriggers(host)
 	DeferCleanup(host.Close)
 
-	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc}
+	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc}
 	for _, id := range []string{"alice", "bob", "carol", "root"} {
 		role := auth.RoleUser
 		if id == "root" {

@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
 type tclock struct {
@@ -43,6 +44,7 @@ type shared struct {
 	clock   *tclock
 	users   func(string) error
 	addons  *fakeAddons
+	net     *testutil.FakeBus // when set, notifications travel over it, as between frontends
 }
 
 func newShared(t *testing.T) *shared {
@@ -70,7 +72,11 @@ type trigRig struct {
 
 func (sh *shared) rig(t *testing.T, script func(workspace.Actor, string) []studiotest.ToolStep, o studio.TriggerOptions) *trigRig {
 	t.Helper()
-	inbox := notify.NewService(notify.Options{Store: sh.notices, Clock: sh.clock.Now})
+	var fan notify.Fanout
+	if sh.net != nil {
+		fan = notify.NewBroadcastFanout(sh.net, nil)
+	}
+	inbox := notify.NewService(notify.Options{Store: sh.notices, Clock: sh.clock.Now, Fanout: fan})
 	svc, h := newToolService(t, script, func(d *studio.Deps) {
 		d.Store, d.Files, d.Agents, d.Notify, d.AddonTools = sh.chats, sh.files, sh.agents, inbox, sh.addons
 		if sh.users != nil {
