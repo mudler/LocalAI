@@ -2960,6 +2960,123 @@ definitions:
       title:
         type: string
     type: object
+  schema.ChatsTrigger:
+    properties:
+      agent_id:
+        type: string
+      daily_cap:
+        type: integer
+      enabled:
+        type: boolean
+      folder:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      last_run:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerRun'
+        description: LastRun is the newest run, if any.
+      model:
+        type: string
+      name:
+        type: string
+      next_run:
+        type: string
+      prompt:
+        type: string
+      quiet_seconds:
+        type: integer
+      schedule:
+        type: string
+      source_chat_id:
+        type: string
+      summary:
+        description: |-
+          Summary says when it runs in plain words. NextRun is set for a schedule
+          trigger that is on.
+        type: string
+      time_zone:
+        type: string
+    type: object
+  schema.ChatsTriggerConfirm:
+    properties:
+      time_zone:
+        type: string
+    type: object
+  schema.ChatsTriggerList:
+    properties:
+      triggers:
+        items:
+          $ref: '#/definitions/schema.ChatsTrigger'
+        type: array
+    type: object
+  schema.ChatsTriggerPreview:
+    properties:
+      summary:
+        type: string
+      times:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsTriggerRun:
+    properties:
+      chat_id:
+        type: string
+      due:
+        type: string
+      ended:
+        type: string
+      file:
+        type: string
+      id:
+        type: string
+      reason:
+        type: string
+      started:
+        type: string
+      status:
+        type: string
+    type: object
+  schema.ChatsTriggerRunList:
+    properties:
+      runs:
+        items:
+          $ref: '#/definitions/schema.ChatsTriggerRun'
+        type: array
+    type: object
+  schema.ChatsTriggerWrite:
+    properties:
+      agent_id:
+        description: |-
+          AgentID is optional. Model is needed when neither the agent nor the source
+          chat names one.
+        type: string
+      daily_cap:
+        type: integer
+      enabled:
+        type: boolean
+      folder:
+        type: string
+      kind:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      prompt:
+        type: string
+      quiet_seconds:
+        type: integer
+      schedule:
+        type: string
+      source_chat_id:
+        type: string
+      time_zone:
+        type: string
+    type: object
   schema.ChatsUndoRequest:
     properties:
       rev:
@@ -9620,6 +9737,239 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsSkillDetail'
       summary: Change a skill.
+      tags:
+      - chats
+  /api/chats/triggers:
+    get:
+      description: A trigger starts a chat as you, by itself, on a schedule or when
+        a file arrives in a folder of your files. Each run is an ordinary chat, marked
+        with its trigger, that you can open and undo.
+      responses:
+        "200":
+          description: Your triggers, sorted by name
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerList'
+      summary: List your triggers.
+      tags:
+      - chats
+    post:
+      description: 'kind is schedule (schedule: "daily 08:00", "weekdays 09:30", "weekly
+        mon,thu 09:30", "monthly 15 08:00", "once 2026-12-24 18:00" or five cron fields;
+        time_zone: an IANA name) or file (folder: a path inside your files). It runs
+        nothing for the time before it was saved. At most 50 triggers.'
+      parameters:
+      - description: the trigger
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsTriggerWrite'
+      responses:
+        "201":
+          description: The trigger
+          schema:
+            $ref: '#/definitions/schema.ChatsTrigger'
+      summary: Create a trigger.
+      tags:
+      - chats
+  /api/chats/triggers/{id}:
+    delete:
+      description: Its queued runs are dropped and a running run is stopped. The chats
+        it made stay.
+      parameters:
+      - description: the trigger's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Deleted
+      summary: Delete a trigger.
+      tags:
+      - chats
+    get:
+      parameters:
+      - description: the trigger's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The trigger
+          schema:
+            $ref: '#/definitions/schema.ChatsTrigger'
+      summary: Read a trigger.
+      tags:
+      - chats
+    put:
+      description: The body replaces every field. A change of when it runs, or switching
+        it on, means it runs nothing for the time before the change.
+      parameters:
+      - description: the trigger's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the trigger
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsTriggerWrite'
+      responses:
+        "200":
+          description: The trigger
+          schema:
+            $ref: '#/definitions/schema.ChatsTrigger'
+      summary: Replace a trigger.
+      tags:
+      - chats
+  /api/chats/triggers/{id}/disable:
+    post:
+      parameters:
+      - description: the trigger's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The trigger
+          schema:
+            $ref: '#/definitions/schema.ChatsTrigger'
+      summary: Switch a trigger off.
+      tags:
+      - chats
+  /api/chats/triggers/{id}/enable:
+    post:
+      parameters:
+      - description: the trigger's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The trigger
+          schema:
+            $ref: '#/definitions/schema.ChatsTrigger'
+      summary: Switch a trigger on.
+      tags:
+      - chats
+  /api/chats/triggers/{id}/run:
+    post:
+      description: Starts a run at once, whether the trigger is on or not. The run
+        is skipped, with its reason, when the trigger has a run going. On a cluster
+        the run may start a few seconds later.
+      parameters:
+      - description: the trigger's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: The run
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerRun'
+      summary: Run a trigger now.
+      tags:
+      - chats
+  /api/chats/triggers/{id}/runs:
+    get:
+      parameters:
+      - description: the trigger's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: most runs to return (default 20, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Newest first
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerRunList'
+      summary: List the runs of a trigger.
+      tags:
+      - chats
+  /api/chats/triggers/preview:
+    get:
+      description: Returns the next times a schedule text runs in a time zone, and
+        the schedule in plain words. A bad text is a 400 with the reason.
+      parameters:
+      - description: the schedule text
+        in: query
+        name: when
+        required: true
+        type: string
+      - description: an IANA time zone name (default UTC)
+        in: query
+        name: tz
+        type: string
+      - description: how many times (default 3, at most 10)
+        in: query
+        name: "n"
+        type: integer
+      responses:
+        "200":
+          description: The next times
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerPreview'
+      summary: Preview a schedule.
+      tags:
+      - chats
+  /api/chats/triggers/proposals:
+    get:
+      description: A model in a chat can propose a trigger. A proposal is not active
+        and runs nothing; confirm it to turn it into a trigger that is on.
+      responses:
+        "200":
+          description: The proposals
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerList'
+      summary: List trigger proposals.
+      tags:
+      - chats
+  /api/chats/triggers/proposals/{id}:
+    delete:
+      parameters:
+      - description: the proposal's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Dismissed
+      summary: Dismiss a trigger proposal.
+      tags:
+      - chats
+  /api/chats/triggers/proposals/{id}/confirm:
+    post:
+      description: Turns the proposal into a trigger that is on. time_zone is used
+        when the proposal names none.
+      parameters:
+      - description: the proposal's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the time zone of the person confirming
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/schema.ChatsTriggerConfirm'
+      responses:
+        "200":
+          description: The trigger
+          schema:
+            $ref: '#/definitions/schema.ChatsTrigger'
+      summary: Confirm a trigger proposal.
       tags:
       - chats
   /api/conversations:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -52,8 +53,16 @@ func (s *Service) SetTriggers(h *Triggers) { s.triggers = h }
 
 func (h *Triggers) owned(ctx context.Context, user, id string) (triggers.Trigger, error) {
 	t, err := h.o.Store.GetTrigger(ctx, id)
-	if err != nil || t.Owner != principal(user) {
-		return triggers.Trigger{}, triggers.ErrNotFound // another user's trigger is a missing one
+	if err != nil || t.Owner != principal(user) || t.Proposed {
+		return triggers.Trigger{}, triggers.ErrNotFound // another user's trigger, or a proposal, is a missing one
+	}
+	return t, nil
+}
+
+func (h *Triggers) ownedProposal(ctx context.Context, user, id string) (triggers.Trigger, error) {
+	t, err := h.o.Store.GetTrigger(ctx, id)
+	if err != nil || t.Owner != principal(user) || !t.Proposed {
+		return triggers.Trigger{}, triggers.ErrNotFound
 	}
 	return t, nil
 }
@@ -178,9 +187,105 @@ func (h *Triggers) GetTrigger(ctx context.Context, user, id string) (triggers.Tr
 	return h.owned(ctx, user, id)
 }
 
-// ListTriggers returns the user's triggers sorted by name.
+// ListTriggers returns the user's triggers sorted by name, without proposals.
 func (h *Triggers) ListTriggers(ctx context.Context, user string) ([]triggers.Trigger, error) {
-	return h.o.Store.ListTriggers(ctx, principal(user))
+	all, err := h.o.Store.ListTriggers(ctx, principal(user))
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return t.Proposed }), nil
+}
+
+// maxProposals is how many proposals of a user may wait for an answer.
+const maxProposals = 10
+
+// ErrTooManyProposals means the user has the most proposals they may have
+// waiting.
+var ErrTooManyProposals = fmt.Errorf("studio: %d trigger proposals are waiting; confirm or dismiss one first", maxProposals)
+
+// Proposals returns the proposals of the user that wait for an answer.
+func (h *Triggers) Proposals(ctx context.Context, user string) ([]triggers.Trigger, error) {
+	all, err := h.o.Store.ListTriggers(ctx, principal(user))
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return !t.Proposed }), nil
+}
+
+// ProposeTrigger stores a trigger that a model proposed. It is never enabled.
+// Nothing runs until the owner confirms it.
+func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerInput) (triggers.Trigger, error) {
+	owner := principal(user)
+	in.Enabled = false
+	t, err := h.build(ctx, owner, in)
+	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	mine, err := h.o.Store.ListTriggers(ctx, owner)
+	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	pending := 0
+	for _, m := range mine {
+		if m.Proposed {
+			pending++
+		}
+	}
+	switch {
+	case pending >= maxProposals:
+		return triggers.Trigger{}, ErrTooManyProposals
+	case len(mine) >= maxTriggersPerUser:
+		return triggers.Trigger{}, ErrTooManyTriggers
+	}
+	t.ID, t.Proposed = newID(), true
+	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
+		return triggers.Trigger{}, err
+	}
+	return t, nil
+}
+
+// ConfirmProposal turns a proposal into a trigger that is on. A schedule
+// proposal that names no time zone takes tz (the zone of the person who
+// confirms); without one it runs in UTC.
+func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (triggers.Trigger, error) {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	old, err := h.ownedProposal(ctx, user, id)
+	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	t := old
+	if t.Kind == triggers.KindSchedule && t.TZ == "" {
+		t.TZ = tz
+	}
+	t.Proposed, t.Enabled = false, true
+	if err := t.Validate(); err != nil {
+		return triggers.Trigger{}, bad("%v", err)
+	}
+	// A folder that was readable when it was proposed may be gone now.
+	if t.Kind == triggers.KindFile {
+		if n, err := h.svc.d.Files.Store().Stat(ctx, h.svc.d.Files.Actor(t.Owner), t.Folder); err != nil || n.Kind != workspace.KindDir {
+			return triggers.Trigger{}, bad("the folder does not exist in your files any more")
+		}
+	}
+	t = triggers.Arm(nil, t, h.o.Clock())
+	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
+		return triggers.Trigger{}, err
+	}
+	h.Notify()
+	return t, nil
+}
+
+// DismissProposal deletes a proposal.
+func (h *Triggers) DismissProposal(ctx context.Context, user, id string) error {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	if _, err := h.ownedProposal(ctx, user, id); err != nil {
+		return err
+	}
+	return h.o.Store.DeleteTrigger(ctx, id)
 }
 
 // TriggerRuns returns the latest runs of a trigger of the user, newest first.

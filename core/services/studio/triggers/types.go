@@ -84,6 +84,10 @@ type Trigger struct {
 	// package only stores them.
 	SourceChatID string
 	Model        string
+	// Proposed marks a trigger that a model proposed in a chat and its owner has
+	// not confirmed. It is never enabled, so it never runs; confirming it clears
+	// the mark and switches it on. The package only stores the mark.
+	Proposed bool
 	// Since is when the trigger began to watch. Times and changes before it
 	// start no run. Arm sets it.
 	Since time.Time

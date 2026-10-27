@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -65,6 +66,12 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	svc, err := studio.New(deps)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = svc.Close(context.Background()) })
+	ts, err := triggers.NewJSON("")
+	Expect(err).NotTo(HaveOccurred())
+	host, err := studio.NewTriggers(svc, studio.TriggerOptions{Store: ts, Tick: time.Hour})
+	Expect(err).NotTo(HaveOccurred())
+	svc.SetTriggers(host)
+	DeferCleanup(host.Close)
 
 	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc}
 	for _, id := range []string{"alice", "bob", "carol", "root"} {

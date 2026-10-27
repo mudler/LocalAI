@@ -27,6 +27,7 @@ type triggerRow struct {
 	AgentID      string `gorm:"size:255"`
 	SourceChatID string `gorm:"size:255"`
 	Model        string `gorm:"size:255"`
+	Proposed     bool
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -79,13 +80,13 @@ const (
 func (r triggerRow) trigger() Trigger {
 	return Trigger{ID: r.ID, Owner: r.Owner, Name: r.Name, Prompt: r.Prompt, Enabled: r.Enabled, Kind: Kind(r.Kind),
 		Schedule: r.Schedule, TZ: r.TZ, Folder: r.Folder, Quiet: time.Duration(r.QuietNs), DailyCap: r.DailyCap,
-		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model}
+		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed}
 }
 
 func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 	row := triggerRow{ID: t.ID, Owner: t.Owner, Name: t.Name, Prompt: t.Prompt, Enabled: t.Enabled, Kind: string(t.Kind),
 		Schedule: t.Schedule, TZ: t.TZ, Folder: t.Folder, QuietNs: int64(t.Quiet), DailyCap: t.DailyCap,
-		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model}
+		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model, Proposed: t.Proposed}
 	return s.db.WithContext(ctx).Save(&row).Error
 }
 

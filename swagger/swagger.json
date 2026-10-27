@@ -4259,6 +4259,346 @@
                 }
             }
         },
+        "/api/chats/triggers": {
+            "get": {
+                "description": "A trigger starts a chat as you, by itself, on a schedule or when a file arrives in a folder of your files. Each run is an ordinary chat, marked with its trigger, that you can open and undo.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your triggers.",
+                "responses": {
+                    "200": {
+                        "description": "Your triggers, sorted by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "kind is schedule (schedule: \"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields; time_zone: an IANA name) or file (folder: a path inside your files). It runs nothing for the time before it was saved. At most 50 triggers.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Create a trigger.",
+                "parameters": [
+                    {
+                        "description": "the trigger",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/preview": {
+            "get": {
+                "description": "Returns the next times a schedule text runs in a time zone, and the schedule in plain words. A bad text is a 400 with the reason.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Preview a schedule.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the schedule text",
+                        "name": "when",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an IANA time zone name (default UTC)",
+                        "name": "tz",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "how many times (default 3, at most 10)",
+                        "name": "n",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The next times",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerPreview"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/proposals": {
+            "get": {
+                "description": "A model in a chat can propose a trigger. A proposal is not active and runs nothing; confirm it to turn it into a trigger that is on.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List trigger proposals.",
+                "responses": {
+                    "200": {
+                        "description": "The proposals",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/proposals/{id}": {
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Dismiss a trigger proposal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Dismissed"
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/proposals/{id}/confirm": {
+            "post": {
+                "description": "Turns the proposal into a trigger that is on. time_zone is used when the proposal names none.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Confirm a trigger proposal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the time zone of the person confirming",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerConfirm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a trigger.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the trigger's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "The body replaces every field. A change of when it runs, or switching it on, means it runs nothing for the time before the change.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Replace a trigger.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the trigger's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the trigger",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Its queued runs are dropped and a running run is stopped. The chats it made stay.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a trigger.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the trigger's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/{id}/disable": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch a trigger off.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the trigger's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/{id}/enable": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Switch a trigger on.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the trigger's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/{id}/run": {
+            "post": {
+                "description": "Starts a run at once, whether the trigger is on or not. The run is skipped, with its reason, when the trigger has a run going. On a cluster the run may start a few seconds later.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Run a trigger now.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the trigger's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The run",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerRun"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/{id}/runs": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the runs of a trigger.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the trigger's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most runs to return (default 20, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Newest first",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerRunList"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}": {
             "get": {
                 "tags": [
@@ -13100,6 +13440,180 @@
                     "type": "integer"
                 },
                 "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsTrigger": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "daily_cap": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "folder": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "last_run": {
+                    "description": "LastRun is the newest run, if any.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerRun"
+                        }
+                    ]
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "next_run": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "quiet_seconds": {
+                    "type": "integer"
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "source_chat_id": {
+                    "type": "string"
+                },
+                "summary": {
+                    "description": "Summary says when it runs in plain words. NextRun is set for a schedule\ntrigger that is on.",
+                    "type": "string"
+                },
+                "time_zone": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsTriggerConfirm": {
+            "type": "object",
+            "properties": {
+                "time_zone": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsTriggerList": {
+            "type": "object",
+            "properties": {
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsTrigger"
+                    }
+                }
+            }
+        },
+        "schema.ChatsTriggerPreview": {
+            "type": "object",
+            "properties": {
+                "summary": {
+                    "type": "string"
+                },
+                "times": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsTriggerRun": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "due": {
+                    "type": "string"
+                },
+                "ended": {
+                    "type": "string"
+                },
+                "file": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "started": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsTriggerRunList": {
+            "type": "object",
+            "properties": {
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsTriggerRun"
+                    }
+                }
+            }
+        },
+        "schema.ChatsTriggerWrite": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "description": "AgentID is optional. Model is needed when neither the agent nor the source\nchat names one.",
+                    "type": "string"
+                },
+                "daily_cap": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "folder": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "quiet_seconds": {
+                    "type": "integer"
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "source_chat_id": {
+                    "type": "string"
+                },
+                "time_zone": {
                     "type": "string"
                 }
             }

@@ -71,7 +71,9 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 			prompt = strings.TrimSpace(sc.instructions + "\n\n" + prompt)
 		}
 	}
-	return session.TurnTools{Tools: append(tools, s.spawnTool(a)), Prompt: prompt, Note: note, RefreshKey: key}, nil
+	tools = append(tools, s.spawnTool(a))
+	tools = append(tools, s.triggerTools(a, rec)...)
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, RefreshKey: key}, nil
 }
 
 func (s *Service) spawnTool(a workspace.Actor) session.Tool {

@@ -352,3 +352,81 @@ type ChatsNotificationsRead struct {
 type ChatsNotificationsDelete struct {
 	IDs []int64 `json:"ids"`
 }
+
+// ChatsTrigger is a trigger: work that starts by itself, as you, in a new chat.
+// Kind is schedule or file. A schedule trigger has schedule and time_zone; a
+// file trigger has folder, a path inside your files, and quiet_seconds.
+type ChatsTrigger struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Prompt       string `json:"prompt"`
+	Kind         string `json:"kind"`
+	Schedule     string `json:"schedule,omitempty"`
+	TimeZone     string `json:"time_zone,omitempty"`
+	Folder       string `json:"folder,omitempty"`
+	QuietSeconds int    `json:"quiet_seconds,omitempty"`
+	DailyCap     int    `json:"daily_cap"`
+	Enabled      bool   `json:"enabled"`
+	AgentID      string `json:"agent_id,omitempty"`
+	Model        string `json:"model,omitempty"`
+	SourceChatID string `json:"source_chat_id,omitempty"`
+	// Summary says when it runs in plain words. NextRun is set for a schedule
+	// trigger that is on.
+	Summary string     `json:"summary"`
+	NextRun *time.Time `json:"next_run,omitempty"`
+	// LastRun is the newest run, if any.
+	LastRun *ChatsTriggerRun `json:"last_run,omitempty"`
+}
+
+// ChatsTriggerWrite creates or replaces a trigger.
+type ChatsTriggerWrite struct {
+	Name         string `json:"name"`
+	Prompt       string `json:"prompt"`
+	Kind         string `json:"kind"`
+	Schedule     string `json:"schedule,omitempty"`
+	TimeZone     string `json:"time_zone,omitempty"`
+	Folder       string `json:"folder,omitempty"`
+	QuietSeconds int    `json:"quiet_seconds,omitempty"`
+	DailyCap     int    `json:"daily_cap,omitempty"`
+	Enabled      bool   `json:"enabled"`
+	// AgentID is optional. Model is needed when neither the agent nor the source
+	// chat names one.
+	AgentID      string `json:"agent_id,omitempty"`
+	Model        string `json:"model,omitempty"`
+	SourceChatID string `json:"source_chat_id,omitempty"`
+}
+
+// ChatsTriggerList is the response of the trigger list endpoint.
+type ChatsTriggerList struct {
+	Triggers []ChatsTrigger `json:"triggers"`
+}
+
+// ChatsTriggerRun is one start of a trigger. Status is queued, running, done,
+// failed or skipped; reason says why for the last two.
+type ChatsTriggerRun struct {
+	ID      string     `json:"id"`
+	Status  string     `json:"status"`
+	Reason  string     `json:"reason,omitempty"`
+	ChatID  string     `json:"chat_id,omitempty"`
+	File    string     `json:"file,omitempty"`
+	Due     time.Time  `json:"due"`
+	Started *time.Time `json:"started,omitempty"`
+	Ended   *time.Time `json:"ended,omitempty"`
+}
+
+// ChatsTriggerRunList is the response of the runs endpoint.
+type ChatsTriggerRunList struct {
+	Runs []ChatsTriggerRun `json:"runs"`
+}
+
+// ChatsTriggerPreview lists the next times a schedule runs.
+type ChatsTriggerPreview struct {
+	Times   []time.Time `json:"times"`
+	Summary string      `json:"summary"`
+}
+
+// ChatsTriggerConfirm confirms a proposal. TimeZone is used when the proposal
+// names none.
+type ChatsTriggerConfirm struct {
+	TimeZone string `json:"time_zone,omitempty"`
+}

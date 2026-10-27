@@ -57,6 +57,85 @@ definition from their next turn. Another user's agent is always `404`.
 Agents belong to the `chats` feature. They have no administration tools, as
 they are your own settings.
 
+## Triggers
+
+A trigger starts a chat as you, by itself. Each run is an ordinary chat of
+yours: it uses your files, your quota and your model allowlist, you can open it
+and undo what it changed, and it is marked with its trigger. There are two kinds.
+
+| Kind | Runs | Fields |
+|---|---|---|
+| `schedule` | At a time | `schedule`, `time_zone` (an IANA name; UTC when empty) |
+| `file` | When a file arrives in a folder of your files | `folder` (a path inside your files, such as `/Contracts`), `quiet_seconds` (default 30) |
+
+A schedule is one of `daily 08:00`, `weekdays 09:30`, `weekly mon,thu 09:30`,
+`monthly 15 08:00`, `once 2026-12-24 18:00` or five cron fields. A time that
+does not exist in the time zone (a daylight-saving gap) moves to the first valid
+minute after it, and a repeated hour runs once. `GET /api/chats/triggers/preview?when=...&tz=...`
+shows the next times and says what the text means.
+
+A file trigger waits until the file has not changed for the quiet period, then
+starts one run for that version of the file. The first message of the run says
+`A new file arrived: /Contracts/a.txt`. A run's own writes never start the same
+trigger. An `AGENTS.md` file in a folder, or above it, is added to the first
+message as rules for the run. Treat it as text from whoever can write there.
+
+### What a run gets
+
+- **Who it is.** The run is a chat of the trigger's owner, with the owner's
+  grants. If the owner is over quota, the run fails with that reason and the
+  owner gets a notification.
+- **Which tools.** With an agent (`agent_id`), the tools of that agent. Without
+  one, the run uses the model and the add-on and skill switches of the chat that
+  made the trigger (`source_chat_id`), or the defaults of a new chat. An
+  unattended run with no agent gets no add-on tool that acts at once, such as the
+  Sandbox: name the add-on in an agent to allow it. A run never gets
+  `propose_trigger` and cannot change its own trigger.
+- **Limits.** A run has 15 minutes. At most 2 runs go at once, one per trigger,
+  and a trigger has a daily limit (`daily_cap`, default 24). A run that is skipped
+  or fails shows its reason on the trigger.
+- **When it cannot run.** A deleted agent fails the run with "the agent was
+  deleted" and switches the trigger off. A disabled owner skips the run. An owner
+  who no longer exists, or a folder that is gone, skips the run and switches the
+  trigger off. Each of these tells the owner.
+
+A trigger runs nothing for the time before it was saved or switched on. After
+downtime, a missed schedule runs once, not once for each missed time.
+
+### Proposals
+
+In a chat, the model can propose a trigger with `propose_trigger` and list yours
+with `list_triggers`. A proposal is not active and runs nothing. It waits for you
+on the Triggers page (`GET /api/chats/triggers/proposals`): confirm it
+(`POST .../proposals/{id}/confirm`, with your `time_zone` when it names none) or
+dismiss it (`DELETE .../proposals/{id}`). If a proposal was made in a chat that
+has an agent, the trigger keeps that agent. At most 10 proposals wait at a time,
+and you can have 50 triggers.
+
+### Clusters
+
+In a cluster, one frontend runs the triggers at a time: the one that holds an
+advisory lock in the database. A due time or a file version is one unique row,
+so it runs once even when two frontends try. If that frontend stops, another
+takes over, ends the runs whose chat is over as failed ("interrupted by a
+restart"), and goes on. Triggers need the database; the JSON store is for a
+single process.
+
+### API
+
+```
+curl -X POST .../api/chats/triggers -d '{"name": "Morning digest", "prompt": "Summarise yesterday.", "kind": "schedule", "schedule": "weekdays 09:00", "time_zone": "Europe/Rome", "enabled": true, "model": "my-model"}'
+curl .../api/chats/triggers
+curl -X POST .../api/chats/triggers/<id>/run      # start a run now
+curl .../api/chats/triggers/<id>/runs
+```
+
+`GET`, `PUT` and `DELETE /api/chats/triggers/{id}` read, replace and delete one,
+and `POST .../enable` and `.../disable` switch it. Deleting a trigger stops its
+running run and drops its queued runs; the chats it made stay. Another user's
+trigger is always `404`. Triggers are your own settings, so they have no
+administration tools.
+
 ## Inbox
 
 The inbox lists what ended while you were elsewhere: a trigger run that
