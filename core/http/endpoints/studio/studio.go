@@ -154,6 +154,9 @@ func (h *Handlers) Create(c echo.Context) error {
 			return failFor(c, studiosvc.ErrAssistantForbidden)
 		}
 	}
+	if req.AgentID != "" && !req.Assistant && !auth.FeatureAllowed(c, auth.FeatureAgents) {
+		return fail(c, http.StatusForbidden, "authorization_error", "feature not enabled for your account: "+auth.FeatureAgents)
+	}
 	model := req.Model
 	if req.AgentID != "" && !req.Assistant {
 		ag, err := h.svc.Agent(c.Request().Context(), userID(c), req.AgentID)

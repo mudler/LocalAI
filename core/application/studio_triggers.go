@@ -15,16 +15,9 @@ import (
 // not be built.
 func (a *Application) StudioTriggers() *studio.Triggers { return a.studioTriggers }
 
-// startStudioTriggers builds the trigger host and starts its loop. Triggers
-// are stored beside the chats: GORM on the auth database, JSON files under the
-// data path, or memory. A cluster runs the Runner on one frontend at a time:
-// the one that holds the advisory lock, which it keeps until it stops or loses
-// its database session.
-func (a *Application) startStudioTriggers(svc *studio.Service) {
-	if a.applicationConfig.DisableTriggers {
-		xlog.Info("Triggers are turned off (LOCALAI_DISABLE_TRIGGERS)")
-		return
-	}
+// initStudioTriggerStore opens the store of the triggers, beside the chats:
+// GORM on the auth database, JSON files under the data path, or memory.
+func (a *Application) initStudioTriggerStore() error {
 	var (
 		st  triggers.Store
 		err error
@@ -38,7 +31,24 @@ func (a *Application) startStudioTriggers(svc *studio.Service) {
 		st, err = triggers.NewJSON("")
 	}
 	if err != nil {
-		xlog.Warn("Triggers disabled: failed to initialise their store", "error", err)
+		return err
+	}
+	a.studioTriggerStore = st
+	return nil
+}
+
+// startStudioTriggers builds the trigger host and starts its loop. Triggers
+// are stored beside the chats: GORM on the auth database, JSON files under the
+// data path, or memory. A cluster runs the Runner on one frontend at a time:
+// the one that holds the advisory lock, which it keeps until it stops or loses
+// its database session.
+func (a *Application) startStudioTriggers(svc *studio.Service) {
+	if a.applicationConfig.DisableTriggers {
+		xlog.Info("Triggers are turned off (LOCALAI_DISABLE_TRIGGERS)")
+		return
+	}
+	st := a.studioTriggerStore
+	if st == nil {
 		return
 	}
 	opts := studio.TriggerOptions{Store: st}

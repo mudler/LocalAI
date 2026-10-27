@@ -63,6 +63,49 @@ var _ = Describe("Chats feature registration", func() {
 			"GET /api/chats/conversion",
 			"POST /api/chats/notifications/read",
 			"GET /api/chats/notifications/events",
+			"GET /api/chats/push/key",
+			"POST /api/chats/push/subscribe",
+			"DELETE /api/chats/push/subscribe",
+		))
+		Expect(APIFeatures).To(ContainElement(FeatureChats))
+		Expect(AllFeatures).To(ContainElement(FeatureChats))
+	})
+
+	It("gates the saved agents routes with their own feature, off by default", func() {
+		routes := []string{}
+		for _, r := range RouteFeatureRegistry {
+			if r.Feature == FeatureAgents {
+				routes = append(routes, r.Method+" "+r.Pattern)
+			}
+		}
+		Expect(routes).To(ConsistOf(
+			"GET /api/chats/agents",
+			"POST /api/chats/agents",
+			"GET /api/chats/agents/:id",
+			"PUT /api/chats/agents/:id",
+			"DELETE /api/chats/agents/:id",
+		))
+		Expect(AgentFeatures).To(ContainElement(FeatureAgents))
+		Expect(APIFeatures).NotTo(ContainElement(FeatureAgents))
+		var meta *FeatureMeta
+		for _, m := range AgentFeatureMetas() {
+			if m.Key == FeatureAgents {
+				m := m
+				meta = &m
+			}
+		}
+		Expect(meta).NotTo(BeNil())
+		Expect(meta.DefaultValue).To(BeFalse())
+	})
+
+	It("gates the trigger routes with their own feature, off by default", func() {
+		routes := []string{}
+		for _, r := range RouteFeatureRegistry {
+			if r.Feature == FeatureTriggers {
+				routes = append(routes, r.Method+" "+r.Pattern)
+			}
+		}
+		Expect(routes).To(ConsistOf(
 			"GET /api/chats/triggers",
 			"POST /api/chats/triggers",
 			"GET /api/chats/triggers/preview",
@@ -76,9 +119,28 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/triggers/:id/enable",
 			"POST /api/chats/triggers/:id/disable",
 			"GET /api/chats/triggers/:id/runs",
-			"GET /api/chats/push/key",
-			"POST /api/chats/push/subscribe",
-			"DELETE /api/chats/push/subscribe",
+		))
+		Expect(AgentFeatures).To(ContainElement(FeatureTriggers))
+		Expect(APIFeatures).NotTo(ContainElement(FeatureTriggers))
+		var meta *FeatureMeta
+		for _, m := range AgentFeatureMetas() {
+			if m.Key == FeatureTriggers {
+				m := m
+				meta = &m
+			}
+		}
+		Expect(meta).NotTo(BeNil())
+		Expect(meta.DefaultValue).To(BeFalse())
+	})
+
+	It("gates the connector routes with their own feature, off by default", func() {
+		routes := []string{}
+		for _, r := range RouteFeatureRegistry {
+			if r.Feature == FeatureConnectors {
+				routes = append(routes, r.Method+" "+r.Pattern)
+			}
+		}
+		Expect(routes).To(ConsistOf(
 			"GET /api/chats/connectors",
 			"POST /api/chats/connectors",
 			"GET /api/chats/connectors/:id",
@@ -89,14 +151,26 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/connectors/:id/test",
 			"GET /api/chats/connectors/:id/senders",
 			"POST /api/chats/connectors/:id/senders/:sender/allow",
-			"GET /api/chats/agents",
-			"POST /api/chats/agents",
-			"GET /api/chats/agents/:id",
-			"PUT /api/chats/agents/:id",
-			"DELETE /api/chats/agents/:id",
 		))
-		Expect(APIFeatures).To(ContainElement(FeatureChats))
-		Expect(AllFeatures).To(ContainElement(FeatureChats))
+		Expect(AgentFeatures).To(ContainElement(FeatureConnectors))
+		Expect(APIFeatures).NotTo(ContainElement(FeatureConnectors))
+		var meta *FeatureMeta
+		for _, m := range AgentFeatureMetas() {
+			if m.Key == FeatureConnectors {
+				m := m
+				meta = &m
+			}
+		}
+		Expect(meta).NotTo(BeNil())
+		Expect(meta.DefaultValue).To(BeFalse())
+	})
+
+	It("does not gate the chats routes with an automation feature", func() {
+		for _, r := range RouteFeatureRegistry {
+			if r.Feature == FeatureChats {
+				Expect(r.Pattern).NotTo(MatchRegexp(`/api/chats/(agents|triggers|connectors)(/|$)`), r.Method+" "+r.Pattern)
+			}
+		}
 	})
 
 	It("is listed in the admin feature table as default on", func() {

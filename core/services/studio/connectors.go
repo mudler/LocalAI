@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -413,10 +414,15 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		return
 	}
 	if c.svc.d.Users != nil {
-		if _, err := c.svc.d.Users(ctx, b.Owner); err != nil {
+		owner, err := c.svc.d.Users(ctx, b.Owner)
+		if err != nil {
 			if errors.Is(err, ErrNoUser) {
 				c.disable(b, "its owner no longer exists")
 			}
+			c.say(token, u.ChatID, sentUnavailable)
+			return
+		}
+		if c.svc.d.Allowed != nil && !c.svc.d.Allowed(owner, auth.FeatureConnectors) {
 			c.say(token, u.ChatID, sentUnavailable)
 			return
 		}

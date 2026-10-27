@@ -68,6 +68,9 @@ type Store interface {
 	GetBinding(ctx context.Context, id string) (Binding, error)
 	ListBindings(ctx context.Context, owner string) ([]Binding, error)
 	EnabledBindings(ctx context.Context) ([]Binding, error)
+	// AllBindings returns every binding of every owner, sorted by name and ID.
+	// It is for the administrator's view and for migrations.
+	AllBindings(ctx context.Context) ([]Binding, error)
 	// DeleteBinding removes the binding with its offset, senders and chats. It is
 	// not an error when it does not exist.
 	DeleteBinding(ctx context.Context, id string) error

@@ -53,6 +53,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
@@ -130,6 +131,7 @@ type Application struct {
 	studioInbox          *notify.Service
 	studioMarks          convert.Marks // what the conversion of the old data did
 	studioTriggers       *studio.Triggers
+	studioTriggerStore   triggers.Store
 	studioTriggersStop   context.CancelFunc
 	studioConnStore      connectors.Store
 	studioMCPStore       mcpconns.Store

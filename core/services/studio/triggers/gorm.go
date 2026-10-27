@@ -130,6 +130,10 @@ func (s *gormStore) ListTriggers(ctx context.Context, owner string) ([]Trigger, 
 	return s.listTriggers(s.db.WithContext(ctx).Where("owner = ?", owner).Order("name, id"))
 }
 
+func (s *gormStore) AllTriggers(ctx context.Context) ([]Trigger, error) {
+	return s.listTriggers(s.db.WithContext(ctx).Order("owner, name, id"))
+}
+
 func (s *gormStore) EnabledTriggers(ctx context.Context) ([]Trigger, error) {
 	return s.listTriggers(s.db.WithContext(ctx).Where("enabled = ?", true).Order("id"))
 }

@@ -128,6 +128,10 @@ func (s *gormStore) ListBindings(ctx context.Context, owner string) ([]Binding, 
 	return s.list(s.db.WithContext(ctx).Where("owner = ?", owner))
 }
 
+func (s *gormStore) AllBindings(ctx context.Context) ([]Binding, error) {
+	return s.list(s.db.WithContext(ctx))
+}
+
 func (s *gormStore) EnabledBindings(ctx context.Context) ([]Binding, error) {
 	return s.list(s.db.WithContext(ctx).Where("enabled = ?", true))
 }

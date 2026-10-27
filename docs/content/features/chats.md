@@ -18,8 +18,59 @@ conversation.
 {{% notice note %}}
 Chats need the `chats` feature. It is on for every user by
 default. An administrator can switch it off for one user in the user's
-permissions.
+permissions. Saved agents, triggers, connectors and agent jobs are separate
+features that are off by default; see [Permissions](#permissions).
 {{% /notice %}}
+
+## Permissions
+
+With authentication on, an administrator grants features to each user in
+**Settings → Users and keys**. Plain chats are on by default. The parts that run
+without a person, or reach the outside world, are off by default for a user, and an
+administrator always has all of them:
+
+| Feature | Default for a user | What it allows |
+|---|---|---|
+| `chats` | on | Chats, files, skills, notifications, push, your MCP connectors. A chat needs no more. |
+| `agents` | off | Saved agents (`/api/chats/agents`) and starting a chat with one. |
+| `triggers` | off | Scheduled and file triggers (`/api/chats/triggers`): runs that start by themselves. |
+| `connectors` | off | Telegram bindings (`/api/chats/connectors`): a public door to one of your agents. |
+| `mcp_jobs` | off | The agent tasks and jobs API (`/api/agent/...`). |
+
+A command-line MCP server (stdio) in your MCP connectors stays for administrators
+only, whatever the features. A trigger or a connector whose owner loses its feature
+stops running: a trigger run is skipped with the reason, and the bot says it is not
+available. The owner can get the feature back without losing the definition.
+
+**Upgrading.** On the first start after the features were split, a one-time rule
+keeps what each existing user was using, and nothing else. The rule runs once; a
+user who registers later gets the defaults. A value an administrator stored
+always wins.
+
+- `agents`: kept if the user has the stored `agents` permission (the one the old
+  agent pool had) or owns a saved agent.
+- `triggers`: kept if the user owns a trigger, or had `agents` or `mcp_jobs`.
+- `connectors`: kept if the user owns a connector binding, or had `agents`.
+- `mcp_jobs`: stored as it was.
+
+Items that the conversion of the old agents makes after that first start belong to
+users who had the old permissions, which the rule already read.
+
+## Switch the chats off
+
+The operator can switch the whole surface or one part off. A part that is off
+starts nothing: no loop, no trigger runner, no bot. `GET /api/features` reports
+what runs (`chats`, `agents`, `triggers`, `connectors`).
+
+| Setting | Default | Effect |
+|---|---|---|
+| `LOCALAI_DISABLE_CHATS` | `false` | Turns off the chats: the `/api/chats` API (it answers `404` with the type `chats_off`), saved agents, triggers, connectors, notifications and the agent jobs. The files workspace of the add-ons is not affected. |
+| `LOCALAI_DISABLE_TRIGGERS` | `false` | Turns off the trigger runner. Trigger routes answer `409 triggers_off`. |
+| `LOCALAI_DISABLE_CONNECTORS` | `false` | Turns off the connector bots. Connector routes answer `409 connectors_off`. |
+| `LOCALAI_DISABLE_AGENTS` | `false` | Deprecated. It kept the meaning it had in the old agent pool, which also held the knowledge base: it sets `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`, and logs a warning. |
+
+`LOCALAI_DISABLE_COLLECTIONS` stays separate and turns off only the
+[collections](/features/collections/).
 
 ## Start a chat and send messages
 

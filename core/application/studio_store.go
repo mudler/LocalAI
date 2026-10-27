@@ -94,4 +94,8 @@ func (a *Application) initStudioStore() {
 	}
 	a.studioStore, a.studioAgents, a.studioNotify, a.studioPush, a.studioConnStore, a.studioStoreKind = s, ag, nt, ps, cs, kind
 	a.studioMCPStore = ms
+	if err := a.initStudioTriggerStore(); err != nil {
+		xlog.Warn("Triggers disabled: failed to initialise their store", "error", err)
+	}
+	a.migrateStudioPermissions()
 }

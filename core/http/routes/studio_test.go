@@ -97,7 +97,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	DeferCleanup(host.Close)
 
 	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc}
-	for _, id := range []string{"alice", "bob", "carol", "root"} {
+	for _, id := range []string{"alice", "bob", "carol", "dave", "root"} {
 		role := auth.RoleUser
 		if id == "root" {
 			role = auth.RoleAdmin
@@ -107,6 +107,11 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 		session, err := auth.CreateSession(db, id, "")
 		Expect(err).NotTo(HaveOccurred())
 		s.sessions[id] = session
+	}
+	// alice and bob were granted the features that are off by default: saved
+	// agents, triggers and connectors. dave has none of them.
+	for _, id := range []string{"alice", "bob"} {
+		Expect(auth.UpdateUserPermissions(db, id, auth.PermissionMap{auth.FeatureAgents: true, auth.FeatureTriggers: true, auth.FeatureConnectors: true})).To(Succeed())
 	}
 	// carol had the default-on feature revoked by an admin.
 	Expect(auth.UpdateUserPermissions(db, "carol", auth.PermissionMap{auth.FeatureChats: false})).To(Succeed())
@@ -119,7 +124,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 		}
 		return nil
 	})
-	routes.RegisterStudioRoutes(s.e, svc, models)
+	routes.RegisterStudioRoutes(s.e, svc, models, auth.RequireAdmin())
 	return s
 }
 

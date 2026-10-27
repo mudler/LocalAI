@@ -120,50 +120,54 @@ localai run
 
 ### Enabling auth on an existing instance
 
-Enabling user authentication does not assign existing agent data to an account.
-Data created without user auth belongs to the root storage area (an empty user ID).
-Authenticated users get separate storage, including admins. Existing agents,
-collections, skills, tasks, jobs, and outputs can therefore disappear from their
-API and Web UI views while remaining on disk.
+Enabling user authentication does not assign existing data to an account. With
+authentication off, everything the chats made (chats, saved agents, triggers,
+connector bindings, notifications and files) belongs to one anonymous owner.
+Authenticated users, admins included, get separate storage, so the anonymous
+data stays on disk but no account can see it.
 
-In standalone (LocalAGI) mode, startup logs a warning when it finds root agents,
-collections, skills, or configured skill repositories. The warning includes counts
-and a link to this section. It checks the configured root collection path and
-excludes user-owned data. It does not inventory tasks, jobs, outputs, or agent state.
-An absent warning is not proof that every resource has an owner.
+What happens to each part when you switch authentication on:
+
+- **Chats, saved agents, notifications and files** stay under the anonymous
+  owner. No user sees them. Copy what you need into the new account first (see
+  the steps below).
+- **Triggers and connector bindings** of the anonymous owner stop. The owner no
+  longer exists as a user, so the trigger runner switches each trigger off and a
+  connector bot answers "not available" and is switched off.
+- **Collections** keep their own rule: with authentication on, each user has
+  their own collections (see [Collections](/features/collections/)).
+- **Old agents, tasks and skills** of the previous agent pool are converted at
+  start (see [Chats migration](/features/chats-migration/)). With authentication
+  on, an old item that belongs to no user is not converted: recreate it under the
+  intended account.
 
 {{% notice warning %}}
-The warning does not migrate, delete, or pause anything. Root agents still start,
-including their scheduled runs. Their requests to the local API need valid
-credentials after auth is enabled. Admin views do not provide a complete migration
-or export path for root data.
+LocalAI does not migrate, delete or pause anything when you enable
+authentication. Nothing moves the anonymous data to an account.
 {{% /notice %}}
 
 Before switching an existing instance:
 
-1. Pause existing agents and scheduled work while auth is still off.
-2. Stop LocalAI and back up its data, agent state, and any separately configured collection storage or databases.
-3. Test the switch on a copy before changing the production instance.
-4. Restrict access during bootstrap and register the intended administrator first.
-5. Recreate or import agent configurations under the intended user. Recreate collections and skills there as needed.
-6. Verify credentials and required data before resuming agents.
+1. Stop LocalAI and back up its data directory and any separately configured
+   collection storage or database.
+2. Test the switch on a copy before changing the production instance.
+3. Restrict access during bootstrap and register the intended administrator first.
+4. Recreate the saved agents, triggers and connector bindings you still need under
+   the intended account, and download the files you want to keep from the
+   anonymous workspace before the switch.
+5. Grant the new accounts the features they need. Saved agents, triggers,
+   connectors and agent jobs are off by default for a user (see
+   [Chats permissions](/features/chats/#permissions)); an administrator has all of
+   them.
 
 The first registered user becomes admin and bypasses approval or invite requirements.
 Setting `LOCALAI_ADMIN_EMAIL` promotes that email address, but does **not** reserve
 the first-admin role for it. Keep registration inaccessible to other users until
 bootstrap is complete.
 
-Recreating an agent configuration does not migrate its character, scheduler state,
-or long-term memory. Keep the backup: LocalAI has no automatic migration of the
-root storage area, and agent configuration export does not include this state.
-
-With user auth active, creating, importing, or updating an agent without
-`api_key` generates a new key owned by that user. The key inherits the owner's
-permissions; an admin-owned key can therefore grant admin access. Repeated updates
-that omit `api_key` can create additional keys. Supply an explicit key with the
-intended permissions when recreating or updating agents, and review existing keys
-in **Settings → Users and keys**. Existing root agents can use an explicit
-`api_key` or `LOCALAI_COLLECTIONS_API_KEY`; neither setting transfers ownership.
+A connector bot reaches its saved agent with the owner's rights: the agent gets
+only what the owner may use at that moment, under the owner's quota and model
+allowlist. It does not use an API key of its own.
 
 ### Configuration Reference
 
@@ -206,7 +210,7 @@ When disabled:
 
 There are two roles:
 
-- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, agents, and user management.
+- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, the chats of every user's saved agents, triggers and connectors (read-only, with switch-off and delete), and user management.
 - **User**: Access to inference endpoints only - chat completions, embeddings, image/video/audio generation, TTS, MCP chat, and their own usage statistics.
 
 The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted to admin via the admin user management API or by setting `LOCALAI_ADMIN_EMAIL` to their email address.

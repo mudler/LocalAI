@@ -124,6 +124,10 @@ func (s *jsonStore) ListBindings(_ context.Context, owner string) ([]Binding, er
 	return s.list(func(b Binding) bool { return b.Owner == owner }), nil
 }
 
+func (s *jsonStore) AllBindings(context.Context) ([]Binding, error) {
+	return s.list(func(Binding) bool { return true }), nil
+}
+
 func (s *jsonStore) EnabledBindings(context.Context) ([]Binding, error) {
 	return s.list(func(b Binding) bool { return b.Enabled }), nil
 }

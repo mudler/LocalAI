@@ -141,6 +141,22 @@ func (s *gormStore) List(ctx context.Context, principal string) ([]Agent, error)
 	return out, nil
 }
 
+func (s *gormStore) ListAll(ctx context.Context) ([]Agent, error) {
+	var rows []agentRow
+	if err := s.db.WithContext(ctx).Order("principal, name_key, id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]Agent, 0, len(rows))
+	for _, r := range rows {
+		a, err := r.agent()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, nil
+}
+
 func (s *gormStore) Delete(ctx context.Context, principal, id string) error {
 	res := s.db.WithContext(ctx).Where("id = ? AND principal = ?", id, principal).Delete(&agentRow{})
 	if res.Error != nil {

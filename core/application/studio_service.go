@@ -83,6 +83,7 @@ func (a *Application) initStudioService() {
 		Store:         a.studioStore,
 		Provider:      a.studioProvider,
 		Users:         a.studioUsers(),
+		Allowed:       a.studioFeatureAllowed,
 		StateDir:      stateDir,
 		MCP:           a.studioMCP,
 		MCPServers:    a.studioModelMCPServers,
@@ -156,6 +157,15 @@ func (a *Application) studioUsers() studio.UserLookup {
 		return nil
 	}
 	return a.loadStudioUser
+}
+
+// studioFeatureAllowed says whether a chat owner may use a feature. With no
+// auth database everyone may.
+func (a *Application) studioFeatureAllowed(user *auth.User, feature string) bool {
+	if a.authDB == nil || user == nil {
+		return true
+	}
+	return auth.HasFeatureAccess(a.authDB, user, feature)
 }
 
 // loadStudioUser returns the active user with this ID. A chat acts as its

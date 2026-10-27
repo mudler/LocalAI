@@ -65,6 +65,9 @@ type Store interface {
 	// List returns the agents of the principal sorted by name, case-insensitively.
 	List(ctx context.Context, principal string) ([]Agent, error)
 	Delete(ctx context.Context, principal, id string) error
+	// ListAll returns the agents of every principal sorted by principal, then
+	// name. It is for the administrator's view and for migrations.
+	ListAll(ctx context.Context) ([]Agent, error)
 }
 
 var addonIDShape = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)

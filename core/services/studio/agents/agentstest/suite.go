@@ -54,6 +54,25 @@ func Run(t *testing.T, newStore NewStore) {
 			t.Fatalf("after replace: %+v", got)
 		}
 	})
+	t.Run("ListAllSpansPrincipals", func(t *testing.T) {
+		s := newStore(t)
+		for _, a := range []agents.Agent{sample("a", "u2", "Zed"), sample("b", "u1", "Beta"), sample("c", "u1", "Alpha")} {
+			if err := s.Put(ctx, a); err != nil {
+				t.Fatal(err)
+			}
+		}
+		all, err := s.ListAll(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := ""
+		for _, a := range all {
+			got += a.Principal + ":" + a.Name + " "
+		}
+		if got != "u1:Alpha u1:Beta u2:Zed " {
+			t.Fatalf("ListAll = %q", got)
+		}
+	})
 	t.Run("ListSortedByName", func(t *testing.T) {
 		s := newStore(t)
 		for i, n := range []string{"beta", "Alpha", "gamma"} {

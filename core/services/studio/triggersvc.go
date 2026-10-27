@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
@@ -336,9 +337,12 @@ func (h *Triggers) checkOwner(ctx context.Context, t triggers.Trigger) error {
 	if h.svc.d.Users == nil {
 		return nil
 	}
-	_, err := h.svc.d.Users(ctx, t.Owner)
+	u, err := h.svc.d.Users(ctx, t.Owner)
 	switch {
 	case err == nil:
+		if h.svc.d.Allowed != nil && !h.svc.d.Allowed(u, auth.FeatureTriggers) {
+			return &triggers.SkipError{Reason: "the owner may no longer use triggers"}
+		}
 		return nil
 	case ctx.Err() != nil:
 		return ctx.Err()

@@ -162,6 +162,18 @@ func (s *jsonStore) ListTriggers(_ context.Context, owner string) ([]Trigger, er
 	}), nil
 }
 
+func (s *jsonStore) AllTriggers(context.Context) ([]Trigger, error) {
+	return s.triggersWhere(func(Trigger) bool { return true }, func(a, b Trigger) bool {
+		if a.Owner != b.Owner {
+			return a.Owner < b.Owner
+		}
+		if a.Name != b.Name {
+			return a.Name < b.Name
+		}
+		return a.ID < b.ID
+	}), nil
+}
+
 func (s *jsonStore) EnabledTriggers(context.Context) ([]Trigger, error) {
 	return s.triggersWhere(func(t Trigger) bool { return t.Enabled }, func(a, b Trigger) bool { return a.ID < b.ID }), nil
 }

@@ -43,6 +43,7 @@ type shared struct {
 	trg     triggers.Store
 	clock   *tclock
 	users   func(string) error
+	allowed func(*auth.User, string) bool
 	addons  *fakeAddons
 	net     *testutil.FakeBus // when set, notifications travel over it, as between frontends
 }
@@ -79,6 +80,7 @@ func (sh *shared) rig(t *testing.T, script func(workspace.Actor, string) []studi
 	inbox := notify.NewService(notify.Options{Store: sh.notices, Clock: sh.clock.Now, Fanout: fan})
 	svc, h := newToolService(t, script, func(d *studio.Deps) {
 		d.Store, d.Files, d.Agents, d.Notify, d.AddonTools = sh.chats, sh.files, sh.agents, inbox, sh.addons
+		d.Allowed = sh.allowed
 		if sh.users != nil {
 			d.Users = func(_ context.Context, id string) (*auth.User, error) { return &auth.User{ID: id}, sh.users(id) }
 		}
@@ -303,6 +305,22 @@ func TestADisabledOwnerSkipsTheRunAndLeavesTheTriggerOn(t *testing.T) {
 	}
 	if ns := r.notes(t); len(ns) != 1 || ns[0].Kind != notify.KindRunFailed {
 		t.Fatalf("notifications = %+v", ns)
+	}
+}
+
+func TestAnOwnerWhoLostTheTriggersFeatureSkipsTheRunAndLeavesTheTriggerOn(t *testing.T) {
+	sh := newShared(t)
+	sh.users = func(string) error { return nil }
+	sh.allowed = func(_ *auth.User, feature string) bool { return feature != auth.FeatureTriggers }
+	r := sh.rig(t, saySummary, studio.TriggerOptions{})
+	tr := r.schedule(t, studio.TriggerInput{})
+	r.due(t)
+	run := r.waitEnded(t, tr.ID)
+	if run.Status != triggers.StatusSkipped || !strings.Contains(run.Reason, "no longer use triggers") {
+		t.Fatalf("run = %+v", run)
+	}
+	if got, _ := r.host.GetTrigger(context.Background(), alice, tr.ID); !got.Enabled {
+		t.Fatal("the trigger was switched off for a missing permission; the owner may get it back")
 	}
 }
 
