@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -385,7 +386,7 @@ func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage
 	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() || fi.Size() > maxCopyBytes {
 		return nil, fmt.Errorf("%w: not a file, or too large", ErrBadRequest)
 	}
-	node, err := h.Store.Put(ctx, h.Files.Actor(p), abs, f, workspace.PutOptions{BaseVersion: a.BaseVersion, Overwrite: a.Overwrite, MaxSize: maxCopyBytes})
+	node, err := h.Store.Put(ctx, h.Files.Actor(p), abs, f, workspace.PutOptions{BaseVersion: a.BaseVersion, Overwrite: a.Overwrite, MaxSize: maxCopyBytes, Title: "Write " + path.Base(abs)})
 	if err != nil {
 		return nil, workspaceErr(err)
 	}

@@ -43,7 +43,11 @@ func (s *Workspace) Put(ctx context.Context, a Actor, p string, r io.Reader, o P
 	if err != nil {
 		return Node{}, err
 	}
-	w, err := s.beginWrite(ctx, a, "Upload "+segs[len(segs)-1], ChangeUpload)
+	title := "Upload " + segs[len(segs)-1]
+	if o.Title != "" {
+		title = o.Title
+	}
+	w, err := s.beginWrite(ctx, a, title, ChangeUpload)
 	if err != nil {
 		return Node{}, err
 	}

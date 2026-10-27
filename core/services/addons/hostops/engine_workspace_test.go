@@ -249,6 +249,19 @@ var _ = Describe("Workspace host operations", func() {
 		Expect(code).To(Equal(http.StatusBadRequest))
 	})
 
+	It("names the change of an imported file after the write, not as an upload by the person", func() {
+		f := newWSFixture()
+		f.live("alice", "op1", "act")
+		Expect(os.WriteFile(filepath.Join(f.data, "sandbox", "plan.docx"), []byte("x"), 0o600)).To(Succeed())
+		code, out := f.call("secret", "op1", "workspace.import", `{"from":"plan.docx","path":"/plan.docx"}`)
+		Expect(code).To(Equal(http.StatusOK), "%+v", out.Error)
+		abs, _ := f.files.Abs("alice", "/plan.docx")
+		hist, err := f.files.Store().History(context.Background(), f.files.Actor("alice"), workspace.HistoryQuery{Path: abs, Limit: 5})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(hist).ToNot(BeEmpty())
+		Expect(hist[0].Title).To(Equal("Write plan.docx"))
+	})
+
 	It("keeps both files when the file changed after the add-on read it", func() {
 		f := newWSFixture()
 		f.put("alice", "/doc.txt", "first")
