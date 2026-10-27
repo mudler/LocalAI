@@ -22,7 +22,7 @@ The groups reorganise the fields the page used to show under fifteen sections. T
 | Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists | Backend Management, Galleries |
 | Access and security | CORS and allowed origins, CSRF protection, shared API keys | API & CORS, API Keys |
 | Debugging and traces | Verbose debug logging, API traces and their limits, backend logging | Performance, Tracing |
-| Agents and responses | Agent job history, the agent pool, the LocalAI Assistant (the switch for the admin assistant chat that starts from Home; see [LocalAI Assistant]({{% relref "features/localai-assistant" %}})), the response store TTL | Agent Jobs, Agent Pool, LocalAI Assistant, Open Responses |
+| Chats and responses | The collections (knowledge base) service, the helper models of the chats, MCP connector addresses, the LocalAI Assistant (the switch for the admin assistant chat that starts from Home; see [LocalAI Assistant]({{% relref "features/localai-assistant" %}})), the response store TTL | Collections, Chats, LocalAI Assistant, Open Responses |
 | Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check | P2P Network, Distributed |
 | Look and feel | Instance name, tagline, the three logos | Branding |
 
@@ -36,9 +36,9 @@ Edits are not sent as you type. A bar at the bottom of the page counts them and 
 
 A setting shows **Changed** and its built-in default, with a **Reset** link, only when the default is known (the defaults of the `local-ai run` flags). Settings without a stated default, such as threads and the context size, never show the marker. An environment variable or flag can change the value the server starts with, so the marker compares with the built-in default, not with the startup value.
 
-A row says **Applies now** when the save handler applies the setting immediately (the watchdog and the memory reclaimer restart with the new values; so do the P2P stack and the agent job service when their settings change), and **Needs restart** for the agent pool settings. A setting without either note is saved, and the code does not say when it takes effect.
+A row says **Applies now** when the save handler applies the setting immediately (the watchdog and the memory reclaimer restart with the new values; so does the P2P stack when its settings change), and **Needs restart** for most collections settings. A setting without either note is saved, and the code does not say when it takes effect.
 
-**History** lists the settings you applied from this browser, newest first, up to the last 50. LocalAI keeps no settings log of its own, so changes made elsewhere do not appear, and a secret (the P2P token, shared API keys, the agent database URL) is listed as changed without its value. **Revert** puts the old value back as an edit.
+**History** lists the settings you applied from this browser, newest first, up to the last 50. LocalAI keeps no settings log of its own, so changes made elsewhere do not appear, and a secret (the P2P token, shared API keys, the collections database URL) is listed as changed without its value. **Revert** puts the old value back as an edit.
 
 `POST /api/settings` accepts a partial body and merges it over the saved settings, so the page sends only the keys it changes. In the request, the `csrf` field carries the **disable** flag: the page shows the inverse as "CSRF protection". The galleries are sent as `galleries` and `backend_galleries`, and the shared API keys as `api_keys`, each as a JSON list.
 

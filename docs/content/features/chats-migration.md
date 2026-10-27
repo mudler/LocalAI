@@ -141,7 +141,7 @@ Renamed, because the [collections](/features/collections/) use them. The old nam
 | `LOCALAI_AGENT_POOL_CHUNK_OVERLAP` | `LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
 | `LOCALAI_AGENT_POOL_COLLECTION_DB_PATH` | `LOCALAI_COLLECTIONS_DB_PATH` |
 
-The keys of `runtime_settings.json` changed the same way: `agent_pool_enabled`, `agent_pool_default_model`, `agent_pool_embedding_model`, `agent_pool_max_chunking_size`, `agent_pool_chunk_overlap`, `agent_pool_collection_db_path`, `agent_pool_vector_engine` and `agent_pool_database_url` are now `collections_enabled`, `collections_default_model`, `collections_embedding_model`, `collections_max_chunking_size`, `collections_chunk_overlap`, `collections_db_path`, `collections_vector_engine` and `collections_database_url`. The file is still read with the old keys; the server writes the new ones.
+The keys of `runtime_settings.json` changed the same way: `agent_pool_enabled`, `agent_pool_default_model`, `agent_pool_embedding_model`, `agent_pool_max_chunking_size`, `agent_pool_chunk_overlap`, `agent_pool_collection_db_path`, `agent_pool_vector_engine` and `agent_pool_database_url` are now `collections_enabled`, `collections_default_model`, `collections_embedding_model`, `collections_max_chunking_size`, `collections_chunk_overlap`, `collections_db_path`, `collections_vector_engine` and `collections_database_url`. The file is still read with the old keys, and the server logs one warning at start naming the ones it found; it writes the new ones.
 
 ## In a cluster
 

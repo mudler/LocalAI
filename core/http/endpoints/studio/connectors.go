@@ -30,6 +30,14 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created}
 }
 
+// acceptAnyConfirmation is what a request must say to turn on accept_any.
+const acceptAnyConfirmation = "accept any message"
+
+func failAcceptAny(c echo.Context) error {
+	return fail(c, http.StatusBadRequest, "invalid_request_error",
+		`accept_any lets anyone who can message the bot use the agent as you; to turn it on, set confirm_accept_any to "`+acceptAnyConfirmation+`"`)
+}
+
 func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat}
@@ -77,7 +85,7 @@ func (h *Handlers) ListConnectors(c echo.Context) error {
 
 // CreateConnector creates a binding.
 // @Summary Create a connector binding.
-// @Description Needs the bot token (kept sealed, never returned) and an agent of yours that names a model. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools). At most 10 bindings.
+// @Description Needs the bot token (kept sealed, never returned) and an agent of yours that names a model. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to "accept any message", or it is a 400). At most 10 bindings.
 // @Tags chats
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 201 {object} schema.ChatsConnector "The binding"
@@ -90,6 +98,9 @@ func (h *Handlers) CreateConnector(c echo.Context) error {
 	var req schema.ChatsConnectorWrite
 	if err := c.Bind(&req); err != nil {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+	}
+	if req.AcceptAny && req.ConfirmAcceptAny != acceptAnyConfirmation {
+		return failAcceptAny(c)
 	}
 	i, err := host.CreateConnector(c.Request().Context(), userID(c), connectorIn(req))
 	if err != nil {
@@ -132,6 +143,16 @@ func (h *Handlers) UpdateConnector(c echo.Context) error {
 	var req schema.ChatsConnectorWrite
 	if err := c.Bind(&req); err != nil {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+	}
+	if req.AcceptAny && req.ConfirmAcceptAny != acceptAnyConfirmation {
+		// Only turning it on is a new decision; a binding that has it keeps it.
+		cur, err := host.GetConnector(c.Request().Context(), userID(c), c.Param("id"))
+		if err != nil {
+			return failConnector(c, err)
+		}
+		if !cur.AcceptAny {
+			return failAcceptAny(c)
+		}
 	}
 	i, err := host.UpdateConnector(c.Request().Context(), userID(c), c.Param("id"), connectorIn(req))
 	if err != nil {

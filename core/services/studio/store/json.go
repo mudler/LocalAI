@@ -167,6 +167,22 @@ func repairTranscript(path string, good []byte) error {
 	return werr
 }
 
+// repairTranscriptCreate is repairTranscript for a file that may not exist yet.
+func repairTranscriptCreate(path string, body []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0o600) // #nosec G304 -- the path is a file of the store directory
+	if err != nil {
+		return err
+	}
+	_, werr := f.Write(body)
+	if serr := f.Sync(); werr == nil {
+		werr = serr
+	}
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	return werr
+}
+
 // save rewrites the record file of c atomically.
 func (s *jsonStore) save(c *chatState) error {
 	if s.dir == "" {
@@ -322,6 +338,78 @@ func (s *jsonStore) SetMcpOff(_ context.Context, principal, id string, off []str
 		return err
 	}
 	c.Rec.McpOff = next.Rec.McpOff
+	return nil
+}
+
+func (s *jsonStore) ListChildren(_ context.Context, principal, parentID string) ([]session.ChatRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []session.ChatRecord
+	for _, c := range s.chats {
+		if r := c.Rec; r.Principal == principal && r.ParentID == parentID && r.Kind == session.KindSubAgent {
+			out = append(out, cloneRec(r))
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].Created.Equal(out[j].Created) {
+			return out[i].Created.Before(out[j].Created)
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out, nil
+}
+
+func (s *jsonStore) SetChatMeta(_ context.Context, principal, id string, m session.ChatMeta) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	next := *c
+	if m.Title != nil {
+		next.Rec.Title = *m.Title
+	}
+	if m.Model != nil {
+		next.Rec.Model = *m.Model
+	}
+	if m.Settings != nil {
+		next.Rec.Settings = *m.Settings
+	}
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Rec = next.Rec
+	return nil
+}
+
+func (s *jsonStore) TruncateEntries(_ context.Context, principal, id string, keep int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	var kept []session.Entry
+	for _, e := range c.entries {
+		if e.Seq <= keep {
+			kept = append(kept, e)
+		}
+	}
+	if s.dir != "" {
+		var buf bytes.Buffer
+		for _, e := range kept {
+			raw, err := json.Marshal(e)
+			if err != nil {
+				return err
+			}
+			buf.Write(append(raw, '\n'))
+		}
+		if err := repairTranscriptCreate(s.file(id, ".entries"), buf.Bytes()); err != nil {
+			return err
+		}
+	}
+	c.entries = kept
 	return nil
 }
 

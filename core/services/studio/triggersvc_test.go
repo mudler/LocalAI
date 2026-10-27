@@ -306,6 +306,21 @@ func TestADisabledOwnerSkipsTheRunAndLeavesTheTriggerOn(t *testing.T) {
 	}
 }
 
+func TestAnOwnerWhoLostTheChatsFeatureSkipsTheRunAndLeavesTheTriggerOn(t *testing.T) {
+	sh := newShared(t)
+	sh.users = func(string) error { return studio.ErrChatsOff }
+	r := sh.rig(t, saySummary, studio.TriggerOptions{})
+	tr := r.schedule(t, studio.TriggerInput{})
+	r.due(t)
+	run := r.waitEnded(t, tr.ID)
+	if run.Status != triggers.StatusSkipped || !strings.Contains(run.Reason, "chats") {
+		t.Fatalf("run = %+v, want a skip that says chats are off for the owner", run)
+	}
+	if got, _ := r.host.GetTrigger(context.Background(), alice, tr.ID); !got.Enabled {
+		t.Fatal("the trigger was switched off; an administrator can give the feature back")
+	}
+}
+
 func TestAnOwnerWhoIsGoneSkipsTheRunAndSwitchesTheTriggerOff(t *testing.T) {
 	sh := newShared(t)
 	sh.users = func(string) error { return studio.ErrNoUser }

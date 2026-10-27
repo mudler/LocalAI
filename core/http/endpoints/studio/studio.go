@@ -86,6 +86,13 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusNotFound, "not_found", "conversation not found")
 	case errors.Is(err, store.ErrDelivered):
 		return fail(c, http.StatusConflict, "conflict", "the message was already delivered to the model")
+	case errors.Is(err, studiosvc.ErrNoTemplate):
+		return fail(c, http.StatusNotFound, "not_found", "agent template not found")
+	case errors.Is(err, studiosvc.ErrChatBusy):
+		return fail(c, http.StatusConflict, "conflict", "a turn is running; stop it first")
+	case errors.Is(err, studiosvc.ErrNothingToRegenerate), errors.Is(err, studiosvc.ErrNotUserMessage),
+		errors.Is(err, studiosvc.ErrInvalidSettings), errors.Is(err, studiosvc.ErrBadImport), errors.Is(err, session.ErrInvalid):
+		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), "studio: "))
 	case errors.Is(err, studiosvc.ErrBadSkillName), errors.Is(err, studiosvc.ErrBadAddonID), errors.Is(err, studiosvc.ErrBadMCPSwitch):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	case errors.Is(err, files.ErrUnavailable):
@@ -123,6 +130,7 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 		ID: rec.ID, Title: rec.Title, Model: rec.Model, Kind: rec.Kind, ParentID: rec.ParentID,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
+		Settings: settingsJSON(rec.Settings),
 	}
 }
 
@@ -272,6 +280,10 @@ func (h *Handlers) Messages(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	return c.JSON(http.StatusOK, messageList(entries))
+}
+
+func messageList(entries []session.Entry) schema.ChatsMessageList {
 	out := schema.ChatsMessageList{Messages: make([]schema.ChatsMessage, 0, len(entries))}
 	for _, e := range entries {
 		m := schema.ChatsMessage{
@@ -279,10 +291,11 @@ func (h *Handlers) Messages(c echo.Context) error {
 		}
 		if e.Card != nil {
 			m.App = appJSON(e.Card.App, true)
+			m.Card = &schema.ChatsToolCard{Kind: e.Card.Kind, ID: e.Card.ID}
 		}
 		out.Messages = append(out.Messages, m)
 	}
-	return c.JSON(http.StatusOK, out)
+	return out
 }
 
 // Send gives the conversation a message.
@@ -300,6 +313,7 @@ func (h *Handlers) Send(c echo.Context) error {
 	var (
 		text string
 		up   []session.Upload
+		refs []schema.ChatsMCPRef
 	)
 	if strings.HasPrefix(c.Request().Header.Get("Content-Type"), "multipart/form-data") {
 		c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxAttachBytes)
@@ -310,6 +324,12 @@ func (h *Handlers) Send(c echo.Context) error {
 		defer func() { _ = form.RemoveAll() }()
 		if v := form.Value["text"]; len(v) > 0 {
 			text = v[0]
+		}
+		if v := form.Value["context"]; len(v) > 0 {
+			var err error
+			if refs, err = parseContext(v[0]); err != nil {
+				return fail(c, http.StatusBadRequest, "invalid_request_error", "context must be a JSON list of prompts and resources")
+			}
 		}
 		for _, fh := range form.File["files"] {
 			f, err := fh.Open()
@@ -324,10 +344,14 @@ func (h *Handlers) Send(c echo.Context) error {
 		if err := c.Bind(&req); err != nil {
 			return fail(c, http.StatusBadRequest, "invalid_request_error", "text is required")
 		}
-		text = req.Text
+		text, refs = req.Text, req.Context
 	}
-	if text == "" && len(up) == 0 {
+	if text == "" && len(up) == 0 && len(refs) == 0 {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "text is required")
+	}
+	var err error
+	if text, err = h.svc.WithMCPContext(c.Request().Context(), userID(c), c.Param("id"), text, mcpRefs(refs)); err != nil {
+		return failMCPContent(c, err)
 	}
 	res, err := h.svc.SendWithFiles(c.Request().Context(), userID(c), c.Param("id"), text, up)
 	if err != nil {
@@ -448,10 +472,14 @@ func (h *Handlers) Events(c echo.Context) error {
 
 func eventJSON(ev session.Event) schema.ChatsEvent {
 	out := schema.ChatsEvent{Kind: string(ev.Kind), Turn: ev.Turn, Text: ev.Text, IDs: ev.IDs, Before: ev.Before, After: ev.After}
+	if u := ev.Usage; u != nil {
+		out.Usage = &schema.ChatsUsage{Used: u.Used, Limit: u.Limit, Completion: u.Completion, TokensPerSecond: u.TokensPerSecond}
+	}
 	if ev.Tool != nil {
 		out.Tool = &schema.ChatsToolEvent{Name: ev.Tool.Name, Summary: ev.Tool.Summary, OK: ev.Tool.OK, Output: ev.Tool.Output, Seq: ev.Tool.Seq}
 		if ev.Tool.Card != nil {
 			out.Tool.App = appJSON(ev.Tool.Card.App, false)
+			out.Tool.Card = &schema.ChatsToolCard{Kind: ev.Tool.Card.Kind, ID: ev.Tool.Card.ID}
 		}
 	}
 	return out

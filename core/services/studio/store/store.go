@@ -100,6 +100,20 @@ type Store interface {
 	// the way SetAddonsOff does for add-ons.
 	SetMcpOff(ctx context.Context, principal, chatID string, off []string) error
 
+	// ListChildren returns the sub-agent chats of a parent chat, oldest first.
+	ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error)
+
+	// SetChatMeta changes the title, the model and the settings of a chat. It
+	// does not touch Updated or the transcript. The caller makes sure no turn
+	// runs when it changes Title or Model, because the loop saves its own copy
+	// of the record at the end of a turn.
+	SetChatMeta(ctx context.Context, principal, chatID string, m session.ChatMeta) error
+
+	// TruncateEntries removes the transcript entries after seq keep, so the
+	// next entry gets Seq keep+1. It is for regenerate and edit-and-resend;
+	// the caller holds the turn claim.
+	TruncateEntries(ctx context.Context, principal, chatID string, keep int64) error
+
 	// ClaimTurn gives runID the right to run a turn on the chat.
 	ClaimTurn(ctx context.Context, principal, chatID, runID string) error
 	// ReleaseTurn ends the claim and records how the turn ended.

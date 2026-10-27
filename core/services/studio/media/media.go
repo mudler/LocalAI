@@ -20,6 +20,7 @@ import (
 	"net/textproto"
 	"path"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -278,6 +279,39 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor) []session.Tool {
 					return "", err
 				}
 				return s.DescribeImage(ctx, a.Principal, name, img, in.Question)
+			}},
+		{Name: "read_document", Description: "Read the text of a PDF, Word, Excel, PowerPoint or EPUB file in the user's files. Long documents come in parts: pass offset to read on.",
+			Schema: json.RawMessage(`{"type":"object","properties":{` + pathProp + `,"offset":{"type":"integer","description":"Character to start at. 0 is the start."},"limit":{"type":"integer","description":"Most characters to return (default 20000)."}},"required":["path"]}`),
+			Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var in struct {
+					Path          string
+					Offset, Limit int
+				}
+				_ = json.Unmarshal(raw, &in)
+				name, data, err := read(ctx, in.Path, maxDocumentBytes)
+				if err != nil {
+					return "", err
+				}
+				doc, err := DocumentText(ctx, name, data)
+				if err != nil {
+					return "", err
+				}
+				if doc == "" {
+					return "", fmt.Errorf("%s has no text layer; it may be a scan", name)
+				}
+				limit := in.Limit
+				if limit <= 0 || limit > 4*readDocumentChars {
+					limit = readDocumentChars
+				}
+				part, more := cutChars(doc, max(in.Offset, 0), limit)
+				total := utf8.RuneCountInString(doc)
+				if part == "" {
+					return "", fmt.Errorf("offset %d is past the end (%d characters)", in.Offset, total)
+				}
+				if more {
+					part += fmt.Sprintf("\n[characters %d to %d of %d; call again with offset %d]", max(in.Offset, 0), max(in.Offset, 0)+utf8.RuneCountInString(part), total, max(in.Offset, 0)+utf8.RuneCountInString(part))
+				}
+				return part, nil
 			}},
 		{Name: "transcribe_audio", Description: "Turn a recording in the user's files into text.",
 			Schema: json.RawMessage(`{"type":"object","properties":{` + pathProp + `},"required":["path"]}`),

@@ -645,6 +645,13 @@ mcp:
 
 ## Client-Side MCP (Browser)
 
+> The chats no longer connect to MCP servers from the browser. This section
+> describes the browser-side connection that the add-on host still offers to
+> add-ons. For the chats, define the server as a connector (it is stored per user
+> and connects from the server): see [Chats connectors](/features/chats-connectors/#mcp-servers).
+> A server on your own computer or a private network is refused unless an
+> administrator allows private addresses.
+
 In addition to server-side MCP (where the backend connects to MCP servers), LocalAI supports **client-side MCP** where the browser connects directly to MCP servers. This is inspired by llama.cpp's WebUI and works alongside server-side MCP.
 
 ### How It Works

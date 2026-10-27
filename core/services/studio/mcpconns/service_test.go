@@ -596,3 +596,68 @@ func TestStdioEnvironmentIsMinimalPlusTheSealedOne(t *testing.T) {
 		t.Fatalf("env = %v", got)
 	}
 }
+
+// A session opened while the administrator allowed private addresses must not
+// outlive that permission.
+func TestTurningOffPrivateAddressesClosesTheOpenSessionsToThem(t *testing.T) {
+	e := newEnv(t)
+	ctx := t.Context()
+	f := newFakeServer(t, 0)
+	c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
+	tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+	if len(missing) != 0 || len(tools) == 0 {
+		t.Fatalf("resolve = %v %v", tools, missing)
+	}
+	var echo mcpconns.Tool
+	for _, tl := range tools {
+		if tl.Name == "echo" {
+			echo = tl
+		}
+	}
+	if _, err := echo.Run(ctx, json.RawMessage(`{"text":"hi"}`)); err != nil {
+		t.Fatalf("a call while private addresses are allowed: %v", err)
+	}
+	before := f.inits.Load()
+
+	e.private.Store(false)
+	// A tool resolved earlier is refused at once.
+	if _, err := echo.Run(ctx, json.RawMessage(`{"text":"again"}`)); err == nil {
+		t.Fatal("a tool of a session to a private address still ran after the switch was turned off")
+	}
+	// The next resolve neither reuses the session nor connects.
+	if tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false); len(tools) != 0 || len(missing) != 1 {
+		t.Fatalf("resolve after the switch = %v %v, want the connector missing", tools, missing)
+	}
+	if e.svc.Sessions() != 0 {
+		t.Fatalf("%d sessions are still open", e.svc.Sessions())
+	}
+	if f.inits.Load() != before {
+		t.Fatal("the server on a private address was contacted again")
+	}
+}
+
+func TestDemotingTheAdministratorClosesTheirLocalCommandSessions(t *testing.T) {
+	ctx := t.Context()
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{"MCPCONNS_HELPER": "1"}
+	e := newEnv(t)
+	e.admin.Store(true)
+	c, err := e.svc.Create(ctx, "u1", mcpconns.Input{Name: "Local", Transport: mcpconns.TransportStdio, Command: self, Env: &env, Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tools, _ := e.svc.Resolve(ctx, "u1", []string{c.ID}, false); len(tools) == 0 {
+		t.Fatal("the administrator's command gave no tools")
+	}
+	if e.svc.Sessions() != 1 {
+		t.Fatalf("sessions = %d, want 1", e.svc.Sessions())
+	}
+	e.admin.Store(false)
+	e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+	if e.svc.Sessions() != 0 {
+		t.Fatalf("the demoted user's command is still running: %d sessions", e.svc.Sessions())
+	}
+}

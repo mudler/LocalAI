@@ -75,6 +75,32 @@ type ChatRecord struct {
 	// Assistant marks a chat that has the LocalAI management tools. It is set
 	// by CreateChat and does not change.
 	Assistant bool
+	// Settings are the per-chat model settings. SetChatMeta sets them;
+	// UpdateChat leaves them alone, like the switches above.
+	Settings ChatSettings
+}
+
+// ChatSettings are the model settings of one chat. A nil pointer or a zero
+// value means "the model's own default". They apply from the next turn.
+type ChatSettings struct {
+	// SystemPrompt is added to the instructions of the chat, before any agent
+	// instructions.
+	SystemPrompt    string   `json:"system_prompt,omitempty"`
+	Temperature     *float64 `json:"temperature,omitempty"`
+	TopP            *float64 `json:"top_p,omitempty"`
+	TopK            *int     `json:"top_k,omitempty"`
+	ReasoningEffort string   `json:"reasoning_effort,omitempty"`
+	// ContextSize is the context window, in tokens, that the harness plans
+	// with (when it compacts the conversation). 0: the model's own size.
+	ContextSize int `json:"context_size,omitempty"`
+}
+
+// ChatMeta is a change to the parts of a chat that a person edits. A nil field
+// is left alone.
+type ChatMeta struct {
+	Title    *string
+	Model    *string
+	Settings *ChatSettings
 }
 
 // Chat origins.

@@ -3223,6 +3223,94 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/agents/import": {
+            "post": {
+                "description": "Send the export file as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning.",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Import a saved agent.",
+                "parameters": [
+                    {
+                        "description": "the agent file",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentExport"
+                        }
+                    },
+                    {
+                        "type": "file",
+                        "description": "the agent file (multipart)",
+                        "name": "file",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new agent and what the import changed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentImportResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/templates": {
+            "get": {
+                "description": "Ready-made definitions to start from. They grant nothing; save one, then grant it tools. POST /api/chats/agents/templates/{id}/create saves one for you.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the starter agents.",
+                "responses": {
+                    "200": {
+                        "description": "The starter agents",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentTemplateList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/templates/{id}/create": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Save a starter agent as your own.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the template's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "a name to use instead of the template's",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentTemplateUse"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The saved agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgent"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/agents/{id}": {
             "get": {
                 "tags": [
@@ -3298,6 +3386,64 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/{id}/export": {
+            "get": {
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Export a saved agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The agent file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentExport"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/{id}/runs": {
+            "get": {
+                "description": "Lists your chats that ran with the agent, newest first: the ones you had, the ones its triggers started and the ones its connectors started, with how each ended. Open one with GET /api/chats/{chat_id}.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Show what an agent has run.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most runs to list (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The runs and the counts",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentHistory"
+                        }
                     }
                 }
             }
@@ -3879,6 +4025,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/import": {
+            "post": {
+                "description": "Creates a new chat from a JSON export. The model of the file is used unless the request names another; it must be one you may use. The chat has no files and no tool state; the next message starts it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Import an exported chat.",
+                "parameters": [
+                    {
+                        "description": "the export and an optional model",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsImportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/mcp-connectors": {
             "get": {
                 "description": "An MCP connector is an MCP server that you defined. Your chats use the enabled ones next to the MCP servers of the model, and a saved agent can name one as connector:\u003cid\u003e. Tokens, headers and the environment of a local command are never returned. Needs the MCP feature.",
@@ -4262,6 +4436,38 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/search": {
+            "get": {
+                "description": "Finds chats whose title or messages contain the text, ignoring case. The newest chats come first. It reads the newest 500 chats.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Search your chats.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "text to find",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most chats to return (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The matching chats",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsChatSearchResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/skills": {
             "get": {
                 "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
@@ -4501,11 +4707,19 @@ const docTemplate = `{
         },
         "/api/chats/triggers/proposals": {
             "get": {
-                "description": "A model in a chat can propose a trigger. A proposal is not active and runs nothing; confirm it to turn it into a trigger that is on.",
+                "description": "A model in a chat can propose a trigger. A proposal is not active and runs nothing; confirm it to turn it into a trigger that is on. The chat shows it as a tool line with a card of kind trigger_proposal whose id is the proposal's id, and a trigger_proposed event announces it.",
                 "tags": [
                     "chats"
                 ],
                 "summary": "List trigger proposals.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "only the proposals made in this chat",
+                        "name": "chat",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "The proposals",
@@ -4517,6 +4731,39 @@ const docTemplate = `{
             }
         },
         "/api/chats/triggers/proposals/{id}": {
+            "put": {
+                "description": "The body replaces every field of the proposal, as for a trigger. The proposal stays a proposal: it is not active until you confirm it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Edit a trigger proposal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new fields",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The proposal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "tags": [
                     "chats"
@@ -4807,6 +5054,39 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "description": "The settings (system prompt, temperature, top_p, top_k, reasoning effort, context size) are kept with the chat and apply from its next turn. A new title or model needs a chat with no turn running (409 otherwise).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Rename a chat, move it to another model or change its settings.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chat after the change",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    }
+                }
             }
         },
         "/api/chats/{id}/addons": {
@@ -4868,6 +5148,112 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/agents": {
+            "get": {
+                "description": "Each sub-agent run is its own conversation. This lists the runs of one chat with their state, from the shared store, so runs started on any frontend show. A chat runs at most background_limit in the background at once. Live starts and ends arrive as sub_agent_started and sub_agent_done events.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the sub-agents of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The sub-agent runs",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSubAgentList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/agents/{agent_id}/messages": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a sub-agent's transcript.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id of the parent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "sub-agent run id",
+                        "name": "agent_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "only lines after this sequence number",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most lines to return (default 200, at most 1000)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Transcript lines in order",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMessageList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/agents/{agent_id}/stop": {
+            "post": {
+                "description": "Ends the run's turn, wherever it runs. The parent goes on and sees a failed sub-agent.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop a sub-agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id of the parent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "sub-agent run id",
+                        "name": "agent_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "stopped",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/events": {
             "get": {
                 "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done and compacted. Events are live only; read the transcript for what came before.",
@@ -4892,6 +5278,76 @@ const docTemplate = `{
                         "description": "An event stream",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsEvent"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/export": {
+            "get": {
+                "description": "Returns the chat as Markdown (format=markdown, the default) or as JSON (format=json), which POST /api/chats/import reads. Files, tool state and checkpoints are not exported.",
+                "produces": [
+                    "text/markdown",
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Export a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "markdown (default) or json",
+                        "name": "format",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chat (JSON format)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsExport"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/fork": {
+            "post": {
+                "description": "Copies the transcript up to and including the given line into a new chat with the same model, settings and tool switches. The original is not changed.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Fork a chat from a message.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "where to cut and the new title",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsForkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
                         }
                     }
                 }
@@ -5007,6 +5463,126 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/mcp/prompts": {
+            "get": {
+                "description": "Lists the prompts of the MCP servers of the chat's model and of your connectors that this chat can use now: not switched off for the chat, and granted by its saved agent when it has one. Add one to a message with the context field of POST /api/chats/{id}/messages.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the MCP prompts of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The prompts",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPPromptList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Returns the text of the prompt with the given arguments. 403 mcp_refused when the chat cannot use the server.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Expand an MCP prompt.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the prompt",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPPromptRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The expanded prompt",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPContent"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/mcp/resources": {
+            "get": {
+                "description": "Lists the resources of the MCP servers of the chat's model and of your connectors that this chat can use now. Add one to a message with the context field of POST /api/chats/{id}/messages.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the MCP resources of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The resources",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPResourceList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/mcp/resources/read": {
+            "post": {
+                "description": "Returns the text of the resource (binary parts are left out, the text is cut at 256 KiB). 403 mcp_refused when the chat cannot use the server.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read an MCP resource.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the resource",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPReadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The resource text",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMCPContent"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/messages": {
             "get": {
                 "tags": [
@@ -5087,6 +5663,48 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/messages/{seq}/edit": {
+            "post": {
+                "description": "Replaces the text of your message with the given sequence number, removes everything after it, and starts a new turn. 409 while a turn runs; 400 when the line is not one of your messages.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Edit a message you sent and run the chat again from it.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "sequence number of the message in the transcript",
+                        "name": "seq",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new text",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEditRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The new turn started",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSendResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/pending/{pid}": {
             "delete": {
                 "tags": [
@@ -5159,6 +5777,32 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "boolean"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/regenerate": {
+            "post": {
+                "description": "Removes everything the model said after your last message (all your messages of that turn stay), then starts a new turn. Files that the removed turn changed stay changed. 409 while a turn runs.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Regenerate the last answer.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The new turn started",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSendResponse"
                         }
                     }
                 }
@@ -12822,6 +13466,59 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAgentExport": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "$ref": "#/definitions/schema.ChatsAgentWrite"
+                },
+                "exported_at": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsAgentHistory": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "integer"
+                },
+                "running": {
+                    "type": "integer"
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentRun"
+                    }
+                },
+                "total": {
+                    "description": "Total, Failed and Running count every run of the agent among your newest\n5,000 chats, not only the ones listed.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsAgentImportResult": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "$ref": "#/definitions/schema.ChatsAgent"
+                },
+                "warnings": {
+                    "description": "Warnings say what the import changed: a model this server does not have\nor you may not use is dropped, and a name you already use gets a number.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsAgentList": {
             "type": "object",
             "properties": {
@@ -12830,6 +13527,77 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsAgent"
                     }
+                }
+            }
+        },
+        "schema.ChatsAgentRun": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "last_turn": {
+                    "description": "LastTurn is how its last turn ended: done, stopped, failed or interrupted.",
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "origin": {
+                    "description": "Origin is empty for a chat you had with the agent, trigger or connector\nfor one that started by itself; OriginID names the trigger or binding.",
+                    "type": "string"
+                },
+                "origin_id": {
+                    "type": "string"
+                },
+                "running": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentTemplate": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentTemplateList": {
+            "type": "object",
+            "properties": {
+                "templates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentTemplate"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAgentTemplateUse": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name replaces the template's name.",
+                    "type": "string"
                 }
             }
         },
@@ -12870,6 +13638,37 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsChatHit": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "$ref": "#/definitions/schema.ChatsConversation"
+                },
+                "in_title": {
+                    "description": "InTitle is true when the title matches.",
+                    "type": "boolean"
+                },
+                "seq": {
+                    "description": "Seq is the first matching transcript line, or 0 when only the title matches.",
+                    "type": "integer"
+                },
+                "snippet": {
+                    "description": "Snippet is the matching text with a little around it.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsChatSearchResponse": {
+            "type": "object",
+            "properties": {
+                "hits": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsChatHit"
                     }
                 }
             }
@@ -13037,6 +13836,14 @@ const docTemplate = `{
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed or interrupted.",
                     "type": "boolean"
                 },
+                "settings": {
+                    "description": "Settings are the chat's own model settings, when it has any.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsSettings"
+                        }
+                    ]
+                },
                 "title": {
                     "type": "string"
                 },
@@ -13090,6 +13897,14 @@ const docTemplate = `{
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed or interrupted.",
                     "type": "boolean"
+                },
+                "settings": {
+                    "description": "Settings are the chat's own model settings, when it has any.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsSettings"
+                        }
+                    ]
                 },
                 "title": {
                     "type": "string"
@@ -13208,6 +14023,14 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsEditRequest": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsEvent": {
             "type": "object",
             "properties": {
@@ -13219,7 +14042,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "ids": {
-                    "description": "IDs names the messages of pending_delivered, or the conversation of sub_agent_done.",
+                    "description": "IDs names the messages of pending_delivered, the conversation of\nsub_agent_started and sub_agent_done, or the proposal of trigger_proposed.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -13241,6 +14064,60 @@ const docTemplate = `{
                 },
                 "turn": {
                     "type": "integer"
+                },
+                "usage": {
+                    "description": "Usage is set on usage events: what one model request used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsUsage"
+                        }
+                    ]
+                }
+            }
+        },
+        "schema.ChatsExport": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "string"
+                },
+                "exported_at": {
+                    "type": "string"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsExportMessage"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "settings": {
+                    "$ref": "#/definitions/schema.ChatsSettings"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsExportMessage": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
                 }
             }
         },
@@ -13320,6 +14197,19 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsForkRequest": {
+            "type": "object",
+            "properties": {
+                "from_seq": {
+                    "description": "FromSeq is the last transcript line to copy; 0 copies everything.",
+                    "type": "integer"
+                },
+                "title": {
+                    "description": "Title names the new chat; it defaults to the old title and \"(fork)\".",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsHistory": {
             "type": "object",
             "properties": {
@@ -13354,6 +14244,18 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsImportRequest": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "$ref": "#/definitions/schema.ChatsExport"
+                },
+                "model": {
+                    "description": "Model replaces the model of the file. It is needed when the file names none.",
                     "type": "string"
                 }
             }
@@ -13537,6 +14439,141 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsMCPContent": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPPrompt": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPPromptArg"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "server": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPPromptArg": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsMCPPromptList": {
+            "type": "object",
+            "properties": {
+                "prompts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPPrompt"
+                    }
+                }
+            }
+        },
+        "schema.ChatsMCPPromptRequest": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "server": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPReadRequest": {
+            "type": "object",
+            "properties": {
+                "server": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPRef": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "server": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPResource": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "mime_type": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "server": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMCPResourceList": {
+            "type": "object",
+            "properties": {
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPResource"
+                    }
+                }
+            }
+        },
         "schema.ChatsMCPServerSwitch": {
             "type": "object",
             "properties": {
@@ -13578,6 +14615,14 @@ const docTemplate = `{
                 },
                 "at": {
                     "type": "string"
+                },
+                "card": {
+                    "description": "Card is set on a tool line that points at a record, such as a trigger\nproposal (kind trigger_proposal, id the proposal's id).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsToolCard"
+                        }
+                    ]
                 },
                 "dur_ms": {
                     "description": "DurMs is how long the model thought, for reasoning lines.",
@@ -13784,6 +14829,13 @@ const docTemplate = `{
         "schema.ChatsSendRequest": {
             "type": "object",
             "properties": {
+                "context": {
+                    "description": "Context adds MCP prompts and resources to this message as context. Each\nis expanded on the server, as you, from a server the chat can use.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPRef"
+                    }
+                },
                 "text": {
                     "type": "string"
                 }
@@ -13797,6 +14849,34 @@ const docTemplate = `{
                 },
                 "started": {
                     "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsSettings": {
+            "type": "object",
+            "properties": {
+                "context_size": {
+                    "description": "ContextSize is the context window in tokens that the loop plans with\n(when it compacts the conversation), 0 for the model's own.",
+                    "type": "integer"
+                },
+                "reasoning_effort": {
+                    "description": "ReasoningEffort is none, minimal, low, medium or high.",
+                    "type": "string"
+                },
+                "system_prompt": {
+                    "description": "SystemPrompt is added to the chat's instructions, before the saved agent's.",
+                    "type": "string"
+                },
+                "temperature": {
+                    "description": "Temperature is between 0 and 2.",
+                    "type": "number"
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "top_p": {
+                    "description": "TopP is above 0 and at most 1.",
+                    "type": "number"
                 }
             }
         },
@@ -13913,6 +14993,49 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsSubAgent": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_turn": {
+                    "type": "string"
+                },
+                "running": {
+                    "description": "Running is true while the run's turn is going. LastTurn is how its last\nturn ended: done, stopped, failed or interrupted.",
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSubAgentList": {
+            "type": "object",
+            "properties": {
+                "background_limit": {
+                    "description": "BackgroundLimit is how many a chat may run in the background at once.",
+                    "type": "integer"
+                },
+                "running": {
+                    "description": "Running is how many of them run now, on any frontend of the server.",
+                    "type": "integer"
+                },
+                "sub_agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSubAgent"
+                    }
+                }
+            }
+        },
         "schema.ChatsToolApp": {
             "type": "object",
             "properties": {
@@ -13949,6 +15072,17 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsToolCard": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsToolEvent": {
             "type": "object",
             "properties": {
@@ -13957,6 +15091,14 @@ const docTemplate = `{
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsToolApp"
+                        }
+                    ]
+                },
+                "card": {
+                    "description": "Card is the record the result points at, on tool_end; see ChatsMessage.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsToolCard"
                         }
                     ]
                 },
@@ -14234,6 +15376,47 @@ const docTemplate = `{
                     }
                 },
                 "rev": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "description": "Model moves the chat to another model; the history stays.",
+                    "type": "string"
+                },
+                "settings": {
+                    "description": "Settings replaces the chat's settings as a whole.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsSettings"
+                        }
+                    ]
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsUsage": {
+            "type": "object",
+            "properties": {
+                "completion": {
+                    "description": "Completion is the number of tokens the request generated.",
+                    "type": "integer"
+                },
+                "limit": {
+                    "description": "Limit is the context window the loop plans with, 0 when it is not known.",
+                    "type": "integer"
+                },
+                "tokens_per_second": {
+                    "description": "TokensPerSecond is the generation speed, 0 when the backend gave no timing.",
+                    "type": "number"
+                },
+                "used": {
+                    "description": "Used is the number of tokens in the context the request sent.",
                     "type": "integer"
                 }
             }

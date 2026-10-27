@@ -72,6 +72,37 @@ definition from their next turn. Another user's agent is always `404`.
 Agents belong to the `chats` feature. They have no administration tools, as
 they are your own settings.
 
+### Starter agents
+
+`GET /api/chats/agents/templates` lists ready-made definitions (a research
+assistant, a code reviewer, a daily digest, a writing editor). They grant
+nothing. `POST /api/chats/agents/templates/{id}/create` saves one as your own
+(`{"name": "..."}` is optional); then grant it tools with `PUT`.
+
+### Export and import
+
+```
+curl .../api/chats/agents/<id>/export > reviewer.json
+curl -X POST .../api/chats/agents/import -d @reviewer.json
+curl -X POST .../api/chats/agents/import -F file=@reviewer.json
+```
+
+The file holds the definition only (version 1, kind `localai-agent`): no ID,
+owner or time. An import always makes a new agent. A name you already use gets
+" (2)", " (3)" and so on, and a model that this server does not have, or that you
+may not use, is dropped. The response lists such changes under `warnings`. The
+grants (MCP servers, add-ons, collections, skills) are kept as names; a grant
+that names something you do not have gives the chat nothing, as for any agent.
+Secrets are never part of an agent, so the file has none.
+
+### Run history
+
+`GET /api/chats/agents/{id}/runs` lists the chats that ran with the agent,
+newest first: the ones you had with it, the ones its triggers started
+(`origin: trigger`) and the ones its connectors started (`origin: connector`),
+each with `running` and `last_turn`. `total`, `failed` and `running` count every
+run among your newest 5,000 chats. Open a run with `GET /api/chats/{chat_id}`.
+
 ## Connectors
 
 A [connector](/features/chats-connectors/) binds a Telegram bot to an agent, so a person can talk to it from Telegram. An [MCP connector](/features/chats-connectors/#mcp-servers) is a tool server that an agent can name in its `mcp_servers` list.
@@ -88,7 +119,7 @@ and undo what it changed, and it is marked with its trigger. There are two kinds
 | `file` | When a file arrives in a folder of your files | `folder` (a path inside your files, such as `/Contracts`), `quiet_seconds` (default 30) |
 
 A schedule is one of `daily 08:00`, `weekdays 09:30`, `weekly mon,thu 09:30`,
-`monthly 15 08:00`, `once 2026-12-24 18:00` or five cron fields. A time that
+`monthly 15 08:00`, `once 2026-12-24 18:00` or five cron fields (numbers only: month and day names such as `mon` or `jan` are not accepted). A time that
 does not exist in the time zone (a daylight-saving gap) moves to the first valid
 minute after it, and a repeated hour runs once. `GET /api/chats/triggers/preview?when=...&tz=...`
 shows the next times and says what the text means.
@@ -125,9 +156,15 @@ downtime, a missed schedule runs once, not once for each missed time.
 
 In a chat, the model can propose a trigger with `propose_trigger` and list yours
 with `list_triggers`. A proposal is not active and runs nothing. It waits for you
-on the Triggers page (`GET /api/chats/triggers/proposals`): confirm it
-(`POST .../proposals/{id}/confirm`, with your `time_zone` when it names none) or
-dismiss it (`DELETE .../proposals/{id}`). If a proposal was made in a chat that
+in the chat and on the Triggers page (`GET /api/chats/triggers/proposals`, with
+`?chat={id}` for the ones made in one chat). Change it first if you want
+(`PUT .../proposals/{id}` with the same body as a trigger; it stays a proposal),
+then confirm it (`POST .../proposals/{id}/confirm`, with your `time_zone` when it
+names none) or dismiss it (`DELETE .../proposals/{id}`). The chat carries the
+proposal: the tool line of `propose_trigger` has a `card` of kind
+`trigger_proposal` whose `id` is the proposal's id, in the live `tool_end` event
+and in the transcript, so it shows again after a reload, and a
+`trigger_proposed` event announces it to a client that is watching. If a proposal was made in a chat that
 has an agent, the trigger keeps that agent. At most 10 proposals wait at a time,
 and you can have 50 triggers.
 
@@ -163,7 +200,7 @@ finished or failed, or something that needs you. Each item has a kind
 text, and a link to the chat it is about. A chat that a run started is unread
 until you open it: opening the chat marks its notifications read.
 
-You keep at most 500 notifications, none older than 90 days.
+You keep at most 500 notifications, none older than 90 days. The age limit applies when you read: an older notification is not listed or counted, and it is deleted the next time one is added.
 
 ```
 curl ".../api/chats/notifications?unread=1"          # the unread ones, and the unread count

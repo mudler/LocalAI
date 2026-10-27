@@ -78,6 +78,9 @@ type Deps struct {
 	// the user may not use MCP. It feeds the per-chat switches; nil: a switch of
 	// a model server has no effect on a chat with no agent.
 	MCPServers func(ctx context.Context, user, model string) []ModelMCPServer
+	// MCPContent reads the prompts and resources of the model's own MCP
+	// servers. Nil: they offer none.
+	MCPContent MCPContent
 	// Connectors holds the MCP servers the users defined. Nil: none.
 	Connectors ConnectorTools
 	// MCPConnectors is the same service with its management calls, for the
@@ -113,12 +116,20 @@ type Deps struct {
 	// Media runs the image and audio helper tools and transcribes voice notes.
 	// Nil: neither.
 	Media *media.Service
+	// Modalities says which inputs a model takes natively: with Vision an
+	// attached image goes to the chat model as an image part, with Video a
+	// video does. A model without them gets the file and the describe_image
+	// tool. Nil: no model takes either.
+	Modalities func(model string) Modalities
 	// Persistent is true when the store keeps conversations across a restart.
 	Persistent bool
 	// Harness replaces the nib harness. It is for tests.
 	Harness session.Harness
 	Logger  *slog.Logger
 }
+
+// Modalities are the inputs a chat model takes besides text.
+type Modalities struct{ Vision, Video bool }
 
 // CreateInput describes a new conversation.
 type CreateInput struct {
@@ -161,6 +172,7 @@ type Service struct {
 	connectors *Connectors      // set once by SetConnectors
 	conversion ConversionSource // set once by SetConversion
 
+	videos   map[string][]string                // videos for the next model request of a turn, by conversation
 	children map[string]map[string]*child       // running sub-agents, by parent conversation
 	allowed  map[string][]session.Tool          // the tools of a sub-agent conversation
 	waiters  map[string][]chan store.TurnStatus // callers waiting for a turn to end
@@ -204,7 +216,7 @@ func New(d Deps) (*Service, error) {
 		bus = NewLocalBus()
 	}
 	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, locks: map[string]*keyLock{},
-		children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
+		videos: map[string][]string{}, children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
 	h := d.Harness
 	if h == nil {
 		if d.Provider == nil {
@@ -428,19 +440,27 @@ func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up
 		return SendResult{}, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
 	}
 	if len(up) > 0 && s.d.Media != nil {
-		// Voice notes are transcribed before the turn starts, and the
-		// transcripts go with the message; the files are kept as they are.
+		// Voice notes are transcribed and documents are read before the turn
+		// starts, and the text goes with the message; the files are kept as
+		// they are.
 		var perr error
 		if text, up, perr = s.d.Media.PrepareUploads(ctx, principal(user), text, up); perr != nil {
 			return SendResult{}, perr
 		}
+		if text, up, perr = s.d.Media.ExtractDocuments(ctx, text, up); perr != nil {
+			return SendResult{}, perr
+		}
 	}
-	return s.send(ctx, user, conv, text, up)
+	up, parts, err := s.nativeMedia(rec.Model, up)
+	if err != nil {
+		return SendResult{}, err
+	}
+	return s.send(ctx, user, conv, text, up, parts)
 }
 
 // send is SendWithFiles without the check on the kind: the service itself
 // starts sub-agent conversations through it.
-func (s *Service) send(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
+func (s *Service) send(ctx context.Context, user, conv, text string, up []session.Upload, parts []session.Media) (SendResult, error) {
 	p := principal(user)
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return SendResult{}, err
@@ -462,7 +482,7 @@ func (s *Service) send(ctx context.Context, user, conv, text string, up []sessio
 			texts, ids[i] = append(texts, t.Text), t.ID
 		}
 		texts = append(texts, text)
-		if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n"), up); err != nil {
+		if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n"), up, parts); err != nil {
 			_ = s.d.Store.RestorePending(ctx, p, conv, ids)
 			return SendResult{}, err
 		}
@@ -543,6 +563,9 @@ func (s *Service) Stop(ctx context.Context, user, conv string) error {
 	s.mu.Lock()
 	local := s.runs[k] != nil
 	s.mu.Unlock()
+	// The sub-agents of a conversation stop with it, even when the parent has
+	// no turn left to stop: a background sub-agent can outlive the turn.
+	s.stopChildren(p, conv)
 	if !local {
 		s.bus.Control(k, ControlMsg{Stop: true})
 		return nil
@@ -593,7 +616,7 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 	for i, t := range taken {
 		texts[i], ids[i] = t.Text, t.ID
 	}
-	if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n"), nil); err != nil {
+	if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n"), nil, nil); err != nil {
 		_ = s.d.Store.RestorePending(ctx, p, conv, ids)
 		return false, err
 	}
@@ -603,7 +626,7 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 }
 
 // startTurn runs text as a turn the claim runID already covers.
-func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up []session.Upload) error {
+func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up []session.Upload, parts []session.Media) error {
 	chat, err := s.chat(ctx, p, conv)
 	if err != nil {
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
@@ -625,7 +648,8 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up
 	s.mu.Lock()
 	s.runs[k] = &run{id: runID, end: end, chat: chat}
 	s.mu.Unlock()
-	if err := chat.Send(context.WithoutCancel(ctx), session.Message{Text: text, Files: up}); err != nil {
+	images := s.keepVideos(k, parts)
+	if err := chat.Send(context.WithoutCancel(ctx), session.Message{Text: text, Files: up, Media: images}); err != nil {
 		s.mu.Lock()
 		delete(s.runs, k)
 		s.mu.Unlock()
@@ -883,11 +907,27 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 			return nibharness.Model{}, fmt.Errorf("studio: load the chat's user: %w", err)
 		}
 	}
-	m := nibharness.Model{LLM: s.d.Provider.LLM(user, rec.Model), Name: rec.Model}
-	if s.d.ContextTokens != nil {
-		m.ContextTokens = s.d.ContextTokens(rec.Model)
+	set := rec.Settings
+	limit := set.ContextSize
+	if limit == 0 && s.d.ContextTokens != nil {
+		limit = s.d.ContextTokens(rec.Model)
 	}
-	return m, nil
+	params := provider.Params{
+		Temperature: set.Temperature, TopP: set.TopP, TopK: set.TopK, ReasoningEffort: set.ReasoningEffort,
+		OnUsage:    func(u provider.Usage) { s.reportUsage(a, u, limit) },
+		TakeVideos: func() []string { return s.takeVideos(a.Principal, a.ChatID) },
+	}
+	return nibharness.Model{
+		LLM: s.d.Provider.LLMWith(user, rec.Model, params), Name: rec.Model,
+		ContextTokens: limit, ReasoningEffort: set.ReasoningEffort,
+	}, nil
+}
+
+// reportUsage tells the watchers of the chat what one model request used.
+func (s *Service) reportUsage(a workspace.Actor, u provider.Usage, limit int) {
+	s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindUsage, Usage: &session.UsageEvent{
+		Used: u.PromptTokens, Limit: limit, Completion: u.CompletionTokens, TokensPerSecond: u.TokensPerSecond,
+	}})
 }
 
 // Delete removes a conversation and its transcript. A running turn is stopped

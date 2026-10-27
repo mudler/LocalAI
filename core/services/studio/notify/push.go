@@ -8,6 +8,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -82,12 +84,23 @@ func NewPusher(o PusherOptions) *Pusher {
 		o.Client = httpclient.New(httpclient.WithExternalOnly(), httpclient.WithTimeout(10*time.Second))
 	}
 	if o.CheckEndpoint == nil {
-		o.CheckEndpoint = httpclient.ValidateExternalURL
+		o.CheckEndpoint = checkPushEndpoint
 	}
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
 	return &Pusher{o: o}
+}
+
+// checkPushEndpoint accepts an https URL on a public address. The push service
+// of a browser is always https, and a plain http endpoint would send the
+// payload in the clear.
+func checkPushEndpoint(endpoint string) error {
+	u, err := url.Parse(endpoint)
+	if err != nil || !strings.EqualFold(u.Scheme, "https") {
+		return errors.New("the endpoint must be an https address")
+	}
+	return httpclient.ValidateExternalURL(endpoint)
 }
 
 func generateVAPID() (string, string, error) {

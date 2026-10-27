@@ -74,6 +74,8 @@ type ChatsConversation struct {
 	// ended: done, stopped, failed or interrupted.
 	Running  bool   `json:"running"`
 	LastTurn string `json:"last_turn,omitempty"`
+	// Settings are the chat's own model settings, when it has any.
+	Settings *ChatsSettings `json:"settings,omitempty"`
 }
 
 // ChatsConversationList is the response of the list endpoint.
@@ -96,6 +98,9 @@ type ChatsConversationDetail struct {
 // ChatsSendRequest is a message to a conversation.
 type ChatsSendRequest struct {
 	Text string `json:"text"`
+	// Context adds MCP prompts and resources to this message as context. Each
+	// is expanded on the server, as you, from a server the chat can use.
+	Context []ChatsMCPRef `json:"context,omitempty"`
 }
 
 // ChatsSendResponse says what happened to a message. With a turn running the
@@ -128,7 +133,16 @@ type ChatsMessage struct {
 	// App is set on a tool line whose tool has an MCP App: the interactive page
 	// that goes with the result.
 	App *ChatsToolApp `json:"app,omitempty"`
-	At  time.Time     `json:"at"`
+	// Card is set on a tool line that points at a record, such as a trigger
+	// proposal (kind trigger_proposal, id the proposal's id).
+	Card *ChatsToolCard `json:"card,omitempty"`
+	At   time.Time      `json:"at"`
+}
+
+// ChatsToolCard points the interface at a record that belongs to a tool result.
+type ChatsToolCard struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
 }
 
 // ChatsToolApp tells the interface which MCP App belongs to a tool result. The
@@ -189,18 +203,35 @@ type ChatsMessageList struct {
 
 // ChatsEvent is one server-sent event of a conversation. Kind is text,
 // reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error,
-// pending_delivered, sub_agent_done or compacted.
+// pending_delivered, sub_agent_started, sub_agent_done, compacted, usage or
+// trigger_proposed.
 type ChatsEvent struct {
 	Kind string `json:"kind"`
 	Turn int    `json:"turn,omitempty"`
 	Text string `json:"text,omitempty"`
 	// Tool is set for tool_start and tool_end.
 	Tool *ChatsToolEvent `json:"tool,omitempty"`
-	// IDs names the messages of pending_delivered, or the conversation of sub_agent_done.
+	// IDs names the messages of pending_delivered, the conversation of
+	// sub_agent_started and sub_agent_done, or the proposal of trigger_proposed.
 	IDs []string `json:"ids,omitempty"`
 	// Before and After are context sizes in tokens, for compacted.
 	Before int `json:"before,omitempty"`
 	After  int `json:"after,omitempty"`
+	// Usage is set on usage events: what one model request used.
+	Usage *ChatsUsage `json:"usage,omitempty"`
+}
+
+// ChatsUsage is what one model request used. It feeds the context meter and
+// the tokens-per-second figure.
+type ChatsUsage struct {
+	// Used is the number of tokens in the context the request sent.
+	Used int `json:"used"`
+	// Limit is the context window the loop plans with, 0 when it is not known.
+	Limit int `json:"limit,omitempty"`
+	// Completion is the number of tokens the request generated.
+	Completion int `json:"completion"`
+	// TokensPerSecond is the generation speed, 0 when the backend gave no timing.
+	TokensPerSecond float64 `json:"tokens_per_second,omitempty"`
 }
 
 // ChatsToolEvent describes a tool call.
@@ -216,6 +247,8 @@ type ChatsToolEvent struct {
 	// App is the reference of the MCP App of the call, on tool_end. It has no
 	// input and no result: read the transcript line for them.
 	App *ChatsToolApp `json:"app,omitempty"`
+	// Card is the record the result points at, on tool_end; see ChatsMessage.
+	Card *ChatsToolCard `json:"card,omitempty"`
 }
 
 // ChatsFile is a file or folder of the user's workspace. Paths are inside the
@@ -538,13 +571,18 @@ type ChatsConnector struct {
 // ChatsConnectorWrite creates or replaces a connector binding. token is needed to
 // create one; an update without it keeps the stored token.
 type ChatsConnectorWrite struct {
-	Name       string   `json:"name"`
-	Token      string   `json:"token,omitempty"`
-	AgentID    string   `json:"agent_id"`
-	Enabled    bool     `json:"enabled"`
-	AcceptAny  bool     `json:"accept_any"`
-	Allow      []string `json:"allow,omitempty"`
-	NotifyChat string   `json:"notify_chat,omitempty"`
+	Name      string `json:"name"`
+	Token     string `json:"token,omitempty"`
+	AgentID   string `json:"agent_id"`
+	Enabled   bool   `json:"enabled"`
+	AcceptAny bool   `json:"accept_any"`
+	// ConfirmAcceptAny must be the exact text "accept any message" in the
+	// request that turns accept_any on (a create with accept_any, or an update
+	// that changes it from off to on). Anyone who can message the bot then uses
+	// the agent's tools as you, so the server asks you to say you mean it.
+	ConfirmAcceptAny string   `json:"confirm_accept_any,omitempty"`
+	Allow            []string `json:"allow,omitempty"`
+	NotifyChat       string   `json:"notify_chat,omitempty"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.

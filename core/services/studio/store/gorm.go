@@ -28,7 +28,7 @@ type chatRow struct {
 	HarnessState []byte
 	Turns        int
 	Kind         string
-	ParentID     string `gorm:"size:128"`
+	ParentID     string `gorm:"index;size:128"`
 	Model        string
 	Status       string
 	Summary      string `gorm:"type:text"`
@@ -45,6 +45,7 @@ type chatRow struct {
 	Origin       string `gorm:"size:32"`
 	OriginID     string `gorm:"size:128"`
 	Assistant    bool
+	Settings     string `gorm:"type:text"` // JSON of session.ChatSettings
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -111,6 +112,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 	}
+	if r.Settings != "" {
+		if err := json.Unmarshal([]byte(r.Settings), &rec.Settings); err != nil {
+			return rec, err
+		}
+	}
 	if r.Snapshot != "" {
 		var ref sandbox.SnapshotRef
 		if err := json.Unmarshal([]byte(r.Snapshot), &ref); err != nil {
@@ -139,6 +145,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 		Created: rec.Created, Updated: rec.Updated, Snapshot: snap, HarnessState: rec.HarnessState,
 		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Model: rec.Model, Status: rec.Status, Summary: rec.Summary,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
+	}
+	if rec.Settings != (session.ChatSettings{}) {
+		raw, err := json.Marshal(rec.Settings)
+		if err != nil {
+			return err
+		}
+		row.Settings = string(raw)
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		var n int64
@@ -260,6 +273,70 @@ func (s *gormStore) SetMcpOff(ctx context.Context, principal, id string, off []s
 		return session.ErrNotFound
 	}
 	return nil
+}
+
+func (s *gormStore) ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error) {
+	var rows []chatRow
+	err := s.db.WithContext(ctx).Where("principal = ? AND parent_id = ? AND kind = ?", principal, parentID, session.KindSubAgent).
+		Order("created ASC, id ASC").Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]session.ChatRecord, 0, len(rows))
+	for _, r := range rows {
+		rec, err := r.record()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rec)
+	}
+	return out, nil
+}
+
+func (s *gormStore) SetChatMeta(ctx context.Context, principal, id string, m session.ChatMeta) error {
+	cols := map[string]any{}
+	if m.Title != nil {
+		cols["title"] = *m.Title
+	}
+	if m.Model != nil {
+		cols["model"] = *m.Model
+	}
+	if m.Settings != nil {
+		raw := ""
+		if *m.Settings != (session.ChatSettings{}) {
+			b, err := json.Marshal(m.Settings)
+			if err != nil {
+				return err
+			}
+			raw = string(b)
+		}
+		cols["settings"] = raw
+	}
+	if len(cols) == 0 {
+		_, err := s.GetChat(ctx, principal, id)
+		return err
+	}
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Updates(cols)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+func (s *gormStore) TruncateEntries(ctx context.Context, principal, id string, keep int64) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, err := lock(tx, principal, id, "next_entry"); err != nil {
+			return err
+		}
+		if err := tx.Where("chat_id = ? AND seq > ?", id, keep).Delete(&entryRow{}).Error; err != nil {
+			return err
+		}
+		// lock bumped the counter; the next entry is keep+1.
+		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("next_entry", keep).Error
+	})
 }
 
 func (s *gormStore) DeleteChat(ctx context.Context, principal, id string) error {

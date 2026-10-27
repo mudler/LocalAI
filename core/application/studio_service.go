@@ -93,6 +93,8 @@ func (a *Application) initStudioService() {
 		Assistant:     studioAssistant{a},
 		Collections:   studioCollections{a},
 		ContextTokens: a.studioContextTokens,
+		Modalities:    a.studioModalities,
+		MCPContent:    studioMCPContent{a: a},
 		Persistent:    a.studioStoreKind != "memory",
 		Files:         a.StudioFiles(),
 		Media:         media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel),
@@ -159,7 +161,10 @@ func (a *Application) studioUsers() studio.UserLookup {
 }
 
 // loadStudioUser returns the active user with this ID. A chat acts as its
-// owner, so an account that was disabled or never approved is refused.
+// owner, so an account that was disabled or never approved is refused, and so
+// is one whose chats feature an administrator switched off. The route gate
+// checks the feature for a request; this check is for what runs without one:
+// triggers, bots and background runs, which ask on every run.
 func (a *Application) loadStudioUser(ctx context.Context, id string) (*auth.User, error) {
 	if id == legacyAPIKeyUserID {
 		return &auth.User{ID: id, Name: "API Key User", Role: auth.RoleAdmin, Status: auth.StatusActive}, nil
@@ -177,6 +182,9 @@ func (a *Application) loadStudioUser(ctx context.Context, id string) (*auth.User
 	if u.Status != auth.StatusActive {
 		return nil, studio.ErrUserDisabled
 	}
+	if !auth.HasFeatureAccess(a.authDB, &u, auth.FeatureChats) {
+		return nil, studio.ErrChatsOff
+	}
 	return &u, nil
 }
 
@@ -188,6 +196,16 @@ func (a *Application) studioContextTokens(model string) int {
 		return 0
 	}
 	return *cfg.ContextSize
+}
+
+// studioModalities says which inputs a chat model takes natively, from its
+// configuration. An unknown model takes none.
+func (a *Application) studioModalities(model string) studio.Modalities {
+	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
+	if !ok {
+		return studio.Modalities{}
+	}
+	return studio.Modalities{Vision: cfg.VisionSupported(), Video: cfg.VideoInputSupported()}
 }
 
 // studioMCPServers picks the MCP servers a chat uses, by the chat route's

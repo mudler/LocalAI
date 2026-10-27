@@ -24,6 +24,10 @@ var (
 	ErrNoUser = errors.New("studio: the user does not exist")
 	// ErrUserDisabled means the account exists but is not active.
 	ErrUserDisabled = errors.New("studio: the user is not active")
+	// ErrChatsOff means the account is active but an administrator switched the
+	// chats feature off for it. Whatever the account started by itself (a
+	// trigger, a bot) stops with it.
+	ErrChatsOff = errors.New("studio: the chats feature is off for this account")
 )
 
 // Defaults of the trigger host.
@@ -344,6 +348,8 @@ func (h *Triggers) checkOwner(ctx context.Context, t triggers.Trigger) error {
 		return ctx.Err()
 	case errors.Is(err, ErrUserDisabled):
 		return &triggers.SkipError{Reason: "the owner's account is disabled"}
+	case errors.Is(err, ErrChatsOff):
+		return &triggers.SkipError{Reason: "chats are switched off for the owner's account"}
 	case errors.Is(err, ErrNoUser):
 		h.switchOff(t, "its owner no longer exists")
 		return &triggers.SkipError{Reason: "the owner no longer exists"}

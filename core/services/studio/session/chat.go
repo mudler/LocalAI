@@ -22,6 +22,9 @@ import (
 type Message struct {
 	Text  string
 	Files []Upload // stored in the chat folder before the turn starts
+	// Media goes to the model as parts of this message when the harness can
+	// take them. It is not stored: the files in Files are.
+	Media []Media
 }
 
 // Upload is one file that came with a message.
@@ -633,7 +636,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		c.appendEntry(ctx, Entry{Turn: c.turnNow() + 1, Role: RoleUser, Text: full})
 	}
 	c.m.wg.Add(1)
-	go c.loop(full, len(paths) > 0, done)
+	go c.loop(full, len(paths) > 0, msg.Media, done)
 	return nil
 }
 
@@ -697,10 +700,11 @@ func composeMessage(text string, guestPaths []string) string {
 // The chat leaves the running state before turn_end is emitted, so a consumer
 // that sees turn_end can call SetTitle or Send at once. endMu keeps the next
 // turn_start behind that turn_end.
-func (c *Chat) loop(text string, refresh bool, done chan struct{}) {
+func (c *Chat) loop(text string, refresh bool, media []Media, done chan struct{}) {
 	defer c.m.wg.Done()
 	for {
-		n := c.runTurn(text, refresh)
+		n := c.runTurn(text, refresh, media)
+		media = nil
 		c.mu.Lock()
 		more := len(c.pending) > 0 && !c.closed && !c.stopped
 		if more {
@@ -721,7 +725,7 @@ func (c *Chat) loop(text string, refresh bool, done chan struct{}) {
 
 // runTurn runs one turn up to and including its checkpoint event, and returns
 // the turn number. The loop emits turn_end.
-func (c *Chat) runTurn(text string, refresh bool) int {
+func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 	c.mu.Lock()
 	c.turn++
 	n := c.turn
@@ -765,7 +769,7 @@ func (c *Chat) runTurn(text string, refresh bool) int {
 			// The note is for the model only: the transcript keeps the user's words.
 			toModel = "(System note: " + note + ")\n\n" + text
 		}
-		err := safeSend(ctx, hs, toModel, c.m.log)
+		err := safeSend(ctx, hs, toModel, media, c.m.log)
 		c.mu.Lock()
 		stopped := c.stopped
 		c.mu.Unlock()
@@ -1071,13 +1075,16 @@ func (c *Chat) stopTimer() {
 
 // safeSend runs hs.Send and turns a panic into an error, so that a bug in a
 // harness ends one turn and not the process.
-func safeSend(ctx context.Context, hs HarnessSession, text string, log *slog.Logger) (err error) {
+func safeSend(ctx context.Context, hs HarnessSession, text string, media []Media, log *slog.Logger) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("session: the harness panicked", "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
 			err = errors.New("the harness panicked")
 		}
 	}()
+	if ms, ok := hs.(MediaSession); ok && len(media) > 0 {
+		return ms.SendMedia(ctx, text, media)
+	}
 	return hs.Send(ctx, text)
 }
 

@@ -92,6 +92,9 @@ type session struct {
 	version int64
 	conn    *conn
 	last    time.Time
+	// private is true when the session was opened while the administrator
+	// allowed private addresses. It must not outlive that permission.
+	private bool
 }
 
 // Service is the connectors of the users and the MCP sessions they open. The
@@ -492,7 +495,7 @@ func (s *Service) session(ctx context.Context, c Connector) (*session, error) {
 	version := c.Updated.UnixNano()
 	s.mu.Lock()
 	if se := s.sess[c.ID]; se != nil {
-		if se.owner == c.Owner && se.version == version {
+		if se.owner == c.Owner && se.version == version && !s.stale(se) {
 			se.last = s.o.Clock()
 			s.mu.Unlock()
 			return se, nil
@@ -509,7 +512,7 @@ func (s *Service) session(ctx context.Context, c Connector) (*session, error) {
 	if err != nil {
 		return nil, errors.New(redact(err.Error(), c, sec))
 	}
-	se := &session{owner: c.Owner, version: version, conn: cn, last: s.o.Clock()}
+	se := &session{owner: c.Owner, version: version, conn: cn, last: s.o.Clock(), private: s.o.AllowPrivate()}
 	s.mu.Lock()
 	if other := s.sess[c.ID]; other != nil && other.version == version && other.owner == c.Owner {
 		s.mu.Unlock()
@@ -519,6 +522,20 @@ func (s *Service) session(ctx context.Context, c Connector) (*session, error) {
 	s.sess[c.ID] = se
 	s.mu.Unlock()
 	return se, nil
+}
+
+// stale says that the administrator's policy no longer allows the session.
+func (s *Service) stale(se *session) bool { return se.private && !s.o.AllowPrivate() }
+
+// drop closes and forgets the session of a connector, if there is one.
+func (s *Service) drop(id string) {
+	s.mu.Lock()
+	se := s.sess[id]
+	delete(s.sess, id)
+	s.mu.Unlock()
+	if se != nil {
+		se.conn.close()
+	}
 }
 
 func label(c Connector, reason string) string {
@@ -600,6 +617,7 @@ func (s *Service) Resolve(ctx context.Context, user string, refs []string, all b
 func (s *Service) toolsOf(ctx context.Context, user string, c Connector) ([]Tool, string) {
 	if c.Transport == TransportStdio {
 		if err := s.stdioAllowed(ctx, user); err != nil {
+			s.drop(c.ID) // a command that is not allowed any more must not keep running
 			return nil, label(c, "a local command is not allowed here")
 		}
 	}
@@ -638,6 +656,18 @@ func (s *Service) call(ctx context.Context, c Connector, se *session, name strin
 		if err := json.Unmarshal(args, &in); err != nil {
 			return "", nil, fmt.Errorf("the arguments of %s are not a JSON object", name)
 		}
+	}
+	s.mu.Lock()
+	stale := s.stale(se)
+	if stale && s.sess[c.ID] == se {
+		// The administrator turned private addresses off after this tool was
+		// handed out. Close the session; the next turn connects under the new rule.
+		delete(s.sess, c.ID)
+		defer se.conn.close()
+	}
+	s.mu.Unlock()
+	if stale {
+		return "", nil, fmt.Errorf("the connector %s is on a private address, which an administrator no longer allows", c.Name)
 	}
 	cctx, cancel := context.WithTimeout(ctx, s.o.CallTimeout)
 	defer cancel()

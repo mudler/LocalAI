@@ -76,6 +76,90 @@ curl -X POST .../api/chats/3f1c.../stop       # end the running turn
 curl -X POST .../api/chats/3f1c.../send-now   # start a turn from the waiting messages
 ```
 
+## Settings, rename and model change
+
+A chat keeps its own model settings. They apply from the next turn, and they
+are part of the chat: a fork and an export carry them.
+
+```bash
+curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
+  "title": "Trip plan",
+  "model": "another-model",
+  "settings": {"system_prompt": "Answer in short sentences.", "temperature": 0.3,
+               "top_p": 0.9, "top_k": 40, "reasoning_effort": "low", "context_size": 16384}
+}'
+```
+
+- `system_prompt` goes before the instructions of a saved agent.
+- `temperature` (0 to 2), `top_p` (above 0, at most 1), `top_k` and
+  `reasoning_effort` (`none`, `minimal`, `low`, `medium`, `high`) go to the
+  model with every request of the chat. A missing field means the model's own
+  default. `settings` replaces all of them, so send the whole object; `{}`
+  clears it.
+- `context_size` is the window, in tokens, that the loop plans with when it
+  decides to compact the conversation. It does not reload the model.
+- A new `title` or `model` needs a chat with no turn running (409 otherwise).
+  The history stays when the model changes.
+
+### Context meter and speed
+
+Each model request sends a `usage` event with `used` (tokens in the context
+the request sent), `limit` (the window the loop plans with, when known),
+`completion` (tokens generated) and `tokens_per_second` (when the backend
+reports timings).
+
+## Regenerate, edit, fork, search, export
+
+```bash
+# Answer the last message again. Your messages of that turn stay.
+curl -X POST .../api/chats/3f1c.../regenerate
+# Replace one of your messages and run the chat again from it. The messages
+# after it are removed. seq is the line number in the transcript.
+curl -X POST .../api/chats/3f1c.../messages/12/edit -d '{"text":"A better question"}'
+# Copy the chat up to and including line 14 into a new chat.
+curl -X POST .../api/chats/3f1c.../fork -d '{"from_seq":14,"title":"Other idea"}'
+# Find chats by title or by what was said (newest 500 chats).
+curl '.../api/chats/search?q=invoice'
+# Take a chat out as Markdown (default) or JSON, and bring a JSON file back in.
+curl '.../api/chats/3f1c.../export?format=json' > chat.json
+curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
+```
+
+- Regenerate and edit remove the lines after the cut point from the
+  transcript and from what the model sees. Files that the removed turns
+  changed stay changed, and tool calls of the kept part are not replayed to
+  the model, only the messages.
+- A fork has the model, the settings and the tool switches of the original. It
+  has no folder and no files of its own until you attach some.
+- The JSON export has `version`, `title`, `model`, `settings` and `messages`
+  (`role`, `text`, `at`). It holds no files and no model state. An import
+  makes a new chat of yours with the model of the file, or the one named in
+  `model`, which you must be allowed to use.
+
+## Images, video and documents
+
+Attach files with `multipart/form-data` on `POST /api/chats/{id}/messages`
+(see above). What the model gets depends on the file and the model:
+
+- **Images.** When the chat's model takes images (a multimodal projector, or
+  `known_input_modalities` with `image` in its configuration) the image goes
+  to the model inside the message, as an `image_url` part. With a model that
+  does not, the model gets the file path and the `describe_image` tool, which
+  needs a helper vision model.
+- **Video.** `mp4`, `webm`, `mov`, `mkv` and `avi` files go to a model that
+  declares video input as a `video_url` part, with the next request after the
+  message and for that turn only. Other models get the path only.
+- **PDF, Word, Excel, PowerPoint and EPUB.** The text of the file is added to
+  the message, the first 20,000 characters of each document, and the model
+  reads the rest with the `read_document` tool (`offset` and `limit`). No
+  helper model is needed. A scanned PDF with no text layer is reported as
+  such.
+- **Audio.** A voice note is transcribed when a transcription model is set,
+  as before.
+
+The files are always kept in the chat's folder too. Images over 20 MB, videos
+over 100 MB and more than 128 MB of media in one message stay files only.
+
 ## Sub-agents
 
 The model can start a sub-agent for a self-contained task. By default it waits
@@ -86,8 +170,19 @@ later as a message in the conversation and as a `sub_agent_done` event.
   list with `kind` set to `subagent` and a `parent_id`.
 - A sub-agent gets the parent's tools, or a subset the parent names. It cannot
   start sub-agents of its own.
-- A chat runs at most four sub-agents in the background at once.
-- Stopping a turn, or a turn that fails, stops its running sub-agents.
+- A chat runs at most four sub-agents in the background at once. The count
+  comes from the shared store, so it holds when turns of the same chat run on
+  different frontends of a cluster.
+- Stopping a chat, or a turn that fails, stops its running sub-agents, also
+  when they run on another frontend and when the parent has no turn left.
+- A `sub_agent_started` event (with the run's id and title) and a
+  `sub_agent_done` event mark the run in the parent's event stream.
+
+```bash
+curl .../api/chats/3f1c.../agents                      # runs, their state, the limit
+curl .../api/chats/3f1c.../agents/9ab2.../messages     # one run's transcript
+curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
+```
 
 ## Long conversations
 
@@ -107,6 +202,31 @@ You can also add MCP servers of your own, stored on the server: see
 [MCP servers](/features/chats-connectors/#mcp-servers). Your enabled connectors
 are offered to your chats next to the model's servers; the model's own
 configuration is not changed.
+
+### Prompts and resources as context
+
+MCP servers can offer prompts (ready-made instructions with arguments) and
+resources (documents the server holds). A chat can list them for the servers it
+can use now, which means the servers of the model, less the ones you switched
+off for the chat, or the ones the chat's saved agent grants, and your enabled
+connectors. You can add any of them to a message as context for that turn:
+
+```bash
+curl .../api/chats/3f1c.../mcp/prompts      # {"prompts":[{"server":"connector:ab12","name":"review","arguments":[...]}]}
+curl .../api/chats/3f1c.../mcp/resources    # {"resources":[{"server":"wiki","uri":"wiki://home"}]}
+# Preview one:
+curl -X POST .../api/chats/3f1c.../mcp/prompts -d '{"server":"connector:ab12","name":"review","arguments":{"lang":"Go"}}'
+curl -X POST .../api/chats/3f1c.../mcp/resources/read -d '{"server":"wiki","uri":"wiki://home"}'
+# Send them with a message. The server expands them as you and puts the text before yours.
+curl -X POST .../api/chats/3f1c.../messages -d '{"text":"Go ahead","context":[
+  {"server":"connector:ab12","name":"review","arguments":{"lang":"Go"}},
+  {"server":"wiki","uri":"wiki://home"}]}'
+```
+
+A server the chat cannot use is `403 mcp_refused`, and the message is not sent.
+A server that does not answer is `502 mcp_error`. Binary parts of a resource are
+left out, and the text is cut at 256 KiB. The expanded text is part of the
+message in the transcript.
 
 ### Switch tools off for one chat
 
@@ -202,7 +322,7 @@ it. When the page cannot be loaded, the chat shows the result as text.
 
 ## Skills
 
-A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way.
+A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way. A `SKILL.md` over 64 KiB is refused.
 
 Skills come from four places, nearest first, and the nearest wins when two have the same name:
 
@@ -277,7 +397,7 @@ curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
 - **Search.** `GET /api/chats/files/search?q=budget` finds files by name and lines inside text files, ignoring case. There is no index: large files (over 1 MiB) and binary files are found by name only, and a very large workspace is scanned up to a limit.
 - **The model can use your files.** A chat with files on gives the model `list_files`, `read_file`, `write_file`, `move_file`, `delete_file` and `search_files`, for your home folder only. What it changes is listed in the history as an agent change of that chat, and you can undo it; a delete goes to the Trash. Sub-agents do not get these tools.
 - **Pictures and recordings.** `describe_image` lets the model look at an image in your files and `transcribe_audio` turns a recording into text. A voice note attached to a message is transcribed on the way in and its transcript goes with your message; the file is kept as it is. They use helper models, which you choose in the settings (Chat image model, Chat transcription model). Left empty, the first installed model that can see images, or transcribe, is used. With none installed the tool says what to install. The helpers run as you, so your model access and quota apply.
-- **A file is at most 256 MiB.**
+- **A file is at most 256 MiB.** A message with attachments is limited to 1 GiB in all.
 
 The **Files** page in the sidebar is a file browser for all of this: folders with a breadcrumb, upload by button or drag and drop, rename, delete to the Trash, a Trash tab that restores, a History tab that undoes a change, one search box over names and text, and a preview of text and images.
 
@@ -340,6 +460,10 @@ The JSON files are for one LocalAI process. A cluster needs PostgreSQL, as
 In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend can serve any request about any chat.
 
 **State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once: a client that missed some reads the transcript.
+
+**Sub-agents.** The runs are chats in the shared store, linked to their parent. The background limit, the list of runs and "stopping a chat stops its sub-agents" all read the store, so they hold when the turns of one chat run on different frontends. A stop reaches a run on another frontend over the bus. The tool subset of a running sub-agent is kept in the memory of the frontend that runs it, which is where it runs.
+
+**Settings and edits.** The settings, the title and the model of a chat, and the cut that regenerate and edit make, are stored with the chat. A change of title or model, a regenerate and an edit take the same turn claim as a message, so they are refused with 409 while a turn runs on any frontend. A video that comes with a message is held in the memory of the frontend that runs the turn, for that turn's first request.
 
 **MCP connectors.** The records of your [MCP connectors](/features/chats-connectors/#mcp-servers) are shared in PostgreSQL. The open MCP sessions are per instance: each frontend opens its own, and a local command (`stdio`) is refused in a cluster.
 

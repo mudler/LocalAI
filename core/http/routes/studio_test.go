@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"time"
 
@@ -48,6 +49,9 @@ var studioTriggerOptions func(*studio.TriggerOptions)
 
 // studioTelegram is the Bot API client of the connector manager; a spec sets a fake.
 var studioTelegram *connectors.Telegram
+
+// studioModels are the models the test server's checker accepts besides test-model.
+var studioModels []string
 
 func newStudioServer() *studioServer { return newStudioServerFiles(newTestFiles()) }
 
@@ -114,7 +118,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	s.e.Use(auth.Middleware(db, config.NewApplicationConfig()))
 	s.e.Use(auth.RequireRouteFeature(db))
 	models := studioendpoint.ModelCheckerFunc(func(_ context.Context, _ *auth.User, model string) error {
-		if model != "test-model" {
+		if model != "test-model" && !slices.Contains(studioModels, model) {
 			return studioendpoint.ErrUnknownModel
 		}
 		return nil

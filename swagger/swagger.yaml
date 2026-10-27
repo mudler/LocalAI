@@ -2520,12 +2520,101 @@ definitions:
       updated:
         type: string
     type: object
+  schema.ChatsAgentExport:
+    properties:
+      agent:
+        $ref: '#/definitions/schema.ChatsAgentWrite'
+      exported_at:
+        type: string
+      kind:
+        type: string
+      version:
+        type: integer
+    type: object
+  schema.ChatsAgentHistory:
+    properties:
+      failed:
+        type: integer
+      running:
+        type: integer
+      runs:
+        items:
+          $ref: '#/definitions/schema.ChatsAgentRun'
+        type: array
+      total:
+        description: |-
+          Total, Failed and Running count every run of the agent among your newest
+          5,000 chats, not only the ones listed.
+        type: integer
+    type: object
+  schema.ChatsAgentImportResult:
+    properties:
+      agent:
+        $ref: '#/definitions/schema.ChatsAgent'
+      warnings:
+        description: |-
+          Warnings say what the import changed: a model this server does not have
+          or you may not use is dropped, and a name you already use gets a number.
+        items:
+          type: string
+        type: array
+    type: object
   schema.ChatsAgentList:
     properties:
       agents:
         items:
           $ref: '#/definitions/schema.ChatsAgent'
         type: array
+    type: object
+  schema.ChatsAgentRun:
+    properties:
+      chat_id:
+        type: string
+      created:
+        type: string
+      last_turn:
+        description: 'LastTurn is how its last turn ended: done, stopped, failed or
+          interrupted.'
+        type: string
+      model:
+        type: string
+      origin:
+        description: |-
+          Origin is empty for a chat you had with the agent, trigger or connector
+          for one that started by itself; OriginID names the trigger or binding.
+        type: string
+      origin_id:
+        type: string
+      running:
+        type: boolean
+      title:
+        type: string
+      updated:
+        type: string
+    type: object
+  schema.ChatsAgentTemplate:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.ChatsAgentTemplateList:
+    properties:
+      templates:
+        items:
+          $ref: '#/definitions/schema.ChatsAgentTemplate'
+        type: array
+    type: object
+  schema.ChatsAgentTemplateUse:
+    properties:
+      name:
+        description: Name replaces the template's name.
+        type: string
     type: object
   schema.ChatsAgentWrite:
     properties:
@@ -2552,6 +2641,28 @@ definitions:
       skills:
         items:
           type: string
+        type: array
+    type: object
+  schema.ChatsChatHit:
+    properties:
+      chat:
+        $ref: '#/definitions/schema.ChatsConversation'
+      in_title:
+        description: InTitle is true when the title matches.
+        type: boolean
+      seq:
+        description: Seq is the first matching transcript line, or 0 when only the
+          title matches.
+        type: integer
+      snippet:
+        description: Snippet is the matching text with a little around it.
+        type: string
+    type: object
+  schema.ChatsChatSearchResponse:
+    properties:
+      hits:
+        items:
+          $ref: '#/definitions/schema.ChatsChatHit'
         type: array
     type: object
   schema.ChatsConnector:
@@ -2668,6 +2779,10 @@ definitions:
           Running is true while a turn runs. LastTurn is how the last finished turn
           ended: done, stopped, failed or interrupted.
         type: boolean
+      settings:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsSettings'
+        description: Settings are the chat's own model settings, when it has any.
       title:
         type: string
       updated:
@@ -2711,6 +2826,10 @@ definitions:
           Running is true while a turn runs. LastTurn is how the last finished turn
           ended: done, stopped, failed or interrupted.
         type: boolean
+      settings:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsSettings'
+        description: Settings are the chat's own model settings, when it has any.
       title:
         type: string
       updated:
@@ -2801,6 +2920,11 @@ definitions:
           message otherwise.
         type: string
     type: object
+  schema.ChatsEditRequest:
+    properties:
+      text:
+        type: string
+    type: object
   schema.ChatsEvent:
     properties:
       after:
@@ -2809,8 +2933,9 @@ definitions:
         description: Before and After are context sizes in tokens, for compacted.
         type: integer
       ids:
-        description: IDs names the messages of pending_delivered, or the conversation
-          of sub_agent_done.
+        description: |-
+          IDs names the messages of pending_delivered, the conversation of
+          sub_agent_started and sub_agent_done, or the proposal of trigger_proposed.
         items:
           type: string
         type: array
@@ -2824,6 +2949,40 @@ definitions:
         description: Tool is set for tool_start and tool_end.
       turn:
         type: integer
+      usage:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsUsage'
+        description: 'Usage is set on usage events: what one model request used.'
+    type: object
+  schema.ChatsExport:
+    properties:
+      created:
+        type: string
+      exported_at:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/schema.ChatsExportMessage'
+        type: array
+      model:
+        type: string
+      settings:
+        $ref: '#/definitions/schema.ChatsSettings'
+      title:
+        type: string
+      updated:
+        type: string
+      version:
+        type: integer
+    type: object
+  schema.ChatsExportMessage:
+    properties:
+      at:
+        type: string
+      role:
+        type: string
+      text:
+        type: string
     type: object
   schema.ChatsFile:
     properties:
@@ -2877,6 +3036,15 @@ definitions:
       path:
         type: string
     type: object
+  schema.ChatsForkRequest:
+    properties:
+      from_seq:
+        description: FromSeq is the last transcript line to copy; 0 copies everything.
+        type: integer
+      title:
+        description: Title names the new chat; it defaults to the old title and "(fork)".
+        type: string
+    type: object
   schema.ChatsHistory:
     properties:
       entries:
@@ -2900,6 +3068,15 @@ definitions:
       rev:
         type: integer
       title:
+        type: string
+    type: object
+  schema.ChatsImportRequest:
+    properties:
+      chat:
+        $ref: '#/definitions/schema.ChatsExport'
+      model:
+        description: Model replaces the model of the file. It is needed when the file
+          names none.
         type: string
     type: object
   schema.ChatsMCPAppCall:
@@ -3027,6 +3204,93 @@ definitions:
       url:
         type: string
     type: object
+  schema.ChatsMCPContent:
+    properties:
+      text:
+        type: string
+    type: object
+  schema.ChatsMCPPrompt:
+    properties:
+      arguments:
+        items:
+          $ref: '#/definitions/schema.ChatsMCPPromptArg'
+        type: array
+      description:
+        type: string
+      name:
+        type: string
+      server:
+        type: string
+      title:
+        type: string
+    type: object
+  schema.ChatsMCPPromptArg:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      required:
+        type: boolean
+    type: object
+  schema.ChatsMCPPromptList:
+    properties:
+      prompts:
+        items:
+          $ref: '#/definitions/schema.ChatsMCPPrompt'
+        type: array
+    type: object
+  schema.ChatsMCPPromptRequest:
+    properties:
+      arguments:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      server:
+        type: string
+    type: object
+  schema.ChatsMCPReadRequest:
+    properties:
+      server:
+        type: string
+      uri:
+        type: string
+    type: object
+  schema.ChatsMCPRef:
+    properties:
+      arguments:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      server:
+        type: string
+      uri:
+        type: string
+    type: object
+  schema.ChatsMCPResource:
+    properties:
+      description:
+        type: string
+      mime_type:
+        type: string
+      name:
+        type: string
+      server:
+        type: string
+      uri:
+        type: string
+    type: object
+  schema.ChatsMCPResourceList:
+    properties:
+      resources:
+        items:
+          $ref: '#/definitions/schema.ChatsMCPResource'
+        type: array
+    type: object
   schema.ChatsMCPServerSwitch:
     properties:
       name:
@@ -3055,6 +3319,12 @@ definitions:
           that goes with the result.
       at:
         type: string
+      card:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsToolCard'
+        description: |-
+          Card is set on a tool line that points at a record, such as a trigger
+          proposal (kind trigger_proposal, id the proposal's id).
       dur_ms:
         description: DurMs is how long the model thought, for reasoning lines.
         type: integer
@@ -3187,6 +3457,13 @@ definitions:
     type: object
   schema.ChatsSendRequest:
     properties:
+      context:
+        description: |-
+          Context adds MCP prompts and resources to this message as context. Each
+          is expanded on the server, as you, from a server the chat can use.
+        items:
+          $ref: '#/definitions/schema.ChatsMCPRef'
+        type: array
       text:
         type: string
     type: object
@@ -3196,6 +3473,29 @@ definitions:
         type: string
       started:
         type: boolean
+    type: object
+  schema.ChatsSettings:
+    properties:
+      context_size:
+        description: |-
+          ContextSize is the context window in tokens that the loop plans with
+          (when it compacts the conversation), 0 for the model's own.
+        type: integer
+      reasoning_effort:
+        description: ReasoningEffort is none, minimal, low, medium or high.
+        type: string
+      system_prompt:
+        description: SystemPrompt is added to the chat's instructions, before the
+          saved agent's.
+        type: string
+      temperature:
+        description: Temperature is between 0 and 2.
+        type: number
+      top_k:
+        type: integer
+      top_p:
+        description: TopP is above 0 and at most 1.
+        type: number
     type: object
   schema.ChatsSkill:
     properties:
@@ -3276,6 +3576,38 @@ definitions:
       name:
         type: string
     type: object
+  schema.ChatsSubAgent:
+    properties:
+      created:
+        type: string
+      id:
+        type: string
+      last_turn:
+        type: string
+      running:
+        description: |-
+          Running is true while the run's turn is going. LastTurn is how its last
+          turn ended: done, stopped, failed or interrupted.
+        type: boolean
+      title:
+        type: string
+      updated:
+        type: string
+    type: object
+  schema.ChatsSubAgentList:
+    properties:
+      background_limit:
+        description: BackgroundLimit is how many a chat may run in the background
+          at once.
+        type: integer
+      running:
+        description: Running is how many of them run now, on any frontend of the server.
+        type: integer
+      sub_agents:
+        items:
+          $ref: '#/definitions/schema.ChatsSubAgent'
+        type: array
+    type: object
   schema.ChatsToolApp:
     properties:
       cut:
@@ -3305,6 +3637,13 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsToolCard:
+    properties:
+      id:
+        type: string
+      kind:
+        type: string
+    type: object
   schema.ChatsToolEvent:
     properties:
       app:
@@ -3313,6 +3652,10 @@ definitions:
         description: |-
           App is the reference of the MCP App of the call, on tool_end. It has no
           input and no result: read the transcript line for them.
+      card:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsToolCard'
+        description: Card is the record the result points at, on tool_end; see ChatsMessage.
       name:
         type: string
       ok:
@@ -3499,6 +3842,35 @@ definitions:
           $ref: '#/definitions/schema.ChatsFileConflict'
         type: array
       rev:
+        type: integer
+    type: object
+  schema.ChatsUpdateRequest:
+    properties:
+      model:
+        description: Model moves the chat to another model; the history stays.
+        type: string
+      settings:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsSettings'
+        description: Settings replaces the chat's settings as a whole.
+      title:
+        type: string
+    type: object
+  schema.ChatsUsage:
+    properties:
+      completion:
+        description: Completion is the number of tokens the request generated.
+        type: integer
+      limit:
+        description: Limit is the context window the loop plans with, 0 when it is
+          not known.
+        type: integer
+      tokens_per_second:
+        description: TokensPerSecond is the generation speed, 0 when the backend gave
+          no timing.
+        type: number
+      used:
+        description: Used is the number of tokens in the context the request sent.
         type: integer
     type: object
   schema.Choice:
@@ -8867,6 +9239,30 @@ paths:
       summary: Get a chat.
       tags:
       - chats
+    patch:
+      description: The settings (system prompt, temperature, top_p, top_k, reasoning
+        effort, context size) are kept with the chat and apply from its next turn.
+        A new title or model needs a chat with no turn running (409 otherwise).
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsUpdateRequest'
+      responses:
+        "200":
+          description: The chat after the change
+          schema:
+            $ref: '#/definitions/schema.ChatsConversation'
+      summary: Rename a chat, move it to another model or change its settings.
+      tags:
+      - chats
   /api/chats/{id}/addons:
     get:
       description: The add-ons whose tools the signed-in user may use now, each with
@@ -8908,6 +9304,80 @@ paths:
       summary: Switch the tools of add-ons on and off for a chat.
       tags:
       - chats
+  /api/chats/{id}/agents:
+    get:
+      description: Each sub-agent run is its own conversation. This lists the runs
+        of one chat with their state, from the shared store, so runs started on any
+        frontend show. A chat runs at most background_limit in the background at once.
+        Live starts and ends arrive as sub_agent_started and sub_agent_done events.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The sub-agent runs
+          schema:
+            $ref: '#/definitions/schema.ChatsSubAgentList'
+      summary: List the sub-agents of a chat.
+      tags:
+      - chats
+  /api/chats/{id}/agents/{agent_id}/messages:
+    get:
+      parameters:
+      - description: conversation id of the parent
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: sub-agent run id
+        in: path
+        name: agent_id
+        required: true
+        type: string
+      - description: only lines after this sequence number
+        in: query
+        name: after
+        type: integer
+      - description: most lines to return (default 200, at most 1000)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Transcript lines in order
+          schema:
+            $ref: '#/definitions/schema.ChatsMessageList'
+      summary: Read a sub-agent's transcript.
+      tags:
+      - chats
+  /api/chats/{id}/agents/{agent_id}/stop:
+    post:
+      description: Ends the run's turn, wherever it runs. The parent goes on and sees
+        a failed sub-agent.
+      parameters:
+      - description: conversation id of the parent
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: sub-agent run id
+        in: path
+        name: agent_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: stopped
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Stop a sub-agent.
+      tags:
+      - chats
   /api/chats/{id}/events:
     get:
       description: 'Server-sent events: text, reasoning, tool_start, tool_end, checkpoint,
@@ -8927,6 +9397,56 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsEvent'
       summary: Stream a chat's events.
+      tags:
+      - chats
+  /api/chats/{id}/export:
+    get:
+      description: Returns the chat as Markdown (format=markdown, the default) or
+        as JSON (format=json), which POST /api/chats/import reads. Files, tool state
+        and checkpoints are not exported.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: markdown (default) or json
+        in: query
+        name: format
+        type: string
+      produces:
+      - text/markdown
+      - application/json
+      responses:
+        "200":
+          description: The chat (JSON format)
+          schema:
+            $ref: '#/definitions/schema.ChatsExport'
+      summary: Export a chat.
+      tags:
+      - chats
+  /api/chats/{id}/fork:
+    post:
+      description: Copies the transcript up to and including the given line into a
+        new chat with the same model, settings and tool switches. The original is
+        not changed.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: where to cut and the new title
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/schema.ChatsForkRequest'
+      responses:
+        "201":
+          description: The new chat
+          schema:
+            $ref: '#/definitions/schema.ChatsConversation'
+      summary: Fork a chat from a message.
       tags:
       - chats
   /api/chats/{id}/mcp:
@@ -9020,6 +9540,92 @@ paths:
       summary: Read the page of an MCP App.
       tags:
       - chats
+  /api/chats/{id}/mcp/prompts:
+    get:
+      description: 'Lists the prompts of the MCP servers of the chat''s model and
+        of your connectors that this chat can use now: not switched off for the chat,
+        and granted by its saved agent when it has one. Add one to a message with
+        the context field of POST /api/chats/{id}/messages.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The prompts
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPPromptList'
+      summary: List the MCP prompts of a chat.
+      tags:
+      - chats
+    post:
+      description: Returns the text of the prompt with the given arguments. 403 mcp_refused
+        when the chat cannot use the server.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the prompt
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMCPPromptRequest'
+      responses:
+        "200":
+          description: The expanded prompt
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPContent'
+      summary: Expand an MCP prompt.
+      tags:
+      - chats
+  /api/chats/{id}/mcp/resources:
+    get:
+      description: Lists the resources of the MCP servers of the chat's model and
+        of your connectors that this chat can use now. Add one to a message with the
+        context field of POST /api/chats/{id}/messages.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The resources
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPResourceList'
+      summary: List the MCP resources of a chat.
+      tags:
+      - chats
+  /api/chats/{id}/mcp/resources/read:
+    post:
+      description: Returns the text of the resource (binary parts are left out, the
+        text is cut at 256 KiB). 403 mcp_refused when the chat cannot use the server.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the resource
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMCPReadRequest'
+      responses:
+        "200":
+          description: The resource text
+          schema:
+            $ref: '#/definitions/schema.ChatsMCPContent'
+      summary: Read an MCP resource.
+      tags:
+      - chats
   /api/chats/{id}/messages:
     get:
       parameters:
@@ -9075,6 +9681,36 @@ paths:
       summary: Send a message to a chat.
       tags:
       - chats
+  /api/chats/{id}/messages/{seq}/edit:
+    post:
+      description: Replaces the text of your message with the given sequence number,
+        removes everything after it, and starts a new turn. 409 while a turn runs;
+        400 when the line is not one of your messages.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: sequence number of the message in the transcript
+        in: path
+        name: seq
+        required: true
+        type: integer
+      - description: the new text
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsEditRequest'
+      responses:
+        "200":
+          description: The new turn started
+          schema:
+            $ref: '#/definitions/schema.ChatsSendResponse'
+      summary: Edit a message you sent and run the chat again from it.
+      tags:
+      - chats
   /api/chats/{id}/pending/{pid}:
     delete:
       parameters:
@@ -9124,6 +9760,25 @@ paths:
               type: boolean
             type: object
       summary: Edit a message that waits for the model.
+      tags:
+      - chats
+  /api/chats/{id}/regenerate:
+    post:
+      description: Removes everything the model said after your last message (all
+        your messages of that turn stay), then starts a new turn. Files that the removed
+        turn changed stay changed. 409 while a turn runs.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The new turn started
+          schema:
+            $ref: '#/definitions/schema.ChatsSendResponse'
+      summary: Regenerate the last answer.
       tags:
       - chats
   /api/chats/{id}/send-now:
@@ -9289,6 +9944,111 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsAgent'
       summary: Replace a saved agent.
+      tags:
+      - chats
+  /api/chats/agents/{id}/export:
+    get:
+      description: Returns the definition as a JSON file (version, kind localai-agent,
+        agent). It holds no ID, owner or time. POST /api/chats/agents/import reads
+        it. This replaces the old /api/agents/{name}/export.
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The agent file
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentExport'
+      summary: Export a saved agent.
+      tags:
+      - chats
+  /api/chats/agents/{id}/runs:
+    get:
+      description: 'Lists your chats that ran with the agent, newest first: the ones
+        you had, the ones its triggers started and the ones its connectors started,
+        with how each ended. Open one with GET /api/chats/{chat_id}.'
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: most runs to list (default 50, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The runs and the counts
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentHistory'
+      summary: Show what an agent has run.
+      tags:
+      - chats
+  /api/chats/agents/import:
+    post:
+      consumes:
+      - application/json
+      - multipart/form-data
+      description: 'Send the export file as the JSON body, or as the file field of
+        a multipart form. A bare agent definition (the body of POST /api/chats/agents)
+        is accepted too. The agent is always new: a name you already use gets a number,
+        and a model this server does not have, or you may not use, is dropped with
+        a warning.'
+      parameters:
+      - description: the agent file
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsAgentExport'
+      - description: the agent file (multipart)
+        in: formData
+        name: file
+        type: file
+      responses:
+        "201":
+          description: The new agent and what the import changed
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentImportResult'
+      summary: Import a saved agent.
+      tags:
+      - chats
+  /api/chats/agents/templates:
+    get:
+      description: Ready-made definitions to start from. They grant nothing; save
+        one, then grant it tools. POST /api/chats/agents/templates/{id}/create saves
+        one for you.
+      responses:
+        "200":
+          description: The starter agents
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentTemplateList'
+      summary: List the starter agents.
+      tags:
+      - chats
+  /api/chats/agents/templates/{id}/create:
+    post:
+      parameters:
+      - description: the template's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: a name to use instead of the template's
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/schema.ChatsAgentTemplateUse'
+      responses:
+        "201":
+          description: The saved agent
+          schema:
+            $ref: '#/definitions/schema.ChatsAgent'
+      summary: Save a starter agent as your own.
       tags:
       - chats
   /api/chats/connectors:
@@ -9691,6 +10451,26 @@ paths:
       summary: Undo a change.
       tags:
       - chats
+  /api/chats/import:
+    post:
+      description: Creates a new chat from a JSON export. The model of the file is
+        used unless the request names another; it must be one you may use. The chat
+        has no files and no tool state; the next message starts it.
+      parameters:
+      - description: the export and an optional model
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsImportRequest'
+      responses:
+        "201":
+          description: The new chat
+          schema:
+            $ref: '#/definitions/schema.ChatsConversation'
+      summary: Import an exported chat.
+      tags:
+      - chats
   /api/chats/mcp-connectors:
     get:
       description: An MCP connector is an MCP server that you defined. Your chats
@@ -9963,6 +10743,28 @@ paths:
         "204":
           description: Subscribed
       summary: Subscribe a browser to push.
+      tags:
+      - chats
+  /api/chats/search:
+    get:
+      description: Finds chats whose title or messages contain the text, ignoring
+        case. The newest chats come first. It reads the newest 500 chats.
+      parameters:
+      - description: text to find
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: most chats to return (default 50, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The matching chats
+          schema:
+            $ref: '#/definitions/schema.ChatsChatSearchResponse'
+      summary: Search your chats.
       tags:
       - chats
   /api/chats/skills:
@@ -10261,7 +11063,14 @@ paths:
   /api/chats/triggers/proposals:
     get:
       description: A model in a chat can propose a trigger. A proposal is not active
-        and runs nothing; confirm it to turn it into a trigger that is on.
+        and runs nothing; confirm it to turn it into a trigger that is on. The chat
+        shows it as a tool line with a card of kind trigger_proposal whose id is the
+        proposal's id, and a trigger_proposed event announces it.
+      parameters:
+      - description: only the proposals made in this chat
+        in: query
+        name: chat
+        type: string
       responses:
         "200":
           description: The proposals
@@ -10282,6 +11091,29 @@ paths:
         "204":
           description: Dismissed
       summary: Dismiss a trigger proposal.
+      tags:
+      - chats
+    put:
+      description: 'The body replaces every field of the proposal, as for a trigger.
+        The proposal stays a proposal: it is not active until you confirm it.'
+      parameters:
+      - description: the proposal's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the new fields
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsTriggerWrite'
+      responses:
+        "200":
+          description: The proposal
+          schema:
+            $ref: '#/definitions/schema.ChatsTrigger'
+      summary: Edit a trigger proposal.
       tags:
       - chats
   /api/chats/triggers/proposals/{id}/confirm:

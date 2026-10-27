@@ -46,11 +46,15 @@ func (a *Application) prepareStudioConversion(svc *studio.Service) {
 	a.studioMarks = marks
 	svc.SetConversion(marks)
 	// Without the collections service nothing starts later that the conversion
-	// waits for, so it runs now.
+	// waits for, so it starts now. It runs on its own: a long history, or in a
+	// cluster the lock another frontend holds, must not delay the server.
 	if !a.applicationConfig.Collections.Enabled {
-		a.ConvertStudioData()
+		go runStudioConversion(a)
 	}
 }
+
+// runStudioConversion converts the old data. A test replaces it.
+var runStudioConversion = func(a *Application) { a.ConvertStudioData() }
 
 // ConvertStudioData turns what the old chat, agents, tasks and skills left into
 // definitions of the chats. What was converted is marked, so a later run does

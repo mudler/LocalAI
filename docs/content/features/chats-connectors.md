@@ -69,9 +69,14 @@ A message from anyone else is ignored: it is not answered, and the sender goes
 in the sender log with a count. Open **Senders** on the binding to see who tried,
 and use **Allow** to add a person to the allowlist.
 
-"Anyone who can message the bot" lets everyone use the agent. LocalAI asks you
-to confirm it, because anyone who can find the bot can then use the agent's tools
-as you. Use it for a public bot whose agent grants nothing you would mind sharing.
+"Anyone who can message the bot" (`accept_any`) lets everyone use the agent. The
+server asks you to confirm it, because anyone who can find the bot can then use
+the agent's tools as you: the request that turns it on, a create with
+`accept_any` or an update that changes it from off to on, must also carry
+`"confirm_accept_any": "accept any message"`, or it is a `400`. The page does
+this with a confirmation. A binding that already has it keeps it on later edits,
+and turning it off needs no confirmation. Use it for a public bot whose agent
+grants nothing you would mind sharing.
 
 ## Notifications in Telegram
 
@@ -184,7 +189,10 @@ used to probe the internal network, a connector may reach only public hosts:
 An administrator can allow private addresses with the runtime setting
 `mcp_connectors_allow_private` (Settings, Access and security; default off; no
 restart needed). Turn it on only when your users are trusted: with it, a connector
-can reach services on the server's own network.
+can reach services on the server's own network. Turning it off closes the open
+sessions that were made to such addresses: a tool handed out before is refused,
+and the next turn connects again under the new rule. Likewise, a user who stops
+being an administrator loses their running local commands at their next use.
 
 A local command (`stdio`) runs without a shell, with a minimal environment
 (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, `TZ`) plus the variables you sealed, and with a

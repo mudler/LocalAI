@@ -46,6 +46,28 @@ type HarnessSession interface {
 	Close() error
 }
 
+// Media is an image or a video that goes to the model as part of the user's
+// message, next to the text. DataURI is a base64 data: URI.
+type Media struct {
+	Kind    MediaKind
+	DataURI string
+}
+
+// MediaKind tells what a Media holds.
+type MediaKind string
+
+// Media kinds.
+const (
+	MediaImage MediaKind = "image"
+	MediaVideo MediaKind = "video"
+)
+
+// MediaSession is implemented by a HarnessSession that can send media parts
+// with a message. A harness without it gets the text only.
+type MediaSession interface {
+	SendMedia(ctx context.Context, text string, parts []Media) error
+}
+
 // Tool is one tool that the session runs in the chat's sandbox.
 type Tool struct {
 	Name        string

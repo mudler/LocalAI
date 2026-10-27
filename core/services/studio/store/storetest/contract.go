@@ -95,6 +95,81 @@ func Run(t *testing.T, newStore New) {
 		}
 	})
 
+	t.Run("children of a chat belong to the owner and the parent", func(t *testing.T) {
+		s := newStore(t)
+		chat(t, s, "p1", "alice")
+		chat(t, s, "p2", "alice")
+		for i, spec := range []struct{ id, owner, parent string }{{"k1", "alice", "p1"}, {"k2", "alice", "p1"}, {"k3", "alice", "p2"}, {"k4", "bob", "p1"}} {
+			rec := session.ChatRecord{ID: spec.id, Principal: spec.owner, Title: "child", Kind: session.KindSubAgent, ParentID: spec.parent,
+				Created: t0.Add(time.Duration(i) * time.Second), Updated: t0}
+			if err := s.CreateChat(ctx(t), rec); err != nil {
+				t.Fatal(err)
+			}
+		}
+		kids, err := s.ListChildren(ctx(t), "alice", "p1")
+		if err != nil || len(kids) != 2 || kids[0].ID != "k1" || kids[1].ID != "k2" {
+			t.Fatalf("ListChildren = %+v, %v, want k1 and k2", kids, err)
+		}
+		if kids, _ = s.ListChildren(ctx(t), "alice", "nothing"); len(kids) != 0 {
+			t.Fatalf("children of an unknown parent = %+v", kids)
+		}
+	})
+
+	t.Run("chat meta and truncation", func(t *testing.T) {
+		s := newStore(t)
+		chat(t, s, "c1", "alice")
+		for _, txt := range []string{"a", "b", "c"} {
+			if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: txt}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		title, model := "Renamed", "m2"
+		set := session.ChatSettings{SystemPrompt: "be brief", ReasoningEffort: "low", ContextSize: 4096}
+		temp := 0.3
+		set.Temperature = &temp
+		if err := s.SetChatMeta(ctx(t), "alice", "c1", session.ChatMeta{Title: &title, Model: &model, Settings: &set}); err != nil {
+			t.Fatal(err)
+		}
+		rec, _ := s.GetChat(ctx(t), "alice", "c1")
+		if rec.Title != "Renamed" || rec.Model != "m2" || rec.Settings.SystemPrompt != "be brief" || rec.Settings.Temperature == nil || *rec.Settings.Temperature != 0.3 || rec.Settings.ContextSize != 4096 {
+			t.Fatalf("after SetChatMeta: %+v", rec)
+		}
+		// The loop's stale copy must not wipe the settings.
+		stale := rec
+		stale.Settings = session.ChatSettings{}
+		stale.Updated = t0.Add(time.Hour)
+		if err := s.UpdateChat(ctx(t), stale); err != nil {
+			t.Fatal(err)
+		}
+		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); rec.Settings.SystemPrompt != "be brief" || rec.Model != "m2" {
+			t.Fatalf("UpdateChat wiped the settings or the model: %+v", rec)
+		}
+		if err := s.SetChatMeta(ctx(t), "bob", "c1", session.ChatMeta{Title: &title}); !errors.Is(err, session.ErrNotFound) {
+			t.Fatalf("another principal's SetChatMeta = %v, want ErrNotFound", err)
+		}
+		empty := session.ChatSettings{}
+		if err := s.SetChatMeta(ctx(t), "alice", "c1", session.ChatMeta{Settings: &empty}); err != nil {
+			t.Fatal(err)
+		}
+		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); rec.Settings != (session.ChatSettings{}) {
+			t.Fatalf("settings not cleared: %+v", rec.Settings)
+		}
+		if err := s.TruncateEntries(ctx(t), "bob", "c1", 1); !errors.Is(err, session.ErrNotFound) {
+			t.Fatalf("another principal's TruncateEntries = %v, want ErrNotFound", err)
+		}
+		if err := s.TruncateEntries(ctx(t), "alice", "c1", 1); err != nil {
+			t.Fatal(err)
+		}
+		es, _ := s.Entries(ctx(t), "c1", 0, 0)
+		if len(es) != 1 || es[0].Text != "a" {
+			t.Fatalf("entries after truncate = %+v", es)
+		}
+		seq, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "d"})
+		if err != nil || seq != 2 {
+			t.Fatalf("next seq after truncate = %d, %v, want 2", seq, err)
+		}
+	})
+
 	t.Run("MCP switches round-trip, survive a chat update and belong to the owner", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "c1", "alice")

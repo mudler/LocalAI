@@ -55,6 +55,9 @@ type Model struct {
 	// ContextTokens is the model's context window in tokens. Zero uses the
 	// harness's ContextTokens.
 	ContextTokens int
+	// ReasoningEffort overrides the harness's own setting for this chat. Empty:
+	// the harness's setting.
+	ReasoningEffort string
 }
 
 // New returns a harness that starts one nib session per chat.
@@ -108,7 +111,7 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 		}
 		transports = append(transports, tr)
 	}
-	model, ctxTokens := h.cfg.Model, h.cfg.ContextTokens
+	model, ctxTokens, effort := h.cfg.Model, h.cfg.ContextTokens, h.cfg.ReasoningEffort
 	var llm cogito.LLM
 	if h.cfg.LLM != nil {
 		m, err := h.cfg.LLM(env.Actor)
@@ -118,6 +121,9 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 		llm, model = m.LLM, m.Name
 		if m.ContextTokens > 0 {
 			ctxTokens = m.ContextTokens
+		}
+		if m.ReasoningEffort != "" {
+			effort = m.ReasoningEffort
 		}
 	}
 	apiKey := h.cfg.APIKey
@@ -137,7 +143,7 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 			BaseURL:         h.cfg.BaseURL,
 			APIKey:          apiKey,
 			APIKeyEnv:       h.cfg.APIKeyEnv,
-			ReasoningEffort: h.cfg.ReasoningEffort,
+			ReasoningEffort: effort,
 			// The product text goes in a fragment: nib renders Prompt as a
 			// template, and appends a fragment as it is.
 			Prompt:          "You are an assistant that works on the user's files.",
@@ -216,6 +222,24 @@ func (h *hsession) callbacks() chat.Callbacks {
 }
 
 func (h *hsession) Send(ctx context.Context, text string) error {
+	return h.send(ctx, text, nil)
+}
+
+// SendMedia implements session.MediaSession: the images and videos go to the
+// model as parts of the user's message.
+func (h *hsession) SendMedia(ctx context.Context, text string, media []session.Media) error {
+	parts := make([]chat.ContentPart, 0, len(media))
+	for _, m := range media {
+		kind := chat.PartImage
+		if m.Kind == session.MediaVideo {
+			kind = chat.PartVideo
+		}
+		parts = append(parts, chat.ContentPart{Kind: kind, DataURI: m.DataURI})
+	}
+	return h.send(ctx, text, parts)
+}
+
+func (h *hsession) send(ctx context.Context, text string, parts []chat.ContentPart) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -228,7 +252,7 @@ func (h *hsession) Send(ctx context.Context, text string) error {
 		case <-done:
 		}
 	}()
-	_, err := h.sess.SendMessage(text)
+	_, err := h.sess.SendMessage(text, parts...)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -275,3 +299,24 @@ func toolOK(r chat.ToolResult) bool {
 // noBuiltinTools is an allowlist entry that matches no nib tool, so a chat with
 // no host tools enables none of nib's own.
 const noBuiltinTools = "studio-no-builtin-tools"
+
+// TranscriptState builds the resume document of a chat from the visible
+// messages of its transcript: the user's and the assistant's. The tool calls
+// and the images are not rebuilt. It is what a chat gets after its transcript
+// was cut for a regenerate, an edit or a fork, so the model sees the part that
+// stays and nothing of the part that went.
+func TranscriptState(entries []session.Entry) ([]byte, error) {
+	var msgs []openai.ChatCompletionMessage
+	for _, e := range entries {
+		switch e.Role {
+		case session.RoleUser:
+			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: e.Text})
+		case session.RoleAssistant:
+			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, Content: e.Text})
+		}
+	}
+	if len(msgs) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(state{History: msgs, Context: msgs})
+}

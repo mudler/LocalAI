@@ -120,50 +120,45 @@ localai run
 
 ### Enabling auth on an existing instance
 
-Enabling user authentication does not assign existing agent data to an account.
-Data created without user auth belongs to the root storage area (an empty user ID).
-Authenticated users get separate storage, including admins. Existing agents,
-collections, skills, tasks, jobs, and outputs can therefore disappear from their
-API and Web UI views while remaining on disk.
+Enabling user authentication does not assign existing data to an account. What
+you made while authentication was off belongs to one shared "anonymous" owner, and
+that owner is not an account: chats, saved agents, triggers, Telegram bindings, MCP
+connectors, notifications and the files of the workspace. Authenticated users get
+separate storage, admins included, so after the switch nobody sees the anonymous
+data in the API or the Web UI. It stays in the database or on disk. Collections
+and their documents made without a user belong to the root storage area in the
+same way.
 
-In standalone (LocalAGI) mode, startup logs a warning when it finds root agents,
-collections, skills, or configured skill repositories. The warning includes counts
-and a link to this section. It checks the configured root collection path and
-excludes user-owned data. It does not inventory tasks, jobs, outputs, or agent state.
-An absent warning is not proof that every resource has an owner.
-
-{{% notice warning %}}
-The warning does not migrate, delete, or pause anything. Root agents still start,
-including their scheduled runs. Their requests to the local API need valid
-credentials after auth is enabled. Admin views do not provide a complete migration
-or export path for root data.
-{{% /notice %}}
+LocalAI does not move this data to an account. Nothing is deleted. A trigger or a
+bot of the anonymous owner has no account to run as, so its next run is skipped and
+it is switched off with the reason "its owner no longer exists".
 
 Before switching an existing instance:
 
-1. Pause existing agents and scheduled work while auth is still off.
-2. Stop LocalAI and back up its data, agent state, and any separately configured collection storage or databases.
-3. Test the switch on a copy before changing the production instance.
-4. Restrict access during bootstrap and register the intended administrator first.
-5. Recreate or import agent configurations under the intended user. Recreate collections and skills there as needed.
-6. Verify credentials and required data before resuming agents.
+1. Switch off the triggers and Telegram bindings you want to keep, while auth is still off.
+2. Export what you want to keep. Export each chat as JSON (`GET /api/chats/{id}/export?format=json`)
+   and each saved agent (`GET /api/chats/agents/{id}/export`). Recreate triggers and bindings by hand.
+3. Stop LocalAI and back up its data path and any separately configured collection storage or databases.
+4. Test the switch on a copy before changing the production instance.
+5. Restrict access during bootstrap and register the intended administrator first.
+6. Import the chats and agents under the intended user (`POST /api/chats/import`,
+   `POST /api/chats/agents/import`). Recreate collections there as needed.
+7. Verify credentials and required data before resuming triggers and bots.
 
 The first registered user becomes admin and bypasses approval or invite requirements.
 Setting `LOCALAI_ADMIN_EMAIL` promotes that email address, but does **not** reserve
 the first-admin role for it. Keep registration inaccessible to other users until
 bootstrap is complete.
 
-Recreating an agent configuration does not migrate its character, scheduler state,
-or long-term memory. Keep the backup: LocalAI has no automatic migration of the
-root storage area, and agent configuration export does not include this state.
+An export holds the transcript and the settings of a chat, and the definition of an
+agent. It does not hold files, trigger state, bot tokens or the long-term state of
+the model. Keep the backup: LocalAI has no automatic migration of the anonymous
+owner's data.
 
-With user auth active, creating, importing, or updating an agent without
-`api_key` generates a new key owned by that user. The key inherits the owner's
-permissions; an admin-owned key can therefore grant admin access. Repeated updates
-that omit `api_key` can create additional keys. Supply an explicit key with the
-intended permissions when recreating or updating agents, and review existing keys
-in **Settings → Users and keys**. Existing root agents can use an explicit
-`api_key` or `LOCALAI_COLLECTIONS_API_KEY`; neither setting transfers ownership.
+A trigger or a Telegram bot acts as its owner. An administrator who switches the
+`chats` feature off for a user also stops what that user's triggers and bots do,
+at their next run or message; the trigger and the binding stay, and work again when
+the feature is given back.
 
 ### Configuration Reference
 
@@ -206,7 +201,7 @@ When disabled:
 
 There are two roles:
 
-- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, agents, and user management.
+- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, and user management.
 - **User**: Access to inference endpoints only - chat completions, embeddings, image/video/audio generation, TTS, MCP chat, and their own usage statistics.
 
 The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted to admin via the admin user management API or by setting `LOCALAI_ADMIN_EMAIL` to their email address.
@@ -280,7 +275,7 @@ When authentication is enabled, the following endpoints require admin role:
 When auth is enabled, the React UI sidebar dynamically shows/hides sections based on the user's role:
 
 - **All users see**: Home, Chat, Images, Video, TTS, Sound, Talk, Usage, API docs link
-- **Admins also see**: Models, the Build console (Agents, Skills, Memory, Jobs, Training, Recognition), and the Operate console (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
+- **Admins also see**: Models, the Build console (Training, Recognition and the other tools that need an administrator), and the Operate console (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
 
 Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
 
