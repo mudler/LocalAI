@@ -346,6 +346,9 @@ func (t *ToolAdapter) visible(ctx context.Context, actor contract.Actor) ([]apps
 }
 
 func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
+	if d.UIOnly {
+		return ToolDefinition{}, false // for the add-on's own page, never for a model
+	}
 	name := ToolName(a.ID, d.Name)
 	if _, _, ok := ParseToolName(name); !ok || !slices.Contains(a.Tools, d.Name) {
 		return ToolDefinition{}, false

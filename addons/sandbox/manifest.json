@@ -159,6 +159,49 @@
           "properties": {},
           "additionalProperties": false
         }
+      },
+      {
+        "name": "set-backend",
+        "description": "Choose the backend that runs commands. Administrators only. The Settings page calls it; no model does.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "backend": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "gvisor",
+                "kvm",
+                "host",
+                "off"
+              ]
+            }
+          },
+          "required": [
+            "backend"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "confirm-host",
+        "description": "Confirm that commands may run on this host without isolation, by typing the phrase. Administrators only. The Settings page calls it; no model does.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phrase": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "phrase"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
       }
     ],
     "tools": [
@@ -187,14 +230,14 @@
         "max": 2,
         "min": 2
       },
-      "title": "Sandbox",
       "slots": [
         {
+          "component": "SandboxSettings",
           "id": "settings",
-          "slot": "settings.sections",
-          "component": "SandboxSettings"
+          "slot": "settings.sections"
         }
-      ]
+      ],
+      "title": "Sandbox"
     }
   },
   "dataFormat": {

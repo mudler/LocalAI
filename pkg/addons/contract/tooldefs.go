@@ -62,6 +62,11 @@ type ToolDefinition struct {
 	// object schema with explicit properties, additionalProperties false at
 	// the top level and the keywords the host allows only.
 	InputSchema json.RawMessage `json:"inputSchema" swaggertype:"object"`
+	// UIOnly marks a tool that only the add-on's own page may call, such as a
+	// settings change that asks the host whether the caller is an
+	// administrator. It is never offered to a model, a chat or an agent. The
+	// page has no resource to name, so it must be a read tool without one.
+	UIOnly bool `json:"uiOnly,omitempty"`
 }
 
 var toolPropertyName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]{0,63}$`)
@@ -131,6 +136,9 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 		}
 		if err := ValidateToolSchema(d.InputSchema, d.Kind); err != nil {
 			return fmt.Errorf("tool %s: %w", d.Name, err)
+		}
+		if d.UIOnly && !IsResourceless(d) {
+			return fmt.Errorf("tool %s: a page-only tool must be a read tool without a resource", d.Name)
 		}
 	}
 	return nil

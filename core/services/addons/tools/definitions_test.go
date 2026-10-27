@@ -2,12 +2,15 @@
 package tools_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/addons/apps"
+	"github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -131,5 +134,26 @@ var _ = Describe("Manifest tool definitions", func() {
 		for name, change := range cases {
 			Expect(manifestWith(change)).To(HaveOccurred(), name)
 		}
+	})
+})
+
+var _ = Describe("Tools for the add-on's own page", func() {
+	ctx := context.Background()
+	It("are never offered to a model and are unknown when a model calls them", func() {
+		app := apps.App{ID: "sandbox", Name: "sandbox", Generation: 1, Enabled: true, State: "running", Tools: []string{"status", "set-backend"},
+			ToolDefinitions: []contract.ToolDefinition{
+				{Name: "status", Kind: contract.ToolKindRead, Description: "Say whether it works.", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)},
+				{Name: "set-backend", Kind: contract.ToolKindRead, Description: "Choose the backend.", UIOnly: true, InputSchema: json.RawMessage(`{"type":"object","properties":{"backend":{"type":"string"}},"additionalProperties":false}`)},
+			}}
+		f := &fake{list: apps.List{Apps: []apps.App{app}}}
+		for name, a := range map[string]*tools.ToolAdapter{"plain": tools.NewToolAdapter(f), "chats": tools.NewChatToolAdapter(f)} {
+			defs, err := a.Discover(ctx, member)
+			Expect(err).NotTo(HaveOccurred(), name)
+			Expect(defs).To(HaveLen(1), name)
+			Expect(defs[0].Tool).To(Equal("status"), name)
+			_, err = a.Execute(ctx, member, tools.ToolName("sandbox", "set-backend"), json.RawMessage(`{"backend":"host"}`))
+			Expect(err).To(MatchError(tools.ErrUnknownTool), name)
+		}
+		Expect(f.calls()).To(BeZero())
 	})
 })

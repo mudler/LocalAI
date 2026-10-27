@@ -152,7 +152,7 @@ func TestTheManifestDeclaresTheToolsOfTheRuntime(t *testing.T) {
 		var a, b any
 		_ = json.Unmarshal(d.InputSchema, &a)
 		_ = json.Unmarshal(want[i].InputSchema, &b)
-		if d.Name != want[i].Name || d.Kind != want[i].Kind || d.Description != want[i].Description || !reflect.DeepEqual(a, b) {
+		if d.Name != want[i].Name || d.Kind != want[i].Kind || d.Description != want[i].Description || d.UIOnly != want[i].UIOnly || !reflect.DeepEqual(a, b) {
 			t.Errorf("definition %s differs from the runtime", d.Name)
 		}
 		if err := contract.ValidateToolSchema(d.InputSchema, d.Kind); err != nil {
@@ -165,13 +165,14 @@ func TestTheManifestDeclaresTheToolsOfTheRuntime(t *testing.T) {
 			if d.Kind != contract.ToolKindRead {
 				t.Errorf("status must be a read tool")
 			}
+		case "set-backend", "confirm-host":
+			if d.Kind != contract.ToolKindRead || !d.UIOnly {
+				t.Errorf("%s must be a read tool for the settings page only", d.Name)
+			}
 		default:
 			if d.Kind != contract.ToolKindAction {
 				t.Errorf("%s is not an action tool: code runs at once, as the user", d.Name)
 			}
-		}
-		if d.Name == "set-backend" || d.Name == "confirm-host" {
-			t.Errorf("%s is offered to models; only the settings page may call it", d.Name)
 		}
 	}
 }
@@ -284,5 +285,20 @@ func TestTheStatusToolAnswersWhenTheModelCallsItWithNoArguments(t *testing.T) {
 	}
 	if out["ok"] != true || out["canRun"] != true || out["active"] != "gvisor" {
 		t.Fatalf("status = %v", out)
+	}
+}
+
+func TestTheSettingsToolsAreForThePageOnly(t *testing.T) {
+	ui := map[string]bool{}
+	for _, d := range tools.Definitions() {
+		if d.UIOnly {
+			ui[d.Name] = true
+			if !contract.IsResourceless(d) {
+				t.Errorf("%s names a resource", d.Name)
+			}
+		}
+	}
+	if !ui[tools.ToolSetBackend] || !ui[tools.ToolConfirmHost] || ui[tools.ToolStatus] {
+		t.Errorf("page-only tools = %v, want set-backend and confirm-host, not status", ui)
 	}
 }

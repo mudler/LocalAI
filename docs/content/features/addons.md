@@ -1467,6 +1467,13 @@ add-on never takes a user from the arguments.
 A `write` or `schema` tool, and a `read` tool that offers `resourceId`, must
 require it.
 
+A tool definition with `"uiOnly": true` is for the add-on's own page. It must be a
+`read` tool without `resourceId`. The host runs it for the page like any such read,
+but never offers it to a model, a chat, an agent or a trigger, and a model that
+names it gets the unknown-tool answer. The Sandbox uses it for `set-backend` and
+`confirm-host`: they change a setting, and the add-on asks the host whether the
+caller is an administrator before it acts.
+
 ### Public API
 
 - `POST /api/addons/dispatch` accepts a contract request. Supported lifecycle actions
@@ -3555,7 +3562,7 @@ The Sandbox add-on lets a chat run commands and code. Its tools are action tools
 - **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When a suspended sandbox is removed, the host backend also stops the processes it left running.
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
 - **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.
-- **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do.
+- **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do. An administrator can choose the host backend there: the page shows the warning that commands then run on this machine without isolation, and asks for the typed confirmation before it saves. A user who is not an administrator is told that only an administrator can change this.
 - **Undo.** Each tool call that changes files is one change set in the history of the user's files (Files, History), and it is undone there, one call at a time. A whole turn is not one change set: the sandbox runs in the add-on process and the Files service commits each write of a tool on its own. The file tools of the chat itself work the same way.
 
 ### Sandbox backends and settings

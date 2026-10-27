@@ -106,3 +106,22 @@ var _ = Describe("The act scope", func() {
 		Expect(has).To(BeFalse(), "the limits are sent to every add-on at start; a new field would break older add-ons")
 	})
 })
+
+var _ = Describe("Tools for the add-on's own page", func() {
+	const noResource = `{"type":"object","properties":{"backend":{"type":"string"}},"additionalProperties":false}`
+	const withResource = `{"type":"object","properties":{"resourceId":{"type":"string"}},"required":["resourceId"],"additionalProperties":false}`
+	def := func(kind, schema string) []ToolDefinition {
+		return []ToolDefinition{{Name: "set-backend", Description: "Choose the backend.", Kind: kind, InputSchema: json.RawMessage(schema), UIOnly: true}}
+	}
+	It("accepts a read tool without a resource", func() {
+		Expect(validateToolDefinitions(def(ToolKindRead, noResource), []string{"set-backend"})).To(Succeed())
+	})
+	It("refuses one that works on a resource or is not a read: the page has no resource to name", func() {
+		Expect(validateToolDefinitions(def(ToolKindRead, withResource), []string{"set-backend"})).NotTo(Succeed())
+		Expect(validateToolDefinitions(def(ToolKindWrite, withResource), []string{"set-backend"})).NotTo(Succeed())
+		Expect(validateToolDefinitions(def(ToolKindAction, noResource), []string{"set-backend"})).NotTo(Succeed())
+	})
+	It("is resourceless like any read without a resource", func() {
+		Expect(IsResourceless(def(ToolKindRead, noResource)[0])).To(BeTrue())
+	})
+})

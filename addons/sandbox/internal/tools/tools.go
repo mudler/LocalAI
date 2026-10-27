@@ -26,8 +26,8 @@ import (
 var Tools = []string{"bash", "read", "write", "edit", "glob", "grep"}
 
 // The settings tools. status is offered to everyone; set-backend and
-// confirm-host are declared without a definition, so no model is offered them,
-// and each asks the host whether the caller is an administrator.
+// confirm-host are for the Settings page only (UIOnly), so no model is offered
+// them, and each asks the host whether the caller is an administrator.
 const (
 	ToolStatus      = "status"
 	ToolSetBackend  = "set-backend"
@@ -99,10 +99,22 @@ func Definitions() []contract.ToolDefinition {
 		}
 		out = append(out, contract.ToolDefinition{Name: t.Name, Kind: contract.ToolKindAction, Description: t.Description, InputSchema: raw})
 	}
+	// The two settings tools have a definition so that the host runs them as
+	// reads without a resource, which the Settings page needs. UIOnly keeps
+	// them from every model; the add-on still asks the host whether the caller
+	// is an administrator.
 	return append(out, contract.ToolDefinition{
 		Name: ToolStatus, Kind: contract.ToolKindRead,
 		Description: "Say whether this host can run commands in a sandbox now, and which backend runs them.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
+	}, contract.ToolDefinition{
+		Name: ToolSetBackend, Kind: contract.ToolKindRead, UIOnly: true,
+		Description: "Choose the backend that runs commands. Administrators only. The Settings page calls it; no model does.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"backend":{"type":"string","enum":["auto","gvisor","kvm","host","off"]}},"required":["backend"],"additionalProperties":false}`),
+	}, contract.ToolDefinition{
+		Name: ToolConfirmHost, Kind: contract.ToolKindRead, UIOnly: true,
+		Description: "Confirm that commands may run on this host without isolation, by typing the phrase. Administrators only. The Settings page calls it; no model does.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"phrase":{"type":"string"}},"required":["phrase"],"additionalProperties":false}`),
 	})
 }
 
