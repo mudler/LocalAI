@@ -37,13 +37,14 @@ const (
 	ToolCreateDocx = "create-docx"
 	ToolCreateXlsx = "create-xlsx"
 	ToolCreatePptx = "create-pptx"
+	ToolCreatePdf  = "create-pdf"
 )
 
 // Tools is the declared tool set, in manifest order.
 var Tools = []string{
 	ToolReadDocx, ToolReadXlsx, ToolReadPptx, ToolReadPdf,
 	ToolEditDocx, ToolEditXlsx, ToolEditPptx,
-	ToolCreateDocx, ToolCreateXlsx, ToolCreatePptx,
+	ToolCreateDocx, ToolCreateXlsx, ToolCreatePptx, ToolCreatePdf,
 }
 
 // Engine is the host operation channel. *hostclient.Client implements it, and
@@ -100,7 +101,7 @@ func (*runtime) OpenOutput(context.Context, contract.Envelope, string) (io.ReadC
 
 func isAction(tool string) bool {
 	switch tool {
-	case ToolEditDocx, ToolEditXlsx, ToolEditPptx, ToolCreateDocx, ToolCreateXlsx, ToolCreatePptx:
+	case ToolEditDocx, ToolEditXlsx, ToolEditPptx, ToolCreateDocx, ToolCreateXlsx, ToolCreatePptx, ToolCreatePdf:
 		return true
 	}
 	return false
@@ -162,6 +163,8 @@ func (r *runtime) run(ctx context.Context, env contract.Envelope, tool string) (
 		out, err = w.createXlsx(env.Request.Arguments)
 	case ToolCreatePptx:
 		out, err = w.createPptx(env.Request.Arguments)
+	case ToolCreatePdf:
+		out, err = w.createPdf(env.Request.Arguments)
 	default:
 		return contract.Result{}, protocol.ErrNotFound
 	}

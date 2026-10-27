@@ -172,6 +172,8 @@ func cmdCatalog(args []string) error {
 	ownerRepo := fs.String("owner-repo", "", "GitHub owner/repository that ran the workflow")
 	signerRef := fs.String("signer-ref", "", "ref of the signing workflow run")
 	out := fs.String("out", "", "output file")
+	root := fs.String("root", ".", "with --from-manifest: repository root that the manifest path of the platform matrix is relative to")
+	fromManifest := fs.Bool("from-manifest", false, "development channel only: render from the manifest and the enabled platforms, without a built package")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -179,11 +181,15 @@ func cmdCatalog(args []string) error {
 	if err != nil {
 		return err
 	}
+	if *fromManifest && *tag == "" {
+		// The development entry names the moving tag; no immutable tag is used.
+		*tag = "sha-000000000000"
+	}
 	if !immutableTagRE.MatchString(*tag) {
 		return fmt.Errorf("--tag %q is not an immutable version or commit tag", *tag)
 	}
-	if *dir == "" || *out == "" || *channel == "" {
-		return errors.New("--merged, --channel and --out are required")
+	if (*dir == "" && !*fromManifest) || *out == "" || *channel == "" {
+		return errors.New("--merged (or --from-manifest), --channel and --out are required")
 	}
 	if *channel != aliasLatest && *channel != aliasDevelopment && !branchAliasRE.MatchString(*channel) {
 		return fmt.Errorf("channel %q is not a channel alias", *channel)
@@ -200,42 +206,12 @@ func cmdCatalog(args []string) error {
 	if err != nil {
 		return err
 	}
-	m, _, err := verifyMerged(*dir, cfg)
-	if err != nil {
-		return err
-	}
-	root, err := readRootIndex(*dir)
-	if err != nil {
-		return err
-	}
-	raw, err := readBlob(*dir, root.Manifests[0].Digest, root.Manifests[0].Size)
-	if err != nil {
-		return err
-	}
-	var im v1.IndexManifest
-	if err := json.Unmarshal(raw, &im); err != nil {
-		return err
-	}
 	var releases []catalogRelease
 	var doc bytes.Buffer
-	for _, d := range im.Manifests {
-		l, err := loadLegByDescriptor(*dir, d)
-		if err != nil {
-			return err
-		}
-		platform := d.Platform.OS + "/" + d.Platform.Architecture
-		var rec Receipt
-		for _, r := range m.Legs {
-			if r.Platform == platform {
-				rec = r
-			}
-		}
-		v, err := verifyLoaded(l, &rec, platform, m.Version, cfg)
-		if err != nil {
-			return err
-		}
-		ui := v.Manifest.Capabilities.UI
-		title, description, mainPage, icon := v.Manifest.ID, "", "", ""
+	// emit renders the entry of one platform from the manifest of the package.
+	emit := func(manifest *contract.Manifest, version, osName, arch, digest string) error {
+		ui := manifest.Capabilities.UI
+		title, description, mainPage, icon := manifest.ID, "", "", ""
 		if ui != nil {
 			mainPage, icon = ui.MainPage, ui.Icon
 			if ui.Title != nil {
@@ -248,19 +224,19 @@ func cmdCatalog(args []string) error {
 		// The development channel is mutable, like a development backend: the
 		// entry names the moving tag <id>-development and has no digest.
 		mutable := *channel == aliasDevelopment
-		entryVersion, entryTag := m.Version, *tag
+		entryVersion, entryTag := version, *tag
 		if mutable {
 			entryVersion, entryTag = "0.0.0-development", aliasDevelopment
 		}
 		values := map[string]string{
-			"addon": v.Manifest.ID, "version": entryVersion, "tag": addonTagOrEmpty(v.Manifest.ID, entryTag), "channel": *channel,
-			"repository": repo.Name(), "digest": d.Digest.String(),
-			"os": d.Platform.OS, "arch": d.Platform.Architecture,
+			"addon": manifest.ID, "version": entryVersion, "tag": addonTagOrEmpty(manifest.ID, entryTag), "channel": *channel,
+			"repository": repo.Name(), "digest": digest,
+			"os": osName, "arch": arch,
 			"issuer": OIDCIssuer, "identity": identity,
 			"title": title, "description": description, "main_page": mainPage, "icon": icon,
 		}
 		text := string(tmpl)
-		text = strings.TrimRight(text, "\n") + "\n" + toolFieldsYAML(v.Manifest.Capabilities.Tools, "")
+		text = strings.TrimRight(text, "\n") + "\n" + toolFieldsYAML(manifest.Capabilities.Tools, "")
 		if mutable {
 			text = strings.Replace(text, "digest: \"{{digest}}\"", "mutable: true", 1)
 		}
@@ -276,18 +252,86 @@ func cmdCatalog(args []string) error {
 			return fmt.Errorf("rendered entry: %v", err)
 		}
 		r := parsed[0]
-		regTag, err := addonTag(v.Manifest.ID, entryTag)
+		regTag, err := addonTag(manifest.ID, entryTag)
 		if err != nil {
 			return err
 		}
 		if mutable != r.Mutable {
 			return errors.New("the development channel renders a mutable entry and no other channel does")
 		}
-		if err := checkRelease(r, entryVersion, d.Digest.String(), repo.Name(), regTag); err != nil {
+		if err := checkRelease(r, entryVersion, digest, repo.Name(), regTag); err != nil {
 			return err
 		}
 		releases = append(releases, r)
 		doc.WriteString(item)
+		return nil
+	}
+	if *fromManifest {
+		// A development entry carries no digest and nothing else that a built
+		// package would add: it is made from the manifest of the repository and
+		// the enabled platforms, so the committed index can be checked without
+		// building a package.
+		if *channel != aliasDevelopment || *dir != "" {
+			return errors.New("--from-manifest renders the development channel only and takes no --merged")
+		}
+		data, err := os.ReadFile(filepath.Join(*root, cfg.Manifest))
+		if err != nil {
+			return err
+		}
+		manifest, err := contract.ParseManifest(data)
+		if err != nil {
+			return fmt.Errorf("manifest of %s: %w", cfg.Addon, err)
+		}
+		if manifest.ID != cfg.Addon {
+			return fmt.Errorf("manifest id %q differs from add-on %q", manifest.ID, cfg.Addon)
+		}
+		enabled, err := cfg.enabled()
+		if err != nil {
+			return err
+		}
+		for _, e := range enabled {
+			osName, arch, _ := strings.Cut(e.Platform, "/")
+			if err := emit(&manifest, "", osName, arch, ""); err != nil {
+				return err
+			}
+		}
+	} else {
+		m, _, err := verifyMerged(*dir, cfg)
+		if err != nil {
+			return err
+		}
+		root, err := readRootIndex(*dir)
+		if err != nil {
+			return err
+		}
+		raw, err := readBlob(*dir, root.Manifests[0].Digest, root.Manifests[0].Size)
+		if err != nil {
+			return err
+		}
+		var im v1.IndexManifest
+		if err := json.Unmarshal(raw, &im); err != nil {
+			return err
+		}
+		for _, d := range im.Manifests {
+			l, err := loadLegByDescriptor(*dir, d)
+			if err != nil {
+				return err
+			}
+			platform := d.Platform.OS + "/" + d.Platform.Architecture
+			var rec Receipt
+			for _, r := range m.Legs {
+				if r.Platform == platform {
+					rec = r
+				}
+			}
+			v, err := verifyLoaded(l, &rec, platform, m.Version, cfg)
+			if err != nil {
+				return err
+			}
+			if err := emit(&v.Manifest, m.Version, d.Platform.OS, d.Platform.Architecture, d.Digest.String()); err != nil {
+				return err
+			}
+		}
 	}
 	if _, err := readCatalogIndex(doc.Bytes()); err != nil {
 		return fmt.Errorf("rendered index: %w", err)

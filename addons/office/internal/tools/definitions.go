@@ -123,5 +123,18 @@ func Definitions() []contract.ToolDefinition {
 					"bullets": list(obj{"type": "string"}, "The bullet lines.", 30),
 				}, "title"), "The slides, in order.", 200),
 			}, "path", "slides")),
+		def(ToolCreatePdf, act, "Create a PDF file from blocks. A block has a kind: heading (text, level 1 to 3), paragraph (text), bullets (items) or table (header and rows). The text must use Latin-1 characters only. If the path is taken, the old file stays and the new one is saved next to it.",
+			object(obj{
+				"path":  pathProp(".pdf"),
+				"title": str("The document title. Optional."),
+				"blocks": list(object(obj{
+					"kind":   enum("The kind of block.", "heading", "paragraph", "bullets", "table"),
+					"level":  integer("heading: 1 to 3."),
+					"text":   str("heading and paragraph: the text."),
+					"items":  list(obj{"type": "string"}, "bullets: the lines.", 100),
+					"header": list(obj{"type": "string"}, "table: the column titles.", 20),
+					"rows":   list(list(obj{"type": "string"}, "One row.", 20), "table: the rows, top to bottom.", 500),
+				}, "kind"), "The blocks, in order.", 2000),
+			}, "path", "blocks")),
 	}
 }
