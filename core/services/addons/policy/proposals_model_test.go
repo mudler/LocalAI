@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
@@ -90,6 +91,7 @@ var _ = Describe("a conflict found by the preview", Label("proposals"), func() {
 		_, err := f.broker.Propose(ctx, owner, f.request(key, "op", "write", `{"rows":[1]}`))
 		Expect(err).To(MatchError(gateway.ErrInvalidRequest))
 		Expect(errors.Is(err, gateway.ErrUnavailable)).To(BeFalse())
+		Expect(gateway.StatusFor(err)).To(Equal(http.StatusForbidden), "a refusal is not an outage")
 		f.rt.previewErr = nil
 		_, err = f.broker.Propose(ctx, owner, f.request(key, "op", "write", `{"rows":[1]}`))
 		Expect(err).NotTo(HaveOccurred())

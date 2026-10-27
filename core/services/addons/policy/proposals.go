@@ -854,7 +854,10 @@ func previewRefusal(err error) error {
 	case errors.Is(err, contract.ErrRefused), errors.Is(err, contract.ErrDenied):
 		return gateway.Refused(err)
 	case errors.Is(err, addonruntime.ErrConflict):
-		return gateway.Refused(fmt.Errorf("%w: %w", contract.ErrRefused, err))
+		// The conflict error itself stays out of the chain: it is an ErrRuntime
+		// for callers that do not tell it apart, and the gateway would then
+		// read the refusal as an outage again.
+		return gateway.Refused(fmt.Errorf("%w: the add-on found a conflict with what it holds", contract.ErrRefused))
 	}
 	return nil
 }
