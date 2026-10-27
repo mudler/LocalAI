@@ -14,7 +14,8 @@
   "notUsed": {
     "lead": "Not used yet.",
     "skill": "It stays in the library until you add it somewhere. Try it first, or add it to an agent.",
-    "collection": "It stays in the library until you add it somewhere. Search it here, or add it to an agent."
+    "collection": "It stays in the library until you add it somewhere. Search it here, or add it to an agent.",
+    "skillShort": "It stays in the list until you add it to an agent."
   },
   "tryInContext": "Try it in a context",
   "add": {
@@ -33,7 +34,8 @@
     "collectionNote": "An agent can search the collections on its list.",
     "kbOn": "Turns its knowledge base on",
     "noAgentNamed": "No agent is named {{name}}. Create an agent with that name to use this collection.",
-    "close": "Close"
+    "close": "Close",
+    "skillNote": "An agent can read the skills on its list."
   },
   "toasts": {
     "skillAdded": "{{name}} added to {{agent}}",

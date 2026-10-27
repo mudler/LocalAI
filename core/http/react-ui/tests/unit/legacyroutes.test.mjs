@@ -139,24 +139,25 @@ test('chatsRedirect opens the matching page of the chats and keeps the query and
   assert.equal(chatsRedirect('/app/chat/llama', '?x=1', '#top'), '/app/chats?x=1&model=llama#top')
   // A model id may hold "/" or ":", so it travels as ?model= and is decoded first.
   assert.equal(chatsRedirect('/app/chat/org%2Fname%3Aq4'), '/app/chats?model=org%2Fname%3Aq4')
-  assert.equal(chatsRedirect('/app/agents'), '/app/chats/agents')
-  assert.equal(chatsRedirect('/app/agents/Helper/edit', '?a=b'), '/app/chats/agents?a=b')
-  assert.equal(chatsRedirect('/app/agents/new'), '/app/chats/agents')
-  assert.equal(chatsRedirect('/app/agent-jobs'), '/app/chats/triggers')
-  assert.equal(chatsRedirect('/app/agent-jobs/jobs/j1'), '/app/chats/triggers')
-  assert.equal(chatsRedirect('/app/skills'), '/app/chats/skills')
-  assert.equal(chatsRedirect('/app/skills/edit/web'), '/app/chats/skills')
+  assert.equal(chatsRedirect('/app/chats/agents'), '/app/agents')
+  assert.equal(chatsRedirect('/app/chats/agents', '?a=b'), '/app/agents?a=b')
+  assert.equal(chatsRedirect('/app/chats/triggers'), '/app/triggers')
+  assert.equal(chatsRedirect('/app/agent-jobs'), '/app/triggers')
+  assert.equal(chatsRedirect('/app/agent-jobs/jobs/j1'), '/app/triggers')
+  assert.equal(chatsRedirect('/app/agent-jobs/tasks/new', '?x=1'), '/app/triggers?x=1')
+  assert.equal(chatsRedirect('/app/chats/skills'), '/app/skills')
+  assert.equal(chatsRedirect('/app/chats/skills/', '', '#a'), '/app/skills#a')
 })
 
 test('every old chat, agent, job and skill route redirects, and no built-in page is left behind', () => {
   for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'chats')) {
     assert.equal(chatsRedirect(r.from), r.to, r.from)
   }
-  for (const path of ["'chat'", "'chat/:model'", "'agents'", "'agents/*'", "'skills'", "'skills/*'", "'agent-jobs'", "'agent-jobs/*'"]) {
+  for (const path of ["'chat'", "'chat/:model'", "'chats/agents'", "'chats/skills'", "'chats/triggers'", "'agent-jobs'", "'agent-jobs/*'"]) {
     const entry = router.split('\n').find(l => l.includes(`{ path: ${path}, element:`))
     assert.ok(entry?.includes('<ChatsRedirect />'), `no ChatsRedirect for ${path}`)
   }
-  assert.ok(!/pages\/(Agents|AgentCreate|AgentPage|AgentRun|AgentStatus|Skills|SkillEdit|AgentJobs|AgentTaskDetails|AgentJobDetails)'/.test(router))
+  assert.ok(!/pages\/(Chats|AgentRun|AgentStatus|AgentJobDetails|ChatAgents|ChatSkills|ChatTriggers)'/.test(router))
 })
 
 test('chatsRedirect keeps a model name that is not valid percent-encoding as typed', () => {

@@ -7,7 +7,7 @@ import { installStudioAddons } from './studio-addon.js'
 // the user agent's own chrome, which is a pale grey button on a dark ground.
 const ROUTES = [
   '/app', '/app/chats', '/app/models', '/app/studio', '/app/talk',
-  '/app/chats/agents', '/app/chats/skills', '/app/collections', '/app/chats/triggers',
+  '/app/agents', '/app/skills', '/app/collections', '/app/triggers',
   '/app/models?view=installed', '/app/backends', '/app/activity', '/app/operate',
   '/app/settings', '/app/traces', '/app/usage', '/app/nodes', '/app/p2p',
   '/app/account',

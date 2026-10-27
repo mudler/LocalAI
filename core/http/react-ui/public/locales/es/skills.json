@@ -1,0 +1,74 @@
+{
+  "title": "Habilidades",
+  "subtitle": "Administra las habilidades de los agentes (instrucciones y recursos reutilizables)",
+  "unavailable": {
+    "subtitle": "El servicio de habilidades no está disponible o el índice se está reconstruyendo. Inténtalo de nuevo en un momento."
+  },
+  "actions": {
+    "newSkill": "Nueva habilidad",
+    "createSkill": "Crear habilidad",
+    "edit": "Editar",
+    "delete": "Eliminar"
+  },
+  "search": {
+    "placeholder": "Buscar habilidades..."
+  },
+  "card": {
+    "noDescription": "Sin descripción",
+    "readOnly": "Solo lectura",
+    "editTitle": "Editar habilidad",
+    "deleteTitle": "Eliminar habilidad",
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "This SKILL.md was skipped: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name"
+  },
+  "empty": {
+    "title": "No se encontraron habilidades",
+    "text": "Crea una habilidad o importa una para empezar.",
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
+  },
+  "toasts": {
+    "loadFailed": "Error al cargar habilidades",
+    "deleted": "Habilidad \"{{name}}\" eliminada",
+    "deleteFailed": "Error al eliminar habilidad"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+  }
+}

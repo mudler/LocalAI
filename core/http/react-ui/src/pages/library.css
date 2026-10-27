@@ -206,3 +206,108 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 /* The kit's segments are fixed shares plus a gap; let them shrink so the bar
    never runs past the sheet. */
 .lib-result .dk-meter-seg { flex: 0 1 var(--dk-w, 0%); }
+
+/* ---- Skill editor ---------------------------------------------------- */
+.skilledit-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: var(--spacing-sm);
+  cursor: pointer;
+  text-decoration: none;
+}
+.skilledit-back-link:hover {
+  color: var(--color-primary);
+}
+.skilledit-layout {
+  display: flex;
+  gap: var(--spacing-lg);
+}
+.skilledit-sidebar {
+  flex-shrink: 0;
+  width: 200px;
+}
+.skilledit-sidebar-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.skilledit-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+.skilledit-sidebar-item:hover {
+  color: var(--color-text-primary);
+  background: var(--color-primary-light);
+}
+.skilledit-sidebar-item.active {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  font-weight: 600;
+}
+.skilledit-form-area {
+  flex: 1;
+  min-width: 0;
+}
+.skilledit-section-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: var(--spacing-md);
+}
+.skilledit-field {
+  margin-bottom: var(--spacing-md);
+}
+.skilledit-field label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text-primary);
+}
+.skilledit-field .required {
+  color: var(--color-error);
+}
+.skilledit-field .help-text {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-xs);
+}
+.skilledit-form-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border-subtle);
+}
+@media (max-width: 700px) {
+  .skilledit-layout {
+    flex-direction: column;
+  }
+  .skilledit-sidebar {
+    width: 100%;
+  }
+  .skilledit-sidebar-nav {
+    display: flex;
+    gap: var(--spacing-xs);
+    overflow-x: auto;
+  }
+  .skilledit-sidebar-item {
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  .skilledit-sidebar-item.active {
+    border-bottom-color: var(--color-primary);
+  }
+}
+.skilledit-body { font-family: var(--font-mono); font-size: 0.875rem; }
+.skilledit-set { border: 0; margin: 0; padding: 0; min-width: 0; }

@@ -1,0 +1,235 @@
+{
+  "title": "Agents",
+  "subtitle": "Gérez des agents IA autonomes",
+  "actions": {
+    "import": "Importer",
+    "createAgent": "Créer un agent",
+    "edit": "Modifier",
+    "chat": "Discuter",
+    "export": "Exporter",
+    "delete": "Supprimer"
+  },
+  "table": {
+    "name": "Nom",
+    "status": "Statut",
+    "events": "Événements",
+    "actions": "Actions",
+    "eventsTooltip": "{{count}} événements - Cliquez pour voir"
+  },
+  "search": {
+    "placeholder": "Rechercher des agents...",
+    "summary_one": "{{shown}} agent sur {{total}}",
+    "summary_other": "{{shown}} agents sur {{total}}"
+  },
+  "empty": {
+    "noConfigured": "Aucun agent configuré",
+    "noConfiguredText": "Créez un agent pour démarrer des workflows IA autonomes.",
+    "noMatching": "Aucun agent correspondant",
+    "noMatchingText": "Aucun agent ne correspond à « {{query}} »"
+  },
+  "deleteDialog": {
+    "title": "Supprimer l'agent",
+    "message": "Supprimer l'agent « {{name}} » ? Cette action est irréversible.",
+    "confirm": "Supprimer"
+  },
+  "toasts": {
+    "loadFailed": "Échec du chargement des agents : {{message}}",
+    "deleted": "Agent « {{name}} » supprimé",
+    "deleteFailed": "Échec de la suppression de l'agent : {{message}}",
+    "exported": "Agent « {{name}} » exporté",
+    "parseFailed": "Échec de l'analyse du fichier d'agent : {{message}}",
+    "notAnAgent": "The file is not an exported agent"
+  },
+  "facts": {
+    "addons": "Add-ons",
+    "connector": "MCP connector"
+  },
+  "agent": {
+    "triggers": "Triggers",
+    "newTrigger": "New trigger",
+    "noTriggers": "No trigger starts this agent.",
+    "untitled": "Untitled chat",
+    "triggerOn": "On",
+    "triggerOff": "Off",
+    "origin": {
+      "trigger": "Started by a trigger",
+      "connector": "Started by a connector"
+    },
+    "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
+    "missingText": "It may have been deleted, or it belongs to another user."
+  },
+  "record": {
+    "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
+    "none": "No runs yet"
+  },
+  "create": {
+    "sections": {
+      "BasicInfo": "Basic info",
+      "ModelSettings": "Model",
+      "PromptsGoals": "Instructions",
+      "MemorySettings": "Memory",
+      "Skills": "Skills",
+      "Addons": "Add-ons",
+      "MCP": "MCP servers",
+      "export": "Export"
+    },
+    "name": "Name",
+    "description": "Description",
+    "descriptionHelp": "One line that says what the agent is for. It shows in the list.",
+    "model": "Model",
+    "modelPlaceholder": "Any model (the chat picks one)",
+    "modelHelp": "Leave it empty and a chat with this agent uses the model you pick in the chat. Set one to fix it.",
+    "anyModel": "Any model",
+    "instructions": "Instructions",
+    "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
+    "collections": "Collections",
+    "collectionsHint": "Collection name",
+    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
+    "noSkills": "No skills yet.",
+    "manageSkills": "Write or manage skills",
+    "addonsHelp": "The add-ons whose tools a chat with this agent may use.",
+    "noAddons": "No add-on offers tools to a model.",
+    "mcpHelp": "The MCP servers of the fixed model and the MCP connectors a chat with this agent may use.",
+    "mcpServers": "MCP servers",
+    "mcpHint": "Server name",
+    "mcpConnectors": "MCP connectors",
+    "noConnectors": "No MCP connectors yet.",
+    "manageConnectors": "Manage MCP connectors",
+    "connectorOff": "off",
+    "gone": "not found",
+    "countCollections_one": "{{count}} collection",
+    "countCollections_other": "{{count}} collections",
+    "countAddons_one": "{{count}} add-on",
+    "countAddons_other": "{{count}} add-ons",
+    "needsName": "Needs a name",
+    "loadFailed": "Failed to load the agent: {{message}}",
+    "saveFailed": "Save failed: {{message}}",
+    "created": "Agent \"{{name}}\" created",
+    "updated": "Agent \"{{name}}\" updated",
+    "exportSummary": "Download as JSON",
+    "exportHelp": "Download the definition of this agent as a JSON file. It holds no id, no dates and no secrets. Import it on another instance from the agents list.",
+    "exportButton": "Export agent",
+    "importNew": "Imported from an exported agent. Read the form, then save.",
+    "importLegacy": "Imported from the export of an older agent. Name, description, model, instructions and skills were read; the rest has no counterpart here.",
+    "importDropped": "Not imported: {{keys}}.",
+    "subEdit": "A chat that is running keeps the version it started with. Its next turn uses the new one.",
+    "configNote": "The definition this form will save.",
+    "previewNew": "The agent this form will save.",
+    "previewEdit": "The agent this form will save, and how it differs from the saved one.",
+    "default": "Default"
+  },
+  "run": {
+    "workingLine": "Working"
+  },
+  "jobs": {
+    "title": "Triggers",
+    "newTask": "New trigger",
+    "createTask": "Create trigger",
+    "loading": "Loading triggers",
+    "loadFailed": "Failed to load: {{message}}",
+    "actionFailed": "The action failed: {{message}}",
+    "summary": {
+      "stopped": "{{count}} skipped",
+      "lastFailed_one": "The last run of {{names}} failed.",
+      "lastFailed_other": "The last run failed for {{names}}."
+    },
+    "tasks": {
+      "title": "Triggers, {{count}}",
+      "caption": "Triggers",
+      "task": "Trigger",
+      "noSchedule": "No schedule",
+      "noAgent": "No agent",
+      "fileKind": "When a file arrives",
+      "open": "Open",
+      "started": "Trigger \"{{name}}\" started",
+      "toggleLabel": "Run {{name}} by itself",
+      "toggleFailed": "Could not change the trigger: {{message}}",
+      "deleted": "Trigger deleted",
+      "noneYet": "You have no triggers yet.",
+      "noModel": "No model"
+    },
+    "history": {
+      "filterTask": "Trigger",
+      "allTasks": "All triggers",
+      "task": "Trigger",
+      "unknownTask": "Unknown trigger",
+      "cancelledLine": "Skipped",
+      "doneLine": "Finished. Open the chat for the answer.",
+      "doneFile": "Finished for {{file}}. Open the chat for the answer.",
+      "pendingLine": "Waiting to start",
+      "emptyText": "A run starts when you press Run now, when a schedule fires, or when a file arrives in a watched folder.",
+      "openRun": "Open the chat",
+      "reason": "Reason",
+      "file": "Started by the file {{file}}."
+    },
+    "status": {
+      "done": "Done",
+      "failed": "Failed",
+      "running": "Working",
+      "queued": "Waiting",
+      "skipped": "Skipped"
+    },
+    "empty": {
+      "title": "No triggers yet",
+      "text": "A trigger starts a chat for you by itself: at a time, or when a file arrives in a folder. Each run is an ordinary chat that you can open.",
+      "step1": "Write what the chat should do.",
+      "step2": "Pick an agent, or a model, to run it.",
+      "step3": "Choose when it runs, or press Run now."
+    },
+    "task": {
+      "back": "Triggers",
+      "missingTitle": "Trigger not found",
+      "agent": "Agent",
+      "model": "Model",
+      "schedule": "Schedule",
+      "cap": "Most runs a day",
+      "watches": "Watches the folder {{folder}}",
+      "noRuns": "This trigger has not run yet.",
+      "runMeta": "took {{time}}",
+      "prompt": "What to do"
+    },
+    "edit": {
+      "titleNew": "New trigger",
+      "subNew": "Name it, write what to do and choose when it runs.",
+      "subEdit": "Changes apply from the next run.",
+      "save": "Save trigger",
+      "create": "Create trigger",
+      "nameRequired": "A trigger needs a name",
+      "promptRequired": "Write what the trigger should do",
+      "created": "Trigger created",
+      "updated": "Trigger updated",
+      "sections": {
+        "basics": "Basics",
+        "prompt": "What to do",
+        "schedule": "When",
+        "limits": "Limits"
+      },
+      "summary": {
+        "basics": "{{name}}, {{model}}",
+        "basicsNoModel": "{{name}}, no agent or model yet",
+        "promptEmpty": "Nothing to do yet",
+        "folderEmpty": "Needs a folder",
+        "cap": "Up to {{count}} runs a day",
+        "capDefault": "Default limit"
+      },
+      "name": "Name",
+      "namePlaceholder": "daily-digest",
+      "noAgent": "No agent",
+      "model": "Model",
+      "enabled": "On",
+      "enabledHint": "A trigger that is off keeps its schedule but does not run.",
+      "prompt": "What to do",
+      "promptPlaceholder": "Summarise what is new in my Reports folder.",
+      "promptHint": "This text starts the chat each time the trigger fires.",
+      "capHint": "The most chats this trigger may start in one day. Empty uses the default.",
+      "previewEdit": "What the next run would send, and what differs from the saved trigger.",
+      "previewNew": "What the first run would send.",
+      "promptAsSent": "The text a run starts with",
+      "noChanges": "Nothing differs from the saved trigger.",
+      "loadingTask": "Loading trigger",
+      "changed_one": "{{count}} change",
+      "changed_other": "{{count}} changes"
+    }
+  }
+}

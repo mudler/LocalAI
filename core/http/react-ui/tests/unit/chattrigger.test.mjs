@@ -74,3 +74,18 @@ test('chat triggers: the push key is read from URL-safe base64', () => {
   assert.deepEqual([...urlBase64ToBytes('AQID')], [1, 2, 3])
   assert.deepEqual([...urlBase64ToBytes('-_8')], [251, 255])
 })
+
+test('chat triggers: a stored trigger fills the form and the form writes it back', async () => {
+  const { emptyTrigger, triggerForm } = await import('../../src/utils/chatTrigger.js')
+  assert.equal(emptyTrigger().enabled, true)
+  assert.equal(emptyTrigger().schedule.preset, 'daily')
+  const stored = { id: 't1', name: 'Digest', prompt: 'Go.', enabled: false, kind: 'schedule', schedule: 'weekdays 09:00', time_zone: 'Europe/Rome', daily_cap: 3, agent_id: 'a1', model: '' }
+  const f = triggerForm(stored)
+  assert.equal(f.schedule.preset, 'weekdays')
+  assert.equal(f.zone, 'Europe/Rome')
+  assert.equal(f.dailyCap, '3')
+  const body = triggerPayload(f)
+  assert.equal(body.schedule, 'weekdays 09:00')
+  assert.equal(body.enabled, false)
+  assert.equal(body.agent_id, 'a1')
+})

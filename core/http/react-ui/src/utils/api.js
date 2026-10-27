@@ -262,6 +262,7 @@ export const chatToolsApi = {
 // Saved agents: instructions and exact lists of what a chat may use.
 export const chatAgentsApi = {
   list: () => fetchJSON('/api/chats/agents'),
+  get: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`),
   create: (body) => postJSON('/api/chats/agents', body),
   update: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   remove: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'DELETE' }),

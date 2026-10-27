@@ -60,7 +60,7 @@ export default function ChatConversion() {
         </ul>
       )}
       <p className="cs-muted">
-        <Link className="cs-link" to="/app/chats/triggers">{t('conversionPage.openTriggers')}</Link>
+        <Link className="cs-link" to="/app/triggers">{t('conversionPage.openTriggers')}</Link>
         {' · '}
         <Link className="cs-link" to="/app/chats/connectors">{t('conversionPage.openConnectors')}</Link>
       </p>

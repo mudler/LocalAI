@@ -79,9 +79,13 @@ export function preloadRoute(path) {
 const Home = page('', () => import('./pages/Home'))
 const Chats = page('chats', () => import('./pages/Chat'))
 const Workspace = page('workspace', () => import('./pages/Workspace'))
-const ChatSkills = page('chats', () => import('./pages/ChatSkills'))
-const ChatAgents = page('chats', () => import('./pages/ChatAgents'))
-const ChatTriggers = page('chats', () => import('./pages/ChatTriggers'))
+const Agents = page('agents', () => import('./pages/Agents'))
+const AgentCreate = page(null, () => import('./pages/AgentCreate'))
+const AgentPage = page(null, () => import('./pages/AgentPage'))
+const Skills = page('skills', () => import('./pages/Skills'))
+const SkillEdit = page(null, () => import('./pages/SkillEdit'))
+const AgentJobs = page('triggers', () => import('./pages/AgentJobs'))
+const AgentTaskDetails = page(null, () => import('./pages/AgentTaskDetails'))
 const ChatConnectors = page('chats', () => import('./pages/ChatConnectors'))
 const ChatConversion = page('chats', () => import('./pages/ChatConversion'))
 const Models = page('models', () => import('./pages/Models'))
@@ -150,11 +154,18 @@ import { addonPageAddress, chatsRedirect, studioAddress, studioRedirect, talkAdd
 import { buildHub, operateHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
-// The old chat, agents, jobs and skills pages became pages of the chats. An old
-// address opens the matching one and keeps the query string and the hash.
+// The old chat page became the chats and the old agent-jobs pages became the
+// triggers; the agents, skills and triggers pages left /app/chats/. An old
+// address opens the matching page and keeps the query string and the hash.
 function ChatsRedirect() {
   const { pathname, search, hash } = useLocation()
   return <Navigate to={chatsRedirect(pathname, search, hash)} replace />
+}
+
+// The old status, run and chat pages of an agent are its page now.
+function AgentRedirect() {
+  const { id } = useParams()
+  return <Navigate to={`/app/agents/${encodeURIComponent(id)}`} replace />
 }
 
 // An old generator link opens the same generator inside the Studio add-on. The
@@ -240,15 +251,27 @@ const appChildren = [
   { index: true, element: <Home /> },
   { path: 'chat', element: <ChatsRedirect /> },
   { path: 'chat/:model', element: <ChatsRedirect /> },
-  { path: 'chats/skills', element: <Feature feature="chats"><ChatSkills /></Feature> },
-  { path: 'chats/agents', element: <Feature feature="chats"><ChatAgents /></Feature> },
-  { path: 'chats/triggers', element: <Feature feature="chats"><ChatTriggers /></Feature> },
+  { path: 'chats/agents', element: <ChatsRedirect /> },
+  { path: 'chats/skills', element: <ChatsRedirect /> },
+  { path: 'chats/triggers', element: <ChatsRedirect /> },
   { path: 'chats/connectors', element: <Feature feature="chats"><ChatConnectors /></Feature> },
   { path: 'chats/conversion', element: <Feature feature="chats"><ChatConversion /></Feature> },
   // One route for a new chat and an open one, so the page stays mounted when a
   // chat starts or is left (a delete waiting for its Undo survives the move).
   { path: 'chats/:id?', element: <Feature feature="chats"><Chats /></Feature> },
   { path: 'files', element: <Feature feature="chats"><Workspace /></Feature> },
+  { path: 'agents', element: <Feature feature="chats"><Agents /></Feature> },
+  { path: 'agents/new', element: <Feature feature="chats"><AgentCreate /></Feature> },
+  { path: 'agents/:id/edit', element: <Feature feature="chats"><AgentCreate /></Feature> },
+  { path: 'agents/:id', element: <Feature feature="chats"><AgentPage /></Feature> },
+  { path: 'agents/:id/*', element: <AgentRedirect /> },
+  { path: 'skills', element: <Feature feature="chats"><Skills /></Feature> },
+  { path: 'skills/new', element: <Feature feature="chats"><SkillEdit /></Feature> },
+  { path: 'skills/edit/:layer/:name', element: <Feature feature="chats"><SkillEdit /></Feature> },
+  { path: 'triggers', element: <Feature feature="chats"><AgentJobs /></Feature> },
+  { path: 'triggers/new', element: <Feature feature="chats"><AgentTaskDetails /></Feature> },
+  { path: 'triggers/:id/edit', element: <Feature feature="chats"><AgentTaskDetails /></Feature> },
+  { path: 'triggers/:id', element: <Feature feature="chats"><AgentTaskDetails /></Feature> },
   { path: 'image', element: <StudioTabRedirect legacy="image" /> },
   { path: 'image/:model', element: <StudioTabRedirect legacy="image" /> },
   { path: 'video', element: <StudioTabRedirect legacy="video" /> },
@@ -301,11 +324,7 @@ const appChildren = [
       { path: 'import-model', element: <Admin><ImportModel /></Admin> },
     ],
   },
-  // The old agent, skill and job pages: they redirect to the chats pages.
-  { path: 'agents/*', element: <ChatsRedirect /> },
-  { path: 'agents', element: <ChatsRedirect /> },
-  { path: 'skills/*', element: <ChatsRedirect /> },
-  { path: 'skills', element: <ChatsRedirect /> },
+  // The old agent-jobs pages are the triggers now.
   { path: 'agent-jobs/*', element: <ChatsRedirect /> },
   { path: 'agent-jobs', element: <ChatsRedirect /> },
 

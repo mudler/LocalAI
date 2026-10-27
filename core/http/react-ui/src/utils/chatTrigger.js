@@ -121,6 +121,23 @@ export function joinTimes(times, tz) {
   return times.map((t) => formatNext(t, tz)).filter(Boolean).join('; ')
 }
 
+/** The fields of a new trigger. */
+export function emptyTrigger() {
+  return {
+    id: '', name: '', prompt: '', enabled: true, schedule: emptyForm(), zone: browserZone(),
+    folder: '', quiet: '', dailyCap: '', agentId: '', model: '', sourceChatId: '',
+  }
+}
+
+/** The fields of the form for a stored trigger. */
+export function triggerForm(tr) {
+  return {
+    id: tr.id, name: tr.name, prompt: tr.prompt, enabled: tr.enabled, schedule: presetOf(tr), zone: tr.time_zone || browserZone(),
+    folder: tr.folder || '', quiet: tr.quiet_seconds ? String(tr.quiet_seconds) : '', dailyCap: String(tr.daily_cap || ''),
+    agentId: tr.agent_id || '', model: tr.model || '', sourceChatId: tr.source_chat_id || '',
+  }
+}
+
 /** The body of a create or replace request from the fields of the form. */
 export function triggerPayload(v) {
   const file = v.schedule.preset === 'file'

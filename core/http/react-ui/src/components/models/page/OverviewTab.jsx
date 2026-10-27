@@ -134,9 +134,9 @@ function UsedBy({ view }) {
             <li key={`${ref.kind}:${ref.name}`}>
               <span className="modelpage-usedby__name">
                 {ref.kind === 'agent'
-                  ? <Link className="dk-link" to="/app/chats/agents">{ref.name}</Link>
+                  ? <Link className="dk-link" to="/app/agents">{ref.name}</Link>
                   : ref.kind === 'task'
-                    ? <Link className="dk-link" to="/app/chats/triggers">{ref.name}</Link>
+                    ? <Link className="dk-link" to="/app/triggers">{ref.name}</Link>
                   : ref.kind === 'chain'
                     ? <Link className="dk-link" to="/app/failover">{ref.name}</Link>
                     : ref.name}

@@ -324,7 +324,7 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
               </section>
 
               {!isCollection && agent && (
-                <p className="lib-sim-fine"><Link className="dk-link" to={agentHref(agent.name)}>{agent.name}</Link></p>
+                <p className="lib-sim-fine"><Link className="dk-link" to={agentHref(agent)}>{agent.name}</Link></p>
               )}
             </div>
           )}

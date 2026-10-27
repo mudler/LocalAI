@@ -24,6 +24,8 @@ export const NAMESPACES = [
   'home',
   'chat',
   'chats',
+  'agents',
+  'skills',
   'workspace',
   'models',
   'collections',
