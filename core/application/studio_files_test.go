@@ -57,3 +57,22 @@ var _ = Describe("studio files at startup", func() {
 		Expect(err).To(HaveOccurred()) // nothing was created in the working directory
 	})
 })
+
+// The bytes of a file go to the cluster's object store. Without S3 that store
+// is a folder of one frontend, so a cluster without S3 has no files.
+var _ = Describe("files in a cluster", func() {
+	It("are off without S3, and say why", func() {
+		cfg := &config.ApplicationConfig{}
+		Expect(clusterFilesBlocker(cfg, true)).To(And(ContainSubstring("S3"), ContainSubstring("own copy")))
+	})
+
+	It("work with S3", func() {
+		cfg := &config.ApplicationConfig{}
+		cfg.Distributed.StorageURL = "http://s3.example:9000"
+		Expect(clusterFilesBlocker(cfg, true)).To(BeEmpty())
+	})
+
+	It("are not limited outside a cluster", func() {
+		Expect(clusterFilesBlocker(&config.ApplicationConfig{}, false)).To(BeEmpty())
+	})
+})

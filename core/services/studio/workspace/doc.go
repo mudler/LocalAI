@@ -15,11 +15,14 @@
 // blobs of a view, and CommitUpper commits an overlay upper layer, read
 // through an UpperSource, as one change set.
 //
-// Storage layout under the root folder:
+// Two stores implement the contract, and both pass the suite in wstest. The
+// gormstore package keeps the tree, the journal, the change sets and the grants
+// in a SQL database (SQLite or PostgreSQL). The jsonstore package keeps them in
+// a folder as a JSON snapshot and a change log, for a server with no database.
+// Blobs are named by their SHA-256 and live in a blob.Store:
 //
-//	workspace.db           SQLite: nodes, journal, change sets, grants, meta
 //	blobs/ab/cd/<sha256>   blob files, mode 0444
 //	tmp/                   uploads in progress
 //
-// Open one LocalStore per root folder in a process.
+// Open one jsonstore per folder in a process, and no second process on it.
 package workspace

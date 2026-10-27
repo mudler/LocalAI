@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -40,6 +41,10 @@ func (a *Application) StudioFiles() *files.Service {
 func (a *Application) initStudioFiles() {
 	dp := a.applicationConfig.DataPath
 	dist := a.Distributed()
+	if reason := clusterFilesBlocker(a.applicationConfig, dist != nil && dist.Store != nil); reason != "" {
+		a.studioFiles = files.Disabled(reason)
+		return
+	}
 	if dp == "" && (a.authDB == nil || dist == nil || dist.Store == nil) {
 		a.studioFiles = files.Disabled("There is no data path, so files are off. Start LocalAI with a data path to keep files.")
 		return
@@ -91,6 +96,18 @@ func (a *Application) initStudioFiles() {
 		xlog.Warn("Could not write the built-in skills", "error", err)
 	}
 	a.studioFiles, a.studioFilesIndex = f, closer
+}
+
+// clusterFilesBlocker returns why files cannot work in this cluster, or "" when
+// they can. The bytes of a file go to the cluster's object store so that every
+// frontend reads what another wrote. Without S3 the object store is a folder
+// on the frontend itself, and each frontend would keep its own copy of every
+// file, so files are off instead of silently wrong.
+func clusterFilesBlocker(cfg *config.ApplicationConfig, clustered bool) string {
+	if clustered && cfg.Distributed.StorageURL == "" {
+		return "Files are off: in a cluster they need S3 object storage (the storage URL setting), because without it each frontend would keep its own copy of every file."
+	}
+	return ""
 }
 
 // openWorkspaceIndex opens the index of the workspace: the GORM store on the
