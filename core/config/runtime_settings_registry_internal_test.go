@@ -90,18 +90,15 @@ var _ = Describe("runtime settings registry", func() {
 		src.BackendGalleries = []Gallery{{Name: "b1", URL: "https://b1"}}
 		src.AutoloadGalleries = true
 		src.AutoloadBackendGalleries = true
-		src.AgentJobRetentionDays = 9
 		src.OpenResponsesStoreTTL = time.Hour
 		src.AgentPool.Enabled = false
 		src.AgentPool.DefaultModel = "dm"
 		src.AgentPool.EmbeddingModel = "em"
 		src.AgentPool.MaxChunkingSize = 123
 		src.AgentPool.ChunkOverlap = 12
-		src.AgentPool.EnableLogs = true
 		src.AgentPool.CollectionDBPath = "/tmp/c.db"
 		src.AgentPool.VectorEngine = "postgres"
 		src.AgentPool.DatabaseURL = "postgres://x"
-		src.AgentPool.AgentHubURL = "https://hub"
 		src.DisableLocalAIAssistant = true
 		src.Distributed.DiskHeadroomDisabled = true
 		src.Branding = BrandingConfig{
@@ -127,18 +124,16 @@ var _ = Describe("ApplyRuntimeSettingsAtStartup", func() {
 	It("applies persisted values whose non-zero defaults broke the old == 0 guards", func() {
 		// Regression pins for the silent startup losses on master:
 		// lru_eviction_max_retries (default 30), tracing_max_items (1024),
-		// agent_job_retention_days (30), memory_reclaimer_threshold (0.95).
+		// memory_reclaimer_threshold (0.95).
 		o := DefaultRuntimeBaseline()
-		retries, items, days, thr := 99, 4096, 7, 0.5
+		retries, items, thr := 99, 4096, 0.5
 		o.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{
 			LRUEvictionMaxRetries:    &retries,
 			TracingMaxItems:          &items,
-			AgentJobRetentionDays:    &days,
 			MemoryReclaimerThreshold: &thr,
 		})
 		Expect(o.LRUEvictionMaxRetries).To(Equal(99))
 		Expect(o.TracingMaxItems).To(Equal(4096))
-		Expect(o.AgentJobRetentionDays).To(Equal(7))
 		Expect(o.MemoryReclaimerThreshold).To(Equal(0.5))
 	})
 

@@ -44,7 +44,6 @@ func newConfigFileHandler(appConfig *config.ApplicationConfig) configFileHandler
 	if err != nil {
 		xlog.Error("unable to register config file handler", "error", err, "file", "runtime_settings.json")
 	}
-	// Note: agent_tasks.json and agent_jobs.json are handled by AgentJobService directly
 	// The service watches and reloads these files internally
 	return c
 }

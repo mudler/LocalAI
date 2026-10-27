@@ -345,3 +345,9 @@ var _ = Describe("Chats endpoints", func() {
 		Expect(first).To(HaveKey("kind"))
 	})
 })
+
+func decodeJSON(rec *httptest.ResponseRecorder) map[string]any {
+	var out map[string]any
+	Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed(), rec.Body.String())
+	return out
+}

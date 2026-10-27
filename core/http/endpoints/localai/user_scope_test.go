@@ -10,14 +10,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// Per-user isolation contract for agent endpoints: a regular user is scoped
+// Per-user isolation contract for the collections endpoints: a regular user is scoped
 // to their own data, admins and agent-worker service accounts can override
 // scope via ?user_id=, and ?all_users=true is admin-only.
-var _ = Describe("Agent endpoint per-user isolation", func() {
+var _ = Describe("Collections endpoint per-user isolation", func() {
 	var e *echo.Echo
 
 	makeContext := func(query string) echo.Context {
-		req := httptest.NewRequest(http.MethodGet, "/api/agents"+query, nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/agents/collections"+query, nil)
 		rec := httptest.NewRecorder()
 		return e.NewContext(req, rec)
 	}

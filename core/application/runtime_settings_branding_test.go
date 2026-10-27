@@ -200,7 +200,7 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 
 	// The Agent Pool block has a mix of zero and non-zero defaults
 	// (Enabled=true, EmbeddingModel="granite-...", MaxChunkingSize=400,
-	// VectorEngine="chromem", AgentHubURL="https://agenthub.localai.io").
+	// VectorEngine="chromem").
 	// Each spec seeds the appropriate startup state so the loader's
 	// "at default" check observes what New() would.
 	Describe("agent pool fields", func() {
@@ -243,10 +243,10 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			Expect(cfg.AgentPool.ChunkOverlap).To(Equal(50))
 		})
 
-		It("loads agent_pool_enable_logs", func() {
-			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"agent_pool_enable_logs": true}`)}
+		It("ignores the keys of removed settings and still loads the others", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"agent_pool_enable_logs": true, "agent_job_retention_days": 7, "agent_pool_agent_hub_url": "https://hub.acme.io", "agent_pool_default_model": "kept"}`)}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.EnableLogs).To(BeTrue())
+			Expect(cfg.AgentPool.DefaultModel).To(Equal("kept"))
 		})
 
 		It("loads agent_pool_collection_db_path", func() {
@@ -269,15 +269,6 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			loadRuntimeSettingsFromFile(cfg)
 			Expect(cfg.AgentPool.DatabaseURL).To(Equal("postgres://user:pass@db:5432/localai"))
 		})
-
-		It("overrides the agenthub.localai.io agent_hub_url default", func() {
-			cfg := &config.ApplicationConfig{
-				DynamicConfigsDir: seedSettings(`{"agent_pool_agent_hub_url": "https://hub.acme.io"}`),
-				AgentPool:         config.AgentPoolConfig{AgentHubURL: "https://agenthub.localai.io"},
-			}
-			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.AgentHubURL).To(Equal("https://hub.acme.io"))
-		})
 	})
 
 	// Issue #10845 root cause class: fields with non-zero boot defaults
@@ -297,13 +288,6 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			cfg.DynamicConfigsDir = seedSettings(`{"tracing_max_items": 4096}`)
 			loadRuntimeSettingsFromFile(cfg)
 			Expect(cfg.TracingMaxItems).To(Equal(4096))
-		})
-
-		It("loads a persisted agent_job_retention_days over the default 30", func() {
-			cfg := config.NewApplicationConfig()
-			cfg.DynamicConfigsDir = seedSettings(`{"agent_job_retention_days": 7}`)
-			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentJobRetentionDays).To(Equal(7))
 		})
 	})
 

@@ -185,16 +185,12 @@ func setModelLoadingRetryAfter(loadErr *nodes.ModelLoadingError, c echo.Context)
 // @tag.description Prometheus metrics, backend status, system information
 // @tag.name mcp
 // @tag.description Model Context Protocol — tool-augmented chat with MCP servers
-// @tag.name agent-jobs
-// @tag.description Agent task and job management
 // @tag.name p2p
 // @tag.description Peer-to-peer networking nodes and tokens
 // @tag.name rerank
 // @tag.description Document reranking
 // @tag.name instructions
 // @tag.description API instruction discovery — browse instruction areas and get endpoint guides
-// @tag.name chat-history
-// @tag.description Server-side persistence of WebUI chat conversations
 
 func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
@@ -472,10 +468,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Feature middlewares: per-feature access control
-	agentsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureAgents)
-	skillsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureSkills)
 	collectionsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureCollections)
-	mcpJobsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCPJobs)
 
 	requestExtractor := httpMiddleware.NewRequestExtractor(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	requestExtractor.SetFailoverManager(application.FailoverManager())
@@ -528,9 +521,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
-	chatHistoryMw := auth.RequireFeature(application.AuthDB(), auth.FeatureChatHistory)
-	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw, chatHistoryMw)
-	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw)
+	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpMw)
 	routes.RegisterCollectionsRoutes(e, application, collectionsMw)
 	if addonsOn {
 		// Fine-tuning routes
@@ -615,16 +606,6 @@ func API(application *application.Application) (*echo.Echo, error) {
 	natsCfg := distCfg.NatsAuthConfig()
 	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
 	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial)
-
-	// Distributed SSE routes (job progress + agent events via NATS)
-	if d := application.Distributed(); d != nil {
-		if d.Dispatcher != nil {
-			e.GET("/api/agent/jobs/:id/progress", d.Dispatcher.SSEHandler(), mcpJobsMw)
-		}
-		if d.AgentBridge != nil {
-			e.GET("/api/agents/:name/sse/distributed", d.AgentBridge.SSEHandler(), agentsMw)
-		}
-	}
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)

@@ -279,8 +279,6 @@ type ApplicationConfig struct {
 
 	DisableRuntimeSettings bool
 
-	AgentJobRetentionDays int // Default: 30 days
-
 	OpenResponsesStoreTTL time.Duration // TTL for Open Responses store (0 = no expiration)
 
 	PathWithoutAuth []string
@@ -358,26 +356,17 @@ type AuthConfig struct {
 
 // AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
 type AgentPoolConfig struct {
-	Enabled               bool   // default: true (disabled by LOCALAI_DISABLE_AGENTS=true)
-	StateDir              string // default: DynamicConfigsDir (LocalAI configuration folder)
-	APIURL                string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
-	APIKey                string // default: first API key from LocalAI config
-	DefaultModel          string
-	MultimodalModel       string
-	TranscriptionModel    string
-	TranscriptionLanguage string
-	TTSModel              string
-	Timeout               string // default: "5m"
-	EnableSkills          bool
-	EnableLogs            bool
-	CustomActionsDir      string
-	CollectionDBPath      string
-	VectorEngine          string // default: "chromem"
-	EmbeddingModel        string // default: "granite-embedding-107m-multilingual"
-	MaxChunkingSize       int    // default: 400
-	ChunkOverlap          int    // default: 0
-	DatabaseURL           string
-	AgentHubURL           string // default: "https://agenthub.localai.io"
+	Enabled          bool   // default: true (disabled by LOCALAI_DISABLE_AGENTS=true)
+	StateDir         string // default: DynamicConfigsDir (LocalAI configuration folder)
+	APIURL           string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
+	APIKey           string // default: first API key from LocalAI config
+	DefaultModel     string
+	CollectionDBPath string
+	VectorEngine     string // default: "chromem"
+	EmbeddingModel   string // default: "granite-embedding-107m-multilingual"
+	MaxChunkingSize  int    // default: 400
+	ChunkOverlap     int    // default: 0
+	DatabaseURL      string
 }
 
 type AppOption func(*ApplicationConfig)
@@ -406,7 +395,6 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 
 		MaxConcurrentBackendOperations: 1,
 
-		AgentJobRetentionDays:    30,               // Default: 30 days
 		LRUEvictionMaxRetries:    30,               // Default: 30 retries
 		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
 		ModelLoadFailureCooldown: 10 * time.Second, // Default: 10s base cooldown after a failed load
@@ -423,11 +411,9 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		TracingMaxBodyBytes:          64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
 		AgentPool: AgentPoolConfig{
 			Enabled:         true,
-			Timeout:         "5m",
 			VectorEngine:    "chromem",
 			EmbeddingModel:  "granite-embedding-107m-multilingual",
 			MaxChunkingSize: 400,
-			AgentHubURL:     "https://agenthub.localai.io",
 		},
 		PathWithoutAuth: []string{},
 	}
@@ -1017,12 +1003,6 @@ func WithApiKeys(apiKeys []string) AppOption {
 	}
 }
 
-func WithAgentJobRetentionDays(days int) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentJobRetentionDays = days
-	}
-}
-
 func WithOpenResponsesStoreTTL(ttl time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		o.OpenResponsesStoreTTL = ttl
@@ -1107,44 +1087,10 @@ func WithAgentPoolDefaultModel(model string) AppOption {
 	}
 }
 
-func WithAgentPoolMultimodalModel(model string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.MultimodalModel = model
-	}
-}
-
-func WithAgentPoolTranscriptionModel(model string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.TranscriptionModel = model
-	}
-}
-
-func WithAgentPoolTranscriptionLanguage(lang string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.TranscriptionLanguage = lang
-	}
-}
-
-func WithAgentPoolTTSModel(model string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.TTSModel = model
-	}
-}
-
 func WithAgentPoolStateDir(dir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.AgentPool.StateDir = dir
 	}
-}
-
-func WithAgentPoolTimeout(timeout string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.Timeout = timeout
-	}
-}
-
-var EnableAgentPoolSkills = func(o *ApplicationConfig) {
-	o.AgentPool.EnableSkills = true
 }
 
 func WithAgentPoolVectorEngine(engine string) AppOption {
@@ -1156,12 +1102,6 @@ func WithAgentPoolVectorEngine(engine string) AppOption {
 func WithAgentPoolEmbeddingModel(model string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.AgentPool.EmbeddingModel = model
-	}
-}
-
-func WithAgentPoolCustomActionsDir(dir string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.CustomActionsDir = dir
 	}
 }
 
@@ -1183,19 +1123,9 @@ func WithAgentPoolChunkOverlap(overlap int) AppOption {
 	}
 }
 
-var EnableAgentPoolLogs = func(o *ApplicationConfig) {
-	o.AgentPool.EnableLogs = true
-}
-
 func WithAgentPoolCollectionDBPath(path string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.AgentPool.CollectionDBPath = path
-	}
-}
-
-func WithAgentHubURL(url string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.AgentHubURL = url
 	}
 }
 

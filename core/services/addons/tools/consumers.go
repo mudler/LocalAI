@@ -122,22 +122,6 @@ var Consumers = []Consumer{
 		Enforcement: "they read model configuration only and have no add-on provider",
 	},
 	{
-		ID:          "agent-jobs",
-		Surface:     "agent jobs and scheduled tasks (POST /api/agent/jobs/execute and cron tasks) that run a model with its MCP servers",
-		Files:       []string{"core/services/agentpool/agent_jobs.go"},
-		Decision:    Reject,
-		Reason:      "a job runs unattended and detached from the request that created it, so there is no principal to bind per call",
-		Enforcement: "the job passes mcpTools.SessionToolFilter to the agent library, which drops the namespace; unattended work can still read and propose through the API with its own key",
-	},
-	{
-		ID:          "agent-runs",
-		Surface:     "agent runs of the agent pool and their scheduler, executed by the distributed executor",
-		Files:       []string{"core/services/agents/executor.go", "core/services/agents/mcp.go", "core/services/agents/toolpolicy.go"},
-		Decision:    Reject,
-		Reason:      "a run has the agent's configuration, not a per-request principal",
-		Enforcement: "the tool filter of every run drops the namespace, with or without an allow list",
-	},
-	{
 		ID:          "studio-chats-mcp",
 		Surface:     "the MCP tools of a chat on the server-side chat loop: the MCP servers of the chat's model, through the same shared sessions as every other chat of that model",
 		Files:       []string{"core/services/studio/mcptools.go", "core/application/studio_service.go"},
@@ -159,6 +143,6 @@ var Consumers = []Consumer{
 		Files:       []string{"core/cli/agent_worker.go", "core/services/nodes/agent_rpc_nats.go"},
 		Decision:    Reject,
 		Reason:      "a worker holds sessions built from the model configuration the frontend sent; the frontend's actor never travels with a tool call",
-		Enforcement: "the tool and discovery RPCs use DiscoverMCPTools and ExecuteMCPToolCall, which refuse the namespace; the MCP job handler installs mcpTools.SessionToolFilter on the agent library, which never offers or runs it; the frontend executor refuses it before the request is sent",
+		Enforcement: "the tool and discovery RPCs use DiscoverMCPTools and ExecuteMCPToolCall, which refuse the namespace; the frontend executor refuses it before the request is sent",
 	},
 }

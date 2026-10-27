@@ -23,7 +23,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
-	"github.com/mudler/cogito"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
@@ -926,16 +925,6 @@ type AgentConfig struct {
 	// gets the client's fixed default, which is too low for some reasoning
 	// models and far above what others need. 0 keeps the client default.
 	MaxGenerationTokens int `yaml:"max_generation_tokens,omitempty" json:"max_generation_tokens,omitempty"`
-}
-
-// ApplyAgentGenerationCap puts agent.max_generation_tokens on the LLM client
-// the agent loop uses. The client applies it to every request that carries no
-// cap of its own, so a larger cap cogito sets when it retries a completion
-// truncated by length still wins. Unset leaves the client default in place.
-func (c *ModelConfig) ApplyAgentGenerationCap(llm interface{ SetMaxTokens(int) }) {
-	if c.Agent.MaxGenerationTokens > 0 {
-		llm.SetMaxTokens(c.Agent.MaxGenerationTokens)
-	}
 }
 
 // HasMCPServers returns true if any MCP servers (remote or stdio) are configured.
@@ -2779,57 +2768,4 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	return true
-}
-
-// BuildCogitoOptions generates cogito options from the model configuration
-// It accepts a context, MCP sessions, and optional callback functions for status, reasoning, tool calls, and tool results
-func (c *ModelConfig) BuildCogitoOptions() []cogito.Option {
-	cogitoOpts := []cogito.Option{
-		cogito.WithIterations(3),  // default to 3 iterations
-		cogito.WithMaxAttempts(3), // default to 3 attempts
-		cogito.WithForceReasoning(),
-	}
-
-	// Apply agent configuration options
-	if c.Agent.EnableReasoning {
-		cogitoOpts = append(cogitoOpts, cogito.WithForceReasoning())
-	}
-
-	if c.Agent.EnablePlanning {
-		cogitoOpts = append(cogitoOpts, cogito.EnableAutoPlan)
-	}
-
-	if c.Agent.EnableMCPPrompts {
-		cogitoOpts = append(cogitoOpts, cogito.EnableMCPPrompts)
-	}
-
-	if c.Agent.EnablePlanReEvaluator {
-		cogitoOpts = append(cogitoOpts, cogito.EnableAutoPlanReEvaluator)
-	}
-
-	if c.Agent.MaxIterations != 0 {
-		cogitoOpts = append(cogitoOpts, cogito.WithIterations(c.Agent.MaxIterations))
-	}
-
-	if c.Agent.MaxAttempts != 0 {
-		cogitoOpts = append(cogitoOpts, cogito.WithMaxAttempts(c.Agent.MaxAttempts))
-	}
-
-	if c.Agent.DisableSinkState {
-		cogitoOpts = append(cogitoOpts, cogito.DisableSinkState)
-	}
-
-	if c.Agent.LoopDetection != 0 {
-		cogitoOpts = append(cogitoOpts, cogito.WithLoopDetection(c.Agent.LoopDetection))
-	}
-
-	if c.Agent.MaxAdjustmentAttempts != 0 {
-		cogitoOpts = append(cogitoOpts, cogito.WithMaxAdjustmentAttempts(c.Agent.MaxAdjustmentAttempts))
-	}
-
-	if c.Agent.ForceReasoningTool {
-		cogitoOpts = append(cogitoOpts, cogito.WithForceReasoningTool())
-	}
-
-	return cogitoOpts
 }

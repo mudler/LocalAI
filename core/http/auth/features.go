@@ -268,15 +268,6 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/pii/analyze", FeaturePIIFilter},
 	{"POST", "/api/pii/redact", FeaturePIIFilter},
 
-	// Chat History (server-side persistence of WebUI conversations, #9432)
-	{"GET", "/api/conversations", FeatureChatHistory},
-	{"DELETE", "/api/conversations", FeatureChatHistory},
-	{"POST", "/api/conversations", FeatureChatHistory},
-	{"PUT", "/api/conversations/bulk", FeatureChatHistory},
-	{"GET", "/api/conversations/:id", FeatureChatHistory},
-	{"PUT", "/api/conversations/:id", FeatureChatHistory},
-	{"DELETE", "/api/conversations/:id", FeatureChatHistory},
-
 	// Quantization
 	{"GET", "/api/quantization/status", FeatureQuantization},
 	{"POST", "/api/quantization/jobs", FeatureQuantization},
@@ -299,10 +290,7 @@ type FeatureMeta struct {
 // AgentFeatureMetas returns metadata for agent features.
 func AgentFeatureMetas() []FeatureMeta {
 	return []FeatureMeta{
-		{FeatureAgents, "Agents", false},
-		{FeatureSkills, "Skills", false},
 		{FeatureCollections, "Collections", false},
-		{FeatureMCPJobs, "MCP CI Jobs", false},
 		{FeatureLocalAIAssistant, "LocalAI Assistant", false},
 	}
 }
@@ -345,6 +333,5 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeaturePIIFilter, "PII Analyze / Redact", true},
 		{FeatureDecisions, "Decisions", true},
 		{FeatureForecast, "Forecast", true},
-		{FeatureChatHistory, "Chat History", true},
 	}
 }

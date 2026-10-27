@@ -144,7 +144,6 @@ type RunCMD struct {
 	MaxConcurrentBackendRequests       int      `env:"LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS,MAX_CONCURRENT_BACKEND_REQUESTS" default:"1024" help:"Maximum number of concurrent backend inference operations. Excess inference requests receive HTTP 503; UI and administrative endpoints remain available." group:"backends"`
 	TracingMaxItems                    int      `env:"LOCALAI_TRACING_MAX_ITEMS" default:"1024" help:"Maximum number of traces to keep" group:"api"`
 	TracingMaxBodyBytes                int      `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
-	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
 	OpenResponsesStoreTTL              string   `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
 
 	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
@@ -152,27 +151,21 @@ type RunCMD struct {
 	// LocalAI Assistant chat modality (in-process admin MCP server)
 	DisableLocalAIAssistant bool `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
 
-	// Agent Pool (LocalAGI)
-	DisableAgents                  bool   `env:"LOCALAI_DISABLE_AGENTS" default:"false" help:"Disable the agent pool feature" group:"agents"`
-	AgentPoolAPIURL                string `env:"LOCALAI_AGENT_POOL_API_URL" help:"Default API URL for agents (defaults to self-referencing LocalAI)" group:"agents"`
-	AgentPoolAPIKey                string `env:"LOCALAI_AGENT_POOL_API_KEY" help:"Default API key for agents (defaults to first LocalAI API key)" group:"agents"`
-	AgentPoolDefaultModel          string `env:"LOCALAI_AGENT_POOL_DEFAULT_MODEL" help:"Default model for agents" group:"agents"`
-	AgentPoolMultimodalModel       string `env:"LOCALAI_AGENT_POOL_MULTIMODAL_MODEL" help:"Default multimodal model for agents" group:"agents"`
-	AgentPoolTranscriptionModel    string `env:"LOCALAI_AGENT_POOL_TRANSCRIPTION_MODEL" help:"Default transcription model for agents" group:"agents"`
-	AgentPoolTranscriptionLanguage string `env:"LOCALAI_AGENT_POOL_TRANSCRIPTION_LANGUAGE" help:"Default transcription language for agents" group:"agents"`
-	AgentPoolTTSModel              string `env:"LOCALAI_AGENT_POOL_TTS_MODEL" help:"Default TTS model for agents" group:"agents"`
-	AgentPoolStateDir              string `env:"LOCALAI_AGENT_POOL_STATE_DIR" help:"State directory for agent pool" group:"agents"`
-	AgentPoolTimeout               string `env:"LOCALAI_AGENT_POOL_TIMEOUT" default:"5m" help:"Default agent timeout" group:"agents"`
-	AgentPoolEnableSkills          bool   `env:"LOCALAI_AGENT_POOL_ENABLE_SKILLS" default:"false" help:"Enable skills service for agents" group:"agents"`
-	AgentPoolVectorEngine          string `env:"LOCALAI_AGENT_POOL_VECTOR_ENGINE" default:"chromem" help:"Vector engine type for agent knowledge base" group:"agents"`
-	AgentPoolEmbeddingModel        string `env:"LOCALAI_AGENT_POOL_EMBEDDING_MODEL" default:"granite-embedding-107m-multilingual" help:"Embedding model for agent knowledge base" group:"agents"`
-	AgentPoolCustomActionsDir      string `env:"LOCALAI_AGENT_POOL_CUSTOM_ACTIONS_DIR" help:"Custom actions directory for agents" group:"agents"`
-	AgentPoolDatabaseURL           string `env:"LOCALAI_AGENT_POOL_DATABASE_URL" help:"Database URL for agent collections" group:"agents"`
-	AgentPoolMaxChunkingSize       int    `env:"LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE" default:"400" help:"Maximum chunking size for knowledge base documents" group:"agents"`
-	AgentPoolChunkOverlap          int    `env:"LOCALAI_AGENT_POOL_CHUNK_OVERLAP" default:"0" help:"Chunk overlap size for knowledge base documents" group:"agents"`
-	AgentPoolEnableLogs            bool   `env:"LOCALAI_AGENT_POOL_ENABLE_LOGS" default:"false" help:"Enable agent logging" group:"agents"`
-	AgentPoolCollectionDBPath      string `env:"LOCALAI_AGENT_POOL_COLLECTION_DB_PATH" help:"Database path for agent collections" group:"agents"`
-	AgentHubURL                    string `env:"LOCALAI_AGENT_HUB_URL" default:"https://agenthub.localai.io" help:"URL for the agent hub where users can browse and download agent configurations" group:"agents"`
+	// Removed agent, job and skill options: accepted and ignored.
+	RemovedAgentOptions `embed:""`
+
+	// Collections (the knowledge base)
+	DisableAgents             bool   `env:"LOCALAI_DISABLE_AGENTS" default:"false" help:"Disable the agent pool feature" group:"agents"`
+	AgentPoolAPIURL           string `env:"LOCALAI_AGENT_POOL_API_URL" help:"Default API URL for agents (defaults to self-referencing LocalAI)" group:"agents"`
+	AgentPoolAPIKey           string `env:"LOCALAI_AGENT_POOL_API_KEY" help:"Default API key for agents (defaults to first LocalAI API key)" group:"agents"`
+	AgentPoolDefaultModel     string `env:"LOCALAI_AGENT_POOL_DEFAULT_MODEL" help:"Default model for agents" group:"agents"`
+	AgentPoolStateDir         string `env:"LOCALAI_AGENT_POOL_STATE_DIR" help:"State directory for agent pool" group:"agents"`
+	AgentPoolVectorEngine     string `env:"LOCALAI_AGENT_POOL_VECTOR_ENGINE" default:"chromem" help:"Vector engine type for agent knowledge base" group:"agents"`
+	AgentPoolEmbeddingModel   string `env:"LOCALAI_AGENT_POOL_EMBEDDING_MODEL" default:"granite-embedding-107m-multilingual" help:"Embedding model for agent knowledge base" group:"agents"`
+	AgentPoolDatabaseURL      string `env:"LOCALAI_AGENT_POOL_DATABASE_URL" help:"Database URL for agent collections" group:"agents"`
+	AgentPoolMaxChunkingSize  int    `env:"LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE" default:"400" help:"Maximum chunking size for knowledge base documents" group:"agents"`
+	AgentPoolChunkOverlap     int    `env:"LOCALAI_AGENT_POOL_CHUNK_OVERLAP" default:"0" help:"Chunk overlap size for knowledge base documents" group:"agents"`
+	AgentPoolCollectionDBPath string `env:"LOCALAI_AGENT_POOL_COLLECTION_DB_PATH" help:"Database path for agent collections" group:"agents"`
 
 	// Authentication
 	AuthEnabled          bool   `env:"LOCALAI_AUTH" default:"false" help:"Enable user authentication and authorization" group:"auth"`
@@ -273,6 +266,7 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 
 func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
+	r.RemovedAgentOptions.warn()
 
 	if r.Version {
 		fmt.Println(internal.Version)
@@ -391,7 +385,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithMITMListen(r.MITMListen),
 		config.WithMITMCADir(r.MITMCADir),
 		config.WithPIIDefaultDetectors(r.PIIDefaultDetectors),
-		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
 		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
 			tunnelEnvVar := strings.Join(tunnels, ",")
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
@@ -627,35 +620,14 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if r.DisableLocalAIAssistant {
 		opts = append(opts, config.WithDisableLocalAIAssistant(true))
 	}
-	if r.AgentPoolMultimodalModel != "" {
-		opts = append(opts, config.WithAgentPoolMultimodalModel(r.AgentPoolMultimodalModel))
-	}
-	if r.AgentPoolTranscriptionModel != "" {
-		opts = append(opts, config.WithAgentPoolTranscriptionModel(r.AgentPoolTranscriptionModel))
-	}
-	if r.AgentPoolTranscriptionLanguage != "" {
-		opts = append(opts, config.WithAgentPoolTranscriptionLanguage(r.AgentPoolTranscriptionLanguage))
-	}
-	if r.AgentPoolTTSModel != "" {
-		opts = append(opts, config.WithAgentPoolTTSModel(r.AgentPoolTTSModel))
-	}
 	if r.AgentPoolStateDir != "" {
 		opts = append(opts, config.WithAgentPoolStateDir(r.AgentPoolStateDir))
-	}
-	if r.AgentPoolTimeout != "" {
-		opts = append(opts, config.WithAgentPoolTimeout(r.AgentPoolTimeout))
-	}
-	if r.AgentPoolEnableSkills {
-		opts = append(opts, config.EnableAgentPoolSkills)
 	}
 	if r.AgentPoolVectorEngine != "" {
 		opts = append(opts, config.WithAgentPoolVectorEngine(r.AgentPoolVectorEngine))
 	}
 	if r.AgentPoolEmbeddingModel != "" {
 		opts = append(opts, config.WithAgentPoolEmbeddingModel(r.AgentPoolEmbeddingModel))
-	}
-	if r.AgentPoolCustomActionsDir != "" {
-		opts = append(opts, config.WithAgentPoolCustomActionsDir(r.AgentPoolCustomActionsDir))
 	}
 	if r.AgentPoolDatabaseURL != "" {
 		opts = append(opts, config.WithAgentPoolDatabaseURL(r.AgentPoolDatabaseURL))
@@ -666,14 +638,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if r.AgentPoolChunkOverlap > 0 {
 		opts = append(opts, config.WithAgentPoolChunkOverlap(r.AgentPoolChunkOverlap))
 	}
-	if r.AgentPoolEnableLogs {
-		opts = append(opts, config.EnableAgentPoolLogs)
-	}
 	if r.AgentPoolCollectionDBPath != "" {
 		opts = append(opts, config.WithAgentPoolCollectionDBPath(r.AgentPoolCollectionDBPath))
-	}
-	if r.AgentHubURL != "" {
-		opts = append(opts, config.WithAgentHubURL(r.AgentHubURL))
 	}
 
 	// Authentication
@@ -969,14 +935,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		}
 	})
 
-	// Start the agent pool after the HTTP server is listening, because
+	// Start the collections after the HTTP server is listening, because
 	// backends like PostgreSQL need to call the embeddings API during
 	// collection initialization.
 	go func() {
 		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
 		if runCtx.Err() == nil {
 			app.StartCollections()
-			app.StartAgentPool()
 		}
 	}()
 

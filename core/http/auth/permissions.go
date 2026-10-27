@@ -27,10 +27,7 @@ func GetCachedUserPermissions(c echo.Context, db *gorm.DB, userID string) (*User
 // Feature name constants — all code must use these, never bare strings.
 const (
 	// Agent features (default OFF for new users)
-	FeatureAgents           = "agents"
-	FeatureSkills           = "skills"
 	FeatureCollections      = "collections"
-	FeatureMCPJobs          = "mcp_jobs"
 	FeatureLocalAIAssistant = "localai_assistant"
 
 	// General features (default OFF for new users)
@@ -67,12 +64,11 @@ const (
 	// FeaturePIIFilter gates the synchronous PII analyze/redact service
 	// (POST /api/pii/{analyze,redact}). Default ON like the other API
 	// features; the admin-only events log is gated separately in-handler.
-	FeaturePIIFilter   = "pii_filter"
-	FeatureChatHistory = "chat_history"
+	FeaturePIIFilter = "pii_filter"
 )
 
 // AgentFeatures lists agent-related features (default OFF).
-var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs, FeatureLocalAIAssistant}
+var AgentFeatures = []string{FeatureCollections, FeatureLocalAIAssistant}
 
 // GeneralFeatures lists general features (default OFF).
 var GeneralFeatures = []string{FeatureAddons, FeatureFineTuning, FeatureQuantization}
@@ -85,7 +81,7 @@ var APIFeatures = []string{
 	FeatureRealtime, FeatureModeration, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
 	FeaturePIIFilter, FeatureDecisions, FeatureForecast,
-	FeatureChatHistory, FeatureChats,
+	FeatureChats,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

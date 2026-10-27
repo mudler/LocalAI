@@ -31,8 +31,6 @@ import (
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/agentpool"
-	"github.com/mudler/LocalAI/core/services/chathistory"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/failover"
@@ -119,13 +117,10 @@ type Application struct {
 	startupConfig        *config.ApplicationConfig // Stores original config from env vars (before file loading)
 	templatesEvaluator   *templates.Evaluator
 	galleryService       *galleryop.GalleryService
-	agentJobService      *agentpool.AgentJobService
-	agentPoolService     atomic.Pointer[agentpool.AgentPoolService]
 	collectionsService   atomic.Pointer[collections.Service]
 	faceRegistry         facerecognition.Registry
 	voiceRegistry        voicerecognition.Registry
 	voiceProfileStore    *voiceprofile.Store
-	chatHistoryStore     *chathistory.Store
 	studioStore          store.Store      // the studio loop's chats; see initStudioStore
 	studioStoreKind      string           // "gorm", "json" or "memory"
 	studioAgents         agents.Store     // saved agents; same kind as the chats store
@@ -168,7 +163,6 @@ type Application struct {
 	p2pMutex          sync.Mutex
 	p2pCtx            context.Context
 	p2pCancel         context.CancelFunc
-	agentJobMutex     sync.Mutex
 
 	// Distributed mode services (nil when not in distributed mode)
 	distributed *DistributedServices
@@ -315,10 +309,6 @@ func (a *Application) GalleryService() *galleryop.GalleryService {
 	return a.galleryService
 }
 
-func (a *Application) AgentJobService() *agentpool.AgentJobService {
-	return a.agentJobService
-}
-
 func (a *Application) UpgradeChecker() *UpgradeChecker {
 	return a.upgradeChecker
 }
@@ -337,10 +327,6 @@ func (a *Application) distributedDB() *gorm.DB {
 		return a.authDB
 	}
 	return nil
-}
-
-func (a *Application) AgentPoolService() *agentpool.AgentPoolService {
-	return a.agentPoolService.Load()
 }
 
 // FaceRegistry returns the face-recognition registry used for 1:N
@@ -364,13 +350,6 @@ func (a *Application) VoiceRegistry() voicerecognition.Registry {
 // recognition embeddings rather than synthesis reference audio.
 func (a *Application) VoiceProfileStore() *voiceprofile.Store {
 	return a.voiceProfileStore
-}
-
-// ChatHistoryStore returns the server-side WebUI chat history store, or nil
-// when the feature is disabled (LOCALAI_DISABLE_WEBUI=true or persistence
-// path could not be resolved).
-func (a *Application) ChatHistoryStore() *chathistory.Store {
-	return a.chatHistoryStore
 }
 
 // AuthDB returns the auth database connection, or nil if auth is not enabled.
@@ -783,58 +762,7 @@ func (a *Application) start() (startErr error) {
 		}
 	}
 
-	// Initialize agent job service (Start() is deferred to after distributed wiring)
-	agentJobService := agentpool.NewAgentJobService(
-		a.ApplicationConfig(),
-		a.ModelLoader(),
-		a.ModelConfigLoader(),
-		a.TemplatesEvaluator(),
-	)
-
-	a.agentJobService = agentJobService
-
 	return nil
-}
-
-// initChatHistoryStore initializes the chat history store for the WebUI
-// (issue #9432). It reuses the shared auth database so per-user chat history
-// sits alongside agent configs and jobs in one place — mudler's review on
-// #9902 called out the file-based store as inconsistent with the rest of
-// LocalAI's per-user state. When auth is disabled the store stays nil and the
-// React UI falls back to localStorage. It must run after the auth database is
-// opened: start() runs before that, so a store set up there was always nil
-// and the conversation routes were never registered.
-func (a *Application) initChatHistoryStore() {
-	if a.applicationConfig.DisableWebUI || a.authDB == nil {
-		return
-	}
-	store, err := chathistory.New(a.authDB)
-	if err != nil {
-		xlog.Warn("Chat history persistence disabled: failed to initialise store", "error", err)
-		return
-	}
-	a.chatHistoryStore = store
-}
-
-// agentPoolOptions builds the agent pool's dependencies. WorkQueue stays a nil
-// interface without distributed services, because the pool reads a non-nil
-// WorkQueue as distributed mode.
-func (a *Application) agentPoolOptions() agentpool.AgentPoolOptions {
-	opts := agentpool.AgentPoolOptions{
-		AuthDB: a.authDB,
-	}
-	if d := a.Distributed(); d != nil {
-		if d.DistStores != nil && d.DistStores.Skills != nil {
-			opts.SkillStore = d.DistStores.Skills
-		}
-		opts.WorkQueue = d.WorkQueue
-		opts.EventBridge = d.AgentBridge
-		opts.AgentStore = d.AgentStore
-		if d.Nats != nil {
-			opts.Bus = d.Nats
-		}
-	}
-	return opts
 }
 
 // CollectionsService returns the knowledge-base collections of the server, or
@@ -863,59 +791,6 @@ func (a *Application) StartCollections() {
 		return
 	}
 	a.collectionsService.Store(svc)
-}
-
-// StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
-// This must be called after the HTTP server is listening, because backends like
-// PostgreSQL need to call the embeddings API during collection initialization.
-func (a *Application) StartAgentPool() {
-	if !a.applicationConfig.AgentPool.Enabled {
-		return
-	}
-	aps, err := agentpool.NewAgentPoolService(a.applicationConfig, a.agentPoolOptions())
-	if err != nil {
-		xlog.Error("Failed to create agent pool service", "error", err)
-		return
-	}
-
-	// Wire distributed mode components
-	if d := a.Distributed(); d != nil {
-		// Wait for at least one healthy backend worker before starting the agent pool.
-		// Collections initialization calls embeddings which require a worker.
-		if d.Registry != nil {
-			a.waitForHealthyWorker()
-		}
-	}
-
-	if err := aps.Start(a.applicationConfig.Context); err != nil {
-		xlog.Error("Failed to start agent pool", "error", err)
-		return
-	}
-
-	// Wire per-user scoped services so collections, skills, and jobs are isolated per user
-	usm := agentpool.NewUserServicesManager(
-		aps.UserStorage(),
-		a.applicationConfig,
-		a.modelLoader,
-		a.backendLoader,
-		a.templatesEvaluator,
-	)
-	// Wire distributed backends to per-user job services
-	if a.agentJobService != nil {
-		if d := a.agentJobService.Dispatcher(); d != nil {
-			usm.SetJobDispatcher(d)
-		}
-		if s := a.agentJobService.DBStore(); s != nil {
-			usm.SetJobDBStore(s)
-		}
-	}
-	// Keep per-user agent tasks consistent across replicas (nil in standalone).
-	if d := a.Distributed(); d != nil {
-		usm.SetJobSyncNATS(d.Nats)
-	}
-	aps.SetUserServicesManager(usm)
-
-	a.agentPoolService.Store(aps)
 }
 
 // AddonManager is nil unless the deployment explicitly enables addons.

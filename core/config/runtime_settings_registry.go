@@ -361,11 +361,6 @@ var runtimeSettingsFields = []fieldSpec{
 		isSet: func(s *RuntimeSettings) bool { return s.ApiKeys != nil },
 	},
 
-	field("agent_job_retention_days",
-		func(s *RuntimeSettings) **int { return &s.AgentJobRetentionDays },
-		func(o *ApplicationConfig) int { return o.AgentJobRetentionDays },
-		func(o *ApplicationConfig, v int) { o.AgentJobRetentionDays = v }),
-
 	// Open Responses TTL: "0" or "" mean "no expiration" on the wire.
 	{
 		jsonNames: []string{"open_responses_store_ttl"},
@@ -430,11 +425,6 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) int { return o.AgentPool.ChunkOverlap },
 		func(o *ApplicationConfig, v int) { o.AgentPool.ChunkOverlap = v },
 		restartRequired()),
-	field("agent_pool_enable_logs",
-		func(s *RuntimeSettings) **bool { return &s.AgentPoolEnableLogs },
-		func(o *ApplicationConfig) bool { return o.AgentPool.EnableLogs },
-		func(o *ApplicationConfig, v bool) { o.AgentPool.EnableLogs = v },
-		restartRequired()),
 	field("agent_pool_collection_db_path",
 		func(s *RuntimeSettings) **string { return &s.AgentPoolCollectionDBPath },
 		func(o *ApplicationConfig) string { return o.AgentPool.CollectionDBPath },
@@ -449,11 +439,6 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **string { return &s.AgentPoolDatabaseURL },
 		func(o *ApplicationConfig) string { return o.AgentPool.DatabaseURL },
 		func(o *ApplicationConfig, v string) { o.AgentPool.DatabaseURL = v },
-		restartRequired()),
-	field("agent_pool_agent_hub_url",
-		func(s *RuntimeSettings) **string { return &s.AgentPoolAgentHubURL },
-		func(o *ApplicationConfig) string { return o.AgentPool.AgentHubURL },
-		func(o *ApplicationConfig, v string) { o.AgentPool.AgentHubURL = v },
 		restartRequired()),
 
 	// Distributed disk-headroom admission check: stored as the negation for UI

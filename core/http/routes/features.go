@@ -17,7 +17,6 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 		// model_exports is false only when this instance does not see the
 		// owner's models path; an unknown check leaves it true.
 		return c.JSON(200, map[string]bool{
-			"agents":            appConfig.AgentPool.Enabled,
 			"mcp":               !appConfig.DisableMCP,
 			"addons":            addons,
 			"fine_tuning":       addons,

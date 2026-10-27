@@ -271,9 +271,6 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			xlog.Info("Updated Open Responses store TTL", "ttl", ttl)
 		}
 
-		// Check if agent job retention changed
-		agentJobChanged := settings.AgentJobRetentionDays != nil
-
 		// Restart watchdog if settings changed.
 		//
 		// The live start/stop decision derives from the post-apply config
@@ -301,17 +298,6 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 						Error:   "Settings saved but failed to restart watchdog: " + err.Error(),
 					})
 				}
-			}
-		}
-
-		// Restart agent job service if retention days changed
-		if agentJobChanged {
-			if err := app.RestartAgentJobService(); err != nil {
-				xlog.Error("Failed to restart agent job service", "error", err)
-				return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
-					Success: false,
-					Error:   "Settings saved but failed to restart agent job service: " + err.Error(),
-				})
 			}
 		}
 

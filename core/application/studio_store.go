@@ -29,7 +29,7 @@ func (a *Application) StudioStore() store.Store {
 }
 
 // initStudioStore picks the store. It must run after the auth database is
-// opened, like initChatHistoryStore.
+// opened.
 func (a *Application) initStudioStore() {
 	var (
 		s    store.Store

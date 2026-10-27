@@ -69,9 +69,6 @@ type RuntimeSettings struct {
 	// API keys - No omitempty as we need to save empty arrays to clear keys
 	ApiKeys *[]string `json:"api_keys"`
 
-	// Agent settings
-	AgentJobRetentionDays *int `json:"agent_job_retention_days,omitempty"`
-
 	// Open Responses settings
 	OpenResponsesStoreTTL *string `json:"open_responses_store_ttl,omitempty"` // TTL for stored responses (e.g., "1h", "30m", "0" = no expiration)
 
@@ -83,11 +80,9 @@ type RuntimeSettings struct {
 	AgentPoolEmbeddingModel   *string `json:"agent_pool_embedding_model,omitempty"`
 	AgentPoolMaxChunkingSize  *int    `json:"agent_pool_max_chunking_size,omitempty"`
 	AgentPoolChunkOverlap     *int    `json:"agent_pool_chunk_overlap,omitempty"`
-	AgentPoolEnableLogs       *bool   `json:"agent_pool_enable_logs,omitempty"`
 	AgentPoolCollectionDBPath *string `json:"agent_pool_collection_db_path,omitempty"`
 	AgentPoolVectorEngine     *string `json:"agent_pool_vector_engine,omitempty"` // chromem | postgres
 	AgentPoolDatabaseURL      *string `json:"agent_pool_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
-	AgentPoolAgentHubURL      *string `json:"agent_pool_agent_hub_url,omitempty"` // override the agenthub.localai.io endpoint
 
 	// Distributed-mode settings. Read LIVE by the SmartRouter on each
 	// scheduling decision, so toggling takes effect on the next placement

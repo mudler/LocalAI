@@ -16,7 +16,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/monitoring"
@@ -193,7 +192,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 		}()
 	}
-	application.initChatHistoryStore()
 	application.initStudioStore()
 	application.studioProvider = provider.New()
 
@@ -293,17 +291,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// edit takes effect on the next restart without conditional plumbing.
 	application.admissionLimiter = admission.New()
 
-	// Wire JobStore for DB-backed task/job persistence whenever auth DB is available.
-	// This ensures tasks and jobs survive restarts in both single-node and distributed modes.
-	if application.authDB != nil && application.agentJobService != nil {
-		dbJobStore, err := jobs.NewJobStore(application.authDB)
-		if err != nil {
-			xlog.Error("Failed to create job store for auth DB", "error", err)
-		} else {
-			application.agentJobService.SetDistributedJobStore(dbJobStore)
-		}
-	}
-
 	// Initialize distributed mode services (NATS, object storage, node registry)
 	// revisionStore is built inside the distributed block below but used after
 	// the model configs are loaded, so it is declared out here.
@@ -349,30 +336,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 			go distSvc.Reconciler.Run(options.Context)
 		}
 		go distSvc.ModelCleanup.Run(options.Context)
-		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
-		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
-		// The dispatcher only enqueues jobs and persists the results and traces workers publish.
-
-		// Wire model config loader so job events include model config for agent workers
-		distSvc.Dispatcher.SetModelConfigLoader(application.backendLoader)
-
-		// Start job dispatcher — abort startup if it fails, as jobs would be accepted but never dispatched
-		if err := distSvc.Dispatcher.Start(options.Context); err != nil {
-			return nil, fmt.Errorf("starting job dispatcher: %w", err)
-		}
 		// Start ephemeral file cleanup
 		storage.StartEphemeralCleanup(options.Context, distSvc.FileMgr, 0, 0)
-		// Wire distributed backends into AgentJobService (before Start)
-		if application.agentJobService != nil {
-			application.agentJobService.SetDistributedBackends(distSvc.Dispatcher)
-			application.agentJobService.SetDistributedJobStore(distSvc.JobStore)
-			// Keep agent tasks consistent across replicas (jobs already sync via the
-			// dispatcher + DB read-through). Same NATS client the dispatcher uses.
-			application.agentJobService.SetTaskSyncNATS(distSvc.Nats)
-		}
-		// Wire skill store into AgentPoolService (wired at pool start time via closure)
-		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
-
 		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
 		if application.galleryService != nil {
 			application.galleryService.SetNATSClient(distSvc.Nats)
@@ -452,13 +417,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// The chats service needs the cluster message bus, so it starts after distributed wiring.
 	application.initStudioFiles()
 	application.initStudioService()
-
-	// Start AgentJobService (after distributed wiring so it knows whether to use local or NATS)
-	if application.agentJobService != nil {
-		if err := application.agentJobService.Start(options.Context); err != nil {
-			return nil, fmt.Errorf("starting agent job service: %w", err)
-		}
-	}
 
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.RequireBackendIntegrity, nil, options.ModelsURL...); err != nil {
 		xlog.Error("error installing models", "error", err)

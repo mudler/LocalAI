@@ -12,9 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
-	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/distributed"
-	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -36,10 +34,6 @@ type DistributedServices struct {
 	Router       *nodes.SmartRouter
 	Health       *nodes.HealthMonitor
 	Reconciler   *nodes.ReplicaReconciler
-	JobStore     *jobs.JobStore
-	Dispatcher   *jobs.Dispatcher
-	AgentStore   *agents.AgentStore
-	AgentBridge  *agents.EventBridge
 	DistStores   *distributed.Stores
 	FileMgr      *storage.FileManager
 	FileStager   nodes.FileStager
@@ -64,14 +58,9 @@ func (ds *DistributedServices) Shutdown() {
 		if ds.Health != nil {
 			ds.Health.Stop()
 		}
-		if ds.Dispatcher != nil {
-			ds.Dispatcher.Stop()
-		}
 		if closer, ok := ds.Store.(io.Closer); ok {
 			closer.Close()
 		}
-		// AgentBridge has no Close method — its NATS subscriptions are cleaned up
-		// when the NATS client is closed below.
 		if ds.Nats != nil {
 			ds.Nats.Close()
 		}
@@ -226,35 +215,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		!cfg.Distributed.DisablePerModelHealthCheck,
 	)
 
-	// Initialize job store
-	jobStore, err := jobs.NewJobStore(authDB)
-	if err != nil {
-		return nil, fmt.Errorf("initializing job store: %w", err)
-	}
-	xlog.Info("Distributed job store initialized")
-
 	workQueue := messaging.NewNATSWorkQueue(natsClient)
-
-	// Initialize job dispatcher
-	dispatcher := jobs.NewDispatcher(jobStore, workQueue, natsClient, authDB, cfg.Distributed.InstanceID)
-
-	// Initialize agent store
-	agentStore, err := agents.NewAgentStore(authDB)
-	if err != nil {
-		return nil, fmt.Errorf("initializing agent store: %w", err)
-	}
-	xlog.Info("Distributed agent store initialized")
-
-	// Initialize agent event bridge
-	agentBridge := agents.NewEventBridge(natsClient, agentStore, cfg.Distributed.InstanceID)
-
-	// Start observable persister — captures observable_update events from workers
-	// (which have no DB access) and persists them to PostgreSQL.
-	if err := agentBridge.StartObservablePersister(); err != nil {
-		xlog.Warn("Failed to start observable persister", "error", err)
-	} else {
-		xlog.Info("Observable persister started")
-	}
 
 	// Initialize Phase 4 stores (MCP, Gallery, FineTune, Skills)
 	distStores, err := distributed.InitStores(authDB)
@@ -492,10 +453,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Router:       router,
 		Health:       healthMon,
 		Reconciler:   reconciler,
-		JobStore:     jobStore,
-		Dispatcher:   dispatcher,
-		AgentStore:   agentStore,
-		AgentBridge:  agentBridge,
 		DistStores:   distStores,
 		FileMgr:      fileMgr,
 		FileStager:   fileStager,
