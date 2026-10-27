@@ -67,7 +67,7 @@ export async function mockLibrary(page, {
   }))
 
   // Collections.
-  await page.route(/\/api\/agents\/collections(\?.*)?$/, route => {
+  await page.route(/\/api\/collections(\?.*)?$/, route => {
     const req = route.request()
     if (req.method() === 'POST') {
       const body = req.postDataJSON()
@@ -77,14 +77,14 @@ export async function mockLibrary(page, {
     }
     return json(route, { collections: state.collections, count: state.collections.length })
   })
-  await page.route(/\/api\/agents\/collections\/[^/]+\/entries(\?.*)?$/, route => {
-    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[4])
+  await page.route(/\/api\/collections\/[^/]+\/entries(\?.*)?$/, route => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[3])
     return json(route, { entries: state.entries[name] || [], count: (state.entries[name] || []).length })
   })
-  await page.route(/\/api\/agents\/collections\/[^/]+\/entries\/.+/, route => json(route, { content: 'Full text of the entry.', chunk_count: 12 }))
-  await page.route(/\/api\/agents\/collections\/[^/]+\/sources(\?.*)?$/, route => {
+  await page.route(/\/api\/collections\/[^/]+\/entries\/.+/, route => json(route, { content: 'Full text of the entry.', chunk_count: 12 }))
+  await page.route(/\/api\/collections\/[^/]+\/sources(\?.*)?$/, route => {
     const req = route.request()
-    const name = decodeURIComponent(new URL(req.url()).pathname.split('/')[4])
+    const name = decodeURIComponent(new URL(req.url()).pathname.split('/')[3])
     if (req.method() === 'POST') {
       const body = req.postDataJSON()
       seen.sourcePosts.push({ name, ...body })
@@ -98,21 +98,21 @@ export async function mockLibrary(page, {
     }
     return json(route, { sources: state.sources[name] || [], count: (state.sources[name] || []).length })
   })
-  await page.route(/\/api\/agents\/collections\/[^/]+\/search(\?.*)?$/, route => {
-    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[4])
+  await page.route(/\/api\/collections\/[^/]+\/search(\?.*)?$/, route => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[3])
     const body = route.request().postDataJSON()
     seen.searches.push({ name, ...body })
     return json(route, { results: passages.slice(0, body.max_results || passages.length), count: passages.length })
   })
-  await page.route(/\/api\/agents\/collections\/[^/]+\/upload(\?.*)?$/, route => {
-    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[4])
+  await page.route(/\/api\/collections\/[^/]+\/upload(\?.*)?$/, route => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[3])
     seen.uploads.push(name)
     if (uploadError) return json(route, { error: uploadError }, 409)
     state.entries[name] = [...(state.entries[name] || []), 'uploaded.txt']
     return json(route, { status: 'ok', filename: 'uploaded.txt', key: 'uploaded.txt' })
   })
-  await page.route(/\/api\/agents\/collections\/[^/]+\/reset(\?.*)?$/, route => {
-    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[4])
+  await page.route(/\/api\/collections\/[^/]+\/reset(\?.*)?$/, route => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[3])
     seen.resets.push(name)
     state.entries[name] = []
     return json(route, { status: 'ok' })

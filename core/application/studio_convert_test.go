@@ -30,7 +30,7 @@ var _ = Describe("conversion of the old data at start", func() {
 		opts := append([]config.AppOption{}, extra...)
 		app, err := New(append(opts, config.WithContext(ctx), config.WithSystemState(sys), config.DisableMetricsEndpoint,
 			config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true), config.WithDataPath(data),
-			config.WithAgentPoolStateDir(state), config.WithAuthEnabled(true), config.WithAuthDatabaseURL(dbFile),
+			config.WithCollectionsStateDir(state), config.WithAuthEnabled(true), config.WithAuthDatabaseURL(dbFile),
 			config.WithAuthAPIKeyHMACSecret("convert-test-secret"))...)
 		Expect(err).NotTo(HaveOccurred())
 		return app
@@ -127,7 +127,7 @@ var _ = Describe("conversion of the old data at start", func() {
 			"alice:Docs": map[string]any{"name": "alice:Docs", "model": "m", "system_prompt": "x", "enable_kb": true},
 		})
 		Expect(os.WriteFile(filepath.Join(state, "pool.json"), pool, 0o600)).To(Succeed())
-		enabled := func(o *config.ApplicationConfig) { o.AgentPool.Enabled = true }
+		enabled := func(o *config.ApplicationConfig) { o.Collections.Enabled = true }
 		app := boot(enabled)
 		DeferCleanup(func() { _ = app.Shutdown() })
 		list, _ := app.StudioService().Agents(context.Background(), "alice")
@@ -146,7 +146,7 @@ var _ = Describe("conversion of the old data at start", func() {
 	})
 
 	It("converts at once when the collections are off, since nothing starts later", func() {
-		off := func(o *config.ApplicationConfig) { o.AgentPool.Enabled = false }
+		off := func(o *config.ApplicationConfig) { o.Collections.Enabled = false }
 		app := boot(off)
 		DeferCleanup(func() { _ = app.Shutdown() })
 		list, err := app.StudioService().Agents(context.Background(), "alice")

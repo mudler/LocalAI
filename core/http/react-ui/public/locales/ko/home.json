@@ -25,7 +25,10 @@
     "title": "채팅으로 LocalAI 관리",
     "description": "LocalAI와 대화하여 모델을 설치하고, 백엔드를 전환하고, 구성을 편집하고, 상태를 확인하세요.",
     "open": "어시스턴트 열기",
-    "tooltip": "채팅으로 LocalAI 관리"
+    "tooltip": "채팅으로 LocalAI 관리",
+    "noModel": "먼저 채팅 모델을 선택하세요.",
+    "startFailed": "어시스턴트 채팅을 시작할 수 없습니다: {{message}}",
+    "chatTitle": "LocalAI 어시스턴트"
   },
   "input": {
     "placeholder": "메시지...",

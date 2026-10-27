@@ -132,7 +132,7 @@ test.describe('Settings: defaults and hints', () => {
     await expect(row(page, 'watchdog_idle_timeout')).toContainText('Applies now')
     await expect(row(page, 'max_active_backends')).toContainText('Applies now')
     await group(page, 'Chats and collections').click()
-    await expect(row(page, 'agent_pool_enabled')).toContainText('Needs restart')
+    await expect(row(page, 'collections_enabled')).toContainText('Needs restart')
     await expect(row(page, 'chats_vision_model')).toContainText('Applies now')
     await group(page, 'Speed and defaults').click()
     await expect(row(page, 'threads')).not.toContainText('Applies now')
@@ -198,7 +198,7 @@ test.describe('Settings: pending, diff, apply, discard and undo', () => {
 
   test('a restart-only change is counted and warned about', async ({ page }) => {
     await group(page, 'Chats and collections').click()
-    await sw(page, 'agent_pool_enabled').click()
+    await sw(page, 'collections_enabled').click()
     await expect(page.getByTestId('settings-pending')).toContainText('1 pending')
     await expect(page.getByTestId('settings-pending')).toContainText('1 needs a restart')
     await page.getByRole('button', { name: 'Show diff' }).click()

@@ -22,7 +22,7 @@ func (studioCollections) owner(user string) string {
 }
 
 // Allowed holds when the collections service runs and the user has the collections feature,
-// the rule of /api/agents/collections.
+// the rule of /api/collections.
 func (c studioCollections) Allowed(ctx context.Context, user string) bool {
 	if c.a.CollectionsService() == nil {
 		return false

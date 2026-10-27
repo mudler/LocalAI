@@ -68,7 +68,7 @@ test.describe('Simulate a message', () => {
 
   test('running without a message asks for one, and a failed search says why', async ({ page }) => {
     await mockLibrary(page)
-    await page.route('**/api/agents/collections/handbook/search', route => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'index offline' }) }))
+    await page.route('**/api/collections/handbook/search', route => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'index offline' }) }))
     await page.goto('/app/collections')
     await page.getByTestId('open-simulate').click()
     const sheet = page.getByTestId('simulate-sheet')

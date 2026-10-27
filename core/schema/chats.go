@@ -11,6 +11,10 @@ type ChatsCreateRequest struct {
 	// AgentID starts the chat with one of your saved agents. The agent's model,
 	// when it has one, replaces Model, which is then optional.
 	AgentID string `json:"agent_id,omitempty"`
+	// Assistant starts the chat with the LocalAI management tools (install
+	// models and backends, change settings). It needs an administrator and the
+	// assistant setting on, and it cannot be combined with AgentID.
+	Assistant bool `json:"assistant,omitempty"`
 }
 
 // ChatsAgent is a saved agent. The four lists are exact grants: an empty list
@@ -56,11 +60,13 @@ type ChatsConversation struct {
 	// AgentID is the saved agent the chat runs with. Origin is trigger or
 	// connector for a chat that started by itself, and OriginID names the trigger
 	// or binding.
-	AgentID  string    `json:"agent_id,omitempty"`
-	Origin   string    `json:"origin,omitempty"`
-	OriginID string    `json:"origin_id,omitempty"`
-	Created  time.Time `json:"created"`
-	Updated  time.Time `json:"updated"`
+	AgentID  string `json:"agent_id,omitempty"`
+	Origin   string `json:"origin,omitempty"`
+	OriginID string `json:"origin_id,omitempty"`
+	// Assistant is true for a chat that has the LocalAI management tools.
+	Assistant bool      `json:"assistant,omitempty"`
+	Created   time.Time `json:"created"`
+	Updated   time.Time `json:"updated"`
 	// Running is true while a turn runs. LastTurn is how the last finished turn
 	// ended: done, stopped, failed or interrupted.
 	Running  bool   `json:"running"`

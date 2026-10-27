@@ -190,7 +190,7 @@ Middleware can be composed at different levels. Here are the patterns used in th
 ### Group-level middleware (collections pattern)
 ```go
 // All routes in the group share the middleware
-g := e.Group("/api/agents/collections", readyMw, collectionsMw)
+g := e.Group("/api/collections", readyMw, collectionsMw)
 g.GET("", listHandler)
 g.POST("", createHandler)
 ```

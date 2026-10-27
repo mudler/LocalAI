@@ -25,7 +25,10 @@
     "title": "Kelola LocalAI melalui obrolan",
     "description": "Instal model, ganti backend, edit konfigurasi dan periksa status dengan berbicara pada LocalAI.",
     "open": "Buka asisten",
-    "tooltip": "Kelola LocalAI melalui obrolan"
+    "tooltip": "Kelola LocalAI melalui obrolan",
+    "noModel": "Pilih model obrolan terlebih dahulu.",
+    "startFailed": "Tidak dapat memulai obrolan asisten: {{message}}",
+    "chatTitle": "Asisten LocalAI"
   },
   "input": {
     "placeholder": "Pesan...",

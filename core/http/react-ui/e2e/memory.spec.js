@@ -177,8 +177,8 @@ test.describe('Memory library', () => {
     await page.goto('/app/collections/handbook')
     const api = page.getByTestId('collection-api')
     await api.getByText('Index, API and privacy').click()
-    await expect(api).toContainText('/api/agents/collections/handbook/search')
-    await expect(api).toContainText('/api/agents/collections/handbook/upload')
+    await expect(api).toContainText('/api/collections/handbook/search')
+    await expect(api).toContainText('/api/collections/handbook/upload')
     await expect(api).toContainText('stay on this server')
   })
 

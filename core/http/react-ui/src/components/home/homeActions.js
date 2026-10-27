@@ -1,7 +1,8 @@
 // The slash actions on the Home command bar. Every entry has a destination in
 // the product today; the page decides what each one does (navigate, open the
 // model list, start a chat). `needs` hides an action the person cannot use:
-// the admin pages, stopping a model when none is loaded, or
+// the admin pages, stopping a model when none is loaded, the LocalAI
+// assistant when it is off, or
 // Studio while that add-on is not installed.
 
 export const SLASH_GROUPS = ['chat', 'models', 'go']
@@ -10,6 +11,7 @@ export const SLASH_ACTIONS = [
   { id: 'model', cmd: '/model', icon: 'cube', group: 'chat', needs: 'models' },
   { id: 'new', cmd: '/new', icon: 'plus', group: 'chat' },
   { id: 'chat', cmd: '/chat', icon: 'chat', group: 'chat' },
+  { id: 'assistant', cmd: '/assistant', icon: 'robot', group: 'chat', needs: 'assistant' },
   { id: 'gallery', cmd: '/gallery', icon: 'download', group: 'models', needs: 'admin' },
   { id: 'installed', cmd: '/installed', icon: 'boxes', group: 'models', needs: 'admin' },
   { id: 'import', cmd: '/import', icon: 'upload', group: 'models', needs: 'admin' },
@@ -19,12 +21,14 @@ export const SLASH_ACTIONS = [
   { id: 'docs', cmd: '/docs', icon: 'book', group: 'go' },
 ]
 
-// `ctx`: { isAdmin, hasModels, loadedCount, studioInstalled }
+// `ctx`: { isAdmin, hasModels, loadedCount, studioInstalled, assistantAvailable }
 export function availableActions(ctx) {
   return SLASH_ACTIONS.filter(a => {
     if (a.needs === 'admin') return ctx.isAdmin
     if (a.needs === 'models') return ctx.hasModels
     if (a.needs === 'loaded') return ctx.isAdmin && ctx.loadedCount > 0
+    // The server says whether the LocalAI assistant is on; only an admin may use it.
+    if (a.needs === 'assistant') return ctx.isAdmin && ctx.assistantAvailable === true
     if (a.needs === 'studio') return ctx.studioInstalled === true
     return true
   })

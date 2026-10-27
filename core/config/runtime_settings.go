@@ -72,17 +72,17 @@ type RuntimeSettings struct {
 	// Open Responses settings
 	OpenResponsesStoreTTL *string `json:"open_responses_store_ttl,omitempty"` // TTL for stored responses (e.g., "1h", "30m", "0" = no expiration)
 
-	// Agent Pool settings
-	AgentPoolEnabled          *bool   `json:"agent_pool_enabled,omitempty"`
-	AgentPoolDefaultModel     *string `json:"agent_pool_default_model,omitempty"`
-	ChatsVisionModel          *string `json:"chats_vision_model,omitempty"`        // model that describes images for the chats
-	ChatsTranscriptionModel   *string `json:"chats_transcription_model,omitempty"` // model that transcribes audio for the chats
-	AgentPoolEmbeddingModel   *string `json:"agent_pool_embedding_model,omitempty"`
-	AgentPoolMaxChunkingSize  *int    `json:"agent_pool_max_chunking_size,omitempty"`
-	AgentPoolChunkOverlap     *int    `json:"agent_pool_chunk_overlap,omitempty"`
-	AgentPoolCollectionDBPath *string `json:"agent_pool_collection_db_path,omitempty"`
-	AgentPoolVectorEngine     *string `json:"agent_pool_vector_engine,omitempty"` // chromem | postgres
-	AgentPoolDatabaseURL      *string `json:"agent_pool_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
+	// Collections settings
+	CollectionsEnabled         *bool   `json:"collections_enabled,omitempty"`
+	CollectionsDefaultModel    *string `json:"collections_default_model,omitempty"`
+	ChatsVisionModel           *string `json:"chats_vision_model,omitempty"`        // model that describes images for the chats
+	ChatsTranscriptionModel    *string `json:"chats_transcription_model,omitempty"` // model that transcribes audio for the chats
+	CollectionsEmbeddingModel  *string `json:"collections_embedding_model,omitempty"`
+	CollectionsMaxChunkingSize *int    `json:"collections_max_chunking_size,omitempty"`
+	CollectionsChunkOverlap    *int    `json:"collections_chunk_overlap,omitempty"`
+	CollectionsDBPath          *string `json:"collections_db_path,omitempty"`
+	CollectionsVectorEngine    *string `json:"collections_vector_engine,omitempty"` // chromem | postgres
+	CollectionsDatabaseURL     *string `json:"collections_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
 
 	// Distributed-mode settings. Read LIVE by the SmartRouter on each
 	// scheduling decision, so toggling takes effect on the next placement

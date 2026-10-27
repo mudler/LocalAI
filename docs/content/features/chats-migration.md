@@ -86,7 +86,7 @@ a chat is never twice.
 
 ## What stays
 
-The [collections](/features/runtime-settings/#chats-and-collections-settings) and their API, the terminal agent (`local-ai chat`), and the agent worker of a cluster, which serves the MCP tool calls of the frontend. The LocalAGI and localrecall modules stay as the backend of the collections only.
+The [collections](/features/runtime-settings/#chats-and-collections-settings) and their API, the terminal agent (`local-ai chat`), and the agent worker of a cluster, which serves the MCP tool calls of the frontend. The collections backend is built on localrecall; LocalAI no longer depends on LocalAGI.
 
 ## What was removed
 
@@ -99,7 +99,7 @@ These APIs answer `404`:
 | `/api/agent/tasks` and `/api/agent/jobs` | `/api/chats/triggers` |
 | `/api/conversations` | `/api/chats` |
 
-`/api/agents/collections` stays: it is the [collections](/features/runtime-settings/#chats-and-collections-settings) API.
+The [collections](/features/runtime-settings/#chats-and-collections-settings) API moved from `/api/agents/collections` to `/api/collections`. The old path still works and answers with a `Deprecation: true` header; switch to the new one.
 
 A request to `/v1/responses` whose `model` names a former agent is a plain request for a model of that name.
 
@@ -115,7 +115,23 @@ These flags and environment variables are accepted and do nothing, and the serve
 
 The `agent_job_retention_days`, `agent_pool_enable_logs` and `agent_pool_agent_hub_url` keys of `runtime_settings.json` are ignored too. The command `local-ai agent` is gone.
 
-Kept, because the [collections](/features/collections/) use them: `LOCALAI_DISABLE_AGENTS` (it now turns off the collections), `LOCALAI_AGENT_POOL_STATE_DIR`, `LOCALAI_AGENT_POOL_DEFAULT_MODEL`, `LOCALAI_AGENT_POOL_API_URL`, `LOCALAI_AGENT_POOL_API_KEY`, `LOCALAI_AGENT_POOL_VECTOR_ENGINE`, `LOCALAI_AGENT_POOL_EMBEDDING_MODEL`, `LOCALAI_AGENT_POOL_DATABASE_URL`, `LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE`, `LOCALAI_AGENT_POOL_CHUNK_OVERLAP` and `LOCALAI_AGENT_POOL_COLLECTION_DB_PATH`.
+Renamed, because the [collections](/features/collections/) use them. The old names still work and the server logs one deprecation warning for each one that is set. When both names are set, the new one wins.
+
+| Old name | New name |
+|---|---|
+| `LOCALAI_DISABLE_AGENTS` | `LOCALAI_DISABLE_COLLECTIONS` |
+| `LOCALAI_AGENT_POOL_STATE_DIR` | `LOCALAI_COLLECTIONS_STATE_DIR` |
+| `LOCALAI_AGENT_POOL_DEFAULT_MODEL` | `LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
+| `LOCALAI_AGENT_POOL_API_URL` | `LOCALAI_COLLECTIONS_API_URL` |
+| `LOCALAI_AGENT_POOL_API_KEY` | `LOCALAI_COLLECTIONS_API_KEY` |
+| `LOCALAI_AGENT_POOL_VECTOR_ENGINE` | `LOCALAI_COLLECTIONS_VECTOR_ENGINE` |
+| `LOCALAI_AGENT_POOL_EMBEDDING_MODEL` | `LOCALAI_COLLECTIONS_EMBEDDING_MODEL` |
+| `LOCALAI_AGENT_POOL_DATABASE_URL` | `LOCALAI_COLLECTIONS_DATABASE_URL` |
+| `LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE` | `LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE` |
+| `LOCALAI_AGENT_POOL_CHUNK_OVERLAP` | `LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
+| `LOCALAI_AGENT_POOL_COLLECTION_DB_PATH` | `LOCALAI_COLLECTIONS_DB_PATH` |
+
+The keys of `runtime_settings.json` changed the same way: `agent_pool_enabled`, `agent_pool_default_model`, `agent_pool_embedding_model`, `agent_pool_max_chunking_size`, `agent_pool_chunk_overlap`, `agent_pool_collection_db_path`, `agent_pool_vector_engine` and `agent_pool_database_url` are now `collections_enabled`, `collections_default_model`, `collections_embedding_model`, `collections_max_chunking_size`, `collections_chunk_overlap`, `collections_db_path`, `collections_vector_engine` and `collections_database_url`. The file is still read with the old keys; the server writes the new ones.
 
 ## In a cluster
 

@@ -139,7 +139,7 @@ When you may use collections, a chat has two more tools: `list_collections` and 
 A chat can use the tools of the add-ons you may use. The chat panel lists them with a switch for each add-on; a switch applies to that chat from its next turn. A tool runs as you, in your chat, and never as a user a model names.
 
 - A tool that only reads gives the model its result.
-- A tool that would change an add-on's data does not change it. The model is told that a proposal was stored, and you confirm it on the Add-ons page.
+- A tool that changes an add-on's data (rows, a schema, a new database, a job) changes it at once. Turning an add-on on for a chat or an agent is your consent, so there is no confirmation card. The model is told what was changed and whether it can be undone, and the tool entry in the chat says the same. Most data changes cannot be undone today: Tables, Fine-tuning and Quantization keep no history of them. The file changes of a sandbox or an Office document are different: they are one change in the history of your files and you can undo them there. Reads and changes use your own permissions, and a change on data that moved since it was read is refused, not applied. A scheduled or file-triggered run uses the same rule, but a run with no agent gets no tool that changes anything: name the add-on in an agent to allow it.
 - An *action* tool, such as running a command in a sandbox, runs at once and only in a chat. No other place that offers add-on tools (the OpenAI-compatible API, MCP, agents) lists or runs one.
 - A sub-agent gets the add-on tools its parent names, or all of the parent's tools when the parent names none.
 
@@ -236,6 +236,15 @@ The JSON files are not supported in a cluster, as the Storage table says.
 
 An agent is a saved set of instructions and tool grants that a chat can start
 with. See [Saved agents, triggers and inbox](/features/chats-agents/).
+
+## The LocalAI assistant
+
+An admin can start a chat that has the tools to manage the instance (install
+models and backends, edit model configs, check status). It starts from the Home
+page with `/assistant`, or over the API with `assistant: true` in
+`POST /api/chats`. It is an ordinary chat in the list after that. Only that chat
+has the tools, never its sub-agents. The `localai_assistant_enabled` setting
+turns the feature on and off. See [LocalAI Assistant](/features/localai-assistant/).
 
 ## Moving from the old chat
 

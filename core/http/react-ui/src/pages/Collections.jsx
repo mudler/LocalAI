@@ -387,11 +387,11 @@ export default function Collections() {
 }
 
 const PATHS = [
-  ['POST', '/api/agents/collections/{name}/upload', 'upload'],
-  ['GET', '/api/agents/collections/{name}/entries', 'entries'],
-  ['POST', '/api/agents/collections/{name}/search', 'search'],
-  ['GET', '/api/agents/collections/{name}/sources', 'sources'],
-  ['POST', '/api/agents/collections/{name}/reset', 'reset'],
+  ['POST', '/api/collections/{name}/upload', 'upload'],
+  ['GET', '/api/collections/{name}/entries', 'entries'],
+  ['POST', '/api/collections/{name}/search', 'search'],
+  ['GET', '/api/collections/{name}/sources', 'sources'],
+  ['POST', '/api/collections/{name}/reset', 'reset'],
 ]
 
 // eslint-disable-next-line no-unused-vars

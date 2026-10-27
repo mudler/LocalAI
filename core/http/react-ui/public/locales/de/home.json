@@ -25,7 +25,10 @@
     "title": "LocalAI per Chat verwalten",
     "description": "Modelle installieren, Backends wechseln, Konfigurationen bearbeiten und Status prüfen — durch Gespräche mit LocalAI.",
     "open": "Assistent öffnen",
-    "tooltip": "LocalAI per Chat verwalten"
+    "tooltip": "LocalAI per Chat verwalten",
+    "noModel": "Wähle zuerst ein Chat-Modell.",
+    "startFailed": "Der Assistenten-Chat konnte nicht gestartet werden: {{message}}",
+    "chatTitle": "LocalAI-Assistent"
   },
   "input": {
     "placeholder": "Nachricht...",

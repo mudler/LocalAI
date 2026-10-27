@@ -33,7 +33,7 @@ test.describe('Home slash menu', () => {
     await page.locator('.home-textarea').fill('/')
     const names = await page.locator('.dk-cmd-name').allTextContents()
     expect(names).toEqual([
-      '/model', '/new', '/chat',
+      '/model', '/new', '/chat', '/assistant',
       '/gallery', '/installed', '/import', '/stop',
       '/settings', '/docs',
     ])
@@ -53,6 +53,29 @@ test.describe('Home slash menu', () => {
     await ready(page)
     await page.locator('.home-textarea').fill('/stu')
     await expect(page.getByTestId('home-slash-studio')).toHaveCount(0)
+  })
+
+  // The LocalAI assistant is a chat started with the management tools.
+  test('/assistant starts an assistant chat and opens it', async ({ page }) => {
+    let body = null
+    await page.route('**/api/chats', route => {
+      if (route.request().method() !== 'POST') return route.fallback()
+      body = route.request().postDataJSON()
+      return route.fulfill({ status: 201, json: { id: 'as1', title: 'LocalAI Assistant', model: body.model, kind: 'chat', assistant: true } })
+    })
+    await ready(page)
+    await page.locator('.home-textarea').fill('/')
+    await page.getByTestId('home-slash-assistant').click()
+    await expect(page).toHaveURL(/\/app\/chats\/as1/)
+    expect(body).toMatchObject({ assistant: true, title: 'LocalAI Assistant' })
+  })
+
+  test('the assistant entry and command are hidden while the setting is off', async ({ page }) => {
+    await mockHome(page, { features: { distributed: false, localai_assistant: false } })
+    await ready(page)
+    await expect(page.getByTestId('home-assistant')).toHaveCount(0)
+    await page.locator('.home-textarea').fill('/ass')
+    await expect(page.getByTestId('home-slash-assistant')).toHaveCount(0)
   })
 
   test('filters as you type and marks the typed part', async ({ page }) => {

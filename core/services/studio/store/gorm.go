@@ -43,6 +43,7 @@ type chatRow struct {
 	AgentID      string `gorm:"size:128"`
 	Origin       string `gorm:"size:32"`
 	OriginID     string `gorm:"size:128"`
+	Assistant    bool
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -92,7 +93,7 @@ func (r chatRow) record() (session.ChatRecord, error) {
 		ID: r.ID, Principal: r.Principal, Title: r.Title, Folder: r.Folder,
 		Created: r.Created, Updated: r.Updated, HarnessState: append([]byte(nil), r.HarnessState...),
 		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Model: r.Model, Status: r.Status, Summary: r.Summary,
-		AgentID: r.AgentID, Origin: r.Origin, OriginID: r.OriginID,
+		AgentID: r.AgentID, Origin: r.Origin, OriginID: r.OriginID, Assistant: r.Assistant,
 	}
 	if r.SkillsOff != "" {
 		if err := json.Unmarshal([]byte(r.SkillsOff), &rec.SkillsOff); err != nil {
@@ -131,7 +132,7 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 		ID: rec.ID, Principal: rec.Principal, Title: rec.Title, Folder: rec.Folder,
 		Created: rec.Created, Updated: rec.Updated, Snapshot: snap, HarnessState: rec.HarnessState,
 		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Model: rec.Model, Status: rec.Status, Summary: rec.Summary,
-		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID,
+		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		var n int64

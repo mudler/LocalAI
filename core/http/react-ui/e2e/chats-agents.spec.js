@@ -10,7 +10,7 @@ function agentsApi(page, initial = []) {
     s,
     async install() {
       await page.route('**/api/chats/skills*', route => route.fulfill({ json: { skills: [{ name: 'review', layer: 'personal', description: 'x', enabled: true }], notes: [] } }))
-      await page.route('**/api/agents/collections*', route => route.fulfill({ json: { collections: ['docs', 'notes'] } }))
+      await page.route('**/api/collections*', route => route.fulfill({ json: { collections: ['docs', 'notes'] } }))
       await page.route(/\/api\/chats\/agents\/[^/?]+$/, route => {
         const req = route.request()
         const id = new URL(req.url()).pathname.split('/').pop()

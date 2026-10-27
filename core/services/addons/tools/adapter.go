@@ -49,6 +49,10 @@ const (
 	// MaxResultBytes bounds a read result handed to a model. A larger result
 	// is refused: a truncated JSON document would read as a complete one.
 	MaxResultBytes = 128 << 10
+	// MaxAppliedBytes bounds each excerpt copied into the result of a change
+	// made at once. The chat keeps a tool result capped at 2 KiB, so the whole
+	// document must stay well under it to remain valid JSON there.
+	MaxAppliedBytes = 512
 	// MaxTools bounds the tools one discovery returns.
 	MaxTools = 64
 	// MaxSummaryBytes bounds the effect sample copied into a proposal
@@ -114,6 +118,8 @@ const (
 	ResultData ResultKind = "result"
 	// ResultProposal is a reference to a stored proposal. Nothing is applied.
 	ResultProposal ResultKind = "proposal"
+	// ResultApplied says a change tool ran for a chat and the change is made.
+	ResultApplied ResultKind = "applied"
 	// ResultArtifact is a reference to a private file the add-on produced.
 	ResultArtifact ResultKind = "artifact"
 	// ResultError is a typed answer that asks the person to act: no resource
@@ -152,6 +158,24 @@ type ProposalRef struct {
 	ExpiresAt  time.Time       `json:"expiresAt"`
 }
 
+// AppliedRef is what a chat learns of a change it made. The person enabled the
+// add-on for the chat or the agent, which is the consent, so the change is made
+// at once. Undoable is false for every change tool today: none of them records a
+// change set the person could roll back, and the note says so.
+type AppliedRef struct {
+	// ID is the operation ID of the change.
+	ID         string          `json:"id"`
+	AddonID    string          `json:"addonId"`
+	ResourceID string          `json:"resourceId,omitempty"`
+	Action     string          `json:"action"`
+	Count      uint64          `json:"count"`
+	Summary    json.RawMessage `json:"summary,omitempty"`
+	// Result is what the add-on's receipt reported.
+	Result json.RawMessage `json:"result,omitempty"`
+	// Undoable says whether the person can roll the change back.
+	Undoable bool `json:"undoable"`
+}
+
 // ArtifactRef points at a private artifact. The bytes are fetched by the
 // person's authenticated session, never through a tool result.
 type ArtifactRef struct {
@@ -168,6 +192,7 @@ type ToolResult struct {
 	Tool      string          `json:"tool"`
 	Result    json.RawMessage `json:"result,omitempty"`
 	Proposal  *ProposalRef    `json:"proposal,omitempty"`
+	Applied   *AppliedRef     `json:"applied,omitempty"`
 	Artifacts []ArtifactRef   `json:"artifacts,omitempty"`
 	// Code says what the person is asked to do, for a ResultError.
 	Code string `json:"code,omitempty"`
@@ -178,12 +203,29 @@ type ToolResult struct {
 // ProposalNote is what the model is told after a proposal.
 const ProposalNote = "Nothing has been changed. A person must review and confirm this proposal in the approval card. Do not say the change was made."
 
+// AppliedNote is what the model is told after a change it made in a chat.
+const AppliedNote = "The change was made. It cannot be undone: the add-on keeps no history of it. Tell the person plainly what changed and that it cannot be undone."
+
+// Applier is the owner side of a change the chats consumer makes at once. It is
+// separate from Backend so that no consumer that holds only a Backend can apply
+// a change, and the adapter has no method that confirms anything: the chats
+// adapter confirms only the proposal it has just stored for the same actor.
+type Applier interface {
+	// ConfirmProposal applies the stored proposal once.
+	ConfirmProposal(ctx context.Context, actor contract.Actor, id, digest string) (gateway.Proposal, error)
+	// CancelProposal withdraws a pending proposal.
+	CancelProposal(ctx context.Context, actor contract.Actor, id string) (gateway.Proposal, error)
+}
+
+var _ Applier = (*gateway.Gateway)(nil)
+
 // ToolAdapter exposes add-on tools to model consumers.
 type ToolAdapter struct {
 	// actions says that this adapter serves action tools. Only the adapter of
 	// the chats consumer is built with it; every other consumer neither lists
 	// nor runs an action tool.
 	actions bool
+	apply   Applier
 	backend Backend
 	newID   func() (string, error)
 }
@@ -205,9 +247,14 @@ var _ ActBackend = (*gateway.Gateway)(nil)
 
 // NewChatToolAdapter returns an adapter for the chats consumer: besides what
 // NewToolAdapter serves, it lists and runs action tools, as the chat's user,
-// with no confirmation. The owner it is given must be an ActBackend.
+// with no confirmation. The owner it is given must be an ActBackend. A write,
+// schema or create tool is made at once, not left as a proposal, when the owner
+// is also an Applier: enabling the add-on for the chat is the consent, and the
+// same preview, revision and receipt rules apply.
 func NewChatToolAdapter(b Backend) *ToolAdapter {
-	return &ToolAdapter{backend: b, newID: randomOperationID, actions: true}
+	t := &ToolAdapter{backend: b, newID: randomOperationID, actions: true}
+	t.apply, _ = b.(Applier)
+	return t
 }
 
 func randomOperationID() (string, error) {
@@ -404,12 +451,44 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 	if err != nil {
 		return refusedResult(name, err)
 	}
+	if t.apply != nil {
+		return t.applyNow(ctx, actor, name, p)
+	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,
 		State: string(p.State), Count: p.Effects.Count, ExpiresAt: p.ExpiresAt}
 	if len(p.Effects.Sample) <= MaxSummaryBytes {
 		ref.Summary = p.Effects.Sample
 	}
 	return ToolResult{Kind: ResultProposal, Tool: name, Proposal: &ref, Note: ProposalNote}, nil
+}
+
+// applyNow confirms the proposal the adapter has just stored for the actor. A
+// failure that is certain withdraws the proposal, so nothing waits for a
+// browser; an unknown outcome is left alone and reported, never repeated.
+func (t *ToolAdapter) applyNow(ctx context.Context, actor contract.Actor, name string, p gateway.Proposal) (ToolResult, error) {
+	done, err := t.apply.ConfirmProposal(ctx, actor, p.ID, p.Digest)
+	if err != nil {
+		var unknown *gateway.OutcomeUnknown
+		var unavailable *gateway.ProposalUnavailable
+		if !errors.As(err, &unknown) && !errors.As(err, &unavailable) {
+			// The caller's context may be over; the withdrawal must still run.
+			_, _ = t.apply.CancelProposal(context.WithoutCancel(ctx), actor, p.ID)
+		}
+		return refusedResult(name, err)
+	}
+	if done.State != gateway.ProposalApplied {
+		// The add-on rejected it at the apply: the data moved or it cannot do
+		// this. Nothing changed, so the model corrects or asks again.
+		return ToolResult{}, gateway.ErrStale
+	}
+	ref := AppliedRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Count: p.Effects.Count}
+	if len(p.Effects.Sample) <= MaxAppliedBytes {
+		ref.Summary = p.Effects.Sample
+	}
+	if done.Receipt != nil && len(done.Receipt.Result.Payload) <= MaxAppliedBytes {
+		ref.Result = done.Receipt.Result.Payload
+	}
+	return ToolResult{Kind: ResultApplied, Tool: name, Applied: &ref, Note: AppliedNote}, nil
 }
 
 // refusedResult turns the add-on's own refusal into a result the model can act

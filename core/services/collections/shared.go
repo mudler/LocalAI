@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	lagi "github.com/mudler/LocalAGI/webui/collections"
+	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/localrecall/rag/engine"
 	"github.com/mudler/xlog"

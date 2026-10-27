@@ -135,9 +135,11 @@ export const backendsApi = {
 // waits and reaches the model, with any others, at its next request.
 export const chatsApi = {
   list: (limit, kind) => fetchJSON(chatsListPath(API_CONFIG.endpoints.chats, limit, kind)),
-  // With an agent, its model (when it has one) replaces model.
-  create: (model, title, agentId) => postJSON(API_CONFIG.endpoints.chats, {
+  // With an agent, its model (when it has one) replaces model. With assistant,
+  // the chat gets the LocalAI management tools (admin only, setting on).
+  create: (model, title, agentId, assistant) => postJSON(API_CONFIG.endpoints.chats, {
     ...(model ? { model } : {}), ...(title ? { title } : {}), ...(agentId ? { agent_id: agentId } : {}),
+    ...(assistant ? { assistant: true } : {}),
   }),
   get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
@@ -551,20 +553,20 @@ export const systemApi = {
 }
 
 export const agentCollectionsApi = {
-  list: (allUsers) => fetchJSON(`/api/agents/collections${allUsers ? '?all_users=true' : ''}`),
-  create: (name) => postJSON('/api/agents/collections', { name }),
-  upload: (name, formData, userId) => fetch(apiUrl(`/api/agents/collections/${enc(name)}/upload${userQ(userId)}`), { method: 'POST', body: formData }).then(handleResponse),
-  entries: (name, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entries${userQ(userId)}`),
-  entryContent: (name, entry, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entries/${encodeURIComponent(entry)}${userQ(userId)}`),
-  search: (name, query, maxResults, userId) => postJSON(`/api/agents/collections/${enc(name)}/search${userQ(userId)}`, { query, max_results: maxResults }),
-  reset: (name, userId) => postJSON(`/api/agents/collections/${enc(name)}/reset${userQ(userId)}`),
-  deleteEntry: (name, entry, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entry/delete${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
-  sources: (name, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`),
-  addSource: (name, url, interval, userId) => postJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, {
+  list: (allUsers) => fetchJSON(`/api/collections${allUsers ? '?all_users=true' : ''}`),
+  create: (name) => postJSON('/api/collections', { name }),
+  upload: (name, formData, userId) => fetch(apiUrl(`/api/collections/${enc(name)}/upload${userQ(userId)}`), { method: 'POST', body: formData }).then(handleResponse),
+  entries: (name, userId) => fetchJSON(`/api/collections/${enc(name)}/entries${userQ(userId)}`),
+  entryContent: (name, entry, userId) => fetchJSON(`/api/collections/${enc(name)}/entries/${encodeURIComponent(entry)}${userQ(userId)}`),
+  search: (name, query, maxResults, userId) => postJSON(`/api/collections/${enc(name)}/search${userQ(userId)}`, { query, max_results: maxResults }),
+  reset: (name, userId) => postJSON(`/api/collections/${enc(name)}/reset${userQ(userId)}`),
+  deleteEntry: (name, entry, userId) => fetchJSON(`/api/collections/${enc(name)}/entry/delete${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
+  sources: (name, userId) => fetchJSON(`/api/collections/${enc(name)}/sources${userQ(userId)}`),
+  addSource: (name, url, interval, userId) => postJSON(`/api/collections/${enc(name)}/sources${userQ(userId)}`, {
     url,
     update_interval: interval === undefined ? undefined : Number(interval),
   }),
-  removeSource: (name, url, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
+  removeSource: (name, url, userId) => fetchJSON(`/api/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
 }
 
 // Usage API

@@ -154,7 +154,7 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
 
 // The capability a model setting's picker is limited to.
 const MODEL_CAPABILITY = {
-  agent_pool_default_model: CAP_CHAT,
+  collections_default_model: CAP_CHAT,
   chats_vision_model: CAP_VISION,
   chats_transcription_model: CAP_TRANSCRIPT,
 }

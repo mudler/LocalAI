@@ -124,10 +124,19 @@ var Consumers = []Consumer{
 	{
 		ID:          "studio-chats-mcp",
 		Surface:     "the MCP tools of a chat on the server-side chat loop: the MCP servers of the chat's model, through the same shared sessions as every other chat of that model",
-		Files:       []string{"core/services/studio/mcptools.go", "core/application/studio_service.go"},
+		Files:       []string{"core/services/studio/assistant.go", "core/application/studio_service.go"},
 		Decision:    Reject,
 		Reason:      "a model's MCP session is shared by every user of the model, so it carries no actor; add-on tools of a chat come through their own consumer, with the chat user's actor",
 		Enforcement: "the executor's DiscoverTools drops the add-on namespace and its ExecuteTool refuses it; the chat bridge drops it again before it offers a tool",
+	},
+	{
+		ID:          "studio-chats-assistant",
+		Surface:     "the LocalAI Assistant tools of an assistant chat on the server-side chat loop, offered to an administrator while the assistant setting is on",
+		Files:       []string{"core/application/studio_assistant.go"},
+		Evidence:    []string{"core/services/studio/assistant.go"},
+		Decision:    Reject,
+		Reason:      "they are the instance management tools of the in-process assistant server, not add-on tools; the add-on namespace is not part of that server",
+		Enforcement: "a turn gets the assistant tools only when the chat is flagged, the user is an administrator and the setting is on, checked again on every turn; sub-agents never get them; add-on tools of the chat still come through studio-chats-addons",
 	},
 	{
 		ID:          "studio-chats-addons",
@@ -135,7 +144,7 @@ var Consumers = []Consumer{
 		Evidence:    []string{"core/services/studio/addontools.go", "core/application/addon_gateway.go", "core/http/auth/addons.go"},
 		Decision:    Route,
 		Actor:       "the chat's user, built by the host for each call with the credential of a chat turn; the owner checks the account and the add-ons feature again on every call, and local-owner mode comes from deployment configuration",
-		Enforcement: "only the adapter built by NewChatToolAdapter serves action tools; a chat switches an add-on off with its own list, and a sub-agent gets only the tools its parent names",
+		Enforcement: "only the adapter built by NewChatToolAdapter serves action tools and makes a write, schema or create change at once, by confirming the proposal it has just stored for the same actor with the chat credential, which no HTTP request can carry; a chat switches an add-on off with its own list, and a sub-agent gets only the tools its parent names",
 	},
 	{
 		ID:          "distributed-agent-worker",

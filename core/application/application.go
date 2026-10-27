@@ -773,7 +773,7 @@ func (a *Application) CollectionsService() *collections.Service { return a.colle
 // after the HTTP server is listening, because the vector engines call the
 // embeddings API while they open a collection.
 func (a *Application) StartCollections() {
-	if !a.applicationConfig.AgentPool.Enabled {
+	if !a.applicationConfig.Collections.Enabled {
 		return
 	}
 	var bus messaging.Broadcaster

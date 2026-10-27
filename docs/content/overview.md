@@ -37,7 +37,7 @@ The LocalAI core is a single small binary (or container). It gives you everythin
 - **Distributed Mode** - Scale horizontally with worker nodes, P2P federation, and model sharding
 - **No GPU Required** - Runs on CPU with consumer-grade hardware
 
-LocalAI integrates [LocalAGI](https://github.com/mudler/LocalAGI) (agent platform) and [LocalRecall](https://github.com/mudler/LocalRecall) (semantic memory) as built-in libraries - no separate installation needed.
+LocalAI integrates [LocalRecall](https://github.com/mudler/LocalRecall) (semantic memory) as a built-in library - no separate installation needed. [LocalAGI](https://github.com/mudler/LocalAGI) is a separate agent platform that works with LocalAI.
 
 Each backend is a dedicated gRPC service that LocalAI builds around a best-in-class engine (llama.cpp, vLLM, whisper.cpp, stable-diffusion, MLX, and more), exposing it through the unified API. Backends ship as standard OCI images and run as isolated processes, so each one can be installed, upgraded, or removed without touching the core, can even run on a separate machine, and a fault in one never brings down the rest.
 

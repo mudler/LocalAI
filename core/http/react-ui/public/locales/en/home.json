@@ -26,7 +26,10 @@
     "description": "Install models, switch backends, edit configs and check status by talking to LocalAI.",
     "open": "Open assistant",
     "tooltip": "Manage LocalAI by chatting",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "noModel": "Pick a chat model first.",
+    "startFailed": "Could not start the assistant chat: {{message}}",
+    "chatTitle": "LocalAI Assistant"
   },
   "input": {
     "placeholder": "Message...",

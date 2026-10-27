@@ -163,7 +163,7 @@ permissions; an admin-owned key can therefore grant admin access. Repeated updat
 that omit `api_key` can create additional keys. Supply an explicit key with the
 intended permissions when recreating or updating agents, and review existing keys
 in **Settings → Users and keys**. Existing root agents can use an explicit
-`api_key` or `LOCALAI_AGENT_POOL_API_KEY`; neither setting transfers ownership.
+`api_key` or `LOCALAI_COLLECTIONS_API_KEY`; neither setting transfers ownership.
 
 ### Configuration Reference
 

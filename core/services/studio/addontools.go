@@ -19,14 +19,14 @@ type AddonTool struct {
 	Description string
 	Schema      json.RawMessage
 	// Action is true for a tool that acts at once as the user (runs code, edits
-	// files) instead of reading or proposing a change.
+	// files, changes data) instead of only reading.
 	Action bool
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
 // user; the host decides what that user may see and do, and turns a result into
-// text for the model (a change an add-on proposes becomes a note that names the
-// proposal and asks the user to confirm it).
+// text for the model (a change the chat made says what was done and that it
+// cannot be undone; one that stays a proposal asks the user to confirm it).
 type AddonTools interface {
 	// Tools lists the tools the user may use now.
 	Tools(ctx context.Context, user string) ([]AddonTool, error)

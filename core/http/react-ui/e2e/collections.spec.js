@@ -27,9 +27,9 @@ test.describe('Collections page', () => {
     const collectionPath = encodeURIComponent(collectionName)
     let postedBody
 
-    await page.route(`**/api/agents/collections/${collectionPath}/entries`, route =>
+    await page.route(`**/api/collections/${collectionPath}/entries`, route =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify({ entries: [] }) }))
-    await page.route(`**/api/agents/collections/${collectionPath}/sources`, async route => {
+    await page.route(`**/api/collections/${collectionPath}/sources`, async route => {
       if (route.request().method() === 'POST') {
         postedBody = route.request().postDataJSON()
         await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok' }) })

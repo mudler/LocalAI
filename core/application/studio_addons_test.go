@@ -1,13 +1,17 @@
 package application
 
 import (
+	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 func TestAChatActsAsItsUserWithTheChatCredential(t *testing.T) {
@@ -44,5 +48,72 @@ func TestAProposalReachesTheModelAsATextThatSaysNothingChanged(t *testing.T) {
 	data := addontools.ToolResult{Kind: addontools.ResultData, Tool: "t", Result: []byte(`{"n":1}`)}
 	if got := studioAddonText(data); !strings.Contains(got, `"n":1`) {
 		t.Errorf("a read result lost its content: %s", got)
+	}
+}
+
+func TestAChatCredentialMayConfirmButASessionOrKeyRulesStayTheSame(t *testing.T) {
+	named := confirmCredential(auth.AddonModeNamedUser)
+	chat := contract.Actor{UserID: "alice", CredentialID: auth.AddonChatsCredential, Mode: auth.AddonModeNamedUser}
+	if !named(chat) {
+		t.Error("the chat credential cannot confirm what the chat stored")
+	}
+	if !named(contract.Actor{UserID: "alice", CredentialID: "session:s1", Mode: auth.AddonModeNamedUser}) {
+		t.Error("a browser session lost the right to confirm")
+	}
+	for _, id := range []string{"key:k1", "session:", "", "mcp:1", "Chats"} {
+		if named(contract.Actor{UserID: "alice", CredentialID: id, Mode: auth.AddonModeNamedUser}) {
+			t.Errorf("credential %q may confirm", id)
+		}
+	}
+	owner := confirmCredential(auth.AddonModeLocalOwner)
+	if !owner(contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner}) {
+		t.Error("the local owner cannot confirm")
+	}
+	if owner(chat) {
+		t.Error("the chat credential confirms in local-owner mode, where chats act as the local owner")
+	}
+}
+
+type changeOwner struct{ app apps.App }
+
+func (o changeOwner) Apps(context.Context, contract.Actor) (apps.List, error) {
+	return apps.List{Apps: []apps.App{o.app}}, nil
+}
+func (changeOwner) Dispatch(context.Context, contract.Actor, contract.Request) (contract.Result, error) {
+	return contract.Result{}, nil
+}
+func (changeOwner) Propose(context.Context, contract.Actor, contract.Request) (gateway.Proposal, error) {
+	return gateway.Proposal{}, nil
+}
+
+func TestAChangeToolIsAnActionForTheChatsSoAnUnattendedRunWithoutAnAgentDoesNotGetIt(t *testing.T) {
+	schema := json.RawMessage(`{"type":"object","properties":{"resourceId":{"type":"string"},"table":{"type":"string"},"rows":{"type":"array","items":{"type":"object"}}},"required":["resourceId","table","rows"],"additionalProperties":false}`)
+	read := json.RawMessage(`{"type":"object","properties":{"resourceId":{"type":"string"}},"required":["resourceId"],"additionalProperties":false}`)
+	app := apps.App{ID: "tables", Generation: 1, Enabled: true, State: "running", Tools: []string{"rows-insert", "rows-get"},
+		ToolDefinitions: []contract.ToolDefinition{
+			{Name: "rows-insert", Kind: contract.ToolKindWrite, Description: "Insert rows.", InputSchema: schema},
+			{Name: "rows-get", Kind: contract.ToolKindRead, Description: "Read rows.", InputSchema: read},
+		}}
+	s := &studioAddons{adapter: addontools.NewChatToolAdapter(changeOwner{app}), mode: auth.AddonModeNamedUser}
+	got, err := s.Tools(context.Background(), "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := map[string]bool{}
+	for _, d := range got {
+		action[d.Name] = d.Action
+	}
+	if !action["addon__tables__rows-insert"] || action["addon__tables__rows-get"] {
+		t.Errorf("Action flags = %v, want the write tool marked and the read tool not", action)
+	}
+}
+
+func TestAnAppliedChangeReachesTheModelAsADocumentThatSaysItCannotBeUndone(t *testing.T) {
+	res := addontools.ToolResult{Kind: addontools.ResultApplied, Tool: "t", Applied: &addontools.AppliedRef{ID: "o1", AddonID: "tables", Action: "write", Count: 2}, Note: addontools.AppliedNote}
+	got := studioAddonText(res)
+	for _, want := range []string{`"kind":"applied"`, `"undoable":false`, "cannot be undone", "tables"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("applied text lacks %q: %s", want, got)
+		}
 	}
 }

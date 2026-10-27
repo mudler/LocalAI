@@ -53,9 +53,9 @@ services:
       # Distributed mode
       LOCALAI_DISTRIBUTED: "true"
       LOCALAI_NATS_URL: "nats://nats:4222"
-      LOCALAI_AGENT_POOL_EMBEDDING_MODEL: "granite-embedding-107m-multilingual"
-      LOCALAI_AGENT_POOL_VECTOR_ENGINE: "postgres"
-      LOCALAI_AGENT_POOL_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
+      LOCALAI_COLLECTIONS_EMBEDDING_MODEL: "granite-embedding-107m-multilingual"
+      LOCALAI_COLLECTIONS_VECTOR_ENGINE: "postgres"
+      LOCALAI_COLLECTIONS_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
       LOCALAI_REGISTRATION_TOKEN: "changeme"  # Change this in production!
       # Shared-models mode (optional): set when every node mounts the SAME
       # models directory at the SAME path (see "Shared Volume Mode" below).

@@ -25,7 +25,10 @@
     "title": "Gérez LocalAI par la conversation",
     "description": "Installez des modèles, changez de backend, modifiez la configuration et vérifiez l'état en discutant avec LocalAI.",
     "open": "Ouvrir l'assistant",
-    "tooltip": "Gérer LocalAI par la conversation"
+    "tooltip": "Gérer LocalAI par la conversation",
+    "noModel": "Choisissez d'abord un modèle de chat.",
+    "startFailed": "Impossible de démarrer la conversation de l'assistant : {{message}}",
+    "chatTitle": "Assistant LocalAI"
   },
   "input": {
     "placeholder": "Message...",

@@ -45,7 +45,7 @@ func (a *Application) prepareStudioConversion(svc *studio.Service) {
 	svc.SetConversion(marks)
 	// Without the collections service nothing starts later that the conversion
 	// waits for, so it runs now.
-	if !a.applicationConfig.AgentPool.Enabled {
+	if !a.applicationConfig.Collections.Enabled {
 		a.ConvertStudioData()
 	}
 }
@@ -71,7 +71,7 @@ func (a *Application) ConvertStudioData() {
 		ctx = context.Background()
 	}
 	zone, note := convert.LocalZone()
-	src := convert.Sources{StateDir: a.applicationConfig.AgentPool.StateDir, DataDir: a.applicationConfig.DataPath,
+	src := convert.Sources{StateDir: a.applicationConfig.Collections.StateDir, DataDir: a.applicationConfig.DataPath,
 		DB: a.authDB, AuthEnabled: a.authDB != nil, Zone: zone, ZoneNote: note}
 	run := func() error {
 		rep, err := convert.Run(ctx, src, studioTargets{a: a, svc: svc}, a.studioMarks)

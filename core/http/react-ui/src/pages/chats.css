@@ -158,6 +158,11 @@
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
+.ch-tool__change {
+  padding: var(--dk-space-1) 0;
+  color: var(--color-text-muted);
+}
+
 .ch-tool__state {
   color: var(--color-text-muted);
   flex: none;

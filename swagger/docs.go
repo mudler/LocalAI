@@ -12533,6 +12533,10 @@ const docTemplate = `{
                     "description": "AgentID is the saved agent the chat runs with. Origin is trigger or\nconnector for a chat that started by itself, and OriginID names the trigger\nor binding.",
                     "type": "string"
                 },
+                "assistant": {
+                    "description": "Assistant is true for a chat that has the LocalAI management tools.",
+                    "type": "boolean"
+                },
                 "created": {
                     "type": "string"
                 },
@@ -12576,6 +12580,10 @@ const docTemplate = `{
                 "agent_id": {
                     "description": "AgentID is the saved agent the chat runs with. Origin is trigger or\nconnector for a chat that started by itself, and OriginID names the trigger\nor binding.",
                     "type": "string"
+                },
+                "assistant": {
+                    "description": "Assistant is true for a chat that has the LocalAI management tools.",
+                    "type": "boolean"
                 },
                 "created": {
                     "type": "string"
@@ -12714,6 +12722,10 @@ const docTemplate = `{
                 "agent_id": {
                     "description": "AgentID starts the chat with one of your saved agents. The agent's model,\nwhen it has one, replaces Model, which is then optional.",
                     "type": "string"
+                },
+                "assistant": {
+                    "description": "Assistant starts the chat with the LocalAI management tools (install\nmodels and backends, change settings). It needs an administrator and the\nassistant setting on, and it cannot be combined with AgentID.",
+                    "type": "boolean"
                 },
                 "model": {
                     "description": "Model is the model the conversation talks to. It cannot change later.",

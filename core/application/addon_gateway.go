@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -233,6 +234,22 @@ func addonCreateAuthority(status addonStatus, revalidate func(context.Context, c
 	}
 }
 
+// confirmCredential says which credentials may confirm a proposal: the
+// browser session or the local owner, as before, and the credential of a chat
+// turn. An API key and an MCP session never can.
+func confirmCredential(mode string) func(contract.Actor) bool {
+	return func(a contract.Actor) bool {
+		if a.CredentialID == auth.AddonChatsCredential {
+			return mode == auth.AddonModeNamedUser && a.Mode == auth.AddonModeNamedUser
+		}
+		if mode == auth.AddonModeLocalOwner {
+			return a.CredentialID == auth.AddonLocalOwnerID
+		}
+		id, ok := strings.CutPrefix(a.CredentialID, "session:")
+		return ok && id != ""
+	}
+}
+
 func (a *Application) startAddonGateway() error {
 	cfg := a.applicationConfig.Addons
 	if cfg.Transport == nil {
@@ -290,6 +307,10 @@ func (a *Application) startAddonGateway() error {
 		exists = a.addonBackingExists(contract.DefaultLimits())
 	}
 	brokerOpts.BackingExists = exists
+	// Enabling an add-on for a chat or an agent is the consent to its changes,
+	// so the chats' own credential may confirm what the chats adapter has just
+	// stored. No request carries it: sessions and API keys build their own.
+	brokerOpts.ConfirmCredential = confirmCredential(mode)
 	// A deletion trusts only an explicit answer of the add-on.
 	confirmed := a.addonResourceExists
 	if confirmed == nil {
@@ -559,7 +580,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 		if err != nil {
 			continue
 		}
-		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind == contract.ToolKindAction})
+		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead})
 	}
 	return out, nil
 }
@@ -576,8 +597,10 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 	return studioAddonText(res), nil
 }
 
-// studioAddonText is what the model reads for a result. A change an add-on
-// proposes is not applied, and the text says who can apply it.
+// studioAddonText is what the model reads for a result. A change the chat made
+// comes as an "applied" document whose note says what was done and that it
+// cannot be undone. A change that stays a proposal (the owner could not apply
+// it) is not applied, and the text says who can apply it.
 func studioAddonText(res addontools.ToolResult) string {
 	if res.Kind == addontools.ResultProposal && res.Proposal != nil {
 		return fmt.Sprintf("The add-on %s proposed a change (%s, proposal %s). Nothing has been changed. "+

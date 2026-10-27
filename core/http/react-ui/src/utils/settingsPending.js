@@ -126,8 +126,8 @@ export function runChecks(changes, initial, draft) {
   if (csrf && !csrf.to) {
     checks.push({ level: 'warn', text: 'With CSRF protection off, forged cross-site browser requests are not blocked.' })
   }
-  const engine = String(draft.agent_pool_vector_engine || 'chromem')
-  if (engine === 'postgres' && (changed('agent_pool_vector_engine') || changed('agent_pool_database_url')) && !String(draft.agent_pool_database_url || '').trim()) {
+  const engine = String(draft.collections_vector_engine || 'chromem')
+  if (engine === 'postgres' && (changed('collections_vector_engine') || changed('collections_database_url')) && !String(draft.collections_database_url || '').trim()) {
     checks.push({ level: 'warn', text: 'The postgres vector engine needs a database URL.' })
   }
   if (changed('api_keys')) {

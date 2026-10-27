@@ -155,17 +155,20 @@ type RunCMD struct {
 	RemovedAgentOptions `embed:""`
 
 	// Collections (the knowledge base)
-	DisableAgents             bool   `env:"LOCALAI_DISABLE_AGENTS" default:"false" help:"Disable the collections service (the knowledge base API under /api/agents/collections)" group:"agents"`
-	AgentPoolAPIURL           string `env:"LOCALAI_AGENT_POOL_API_URL" help:"API URL the collections service uses for embeddings (defaults to self-referencing LocalAI)" group:"agents"`
-	AgentPoolAPIKey           string `env:"LOCALAI_AGENT_POOL_API_KEY" help:"API key the collections service uses for embeddings (defaults to first LocalAI API key)" group:"agents"`
-	AgentPoolDefaultModel     string `env:"LOCALAI_AGENT_POOL_DEFAULT_MODEL" help:"Default model of the collections service" group:"agents"`
-	AgentPoolStateDir         string `env:"LOCALAI_AGENT_POOL_STATE_DIR" help:"State directory for agent pool" group:"agents"`
-	AgentPoolVectorEngine     string `env:"LOCALAI_AGENT_POOL_VECTOR_ENGINE" default:"chromem" help:"Vector engine type for agent knowledge base" group:"agents"`
-	AgentPoolEmbeddingModel   string `env:"LOCALAI_AGENT_POOL_EMBEDDING_MODEL" default:"granite-embedding-107m-multilingual" help:"Embedding model for agent knowledge base" group:"agents"`
-	AgentPoolDatabaseURL      string `env:"LOCALAI_AGENT_POOL_DATABASE_URL" help:"Database URL for agent collections" group:"agents"`
-	AgentPoolMaxChunkingSize  int    `env:"LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE" default:"400" help:"Maximum chunking size for knowledge base documents" group:"agents"`
-	AgentPoolChunkOverlap     int    `env:"LOCALAI_AGENT_POOL_CHUNK_OVERLAP" default:"0" help:"Chunk overlap size for knowledge base documents" group:"agents"`
-	AgentPoolCollectionDBPath string `env:"LOCALAI_AGENT_POOL_COLLECTION_DB_PATH" help:"Database path for agent collections" group:"agents"`
+	DisableCollections         bool   `env:"LOCALAI_DISABLE_COLLECTIONS" default:"false" help:"Disable the collections service (the knowledge base API under /api/collections)" group:"collections"`
+	CollectionsAPIURL          string `env:"LOCALAI_COLLECTIONS_API_URL" help:"API URL the collections service uses for embeddings (defaults to self-referencing LocalAI)" group:"collections"`
+	CollectionsAPIKey          string `env:"LOCALAI_COLLECTIONS_API_KEY" help:"API key the collections service uses for embeddings (defaults to first LocalAI API key)" group:"collections"`
+	CollectionsDefaultModel    string `env:"LOCALAI_COLLECTIONS_DEFAULT_MODEL" help:"Default model of the collections service" group:"collections"`
+	CollectionsStateDir        string `env:"LOCALAI_COLLECTIONS_STATE_DIR" help:"State directory of the collections" group:"collections"`
+	CollectionsVectorEngine    string `env:"LOCALAI_COLLECTIONS_VECTOR_ENGINE" help:"Vector engine of the collections: chromem or postgres (default chromem)" group:"collections"`
+	CollectionsEmbeddingModel  string `env:"LOCALAI_COLLECTIONS_EMBEDDING_MODEL" help:"Embedding model of the collections (default granite-embedding-107m-multilingual)" group:"collections"`
+	CollectionsDatabaseURL     string `env:"LOCALAI_COLLECTIONS_DATABASE_URL" help:"Database URL of the collections, for the postgres vector engine" group:"collections"`
+	CollectionsMaxChunkingSize int    `env:"LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE" help:"Maximum chunking size for collection documents (default 400)" group:"collections"`
+	CollectionsChunkOverlap    int    `env:"LOCALAI_COLLECTIONS_CHUNK_OVERLAP" help:"Chunk overlap size for collection documents (default 0)" group:"collections"`
+	CollectionsDBPath          string `env:"LOCALAI_COLLECTIONS_DB_PATH" help:"Where the vector engine of the collections keeps its data" group:"collections"`
+
+	// Old names of the collections options: accepted, used when the new name is not set.
+	LegacyCollectionsOptions `embed:""`
 
 	// Authentication
 	AuthEnabled          bool   `env:"LOCALAI_AUTH" default:"false" help:"Enable user authentication and authorization" group:"auth"`
@@ -267,6 +270,7 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
 	r.RemovedAgentOptions.warn()
+	r.resolveLegacyCollections()
 
 	if r.Version {
 		fmt.Println(internal.Version)
@@ -601,18 +605,18 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		opts = append(opts, config.DisableMCP)
 	}
 
-	// Agent Pool
-	if r.DisableAgents {
-		opts = append(opts, config.DisableAgentPool)
+	// Collections
+	if r.DisableCollections {
+		opts = append(opts, config.DisableCollections)
 	}
-	if r.AgentPoolAPIURL != "" {
-		opts = append(opts, config.WithAgentPoolAPIURL(r.AgentPoolAPIURL))
+	if r.CollectionsAPIURL != "" {
+		opts = append(opts, config.WithCollectionsAPIURL(r.CollectionsAPIURL))
 	}
-	if r.AgentPoolAPIKey != "" {
-		opts = append(opts, config.WithAgentPoolAPIKey(r.AgentPoolAPIKey))
+	if r.CollectionsAPIKey != "" {
+		opts = append(opts, config.WithCollectionsAPIKey(r.CollectionsAPIKey))
 	}
-	if r.AgentPoolDefaultModel != "" {
-		opts = append(opts, config.WithAgentPoolDefaultModel(r.AgentPoolDefaultModel))
+	if r.CollectionsDefaultModel != "" {
+		opts = append(opts, config.WithCollectionsDefaultModel(r.CollectionsDefaultModel))
 	}
 	if r.LegacyNavigation {
 		opts = append(opts, config.WithLegacyNavigation(true))
@@ -620,26 +624,26 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if r.DisableLocalAIAssistant {
 		opts = append(opts, config.WithDisableLocalAIAssistant(true))
 	}
-	if r.AgentPoolStateDir != "" {
-		opts = append(opts, config.WithAgentPoolStateDir(r.AgentPoolStateDir))
+	if r.CollectionsStateDir != "" {
+		opts = append(opts, config.WithCollectionsStateDir(r.CollectionsStateDir))
 	}
-	if r.AgentPoolVectorEngine != "" {
-		opts = append(opts, config.WithAgentPoolVectorEngine(r.AgentPoolVectorEngine))
+	if r.CollectionsVectorEngine != "" {
+		opts = append(opts, config.WithCollectionsVectorEngine(r.CollectionsVectorEngine))
 	}
-	if r.AgentPoolEmbeddingModel != "" {
-		opts = append(opts, config.WithAgentPoolEmbeddingModel(r.AgentPoolEmbeddingModel))
+	if r.CollectionsEmbeddingModel != "" {
+		opts = append(opts, config.WithCollectionsEmbeddingModel(r.CollectionsEmbeddingModel))
 	}
-	if r.AgentPoolDatabaseURL != "" {
-		opts = append(opts, config.WithAgentPoolDatabaseURL(r.AgentPoolDatabaseURL))
+	if r.CollectionsDatabaseURL != "" {
+		opts = append(opts, config.WithCollectionsDatabaseURL(r.CollectionsDatabaseURL))
 	}
-	if r.AgentPoolMaxChunkingSize > 0 {
-		opts = append(opts, config.WithAgentPoolMaxChunkingSize(r.AgentPoolMaxChunkingSize))
+	if r.CollectionsMaxChunkingSize > 0 {
+		opts = append(opts, config.WithCollectionsMaxChunkingSize(r.CollectionsMaxChunkingSize))
 	}
-	if r.AgentPoolChunkOverlap > 0 {
-		opts = append(opts, config.WithAgentPoolChunkOverlap(r.AgentPoolChunkOverlap))
+	if r.CollectionsChunkOverlap > 0 {
+		opts = append(opts, config.WithCollectionsChunkOverlap(r.CollectionsChunkOverlap))
 	}
-	if r.AgentPoolCollectionDBPath != "" {
-		opts = append(opts, config.WithAgentPoolCollectionDBPath(r.AgentPoolCollectionDBPath))
+	if r.CollectionsDBPath != "" {
+		opts = append(opts, config.WithCollectionsCollectionDBPath(r.CollectionsDBPath))
 	}
 
 	// Authentication
@@ -945,7 +949,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 			// The conversion of the old data needs the collections to grant them
 			// to the agents it converts, so it runs here and not at the start.
 			// Without the collections it has run already.
-			if app.ApplicationConfig().AgentPool.Enabled {
+			if app.ApplicationConfig().Collections.Enabled {
 				app.ConvertStudioData()
 			}
 		}

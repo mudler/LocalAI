@@ -305,6 +305,25 @@ test.describe('Chat skills panel', () => {
   })
 })
 
+test.describe('Chat add-on changes', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+
+  test('says what a change tool did and that it cannot be undone, with no Confirm or Cancel', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    const applied = '{"kind":"applied","tool":"addon__tables__rows-insert","applied":{"id":"o1","addonId":"tables","action":"write","count":2,"undoable":false},"note":"n"}'
+    await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: [
+      { seq: 1, turn: 1, role: 'user', text: 'add two rows', at: '2026-10-25T10:00:00Z' },
+      { seq: 2, turn: 1, role: 'tool', text: `addon__tables__rows-insert: {"table":"t"}\n${applied}`, at: '2026-10-25T10:00:01Z' },
+    ] } }))
+    await page.goto('/app/chats/c1')
+
+    await expect(page.getByText('Changed tables: 2 applied.')).toBeVisible()
+    await expect(page.getByText('This cannot be undone.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Confirm' })).toHaveCount(0)
+  })
+})
+
 test.describe('Chat add-ons panel', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 

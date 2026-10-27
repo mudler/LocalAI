@@ -164,6 +164,26 @@ func Run(t *testing.T, newStore New) {
 		}
 	})
 
+	t.Run("the assistant flag round-trips and survives UpdateChat", func(t *testing.T) {
+		s := newStore(t)
+		rec := session.ChatRecord{ID: "as1", Principal: "alice", Title: "Assistant", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3", Assistant: true}
+		if err := s.CreateChat(ctx(t), rec); err != nil {
+			t.Fatal(err)
+		}
+		stale := rec
+		stale.Assistant, stale.Title, stale.Updated = false, "Renamed", t0.Add(time.Minute)
+		if err := s.UpdateChat(ctx(t), stale); err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.GetChat(ctx(t), "alice", "as1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !got.Assistant || got.Title != "Renamed" {
+			t.Fatalf("got %+v", got)
+		}
+	})
+
 	t.Run("pending messages are taken once, in send order", func(t *testing.T) {
 		s := newStore(t)
 		chat(t, s, "c1", "alice")

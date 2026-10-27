@@ -1,6 +1,6 @@
 // Package collections serves the knowledge-base collections of the server: one
-// set for each user, kept on disk or in PostgreSQL by the LocalAGI collections
-// backend. The chats search them, and /api/agents/collections manages them.
+// set for each user, kept on disk or in PostgreSQL by the collections
+// backend. The chats search them, and /api/collections manages them.
 package collections
 
 import (
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	lagi "github.com/mudler/LocalAGI/webui/collections"
+	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -40,7 +40,7 @@ type Service struct {
 // PostgreSQL vector engine). The embedding calls go to the server's own API, so
 // the caller starts the service after the API is listening.
 func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster) (*Service, error) {
-	cfg := appConfig.AgentPool
+	cfg := appConfig.Collections
 	stateDir := cmp.Or(cfg.StateDir, appConfig.DataPath, appConfig.DynamicConfigsDir, "agents")
 	if err := os.MkdirAll(stateDir, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create the collections state dir: %w", err)
@@ -73,7 +73,7 @@ func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster) (*Servi
 }
 
 func (s *Service) config(collectionDBPath, fileAssets string) *lagi.Config {
-	cfg := s.appConfig.AgentPool
+	cfg := s.appConfig.Collections
 	return &lagi.Config{
 		LLMAPIURL: s.apiURL, LLMAPIKey: s.apiKey, LLMModel: cfg.DefaultModel,
 		CollectionDBPath: collectionDBPath, FileAssets: fileAssets,

@@ -283,8 +283,8 @@ type ApplicationConfig struct {
 
 	PathWithoutAuth []string
 
-	// Agent Pool (LocalAGI integration)
-	AgentPool AgentPoolConfig
+	// Collections (the knowledge base)
+	Collections CollectionsConfig
 
 	// ChatsVisionModel and ChatsTranscriptionModel are the models the chats'
 	// media tools use to describe images and transcribe audio. Empty: the first
@@ -354,9 +354,9 @@ type AuthConfig struct {
 	DefaultAPIKeyExpiry string // default expiry duration for API keys (e.g. "90d"); empty = no expiry
 }
 
-// AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
-type AgentPoolConfig struct {
-	Enabled          bool   // default: true (disabled by LOCALAI_DISABLE_AGENTS=true)
+// CollectionsConfig holds the configuration of the collections service.
+type CollectionsConfig struct {
+	Enabled          bool   // default: true (disabled by LOCALAI_DISABLE_COLLECTIONS=true)
 	StateDir         string // default: DynamicConfigsDir (LocalAI configuration folder)
 	APIURL           string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
 	APIKey           string // default: first API key from LocalAI config
@@ -409,7 +409,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		MaxConcurrentBackendRequests: DefaultMaxConcurrentBackendRequests,
 		TracingMaxItems:              1024,
 		TracingMaxBodyBytes:          64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
-		AgentPool: AgentPoolConfig{
+		Collections: CollectionsConfig{
 			Enabled:         true,
 			VectorEngine:    "chromem",
 			EmbeddingModel:  "granite-embedding-107m-multilingual",
@@ -1065,67 +1065,67 @@ func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
 
 // Agent Pool options
 
-var DisableAgentPool = func(o *ApplicationConfig) {
-	o.AgentPool.Enabled = false
+var DisableCollections = func(o *ApplicationConfig) {
+	o.Collections.Enabled = false
 }
 
-func WithAgentPoolAPIURL(url string) AppOption {
+func WithCollectionsAPIURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.APIURL = url
+		o.Collections.APIURL = url
 	}
 }
 
-func WithAgentPoolAPIKey(key string) AppOption {
+func WithCollectionsAPIKey(key string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.APIKey = key
+		o.Collections.APIKey = key
 	}
 }
 
-func WithAgentPoolDefaultModel(model string) AppOption {
+func WithCollectionsDefaultModel(model string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.DefaultModel = model
+		o.Collections.DefaultModel = model
 	}
 }
 
-func WithAgentPoolStateDir(dir string) AppOption {
+func WithCollectionsStateDir(dir string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.StateDir = dir
+		o.Collections.StateDir = dir
 	}
 }
 
-func WithAgentPoolVectorEngine(engine string) AppOption {
+func WithCollectionsVectorEngine(engine string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.VectorEngine = engine
+		o.Collections.VectorEngine = engine
 	}
 }
 
-func WithAgentPoolEmbeddingModel(model string) AppOption {
+func WithCollectionsEmbeddingModel(model string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.EmbeddingModel = model
+		o.Collections.EmbeddingModel = model
 	}
 }
 
-func WithAgentPoolDatabaseURL(url string) AppOption {
+func WithCollectionsDatabaseURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.DatabaseURL = url
+		o.Collections.DatabaseURL = url
 	}
 }
 
-func WithAgentPoolMaxChunkingSize(size int) AppOption {
+func WithCollectionsMaxChunkingSize(size int) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.MaxChunkingSize = size
+		o.Collections.MaxChunkingSize = size
 	}
 }
 
-func WithAgentPoolChunkOverlap(overlap int) AppOption {
+func WithCollectionsChunkOverlap(overlap int) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.ChunkOverlap = overlap
+		o.Collections.ChunkOverlap = overlap
 	}
 }
 
-func WithAgentPoolCollectionDBPath(path string) AppOption {
+func WithCollectionsCollectionDBPath(path string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.CollectionDBPath = path
+		o.Collections.CollectionDBPath = path
 	}
 }
 

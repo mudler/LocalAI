@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	lagi "github.com/mudler/LocalAGI/webui/collections"
+	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/localrecall/rag"
 	"github.com/mudler/localrecall/rag/sources"

@@ -88,6 +88,7 @@ func (a *Application) initStudioService() {
 		Notify:        inbox,
 		Push:          pusher,
 		AddonTools:    lateStudioAddons{a},
+		Assistant:     studioAssistant{a},
 		Collections:   studioCollections{a},
 		ContextTokens: a.studioContextTokens,
 		Persistent:    a.studioStoreKind != "memory",

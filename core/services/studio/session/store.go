@@ -67,6 +67,9 @@ type ChatRecord struct {
 	AgentID  string
 	Origin   string
 	OriginID string
+	// Assistant marks a chat that has the LocalAI management tools. It is set
+	// by CreateChat and does not change.
+	Assistant bool
 }
 
 // Chat origins.

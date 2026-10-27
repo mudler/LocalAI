@@ -113,7 +113,7 @@ test('checks: durations, budgets and JSON can block; restart and cautions warn',
   let draft = setValue(FIELD_BY_KEY.watchdog_idle_timeout, initial, 'soon')
   draft = setValue(FIELD_BY_KEY.vram_budget, draft, '150%')
   draft = setValue(FIELD_BY_KEY.galleries, draft, '{not json')
-  draft = setValue(FIELD_BY_KEY.agent_pool_chunk_overlap, draft, 10)
+  draft = setValue(FIELD_BY_KEY.collections_chunk_overlap, draft, 10)
   draft = setValue(FIELD_BY_KEY.force_eviction_when_busy, draft, true)
   const checks = runChecks(pendingChanges(initial, draft), initial, draft)
   assert.ok(hasBlockingCheck(checks))

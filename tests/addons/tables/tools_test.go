@@ -72,6 +72,46 @@ var _ = Describe("Tables tools under the real owner", Label("application"), func
 		Expect(gateway.StatusFor(e)).To(Equal(403))
 	})
 
+	It("applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key", func() {
+		h := newHost()
+		lib := h.library()
+		h.start()
+		DeferCleanup(h.stop)
+		h.seed(lib)
+		chat := h.app.StudioAddonTools()
+		Expect(chat).NotTo(BeNil())
+		ctx := context.Background()
+
+		text, e := chat.Call(ctx, "alice", "conv1", "addon__tables__databases-create", json.RawMessage(`{"name":"Chat ledger"}`))
+		Expect(e).NotTo(HaveOccurred())
+		var made tools.ToolResult
+		Expect(json.Unmarshal([]byte(text), &made)).To(Succeed(), text)
+		Expect(made.Kind).To(Equal(tools.ResultApplied), text)
+		Expect(made.Applied.ResourceID).NotTo(BeEmpty())
+		Expect(made.Applied.Undoable).To(BeFalse())
+		Expect(made.Note).To(ContainSubstring("cannot be undone"))
+		// The data exists for its owner and nothing waits for a browser.
+		Expect(accessibleTo(h, "alice")).To(ContainElement(made.Applied.ResourceID))
+		Expect(h.pending("alice")).To(BeEmpty())
+		res := made.Applied.ResourceID
+		for _, step := range []struct{ tool, body string }{
+			{"tables-create", fmt.Sprintf(`{"resourceId":%q,"table":"Entries"}`, res)},
+			{"columns-add", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","column":"Memo","type":"text"}`, res)},
+			{"rows-insert", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","rows":[{"Memo":"rent"}]}`, res)},
+		} {
+			out, e := chat.Call(ctx, "alice", "conv1", "addon__tables__"+step.tool, json.RawMessage(step.body))
+			Expect(e).NotTo(HaveOccurred(), step.tool)
+			Expect(out).To(ContainSubstring(`"kind":"applied"`), out)
+		}
+		Expect(h.pending("alice")).To(BeEmpty())
+
+		// The same tool through an API key is still a proposal that no tool can confirm.
+		kept, e := h.callTool("alice", "addon__tables__rows-insert", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","rows":[{"Memo":"food"}]}`, res))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(kept.Kind).To(Equal(tools.ResultProposal))
+		Expect(h.pending("alice")).To(HaveLen(1))
+	})
+
 	It("stores every change as a pending proposal and applies it only on the proposer's own session, exactly once", func() {
 		h := newHost()
 		lib := h.library()

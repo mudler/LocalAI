@@ -9,6 +9,7 @@ import ModelSelector from '../components/ModelSelector'
 import { useInbox } from '../hooks/useInbox'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useServerChat } from '../hooks/useServerChat'
+import { addonChange } from '../utils/addonChange'
 import { chatAddonsApi, chatAgentsApi, chatSkillsApi } from '../utils/api'
 import './chats.css'
 import './chatauto.css'
@@ -133,11 +134,28 @@ function Transcript({ messages, t }) {
       return (
         <div key={m.seq} className="ch-tools">
           <div className="ch-tool"><span>{firstLine(m.text)}</span></div>
+          <ChangeNote text={m.text} t={t} />
         </div>
       )
     }
     return null // checkpoints are for the sandbox's undo, not for reading
   })
+}
+
+// What a change tool of an add-on did, under its tool entry. The add-on's switch
+// for the chat is the consent, so a change is made at once and there is no
+// Confirm: the line says what was done and whether it can be undone.
+function ChangeNote({ text, t }) {
+  const c = addonChange(text)
+  if (!c) return null
+  if (c.kind === 'proposed') return <div className="ch-tool__change">{t('tool.waiting', { addon: c.addonId })}</div>
+  return (
+    <div className="ch-tool__change">
+      {c.count > 0 ? t('tool.applied', { addon: c.addonId, count: c.count }) : t('tool.appliedNone', { addon: c.addonId })}
+      {' '}
+      {c.undoable ? t('tool.undoable') : t('tool.notUndoable')}
+    </div>
+  )
 }
 
 function LiveTurn({ live, t }) {

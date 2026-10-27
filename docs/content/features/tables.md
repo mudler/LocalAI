@@ -106,8 +106,15 @@ LocalAI sends it. LocalAI lists the databases a person may see from its own
 resource records, so a listing can never show a database the person has no
 grant for.
 
-Changes made from chat are proposals: the model asks, LocalAI previews the
-change, and a person confirms it in the host confirmation card. A rename uses
+In the chats (`/api/chats`), the agents and the triggers, a change made with
+these tools is applied at once: turning Tables on for the chat or the agent is
+the consent. LocalAI still previews the change, checks the person's role and the
+revision the model read, and records the receipt, so a stale change is refused
+and a repeated operation applies once. A Tables change cannot be undone, and the
+tool result tells the model so. On every other surface (the OpenAI-compatible
+API, MCP, an API key), a change made from chat is a proposal: the model asks,
+LocalAI previews the change, and a person confirms it in the host confirmation
+card. A rename uses
 the standard proposal path. Creating a database from chat is a proposal too
 (`databases-create` with a `name`, no resource ID). LocalAI reserves a pending
 resource for the person who asked, shows the requested name in the card, and
@@ -168,10 +175,22 @@ it has no grant for: the same denial answers every tool.
 | Schema change (`tables-*`, `columns-*`, `databases-rename`) | `schema` proposal | the same proposal reference |
 | Creation (`databases-create`) | `create` proposal | the same, with the reserved resource ID |
 
-A tool call never applies a change. It stores a proposal that only the
-proposer's own browser session can confirm. The tool adapter has no confirm,
-cancel or resolve operation, and no tool of any consumer maps to those routes.
-The model is told that nothing changed and that a person must confirm.
+On the OpenAI-compatible API and every other consumer, a tool call never
+applies a change. It stores a proposal that only the proposer's own browser
+session can confirm. The tool adapter has no confirm, cancel or resolve
+operation, and no tool of any consumer maps to those routes. The model is told
+that nothing changed and that a person must confirm.
+
+The chats are the one exception. Their adapter stores the proposal and confirms
+it in the same call, for the signed-in owner of the chat, with the credential of
+a chat turn. No HTTP request can carry that credential, so a key, an MCP session
+or a browser tab cannot use it. The result is
+`{"kind":"applied","applied":{id,addonId,resourceId,action,count,undoable:false},"note":...}`,
+and the note tells the model to say plainly what changed and that it cannot be
+undone. A call the add-on refuses or finds stale leaves nothing waiting: the
+proposal is withdrawn and the model gets the error. A call whose outcome is not
+known is not repeated and not withdrawn: it is reported, and the operation ID
+resolves it.
 
 These names do not exist and are refused with a typed error: `confirm`,
 `approve`, `apply_proposal`, `yes`, any sharing, grant, database deletion or
@@ -183,7 +202,8 @@ refused as well.
 
 ### The approval card
 
-When a tool answers with a proposal, the chat draws the host's card inline.
+Where a tool answers with a proposal (not in the chats, which apply the change
+at once), the host's card is drawn inline.
 The card loads the stored proposal from the host by its ID. It shows the
 add-on, the database (the requested name for a creation), the operation, the
 exact count of effects, a bounded sample, the expiry and the state. The words
@@ -224,6 +244,7 @@ filtered there.
 | `legacy-mcp-chat` | reject | `POST /v1/mcp/chat/completions` passes no broker, so `addon_tools` gets the same typed answer. |
 | `mcp-discovery-endpoints` | reject | Listing of servers, prompts and resources. They execute no tool. |
 | `studio-chats-mcp` | reject | The MCP tools of a chat on the server-side chat loop, from the shared sessions of the chat's model. The executor and the chat's bridge both drop the namespace. |
+| `studio-chats-assistant` | reject | The LocalAI Assistant tools of an assistant chat, for an administrator while the setting is on. They are the instance management tools, not add-on tools. |
 | `studio-chats-addons` | route | The add-on tools of a chat, action tools included. The chat's user is the actor, with the credential of a chat turn; the account and the add-ons feature are checked again on every call. |
 | `distributed-agent-worker` | reject | Workers that execute MCP tools for a frontend. The tool and discovery calls refuse the namespace, and the frontend refuses it before the request is sent. |
 

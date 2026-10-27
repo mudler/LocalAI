@@ -1,4 +1,4 @@
-// Not read by any page yet: the chats will use it for add-on proposals. The unit tests keep covering it.
+// Not read by the chats page: a chat change is made at once (see utils/addonChange.js), so no proposal card is drawn there. The unit tests keep covering it.
 // What the chat takes from the result of an add-on tool. The result is a JSON
 // document the host broker wrote (see core/services/addons/tools); a proposal
 // result only ever contributes its identifier. The approval card loads

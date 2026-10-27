@@ -85,6 +85,9 @@ type Deps struct {
 	// AddonTools supplies the tools of the installed add-ons the user may use.
 	// Nil: a chat has none.
 	AddonTools AddonTools
+	// Assistant gives a chat the tools that manage this instance. Nil: no
+	// assistant chat can start.
+	Assistant Assistant
 	// Collections is the knowledge base a chat can search. Nil: no collection
 	// tools.
 	Collections Collections
@@ -117,6 +120,10 @@ type CreateInput struct {
 	// AgentID is a saved agent of the user. The agent narrows the chat's tools
 	// and adds its instructions; its model, when it has one, replaces Model.
 	AgentID string
+	// Assistant starts a chat with the LocalAI management tools. Only an
+	// administrator may, and only while the assistant is on. It cannot be
+	// combined with AgentID.
+	Assistant bool
 }
 
 // Origin says what started a conversation when a person did not.
@@ -296,6 +303,17 @@ func (s *Service) Create(ctx context.Context, user string, in CreateInput) (sess
 // the user's own.
 func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
 	model := in.Model
+	if in.Assistant {
+		if in.AgentID != "" {
+			return session.ChatRecord{}, ErrAssistantAgent
+		}
+		if origin.Kind != "" {
+			return session.ChatRecord{}, ErrAssistantForbidden
+		}
+		if err := s.assistantAllowed(ctx, user); err != nil {
+			return session.ChatRecord{}, err
+		}
+	}
 	if in.AgentID != "" {
 		if s.d.Agents == nil {
 			return session.ChatRecord{}, ErrAgentsOff
@@ -317,7 +335,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	}
 	now := time.Now().UTC()
 	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
-		AgentID: in.AgentID, Origin: origin.Kind, OriginID: origin.ID}
+		AgentID: in.AgentID, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		return session.ChatRecord{}, err
 	}

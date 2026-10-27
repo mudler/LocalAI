@@ -11,7 +11,7 @@ import (
 // RegisterCollectionsRoutes registers the knowledge-base collections API. It
 // does nothing when the feature is off.
 func RegisterCollectionsRoutes(e *echo.Echo, app *application.Application, collectionsMw echo.MiddlewareFunc) {
-	if !app.ApplicationConfig().AgentPool.Enabled {
+	if !app.ApplicationConfig().Collections.Enabled {
 		return
 	}
 
@@ -27,8 +27,26 @@ func RegisterCollectionsRoutes(e *echo.Echo, app *application.Application, colle
 		}
 	}
 
-	// Collections / Knowledge Base — require "collections" feature
-	cg := e.Group("/api/agents/collections", readyMw, collectionsMw)
+	// Collections / Knowledge Base: require the "collections" feature. The
+	// canonical path is /api/collections; /api/agents/collections is the old
+	// path, kept as a deprecated alias with the same handlers and middleware.
+	deprecatedMw := func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			h := c.Response().Header()
+			h.Set("Deprecation", "true")
+			h.Set("Link", `</api/collections>; rel="successor-version"`)
+			return next(c)
+		}
+	}
+	for _, g := range []*echo.Group{
+		e.Group("/api/collections", readyMw, collectionsMw),
+		e.Group("/api/agents/collections", deprecatedMw, readyMw, collectionsMw),
+	} {
+		registerCollectionsEndpoints(g, app)
+	}
+}
+
+func registerCollectionsEndpoints(cg *echo.Group, app *application.Application) {
 	cg.GET("", localai.ListCollectionsEndpoint(app))
 	cg.POST("", localai.CreateCollectionEndpoint(app))
 	cg.POST("/:name/upload", localai.UploadToCollectionEndpoint(app))

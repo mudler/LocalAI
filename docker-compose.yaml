@@ -23,10 +23,10 @@ services:
       - LOCALAI_VRAM_WARM_LIMIT=0
     #  - DEBUG=true
     ## Collections (the knowledge base) - https://localai.io/features/collections/
-    #  - LOCALAI_DISABLE_AGENTS=false
+    #  - LOCALAI_DISABLE_COLLECTIONS=false
     ## Uncomment to use PostgreSQL for the knowledge base (requires the postgres service below)
-    #  - LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres
-    #  - LOCALAI_AGENT_POOL_DATABASE_URL=postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
+    #  - LOCALAI_COLLECTIONS_VECTOR_ENGINE=postgres
+    #  - LOCALAI_COLLECTIONS_DATABASE_URL=postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
     volumes:
       - models:/models
       - images:/tmp/generated/images/

@@ -22,7 +22,7 @@ The groups reorganise the fields the page used to show under fifteen sections. T
 | Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists | Backend Management, Galleries |
 | Access and security | CORS and allowed origins, CSRF protection, shared API keys | API & CORS, API Keys |
 | Debugging and traces | Verbose debug logging, API traces and their limits, backend logging | Performance, Tracing |
-| Agents and responses | Agent job history, the agent pool, the LocalAI Assistant, the response store TTL | Agent Jobs, Agent Pool, LocalAI Assistant, Open Responses |
+| Agents and responses | Agent job history, the agent pool, the LocalAI Assistant (the switch for the admin assistant chat that starts from Home; see [LocalAI Assistant]({{% relref "features/localai-assistant" %}})), the response store TTL | Agent Jobs, Agent Pool, LocalAI Assistant, Open Responses |
 | Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check | P2P Network, Distributed |
 | Look and feel | Instance name, tagline, the three logos | Branding |
 

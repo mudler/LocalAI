@@ -53,7 +53,12 @@
   },
   "tool": {
     "running": "Running",
-    "failed": "Failed"
+    "failed": "Failed",
+    "applied": "Changed {{addon}}: {{count}} applied.",
+    "appliedNone": "Changed {{addon}}.",
+    "notUndoable": "This cannot be undone.",
+    "undoable": "This can be undone in the add-on.",
+    "waiting": "{{addon}} left this change waiting; it was not applied."
   },
   "reasoning": "Thought",
   "notes": {

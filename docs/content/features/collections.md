@@ -11,13 +11,13 @@ stores as embeddings. You can search a collection by meaning. A
 and a [chat](/features/chats/) with that agent gets the tools `list_collections`
 and `search_collection`.
 
-Collections are on by default. To turn them off, set `LOCALAI_DISABLE_AGENTS=true`.
+Collections are on by default. To turn them off, set `LOCALAI_DISABLE_COLLECTIONS=true`.
 The name of this variable is old: it now turns off the collections only.
 
 ## How it works
 
 1. You create a collection and upload files to it, or you add a URL as a source.
-2. LocalAI splits each document into chunks no larger than `LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE`.
+2. LocalAI splits each document into chunks no larger than `LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE`.
 3. It calls the embedding model to turn each chunk into a vector, and stores the vectors in the vector engine.
 4. A search embeds the query and returns the closest chunks.
 
@@ -32,7 +32,7 @@ model must be installed. The default is `granite-embedding-107m-multilingual`.
 
 ## API
 
-All paths are under `/api/agents/collections`. While the service starts, every
+All paths are under `/api/collections`. While the service starts, every
 path answers `503` with `collections are starting, please retry shortly`.
 When collections are off, the paths do not exist.
 
@@ -54,10 +54,10 @@ When collections are off, the paths do not exist.
 Example:
 
 ```bash
-curl -X POST http://localhost:8080/api/agents/collections \
+curl -X POST http://localhost:8080/api/collections \
   -H "Content-Type: application/json" -d '{"name": "docs"}'
-curl -X POST http://localhost:8080/api/agents/collections/docs/upload -F file=@manual.pdf
-curl -X POST http://localhost:8080/api/agents/collections/docs/search \
+curl -X POST http://localhost:8080/api/collections/docs/upload -F file=@manual.pdf
+curl -X POST http://localhost:8080/api/collections/docs/search \
   -H "Content-Type: application/json" -d '{"query": "how do I reset the device?", "max_results": 3}'
 ```
 
@@ -84,17 +84,17 @@ Set these as environment variables or flags. Most can also be set in the
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `LOCALAI_DISABLE_AGENTS` | `false` | Turn the collections off. |
-| `LOCALAI_AGENT_POOL_STATE_DIR` | The data path (`LOCALAI_DATA_PATH`), then the configuration folder | Where the collections keep their files. With authentication on, each user has a folder `users/<id>` inside it. |
-| `LOCALAI_AGENT_POOL_COLLECTION_DB_PATH` | `collections` inside the state directory | Where the vector engine keeps its data. |
-| `LOCALAI_AGENT_POOL_VECTOR_ENGINE` | `chromem` | The vector engine: `chromem` (files on disk) or `postgres`. |
-| `LOCALAI_AGENT_POOL_DATABASE_URL` | empty | The PostgreSQL URL. Used with the `postgres` engine. |
-| `LOCALAI_AGENT_POOL_EMBEDDING_MODEL` | `granite-embedding-107m-multilingual` | The model that makes the embeddings. |
-| `LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE` | `400` | The largest size of a chunk. |
-| `LOCALAI_AGENT_POOL_CHUNK_OVERLAP` | `0` | How much neighbouring chunks overlap. |
-| `LOCALAI_AGENT_POOL_API_URL` | The LocalAI API of this server | The API that the embedding calls go to. |
-| `LOCALAI_AGENT_POOL_API_KEY` | The first API key of LocalAI | The key for those calls. |
-| `LOCALAI_AGENT_POOL_DEFAULT_MODEL` | empty | The default model of the collections service. |
+| `LOCALAI_DISABLE_COLLECTIONS` | `false` | Turn the collections off. |
+| `LOCALAI_COLLECTIONS_STATE_DIR` | The data path (`LOCALAI_DATA_PATH`), then the configuration folder | Where the collections keep their files. With authentication on, each user has a folder `users/<id>` inside it. |
+| `LOCALAI_COLLECTIONS_DB_PATH` | `collections` inside the state directory | Where the vector engine keeps its data. |
+| `LOCALAI_COLLECTIONS_VECTOR_ENGINE` | `chromem` | The vector engine: `chromem` (files on disk) or `postgres`. |
+| `LOCALAI_COLLECTIONS_DATABASE_URL` | empty | The PostgreSQL URL. Used with the `postgres` engine. |
+| `LOCALAI_COLLECTIONS_EMBEDDING_MODEL` | `granite-embedding-107m-multilingual` | The model that makes the embeddings. |
+| `LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE` | `400` | The largest size of a chunk. |
+| `LOCALAI_COLLECTIONS_CHUNK_OVERLAP` | `0` | How much neighbouring chunks overlap. |
+| `LOCALAI_COLLECTIONS_API_URL` | The LocalAI API of this server | The API that the embedding calls go to. |
+| `LOCALAI_COLLECTIONS_API_KEY` | The first API key of LocalAI | The key for those calls. |
+| `LOCALAI_COLLECTIONS_DEFAULT_MODEL` | empty | The default model of the collections service. |
 
 ## PostgreSQL vector engine
 
@@ -102,8 +102,8 @@ The default engine keeps the vectors in files on the local disk. To keep them in
 PostgreSQL, use a PostgreSQL database and set:
 
 ```bash
-LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres
-LOCALAI_AGENT_POOL_DATABASE_URL=postgresql://user:password@host:5432/localrecall?sslmode=disable
+LOCALAI_COLLECTIONS_VECTOR_ENGINE=postgres
+LOCALAI_COLLECTIONS_DATABASE_URL=postgresql://user:password@host:5432/localrecall?sslmode=disable
 ```
 
 The `docker-compose.yaml` of the project has a commented example with a

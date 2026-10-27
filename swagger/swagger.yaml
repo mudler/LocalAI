@@ -2605,6 +2605,10 @@ definitions:
           connector for a chat that started by itself, and OriginID names the trigger
           or binding.
         type: string
+      assistant:
+        description: Assistant is true for a chat that has the LocalAI management
+          tools.
+        type: boolean
       created:
         type: string
       id:
@@ -2640,6 +2644,10 @@ definitions:
           connector for a chat that started by itself, and OriginID names the trigger
           or binding.
         type: string
+      assistant:
+        description: Assistant is true for a chat that has the LocalAI management
+          tools.
+        type: boolean
       created:
         type: string
       id:
@@ -2741,6 +2749,12 @@ definitions:
           AgentID starts the chat with one of your saved agents. The agent's model,
           when it has one, replaces Model, which is then optional.
         type: string
+      assistant:
+        description: |-
+          Assistant starts the chat with the LocalAI management tools (install
+          models and backends, change settings). It needs an administrator and the
+          assistant setting on, and it cannot be combined with AgentID.
+        type: boolean
       model:
         description: Model is the model the conversation talks to. It cannot change
           later.

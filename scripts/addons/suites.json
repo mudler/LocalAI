@@ -2293,6 +2293,7 @@
           "declares the schema tools and refuses any schema tool the manifest does not name",
           "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
           "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+          "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
           "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
           "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
           "lists at most the bound of pending proposals and refuses more than the user's quota"
@@ -2387,6 +2388,7 @@
       "declares the schema tools and refuses any schema tool the manifest does not name",
       "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
       "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+      "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
       "lists at most the bound of pending proposals and refuses more than the user's quota"
@@ -2515,6 +2517,7 @@
           "declares the schema tools and refuses any schema tool the manifest does not name",
           "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
           "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+          "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
           "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
           "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
           "lists at most the bound of pending proposals and refuses more than the user's quota"
@@ -2609,6 +2612,7 @@
       "declares the schema tools and refuses any schema tool the manifest does not name",
       "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
       "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+      "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
       "lists at most the bound of pending proposals and refuses more than the user's quota"
@@ -2737,6 +2741,7 @@
           "declares the schema tools and refuses any schema tool the manifest does not name",
           "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
           "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+          "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
           "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
           "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
           "lists at most the bound of pending proposals and refuses more than the user's quota"
@@ -2831,6 +2836,7 @@
       "declares the schema tools and refuses any schema tool the manifest does not name",
       "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
       "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+      "applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
       "lists at most the bound of pending proposals and refuses more than the user's quota"
@@ -2890,6 +2896,7 @@
       "go: serves the real gateway type as its backend",
       "go: lists the caller's own pending proposals the same from the owner and every forwarding frontend",
       "go: offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+      "go: applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key",
       "go: stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "go: keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
       "go: lists at most the bound of pending proposals and refuses more than the user's quota",

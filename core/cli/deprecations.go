@@ -89,3 +89,67 @@ func (o RemovedAgentOptions) warn() { warnRemovedOptions(o.set()) }
 func (o RemovedAgentWorkerOptions) set() []string { return setOptions(o) }
 
 func (o RemovedAgentWorkerOptions) warn() { warnRemovedOptions(o.set()) }
+
+// LegacyCollectionsOptions are the old names of the collections options, from
+// when the collections shared the settings of the agent pool. They are hidden
+// and still work: resolveLegacyCollections copies each one into its new option
+// when the new option is not set.
+type LegacyCollectionsOptions struct {
+	DisableAgents             bool   `env:"LOCALAI_DISABLE_AGENTS" hidden:"" help:"Deprecated: use --disable-collections"`
+	AgentPoolAPIURL           string `env:"LOCALAI_AGENT_POOL_API_URL" hidden:"" help:"Deprecated: use --collections-api-url"`
+	AgentPoolAPIKey           string `env:"LOCALAI_AGENT_POOL_API_KEY" hidden:"" help:"Deprecated: use --collections-api-key"`
+	AgentPoolDefaultModel     string `env:"LOCALAI_AGENT_POOL_DEFAULT_MODEL" hidden:"" help:"Deprecated: use --collections-default-model"`
+	AgentPoolStateDir         string `env:"LOCALAI_AGENT_POOL_STATE_DIR" hidden:"" help:"Deprecated: use --collections-state-dir"`
+	AgentPoolVectorEngine     string `env:"LOCALAI_AGENT_POOL_VECTOR_ENGINE" hidden:"" help:"Deprecated: use --collections-vector-engine"`
+	AgentPoolEmbeddingModel   string `env:"LOCALAI_AGENT_POOL_EMBEDDING_MODEL" hidden:"" help:"Deprecated: use --collections-embedding-model"`
+	AgentPoolDatabaseURL      string `env:"LOCALAI_AGENT_POOL_DATABASE_URL" hidden:"" help:"Deprecated: use --collections-database-url"`
+	AgentPoolMaxChunkingSize  int    `env:"LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE" hidden:"" help:"Deprecated: use --collections-max-chunking-size"`
+	AgentPoolChunkOverlap     int    `env:"LOCALAI_AGENT_POOL_CHUNK_OVERLAP" hidden:"" help:"Deprecated: use --collections-chunk-overlap"`
+	AgentPoolCollectionDBPath string `env:"LOCALAI_AGENT_POOL_COLLECTION_DB_PATH" hidden:"" help:"Deprecated: use --collections-db-path"`
+}
+
+// resolveLegacyCollections applies the old names of the collections options.
+// An old name sets the new option only when the new option is empty, so the new
+// name wins. Each old name that is in use gets one deprecation warning. It
+// returns the old names that were in use.
+func (r *RunCMD) resolveLegacyCollections() []string {
+	var used []string
+	use := func(env, replacement string) {
+		xlog.Warn("Deprecated option used", "old", env, "new", replacement, "message", "please switch to the new name; the old name will be removed in a future release")
+		used = append(used, env)
+	}
+	str := func(old string, dst *string, env, replacement string) {
+		if old == "" {
+			return
+		}
+		use(env, replacement)
+		if *dst == "" {
+			*dst = old
+		}
+	}
+	num := func(old int, dst *int, env, replacement string) {
+		if old == 0 {
+			return
+		}
+		use(env, replacement)
+		if *dst == 0 {
+			*dst = old
+		}
+	}
+	l := r.LegacyCollectionsOptions
+	if l.DisableAgents {
+		use("LOCALAI_DISABLE_AGENTS", "LOCALAI_DISABLE_COLLECTIONS")
+		r.DisableCollections = true
+	}
+	str(l.AgentPoolAPIURL, &r.CollectionsAPIURL, "LOCALAI_AGENT_POOL_API_URL", "LOCALAI_COLLECTIONS_API_URL")
+	str(l.AgentPoolAPIKey, &r.CollectionsAPIKey, "LOCALAI_AGENT_POOL_API_KEY", "LOCALAI_COLLECTIONS_API_KEY")
+	str(l.AgentPoolDefaultModel, &r.CollectionsDefaultModel, "LOCALAI_AGENT_POOL_DEFAULT_MODEL", "LOCALAI_COLLECTIONS_DEFAULT_MODEL")
+	str(l.AgentPoolStateDir, &r.CollectionsStateDir, "LOCALAI_AGENT_POOL_STATE_DIR", "LOCALAI_COLLECTIONS_STATE_DIR")
+	str(l.AgentPoolVectorEngine, &r.CollectionsVectorEngine, "LOCALAI_AGENT_POOL_VECTOR_ENGINE", "LOCALAI_COLLECTIONS_VECTOR_ENGINE")
+	str(l.AgentPoolEmbeddingModel, &r.CollectionsEmbeddingModel, "LOCALAI_AGENT_POOL_EMBEDDING_MODEL", "LOCALAI_COLLECTIONS_EMBEDDING_MODEL")
+	str(l.AgentPoolDatabaseURL, &r.CollectionsDatabaseURL, "LOCALAI_AGENT_POOL_DATABASE_URL", "LOCALAI_COLLECTIONS_DATABASE_URL")
+	num(l.AgentPoolMaxChunkingSize, &r.CollectionsMaxChunkingSize, "LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE", "LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE")
+	num(l.AgentPoolChunkOverlap, &r.CollectionsChunkOverlap, "LOCALAI_AGENT_POOL_CHUNK_OVERLAP", "LOCALAI_COLLECTIONS_CHUNK_OVERLAP")
+	str(l.AgentPoolCollectionDBPath, &r.CollectionsDBPath, "LOCALAI_AGENT_POOL_COLLECTION_DB_PATH", "LOCALAI_COLLECTIONS_DB_PATH")
+	return used
+}

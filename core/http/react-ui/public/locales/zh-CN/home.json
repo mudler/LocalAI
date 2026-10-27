@@ -25,7 +25,10 @@
     "title": "通过聊天管理 LocalAI",
     "description": "通过与 LocalAI 对话来安装模型、切换后端、编辑配置和查看状态。",
     "open": "打开助手",
-    "tooltip": "通过聊天管理 LocalAI"
+    "tooltip": "通过聊天管理 LocalAI",
+    "noModel": "请先选择一个聊天模型。",
+    "startFailed": "无法启动助手聊天：{{message}}",
+    "chatTitle": "LocalAI 助手"
   },
   "input": {
     "placeholder": "消息...",

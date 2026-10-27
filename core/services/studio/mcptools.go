@@ -2,9 +2,7 @@ package studio
 
 import (
 	"context"
-	"encoding/json"
 
-	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -65,37 +63,10 @@ func (s *Service) mcpTools(ctx context.Context, a workspace.Actor, rec session.C
 	if exec == nil || !exec.HasTools() {
 		return nil, missing
 	}
-	fns, err := exec.DiscoverTools(ctx)
+	tools, err := s.toolsOf(ctx, a.ChatID, exec)
 	if err != nil {
 		s.log.Warn("studio: MCP tools unavailable", "chat", a.ChatID, "model", rec.Model, "error", err)
 		return nil, missing
-	}
-	tools := make([]session.Tool, 0, len(fns))
-	for _, fn := range fns {
-		name := fn.Name
-		// The add-on namespace belongs to the broker (see mcpendpoint.IsAddonToolName):
-		// a shared MCP session never offers a tool under it, whatever the
-		// executor does.
-		if mcpendpoint.IsAddonToolName(name) {
-			s.log.Warn("studio: an MCP tool in the reserved add-on namespace was dropped", "tool", name)
-			continue
-		}
-		if reservedToolNames[name] {
-			s.log.Warn("studio: an MCP tool takes the name of a built-in and was dropped", "tool", name)
-			continue
-		}
-		schema := json.RawMessage(`{"type":"object"}`)
-		if fn.Parameters != nil {
-			if raw, err := json.Marshal(fn.Parameters); err == nil {
-				schema = raw
-			}
-		}
-		tools = append(tools, session.Tool{
-			Name: name, Description: fn.Description, Schema: schema,
-			Run: func(ctx context.Context, args json.RawMessage) (string, error) {
-				return exec.ExecuteTool(ctx, name, string(args))
-			},
-		})
 	}
 	return tools, missing
 }

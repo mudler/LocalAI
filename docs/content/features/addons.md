@@ -1674,7 +1674,16 @@ output, on the owner's own frontend and on every forwarding frontend:
 
 Tools reach a model through the same proposals: a chat that sets
 `metadata.addon_tools` can call the tools of enabled addons, and a change a
-tool proposes waits as a pending proposal. `GET /api/addons/proposals?state=pending`
+tool proposes waits as a pending proposal. The chats on the server (`/api/chats`),
+their agents and their triggers are the one exception: turning an add-on on for
+a chat or an agent is the consent, so a change tool is applied at once as the
+chat's user. The chats adapter stores the proposal and confirms it in the same
+call with the credential of a chat turn, so the same admission, revision
+and receipt rules hold, a failed call leaves no pending proposal, and no API
+key, MCP session or browser request can use that credential. The result says
+what was applied and whether it can be undone. No change tool of Tables,
+Fine-tuning or Quantization keeps a change set, so their results say that the
+change cannot be undone. `GET /api/addons/proposals?state=pending`
 lists the caller's own pending proposals (newest first, at most 32). See
 [Tables](../tables/#model-tools-and-approval-cards) for the tool names, the
 approval card and the inventory of tool consumers.
@@ -2495,7 +2504,7 @@ The old links `/app/fine-tune` and `/app/quantize` open the add-on page. Without
 they show the add-on page that says the add-on is not available. The pages call
 `/api/fine-tuning/*` and `/api/quantization/*` with the signed-in user's own session (see
 "Core routes from add-ons"); the core keeps these routes and checks every call again.
-Both add-ons offer chat tools that propose a job and wait for a person to confirm. They
+Both add-ons offer chat tools that start a job. In the chats a tool call starts it at once; on other surfaces it is a proposal that waits for a person to confirm. They
 reach the engine through [Host operations](#host-operations), and a tool can control only
 a job that a tool started. See [Fine-tuning](../fine-tuning/#fine-tuning-is-an-add-on) and
 [Quantization](../quantization/#quantization-is-an-add-on).

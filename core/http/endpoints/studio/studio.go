@@ -106,6 +106,12 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), agents.ErrInvalid.Error()+": "))
 	case errors.Is(err, studiosvc.ErrNotificationsOff):
 		return fail(c, http.StatusConflict, "notifications_off", err.Error())
+	case errors.Is(err, studiosvc.ErrAssistantForbidden):
+		return fail(c, http.StatusForbidden, "authorization_error", "the LocalAI assistant needs an administrator")
+	case errors.Is(err, studiosvc.ErrAssistantOff):
+		return fail(c, http.StatusServiceUnavailable, "assistant_off", "the LocalAI assistant is switched off on this server")
+	case errors.Is(err, studiosvc.ErrAssistantAgent):
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "an assistant chat cannot name a saved agent")
 	case errors.Is(err, studiosvc.ErrAgentsOff):
 		return fail(c, http.StatusConflict, "agents_off", err.Error())
 	default:
@@ -117,7 +123,7 @@ func failFor(c echo.Context, err error) error {
 func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConversation {
 	return schema.ChatsConversation{
 		ID: rec.ID, Title: rec.Title, Model: rec.Model, Kind: rec.Kind, ParentID: rec.ParentID,
-		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID,
+		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
 	}
 }
@@ -141,8 +147,15 @@ func (h *Handlers) Create(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
 	}
+	if req.Assistant {
+		// The service checks the role again from its user lookup; this answer
+		// comes first so a refusal never depends on that lookup being set.
+		if u := auth.GetUser(c); u != nil && u.Role != auth.RoleAdmin {
+			return failFor(c, studiosvc.ErrAssistantForbidden)
+		}
+	}
 	model := req.Model
-	if req.AgentID != "" {
+	if req.AgentID != "" && !req.Assistant {
 		ag, err := h.svc.Agent(c.Request().Context(), userID(c), req.AgentID)
 		if err != nil {
 			return failFor(c, err)
@@ -165,7 +178,7 @@ func (h *Handlers) Create(c echo.Context) error {
 		}
 	}
 	user := userID(c)
-	rec, err := h.svc.Create(c.Request().Context(), user, studiosvc.CreateInput{Title: req.Title, Model: req.Model, AgentID: req.AgentID})
+	rec, err := h.svc.Create(c.Request().Context(), user, studiosvc.CreateInput{Title: req.Title, Model: req.Model, AgentID: req.AgentID, Assistant: req.Assistant})
 	if err != nil {
 		return failFor(c, err)
 	}

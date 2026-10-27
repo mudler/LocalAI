@@ -61,6 +61,7 @@ export default function Home() {
   const [sending, setSending] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
+  const [assistantOn, setAssistantOn] = useState(false)
   const [clusterData, setClusterData] = useState(null)
   const [stripOpen, setStripOpen] = useState(false)
   const [conversations, setConversations] = useState([])
@@ -74,6 +75,7 @@ export default function Home() {
       .then(r => r.json())
       .then(data => {
         setDistributedMode(!!data.distributed)
+        setAssistantOn(!!data.localai_assistant)
       })
       .catch(() => {})
   }, [])
@@ -164,6 +166,21 @@ export default function Home() {
     navigate(selectedModel ? `/app/chats?model=${encodeURIComponent(selectedModel)}` : '/app/chats')
   }, [navigate, selectedModel])
 
+  // The LocalAI assistant is a chat like any other, started with the management
+  // tools. It needs a model; the server refuses anyone but an admin.
+  const openAssistantChat = useCallback(async () => {
+    if (!selectedModel) {
+      addToast(t('assistant.noModel'), 'warning')
+      return
+    }
+    try {
+      const conv = await chatsApi.create(selectedModel, t('assistant.chatTitle'), '', true)
+      navigate(`/app/chats/${encodeURIComponent(conv.id)}`)
+    } catch (err) {
+      addToast(t('assistant.startFailed', { message: err.message }), 'error')
+    }
+  }, [selectedModel, addToast, navigate, t])
+
   const handleStopModel = async (modelName) => {
     setConfirmDialog({
       title: t('stopDialog.title'),
@@ -232,8 +249,8 @@ export default function Home() {
   // Studio is an add-on: its command is offered only while it is installed.
   const studioPage = useAddonPage('studio', 'studio')
   const slashContext = useMemo(
-    () => ({ isAdmin, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage) }),
-    [isAdmin, hasModels, firstRun, loadedCount, studioPage],
+    () => ({ isAdmin, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage), assistantAvailable: assistantOn }),
+    [isAdmin, hasModels, firstRun, loadedCount, studioPage, assistantOn],
   )
 
   const runAction = useCallback((id) => {
@@ -241,6 +258,7 @@ export default function Home() {
       case 'model': pickerRef.current?.open(); break
       case 'new': openNewChat(); break
       case 'chat': navigate('/app/chats'); break
+      case 'assistant': openAssistantChat(); break
       case 'gallery': navigate('/app/models'); break
       case 'installed': navigate('/app/models?view=installed'); break
       case 'import': navigate('/app/import-model'); break
@@ -253,7 +271,7 @@ export default function Home() {
       case 'docs': window.open(DOCS_URL, '_blank', 'noopener,noreferrer'); break
       default: break
     }
-  }, [navigate, openNewChat, studioPage])
+  }, [navigate, openNewChat, openAssistantChat, studioPage])
 
   // "/" from anywhere that is not a text field starts a command.
   useEffect(() => {
@@ -423,6 +441,11 @@ export default function Home() {
           <span>{t('library.label')}</span>
           {isAdmin && (
             <>
+              {assistantOn && !firstRun && (
+                <button type="button" className="home-ghost" data-testid="home-assistant" title={t('assistant.description')} onClick={openAssistantChat}>
+                  {t('assistant.title')} <code>/assistant</code>
+                </button>
+              )}
               <button type="button" className="home-ghost" onClick={() => navigate('/app/models')}>
                 {t('quickLinks.browseGallery')} <code>/gallery</code>
               </button>

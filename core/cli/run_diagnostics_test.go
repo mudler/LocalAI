@@ -244,7 +244,7 @@ var _ = Describe("Diagnostics concurrent public bind failure", Serial, func() {
 			ModelsPath: filepath.Join(dir, "models"), BackendsPath: filepath.Join(dir, "backends"),
 			BackendsSystemPath: filepath.Join(dir, "system"), DataPath: filepath.Join(dir, "data"),
 			GeneratedContentPath: filepath.Join(dir, "generated"), UploadPath: filepath.Join(dir, "uploads"),
-			Galleries: "[]", BackendGalleries: "[]", DisableAgents: true, DisableLocalAIAssistant: true,
+			Galleries: "[]", BackendGalleries: "[]", DisableCollections: true, DisableLocalAIAssistant: true,
 			DisableMCP: true, DisableMetricsEndpoint: true, DisableWebUI: true,
 		}
 		err = r.Run(&cliContext.Context{CredentialsFile: "unused"})

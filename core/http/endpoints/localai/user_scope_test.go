@@ -17,7 +17,7 @@ var _ = Describe("Collections endpoint per-user isolation", func() {
 	var e *echo.Echo
 
 	makeContext := func(query string) echo.Context {
-		req := httptest.NewRequest(http.MethodGet, "/api/agents/collections"+query, nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/collections"+query, nil)
 		rec := httptest.NewRecorder()
 		return e.NewContext(req, rec)
 	}

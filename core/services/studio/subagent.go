@@ -73,6 +73,16 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	}
 	tools = append(tools, s.spawnTool(a))
 	tools = append(tools, s.triggerTools(a, rec)...)
+	// The assistant tools are not part of hostTools, so a sub-agent never gets
+	// them, whatever its parent names.
+	aTools, aPrompt, aNote := s.assistantTurn(ctx, rec)
+	tools = append(tools, aTools...)
+	if aPrompt != "" {
+		prompt = strings.TrimSpace(aPrompt + "\n\n" + prompt)
+	}
+	if aNote != "" {
+		note = strings.TrimSpace(note + " " + aNote)
+	}
 	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, RefreshKey: key}, nil
 }
 
