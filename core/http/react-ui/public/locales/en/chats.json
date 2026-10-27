@@ -6,7 +6,17 @@
     "empty": "No chats yet.",
     "untitled": "New chat",
     "delete": "Delete chat",
-    "working": "Working"
+    "working": "Working",
+    "agentPicker": "Agent",
+    "noAgent": "No agent",
+    "agents": "Agents",
+    "triggers": "Triggers",
+    "library": "Library",
+    "automation": "Automation",
+    "files": "Files",
+    "inbox": "Inbox",
+    "automatic": "Started by a trigger",
+    "unread": "Unread"
   },
   "empty": {
     "title": "Start a chat",
@@ -92,5 +102,33 @@
     "invalid": "Skipped: {{reason}}",
     "empty": "You have no skills yet.",
     "back": "Back to chats"
-  }
+  },
+  "agentsPage": {
+    "title": "Agents",
+    "new": "New agent",
+    "edit": "Edit agent",
+    "intro": "An agent is a saved set of instructions and tools. A chat with an agent gets only what its lists name, and only what you may use at that moment.",
+    "name": "Name",
+    "description": "Description",
+    "instructions": "Instructions",
+    "model": "Model",
+    "grants": "What a chat with this agent may use. An empty list gives nothing.",
+    "addons": "Add-ons",
+    "addonsHint": "Add-on ID",
+    "mcp": "MCP servers",
+    "mcpHint": "Server name from the model's MCP configuration",
+    "collections": "Collections",
+    "collectionsHint": "Collection name",
+    "skills": "Skills",
+    "skillsHint": "Skill name",
+    "save": "Save",
+    "cancel": "Cancel",
+    "editButton": "Edit",
+    "delete": "Delete",
+    "chat": "Chat",
+    "empty": "No agents yet.",
+    "noGrants": "Gives no tools",
+    "fixModel": "Always use one model (otherwise you choose the model for each chat)"
+  },
+  "title_agent": "Agent: {{name}}"
 }

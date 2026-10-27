@@ -161,7 +161,10 @@ export const chatApi = {
 // waits and reaches the model, with any others, at its next request.
 export const chatsApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.chats),
-  create: (model, title) => postJSON(API_CONFIG.endpoints.chats, title ? { model, title } : { model }),
+  // With an agent, its model (when it has one) replaces model.
+  create: (model, title, agentId) => postJSON(API_CONFIG.endpoints.chats, {
+    ...(model ? { model } : {}), ...(title ? { title } : {}), ...(agentId ? { agent_id: agentId } : {}),
+  }),
   get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
   // The server returns at most 1000 entries a call, oldest first, so a long
@@ -245,6 +248,14 @@ export const chatSkillsApi = {
 export const chatAddonsApi = {
   list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/addons`),
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/addons`, { method: 'PUT', body: JSON.stringify({ off }) }),
+}
+
+// Saved agents: instructions and exact lists of what a chat may use.
+export const chatAgentsApi = {
+  list: () => fetchJSON('/api/chats/agents'),
+  create: (body) => postJSON('/api/chats/agents', body),
+  update: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'DELETE' }),
 }
 
 export const chatHistoryApi = {

@@ -1,13 +1,14 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ModelSelector from '../components/ModelSelector'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useServerChat } from '../hooks/useServerChat'
-import { chatAddonsApi, chatSkillsApi } from '../utils/api'
+import { chatAddonsApi, chatAgentsApi, chatSkillsApi } from '../utils/api'
 import './chats.css'
+import './chatauto.css'
 
 // First line of a tool entry: the transcript keeps the summary and a capped output.
 const firstLine = (text) => (text || '').split('\n')[0]
@@ -221,7 +222,11 @@ export default function Chats() {
   const navigate = useNavigate()
   const chat = useServerChat()
   const { select, activeId } = chat
+  const location = useLocation()
   const [model, setModel] = useState('')
+  const [agents, setAgents] = useState([])
+  // An agent chosen on the agents page arrives in the location state.
+  const [agentId, setAgentId] = useState(location.state?.agentId || '')
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [localError, setLocalError] = useState('')
@@ -237,6 +242,15 @@ export default function Chats() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId])
 
+  // The agents are best effort: a server without them leaves the picker out.
+  useEffect(() => {
+    let live = true
+    chatAgentsApi.list().then((r) => { if (live) setAgents(r.agents || []) }).catch(() => { if (live) setAgents([]) })
+    return () => { live = false }
+  }, [])
+  const pickedAgent = agents.find((a) => a.id === agentId)
+  const needsModel = !pickedAgent?.model
+
   const submit = useCallback(async () => {
     const text = draft.trim()
     const sending = attached
@@ -248,9 +262,9 @@ export default function Chats() {
     try {
       let target = activeId
       if (!target) {
-        if (!model) return
+        if (!model && needsModel) return
         setBusy(true)
-        target = await chat.createChat(model)
+        target = await chat.createChat(model, agentId)
         await select(target)
         navigate(`/app/chats/${target}`)
       }
@@ -266,7 +280,7 @@ export default function Chats() {
     } finally {
       setBusy(false)
     }
-  }, [draft, attached, busy, activeId, model, chat, select, navigate, t])
+  }, [draft, attached, busy, activeId, model, needsModel, agentId, chat, select, navigate, t])
 
   const onKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -279,6 +293,7 @@ export default function Chats() {
   const dismissError = () => { setLocalError(''); chat.clearError() }
   const activeChat = chat.chats.find((c) => c.id === activeId)
   const title = activeChat?.title || t('list.untitled')
+  const chatAgent = agents.find((a) => a.id === activeChat?.agent_id)
 
   return (
     <div className="ch-page" data-testid="chats-page">
@@ -298,12 +313,19 @@ export default function Chats() {
             </div>
           ))}
         </div>
-        {chat.files.on && <Link className="ch-link ch-list__skills" to="/app/chats/skills">{t('skills.manage')}</Link>}
+        <nav className="ca-rail" aria-label={t('list.library')}>
+          <p className="ca-rail__group">{t('list.library')}</p>
+          {chat.files.on && <Link className="ch-link ch-list__skills" to="/app/files">{t('list.files')}</Link>}
+          {chat.files.on && <Link className="ch-link ch-list__skills" to="/app/chats/skills">{t('skills.manage')}</Link>}
+          <p className="ca-rail__group">{t('list.automation')}</p>
+          <Link className="ch-link ch-list__skills" to="/app/chats/agents">{t('list.agents')}</Link>
+        </nav>
       </aside>
 
       <section className="ch-main">
         <header className="ch-head">
           <h1 className="ch-head__title">{activeId ? title : t('title')}</h1>
+          {chatAgent && <span className="ch-head__meta" data-testid="chat-agent">{t('title_agent', { name: chatAgent.name })}</span>}
           {activeChat?.model && <span className="ch-head__meta">{activeChat.model}</span>}
         </header>
         <SkillsPanel chatId={activeId} filesOn={chat.files.on} t={t} />
@@ -317,6 +339,15 @@ export default function Chats() {
                 <p className="ch-empty__body">{t('empty.body')}</p>
                 <label className="ch-empty__body" htmlFor="chats-model">{t('model')}</label>
                 <ModelSelector value={model} onChange={setModel} capability={CAP_CHAT} />
+                {agents.length > 0 && (
+                  <>
+                    <label className="ch-empty__body" htmlFor="chats-agent">{t('list.agentPicker')}</label>
+                    <select id="chats-agent" className="input" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
+                      <option value="">{t('list.noAgent')}</option>
+                      {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  </>
+                )}
               </div>
             )}
             {activeId && <Transcript messages={chat.messages} t={t} />}
@@ -389,7 +420,7 @@ export default function Chats() {
                       }} />
                   </>
                 )}
-                {!activeId && model ? model : ''}
+                {!activeId && (model || pickedAgent?.model) ? (model || pickedAgent.model) : ''}
               </span>
               <span className="ch-actions__right">
                 {chat.running && (
@@ -397,7 +428,7 @@ export default function Chats() {
                     {t('composer.stop')}
                   </button>
                 )}
-                <button type="button" className="btn btn-primary" disabled={(!activeId && busy) || (!draft.trim() && attached.length === 0) || (!activeId && !model)} onClick={submit}>
+                <button type="button" className="btn btn-primary" disabled={(!activeId && busy) || (!draft.trim() && attached.length === 0) || (!activeId && !model && needsModel)} onClick={submit}>
                   {t('composer.send')}
                 </button>
               </span>

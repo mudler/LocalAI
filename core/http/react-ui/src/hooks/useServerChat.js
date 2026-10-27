@@ -156,9 +156,9 @@ export function useServerChat() {
     }
   }, [refreshList, closeStream])
 
-  const createChat = useCallback(async (model) => {
+  const createChat = useCallback(async (model, agentId) => {
     setError('')
-    const created = await chatsApi.create(model)
+    const created = await chatsApi.create(model, undefined, agentId)
     await refreshList()
     return created.id
   }, [refreshList])

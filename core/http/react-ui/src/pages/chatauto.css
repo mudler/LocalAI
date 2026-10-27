@@ -1,0 +1,68 @@
+/* ==========================================================================
+   Agents, triggers and the inbox of the chats. Flat lists and hairlines like
+   the skills page; only the pieces that page does not have are here.
+   ========================================================================== */
+
+.ca-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--dk-space-1); }
+
+.ca-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-1);
+  padding: 0 var(--dk-space-2);
+  border-radius: var(--dk-radius-1);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+}
+
+.ca-chip__x {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.ca-chip__x:hover, .ca-chip__x:focus-visible { color: var(--color-text-primary); }
+
+.ca-add { display: flex; gap: var(--dk-space-2); }
+.ca-add .input { flex: 1; min-width: 0; }
+
+.ca-status { font-size: 0.75rem; padding: 0 var(--dk-space-2); border-radius: var(--dk-radius-1); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.ca-status--done { color: var(--color-success, var(--color-text-secondary)); }
+.ca-status--failed { color: var(--color-error, var(--color-text-secondary)); }
+.ca-status--skipped { color: var(--color-warning, var(--color-text-secondary)); }
+
+.ca-radio { display: flex; flex-wrap: wrap; gap: var(--dk-space-3); }
+.ca-radio label { display: inline-flex; align-items: center; gap: var(--dk-space-1); }
+.ca-row2 { display: flex; flex-wrap: wrap; gap: var(--dk-space-3); }
+.ca-row2 > .cs-field { flex: 1 1 10rem; min-width: 0; }
+.ca-days { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
+.ca-preview { margin: 0; color: var(--color-text-secondary); font-size: 0.8125rem; }
+.ca-runs { margin: var(--dk-space-2) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: 0.8125rem; }
+.ca-runs li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--dk-space-2); }
+
+.ca-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.ca-inbox__head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-2); }
+.ca-inbox__item { display: flex; flex-direction: column; gap: 2px; padding: var(--dk-space-2) 0; border-bottom: 1px solid var(--color-border-subtle); }
+.ca-inbox__item--unread .ca-inbox__title { font-weight: 600; }
+.ca-inbox__title { color: var(--color-text-primary); text-align: left; }
+.ca-count {
+  min-width: 1.25rem;
+  padding: 0 var(--dk-space-1);
+  border-radius: 999px;
+  background: var(--color-primary, var(--color-bg-secondary));
+  color: var(--color-primary-text, var(--color-text-primary));
+  font-size: 0.75rem;
+  text-align: center;
+}
+.ca-rail { display: flex; flex-direction: column; gap: var(--dk-space-1); padding-top: var(--dk-space-2); }
+.ca-rail__group { margin: var(--dk-space-2) 0 0; font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
