@@ -1,152 +1,82 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 
-// The connectors page with the API stubbed: the token only goes in, "anyone"
-// needs a confirmation, and a sender in the log can be allowed.
+// The connectors page lists the messaging bindings by the connector add-on that
+// serves them and sends the person to the add-on's own page to add or edit one.
+// It has no form of its own and no switch between kinds. The API is stubbed;
+// the add-on page has its own spec (telegram-addon.spec.js).
 
-const AGENTS = [
-  { id: 'a1', name: 'Support', model: 'qwen3-8b', mcp_servers: [], addons: [], collections: [], skills: [] },
-  { id: 'a2', name: 'No model', model: '', mcp_servers: [], addons: [], collections: [], skills: [] },
-]
+const AGENTS = [{ id: 'a1', name: 'Support', model: 'qwen3-8b', mcp_servers: [], addons: [], collections: [], skills: [] }]
+const KIND = { addon: 'telegram', kind: 'telegram', title: 'Telegram', description: 'Talk to one of your saved agents from a Telegram bot.', page: 'bots' }
+const BINDING = { id: 'b1', name: 'Support bot', kind: 'telegram', addon: 'telegram', active: true, agent_id: 'a1', enabled: true, accept_any: false, allow: ['42'], has_token: true }
 
-function api(page, initial = []) {
-  const s = { items: structuredClone(initial), calls: [], senders: [{ id: '42', name: 'Newcomer', count: 2, allowed: false, first: '2026-10-27T08:00:00Z', last: '2026-10-27T08:05:00Z' }] }
-  const rec = (method, url, body) => s.calls.push({ method, url: new URL(url).pathname, body })
-  return {
-    s,
-    async install() {
-      await page.route('**/api/chats/agents*', r => r.fulfill({ json: { agents: AGENTS } }))
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/senders\/[^/?]+\/allow$/, r => {
-        rec('POST', r.request().url(), null)
-        s.senders = s.senders.map(x => ({ ...x, allowed: true }))
-        return r.fulfill({ json: s.items[0] })
-      })
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/senders$/, r => r.fulfill({ json: { senders: s.senders } }))
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/test$/, r => r.fulfill({ json: { bot_id: 1, bot_username: 'support_bot' } }))
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/(enable|disable)$/, r => {
-        const verb = new URL(r.request().url()).pathname.split('/').pop()
-        rec('POST', r.request().url(), null)
-        s.items = s.items.map(x => ({ ...x, enabled: verb === 'enable' }))
-        return r.fulfill({ json: s.items[0] })
-      })
-      await page.route(/\/api\/chats\/connectors\/[^/?]+$/, r => {
-        const req = r.request()
-        rec(req.method(), req.url(), req.postDataJSON?.())
-        if (req.method() === 'DELETE') { s.items = []; return r.fulfill({ status: 204, body: '' }) }
-        s.items = s.items.map(x => ({ ...x, ...req.postDataJSON(), token: undefined, has_token: true }))
-        return r.fulfill({ json: s.items[0] })
-      })
-      await page.route(/\/api\/chats\/connectors(\?.*)?$/, r => {
-        const req = r.request()
-        if (req.method() === 'POST') {
-          const b = req.postDataJSON()
-          rec('POST', req.url(), b)
-          s.items.push({ id: 'b1', kind: 'telegram', allow: [], ...b, token: undefined, has_token: true })
-          return r.fulfill({ status: 201, json: s.items.at(-1) })
-        }
-        return r.fulfill({ json: { connectors: s.items } })
-      })
-      await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
-      await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
-    },
-  }
+async function api(page, { kinds = [KIND], items = [BINDING] } = {}) {
+  const s = { items: structuredClone(items), calls: [] }
+  await page.route('**/api/chats/agents*', r => r.fulfill({ json: { agents: AGENTS } }))
+  await page.route(/\/api\/chats\/connectors\/kinds$/, r => r.fulfill({ json: { kinds } }))
+  await page.route(/\/api\/chats\/connectors\/[^/?]+\/(enable|disable)$/, r => {
+    const verb = new URL(r.request().url()).pathname.split('/').pop()
+    s.calls.push(verb)
+    s.items = s.items.map(x => ({ ...x, enabled: verb === 'enable' }))
+    return r.fulfill({ json: s.items[0] })
+  })
+  await page.route(/\/api\/chats\/connectors(\?.*)?$/, r => r.fulfill({ json: { connectors: s.items } }))
+  await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
+  await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
+  return s
 }
 
 test.describe('Chat connectors', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
-  test('creates a binding with a token and an agent, and lists who it accepts', async ({ page }) => {
-    const a = api(page)
-    await a.install()
+  test('lists the bindings under the add-on that serves them, with a link to its page', async ({ page }) => {
+    await api(page)
     await page.goto('/app/chats/connectors')
-
-    await expect(page.getByText('No connectors yet.')).toBeVisible()
-    await page.getByRole('button', { name: 'New connector' }).click()
-    await expect(page.getByRole('option', { name: 'No model (needs a model)' })).toHaveAttribute('disabled', '')
-    await page.getByLabel('Name', { exact: true }).fill('Support bot')
-    await page.getByLabel('Bot token').fill('555:secret-token')
-    await page.getByLabel('Agent', { exact: true }).selectOption('a1')
-    await page.getByRole('combobox', { name: 'Allowed senders +' }).fill('42')
-    await page.getByRole('combobox', { name: 'Allowed senders +' }).press('Enter')
-    await page.getByRole('button', { name: 'Save' }).click()
-
-    await expect(page.getByTestId('connector-row')).toContainText('Support bot')
-    await expect(page.getByTestId('connector-row')).toContainText('Agent: Support')
-    const body = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
-    expect(body).toMatchObject({ name: 'Support bot', token: '555:secret-token', agent_id: 'a1', allow: ['42'], accept_any: false })
-    await expect(page.locator('body')).not.toContainText('secret-token')
+    const group = page.getByTestId('connector-group')
+    await expect(group.getByRole('heading', { name: 'Telegram' })).toBeVisible()
+    await expect(group.getByRole('link', { name: 'Add or change bindings' })).toHaveAttribute('href', '/app/addons/telegram/bots')
+    await expect(group.getByTestId('connector-row')).toContainText('Support bot')
+    await expect(group.getByTestId('connector-row')).toContainText('Agent: Support')
+    await expect(group.getByTestId('connector-row')).toContainText('Accepts: 1 listed sender')
   })
 
-  test('the token field is empty on edit, and an update without a new token sends none', async ({ page }) => {
-    const a = api(page, [{ id: 'b1', name: 'Support bot', kind: 'telegram', agent_id: 'a1', enabled: true, accept_any: false, allow: ['42'], has_token: true }])
-    await a.install()
+  test('has no form, no kind switch and no Telegram fields', async ({ page }) => {
+    await api(page)
     await page.goto('/app/chats/connectors')
-    await page.getByRole('button', { name: 'Edit' }).click()
-    await expect(page.getByLabel('Bot token')).toHaveValue('')
-    await expect(page.getByLabel('Bot token')).toHaveAttribute('placeholder', /Saved/)
-    await page.getByLabel('Name', { exact: true }).fill('Renamed')
-    await page.getByRole('button', { name: 'Save' }).click()
-    const put = a.s.calls.find(c => c.method === 'PUT')
-    expect(put.url).toBe('/api/chats/connectors/b1')
-    expect('token' in put.body).toBe(false)
+    await expect(page.getByTestId('connector-row')).toBeVisible()
+    await expect(page.getByRole('tablist')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /New/ })).toHaveCount(0)
+    await expect(page.getByLabel('Bot token')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0)
   })
 
-  test('anyone needs the warning confirmed before it can be saved', async ({ page }) => {
-    await api(page).install()
+  test('with no connector add-on installed it says so and links to the gallery', async ({ page }) => {
+    await api(page, { kinds: [], items: [] })
     await page.goto('/app/chats/connectors')
-    await page.getByRole('button', { name: 'New connector' }).click()
-    await page.getByLabel('Name', { exact: true }).fill('Public bot')
-    await page.getByLabel('Bot token').fill('1:x')
-    await page.getByLabel('Agent', { exact: true }).selectOption('a1')
-    await page.getByRole('radio', { name: 'Anyone who can message the bot' }).check()
-    await expect(page.getByTestId('anyone-warning')).toContainText("can use this agent's tools")
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
-    await page.getByRole('checkbox', { name: 'I understand' }).check()
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+    const note = page.getByTestId('no-connector-addon')
+    await expect(note).toContainText('No connector add-on is installed.')
+    await expect(note.getByRole('link', { name: 'Open the add-on gallery' })).toHaveAttribute('href', '/app/addons')
   })
 
-  test('tests the token, shows the sender log and allows a sender', async ({ page }) => {
-    const a = api(page, [{ id: 'b1', name: 'Support bot', kind: 'telegram', agent_id: 'a1', enabled: true, accept_any: false, allow: [], has_token: true }])
-    await a.install()
+  test('a binding whose add-on is missing is kept, with the reason', async ({ page }) => {
+    await api(page, { kinds: [], items: [{ ...BINDING, active: false, reason: 'install the Telegram add-on' }] })
     await page.goto('/app/chats/connectors')
-    await page.getByRole('button', { name: 'Test' }).click()
-    await expect(page.getByText('Connected to @support_bot.')).toBeVisible()
-    await page.getByRole('button', { name: 'Senders' }).click()
-    await expect(page.getByTestId('sender-log')).toContainText('Newcomer · 2 messages · 42')
-    await expect(page.getByTestId('sender-log')).toContainText('Ignored')
-    await page.getByRole('button', { name: 'Allow' }).click()
-    await expect(page.getByTestId('sender-log')).toContainText('Accepted')
-    expect(a.s.calls.some(c => c.url === '/api/chats/connectors/b1/senders/42/allow')).toBe(true)
+    await expect(page.getByTestId('connector-waiting')).toContainText('Support bot')
+    await expect(page.getByTestId('connector-inactive')).toHaveText('Not running: install the Telegram add-on.')
   })
 
-  test('switches a binding off and deletes it', async ({ page }) => {
-    const a = api(page, [{ id: 'b1', name: 'Support bot', kind: 'telegram', agent_id: 'a1', enabled: true, accept_any: false, allow: [], has_token: true }])
-    await a.install()
+  test('switches a binding off', async ({ page }) => {
+    const s = await api(page)
     await page.goto('/app/chats/connectors')
     await page.getByRole('checkbox', { name: 'Support bot on' }).uncheck()
-    await expect.poll(() => a.s.calls.some(c => c.url.endsWith('/disable'))).toBe(true)
-    // Deleting asks first, and says the bot token goes with it.
-    await page.getByTestId('connector-row').getByRole('button', { name: 'Delete' }).click()
-    const dialog = page.getByRole('alertdialog')
-    await expect(dialog).toContainText('Delete Support bot?')
-    await expect(dialog).toContainText('bot token')
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    await expect(page.getByTestId('connector-row')).toHaveCount(1)
-    expect(a.s.calls.some(c => c.method === 'DELETE')).toBe(false)
-
-    await page.getByTestId('connector-row').getByRole('button', { name: 'Delete' }).click()
-    await dialog.getByRole('button', { name: 'Delete' }).click()
-    await expect(page.getByTestId('connector-row')).toHaveCount(0)
+    await expect.poll(() => s.calls.includes('disable')).toBe(true)
   })
 
-  test('a delete the server refuses shows its reason and keeps the binding', async ({ page }) => {
-    const a = api(page, [{ id: 'b1', name: 'Support bot', kind: 'telegram', agent_id: 'a1', enabled: true, accept_any: false, allow: [], has_token: true }])
-    await a.install()
-    await page.route(/\/api\/chats\/connectors\/b1$/, r => r.fulfill({ status: 500, json: { error: { message: 'the store is read-only' } } }))
-    await page.goto('/app/chats/connectors')
-    await page.getByTestId('connector-row').getByRole('button', { name: 'Delete' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
-    await expect(page.getByRole('alert')).toContainText('the store is read-only')
-    await expect(page.getByTestId('connector-row')).toHaveCount(1)
+  test('an old link to the MCP kind opens the MCP connectors page', async ({ page }) => {
+    await api(page)
+    await page.route('**/api/chats/mcp-connectors*', r => r.fulfill({ json: { connectors: [] } }))
+    await page.goto('/app/chats/connectors?kind=mcp')
+    await expect(page).toHaveURL(/\/app\/mcp-connectors$/)
+    await expect(page.getByTestId('mcp-connectors-page')).toBeVisible()
   })
 })

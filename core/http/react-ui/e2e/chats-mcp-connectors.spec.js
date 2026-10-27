@@ -58,14 +58,15 @@ const rowOf = { id: 'm1', name: 'Docs', transport: 'http', url: 'https://mcp.exa
 test.describe('Chat MCP connectors', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
-  test('the MCP servers have a page of their own, apart from the messaging connectors', async ({ page }) => {
+  test('the MCP servers have a page of their own, with no kind switch, and the old link opens it', async ({ page }) => {
     await api(page).install()
     await page.goto('/app/mcp-connectors')
     await expect(page.getByRole('heading', { name: 'MCP connectors' })).toBeVisible()
     await expect(page.getByText('No MCP servers yet.')).toBeVisible()
-    await page.goto('/app/chats/connectors')
-    await expect(page.getByRole('tab', { name: 'MCP server' })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'New connector' })).toBeVisible()
+    await expect(page.getByRole('tablist')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Connectors', exact: true })).toHaveAttribute('href', '/app/chats/connectors')
+    await page.goto('/app/chats/connectors?kind=mcp')
+    await expect(page).toHaveURL(/\/app\/mcp-connectors$/)
   })
 
   test('creates a server with a token and a header that only go in, and never shows them', async ({ page }) => {

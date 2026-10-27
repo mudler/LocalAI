@@ -1,41 +1,29 @@
 // Helpers of the connectors page. No React, so a node test drives them.
+import { addonPageAddress } from './legacyRoutes.js'
 
-export function emptyConnector() {
-  return { id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], notify_chat: '' }
-}
-
-// The body of a create or replace request. The token goes only when it was typed:
-// an update without one keeps the stored token.
-export function connectorPayload(form) {
-  const body = {
-    name: (form.name || '').trim(),
-    agent_id: form.agent_id || '',
-    enabled: Boolean(form.enabled),
-    accept_any: Boolean(form.accept_any),
-    allow: form.accept_any ? [] : (form.allow || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i),
-    notify_chat: (form.notify_chat || '').trim(),
+// Groups the bindings of the user by the connector add-on that serves them. A
+// kind that a running add-on serves gets a group with the address of the
+// add-on's own page, where bindings are added and edited. A binding whose kind
+// no running add-on serves goes to `waiting`: it is kept, and works once the
+// add-on is installed.
+export function groupConnectors(kinds, items) {
+  const groups = (kinds || []).map((k) => ({
+    key: `${k.addon}/${k.kind}`, addon: k.addon, kind: k.kind, title: k.title, description: k.description || '',
+    href: k.page ? addonPageAddress({ addon: k.addon, page: k.page }) : `/app/addons?detail=${encodeURIComponent(k.addon)}`,
+    items: [],
+  }))
+  const waiting = []
+  for (const c of items || []) {
+    const g = groups.find((x) => x.kind === c.kind && x.addon === c.addon)
+    if (g) g.items.push(c)
+    else waiting.push(c)
   }
-  const token = (form.token || '').trim()
-  if (token) body.token = token
-  return body
+  return { groups, waiting }
 }
 
-// Who the binding accepts, in a few words.
-export function modeText(c) {
-  if (c.accept_any) return 'anyone'
+// Who the binding accepts, as a key and a count for the translator.
+export function acceptsOf(c) {
+  if (c.accept_any) return { key: 'anyone' }
   const n = (c.allow || []).length
-  return n === 0 ? 'nobody yet' : `${n} listed sender${n === 1 ? '' : 's'}`
-}
-
-// A sender of the log as a short line: name, how many messages, and the id.
-export function senderLine(s) {
-  return `${s.name || s.id} · ${s.count} message${s.count === 1 ? '' : 's'} · ${s.id}`
-}
-
-// "Accept any message" is only saved after the person confirms the warning.
-export function canSave(form, confirmed) {
-  if (!(form.name || '').trim() || !form.agent_id) return false
-  if (!form.id && !(form.token || '').trim()) return false
-  if (form.accept_any && !confirmed) return false
-  return true
+  return n === 0 ? { key: 'nobody' } : { key: 'listed', count: n }
 }

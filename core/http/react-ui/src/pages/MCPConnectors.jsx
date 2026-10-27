@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
+import { Link } from 'react-router-dom'
+// eslint-disable-next-line no-unused-vars
 import ChatMCPConnectors from './ChatMCPConnectors'
 import './chatskills.css'
 
@@ -13,6 +15,11 @@ export default function MCPConnectors() {
         <h1 className="cs-title">{t('mcpPage.title')}</h1>
       </header>
       <ChatMCPConnectors />
+      <p className="cs-muted">
+        <Link to="/app/chats/connectors">{t('connectorsPage.title')}</Link>
+        {' · '}
+        <Link to="/app/chats">{t('skillsPage.back')}</Link>
+      </p>
     </div>
   )
 }
