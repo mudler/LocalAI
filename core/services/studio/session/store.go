@@ -49,10 +49,10 @@ type ChatRecord struct {
 	// Model is the model the chat talks to. It does not change after CreateChat.
 	Model string
 	// Status is the last turn outcome ("", "done", "stopped", "failed",
-	// "interrupted"). Summary is the text of the last compaction, for display.
-	// UpdateChat replaces both.
-	Status  string
-	Summary string
+	// "interrupted"). UpdateChat replaces it. The text of a compaction is not
+	// kept here: nib reports only the sizes, and keeps the summary in the
+	// harness state.
+	Status string
 	// SkillsOff holds the names of the skills this chat has switched off. It is
 	// read by GetChat and set by the store's SetSkillsOff; UpdateChat leaves it
 	// alone.

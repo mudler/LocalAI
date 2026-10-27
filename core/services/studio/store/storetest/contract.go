@@ -162,7 +162,7 @@ func Run(t *testing.T, newStore New) {
 		if err := s.CreateChat(ctx(t), rec); err != nil {
 			t.Fatal(err)
 		}
-		rec.Status, rec.Summary, rec.Updated = "done", "short summary", t0.Add(time.Minute)
+		rec.Status, rec.Updated = "done", t0.Add(time.Minute)
 		if err := s.UpdateChat(ctx(t), rec); err != nil {
 			t.Fatal(err)
 		}
@@ -170,7 +170,7 @@ func Run(t *testing.T, newStore New) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.Kind != session.KindSubAgent || got.ParentID != "parent" || got.Model != "qwen3" || got.Status != "done" || got.Summary != "short summary" {
+		if got.Kind != session.KindSubAgent || got.ParentID != "parent" || got.Model != "qwen3" || got.Status != "done" {
 			t.Fatalf("got %+v", got)
 		}
 	})

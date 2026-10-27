@@ -269,7 +269,7 @@ func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error 
 	next.Rec.Title, next.Rec.Folder, next.Rec.Snapshot = rec.Title, rec.Folder, rec.Snapshot
 	next.Rec.HarnessState = append([]byte(nil), rec.HarnessState...)
 	next.Rec.Turns, next.Rec.Updated = rec.Turns, rec.Updated
-	next.Rec.Status, next.Rec.Summary = rec.Status, rec.Summary
+	next.Rec.Status = rec.Status
 	if err := s.save(&next); err != nil {
 		return err
 	}
