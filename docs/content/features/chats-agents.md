@@ -163,7 +163,7 @@ finished or failed, or something that needs you. Each item has a kind
 text, and a link to the chat it is about. A chat that a run started is unread
 until you open it: opening the chat marks its notifications read.
 
-You keep at most 500 notifications, none older than 90 days.
+You keep at most 500 notifications. When a new one arrives, those older than 90 days are removed.
 
 ```
 curl ".../api/chats/notifications?unread=1"          # the unread ones, and the unread count

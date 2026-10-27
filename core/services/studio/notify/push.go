@@ -8,6 +8,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -82,12 +84,25 @@ func NewPusher(o PusherOptions) *Pusher {
 		o.Client = httpclient.New(httpclient.WithExternalOnly(), httpclient.WithTimeout(10*time.Second))
 	}
 	if o.CheckEndpoint == nil {
-		o.CheckEndpoint = httpclient.ValidateExternalURL
+		o.CheckEndpoint = validatePushEndpoint
 	}
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
 	return &Pusher{o: o}
+}
+
+// validatePushEndpoint is the default endpoint check: a push service is reached
+// over https, and the address must be a public one.
+func validatePushEndpoint(endpoint string) error {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid endpoint: %w", err)
+	}
+	if !strings.EqualFold(u.Scheme, "https") {
+		return errors.New("the endpoint must use https")
+	}
+	return httpclient.ValidateExternalURL(endpoint)
 }
 
 func generateVAPID() (string, string, error) {

@@ -145,7 +145,7 @@ func TestSubscribeRefusesAnEndpointTheServerMustNotCall(t *testing.T) {
 	st, _ := notify.NewJSONPush("")
 	p := notify.NewPusher(notify.PusherOptions{Store: st}) // the default check
 	k, a := browserKeys(t)
-	for _, ep := range []string{"http://push.example/x", "https://127.0.0.1/x", "https://localhost/x", "https://169.254.169.254/latest", "https://10.0.0.5/x", "file:///etc/passwd", ""} {
+	for _, ep := range []string{"http://93.184.216.34/x", "http://push.example/x", "https://127.0.0.1/x", "https://localhost/x", "https://169.254.169.254/latest", "https://10.0.0.5/x", "file:///etc/passwd", ""} {
 		if err := p.Subscribe(context.Background(), "u1", ep, k, a); err == nil {
 			t.Errorf("endpoint %q was accepted", ep)
 		}
