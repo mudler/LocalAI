@@ -145,12 +145,40 @@ var _ = Describe("conversion of the old data at start", func() {
 		Expect(status).To(Equal(convert.StatusFailed))
 	})
 
-	It("converts at once when the collections are off, since nothing starts later", func() {
+	It("converts beside the start-up when the collections are off, since nothing starts later", func() {
 		off := func(o *config.ApplicationConfig) { o.Collections.Enabled = false }
 		app := boot(off)
 		DeferCleanup(func() { _ = app.Shutdown() })
-		list, err := app.StudioService().Agents(context.Background(), "alice")
+		Eventually(func() int {
+			list, err := app.StudioService().Agents(context.Background(), "alice")
+			Expect(err).NotTo(HaveOccurred())
+			return len(list)
+		}, "10s", "50ms").Should(Equal(1))
+	})
+})
+
+var _ = Describe("conversion of the old data and the start-up", func() {
+	It("does not hold the start-up while a conversion runs", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		sys, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()), system.WithBackendPath(GinkgoT().TempDir()))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(list).To(HaveLen(1))
+		off := func(o *config.ApplicationConfig) { o.Collections.Enabled = false }
+		app, err := New(off, config.WithContext(ctx), config.WithSystemState(sys), config.DisableMetricsEndpoint,
+			config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true), config.WithDataPath(GinkgoT().TempDir()),
+			config.WithAuthEnabled(true), config.WithAuthDatabaseURL(filepath.Join(GinkgoT().TempDir(), "auth.db")),
+			config.WithAuthAPIKeyHMACSecret("convert-test-secret"))
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = app.Shutdown() })
+
+		app.studioConvertMu.Lock() // a conversion that is going
+		returned := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			app.prepareStudioConversion(app.studioService)
+			close(returned)
+		}()
+		Eventually(returned, "5s").Should(BeClosed())
+		app.studioConvertMu.Unlock()
 	})
 })

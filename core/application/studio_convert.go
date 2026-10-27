@@ -46,9 +46,11 @@ func (a *Application) prepareStudioConversion(svc *studio.Service) {
 	a.studioMarks = marks
 	svc.SetConversion(marks)
 	// Without the collections service nothing starts later that the conversion
-	// waits for, so it runs now.
+	// waits for, so it runs now. It runs beside the start-up: the import of a
+	// long history takes time, and in a cluster it waits for the lock of another
+	// frontend.
 	if !a.applicationConfig.Collections.Enabled {
-		a.ConvertStudioData()
+		go a.ConvertStudioData()
 	}
 }
 
@@ -68,6 +70,8 @@ func (a *Application) ConvertStudioData() {
 	if svc == nil || a.studioMarks == nil {
 		return
 	}
+	a.studioConvertMu.Lock()
+	defer a.studioConvertMu.Unlock()
 	ctx := a.applicationConfig.Context
 	if ctx == nil {
 		ctx = context.Background()

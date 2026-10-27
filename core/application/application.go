@@ -129,6 +129,7 @@ type Application struct {
 	studioPush           notify.PushStore // nil in memory-only mode: push needs somewhere to keep subscriptions
 	studioInbox          *notify.Service
 	studioMarks          convert.Marks // what the conversion of the old data did
+	studioConvertMu      sync.Mutex    // one conversion at a time in this process
 	studioTriggers       *studio.Triggers
 	studioTriggersStop   context.CancelFunc
 	studioConnStore      connectors.Store
