@@ -70,7 +70,7 @@ func writeDoc(t *testing.T, d Document) map[string][]byte {
 			t.Fatal(err)
 		}
 		data, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			t.Fatal(err)
 		}

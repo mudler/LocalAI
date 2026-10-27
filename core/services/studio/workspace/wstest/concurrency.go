@@ -1,3 +1,4 @@
+//nolint:forbidigo // reusable contract suite driven by the caller's *testing.T
 package wstest
 
 import (

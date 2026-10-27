@@ -71,7 +71,7 @@ func writeBook(t *testing.T, wb Workbook) map[string][]byte {
 			t.Fatal(err)
 		}
 		data, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			t.Fatal(err)
 		}

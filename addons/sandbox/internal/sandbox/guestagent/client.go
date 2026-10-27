@@ -50,7 +50,7 @@ func SendReady(conn net.Conn) error {
 // Call sends a request without fields (freeze, thaw, health, shutdown,
 // detach) and waits for ok or error. It closes conn.
 func Call(ctx context.Context, conn net.Conn, typ string) error {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
 	if err := WriteFrame(conn, Frame{Type: typ}); err != nil {
@@ -117,11 +117,11 @@ type Process struct {
 // ctx.Err().
 func Exec(ctx context.Context, conn net.Conn, req ExecRequest, stdin io.Reader, stdout, stderr io.Writer) (*Process, error) {
 	if len(req.Args) == 0 {
-		conn.Close()
+		_ = conn.Close()
 		return nil, errors.New("guestagent: exec without args")
 	}
 	if err := WriteFrame(conn, Frame{Type: TypeExec, Args: req.Args, Env: req.Env, Dir: req.Dir, TTY: req.TTY}); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, err
 	}
 	_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
@@ -215,7 +215,7 @@ func (p *Process) feed(stdin io.Reader) {
 
 func (p *Process) read(stdout, stderr io.Writer) {
 	defer close(p.done)
-	defer p.conn.Close()
+	defer func() { _ = p.conn.Close() }()
 	defer func() {
 		p.fmu.Lock()
 		p.finished = true

@@ -22,7 +22,7 @@ func Forward(l net.Listener, dial func() (net.Conn, error)) error {
 			defer logPanic("forward")
 			up, err := dial()
 			if err != nil {
-				c.Close()
+				_ = c.Close()
 				return
 			}
 			Pipe(c, up)
@@ -50,8 +50,8 @@ func Pipe(a, b net.Conn) {
 	go half(a, b)
 	go half(b, a)
 	wg.Wait()
-	a.Close()
-	b.Close()
+	_ = a.Close()
+	_ = b.Close()
 }
 
 // ParsePorts reads the ports of "sandbox.ports=3128,7000" from a kernel

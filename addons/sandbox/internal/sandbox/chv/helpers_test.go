@@ -10,7 +10,7 @@ func needTools(t *testing.T, tools ...string) {
 	t.Helper()
 	for _, tool := range tools {
 		if _, err := exec.LookPath(tool); err != nil {
-			t.Skipf("%s not found", tool)
+			t.Skipf("%s not found", tool) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
 		}
 	}
 }

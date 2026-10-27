@@ -40,7 +40,7 @@ func runCtl(ctl string) {
 	if err != nil {
 		failCtl("%v", err)
 	}
-	sl, srv, err := serveCtl(dir, guestagent.ParsePortList(os.Getenv(guestagent.EnvPorts)))
+	sl, srv, err := serveCtl(dir, guestagent.ParsePortList(os.Getenv(guestagent.EnvPorts))) //nolint:forbidigo // guest agent entry point; the host passes its settings through the environment
 	if err != nil {
 		failCtl("%v", err)
 	}
@@ -106,7 +106,7 @@ func serveCtl(dir ctlDir, ports []int) (*guestagent.SwitchListener, *guestagent.
 			return nil, nil, fmt.Errorf("listen on port %d: %w", port, err)
 		}
 		name := fmt.Sprintf("port-%d.sock", port)
-		go guestagent.Forward(tl, func() (net.Conn, error) { return dir.Dial(name) })
+		go func() { _ = guestagent.Forward(tl, func() (net.Conn, error) { return dir.Dial(name) }) }()
 	}
 	if err := sl.Start(srv); err != nil {
 		return nil, nil, fmt.Errorf("listen: %w", err)

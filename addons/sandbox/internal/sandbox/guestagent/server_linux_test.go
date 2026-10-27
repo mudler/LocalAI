@@ -50,8 +50,8 @@ func agent(t *testing.T, srv *Server) func() net.Conn {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { l.Close() })
-	go srv.Serve(l)
+	t.Cleanup(func() { _ = l.Close() })
+	go func() { _ = srv.Serve(l) }()
 	return func() net.Conn {
 		c, err := net.Dial("unix", sock)
 		if err != nil {
@@ -153,7 +153,7 @@ func TestExecTerminal(t *testing.T) {
 		t.Fatal(err)
 	}
 	code, err := p.Wait()
-	pw.Close()
+	_ = pw.Close()
 	if err != nil || code != 0 || !strings.Contains(out.String(), "is-a-tty") || !strings.Contains(out.String(), "30 100") {
 		t.Fatalf("wait = %d, %v, output %q", code, err, out.String())
 	}

@@ -101,14 +101,13 @@ func (f *fakeServer) sawAuth(want string) bool {
 }
 
 type env struct {
-	svc      *mcpconns.Service
-	store    mcpconns.Store
-	now      time.Time
-	permit   atomic.Bool
-	admin    atomic.Bool
-	private  atomic.Bool
-	mu       sync.Mutex
-	adminIDs map[string]bool
+	svc     *mcpconns.Service
+	store   mcpconns.Store
+	now     time.Time
+	permit  atomic.Bool
+	admin   atomic.Bool
+	private atomic.Bool
+	mu      sync.Mutex
 }
 
 func newEnv(t *testing.T, mutate ...func(*mcpconns.Options)) *env {

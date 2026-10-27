@@ -24,16 +24,16 @@ type toolServer struct {
 func newToolServer(tools []session.Tool) (*toolServer, mcp.Transport, []string, error) {
 	srv := mcp.NewServer(&mcp.Implementation{Name: "session-tools", Version: "v1"}, nil)
 	names := make([]string, 0, len(tools))
-	for _, t := range tools {
-		if t.Name == "" || t.Run == nil {
-			return nil, nil, nil, fmt.Errorf("nib: tool %q is not complete", t.Name)
+	for _, tl := range tools {
+		if tl.Name == "" || tl.Run == nil {
+			return nil, nil, nil, fmt.Errorf("nib: tool %q is not complete", tl.Name)
 		}
 		var schema map[string]any
-		if err := json.Unmarshal(t.Schema, &schema); err != nil {
-			return nil, nil, nil, fmt.Errorf("nib: tool %q: bad schema: %w", t.Name, err)
+		if err := json.Unmarshal(tl.Schema, &schema); err != nil {
+			return nil, nil, nil, fmt.Errorf("nib: tool %q: bad schema: %w", tl.Name, err)
 		}
-		run := t.Run
-		srv.AddTool(&mcp.Tool{Name: t.Name, Description: t.Description, InputSchema: schema},
+		run := tl.Run
+		srv.AddTool(&mcp.Tool{Name: tl.Name, Description: tl.Description, InputSchema: schema},
 			func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 				out, err := run(ctx, req.Params.Arguments)
 				if err != nil {
@@ -41,7 +41,7 @@ func newToolServer(tools []session.Tool) (*toolServer, mcp.Transport, []string, 
 				}
 				return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: out}}}, nil
 			})
-		names = append(names, t.Name)
+		names = append(names, tl.Name)
 	}
 	srvT, cliT := mcp.NewInMemoryTransports()
 	return &toolServer{srv: srv, t: srvT}, cliT, names, nil

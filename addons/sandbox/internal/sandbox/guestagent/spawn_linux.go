@@ -59,8 +59,8 @@ func (sp *LinuxSpawner) Spawn(req ExecRequest) (Proc, error) {
 			return nil, err
 		}
 		if err := setWinsize(master, req.TTY.Rows, req.TTY.Cols); err != nil {
-			master.Close()
-			slave.Close()
+			_ = master.Close()
+			_ = slave.Close()
 			return nil, err
 		}
 		p.tty = master
@@ -76,16 +76,16 @@ func (sp *LinuxSpawner) Spawn(req ExecRequest) (Proc, error) {
 		}
 		outR, outW, err := os.Pipe()
 		if err != nil {
-			inR.Close()
-			inW.Close()
+			_ = inR.Close()
+			_ = inW.Close()
 			return nil, err
 		}
 		errR, errW, err := os.Pipe()
 		if err != nil {
-			inR.Close()
-			inW.Close()
-			outR.Close()
-			outW.Close()
+			_ = inR.Close()
+			_ = inW.Close()
+			_ = outR.Close()
+			_ = outW.Close()
 			return nil, err
 		}
 		p.stdin, p.stdout, p.stderr = inW, outR, errR
@@ -202,7 +202,7 @@ func closeFiles(fs []*os.File) {
 	for _, f := range fs {
 		if !seen[f] {
 			seen[f] = true
-			f.Close()
+			_ = f.Close()
 		}
 	}
 }
@@ -289,12 +289,12 @@ func openPTY() (master, slave *os.File, err error) {
 	}
 	var unlock int32
 	if err := fileIoctl(master, syscall.TIOCSPTLCK, unsafe.Pointer(&unlock)); err != nil {
-		master.Close()
+		_ = master.Close()
 		return nil, nil, err
 	}
 	var n uint32
 	if err := fileIoctl(master, syscall.TIOCGPTN, unsafe.Pointer(&n)); err != nil {
-		master.Close()
+		_ = master.Close()
 		return nil, nil, err
 	}
 	slave, err = os.OpenFile("/dev/pts/"+itoa(int(n)), os.O_RDWR|syscall.O_NOCTTY|syscall.O_CLOEXEC, 0)

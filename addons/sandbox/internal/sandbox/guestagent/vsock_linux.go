@@ -45,11 +45,11 @@ func ListenVsock(port uint32) (net.Listener, error) {
 	}
 	sa := sockaddrVM{Family: afVsock, Port: port, CID: cidAny}
 	if _, _, e := syscall.RawSyscall(syscall.SYS_BIND, uintptr(fd), uintptr(unsafe.Pointer(&sa)), unsafe.Sizeof(sa)); e != 0 {
-		syscall.Close(fd)
+		_ = syscall.Close(fd)
 		return nil, e
 	}
 	if err := syscall.Listen(fd, 128); err != nil {
-		syscall.Close(fd)
+		_ = syscall.Close(fd)
 		return nil, err
 	}
 	return &vsockListener{f: os.NewFile(uintptr(fd), "vsock-listener"), port: port}, nil

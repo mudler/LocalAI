@@ -105,12 +105,12 @@ func replacePart(t *testing.T, b []byte, name string, content string) []byte {
 	for _, n := range names {
 		w, _ := zw.Create(n)
 		if n == name {
-			w.Write([]byte(content))
+			_, _ = w.Write([]byte(content))
 		} else {
-			w.Write(data[n])
+			_, _ = w.Write(data[n])
 		}
 	}
-	zw.Close()
+	_ = zw.Close()
 	return out.Bytes()
 }
 
@@ -439,8 +439,8 @@ func TestOpenErrors(t *testing.T) {
 	zw := zip.NewWriter(&buf)
 	w, _ := zw.Create("_rels/.rels")
 	_, data := zipParts(t, src)
-	w.Write(data["_rels/.rels"])
-	zw.Close()
+	_, _ = w.Write(data["_rels/.rels"])
+	_ = zw.Close()
 	bad = append(bad, buf.Bytes())
 	for i, b := range bad {
 		if d, err := Open(b); err == nil || d != nil {

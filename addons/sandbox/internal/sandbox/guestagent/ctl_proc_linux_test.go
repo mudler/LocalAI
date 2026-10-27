@@ -22,7 +22,7 @@ func runCtlProcChild(t *testing.T, name string) {
 	}
 	if strings.Contains(string(out), "--- SKIP: "+name) {
 		// The child says why: ClearAmbient needs a binary without cgo.
-		t.Skipf("the child skipped (run with CGO_ENABLED=0 to run it):\n%s", out)
+		t.Skipf("the child skipped (run with CGO_ENABLED=0 to run it):\n%s", out) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
 	}
 	if !strings.Contains(string(out), "--- PASS: "+name) {
 		t.Fatalf("child did not run its checks:\n%s", out)

@@ -38,7 +38,7 @@ func TestCtlDirListenAndDial(t *testing.T) {
 		t.Fatal(err)
 	}
 	conn.Close()
-	l.Close()
+	_ = l.Close()
 	if _, err := os.Stat(filepath.Join(dir, "agent.sock")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("closing the listener left the socket file: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestCtlDirListenAndDial(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen over a stale file: %v", err)
 	}
-	l2.Close()
+	_ = l2.Close()
 	if _, err := OpenCtlDir(filepath.Join(dir, "missing")); err == nil {
 		t.Fatal("OpenCtlDir accepted a missing folder")
 	}
@@ -102,7 +102,7 @@ func TestSwitchListenerStopsAndStartsAgain(t *testing.T) {
 	if err := call(); err != nil {
 		t.Fatalf("after listening again: %v", err)
 	}
-	sl.Stop()
+	_ = sl.Stop()
 }
 
 func TestCheckpointFrameAnswersOKWithoutAHook(t *testing.T) {

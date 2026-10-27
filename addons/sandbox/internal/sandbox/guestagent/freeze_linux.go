@@ -42,7 +42,7 @@ func (z *Freezer) ioctl(req uintptr) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	fn := z.Ioctl
 	if fn == nil {
 		fn = realIoctl

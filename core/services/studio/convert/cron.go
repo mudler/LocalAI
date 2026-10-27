@@ -44,7 +44,7 @@ func ScheduleFromCron(s string) (string, bool) {
 func LocalZone() (zone, note string) {
 	name := time.Local.String()
 	if name == "Local" || name == "" {
-		name = strings.TrimPrefix(os.Getenv("TZ"), ":")
+		name = strings.TrimPrefix(os.Getenv("TZ"), ":") //nolint:forbidigo // TZ is the operating system time zone, not LocalAI configuration
 		if name == "" {
 			// /etc/localtime links into the zone database on most systems.
 			if link, err := filepath.EvalSymlinks("/etc/localtime"); err == nil {

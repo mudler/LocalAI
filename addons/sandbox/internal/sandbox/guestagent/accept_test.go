@@ -35,7 +35,7 @@ func (l *scriptedListener) Accept() (net.Conn, error) {
 
 func TestRetryListenerSurvivesTransientErrors(t *testing.T) {
 	a, b := net.Pipe()
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 	var slept []time.Duration
 	rl := RetryListener{
 		Listener: &scriptedListener{errs: []error{syscall.EMFILE, syscall.ECONNABORTED, syscall.ENOMEM}, conn: a},

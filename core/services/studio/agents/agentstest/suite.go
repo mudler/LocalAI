@@ -1,4 +1,6 @@
 // Package agentstest is the contract suite every agents.Store passes.
+//
+//nolint:forbidigo // reusable contract suite driven by the caller's *testing.T
 package agentstest
 
 import (

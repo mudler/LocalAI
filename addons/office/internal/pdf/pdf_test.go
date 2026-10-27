@@ -242,7 +242,7 @@ func TestCreateFontNotDecodedAsText(t *testing.T) {
 func TestCreateWithUnicodeFont(t *testing.T) {
 	path := os.Getenv("OFFICE_PDF_TEST_TTF")
 	if path == "" {
-		t.Skip("set OFFICE_PDF_TEST_TTF to a TrueType font to run this test")
+		t.Skip("set OFFICE_PDF_TEST_TTF to a TrueType font to run this test") //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
 	}
 	ttf, err := os.ReadFile(path)
 	if err != nil {

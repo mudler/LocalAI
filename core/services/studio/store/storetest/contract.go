@@ -1,5 +1,7 @@
 // Package storetest is the conformance suite for store.Store. Every
 // implementation passes it, so the JSON and GORM stores behave the same.
+//
+//nolint:forbidigo // reusable contract suite driven by the caller's *testing.T
 package storetest
 
 import (

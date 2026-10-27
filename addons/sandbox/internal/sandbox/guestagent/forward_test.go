@@ -14,7 +14,7 @@ func TestForwardHalfClose(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer up.Close()
+	defer func() { _ = up.Close() }()
 	go func() {
 		c, err := up.Accept()
 		if err != nil {
@@ -22,14 +22,14 @@ func TestForwardHalfClose(t *testing.T) {
 		}
 		b, _ := io.ReadAll(c) // until the client half-closes
 		_, _ = c.Write(append([]byte("got "), b...))
-		c.Close()
+		_ = c.Close()
 	}()
 	front, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer front.Close()
-	go Forward(front, func() (net.Conn, error) { return net.Dial("tcp", up.Addr().String()) })
+	defer func() { _ = front.Close() }()
+	go func() { _ = Forward(front, func() (net.Conn, error) { return net.Dial("tcp", up.Addr().String()) }) }()
 	c, err := net.Dial("tcp", front.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func TestForwardSurvivesTransientAcceptError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer up.Close()
+	defer func() { _ = up.Close() }()
 	go func() {
 		for {
 			c, err := up.Accept()
@@ -96,7 +96,7 @@ func TestForwardSurvivesTransientAcceptError(t *testing.T) {
 	if err != nil || line != "ping\n" {
 		t.Fatalf("echo after a transient accept error: %q, %v", line, err)
 	}
-	base.Close()
+	_ = base.Close()
 	if err := <-done; !errors.Is(err, net.ErrClosed) {
 		t.Fatalf("Forward on a closed listener returned %v, want net.ErrClosed", err)
 	}

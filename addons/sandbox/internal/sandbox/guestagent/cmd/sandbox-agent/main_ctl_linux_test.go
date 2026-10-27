@@ -30,7 +30,7 @@ func TestServeCtlHidesBeforeItListens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer sl.Stop()
+	defer func() { _ = sl.Stop() }()
 	if got := strings.Join(f.events, "|"); got != "hide|listen agent.sock" {
 		t.Fatalf("events = %s", got)
 	}

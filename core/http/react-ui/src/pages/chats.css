@@ -330,12 +330,13 @@
 }
 
 /* The button that opens the list of chats exists only where the list does not
-   fit beside the thread. */
-.ch-railbtn { display: none; }
+   fit beside the thread. The rule needs the .btn prefix: .btn sets display too,
+   and which of the two wins would otherwise depend on the bundle order. */
+.btn.ch-railbtn { display: none; }
 
 @media (max-width: 720px) {
   .ch-page { flex-direction: column; }
-  .ch-railbtn { display: inline-flex; align-self: center; }
+  .btn.ch-railbtn { display: inline-flex; align-self: center; }
   .ch-head { flex-wrap: wrap; align-items: center; padding: var(--dk-space-3); }
   /* Closed, the list is out of the way; open, it stacks above the thread. */
   .ch-list { display: none; }

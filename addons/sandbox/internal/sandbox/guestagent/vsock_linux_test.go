@@ -54,7 +54,7 @@ func TestVsockAcceptAfterCloseIsErrClosed(t *testing.T) {
 
 func TestVsockAcceptStillAccepts(t *testing.T) {
 	l, path := unixListener(t)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	go func() {
 		c, err := net.Dial("unix", path)
 		if err == nil {

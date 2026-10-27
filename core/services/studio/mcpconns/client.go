@@ -103,7 +103,7 @@ func (s *Service) openConn(c Connector, sec Secrets) (*conn, error) {
 	case TransportStdio:
 		// No shell: the command and its arguments go to the kernel as they are.
 		cmd := exec.CommandContext(ctx, c.Command, c.Args...) // #nosec G204 -- an administrator's own connector
-		cmd.Env = StdioEnv(sec.Env, os.Environ())
+		cmd.Env = StdioEnv(sec.Env, os.Environ())             //nolint:forbidigo // stdio servers inherit a filtered copy of the process environment
 		cs, err = connectCommand(ctx, cancel, cmd, s.o.ConnectTimeout)
 	default:
 		err = bad("unknown transport")

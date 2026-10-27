@@ -41,8 +41,10 @@ type Config struct {
 	// the endpoint and fall back to 128000.
 	ContextTokens int
 	// LogLevel is the level of nib's process-wide logger: debug, info, warn or
-	// error. Empty means error. The first call of New sets it for the process.
-	// At debug, nib logs tool arguments.
+	// error. Empty leaves the process logger as the caller configured it, so
+	// the log level and format of the server apply. A value replaces the
+	// process-wide logger, and the first call of New sets it. At debug, nib
+	// logs tool arguments.
 	LogLevel string
 }
 
@@ -57,13 +59,11 @@ type Model struct {
 
 // New returns a harness that starts one nib session per chat.
 func New(cfg Config) session.Harness {
-	logOnce.Do(func() {
-		level := cfg.LogLevel
-		if level == "" {
-			level = "error"
-		}
-		xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(level), "text"))
-	})
+	if cfg.LogLevel != "" {
+		logOnce.Do(func() {
+			xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(cfg.LogLevel), "text"))
+		})
+	}
 	return &harness{cfg: cfg}
 }
 

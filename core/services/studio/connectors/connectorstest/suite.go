@@ -1,4 +1,6 @@
 // Package connectorstest is the contract suite every connectors.Store passes.
+//
+//nolint:forbidigo // reusable contract suite driven by the caller's *testing.T
 package connectorstest
 
 import (

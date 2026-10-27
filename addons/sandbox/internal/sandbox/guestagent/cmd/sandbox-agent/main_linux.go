@@ -25,7 +25,7 @@ func main() {
 	if err := setNoNewPrivs(); err != nil {
 		fail("no_new_privs: %v", err)
 	}
-	if ctl := os.Getenv(guestagent.EnvCtl); ctl != "" {
+	if ctl := os.Getenv(guestagent.EnvCtl); ctl != "" { //nolint:forbidigo // guest agent entry point; the host passes its settings through the environment
 		runCtl(ctl) // gVisor: no vsock, no PID 1 power-off; never returns
 	}
 	if err := guestagent.Boot(guestagent.RealSys{}, guestagent.BootConfig{Uid: agentUID, Gid: agentGID}); err != nil {
@@ -57,7 +57,9 @@ func main() {
 		if err != nil {
 			fail("listen on port %d: %v", port, err)
 		}
-		go guestagent.Forward(tl, func() (net.Conn, error) { return guestagent.DialVsock(guestagent.HostCID, uint32(port)) })
+		go func() {
+			_ = guestagent.Forward(tl, func() (net.Conn, error) { return guestagent.DialVsock(guestagent.HostCID, uint32(port)) })
+		}()
 	}
 	go func() {
 		defer func() {
@@ -93,7 +95,7 @@ func sendReady() {
 		var c net.Conn
 		if c, err = guestagent.DialVsock(guestagent.HostCID, guestagent.AgentPort); err == nil {
 			err = guestagent.SendReady(c)
-			c.Close()
+			_ = c.Close()
 			if err == nil {
 				return
 			}

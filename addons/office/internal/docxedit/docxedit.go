@@ -108,7 +108,7 @@ func Open(data []byte) (doc *Document, err error) {
 		if err != nil {
 			return nil, true, fmt.Errorf("docxedit: cannot open %q: %w", name, err)
 		}
-		defer rc.Close()
+		defer func() { _ = rc.Close() }()
 		b, err := io.ReadAll(io.LimitReader(rc, maxEntry+1))
 		if err != nil {
 			return nil, true, fmt.Errorf("docxedit: cannot read %q: %w", name, err)

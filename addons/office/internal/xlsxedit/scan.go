@@ -148,15 +148,14 @@ type rowSpan struct {
 
 // sheetScan is the layout of one worksheet part.
 type sheetScan struct {
-	sd        elem
-	hasSD     bool
-	prefix    string
-	rows      []rowSpan
-	dimStart  int
-	dimEnd    int
-	dimRef    string
-	hasDim    bool
-	dimIsNode bool
+	sd       elem
+	hasSD    bool
+	prefix   string
+	rows     []rowSpan
+	dimStart int
+	dimEnd   int
+	dimRef   string
+	hasDim   bool
 }
 
 func scanSheet(data []byte) (*sheetScan, error) {

@@ -225,7 +225,7 @@ func loopbackUp() error {
 	if err != nil {
 		return err
 	}
-	defer syscall.Close(fd)
+	defer func() { _ = syscall.Close(fd) }()
 	var ifr [40]byte // struct ifreq: name[16], then a union; flags is a short
 	copy(ifr[:], "lo")
 	if _, _, e := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), syscall.SIOCGIFFLAGS, uintptr(unsafe.Pointer(&ifr[0]))); e != 0 {

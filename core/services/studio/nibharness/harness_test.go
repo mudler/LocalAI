@@ -157,7 +157,7 @@ func TestHarnessWithoutToolsOffersNoBuiltinTools(t *testing.T) {
 	if len(llm.tools) == 0 {
 		t.Fatal("the model received no request")
 	}
-	t.Logf("requests: %v; tools offered to the first: %v", llm.via, llm.tools[0])
+	t.Logf("requests: %v; tools offered to the first: %v", llm.via, llm.tools[0]) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
 	banned := []string{"bash", "shell", "file", "edit", "write", "fetch", "search", "browser", "computer", "glob", "grep"}
 	for _, name := range llm.tools[0] {
 		for _, b := range banned {

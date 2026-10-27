@@ -45,11 +45,11 @@ func testBackend(t *testing.T) *Backend {
 	t.Helper()
 	img := os.Getenv("SANDBOX_TEST_IMAGE")
 	if img == "" {
-		t.Skip("set SANDBOX_TEST_IMAGE to the guest image (name@sha256:... or oci-layout:<dir>@sha256:...)")
+		t.Skip("set SANDBOX_TEST_IMAGE to the guest image (name@sha256:... or oci-layout:<dir>@sha256:...)") //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
 	}
 	b, err := New(Options{StateDir: shortDir(t), CacheDir: testCache(t), DefaultImage: img, NoBwrap: os.Getenv("SANDBOX_NO_BWRAP") == "1"})
 	if errors.Is(err, sandbox.ErrUnsupported) {
-		t.Skipf("this host cannot run the backend: %v", err)
+		t.Skipf("this host cannot run the backend: %v", err) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
 	}
 	if err != nil {
 		t.Fatal(err)

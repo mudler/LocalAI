@@ -148,7 +148,7 @@ true`)
 		}
 	}
 	if t.Failed() {
-		t.Logf("full output:\n%s", got)
+		t.Logf("full output:\n%s", got) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
 	}
 }
 
@@ -397,7 +397,7 @@ func TestCheckpointDuringALargeCopyUpIsWholeOrNothing(t *testing.T) {
 		}
 		if !sawEnd {
 			overlapped = true
-			t.Logf("attempt %d: the writer was running at the pause (upper big.bin was %d bytes)", i, upperSize)
+			t.Logf("attempt %d: the writer was running at the pause (upper big.bin was %d bytes)", i, upperSize) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
 		}
 	}
 	if !overlapped {

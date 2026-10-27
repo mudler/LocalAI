@@ -21,7 +21,7 @@ var allowed = []string{
 
 func TestModuleImports(t *testing.T) {
 	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go command not found")
+		t.Skip("go command not found") //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
 	}
 	out, err := exec.Command("go", "list", "-json", "./...").Output()
 	if err != nil {

@@ -84,7 +84,7 @@ func mutate(t *testing.T, data []byte, name string, fn func(string) string) []by
 		}
 		w.Write(b)
 	}
-	zw.Close()
+	_ = zw.Close()
 	return buf.Bytes()
 }
 

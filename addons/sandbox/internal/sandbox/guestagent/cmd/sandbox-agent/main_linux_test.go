@@ -91,7 +91,7 @@ func TestNoNewPrivsChild(t *testing.T) {
 				bad <- err.Error()
 				return
 			}
-			defer p.Close()
+			defer func() { _ = p.Close() }()
 			out, _ := io.ReadAll(p.Stdout())
 			_, _, _ = p.Wait()
 			if !strings.Contains(string(out), "NoNewPrivs:\t1") {
