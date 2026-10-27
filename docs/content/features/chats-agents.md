@@ -72,6 +72,37 @@ definition from their next turn. Another user's agent is always `404`.
 Agents belong to the `chats` feature. They have no administration tools, as
 they are your own settings.
 
+### Starter agents
+
+`GET /api/chats/agents/templates` lists ready-made definitions (a research
+assistant, a code reviewer, a daily digest, a writing editor). They grant
+nothing. `POST /api/chats/agents/templates/{id}/create` saves one as your own
+(`{"name": "..."}` is optional); then grant it tools with `PUT`.
+
+### Export and import
+
+```
+curl .../api/chats/agents/<id>/export > reviewer.json
+curl -X POST .../api/chats/agents/import -d @reviewer.json
+curl -X POST .../api/chats/agents/import -F file=@reviewer.json
+```
+
+The file holds the definition only (version 1, kind `localai-agent`): no ID,
+owner or time. An import always makes a new agent. A name you already use gets
+" (2)", " (3)" and so on, and a model that this server does not have, or that you
+may not use, is dropped. The response lists such changes under `warnings`. The
+grants (MCP servers, add-ons, collections, skills) are kept as names; a grant
+that names something you do not have gives the chat nothing, as for any agent.
+Secrets are never part of an agent, so the file has none.
+
+### Run history
+
+`GET /api/chats/agents/{id}/runs` lists the chats that ran with the agent,
+newest first: the ones you had with it, the ones its triggers started
+(`origin: trigger`) and the ones its connectors started (`origin: connector`),
+each with `running` and `last_turn`. `total`, `failed` and `running` count every
+run among your newest 5,000 chats. Open a run with `GET /api/chats/{chat_id}`.
+
 ## Connectors
 
 A [connector](/features/chats-connectors/) binds a Telegram bot to an agent, so a person can talk to it from Telegram. An [MCP connector](/features/chats-connectors/#mcp-servers) is a tool server that an agent can name in its `mcp_servers` list.

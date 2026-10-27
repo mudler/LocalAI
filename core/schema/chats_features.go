@@ -169,3 +169,65 @@ type ChatsMCPRef struct {
 	Arguments map[string]string `json:"arguments,omitempty"`
 	URI       string            `json:"uri,omitempty"`
 }
+
+// ChatsAgentExport is a saved agent as a file. Version is 1 and Kind is
+// localai-agent. The file holds the definition only: no ID, owner or time.
+type ChatsAgentExport struct {
+	Version    int             `json:"version"`
+	Kind       string          `json:"kind"`
+	ExportedAt time.Time       `json:"exported_at"`
+	Agent      ChatsAgentWrite `json:"agent"`
+}
+
+// ChatsAgentImportResult is the response of an agent import.
+type ChatsAgentImportResult struct {
+	Agent ChatsAgent `json:"agent"`
+	// Warnings say what the import changed: a model this server does not have
+	// or you may not use is dropped, and a name you already use gets a number.
+	Warnings []string `json:"warnings,omitempty"`
+}
+
+// ChatsAgentTemplate is a starter agent. It grants nothing.
+type ChatsAgentTemplate struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Instructions string `json:"instructions"`
+}
+
+// ChatsAgentTemplateList lists the starter agents.
+type ChatsAgentTemplateList struct {
+	Templates []ChatsAgentTemplate `json:"templates"`
+}
+
+// ChatsAgentTemplateUse saves a starter agent.
+type ChatsAgentTemplateUse struct {
+	// Name replaces the template's name.
+	Name string `json:"name,omitempty"`
+}
+
+// ChatsAgentRun is a chat that ran with a saved agent.
+type ChatsAgentRun struct {
+	ChatID string `json:"chat_id"`
+	Title  string `json:"title"`
+	Model  string `json:"model"`
+	// Origin is empty for a chat you had with the agent, trigger or connector
+	// for one that started by itself; OriginID names the trigger or binding.
+	Origin   string    `json:"origin,omitempty"`
+	OriginID string    `json:"origin_id,omitempty"`
+	Created  time.Time `json:"created"`
+	Updated  time.Time `json:"updated"`
+	Running  bool      `json:"running"`
+	// LastTurn is how its last turn ended: done, stopped, failed or interrupted.
+	LastTurn string `json:"last_turn,omitempty"`
+}
+
+// ChatsAgentHistory is the run history of a saved agent, newest first.
+type ChatsAgentHistory struct {
+	Runs []ChatsAgentRun `json:"runs"`
+	// Total, Failed and Running count every run of the agent among your newest
+	// 5,000 chats, not only the ones listed.
+	Total   int `json:"total"`
+	Failed  int `json:"failed"`
+	Running int `json:"running"`
+}

@@ -3223,6 +3223,94 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/agents/import": {
+            "post": {
+                "description": "Send the export file as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning.",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Import a saved agent.",
+                "parameters": [
+                    {
+                        "description": "the agent file",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentExport"
+                        }
+                    },
+                    {
+                        "type": "file",
+                        "description": "the agent file (multipart)",
+                        "name": "file",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new agent and what the import changed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentImportResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/templates": {
+            "get": {
+                "description": "Ready-made definitions to start from. They grant nothing; save one, then grant it tools. POST /api/chats/agents/templates/{id}/create saves one for you.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the starter agents.",
+                "responses": {
+                    "200": {
+                        "description": "The starter agents",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentTemplateList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/templates/{id}/create": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Save a starter agent as your own.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the template's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "a name to use instead of the template's",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentTemplateUse"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The saved agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgent"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/agents/{id}": {
             "get": {
                 "tags": [
@@ -3298,6 +3386,64 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/{id}/export": {
+            "get": {
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Export a saved agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The agent file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentExport"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/{id}/runs": {
+            "get": {
+                "description": "Lists your chats that ran with the agent, newest first: the ones you had, the ones its triggers started and the ones its connectors started, with how each ended. Open one with GET /api/chats/{chat_id}.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Show what an agent has run.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most runs to list (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The runs and the counts",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentHistory"
+                        }
                     }
                 }
             }
@@ -13320,6 +13466,59 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAgentExport": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "$ref": "#/definitions/schema.ChatsAgentWrite"
+                },
+                "exported_at": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsAgentHistory": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "integer"
+                },
+                "running": {
+                    "type": "integer"
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentRun"
+                    }
+                },
+                "total": {
+                    "description": "Total, Failed and Running count every run of the agent among your newest\n5,000 chats, not only the ones listed.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsAgentImportResult": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "$ref": "#/definitions/schema.ChatsAgent"
+                },
+                "warnings": {
+                    "description": "Warnings say what the import changed: a model this server does not have\nor you may not use is dropped, and a name you already use gets a number.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsAgentList": {
             "type": "object",
             "properties": {
@@ -13328,6 +13527,77 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsAgent"
                     }
+                }
+            }
+        },
+        "schema.ChatsAgentRun": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "last_turn": {
+                    "description": "LastTurn is how its last turn ended: done, stopped, failed or interrupted.",
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "origin": {
+                    "description": "Origin is empty for a chat you had with the agent, trigger or connector\nfor one that started by itself; OriginID names the trigger or binding.",
+                    "type": "string"
+                },
+                "origin_id": {
+                    "type": "string"
+                },
+                "running": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentTemplate": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentTemplateList": {
+            "type": "object",
+            "properties": {
+                "templates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentTemplate"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAgentTemplateUse": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name replaces the template's name.",
+                    "type": "string"
                 }
             }
         },

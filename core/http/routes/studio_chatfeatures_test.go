@@ -576,3 +576,9 @@ var _ = Describe("Chats trigger proposals in the chat", func() {
 		Expect(s.do("alice", http.MethodPut, url, map[string]any{"name": "x", "prompt": "p", "kind": "schedule", "schedule": "daily 09:00"}).Code).To(Equal(http.StatusNotFound))
 	})
 })
+
+func mustJSON(v any) []byte {
+	b, err := json.Marshal(v)
+	Expect(err).NotTo(HaveOccurred())
+	return b
+}

@@ -86,6 +86,8 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusNotFound, "not_found", "conversation not found")
 	case errors.Is(err, store.ErrDelivered):
 		return fail(c, http.StatusConflict, "conflict", "the message was already delivered to the model")
+	case errors.Is(err, studiosvc.ErrNoTemplate):
+		return fail(c, http.StatusNotFound, "not_found", "agent template not found")
 	case errors.Is(err, studiosvc.ErrChatBusy):
 		return fail(c, http.StatusConflict, "conflict", "a turn is running; stop it first")
 	case errors.Is(err, studiosvc.ErrNothingToRegenerate), errors.Is(err, studiosvc.ErrNotUserMessage),
