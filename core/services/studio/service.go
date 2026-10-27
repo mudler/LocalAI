@@ -361,6 +361,41 @@ func (s *Service) Get(ctx context.Context, user, conv string) (session.ChatRecor
 	return s.d.Store.GetChat(ctx, principal(user), conv)
 }
 
+// Rename sets the title of a conversation the user owns, and renames its folder
+// of the workspace when it has one. It returns store.ErrTurnRunning while a turn
+// runs, here or on another frontend: the folder must not move under a turn.
+func (s *Service) Rename(ctx context.Context, user, conv, title string) (session.ChatRecord, error) {
+	p := principal(user)
+	if session.CleanTitle(title) == "" {
+		return session.ChatRecord{}, fmt.Errorf("rename chat: %w: empty title", session.ErrInvalid)
+	}
+	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+		return session.ChatRecord{}, fmt.Errorf("rename chat: %w", err)
+	}
+	info, err := s.d.Store.Turn(ctx, p, conv)
+	if err != nil {
+		return session.ChatRecord{}, fmt.Errorf("rename chat: %w", err)
+	}
+	if info.Running {
+		return session.ChatRecord{}, store.ErrTurnRunning
+	}
+	chat, err := s.chat(ctx, p, conv)
+	if err != nil {
+		return session.ChatRecord{}, fmt.Errorf("rename chat: %w", err)
+	}
+	if err := chat.SetTitle(ctx, title); err != nil {
+		if errors.Is(err, session.ErrTurnRunning) {
+			return session.ChatRecord{}, store.ErrTurnRunning
+		}
+		return session.ChatRecord{}, fmt.Errorf("rename chat: %w", err)
+	}
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
+		return session.ChatRecord{}, fmt.Errorf("rename chat: %w", err)
+	}
+	return rec, nil
+}
+
 // Messages returns transcript entries after seq.
 func (s *Service) Messages(ctx context.Context, user, conv string, after int64, limit int) ([]session.Entry, error) {
 	if _, err := s.Get(ctx, user, conv); err != nil {

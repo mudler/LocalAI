@@ -156,7 +156,7 @@ test('every old chat, agent, job and skill route redirects, and no built-in page
     const entry = router.split('\n').find(l => l.includes(`{ path: ${path}, element:`))
     assert.ok(entry?.includes('<ChatsRedirect />'), `no ChatsRedirect for ${path}`)
   }
-  assert.ok(!/pages\/(Chat|Agents|AgentCreate|AgentPage|AgentRun|AgentStatus|Skills|SkillEdit|AgentJobs|AgentTaskDetails|AgentJobDetails)'/.test(router))
+  assert.ok(!/pages\/(Agents|AgentCreate|AgentPage|AgentRun|AgentStatus|Skills|SkillEdit|AgentJobs|AgentTaskDetails|AgentJobDetails)'/.test(router))
 })
 
 test('chatsRedirect keeps a model name that is not valid percent-encoding as typed', () => {

@@ -224,6 +224,18 @@ export function useServerChat() {
   const stop = useCallback((id) => act(id, () => chatsApi.stop(id)), [act])
   const sendNow = useCallback((id) => act(id, () => chatsApi.sendNow(id)), [act])
 
+  // Renaming answers 409 while a turn runs; the error shows like any other.
+  const rename = useCallback(async (id, title) => {
+    setError('')
+    try {
+      const out = await chatsApi.rename(id, title)
+      if (activeRef.current === id) setDetail(d => (d ? { ...d, title: out.title } : d))
+    } catch (e) {
+      setError(e.message)
+    }
+    await refreshList()
+  }, [refreshList])
+
   const remove = useCallback(async (id) => {
     await chatsApi.delete(id)
     if (activeRef.current === id) await select(null)
@@ -235,7 +247,7 @@ export function useServerChat() {
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],
-    select, createChat, send, editPending, cancelPending, stop, sendNow, remove, refreshList,
+    select, createChat, send, editPending, cancelPending, stop, sendNow, remove, rename, refreshList,
     clearError: () => setError(''),
   }
 }

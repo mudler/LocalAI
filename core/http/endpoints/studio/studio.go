@@ -84,6 +84,10 @@ func failFor(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, session.ErrNotFound):
 		return fail(c, http.StatusNotFound, "not_found", "conversation not found")
+	case errors.Is(err, store.ErrTurnRunning):
+		return fail(c, http.StatusConflict, "conflict", "a turn is running; try again when it ends")
+	case errors.Is(err, session.ErrInvalid):
+		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	case errors.Is(err, store.ErrDelivered):
 		return fail(c, http.StatusConflict, "conflict", "the message was already delivered to the model")
 	case errors.Is(err, studiosvc.ErrBadSkillName), errors.Is(err, studiosvc.ErrBadAddonID), errors.Is(err, studiosvc.ErrBadMCPSwitch):
@@ -258,6 +262,31 @@ func (h *Handlers) Delete(c echo.Context) error {
 		return failFor(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]bool{"deleted": true})
+}
+
+// Rename sets the title of a conversation.
+// @Summary Rename a chat.
+// @Description Refused with 409 while a turn runs. The chat's folder in the workspace is renamed with it.
+// @Tags chats
+// @Param id path string true "conversation id"
+// @Param request body schema.ChatsRename true "the new title"
+// @Success 200 {object} schema.ChatsConversation "The renamed conversation"
+// @Router /api/chats/{id} [patch]
+func (h *Handlers) Rename(c echo.Context) error {
+	var req schema.ChatsRename
+	if err := c.Bind(&req); err != nil {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+	}
+	user := userID(c)
+	rec, err := h.svc.Rename(c.Request().Context(), user, c.Param("id"), req.Title)
+	if err != nil {
+		return failFor(c, err)
+	}
+	out, err := h.describe(c, user, rec)
+	if err != nil {
+		return failFor(c, err)
+	}
+	return c.JSON(http.StatusOK, out)
 }
 
 // Messages returns the transcript.

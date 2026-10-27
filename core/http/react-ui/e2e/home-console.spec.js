@@ -533,7 +533,7 @@ test.describe('Home send hand-off', () => {
 
     await page.goBack()
     await expect(page).toHaveURL(/\/app\/chats(\?model=[^/]*)?$/)
-    await expect(page.getByRole('textbox', { name: 'Message' })).toHaveValue('')
+    await expect(page.getByTestId('chat-input')).toHaveValue('')
     await page.waitForTimeout(1500)
     expect(seen.created).toHaveLength(1)
     expect(seen.sent).toHaveLength(1)

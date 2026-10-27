@@ -1,0 +1,155 @@
+{
+  "activity": {
+    "thought": "Pensamento",
+    "tool": "Ferramenta",
+    "result": "Resultado",
+    "toolResult": "Resultado de {{name}}",
+    "thinking": "Pensando..."
+  },
+  "header": {
+    "manageModeTooltip": "Este chat pode instalar modelos, editar configurações e gerenciar backends conversando com o LocalAI.",
+    "modelInfo": "Informações do modelo",
+    "chatSettings": "Configurações do chat",
+    "modelInfoTitle": "Informações do Modelo: {{model}}",
+    "editConfig": "Editar configuração",
+    "close": "Fechar"
+  },
+  "modelInfo": {
+    "backend": "Backend",
+    "modelFile": "Arquivo do modelo",
+    "contextSize": "Tamanho do contexto",
+    "threads": "Threads",
+    "mcp": "MCP",
+    "configured": "Configurado",
+    "chatTemplate": "Modelo de conversa",
+    "yes": "Sim",
+    "gpuLayers": "Camadas GPU"
+  },
+  "settings": {
+    "title": "Configurações do Chat",
+    "manageMode": "Modo de gerenciamento",
+    "serverKept": "O servidor guarda este chat. O modelo e o agente são definidos no início.",
+    "manageModeOn": "Este chat tem as ferramentas de gestão do LocalAI. Use /assistant para iniciar outro.",
+    "agent": "Agente",
+    "agentHelp": "Este chat usa o agente {{name}}: as instruções dele e só as ferramentas que ele concede.",
+    "editAgent": "Editar agente",
+    "deleteHelp": "Apagar este chat e as mensagens dele para sempre."
+  },
+  "empty": {
+    "manageTitle": "Gerencie o LocalAI conversando",
+    "manageText": "Peça para instalar modelos, alternar backends, editar configurações ou verificar o status. O assistente resumirá as ações e aguardará sua confirmação antes de alterar qualquer coisa.",
+    "startTitle": "Inicie uma conversa",
+    "readyText": "Pronto para conversar com {{model}}",
+    "selectModelText": "Selecione um modelo acima para começar",
+    "suggestionsManage": [
+      "O que está instalado?",
+      "Instalar um modelo de chat",
+      "Mostrar o status do sistema",
+      "Atualizar um backend"
+    ],
+    "suggestionsChat": [
+      "Explique como isto funciona",
+      "Ajude-me a escrever código",
+      "Resumir um documento",
+      "Gerar ideias"
+    ],
+    "recent": "Recente",
+    "hintEnter": "Enter para enviar",
+    "hintShiftEnter": "Shift+Enter para nova linha",
+    "hintAttach": "Anexar arquivos"
+  },
+  "errors": {
+    "viewTraces": "Ver rastreamentos para detalhes"
+  },
+  "actions": {
+    "copy": "Copiar",
+    "regenerate": "Regenerar",
+    "jumpToLatest": "Ir para a mais recente",
+    "reuse": "Editar e enviar de novo"
+  },
+  "streaming": {
+    "transferring": "Transferindo modelo...",
+    "transferringTo": "Transferindo o modelo para {{node}}..."
+  },
+  "input": {
+    "send": "Enviar mensagem",
+    "stopGenerating": "Parar a geração",
+    "canvasTitle": "Canvas — extrai blocos de código e mídia para um painel lateral para visualização, cópia e download",
+    "canvasLabel": "Canvas",
+    "openCanvas": "Abrir painel do canvas",
+    "placeholderQueue": "O modelo está trabalhando. Uma mensagem enviada agora espera o próximo passo dele."
+  },
+  "deleteAllDialog": {
+    "title": "Excluir Todos os Chats",
+    "message": "Excluir todos os chats? Esta ação não pode ser desfeita.",
+    "confirm": "Excluir todos"
+  },
+  "toasts": {
+    "selectModel": "Selecione um modelo",
+    "copied": "Copiado para a área de transferência",
+    "copyFailed": "Não foi possível copiar para a área de transferência",
+    "chatCopied": "Chat copiado para a área de transferência",
+    "newChatForModel": "Um chat mantém o modelo dele. Novo chat iniciado com {{model}}."
+  },
+  "menu": {
+    "trigger": "Chats",
+    "triggerTitle": "Conversas (Ctrl/Cmd+K)",
+    "search": "Buscar conversas...",
+    "clearSearch": "Limpar busca",
+    "noMatch": "Nenhuma conversa corresponde à sua busca",
+    "noConversations": "Nenhuma conversa ainda",
+    "rename": "Renomear",
+    "copyChat": "Copiar chat",
+    "exportMarkdown": "Exportar como Markdown",
+    "deleteChat": "Excluir chat",
+    "newChat": "Novo chat",
+    "clearAll": "Limpar tudo",
+    "deleteAllTitle": "Excluir todas as conversas",
+    "untitled": "Novo chat",
+    "origin": {
+      "trigger": "Iniciado por um gatilho",
+      "connector": "De um conector"
+    }
+  },
+  "message": {
+    "you": "Você"
+  },
+  "tools": {
+    "label": "Ferramentas",
+    "title": "Ferramentas que este chat pode usar",
+    "heading": "Ferramentas deste chat",
+    "note": "Uma ferramenta desligada aqui não é oferecida ao modelo neste chat."
+  },
+  "skills": {
+    "label": "Habilidades",
+    "title": "Habilidades que este chat pode usar",
+    "heading": "Habilidades deste chat"
+  },
+  "agent": {
+    "label": "Agente",
+    "title": "Agente salvo para este chat",
+    "heading": "Começar com um agente",
+    "note": "O agente dá ao chat as instruções dele e exatamente as ferramentas que concede.",
+    "none": "Sem agente",
+    "fixed": "O agente deste chat"
+  },
+  "assistant": {
+    "chatTitle": "Assistente do LocalAI"
+  },
+  "slash": {
+    "delete": {
+      "label": "Apagar chat",
+      "desc": "Apagar esta conversa"
+    },
+    "assistant": {
+      "desc": "Iniciar um chat que pode gerir o LocalAI"
+    },
+    "settings": {
+      "desc": "Modo foco, agente e informações do modelo"
+    }
+  },
+  "shortcuts": {
+    "onMessage": "Numa mensagem: copiar, editar, regenerar",
+    "editLast": "Editar a sua última mensagem"
+  }
+}

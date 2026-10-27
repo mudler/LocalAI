@@ -4807,6 +4807,39 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "description": "Refused with 409 while a turn runs. The chat's folder in the workspace is renamed with it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Rename a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new title",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsRename"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The renamed conversation",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    }
+                }
             }
         },
         "/api/chats/{id}/addons": {
@@ -13749,6 +13782,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "endpoint": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsRename": {
+            "type": "object",
+            "properties": {
+                "title": {
                     "type": "string"
                 }
             }

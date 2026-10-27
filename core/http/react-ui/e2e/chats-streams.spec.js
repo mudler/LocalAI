@@ -58,7 +58,7 @@ test.describe('Chat event streams', () => {
       ? route.fulfill({ status: 500, json: { error: { message: 'model is gone' } } })
       : route.fulfill({ json: { messages: [] } })))
     await page.goto('/app/chats/c1')
-    const box = page.getByRole('textbox', { name: 'Message' })
+    const box = page.getByTestId('chat-input')
     await box.fill('hello')
     await box.press('Enter')
     await expect(page.getByRole('alert')).toContainText('model is gone')

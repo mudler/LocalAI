@@ -1,0 +1,150 @@
+{
+  "activity": {
+    "thought": "Réflexion",
+    "tool": "Outil",
+    "result": "Résultat",
+    "toolResult": "Résultat de {{name}}",
+    "thinking": "Réflexion en cours..."
+  },
+  "header": {
+    "manageModeTooltip": "Ce chat peut installer des modèles, modifier la configuration et gérer les backends en dialoguant avec LocalAI.",
+    "modelInfo": "Infos modèle",
+    "chatSettings": "Paramètres du chat",
+    "modelInfoTitle": "Infos modèle : {{model}}",
+    "editConfig": "Modifier la configuration",
+    "close": "Fermer"
+  },
+  "modelInfo": {
+    "backend": "Backend",
+    "modelFile": "Fichier modèle",
+    "contextSize": "Taille du contexte",
+    "threads": "Threads",
+    "mcp": "MCP",
+    "configured": "Configuré",
+    "chatTemplate": "Template de chat",
+    "yes": "Oui",
+    "gpuLayers": "Couches GPU"
+  },
+  "settings": {
+    "title": "Paramètres du chat",
+    "manageMode": "Mode gestion",
+    "focusMode": "Mode concentration",
+    "focusModeDesc": "Réduit la barre latérale et l'en-tête pendant une conversation. Échap les restaure temporairement ; désactivez cette option pour conserver la mise en page complète.",
+    "serverKept": "Le serveur conserve ce chat. Son modèle et son agent sont fixés au début.",
+    "manageModeOn": "Ce chat a les outils de gestion de LocalAI. Utilisez /assistant pour en lancer un autre.",
+    "agent": "Agent",
+    "agentHelp": "Ce chat utilise l'agent {{name}} : ses instructions et seulement les outils qu'il accorde.",
+    "editAgent": "Modifier l'agent",
+    "deleteHelp": "Supprimer définitivement ce chat et ses messages."
+  },
+  "empty": {
+    "manageTitle": "Gérez LocalAI par la conversation",
+    "manageText": "Demandez d'installer des modèles, de changer de backend, de modifier la configuration ou de vérifier l'état. L'assistant résume les actions et attend votre confirmation avant de modifier quoi que ce soit.",
+    "suggestionsManage": [
+      "Qu'est-ce qui est installé ?",
+      "Installer un modèle de chat",
+      "Afficher l'état du système",
+      "Mettre à jour un backend"
+    ],
+    "suggestionsChat": [
+      "Explique-moi comment ça fonctionne",
+      "Aide-moi à écrire du code",
+      "Résume un document",
+      "Trouve-moi des idées"
+    ]
+  },
+  "errors": {
+    "viewTraces": "Consulter les traces pour plus de détails"
+  },
+  "actions": {
+    "copy": "Copier",
+    "regenerate": "Régénérer",
+    "jumpToLatest": "Aller au plus récent",
+    "reuse": "Modifier et renvoyer"
+  },
+  "streaming": {
+    "transferring": "Transfert du modèle...",
+    "transferringTo": "Transfert du modèle vers {{node}}..."
+  },
+  "input": {
+    "send": "Envoyer le message",
+    "stopGenerating": "Arrêter la génération",
+    "canvasTitle": "Canvas — extrait les blocs de code et les médias dans un panneau latéral pour les prévisualiser, copier et télécharger",
+    "canvasLabel": "Canvas",
+    "openCanvas": "Ouvrir le panneau Canvas",
+    "placeholderQueue": "Le modèle travaille. Un message envoyé maintenant attend son étape suivante."
+  },
+  "deleteAllDialog": {
+    "title": "Supprimer toutes les conversations",
+    "message": "Supprimer toutes les conversations ? Cette action est irréversible.",
+    "confirm": "Tout supprimer"
+  },
+  "toasts": {
+    "selectModel": "Veuillez sélectionner un modèle",
+    "copied": "Copié dans le presse-papiers",
+    "copyFailed": "Impossible de copier dans le presse-papiers",
+    "chatCopied": "Conversation copiée dans le presse-papiers",
+    "newChatForModel": "Un chat garde son modèle. Nouveau chat lancé avec {{model}}."
+  },
+  "menu": {
+    "trigger": "Conversations",
+    "triggerTitle": "Conversations (Ctrl/Cmd+K)",
+    "search": "Rechercher une conversation...",
+    "clearSearch": "Effacer la recherche",
+    "noMatch": "Aucune conversation ne correspond",
+    "noConversations": "Aucune conversation pour l'instant",
+    "rename": "Renommer",
+    "copyChat": "Copier la conversation",
+    "exportMarkdown": "Exporter en Markdown",
+    "deleteChat": "Supprimer la conversation",
+    "newChat": "Nouvelle conversation",
+    "clearAll": "Tout effacer",
+    "deleteAllTitle": "Supprimer toutes les conversations",
+    "untitled": "Nouveau chat",
+    "origin": {
+      "trigger": "Lancé par un déclencheur",
+      "connector": "Depuis un connecteur"
+    }
+  },
+  "message": {
+    "you": "Vous"
+  },
+  "tools": {
+    "label": "Outils",
+    "title": "Outils que ce chat peut utiliser",
+    "heading": "Outils de ce chat",
+    "note": "Un outil désactivé ici n'est pas proposé au modèle dans ce chat."
+  },
+  "skills": {
+    "label": "Compétences",
+    "title": "Compétences que ce chat peut utiliser",
+    "heading": "Compétences de ce chat"
+  },
+  "agent": {
+    "label": "Agent",
+    "title": "Agent enregistré pour ce chat",
+    "heading": "Commencer avec un agent",
+    "note": "L'agent donne au chat ses instructions et exactement les outils qu'il accorde.",
+    "none": "Aucun agent",
+    "fixed": "L'agent de ce chat"
+  },
+  "assistant": {
+    "chatTitle": "Assistant LocalAI"
+  },
+  "slash": {
+    "delete": {
+      "label": "Supprimer le chat",
+      "desc": "Supprimer cette conversation"
+    },
+    "assistant": {
+      "desc": "Lancer un chat qui peut gérer LocalAI"
+    },
+    "settings": {
+      "desc": "Mode focus, agent et infos du modèle"
+    }
+  },
+  "shortcuts": {
+    "onMessage": "Sur un message : copier, modifier, régénérer",
+    "editLast": "Modifier votre dernier message"
+  }
+}

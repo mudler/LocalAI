@@ -91,7 +91,7 @@ test.describe('Chat MCP apps', () => {
     expect(srcdoc.toLowerCase().startsWith('<!doctype html><meta http-equiv="content-security-policy"')).toBe(true)
     expect(srcdoc).toContain("connect-src 'none'")
     // The frame sits inside the tool entry, after its line.
-    await expect(page.locator('.ch-tools').filter({ has: page.getByTestId('chat-app') })).toContainText('get-time')
+    await expect(page.getByTestId('chat-app-row').filter({ has: page.getByTestId('chat-app') })).toContainText('get-time')
   })
 
   test('the page gets the input and the result, calls a tool through the proxy and asks for a size', async ({ page }) => {
@@ -257,8 +257,8 @@ test.describe('Chat MCP apps', () => {
       await expect(frame(page).locator('#input')).toHaveText('{"zone":"UTC"}')
       expect(seen.ended).toBe(false)
       expect(seen.cards).toBe(1)
-      await expect(page.locator('.ch-tools').filter({ has: page.getByTestId('chat-app') })).toContainText('get-time')
-      await expect(page.locator('.ch-tools').filter({ has: page.getByTestId('chat-app') })).not.toContainText('when the turn ends')
+      await expect(page.getByTestId('chat-app-row').filter({ has: page.getByTestId('chat-app') })).toContainText('get-time')
+      await expect(page.getByTestId('chat-app-row').filter({ has: page.getByTestId('chat-app') })).not.toContainText('when the turn ends')
       expect(await tracked(page)).toBe(true)
 
       // The app is alive: a click in it changes the page, and the change must survive.

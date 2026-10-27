@@ -77,7 +77,7 @@ export function preloadRoute(path) {
 }
 
 const Home = page('', () => import('./pages/Home'))
-const Chats = page('chats', () => import('./pages/Chats'))
+const Chats = page('chats', () => import('./pages/Chat'))
 const Workspace = page('workspace', () => import('./pages/Workspace'))
 const ChatSkills = page('chats', () => import('./pages/ChatSkills'))
 const ChatAgents = page('chats', () => import('./pages/ChatAgents'))
@@ -240,13 +240,14 @@ const appChildren = [
   { index: true, element: <Home /> },
   { path: 'chat', element: <ChatsRedirect /> },
   { path: 'chat/:model', element: <ChatsRedirect /> },
-  { path: 'chats', element: <Feature feature="chats"><Chats /></Feature> },
   { path: 'chats/skills', element: <Feature feature="chats"><ChatSkills /></Feature> },
   { path: 'chats/agents', element: <Feature feature="chats"><ChatAgents /></Feature> },
   { path: 'chats/triggers', element: <Feature feature="chats"><ChatTriggers /></Feature> },
   { path: 'chats/connectors', element: <Feature feature="chats"><ChatConnectors /></Feature> },
   { path: 'chats/conversion', element: <Feature feature="chats"><ChatConversion /></Feature> },
-  { path: 'chats/:id', element: <Feature feature="chats"><Chats /></Feature> },
+  // One route for a new chat and an open one, so the page stays mounted when a
+  // chat starts or is left (a delete waiting for its Undo survives the move).
+  { path: 'chats/:id?', element: <Feature feature="chats"><Chats /></Feature> },
   { path: 'files', element: <Feature feature="chats"><Workspace /></Feature> },
   { path: 'image', element: <StudioTabRedirect legacy="image" /> },
   { path: 'image/:model', element: <StudioTabRedirect legacy="image" /> },

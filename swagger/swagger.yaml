@@ -3167,6 +3167,11 @@ definitions:
       endpoint:
         type: string
     type: object
+  schema.ChatsRename:
+    properties:
+      title:
+        type: string
+    type: object
   schema.ChatsSearchHit:
     properties:
       kind:
@@ -8865,6 +8870,29 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConversationDetail'
       summary: Get a chat.
+      tags:
+      - chats
+    patch:
+      description: Refused with 409 while a turn runs. The chat's folder in the workspace
+        is renamed with it.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the new title
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsRename'
+      responses:
+        "200":
+          description: The renamed conversation
+          schema:
+            $ref: '#/definitions/schema.ChatsConversation'
+      summary: Rename a chat.
       tags:
       - chats
   /api/chats/{id}/addons:

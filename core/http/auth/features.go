@@ -14,6 +14,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats", FeatureChats},
 	{"GET", "/api/chats/:id", FeatureChats},
 	{"DELETE", "/api/chats/:id", FeatureChats},
+	{"PATCH", "/api/chats/:id", FeatureChats},
 	{"GET", "/api/chats/:id/messages", FeatureChats},
 	{"POST", "/api/chats/:id/messages", FeatureChats},
 	{"PATCH", "/api/chats/:id/pending/:pid", FeatureChats},

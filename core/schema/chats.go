@@ -112,6 +112,11 @@ type ChatsPending struct {
 	Seq  int64  `json:"seq"`
 }
 
+// ChatsRename is the new title of a conversation.
+type ChatsRename struct {
+	Title string `json:"title"`
+}
+
 // ChatsPendingEdit changes the text of a waiting message.
 type ChatsPendingEdit struct {
 	Text string `json:"text"`

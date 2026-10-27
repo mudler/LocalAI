@@ -143,6 +143,7 @@ export const chatsApi = {
   }),
   get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
+  rename: (id, title) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'PATCH', body: JSON.stringify({ title }) }),
   // The server returns at most 1000 entries a call, oldest first, so a long
   // chat is read page by page: the newest messages are on the last page.
   messages: async (id, after = 0) => {

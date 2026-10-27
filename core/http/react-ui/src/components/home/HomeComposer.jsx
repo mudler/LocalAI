@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { useTranslation, Trans } from 'react-i18next'
 import { availableActions, filterActions, SLASH_GROUPS } from './homeActions'
@@ -23,22 +23,44 @@ function Marked({ text, upto }) {
   return (<><mark>{text.slice(0, upto)}</mark>{text.slice(upto)}</>)
 }
 
-// The command bar: model chip, message box, Send and the slash menu. It owns
-// only the transient menu state; the message and what Send does belong to the
-// page. Files are attached in the chat itself, after it starts.
+// The command bar: model chip, MCP chip, message box, attach buttons, Send and
+// the slash menu. It owns only the transient menu state; the message, files and
+// what Send does belong to the page.
+//
+// Home uses it as is. Chat uses the same bar and adds what a conversation
+// needs, all optional:
+//   chips        more chips after the MCP chip (the Canvas chip)
+//   slash        { actions, groups, label, desc, groupLabel } for its own menu
+//   streaming    swaps Send for a Stop button that calls onStop; with
+//                queueWhileStreaming, Send stays once there is text to queue
+//   onPaste, onKeyDownExtra (return true to take the key), fileAccept, rows,
+//   onDictateError (message for a failed dictation, e.g. a toast),
+//   testIds and class names for the pieces tests and the thread reach for
+//   extras       a node drawn after the attach buttons (the add-on slot)
 export default function HomeComposer({
   message, onMessage, onSubmit, canSend, sending, sendTitle, textareaRef,
-  picker, placeholder, slashContext, onRunAction, onDictateError,
+  picker, mcp, chips, files = [], onRemoveFile, onAttach,
+  placeholder, slashContext, onRunAction, slash,
+  streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
+  fileAccept = '.txt,.md,.pdf', rows = 3, strictEnter = false, testId = 'home-composer',
+  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras,
+  attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false,
 }) {
   const { t } = useTranslation('home')
+  const imageRef = useRef(null)
+  const audioRef = useRef(null)
+  const fileRef = useRef(null)
   const [active, setActive] = useState(0)
   const [dismissed, setDismissed] = useState(false)
 
-  const groupList = SLASH_GROUPS
-  const labelOf = useCallback((a) => t(`slash.${a.id}.label`), [t])
-  const descOf = (a) => t(`slash.${a.id}.desc`)
-  const groupLabel = (g) => t(`slash.group.${g}`)
-  const actions = useMemo(() => availableActions(slashContext), [slashContext])
+  const groupList = slash?.groups || SLASH_GROUPS
+  const labelOf = useCallback((a) => (slash ? slash.label(a) : t(`slash.${a.id}.label`)), [t, slash])
+  const descOf = (a) => (slash ? slash.desc(a) : t(`slash.${a.id}.desc`))
+  const groupLabel = (g) => (slash ? slash.groupLabel(g) : t(`slash.group.${g}`))
+  const actions = useMemo(
+    () => (slash ? slash.actions : availableActions(slashContext)),
+    [slash, slashContext],
+  )
   // The menu belongs to a message that is only a command: it starts with a
   // slash and holds no space. "/etc/hosts how do I..." is just a message.
   const query = message.startsWith('/') && !/\s/.test(message) ? message.slice(1).toLowerCase() : null
@@ -56,6 +78,13 @@ export default function HomeComposer({
     document.getElementById(`home-slash-opt-${safeActive}`)?.scrollIntoView?.({ block: 'nearest' })
   }, [open, safeActive])
 
+  // Copy the list before clearing the input, which empties the live FileList.
+  const attach = (kind, input) => {
+    const list = Array.from(input.files || [])
+    input.value = ''
+    if (list.length) onAttach(kind, list)
+  }
+
   const run = (action) => {
     onMessage('')
     onRunAction(action.id)
@@ -63,6 +92,7 @@ export default function HomeComposer({
 
   const onKeyDown = (e) => {
     if (e.nativeEvent.isComposing) return
+    if (!open && onKeyDownExtra?.(e)) return
     if (open) {
       const n = items.length
       if (e.key === 'ArrowDown') { e.preventDefault(); setActive((safeActive + 1) % n); return }
@@ -70,7 +100,10 @@ export default function HomeComposer({
       if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); run(items[safeActive]); return }
       if (e.key === 'Escape') { e.preventDefault(); setDismissed(true); return }
     }
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // With strictEnter only a bare Enter sends: Ctrl, Cmd and Alt Enter add a
+    // line, as the Chat box always did.
+    const bare = !strictEnter || (!e.ctrlKey && !e.metaKey && !e.altKey && e.keyCode !== 229)
+    if (e.key === 'Enter' && !e.shiftKey && bare) {
       e.preventDefault()
       onSubmit()
     }
@@ -87,25 +120,45 @@ export default function HomeComposer({
       className="home-cmd"
       onSubmit={(e) => { e.preventDefault(); onSubmit() }}
       autoComplete="off"
-      data-testid="home-composer"
+      data-testid={testId}
     >
       <div className="home-cmd__top">
         {picker}
+        {mcp}
+        {chips}
         <span className="home-slash-hint">
           <Trans i18nKey="input.slashHint" t={t} components={{ kbd: <kbd className="dk-kbd" /> }} />
         </span>
       </div>
 
+      {files.length > 0 && (
+        <div className="home-file-tags">
+          {files.map((f, i) => (
+            <span key={i} className="home-file-tag" data-testid="attachment">
+              {f.base64 && f.type?.startsWith('image/')
+                ? <img className="home-file-tag__thumb" src={`data:${f.type};base64,${f.base64}`} alt="" />
+                : <Icon name={f.type?.startsWith('image/') ? 'image' : f.type?.startsWith('audio/') ? 'mic' : 'file'} />}
+              <span className="home-file-tag__name">{f.name}</span>
+              <button type="button" onClick={() => onRemoveFile(f)} aria-label={t('input.removeFile', { name: f.name })}>
+                <Icon name="close" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="home-well">
         <textarea
           ref={textareaRef}
-          className="home-textarea"
+          className={`home-textarea${textareaClass ? ` ${textareaClass}` : ''}`}
+          data-testid={textareaTestId}
           value={message}
           onChange={(e) => onMessage(e.target.value)}
           placeholder={placeholder || t('input.placeholder')}
           aria-label={t('input.label')}
-          rows={3}
+          rows={rows}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           role="combobox"
           aria-haspopup="listbox"
           aria-expanded={open}
@@ -153,24 +206,61 @@ export default function HomeComposer({
 
       <div className="home-cmd__foot">
         <div className="home-attach-buttons">
+          {onAttach && (
+            <>
+              <button type="button" className="home-attach-btn" disabled={attachDisabled} onClick={() => imageRef.current?.click()} title={attachTitle || t('input.attachImage')} aria-label={t('input.attachImage')}>
+                <Icon name="image" />
+              </button>
+              <button type="button" className="home-attach-btn" disabled={attachDisabled} onClick={() => audioRef.current?.click()} title={attachTitle || t('input.attachAudio')} aria-label={t('input.attachAudio')}>
+                <Icon name="music" />
+              </button>
+              <button type="button" className="home-attach-btn" disabled={attachDisabled} onClick={() => fileRef.current?.click()} title={attachTitle || t('input.attachFile')} aria-label={t('input.attachFile')}>
+                <Icon name="file" />
+              </button>
+            </>
+          )}
           <DictateButton
             onText={(text) => onMessage(message.trim() ? `${message.trimEnd()} ${text}` : text)}
             onError={onDictateError}
           />
+          {extras}
         </div>
-        <span className="home-input-hint">{t('input.enterHint')}</span>
-        <button
-          type="submit"
-          className="home-send-btn"
-          data-empty={message.trim() ? undefined : 'true'}
-          data-loading={sending ? 'true' : undefined}
-          disabled={!canSend}
-          title={sendTitle}
-        >
-          <span className="home-send-btn__label">{t('input.send')}</span>
-          <span className="home-send-btn__cell"><EnterGlyph /></span>
-        </button>
+        <span className="home-input-hint">{hint || t('input.enterHint')}</span>
+        {streaming && (
+          <button
+            type="button"
+            className="home-stop-btn"
+            id={queueWhileStreaming ? undefined : sendId}
+            data-testid="chat-stop"
+            onClick={onStop}
+            title={stopTitle}
+          >
+            <Icon name="stop" />
+            <span>{t('input.stop')}</span>
+            <kbd className="dk-kbd">esc</kbd>
+          </button>
+        )}
+        {/* A chat the server keeps takes messages while it works: they wait
+            and reach the model at its next step (queueWhileStreaming). */}
+        {(!streaming || (queueWhileStreaming && (message.trim() || files.length > 0))) && (
+          <button
+            type="submit"
+            className="home-send-btn"
+            id={sendId}
+            data-testid={sendTestId}
+            data-empty={message.trim() || files.length > 0 ? undefined : 'true'}
+            data-loading={sending ? 'true' : undefined}
+            disabled={!canSend}
+            title={sendTitle}
+          >
+            <span className="home-send-btn__label">{t('input.send')}</span>
+            <span className="home-send-btn__cell"><EnterGlyph /></span>
+          </button>
+        )}
       </div>
+      <input ref={imageRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => { attach('image', e.target) }} />
+      <input ref={audioRef} type="file" multiple accept="audio/*" className="hidden" onChange={(e) => { attach('audio', e.target) }} />
+      <input ref={fileRef} type="file" multiple accept={fileAccept} className="hidden" data-testid={fileTestId} onChange={(e) => { attach('file', e.target) }} />
     </form>
   )
 }

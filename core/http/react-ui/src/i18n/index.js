@@ -22,6 +22,7 @@ export const NAMESPACES = [
   'errors',
   'auth',
   'home',
+  'chat',
   'chats',
   'workspace',
   'models',

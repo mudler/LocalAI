@@ -115,6 +115,8 @@ A request to `/v1/responses` whose `model` names a former agent is a plain reque
 
 The pages `/app/chat`, `/app/agents`, `/app/agent-jobs` and `/app/skills` redirect to the matching page of the chats. The model in `/app/chat/<model>` becomes `?model=<model>` and the chats page selects it.
 
+The chat page looks and works as before, with the server keeping the chats. What only worked with chats kept in the browser is gone: duplicating or branching a chat, editing a sent message in place (Edit puts its text back in the message box instead), the per-chat system prompt, temperature, top P, top K, context size and reasoning effort, the token counters, MCP servers that the browser connected to (use [MCP connectors](/features/chats-connectors/) instead) and reading PDF files in the browser (files go to your workspace and the model reads them there).
+
 The features `agents`, `skills`, `mcp_jobs` and `chat_history` are gone from the user permissions. A user that had them keeps the `chats` and `collections` features as they were; the old keys in a stored permission map are ignored.
 
 ## Options that are ignored now

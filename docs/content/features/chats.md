@@ -34,6 +34,11 @@ curl -s localhost:8080/api/chats/3f1c.../messages \
   -H 'Content-Type: application/json' \
   -d '{"text": "Summarize the three files I mentioned."}'
 # {"started":true}
+
+# Rename a chat. This answers 409 while a turn runs.
+curl -s -X PATCH localhost:8080/api/chats/3f1c... \
+  -H 'Content-Type: application/json' \
+  -d '{"title": "Trip plans"}'
 ```
 
 The reply is not in that response. Read it from the event stream or from the
@@ -110,7 +115,7 @@ configuration is not changed.
 
 ### Switch tools off for one chat
 
-The chat panel, **Tools**, lists the add-ons you may use, the MCP servers of the
+The **Tools** menu over the message box lists the add-ons you may use, the MCP servers of the
 chat's model and your connectors, with a switch each. What cannot be used now is
 shown off, with the reason (a connector that is switched off, a model server
 that the model does not use by itself). A switch takes effect at the next turn.
@@ -223,7 +228,7 @@ curl -X PUT .../api/chats/3f1c.../skills -d '{"off": ["review"]}'   # switch one
 
 A chat keeps its own switches. Turning a skill off takes it out of the index at the next turn. If another skill with the same name is further away, it shows through, as the list says. A deleted skill goes to the Trash like any file. Only an administrator writes shared skills, and everyone reads them. Your personal skills are as private as your files.
 
-The **Skills** page for chats lists them by layer and edits personal skills, and a panel in the chat switches them per chat.
+The **Skills** page lists them by layer and edits personal skills, and the **Skills** menu over the message box switches them per chat.
 
 The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf` and `writing-skills`. The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox. For most edits the Office add-on's tools are simpler: they read, edit and create Word, Excel and PowerPoint files, and read PDF files, in your files.
 
@@ -233,7 +238,7 @@ When you may use collections, a chat has two more tools: `list_collections` and 
 
 ## Add-on tools
 
-A chat can use the tools of the add-ons you may use. The chat panel lists them with a switch for each add-on; a switch applies to that chat from its next turn. A tool runs as you, in your chat, and never as a user a model names.
+A chat can use the tools of the add-ons you may use. The **Tools** menu of the chat lists them with a switch for each add-on; a switch applies to that chat from its next turn. A tool runs as you, in your chat, and never as a user a model names.
 
 - A tool that only reads gives the model its result.
 - A tool that changes an add-on's data (rows, a schema, a new database, a job) changes it at once. Turning an add-on on for a chat or an agent is your consent, so there is no confirmation card. The model is told what was changed and whether it can be undone, and the tool entry in the chat says the same. Undo is the safety net, so a change the add-on kept a change set for shows an **Undo** button on its entry: Tables keeps one for every row and schema change and for a new database, and Fine-tuning and Quantization keep one for a job start (an undo stops the job while it runs). After you press it the entry says "Undone", or why it could not be: the data changed after the change (undoing would overwrite later work, and nothing is changed), the change is older than 7 days, or the job already finished. Only you can press it: the model is told the change can be undone but has no tool for it, and an API key cannot call it. Some changes keep no change set, such as one whose data was too large to keep, stopping a job or exporting a model; their entry says "This cannot be undone" and gives the reason. The file changes of a sandbox or an Office document are different: they are one change in the history of your files and you can undo them there. Reads and changes use your own permissions, and a change on data that moved since it was read is refused, not applied. A scheduled or file-triggered run uses the same rule, but a run with no agent gets no tool that changes anything: name the add-on in an agent to allow it.
@@ -344,6 +349,38 @@ page with `/assistant`, or over the API with `assistant: true` in
 `POST /api/chats`. It is an ordinary chat in the list after that. Only that chat
 has the tools, never its sub-agents. The `localai_assistant_enabled` setting
 turns the feature on and off. See [LocalAI Assistant](/features/localai-assistant/).
+
+## The chat page
+
+The chat page in the web UI (`/app/chats`) talks to this API, so a chat started
+there keeps running when you close the tab and opens again from any browser.
+
+- **Conversations.** `Ctrl+K` (`Cmd+K` on a Mac), or **Chats** in the header,
+  opens the list of your chats, grouped by day. Search the names, open, rename
+  (`F2`), export as Markdown or delete one. A deleted chat can be brought back
+  for a few seconds with **Undo**; then the server deletes it.
+- **A new chat.** Pick the model and, if you have [saved agents](/features/chats-agents/),
+  an agent in the message box, then send. A chat keeps its model: picking another
+  model in an open chat starts a new chat with it. `/assistant` starts a chat
+  with the LocalAI management tools (administrators, when the assistant is on).
+- **While the model works** you can keep typing. A message you send waits over
+  the message box and reaches the model at its next step; edit or cancel it
+  until then. `Esc` or **Stop** ends the turn; waiting messages stay for
+  **Send now**. `Up` in an empty box edits the last waiting message, or puts
+  your last message back in the box.
+- **Tools and Skills** menus over the message box switch them for this chat (see
+  above). Changes an add-on tool made show under the tool line with **Undo**
+  when the add-on can undo them, and MCP Apps show live under their tool call.
+- **Find** (`Ctrl+Shift+F`), **Canvas** (code blocks in a side panel), focus
+  mode, copying or exporting the chat as Markdown and the keyboard shortcuts
+  work as before.
+
+The server keeps the transcript as it happened, so a sent message is not edited
+in place: **Edit** on your message puts its text back in the box, and
+**Regenerate** sends the question before an answer again. The browser-only
+settings of the old chat page (system prompt, temperature, top P, top K,
+context size, reasoning effort) are gone: put instructions in a
+[saved agent](/features/chats-agents/) and sampling in the model configuration.
 
 ## Moving from the old chat
 
