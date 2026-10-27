@@ -27,4 +27,7 @@ const (
 	// KeyChatsConnectors elects the one frontend that polls the bots of the chat
 	// connectors. It is held for as long as the frontend lives.
 	KeyChatsConnectors int64 = 112
+	// KeyChatsConvert makes one frontend at a time convert the data of the old
+	// chat, agents and skills. It is held for the length of one conversion.
+	KeyChatsConvert int64 = 113
 )

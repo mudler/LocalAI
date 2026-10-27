@@ -102,6 +102,7 @@ func (a *Application) initStudioService() {
 	a.startStudioReaper(svc)
 	a.startStudioConnectors(svc)
 	a.startStudioTriggers(svc)
+	a.convertStudioData(svc)
 }
 
 // A turn beats every 15 seconds; one that has not beaten for this long belongs

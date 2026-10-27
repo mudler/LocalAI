@@ -502,3 +502,35 @@ type ChatsConnectorSender struct {
 type ChatsConnectorSenderList struct {
 	Senders []ChatsConnectorSender `json:"senders"`
 }
+
+// ChatsConversionItem is one thing the conversion of the old data handled.
+type ChatsConversionItem struct {
+	// Kind is agent, trigger, skill, chat or connector.
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	// Status is converted, skipped, failed or dropped.
+	Status string `json:"status"`
+	// Reason names what was dropped or what went wrong. It holds no secret.
+	Reason string `json:"reason,omitempty"`
+}
+
+// ChatsConversionTotals counts the items of a report by status.
+type ChatsConversionTotals struct {
+	Converted int `json:"converted"`
+	Skipped   int `json:"skipped"`
+	Failed    int `json:"failed"`
+	Dropped   int `json:"dropped"`
+}
+
+// ChatsConversion is the report of the conversion of the old chat, agents,
+// triggers and skills, for one user. An administrator also gets the totals of
+// every user.
+type ChatsConversion struct {
+	// Done says a conversion ran at least once.
+	Done   bool                  `json:"done"`
+	At     *time.Time            `json:"at,omitempty"`
+	Counts ChatsConversionTotals `json:"counts"`
+	Items  []ChatsConversionItem `json:"items"`
+	// Totals is set for an administrator: the counts of all users together.
+	Totals *ChatsConversionTotals `json:"totals,omitempty"`
+}

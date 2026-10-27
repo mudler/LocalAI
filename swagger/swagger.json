@@ -3937,6 +3937,23 @@
                 }
             }
         },
+        "/api/chats/conversion": {
+            "get": {
+                "description": "At start the server converts the old chat page, agents, tasks, skills and Telegram connectors into chats, saved agents, triggers, skills and connector bindings. Triggers and connectors are made switched off. This lists the items that belong to you, with what was dropped and why; an administrator also gets the totals of all users. It never holds a token or the text of a prompt.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Report the conversion of your old agents, skills and chats.",
+                "responses": {
+                    "200": {
+                        "description": "The report",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversion"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/files": {
             "get": {
                 "tags": [
@@ -13365,6 +13382,72 @@
                 "persistent": {
                     "description": "Persistent is false when conversations live in memory and are lost when\nthe server restarts.",
                     "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsConversion": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "counts": {
+                    "$ref": "#/definitions/schema.ChatsConversionTotals"
+                },
+                "done": {
+                    "description": "Done says a conversion ran at least once.",
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConversionItem"
+                    }
+                },
+                "totals": {
+                    "description": "Totals is set for an administrator: the counts of all users together.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConversionTotals"
+                        }
+                    ]
+                }
+            }
+        },
+        "schema.ChatsConversionItem": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is agent, trigger, skill, chat or connector.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason names what was dropped or what went wrong. It holds no secret.",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is converted, skipped, failed or dropped.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConversionTotals": {
+            "type": "object",
+            "properties": {
+                "converted": {
+                    "type": "integer"
+                },
+                "dropped": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "type": "integer"
                 }
             }
         },

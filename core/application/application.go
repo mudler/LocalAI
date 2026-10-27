@@ -49,6 +49,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/convert"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -131,6 +132,7 @@ type Application struct {
 	studioNotify         notify.Store     // notifications; same kind as the chats store
 	studioPush           notify.PushStore // nil in memory-only mode: push needs somewhere to keep subscriptions
 	studioInbox          *notify.Service
+	studioMarks          convert.Marks // what the conversion of the old data did
 	studioTriggers       *studio.Triggers
 	studioTriggersStop   context.CancelFunc
 	studioConnStore      connectors.Store
