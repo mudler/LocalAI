@@ -87,8 +87,9 @@ so it needs no public address.
 ## When a binding switches itself off
 
 A binding is switched off, and you get a notification, when Telegram refuses the
-token, when another process reads the updates of the same bot (Telegram allows one
-reader), when the agent is deleted or has no model, or when the owner no longer
+token, when another process keeps reading the updates of the same bot (Telegram
+allows one reader; a new leader in a cluster waits and retries for about a minute
+before it gives up), when the agent is deleted or has no model, or when the owner no longer
 exists. Fix the cause and switch it on.
 
 ## Storage and clusters

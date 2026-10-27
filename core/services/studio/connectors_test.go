@@ -30,14 +30,15 @@ const botToken = "777:TOKEN-must-never-leak"
 type scriptedBot struct {
 	srv *httptest.Server
 
-	mu      sync.Mutex
-	updates []map[string]any // pending, by update_id
-	sent    []string         // sendMessage texts
-	sentTo  []int64
-	typing  int
-	fail    map[string]func() (int, string) // method -> forced answer
-	offsets []int64
-	polls   int
+	mu       sync.Mutex
+	updates  []map[string]any // pending, by update_id
+	sent     []string         // sendMessage texts
+	sentTo   []int64
+	typing   int
+	fail     map[string]func() (int, string) // method -> forced answer
+	offsets  []int64
+	polls    int
+	inflight int
 }
 
 func newScriptedBot(t *testing.T) *scriptedBot {
@@ -62,6 +63,14 @@ func newScriptedBot(t *testing.T) *scriptedBot {
 		case "getMe":
 			_, _ = w.Write([]byte(`{"ok":true,"result":{"id":777,"username":"helper_bot"}}`))
 		case "getUpdates":
+			// Telegram allows one reader: a second concurrent poll is refused.
+			if b.inflight > 0 {
+				w.WriteHeader(http.StatusConflict)
+				_, _ = w.Write([]byte(`{"ok":false,"error_code":409,"description":"Conflict"}`))
+				return
+			}
+			b.inflight++
+			defer func() { b.inflight-- }()
 			b.polls++
 			off := int64(body["offset"].(float64))
 			b.offsets = append(b.offsets, off)
@@ -138,7 +147,7 @@ func newConnRig(t *testing.T, sh *shared, store connectors.Store, bot *scriptedB
 	logs := &bytes.Buffer{}
 	c, err := studio.NewConnectors(r.svc, studio.ConnectorOptions{
 		Store: store, Telegram: &connectors.Telegram{BaseURL: bot.srv.URL, Client: bot.srv.Client()},
-		Clock: sh.clock.Now, Tick: 20 * time.Millisecond, Poll: 0, Backoff: 10 * time.Millisecond, RatePerMinute: 5, Lead: lead,
+		Clock: sh.clock.Now, Tick: 20 * time.Millisecond, Poll: 0, Backoff: 10 * time.Millisecond, ConflictWait: 10 * time.Millisecond, RatePerMinute: 5, Lead: lead,
 		Logger: slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	})
 	if err != nil {

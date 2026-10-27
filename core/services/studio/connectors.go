@@ -27,6 +27,7 @@ const (
 	sentInterrupted = "The agent was interrupted. Please send your message again."
 	sentFailed      = "The agent stopped because of an error."
 
+	conflictTries    = 6
 	maxMessageRunes  = 8000
 	telegramMaxRunes = 4096
 )
@@ -47,6 +48,11 @@ type ConnectorOptions struct {
 	// Backoff is the first wait after an error; it doubles up to a minute. Zero
 	// means one second.
 	Backoff time.Duration
+	// ConflictWait is how long to wait after Telegram says another process reads
+	// the updates of the bot; zero means 10 seconds. A new leader meets this answer
+	// while the long poll of the old one is still open at Telegram, so the binding
+	// is only switched off after several answers in a row.
+	ConflictWait time.Duration
 	// RatePerMinute is how many messages one sender may send; zero means 20.
 	RatePerMinute int
 	// Lead says whether this frontend runs the bindings now. Nil: always.
@@ -104,6 +110,9 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	}
 	if o.Backoff <= 0 {
 		o.Backoff = time.Second
+	}
+	if o.ConflictWait <= 0 {
+		o.ConflictWait = 10 * time.Second
 	}
 	if o.RatePerMinute <= 0 {
 		o.RatePerMinute = 20
@@ -218,6 +227,7 @@ func (c *Connectors) Sync(ctx context.Context) {
 // poll is the loop of one binding.
 func (c *Connectors) poll(ctx context.Context, id string) {
 	backoff := c.o.Backoff
+	conflicts := 0
 	for ctx.Err() == nil && !c.closed() {
 		b, err := c.o.Store.GetBinding(ctx, id)
 		if err != nil || !b.Enabled {
@@ -242,8 +252,12 @@ func (c *Connectors) poll(ctx context.Context, id string) {
 			c.disable(b, "Telegram refused its bot token")
 			return
 		case errors.Is(err, connectors.ErrConflict):
-			c.disable(b, "another process reads the updates of this bot")
-			return
+			if conflicts++; conflicts >= conflictTries {
+				c.disable(b, "another process reads the updates of this bot")
+				return
+			}
+			c.sleep(ctx, c.o.ConflictWait)
+			continue
 		case err != nil:
 			var ra *connectors.RetryAfter
 			wait := backoff
@@ -259,7 +273,7 @@ func (c *Connectors) poll(ctx context.Context, id string) {
 			c.sleep(ctx, wait)
 			continue
 		}
-		backoff = c.o.Backoff
+		backoff, conflicts = c.o.Backoff, 0
 		for _, u := range ups {
 			if ctx.Err() != nil {
 				return
