@@ -144,6 +144,13 @@ const InvalidNote = "The add-on refused this request as invalid. Nothing was cha
 // ReasonedNote is what the model is told when the add-on refused and said why.
 const ReasonedNote = "The add-on cannot do this now, and says why in message. Nothing was changed. Tell the person what it said in plain words; do not repeat the same call and do not report an outage."
 
+// CodeNotRunning is the Code of a ResultError for a call that found the add-on
+// not running. Nothing was sent.
+const CodeNotRunning = "not_running"
+
+// NotRunningNote is what the model is told when the add-on is not running.
+const NotRunningNote = "The add-on is starting or stopped, so nothing was sent and nothing was changed. Tell the person to try again in a moment; you may try the same call once more later."
+
 // CodeNotPermitted is the Code of a ResultError for a call the person is not
 // allowed to make, for example without the fine-tuning permission.
 const CodeNotPermitted = "not_permitted"
@@ -557,6 +564,8 @@ func refusedResult(name string, err error) (ToolResult, error) {
 	switch {
 	case errors.Is(err, gateway.ErrNotPermitted):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotPermitted, Note: NotPermittedNote}, nil
+	case errors.Is(err, gateway.ErrNotSent):
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotRunning, Note: NotRunningNote}, nil
 	case errors.Is(err, gateway.ErrResourceUnreachable):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceUnreachable, Note: ResourceUnreachableNote}, nil
 	}

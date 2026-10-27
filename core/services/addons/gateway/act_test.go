@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,14 @@ func (c *slowActClient) Act(ctx context.Context, e contract.Envelope) (contract.
 	return c.actingClient.Act(ctx, e)
 }
 
+// notRunning is a runtime source that has no running incarnation: the add-on is
+// starting, stopped or restarting.
+type notRunning struct{}
+
+func (notRunning) Runtime(context.Context, string) (addonruntime.Instance, error) {
+	return addonruntime.Instance{}, addonruntime.ErrRuntime
+}
+
 // readOnlyClient is a runtime that does not serve action tools.
 type readOnlyClient struct{ countingClient }
 
@@ -64,6 +73,16 @@ var _ = Describe("action tools through the gateway", Label("tools"), func() {
 		adm := &addonAdmitted{}
 		return &Gateway{Admission: adm, Resolver: strictResolver{}, Runtime: currentFixture{rt}, Tools: src, Revalidate: func(context.Context, contract.Actor) error { return nil }}, adm
 	}
+
+	It("says nothing was sent when the add-on is not running, instead of an unknown outcome", func() {
+		g, _ := build(&actingClient{}, source(true))
+		g.Runtime = notRunning{}
+		_, err := g.Act(ctx, actor("alice"), request(`{"tool":"run","command":"echo"}`))
+		Expect(err).To(MatchError(ErrNotSent))
+		var unknown *OutcomeUnknown
+		Expect(errors.As(err, &unknown)).To(BeFalse())
+		Expect(StatusFor(err)).To(Equal(http.StatusServiceUnavailable))
+	})
 
 	It("runs a declared action tool for the calling user, under the act scope, admitted as an add-on call", func() {
 		client := &actingClient{}

@@ -689,7 +689,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 // Reads, denials and errors that are already unknown pass through unchanged.
 func mutationOutcome(r contract.Request, e error) error {
 	var unknown *OutcomeUnknown
-	if e == nil || errors.As(e, &unknown) || !mutation(r.Action) || StatusFor(e) != http.StatusServiceUnavailable {
+	if e == nil || errors.As(e, &unknown) || errors.Is(e, ErrNotSent) || !mutation(r.Action) || StatusFor(e) != http.StatusServiceUnavailable {
 		return e
 	}
 	return &OutcomeUnknown{OperationID: r.OperationID}

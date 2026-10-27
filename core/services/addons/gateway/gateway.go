@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"sync"
 
@@ -14,6 +15,12 @@ import (
 )
 
 var ErrUnavailable = errors.New("addon owner unavailable")
+
+// ErrNotSent means the call never reached the add-on: it is not running (it is
+// starting, stopped or restarting) or the request was not written. The tool
+// cannot have run, so unlike an outage after the send this is not an unknown
+// outcome and the caller may try again.
+var ErrNotSent = fmt.Errorf("the add-on is not running now and nothing was sent: %w", ErrUnavailable)
 
 // Gateway deliberately admits lifecycle commands only until resource admission
 // and proposal confirmation are installed. Installation admin is not data access.

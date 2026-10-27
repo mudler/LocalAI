@@ -3,8 +3,10 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -68,6 +70,9 @@ func (g *Gateway) actLocal(ctx context.Context, a contract.Actor, r contract.Req
 		}
 		instance, e := g.current(ctx, r.AddonID)
 		if e != nil {
+			if errors.Is(e, addonruntime.ErrRuntime) || errors.Is(e, ErrUnavailable) {
+				return ErrNotSent // nothing is running that could have taken the call
+			}
 			return e
 		}
 		if instance.Generation != r.Generation {
@@ -80,6 +85,9 @@ func (g *Gateway) actLocal(ctx context.Context, a contract.Actor, r contract.Req
 		// The authority outlives the longest call and no longer.
 		out, e = runtime.Act(ctx, contract.Envelope{Request: r, Authority: contract.Authority{
 			Actor: a, Scope: "act", ExpiresAt: time.Now().Add(contract.ActTimeout + time.Minute)}})
+		if errors.Is(e, addonruntime.ErrNotSent) {
+			return ErrNotSent
+		}
 		return e
 	})
 	if err == nil && len(out.Outputs) > 0 {
