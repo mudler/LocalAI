@@ -75,6 +75,21 @@ var _ = Describe("action tools in the adapter", func() {
 		Expect(body).To(HaveKeyWithValue("tool", "bash"))
 	})
 
+	It("tells an action tool which conversation it runs in, from the chat and never from the model", func() {
+		f, _, chats := build()
+		_, err := chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"echo hi"}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.acts[0].Request.ResourceID).To(Equal("conv1"))
+		// The arguments cannot name it: the schema has no such property.
+		_, err = chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"x","resourceId":"conv2"}`))
+		Expect(f.acts).To(HaveLen(1), "the second call must not reach the owner")
+		Expect(err).To(HaveOccurred())
+		// A call with no conversation has none to give.
+		_, err = chats.ExecuteIn(ctx, member, "", tools.ToolName("sandbox", "bash"), args(`{"command":"echo hi"}`))
+		Expect(err).To(HaveOccurred())
+		Expect(f.acts).To(HaveLen(1))
+	})
+
 	It("does not run an action tool for any other adapter, and says the tool is unknown", func() {
 		f, plain, _ := build()
 		_, err := plain.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"echo hi"}`))

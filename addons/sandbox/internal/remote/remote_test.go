@@ -102,11 +102,37 @@ func TestACallWithoutAnOperationIsRefused(t *testing.T) {
 	if _, err := s.Materialize(context.Background(), view(t, s), filepath.Join(dir, "a", "lower")); err == nil {
 		t.Error("Materialize without an operation was accepted")
 	}
-	if _, _, err := s.CommitUpper(context.Background(), view(t, s), actor, 0, workspace.FixtureSource{}, workspace.UpperOptions{}); err == nil {
-		t.Error("CommitUpper without an operation was accepted")
+	if _, _, err := s.CommitUpper(context.Background(), view(t, s), actor, 0, workspace.FixtureSource{workspace.FixtureFile("a", "x")}, workspace.UpperOptions{}); err == nil {
+		t.Error("CommitUpper of a change without an operation was accepted")
 	}
 	if len(h.calls) != 0 {
 		t.Errorf("the host was asked")
+	}
+}
+
+func TestAnEmptyLayerNeedsNoRequestAndAsksNobody(t *testing.T) {
+	s, h, dir := newStore(t)
+	// A sandbox that sleeps or stops after a quiet time has nothing to commit,
+	// and no user is waiting on it, so this must work without an operation.
+	cs, conflicts, err := s.CommitUpper(context.Background(), view(t, s), actor, 5, workspace.FixtureSource{}, workspace.UpperOptions{Title: "idle"})
+	if err != nil || cs.Rev != 0 || len(conflicts) != 0 {
+		t.Fatalf("CommitUpper = %+v %+v %v", cs, conflicts, err)
+	}
+	if len(h.calls) != 0 {
+		t.Errorf("the host was asked for nothing to commit")
+	}
+	if left, _ := os.ReadDir(dir); len(left) != 0 {
+		t.Errorf("files left behind: %v", left)
+	}
+	// Folders alone are what a checkpoint after a quiet time sends again; they
+	// need no request either, and with one they are sent.
+	dirs := workspace.FixtureSource{workspace.FixtureDir("proj")}
+	if _, _, err := s.CommitUpper(context.Background(), view(t, s), actor, 5, dirs, workspace.UpperOptions{}); err != nil || len(h.calls) != 0 {
+		t.Errorf("a layer of folders without a request: err %v, calls %d", err, len(h.calls))
+	}
+	// A layer with content still needs a request.
+	if _, _, err := s.CommitUpper(context.Background(), view(t, s), actor, 5, workspace.FixtureSource{workspace.FixtureFile("proj/a", "x")}, workspace.UpperOptions{}); err == nil {
+		t.Error("a layer with content was committed without a request")
 	}
 }
 

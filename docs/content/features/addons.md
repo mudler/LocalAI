@@ -1312,7 +1312,10 @@ data of a shared resource: a change that others see keeps the confirmation of
 - **The call.** `POST /act` with an envelope whose action and scope are `act`.
   The actor is the user of the chat. The answer is a `Result`. The call may run
   up to `ActTimeout` (30 minutes), is never retried by the host, and an add-on
-  that dies during it gives the caller `outcome_unknown`.
+  that dies during it gives the caller `outcome_unknown`. The request carries the
+  chat's conversation ID in `resourceId`. The host sets it from the chat, the
+  model cannot name it, and an add-on uses it only to keep state for that chat,
+  never as authority.
 - **Undo.** What a tool does to the user's files is a change in the history of
   their workspace, and it can be undone there.
 
@@ -3425,3 +3428,13 @@ The Office add-on reads and edits documents in the user's files, from a chat. It
 | `create-docx`, `create-xlsx`, `create-pptx` | action | Make a new file. |
 
 The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.
+
+## Sandbox
+
+The Sandbox add-on lets a chat run commands and code. Its tools are action tools: `bash`, `read`, `write`, `edit`, `glob` and `grep`. They run inside an isolated sandbox of the user and the chat, with the user's files mounted under `/workspace/home`.
+
+- **One sandbox per user and chat.** The key is the pair of the user and the conversation. The user comes from the host. Nobody else reaches the sandbox, and the model cannot name another user or chat.
+- **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, the sandbox's version is kept as a copy and the answer says so. A file change by someone else makes the sandbox rebuild its view of the files before the next call.
+- **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left.
+- **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 30 minutes at most).
+- **Without a backend.** When the host has no way to run sandboxes, every tool answers "This host cannot run commands." and nothing runs.

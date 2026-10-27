@@ -216,3 +216,11 @@
     description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
     mainPage: "sandbox"
     icon: "ui/icon.png"
+  toolCount: 6
+  tools:
+    - "bash"
+    - "read"
+    - "write"
+    - "edit"
+    - "glob"
+    - "grep"

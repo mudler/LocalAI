@@ -125,10 +125,6 @@ func (s *Store) Materialize(ctx context.Context, v workspace.View, dir string) (
 // directory and asks the host to commit it as one change set. The folder is
 // removed when the call returns.
 func (s *Store) CommitUpper(ctx context.Context, v workspace.View, _ workspace.Actor, base int64, upper workspace.UpperSource, o workspace.UpperOptions) (workspace.ChangeSet, []workspace.Conflict, error) {
-	op, err := operation(ctx)
-	if err != nil {
-		return workspace.ChangeSet{}, nil, err
-	}
 	dir := filepath.Join(s.dataDir, "commit", fmt.Sprintf("%d-%d", time.Now().UnixNano(), s.n.Add(1)))
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return workspace.ChangeSet{}, nil, err
@@ -142,12 +138,27 @@ func (s *Store) CommitUpper(ctx context.Context, v workspace.View, _ workspace.A
 	if err != nil {
 		return workspace.ChangeSet{}, nil, err
 	}
-	werr := writeArchive(ctx, upper, f)
+	n, significant, werr := writeArchive(ctx, upper, f)
 	if cerr := f.Close(); werr == nil {
 		werr = cerr
 	}
 	if werr != nil {
 		return workspace.ChangeSet{}, nil, werr
+	}
+	if n == 0 {
+		// Nothing to commit needs no user and no request: a sandbox that
+		// sleeps or stops after a quiet time has an empty layer.
+		return workspace.ChangeSet{}, nil, nil
+	}
+	op, err := operation(ctx)
+	if err != nil {
+		if significant == 0 {
+			// Only folders, which the backends send again at every checkpoint
+			// and the last call already committed. With no request there is no
+			// user to commit for, and nothing new to lose.
+			return workspace.ChangeSet{}, nil, nil
+		}
+		return workspace.ChangeSet{}, nil, err
 	}
 	rel, err := s.rel(dir)
 	if err != nil {
@@ -196,9 +207,13 @@ func (s *Store) ChangesSince(ctx context.Context, _ workspace.Actor, rev int64, 
 // writeArchive writes the layer in the form workspace.ArchiveSource reads: a
 // regular file, a folder, a symbolic link, a whiteout as the character device
 // 0/0, and the overlay attributes as PAX records.
-func writeArchive(ctx context.Context, upper workspace.UpperSource, w io.Writer) error {
+func writeArchive(ctx context.Context, upper workspace.UpperSource, w io.Writer) (n, significant int, err error) {
 	tw := tar.NewWriter(w)
-	err := upper.Walk(ctx, func(e workspace.UpperEntry) error {
+	err = upper.Walk(ctx, func(e workspace.UpperEntry) error {
+		n++
+		if e.Kind != workspace.EntryDir || len(e.Xattrs) > 0 {
+			significant++
+		}
 		h := &tar.Header{Name: e.Path, Mode: int64(e.Mode.Perm()), Format: tar.FormatPAX}
 		for k, v := range e.Xattrs {
 			if h.PAXRecords == nil {
@@ -239,9 +254,9 @@ func writeArchive(ctx context.Context, upper workspace.UpperSource, w io.Writer)
 		return tw.WriteHeader(h)
 	})
 	if err != nil {
-		return err
+		return n, significant, err
 	}
-	return tw.Close()
+	return n, significant, tw.Close()
 }
 
 // The calls below are the ones a backend must not make. They answer

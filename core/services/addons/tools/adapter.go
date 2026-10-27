@@ -377,6 +377,14 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 			return ToolResult{}, gateway.ErrUnavailable
 		}
 		request.Action = "act"
+		// An action works for one chat. The conversation comes from the chat's
+		// own authenticated turn and rides in ResourceID; the model cannot name
+		// it, because no action schema has that property. It scopes the
+		// add-on's state and is never authority.
+		if conversationID == "" {
+			return ToolResult{}, ErrInvalidArguments
+		}
+		request.ResourceID = conversationID
 		out, err := ab.Act(ctx, actor, request)
 		if err != nil {
 			return refusedResult(name, err)

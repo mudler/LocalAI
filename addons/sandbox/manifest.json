@@ -1,24 +1,197 @@
 {
-  "schemaVersion": 1,
-  "id": "sandbox",
-  "version": "0.1.0",
-  "executable": "sandbox",
-  "os": "linux",
+  "api": {
+    "max": 1,
+    "min": 1
+  },
   "arch": "amd64",
-  "host": { "min": 1, "max": 1 },
-  "api": { "min": 1, "max": 1 },
-  "protocol": { "min": 1, "max": 1 },
-  "dataFormat": { "min": 1, "max": 1 },
   "capabilities": {
+    "actions": true,
+    "toolDefinitions": [
+      {
+        "name": "bash",
+        "description": "Run a shell script with bash in /workspace. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800).",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "description": "The script to run.",
+              "type": "string"
+            },
+            "timeoutSeconds": {
+              "maximum": 1800,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "command"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "read",
+        "description": "Read lines of a text file. offset is the first line (default 1), limit the number of lines (default 2000).",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "limit": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "offset": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "write",
+        "description": "Write a file. It replaces the file when it exists and creates the folders above it.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "content": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "edit",
+        "description": "Replace text in a file. oldString must match exactly once, unless replaceAll is true.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "newString": {
+              "type": "string"
+            },
+            "oldString": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "replaceAll": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "path",
+            "oldString",
+            "newString"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "glob",
+        "description": "List files whose path matches a pattern. In the pattern, * matches any characters including /. At most 500 results.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "description": "The folder to search. Default: the working directory.",
+              "type": "string"
+            },
+            "pattern": {
+              "description": "For example *.md or reports/*.xlsx",
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "grep",
+        "description": "Search file contents with an extended regular expression. At most 200 lines.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "ignoreCase": {
+              "type": "boolean"
+            },
+            "path": {
+              "description": "A file or folder. Default: the working directory.",
+              "type": "string"
+            },
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "tools": [
+      "bash",
+      "read",
+      "write",
+      "edit",
+      "glob",
+      "grep"
+    ],
     "ui": {
+      "css": [
+        "ui/sandbox.css"
+      ],
+      "description": "Let your chats run commands and code in an isolated sandbox, with your files mounted.",
       "entry": "ui/sandbox.js",
-      "css": ["ui/sandbox.css"],
-      "sdk": { "min": 2, "max": 2 },
-      "pages": ["sandbox"],
-      "mainPage": "sandbox",
       "icon": "ui/icon.png",
-      "title": "Sandbox",
-      "description": "Let your chats run commands and code in an isolated sandbox, with your files mounted."
+      "mainPage": "sandbox",
+      "pages": [
+        "sandbox"
+      ],
+      "sdk": {
+        "max": 2,
+        "min": 2
+      },
+      "title": "Sandbox"
     }
-  }
+  },
+  "dataFormat": {
+    "max": 1,
+    "min": 1
+  },
+  "executable": "sandbox",
+  "host": {
+    "max": 1,
+    "min": 1
+  },
+  "id": "sandbox",
+  "os": "linux",
+  "protocol": {
+    "max": 1,
+    "min": 1
+  },
+  "schemaVersion": 1,
+  "version": "0.1.0"
 }
