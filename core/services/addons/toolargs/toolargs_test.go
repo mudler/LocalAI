@@ -2,6 +2,8 @@
 package toolargs
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 
@@ -29,5 +31,25 @@ var _ = Describe("the argument limit", func() {
 		Expect(err).To(MatchError(ErrInvalid), "a body of 1 MiB + 1 byte must be refused")
 		_, _, err = Bind("t", params, args(MaxArgumentBytes+1), false)
 		Expect(err).To(MatchError(ErrInvalid), "an input over 1 MiB must be refused")
+	})
+})
+
+var _ = Describe("the resource ID of a conversation", func() {
+	It("is valid, stable and distinct for 200 random conversation IDs", func() {
+		seen := map[string]string{}
+		for i := 0; i < 200; i++ {
+			raw := make([]byte, 12)
+			_, err := rand.Read(raw)
+			Expect(err).ToNot(HaveOccurred())
+			id := hex.EncodeToString(raw) // the shape of a chat ID: digit-first about 6 times in 10
+			Expect(ValidConversationID(id)).To(BeTrue())
+			got := ActionResourceID(id)
+			Expect(ValidResourceID(got)).To(BeTrue(), got)
+			Expect(ActionResourceID(id)).To(Equal(got))
+			Expect(seen).ToNot(HaveKey(got))
+			seen[got] = id
+		}
+		// The longest conversation ID, in mixed case, still maps.
+		Expect(ValidResourceID(ActionResourceID("A" + strings.Repeat("Z._:-", 25)))).To(BeTrue())
 	})
 })

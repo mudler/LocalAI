@@ -918,15 +918,7 @@ func (a *Application) startAddons() error {
 		}
 	}
 	if cat.Sources != nil {
-		if err = cat.Sources.RefreshEnabled(a.applicationConfig.Context); err != nil {
-			if a.applicationConfig.Context.Err() != nil {
-				_ = m.Close()
-				return err
-			}
-			// An unreachable library must not keep LocalAI or the installed
-			// add-ons down. The cache stays empty until an explicit refresh.
-			xlog.Warn("Could not refresh the add-on libraries at startup", "error", err)
-		}
+		startLibraryRefresh(a.applicationConfig.Context, cat.Sources.RefreshEnabled)
 	}
 	if c.InstanceID == c.OwnerID {
 		limits := contract.DefaultLimits()
@@ -960,6 +952,19 @@ func (a *Application) startAddons() error {
 		return err
 	}
 	return nil
+}
+
+// startLibraryRefresh fills the owner's library cache in the background. The
+// refresh asks every enabled library over the network, up to 30 seconds in all,
+// and an unreachable library must not keep LocalAI or the installed add-ons
+// down. Until it ends the cache is empty, as it is after any failed refresh;
+// an explicit refresh does the same work again.
+func startLibraryRefresh(ctx context.Context, refresh func(context.Context) error) {
+	go func() {
+		if err := refresh(ctx); err != nil && ctx.Err() == nil {
+			xlog.Warn("Could not refresh the add-on libraries at startup", "error", err)
+		}
+	}()
 }
 
 // libraryInstallNoProgress adapts the library installer to the assistant's

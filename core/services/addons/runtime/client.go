@@ -111,6 +111,11 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 		if resp.StatusCode == http.StatusConflict {
 			return nil, ErrConflict
 		}
+		if resp.StatusCode == http.StatusForbidden && reason == "forbidden" {
+			// The answer of an add-on runtime to a permission it checked. A 403
+			// with another body is the envelope check, a host fault.
+			return nil, ErrDenied
+		}
 		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnprocessableEntity {
 			return nil, &Refusal{Status: resp.StatusCode, Reason: reason}
 		}

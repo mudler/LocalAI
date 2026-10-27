@@ -525,7 +525,7 @@ routes, so they do not need the add-ons owner to run. On a frontend they go to t
 | Method and path | What it does |
 |---|---|
 | `GET /api/library/sources` | List every source of all kinds, tombstones included |
-| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery"}`. `id`, `name` and `format` are optional. The same kind and URL twice, or a taken id, is `409` |
+| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery"}`. `id`, `name` and `format` are optional. The same kind and URL twice, or a taken id, is `409`. An add-on library at an `http` address of this machine is `400`: the owner refuses packages that do not come over `https`, so such a library would never list anything |
 | `POST /api/library/sources/{id}/enable` | Turn a source on. This also brings back a removed default |
 | `POST /api/library/sources/{id}/disable` | Turn a source off without removing it |
 | `DELETE /api/library/sources/{id}` | Remove a source. A default leaves a tombstone |
@@ -813,8 +813,10 @@ the add-on needs SDK 3 to 3 and this host provides SDK 2
 ```
 
 The dispatch response for that refusal has status 403 and error type
-`sdk_incompatible`, with the message above. Every other failed install keeps
-the generic `Addon request denied` message. If the administrator sends the same
+`sdk_incompatible`, with the message above. A package that does not match its
+library entry, or is not a valid add-on package, is 403 with error type
+`package_unverified` and a message that says nothing was installed. Every other
+failed install keeps the generic `Addon request denied` message. If the administrator sends the same
 operation ID again, the owner returns the stored failure, so the repeat gets the
 generic message and not the refusal text. Use a new operation ID to see the
 refusal again.
@@ -1233,12 +1235,12 @@ these hooks before changing packages for running processes or migrating data.
 Run `sh scripts/addons/verify.sh lifecycle` for journal interruption, ownership,
 idempotency, retention, and real catalog/package integration tests.
 
-Owner bootstrap reconciles the journal, then refreshes all persisted enabled
-sources before exposing the manager. The release cache is not durable. The whole
-startup refresh has a 30-second deadline (or the earlier application-context
-deadline); an offline/invalid enabled source explicitly fails startup and releases
-the owner lock. Disable that source in owner configuration to start offline.
-Disabled sources are never fetched. Forwarders neither read source metadata nor
+Owner bootstrap reconciles the journal and starts the enabled add-ons, and refreshes
+all persisted enabled sources in the background. The server does not wait for the
+refresh: until it ends, the release cache is empty, as after any failed refresh. The
+release cache is not durable. The whole startup refresh has a 30-second deadline (or the
+earlier application-context deadline); an offline or invalid enabled source costs a log
+line, not the start. The enabled add-ons start four at a time. Disabled sources are never fetched. Forwarders neither read source metadata nor
 contact catalog/package servers. Embedding hosts can use `Application.AddonSources()`
 (owner only; nil on forwarders) for authoritative source administration and explicit
 live `Refresh(ctx, sourceID)` calls; no background update loop is started.
@@ -1473,6 +1475,13 @@ The host operation the add-on calls must scope by the actor of the envelope; the
 add-on never takes a user from the arguments.
 A `write` or `schema` tool, and a `read` tool that offers `resourceId`, must
 require it.
+
+A tool definition with `"uiOnly": true` is for the add-on's own page. It must be a
+`read` tool without `resourceId`. The host runs it for the page like any such read,
+but never offers it to a model, a chat, an agent or a trigger, and a model that
+names it gets the unknown-tool answer. The Sandbox uses it for `set-backend` and
+`confirm-host`: they change a setting, and the add-on asks the host whether the
+caller is an administrator before it acts.
 
 ### Public API
 
@@ -2163,6 +2172,14 @@ people or conversations, not part of the chat history and not sent to the model.
   an unknown resource; the reference stays and works again if the grant does.
 - With no selection the tool call returns a result of kind `error` and code
   `select_resource`: no operation runs and the model is told to ask the person to choose.
+- A refusal the model can act on is a result of kind `error`, never a raw error string.
+  The codes are `invalid_request` (the add-on refused the call; a `message` carries its
+  short reason when it gave one, such as a missing training engine), `not_permitted` (the
+  person lacks a permission), `resource_unreachable` (no such resource, or no access) and
+  `not_running` (the add-on is starting or stopped; nothing was sent). Each note says that
+  nothing changed and not to repeat the call. A preview that finds a conflict, such as a
+  table that exists, is an `invalid_request`, not an outage. The tools of the fine-tuning and
+  quantization add-ons are not offered at all to a person without those permissions.
 - An explicit `resourceId` in the arguments is the person's own word and is used as before.
 
 ### Errors
@@ -2171,6 +2188,9 @@ people or conversations, not part of the chat history and not sent to the model.
 |---|---|---|
 | 400 | `invalid_request` | A missing or wrong confirmation, an operation the add-on does not support, arguments or a name it refuses, a malformed identifier. |
 | 403 | `addon_error` | Not the person's own session, feature or role denied, unknown resource: one answer for all of them. |
+| 403 | `not_permitted` | The add-on checked a host permission of the person, such as fine-tuning, and it is not granted. Nothing changed. |
+| 403 | `resource_unreachable` | The resource does not exist or the person has no access to it: one answer for both. |
+| 403 | `package_unverified` | An install failed because the package does not match its library entry or is not a valid add-on package. Nothing was installed. |
 | 403 | `quota_reached` | The per-person resource limits. |
 | 403 | `outcome_blocked` | Another operation on the resource has an unresolved outcome (`blockedBy` is shown to the owner role only). |
 | 404 | `not_selected` | No resource is selected, or the reference is no longer usable. |
@@ -3549,7 +3569,7 @@ The Office add-on reads and edits documents in the user's files, from a chat. It
 
 | Tool | Kind | What it does |
 |---|---|---|
-| `read-docx`, `read-xlsx`, `read-pptx`, `read-pdf` | read | Return the text of a file: paragraphs with their index, cells row by row, slides with their shapes, pages. The answer is cut to about 48 KiB and says so. |
+| `read-docx`, `read-xlsx`, `read-pptx`, `read-pdf` | read | Return the text of a file: paragraphs with their index, cells row by row (a formula that has no stored result shows as the formula, such as `=SUM(A1:A2)`), slides with their shapes, pages. The answer is cut to about 48 KiB and says so. |
 | `edit-docx`, `edit-xlsx`, `edit-pptx` | action | Apply a list of changes (at most 200) to a file. All of them are saved, or none. |
 | `create-docx`, `create-xlsx`, `create-pptx`, `create-pdf` | action | Make a new file. `create-pdf` takes headings, paragraphs, bullets and tables, and writes Latin-1 text with the built-in font; text in other scripts is refused with a reason. It needs no sandbox. |
 
@@ -3564,7 +3584,7 @@ The Sandbox add-on lets a chat run commands and code. Its tools are action tools
 - **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When a suspended sandbox is removed, the host backend also stops the processes it left running.
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
 - **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.
-- **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do.
+- **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do. An administrator can choose the host backend there: the page shows the warning that commands then run on this machine without isolation, and asks for the typed confirmation before it saves. A user who is not an administrator is told that only an administrator can change this.
 - **Undo.** Each tool call that changes files is one change set in the history of the user's files (Files, History), and it is undone there, one call at a time. A whole turn is not one change set: the sandbox runs in the add-on process and the Files service commits each write of a tool on its own. The file tools of the chat itself work the same way.
 
 ### Sandbox backends and settings

@@ -162,6 +162,9 @@ type PutOptions struct {
 	// MaxSize limits this file in bytes, below the store limit. Zero means
 	// the store limit only.
 	MaxSize int64
+	// Title names the change set. Empty means "Upload <name>", which fits a
+	// person's upload; a writer that is not an upload names its own change.
+	Title string
 }
 
 // UndoOptions controls Undo.

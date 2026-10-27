@@ -166,7 +166,7 @@ func TestSetCellKinds(t *testing.T) {
 		{"big number", "B2", Num(1e21), "1e+21"},
 		{"bool false", "C2", Boolean(false), "FALSE"},
 		{"bool true", "B2", Boolean(true), "TRUE"},
-		{"formula no cache", "D2", Formula("=B2*2"), ""},
+		{"formula no cache", "D2", Formula("=B2*2"), "=B2*2"},
 		{"formula cached number", "D2", FormulaCached("B2*2", Num(6)), "6"},
 		{"formula cached text", "D2", FormulaCached("A2&\"!\"", Str("apples!")), "apples!"},
 		{"formula cached bool", "D2", FormulaCached("B2>1", Boolean(true)), "TRUE"},

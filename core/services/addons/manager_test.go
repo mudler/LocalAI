@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -56,6 +57,12 @@ func uiFixture(min, max uint64) (OwnerConfig, catalog.Catalog, *packages.Install
 }
 
 func fixtureFor(manifest []byte) (OwnerConfig, catalog.Catalog, *packages.Installer) {
+	return fixtureWithDigest(manifest, "")
+}
+
+// fixtureWithDigest is fixtureFor with a library that lists the given digest
+// for the package, so the package it serves does not match its entry.
+func fixtureWithDigest(manifest []byte, digest string) (OwnerConfig, catalog.Catalog, *packages.Installer) {
 	root := GinkgoT().TempDir()
 	var e error
 	var b bytes.Buffer
@@ -68,7 +75,10 @@ func fixtureFor(manifest []byte) (OwnerConfig, catalog.Catalog, *packages.Instal
 	Expect(tw.Close()).To(Succeed())
 	artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(b.Bytes()) }))
 	DeferCleanup(artifact.Close)
-	release := catalog.Release{ID: "sample", Name: "Sample", Version: "1.2.3", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes())), OS: "linux", Arch: "amd64"}
+	if digest == "" {
+		digest = fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes()))
+	}
+	release := catalog.Release{ID: "sample", Name: "Sample", Version: "1.2.3", Artifact: artifact.URL + "/package.tar", Digest: digest, OS: "linux", Arch: "amd64"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = catalog.WriteIndex(w, []catalog.Release{release})
 	}))
@@ -106,6 +116,19 @@ func open(cfg OwnerConfig, c catalog.Catalog, i *packages.Installer) *Manager {
 func command(id, action string) LifecycleCommand {
 	return LifecycleCommand{OperationID: id, AddonID: "sample", Action: action, SourceID: "test", Version: "1.2.3"}
 }
+
+var _ = Describe("a package that does not match its library entry", func() {
+	It("fails the install and says the package could not be verified, without installing anything", func() {
+		manifest, e := os.ReadFile("../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		cfg, c, i := fixtureWithDigest(manifest, "sha256:"+strings.Repeat("0", 64))
+		m := open(cfg, c, i)
+		_, e = m.Submit(ctx, actor, command("op-digest", "install"))
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(e).To(MatchError(packages.ErrPackage))
+		Expect(m.journal.Addons["sample"].Installed).To(BeFalse())
+	})
+})
 
 var _ = Describe("designated owner lifecycle", func() {
 	It("carries the SDK refusal text to the caller of a failed install and keeps the generic error", func() {

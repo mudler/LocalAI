@@ -17,6 +17,12 @@ import (
 // It is not an outage and not an unknown outcome.
 var ErrRefused = errors.New("addon refused the request as invalid")
 
+// ErrDenied is the add-on's own answer that this person may not do what the
+// request asks, for example because a feature of the host is not granted to
+// them. Nothing was changed and repeating the call cannot succeed. It is not an
+// outage and not an unknown outcome.
+var ErrDenied = errors.New("addon denied the request for this person")
+
 type Actor struct {
 	UserID       string `json:"userId"`
 	CredentialID string `json:"credentialId"`

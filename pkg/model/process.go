@@ -23,6 +23,8 @@ var (
 	// ErrModelNotFound reports that a model is not loaded. Exported so HTTP
 	// handlers can map it to 404 instead of a blanket 500.
 	ErrModelNotFound = errors.New("model not found")
+	// ErrBackendNotFound means the backend to load is not installed.
+	ErrBackendNotFound = errors.New("backend not found")
 	// ErrModelBusy indicates that a graceful shutdown context ended while
 	// requests were still in flight.
 	ErrModelBusy = errors.New("model is still busy")

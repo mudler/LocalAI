@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
+	"github.com/mudler/LocalAI/core/services/addons/toolargs"
 	"github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -79,7 +80,8 @@ var _ = Describe("action tools in the adapter", func() {
 		f, _, chats := build()
 		_, err := chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"echo hi"}`))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(f.acts[0].Request.ResourceID).To(Equal("conv1"))
+		Expect(f.acts[0].Request.ResourceID).To(Equal(toolargs.ActionResourceID("conv1")))
+		Expect(toolargs.ValidResourceID(f.acts[0].Request.ResourceID)).To(BeTrue())
 		// The arguments cannot name it: the schema has no such property.
 		_, err = chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"x","resourceId":"conv2"}`))
 		Expect(f.acts).To(HaveLen(1), "the second call must not reach the owner")

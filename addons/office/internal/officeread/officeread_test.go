@@ -334,3 +334,28 @@ func TestSparseSheetTooLarge(t *testing.T) {
 		t.Error("no error for a huge sparse sheet")
 	}
 }
+
+// A formula cell that was written without a cached result has no value in the
+// file. The reader shows the formula so a model can check what it wrote.
+func TestXLSXFormulaWithoutCachedValue(t *testing.T) {
+	var buf bytes.Buffer
+	err := xlsx.Write(&buf, xlsx.Workbook{Sheets: []xlsx.Sheet{{Name: "S", Cells: []xlsx.Cell{
+		{Ref: "A1", Value: xlsx.Num(2)}, {Ref: "A2", Value: xlsx.Num(3)},
+		{Ref: "A3", Formula: "=SUM(A1:A2)"},
+		{Ref: "B3", Formula: "A1*2", Value: xlsx.Num(4)},
+	}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := Read(buf.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid := doc.Parts[0].Tables[0]
+	if grid[2][0] != "=SUM(A1:A2)" {
+		t.Errorf("A3 = %q, want the formula", grid[2][0])
+	}
+	if grid[2][1] != "4" {
+		t.Errorf("B3 = %q, want the cached result", grid[2][1])
+	}
+}

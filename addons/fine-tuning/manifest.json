@@ -46,7 +46,7 @@
       {
         "name": "fine-tune-start",
         "kind": "create",
-        "description": "Propose a new fine-tuning job. A person confirms it in the approval card; nothing starts before that. datasetSource is a Hugging Face ID or a reference from fine-tune-dataset. A model can only control jobs it started.",
+        "description": "Start a new fine-tuning job. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. datasetSource is a Hugging Face ID or a reference from fine-tune-dataset. A model can only control jobs it started.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -144,7 +144,7 @@
       {
         "name": "fine-tune-dataset",
         "kind": "create",
-        "description": "Propose sending a small text dataset (up to 900 KiB, a .jsonl, .json, .csv or .txt file) to the server. A person confirms it. The reference it returns is the datasetSource of fine-tune-start, works for that person only and is lost when the server restarts. A model can only control jobs it started.",
+        "description": "Send a small text dataset (up to 900 KiB, a .jsonl, .json, .csv or .txt file) to the server. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. The reference it returns is the datasetSource of fine-tune-start, works for that person only and is lost when the server restarts. A model can only control jobs it started.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -205,7 +205,7 @@
       {
         "name": "fine-tune-stop",
         "kind": "write",
-        "description": "Propose stopping a fine-tuning job that a tool started. A person confirms it. A model can only control jobs it started.",
+        "description": "Stop a fine-tuning job that a tool started. Stopping cannot be undone. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. A model can only control jobs it started.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -227,7 +227,7 @@
       {
         "name": "fine-tune-export",
         "kind": "write",
-        "description": "Propose registering the result of a fine-tuning job that a tool started as a model. Administrators only. A model can only control jobs it started.",
+        "description": "Register the result of a fine-tuning job that a tool started as a model. Administrators only. Exporting cannot be undone. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. A model can only control jobs it started.",
         "inputSchema": {
           "type": "object",
           "properties": {

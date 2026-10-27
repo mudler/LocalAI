@@ -42,7 +42,13 @@ func (a *Application) AddonToolProvider() *mcpTools.AddonToolProvider {
 	if a.addonGateway == nil {
 		return nil
 	}
-	return mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
+	p := mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
+	if db := a.AuthDB(); db != nil {
+		has := addonFeatureCheck(db)
+		hostOps := a.applicationConfig.AddonHostOps
+		p = p.WithHidden(func(actor contract.Actor) map[string]bool { return addonsWithoutFeature(hostOps, has, actor) })
+	}
+	return p
 }
 
 // AddonHostOps is the host operation channel of the add-on supervisor, or nil
@@ -524,7 +530,11 @@ func (a *Application) StudioAddonTools() studio.AddonTools {
 	if a.addonGateway == nil {
 		return nil
 	}
-	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway), mode: a.AddonOwnershipMode(), hostOps: a.applicationConfig.AddonHostOps}
+	var has func(userID, feature string) bool
+	if db := a.AuthDB(); db != nil {
+		has = addonFeatureCheck(db)
+	}
+	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway), mode: a.AddonOwnershipMode(), hostOps: a.applicationConfig.AddonHostOps, has: has}
 }
 
 // lateStudioAddons asks for the broker at each call: the chats service starts
@@ -561,6 +571,47 @@ type studioAddons struct {
 	// hostOps maps an add-on ID to the host operation prefixes it may call. An
 	// add-on that may call the workspace operations needs the Files workspace.
 	hostOps map[string][]string
+	// has answers whether a user holds a host feature. Nil offers every tool.
+	has func(userID, feature string) bool
+}
+
+// hostOpFeatures maps the prefix of a host operation to the feature the host
+// requires for it (see hostops). An add-on that may call such an operation
+// does nothing for a person without the feature, so its tools are not offered.
+var hostOpFeatures = map[string]string{"finetune.": auth.FeatureFineTuning, "quantize.": auth.FeatureQuantization}
+
+// addonsWithoutFeature names the add-ons whose host operations need a feature
+// the actor does not hold. Local-owner mode has no accounts and hides none.
+func addonsWithoutFeature(hostOps map[string][]string, has func(userID, feature string) bool, actor contract.Actor) map[string]bool {
+	if has == nil || actor.Mode == auth.AddonModeLocalOwner {
+		return nil
+	}
+	denied := map[string]bool{}
+	for addon, prefixes := range hostOps {
+		for _, p := range prefixes {
+			if f, ok := hostOpFeatures[p]; ok && !has(actor.UserID, f) {
+				denied[addon] = true
+			}
+		}
+	}
+	return denied
+}
+
+// filterByFeature drops the tools of the add-ons whose host operations need a
+// feature the actor does not hold, so a model is not offered a tool that can
+// only answer "no permission". Local-owner mode has no accounts and keeps all.
+func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has func(userID, feature string) bool, actor contract.Actor) []studio.AddonTool {
+	denied := addonsWithoutFeature(hostOps, has, actor)
+	if len(denied) == 0 {
+		return tools
+	}
+	out := make([]studio.AddonTool, 0, len(tools))
+	for _, t := range tools {
+		if !denied[t.AddonID] {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // sandboxAddonID is the add-on that runs commands and code.
@@ -636,7 +687,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead})
 	}
-	return out, nil
+	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
 
 func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {

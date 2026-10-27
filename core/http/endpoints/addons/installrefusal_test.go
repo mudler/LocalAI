@@ -38,7 +38,7 @@ var _ = Describe("install refusal in the dispatch response", func() {
 	const generic = "Addon request denied"
 
 	// Two releases: "needs2" is built for SDK 2 only, "corrupt" has a digest
-	// that does not match its artifact, an unrelated failure.
+	// that does not match its artifact.
 	setup := func() (*managerpkg.Manager, *echo.Echo, string, contract.Actor, func(*gateway.Gateway) *echo.Echo) {
 		ctx := context.Background()
 		db, e := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
@@ -121,12 +121,17 @@ var _ = Describe("install refusal in the dispatch response", func() {
 		return m
 	}
 
-	It("returns the SDK refusal text to the administrator and the generic message for an unrelated failure", func() {
+	const unverified = "The package could not be verified: it does not match its library entry, or it is not a valid add-on package. Nothing was installed"
+
+	It("returns the SDK refusal text and the unverified-package text to the administrator and the generic message for an unrelated failure", func() {
 		_, app, token, _, _ := setup()
 		code, body := install(app, token, "needs2")
 		Expect(code).To(Equal(http.StatusForbidden))
 		Expect(message(body)).To(Equal(refusal))
 		code, body = install(app, token, "corrupt")
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(message(body)).To(Equal(unverified))
+		code, body = install(app, token, "not-in-the-library")
 		Expect(code).To(Equal(http.StatusForbidden))
 		Expect(message(body)).To(Equal(generic))
 	})
@@ -137,20 +142,20 @@ var _ = Describe("install refusal in the dispatch response", func() {
 		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
 		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
 
-		code, body := install(app, token, "corrupt")
+		code, body := install(app, token, "not-in-the-library")
 		Expect(code).To(Equal(http.StatusForbidden))
 		Expect(body).To(MatchJSON(`{"error":{"type":"addon_error","message":"` + generic + `","code":403}}`))
 		line := logs.String()
 		Expect(strings.Count(line, "\n")).To(Equal(1), line)
 		Expect(line).To(ContainSubstring("action=install"))
-		Expect(line).To(ContainSubstring("addonId=corrupt"))
+		Expect(line).To(ContainSubstring("addonId=not-in-the-library"))
 		Expect(line).To(ContainSubstring("reason="))
 		Expect(line).To(ContainSubstring("kind="))
 		// Neither the credential nor the arguments reach the log.
 		Expect(line).NotTo(ContainSubstring(token))
 		Expect(line).NotTo(ContainSubstring("Bearer"))
 		Expect(line).NotTo(ContainSubstring("sourceId"))
-		Expect(line).NotTo(ContainSubstring("op-corrupt"))
+		Expect(line).NotTo(ContainSubstring("op-not-in-the-library"))
 
 		logs.Reset()
 		r := httptest.NewRequest(http.MethodPost, "/api/addons/dispatch", bytes.NewBufferString(`{"addonId":"x","operationId":"o","action":"update-upgrade","arguments":{}}`))
@@ -195,6 +200,9 @@ var _ = Describe("install refusal in the dispatch response", func() {
 		Expect(code).To(Equal(http.StatusForbidden))
 		Expect(message(body)).To(Equal(refusal))
 		code, body = install(front, token, "corrupt")
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(message(body)).To(Equal(unverified))
+		code, body = install(front, token, "not-in-the-library")
 		Expect(code).To(Equal(http.StatusForbidden))
 		Expect(message(body)).To(Equal(generic))
 	})

@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/addons/internal/idle"
@@ -52,6 +54,43 @@ var _ = Describe("Handler and action tools", func() {
 		Expect(post(h, "/act", "act", "act").Code).To(Equal(http.StatusNotFound))
 	})
 })
+
+var _ = Describe("Handler and refusals", func() {
+	read := func(err error) *httptest.ResponseRecorder {
+		st := Startup{Registration: Registration{AddonID: "sandbox", Generation: 1, Incarnation: "inc", Protocol: 1}, Credential: "secret", Limits: contract.DefaultLimits()}
+		env := contract.Envelope{
+			Request:   contract.Request{AddonID: "sandbox", OperationID: "op1", Generation: 1, Action: "read", Arguments: json.RawMessage(`{}`)},
+			Authority: contract.Authority{Actor: contract.Actor{UserID: "alice", CredentialID: "k", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)},
+		}
+		b, _ := json.Marshal(env)
+		req := httptest.NewRequest(http.MethodPost, "/read", bytes.NewReader(b))
+		req.Header.Set("Authorization", "Bearer secret")
+		req.Header.Set("X-LocalAI-Incarnation", "inc")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		Handler(st, failingRuntime{err: err}).ServeHTTP(rec, req)
+		return rec
+	}
+	It("sends the reason of a bad request on, so the owner can tell the person what to fix", func() {
+		rec := read(fmt.Errorf("%w: %w: quantization engine llama-cpp-quantization is not installed", ErrBadRequest, ErrBadRequest))
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("quantization engine llama-cpp-quantization is not installed"))
+	})
+	It("keeps the plain answer for a bad request without a reason", func() {
+		rec := read(ErrBadRequest)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(strings.TrimSpace(rec.Body.String())).To(Equal("invalid request"))
+	})
+})
+
+type failingRuntime struct {
+	idle.Runtime
+	err error
+}
+
+func (f failingRuntime) Read(context.Context, contract.Envelope) (contract.Result, error) {
+	return contract.Result{}, f.err
+}
 
 // actingRuntime answers an act call with the user it ran for.
 type actingRuntime struct{ idle.Runtime }

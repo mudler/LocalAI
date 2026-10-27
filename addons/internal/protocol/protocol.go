@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -62,6 +63,26 @@ var (
 	ErrConflict   = errors.New("conflict")
 	ErrForbidden  = errors.New("forbidden")
 )
+
+// badRequestText is the body of a 400 answer: the reason a runtime put after
+// ErrBadRequest ("invalid request: <reason>"), or the plain class. The owner
+// keeps a short printable part of it, so a runtime writes a fixed sentence
+// here and never an echo of the request.
+func badRequestText(err error) string {
+	// A host refusal carries the prefix too, so a runtime that wraps it adds a second.
+	reason, stripped := err.Error(), false
+	for {
+		rest, ok := strings.CutPrefix(reason, ErrBadRequest.Error()+": ")
+		if !ok {
+			break
+		}
+		reason, stripped = rest, true
+	}
+	if !stripped || reason == "" {
+		return ErrBadRequest.Error()
+	}
+	return reason
+}
 
 // ReadStartup decodes the startup object from the inherited descriptor and
 // returns whatever the decoder buffered beyond it, for the parent-death watch.
@@ -118,7 +139,7 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(v)
 			case errors.Is(err, ErrBadRequest):
-				http.Error(w, "invalid request", http.StatusBadRequest)
+				http.Error(w, badRequestText(err), http.StatusBadRequest)
 			case errors.Is(err, ErrNotFound):
 				http.Error(w, "not found", http.StatusNotFound)
 			case errors.Is(err, ErrForbidden):
