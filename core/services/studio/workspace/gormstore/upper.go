@@ -233,7 +233,7 @@ func (u *upperSet) place(v View, paths map[int]string, gone map[int]bool) {
 // Each mount is found again by its node ID, so a folder that was renamed or
 // moved after the view was taken is still the one that gets the changes.
 func (s *Workspace) CommitUpper(ctx context.Context, v View, a Actor, base int64, src UpperSource, o UpperOptions) (ChangeSet, []Conflict, error) {
-	pts, err := checkMountPoints(v)
+	pts, err := CheckMountPoints(v)
 	if err != nil {
 		return ChangeSet{}, nil, err
 	}

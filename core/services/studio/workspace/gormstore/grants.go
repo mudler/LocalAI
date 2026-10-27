@@ -141,7 +141,7 @@ func (s *Workspace) ReadablePrefixes(ctx context.Context, a Actor) ([]string, er
 	for _, p := range paths {
 		covered := false
 		for _, k := range out {
-			if within(p, k) {
+			if Within(p, k) {
 				covered = true
 				break
 			}
@@ -151,9 +151,4 @@ func (s *Workspace) ReadablePrefixes(ctx context.Context, a Actor) ([]string, er
 		}
 	}
 	return out, nil
-}
-
-// within reports whether p is dir or a path below it.
-func within(p, dir string) bool {
-	return p == dir || dir == "/" || strings.HasPrefix(p, dir+"/")
 }

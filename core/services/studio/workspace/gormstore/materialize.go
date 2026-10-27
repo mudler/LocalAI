@@ -6,47 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 )
-
-// mountPoint validates a mount's At: a relative path of clean names with no
-// empty, dot or dot-dot segment. It returns the cleaned slash path.
-func mountPoint(at string) (string, error) {
-	if strings.HasPrefix(at, "/") || strings.HasSuffix(at, "/") {
-		return "", ErrInvalid
-	}
-	parts := strings.Split(at, "/")
-	for i, p := range parts {
-		n, err := cleanName(p)
-		if err != nil || n != p {
-			return "", ErrInvalid
-		}
-		parts[i] = n
-	}
-	return strings.Join(parts, "/"), nil
-}
-
-// checkMountPoints validates every readable mount and rejects duplicate and
-// nested points. It returns the cleaned points by mount index.
-func checkMountPoints(v View) (map[int]string, error) {
-	pts := map[int]string{}
-	for i, m := range v.Mounts {
-		if m.Mode < ModeRead {
-			continue
-		}
-		p, err := mountPoint(m.At)
-		if err != nil {
-			return nil, err
-		}
-		for _, q := range pts {
-			if p == q || strings.HasPrefix(p, q+"/") || strings.HasPrefix(q, p+"/") {
-				return nil, ErrInvalid
-			}
-		}
-		pts[i] = p
-	}
-	return pts, nil
-}
 
 func (s *Workspace) currentRev(ctx context.Context, q querier) (int64, error) {
 	var rev int64
@@ -58,7 +18,7 @@ func (s *Workspace) currentRev(ctx context.Context, q querier) (int64, error) {
 // with folders as real folders and files as hard links to their blobs. dir
 // must be missing or empty. It returns the revision it used.
 func (s *Workspace) Materialize(ctx context.Context, v View, dir string) (int64, error) {
-	pts, err := checkMountPoints(v)
+	pts, err := CheckMountPoints(v)
 	if err != nil {
 		return 0, err
 	}
