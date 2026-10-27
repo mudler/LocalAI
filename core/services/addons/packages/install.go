@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
+	"github.com/mudler/xlog"
 	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
@@ -60,9 +61,19 @@ func (i *Installer) fileLimit() int {
 	return 10000
 }
 func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(Progress)) (out StagedPackage, err error) {
+	// step names the part of the install that is running, so a failure logs
+	// where it stopped. The error text is the package error, never a request,
+	// a key or a signature.
+	step := "start"
+	defer func() {
+		if err != nil {
+			xlog.Warn("Addon package step failed", "step", step, "addon", r.ID, "source", r.SourceID, "error", err.Error())
+		}
+	}()
 	if e := ctx.Err(); e != nil {
 		return out, e
 	}
+	step = "resolve"
 	selection := r.Selection
 	if selection == "" {
 		selection = r.Version
@@ -71,6 +82,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if e != nil {
 		return out, e
 	}
+	step = "policy"
 	// Do not accept a caller's substituted artifact, policy, source or digest.
 	r.Selection = selection
 	// An add-on library names its signer exactly. A pattern is for backend
@@ -86,12 +98,14 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	// on the install is the pinned path and the receipt records that digest.
 	// Only an OCI artifact can be mutable.
 	if r.Mutable {
+		step = "pin"
 		pin, e := catalog.Pin(ctx, r, i.Lookup)
 		if e != nil {
 			return out, ErrPackage
 		}
 		r.Digest = pin.Digest
 	}
+	step = "stage-directory"
 	root, e := filepath.Abs(i.Root)
 	if e != nil || i.Root == "" {
 		return out, ErrPackage
@@ -118,6 +132,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	x := &extraction{seen: map[string]bool{}}
 	verification := "sha256"
 	if strings.HasPrefix(r.Artifact, "oci://") {
+		step = "reference"
 		ref, e := name.ParseReference(strings.TrimPrefix(r.Artifact, "oci://"))
 		if e != nil {
 			return out, ErrPackage
@@ -125,6 +140,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		pinned := ref.Context().Digest(r.Digest).Name()
 		transport := boundTransport{ctx: ctx, base: httpclient.New().Transport, allowLoopbackHTTP: r.AllowLoopbackHTTP}
 		if r.Policy.RequireSignature {
+			step = "verify-signature"
 			verifier, e := cosignverify.NewVerifier(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport)
 			if i.SignatureTrust != nil {
 				verifier, e = cosignverify.NewVerifierWithTrustedMaterial(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport, i.SignatureTrust)
@@ -137,10 +153,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			}
 			verification = "sha256+sigstore"
 		}
+		step = "fetch-image"
 		img, e := oci.GetImage(pinned, r.OS+"/"+r.Arch, nil, transport)
 		if e != nil {
 			return out, ErrPackage
 		}
+		step = "check-image"
 		digest, e := img.Digest()
 		if e != nil || digest.String() != r.Digest {
 			return out, ErrPackage
@@ -155,6 +173,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		}
 		var downloaded int64
 		for _, layer := range layers {
+			step = "fetch-layer"
 			size, e := layer.Size()
 			if e != nil || size < 0 || size > i.byteLimit()-downloaded {
 				return out, ErrPackage
@@ -173,6 +192,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			if e != nil {
 				return out, e
 			}
+			step = "extract"
 			e = func() error {
 				defer func() { _ = os.Remove(f.Name()) }()
 				defer func() { _ = f.Close() }()
@@ -190,6 +210,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	} else {
 		// HTTP archives have a catalog-pinned SHA256. Sigstore image signatures are
 		// not archive signatures; fail closed instead of silently dropping policy.
+		step = "fetch-archive"
 		if r.Policy.RequireSignature {
 			return out, ErrPackage
 		}
@@ -211,10 +232,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		}
 		defer func() { _ = os.Remove(f.Name()) }()
 		defer func() { _ = f.Close() }()
+		step = "extract"
 		if e = i.extract(ctx, f, dir, x); e != nil {
 			return out, e
 		}
 	}
+	step = "manifest"
 	manifestPath := filepath.Join(dir, "manifest.json")
 	manifestInfo, e := os.Lstat(manifestPath)
 	if e != nil || !manifestInfo.Mode().IsRegular() || manifestInfo.Size() > contract.DefaultLimits().ManifestBytes {
@@ -236,6 +259,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if m.ID != r.ID || (!r.Mutable && m.Version != r.Version) {
 		return out, ErrPackage
 	}
+	step = "assets"
 	assets := []string{m.Executable}
 	if u := m.Capabilities.UI; u != nil {
 		assets = append(assets, u.Entry)
@@ -253,6 +277,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			return out, e
 		}
 	}
+	step = "receipt"
 	if _, e = os.Lstat(filepath.Join(dir, "receipt.json")); !os.IsNotExist(e) {
 		return out, ErrPackage
 	}

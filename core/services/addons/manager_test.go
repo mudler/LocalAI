@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -118,6 +120,23 @@ var _ = Describe("designated owner lifecycle", func() {
 		_, e = m.Submit(ctx, actor, command("op-sdk", "install"))
 		Expect(e).To(MatchError(ErrOperationFailed))
 		Expect(e.Error()).NotTo(ContainSubstring("SDK"))
+	})
+
+	It("logs the step and the error of a failed install and keeps the client answer generic", func() {
+		logs := &bytes.Buffer{}
+		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
+		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
+		cfg, c, i := uiFixture(2, 2)
+		m := open(cfg, c, i)
+		_, e := m.Submit(ctx, actor, command("op-trace", "install"))
+		Expect(e).To(MatchError(ErrOperationFailed))
+		out := logs.String()
+		Expect(out).To(ContainSubstring("Addon operation step failed"))
+		Expect(out).To(ContainSubstring("step=stage"))
+		Expect(out).To(ContainSubstring("addon=sample"))
+		Expect(out).To(ContainSubstring("operation=op-trace"))
+		Expect(out).To(ContainSubstring("the add-on needs SDK 2 to 2"))
+		Expect(out).To(ContainSubstring("Addon package step failed"))
 	})
 
 	It("installs an add-on whose SDK range contains the host SDK", func() {

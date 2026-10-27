@@ -23,6 +23,7 @@ import (
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
 )
 
 var (
@@ -341,6 +342,19 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		}
 		return op.Status, ErrOperationFailed
 	}
+	// failStep logs the step that ended the operation, then fails it. The log
+	// carries the step name, the add-on, the operation and the error text only.
+	failStep := func(step string, cause error) (OperationStatus, error) {
+		msg := "refused by policy"
+		if cause != nil {
+			msg = cause.Error()
+		}
+		xlog.Warn("Addon operation step failed", "step", step, "addon", cmd.AddonID, "operation", cmd.OperationID, "action", cmd.Action, "error", msg)
+		if cause == nil {
+			return fail()
+		}
+		return fail(cause)
+	}
 	if next.Identity == "" {
 		next.AddonID = cmd.AddonID
 		next.Identity = m.config.StorageID + ":" + cmd.AddonID
@@ -371,10 +385,10 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			m.mu.Lock()
 			if resolveErr != nil {
-				return fail()
+				return failStep("resolve", resolveErr)
 			}
 			if stageErr != nil {
-				return fail(stageErr)
+				return failStep("stage", stageErr)
 			}
 			if m.uncertain || m.runtimeRecoveryRequired {
 				return op.Status, ErrRecoveryRequired
@@ -384,7 +398,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				// An explicit upgrade never changes the trusted identity,
 				// the library or the channel, whatever the add-on holds.
 				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); !ok || recovery.CheckCompatible(last, staged.Receipt()) != nil || staged.Receipt().Digest != cmd.CandidateDigest {
-					return fail()
+					return failStep("upgrade-compatibility", nil)
 				}
 			}
 			if m.recovery != nil && m.recovery.HasData(cmd.AddonID) {
@@ -392,14 +406,14 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				// and never to an older data format: this holds for an
 				// upgrade and for a reinstall alike.
 				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok && recovery.CheckCompatible(last, staged.Receipt()) != nil {
-					return fail()
+					return failStep("retained-data-compatibility", nil)
 				}
 				if cmd.Action != "upgrade" {
 					// A reinstall has no running generation to back up, and
 					// the candidate would migrate the retained data when it
 					// starts. Only an upgrade takes a verified backup first.
 					if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok && recovery.FormatChanged(last, staged.Receipt()) {
-						return fail()
+						return failStep("retained-data-format", nil)
 					}
 				}
 				if cmd.Action == "upgrade" {
@@ -408,12 +422,12 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			receipt, e = m.installer.Commit(ctx, staged)
 			if e != nil {
-				return fail()
+				return failStep("commit", e)
 			}
 			// Installer publication alone is not a power-loss durability promise. Flush
 			// every immutable file and directory before journaling its generation.
 			if e = syncPackage(receipt.Directory); e != nil {
-				return fail()
+				return failStep("sync", e)
 			}
 			if m.boundary != nil {
 				if e = m.boundary("published"); e != nil {
@@ -440,13 +454,13 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 					m.canceled[cmd.OperationID] = receipt
 					return op.Status, e
 				}
-				return fail()
+				return failStep("start-candidate", e)
 			}
 		}
 	case "enable":
 		// Data that needs recovery is not served: it is restored or purged first.
 		if m.dataBlocked(cmd.AddonID) {
-			return fail()
+			return failStep("data-blocked", nil)
 		}
 		next.DesiredEnabled = true
 	case "disable":
@@ -456,7 +470,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		next.DesiredEnabled = false
 	}
 	if e := os.MkdirAll(filepath.Dir(next.GrantsPath), 0700); e != nil {
-		return fail()
+		return failStep("grants-directory", e)
 	}
 	op.Next = &next
 	op.Status.Generation = next.Generation
