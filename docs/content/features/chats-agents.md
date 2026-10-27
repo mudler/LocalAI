@@ -57,6 +57,10 @@ definition from their next turn. Another user's agent is always `404`.
 Agents belong to the `chats` feature. They have no administration tools, as
 they are your own settings.
 
+## Connectors
+
+A [connector](/features/chats-connectors/) binds a Telegram bot to an agent, so a person can talk to it from Telegram.
+
 ## Triggers
 
 A trigger starts a chat as you, by itself. Each run is an ordinary chat of

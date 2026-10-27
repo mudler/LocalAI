@@ -83,6 +83,7 @@ const Workspace = page('workspace', () => import('./pages/Workspace'))
 const ChatSkills = page('chats', () => import('./pages/ChatSkills'))
 const ChatAgents = page('chats', () => import('./pages/ChatAgents'))
 const ChatTriggers = page('chats', () => import('./pages/ChatTriggers'))
+const ChatConnectors = page('chats', () => import('./pages/ChatConnectors'))
 const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
 // Referenced only from JSX below — same blind spot as Activity further down.
@@ -257,6 +258,7 @@ const appChildren = [
   { path: 'chats/skills', element: <Feature feature="chats"><ChatSkills /></Feature> },
   { path: 'chats/agents', element: <Feature feature="chats"><ChatAgents /></Feature> },
   { path: 'chats/triggers', element: <Feature feature="chats"><ChatTriggers /></Feature> },
+  { path: 'chats/connectors', element: <Feature feature="chats"><ChatConnectors /></Feature> },
   { path: 'chats/:id', element: <Feature feature="chats"><Chats /></Feature> },
   { path: 'files', element: <Feature feature="chats"><Workspace /></Feature> },
   { path: 'image', element: <StudioTabRedirect legacy="image" /> },

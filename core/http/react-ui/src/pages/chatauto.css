@@ -68,3 +68,14 @@
 }
 .ca-rail { display: flex; flex-direction: column; gap: var(--dk-space-1); padding-top: var(--dk-space-2); }
 .ca-rail__group { margin: var(--dk-space-2) 0 0; font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+
+/* A group of choices (radios, days) reads like the other fields, not like a boxed set. */
+fieldset.cs-field { border: 0; padding: 0; margin: 0; min-width: 0; }
+fieldset.cs-field > legend { padding: 0; margin-bottom: var(--dk-space-1); font-size: 0.8125rem; color: var(--color-text-secondary); }
+.ca-warning { flex-direction: column; align-items: flex-start; gap: var(--dk-space-2); }
+
+/* On a narrow screen a row stacks: its text gets the full width and its actions wrap below. */
+@media (max-width: 640px) {
+  .cs-row { flex-direction: column; align-items: stretch; }
+  .cs-row__actions { flex-wrap: wrap; }
+}

@@ -258,6 +258,19 @@ export const chatAgentsApi = {
   remove: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'DELETE' }),
 }
 
+// Connectors: a Telegram bot bound to a saved agent. The token only goes in.
+export const chatConnectorsApi = {
+  list: () => fetchJSON('/api/chats/connectors'),
+  create: (body) => postJSON('/api/chats/connectors', body),
+  update: (id, body) => fetchJSON(`/api/chats/connectors/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: (id) => fetchJSON(`/api/chats/connectors/${enc2(id)}`, { method: 'DELETE' }),
+  enable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/enable`, {}),
+  disable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/disable`, {}),
+  test: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/test`, {}),
+  senders: (id) => fetchJSON(`/api/chats/connectors/${enc2(id)}/senders`),
+  allow: (id, sender) => postJSON(`/api/chats/connectors/${enc2(id)}/senders/${enc2(sender)}/allow`, {}),
+}
+
 // Triggers: work that starts by itself, as the user, in a new chat.
 export const chatTriggersApi = {
   list: () => fetchJSON('/api/chats/triggers'),

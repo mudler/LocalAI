@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import Icon from '../components/Icon'
@@ -7,44 +7,10 @@ import ModelSelector from '../components/ModelSelector'
 import { useAddonToolAddons } from '../addons/useAddonRegistry'
 import { agentCollectionsApi, chatAgentsApi, chatSkillsApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
-import { addEntry, agentPayload, emptyAgent, grantSummary, removeEntry } from '../utils/chatAgents'
+import NameList from '../components/ChatNameList'
+import { agentPayload, emptyAgent, grantSummary } from '../utils/chatAgents'
 import './chatskills.css'
 import './chatauto.css'
-
-// A list of names that an agent grants: chips, and a field with suggestions. A
-// name that is not in the suggestions is still allowed: the server decides what
-// the owner may use when the chat runs.
-function NameList({ label, hint, value, onChange, suggestions, testId }) {
-  const [text, setText] = useState('')
-  const listId = useId()
-  const add = () => { onChange(addEntry(value, text)); setText('') }
-  return (
-    <div className="cs-field" data-testid={testId}>
-      <span>{label}</span>
-      {value.length > 0 && (
-        <ul className="ca-chips" aria-label={label}>
-          {value.map((v) => (
-            <li key={v} className="ca-chip">
-              <span>{v}</span>
-              <button type="button" className="ca-chip__x" aria-label={`${v} ×`} onClick={() => onChange(removeEntry(value, v))}>
-                <Icon name="close" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="ca-add">
-        <input className="input" list={listId} value={text} aria-label={`${label} +`} placeholder={hint}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add() } }} />
-        <datalist id={listId}>
-          {(suggestions || []).filter((s) => !value.includes(s)).map((s) => <option key={s} value={s} />)}
-        </datalist>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={add} disabled={!text.trim()}>+</button>
-      </div>
-    </div>
-  )
-}
 
 export default function ChatAgents() {
   const { t } = useTranslation('chats')

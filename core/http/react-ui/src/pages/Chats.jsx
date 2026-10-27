@@ -327,6 +327,7 @@ export default function Chats() {
           <p className="ca-rail__group">{t('list.automation')}</p>
           <Link className="ch-link ch-list__skills" to="/app/chats/agents">{t('list.agents')}</Link>
           <Link className="ch-link ch-list__skills" to="/app/chats/triggers">{t('list.triggers')}</Link>
+          <Link className="ch-link ch-list__skills" to="/app/chats/connectors">{t('list.connectors')}</Link>
         </nav>
       </aside>
 

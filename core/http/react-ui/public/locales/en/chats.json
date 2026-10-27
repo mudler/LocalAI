@@ -16,7 +16,8 @@
     "files": "Files",
     "inbox": "Inbox",
     "automatic": "Started by a trigger",
-    "unread": "Unread"
+    "unread": "Unread",
+    "connectors": "Connectors"
   },
   "empty": {
     "title": "Start a chat",
@@ -205,5 +206,49 @@
     "pushOff": "Turn off browser notifications",
     "pushDenied": "Browser notifications are blocked for this site.",
     "pushUnavailable": "This server cannot keep push subscriptions."
+  },
+  "connectorsPage": {
+    "title": "Connectors",
+    "new": "New connector",
+    "edit": "Edit connector",
+    "intro": "A connector binds a Telegram bot to one of your agents. A person who messages the bot talks to that agent in a conversation of their own, as you, with only what the agent grants.",
+    "name": "Name",
+    "token": "Bot token",
+    "tokenHelp": "From @BotFather. It is kept sealed and never shown again.",
+    "tokenSaved": "Saved. Type a new token to replace it.",
+    "agent": "Agent",
+    "agentNone": "Choose an agent",
+    "agentNoModel": "{{name}} (needs a model)",
+    "who": "Who may use it",
+    "onlyListed": "Only the senders I list",
+    "anyone": "Anyone who can message the bot",
+    "anyoneWarning": "Anyone who can message this bot can use this agent's tools, as you. Each person gets a conversation of their own.",
+    "anyoneConfirm": "I understand",
+    "allow": "Allowed senders",
+    "allowHint": "Chat ID, user ID or @username",
+    "notifyChat": "Send my notifications to this chat ID",
+    "notifyHelp": "Optional. A numeric Telegram chat ID.",
+    "on": "On",
+    "onFor": "{{name}} on",
+    "test": "Test",
+    "testOk": "Connected to @{{bot}}.",
+    "senders": "Senders",
+    "noSenders": "Nobody has written to this bot yet.",
+    "allowButton": "Allow",
+    "ignored": "Ignored",
+    "accepted": "Accepted",
+    "empty": "No connectors yet.",
+    "accepts": "Accepts: {{who}}",
+    "save": "Save",
+    "cancel": "Cancel",
+    "editButton": "Edit",
+    "delete": "Delete",
+    "agentOf": "Agent: {{name}}",
+    "modes": {
+      "anyone": "anyone",
+      "nobody": "nobody yet",
+      "listed_one": "1 listed sender",
+      "listed_other": "{{count}} listed senders"
+    }
   }
 }
