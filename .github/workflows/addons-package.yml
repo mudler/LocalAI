@@ -63,7 +63,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        addon: [tables, voice, face, fine-tuning, quantization, studio, talk]
+        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, office]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -166,7 +166,7 @@ jobs:
           # event it fails the plan. A missing or malformed platform file, or
           # any other error, fails the plan on every event.
           include='[]'
-          for id in tables voice face fine-tuning quantization studio talk; do
+          for id in tables voice face fine-tuning quantization studio talk office; do
             cfg="addons/$id/package/platforms.yaml"
             err="matrix-$id.err"
             if rows=$(go run ./scripts/addons/cmd/addonpkg matrix --config "$cfg" 2>"$err"); then

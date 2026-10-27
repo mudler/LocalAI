@@ -26,7 +26,7 @@ var releasePlatforms = map[string]string{
 // request. Enabling without this record, or recording without enabling, fails.
 var nativeChecked = map[string]bool{"linux/amd64": true, "linux/arm64": true, "darwin/arm64": true, "darwin/amd64": true}
 
-var packagedAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk"}
+var packagedAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "office"}
 
 var _ = Describe("the packaged add-ons", func() {
 	for _, id := range packagedAddons {
