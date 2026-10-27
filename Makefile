@@ -377,6 +377,14 @@ test-e2e-distributed: protogen-go
 	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
 
+# Platform e2e: MCP connectors and apps, collections, the process flags and the
+# permission of the new routes, against the real local-ai binary. The suite builds
+# the binary (with the auth tag), the mock backend and an MCP fixture server
+# itself. No Docker is needed. LOCALAI_E2E_BINARY uses a binary you built.
+test-e2e-platform: protogen-go
+	@echo 'Running platform e2e tests'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='platform' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-platform
+
 # vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
 # cpu-vllm backend from the current working tree, then drives a
 # head + headless follower via testcontainers-go and asserts a chat
