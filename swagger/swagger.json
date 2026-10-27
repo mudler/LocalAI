@@ -3983,6 +3983,126 @@
                 }
             }
         },
+        "/api/chats/notifications": {
+            "get": {
+                "description": "The inbox: one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your notifications.",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "only the unread ones",
+                        "name": "unread",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most items to return (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The notifications",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationList"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete notifications.",
+                "parameters": [
+                    {
+                        "description": "the ids",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationsDelete"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The number still unread",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationCount"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/notifications/count": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Count unread notifications.",
+                "responses": {
+                    "200": {
+                        "description": "The number unread",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationCount"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/notifications/events": {
+            "get": {
+                "description": "Server-sent events: one notification event for each new inbox item, with the same fields as the list. Live only; list the inbox for what came before.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stream your notifications.",
+                "responses": {
+                    "200": {
+                        "description": "An event stream",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotification"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/notifications/read": {
+            "post": {
+                "description": "Name the ids, or pass all. Opening a chat marks its notifications read by itself.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Mark notifications read.",
+                "parameters": [
+                    {
+                        "description": "ids or all",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationsRead"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The number still unread",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationCount"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/skills": {
             "get": {
                 "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
@@ -12675,6 +12795,82 @@
                 },
                 "to": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsNotification": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "link": {
+                    "type": "string"
+                },
+                "read": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsNotificationCount": {
+            "type": "object",
+            "properties": {
+                "unread": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsNotificationList": {
+            "type": "object",
+            "properties": {
+                "notifications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsNotification"
+                    }
+                },
+                "unread": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsNotificationsDelete": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "schema.ChatsNotificationsRead": {
+            "type": "object",
+            "properties": {
+                "all": {
+                    "type": "boolean"
+                },
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },

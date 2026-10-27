@@ -104,6 +104,8 @@ func failFor(c echo.Context, err error) error {
 		return fail(c, http.StatusConflict, "conflict", "you already have an agent with this name")
 	case errors.Is(err, agents.ErrInvalid):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), agents.ErrInvalid.Error()+": "))
+	case errors.Is(err, studiosvc.ErrNotificationsOff):
+		return fail(c, http.StatusConflict, "notifications_off", err.Error())
 	case errors.Is(err, studiosvc.ErrAgentsOff):
 		return fail(c, http.StatusConflict, "agents_off", err.Error())
 	default:
@@ -218,6 +220,8 @@ func (h *Handlers) Get(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	// Opening a chat is how a run's notifications are read.
+	h.svc.MarkChatNotificationsRead(c.Request().Context(), user, id)
 	out := schema.ChatsConversationDetail{ChatsConversation: conv, Pending: make([]schema.ChatsPending, 0, len(pend))}
 	for _, p := range pend {
 		out.Pending = append(out.Pending, schema.ChatsPending{ID: p.ID, Text: p.Text, Seq: p.Seq})

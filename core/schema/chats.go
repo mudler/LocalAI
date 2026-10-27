@@ -316,3 +316,39 @@ type ChatsAddon struct {
 type ChatsAddonList struct {
 	Addons []ChatsAddon `json:"addons"`
 }
+
+// ChatsNotification is one item of the inbox. Kind is run_ended, run_failed or
+// needs_attention; Status is ok or failed. Link is the in-app path that opens
+// what it is about.
+type ChatsNotification struct {
+	ID      int64     `json:"id"`
+	Kind    string    `json:"kind"`
+	Status  string    `json:"status"`
+	Title   string    `json:"title"`
+	Body    string    `json:"body"`
+	Link    string    `json:"link"`
+	Read    bool      `json:"read"`
+	Created time.Time `json:"created"`
+}
+
+// ChatsNotificationList is the response of the inbox list endpoint.
+type ChatsNotificationList struct {
+	Notifications []ChatsNotification `json:"notifications"`
+	Unread        int                 `json:"unread"`
+}
+
+// ChatsNotificationCount is the number of unread notifications.
+type ChatsNotificationCount struct {
+	Unread int `json:"unread"`
+}
+
+// ChatsNotificationsRead marks notifications read: the named ones, or all.
+type ChatsNotificationsRead struct {
+	IDs []int64 `json:"ids,omitempty"`
+	All bool    `json:"all,omitempty"`
+}
+
+// ChatsNotificationsDelete names the notifications to delete.
+type ChatsNotificationsDelete struct {
+	IDs []int64 `json:"ids"`
+}

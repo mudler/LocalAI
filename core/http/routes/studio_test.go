@@ -18,8 +18,9 @@ import (
 	studioendpoint "github.com/mudler/LocalAI/core/http/endpoints/studio"
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/studio"
-	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
@@ -34,6 +35,7 @@ type studioServer struct {
 	e        *echo.Echo
 	harness  *studiotest.GateHarness
 	sessions map[string]string
+	notify   *notify.Service
 }
 
 func newStudioServer() *studioServer { return newStudioServerFiles(newTestFiles()) }
@@ -53,7 +55,10 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	h := studiotest.NewGateHarness()
 	ag, err := agents.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
-	deps := studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f, Agents: ag}
+	ns, err := notify.NewJSON("")
+	Expect(err).NotTo(HaveOccurred())
+	nsvc := notify.NewService(notify.Options{Store: ns})
+	deps := studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f, Agents: ag, Notify: nsvc}
 	if mod != nil {
 		mod(&deps)
 	}
@@ -61,7 +66,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = svc.Close(context.Background()) })
 
-	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}}
+	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc}
 	for _, id := range []string{"alice", "bob", "carol", "root"} {
 		role := auth.RoleUser
 		if id == "root" {

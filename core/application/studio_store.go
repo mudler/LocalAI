@@ -6,6 +6,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
@@ -32,24 +33,31 @@ func (a *Application) initStudioStore() {
 	var (
 		s    store.Store
 		ag   agents.Store
+		nt   notify.Store
 		kind string
 		err  error
 	)
 	switch {
 	case a.authDB != nil:
 		if s, err = store.NewGORM(a.authDB); err == nil {
-			ag, err = agents.NewGORM(a.authDB)
+			if ag, err = agents.NewGORM(a.authDB); err == nil {
+				nt, err = notify.NewGORM(a.authDB)
+			}
 		}
 		kind = "gorm"
 	case a.applicationConfig.DataPath != "":
 		dir := filepath.Join(a.applicationConfig.DataPath, "chats")
 		if s, err = store.NewJSON(dir); err == nil {
-			ag, err = agents.NewJSON(filepath.Join(dir, "agents"))
+			if ag, err = agents.NewJSON(filepath.Join(dir, "agents")); err == nil {
+				nt, err = notify.NewJSON(filepath.Join(dir, "notifications"))
+			}
 		}
 		kind = "json"
 	default:
 		if s, err = store.NewJSON(""); err == nil {
-			ag, err = agents.NewJSON("")
+			if ag, err = agents.NewJSON(""); err == nil {
+				nt, err = notify.NewJSON("")
+			}
 		}
 		kind = "memory"
 	}
@@ -57,5 +65,5 @@ func (a *Application) initStudioStore() {
 		xlog.Warn("Chats disabled: failed to initialise its store", "kind", kind, "error", err)
 		return
 	}
-	a.studioStore, a.studioAgents, a.studioStoreKind = s, ag, kind
+	a.studioStore, a.studioAgents, a.studioNotify, a.studioStoreKind = s, ag, nt, kind
 }

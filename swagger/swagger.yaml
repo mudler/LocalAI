@@ -2757,6 +2757,55 @@ definitions:
       to:
         type: string
     type: object
+  schema.ChatsNotification:
+    properties:
+      body:
+        type: string
+      created:
+        type: string
+      id:
+        type: integer
+      kind:
+        type: string
+      link:
+        type: string
+      read:
+        type: boolean
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  schema.ChatsNotificationCount:
+    properties:
+      unread:
+        type: integer
+    type: object
+  schema.ChatsNotificationList:
+    properties:
+      notifications:
+        items:
+          $ref: '#/definitions/schema.ChatsNotification'
+        type: array
+      unread:
+        type: integer
+    type: object
+  schema.ChatsNotificationsDelete:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  schema.ChatsNotificationsRead:
+    properties:
+      all:
+        type: boolean
+      ids:
+        items:
+          type: integer
+        type: array
+    type: object
   schema.ChatsPending:
     properties:
       id:
@@ -9381,6 +9430,87 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsUndoResponse'
       summary: Undo a change.
+      tags:
+      - chats
+  /api/chats/notifications:
+    delete:
+      parameters:
+      - description: the ids
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsNotificationsDelete'
+      responses:
+        "200":
+          description: The number still unread
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationCount'
+      summary: Delete notifications.
+      tags:
+      - chats
+    get:
+      description: 'The inbox: one item for each run of a trigger that finished, failed
+        or needs you. Newest first. It also returns the number unread.'
+      parameters:
+      - description: only the unread ones
+        in: query
+        name: unread
+        type: boolean
+      - description: most items to return (default 50, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The notifications
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationList'
+      summary: List your notifications.
+      tags:
+      - chats
+  /api/chats/notifications/count:
+    get:
+      responses:
+        "200":
+          description: The number unread
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationCount'
+      summary: Count unread notifications.
+      tags:
+      - chats
+  /api/chats/notifications/events:
+    get:
+      description: 'Server-sent events: one notification event for each new inbox
+        item, with the same fields as the list. Live only; list the inbox for what
+        came before.'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: An event stream
+          schema:
+            $ref: '#/definitions/schema.ChatsNotification'
+      summary: Stream your notifications.
+      tags:
+      - chats
+  /api/chats/notifications/read:
+    post:
+      description: Name the ids, or pass all. Opening a chat marks its notifications
+        read by itself.
+      parameters:
+      - description: ids or all
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsNotificationsRead'
+      responses:
+        "200":
+          description: The number still unread
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationCount'
+      summary: Mark notifications read.
       tags:
       - chats
   /api/chats/skills:

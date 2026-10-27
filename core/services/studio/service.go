@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
+	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -36,6 +37,9 @@ var ErrNoModel = errors.New("studio: a conversation needs a model")
 
 // ErrAgentsOff means a chat named a saved agent but the service has no agent store.
 var ErrAgentsOff = errors.New("studio: saved agents are not available")
+
+// ErrNotificationsOff means the service has no inbox.
+var ErrNotificationsOff = errors.New("studio: notifications are not available")
 
 // ErrFilesWhileRunning means a message with files was sent while a turn runs.
 // Waiting messages are text, so files go only with the message that starts a turn.
@@ -67,6 +71,8 @@ type Deps struct {
 	MCP func(ctx context.Context, user, model string, only []string, limited bool) (exec mcpendpoint.ToolExecutor, missing []string)
 	// Agents holds the saved agents. Nil: a chat cannot name an agent.
 	Agents agents.Store
+	// Notify stores and delivers notifications. Nil: there is no inbox.
+	Notify *notify.Service
 	// AddonTools supplies the tools of the installed add-ons the user may use.
 	// Nil: a chat has none.
 	AddonTools AddonTools

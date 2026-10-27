@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/media"
+	"github.com/mudler/LocalAI/core/services/studio/notify"
 )
 
 // legacyAPIKeyUserID is the synthetic user the auth middleware gives a request
@@ -48,9 +49,13 @@ func (a *Application) initStudioService() {
 		a.studioTempDir, stateDir = dir, dir
 	}
 	var bus studio.Bus
+	var fan notify.Fanout
 	if d := a.Distributed(); d != nil && d.Nats != nil {
 		bus = studio.NewBroadcastBus(d.Nats, nil)
+		fan = notify.NewBroadcastFanout(d.Nats, nil)
 	}
+	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
+	a.studioInbox = inbox
 	svc, err := studio.New(studio.Deps{
 		Bus:           bus,
 		Store:         a.studioStore,
@@ -59,6 +64,7 @@ func (a *Application) initStudioService() {
 		StateDir:      stateDir,
 		MCP:           a.studioMCP,
 		Agents:        a.studioAgents,
+		Notify:        inbox,
 		AddonTools:    lateStudioAddons{a},
 		Collections:   studioCollections{a},
 		ContextTokens: a.studioContextTokens,

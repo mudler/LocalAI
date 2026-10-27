@@ -47,6 +47,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
@@ -123,6 +124,8 @@ type Application struct {
 	studioStore          store.Store  // the studio loop's chats; see initStudioStore
 	studioStoreKind      string       // "gorm", "json" or "memory"
 	studioAgents         agents.Store // saved agents; same kind as the chats store
+	studioNotify         notify.Store // notifications; same kind as the chats store
+	studioInbox          *notify.Service
 	studioProvider       *provider.Provider
 	studioService        *studio.Service
 	studioTempDir        string // removed at shutdown; set only in memory-only mode
