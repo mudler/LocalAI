@@ -46,11 +46,11 @@ test.describe('Library sources: all three kinds', () => {
         await expect(row).toHaveAttribute('data-kind', kind)
         await expect(row.getByTestId('source-default')).toHaveText('Default')
       }
-      await expect(ROW(page, OFFICIAL[kind]).getByTestId('source-state')).toHaveText('Enabled')
+      await expect(ROW(page, OFFICIAL[kind]).getByTestId('source-state')).toHaveText('On')
       await expect(page.getByRole('group', { name: 'Filter by kind' })).toHaveCount(0)
     }
     await openLibraries(page, 'model')
-    await expect(ROW(page, 'localai').getByTestId('source-state')).toHaveText('Disabled')
+    await expect(ROW(page, 'localai').getByTestId('source-state')).toHaveText('Off')
   })
 
   test('adds a model source of your own, which has no Default badge and stays after a reload', async ({ page }) => {
@@ -66,7 +66,7 @@ test.describe('Library sources: all three kinds', () => {
     await expect(row).toBeVisible()
     await expect(row).toHaveAttribute('data-kind', 'model')
     await expect(row.getByTestId('source-default')).toHaveCount(0)
-    await expect(row.getByTestId('source-state')).toHaveText('Enabled')
+    await expect(row.getByTestId('source-state')).toHaveText('On')
 
     const stored = (await sources(page)).sources.find(s => s.id === 'team-models')
     expect(stored).toMatchObject({ kind: 'model', format: 'gallery', default: false, enabled: true, url: 'https://models.example.org/index.yaml' })
@@ -87,7 +87,7 @@ test.describe('Library sources: all three kinds', () => {
     await openLibraries(page, 'model')
     const row = ROW(page, 'official-models')
     await row.locator('[data-action="disable"]').click()
-    await expect(row.getByTestId('source-state')).toHaveText('Disabled')
+    await expect(row.getByTestId('source-state')).toHaveText('Off')
     await expect(row).toHaveAttribute('data-state', 'disabled')
     expect((await sources(page)).sources.find(s => s.id === 'official-models')).toMatchObject({ enabled: false, removed: false, default: true })
 
