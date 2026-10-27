@@ -808,8 +808,10 @@ the add-on needs SDK 3 to 3 and this host provides SDK 2
 ```
 
 The dispatch response for that refusal has status 403 and error type
-`sdk_incompatible`, with the message above. Every other failed install keeps
-the generic `Addon request denied` message. If the administrator sends the same
+`sdk_incompatible`, with the message above. A package that does not match its
+library entry, or is not a valid add-on package, is 403 with error type
+`package_unverified` and a message that says nothing was installed. Every other
+failed install keeps the generic `Addon request denied` message. If the administrator sends the same
 operation ID again, the owner returns the stored failure, so the repeat gets the
 generic message and not the refusal text. Use a new operation ID to see the
 refusal again.
