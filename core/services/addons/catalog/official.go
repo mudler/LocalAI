@@ -1,30 +1,76 @@
 // SPDX-License-Identifier: MIT
 package catalog
 
+import (
+	"regexp"
+	"strings"
+
+	"github.com/mudler/LocalAI/internal"
+)
+
 const (
 	// OfficialLibraryID is the source ID of the official add-on library.
 	OfficialLibraryID = "official"
-	// OfficialLibraryURL is the YAML index of the first-party add-ons, kept in
-	// this repository at gallery/addons/index.yaml and served from the master
-	// branch, like the model gallery.
+	// OfficialLibraryURL is the YAML index of the first-party add-ons that a
+	// build without a release version reads. It is kept in this repository at
+	// gallery/addons/index.yaml and served from the master branch, like the
+	// model gallery. Its entries are the mutable development builds.
 	OfficialLibraryURL = "https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/addons/index.yaml"
+	// officialReleaseURLPrefix and OfficialReleaseAsset name the index of a
+	// release: the add-on package workflow attaches it to the GitHub release of
+	// each v<semver> tag. Its entries are pinned by digest to the packages that
+	// the run of the tag built and signed.
+	officialReleaseURLPrefix = "https://github.com/mudler/LocalAI/releases/download/"
+	// OfficialReleaseAsset is the file name of the add-on index of a release.
+	OfficialReleaseAsset = "addons-index.yaml"
+	officialSignerPrefix = "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@"
 )
 
+// releaseVersionRE matches the version of a tagged build: v<semver>. The
+// output of git describe for a commit after a tag (v1.2.3-14-gabc1234) does not
+// match, so such a build reads the development library.
+var releaseVersionRE = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(\.[0-9A-Za-z-]+)*)?$`)
+
 // OfficialLibrary is the library a standard install registers on its first
-// start. It requires the signature of the add-on package workflow that runs on
-// master, so a package that master did not build and sign is refused.
-func OfficialLibrary() Source {
+// start. A release build (internal.Version is a v<semver> tag) reads the index
+// attached to its own release and requires the signature of the add-on package
+// workflow run of that tag, so it installs the immutable packages that release
+// built. Any other build reads the index on master and requires the signature
+// of the run on master. A package that the named run did not build and sign is
+// refused.
+func OfficialLibrary() Source { return officialLibraryFor(internal.Version) }
+
+func officialLibraryFor(version string) Source {
+	url, ref := OfficialLibraryURL, "refs/heads/master"
+	if releaseVersionRE.MatchString(version) {
+		url, ref = officialReleaseURLPrefix+version+"/"+OfficialReleaseAsset, "refs/tags/"+version
+	}
 	return Source{
 		ID:      OfficialLibraryID,
 		Name:    "Official add-ons",
-		URL:     OfficialLibraryURL,
+		URL:     url,
 		Enabled: true,
 		Policy: VerificationPolicy{
 			RequireSignature: true,
 			Issuer:           "https://token.actions.githubusercontent.com",
-			Identity:         "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master",
+			Identity:         officialSignerPrefix + ref,
 		},
 	}
+}
+
+// isOfficialAddonURL reports whether a stored URL is one the shipped library
+// has used: the master index or the index of a release. A library whose URL is
+// anything else was edited by the admin.
+func isOfficialAddonURL(url string) bool {
+	if url == OfficialLibraryURL {
+		return true
+	}
+	rest, ok := strings.CutPrefix(url, officialReleaseURLPrefix)
+	if !ok {
+		return false
+	}
+	version, asset, ok := strings.Cut(rest, "/")
+	return ok && asset == OfficialReleaseAsset && releaseVersionRE.MatchString(version)
 }
 
 const (

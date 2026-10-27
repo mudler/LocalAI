@@ -3,9 +3,12 @@ package catalog
 
 import (
 	"os"
+	"path/filepath"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("official library default", func() {
@@ -70,7 +73,7 @@ var _ = Describe("official library default", func() {
 })
 
 var _ = Describe("official library index", func() {
-	It("lists the nine first-party add-ons in the library format", func() {
+	It("lists the nine first-party add-ons, one entry for each platform, in the library format", func() {
 		data, e := os.ReadFile("../../../../gallery/addons/index.yaml")
 		Expect(e).NotTo(HaveOccurred())
 		releases, e := DecodeIndex(data)
@@ -89,6 +92,83 @@ var _ = Describe("official library index", func() {
 			Expect(versionPattern.MatchString(r.Version)).To(BeTrue(), r.ID)
 			Expect(r.Artifact).To(HavePrefix("oci://"), r.ID)
 		}
-		Expect(ids).To(ConsistOf("fine-tuning", "quantization", "voice", "face", "studio", "talk", "tables", "office", "sandbox"))
+		Expect(slices.Compact(slices.Sorted(slices.Values(ids)))).To(ConsistOf("fine-tuning", "quantization", "voice", "face", "studio", "talk", "tables", "office", "sandbox"))
+	})
+})
+
+var _ = Describe("official library of a release build", func() {
+	DescribeTable("reads the index and the signer of its own tag",
+		func(version, wantURL, wantRef string) {
+			src := officialLibraryFor(version)
+			Expect(validSource(src)).To(BeTrue())
+			Expect(src.URL).To(Equal(wantURL))
+			Expect(src.Policy.RequireSignature).To(BeTrue())
+			Expect(src.Policy.Identity).To(Equal("https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@" + wantRef))
+		},
+		Entry("a release tag", "v4.9.0",
+			"https://github.com/mudler/LocalAI/releases/download/v4.9.0/addons-index.yaml", "refs/tags/v4.9.0"),
+		Entry("a release candidate", "v4.9.0-rc.1",
+			"https://github.com/mudler/LocalAI/releases/download/v4.9.0-rc.1/addons-index.yaml", "refs/tags/v4.9.0-rc.1"),
+		Entry("a source build", "", OfficialLibraryURL, "refs/heads/master"),
+		Entry("a commit after a tag", "v4.9.0-14-gabc1234", OfficialLibraryURL, "refs/heads/master"),
+		Entry("a bare commit", "abc1234", OfficialLibraryURL, "refs/heads/master"),
+		Entry("a version that could escape the URL", "v1.2.3/../../x", OfficialLibraryURL, "refs/heads/master"),
+	)
+	It("moves a stored official library to the index of the new build", func() {
+		s := setup()
+		_, e := s.SeedDefaults(officialLibraryFor("v4.9.0"))
+		Expect(e).NotTo(HaveOccurred())
+		_, e = s.SeedDefaults(officialLibraryFor("v4.10.0"))
+		Expect(e).NotTo(HaveOccurred())
+		reloaded, e := NewSources(s.path, checker, CredentialResolver{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(reloaded.sources[OfficialLibraryID].URL).To(Equal(officialLibraryFor("v4.10.0").URL))
+		Expect(reloaded.sources[OfficialLibraryID].Policy).To(Equal(officialLibraryFor("v4.10.0").Policy))
+	})
+	It("leaves an official library the admin pointed at another URL", func() {
+		s := setup()
+		_, e := s.SeedDefaults(officialLibraryFor("v4.9.0"))
+		Expect(e).NotTo(HaveOccurred())
+		mine := s.sources[OfficialLibraryID]
+		mine.URL = "https://example.org/addons.yaml"
+		Expect(s.Save(ctx, admin, mine)).To(Succeed())
+		_, e = s.SeedDefaults(officialLibraryFor("v4.10.0"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(s.sources[OfficialLibraryID].URL).To(Equal("https://example.org/addons.yaml"))
+	})
+})
+
+var _ = Describe("official library index platforms", func() {
+	It("has an entry for every enabled platform of every add-on", func() {
+		data, e := os.ReadFile("../../../../gallery/addons/index.yaml")
+		Expect(e).NotTo(HaveOccurred())
+		releases, e := DecodeIndex(data)
+		Expect(e).NotTo(HaveOccurred())
+		have := map[string]bool{}
+		for _, r := range releases {
+			have[r.ID+" "+r.OS+"/"+r.Arch] = true
+		}
+		files, e := filepath.Glob("../../../../addons/*/package/platforms.yaml")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(files).NotTo(BeEmpty())
+		want := map[string]bool{}
+		for _, f := range files {
+			raw, e := os.ReadFile(f)
+			Expect(e).NotTo(HaveOccurred())
+			var cfg struct {
+				Addon     string `yaml:"addon"`
+				Platforms []struct {
+					Platform string `yaml:"platform"`
+					Enabled  bool   `yaml:"enabled"`
+				} `yaml:"platforms"`
+			}
+			Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed(), f)
+			for _, p := range cfg.Platforms {
+				if p.Enabled {
+					want[cfg.Addon+" "+p.Platform] = true
+				}
+			}
+		}
+		Expect(have).To(Equal(want), "regenerate with scripts/addons/catalog.sh")
 	})
 })
