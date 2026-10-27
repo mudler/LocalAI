@@ -33,8 +33,8 @@ func NewStudioModelChecker(app *application.Application) studioendpoint.ModelChe
 // are switched off or could not start) every /api/chats path answers 404 with
 // the reason, so a client sees "off" and not a missing route. Authentication and
 // the feature gates come from the global middleware and the route-feature
-// registry, so no route carries its own.
-func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker) {
+// registry, so no route carries its own; the administrator routes take adminMw.
+func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker, adminMw echo.MiddlewareFunc) {
 	if svc == nil {
 		off := func(c echo.Context) error {
 			return c.JSON(http.StatusNotFound, schema.ErrorResponse{Error: &schema.APIError{
@@ -47,6 +47,17 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	h := studioendpoint.New(svc, models)
 	const base = "/api/chats"
 	// The files routes come before the "/:id" ones; "files" is not a chat id.
+	// The administrator's view of every user's agents, triggers and connectors.
+	// "admin" is not a chat id, and the static segment wins over "/:id".
+	e.GET(base+"/admin/agents", h.AdminListAgents, adminMw)
+	e.DELETE(base+"/admin/agents/:id", h.AdminDeleteAgent, adminMw)
+	e.GET(base+"/admin/triggers", h.AdminListTriggers, adminMw)
+	e.GET(base+"/admin/triggers/:id/runs", h.AdminTriggerRuns, adminMw)
+	e.POST(base+"/admin/triggers/:id/disable", h.AdminDisableTrigger, adminMw)
+	e.DELETE(base+"/admin/triggers/:id", h.AdminDeleteTrigger, adminMw)
+	e.GET(base+"/admin/connectors", h.AdminListConnectors, adminMw)
+	e.POST(base+"/admin/connectors/:id/disable", h.AdminDisableConnector, adminMw)
+	e.DELETE(base+"/admin/connectors/:id", h.AdminDeleteConnector, adminMw)
 	e.GET(base+"/files", h.ListFiles)
 	e.DELETE(base+"/files", h.DeleteFile)
 	e.GET(base+"/files/content", h.GetFileContent)

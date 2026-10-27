@@ -14,6 +14,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -117,7 +118,7 @@ var _ = Describe("the chats switched off", func() {
 		Expect(app.StudioStore()).To(BeNil())
 
 		e := echo.New()
-		routes.RegisterStudioRoutes(e, app.StudioService(), nil)
+		routes.RegisterStudioRoutes(e, app.StudioService(), nil, auth.NoopMiddleware())
 		for _, path := range []string{"/api/chats", "/api/chats/agents", "/api/chats/triggers", "/api/chats/connectors/x/test"} {
 			w := httptest.NewRecorder()
 			e.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
