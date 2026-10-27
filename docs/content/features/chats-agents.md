@@ -137,8 +137,14 @@ In a cluster, one frontend runs the triggers at a time: the one that holds an
 advisory lock in the database. A due time or a file version is one unique row,
 so it runs once even when two frontends try. If that frontend stops, another
 takes over, ends the runs whose chat is over as failed ("interrupted by a
-restart"), and goes on. Triggers need the database; the JSON store is for a
-single process.
+restart") and tells the owner, and goes on. Triggers need the database; the
+JSON store is for a single process.
+
+The same holds for one server. A run that a stop or a restart cuts short is
+recorded as interrupted, its chat shows the turn as interrupted (not done, even
+if some text was written), and its owner gets a "failed" notification. The
+triggers are checked every 5 seconds, so a schedule starts within 5 seconds of
+its time and a file trigger within 5 seconds of the end of its quiet time.
 
 ### API
 
