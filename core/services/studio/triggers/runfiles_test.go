@@ -320,7 +320,7 @@ func TestTheDailyCapSkipsTheFilesBeyondIt(t *testing.T) {
 
 func TestTheDailyCapOfAFileTriggerCountsTheDayOfItsTimeZone(t *testing.T) {
 	if _, err := time.LoadLocation("Pacific/Auckland"); err != nil {
-		t.Skip("no tzdata")
+		t.Fatalf("zone data is missing: %v", err)
 	}
 	// Auckland is UTC+13 in October: its day 23 starts at 11:00 UTC on the 22nd.
 	r := newRig(t)
