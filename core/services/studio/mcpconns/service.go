@@ -475,11 +475,11 @@ func (s *Service) Test(ctx context.Context, user, id string) (Probe, error) {
 	}
 	sec, err := s.open(ctx, c)
 	if err != nil {
-		return Probe{Error: err.Error()}, nil
+		return Probe{Error: reason(err)}, nil
 	}
 	cn, err := s.openConn(c, sec)
 	if err != nil {
-		return Probe{Error: redact(err.Error(), c, sec)}, nil
+		return Probe{Error: redact(reason(err), c, sec)}, nil
 	}
 	defer cn.close()
 	p := Probe{Tools: make([]string, 0, len(cn.tools))}
@@ -487,6 +487,12 @@ func (s *Service) Test(ctx context.Context, user, id string) (Probe, error) {
 		p.Tools = append(p.Tools, t.Name)
 	}
 	return p, nil
+}
+
+// reason is the text of err for a person: the package's own marker is left out,
+// as the routes leave it out of their errors.
+func reason(err error) string {
+	return strings.TrimPrefix(err.Error(), ErrInvalid.Error()+": ")
 }
 
 // session returns the open session of a connector, opening one when there is
