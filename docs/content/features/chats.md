@@ -117,6 +117,10 @@ curl -N localhost:8080/api/chats/3f1c.../events
 curl -s 'localhost:8080/api/chats/3f1c.../messages?after=0'
 ```
 
+A chat is named after the first line of its first message, unless you gave it a
+title. `PATCH /api/chats/{id}` with `{"title": "..."}` renames it (1 to 80
+characters; `409` while a turn runs, `404` for another user's chat).
+
 ## Keep typing while the model works
 
 Send another message while a turn runs and it waits. The response says so:
