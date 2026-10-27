@@ -140,7 +140,8 @@ type Service struct {
 	locks map[string]*keyLock
 
 	// Sub-agents; see subagent.go.
-	triggers *Triggers // set once by SetTriggers
+	triggers   *Triggers   // set once by SetTriggers
+	connectors *Connectors // set once by SetConnectors
 
 	children map[string]map[string]*child       // running sub-agents, by parent conversation
 	allowed  map[string][]session.Tool          // the tools of a sub-agent conversation
