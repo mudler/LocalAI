@@ -2161,6 +2161,14 @@ people or conversations, not part of the chat history and not sent to the model.
   an unknown resource; the reference stays and works again if the grant does.
 - With no selection the tool call returns a result of kind `error` and code
   `select_resource`: no operation runs and the model is told to ask the person to choose.
+- A refusal the model can act on is a result of kind `error`, never a raw error string.
+  The codes are `invalid_request` (the add-on refused the call; a `message` carries its
+  short reason when it gave one, such as a missing training engine), `not_permitted` (the
+  person lacks a permission), `resource_unreachable` (no such resource, or no access) and
+  `not_running` (the add-on is starting or stopped; nothing was sent). Each note says that
+  nothing changed and not to repeat the call. A preview that finds a conflict, such as a
+  table that exists, is an `invalid_request`, not an outage. The tools of the fine-tuning and
+  quantization add-ons are not offered at all to a person without those permissions.
 - An explicit `resourceId` in the arguments is the person's own word and is used as before.
 
 ### Errors
@@ -2169,6 +2177,9 @@ people or conversations, not part of the chat history and not sent to the model.
 |---|---|---|
 | 400 | `invalid_request` | A missing or wrong confirmation, an operation the add-on does not support, arguments or a name it refuses, a malformed identifier. |
 | 403 | `addon_error` | Not the person's own session, feature or role denied, unknown resource: one answer for all of them. |
+| 403 | `not_permitted` | The add-on checked a host permission of the person, such as fine-tuning, and it is not granted. Nothing changed. |
+| 403 | `resource_unreachable` | The resource does not exist or the person has no access to it: one answer for both. |
+| 403 | `package_unverified` | An install failed because the package does not match its library entry or is not a valid add-on package. Nothing was installed. |
 | 403 | `quota_reached` | The per-person resource limits. |
 | 403 | `outcome_blocked` | Another operation on the resource has an unresolved outcome (`blockedBy` is shown to the owner role only). |
 | 404 | `not_selected` | No resource is selected, or the reference is no longer usable. |
