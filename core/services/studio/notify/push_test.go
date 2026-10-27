@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -145,13 +146,28 @@ func TestSubscribeRefusesAnEndpointTheServerMustNotCall(t *testing.T) {
 	st, _ := notify.NewJSONPush("")
 	p := notify.NewPusher(notify.PusherOptions{Store: st}) // the default check
 	k, a := browserKeys(t)
-	for _, ep := range []string{"http://push.example/x", "https://127.0.0.1/x", "https://localhost/x", "https://169.254.169.254/latest", "https://10.0.0.5/x", "file:///etc/passwd", ""} {
+	for _, ep := range []string{"https://127.0.0.1/x", "https://localhost/x", "https://169.254.169.254/latest", "https://10.0.0.5/x", "file:///etc/passwd", ""} {
 		if err := p.Subscribe(context.Background(), "u1", ep, k, a); err == nil {
 			t.Errorf("endpoint %q was accepted", ep)
 		}
 	}
 	if err := p.Subscribe(context.Background(), "u1", "https://example.org/x", "", a); err == nil {
 		t.Error("a subscription without keys was accepted")
+	}
+}
+
+// A public address over plain http must be refused for its scheme, not for a
+// failed name lookup: an address literal needs no lookup.
+func TestSubscribeRequiresHTTPSEvenOnAPublicAddress(t *testing.T) {
+	st, _ := notify.NewJSONPush("")
+	p := notify.NewPusher(notify.PusherOptions{Store: st})
+	k, a := browserKeys(t)
+	err := p.Subscribe(context.Background(), "u1", "http://93.184.216.34/x", k, a)
+	if err == nil || !strings.Contains(err.Error(), "https") {
+		t.Fatalf("an http endpoint on a public address gave %v, want a refusal that names https", err)
+	}
+	if err := p.Subscribe(context.Background(), "u1", "https://93.184.216.34/x", k, a); err != nil {
+		t.Fatalf("an https endpoint on a public address was refused: %v", err)
 	}
 }
 

@@ -11,10 +11,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -582,3 +585,49 @@ func mustJSON(v any) []byte {
 	Expect(err).NotTo(HaveOccurred())
 	return b
 }
+
+// swaggerPaths returns the path and method pairs of the committed swagger.json.
+func swaggerPaths() map[string]bool {
+	GinkgoHelper()
+	raw, err := os.ReadFile("../../../swagger/swagger.json")
+	Expect(err).NotTo(HaveOccurred())
+	var doc struct {
+		Paths map[string]map[string]json.RawMessage `json:"paths"`
+	}
+	Expect(json.Unmarshal(raw, &doc)).To(Succeed())
+	out := map[string]bool{}
+	for path, ops := range doc.Paths {
+		for method := range ops {
+			out[strings.ToUpper(method)+" "+path] = true
+		}
+	}
+	return out
+}
+
+var _ = Describe("Chats route contract", func() {
+	It("gates and documents every route that is registered under /api/chats", func() {
+		s := newStudioServer()
+		gated := map[string]string{}
+		for _, entry := range auth.RouteFeatureRegistry {
+			if strings.HasPrefix(entry.Pattern, "/api/chats") {
+				gated[entry.Method+" "+entry.Pattern] = entry.Feature
+			}
+		}
+		documented := swaggerPaths()
+		param := regexp.MustCompile(`:([A-Za-z_]+)`)
+		count := 0
+		for _, r := range s.e.Routes() {
+			if !strings.HasPrefix(r.Path, "/api/chats") {
+				continue
+			}
+			count++
+			Expect(gated).To(HaveKey(r.Method+" "+r.Path), "a chats route with no entry in the feature registry would pass ungated")
+			Expect(gated[r.Method+" "+r.Path]).To(Equal(auth.FeatureChats), r.Path)
+			Expect(documented).To(HaveKey(r.Method+" "+param.ReplaceAllString(r.Path, "{$1}")), "a chats route missing from swagger.json; run make swagger")
+			// Every route needs a login, whatever the feature says.
+			Expect(s.do("", r.Method, strings.NewReplacer(":id", "c1", ":pid", "p1", ":seq", "1", ":agent_id", "a1", ":layer", "personal", ":name", "n1", ":sender", "s1").Replace(r.Path), nil).Code).
+				To(Equal(http.StatusUnauthorized), r.Method+" "+r.Path)
+		}
+		Expect(count).To(Equal(len(gated)), "the registry holds exactly the registered chats routes")
+	})
+})

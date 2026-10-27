@@ -571,13 +571,18 @@ type ChatsConnector struct {
 // ChatsConnectorWrite creates or replaces a connector binding. token is needed to
 // create one; an update without it keeps the stored token.
 type ChatsConnectorWrite struct {
-	Name       string   `json:"name"`
-	Token      string   `json:"token,omitempty"`
-	AgentID    string   `json:"agent_id"`
-	Enabled    bool     `json:"enabled"`
-	AcceptAny  bool     `json:"accept_any"`
-	Allow      []string `json:"allow,omitempty"`
-	NotifyChat string   `json:"notify_chat,omitempty"`
+	Name      string `json:"name"`
+	Token     string `json:"token,omitempty"`
+	AgentID   string `json:"agent_id"`
+	Enabled   bool   `json:"enabled"`
+	AcceptAny bool   `json:"accept_any"`
+	// ConfirmAcceptAny must be the exact text "accept any message" in the
+	// request that turns accept_any on (a create with accept_any, or an update
+	// that changes it from off to on). Anyone who can message the bot then uses
+	// the agent's tools as you, so the server asks you to say you mean it.
+	ConfirmAcceptAny string   `json:"confirm_accept_any,omitempty"`
+	Allow            []string `json:"allow,omitempty"`
+	NotifyChat       string   `json:"notify_chat,omitempty"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.

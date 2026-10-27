@@ -69,9 +69,14 @@ A message from anyone else is ignored: it is not answered, and the sender goes
 in the sender log with a count. Open **Senders** on the binding to see who tried,
 and use **Allow** to add a person to the allowlist.
 
-"Anyone who can message the bot" lets everyone use the agent. LocalAI asks you
-to confirm it, because anyone who can find the bot can then use the agent's tools
-as you. Use it for a public bot whose agent grants nothing you would mind sharing.
+"Anyone who can message the bot" (`accept_any`) lets everyone use the agent. The
+server asks you to confirm it, because anyone who can find the bot can then use
+the agent's tools as you: the request that turns it on, a create with
+`accept_any` or an update that changes it from off to on, must also carry
+`"confirm_accept_any": "accept any message"`, or it is a `400`. The page does
+this with a confirmation. A binding that already has it keeps it on later edits,
+and turning it off needs no confirmation. Use it for a public bot whose agent
+grants nothing you would mind sharing.
 
 ## Notifications in Telegram
 
