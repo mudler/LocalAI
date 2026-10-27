@@ -1230,12 +1230,12 @@ these hooks before changing packages for running processes or migrating data.
 Run `sh scripts/addons/verify.sh lifecycle` for journal interruption, ownership,
 idempotency, retention, and real catalog/package integration tests.
 
-Owner bootstrap reconciles the journal, then refreshes all persisted enabled
-sources before exposing the manager. The release cache is not durable. The whole
-startup refresh has a 30-second deadline (or the earlier application-context
-deadline); an offline/invalid enabled source explicitly fails startup and releases
-the owner lock. Disable that source in owner configuration to start offline.
-Disabled sources are never fetched. Forwarders neither read source metadata nor
+Owner bootstrap reconciles the journal and starts the enabled add-ons, and refreshes
+all persisted enabled sources in the background. The server does not wait for the
+refresh: until it ends, the release cache is empty, as after any failed refresh. The
+release cache is not durable. The whole startup refresh has a 30-second deadline (or the
+earlier application-context deadline); an offline or invalid enabled source costs a log
+line, not the start. The enabled add-ons start four at a time. Disabled sources are never fetched. Forwarders neither read source metadata nor
 contact catalog/package servers. Embedding hosts can use `Application.AddonSources()`
 (owner only; nil on forwarders) for authoritative source administration and explicit
 live `Refresh(ctx, sourceID)` calls; no background update loop is started.
