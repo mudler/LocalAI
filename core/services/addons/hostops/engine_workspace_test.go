@@ -167,4 +167,65 @@ var _ = Describe("Workspace host operations", func() {
 		Expect(code).To(Equal(http.StatusOK))
 		Expect(string(out.Result)).To(ContainSubstring(`"changes"`))
 	})
+
+	It("exports a file of the user and never one of another user", func() {
+		f := newWSFixture()
+		f.put("alice", "/doc.txt", "mine")
+		f.put("bob", "/doc.txt", "bob's")
+		f.live("alice", "op1", "read")
+		code, out := f.call("secret", "op1", "workspace.export", `{"path":"/doc.txt","to":"out/doc.txt"}`)
+		Expect(code).To(Equal(http.StatusOK), "%+v", out.Error)
+		got, err := os.ReadFile(filepath.Join(f.data, "sandbox", "out", "doc.txt"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(got)).To(Equal("mine"))
+		code, _ = f.call("secret", "op1", "workspace.export", `{"path":"../bob/doc.txt","to":"out/x.txt"}`)
+		Expect(code).To(Equal(http.StatusBadRequest))
+		for _, to := range []string{"../x.txt", "/tmp/x.txt", "out/../../x.txt", "out/", ""} {
+			body, _ := json.Marshal(map[string]string{"path": "/doc.txt", "to": to})
+			code, _ = f.call("secret", "op1", "workspace.export", string(body))
+			Expect(code).To(Equal(http.StatusBadRequest), "to %q", to)
+		}
+	})
+
+	It("imports a file as the user of the request and refuses a link", func() {
+		f := newWSFixture()
+		f.live("alice", "op1", "act")
+		Expect(os.WriteFile(filepath.Join(f.data, "sandbox", "made.txt"), []byte("from the add-on"), 0o600)).To(Succeed())
+		code, out := f.call("secret", "op1", "workspace.import", `{"from":"made.txt","path":"/made.txt"}`)
+		Expect(code).To(Equal(http.StatusOK), "%+v", out.Error)
+		abs, _ := f.files.Abs("alice", "/made.txt")
+		_, node, err := f.files.Store().Open(context.Background(), f.files.Actor("alice"), abs)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(node.Size).To(BeNumerically("==", len("from the add-on")))
+		secret := filepath.Join(GinkgoT().TempDir(), "secret.txt")
+		Expect(os.WriteFile(secret, []byte("host secret"), 0o600)).To(Succeed())
+		Expect(os.Symlink(secret, filepath.Join(f.data, "sandbox", "evil.txt"))).To(Succeed())
+		code, _ = f.call("secret", "op1", "workspace.import", `{"from":"evil.txt","path":"/evil.txt"}`)
+		Expect(code).To(BeNumerically(">=", 400))
+		code, _ = f.call("secret", "op1", "workspace.import", `{"from":"../outside.txt","path":"/o.txt"}`)
+		Expect(code).To(Equal(http.StatusBadRequest))
+	})
+
+	It("commits once for a repeated operation", func() {
+		f := newWSFixture()
+		f.put("alice", "/proj/a.txt", "hello")
+		f.live("alice", "op1", "act")
+		code, _ := f.call("secret", "op1", "workspace.materialize", `{`+mounts+`,"dir":"run1"}`)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(os.WriteFile(filepath.Join(f.data, "sandbox", "run1", "upper.tar"), upperTar("proj/new.txt", "x"), 0o600)).To(Succeed())
+		body := `{` + mounts + `,"dir":"run1","base":0,"title":"run"}`
+		_, first := f.call("secret", "op1", "workspace.commit", body)
+		_, second := f.call("secret", "op1", "workspace.commit", body)
+		Expect(string(second.Result)).To(Equal(string(first.Result)))
+	})
+
+	It("gives an add-on outside the allowlist no workspace operation", func() {
+		f := newWSFixture()
+		h := f.b.Handler("sandbox", "secret", []string{"finetune."})
+		f.h = h
+		f.live("alice", "op1", "act")
+		code, out := f.call("secret", "op1", "workspace.changes", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error.Code).To(Equal("unknown_op"))
+	})
 })

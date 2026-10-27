@@ -3403,5 +3403,6 @@ An add-on that holds `sandbox=workspace.` or `office=workspace.` in the host ope
 - `workspace.materialize` builds a read-only tree of some folders of the user in a directory of the add-on's own data directory.
 - `workspace.commit` takes the `upper.tar` layer the add-on left in such a directory and commits it as one change set. It needs an `act` request.
 - `workspace.changes` lists the change sets after a revision.
+- `workspace.export` copies one file of the user into the data directory, and `workspace.import` (an `act` request) writes one file of the data directory into the files of the user, with the version check of the files API.
 
 Every call runs as the user of the live request, never as a user named in the arguments. Folders are named relative to the home of that user, and `dir` is a relative folder inside the add-on's data directory; an absolute path, a parent reference or a symbolic link is refused.

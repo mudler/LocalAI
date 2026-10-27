@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,8 @@ const (
 	maxMounts    = 16
 	maxOwnRevs   = 4096
 	maxChangeSet = 200
+	// maxCopyBytes bounds one file moved by export or import.
+	maxCopyBytes = 256 << 20
 )
 
 // WorkspaceFiles is what the workspace operations need from the files service.
@@ -31,6 +34,7 @@ type WorkspaceFiles interface {
 	EnsureHome(ctx context.Context, principal string) error
 	Abs(principal, rel string) (string, error)
 	Actor(principal string) workspace.Actor
+	Rel(principal, abs string) string
 }
 
 // WorkspaceHost is the host side of the workspace operations. Principal maps
@@ -135,7 +139,9 @@ func RegisterWorkspace(b *Broker, h *WorkspaceHost) error {
 	}
 	specs := []Spec{
 		{Op: "workspace.materialize", Scope: "read", Feature: featureChats, Timeout: actOpTimeout, Handler: h.materialize},
-		{Op: "workspace.commit", Scope: "act", Feature: featureChats, Timeout: actOpTimeout, Handler: h.commit},
+		{Op: "workspace.commit", Scope: "act", Feature: featureChats, Idempotent: true, Timeout: actOpTimeout, Handler: h.commit},
+		{Op: "workspace.export", Scope: "read", Feature: featureChats, Timeout: actOpTimeout, Handler: h.export},
+		{Op: "workspace.import", Scope: "act", Feature: featureChats, Timeout: actOpTimeout, Handler: h.importFile},
 		{Op: "workspace.changes", Scope: "read", Feature: featureChats, Handler: h.changes},
 	}
 	for _, s := range specs {
@@ -242,4 +248,113 @@ func (h *WorkspaceHost) changes(ctx context.Context, c Call) (json.RawMessage, e
 		rows = append(rows, row{Revision: s.Rev, Title: s.Title})
 	}
 	return json.Marshal(map[string]any{"changes": rows})
+}
+
+// dataFile resolves a file name inside the data directory of the add-on. The
+// folders above it are created when create is set; the file itself must not
+// be a link.
+func (h *WorkspaceHost) dataFile(addonID, rel string, create bool) (string, error) {
+	dir, name := filepath.Split(rel)
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "\\\x00") {
+		return "", fmt.Errorf("%w: the file must be a relative file inside the add-on data directory", ErrBadRequest)
+	}
+	base := ""
+	if dir != "" {
+		var err error
+		if base, err = h.dataPath(addonID, strings.TrimSuffix(dir, "/"), create); err != nil {
+			return "", err
+		}
+	} else {
+		base = h.DataDir(addonID)
+		if base == "" {
+			return "", fmt.Errorf("%w: no data directory", ErrBadRequest)
+		}
+	}
+	full := filepath.Join(base, name)
+	if fi, err := os.Lstat(full); err == nil && !fi.Mode().IsRegular() {
+		return "", fmt.Errorf("%w: the file must be a regular file", ErrBadRequest)
+	}
+	return full, nil
+}
+
+// export copies one file of the user to the data directory of the add-on.
+func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, error) {
+	var a struct {
+		Path string `json:"path"`
+		To   string `json:"to"`
+	}
+	if err := decodeArgs(c.Arguments, &a); err != nil {
+		return nil, err
+	}
+	p := h.Principal(c.Actor)
+	if err := h.Files.EnsureHome(ctx, p); err != nil {
+		return nil, fmt.Errorf("%w: files are not available", ErrBadRequest)
+	}
+	abs, err := h.Files.Abs(p, a.Path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: path", ErrBadRequest)
+	}
+	dst, err := h.dataFile(c.AddonID, a.To, true)
+	if err != nil {
+		return nil, err
+	}
+	rc, node, err := h.Store.Open(ctx, h.Files.Actor(p), abs)
+	if err != nil {
+		return nil, workspaceErr(err)
+	}
+	defer func() { _ = rc.Close() }()
+	if node.Kind != workspace.KindFile || node.Size > maxCopyBytes {
+		return nil, fmt.Errorf("%w: not a file, or too large", ErrBadRequest)
+	}
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscallNoFollow, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("%w: cannot write the file", ErrBadRequest)
+	}
+	_, cerr := io.Copy(out, io.LimitReader(rc, maxCopyBytes))
+	if e := out.Close(); cerr == nil {
+		cerr = e
+	}
+	if cerr != nil {
+		return nil, cerr
+	}
+	return json.Marshal(map[string]int64{"version": node.Version})
+}
+
+// importFile writes one file of the data directory of the add-on into the
+// files of the user.
+func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage, error) {
+	var a struct {
+		From        string `json:"from"`
+		Path        string `json:"path"`
+		BaseVersion int64  `json:"baseVersion"`
+		Overwrite   bool   `json:"overwrite"`
+	}
+	if err := decodeArgs(c.Arguments, &a); err != nil {
+		return nil, err
+	}
+	p := h.Principal(c.Actor)
+	if err := h.Files.EnsureHome(ctx, p); err != nil {
+		return nil, fmt.Errorf("%w: files are not available", ErrBadRequest)
+	}
+	abs, err := h.Files.Abs(p, a.Path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: path", ErrBadRequest)
+	}
+	src, err := h.dataFile(c.AddonID, a.From, false)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(src, os.O_RDONLY|syscallNoFollow, 0)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	defer func() { _ = f.Close() }()
+	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() || fi.Size() > maxCopyBytes {
+		return nil, fmt.Errorf("%w: not a file, or too large", ErrBadRequest)
+	}
+	node, err := h.Store.Put(ctx, h.Files.Actor(p), abs, f, workspace.PutOptions{BaseVersion: a.BaseVersion, Overwrite: a.Overwrite, MaxSize: maxCopyBytes})
+	if err != nil {
+		return nil, workspaceErr(err)
+	}
+	return json.Marshal(map[string]any{"version": node.Version, "path": h.Files.Rel(p, node.Path)})
 }
