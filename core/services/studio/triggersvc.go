@@ -471,60 +471,17 @@ func (h *Triggers) supervise(run triggers.Run, t triggers.Trigger, chatID string
 		delete(h.sup, chatID)
 		h.mu.Unlock()
 	}()
-	limit := time.NewTimer(h.o.RunLimit)
-	defer limit.Stop()
-	var poll <-chan time.Time
-	started, errText := false, ""
-	for {
-		select {
-		case ev, ok := <-events:
-			if !ok { // the subscriber fell behind: watch the store instead
-				events = nil
-				p := time.NewTicker(time.Second)
-				defer p.Stop()
-				poll = p.C
-				continue
-			}
-			switch ev.Kind {
-			case session.KindTurnStart:
-				started = true
-			case session.KindError:
-				errText = ev.Text
-			case session.KindTurnEnd:
-				if started {
-					h.endRun(run, t, chatID, errText)
-					return
-				}
-			}
-		case <-poll:
-			if info, err := h.svc.Turn(context.Background(), t.Owner, chatID); err == nil && !info.Running && info.Last != "" {
-				h.endRun(run, t, chatID, errText)
-				return
-			}
-		case <-limit.C:
-			h.stopRun(chatID)
-			h.finish(run, t, chatID, triggers.StatusFailed, "took longer than "+limitText(h.o.RunLimit))
-			return
-		case <-h.done:
-			return
-		}
+	end := h.svc.awaitTurn(t.Owner, chatID, events, h.o.RunLimit, h.done)
+	switch end.How {
+	case TurnAbandoned:
+		return
+	case TurnTimedOut:
+		h.stopRun(chatID)
+		h.finish(run, t, chatID, triggers.StatusFailed, "took longer than "+limitText(h.o.RunLimit))
+	default:
+		status, reason := outcome(end.Info.Last, end.ErrText)
+		h.finish(run, t, chatID, status, reason)
 	}
-}
-
-// endRun finishes a run whose turn ended, with the outcome the store recorded.
-func (h *Triggers) endRun(run triggers.Run, t triggers.Trigger, chatID, errText string) {
-	ctx := context.Background()
-	// The event comes before the store records the outcome: wait for it.
-	var info store.TurnInfo
-	for i := 0; i < 250; i++ {
-		var err error
-		if info, err = h.svc.Turn(ctx, t.Owner, chatID); err != nil || !info.Running {
-			break
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	status, reason := outcome(info.Last, errText)
-	h.finish(run, t, chatID, status, reason)
 }
 
 // outcome maps how a turn ended to the state of its run.

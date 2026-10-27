@@ -969,7 +969,7 @@ Agent workers:
 - Handle MCP tool discovery and execution requests from the frontend
 - Close their MCP sessions when a backend stops
 
-The agent worker no longer runs agents or MCP CI jobs. The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted and ignored.
+The agent worker does not run agents or [agent jobs](/features/agent-jobs/): a chat, a trigger run, a connector turn and a job all run on the frontend that received the request. The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted by the worker and ignored. The frontend itself reads `LOCALAI_MCP_CI_JOB_TIMEOUT` and `LOCALAI_AGENT_JOB_RETENTION_DAYS`.
 
 In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
 

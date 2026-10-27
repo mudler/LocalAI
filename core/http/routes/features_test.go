@@ -78,14 +78,14 @@ var _ = Describe("GET /api/features and the addons gate", func() {
 
 	It("reports the chats, agents, triggers and connectors as running by default", func() {
 		got := features()
-		for _, k := range []string{"chats", "agents", "triggers", "connectors"} {
+		for _, k := range []string{"chats", "agents", "triggers", "connectors", "agent_jobs"} {
 			Expect(got).To(HaveKeyWithValue(k, true), k)
 		}
 	})
 
 	It("reports the whole chats surface off with LOCALAI_DISABLE_CHATS and keeps the collections", func() {
 		got := features(config.DisableChats)
-		for _, k := range []string{"chats", "agents", "triggers", "connectors"} {
+		for _, k := range []string{"chats", "agents", "triggers", "connectors", "agent_jobs"} {
 			Expect(got).To(HaveKeyWithValue(k, false), k)
 		}
 		Expect(got).To(HaveKeyWithValue("collections", true))
@@ -115,6 +115,7 @@ var _ = Describe("the chats switched off", func() {
 		Expect(app.StudioService()).To(BeNil())
 		Expect(app.StudioTriggers()).To(BeNil(), "no trigger runner may start")
 		Expect(app.StudioConnectors()).To(BeNil(), "no bot may start")
+		Expect(app.StudioJobs()).To(BeNil(), "no job host may start")
 		Expect(app.StudioStore()).To(BeNil())
 
 		e := echo.New()

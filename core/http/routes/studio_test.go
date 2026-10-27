@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -45,6 +46,9 @@ type studioServer struct {
 // studioTriggerOptions lets a spec set the clock or the limits of the trigger
 // host before the server is built. Reset it after the spec.
 var studioTriggerOptions func(*studio.TriggerOptions)
+
+// studioWebhooks sends the webhooks of the agent jobs; a spec sets a fake.
+var studioWebhooks studio.WebhookSender
 
 // studioTelegram is the Bot API client of the connector manager; a spec sets a fake.
 var studioTelegram *connectors.Telegram
@@ -88,6 +92,12 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	host, err := studio.NewTriggers(svc, trgOpts)
 	Expect(err).NotTo(HaveOccurred())
 	svc.SetTriggers(host)
+	js, err := jobs.NewJSON("")
+	Expect(err).NotTo(HaveOccurred())
+	jobHost, err := studio.NewJobs(svc, studio.JobOptions{Store: js, Webhooks: studioWebhooks})
+	Expect(err).NotTo(HaveOccurred())
+	svc.SetJobs(jobHost)
+	DeferCleanup(jobHost.Close)
 	cs, err := connectors.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: cs, Telegram: studioTelegram})
@@ -111,7 +121,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	// alice and bob were granted the features that are off by default: saved
 	// agents, triggers and connectors. dave has none of them.
 	for _, id := range []string{"alice", "bob"} {
-		Expect(auth.UpdateUserPermissions(db, id, auth.PermissionMap{auth.FeatureAgents: true, auth.FeatureTriggers: true, auth.FeatureConnectors: true})).To(Succeed())
+		Expect(auth.UpdateUserPermissions(db, id, auth.PermissionMap{auth.FeatureAgents: true, auth.FeatureTriggers: true, auth.FeatureConnectors: true, auth.FeatureMCPJobs: true})).To(Succeed())
 	}
 	// carol had the default-on feature revoked by an admin.
 	Expect(auth.UpdateUserPermissions(db, "carol", auth.PermissionMap{auth.FeatureChats: false})).To(Succeed())

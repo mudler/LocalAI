@@ -58,6 +58,21 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/admin/connectors", h.AdminListConnectors, adminMw)
 	e.POST(base+"/admin/connectors/:id/disable", h.AdminDisableConnector, adminMw)
 	e.DELETE(base+"/admin/connectors/:id", h.AdminDeleteConnector, adminMw)
+	// The agent tasks and jobs keep the paths they had on master. They are
+	// gated by the mcp_jobs feature in the route-feature registry.
+	const agent = "/api/agent"
+	e.POST(agent+"/tasks", h.CreateTask)
+	e.GET(agent+"/tasks", h.ListTasks)
+	e.GET(agent+"/tasks/:id", h.GetTask)
+	e.PUT(agent+"/tasks/:id", h.UpdateTask)
+	e.DELETE(agent+"/tasks/:id", h.DeleteTask)
+	e.POST(agent+"/tasks/:name/execute", h.ExecuteTaskByName)
+	e.POST(agent+"/jobs/execute", h.ExecuteJob)
+	e.GET(agent+"/jobs", h.ListJobs)
+	e.GET(agent+"/jobs/:id", h.GetJob)
+	e.POST(agent+"/jobs/:id/cancel", h.CancelJob)
+	e.POST(agent+"/jobs/:id/rerun", h.RerunJob)
+	e.DELETE(agent+"/jobs/:id", h.DeleteJob)
 	e.GET(base+"/files", h.ListFiles)
 	e.DELETE(base+"/files", h.DeleteFile)
 	e.GET(base+"/files/content", h.GetFileContent)

@@ -170,6 +170,7 @@ type Service struct {
 
 	// Sub-agents; see subagent.go.
 	triggers   *Triggers        // set once by SetTriggers
+	jobs       *Jobs            // set once by SetJobs
 	connectors *Connectors      // set once by SetConnectors
 	conversion ConversionSource // set once by SetConversion
 

@@ -49,6 +49,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/convert"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -132,6 +133,9 @@ type Application struct {
 	studioMarks          convert.Marks // what the conversion of the old data did
 	studioTriggers       *studio.Triggers
 	studioTriggerStore   triggers.Store
+	studioJobStore       jobs.Store
+	studioJobs           *studio.Jobs
+	studioJobsStop       context.CancelFunc
 	studioTriggersStop   context.CancelFunc
 	studioConnStore      connectors.Store
 	studioMCPStore       mcpconns.Store
@@ -614,6 +618,12 @@ func (a *Application) Shutdown() error {
 		}
 		if a.studioConnectors != nil {
 			a.studioConnectors.Close()
+		}
+		if a.studioJobsStop != nil {
+			a.studioJobsStop()
+		}
+		if a.studioJobs != nil {
+			a.studioJobs.Close()
 		}
 		if a.studioTriggersStop != nil {
 			a.studioTriggersStop()

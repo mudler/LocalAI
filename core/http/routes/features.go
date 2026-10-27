@@ -25,6 +25,7 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 			"agents":            chats,
 			"triggers":          chats && app.StudioTriggers() != nil,
 			"connectors":        chats && app.StudioConnectors() != nil,
+			"agent_jobs":        chats && app.StudioJobs() != nil,
 			"collections":       appConfig.Collections.Enabled,
 			"mcp":               !appConfig.DisableMCP,
 			"addons":            addons,

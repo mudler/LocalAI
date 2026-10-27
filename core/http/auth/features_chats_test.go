@@ -165,6 +165,31 @@ var _ = Describe("Chats feature registration", func() {
 		Expect(meta.DefaultValue).To(BeFalse())
 	})
 
+	It("gates the agent tasks and jobs routes with mcp_jobs, off by default", func() {
+		routes := []string{}
+		for _, r := range RouteFeatureRegistry {
+			if r.Feature == FeatureMCPJobs {
+				routes = append(routes, r.Method+" "+r.Pattern)
+			}
+		}
+		Expect(routes).To(ConsistOf(
+			"POST /api/agent/tasks",
+			"GET /api/agent/tasks",
+			"GET /api/agent/tasks/:id",
+			"PUT /api/agent/tasks/:id",
+			"DELETE /api/agent/tasks/:id",
+			"POST /api/agent/tasks/:name/execute",
+			"POST /api/agent/jobs/execute",
+			"GET /api/agent/jobs",
+			"GET /api/agent/jobs/:id",
+			"POST /api/agent/jobs/:id/cancel",
+			"POST /api/agent/jobs/:id/rerun",
+			"DELETE /api/agent/jobs/:id",
+		))
+		Expect(AgentFeatures).To(ContainElement(FeatureMCPJobs))
+		Expect(APIFeatures).NotTo(ContainElement(FeatureMCPJobs))
+	})
+
 	It("does not gate the chats routes with an automation feature", func() {
 		for _, r := range RouteFeatureRegistry {
 			if r.Feature == FeatureChats {

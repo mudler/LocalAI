@@ -112,6 +112,7 @@ func (a *Application) initStudioService() {
 	a.startStudioReaper(svc)
 	a.startStudioConnectors(svc)
 	a.startStudioTriggers(svc)
+	a.startStudioJobs(svc)
 	a.prepareStudioConversion(svc)
 }
 
