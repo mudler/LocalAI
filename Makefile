@@ -478,6 +478,14 @@ test-opus-docker:
 	docker run --rm localai-opus-test \
 	  bash -c 'cd /LocalAI && go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./backend/go/opus/...'
 
+## Drives the real local-ai binary over HTTP against a scripted upstream
+## (tests/e2e-chats). It builds its own binaries; set E2E_LOCALAI_BIN,
+## E2E_MOCK_BACKEND and E2E_CLOUD_PROXY to reuse built ones, and
+## E2E_CHATS_PORT to change the port (default 8211).
+test-e2e-chats: protogen-go react-ui
+	@echo 'Running chats real-binary e2e tests'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v ./tests/e2e-chats
+
 test-realtime: build-mock-backend
 	@echo 'Running realtime e2e tests (mock backend)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime && !real-models" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
