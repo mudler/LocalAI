@@ -93,6 +93,7 @@ type Application struct {
 	backendLibrary  *backendlib.Installer
 	addonManager    *addons.Manager
 	addonHostOps    *addonruntime.HostOps
+	addonDataRoot   string // parent of the private data directory of each add-on; empty when none runs here
 	addonsProbe     addonsProbeState
 	modelsProbe     modelsProbeState
 
@@ -977,6 +978,7 @@ func (a *Application) startAddons() error {
 		limits := contract.DefaultLimits()
 		a.writeModelsProbe()
 		a.addonHostOps = a.newAddonHostOps(m, limits)
+		a.addonDataRoot = filepath.Join(c.Root, "data")
 		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
 		if err != nil {
 			_ = m.Close()

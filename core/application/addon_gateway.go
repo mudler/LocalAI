@@ -23,6 +23,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/resources"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
+	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -114,6 +116,27 @@ func (a *Application) RegisterAddonEngineDatasets(ds hostops.DatasetStore) error
 		return nil
 	}
 	return hostops.RegisterEngineDatasets(a.addonHostOps.Broker, ds)
+}
+
+// RegisterAddonWorkspace registers the workspace operations over the files of
+// the chats. It registers nothing when this process has no host operation
+// channel, no add-on runs here, or the files are off.
+func (a *Application) RegisterAddonWorkspace(f *files.Service) error {
+	if a.addonHostOps == nil || a.addonDataRoot == "" || !f.Available() {
+		return nil
+	}
+	root := a.addonDataRoot
+	return hostops.RegisterWorkspace(a.addonHostOps.Broker, &hostops.WorkspaceHost{
+		Store: f.Store(),
+		Files: f,
+		Principal: func(actor contract.Actor) string {
+			if actor.UserID == "" {
+				return studio.AnonymousPrincipal
+			}
+			return actor.UserID
+		},
+		DataDir: func(id string) string { return filepath.Join(root, id) },
+	})
 }
 
 // addonFeatureCheck answers whether an active account holds a feature, with

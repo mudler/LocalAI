@@ -1330,7 +1330,7 @@ The rules:
 - The host setting `--addon-host-ops` (`LOCALAI_ADDON_HOST_OPS`) names the
   add-ons that get the channel and the operation prefixes each may call, as a
   comma list of `addon-id=op-prefix`. The default is
-  `fine-tuning=finetune.,quantization=quantize.`. An empty value names nobody.
+  `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,office=workspace.`. An empty value names nobody.
   This is a host setting, not a manifest field and not a model argument.
 - An add-on that the setting names finds two optional fields in its startup
   object: `hostEndpoint`, a loopback address of the form
@@ -3395,3 +3395,13 @@ a refresh replaces an entry's policy with the policy the administrator configure
 source. Executable verification (the signature of the package digest against the
 workflow identity) and the trust of the catalog document itself (how the library is
 fetched) are two separate things, and the host tests them separately.
+
+#### Workspace operations
+
+An add-on that holds `sandbox=workspace.` or `office=workspace.` in the host operation setting can ask for the files of the user it is working for:
+
+- `workspace.materialize` builds a read-only tree of some folders of the user in a directory of the add-on's own data directory.
+- `workspace.commit` takes the `upper.tar` layer the add-on left in such a directory and commits it as one change set. It needs an `act` request.
+- `workspace.changes` lists the change sets after a revision.
+
+Every call runs as the user of the live request, never as a user named in the arguments. Folders are named relative to the home of that user, and `dir` is a relative folder inside the add-on's data directory; an absolute path, a parent reference or a symbolic link is refused.

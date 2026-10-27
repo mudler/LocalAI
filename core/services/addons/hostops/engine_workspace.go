@@ -1,0 +1,245 @@
+// SPDX-License-Identifier: MIT
+package hostops
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+const (
+	featureChats = "chats"
+	// actOpTimeout bounds the host operations that move a whole sandbox layer.
+	actOpTimeout = 10 * time.Minute
+	// upperName is the archive an add-on leaves in its data directory.
+	upperName    = "upper.tar"
+	maxMounts    = 16
+	maxOwnRevs   = 4096
+	maxChangeSet = 200
+)
+
+// WorkspaceFiles is what the workspace operations need from the files service.
+type WorkspaceFiles interface {
+	EnsureHome(ctx context.Context, principal string) error
+	Abs(principal, rel string) (string, error)
+	Actor(principal string) workspace.Actor
+}
+
+// WorkspaceHost is the host side of the workspace operations. Principal maps
+// the actor of the live request to the user whose files are used; DataDir is
+// the data directory of an add-on, the only place an operation reads or
+// writes on disk.
+type WorkspaceHost struct {
+	Store     workspace.Store
+	Files     WorkspaceFiles
+	Principal func(contract.Actor) string
+	DataDir   func(addonID string) string
+}
+
+type mountArg struct {
+	Path  string `json:"path"`
+	At    string `json:"at"`
+	Write bool   `json:"write"`
+}
+
+func (h *WorkspaceHost) view(ctx context.Context, c Call, mounts []mountArg) (workspace.View, workspace.Actor, error) {
+	if len(mounts) == 0 || len(mounts) > maxMounts {
+		return workspace.View{}, workspace.Actor{}, fmt.Errorf("%w: mounts must hold 1 to %d folders", ErrBadRequest, maxMounts)
+	}
+	p := h.Principal(c.Actor)
+	if err := h.Files.EnsureHome(ctx, p); err != nil {
+		return workspace.View{}, workspace.Actor{}, fmt.Errorf("%w: files are not available", ErrBadRequest)
+	}
+	reqs := make([]workspace.MountRequest, 0, len(mounts))
+	for _, m := range mounts {
+		abs, err := h.Files.Abs(p, m.Path)
+		if err != nil {
+			return workspace.View{}, workspace.Actor{}, fmt.Errorf("%w: path of a mount", ErrBadRequest)
+		}
+		mode := workspace.ModeRead
+		if m.Write {
+			mode = workspace.ModeWrite
+		}
+		reqs = append(reqs, workspace.MountRequest{Path: abs, At: m.At, Mode: mode})
+	}
+	a := h.Files.Actor(p)
+	v, err := h.Store.View(ctx, a, reqs)
+	if err != nil {
+		return workspace.View{}, workspace.Actor{}, workspaceErr(err)
+	}
+	return v, a, nil
+}
+
+// workspaceErr maps a store error to what the add-on may see: fixed text only.
+func workspaceErr(err error) error {
+	switch {
+	case errors.Is(err, workspace.ErrNotFound):
+		return ErrNotFound
+	case errors.Is(err, workspace.ErrBadName), errors.Is(err, workspace.ErrInvalid):
+		return fmt.Errorf("%w: the folder is not available", ErrBadRequest)
+	}
+	return err
+}
+
+// dataPath resolves rel inside the data directory of the add-on. It refuses
+// an absolute path, a path that names a parent, and any symbolic link on the
+// way, so the result is always inside the directory.
+func (h *WorkspaceHost) dataPath(addonID, rel string, create bool) (string, error) {
+	bad := fmt.Errorf("%w: dir must be a relative folder inside the add-on data directory", ErrBadRequest)
+	if rel == "" || strings.ContainsRune(rel, 0) || filepath.IsAbs(rel) || strings.Contains(rel, "\\") {
+		return "", bad
+	}
+	root := h.DataDir(addonID)
+	if root == "" {
+		return "", bad
+	}
+	cur := root
+	for _, seg := range strings.Split(rel, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return "", bad
+		}
+		cur = filepath.Join(cur, seg)
+		fi, err := os.Lstat(cur)
+		switch {
+		case err == nil:
+			if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+				return "", bad
+			}
+		case errors.Is(err, os.ErrNotExist) && create:
+			if err := os.Mkdir(cur, 0o700); err != nil {
+				return "", err
+			}
+		default:
+			return "", bad
+		}
+	}
+	return cur, nil
+}
+
+// RegisterWorkspace registers the workspace.* operations: materialize builds
+// the read-only view of some folders in the data directory of the add-on,
+// commit takes the upper layer the add-on left there as one change set, and
+// changes lists what changed after a revision. Everything runs as the user of
+// the live request. A nil host registers nothing.
+func RegisterWorkspace(b *Broker, h *WorkspaceHost) error {
+	if h == nil || h.Store == nil || h.Files == nil || h.Principal == nil || h.DataDir == nil {
+		return nil
+	}
+	specs := []Spec{
+		{Op: "workspace.materialize", Scope: "read", Feature: featureChats, Timeout: actOpTimeout, Handler: h.materialize},
+		{Op: "workspace.commit", Scope: "act", Feature: featureChats, Timeout: actOpTimeout, Handler: h.commit},
+		{Op: "workspace.changes", Scope: "read", Feature: featureChats, Handler: h.changes},
+	}
+	for _, s := range specs {
+		if err := b.Register(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *WorkspaceHost) materialize(ctx context.Context, c Call) (json.RawMessage, error) {
+	var a struct {
+		Mounts []mountArg `json:"mounts"`
+		Dir    string     `json:"dir"`
+	}
+	if err := decodeArgs(c.Arguments, &a); err != nil {
+		return nil, err
+	}
+	dir, err := h.dataPath(c.AddonID, a.Dir, true)
+	if err != nil {
+		return nil, err
+	}
+	v, _, err := h.view(ctx, c, a.Mounts)
+	if err != nil {
+		return nil, err
+	}
+	rev, err := h.Store.Materialize(ctx, v, dir)
+	if err != nil {
+		return nil, workspaceErr(err)
+	}
+	return json.Marshal(map[string]int64{"revision": rev})
+}
+
+func (h *WorkspaceHost) commit(ctx context.Context, c Call) (json.RawMessage, error) {
+	var a struct {
+		Mounts []mountArg `json:"mounts"`
+		Dir    string     `json:"dir"`
+		Base   int64      `json:"base"`
+		Title  string     `json:"title"`
+		Own    []int64    `json:"own"`
+	}
+	if err := decodeArgs(c.Arguments, &a); err != nil {
+		return nil, err
+	}
+	if len(a.Own) > maxOwnRevs || len(a.Title) > 200 {
+		return nil, fmt.Errorf("%w: too many revisions or a long title", ErrBadRequest)
+	}
+	dir, err := h.dataPath(c.AddonID, a.Dir, false)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(filepath.Join(dir, upperName))
+	if err != nil {
+		return nil, fmt.Errorf("%w: no %s in the directory", ErrBadRequest, upperName)
+	}
+	defer func() { _ = f.Close() }()
+	v, actor, err := h.view(ctx, c, a.Mounts)
+	if err != nil {
+		return nil, err
+	}
+	cs, conflicts, err := h.Store.CommitUpper(ctx, v, actor, a.Base, workspace.ArchiveSource(f), workspace.UpperOptions{Title: a.Title, Own: a.Own})
+	if err != nil {
+		return nil, workspaceErr(err)
+	}
+	type conflict struct {
+		Path   string `json:"path"`
+		Reason string `json:"reason"`
+	}
+	out := struct {
+		Revision  int64      `json:"revision"`
+		Conflicts []conflict `json:"conflicts"`
+	}{Revision: cs.Rev, Conflicts: []conflict{}}
+	for _, k := range conflicts {
+		out.Conflicts = append(out.Conflicts, conflict{Path: k.Path, Reason: k.Reason})
+	}
+	return json.Marshal(out)
+}
+
+func (h *WorkspaceHost) changes(ctx context.Context, c Call) (json.RawMessage, error) {
+	var a struct {
+		Since int64 `json:"since"`
+		Limit int   `json:"limit"`
+	}
+	if err := decodeArgs(c.Arguments, &a); err != nil {
+		return nil, err
+	}
+	if a.Limit <= 0 || a.Limit > maxChangeSet {
+		a.Limit = maxChangeSet
+	}
+	p := h.Principal(c.Actor)
+	if err := h.Files.EnsureHome(ctx, p); err != nil {
+		return nil, fmt.Errorf("%w: files are not available", ErrBadRequest)
+	}
+	sets, err := h.Store.ChangesSince(ctx, h.Files.Actor(p), a.Since, a.Limit)
+	if err != nil {
+		return nil, workspaceErr(err)
+	}
+	type row struct {
+		Revision int64  `json:"revision"`
+		Title    string `json:"title"`
+	}
+	rows := make([]row, 0, len(sets))
+	for _, s := range sets {
+		rows = append(rows, row{Revision: s.Rev, Title: s.Title})
+	}
+	return json.Marshal(map[string]any{"changes": rows})
+}

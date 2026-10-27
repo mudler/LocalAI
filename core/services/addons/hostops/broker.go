@@ -35,14 +35,16 @@ type Call struct {
 
 type Handler func(ctx context.Context, call Call) (json.RawMessage, error)
 
-// Spec declares one host operation. Scope is "read" or "apply". Feature is
+// Spec declares one host operation. Scope is "read", "apply" or "act". Feature is
 // the permission the actor must hold; it is required. Admin marks an operation
 // only an administrator may run, on top of the feature.
 type Spec struct {
 	Op, Scope, Feature string
 	Idempotent         bool
 	Admin              bool
-	Handler            Handler
+	// Timeout replaces the default for the scope when it is set.
+	Timeout time.Duration
+	Handler Handler
 }
 
 const (
@@ -91,8 +93,8 @@ func (b *Broker) Register(s Spec) error {
 	if !contract.ValidHostOp(s.Op) {
 		return fmt.Errorf("host operation %q: malformed name", s.Op)
 	}
-	if s.Scope != "read" && s.Scope != "apply" {
-		return fmt.Errorf("host operation %q: scope must be read or apply", s.Op)
+	if s.Scope != "read" && s.Scope != "apply" && s.Scope != "act" {
+		return fmt.Errorf("host operation %q: scope must be read, apply or act", s.Op)
 	}
 	if s.Feature == "" || s.Handler == nil {
 		return fmt.Errorf("host operation %q: feature and handler are required", s.Op)
@@ -193,6 +195,9 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 		if spec.Scope == "apply" {
 			timeout = b.limits.ApplyTimeout
 		}
+		if spec.Timeout > 0 {
+			timeout = spec.Timeout
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 		call := Call{AddonID: addonID, OperationID: req.OperationID, Actor: actor, Arguments: args}
@@ -227,13 +232,17 @@ func hasPrefix(allowed []string, op string) bool {
 	return false
 }
 
-// scopeAllows: an apply operation needs an apply envelope; a read operation
-// runs under a read, preview or apply envelope.
+// scopeAllows: an apply operation needs an apply envelope and an act
+// operation needs an act envelope; a read operation runs under a read,
+// preview, apply or act envelope.
 func scopeAllows(have, need string) bool {
-	if need == "apply" {
+	switch need {
+	case "apply":
 		return have == "apply"
+	case "act":
+		return have == "act"
 	}
-	return have == "read" || have == "preview" || have == "apply"
+	return have == "read" || have == "preview" || have == "apply" || have == "act"
 }
 
 // checkArguments returns the argument object, `{}` when absent. A name of
