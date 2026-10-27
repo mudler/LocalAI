@@ -437,6 +437,9 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 			res := payload(r)
 			Expect(res["canRun"]).To(BeFalse())
 			text := fmt.Sprint(res["backends"])
+			if strings.Contains(text, "too long for socket paths") {
+				Skip("the work directory is too long for the unix sockets of the isolated backends; use a path of about 40 characters")
+			}
 			Expect(text).To(ContainSubstring("no guest image"))
 			Expect(text).To(ContainSubstring("name:host usable:true"))
 		})
