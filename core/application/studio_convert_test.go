@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/convert"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -145,12 +147,15 @@ var _ = Describe("conversion of the old data at start", func() {
 		Expect(status).To(Equal(convert.StatusFailed))
 	})
 
-	It("converts at once when the collections are off, since nothing starts later", func() {
+	It("converts on its own when the collections are off, since nothing starts later", func() {
 		off := func(o *config.ApplicationConfig) { o.Collections.Enabled = false }
 		app := boot(off)
 		DeferCleanup(func() { _ = app.Shutdown() })
-		list, err := app.StudioService().Agents(context.Background(), "alice")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(list).To(HaveLen(1))
+		// It runs beside the start-up, so the agent shows a moment after New returns.
+		Eventually(func() []agents.Agent {
+			list, err := app.StudioService().Agents(context.Background(), "alice")
+			Expect(err).NotTo(HaveOccurred())
+			return list
+		}, 10*time.Second, 50*time.Millisecond).Should(HaveLen(1))
 	})
 })

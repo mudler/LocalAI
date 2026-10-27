@@ -441,6 +441,10 @@ In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend c
 
 **State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once: a client that missed some reads the transcript.
 
+**Sub-agents.** The runs are chats in the shared store, linked to their parent. The background limit, the list of runs and "stopping a chat stops its sub-agents" all read the store, so they hold when the turns of one chat run on different frontends. A stop reaches a run on another frontend over the bus. The tool subset of a running sub-agent is kept in the memory of the frontend that runs it, which is where it runs.
+
+**Settings and edits.** The settings, the title and the model of a chat, and the cut that regenerate and edit make, are stored with the chat. A change of title or model, a regenerate and an edit take the same turn claim as a message, so they are refused with 409 while a turn runs on any frontend. A video that comes with a message is held in the memory of the frontend that runs the turn, for that turn's first request.
+
 **MCP connectors.** The records of your [MCP connectors](/features/chats-connectors/#mcp-servers) are shared in PostgreSQL. The open MCP sessions are per instance: each frontend opens its own, and a local command (`stdio`) is refused in a cluster.
 
 **Where a turn runs.** The frontend that wins the claim runs the whole turn. The model calls it makes are routed to inference nodes, and its MCP tool calls are sent to agent workers, exactly as for any other request. Agent workers do not run chats: they have no database.
