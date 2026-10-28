@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -464,6 +465,26 @@ func maybeApplyTTSUsecase(modelConfig *config.ModelConfig, cfg *gallery.ModelCon
 	}
 
 	if !config.HasGenAudioProjector(f) {
+		return
+	}
+
+	// An LFM3 audio encoder next to the gen-audio decoder is an any-to-any
+	// model: it listens, answers as speech and transcribes, so it imports as a
+	// speech-to-speech model served by AudioToAudioStream. Qwen3-TTS carries
+	// both encoder flags too, which is why the encoder family decides here.
+	// The parallel slot lets the session and the transcription or TTS calls run
+	// at once.
+	if config.HasSpeechToSpeechProjector(f) {
+		anyToAny := true
+		modelConfig.KnownUsecaseStrings = []string{
+			config.UsecaseRealtimeAudio, config.UsecaseChat, config.UsecaseTranscript, config.UsecaseTTS,
+		}
+		modelConfig.Pipeline.AnyToAny = &anyToAny
+		if !slices.Contains(modelConfig.Options, "parallel:2") {
+			modelConfig.Options = append(modelConfig.Options, "parallel:2")
+		}
+		modelConfig.TemplateConfig.UseTokenizerTemplate = true
+		xlog.Info("[tts-importer] audio encoder and gen-audio projector detected; importing as a speech-to-speech model", "name", modelConfig.Name)
 		return
 	}
 
