@@ -740,7 +740,9 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		c.say(b, token, m.Chat, m.Thread, c.answerOf(b, chatID, errText))
 		errText = ""
 		c.smu.Lock()
-		info, err := c.svc.Turn(context.Background(), b.Owner, chatID)
+		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
+		info, err := c.svc.Turn(tctx, b.Owner, chatID) // under smu on purpose: a message that arrives now must see either the running turn or the cleared flag
+		tcancel()
 		if err == nil && info.Running {
 			c.smu.Unlock()
 			continue // a waiting message started the next turn
@@ -753,14 +755,25 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 
 // answerOf is what the sender reads for the turn that just ended.
 func (c *Connectors) answerOf(b connectors.Binding, chatID, errText string) string {
-	ctx := context.Background()
 	var info store.TurnInfo
-	for i := 0; i < 250; i++ { // the event comes before the store records the outcome
+	// The event comes before the store records the outcome, so look again for
+	// up to five seconds. Close ends the wait at once.
+	tick := time.NewTicker(20 * time.Millisecond)
+	defer tick.Stop()
+wait:
+	for i := 0; i < 250; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		var err error
-		if info, err = c.svc.Turn(ctx, b.Owner, chatID); err != nil || !info.Running {
+		info, err = c.svc.Turn(ctx, b.Owner, chatID)
+		cancel()
+		if err != nil || !info.Running {
 			break
 		}
-		time.Sleep(20 * time.Millisecond)
+		select {
+		case <-c.done:
+			break wait
+		case <-tick.C:
+		}
 	}
 	switch info.Last {
 	case store.TurnStopped:
@@ -773,7 +786,9 @@ func (c *Connectors) answerOf(b connectors.Binding, chatID, errText string) stri
 		}
 		return errText
 	}
-	if t := strings.TrimSpace(c.svc.finalText(ctx, chatID)); t != "" {
+	fctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if t := strings.TrimSpace(c.svc.finalText(fctx, chatID)); t != "" {
 		return t
 	}
 	return sentNoAnswer
