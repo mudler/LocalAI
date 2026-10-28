@@ -92,7 +92,7 @@ pipeline:
 	It("surfaces self-contained any-to-any models tagged with realtime_audio", func() {
 		writeConfig("lfm-realtime", `
 name: lfm-realtime
-backend: liquid-audio
+backend: llama-cpp
 known_usecases:
   - realtime_audio
   - chat
@@ -127,7 +127,7 @@ pipeline:
 `)
 		writeConfig("realtime", `
 name: realtime
-backend: liquid-audio
+backend: llama-cpp
 known_usecases:
   - realtime_audio
 `)

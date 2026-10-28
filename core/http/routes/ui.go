@@ -28,7 +28,7 @@ func RegisterUIRoutes(app *echo.Echo,
 	// Pipeline models API (for the Talk page WebRTC interface).
 	// A model qualifies when it either declares an explicit VAD+STT+LLM+TTS
 	// pipeline (legacy/composed) or carries the realtime_audio usecase (a
-	// self-contained any-to-any audio backend like liquid-audio that owns the
+	// self-contained any-to-any audio model that owns the
 	// full loop in a single AudioToAudioStream RPC).
 	app.GET("/api/pipeline-models", func(c echo.Context) error {
 		type pipelineModelInfo struct {

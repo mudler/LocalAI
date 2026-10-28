@@ -2772,13 +2772,10 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_REALTIME_AUDIO) == FLAG_REALTIME_AUDIO {
-		// Backends that own a single any-to-any loop and implement
-		// AudioToAudioStream — listed here so models without an explicit
-		// known_usecases still surface on the Talk page.
-		realtimeAudioBackends := []string{"liquid-audio"}
-		if !slices.Contains(realtimeAudioBackends, c.Backend) {
-			return false
-		}
+		// No heuristic: realtime_audio is a deliberate operator choice. A
+		// plain GGUF must not appear on the Talk page, so HasUsecases(
+		// FLAG_REALTIME_AUDIO) is true only when KnownUsecases declares it.
+		return false
 	}
 
 	if (u & FLAG_SCORE) == FLAG_SCORE {

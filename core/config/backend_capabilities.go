@@ -774,15 +774,6 @@ var BackendCapabilities = map[string]BackendCapability{
 		Description:      "Meta MusicGen via transformers — music generation from text",
 	},
 
-	// --- Any-to-any audio backends ---
-	"liquid-audio": {
-		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodAudioTranscription, MethodTTS, MethodAudioToAudioStream, MethodVAD},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseTranscript, UsecaseTTS, UsecaseRealtimeAudio, UsecaseVAD},
-		DefaultUsecases:  []string{UsecaseRealtimeAudio, UsecaseChat, UsecaseTranscript, UsecaseTTS, UsecaseVAD},
-		AcceptsAudios:    true,
-		Description:      "LFM2 / LFM2.5-Audio — self-contained any-to-any audio model for the Realtime API; also exposes chat, transcription, TTS and a stub energy-based VAD endpoint",
-	},
-
 	// --- Audio transform backends ---
 	"localvqe": {
 		GRPCMethods:      []GRPCMethod{MethodAudioTransform},

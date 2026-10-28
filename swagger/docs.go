@@ -5691,7 +5691,7 @@ const docTemplate = `{
         },
         "/audio/transformations/stream": {
             "get": {
-                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The model must support the audio_transform use case. Any-to-any models such as liquid-audio use the OpenAI Realtime API instead. The first message must be a JSON ` + "`" + `session.update` + "`" + ` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
+                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The model must support the audio_transform use case. Any-to-any realtime_audio models use the OpenAI Realtime API instead. The first message must be a JSON ` + "`" + `session.update` + "`" + ` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
                 "tags": [
                     "audio"
                 ],

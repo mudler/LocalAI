@@ -50,15 +50,15 @@ var _ = Describe("prepareRealtimeConfig", func() {
 
 	It("accepts a self-contained realtime_audio model and self-pipelines empty slots", func() {
 		cfg := &config.ModelConfig{
-			Name:          "lfm2.5-audio-realtime",
+			Name:          "s2s-realtime",
 			KnownUsecases: withUsecases(config.FLAG_REALTIME_AUDIO),
 		}
 		_, _, ok := prepareRealtimeConfig(cfg)
 		Expect(ok).To(BeTrue())
-		Expect(cfg.Pipeline.VAD).To(Equal("lfm2.5-audio-realtime"))
-		Expect(cfg.Pipeline.Transcription).To(Equal("lfm2.5-audio-realtime"))
-		Expect(cfg.Pipeline.LLM).To(Equal("lfm2.5-audio-realtime"))
-		Expect(cfg.Pipeline.TTS).To(Equal("lfm2.5-audio-realtime"))
+		Expect(cfg.Pipeline.VAD).To(Equal("s2s-realtime"))
+		Expect(cfg.Pipeline.Transcription).To(Equal("s2s-realtime"))
+		Expect(cfg.Pipeline.LLM).To(Equal("s2s-realtime"))
+		Expect(cfg.Pipeline.TTS).To(Equal("s2s-realtime"))
 	})
 
 	It("preserves user-pinned pipeline slots on a realtime_audio model", func() {

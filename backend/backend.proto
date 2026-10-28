@@ -1439,16 +1439,16 @@ message AudioToAudioRequest {
 
 message AudioToAudioConfig {
   // PCM format for client→server audio. 0 => backend default
-  // (16 kHz for the LFM2-Audio Conformer encoder).
+  // (16 kHz, the rate the speech encoder expects).
   int32 input_sample_rate = 1;
   // Preferred server→client audio rate. 0 => backend default
-  // (24 kHz for the LFM2-Audio vocoder).
+  // (24 kHz, the rate the speech decoder produces).
   int32 output_sample_rate = 2;
   // Optional system prompt override. Empty => backend chooses based on
   // mode (e.g. "Respond with interleaved text and audio.").
   string system_prompt = 3;
   // Optional baked-voice id. Models that only ship a fixed set of
-  // voices (e.g. LFM2-Audio: us_male/us_female/uk_male/uk_female) match
+  // voices (e.g. us_male/us_female/uk_male/uk_female) match
   // this against their voice table; an empty string keeps the default.
   string voice = 4;
   // JSON-encoded array of tool definitions in OpenAI Chat Completions

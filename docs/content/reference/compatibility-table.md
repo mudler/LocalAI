@@ -77,7 +77,6 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [Kitten TTS](https://github.com/KittenML/KittenTTS) | Kitten TTS model | CPU, Metal |
 | [Supertonic](https://github.com/supertone-inc/supertonic) | Lightning-fast on-device multilingual TTS via ONNX | CPU |
 | [MLX-Audio](https://github.com/Blaizzy/mlx-audio) | Audio models on Apple Silicon | CPU, CUDA 12/13, Metal, Jetson L4T |
-| [liquid-audio](https://github.com/Liquid4All/liquid-audio) | LFM2 end-to-end speech-to-speech, ASR, and TTS | CPU, CUDA 12/13, ROCm, Intel SYCL, Jetson L4T |
 | [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: TTS, voice cloning and voice design (`supertonic`, `vibevoice`, `qwen3_tts`, `chatterbox` and more). See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
 | [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA MagpieTTS over NanoCodec, served by the same backend as Nemotron ASR. See [NeMo-Speech.cpp backend](/features/nemo-speech-cpp/) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
 

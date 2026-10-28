@@ -238,7 +238,7 @@ export default function Talk() {
     }
     // Pass MCP-server-advertised tools straight through. Server-side they
     // get rendered into the model's prompt via the function:/argument_regex
-    // pair on the model config (gallery/lfm.yaml for LFM2.5-Audio).
+    // pair on the model config.
     if (tools.length > 0) session.tools = tools
 
     dc.send(JSON.stringify({ type: 'session.update', session }))

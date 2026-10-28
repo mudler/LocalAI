@@ -152,8 +152,7 @@ type Session struct {
 	// TTS so the client receives only response.output_text.* events.
 	OutputModalities []types.Modality
 	// MaxHistoryItems caps the number of MessageItems passed to the LLM each
-	// turn (0 = unlimited). Small models — especially the LFM2.5-Audio 1.5B
-	// served via the liquid-audio backend — degrade quickly past a handful
+	// turn (0 = unlimited). Small speech models degrade quickly past a handful
 	// of turns. Counted from the tail; FunctionCall + FunctionCallOutput
 	// pairs are kept together so we never feed an orphaned tool result.
 	MaxHistoryItems int
@@ -644,7 +643,7 @@ func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok 
 		return "invalid_model", "Model is not a pipeline model", false
 	}
 
-	// Self-contained any-to-any models (e.g. liquid-audio) own the whole
+	// Self-contained any-to-any models own the whole
 	// loop in one engine — surface them by populating empty pipeline slots
 	// with the model's own name so newModel can resolve a config for each
 	// role. The user can still pin individual slots (e.g. Pipeline.VAD =

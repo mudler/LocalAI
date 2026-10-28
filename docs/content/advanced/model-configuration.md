@@ -157,7 +157,7 @@ behavior.
 
 The initially migrated backend families are `transformers` and its aliases,
 `diffusers`, `qwen-asr`, `fish-speech`, `nemo`, `voxcpm`, `qwen-tts`,
-`liquid-audio`, `vllm`, `vllm-omni`, and `sglang`. Automatic imports add
+`vllm`, `vllm-omni`, and `sglang`. Automatic imports add
 artifact declarations only for this set. Compatible external backends may opt
 in by declaring the artifact explicitly.
 
