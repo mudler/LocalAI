@@ -98,5 +98,6 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	a.studioConnectors, a.studioConnectorsStop = c, cancel
+	a.studioConnectorsHook.Store(c)
 	go c.Run(ctx)
 }

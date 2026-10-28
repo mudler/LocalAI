@@ -143,6 +143,8 @@ type Application struct {
 	studioMCPStore       mcpconns.Store
 	studioMCPConns       *mcpconns.Service
 	studioConnectors     *studio.Connectors
+	studioConnectorsHook atomic.Pointer[studio.Connectors] // the same manager, for the inbox hook that runs on other goroutines
+	studioPusher         *notify.Pusher
 	studioLocks          []*advisorylock.HeldLock // leader locks of the chat hosts, closed by Shutdown
 	studioConnectorsStop context.CancelFunc
 	studioProvider       *provider.Provider
@@ -649,6 +651,9 @@ func (a *Application) Shutdown() error {
 		}
 		if a.studioTriggers != nil {
 			a.studioTriggers.Close()
+		}
+		if a.studioPusher != nil {
+			a.studioPusher.Close()
 		}
 		a.closeStudioLocks() // after both hosts: a running host would take a released lock back
 		if a.studioService != nil {

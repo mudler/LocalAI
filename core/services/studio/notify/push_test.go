@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/notify/notifytest"
@@ -199,5 +200,51 @@ func TestTheDefaultClientDoesNotDialALoopbackAddress(t *testing.T) {
 	p.Send(ctx, notify.Notification{Principal: "u1", Title: "x"})
 	if fake.hits.Load() != 0 {
 		t.Fatalf("the default client reached a loopback server %d times", fake.hits.Load())
+	}
+}
+
+// blockingPushStore holds every lookup until its context ends, as a database
+// that does not answer would.
+type blockingPushStore struct {
+	notify.PushStore
+	started chan struct{}
+}
+
+func (b blockingPushStore) ForPrincipal(ctx context.Context, _ string) ([]notify.PushSubscription, error) {
+	b.started <- struct{}{}
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestCloseEndsThePushesInFlightAndLaterOnesDoNothing(t *testing.T) {
+	st := blockingPushStore{started: make(chan struct{}, 64)}
+	p := newPusher(t, st)
+	p.SendAsync(notify.Notification{Principal: "u1", Title: "T"})
+	<-st.started
+	closed := make(chan struct{})
+	go func() { p.Close(); close(closed) }()
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close did not end the push in flight")
+	}
+	p.SendAsync(notify.Notification{Principal: "u1", Title: "after"})
+	select {
+	case <-st.started:
+		t.Fatal("a push started after Close")
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestMorePushesThanTheBoundAreDroppedNotQueuedForever(t *testing.T) {
+	st := blockingPushStore{started: make(chan struct{}, 256)}
+	p := newPusher(t, st)
+	defer p.Close()
+	for range 200 {
+		p.SendAsync(notify.Notification{Principal: "u1", Title: "T"})
+	}
+	time.Sleep(100 * time.Millisecond)
+	if n := len(st.started); n > 32 {
+		t.Fatalf("%d pushes ran at once, want at most 32", n)
 	}
 }

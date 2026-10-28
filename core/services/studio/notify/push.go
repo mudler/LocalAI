@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -73,7 +74,21 @@ type PusherOptions struct {
 // the title and the link, never the body.
 type Pusher struct {
 	o PusherOptions
+
+	mu     sync.Mutex // guards shut and orders wg.Add before Close's Wait
+	shut   bool
+	ctx    context.Context // ends when Close is called
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+	slots  chan struct{} // bounds the pushes in flight
 }
+
+// maxPushesInFlight bounds the SendAsync calls that run at once. A push is
+// best effort, so one past the bound is dropped and logged.
+const maxPushesInFlight = 32
+
+// pushTimeout bounds one SendAsync.
+const pushTimeout = time.Minute
 
 // NewPusher returns a Pusher. The store is required.
 func NewPusher(o PusherOptions) *Pusher {
@@ -89,7 +104,43 @@ func NewPusher(o PusherOptions) *Pusher {
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
-	return &Pusher{o: o}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Pusher{o: o, ctx: ctx, cancel: cancel, slots: make(chan struct{}, maxPushesInFlight)}
+}
+
+// SendAsync sends n in the background and returns at once. At most
+// maxPushesInFlight run together, and Close ends them. It does nothing once
+// Close has been called.
+func (p *Pusher) SendAsync(n Notification) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.shut {
+		return
+	}
+	select {
+	case p.slots <- struct{}{}:
+	default:
+		p.o.Logger.Warn("notify: too many pushes in flight; one is dropped")
+		return
+	}
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		defer func() { <-p.slots }()
+		ctx, cancel := context.WithTimeout(p.ctx, pushTimeout)
+		defer cancel()
+		p.Send(ctx, n)
+	}()
+}
+
+// Close cancels the pushes in flight and waits for them. Later SendAsync calls
+// do nothing.
+func (p *Pusher) Close() {
+	p.mu.Lock()
+	p.shut = true
+	p.mu.Unlock()
+	p.cancel()
+	p.wg.Wait()
 }
 
 // checkPushEndpoint accepts an https URL on a public address. The push service

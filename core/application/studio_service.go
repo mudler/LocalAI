@@ -61,7 +61,7 @@ func (a *Application) initStudioService() {
 	// A notification of a run goes to the Telegram chat of a binding too. The
 	// connector manager is set later, so the hook looks it up when it runs.
 	inbox.OnAdd(func(n notify.Notification) {
-		if c := a.studioConnectors; c != nil {
+		if c := a.studioConnectorsHook.Load(); c != nil {
 			c.Forward(context.Background(), n)
 		}
 	})
@@ -70,13 +70,8 @@ func (a *Application) initStudioService() {
 		pusher = notify.NewPusher(notify.PusherOptions{Store: a.studioPush})
 		// The frontend that stores a notification pushes it, so a notification
 		// is pushed once in a cluster.
-		inbox.OnAdd(func(n notify.Notification) {
-			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-				defer cancel()
-				pusher.Send(ctx, n)
-			}()
-		})
+		inbox.OnAdd(pusher.SendAsync)
+		a.studioPusher = pusher
 	}
 	a.initStudioMCPConnectors()
 	deps := studio.Deps{
