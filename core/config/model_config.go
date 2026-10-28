@@ -1387,6 +1387,10 @@ type PipelineStreaming struct {
 	ClauseChunking *bool `yaml:"clause_chunking,omitempty" json:"clause_chunking,omitempty"`
 }
 
+// IsAnyToAny reports whether the realtime session runs the whole speech loop
+// on one model through AudioToAudioStream (pipeline.any_to_any: true).
+func (p Pipeline) IsAnyToAny() bool { return p.AnyToAny != nil && *p.AnyToAny }
+
 // StreamLLM reports whether LLM tokens should be streamed for this pipeline.
 func (p Pipeline) StreamLLM() bool { return p.Streaming.LLM != nil && *p.Streaming.LLM }
 

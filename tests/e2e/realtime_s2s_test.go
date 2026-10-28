@@ -30,7 +30,7 @@ import (
 
 const (
 	// s2sEndpointReady gates every spec in this file. Flip it with T6.
-	s2sEndpointReady = false
+	s2sEndpointReady = true
 	s2sMockModel     = "realtime-s2s-mock"
 	s2sInputRate     = 24000
 	s2sSkipReason    = "pending T6: /v1/realtime does not route any_to_any models to AudioToAudioStream yet"
@@ -77,12 +77,17 @@ func streamUtterance(conn *websocket.Conn, pcmB64 string) {
 }
 
 // s2sSession opens a session and waits for session.created. A non-nil update is
-// sent as session.update and its session.updated is awaited.
+// sent as session.update (a map that already has a type is sent as is) and
+// its session.updated is awaited.
 func s2sSession(update map[string]any) *websocket.Conn {
 	conn := connectWS(s2sModel())
 	drainUntil(conn, "session.created", 30*time.Second)
 	if update != nil {
-		sendClientEvent(conn, map[string]any{"type": "session.update", "session": update})
+		evt := update
+		if _, whole := update["type"]; !whole {
+			evt = map[string]any{"type": "session.update", "session": update}
+		}
+		sendClientEvent(conn, evt)
 		drainUntil(conn, "session.updated", 10*time.Second)
 	}
 	return conn

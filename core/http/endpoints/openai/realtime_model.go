@@ -34,8 +34,10 @@ import (
 )
 
 var (
-	_ Model = new(wrappedModel)
-	_ Model = new(transcriptOnlyModel)
+	_ Model     = new(wrappedModel)
+	_ Model     = new(transcriptOnlyModel)
+	_ Model     = new(anyToAnyModel)
+	_ s2sOpener = new(anyToAnyModel)
 )
 
 // wrappedModel represent a model which does not support Any-to-Any operations
@@ -99,17 +101,33 @@ type wrappedModel struct {
 	tuneLLM func(cfg *config.ModelConfig)
 }
 
-// anyToAnyModel represent a model which supports Any-to-Any operations
-// We have to wrap this out as well because we want to load two models one for VAD and one for the actual model.
-// In the future there could be models that accept continous audio input only so this design will be useful for that
+// anyToAnyModel is a realtime model that serves the whole speech loop itself
+// through the backend's AudioToAudioStream RPC (pipeline.any_to_any). Audio in,
+// audio, transcripts and tool calls out, on one duplex stream the session opens
+// once (see realtime_s2s.go).
+//
+// The chained-pipeline operations (Predict, TTS, classifier mode) do not exist
+// here and return errS2SOnly. VAD and Transcribe delegate to the optional
+// pipeline.vad model and to pipeline.transcription (the S2S model itself by
+// default): the model's own stream returns the output transcript, but the
+// transcript of the user's speech is a separate ASR call on a second slot.
 type anyToAnyModel struct {
+	// LLMConfig is the speech-to-speech model.
 	LLMConfig *config.ModelConfig
-	VADConfig *config.ModelConfig
+	// VADConfig is nil when no pipeline.vad is configured: the session then
+	// has no server VAD and the client commits turns itself.
+	VADConfig           *config.ModelConfig
+	TranscriptionConfig *config.ModelConfig
 
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
 	confLoader  *config.ModelConfigLoader
+
+	stageRouter
 }
+
+// errS2SOnly marks an operation that a speech-to-speech model does not have.
+var errS2SOnly = errors.New("not available for speech-to-speech models")
 
 type transcriptOnlyModel struct {
 	TranscriptionConfig  *config.ModelConfig
@@ -213,6 +231,100 @@ func (m *transcriptOnlyModel) Warmup(ctx context.Context) error {
 		{Role: config.PipelineStageTranscription, Cfg: m.TranscriptionConfig},
 		{Role: config.PipelineStageSoundDetection, Cfg: m.SoundDetectionConfig},
 	})
+}
+
+func (m *anyToAnyModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
+	if m.VADConfig == nil {
+		return nil, status.Error(codes.Unimplemented, "no VAD model is configured (pipeline.vad)")
+	}
+	var res *schema.VADResponse
+	err := m.stageCall(ctx, config.PipelineStageVAD, m.VADConfig, func(cfg *config.ModelConfig, _ func()) error {
+		var err error
+		res, err = backend.VAD(request, ctx, m.modelLoader, m.appConfig, *cfg)
+		return err
+	})
+	return res, err
+}
+
+func (m *anyToAnyModel) Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error) {
+	var res *schema.TranscriptionResult
+	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
+		var err error
+		res, err = backend.ModelTranscription(ctx, audio, language, translate, diarize, prompt, m.modelLoader, *cfg, m.appConfig)
+		return err
+	})
+	return res, err
+}
+
+func (m *anyToAnyModel) TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+	var res *schema.TranscriptionResult
+	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, commit func()) error {
+		var err error
+		res, err = transcribeStream(ctx, m.modelLoader, *cfg, m.appConfig, audio, language, translate, diarize, prompt, func(s string) {
+			commit()
+			onDelta(s)
+		})
+		return err
+	})
+	return res, err
+}
+
+// TranscribeLive is what semantic_vad needs; a speech-to-speech session does
+// not offer that turn-detection mode.
+func (m *anyToAnyModel) TranscribeLive(context.Context, string, func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error) {
+	return nil, fmt.Errorf("live transcription: %w", errS2SOnly)
+}
+
+func (m *anyToAnyModel) SoundDetection(context.Context, string, int, float32) (*schema.SoundClassificationResult, error) {
+	return nil, fmt.Errorf("sound detection: %w", errS2SOnly)
+}
+
+func (m *anyToAnyModel) Predict(context.Context, schema.Messages, []string, []string, []string, func(string, backend.TokenUsage) bool, []types.ToolUnion, *types.ToolChoiceUnion, *int, *int, map[string]float64) (func() (backend.LLMResponse, error), error) {
+	return nil, fmt.Errorf("predict: %w", errS2SOnly)
+}
+
+func (m *anyToAnyModel) TTS(context.Context, string, string, string) (string, *proto.Result, error) {
+	return "", nil, fmt.Errorf("tts: %w", errS2SOnly)
+}
+
+func (m *anyToAnyModel) TTSStream(context.Context, string, string, string, func(pcm []byte, sampleRate int) error) error {
+	return fmt.Errorf("tts: %w", errS2SOnly)
+}
+
+func (m *anyToAnyModel) ClassifyTurn(context.Context, schema.Messages, []types.ClassifierOption, string) ([]router.LabelScore, error) {
+	return nil, fmt.Errorf("classifier mode: %w", errS2SOnly)
+}
+
+func (m *anyToAnyModel) FillToolArguments(context.Context, schema.Messages, []types.ClassifierOption, string, *types.ClassifierOption) (string, map[string]string, error) {
+	return "", nil, fmt.Errorf("classifier mode: %w", errS2SOnly)
+}
+
+func (m *anyToAnyModel) PrewarmClassifier(context.Context, []types.ClassifierOption, string) {}
+
+func (m *anyToAnyModel) PredictConfig() *config.ModelConfig { return m.LLMConfig }
+
+// Warmup loads the S2S model and, when they are other models, the VAD and
+// transcription models. The transcription stage defaults to the S2S model
+// itself, so it is skipped then to avoid loading one model twice at once.
+func (m *anyToAnyModel) Warmup(ctx context.Context) error {
+	stages := []backend.PreloadStage{
+		{Role: config.PipelineStageLLM, Cfg: m.LLMConfig},
+		{Role: config.PipelineStageVAD, Cfg: m.VADConfig},
+	}
+	if m.TranscriptionConfig != nil && m.TranscriptionConfig.Name != m.LLMConfig.Name {
+		stages = append(stages, backend.PreloadStage{Role: config.PipelineStageTranscription, Cfg: m.TranscriptionConfig})
+	}
+	return m.warmStages(ctx, m.modelLoader, m.appConfig, stages)
+}
+
+// OpenS2S opens the duplex stream to the backend. ctx bounds the stream's
+// lifetime: cancelling it ends the stream.
+func (m *anyToAnyModel) OpenS2S(ctx context.Context) (S2SStream, error) {
+	stream, err := backend.ModelAudioToAudioStream(ctx, m.modelLoader, m.appConfig, *m.LLMConfig)
+	if err != nil {
+		return nil, err
+	}
+	return stream, nil
 }
 
 func (m *wrappedModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
@@ -1074,6 +1186,10 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	sr := newStageRouter(fm, cl, ml, appConfig)
 	resolveStage := sr.resolveStage
 
+	if pipeline.IsAnyToAny() {
+		return newAnyToAnyModel(pipeline, cl, ml, appConfig, sr)
+	}
+
 	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err == nil {
 		cfgVAD, err = resolveStage(config.PipelineStageVAD, cfgVAD)
@@ -1100,25 +1216,6 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	if valid, _ := cfgSST.Validate(); !valid {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
-
-	// TODO: Decide when we have a real any-to-any model
-	// if false {
-	//
-	// 	cfgAnyToAny, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
-	// 	if err != nil {
-	//
-	// 		return nil, fmt.Errorf("failed to load backend config: %w", err)
-	// 	}
-	//
-	// 	if valid, _ := cfgAnyToAny.Validate(); !valid {
-	// 		return nil, fmt.Errorf("failed to validate config: %w", err)
-	// 	}
-	//
-	// 	return &anyToAnyModel{
-	// 		LLMConfig: cfgAnyToAny,
-	// 		VADConfig: cfgVAD,
-	// 	}, nil
-	// }
 
 	xlog.Debug("Loading a wrapped model")
 
@@ -1223,6 +1320,51 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		wm.voiceRegistry = routing.VoiceRegistry
 	}
 	return wm, nil
+}
+
+// newAnyToAnyModel resolves the configs of a speech-to-speech session. The
+// model itself is pipeline.llm; transcription defaults to it as well, and the
+// VAD stays optional.
+func newAnyToAnyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, sr stageRouter) (Model, error) {
+	load := func(stage, name string) (*config.ModelConfig, error) {
+		cfg, err := cl.LoadResolvedModelConfig(name, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
+		if err == nil {
+			cfg, err = sr.resolveStage(stage, cfg)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to load %s config %q: %w", stage, name, err)
+		}
+		if valid, verr := cfg.Validate(); !valid {
+			return nil, fmt.Errorf("failed to validate %s config %q: %w", stage, name, verr)
+		}
+		return cfg, nil
+	}
+
+	cfgLLM, err := load(config.PipelineStageLLM, pipeline.LLM)
+	if err != nil {
+		return nil, err
+	}
+	var cfgVAD *config.ModelConfig
+	if pipeline.VAD != "" {
+		if cfgVAD, err = load(config.PipelineStageVAD, pipeline.VAD); err != nil {
+			return nil, err
+		}
+	}
+	cfgSST := cfgLLM
+	if pipeline.Transcription != "" && pipeline.Transcription != pipeline.LLM {
+		if cfgSST, err = load(config.PipelineStageTranscription, pipeline.Transcription); err != nil {
+			return nil, err
+		}
+	}
+	return &anyToAnyModel{
+		LLMConfig:           cfgLLM,
+		VADConfig:           cfgVAD,
+		TranscriptionConfig: cfgSST,
+		confLoader:          cl,
+		modelLoader:         ml,
+		appConfig:           appConfig,
+		stageRouter:         sr,
+	}, nil
 }
 
 // liveVoiceOptions selects the registered voices a live session may name speakers

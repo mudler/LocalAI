@@ -167,6 +167,11 @@ func (s *s2sStream) control(c *pb.AudioToAudioControl) {
 	case "response.create":
 		s.responseCreate(c.GetPayload())
 	case "response.cancel":
+		// The real backend refuses a cancel when nothing is running.
+		if s.resp == nil || s.responseFinished() {
+			s.sendError("response_cancel_not_active", "response.cancel: there is no response to cancel")
+			return
+		}
 		s.stopResponse()
 	case "conversation.item.create":
 		s.itemCreate(c.GetPayload())
@@ -214,6 +219,11 @@ func (s *s2sStream) sessionUpdate(payload []byte) {
 	if len(upd.OutputModalities) > 0 {
 		s.outputModalities = upd.OutputModalities
 	}
+	s.send("session.updated", nil, 0, map[string]any{
+		"input_sample_rate":  mockS2SInputRate,
+		"output_sample_rate": mockS2SOutputRate,
+		"voices":             []string{"female", "male"},
+	})
 }
 
 func (s *s2sStream) responseCreate(payload []byte) {
@@ -262,6 +272,15 @@ func (s *s2sStream) responseCreate(payload []byte) {
 	r := &s2sResponse{cancel: make(chan struct{}), done: make(chan struct{})}
 	s.resp = r
 	go s.runResponse(r, plan)
+}
+
+func (s *s2sStream) responseFinished() bool {
+	select {
+	case <-s.resp.done:
+		return true
+	default:
+		return false
+	}
 }
 
 // stopResponse cancels the reply in flight, if any, and waits until its
