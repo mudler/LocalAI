@@ -425,3 +425,32 @@ func TestUpdateRenamesAChatThatIsNotRunning(t *testing.T) {
 		t.Fatalf("Update while a turn runs = %v, want ErrChatBusy", err)
 	}
 }
+
+func TestTurnEndIsAnnouncedAfterTheTurnIsRecorded(t *testing.T) {
+	h := studiotest.NewGateHarness()
+	svc := newService(t, h)
+	id := create(t, svc, alice)
+	events, cancel, err := svc.Events(context.Background(), alice, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+	sent(t, svc, alice, id, "hi")
+	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+	h.Gate <- struct{}{}
+	timeout := time.After(20 * time.Second)
+	for {
+		select {
+		case e := <-events:
+			if e.Kind != session.KindTurnEnd {
+				continue
+			}
+			if turn(t, svc, alice, id).Running {
+				t.Fatal("turn_end was announced while the chat was still recorded as running")
+			}
+			return
+		case <-timeout:
+			t.Fatal("timed out waiting for turn_end")
+		}
+	}
+}

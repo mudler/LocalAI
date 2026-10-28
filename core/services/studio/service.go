@@ -791,6 +791,14 @@ func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv str
 		s.mu.Unlock()
 	}()
 	for ev := range evs {
+		if ev.Kind == session.KindTurnEnd {
+			// The end is recorded before it is announced: a client that reads
+			// the chat when it sees turn_end must not find it still running.
+			next := s.finishTurn(chat, p, conv)
+			s.bus.Publish(k, ev)
+			next()
+			continue
+		}
 		s.bus.Publish(k, ev)
 		switch ev.Kind {
 		case session.KindError:
@@ -804,15 +812,15 @@ func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv str
 				r.failed = true
 			}
 			s.mu.Unlock()
-		case session.KindTurnEnd:
-			s.finishTurn(chat, p, conv)
 		}
 	}
 }
 
-// finishTurn records how the turn ended and, after a normal end only, starts
-// the next turn from messages that arrived too late for the last request.
-func (s *Service) finishTurn(chat *session.Chat, p, conv string) {
+// finishTurn records how the turn ended. It returns what to run once the end
+// is announced: after a normal end only, it starts the next turn from messages
+// that arrived too late for the last request.
+func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
+	next = func() {}
 	ctx := context.Background()
 	k := key(p, conv)
 	unlock := s.lock(k)
@@ -822,7 +830,7 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) {
 	delete(s.runs, k)
 	s.mu.Unlock()
 	if r == nil {
-		return
+		return next
 	}
 	if r.end != nil {
 		r.end()
@@ -857,17 +865,19 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) {
 		// A stopped or failed turn takes its running sub-agents with it, and the
 		// waiting messages stay for the user to decide.
 		s.stopChildren(p, conv)
-		return
+		return next
 	}
 	// The next turn is started from another goroutine: this one reads the events
 	// that the new turn will produce.
-	go func() {
-		unlock := s.lock(k)
-		defer unlock()
-		if _, err := s.startFromPending(ctx, p, conv); err != nil {
-			s.log.Warn("studio: could not start the next turn", "chat", conv, "error", err)
-		}
-	}()
+	return func() {
+		go func() {
+			unlock := s.lock(k)
+			defer unlock()
+			if _, err := s.startFromPending(ctx, p, conv); err != nil {
+				s.log.Warn("studio: could not start the next turn", "chat", conv, "error", err)
+			}
+		}()
+	}
 }
 
 // releaseTurn ends the claim. A store can fail for a moment (a locked SQLite
