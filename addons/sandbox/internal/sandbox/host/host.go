@@ -91,7 +91,7 @@ func New(o Options) (*Backend, error) {
 // no terminal and no network isolation.
 func (b *Backend) Skips(feature string) bool { return feature == "tty" || feature == "network" }
 
-func (b *Backend) Create(ctx context.Context, spec sandbox.Spec) (sandbox.Sandbox, error) {
+func (b *Backend) Create(ctx context.Context, spec sandbox.Spec) (_ sandbox.Sandbox, err error) {
 	spec = spec.WithDefaults()
 	if err := spec.Check(); err != nil {
 		return nil, err
@@ -100,6 +100,12 @@ func (b *Backend) Create(ctx context.Context, spec sandbox.Spec) (sandbox.Sandbo
 	if err != nil {
 		return nil, err
 	}
+	// A failed create must not leave a copy of the workspace behind.
+	defer func() {
+		if err != nil {
+			_ = os.RemoveAll(dir)
+		}
+	}()
 	s := &hostSandbox{b: b, id: filepath.Base(dir), dir: dir, env: spec.Env, view: spec.View}
 	if err := os.MkdirAll(s.home(), 0o755); err != nil {
 		return nil, err

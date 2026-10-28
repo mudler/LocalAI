@@ -232,3 +232,31 @@ func TestTheWorkingFolderStaysInsideTheWorkspace(t *testing.T) {
 		}
 	}
 }
+
+// failingMaterialize is a store whose Materialize fails, as a full disk would.
+type failingMaterialize struct{ workspace.Store }
+
+func (failingMaterialize) Materialize(context.Context, workspace.View, string) (int64, error) {
+	return 0, errors.New("disk full")
+}
+
+func TestAFailedCreateLeavesNoFolderBehind(t *testing.T) {
+	root := t.TempDir()
+	b := newBackend(t, host.Options{Root: root})
+	st := sbtest.OpenStore(t)
+	ctx := context.Background()
+	if _, err := st.Mkdir(ctx, sbtest.Admin, "/proj"); err != nil {
+		t.Fatal(err)
+	}
+	v, err := st.View(ctx, sbtest.Admin, []workspace.MountRequest{{Path: "/proj", At: "proj", Mode: workspace.ModeWrite}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = b.Create(ctx, sandbox.Spec{Env: sandbox.Env{Store: failingMaterialize{st}, Actor: sbtest.Admin}, View: v})
+	if err == nil {
+		t.Fatal("Create succeeded although the store failed")
+	}
+	if left, _ := filepath.Glob(filepath.Join(root, "sb-*")); len(left) != 0 {
+		t.Fatalf("a failed Create left %v", left)
+	}
+}
