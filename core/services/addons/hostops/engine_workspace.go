@@ -108,39 +108,62 @@ func workspaceErr(err error) error {
 	return err
 }
 
-// dataPath resolves rel inside the data directory of the add-on. It refuses
-// an absolute path, a path that names a parent, and any symbolic link on the
-// way, so the result is always inside the directory.
-func (h *WorkspaceHost) dataPath(addonID, rel string, create bool) (string, error) {
+// dataRoot opens the data directory of an add-on. Every file operation of the
+// add-on goes through the result: an os.Root never follows a link out of its
+// folder, even when the add-on, which owns the folder, swaps a folder for a
+// link while the operation runs.
+func (h *WorkspaceHost) dataRoot(addonID string) (*os.Root, error) {
+	dir := h.DataDir(addonID)
+	if dir == "" {
+		return nil, fmt.Errorf("%w: no data directory", ErrBadRequest)
+	}
+	r, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("%w: no data directory", ErrBadRequest)
+	}
+	return r, nil
+}
+
+// dataDir opens the folder rel inside the data directory of the add-on. It
+// refuses an absolute path, a path that names a parent, and any symbolic link
+// on the way. The folders are created when create is set. The caller closes
+// the result. The result stays bound to the folder it opened, so a later swap
+// of one of the folders above it cannot redirect what the caller does.
+func (h *WorkspaceHost) dataDir(addonID, rel string, create bool) (*os.Root, error) {
 	bad := fmt.Errorf("%w: dir must be a relative folder inside the add-on data directory", ErrBadRequest)
 	if rel == "" || strings.ContainsRune(rel, 0) || filepath.IsAbs(rel) || strings.Contains(rel, "\\") {
-		return "", bad
+		return nil, bad
 	}
-	root := h.DataDir(addonID)
-	if root == "" {
-		return "", bad
+	root, err := h.dataRoot(addonID)
+	if err != nil {
+		return nil, bad
 	}
-	cur := root
+	defer root.Close()
+	cur := ""
 	for _, seg := range strings.Split(rel, "/") {
 		if seg == "" || seg == "." || seg == ".." {
-			return "", bad
+			return nil, bad
 		}
-		cur = filepath.Join(cur, seg)
-		fi, err := os.Lstat(cur)
+		cur = path.Join(cur, seg)
+		fi, err := root.Lstat(cur)
 		switch {
 		case err == nil:
 			if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
-				return "", bad
+				return nil, bad
 			}
 		case errors.Is(err, os.ErrNotExist) && create:
-			if err := os.Mkdir(cur, 0o700); err != nil {
-				return "", err
+			if err := root.Mkdir(cur, 0o700); err != nil {
+				return nil, err
 			}
 		default:
-			return "", bad
+			return nil, bad
 		}
 	}
-	return cur, nil
+	dir, err := root.OpenRoot(rel)
+	if err != nil {
+		return nil, bad
+	}
+	return dir, nil
 }
 
 // RegisterWorkspace registers the workspace.* operations: materialize builds
@@ -180,15 +203,23 @@ func (h *WorkspaceHost) materialize(ctx context.Context, c Call) (json.RawMessag
 	if err := decodeArgs(c.Arguments, &a); err != nil {
 		return nil, err
 	}
-	dir, err := h.dataPath(c.AddonID, a.Dir, true)
+	dir, err := h.dataDir(c.AddonID, a.Dir, true)
 	if err != nil {
 		return nil, err
 	}
+	defer dir.Close()
 	v, _, err := h.view(ctx, c, a.Mounts)
 	if err != nil {
 		return nil, err
 	}
-	rev, err := h.Store.Materialize(ctx, v, dir)
+	// Materialize takes a path, so it gets one that names the folder that was
+	// opened, not one the add-on could point somewhere else.
+	target, release, err := anchoredPath(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	rev, err := h.Store.Materialize(ctx, v, target)
 	if err != nil {
 		return nil, workspaceErr(err)
 	}
@@ -209,13 +240,14 @@ func (h *WorkspaceHost) commit(ctx context.Context, c Call) (json.RawMessage, er
 	if len(a.Own) > maxOwnRevs || len(a.Title) > 200 {
 		return nil, fmt.Errorf("%w: too many revisions or a long title", ErrBadRequest)
 	}
-	dir, err := h.dataPath(c.AddonID, a.Dir, false)
+	dir, err := h.dataDir(c.AddonID, a.Dir, false)
 	if err != nil {
 		return nil, err
 	}
+	defer dir.Close()
 	// The add-on writes this file, so it could make it a link to any archive
 	// of the host. Export and import refuse links for the same reason.
-	f, err := os.OpenFile(filepath.Join(dir, upperName), os.O_RDONLY|syscallNoFollow, 0) // #nosec G304 -- the path is inside the host-owned workspace and is opened without following links
+	f, err := dir.OpenFile(upperName, os.O_RDONLY|syscallNoFollow, 0)
 	if err != nil {
 		return nil, fmt.Errorf("%w: no %s in the directory", ErrBadRequest, upperName)
 	}
@@ -278,31 +310,30 @@ func (h *WorkspaceHost) changes(ctx context.Context, c Call) (json.RawMessage, e
 	return json.Marshal(map[string]any{"changes": rows})
 }
 
-// dataFile resolves a file name inside the data directory of the add-on. The
-// folders above it are created when create is set; the file itself must not
-// be a link.
-func (h *WorkspaceHost) dataFile(addonID, rel string, create bool) (string, error) {
+// dataFile opens the folder that holds the file rel inside the data directory
+// of the add-on, and returns it with the name of the file. The folders above
+// the file are created when create is set; the file itself must not be a
+// link. The caller closes the folder.
+func (h *WorkspaceHost) dataFile(addonID, rel string, create bool) (*os.Root, string, error) {
 	dir, name := filepath.Split(rel)
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "\\\x00") {
-		return "", fmt.Errorf("%w: the file must be a relative file inside the add-on data directory", ErrBadRequest)
+		return nil, "", fmt.Errorf("%w: the file must be a relative file inside the add-on data directory", ErrBadRequest)
 	}
-	base := ""
+	var base *os.Root
+	var err error
 	if dir != "" {
-		var err error
-		if base, err = h.dataPath(addonID, strings.TrimSuffix(dir, "/"), create); err != nil {
-			return "", err
-		}
+		base, err = h.dataDir(addonID, strings.TrimSuffix(dir, "/"), create)
 	} else {
-		base = h.DataDir(addonID)
-		if base == "" {
-			return "", fmt.Errorf("%w: no data directory", ErrBadRequest)
-		}
+		base, err = h.dataRoot(addonID)
 	}
-	full := filepath.Join(base, name)
-	if fi, err := os.Lstat(full); err == nil && !fi.Mode().IsRegular() {
-		return "", fmt.Errorf("%w: the file must be a regular file", ErrBadRequest)
+	if err != nil {
+		return nil, "", err
 	}
-	return full, nil
+	if fi, err := base.Lstat(name); err == nil && !fi.Mode().IsRegular() {
+		_ = base.Close()
+		return nil, "", fmt.Errorf("%w: the file must be a regular file", ErrBadRequest)
+	}
+	return base, name, nil
 }
 
 // export copies one file of the user to the data directory of the add-on.
@@ -325,10 +356,11 @@ func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, er
 	if err != nil {
 		return nil, fmt.Errorf("%w: path", ErrBadRequest)
 	}
-	dst, err := h.dataFile(c.AddonID, a.To, true)
+	dstDir, dst, err := h.dataFile(c.AddonID, a.To, true)
 	if err != nil {
 		return nil, err
 	}
+	defer dstDir.Close()
 	rc, node, err := h.Store.Open(ctx, h.Files.Actor(p), abs)
 	if err != nil {
 		return nil, workspaceErr(err)
@@ -337,7 +369,7 @@ func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, er
 	if node.Kind != workspace.KindFile || node.Size > maxCopyBytes {
 		return nil, fmt.Errorf("%w: not a file, or too large", ErrBadRequest)
 	}
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscallNoFollow, 0o600) // #nosec G304 -- the destination is a host-chosen path and is opened without following links
+	out, err := dstDir.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscallNoFollow, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("%w: cannot write the file", ErrBadRequest)
 	}
@@ -374,11 +406,12 @@ func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage
 	if err != nil {
 		return nil, fmt.Errorf("%w: path", ErrBadRequest)
 	}
-	src, err := h.dataFile(c.AddonID, a.From, false)
+	srcDir, src, err := h.dataFile(c.AddonID, a.From, false)
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(src, os.O_RDONLY|syscallNoFollow, 0) // #nosec G304 -- the source is a host-chosen path and is opened without following links
+	defer srcDir.Close()
+	f, err := srcDir.OpenFile(src, os.O_RDONLY|syscallNoFollow, 0)
 	if err != nil {
 		return nil, ErrNotFound
 	}
