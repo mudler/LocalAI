@@ -34,7 +34,7 @@ administrator always has all of them:
 | `chats` | on | Chats, files, skills, notifications, push, your MCP connectors. A chat needs no more. |
 | `agents` | off | Saved agents (`/api/chats/agents`) and starting a chat with one. |
 | `triggers` | off | Scheduled and file triggers (`/api/chats/triggers`): runs that start by themselves. |
-| `connectors` | off | Telegram bindings (`/api/chats/connectors`): a public door to one of your agents. |
+| `connectors` | off | Telegram and Slack bindings (`/api/chats/connectors`): a public door to one of your agents. |
 | `mcp_jobs` | off | The agent tasks and jobs API (`/api/agent/...`). |
 
 A command-line MCP server (stdio) in your MCP connectors stays for administrators

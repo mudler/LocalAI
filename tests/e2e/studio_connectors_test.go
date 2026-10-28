@@ -99,7 +99,8 @@ func startFakeTelegram() {
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 		}
 	}))
-	f.restore = localaiapp.UseConnectorTransportForTests(studiobot.NewBotTransport(&transport.API{BaseURL: f.srv.URL}))
+	// The Slack add-on is served next to Telegram (see studio_slack_test.go).
+	f.restore = localaiapp.UseConnectorTransportForTests(studiobot.NewTransport(studiobot.Telegram(&transport.API{BaseURL: f.srv.URL}), studiobot.Slack(slackFake.rt)))
 	telegram = f
 }
 

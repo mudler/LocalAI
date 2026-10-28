@@ -223,7 +223,7 @@ See [Authentication & Authorization]({{%relref "features/authentication" %}}) fo
 |-----------|---------|-------------|----------------------|
 | `--disable-chats` | `false` | Turn off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts | `$LOCALAI_DISABLE_CHATS` |
 | `--disable-triggers` | `false` | Turn off the trigger runner and the triggers API; the rest of the chats stays on | `$LOCALAI_DISABLE_TRIGGERS` |
-| `--disable-connectors` | `false` | Turn off the connector bots (Telegram) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
+| `--disable-connectors` | `false` | Turn off the connector bots (Telegram, Slack) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
 | `--agent-job-retention-days` | `30` | Days to keep ended agent jobs | `$LOCALAI_AGENT_JOB_RETENTION_DAYS`, `$AGENT_JOB_RETENTION_DAYS` |
 | `--mcp-ci-job-timeout` | `10m` | Longest an agent job may run | `$LOCALAI_MCP_CI_JOB_TIMEOUT` |
 | `--disable-agents` | `false` | Deprecated. Sets `--disable-chats` and `--disable-collections`, as the old agent pool switch did | `$LOCALAI_DISABLE_AGENTS` |

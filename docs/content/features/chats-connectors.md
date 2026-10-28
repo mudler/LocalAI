@@ -7,13 +7,14 @@ url = "/features/chats-connectors/"
 
 The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
 
-- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**, such as the [Telegram add-on](#telegram). This is the first half of this page.
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram) or the [Slack add-on](#slack). This is the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
 ## Connector add-ons
 
 Core keeps what is the same for every platform: the bindings, the sealed bot token,
-the allowlist, the sender log, one chat for each sender and the turn itself. The
+the allowlist, the sender log, one chat for each sender (or for each thread) and the
+turn itself. The
 platform's API is spoken by an add-on that declares the `connector` capability (see
 [Connector add-ons]({{% relref "features/addons" %}}#connector-add-ons)). Install the add-on
 from the add-on gallery, and its page adds and edits the bindings of its platform.
@@ -58,6 +59,88 @@ curl .../api/chats/connectors/<id>/senders
 binding. `POST .../enable` and `.../disable` switch it. You can have 10 bindings.
 A binding says `active: false` and gives a `reason` while its add-on does not run.
 
+## Slack
+
+The Slack add-on binds a Slack app to one of your [saved agents](/features/chats-agents/).
+People talk to the agent in a direct message with the app, or by mentioning the app in
+a channel. The add-on uses Socket Mode, so LocalAI needs no public address.
+
+### Set up a binding
+
+1. Install the **Slack** add-on from the add-on gallery.
+2. At `api.slack.com/apps` make an app **From an app manifest**. The add-on page shows
+   the manifest to paste under **How to make the Slack app**: it turns on Socket Mode,
+   subscribes to `app_mention` and the `message.*` events, and asks for the bot scopes
+   `app_mentions:read`, `channels:history`, `groups:history`, `im:history`,
+   `mpim:history`, `chat:write`, `files:read` and `users:read`.
+3. Install the app to your workspace and copy the **bot token** (`xoxb-`).
+4. Under **Basic Information**, **App-Level Tokens**, make a token with the scope
+   `connections:write` and copy it (`xapp-`).
+5. On the Slack add-on page make a binding: a name, both tokens, the agent, and who
+   may use it. When you save, LocalAI checks both tokens with Slack and shows which
+   app they belong to, or why Slack refused them.
+6. Write to the app in a direct message, or invite it to a channel (`/invite @LocalAI`)
+   and mention it.
+
+Over the API the two tokens are one `token`, separated by a space:
+
+```
+curl -X POST .../api/chats/connectors -d '{"kind": "slack", "name": "Team app", "token": "xoxb-... xapp-...", "agent_id": "<id>", "enabled": true, "allow": ["U012AB3CD", "C0123456"]}'
+```
+
+### How Slack messages map to chats
+
+- **A direct message** with the app is a conversation with its sender, like a Telegram
+  chat. A reply in a thread of the direct message is a conversation of that thread.
+- **A mention** of the app in a channel is answered in the thread of that message. The
+  thread is one chat, shared by everyone who writes in it, and the app follows it:
+  a later reply in that thread reaches the agent without a new mention (for 24 hours).
+- **Other channel messages** are not read.
+- **Answers** are converted from Markdown to Slack's `mrkdwn` (bold, italics, links,
+  lists, code blocks) and split at 4,000 characters, the limit Slack asks for. A turn
+  that takes more than a few seconds shows a "Working…" message, and the answer
+  replaces it in place.
+- **Files.** A file attached to a message (up to 1 MiB, at most 8) is downloaded with
+  the bot token and attached to the chat, as an upload on the chat page would be: a
+  document is read, an image goes to a model that can see. A larger file gets a
+  sentence that it could not be read. The add-on downloads only from Slack's file host.
+- **Waits.** When Slack answers `429` with `Retry-After`, the add-on waits that long once
+  and tries again.
+
+### Who may use the app
+
+The binding has two lists, kept as one allowlist:
+
+- **Allowed people**: Slack user IDs (`U...`, `W...`) or `@names`. A listed person may
+  use the app in a direct message and by mentioning it anywhere.
+- **Allowed channels**: channel IDs (`C...`, `G...`). Everyone in a listed channel may
+  mention the app there. A direct message still needs the person on the list.
+
+Copy an ID in Slack from the profile of a person or the details of a channel, or read
+it from the sender log after the person has written to the app. "Anyone in the
+workspace" (`accept_any`) needs the same confirmation as for Telegram.
+
+### Notifications in Slack
+
+Set your Slack user ID (`U...`) as the notification chat to receive your run
+notifications as direct messages from the app, or a channel ID to post them there.
+
+### The tokens of a Slack app
+
+Both tokens are sealed together, like the token of a Telegram bot, and no API returns
+them. To replace them, type both on the page (or send both in `token`). The add-on
+holds them in memory while it keeps the Socket Mode link of the binding open, writes
+them nowhere and calls only `slack.com` and `files.slack.com`. A link that is not
+polled for two minutes (the binding was switched off or deleted) is closed.
+
+A binding is switched off, with a notification, when Slack refuses a token
+(`invalid_auth`, `token_revoked` and similar) or turns Socket Mode off for the app.
+Socket Mode spreads the events of an app over all its open links, so bind one app to
+one LocalAI instance only.
+
+The Events API over HTTP is not supported: it needs a public address, and Socket Mode
+gives the same events without one.
+
 ## What a message gets
 
 - **The agent's tools only.** A message gets exactly the tools the agent grants,
@@ -68,14 +151,19 @@ A binding says `active: false` and gives a `reason` while its add-on does not ru
   allowlist and your quota apply. If the model refuses the request, the sender
   gets one fixed sentence, for example that your quota is used up.
 - **One chat for each sender.** Each person who writes to the bot has a chat of
-  their own with the agent. They cannot see another person's chat. If you change
+  their own with the agent. A Slack thread is one chat for everyone in it (see
+  [Slack](#slack)). They cannot see another person's chat. If you change
   the agent of the binding, the next message of each sender starts a new chat
   with the new agent.
-- **Text only.** A photo, voice note or file gets a sentence that says only text
-  is read for now. A message longer than 8,000 characters is refused. A sender may
+- **Text, and files where the add-on reads them.** On Telegram a photo, voice note or
+  file gets a sentence that says only text is read for now. The Slack add-on hands
+  files to the chat (see [Slack](#slack)); with the files of the chats turned off, a
+  message with a file gets a sentence that files are off, and its text still reaches
+  the agent. A message longer than 8,000 characters is refused. A sender may
   send 20 messages a minute; more are dropped, with one notice a minute.
-- **Private chats only.** A message in a group that the bot was added to is
-  ignored.
+- **Private chats, and mentions.** A message in a group that the bot was added to is
+  ignored, unless the add-on marks it as addressed to the bot (a Slack mention, or a
+  reply in a thread the app follows).
 - **Answers.** The bot sends the final answer of each turn, split at 4,096
   characters (the limit of Telegram), and shows "typing" while it works. A message
   that arrives while the agent works waits and is read at the agent's next request,
@@ -84,7 +172,9 @@ A binding says `active: false` and gives a `reason` while its add-on does not ru
 ## Who may use the bot
 
 The allowlist decides. It is empty when you make a binding, so the bot accepts
-nobody. List chat IDs, user IDs or `@usernames`.
+nobody. List chat IDs, user IDs or `@usernames`: numbers for Telegram, IDs such as
+`U012AB3CD` and `C0123456` for Slack. A listed group or channel accepts everyone who
+addresses the bot in it.
 
 A message from anyone else is ignored: it is not answered, and the sender goes
 in the sender log with a count. Open **Senders** on the binding to see who tried,
@@ -140,11 +230,11 @@ restart). The JSON store is for one process.
 | Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. Add-ons run on the process that owns the add-ons, and the loops run only where the add-on answers. |
 | Where the next message is read from | Shared | The offset is stored with the binding. Core passes it to the add-on's poll call and stores the offset that the answer names. |
 | The reply being sent for a turn | Per instance | The frontend that took the message sends the answer. If it dies, the answer is lost; the message is not repeated. |
+| Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
 
 ### Other connectors
 
-Telegram and MCP servers are built. A Slack connector will be another connector
-add-on on the same capability. Discord, IRC, Matrix, email, GitHub and Twitter
+Telegram, Slack and MCP servers are built. Discord, IRC, Matrix, email, GitHub and Twitter
 connectors of the old agents are not rebuilt; the release that removes the old
 agents lists them as dropped.
 

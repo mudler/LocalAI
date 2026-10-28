@@ -480,6 +480,78 @@
     - "status"
     - "set-backend"
     - "confirm-host"
+- id: "slack"
+  name: Slack
+  description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:slack-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Slack"
+    description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+- id: "slack"
+  name: Slack
+  description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:slack-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Slack"
+    description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+- id: "slack"
+  name: Slack
+  description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:slack-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Slack"
+    description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+- id: "slack"
+  name: Slack
+  description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:slack-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Slack"
+    description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+    mainPage: "apps"
+    icon: "ui/icon.png"
 - id: "studio"
   name: Studio
   description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."

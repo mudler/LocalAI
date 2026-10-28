@@ -62,7 +62,9 @@ var (
 var _ = BeforeSuite(func() {
 	var err error
 
-	// The Telegram connector talks to this fake Bot API (see studio_connectors_test.go).
+	// The Slack and Telegram connectors talk to fakes of their platforms (see
+	// studio_slack_test.go and studio_connectors_test.go).
+	startFakeSlack()
 	startFakeTelegram()
 
 	// Create temporary directory
@@ -772,6 +774,7 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	stopFakeTelegram()
+	stopFakeSlack()
 	// Synchronous shutdown — the context-cancel goroutine in application.New
 	// runs the same cleanup asynchronously, which races test-binary exit and
 	// orphans spawned mock-backend children to init.

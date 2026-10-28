@@ -23,7 +23,7 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[Chats]({{% relref "features/chats" %}})** - Conversations the server keeps, with files, sub-agents, skills and add-on tools.
 - **[Saved agents, triggers and inbox]({{% relref "features/chats-agents" %}})** - Instructions and exact tool grants, schedules, and notifications.
 - **[Collections]({{% relref "features/collections" %}})** - The knowledge base: upload documents and search them by meaning.
-- **[Telegram connector]({{% relref "features/chats-connectors" %}})** - Talk to an agent from Telegram.
+- **[Telegram and Slack connectors]({{% relref "features/chats-connectors" %}})** - Talk to an agent from Telegram or Slack.
 - **[Moving from the old chat and agents]({{% relref "features/chats-migration" %}})** - What was converted and what was dropped.
 - **[Model Context Protocol (MCP)]({{% relref "features/mcp" %}})** - Give a model external tools over MCP.
 - **[LocalAI Assistant]({{% relref "features/localai-assistant" %}})** - Chat to administer your LocalAI instance.

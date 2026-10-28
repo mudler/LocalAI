@@ -120,7 +120,7 @@ run among your newest 5,000 chats. Open a run with `GET /api/chats/{chat_id}`.
 
 ## Connectors
 
-A [connector](/features/chats-connectors/) binds a Telegram bot to an agent, so a person can talk to it from Telegram. An [MCP connector](/features/chats-connectors/#mcp-servers) is a tool server that an agent can name in its `mcp_servers` list.
+A [connector](/features/chats-connectors/) binds a Telegram bot or a Slack app to an agent, so a person can talk to it from Telegram or Slack. An [MCP connector](/features/chats-connectors/#mcp-servers) is a tool server that an agent can name in its `mcp_servers` list.
 
 ## Triggers
 

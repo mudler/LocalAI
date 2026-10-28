@@ -2,7 +2,7 @@
 name: 'add-on packages'
 
 # Builds, checks, signs and publishes the first-party add-on OCI packages
-# (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Telegram, Office and
+# (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Telegram, Slack, Office and
 # Sandbox). This workflow is
 # independent of the backend image workflows: it has its own registry input,
 # its own signer identity and its own jobs.
@@ -91,7 +91,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, office, sandbox]
+        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, office, sandbox]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -210,7 +210,7 @@ jobs:
           # event it fails the plan. A missing or malformed platform file, or
           # any other error, fails the plan on every event.
           include='[]'
-          for id in tables voice face fine-tuning quantization studio talk telegram office sandbox; do
+          for id in tables voice face fine-tuning quantization studio talk telegram slack office sandbox; do
             cfg="addons/$id/package/platforms.yaml"
             err="matrix-$id.err"
             if rows=$(go run ./scripts/addons/cmd/addonpkg matrix --config "$cfg" 2>"$err"); then
