@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
@@ -30,6 +29,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
 // hostPhrase is what an administrator types to accept the host backend.
@@ -89,7 +89,7 @@ func startAddonFrom(t *testing.T, id, packageDir string) *world {
 	m.OS, m.Arch = goruntime.GOOS, goruntime.GOARCH
 
 	dsn := "file:" + filepath.Join(root, "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := sqlitedb.Open(dsn, &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

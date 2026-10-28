@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/triggers/triggerstest"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
 func TestJSONInMemory(t *testing.T) {
@@ -39,7 +39,7 @@ func TestJSONOnDisk(t *testing.T) {
 
 func openSQLiteFile(t *testing.T, path string) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file:"+path+"?_busy_timeout=5000&_txlock=immediate"), &gorm.Config{})
+	db, err := sqlitedb.Open("file:"+path+"?_busy_timeout=5000&_txlock=immediate", &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

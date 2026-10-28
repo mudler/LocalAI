@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
 // NewBackend returns a backend for one test. It skips the test with t.Skip
@@ -185,7 +185,7 @@ func (f *fixture) read(p string) (string, bool) {
 func OpenStore(t testing.TB) workspace.Store {
 	t.Helper()
 	dsn := "file:" + filepath.Join(t.TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := sqlitedb.Open(dsn, &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

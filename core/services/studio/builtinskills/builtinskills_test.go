@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
@@ -15,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
 var names = []string{"docx", "xlsx", "pptx", "pdf", "writing-skills"}
@@ -68,7 +68,7 @@ func TestNoInternalNameLeaksIntoTheTree(t *testing.T) {
 
 func TestSyncedIntoTheBuiltInLayerTheSkillsResolveForAUser(t *testing.T) {
 	ctx := context.Background()
-	db, err := gorm.Open(sqlite.Open("file:"+filepath.Join(t.TempDir(), "ws.db")+"?_busy_timeout=5000&_txlock=immediate"), &gorm.Config{})
+	db, err := sqlitedb.Open("file:"+filepath.Join(t.TempDir(), "ws.db")+"?_busy_timeout=5000&_txlock=immediate", &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
