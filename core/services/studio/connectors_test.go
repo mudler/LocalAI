@@ -638,3 +638,42 @@ func TestAFailedSendDoesNotFailTheNotification(t *testing.T) {
 		t.Fatalf("unread = %d", got)
 	}
 }
+
+// Forward adds to the wait group of Close. An Add that runs while Close waits
+// is a misuse of the group (a panic or a goroutine that outlives Close), and
+// nothing may be sent once Close has returned.
+func TestForwardRacingCloseNeitherPanicsNorSendsAfterClose(t *testing.T) {
+	sh, bot := newShared(t), newScriptedBot(t)
+	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
+	r.bind(t, studio.ConnectorInput{NotifyChat: "314"})
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					r.conns.Forward(ctx, notify.Notification{Principal: alice, Title: "T", Body: "B"})
+				}
+			}
+		}()
+	}
+	time.Sleep(20 * time.Millisecond)
+	r.conns.Close()
+	bot.mu.Lock()
+	sentAtClose := len(bot.sent)
+	bot.mu.Unlock()
+	time.Sleep(50 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+	bot.mu.Lock()
+	defer bot.mu.Unlock()
+	if len(bot.sent) != sentAtClose {
+		t.Fatalf("%d messages went out after Close returned", len(bot.sent)-sentAtClose)
+	}
+}

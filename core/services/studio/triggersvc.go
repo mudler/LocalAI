@@ -72,7 +72,8 @@ type Triggers struct {
 	o   TriggerOptions
 	log *slog.Logger
 
-	mu     sync.Mutex // guards runner and sup
+	mu     sync.Mutex // guards runner, sup and shut
+	shut   bool       // Close has begun: no supervisor may be added to wg
 	runner *triggers.Runner
 	sup    map[string]struct{} // chats whose run this process supervises
 
@@ -148,6 +149,11 @@ func (h *Triggers) Run(ctx context.Context) {
 // that go on end without finishing them. A run that was going stays running;
 // the next leader marks it interrupted when its chat is not running.
 func (h *Triggers) Close() {
+	// Set shut under mu: a supervisor is added to wg only with mu held and shut
+	// false, so no Add can run once Wait starts.
+	h.mu.Lock()
+	h.shut = true
+	h.mu.Unlock()
 	h.once.Do(func() { close(h.done) })
 	h.dropRunner()
 	h.wg.Wait()
@@ -319,17 +325,23 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 		return "", err
 	}
 	h.mu.Lock()
+	if h.shut {
+		h.mu.Unlock()
+		cancel()
+		return "", ErrTriggersClosed
+	}
 	h.sup[rec.ID] = struct{}{}
+	h.wg.Add(1) // the supervisor, which calls Done when it ends
 	h.mu.Unlock()
 	if _, err := h.svc.Send(ctx, owner, rec.ID, text); err != nil {
 		cancel()
 		h.mu.Lock()
 		delete(h.sup, rec.ID)
 		h.mu.Unlock()
+		h.wg.Done()
 		return "", err
 	}
 	started = true
-	h.wg.Add(1)
 	go h.supervise(run, t, rec.ID, events, cancel)
 	return rec.ID, nil
 }

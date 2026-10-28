@@ -107,8 +107,9 @@ type Connectors struct {
 	sealer *connectors.Sealer
 	wmu    sync.Mutex // serialises writes of bindings
 
-	mu    sync.Mutex
+	mu    sync.Mutex // guards loops and shut, and orders wg.Add before Close's Wait
 	loops map[string]context.CancelFunc
+	shut  bool // Close has begun: no goroutine may be added to wg
 
 	smu     sync.Mutex
 	senders map[string]*senderState
@@ -180,9 +181,35 @@ func (c *Connectors) Run(ctx context.Context) {
 
 // Close stops every loop. Replies that are being sent are given up.
 func (c *Connectors) Close() {
+	// Set shut under mu: a goroutine is added to wg only with mu held and shut
+	// false, so no Add can run once Wait starts.
+	c.mu.Lock()
+	c.shut = true
+	c.mu.Unlock()
 	c.once.Do(func() { close(c.done) })
 	c.stopAll()
 	c.wg.Wait()
+}
+
+// goLocked runs fn in a goroutine that Close waits for. The caller holds c.mu.
+// It reports false, and runs nothing, once Close has begun.
+func (c *Connectors) goLocked(fn func()) bool {
+	if c.shut {
+		return false
+	}
+	c.wg.Add(1)
+	go func() {
+		defer c.wg.Done()
+		fn()
+	}()
+	return true
+}
+
+// spawn is goLocked for a caller that does not hold c.mu.
+func (c *Connectors) spawn(fn func()) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.goLocked(fn)
 }
 
 func (c *Connectors) closed() bool {
@@ -242,10 +269,7 @@ func (c *Connectors) Sync(ctx context.Context) {
 			continue
 		}
 		lctx, cancel := context.WithCancel(context.Background())
-		c.loops[id] = cancel
-		c.wg.Add(1)
-		go func() {
-			defer c.wg.Done()
+		started := c.goLocked(func() {
 			c.poll(lctx, b.ID)
 			// A loop that ended by itself (not stopped) leaves no entry, so
 			// Sync can start it again.
@@ -255,7 +279,12 @@ func (c *Connectors) Sync(ctx context.Context) {
 				delete(c.loops, b.ID)
 			}
 			c.mu.Unlock()
-		}()
+		})
+		if started {
+			c.loops[id] = cancel
+		} else {
+			cancel()
+		}
 	}
 	c.mu.Unlock()
 }
@@ -659,12 +688,16 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 	if was {
 		return
 	}
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
+	if !c.spawn(func() {
 		defer cancel()
 		c.reply(b, token, m, st, chatID, events)
-	}()
+	}) {
+		// Closed meanwhile: give up the reply.
+		cancel()
+		c.smu.Lock()
+		st.active = false
+		c.smu.Unlock()
+	}
 }
 
 // reply waits for the end of each turn of the chat and sends its answer.
@@ -773,10 +806,8 @@ func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
 			c.log.Warn("studio: could not read a bot token to forward a notification", "binding", b.ID)
 			continue
 		}
-		c.wg.Add(1)
-		go func() {
-			defer c.wg.Done()
-			c.say(b, token, b.NotifyChat, "", text)
-		}()
+		if !c.spawn(func() { c.say(b, token, b.NotifyChat, "", text) }) {
+			return // closed meanwhile
+		}
 	}
 }
