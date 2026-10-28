@@ -275,6 +275,25 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline.yaml"), pipelineData, 0644)).To(Succeed())
 
+	// Speech-to-speech model for the realtime S2S specs (realtime_s2s_test.go):
+	// one any-to-any model served by the mock backend, with server VAD from
+	// mock-vad. The specs stay pending until /v1/realtime routes S2S models.
+	s2sCfg := map[string]any{
+		"name":           "realtime-s2s-mock",
+		"backend":        "mock-backend",
+		"known_usecases": []string{"FLAG_REALTIME_AUDIO", "FLAG_CHAT", "FLAG_TRANSCRIPT", "FLAG_TTS"},
+		"parameters": map[string]any{
+			"model": "mock-s2s.bin",
+		},
+		"pipeline": map[string]any{
+			"any_to_any": true,
+			"vad":        "mock-vad",
+		},
+	}
+	s2sData, err := yaml.Marshal(s2sCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-s2s-mock.yaml"), s2sData, 0644)).To(Succeed())
+
 	// Realtime pipelines whose LLM is a failover chain: target 0 always fails
 	// to load, target 1 is mock-llm. rt-failover skips the warm-up so the
 	// switch happens on the first turn, mid-session; rt-failover-warm keeps it
