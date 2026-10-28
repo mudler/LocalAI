@@ -519,17 +519,22 @@ func outcome(last store.TurnStatus, errText string) (triggers.Status, string) {
 	return triggers.StatusDone, ""
 }
 
+// finishTimeout bounds the store calls that record the end of a run.
+const finishTimeout = 30 * time.Second
+
 // finish records the end of a run and tells the owner. The Runner of this term
 // does it when it exists; otherwise the store is written directly, which is what
 // Runner.Finish does.
 func (h *Triggers) finish(run triggers.Run, t triggers.Trigger, chatID string, status triggers.Status, reason string) {
-	ctx := context.Background()
+	// The store may hang; do not hold the runner for good.
+	ctx, cancel := context.WithTimeout(context.Background(), finishTimeout)
+	defer cancel()
 	cur, err := h.o.Store.GetRun(ctx, run.ID)
 	if err != nil || cur.Status.Final() {
 		return // deleted with its trigger, or ended already
 	}
 	if r := h.currentRunner(); r != nil {
-		err = r.Finish(run.ID, status, reason)
+		err = r.Finish(ctx, run.ID, status, reason)
 	} else {
 		cur.Status, cur.Ended = status, h.o.Clock().UTC()
 		if reason != "" {

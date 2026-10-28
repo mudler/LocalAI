@@ -187,7 +187,7 @@ func (r *rig) latest(id string) triggers.Run {
 
 func (r *rig) finish(run triggers.Run, st triggers.Status, reason string) {
 	r.t.Helper()
-	if err := r.runner.Finish(run.ID, st, reason); err != nil {
+	if err := r.runner.Finish(ctx, run.ID, st, reason); err != nil {
 		r.t.Fatal(err)
 	}
 }

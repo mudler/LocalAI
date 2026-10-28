@@ -548,7 +548,7 @@ func TestTheLoopGuardOutlivesTheRunUntilTheFeedPasses(t *testing.T) {
 	run := r.latest("t1")
 	chat := workspace.Actor{Principal: wstest.Admin, ChatID: "chat-1"}
 	r.writeAs(chat, folder+"/a.summary.txt", "summary")
-	if err := r.runner.Finish(run.ID, triggers.StatusDone, ""); err != nil {
+	if err := r.runner.Finish(ctx, run.ID, triggers.StatusDone, ""); err != nil {
 		t.Fatal(err)
 	}
 	_ = r.runner.Sync(ctx)

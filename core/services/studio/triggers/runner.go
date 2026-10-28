@@ -494,11 +494,10 @@ func (r *Runner) begin(ctx context.Context, t Trigger, run Run, now time.Time) (
 // reason keeps the reason the run has. Finish of a run that already ended, or
 // that no longer exists, does nothing. A host calls it when the work of a run
 // has ended, and never from Options.Start.
-func (r *Runner) Finish(runID string, status Status, reason string) error {
+func (r *Runner) Finish(ctx context.Context, runID string, status Status, reason string) error {
 	if !status.Final() {
 		return fmt.Errorf("triggers: %q is not an end state", status)
 	}
-	ctx := context.Background()
 	r.mu.Lock()
 	run, err := r.o.Store.GetRun(ctx, runID)
 	if err == nil && !run.Status.Final() {

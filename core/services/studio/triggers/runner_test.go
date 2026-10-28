@@ -517,23 +517,23 @@ func TestFinish(t *testing.T) {
 	r.put(schedule("t1", "daily 08:00"))
 	r.at(t0.Add(time.Hour + time.Second))
 	run := r.latest("t1")
-	if err := r.runner.Finish(run.ID, triggers.StatusRunning, ""); err == nil {
+	if err := r.runner.Finish(ctx, run.ID, triggers.StatusRunning, ""); err == nil {
 		t.Fatal("Finish accepted a status that is not an end")
 	}
-	if err := r.runner.Finish(run.ID, triggers.StatusFailed, strings.Repeat("x", 500)); err != nil {
+	if err := r.runner.Finish(ctx, run.ID, triggers.StatusFailed, strings.Repeat("x", 500)); err != nil {
 		t.Fatal(err)
 	}
 	got := r.latest("t1")
 	if got.Status != triggers.StatusFailed || len(got.Reason) != 200 {
 		t.Fatalf("run = %q %d", got.Status, len(got.Reason))
 	}
-	if err := r.runner.Finish(run.ID, triggers.StatusDone, "late"); err != nil {
+	if err := r.runner.Finish(ctx, run.ID, triggers.StatusDone, "late"); err != nil {
 		t.Fatal(err)
 	}
 	if r.latest("t1").Status != triggers.StatusFailed || r.latest("t1").Reason == "late" {
 		t.Fatal("a second Finish changed the run")
 	}
-	if err := r.runner.Finish("unknown", triggers.StatusDone, ""); err != nil {
+	if err := r.runner.Finish(ctx, "unknown", triggers.StatusDone, ""); err != nil {
 		t.Fatalf("Finish of an unknown run: %v", err)
 	}
 }
@@ -747,7 +747,7 @@ func TestFinishCancelAndRunNowRaceCleanly(t *testing.T) {
 				mu.Lock()
 				x := rr
 				mu.Unlock()
-				_ = x.runner.Finish(run.ID, triggers.StatusDone, "")
+				_ = x.runner.Finish(ctx, run.ID, triggers.StatusDone, "")
 			}()
 			return id, err
 		}
@@ -959,5 +959,30 @@ func TestADueRunWhileARequeuedRunWaitsSaysSoAndTheErrorIsLogged(t *testing.T) {
 	}
 	if runs[1].ID != old.ID || runs[1].Status != triggers.StatusRunning {
 		t.Fatalf("the requeued run: %+v", runs[1])
+	}
+}
+
+// hangingGetRun stands for a database that does not answer: GetRun waits for
+// its context.
+type hangingGetRun struct{ triggers.Store }
+
+func (hangingGetRun) GetRun(ctx context.Context, _ string) (triggers.Run, error) {
+	<-ctx.Done()
+	return triggers.Run{}, ctx.Err()
+}
+
+func TestFinishGivesUpWhenItsContextEndsInsteadOfHangingOnTheStore(t *testing.T) {
+	r := newRig(t, func(o *triggers.Options) { o.Store = hangingGetRun{o.Store} })
+	cctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- r.runner.Finish(cctx, "run-1", triggers.StatusDone, "") }()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("Finish = %v, want the deadline", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Finish hangs on a store that does not answer")
 	}
 }
