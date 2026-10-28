@@ -40,5 +40,6 @@ export async function startMcpFixture() {
   })
   await new Promise(r => srv.listen(0, '127.0.0.1', r))
   const url = `http://127.0.0.1:${srv.address().port}/mcp`
-  return { url, close: () => new Promise(r => srv.close(r)) }
+  // Keep-alive sockets of the server under test must not hold the close.
+  return { url, close: () => new Promise(r => { srv.close(r); srv.closeAllConnections?.() }) }
 }

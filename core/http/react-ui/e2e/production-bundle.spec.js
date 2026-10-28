@@ -14,7 +14,7 @@ import { test, expect } from './coverage-fixtures.js'
 const PAGES = [
   { name: 'Home', path: '/app', ready: page => page.locator('.home-page') },
   { name: 'Chats', path: '/app/chats', ready: page => page.getByTestId('chats-page') },
-  { name: 'Build', path: '/app/build', ready: page => page.getByTestId('build-landing') },
+  { name: 'Agents', path: '/app/agents', ready: page => page.getByRole('heading', { name: 'Agents', level: 1 }) },
   { name: 'Operate', path: '/app/operate', ready: page => page.getByTestId('operate-overview') },
   { name: 'Models', path: '/app/models', ready: page => page.locator('.sidebar-nav a.nav-item[href="/app/models"][aria-current="page"], .sidebar-nav a.nav-item.active[href="/app/models"]').first() },
 ]
@@ -74,8 +74,8 @@ test.describe('@production-chunks Production bundle', () => {
     })
     await page.goto('/app')
     await expect(page.locator('.home-page')).toBeVisible()
-    await page.goto('/app/build')
-    await expect(page.getByTestId('build-landing')).toBeVisible()
+    await page.goto('/app/agents')
+    await expect(page.getByRole('heading', { name: 'Agents', level: 1 })).toBeVisible()
     // The coverage bundle has a single script; the shipped one has a chunk per page.
     expect(scripts.size).toBeGreaterThan(2)
   })

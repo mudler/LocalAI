@@ -30,7 +30,7 @@ export function watchProblems(page, { ignore = [] } = {}) {
   return { problems: () => [...found] }
 }
 
-export const composer = (page) => page.getByRole('textbox', { name: 'Message' })
+export const composer = (page) => page.getByTestId('chat-input')
 export const transcript = (page) => page.getByRole('region', { name: 'Conversation' })
 
 export async function startChat(page, text) {

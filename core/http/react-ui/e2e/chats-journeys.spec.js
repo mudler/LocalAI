@@ -46,7 +46,7 @@ test.describe('Chat journeys', () => {
     await row.getByRole('button', { name: /Edit/i }).click()
     const edit = page.getByRole('textbox', { name: /Edit/i })
     await edit.fill('edited text')
-    await edit.press('Enter')
+    await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByTestId('pending-row')).toContainText('edited text')
 
     await page.getByRole('button', { name: 'Stop' }).click()
@@ -66,7 +66,7 @@ test.describe('Chat journeys', () => {
     await expect(transcript(page)).toContainText('tick')
     // The chat takes a new message after the resumed turn.
     await composer(page).fill('and again')
-    await page.getByRole('button', { name: 'Send' }).click()
+    await page.getByTestId('chat-send').click()
     await expect(transcript(page).getByText('and again')).toBeVisible()
   })
 
@@ -82,6 +82,8 @@ test.describe('Chat journeys', () => {
     await startChat(page, `write it ADDON_TOOL_CALL:write_file:${b64({ path: `/${name}`, content: 'written by the model' })}`)
     await expect(transcript(page).getByText(/write_file/).first()).toBeVisible({ timeout: 20_000 })
     test.skip(await page.getByRole('note').filter({ hasText: 'files are off' }).isVisible(), 'files are off on this server build')
+    // The user's own message names the tool too, so wait for the file itself.
+    await expect.poll(async () => (await page.request.get('/api/chats/files?path=/')).text(), { timeout: 20_000 }).toContain(name)
 
     await page.goto('/app/files')
     await expect(page.getByTestId('ws-row').filter({ hasText: name })).toBeVisible()
@@ -93,25 +95,30 @@ test.describe('Chat journeys', () => {
     await expect(page.getByTestId('ws-row').filter({ hasText: name })).toHaveCount(0)
   })
 
-  test('deleting a chat asks first and removes it for good', async ({ page }) => {
+  test('deleting a chat leaves it, offers Undo and removes it for good when the offer ends', async ({ page }) => {
     const id = await startChat(page, 'delete me soon')
     await expect(working(page)).toBeHidden({ timeout: 20_000 })
-    const list = page.getByRole('complementary', { name: 'Your chats' })
-    await list.getByRole('button', { name: /^Delete chat/ }).first().click()
-    const dialog = page.getByRole('alertdialog')
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    await expect(page).toHaveURL(new RegExp(`${id}$`))
-    await list.getByRole('button', { name: /^Delete chat/ }).first().click()
-    await dialog.getByRole('button', { name: 'Delete' }).click()
+    const deleteFromMenu = async () => {
+      await page.getByRole('button', { name: 'More' }).click()
+      await page.getByRole('menuitem', { name: 'Delete chat' }).click()
+    }
+    await deleteFromMenu()
     await expect(page).toHaveURL(/\/app\/chats$/)
-    const gone = await page.request.get(`/api/chats/${id}`)
-    expect(gone.status()).toBe(404)
+    // Undo brings the chat back and nothing was deleted on the server.
+    await page.getByTestId('chat-undo-toast').getByRole('button', { name: 'Undo' }).click()
+    await expect(page).toHaveURL(new RegExp(`${id}$`))
+    expect((await page.request.get(`/api/chats/${id}`)).status()).toBe(200)
+
+    await deleteFromMenu()
+    await page.getByTestId('chat-undo-toast').getByRole('button', { name: 'Dismiss' }).click()
+    await expect.poll(async () => (await page.request.get(`/api/chats/${id}`)).status()).toBe(404)
   })
 
   test('a chat gets a title from its first message', async ({ page }) => {
-    test.skip(true, 'known gap: UI-03 chats are never renamed, every chat stays "New chat"')
-    await startChat(page, 'plan my trip to Lisbon')
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Lisbon')
+    const id = await startChat(page, 'plan my trip to Lisbon')
+    await expect.poll(async () => (await (await page.request.get(`/api/chats/${id}`)).json()).title, { timeout: 20_000 }).toContain('Lisbon')
+    await page.keyboard.press('Control+k')
+    await expect(page.getByTestId('chats-row').filter({ hasText: 'Lisbon' }).first()).toBeVisible()
   })
 
   test('the old chat addresses open the chats page and keep the model', async ({ page }) => {

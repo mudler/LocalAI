@@ -23,13 +23,11 @@ async function setAllowPrivate(request, on) {
 }
 
 async function addConnector(page, name, url) {
-  await page.goto('/app/chats/connectors')
-  await page.getByRole('tab', { name: 'MCP server' }).click()
+  await page.goto('/app/mcp-connectors')
   await page.getByRole('button', { name: 'New MCP server' }).click()
-  const form = page.getByRole('form', { name: 'New MCP server' })
-  await form.getByLabel('Name', { exact: true }).fill(name)
-  await form.getByLabel('Address').fill(url)
-  await form.getByRole('button', { name: 'Save' }).click()
+  await page.getByLabel('Name', { exact: true }).fill(name)
+  await page.getByLabel('Address').fill(url)
+  await page.getByRole('button', { name: 'Save' }).click()
   return page.getByTestId('mcp-row').filter({ hasText: name })
 }
 
@@ -66,8 +64,8 @@ test('an enabled connector is in the tools panel, its app shows live under the t
   await expect(frame).toBeVisible({ timeout: 20_000 })
   await expect(frame).toHaveAttribute('sandbox', 'allow-scripts')
 
-  const panel = page.getByTestId('tools-panel')
-  await panel.locator('summary').click()
+  const panel = page.getByTestId('chat-tools')
+  await panel.getByTestId('chat-tools-button').click()
   const sw = panel.getByRole('checkbox', { name: new RegExp(name) })
   await expect(sw).toBeChecked()
   const chatId = page.url().split('/').pop()

@@ -46,12 +46,13 @@ test.describe('Removed pages', () => {
   const MAP = [
     ['/app/chat', /\/app\/chats$/],
     ['/app/chat/some-model', /\/app\/chats\?model=some-model$/],
-    ['/app/agents', /\/app\/chats\/agents$/],
-    ['/app/skills', /\/app\/chats\/skills$/],
-    ['/app/agent-jobs', /\/app\/chats\/triggers$/],
+    ['/app/chats/agents', /\/app\/agents$/],
+    ['/app/chats/skills', /\/app\/skills$/],
+    ['/app/chats/triggers', /\/app\/triggers$/],
+    ['/app/agent-jobs', /\/app\/triggers$/],
   ]
   for (const [from, to] of MAP) {
-    test(`${from} opens its page in the chats`, async ({ page }) => {
+    test(`${from} opens its current page`, async ({ page }) => {
       await page.goto(from)
       await expect(page).toHaveURL(to)
     })
@@ -77,7 +78,7 @@ test.describe('Theme and language', () => {
     await page.getByRole('button', { name: 'Change language' }).click()
     await page.getByRole('option', { name: /Italiano/ }).click()
     await expect(page.getByRole('link', { name: 'File', exact: true })).toBeVisible()
-    for (const route of ['/app/chats', '/app/chats/agents', '/app/files', '/app/build']) {
+    for (const route of ['/app/chats', '/app/agents', '/app/files', '/app/skills']) {
       await page.goto(route)
       await expect(page.getByRole('heading').first()).toBeVisible()
       const body = await page.locator('body').innerText()
@@ -90,7 +91,7 @@ test.describe('Theme and language', () => {
     await offerMockModel(page)
     await page.goto('/app/chats')
     await expect(composer(page)).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
+    await expect(page.getByTestId('chat-send')).toBeVisible()
   })
 })
 
@@ -128,7 +129,7 @@ test.describe('Keyboard', () => {
   })
 
   test('the delete dialog holds the focus and Escape cancels it', async ({ page }) => {
-    await page.goto('/app/chats/skills')
+    await page.goto('/app/skills')
     const r = await page.request.post('/api/chats/skills', { data: { layer: 'personal', name: `kb-${Date.now().toString(36)}`, description: 'x', body: 'y' } })
     test.skip(!r.ok(), 'files are off on this server build')
     await page.reload()
