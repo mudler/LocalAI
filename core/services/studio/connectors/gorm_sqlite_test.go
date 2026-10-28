@@ -4,16 +4,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/connectors/connectorstest"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
 func openSQLite(t *testing.T, path string) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file:"+path+"?_busy_timeout=5000&_txlock=immediate"), &gorm.Config{})
+	db, err := sqlitedb.Open("file:"+path+"?_busy_timeout=5000&_txlock=immediate", &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/wstest"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
 // openWorkspace returns a workspace store on a private SQLite file. now, when not
@@ -19,7 +19,7 @@ import (
 func openWorkspace(t *testing.T, now func() time.Time) workspace.Store {
 	t.Helper()
 	dsn := "file:" + filepath.Join(t.TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := sqlitedb.Open(dsn, &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -94,7 +94,7 @@ var _ = Describe("conversion of the old data at start", func() {
 		alice := rep.ForUser("alice")
 		Expect(alice.Items).To(HaveLen(1))
 		Expect(alice.Items[0].Name).To(Equal("Helper"))
-		Expect(alice.Items[0].Status).To(Equal(convert.StatusConverted))
+		Expect(alice.Items[0].Status).To(Equal(convert.StatusConverted), alice.Items[0].Reason)
 		Expect(rep.Users()).To(ConsistOf("alice", "bob"))
 	})
 

@@ -13,7 +13,6 @@ import (
 	"sync"
 	"testing"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -24,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
 const png = "\x89PNG\r\n\x1a\nrest-of-the-image"
@@ -49,7 +49,7 @@ type fixture struct {
 func newFixture(t *testing.T, vision, transcription string) *fixture {
 	t.Helper()
 	dsn := "file:" + filepath.Join(t.TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := sqlitedb.Open(dsn, &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

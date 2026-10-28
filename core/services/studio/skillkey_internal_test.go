@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -17,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
 // The refresh key tells the sandbox to refresh. A switch only takes a line out
@@ -24,7 +24,7 @@ import (
 // must change it.
 func TestTheRefreshKeyMovesOnlyWhenASkillFileDoes(t *testing.T) {
 	dsn := "file:" + filepath.Join(t.TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := sqlitedb.Open(dsn, &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestTheRefreshKeyMovesOnlyWhenASkillFileDoes(t *testing.T) {
 // shows through; "layer:name" turns off that layer's skill only.
 func TestASkillSwitchTurnsOffTheWinnerOrTheNamedLayer(t *testing.T) {
 	dsn := "file:" + filepath.Join(t.TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := sqlitedb.Open(dsn, &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

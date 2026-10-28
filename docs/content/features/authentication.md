@@ -202,6 +202,27 @@ trigger and the binding stay, and work again when the feature is given back.
 
 > **Note: network-backed storage.** File-based SQLite relies on POSIX file locking, which is unreliable over network filesystems (SMB/CIFS/NFS, e.g. Azure Files / Azure Container Apps shared volumes). On such storage the auth DB can fail to migrate with `database is locked`. Use PostgreSQL (`LOCALAI_AUTH_DATABASE_URL=postgres://...`) when the data directory lives on shared or network storage, or place `database.db` on a local volume.
 
+### SQLite storage settings
+
+One SQLite file holds the accounts and everything else that LocalAI keeps in the auth database (the chats, their files, the triggers and the notifications). Many parts of the server write to it at the same time, so LocalAI opens it with these settings:
+
+| Setting | Value | Why |
+|---|---|---|
+| Journal mode | `WAL` | A reader never blocks the writer and the writer never blocks readers. In the default rollback journal, a cursor that is still open can make a commit on another connection fail with `database is locked`. |
+| Synchronous | `NORMAL` | The usual pair of WAL. After a power loss the last commits can be lost, but the file stays sound. |
+| Busy timeout | 10 seconds | A writer waits for the one write lock instead of failing at once. |
+| Foreign keys | on | The foreign keys of the schema are enforced. |
+| Write transactions | `BEGIN IMMEDIATE` | A transaction that reads and then writes takes the write lock at its start, so it cannot fail halfway because another connection committed. |
+| Connection pool | at most 16 connections (1 for `:memory:`) | SQLite has one writer, so more connections only wait. |
+
+WAL adds two files beside the database, `database.db-wal` and `database.db-shm`. Copy or back up all three together, or run `PRAGMA wal_checkpoint(TRUNCATE)` first.
+
+You can change a setting in the database URL. A value that you give always wins, for example `LOCALAI_AUTH_DATABASE_URL="/data/database.db?_pragma=journal_mode(DELETE)&_pragma=busy_timeout(30000)"`. Use `journal_mode(DELETE)` on a volume where WAL does not work (see the note above on network storage).
+
+**One process only.** SQLite coordinates writers through file locks on one host. Run one LocalAI process per database file. Two servers on the same file, or on a file that is on a network share, are not supported: use PostgreSQL when more than one instance must share the accounts. The pool and the timeouts bound the waiting inside one process; they do not make a shared file safe.
+
+A part of the code that holds a cursor open (rows that it reads one by one) and also writes needs a second connection for the write. Keep the cursors short, or read the rows into memory first, so the 16 connections cannot all be taken by cursors.
+
 ### Disabling Local Authentication
 
 If you want to enforce OAuth/OIDC-only login and prevent users from registering or logging in with email/password, set `LOCALAI_DISABLE_LOCAL_AUTH=true` (or pass `--disable-local-auth`):
