@@ -1,11 +1,13 @@
 #!/bin/bash
 # Real-weights realtime speech-to-speech e2e (manual run, never part of CI).
 #
-# Drives tests/e2e/realtime_s2s_test.go (the "Realtime S2S (real)" specs)
-# against LFM3-Audio served by the llama-cpp backend, with NO chained
-# pipeline: one any-to-any model takes the audio and answers with audio.
+# Drives tests/e2e/realtime_s2s_test.go (the "Realtime S2S (real ...)" specs)
+# against LFM3-Audio served by the llama-cpp backend, for each shape of the
+# gallery entries: {any-to-any, chained pipeline} x {VAD, no VAD}. The any-to-any
+# model takes the audio and answers with audio; the pipeline runs transcription,
+# chat and speech synthesis as separate stages on the same model.
 # The test client generates its input speech with a sherpa-onnx TTS and checks
-# the reply audio with a separate sherpa-onnx ASR. Server VAD is silero.
+# the reply audio with a separate sherpa-onnx ASR. The VAD is silero.
 #
 # Pre-requisites:
 #   - `make build-mock-backend` and `make protogen-go` (the suite needs them)
@@ -22,7 +24,9 @@
 #   WORK_DIR         Staging directory (default: a fresh temporary directory).
 #   KEEP_WORK        Non-empty keeps WORK_DIR after the run; point WORK_DIR at it
 #                    on the next run to skip the downloads.
-#   GINKGO_FOCUS     Ginkgo focus regexp (default: "Realtime S2S \(real\)").
+#   LFM3_MATRIX      Shapes to run, kind:vad separated by spaces (default: all four:
+#                    "any-to-any:vad any-to-any:novad pipeline:vad pipeline:novad").
+#   GINKGO_FOCUS     Ginkgo focus regexp (default: "Realtime S2S \(real").
 set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -34,6 +38,7 @@ ASR_MODEL=omnilingual-0.3b-ctc-q8-sherpa
 TTS_MODEL=vits-ljs-sherpa
 
 # Hugging Face revision and hashes match the gallery entries lfm3-audio-2b(-q8).
+# The VAD and pipeline shapes mirror the -vad, -pipeline and -pipeline-vad entries.
 HF=https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c
 MMPROJ=mmproj-LFM3-Audio-2B-Q8_0.gguf
 MMPROJ_SHA=26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
@@ -119,12 +124,38 @@ download "$MODELS_DIR/vits-ljs/lexicon.txt" \
     "https://huggingface.co/csukuangfj/vits-ljs/resolve/main/lexicon.txt" \
     "bdccfc6da71c45c48e2e0056fcf0aab760577c5f959f6c1b5eb3e3e916fd5a0e"
 
-# 3. Model configs. The S2S config mirrors the gallery overrides, plus the VAD
-# slot so the server-VAD specs run (without a VAD the client commits turns).
+# 3. Model configs. One config per shape, each mirroring the gallery overrides
+# of the entry with the same name (the gallery names its VAD silero-vad-ggml;
+# this script uses the sherpa silero model its extracted backend already has).
+#   $S2S_MODEL                 any-to-any, no VAD  (lfm3-audio-2b[-q8])
+#   $S2S_MODEL-vad             any-to-any, VAD
+#   $S2S_MODEL-pipeline        chained pipeline on the same model, no VAD
+#   $S2S_MODEL-pipeline-vad    chained pipeline, VAD
 GPU_LINE=""
 [[ -n "${LFM3_GPU_LAYERS:-}" ]] && GPU_LINE="gpu_layers: $LFM3_GPU_LAYERS"
-cat > "$MODELS_DIR/$S2S_MODEL.yaml" <<YAML
-name: $S2S_MODEL
+
+write_model_config() {
+    local name="$1" kind="$2" vad="$3" usecases pipeline
+    if [[ "$kind" == "pipeline" ]]; then
+        usecases="  - chat
+  - transcript
+  - tts"
+        pipeline="pipeline:
+  llm: $name
+  transcription: $name
+  tts: $name"
+    else
+        usecases="  - realtime_audio
+  - chat
+  - transcript
+  - tts"
+        pipeline="pipeline:
+  any_to_any: true"
+    fi
+    [[ "$vad" == "1" ]] && pipeline="$pipeline
+  vad: $VAD_MODEL"
+    cat > "$MODELS_DIR/$name.yaml" <<YAML
+name: $name
 backend: llama-cpp
 context_size: 8192
 mmproj: $MMPROJ
@@ -138,14 +169,15 @@ template:
 tts:
   voice: female
 known_usecases:
-  - realtime_audio
-  - chat
-  - transcript
-  - tts
-pipeline:
-  any_to_any: true
-  vad: $VAD_MODEL
+$usecases
+$pipeline
 YAML
+}
+
+write_model_config "$S2S_MODEL" any-to-any 0
+write_model_config "$S2S_MODEL-vad" any-to-any 1
+write_model_config "$S2S_MODEL-pipeline" pipeline 0
+write_model_config "$S2S_MODEL-pipeline-vad" pipeline 1
 
 cat > "$MODELS_DIR/$VAD_MODEL.yaml" <<YAML
 name: $VAD_MODEL
@@ -178,15 +210,27 @@ known_usecases:
   - tts
 YAML
 
-# 4. Run the real variant of the S2S specs.
-export REALTIME_S2S_MODEL="$S2S_MODEL"
+# 4. Run the real variant of the specs, once per shape of the matrix. A shape is
+# kind:vad, for example any-to-any:vad or pipeline:novad.
 export REALTIME_S2S_TTS="$TTS_MODEL"
 export REALTIME_S2S_ASR="$ASR_MODEL"
 export REALTIME_MODELS_PATH="$MODELS_DIR"
 export REALTIME_BACKENDS_PATH="$BACKENDS_DIR"
 
 cd "$ROOT"
-go test -v -count=1 -timeout 120m ./tests/e2e/ \
-    -ginkgo.label-filter="Realtime && real-models" \
-    -ginkgo.focus="${GINKGO_FOCUS:-Realtime S2S \(real\)}" \
-    -ginkgo.v
+status=0
+for shape in ${LFM3_MATRIX:-any-to-any:vad any-to-any:novad pipeline:vad pipeline:novad}; do
+    kind=${shape%%:*}
+    name=$S2S_MODEL
+    [[ "$kind" == "pipeline" ]] && name="$name-pipeline"
+    vad=0
+    if [[ "$shape" == *:vad ]]; then vad=1; name="$name-vad"; fi
+    [[ "$kind" == "any-to-any" || "$kind" == "pipeline" ]] || { echo "bad shape: $shape" >&2; exit 2; }
+    echo "=== $shape -> model $name ==="
+    REALTIME_S2S_MODEL="$name" REALTIME_S2S_KIND="$kind" REALTIME_S2S_VAD="$vad" \
+    go test -v -count=1 -timeout 120m ./tests/e2e/ \
+        -ginkgo.label-filter="Realtime && real-models" \
+        -ginkgo.focus="${GINKGO_FOCUS:-Realtime S2S \(real}" \
+        -ginkgo.v || status=1
+done
+exit $status

@@ -294,6 +294,37 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-s2s-mock.yaml"), s2sData, 0644)).To(Succeed())
 
+	// The same any-to-any model without a VAD model: nothing detects turns, so
+	// the client commits them (the lfm3-audio-2b gallery shape).
+	s2sNoVADCfg := map[string]any{
+		"name":           "realtime-s2s-mock-novad",
+		"backend":        "mock-backend",
+		"known_usecases": []string{"FLAG_REALTIME_AUDIO", "FLAG_CHAT", "FLAG_TRANSCRIPT", "FLAG_TTS"},
+		"parameters": map[string]any{
+			"model": "mock-s2s.bin",
+		},
+		"pipeline": map[string]any{
+			"any_to_any": true,
+		},
+	}
+	s2sNoVADData, err := yaml.Marshal(s2sNoVADCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-s2s-mock-novad.yaml"), s2sNoVADData, 0644)).To(Succeed())
+
+	// Chained pipeline without a VAD slot (the lfm3-audio-2b-pipeline gallery
+	// shape). realtime-pipeline above is the chained form with a VAD.
+	pipelineNoVADCfg := map[string]any{
+		"name": "realtime-pipeline-novad",
+		"pipeline": map[string]any{
+			"transcription": "mock-stt",
+			"llm":           "mock-llm",
+			"tts":           "mock-tts",
+		},
+	}
+	pipelineNoVADData, err := yaml.Marshal(pipelineNoVADCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline-novad.yaml"), pipelineNoVADData, 0644)).To(Succeed())
+
 	// Realtime pipelines whose LLM is a failover chain: target 0 always fails
 	// to load, target 1 is mock-llm. rt-failover skips the warm-up so the
 	// switch happens on the first turn, mid-session; rt-failover-warm keeps it

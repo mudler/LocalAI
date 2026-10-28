@@ -18,28 +18,36 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// Realtime speech-to-speech (S2S) specs: one any-to-any model
-// (realtime_audio plus pipeline.any_to_any) that takes audio in and returns
-// audio, transcripts and tool calls over /v1/realtime.
+// Realtime speech-to-speech (S2S) specs. The same specs run for the four
+// shapes the LFM3-Audio gallery entries come in:
 //
-// Variants, chosen by environment, run the same specs:
-//   - mock (default, label Realtime): the realtime-s2s-mock fixture from
-//     e2e_suite_test.go, served by the mock backend's AudioToAudioStream.
-//   - real (label Realtime and real-models, only when REALTIME_S2S_MODEL is
-//     set): a real any-to-any model, run manually on GPU with
-//     `make test-realtime-s2s-real`. Assertions marked "real" run only here.
+//   - any-to-any: one realtime_audio model with pipeline.any_to_any takes
+//     audio in and returns audio, transcripts and tool calls from one stream.
+//   - pipeline: a chained VAD, transcription, LLM and TTS pipeline whose model
+//     slots can all name one model (the lfm3-audio-2b-pipeline entries).
+//
+// each with a VAD model (server-side turn detection) and without one (the
+// client commits each turn).
+//
+// Variants, chosen by environment:
+//   - mock (label Realtime): all four shapes at once, from the fixtures in
+//     e2e_suite_test.go (realtime-s2s-mock, realtime-s2s-mock-novad,
+//     realtime-pipeline, realtime-pipeline-novad), served by the mock backend.
+//   - real (labels Realtime and real-models, only when REALTIME_S2S_MODEL is
+//     set): one shape of a real model per run, manual on GPU with
+//     `make test-realtime-s2s-real` (it runs the four shapes one after the
+//     other). Assertions marked "real" run only here.
 //     Environment of the real variant:
 //     REALTIME_S2S_MODEL  model name in the models path (e.g. lfm3-audio-2b)
+//     REALTIME_S2S_KIND   any-to-any (default) or pipeline
+//     REALTIME_S2S_VAD    1 (default) when the model has a VAD, 0 when it has none
 //     REALTIME_S2S_TTS    TTS model that renders the input utterances; pick one
 //                         that is not the model under test (e.g. vits-ljs-sherpa)
 //     REALTIME_S2S_ASR    ASR model that transcribes the OUTPUT audio, so the
 //                         spoken answer is checked independently of the model's
 //                         own transcript (e.g. omnilingual-0.3b-ctc-q8-sherpa)
 
-const (
-	s2sMockModel = "realtime-s2s-mock"
-	s2sInputRate = 24000
-)
+const s2sInputRate = 24000
 
 // s2sResponseTimeout bounds one response. A real model on CPU is slow.
 func s2sResponseTimeout() time.Duration {
@@ -51,11 +59,62 @@ func s2sResponseTimeout() time.Duration {
 
 func isRealS2S() bool { return os.Getenv("REALTIME_S2S_MODEL") != "" }
 
-func s2sModel() string {
-	if m := os.Getenv("REALTIME_S2S_MODEL"); m != "" {
-		return m
+// s2sVariant is one shape of realtime model under test.
+type s2sVariant struct {
+	label    string // part of the Describe title
+	model    string
+	pipeline bool // chained pipeline instead of one any-to-any model
+	vad      bool // the model names a VAD, so turns are detected server side
+	real     bool
+}
+
+func (v s2sVariant) session(update map[string]any) *websocket.Conn {
+	conn := connectWS(v.model)
+	drainUntil(conn, "session.created", 30*time.Second)
+	if update != nil {
+		evt := update
+		if _, whole := update["type"]; !whole {
+			evt = map[string]any{"type": "session.update", "session": update}
+		}
+		sendClientEvent(conn, evt)
+		drainUntil(conn, "session.updated", 10*time.Second)
 	}
-	return s2sMockModel
+	return conn
+}
+
+// manualCommitSession opens a session in which the client commits turns: a
+// VAD-less model starts that way, one with a VAD needs turn detection turned off.
+func (v s2sVariant) manualCommitSession(update map[string]any) *websocket.Conn {
+	if v.vad {
+		conn := v.session(disableVADEvent())
+		if update != nil {
+			sendClientEvent(conn, map[string]any{"type": "session.update", "session": update})
+			drainUntil(conn, "session.updated", 10*time.Second)
+		}
+		return conn
+	}
+	return v.session(update)
+}
+
+// speak sends one spoken turn and, without server VAD, commits it and asks for
+// the response.
+func (v s2sVariant) speak(conn *websocket.Conn, text string) {
+	pcm := s2sUtterance(text)
+	if v.vad {
+		streamUtterance(conn, padPCMBase64(pcm, s2sInputRate, 300, 1200))
+		return
+	}
+	streamUtterance(conn, pcm)
+	sendClientEvent(conn, map[string]any{"type": "input_audio_buffer.commit"})
+	drainUntil(conn, "input_audio_buffer.committed", 30*time.Second)
+	sendClientEvent(conn, map[string]any{"type": "response.create"})
+}
+
+func realS2SVariant() s2sVariant {
+	kind := os.Getenv("REALTIME_S2S_KIND")
+	v := s2sVariant{model: os.Getenv("REALTIME_S2S_MODEL"), pipeline: kind == "pipeline", vad: os.Getenv("REALTIME_S2S_VAD") != "0", real: true}
+	v.label = "real " + map[bool]string{false: "any-to-any", true: "pipeline"}[v.pipeline] + map[bool]string{false: " no-vad", true: " vad"}[v.vad]
+	return v
 }
 
 // s2sTTSModel names the TTS that renders the test utterances. The mock variant
@@ -87,23 +146,6 @@ func streamUtterance(conn *websocket.Conn, pcmB64 string) {
 		})
 		time.Sleep(20 * time.Millisecond)
 	}
-}
-
-// s2sSession opens a session and waits for session.created. A non-nil update is
-// sent as session.update (a map that already has a type is sent as is) and
-// its session.updated is awaited.
-func s2sSession(update map[string]any) *websocket.Conn {
-	conn := connectWS(s2sModel())
-	drainUntil(conn, "session.created", 30*time.Second)
-	if update != nil {
-		evt := update
-		if _, whole := update["type"]; !whole {
-			evt = map[string]any{"type": "session.update", "session": update}
-		}
-		sendClientEvent(conn, evt)
-		drainUntil(conn, "session.updated", 10*time.Second)
-	}
-	return conn
 }
 
 // readResponse collects events until response.done, which it also returns.
@@ -156,18 +198,38 @@ func keywordsIn(text string, keywords ...string) bool {
 	return false
 }
 
-// defineS2SSpecs registers the S2S specs for one variant. The bodies are the
-// same in both variants; "real" guards the assertions that need real weights.
-func defineS2SSpecs(variant string, realLabel bool) {
-	isReal := variant == "real"
+const capitalQuestion = "What is the capital of France? Answer in one short sentence."
+
+var weatherTool = map[string]any{
+	"type":        "function",
+	"name":        "get_weather",
+	"description": "Current weather for a city.",
+	"parameters": map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"city": map[string]any{"type": "string"}},
+		"required":   []string{"city"},
+	},
+}
+
+// turnDetectionOf reads audio.input.turn_detection out of a session object.
+func turnDetectionOf(session map[string]any) any {
+	audio, _ := session["audio"].(map[string]any)
+	input, _ := audio["input"].(map[string]any)
+	return input["turn_detection"]
+}
+
+// defineS2SSpecs registers the specs for one shape. The bodies are the same in
+// every variant; "real" guards the assertions that need real weights.
+func defineS2SSpecs(v s2sVariant) {
+	isReal := v.real
 	decorators := []any{Label("Realtime")}
-	if realLabel {
+	if v.real {
 		decorators = append(decorators, Label("real-models"))
 	}
-	Describe("Realtime S2S ("+variant+")", append(decorators, func() {
+	Describe("Realtime S2S ("+v.label+")", append(decorators, func() {
 
 		It("reports the audio format and echoes session.update", func() {
-			conn := connectWS(s2sModel())
+			conn := connectWS(v.model)
 			defer conn.Close()
 
 			created := readServerEvent(conn, 30*time.Second)
@@ -179,16 +241,7 @@ func defineS2SSpecs(variant string, realLabel bool) {
 				"type": "session.update",
 				"session": map[string]any{
 					"instructions": "Answer briefly.",
-					"tools": []map[string]any{{
-						"type":        "function",
-						"name":        "get_weather",
-						"description": "Current weather for a city.",
-						"parameters": map[string]any{
-							"type":       "object",
-							"properties": map[string]any{"city": map[string]any{"type": "string"}},
-							"required":   []string{"city"},
-						},
-					}},
+					"tools":        []map[string]any{weatherTool},
 				},
 			})
 			updated := drainUntil(conn, "session.updated", 10*time.Second)
@@ -197,26 +250,52 @@ func defineS2SSpecs(variant string, realLabel bool) {
 			Expect(updSession["tools"]).ToNot(BeEmpty())
 		})
 
-		It("runs a server VAD turn in order", func() {
-			conn := s2sSession(nil)
+		It("starts with the turn detection its VAD slot allows", func() {
+			conn := connectWS(v.model)
 			defer conn.Close()
-
-			streamUtterance(conn, padPCMBase64(s2sUtterance("What is the capital of France? Answer in one short sentence."), s2sInputRate, 300, 1200))
-			events := readResponse(conn, s2sResponseTimeout())
-			types := eventTypes(events)
-			Expect(types).To(ContainElements("input_audio_buffer.speech_started", "input_audio_buffer.speech_stopped",
-				"input_audio_buffer.committed", "conversation.item.added", "response.created", "response.output_audio.delta"))
-			Expect(responseStatus(events[len(events)-1])).To(Equal("completed"))
-			if isReal {
-				checkSpokenAnswer(events, "paris")
+			created := readServerEvent(conn, 30*time.Second)
+			Expect(created["type"]).To(Equal("session.created"))
+			session, _ := created["session"].(map[string]any)
+			if v.vad {
+				Expect(turnDetectionOf(session)).ToNot(BeNil(), "a model with a VAD starts with server_vad")
+				return
 			}
+			Expect(turnDetectionOf(session)).To(BeNil(), "a model without a VAD starts with turn detection off")
+
+			// Turning server_vad on has nothing to detect with, so it is refused
+			// and the session goes on.
+			sendClientEvent(conn, map[string]any{
+				"type": "session.update",
+				"session": map[string]any{"audio": map[string]any{"input": map[string]any{
+					"turn_detection": map[string]any{"type": "server_vad"},
+				}}},
+			})
+			errEvt := drainUntil(conn, "error", 10*time.Second)
+			Expect(fmt.Sprint(errEvt)).To(ContainSubstring("VAD"))
 		})
 
+		if v.vad {
+			It("runs a server VAD turn in order", func() {
+				conn := v.session(nil)
+				defer conn.Close()
+
+				v.speak(conn, capitalQuestion)
+				events := readResponse(conn, s2sResponseTimeout())
+				types := eventTypes(events)
+				Expect(types).To(ContainElements("input_audio_buffer.speech_started", "input_audio_buffer.speech_stopped",
+					"input_audio_buffer.committed", "conversation.item.added", "response.created", "response.output_audio.delta"))
+				Expect(responseStatus(events[len(events)-1])).To(Equal("completed"))
+				if isReal {
+					checkSpokenAnswer(events, "paris")
+				}
+			})
+		}
+
 		It("runs a manual-commit turn without VAD events", func() {
-			conn := s2sSession(disableVADEvent())
+			conn := v.manualCommitSession(nil)
 			defer conn.Close()
 
-			streamUtterance(conn, s2sUtterance("What is the capital of France? Answer in one short sentence."))
+			streamUtterance(conn, s2sUtterance(capitalQuestion))
 			sendClientEvent(conn, map[string]any{"type": "input_audio_buffer.commit"})
 			drainUntil(conn, "input_audio_buffer.committed", 30*time.Second)
 			sendClientEvent(conn, map[string]any{"type": "response.create"})
@@ -231,10 +310,10 @@ func defineS2SSpecs(variant string, realLabel bool) {
 		})
 
 		It("emits input and output transcripts", func() {
-			conn := s2sSession(nil)
+			conn := v.session(nil)
 			defer conn.Close()
 
-			streamUtterance(conn, padPCMBase64(s2sUtterance("What is the capital of France? Answer in one short sentence."), s2sInputRate, 300, 1200))
+			v.speak(conn, capitalQuestion)
 			events := readResponse(conn, s2sResponseTimeout())
 
 			var inputText, outputText string
@@ -252,70 +331,65 @@ func defineS2SSpecs(variant string, realLabel bool) {
 			}
 		})
 
-		It("cancels the first response on barge-in and completes the second", func() {
-			conn := s2sSession(nil)
-			defer conn.Close()
+		if v.vad && (!v.pipeline || isReal) {
+			// The mock chained pipeline answers at once, so there is nothing to
+			// talk over; the real one and any-to-any streams last long enough.
+			It("cancels the first response on barge-in and completes the second", func() {
+				conn := v.session(nil)
+				defer conn.Close()
 
-			first := padPCMBase64(s2sUtterance("Count slowly from one to forty."), s2sInputRate, 300, 1200)
-			firstSent := make(chan struct{})
-			go func() {
-				defer GinkgoRecover()
-				streamUtterance(conn, first)
-				close(firstSent)
-			}()
+				first := padPCMBase64(s2sUtterance("Count slowly from one to forty."), s2sInputRate, 300, 1200)
+				firstSent := make(chan struct{})
+				go func() {
+					defer GinkgoRecover()
+					streamUtterance(conn, first)
+					close(firstSent)
+				}()
 
-			// Wait for the first audio, then talk over it.
-			var firstID string
-			for firstID == "" {
-				evt := readServerEvent(conn, s2sResponseTimeout())
-				if evt["type"] == "response.output_audio.delta" {
-					firstID, _ = evt["response_id"].(string)
-				}
-			}
-			Eventually(firstSent, 60*time.Second).Should(BeClosed())
-
-			streamUtterance(conn, padPCMBase64(s2sUtterance("Stop. What is two plus two?"), s2sInputRate, 300, 1200))
-
-			// The first response ends as cancelled, and no audio for it follows.
-			var firstDone map[string]any
-			// The cancel must land within 2 s of the barge-in; the loop bound is
-			// generous so a slow CI runner reports the missing event, not a timeout.
-			cancelDeadline := time.Now().Add(60 * time.Second)
-			for firstDone == nil && time.Now().Before(cancelDeadline) {
-				evt := readServerEvent(conn, 30*time.Second)
-				if evt["type"] == "response.done" {
-					resp, _ := evt["response"].(map[string]any)
-					if resp["id"] == firstID {
-						firstDone = evt
+				// Wait for the first audio, then talk over it.
+				var firstID string
+				for firstID == "" {
+					evt := readServerEvent(conn, s2sResponseTimeout())
+					if evt["type"] == "response.output_audio.delta" {
+						firstID, _ = evt["response_id"].(string)
 					}
 				}
-			}
-			Expect(firstDone).ToNot(BeNil(), "no response.done for the first response")
-			Expect(responseStatus(firstDone)).To(Equal("cancelled"))
+				Eventually(firstSent, 60*time.Second).Should(BeClosed())
 
-			second := readResponse(conn, s2sResponseTimeout())
-			Expect(responseStatus(second[len(second)-1])).To(Equal("completed"))
-			if isReal {
-				checkSpokenAnswer(second, "four", "4")
-			}
-		})
+				streamUtterance(conn, padPCMBase64(s2sUtterance("Stop. What is two plus two?"), s2sInputRate, 300, 1200))
+
+				// The first response ends as cancelled, and no audio for it follows.
+				var firstDone map[string]any
+				// The cancel must land within 2 s of the barge-in; the loop bound is
+				// generous so a slow CI runner reports the missing event, not a timeout.
+				cancelDeadline := time.Now().Add(60 * time.Second)
+				for firstDone == nil && time.Now().Before(cancelDeadline) {
+					evt := readServerEvent(conn, 30*time.Second)
+					if evt["type"] == "response.done" {
+						resp, _ := evt["response"].(map[string]any)
+						if resp["id"] == firstID {
+							firstDone = evt
+						}
+					}
+				}
+				Expect(firstDone).ToNot(BeNil(), "no response.done for the first response")
+				Expect(responseStatus(firstDone)).To(Equal("cancelled"))
+
+				second := readResponse(conn, s2sResponseTimeout())
+				Expect(responseStatus(second[len(second)-1])).To(Equal("completed"))
+				if isReal {
+					checkSpokenAnswer(second, "four", "4")
+				}
+			})
+		}
 
 		It("round-trips a tool call and its output", func() {
-			conn := s2sSession(map[string]any{
-				"tools": []map[string]any{{
-					"type":        "function",
-					"name":        "get_weather",
-					"description": "Current weather for a city.",
-					"parameters": map[string]any{
-						"type":       "object",
-						"properties": map[string]any{"city": map[string]any{"type": "string"}},
-						"required":   []string{"city"},
-					},
-				}},
-			})
+			update := map[string]any{"tools": []map[string]any{weatherTool}}
+			chainedMock := v.pipeline && !isReal
+			conn := v.session(update)
 			defer conn.Close()
 
-			streamUtterance(conn, padPCMBase64(s2sUtterance("What is the weather in Paris right now? Use the get_weather tool."), s2sInputRate, 300, 1200))
+			v.speak(conn, "What is the weather in Paris right now? Use the get_weather tool.")
 			events := readResponse(conn, s2sResponseTimeout())
 
 			var callID string
@@ -323,16 +397,24 @@ func defineS2SSpecs(variant string, realLabel bool) {
 				if e["type"] == "response.function_call_arguments.done" {
 					Expect(e["name"]).To(Equal("get_weather"))
 					raw, _ := e["arguments"].(string)
-					var args struct {
-						City string `json:"city"`
+					if !chainedMock {
+						var args struct {
+							City string `json:"city"`
+						}
+						Expect(json.Unmarshal([]byte(raw), &args)).To(Succeed(), "arguments: %q", raw)
+						Expect(strings.ToLower(args.City)).To(ContainSubstring("paris"))
 					}
-					Expect(json.Unmarshal([]byte(raw), &args)).To(Succeed(), "arguments: %q", raw)
-					Expect(strings.ToLower(args.City)).To(ContainSubstring("paris"))
 					callID, _ = e["call_id"].(string)
 				}
 			}
 			Expect(callID).ToNot(BeEmpty(), "no function call in %v", eventTypes(events))
 
+			if chainedMock {
+				// The mock LLM calls the first tool whenever tools are set, so drop
+				// them to get its plain answer.
+				sendClientEvent(conn, map[string]any{"type": "session.update", "session": map[string]any{"tools": []map[string]any{}}})
+				drainUntil(conn, "session.updated", 10*time.Second)
+			}
 			sendClientEvent(conn, map[string]any{
 				"type": "conversation.item.create",
 				"item": map[string]any{
@@ -344,7 +426,7 @@ func defineS2SSpecs(variant string, realLabel bool) {
 			sendClientEvent(conn, map[string]any{"type": "response.create"})
 
 			second := readResponse(conn, s2sResponseTimeout())
-			Expect(hasEvent(second, "response.output_audio.delta")).To(BeTrue())
+			Expect(hasEvent(second, "response.output_audio.delta")).To(BeTrue(), "events: %v", eventTypes(second))
 			Expect(responseStatus(second[len(second)-1])).To(Equal("completed"))
 			if isReal {
 				checkSpokenAnswer(second, "21", "twenty", "sunny")
@@ -483,9 +565,16 @@ func transcriptOf(events []map[string]any) string {
 
 var _ = func() bool {
 	if isRealS2S() {
-		defineS2SSpecs("real", true)
-	} else {
-		defineS2SSpecs("mock", false)
+		defineS2SSpecs(realS2SVariant())
+		return true
+	}
+	for _, v := range []s2sVariant{
+		{label: "mock any-to-any vad", model: "realtime-s2s-mock", vad: true},
+		{label: "mock any-to-any no-vad", model: "realtime-s2s-mock-novad"},
+		{label: "mock pipeline vad", model: "realtime-pipeline", pipeline: true, vad: true},
+		{label: "mock pipeline no-vad", model: "realtime-pipeline-novad", pipeline: true},
+	} {
+		defineS2SSpecs(v)
 	}
 	return true
 }()

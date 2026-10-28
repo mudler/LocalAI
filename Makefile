@@ -839,8 +839,9 @@ test-extra-backend-llama-cpp-lfm3: docker-build-llama-cpp
 	BACKEND_TEST_OPTIONS=parallel:2 \
 	$(MAKE) test-extra-backend
 
-## Real-weights realtime speech-to-speech e2e: LFM3-Audio on llama-cpp behind
-## /v1/realtime, no chained pipeline. The client speaks generated audio (sherpa
+## Real-weights realtime e2e: LFM3-Audio on llama-cpp behind /v1/realtime, as
+## an any-to-any model and as a chained pipeline, each with and without a VAD
+## (LFM3_MATRIX picks the shapes). The client speaks generated audio (sherpa
 ## VITS) and a separate sherpa ASR checks the reply audio. MANUAL: not run in CI
 ## (the CI variant is `make test-realtime`, which uses the mock backend and the
 ## `!real-models` label filter). A GPU is recommended. Build the llama-cpp image
