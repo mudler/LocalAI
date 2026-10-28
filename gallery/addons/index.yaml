@@ -768,6 +768,78 @@
     description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
     mainPage: "talk"
     icon: "ui/icon.png"
+- id: "telegram"
+  name: Telegram
+  description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:telegram-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Telegram"
+    description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "telegram"
+  name: Telegram
+  description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:telegram-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Telegram"
+    description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "telegram"
+  name: Telegram
+  description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:telegram-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Telegram"
+    description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "telegram"
+  name: Telegram
+  description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:telegram-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Telegram"
+    description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+    mainPage: "bots"
+    icon: "ui/icon.png"
 - id: "voice"
   name: Voice
   description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
