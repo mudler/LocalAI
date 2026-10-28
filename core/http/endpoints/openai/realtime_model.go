@@ -328,6 +328,9 @@ func (m *anyToAnyModel) OpenS2S(ctx context.Context) (S2SStream, error) {
 }
 
 func (m *wrappedModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
+	if m.VADConfig == nil {
+		return nil, status.Error(codes.Unimplemented, "no VAD model is configured (pipeline.vad)")
+	}
 	var res *schema.VADResponse
 	err := m.stageCall(ctx, config.PipelineStageVAD, m.VADConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
@@ -1190,17 +1193,22 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return newAnyToAnyModel(pipeline, cl, ml, appConfig, sr)
 	}
 
-	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
-	if err == nil {
-		cfgVAD, err = resolveStage(config.PipelineStageVAD, cfgVAD)
-	}
-	if err != nil {
+	// The VAD slot is optional: without it the client commits each turn.
+	var cfgVAD *config.ModelConfig
+	var err error
+	if pipeline.VAD != "" {
+		cfgVAD, err = cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
+		if err == nil {
+			cfgVAD, err = resolveStage(config.PipelineStageVAD, cfgVAD)
+		}
+		if err != nil {
 
-		return nil, fmt.Errorf("failed to load backend config: %w", err)
-	}
+			return nil, fmt.Errorf("failed to load backend config: %w", err)
+		}
 
-	if valid, _ := cfgVAD.Validate(); !valid {
-		return nil, fmt.Errorf("failed to validate config: %w", err)
+		if valid, _ := cfgVAD.Validate(); !valid {
+			return nil, fmt.Errorf("failed to validate config: %w", err)
+		}
 	}
 
 	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process

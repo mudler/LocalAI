@@ -758,13 +758,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	// defaultTurnDetection seeds server_vad by default, or semantic_vad when the
 	// pipeline opts in (turn_detection.type: semantic_vad); clients can still
 	// override per session via session.update.
-	turnDetection := defaultTurnDetection(cfg)
+	// Without a VAD model nothing detects turns, so the client commits them.
+	turnDetection := defaultSessionTurnDetection(cfg)
 	inputAudioTranscription := &types.AudioTranscription{Model: sttModel}
 	anyToAny := cfg.Pipeline.IsAnyToAny()
-	if anyToAny && cfg.Pipeline.VAD == "" {
-		// No VAD model: nothing detects turns, so the client commits them.
-		turnDetection = nil
-	}
 	if soundOnly {
 		turnDetection = nil           // turn_detection none: no VAD
 		inputAudioTranscription = nil // no transcription stage
@@ -1487,7 +1484,7 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		if err != nil {
 			return err
 		}
-		if cfg == nil || (cfg.Pipeline.VAD == "" || cfg.Pipeline.Transcription == "" || cfg.Pipeline.TTS == "" || cfg.Pipeline.LLM == "") {
+		if cfg == nil || (cfg.Pipeline.Transcription == "" || cfg.Pipeline.TTS == "" || cfg.Pipeline.LLM == "") {
 			return fmt.Errorf("model is not a valid pipeline model: %s", rt.Model)
 		}
 
@@ -1511,6 +1508,13 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 			candidateConfig = &cfgCopy
 			candidateConfig.Pipeline.Transcription = trUpd.Model
 		}
+	}
+
+	// A pipeline without a VAD model cannot detect turns: refuse to turn
+	// detection on, and drop it when the update moves to such a pipeline.
+	noVAD := session.s2s == nil && candidateConfig.Pipeline.VAD == ""
+	if noVAD && rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.TurnDetectionSet && turnDetectionActive(rt.Audio.Input.TurnDetection) {
+		return errors.New("turn detection needs a VAD model; set pipeline.vad on the model, or commit turns manually")
 	}
 
 	candidateModel := session.ModelInterface
@@ -1580,6 +1584,9 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		}
 	}
 
+	if noVAD {
+		session.TurnDetection = nil
+	}
 	if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.TurnDetectionSet {
 		session.TurnDetection = rt.Audio.Input.TurnDetection
 	}
