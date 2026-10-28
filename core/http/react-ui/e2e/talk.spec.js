@@ -338,6 +338,14 @@ test.describe('Talk with a speech-to-speech model', () => {
     expect(types.slice(-2)).toEqual(['input_audio_buffer.commit', 'response.create'])
   })
 
+  test('idle note says to press Done speaking when no voice detection model is set', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await page.goto('/app/talk')
+    await expect(page.getByText('press Done speaking when you finish a turn')).toBeVisible()
+    await expect(page.getByText('The server notices when you stop talking')).toHaveCount(0)
+  })
+
   test('with a voice detection model, the turns are detected and Done speaking is not offered', async ({ page }) => {
     await fakeRealtime(page)
     await s2sModel(page, { vad: 'silero-vad' })

@@ -883,7 +883,7 @@ export default function Talk() {
                   </a>
                 )}
               </div>
-              {!isConnected && view === 'idle' && <p className="talk-note">{t('view.idle.note')}</p>}
+              {!isConnected && view === 'idle' && <p className="talk-note">{t(manualTurns ? 'view.idle.noteManual' : 'view.idle.note')}</p>}
 
               {isConnected && diagVisible && (
                 <div className="talk-diag" data-testid="talk-diag">

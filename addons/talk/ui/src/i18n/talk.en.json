@@ -14,7 +14,8 @@
     "idle": {
       "title": "Ready",
       "body": "Start a session and talk. The microphone is only used while a session is open.",
-      "note": "Your microphone streams while the session runs. The server notices when you stop talking and answers on its own."
+      "note": "Your microphone streams while the session runs. The server notices when you stop talking and answers on its own.",
+      "noteManual": "Your microphone streams while the session runs. This model has no voice detection, so press Done speaking when you finish a turn."
     },
     "connecting": {
       "title": "Connecting",
