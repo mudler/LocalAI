@@ -112,7 +112,11 @@ func (r *run) mcpConnectors(ctx context.Context, owner string, a oldAgent) ([]st
 		key := fmt.Sprintf("mcp|%s|%s|%d", a.user, a.name, i)
 		name := fmt.Sprintf("%s: MCP server %d", a.name, i+1) // no address: a report holds no value
 		if r.handled(ctx, key, KindConnector, a.user, name) {
-			if ref, _ := r.done(ctx, key); ref != refDropped && ref != refExists {
+			ref, ok, err := r.done(ctx, key)
+			switch {
+			case err != nil || !ok:
+				allOK = false // unreadable: the agent waits for the next run
+			case ref != refDropped && ref != refExists:
 				ids = append(ids, ref)
 			}
 			continue

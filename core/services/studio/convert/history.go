@@ -190,7 +190,11 @@ func (r *run) historyStep(ctx context.Context) error {
 // that title and time, and imports again. Without it the chat would be twice.
 func (r *run) convertChat(ctx context.Context, ref convRef) {
 	key := "chat|" + ref.UserID + "|" + ref.ConvID
-	mark, marked := r.done(ctx, key)
+	mark, marked, err := r.done(ctx, key)
+	if err != nil {
+		r.unread(KindChat, ref.UserID, ref.ConvID, err)
+		return
+	}
 	if marked && !strings.HasPrefix(mark, refImporting) {
 		return // converted or dropped; its line is in the report of the run that did it
 	}

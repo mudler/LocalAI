@@ -352,3 +352,33 @@ func TestAttachmentsOfTheOldPageAreCountedInTheReport(t *testing.T) {
 		}
 	}
 }
+
+// unreadableMarks cannot read what an item became, as a database that is
+// down would not.
+type unreadableMarks struct{ convert.Marks }
+
+func (unreadableMarks) Ref(context.Context, string) (string, bool, error) {
+	return "", false, errors.New("marks store is down")
+}
+
+func TestAnItemIsNotConvertedAgainWhenItsMarkCannotBeRead(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "pool.json"), mustJSON(map[string]any{
+		alice + ":Docs": map[string]any{"name": alice + ":Docs", "model": "m", "system_prompt": "x"},
+	}))
+	tg := newTargets()
+	marks := memMarks(t)
+	src := convert.Sources{StateDir: dir, AuthEnabled: true}
+
+	run(t, src, tg, marks) // the agent is made once
+	if len(tg.agents[alice]) != 1 {
+		t.Fatalf("first run made %d agents", len(tg.agents[alice]))
+	}
+	r := run(t, src, tg, unreadableMarks{marks})
+	if len(tg.agents[alice]) != 1 {
+		t.Fatalf("an unreadable mark made a second agent: %+v", tg.agents[alice])
+	}
+	if it, _ := find(r, convert.KindAgent, "Docs"); it.Status != convert.StatusFailed || !strings.Contains(it.Reason, "marks store is down") {
+		t.Fatalf("item = %+v", it)
+	}
+}

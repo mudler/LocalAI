@@ -51,7 +51,12 @@ const (
 // keeps the status and reason of the run that handled it.
 func Run(ctx context.Context, src Sources, tg Targets, marks Marks) (Report, error) {
 	r := &run{src: src, tg: tg, marks: marks, agents: map[string]agentRef{}}
-	prev, _, _ := marks.Report(ctx) // no report yet, or an unreadable one: all is news
+	// No report yet means all is news. An unreadable one stops the run: saving
+	// a report made without it would replace the history of earlier runs.
+	prev, _, err := marks.Report(ctx)
+	if err != nil {
+		return Report{}, fmt.Errorf("convert: read the report of earlier runs: %w", err)
+	}
 	steps := []func(context.Context) error{r.agentsStep, r.tasksStep, r.skillsStep, r.historyStep}
 	for _, step := range steps {
 		if err := step(ctx); err != nil {
@@ -150,15 +155,27 @@ func (r *run) owner(ctx context.Context, user string) (string, string) {
 	return user, ""
 }
 
-func (r *run) done(ctx context.Context, key string) (string, bool) {
-	ref, ok, err := r.marks.Ref(ctx, key)
-	return ref, err == nil && ok
+// done reports what an item became in an earlier run. A mark that cannot be
+// read is an error, not "not converted": the item would be made again.
+func (r *run) done(ctx context.Context, key string) (string, bool, error) {
+	return r.marks.Ref(ctx, key)
+}
+
+// unread adds the failed line of an item whose mark could not be read. The
+// item waits for the next run.
+func (r *run) unread(kind, user, name string, err error) {
+	r.add(kind, user, name, StatusFailed, "could not read the conversion marks: "+err.Error())
 }
 
 // handled reports an item that an earlier run converted or dropped, and adds
-// its line to the report.
+// its line to the report. An item whose mark cannot be read counts as handled
+// for this run, so it is not made twice; its failed line is in the report.
 func (r *run) handled(ctx context.Context, key, kind, user, name string) bool {
-	ref, ok := r.done(ctx, key)
+	ref, ok, err := r.done(ctx, key)
+	if err != nil {
+		r.unread(kind, user, name, err)
+		return true
+	}
 	if !ok || strings.HasPrefix(ref, refImporting) {
 		return false
 	}
@@ -371,7 +388,12 @@ func (r *run) convertAgent(ctx context.Context, a oldAgent) {
 	}
 	key := "agent|" + a.user + "|" + a.name
 	model := str(a.cfg, "model")
-	if ref, ok := r.done(ctx, key); ok && !strings.HasPrefix(ref, refImporting) {
+	ref, ok, err := r.done(ctx, key)
+	if err != nil {
+		r.unread(KindAgent, a.user, a.name, err)
+		return
+	}
+	if ok && !strings.HasPrefix(ref, refImporting) {
 		if ref == refDropped {
 			r.add(KindAgent, a.user, a.name, StatusSkipped, reasonHandled)
 			return
