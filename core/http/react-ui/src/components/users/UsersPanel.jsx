@@ -28,6 +28,11 @@ const FALLBACK_FEATURES = {
   ],
   agent_features: [
     { key: 'collections', label: 'Collections', default: false },
+    { key: 'localai_assistant', label: 'LocalAI Assistant', default: false },
+    { key: 'agents', label: 'Saved agents', default: false },
+    { key: 'triggers', label: 'Scheduled triggers', default: false },
+    { key: 'connectors', label: 'Chat connectors (Telegram bots)', default: false },
+    { key: 'mcp_jobs', label: 'Agent tasks and jobs', default: false },
   ],
   general_features: [{ key: 'fine_tuning', label: 'Fine-Tuning', default: false }],
 }

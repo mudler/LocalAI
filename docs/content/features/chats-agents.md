@@ -60,13 +60,16 @@ was deleted.
 ### Pages
 
 The Agents page (**Agents** in the sidebar, `/app/agents`) lists your agents with the chats that ran with
-each one, and a page for one agent (`/app/agents/{id}`) shows its definition, the
-triggers that start it and its chats. Create and edit an agent in a form of
-folds with a preview of the definition and of what changed. An agent exports to a
-JSON file (name, description, instructions, model and the four lists, with no id,
-dates or secrets) and the same file imports on another instance. The import also
-reads the JSON export of an older agent, and names what it could not take over.
-Chat with an agent from its row: the chats page opens with the agent chosen.
+each one, and links to the **Triggers** and the [**Tasks**](/features/agent-jobs/).
+A page for one agent (`/app/agents/{id}`) shows its definition, the triggers that
+start it and its run history from the server (the chats you had with it and the
+ones its triggers and connectors started). Create and edit an agent in a form of
+folds with a preview of the definition and of what changed. **Export** and
+**Import** use the server's agent file (see below); the import opens the new
+agent and says what the server changed. It also reads the JSON export of an
+older agent, and names what it could not take over. With no agents yet, the
+page offers the server's starter agents. Chat with an agent from its row: the
+chats page opens with the agent chosen.
 
 ### API
 

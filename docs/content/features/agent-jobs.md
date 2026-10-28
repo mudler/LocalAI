@@ -22,6 +22,16 @@ administrator grants it in **Settings → Users and keys** and has it always. Se
 turns the jobs off with the rest of the chats.
 {{% /notice %}}
 
+## The Tasks page
+
+**Agents > Tasks** (`/app/agent-tasks`) lists your tasks and their jobs. It
+creates and edits a task (name, description, a model or one of your saved
+agents, the prompt, on or off), runs one (it asks for each parameter the
+prompt names), and shows each job's status, result, traces and webhook
+outcome, with **Cancel**, **Run again** and **Delete**. Webhooks are set over
+the API; the page keeps a task's webhooks as they are. An administrator can
+tick **All users** to see the tasks and jobs of every user, read-only.
+
 ## A task
 
 ```

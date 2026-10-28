@@ -585,31 +585,54 @@ The chat page in the web UI (`/app/chats`) talks to this API, so a chat started
 there keeps running when you close the tab and opens again from any browser.
 
 - **Conversations.** `Ctrl+K` (`Cmd+K` on a Mac), or **Chats** in the header,
-  opens the list of your chats, grouped by day. Search the names, open, rename
-  (`F2`), export as Markdown or delete one. A deleted chat can be brought back
-  for a few seconds with **Undo**; then the server deletes it.
+  opens the list of your chats, grouped by day. Type to find a chat by its name
+  or by what was said in it (the server search); the line under a match shows
+  where it matched. Open, rename (`F2`), export as Markdown or delete one. A
+  deleted chat can be brought back for a few seconds with **Undo**; then the
+  server deletes it.
 - **A new chat.** Pick the model and, if you have [saved agents](/features/chats-agents/),
-  an agent in the message box, then send. A chat keeps its model: picking another
-  model in an open chat starts a new chat with it. `/assistant` starts a chat
-  with the LocalAI management tools (administrators, when the assistant is on).
-- **While the model works** you can keep typing. A message you send waits over
-  the message box and reaches the model at its next step; edit or cancel it
-  until then. `Esc` or **Stop** ends the turn; waiting messages stay for
-  **Send now**. `Up` in an empty box edits the last waiting message, or puts
-  your last message back in the box.
-- **Tools and Skills** menus over the message box switch them for this chat (see
-  above). Changes an add-on tool made show under the tool line with **Undo**
-  when the add-on can undo them, and MCP Apps show live under their tool call.
+  an agent in the message box, then send. Picking another model in an open chat
+  moves the chat to it from the next turn (not while a turn runs).
+  `/assistant` starts a chat with the LocalAI management tools (administrators,
+  when the assistant is on).
+- **Chat settings** (the sliders icon in the header) holds the settings above:
+  a system prompt, temperature, top P, top K, context size and reasoning
+  effort. **Save settings** sends them all; they apply from the next turn.
+- **While the model works** you can keep typing and attach files. A message you
+  send waits over the message box and reaches the model at its next step;
+  edit or cancel it until then. `Esc` or **Stop** ends the turn; waiting
+  messages stay for **Send now**. `Up` in an empty box edits the last waiting
+  message, or puts your last message back in the box.
+- **On a message**: **Edit** (your message) replaces it and runs the chat
+  again from it, **Regenerate** (the last answer) answers again, and
+  **Branch** copies the chat up to that message into a new chat. The keys are
+  `E`, `R` and `B` on a focused message.
+- **More** exports the chat as Markdown or JSON and imports a JSON export as a
+  new chat. Chats that the old chat page kept in this browser are offered for
+  import once (`POST /api/chats/import/browser`); the browser's copy is
+  removed when none failed.
+- **Under the message box** the foot shows the context meter and the speed of
+  the last model request (from the `usage` events). It turns amber above 80
+  percent of the window and red above 90.
+- **Tools, Skills and Sub-agents** menus over the message box switch tools and
+  skills for this chat (see above; a skill is switched by its `id`), and list
+  the sub-agents of the chat with their transcript and a **Stop** for a
+  running one. The Tools menu says whether the Sandbox add-on runs commands
+  isolated, directly on this machine, or not at all. Changes an add-on tool
+  made show under the tool line with **Undo** when the add-on can undo them; a
+  call the add-on refused (`not_permitted`, `resource_unreachable`,
+  `not_running`, `invalid_request`) says why. MCP Apps show live under their
+  tool call.
+- **A trigger the model proposes** shows as a card under its tool line with
+  **Create trigger**, **Edit** (name and schedule or folder) and **Dismiss**.
 - **Find** (`Ctrl+Shift+F`), **Canvas** (code blocks in a side panel), focus
-  mode, copying or exporting the chat as Markdown and the keyboard shortcuts
-  work as before.
+  mode, copying the chat as Markdown and the keyboard shortcuts work as
+  before.
 
-The server keeps the transcript as it happened, so a sent message is not edited
-in place: **Edit** on your message puts its text back in the box, and
-**Regenerate** sends the question before an answer again. The browser-only
-settings of the old chat page (system prompt, temperature, top P, top K,
-context size, reasoning effort) are gone: put instructions in a
-[saved agent](/features/chats-agents/) and sampling in the model configuration.
+Administrators find every user's agents, triggers and connectors under
+**Operate > Settings > Chats of all users**. The [agent tasks and
+jobs](/features/agent-jobs/) have a page of their own, **Agents > Tasks**
+(`/app/agent-tasks`).
 
 ## Moving from the old chat
 
