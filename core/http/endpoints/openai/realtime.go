@@ -659,6 +659,11 @@ func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok 
 		return prepareAnyToAnyConfig(cfg)
 	}
 	if cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
+		// llama.cpp has no VAD, transcription or TTS RPCs, so a model that
+		// names no pipeline would fail later with UNIMPLEMENTED on every slot.
+		if config.IsLlamaCppBackend(cfg.Backend) {
+			return "invalid_pipeline", "a llama-cpp realtime_audio model must set pipeline.any_to_any: true", false
+		}
 		if cfg.Pipeline.VAD == "" {
 			cfg.Pipeline.VAD = cfg.Name
 		}
