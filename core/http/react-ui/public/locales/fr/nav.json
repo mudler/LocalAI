@@ -96,7 +96,8 @@
     "chats": "Chats",
     "files": "Fichiers",
     "triggers": "Déclencheurs",
-    "mcpConnectors": "Connecteurs MCP"
+    "mcpConnectors": "Connecteurs MCP",
+    "chatsAdmin": "Chats de tous les utilisateurs"
   },
   "footer": {
     "github": "GitHub",

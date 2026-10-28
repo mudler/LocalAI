@@ -136,6 +136,7 @@ export const operateHub = {
       items: [
         { path: '/app/settings', labelKey: 'items.settings', adminOnly: true },
         { path: '/app/users', labelKey: 'items.users', adminOnly: true, authOnly: true },
+        { path: '/app/chats-admin', labelKey: 'items.chatsAdmin', adminOnly: true, feature: 'chats' },
       ],
     },
   ],

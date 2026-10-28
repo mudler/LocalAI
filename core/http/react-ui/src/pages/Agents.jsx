@@ -10,12 +10,14 @@ import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 // eslint-disable-next-line no-unused-vars
 import ActionMenu from '../components/ActionMenu'
 import Icon from '../components/Icon'
+import { useAuth } from '../context/AuthContext'
+import { useHubAuth } from '../components/hub/useHubAuth'
 // eslint-disable-next-line no-unused-vars
 import { StatusMark, RunStrip, RecordLine, Chip, LibraryChips, agentPath } from '../components/agents/AgentBits'
 import { agentInfo } from '../utils/agentInfo'
 import { outcomeLine, recordStatus, runOfChat } from '../utils/agentRuns'
-import { AGENT_TEMPLATES, exportAgent, importAgent } from '../utils/agentConfigTools'
-import { downloadJSON } from '../utils/download'
+import { AGENT_TEMPLATES } from '../utils/agentConfigTools'
+import { downloadAgentFile, importAgentFile } from '../utils/agentFiles'
 import './agents.css'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -30,6 +32,15 @@ export default function Agents() {
   const [off, setOff] = useState('')
   const [search, setSearch] = useState('')
   const [toDelete, setToDelete] = useState(null)
+  const { hasFeature } = useAuth()
+  const { features } = useHubAuth()
+  const canTriggers = hasFeature('triggers') && features.triggers !== false
+  const canTasks = hasFeature('mcp_jobs') && features.agent_jobs !== false
+  // The starter agents of the server; null until read, [] when it has none.
+  const [templates, setTemplates] = useState(null)
+  useEffect(() => {
+    chatAgentsApi.templates().then(r => setTemplates(r.templates || [])).catch(() => setTemplates([]))
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -95,22 +106,31 @@ export default function Agents() {
     }
   }
 
-  const handleExport = (agent) => {
-    downloadJSON(`${agent.name}.json`, exportAgent(agent))
-    addToast(t('toasts.exported', { name: agent.name }), 'success')
-  }
+  const handleExport = (agent) => downloadAgentFile(agent, addToast, t)
 
+  // The server makes the new agent; the page opens it and says what changed.
   const handleImport = async (e) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     try {
-      const read = importAgent(JSON.parse(await file.text()))
-      if (!read) throw new Error(t('toasts.notAnAgent'))
-      navigate('/app/agents/new', { state: { importedConfig: read } })
+      const { agent, warnings, dropped } = await importAgentFile(await file.text())
+      const notes = [...warnings, ...(dropped.length ? [t('toasts.importDropped', { fields: dropped.join(', ') })] : [])]
+      addToast(notes.length ? t('toasts.importedWith', { name: agent.name, notes: notes.join(' ') }) : t('toasts.imported', { name: agent.name }), notes.length ? 'warning' : 'success', 6000)
+      navigate(agentPath(agent.id))
     } catch (err) {
       addToast(t('toasts.parseFailed', { message: err.message }), 'error')
     }
-    e.target.value = ''
+  }
+
+  const startFromTemplate = async (tpl) => {
+    try {
+      const agent = await chatAgentsApi.fromTemplate(tpl.id)
+      addToast(t('toasts.fromTemplate', { name: agent.name }), 'success')
+      navigate(agentPath(agent.id, '/edit'))
+    } catch (err) {
+      addToast(t('toasts.templateFailed', { message: err.message }), 'error')
+    }
   }
 
   const importLabel = (
@@ -129,6 +149,8 @@ export default function Agents() {
           <div className="header-actions">
             {/* A label styled as a button, wrapping the file input it triggers,
                 so the control looks and behaves like its neighbours. */}
+            {canTriggers && <Link className="btn btn-secondary" to="/app/triggers"><Icon name="clock" /> {t('actions.triggers')}</Link>}
+            {canTasks && <Link className="btn btn-secondary" to="/app/agent-tasks"><Icon name="checklist" /> {t('actions.tasks')}</Link>}
             {importLabel}
             <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
               <Icon name="plus" /> {t('actions.createAgent')}
@@ -149,7 +171,15 @@ export default function Agents() {
           <p>{t('empty.noConfiguredText')}</p>
           <p className="ag-eyebrow">{t('empty.startWith')}</p>
           <div className="ag-list">
-            {AGENT_TEMPLATES.filter(x => x.id !== 'blank').map(x => (
+            {templates && templates.length > 0 ? templates.map(x => (
+              <div key={x.id} className="ag-row ag-row--two" data-testid="agent-template">
+                <div className="ag-row__main">
+                  <span className="ag-row__name">{x.name}</span>
+                  <span className="ag-row__desc">{x.description}</span>
+                </div>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => startFromTemplate(x)}>{t('empty.useTemplate')}</button>
+              </div>
+            )) : templates && AGENT_TEMPLATES.filter(x => x.id !== 'blank').map(x => (
               <div key={x.id} className="ag-row ag-row--two">
                 <div className="ag-row__main">
                   <Link className="ag-row__name" to={`/app/agents/new?template=${x.id}`}>{t(`templates.${x.id}.label`)}</Link>

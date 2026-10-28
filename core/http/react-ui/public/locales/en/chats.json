@@ -109,7 +109,9 @@
     "skill": "The skill file is deleted for good.",
     "confirm": "Delete",
     "pending": "Deleting",
-    "mcp": "The connector is deleted with its saved token, headers and environment. A saved agent that names it can no longer use it."
+    "mcp": "The connector is deleted with its saved token, headers and environment. A saved agent that names it can no longer use it.",
+    "task": "The task is deleted. Its jobs stay until their retention passes.",
+    "connector": "The connector stops and its settings are deleted."
   },
   "memoryNotice": "Chats are kept in memory only. They are lost when the server restarts.",
   "attach": {

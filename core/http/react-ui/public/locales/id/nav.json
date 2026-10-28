@@ -70,7 +70,8 @@
     "chats": "Chats",
     "files": "Berkas",
     "triggers": "Pemicu",
-    "mcpConnectors": "Konektor MCP"
+    "mcpConnectors": "Konektor MCP",
+    "chatsAdmin": "Obrolan semua pengguna"
   },
   "footer": {
     "github": "GitHub",

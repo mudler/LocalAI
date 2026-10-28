@@ -86,6 +86,8 @@ const Skills = page('skills', () => import('./pages/Skills'))
 const SkillEdit = page(null, () => import('./pages/SkillEdit'))
 const AgentJobs = page('triggers', () => import('./pages/AgentJobs'))
 const AgentTaskDetails = page(null, () => import('./pages/AgentTaskDetails'))
+const AgentTasks = page('agent-tasks', () => import('./pages/AgentTasks'))
+const ChatsAdmin = page('chats-admin', () => import('./pages/ChatsAdmin'))
 const ChatConnectors = page('chats', () => import('./pages/ChatConnectors'))
 const ChatConversion = page('chats', () => import('./pages/ChatConversion'))
 const Models = page('models', () => import('./pages/Models'))
@@ -243,6 +245,15 @@ function DrawerGate({ children }) {
   return children
 }
 
+// A page of a part the server can switch off (/api/features): with it off the
+// address leads to `to`. An absent key counts as on.
+function ServerSwitch({ name, to, children }) {
+  const { features, featuresLoaded } = useHubAuth()
+  if (!featuresLoaded) return null
+  if (features[name] === false) return <Navigate to={to} replace />
+  return children
+}
+
 function Feature({ feature, disabled, children }) {
   return <RequireFeature feature={feature} disabled={disabled}>{children}</RequireFeature>
 }
@@ -272,6 +283,7 @@ const appChildren = [
   { path: 'triggers/new', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
   { path: 'triggers/:id/edit', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
   { path: 'triggers/:id', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
+  { path: 'agent-tasks', element: <Feature feature="mcp_jobs"><ServerSwitch name="agent_jobs" to="/app/agents"><AgentTasks /></ServerSwitch></Feature> },
   { path: 'image', element: <StudioTabRedirect legacy="image" /> },
   { path: 'image/:model', element: <StudioTabRedirect legacy="image" /> },
   { path: 'video', element: <StudioTabRedirect legacy="video" /> },
@@ -353,6 +365,7 @@ const appChildren = [
       { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
       { path: 'usage', element: <Usage /> },
       { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
+      { path: 'chats-admin', element: <Admin><ServerSwitch name="chats" to="/app/operate"><ChatsAdmin /></ServerSwitch></Admin> },
       { path: 'middleware', element: <Admin><Middleware /></Admin> },
       { path: 'failover', element: <Admin><Failover /></Admin> },
     ],

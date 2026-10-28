@@ -2,10 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { chatAgentsApi, chatTriggersApi, chatsApi } from '../utils/api'
+import { chatAgentsApi, chatTriggersApi } from '../utils/api'
 import { agentInfo } from '../utils/agentInfo'
-import { exportAgent } from '../utils/agentConfigTools'
-import { downloadJSON } from '../utils/download'
+import { downloadAgentFile } from '../utils/agentFiles'
 import { outcomeLine, recordStatus, runOfChat, STRIP_LENGTH, titleOf } from '../utils/agentRuns'
 // eslint-disable-next-line no-unused-vars
 import { StatusMark, RunStrip, RecordLine, Chip, LibraryChips, formatWhen, agentPath } from '../components/agents/AgentBits'
@@ -42,11 +41,13 @@ export default function AgentPage() {
       if (!found) { setMissing(true); return }
       setAgent(found)
       setMissing(false)
-      const [convs, trig] = await Promise.all([
-        chatsApi.list(200).catch(() => ({ conversations: [] })),
+      // The server's run history holds the chats you had with the agent and
+      // the ones its triggers and connectors started.
+      const [hist, trig] = await Promise.all([
+        chatAgentsApi.runs(found.id, 200).catch(() => ({ runs: [] })),
         chatTriggersApi.list().catch(() => ({ triggers: [] })),
       ])
-      setChats((convs.conversations || []).filter(c => c.agent_id === found.id && c.kind !== 'subagent'))
+      setChats((hist.runs || []).map(r => ({ ...r, id: r.chat_id })))
       setTriggers((trig.triggers || []).filter(x => x.agent_id === found.id))
     } catch (err) {
       addToast(t('toasts.loadFailed', { message: err.message }), 'error')
@@ -113,7 +114,7 @@ export default function AgentPage() {
             <ActionMenu
               ariaLabel={t('actions.moreFor', { name: agent.name })}
               items={[
-                { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => { downloadJSON(`${agent.name}.json`, exportAgent(agent)); addToast(t('toasts.exported', { name: agent.name }), 'success') } },
+                { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => downloadAgentFile(agent, addToast, t) },
                 { divider: true },
                 { key: 'delete', icon: 'trash', label: t('actions.delete'), danger: true, onClick: () => setToDelete(agent) },
               ]}

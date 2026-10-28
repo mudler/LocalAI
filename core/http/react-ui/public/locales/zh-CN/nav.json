@@ -70,7 +70,8 @@
     "chats": "聊天会话",
     "files": "文件",
     "triggers": "触发器",
-    "mcpConnectors": "MCP 连接器"
+    "mcpConnectors": "MCP 连接器",
+    "chatsAdmin": "所有用户的聊天"
   },
   "footer": {
     "github": "GitHub",

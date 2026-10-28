@@ -14,7 +14,7 @@ export const primaryDestinations = Object.freeze([
   // connectors, and the skills they use.
   {
     path: '/app/agents', icon: 'robot', labelKey: 'items.agents', feature: 'agents',
-    match: ['/app/triggers', '/app/skills', '/app/chats/connectors'],
+    match: ['/app/triggers', '/app/skills', '/app/chats/connectors', '/app/agent-tasks'],
   },
   // The user's own MCP servers, which chats and agents can use.
   { path: '/app/mcp-connectors', icon: 'plug', labelKey: 'items.mcpConnectors', feature: 'chats' },

@@ -70,7 +70,8 @@
     "chats": "Chats",
     "files": "Arquivos",
     "triggers": "Gatilhos",
-    "mcpConnectors": "Conectores MCP"
+    "mcpConnectors": "Conectores MCP",
+    "chatsAdmin": "Chats de todos os usuários"
   },
   "footer": {
     "github": "GitHub",

@@ -70,7 +70,8 @@
     "chats": "채팅 세션",
     "files": "파일",
     "triggers": "트리거",
-    "mcpConnectors": "MCP 커넥터"
+    "mcpConnectors": "MCP 커넥터",
+    "chatsAdmin": "모든 사용자의 채팅"
   },
   "footer": {
     "github": "GitHub",
