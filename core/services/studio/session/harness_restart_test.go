@@ -3,6 +3,7 @@ package session_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -55,5 +56,19 @@ func TestATurnWithNoHarnessAfterARestartFailureTellsTheUser(t *testing.T) {
 	}
 	if !sawError {
 		t.Fatal("the turn ended with no error event: the user's message was swallowed")
+	}
+}
+
+// The workspace administrator is a principal of its own. A chat actor that
+// could carry that name would write anywhere in the workspace.
+func TestAChatCannotBeOpenedAsTheWorkspaceAdministrator(t *testing.T) {
+	m, err := session.New(session.Options{Store: sessiontest.NewMemoryStore(), Harness: &sessiontest.FakeHarness{}, StateDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = m.Close(context.Background()) })
+	a := workspace.Actor{Principal: workspace.StudioAdmin, ChatID: "c1"}
+	if _, err := m.Open(context.Background(), a, "c1"); !errors.Is(err, session.ErrInvalid) {
+		t.Fatalf("Open as the administrator = %v, want ErrInvalid", err)
 	}
 }

@@ -22,8 +22,9 @@ func copyActor(a workspace.Actor) workspace.Actor {
 }
 
 // validPrincipal reports whether p can be one path segment of a home folder.
+// The workspace administrator is not a user.
 func validPrincipal(p string) bool {
-	return p != "" && p != "." && p != ".." && !strings.ContainsAny(p, "/\\\x00")
+	return p != "" && p != workspace.StudioAdmin && p != "." && p != ".." && !strings.ContainsAny(p, "/\\\x00")
 }
 
 // sameActor reports whether two actors have the same principal, chat and set

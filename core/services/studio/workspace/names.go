@@ -12,6 +12,11 @@ import (
 
 const maxNameBytes = 255
 
+// StudioAdmin is the principal of the workspace administrator, which creates
+// homes and grants access. It is not a user: no service takes it as the
+// principal of a chat or a home.
+const StudioAdmin = "@studio-admin"
+
 // cleanName normalizes one path segment to NFC and checks the name rules.
 func cleanName(s string) (string, error) {
 	if !utf8.ValidString(s) {

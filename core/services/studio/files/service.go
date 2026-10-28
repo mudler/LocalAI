@@ -16,7 +16,7 @@ import (
 
 // AdminPrincipal is the principal the service uses to create homes and grant
 // access. It cannot be a user: EnsureHome refuses it.
-const AdminPrincipal = "@studio-admin"
+const AdminPrincipal = workspace.StudioAdmin
 
 // ErrUnavailable means the workspace is off. Its text is the reason.
 var ErrUnavailable = errors.New("files are off")
