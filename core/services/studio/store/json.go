@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -205,6 +206,42 @@ func (s *jsonStore) save(c *chatState) error {
 		return errors.Join(werr, serr, cerr)
 	}
 	return os.Rename(tmp.Name(), s.file(c.Rec.ID, ".json"))
+}
+
+// appendFile is the part of an open file that appendTo needs.
+type appendFile interface {
+	io.Writer
+	Truncate(size int64) error
+}
+
+// appendLines appends data, whole lines, to the file at p.
+func appendLines(p string, data []byte) error {
+	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	var size int64
+	if fi, err := f.Stat(); err == nil {
+		size = fi.Size()
+	} else {
+		_ = f.Close()
+		return err
+	}
+	err = appendTo(f, size, data)
+	return errors.Join(err, f.Close())
+}
+
+// appendTo writes data after size bytes. When it fails it cuts the
+// file back to size: a short write left in place would put the next entry on
+// the same line, and the loader drops a damaged line, so both would be lost.
+func appendTo(f appendFile, size int64, data []byte) error {
+	_, err := f.Write(data)
+	if err != nil {
+		if terr := f.Truncate(size); terr != nil {
+			err = errors.Join(err, terr)
+		}
+	}
+	return err
 }
 
 // get returns the chat when principal owns it. The caller holds s.mu.
@@ -451,16 +488,8 @@ func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) (
 		if err != nil {
 			return 0, err
 		}
-		f, err := os.OpenFile(s.file(id, ".entries"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-		if err != nil {
+		if err := appendLines(s.file(id, ".entries"), append(raw, '\n')); err != nil {
 			return 0, err
-		}
-		_, werr := f.Write(append(raw, '\n'))
-		if cerr := f.Close(); werr == nil {
-			werr = cerr
-		}
-		if werr != nil {
-			return 0, werr
 		}
 	}
 	c.entries = append(c.entries, e)
@@ -499,16 +528,8 @@ func (s *jsonStore) AppendEntries(_ context.Context, id string, entries []sessio
 		}
 	}
 	if s.dir != "" {
-		f, err := os.OpenFile(s.file(id, ".entries"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-		if err != nil {
+		if err := appendLines(s.file(id, ".entries"), lines); err != nil {
 			return err
-		}
-		_, werr := f.Write(lines)
-		if cerr := f.Close(); werr == nil {
-			werr = cerr
-		}
-		if werr != nil {
-			return werr
 		}
 	}
 	c.entries = append(c.entries, batch...)
