@@ -324,12 +324,14 @@ var BackendCapabilities = map[string]BackendCapability{
 	// narrowed per model in VoiceCloningForModel, since the vast majority of
 	// llama-cpp models in the gallery are text LLMs that clone nothing.
 	"llama-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding, MethodTokenizeString, MethodScore, MethodTTS, MethodTTSStream},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision, UsecaseScore, UsecaseDecisions, UsecaseTTS},
-		DefaultUsecases:  []string{UsecaseChat},
-		AcceptsImages:    true, // requires mmproj
-		VoiceCloning:     referenceVoiceCloning(),
-		Description:      "llama.cpp GGUF models: LLM inference with optional vision via mmproj, and Qwen3-TTS speech with reference-audio cloning",
+		GRPCMethods: []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding, MethodTokenizeString, MethodScore, MethodTTS, MethodTTSStream,
+			MethodAudioTranscription, MethodAudioToAudioStream},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision, UsecaseScore, UsecaseDecisions, UsecaseTTS,
+			UsecaseTranscript, UsecaseRealtimeAudio},
+		DefaultUsecases: []string{UsecaseChat},
+		AcceptsImages:   true, // requires mmproj
+		VoiceCloning:    referenceVoiceCloning(),
+		Description:     "llama.cpp GGUF models: LLM inference with optional vision via mmproj, Qwen3-TTS speech with reference-audio cloning, and LFM3-Audio speech recognition, text-to-speech and speech-to-speech",
 	},
 	// privacy-filter is the standalone GGML engine (backend/cpp/privacy-filter,
 	// wrapping privacy-filter.cpp) for the openai-privacy-filter PII/NER token
