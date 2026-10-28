@@ -207,8 +207,9 @@ var _ = Describe("realtime speech-to-speech", func() {
 		// A client commit does not start a response on its own.
 		Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
 		// The user item is added and its transcript reported.
-		names := eventTypeNames(tr.events())
-		Expect(names).To(ContainElements("conversation.item.added", "conversation.item.input_audio_transcription.completed"))
+		Expect(eventTypeNames(tr.events())).To(ContainElement("conversation.item.added"))
+		Eventually(func() []string { return eventTypeNames(tr.events()) }, 2*time.Second).
+			Should(ContainElement("conversation.item.input_audio_transcription.completed"))
 	})
 
 	It("does not hold the response back while the input is transcribed", func() {
@@ -245,10 +246,12 @@ var _ = Describe("realtime speech-to-speech", func() {
 		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
 		session.respSink.wait()
 
+		// The transcript runs detached from the response.
+		Eventually(func() []string { return eventTypeNames(tr.events()) }, 2*time.Second).
+			Should(ContainElement("conversation.item.input_audio_transcription.failed"))
 		names := eventTypeNames(tr.events())
-		Expect(names).To(ContainElement("conversation.item.input_audio_transcription.failed"))
 		Expect(names).ToNot(ContainElement("conversation.item.input_audio_transcription.completed"))
-		Expect(names[len(names)-1]).To(Equal("response.done"))
+		Expect(names).To(ContainElement("response.done"))
 		Expect(tr.countEvents(types.ServerEventTypeResponseOutputAudioTranscriptDone)).To(Equal(1))
 	})
 
