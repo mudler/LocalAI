@@ -20,6 +20,8 @@ export const SLASH_ACTIONS = [
   { id: 'mcp', cmd: '/mcp', icon: 'plug', group: 'go', needs: 'chats' },
   { id: 'memory', cmd: '/memory', icon: 'database', group: 'go', needs: 'collections' },
   { id: 'studio', cmd: '/studio', icon: 'palette', group: 'go', needs: 'studio' },
+  // The same command for an administrator while Studio is not installed.
+  { id: 'studioInstall', cmd: '/studio', icon: 'palette', group: 'go', needs: 'studio-missing' },
   { id: 'settings', cmd: '/settings', icon: 'settings', group: 'go', needs: 'admin' },
   { id: 'docs', cmd: '/docs', icon: 'book', group: 'go' },
 ]
@@ -34,6 +36,7 @@ export function availableActions(ctx) {
     // The server says whether the LocalAI assistant is on; only an admin may use it.
     if (a.needs === 'assistant') return ctx.isAdmin && ctx.assistantAvailable === true
     if (a.needs === 'studio') return ctx.studioInstalled === true
+    if (a.needs === 'studio-missing') return ctx.isAdmin && ctx.studioInstalled === false
     if (a.needs === 'chats') return ctx.hasChats === true
     if (a.needs === 'collections') return ctx.hasCollections === true
     return true

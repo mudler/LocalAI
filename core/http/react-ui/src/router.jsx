@@ -218,18 +218,24 @@ function Admin({ children }) {
 // With add-ons off (features.addons === false) the add-on addresses and the
 // old fine-tuning and quantization addresses lead back to /app. An absent key
 // counts as on.
-function AddonsOffRedirect({ children }) {
+// Home then says that add-ons are off and how to turn them on (state.addonsOff
+// names the add-on the address was for).
+function AddonsOffRedirect({ addon, children }) {
   const { features, featuresLoaded } = useHubAuth()
   if (!featuresLoaded) return null
-  if (features.addons === false) return <Navigate to="/app" replace />
+  if (features.addons === false) return <Navigate to="/app" replace state={{ addonsOff: addon }} />
   return children
 }
 
 function AddonsShell() {
   const { features, featuresLoaded } = useHubAuth()
   const outletContext = useOutletContext()
+  const { pathname } = useLocation()
   if (!featuresLoaded) return null
-  if (features.addons === false) return <Navigate to="/app" replace />
+  if (features.addons === false) {
+    const addon = /\/app\/addons\/([^/]+)/.exec(pathname)?.[1] || 'addons'
+    return <Navigate to="/app" replace state={{ addonsOff: addon }} />
+  }
   if (features.addon_navigation === false) return <HubLayout config={legacyAddonsHub} />
   return <Outlet context={outletContext} />
 }
@@ -325,8 +331,8 @@ const appChildren = [
   { path: 'build', element: <Navigate to="/app/models" replace /> },
   { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
   { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
-  { path: 'fine-tune', element: <AddonsOffRedirect><AddonRedirect addon="fine-tuning" page="jobs" /></AddonsOffRedirect> },
-  { path: 'quantize', element: <AddonsOffRedirect><AddonRedirect addon="quantization" page="jobs" /></AddonsOffRedirect> },
+  { path: 'fine-tune', element: <AddonsOffRedirect addon="fine-tuning"><AddonRedirect addon="fine-tuning" page="jobs" /></AddonsOffRedirect> },
+  { path: 'quantize', element: <AddonsOffRedirect addon="quantization"><AddonRedirect addon="quantization" page="jobs" /></AddonsOffRedirect> },
   { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
   { path: 'face/:model', element: <AddonRedirect addon="face" page="recognition" withModel /> },
   { path: 'voice', element: <AddonRedirect addon="voice" page="voice/recognition" /> },

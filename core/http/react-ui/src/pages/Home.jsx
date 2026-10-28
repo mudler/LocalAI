@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
 import { useAuth } from '../context/AuthContext'
@@ -32,6 +32,7 @@ import { staggerStyle } from '../hooks/useStagger'
 import Icon from '../components/Icon'
 
 const DOCS_URL = 'https://localai.io'
+const ADDONS_DOCS_URL = 'https://localai.io/features/addons/#turning-the-owner-on-or-off'
 
 function isTyping(el) {
   if (!el) return false
@@ -69,6 +70,12 @@ export default function Home() {
   const textareaRef = useRef(null)
   const pickerRef = useRef(null)
   const stripRef = useRef(null)
+  const location = useLocation()
+  const [addonsOn, setAddonsOn] = useState(true)
+  // An add-on address opened while add-ons are off on the server lands here
+  // (see AddonsShell); so does /studio without Studio installed. The notice
+  // says why, and how to get the add-on.
+  const [addonNotice, setAddonNotice] = useState(() => location.state?.addonsOff || '')
 
   // Detect distributed mode.
   useEffect(() => {
@@ -78,6 +85,7 @@ export default function Home() {
         setDistributedMode(!!data.distributed)
         setAssistantOn(!!data.localai_assistant)
         setCollectionsOn(data.collections !== false)
+        setAddonsOn(data.addons !== false)
       })
       .catch(() => {})
   }, [])
@@ -275,11 +283,15 @@ export default function Home() {
       case 'mcp': navigate('/app/mcp-connectors'); break
       case 'memory': navigate('/app/collections'); break
       case 'studio': if (studioPage) navigate(studioPage); break
+      case 'studioInstall':
+        if (addonsOn) navigate('/app/addons?tab=browse&q=studio')
+        else setAddonNotice('studio')
+        break
       case 'settings': navigate('/app/settings'); break
       case 'docs': window.open(DOCS_URL, '_blank', 'noopener,noreferrer'); break
       default: break
     }
-  }, [navigate, openNewChat, openAssistantChat, studioPage])
+  }, [navigate, openNewChat, openAssistantChat, studioPage, addonsOn])
 
   // "/" from anywhere that is not a text field starts a command.
   useEffect(() => {
@@ -365,6 +377,18 @@ export default function Home() {
         </div>
 
         <div className="home-below" style={staggerStyle(2)}>
+          {addonNotice && (
+            <div className="home-notice home-notice--info" role="note" data-testid="home-addons-off">
+              <Icon name="puzzle" />
+              <h3>{t('notice.addonsOffTitle')}</h3>
+              <p>{t(isAdmin ? 'notice.addonsOffAdmin' : 'notice.addonsOffReader', { name: addonNotice === 'studio' ? 'Studio' : addonNotice === 'addons' ? t('notice.thisPage') : addonNotice })}</p>
+              <div className="home-notice__acts">
+                <a className="home-secondary home-secondary--sm" href={ADDONS_DOCS_URL} target="_blank" rel="noopener noreferrer">{t('notice.addonsDocs')}</a>
+                <button type="button" className="home-secondary home-secondary--sm" onClick={() => setAddonNotice('')}>{t('notice.dismiss')}</button>
+              </div>
+            </div>
+          )}
+
           {modelsFailed && configuredModels === null && (
             <div className="home-notice home-notice--error" role="alert" data-testid="home-load-error">
               <Icon name="alert-circle" />

@@ -7,7 +7,8 @@ import Icon from '../Icon'
 // chat cannot use now is shown off, with the reason. The control renders
 // nothing when there is nothing to switch.
 //
-// groups: [{ key, title, rows: [{ key, label, title, on, usable, reason, onToggle }] }]
+// groups: [{ key, title, rows: [{ key, label, title, on, usable, reason, note, warn, onToggle }] }]
+// note is a line under the name (warn draws it as a warning).
 export default function SwitchMenu({ icon, label, title, heading, note, groups, error, footer, testId }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -64,6 +65,7 @@ export default function SwitchMenu({ icon, label, title, heading, note, groups, 
                   <span className="chat-mcp-server-info">
                     <span className="chat-mcp-server-name">{r.label}</span>
                     {r.usable === false && r.reason && <span className="chat-mcp-server-error">{r.reason}</span>}
+                    {r.note && <span className={r.warn ? 'chat-mcp-server-error' : 'chat-mcp-server-tools'} data-testid={`${testId}-note`}>{r.note}</span>}
                   </span>
                 </label>
               ))}

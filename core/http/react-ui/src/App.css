@@ -5111,6 +5111,9 @@ button.collapsible-header:focus-visible {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-error) 40%, transparent);
 }
 .home-notice > .lai-icon { margin-top: 2px; color: var(--dk-error-text); }
+/* An information notice, not a failure. */
+.home-notice--info { background: var(--dk-card); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.home-notice--info > .lai-icon { color: var(--color-text-secondary); }
 .home-notice h3 { margin: 0; font-size: 15px; font-weight: 650; }
 .home-notice p { grid-column: 2; margin: 0; color: var(--color-text-secondary); font-size: 14px; }
 .home-notice__acts { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

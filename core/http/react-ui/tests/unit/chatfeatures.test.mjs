@@ -101,3 +101,20 @@ test('tool refusals: the typed codes of the add-on tools are read, an untyped er
   assert.equal(toolRefusal(line({ kind: 'result' })), null)
   assert.equal(toolRefusal('read_file: /a\nplain text'), null)
 })
+
+test('sandbox state: the Tools picker reads isolated, host, cannot-run or unknown from the status read', async () => {
+  const { sandboxState } = await import('../../src/utils/sandboxStatus.js')
+  assert.deepEqual(sandboxState({ ok: true, canRun: true, active: 'gvisor' }), { state: 'isolated', backend: 'gvisor', reason: '' })
+  assert.equal(sandboxState({ ok: true, canRun: true, active: 'host', hostNotice: true }).state, 'host')
+  assert.deepEqual(sandboxState({ ok: true, canRun: false, backends: [{ name: 'kvm', usable: false, reason: 'no /dev/kvm' }] }), { state: 'cannot', backend: '', reason: 'no /dev/kvm' })
+  assert.equal(sandboxState(null).state, 'unknown')
+  assert.equal(sandboxState({ ok: false }).state, 'unknown')
+})
+
+test('home actions: an administrator without Studio gets Install Studio under the same command', async () => {
+  const { availableActions } = await import('../../src/components/home/homeActions.js')
+  const ids = (ctx) => availableActions(ctx).filter(a => a.cmd === '/studio').map(a => a.id)
+  assert.deepEqual(ids({ isAdmin: true, studioInstalled: false }), ['studioInstall'])
+  assert.deepEqual(ids({ isAdmin: true, studioInstalled: true }), ['studio'])
+  assert.deepEqual(ids({ isAdmin: false, studioInstalled: false }), [])
+})

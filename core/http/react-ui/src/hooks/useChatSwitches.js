@@ -4,6 +4,9 @@ import { connectorRef, toggleOff, toolsCounts } from '../utils/chatMCP'
 
 const noMCP = { servers: [], connectors: [], off: [] }
 
+// The id the server gives a skill; an older server sends the name only.
+export const skillKey = (s) => s.id || s.name
+
 // What a chat can use besides its built-in tools, with a switch each: add-ons,
 // the MCP servers of its model, the user's MCP connectors and the skills. A
 // chat with an agent lists only what the agent grants. A switch changes the
@@ -68,13 +71,15 @@ export function useChatSwitches(chatId, filesOn) {
     }
   }, [mcp, chatId])
 
-  const toggleSkill = useCallback(async (name, on) => {
+  // A switch names the skill by its id ("layer:name"): a plain name would
+  // turn off whichever skill of that name wins, not this one.
+  const toggleSkill = useCallback(async (id, on) => {
     const before = skills
-    const next = skills.map((s) => (s.name === name ? { ...s, enabled: on } : s))
+    const next = skills.map((s) => (skillKey(s) === id ? { ...s, enabled: on } : s))
     setSkills(next)
     setError('')
     try {
-      await chatSkillsApi.setOff(chatId, next.filter((s) => !s.enabled).map((s) => s.name).sort())
+      await chatSkillsApi.setOff(chatId, next.filter((s) => !s.enabled).map(skillKey).sort())
     } catch (e) {
       setSkills(before)
       setError(e.message || 'error')

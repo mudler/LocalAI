@@ -232,6 +232,10 @@
     "memory": {
       "label": "Memory",
       "desc": "Collections your chats can search"
+    },
+    "studioInstall": {
+      "label": "Install Studio",
+      "desc": "Studio makes images, audio and video. It is an add-on"
     }
   },
   "strip": {
@@ -262,7 +266,13 @@
     "stagingFailedBody": "The model could not be sent to a node. Nothing else was changed.",
     "stagingFailedBodyNode": "The model could not be sent to {{node}}. Nothing else was changed.",
     "openActivity": "Open Activity",
-    "details": "Details"
+    "details": "Details",
+    "addonsOffTitle": "Add-ons are off on this server",
+    "addonsOffAdmin": "{{name}} is an add-on. Start LocalAI with add-ons on, then install it from Add-ons.",
+    "addonsOffReader": "{{name}} is an add-on. Ask an administrator to turn add-ons on.",
+    "thisPage": "That page",
+    "addonsDocs": "How to turn add-ons on",
+    "dismiss": "Dismiss"
   },
   "library": {
     "label": "Library"

@@ -3,7 +3,7 @@ import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams 
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useServerChat } from '../hooks/useServerChat'
-import { useChatSwitches } from '../hooks/useChatSwitches'
+import { useChatSwitches, skillKey } from '../hooks/useChatSwitches'
 import { useInbox } from '../hooks/useInbox'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts } from '../utils/artifacts'
@@ -65,6 +65,8 @@ import { useAuth } from '../context/AuthContext'
 import AddonSlot from '../addons/AddonSlot'
 import { useOperations } from '../hooks/useOperations'
 import { useLoadedModels } from '../hooks/useLoadedModels'
+import { useSandboxStatus } from '../hooks/useSandboxStatus'
+import { SANDBOX_ADDON } from '../utils/sandboxStatus'
 import { copyToClipboard } from '../utils/clipboard'
 import Icon from '../components/Icon'
 import './chat.css'
@@ -180,6 +182,14 @@ function ChatPage() {
   const model = activeChat ? activeChat.model : draftModel
   const pickedAgent = agents.find((a) => a.id === (activeChat ? activeChat.agent_id : agentId))
   const switches = useChatSwitches(activeId, chat.files.on)
+  const sandbox = useSandboxStatus(switches.addons.some(a => a.id === SANDBOX_ADDON), activeId)
+  // What the Tools picker says under an add-on: the Sandbox's state.
+  const addonNote = (a) => {
+    if (a.id !== SANDBOX_ADDON || !sandbox || sandbox.state === 'unknown') return {}
+    if (sandbox.state === 'cannot') return { usable: false, reason: sandbox.reason ? tc('tools.sandbox.cannotWhy', { reason: sandbox.reason }) : tc('tools.sandbox.cannot') }
+    if (sandbox.state === 'host') return { note: tc('tools.sandbox.host'), warn: true }
+    return { note: tc('tools.sandbox.isolated', { backend: sandbox.backend }) }
+  }
   const messages = chat.messages
   const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
   const modelWarm = !!model && loadedIds.has(model)
@@ -782,7 +792,7 @@ function ChatPage() {
   const toolGroups = [
     {
       key: 'addons', title: tc('tools.addons'),
-      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, label: a.id, title: tc('addons.tools', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on) })),
+      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, label: a.id, title: tc('addons.tools', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on), ...addonNote(a) })),
     },
     {
       key: 'servers', title: tc('tools.servers'),
@@ -804,7 +814,7 @@ function ChatPage() {
       />
       <SwitchMenu
         icon="book" label={t('skills.label')} title={t('skills.title')} heading={t('skills.heading')}
-        groups={[{ key: 'skills', title: '', rows: switches.skills.map((s) => ({ key: `${s.layer}-${s.name}`, label: s.name, title: s.description, on: s.enabled, onToggle: (on) => switches.toggleSkill(s.name, on) })) }]}
+        groups={[{ key: 'skills', title: '', rows: switches.skills.map((s) => ({ key: `${s.layer}-${s.name}`, label: s.name, title: s.description, on: s.enabled, onToggle: (on) => switches.toggleSkill(skillKey(s), on) })) }]}
         error={switches.error} testId="chat-skills"
       />
       <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />

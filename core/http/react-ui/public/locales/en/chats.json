@@ -320,7 +320,13 @@
     "servers": "MCP servers of the model",
     "connectors": "Your connectors",
     "manage": "Manage connectors",
-    "tools": "{{count}} tools"
+    "tools": "{{count}} tools",
+    "sandbox": {
+      "isolated": "Runs commands isolated ({{backend}})",
+      "host": "Commands run directly on this machine, with no isolation",
+      "cannot": "Sandbox unavailable: this host cannot run commands",
+      "cannotWhy": "Sandbox unavailable: {{reason}}"
+    }
   },
   "mcpPage": {
     "intro": "An MCP server gives your chats tools to call. Your chats use the ones that are on. A saved agent uses a connector only when you pick it in its list. The server must be reachable from this machine and must use http or https; sign-in with OAuth is not supported yet, so use a token or a header.",
