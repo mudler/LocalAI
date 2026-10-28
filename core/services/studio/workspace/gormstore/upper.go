@@ -294,7 +294,7 @@ type upperCommit struct {
 	u    *upperSet
 	v    View
 	base int64
-	own  string         // JSON array of the caller's own revisions, for json_each
+	own  []int64        // the caller's own revisions, as ownRevisions kept them
 	open map[int]string // current path of each write mount that is not gone
 }
 
