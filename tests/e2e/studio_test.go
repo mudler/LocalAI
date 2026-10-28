@@ -133,7 +133,7 @@ var _ = Describe("Chats API", Label("Chats"), func() {
 
 	It("no longer serves the removed agent, job and conversation APIs", func() {
 		root := strings.TrimSuffix(apiURL, "/v1")
-		for _, path := range []string{"/api/agents", "/api/agent/tasks", "/api/agent/jobs", "/api/conversations"} {
+		for _, path := range []string{"/api/agents", "/api/conversations"} {
 			code, _ := chatsDo(http.MethodGet, root+path, nil)
 			Expect(code).To(Equal(http.StatusNotFound), path)
 		}
@@ -143,10 +143,10 @@ var _ = Describe("Chats API", Label("Chats"), func() {
 		stored := map[string]any{"chats": []any{map[string]any{"id": "c1", "name": "Old trip", "model": "mock-model",
 			"createdAt": 1700000000000, "updatedAt": 1700000100000,
 			"history": []any{map[string]any{"role": "user", "content": "plan a trip"}, map[string]any{"role": "assistant", "content": "ok"}}}}}
-		code, out := chatsDo(http.MethodPost, chatsBase()+"/import", stored)
+		code, out := chatsDo(http.MethodPost, chatsBase()+"/import/browser", stored)
 		Expect(code).To(Equal(http.StatusOK), string(out))
 		Expect(string(out)).To(ContainSubstring(`"imported":1`))
-		code, out = chatsDo(http.MethodPost, chatsBase()+"/import", stored)
+		code, out = chatsDo(http.MethodPost, chatsBase()+"/import/browser", stored)
 		Expect(code).To(Equal(http.StatusOK), string(out))
 		Expect(string(out)).To(ContainSubstring(`"imported":0`))
 		Expect(string(out)).To(ContainSubstring(`"skipped":1`))

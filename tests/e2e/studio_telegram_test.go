@@ -124,7 +124,7 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 
 	It("gives each sender a chat of their own and keeps one chat for one sender", func() {
 		token := "7003:chats"
-		id := bind(token, newAgent(), obj{"accept_any": true})
+		id := bind(token, newAgent(), obj{"accept_any": true, "confirm_accept_any": "accept any message"})
 		telegram.say(token, nextID(), 31, "first from 31")
 		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(1))
 		telegram.say(token, nextID(), 32, "first from 32")
@@ -171,7 +171,7 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 
 	It("answers a message with no text, a message that is too long and nothing for a group", func() {
 		token := "7005:content"
-		bind(token, newAgent(), obj{"accept_any": true})
+		bind(token, newAgent(), obj{"accept_any": true, "confirm_accept_any": "accept any message"})
 		telegram.queue(token, obj{"update_id": nextID(), "message": obj{"chat": obj{"id": 51, "type": "private"}, "from": obj{"id": 51}, "photo": []any{}}})
 		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(1))
 		Expect(telegram.sentBy(token)[0].Text).To(ContainSubstring("only read text"))
@@ -188,7 +188,7 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 
 	It("limits a sender to 20 messages a minute and says so once", func() {
 		token := "7006:rate"
-		id := bind(token, newAgent(), obj{"accept_any": true})
+		id := bind(token, newAgent(), obj{"accept_any": true, "confirm_accept_any": "accept any message"})
 		for i := 0; i < 23; i++ {
 			telegram.say(token, nextID(), 61, fmt.Sprintf("flood %d", i))
 		}

@@ -570,7 +570,7 @@ var _ = Describe("Chats inbox and push", Label("Chats"), func() {
 var _ = Describe("Removed agent, job and conversation APIs", Label("Chats"), func() {
 	It("answers 404 for the old routes and marks the moved collections path deprecated", func() {
 		root := strings.TrimSuffix(apiURL, "/v1")
-		for _, p := range []string{"/api/agents", "/api/agents/skills", "/api/agents/git-repos", "/api/agent/tasks", "/api/agent/jobs", "/api/conversations"} {
+		for _, p := range []string{"/api/agents", "/api/agents/skills", "/api/agents/git-repos", "/api/conversations"} {
 			code, _ := chatsDo(http.MethodGet, root+p, nil)
 			Expect(code).To(Equal(http.StatusNotFound), p)
 		}
