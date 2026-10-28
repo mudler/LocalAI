@@ -862,6 +862,17 @@ func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResp
 		config.Maxtokens = input.MaxOutputTokens
 	}
 
+	// reasoning.effort and request metadata reach the backend the same way as
+	// on chat/completions (see mergeOpenAIRequestAndModelConfig).
+	var effort string
+	if input.Reasoning != nil {
+		effort = input.Reasoning.Effort
+	}
+	config.ApplyReasoningEffort(effort)
+	if len(input.Metadata) > 0 {
+		config.RequestMetadata = input.Metadata
+	}
+
 	// Convert tools to functions - this will be handled in the endpoint handler
 	// We just validate that tools are present if needed
 

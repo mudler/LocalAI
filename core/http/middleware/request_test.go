@@ -426,6 +426,21 @@ var _ = Describe("MergeOpenResponsesConfig tool_choice parsing", func() {
 	})
 })
 
+var _ = Describe("MergeOpenResponsesConfig reasoning", func() {
+	It("applies reasoning.effort and forwards request metadata", func() {
+		cfg := &config.ModelConfig{}
+		req := &schema.OpenResponsesRequest{
+			Reasoning: &schema.ORReasoningParam{Effort: "none"},
+			Metadata:  map[string]string{"enable_thinking": "false"},
+		}
+		Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+		Expect(cfg.ReasoningEffort).To(Equal("none"))
+		Expect(cfg.ReasoningConfig.DisableReasoning).To(HaveValue(BeTrue()))
+		Expect(cfg.RequestMetadata).To(Equal(req.Metadata))
+	})
+})
+
 // ---------------------------------------------------------------------------
 // SetModelAndConfig + SetOpenAIRequest - /v1/chat/completions tool_choice parsing
 // ---------------------------------------------------------------------------
