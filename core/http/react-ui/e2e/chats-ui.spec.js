@@ -256,11 +256,14 @@ test.describe('Chats page with a stubbed API', () => {
       await expect.poll(() => api.state.calls.filter(c => c.body?.multipart).length).toBe(1)
     })
 
-    test('attaching is off while a turn runs, and says why', async ({ page }) => {
+    // The server takes files during a turn: the message and its files wait.
+    test('a file can be attached while a turn runs', async ({ page }) => {
       const api = newChatsApi(page, { running: true })
       await api.install()
       await page.goto('/app/chats/c1')
-      await expect(page.getByRole('button', { name: 'Attach file' })).toBeDisabled()
+      await expect(page.getByRole('button', { name: 'Attach file' })).toBeEnabled()
+      await attach(page)
+      await expect(page.getByTestId('attachment')).toContainText('notes.txt')
     })
 
     test('with files off there is no attach control, and the reason is shown', async ({ page }) => {
