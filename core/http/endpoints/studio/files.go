@@ -2,6 +2,7 @@ package studio
 
 import (
 	"errors"
+	"io"
 	"mime"
 	"net/http"
 	"path"
@@ -162,12 +163,9 @@ func (h *Handlers) GetFileContent(c echo.Context) error {
 		ct = ct[:i]
 	}
 	if ct == "" {
-		head := make([]byte, 512)
-		k, _ := r.Read(head)
-		_, _ = r.Seek(0, 0)
-		ct = http.DetectContentType(head[:k])
-		if i := strings.IndexByte(ct, ';'); i >= 0 {
-			ct = ct[:i]
+		var err error
+		if ct, err = sniffType(r); err != nil {
+			return fail(c, http.StatusInternalServerError, "server_error", "the file could not be read")
 		}
 	}
 	disposition := "attachment"
@@ -185,6 +183,25 @@ func (h *Handlers) GetFileContent(c echo.Context) error {
 	res.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
 	http.ServeContent(res, c.Request(), n.Name, time.Time{}, r)
 	return nil
+}
+
+// sniffType detects the content type from the start of r and rewinds r. A
+// reader that cannot rewind is an error: ServeContent would send the file from
+// the wrong offset with status 200.
+func sniffType(r io.ReadSeeker) (string, error) {
+	head := make([]byte, 512)
+	k, err := io.ReadFull(r, head)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return "", err
+	}
+	if _, err := r.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	ct := http.DetectContentType(head[:k])
+	if i := strings.IndexByte(ct, ';'); i >= 0 {
+		ct = ct[:i]
+	}
+	return ct, nil
 }
 
 // PutFileContent uploads a file.
