@@ -13,10 +13,12 @@ package remote
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -231,16 +233,23 @@ func writeArchive(ctx context.Context, upper workspace.UpperSource, w io.Writer)
 				return err
 			}
 			defer func() { _ = rc.Close() }()
-			body, err := io.ReadAll(rc)
+			body, size, err := sizedBody(rc)
 			if err != nil {
 				return err
 			}
-			h.Typeflag, h.Size = tar.TypeReg, int64(len(body))
+			h.Typeflag, h.Size = tar.TypeReg, size
 			if err := tw.WriteHeader(h); err != nil {
 				return err
 			}
-			_, err = tw.Write(body)
-			return err
+			// Stream the file, so a large file of the guest is not held in
+			// memory. A file that shrank after its size was read cannot fill
+			// the header, so the archive fails instead of going out torn.
+			if copied, err := io.Copy(tw, io.LimitReader(body, size)); err != nil {
+				return err
+			} else if copied != size {
+				return fmt.Errorf("remote: %s changed while it was read: %w", e.Path, io.ErrUnexpectedEOF)
+			}
+			return nil
 		case workspace.EntryDir:
 			h.Typeflag, h.Name = tar.TypeDir, strings.TrimSuffix(e.Path, "/")+"/"
 		case workspace.EntryWhiteout:
@@ -257,6 +266,19 @@ func writeArchive(ctx context.Context, upper workspace.UpperSource, w io.Writer)
 		return n, significant, err
 	}
 	return n, significant, tw.Close()
+}
+
+// sizedBody returns the content of an open file and its size. A file that
+// reports its own size, as an *os.File does, is streamed. Anything else is read
+// into memory to learn the size.
+func sizedBody(rc io.ReadCloser) (io.Reader, int64, error) {
+	if st, ok := rc.(interface{ Stat() (fs.FileInfo, error) }); ok {
+		if fi, err := st.Stat(); err == nil && fi.Mode().IsRegular() {
+			return rc, fi.Size(), nil
+		}
+	}
+	b, err := io.ReadAll(rc)
+	return bytes.NewReader(b), int64(len(b)), err
 }
 
 // The calls below are the ones a backend must not make. They answer
