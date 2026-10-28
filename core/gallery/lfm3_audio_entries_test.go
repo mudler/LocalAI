@@ -36,46 +36,95 @@ var _ = Describe("gallery/index.yaml LFM3-Audio entries", func() {
 		return gallery.File{}, false
 	}
 
-	It("declares the default Q4_K_M entry as a llama-cpp any-to-any model", func() {
-		e, ok := byName()["lfm3-audio-2b"]
-		Expect(ok).To(BeTrue())
-		Expect(e.Overrides["backend"]).To(Equal("llama-cpp"))
-		Expect(e.License).To(Equal("lfm1.0"))
-		Expect(e.Overrides["known_usecases"]).To(ConsistOf("realtime_audio", "chat", "transcript", "tts"))
-		Expect(e.Overrides["pipeline"]).To(HaveKeyWithValue("any_to_any", true))
-		Expect(e.Overrides["pipeline"]).ToNot(HaveKey("vad"), "VAD stays optional, so the entry does not name a VAD model")
-		Expect(e.Overrides["options"]).To(ConsistOf("parallel:2"))
-		Expect(e.Overrides["mmproj"]).To(Equal(mmprojQ8))
-		Expect(e.Overrides["template"]).To(HaveKeyWithValue("use_tokenizer_template", true))
-		Expect(e.Overrides["parameters"]).To(HaveKeyWithValue("model", "LFM3-Audio-2B-Q4_K_M.gguf"))
-		Expect(e.Variants).To(HaveLen(1))
-		Expect(e.Variants[0].Model).To(Equal("lfm3-audio-2b-q8"))
+	type shape struct {
+		model    string // weight file the entry points the backend at
+		pipeline bool   // chained pipeline instead of one speech-to-speech session
+		vad      bool
+	}
+	shapes := map[string]shape{
+		"lfm3-audio-2b":                 {model: "LFM3-Audio-2B-Q4_K_M.gguf"},
+		"lfm3-audio-2b-q8":              {model: "LFM3-Audio-2B-Q8_0.gguf"},
+		"lfm3-audio-2b-vad":             {model: "LFM3-Audio-2B-Q4_K_M.gguf", vad: true},
+		"lfm3-audio-2b-q8-vad":          {model: "LFM3-Audio-2B-Q8_0.gguf", vad: true},
+		"lfm3-audio-2b-pipeline":        {model: "LFM3-Audio-2B-Q4_K_M.gguf", pipeline: true},
+		"lfm3-audio-2b-q8-pipeline":     {model: "LFM3-Audio-2B-Q8_0.gguf", pipeline: true},
+		"lfm3-audio-2b-pipeline-vad":    {model: "LFM3-Audio-2B-Q4_K_M.gguf", pipeline: true, vad: true},
+		"lfm3-audio-2b-q8-pipeline-vad": {model: "LFM3-Audio-2B-Q8_0.gguf", pipeline: true, vad: true},
+	}
+
+	It("declares every any-to-any and chained-pipeline combination of quantization and VAD", func() {
+		entries := byName()
+		for name, want := range shapes {
+			e, ok := entries[name]
+			Expect(ok).To(BeTrue(), name)
+			Expect(e.Overrides["backend"]).To(Equal("llama-cpp"), name)
+			Expect(e.License).To(Equal("lfm1.0"), name)
+			Expect(e.Overrides["options"]).To(ConsistOf("parallel:2"), name)
+			Expect(e.Overrides["mmproj"]).To(Equal(mmprojQ8), name)
+			Expect(e.Overrides["template"]).To(HaveKeyWithValue("use_tokenizer_template", true), name)
+			Expect(e.Overrides["parameters"]).To(HaveKeyWithValue("model", want.model), name)
+			Expect(e.Overrides["tts"]).To(HaveKeyWithValue("voice", "female"), name)
+
+			pipe, _ := e.Overrides["pipeline"].(map[string]any)
+			if want.vad {
+				Expect(pipe).To(HaveKeyWithValue("vad", "silero-vad-ggml"), name)
+				Expect(strings.Join(strings.Fields(e.Description), " ")).To(ContainSubstring("install the silero-vad-ggml model first"), name)
+			} else {
+				Expect(pipe).ToNot(HaveKey("vad"), name)
+			}
+			if want.pipeline {
+				// A chained pipeline is not a realtime_audio model: llama-cpp
+				// models of that kind must be any-to-any, so the entry names
+				// itself in each slot instead.
+				Expect(e.Overrides["known_usecases"]).To(ConsistOf("chat", "transcript", "tts"), name)
+				Expect(pipe).ToNot(HaveKey("any_to_any"), name)
+				for _, slot := range []string{"llm", "transcription", "tts"} {
+					Expect(pipe).To(HaveKeyWithValue(slot, name), name+" "+slot)
+				}
+			} else {
+				Expect(e.Overrides["known_usecases"]).To(ConsistOf("realtime_audio", "chat", "transcript", "tts"), name)
+				Expect(pipe).To(HaveKeyWithValue("any_to_any", true), name)
+				Expect(pipe).ToNot(HaveKey("llm"), name)
+			}
+		}
 	})
 
-	It("declares the Q8_0 entry with the same projector and no variants of its own", func() {
-		e, ok := byName()["lfm3-audio-2b-q8"]
+	It("points every VAD entry at a VAD model that exists in the gallery", func() {
+		vad, ok := byName()["silero-vad-ggml"]
 		Expect(ok).To(BeTrue())
-		Expect(e.Overrides["backend"]).To(Equal("llama-cpp"))
-		Expect(e.License).To(Equal("lfm1.0"))
-		Expect(e.Overrides["known_usecases"]).To(ConsistOf("realtime_audio", "chat", "transcript", "tts"))
-		Expect(e.Overrides["pipeline"]).To(HaveKeyWithValue("any_to_any", true))
-		Expect(e.Overrides["options"]).To(ConsistOf("parallel:2"))
-		Expect(e.Overrides["mmproj"]).To(Equal(mmprojQ8))
-		Expect(e.Overrides["parameters"]).To(HaveKeyWithValue("model", "LFM3-Audio-2B-Q8_0.gguf"))
-		Expect(e.Variants).To(BeEmpty())
+		Expect(vad.Overrides["known_usecases"]).To(ConsistOf("vad"))
+	})
+
+	// The gallery has no model-to-model dependencies, so the entries stay
+	// independent. A variants list on the Q4 entry would let the installer
+	// pick the larger Q8 build on any host with enough memory, which is not
+	// what a plain install of lfm3-audio-2b should do.
+	It("keeps every entry independent so a plain install gets exactly the named build", func() {
+		entries := byName()
+		for name := range shapes {
+			Expect(entries[name].Variants).To(BeEmpty(), name)
+		}
+		for _, e := range entries {
+			for _, v := range e.Variants {
+				Expect(shapes).ToNot(HaveKey(v.Model), e.Name+" offers "+v.Model+" as a variant")
+			}
+		}
+		// Nothing to select between, whatever memory the host has.
+		base := entries["lfm3-audio-2b"]
+		desc, err := gallery.DescribeVariants(nil, &base, gallery.ResolveEnv{AvailableMemory: 1 << 40})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(desc).To(BeNil())
 	})
 
 	It("installs each weight and projector with the published sha256 from the GGUF repo", func() {
 		entries := byName()
-		want := map[string]map[string]string{
-			"lfm3-audio-2b": {
-				"LFM3-Audio-2B-Q4_K_M.gguf": "9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2",
-				mmprojQ8:                    mmprojSHA,
-			},
-			"lfm3-audio-2b-q8": {
-				"LFM3-Audio-2B-Q8_0.gguf": "d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0",
-				mmprojQ8:                  mmprojSHA,
-			},
+		shaOf := map[string]string{
+			"LFM3-Audio-2B-Q4_K_M.gguf": "9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2",
+			"LFM3-Audio-2B-Q8_0.gguf":   "d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0",
+		}
+		want := map[string]map[string]string{}
+		for name, sh := range shapes {
+			want[name] = map[string]string{sh.model: shaOf[sh.model], mmprojQ8: mmprojSHA}
 		}
 		for name, files := range want {
 			e := entries[name]
