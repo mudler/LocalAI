@@ -823,17 +823,34 @@ test-extra-backend-llama-cpp-transcription: docker-build-llama-cpp
 
 ## LFM3-Audio (LiquidAI) through the llama-cpp backend: a named-voice TTS
 ## (no speaker reference), the LFM3 ASR preset, and the tts/ttsstream/transcription
-## specs. Real weights, so it is a manual run and not part of CI. CPU is enough.
+## s2s specs. Real weights, so it is a manual run and not part of CI. CPU is enough.
 test-extra-backend-llama-cpp-lfm3: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
 	BACKEND_TEST_MODEL_URL=https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/main/LFM3-Audio-2B-Q4_K_M.gguf \
 	BACKEND_TEST_MMPROJ_URL=https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/main/mmproj-LFM3-Audio-2B-Q8_0.gguf \
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
-	BACKEND_TEST_CAPS=health,load,predict,tts,ttsstream,transcription \
+	BACKEND_TEST_CAPS=health,load,predict,tts,ttsstream,transcription,s2s \
 	BACKEND_TEST_CTX_SIZE=4096 \
 	BACKEND_TEST_TTS_TEXT="Hello from LocalAI." \
+	BACKEND_TEST_TTS_MIN_SECONDS=0.3 \
+	BACKEND_TEST_TTS_MAX_SECONDS=15 \
+	BACKEND_TEST_TTS_MIN_RMS=100 \
+	BACKEND_TEST_TRANSCRIPT_CONTAINS=country \
 	BACKEND_TEST_OPTIONS=parallel:2 \
 	$(MAKE) test-extra-backend
+
+## Real-weights realtime speech-to-speech e2e: LFM3-Audio on llama-cpp behind
+## /v1/realtime, no chained pipeline. The client speaks generated audio (sherpa
+## VITS) and a separate sherpa ASR checks the reply audio. MANUAL: not run in CI
+## (the CI variant is `make test-realtime`, which uses the mock backend and the
+## `!real-models` label filter). A GPU is recommended. Build the llama-cpp image
+## for your hardware first. LFM3_VARIANT=q8 selects lfm3-audio-2b-q8.
+test-realtime-s2s-real: build-mock-backend docker-build-llama-cpp docker-build-sherpa-onnx protogen-go
+	bash tests/e2e/run-realtime-lfm3.sh
+
+## Same, without rebuilding the backend images (they must already exist).
+test-realtime-s2s-real-nobuild: build-mock-backend protogen-go
+	bash tests/e2e/run-realtime-lfm3.sh
 
 ## privacy-filter: the PII/NER token-classification backend. Exercises the
 ## TokenClassify RPC and asserts byte-correct, UTF-8-aligned span offsets

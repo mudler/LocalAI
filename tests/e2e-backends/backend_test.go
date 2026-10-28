@@ -3,6 +3,7 @@ package e2ebackends_test
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -13,7 +14,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	laudio "github.com/mudler/LocalAI/pkg/audio"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/sound"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
@@ -93,6 +96,20 @@ import (
 //	BACKEND_TEST_TTS_TEXT    Override the text synthesized by the tts/ttsstream
 //	                         specs (default: "The quick brown fox jumps over the
 //	                         lazy dog.").
+//	BACKEND_TEST_TTS_MIN_SECONDS, BACKEND_TEST_TTS_MAX_SECONDS,
+//	BACKEND_TEST_TTS_MIN_RMS
+//	                         When any is set, the tts spec also decodes the WAV
+//	                         it wrote and asserts the duration is inside the
+//	                         range and the s16 RMS is at least the floor. This
+//	                         separates real speech from a silent or runaway
+//	                         (missing EOS) output.
+//	BACKEND_TEST_TRANSCRIPT_CONTAINS
+//	                         Comma-separated words; the transcription spec asserts
+//	                         the text contains at least one (case-insensitive),
+//	                         e.g. "country" for the jfk.wav sample.
+//	                         The "s2s" capability exercises AudioToAudioStream
+//	                         with BACKEND_TEST_AUDIO_* as the spoken input
+//	                         (a text turn with a tool, then its result).
 //
 // The suite is intentionally model-format-agnostic: it only ever passes the
 // file path to LoadModel, so GGUF, ONNX, safetensors, .bin etc. all work so
@@ -107,6 +124,7 @@ const (
 	capTools          = "tools"
 	capTranscription  = "transcription"
 	capTTS            = "tts"
+	capS2S            = "s2s"
 	capImage          = "image"
 	capFaceDetect     = "face_detect"
 	capFaceEmbed      = "face_embed"
@@ -826,6 +844,10 @@ var _ = Describe("Backend container", Ordered, func() {
 			"AudioTranscription returned empty text")
 		GinkgoWriter.Printf("AudioTranscription: text=%q language=%q duration=%v\n",
 			res.GetText(), res.GetLanguage(), res.GetDuration())
+		if want := os.Getenv("BACKEND_TEST_TRANSCRIPT_CONTAINS"); want != "" {
+			Expect(containsAnyFold(res.GetText(), strings.Split(want, ",")...)).To(BeTrue(),
+				"transcript %q contains none of %q", res.GetText(), want)
+		}
 	})
 
 	It("streams audio transcription via AudioTranscriptionStream", func() {
@@ -1186,6 +1208,7 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(info.Size()).To(BeNumerically(">", int64(1024)),
 			"TTS output too small: %d bytes", info.Size())
 		GinkgoWriter.Printf("TTS: wrote %s (%d bytes)\n", dst, info.Size())
+		assertTTSAudio(dst)
 	})
 
 	It("streams PCM via TTSStream", func() {
@@ -1220,6 +1243,167 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(totalBytes).To(BeNumerically(">", 1024),
 			"streamed audio too short: %d bytes", totalBytes)
 		GinkgoWriter.Printf("TTSStream: %d chunks, %d bytes\n", chunks, totalBytes)
+	})
+
+	It("runs a speech-to-speech session via AudioToAudioStream", func() {
+		if !caps[capS2S] {
+			Skip("s2s capability not enabled")
+		}
+		Expect(audioFile).NotTo(BeEmpty(),
+			"BACKEND_TEST_AUDIO_FILE or BACKEND_TEST_AUDIO_URL must be set when s2s cap is enabled")
+		raw, err := os.ReadFile(audioFile)
+		Expect(err).NotTo(HaveOccurred())
+		pcm, rate := laudio.ParseWAV(raw)
+		Expect(rate).To(BeNumerically(">", 0), "%s is not a WAV file", audioFile)
+		samples := sound.ResampleInt16(sound.BytesToInt16sLE(pcm), rate, 16000)
+		input := sound.Int16toBytesLE(samples)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer cancel()
+		stream, err := client.AudioToAudioStream(ctx)
+		Expect(err).NotTo(HaveOccurred())
+
+		tools, err := json.Marshal([]map[string]any{{
+			"type": "function",
+			"function": map[string]any{
+				"name":        "get_time",
+				"description": "Returns the current time.",
+				"parameters":  map[string]any{"type": "object", "properties": map[string]any{}},
+			},
+		}})
+		Expect(err).NotTo(HaveOccurred())
+		send := func(req *pb.AudioToAudioRequest) {
+			GinkgoHelper()
+			Expect(stream.Send(req)).To(Succeed())
+		}
+		control := func(event string, payload any) {
+			GinkgoHelper()
+			b, err := json.Marshal(payload)
+			Expect(err).NotTo(HaveOccurred())
+			send(&pb.AudioToAudioRequest{Payload: &pb.AudioToAudioRequest_Control{
+				Control: &pb.AudioToAudioControl{Event: event, Payload: b}}})
+		}
+
+		// A single reader goroutine, so Recv is never called concurrently.
+		type s2sEvent struct {
+			event string
+			pcm   []byte
+			meta  map[string]any
+			err   error
+		}
+		events := make(chan s2sEvent, 1024)
+		go func() {
+			defer GinkgoRecover()
+			defer close(events)
+			for {
+				r, err := stream.Recv()
+				if err != nil {
+					if err != io.EOF {
+						events <- s2sEvent{err: err}
+					}
+					return
+				}
+				e := s2sEvent{event: r.GetEvent(), pcm: r.GetPcm()}
+				if len(r.GetMeta()) > 0 {
+					_ = json.Unmarshal(r.GetMeta(), &e.meta)
+				}
+				events <- e
+			}
+		}()
+		// collect reads until response.done and returns the events of that response.
+		collect := func() []s2sEvent {
+			GinkgoHelper()
+			var got []s2sEvent
+			timeout := time.After(10 * time.Minute)
+			for {
+				select {
+				case e, ok := <-events:
+					Expect(ok).To(BeTrue(), "stream closed before response.done")
+					Expect(e.err).NotTo(HaveOccurred())
+					Expect(e.event).NotTo(Equal("error"), "backend error: %v", e.meta)
+					got = append(got, e)
+					if e.event == "response.done" {
+						return got
+					}
+				case <-timeout:
+					Fail("timed out waiting for response.done")
+				}
+			}
+		}
+
+		send(&pb.AudioToAudioRequest{Payload: &pb.AudioToAudioRequest_Config{Config: &pb.AudioToAudioConfig{
+			InputSampleRate:  16000,
+			OutputSampleRate: 24000,
+			Tools:            string(tools),
+		}}})
+		created := <-events
+		Expect(created.err).NotTo(HaveOccurred())
+		Expect(created.event).To(Equal("session.created"))
+		Expect(created.meta["input_sample_rate"]).To(BeNumerically("==", 16000))
+		Expect(created.meta["output_sample_rate"]).To(BeNumerically("==", 24000))
+
+		// Turn 1: spoken input in 20 ms frames, commit, then ask for a bounded reply.
+		frame := 16000 * 20 / 1000 * 2
+		for off := 0; off < len(input); off += frame {
+			end := min(off+frame, len(input))
+			send(&pb.AudioToAudioRequest{Payload: &pb.AudioToAudioRequest_Frame{
+				Frame: &pb.AudioToAudioFrame{Pcm: input[off:end]}}})
+		}
+		control("input_audio_buffer.commit", map[string]any{})
+		control("response.create", map[string]any{"max_output_tokens": 200})
+		turn1 := collect()
+		var gotCommit bool
+		var audio []byte
+		for _, e := range turn1 {
+			switch e.event {
+			case "input_audio_buffer.committed":
+				gotCommit = true
+			case "response.audio.delta":
+				audio = append(audio, e.pcm...)
+			}
+		}
+		Expect(gotCommit).To(BeTrue(), "no input_audio_buffer.committed")
+		Expect(turn1[len(turn1)-1].meta["status"]).To(Equal("completed"))
+		Expect(audio).NotTo(BeEmpty(), "no response.audio.delta in turn 1")
+		Expect(sound.CalculateRMS16(sound.BytesToInt16sLE(audio))).To(BeNumerically(">", 100),
+			"turn 1 audio is silent")
+
+		// Turn 2: a text item that needs the tool.
+		control("conversation.item.create", map[string]any{"item": map[string]any{
+			"type": "message", "role": "user",
+			"content": []map[string]any{{"type": "input_text", "text": "Call the get_time tool."}},
+		}})
+		control("response.create", map[string]any{"max_output_tokens": 200})
+		turn2 := collect()
+		var callID string
+		var calls int
+		for _, e := range turn2 {
+			if e.event == "response.function_call_arguments.done" {
+				calls++
+				Expect(e.meta["name"]).To(Equal("get_time"))
+				callID, _ = e.meta["call_id"].(string)
+			}
+		}
+		Expect(calls).To(Equal(1), "expected one get_time call")
+		Expect(callID).NotTo(BeEmpty())
+
+		// Turn 3: the tool result, then a spoken answer.
+		control("conversation.item.create", map[string]any{"item": map[string]any{
+			"type": "function_call_output", "call_id": callID, "output": `{"time":"12:00"}`,
+		}})
+		control("response.create", map[string]any{"max_output_tokens": 200})
+		turn3 := collect()
+		var out3 []byte
+		for _, e := range turn3 {
+			if e.event == "response.audio.delta" {
+				out3 = append(out3, e.pcm...)
+			}
+		}
+		Expect(turn3[len(turn3)-1].meta["status"]).To(Equal("completed"))
+		Expect(out3).NotTo(BeEmpty(), "no audio after the tool result")
+		GinkgoWriter.Printf("s2s: turn1 audio=%d bytes, tool call %s, turn3 audio=%d bytes\n",
+			len(audio), callID, len(out3))
+		Expect(stream.CloseSend()).To(Succeed())
 	})
 
 	It("transforms audio via AudioTransform (batch)", func() {
@@ -1654,4 +1838,57 @@ func keys(m map[string]bool) []string {
 		}
 	}
 	return out
+}
+
+// containsAnyFold reports whether text contains any of words, ignoring case
+// and surrounding spaces.
+func containsAnyFold(text string, words ...string) bool {
+	lower := strings.ToLower(text)
+	for _, w := range words {
+		if w = strings.ToLower(strings.TrimSpace(w)); w != "" && strings.Contains(lower, w) {
+			return true
+		}
+	}
+	return false
+}
+
+func envFloat(name string) (float64, bool) {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return 0, false
+	}
+	var v float64
+	if _, err := fmt.Sscanf(raw, "%g", &v); err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
+// assertTTSAudio applies the optional duration and RMS bounds from
+// BACKEND_TEST_TTS_{MIN,MAX}_SECONDS and BACKEND_TEST_TTS_MIN_RMS to a WAV.
+func assertTTSAudio(path string) {
+	GinkgoHelper()
+	minSec, hasMin := envFloat("BACKEND_TEST_TTS_MIN_SECONDS")
+	maxSec, hasMax := envFloat("BACKEND_TEST_TTS_MAX_SECONDS")
+	minRMS, hasRMS := envFloat("BACKEND_TEST_TTS_MIN_RMS")
+	if !hasMin && !hasMax && !hasRMS {
+		return
+	}
+	raw, err := os.ReadFile(path)
+	Expect(err).NotTo(HaveOccurred())
+	pcm, rate := laudio.ParseWAV(raw)
+	Expect(rate).To(BeNumerically(">", 0), "TTS output is not a WAV")
+	samples := sound.BytesToInt16sLE(pcm)
+	seconds := float64(len(samples)) / float64(rate)
+	rms := sound.CalculateRMS16(samples)
+	GinkgoWriter.Printf("TTS audio: %.2f s, rms %.0f\n", seconds, rms)
+	if hasMin {
+		Expect(seconds).To(BeNumerically(">=", minSec), "TTS audio too short")
+	}
+	if hasMax {
+		Expect(seconds).To(BeNumerically("<=", maxSec), "TTS audio too long (missing EOS?)")
+	}
+	if hasRMS {
+		Expect(rms).To(BeNumerically(">=", minRMS), "TTS audio is silent")
+	}
 }
