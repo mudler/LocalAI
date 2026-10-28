@@ -1661,7 +1661,7 @@ public:
             }
             if (result->is_error()) {
                 const std::string msg = json_value(result->to_json(), "message", std::string("server error"));
-                send_error("server_error", msg);
+                send_error("server_error", msg, true);
                 return grpc::Status(grpc::StatusCode::INTERNAL, msg);
             }
         }
@@ -1687,7 +1687,7 @@ public:
             }
             if (result->is_error()) {
                 const json j = result->to_json();
-                send_error("server_error", json_value(j, "message", std::string("server error")));
+                send_error("server_error", json_value(j, "message", std::string("server error")), true);
                 fatal_message = json_value(j, "message", std::string("server error"));
                 fatal         = true;
                 break;
@@ -1780,8 +1780,10 @@ private:
         write(r);
     }
 
-    void send_error(const std::string & type, const std::string & message) {
-        send_event("error", rts::error_meta(type, message));
+    // response_scoped: the error answers a response.create (or ends the stream)
+    // and no response.done follows. See rts::error_meta.
+    void send_error(const std::string & type, const std::string & message, bool response_scoped = false) {
+        send_event("error", rts::error_meta(type, message, response_scoped));
     }
 
     //
@@ -2060,13 +2062,14 @@ private:
         return true;
     }
 
-    bool commit() {
+    // response_scoped: the commit is part of a response.create
+    bool commit(bool response_scoped = false) {
         if (!state.has_audio()) {
-            send_error("input_audio_buffer_commit_empty", "input_audio_buffer.commit: the buffer is empty");
+            send_error("input_audio_buffer_commit_empty", "input_audio_buffer.commit: the buffer is empty", response_scoped);
             return false;
         }
         if (!control(SERVER_CONTROL_ACTION_AUDIO_END)) {
-            send_error("server_error", "the slot did not accept the end of the audio");
+            send_error("server_error", "the slot did not accept the end of the audio", response_scoped);
             return false;
         }
         state.audio_committed();
@@ -2096,7 +2099,7 @@ private:
         if (!c.payload().empty()) {
             payload = rts::json::parse(c.payload(), nullptr, false);
             if (payload.is_discarded()) {
-                send_error("invalid_request_error", c.event() + ": the payload is not valid JSON");
+                send_error("invalid_request_error", c.event() + ": the payload is not valid JSON", c.event() == "response.create");
                 return;
             }
         }
@@ -2178,31 +2181,31 @@ private:
 
     void create_response(const rts::json & payload) {
         if (response_active.load()) {
-            send_error("conversation_already_has_active_response", "response.create: a response is already running");
+            send_error("conversation_already_has_active_response", "response.create: a response is already running", true);
             return;
         }
         const std::string not_ready = state.response_create_error();
         if (!not_ready.empty()) {
-            send_error("conversation_empty", not_ready);
+            send_error("conversation_empty", not_ready, true);
             return;
         }
         rts::ResponseOptions opts{};
         std::string         err;
         if (!rts::parse_response_options(payload, session_out_mode(), session_params.max_output_tokens, opts, err)) {
-            send_error("invalid_request_error", "response.create: " + err);
+            send_error("invalid_request_error", "response.create: " + err, true);
             return;
         }
         const auto & cap = ctx_server.impl->mtmd_cap;
         if (!cap.audio_gen && opts.out_mode != rts::OutMode::Text && opts.out_mode != rts::OutMode::Auto) {
-            send_error("invalid_request_error", "response.create: the model cannot generate audio");
+            send_error("invalid_request_error", "response.create: the model cannot generate audio", true);
             return;
         }
         if (!cap.text_gen && opts.out_mode != rts::OutMode::Audio && opts.out_mode != rts::OutMode::Auto) {
-            send_error("invalid_request_error", "response.create: the model cannot generate text");
+            send_error("invalid_request_error", "response.create: the model cannot generate text", true);
             return;
         }
         // audio not committed yet belongs to this turn
-        if (state.has_audio() && !commit()) {
+        if (state.has_audio() && !commit(true)) {
             return;
         }
 
@@ -2218,7 +2221,7 @@ private:
         response_active = true;
         if (!control(SERVER_CONTROL_ACTION_RESPONSE_CREATE, state.response_prompt(turn), {}, response)) {
             response_active = false;
-            send_error("server_error", "the slot did not accept the response");
+            send_error("server_error", "the slot did not accept the response", true);
             return;
         }
         state.response_created(turn);

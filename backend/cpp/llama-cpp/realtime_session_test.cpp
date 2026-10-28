@@ -479,6 +479,8 @@ void test_meta() {
     check(v["voice"] == "male" && v["voice_applied"] == false, "a requested voice is reported as not applied");
     const auto e = rt::error_meta("conversation_empty", "msg");
     check(e["type"] == "conversation_empty" && e["message"] == "msg", "error meta");
+    check(!e.contains("response_scoped"), "an error is not response scoped by default");
+    check(rt::error_meta("conversation_empty", "msg", true)["response_scoped"] == true, "a response scoped error says so");
     check(rt::make_call_id().rfind("call_", 0) == 0, "call id prefix");
     check(rt::make_call_id() != rt::make_call_id(), "call ids differ");
 }

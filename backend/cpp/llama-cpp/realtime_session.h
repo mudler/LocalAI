@@ -583,8 +583,15 @@ struct OutEvent {
     json        meta        = json::object();
 };
 
-inline json error_meta(const std::string & type, const std::string & message) {
-    return {{"type", type}, {"message", message}};
+// response_scoped marks an error that ends the request for a response: no
+// response.done follows it. Other errors are about something else (a refused
+// session.update, an empty commit) and a running response goes on.
+inline json error_meta(const std::string & type, const std::string & message, bool response_scoped = false) {
+    json meta = {{"type", type}, {"message", message}};
+    if (response_scoped) {
+        meta["response_scoped"] = true;
+    }
+    return meta;
 }
 
 inline json session_meta(int input_rate, int output_rate, const std::vector<std::string> & voices, const std::string & requested_voice) {
