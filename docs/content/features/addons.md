@@ -1456,10 +1456,12 @@ a field of the request: the scope is part of its registration.
 ## Connector add-ons
 
 A connector add-on carries the messages of a messaging platform between the platform
-and the [chats](/features/chats-connectors/). The Telegram add-on is the first. The
-host keeps what is the same for every platform (the bindings, the sealed bot token,
-the allowlist, the sender log, one chat for each sender, the turn and its
-notifications), so an add-on holds only the transport and no token.
+and the [chats](/features/chats-connectors/). The Telegram and Slack add-ons are
+first-party connector add-ons. The host keeps what is the same for every platform (the
+bindings, the sealed bot token, the allowlist, the sender log, one chat for each sender
+or thread, the turn and its notifications), so an add-on holds only the transport and
+never stores a token. The first-party add-ons share their Go route
+(`addons/internal/connector`) and their binding page (`addons/internal/connector-ui`).
 
 The manifest declares the capability. It needs no tool and no `service` flag:
 
@@ -1491,9 +1493,11 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 with the same bearer credential and incarnation header as every other route and a body
 `{"op", "kind", "token", ...}`. The ops are `poll` (`offset`, `timeoutSeconds` up to
 25), `send` (`chat`, `thread`, `text`), `edit` (`chat`, `messageId`, `text`), `typing`
-(`chat`) and `me` (who the bot is, for the Test button). The token is the unsealed bot
-token of one binding. It is passed on each call and the add-on must not store it. The
-answer is `{"updates", "nextOffset", "messageId", "botId", "botUsername"}` or
+(`chat`, `thread`), `me` (who the bot is, for the Test button and the check after a
+save) and `media` (`media`: one reference of a message's `media`; the answer is
+`{"file": {"name", "mime", "data"}}` with at most 1 MiB of data). The token is the
+unsealed bot token of one binding. It is passed on each call and the add-on must not
+write it anywhere. The answer is `{"updates", "nextOffset", "messageId", "botId", "botUsername", "file"}` or
 `{"error": {"code", "retryAfter"}}` with a code of `unauthorized`, `conflict`,
 `rate_limited` or `failed`. The host maps `unauthorized` to switching the binding off,
 repeated `conflict` to the same, and `rate_limited` to a wait. A runtime that
@@ -1501,15 +1505,20 @@ implements `contract.ConnectorRuntime` has the route; others get a 404. The add-
 cuts a long `text` to the limit of its platform.
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
-`thread`, `direct`, `senderId`, `senderName`, `senderUsername`, `text`, `unsupported`,
-`media`, `skip`) and the next offset. Core keeps the offset with the binding, passes it
+`thread`, `direct`, `mention`, `senderId`, `senderName`, `senderUsername`, `text`,
+`unsupported`, `media`, `skip`) and the next offset. Core keeps the offset with the binding, passes it
 to the next `poll` and stores the offset the answer names, so a new leader continues
 where the old one stopped. A push add-on calls the host operation `connector.inbound`
 with `{"bindingId", ...message}`; it is an [inbound operation](#inbound-operations).
 Both paths end in one function of the host, so the allowlist, the sender log and the
 rate limit are the same.
 
-A private chat only is answered: a message with `direct` false is logged and ignored.
+A message is answered when it is `direct` (a private chat) or a `mention` (it
+addresses the bot in a group, such as a Slack mention or a reply in a thread the bot
+follows); any other message is logged and ignored. A message with a `thread` belongs
+to a chat of that thread, shared by the people who write in it; any other message
+belongs to a chat of its sender. When a message has `media`, the host reads each file
+with the op `media` and attaches it to the chat, as an upload of the chat page would.
 The turn runs as the owner of the binding, with the tools of the binding's saved agent.
 
 **Where it runs.** Core calls the route and registers the host operation on the process

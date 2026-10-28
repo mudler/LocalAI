@@ -1,18 +1,19 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { canSave, connectorPayload, emptyConnector, modeText, senderLine } from '../src/utils/connector.js'
+import { canSave, connectorPayload, emptyConnector, modeText, senderLine } from '../../../internal/connector-ui/src/connector.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
-  const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] })
+  const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] }, 'telegram')
   assert.equal(create.token, '1:abc')
   assert.deepEqual(create.allow, ['11', '@ada_l'])
   assert.equal(create.name, 'Bot')
-  const update = connectorPayload({ ...emptyConnector(), id: 'b1', name: 'Bot', agent_id: 'a1' })
+  assert.equal(create.kind, 'telegram')
+  const update = connectorPayload({ ...emptyConnector(), id: 'b1', name: 'Bot', agent_id: 'a1' }, 'telegram')
   assert.equal('token' in update, false)
 })
 
 test('chat connectors: accept any drops the allowlist from the request', () => {
-  const body = connectorPayload({ ...emptyConnector(), name: 'B', agent_id: 'a', accept_any: true, allow: ['11'] })
+  const body = connectorPayload({ ...emptyConnector(), name: 'B', agent_id: 'a', accept_any: true, allow: ['11'] }, 'telegram')
   assert.equal(body.accept_any, true)
   assert.deepEqual(body.allow, [])
 })

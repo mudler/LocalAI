@@ -1,7 +1,10 @@
 package studio
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -28,6 +31,8 @@ const (
 	sentStopped     = "The turn was stopped."
 	sentInterrupted = "The agent was interrupted. Please send your message again."
 	sentFailed      = "The agent stopped because of an error."
+	sentNoFile      = "I could not read the file you sent."
+	sentNoFiles     = "I can only read the text of your message here: files are turned off."
 
 	conflictTries   = 6
 	maxMessageRunes = 8000
@@ -465,7 +470,8 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 	if m.Skip {
 		return nil
 	}
-	if m.Chat == "" || m.SenderID == "" || len(m.SenderID) > contract.MaxConnectorSender || len(m.Chat) > contract.MaxConnectorSender || len(m.Media) > contract.MaxConnectorMedia {
+	if m.Chat == "" || m.SenderID == "" || len(m.SenderID) > contract.MaxConnectorSender || len(m.Chat) > contract.MaxConnectorSender ||
+		len(m.Thread) > contract.MaxConnectorSender || len(m.Media) > contract.MaxConnectorMedia {
 		return connectors.ErrInvalid
 	}
 	// The sender log keeps the name in a column of 255 characters.
@@ -481,10 +487,26 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 	return nil
 }
 
+// conversation is the key of the chat that a message belongs to. A message in
+// a thread of the platform belongs to the thread, so the people who write in
+// one thread share one chat; any other message belongs to its sender. The key
+// of a thread is a hash, so it fits the sender column of the stores and never
+// equals the ID of a sender.
+func conversation(m contract.ConnectorMessage) string {
+	if m.Thread == "" {
+		return m.SenderID
+	}
+	sum := sha256.Sum256([]byte(m.Chat + "\x00" + m.Thread))
+	return "thread:" + hex.EncodeToString(sum[:16])
+}
+
 // handle takes one message of a sender.
 func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage) {
 	senderID := m.SenderID
-	allowed := m.Direct && (b.AcceptAny || b.Allows(senderID, m.SenderUsername))
+	// A message is answered when it is direct, or names the bot in a group.
+	// An entry of the allowlist names the sender or the chat: a listed group
+	// lets everyone in it talk to the bot.
+	allowed := (m.Direct || m.Mention) && (b.AcceptAny || b.Allows(senderID, m.SenderUsername) || (!m.Direct && b.Allows(m.Chat, "")))
 	name := m.SenderName
 	if name == "" {
 		name = m.SenderUsername
@@ -505,7 +527,7 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		return
 	}
 	switch {
-	case m.Unsupported:
+	case m.Unsupported && len(m.Media) == 0:
 		say(sentUnsupported)
 		return
 	case utf8.RuneCountInString(m.Text) > maxMessageRunes:
@@ -526,7 +548,8 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			return
 		}
 	}
-	chatID, err := c.chatFor(ctx, b, senderID, name)
+	key := conversation(m)
+	chatID, err := c.chatFor(ctx, b, key, name)
 	if err != nil {
 		switch {
 		case errors.Is(err, errAgentGone):
@@ -539,15 +562,52 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		say(sentUnavailable)
 		return
 	}
-	c.deliver(ctx, b, token, m, st, chatID)
+	var up []session.Upload
+	if len(m.Media) > 0 {
+		switch {
+		case !c.svc.d.Files.Available():
+			say(sentNoFiles)
+		default:
+			if up = c.media(ctx, b, token, m.Media); len(up) < len(m.Media) {
+				say(sentNoFile)
+			}
+		}
+		if len(up) == 0 && strings.TrimSpace(m.Text) == "" {
+			return
+		}
+	}
+	// One reply goroutine serves a conversation; the rate limit stays the sender's.
+	c.deliver(ctx, b, token, m, c.sender(b.ID, "\x01"+key), chatID, up)
+}
+
+// media reads the files of a message through the add-on. A file that cannot
+// be read is left out; the caller tells the sender.
+func (c *Connectors) media(ctx context.Context, b connectors.Binding, token string, refs []string) []session.Upload {
+	var up []session.Upload
+	for _, ref := range refs {
+		mctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		resp, err := c.o.Transport.Call(mctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpMedia, Kind: b.Kind, Token: token, Media: ref})
+		cancel()
+		if err == nil && resp.Error != nil {
+			err = resp.Error
+		}
+		f := resp.File
+		if err != nil || f == nil || len(f.Data) == 0 || len(f.Data) > contract.MaxConnectorFileBytes {
+			c.log.Warn("studio: could not read the file of a connector message", "binding", b.ID, "kind", b.Kind, "error", err)
+			continue
+		}
+		up = append(up, session.Upload{Name: f.Name, Body: bytes.NewReader(f.Data)})
+	}
+	return up
 }
 
 var errAgentGone = errors.New("the agent was deleted")
 
-// chatFor returns the chat of a sender, making it when there is none or when it
-// ran with another agent than the binding has now.
-func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, senderID, name string) (string, error) {
-	if id, ok, err := c.o.Store.ChatOf(ctx, b.ID, senderID); err == nil && ok {
+// chatFor returns the chat of a conversation (a sender or a thread, see
+// conversation), making it when there is none or when it ran with another
+// agent than the binding has now.
+func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, key, name string) (string, error) {
+	if id, ok, err := c.o.Store.ChatOf(ctx, b.ID, key); err == nil && ok {
 		if rec, err := c.svc.Get(ctx, b.Owner, id); err == nil && rec.AgentID == b.AgentID {
 			return id, nil
 		}
@@ -560,16 +620,16 @@ func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, senderID
 		}
 		return "", err
 	}
-	if err := c.o.Store.SetChat(ctx, b.ID, senderID, rec.ID); err != nil {
+	if err := c.o.Store.SetChat(ctx, b.ID, key, rec.ID); err != nil {
 		return "", err
 	}
 	return rec.ID, nil
 }
 
 // deliver hands the message to the chat and makes sure that the answer goes
-// back. One reply goroutine serves a sender at a time: it sends the answer of
-// each turn until the chat is idle.
-func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, st *senderState, chatID string) {
+// back. One reply goroutine serves a conversation at a time: it sends the
+// answer of each turn until the chat is idle.
+func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, st *senderState, chatID string, up []session.Upload) {
 	c.smu.Lock()
 	was := st.active
 	st.active = true
@@ -586,7 +646,7 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			return
 		}
 	}
-	if _, err := c.svc.Send(ctx, b.Owner, chatID, m.Text); err != nil {
+	if _, err := c.svc.SendWithFiles(ctx, b.Owner, chatID, m.Text, up); err != nil {
 		if !was {
 			cancel()
 			c.smu.Lock()

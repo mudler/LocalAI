@@ -48,6 +48,11 @@ func TestValidate(t *testing.T) {
 	if err := connectors.Validate(ok); err != nil {
 		t.Fatal(err)
 	}
+	// Slack names people and channels with upper-case IDs, and its names may have dots.
+	slack := connectors.Binding{Name: "App", Kind: "slack", AgentID: "a", Allow: []string{"U012AB3CD", "C0123456", "@ada.l-ovelace"}, NotifyChat: "U012AB3CD"}
+	if err := connectors.Validate(slack); err != nil {
+		t.Fatal(err)
+	}
 	many := make([]string, connectors.MaxAllow+1)
 	for i := range many {
 		many[i] = "1"
@@ -61,6 +66,8 @@ func TestValidate(t *testing.T) {
 		"short name": {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"@ab"}},
 		"many":       {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: many},
 		"bad notify": {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", NotifyChat: "me"},
+		"lower id":   {Name: "b", Kind: "slack", AgentID: "a", Allow: []string{"u012ab"}},
+		"id notify":  {Name: "b", Kind: "slack", AgentID: "a", NotifyChat: "@ada"},
 	} {
 		if err := connectors.Validate(b); !errors.Is(err, connectors.ErrInvalid) {
 			t.Errorf("%s: %v", name, err)

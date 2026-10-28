@@ -146,9 +146,16 @@ type connRig struct {
 // newConnRig builds a frontend with a connector manager on the shared stores of sh.
 func newConnRig(t *testing.T, sh *shared, store connectors.Store, bot *scriptedBot, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool) *connRig {
 	t.Helper()
+	r := newConnRigWith(t, sh, store, studiobot.NewBotTransport(&transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()}), script, lead)
+	r.bot = bot
+	return r
+}
+
+// newConnRigWith builds the rig over any connector transport.
+func newConnRigWith(t *testing.T, sh *shared, store connectors.Store, tr *studiobot.BotTransport, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool) *connRig {
+	t.Helper()
 	r := sh.rig(t, script, studio.TriggerOptions{})
 	logs := &bytes.Buffer{}
-	tr := studiobot.NewBotTransport(&transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()})
 	c, err := studio.NewConnectors(r.svc, studio.ConnectorOptions{
 		Store: store, Transport: tr,
 		Clock: sh.clock.Now, Tick: 20 * time.Millisecond, Poll: 0, Backoff: 10 * time.Millisecond, ConflictWait: 10 * time.Millisecond, RatePerMinute: 5, Lead: lead,
@@ -161,7 +168,7 @@ func newConnRig(t *testing.T, sh *shared, store connectors.Store, bot *scriptedB
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	go c.Run(ctx)
-	return &connRig{trigRig: r, bot: bot, tr: tr, conns: c, logs: logs}
+	return &connRig{trigRig: r, tr: tr, conns: c, logs: logs}
 }
 
 func connStore(t *testing.T) connectors.Store {

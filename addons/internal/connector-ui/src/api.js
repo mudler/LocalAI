@@ -1,7 +1,7 @@
-// The core calls of the Telegram page, with the signed-in person's own session
+// The core calls of a connector page, with the signed-in person's own session
 // (sdk.core.fetch). The bindings, the sealed token and the sender log live in
-// core; this add-on only carries the messages.
-import { getSdk } from '../../../internal/host-compat/src/runtime.js'
+// core; the add-on only carries the messages.
+import { getSdk } from '../../host-compat/src/runtime.js'
 
 const enc = encodeURIComponent
 

@@ -57,7 +57,8 @@ type Binding struct {
 	// AcceptAny lets anyone who can message the bot use the agent. Otherwise only
 	// the senders in Allow are accepted.
 	AcceptAny bool
-	// Allow lists the chat IDs, user IDs or @usernames that are accepted.
+	// Allow lists the chat IDs, user IDs or @usernames that are accepted. A
+	// chat ID accepts everyone who addresses the bot in that chat.
 	Allow []string
 	// NotifyChat, when set, receives the owner's run notifications.
 	NotifyChat string
@@ -108,9 +109,13 @@ type Store interface {
 	EnsureKey(ctx context.Context, generate func() ([]byte, error)) ([]byte, error)
 }
 
-var allowShape = regexp.MustCompile(`^(-?[0-9]{1,20}|@[A-Za-z0-9_]{3,63})$`)
+// An entry of the allowlist is a numeric ID (Telegram), an @username, or an
+// upper-case platform ID such as a Slack user (U...) or channel (C...).
+var allowShape = regexp.MustCompile(`^(-?[0-9]{1,20}|@[A-Za-z0-9_.-]{3,63}|[A-Z][A-Z0-9]{1,31})$`)
 var kindShape = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
-var digits = regexp.MustCompile(`^-?[0-9]{1,20}$`)
+
+// chatShape is a chat that notifications go to: a numeric ID or a platform ID.
+var chatShape = regexp.MustCompile(`^(-?[0-9]{1,20}|[A-Z][A-Z0-9]{1,31})$`)
 
 // Validate checks a binding. The error wraps ErrInvalid.
 func Validate(b Binding) error {
@@ -134,8 +139,8 @@ func Validate(b Binding) error {
 			return bad("%q is not a chat ID, user ID or @username", a)
 		}
 	}
-	if b.NotifyChat != "" && !digits.MatchString(b.NotifyChat) {
-		return bad("the notification chat must be a numeric chat ID")
+	if b.NotifyChat != "" && !chatShape.MatchString(b.NotifyChat) {
+		return bad("the notification chat must be a chat ID")
 	}
 	return nil
 }

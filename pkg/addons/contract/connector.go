@@ -18,8 +18,8 @@ import (
 //     route "/connector" with the op "poll". A push platform tells the host:
 //     the add-on calls the host operation ConnectorInboundOp.
 //   - Outbound. The host calls "/connector" with the ops "send", "edit",
-//     "typing" and "me". The host passes the token on every call; the add-on
-//     never stores it.
+//     "typing" and "me", and "media" to read a file a message carries. The host
+//     passes the token on every call; the add-on never stores it.
 
 // Delivery says how messages reach the host.
 const (
@@ -42,6 +42,8 @@ const (
 	ConnectorOpEdit   = "edit"
 	ConnectorOpTyping = "typing"
 	ConnectorOpMe     = "me"
+	// ConnectorOpMedia reads one file that a message names in Media.
+	ConnectorOpMedia = "media"
 )
 
 // Codes of a ConnectorError.
@@ -62,6 +64,10 @@ const (
 	MaxConnectorMedia  = 8
 	MaxPollSeconds     = 25
 	MaxConnectorSender = 64 // the width of the sender column of the stores
+	// MaxConnectorFileBytes is the largest file the op media returns. The
+	// answer is JSON, so the file with its base64 overhead stays within the
+	// envelope limit of the add-on route.
+	MaxConnectorFileBytes = 1 << 20
 )
 
 // ConnectorKind is one kind of binding an add-on serves, such as telegram.
@@ -135,15 +141,20 @@ type ConnectorMessage struct {
 	// Thread is the platform's thread inside Chat, when it has one.
 	Thread string `json:"thread,omitempty"`
 	// Direct tells that Chat is a conversation with one person. A message in a
-	// group is logged and never answered.
-	Direct         bool   `json:"direct,omitempty"`
+	// group is logged and never answered, unless Mention is set.
+	Direct bool `json:"direct,omitempty"`
+	// Mention tells that a message in a group conversation is addressed to the
+	// bot: it names the bot, or it answers in a thread that the bot follows.
+	// The host answers it like a direct message.
+	Mention        bool   `json:"mention,omitempty"`
 	SenderID       string `json:"senderId,omitempty"`
 	SenderName     string `json:"senderName,omitempty"`
 	SenderUsername string `json:"senderUsername,omitempty"`
 	Text           string `json:"text,omitempty"`
 	// Unsupported is a message with no text: a photo, a voice note, a file.
 	Unsupported bool `json:"unsupported,omitempty"`
-	// Media are references the add-on can resolve; the host does not fetch them.
+	// Media are references to files that the add-on resolves with the op
+	// media. They are opaque to the host.
 	Media []string `json:"media,omitempty"`
 }
 
@@ -169,6 +180,16 @@ type ConnectorRequest struct {
 	Thread    string `json:"thread,omitempty"`
 	MessageID string `json:"messageId,omitempty"`
 	Text      string `json:"text,omitempty"`
+	// media: one reference of ConnectorMessage.Media.
+	Media string `json:"media,omitempty"`
+}
+
+// ConnectorFile is a file that the op media returns. Data is at most
+// MaxConnectorFileBytes.
+type ConnectorFile struct {
+	Name string `json:"name"`
+	MIME string `json:"mime,omitempty"`
+	Data []byte `json:"data"`
 }
 
 // ConnectorError is a failure the add-on reports. The host maps the code to
@@ -192,6 +213,8 @@ type ConnectorResponse struct {
 	// me
 	BotID       string `json:"botId,omitempty"`
 	BotUsername string `json:"botUsername,omitempty"`
+	// media
+	File *ConnectorFile `json:"file,omitempty"`
 }
 
 // ConnectorRuntime is a runtime that serves the connector route. An add-on

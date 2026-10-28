@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/addons/internal/connector"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
@@ -23,20 +24,17 @@ import (
 // DefaultBase is the Bot API. Only a test sets another base URL.
 const DefaultBase = "https://api.telegram.org"
 
-// Errors of the Bot API.
+// Errors of the Bot API. They are the shared errors of the connector
+// add-ons, so the route types them.
 var (
 	// ErrUnauthorized means Telegram refused the token.
-	ErrUnauthorized = errors.New("telegram: the Telegram token was refused")
+	ErrUnauthorized = connector.ErrUnauthorized
 	// ErrConflict means another process polls the same bot.
-	ErrConflict = errors.New("telegram: another process reads the updates of this bot")
+	ErrConflict = connector.ErrConflict
 )
 
 // RetryAfter means Telegram asks the caller to wait.
-type RetryAfter struct{ Seconds int }
-
-func (r *RetryAfter) Error() string {
-	return fmt.Sprintf("telegram: Telegram asks to wait %d s", r.Seconds)
-}
+type RetryAfter = connector.RetryAfter
 
 // Bot is the identity of a bot.
 type Bot struct {

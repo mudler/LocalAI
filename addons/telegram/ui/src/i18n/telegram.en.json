@@ -21,6 +21,7 @@
   "notifyHelp": "Optional. A numeric Telegram chat ID.",
   "test": "Test",
   "testOk": "Connected to @{{bot}}.",
+  "checkFailed": "Saved. The token check failed: {{reason}}",
   "senders": "Senders",
   "noSenders": "Nobody has written to this bot yet.",
   "allowButton": "Allow",

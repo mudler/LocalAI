@@ -1,11 +1,17 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+// The page of a connector add-on (Telegram, Slack): the bindings of one kind
+// of bot to the saved agents. The bindings, the sealed token and the sender
+// log live in core; this page edits them through the core API. An add-on
+// gives its own words (an i18n namespace), the fields of its token, and its
+// allowlists; the rest is the same for every platform.
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import ConfirmDialog from '../../../../internal/host-compat/src/components/ConfirmDialog'
-import Icon from '../../../../internal/host-compat/src/components/Icon'
-import NameList from '../components/NameList'
-import { agentsApi, connectorsApi } from '../api'
-import { canSave, connectorPayload, emptyConnector, modeText, senderLine } from '../utils/connector'
+import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
+import Icon from '../../host-compat/src/components/Icon'
+import NameList from './NameList'
+import { agentsApi, connectorsApi } from './api'
+import { canSave, connectorPayload, emptyConnector, listEntries, replaceList, senderLine } from './connector'
+import './connector.css'
 
 function Senders({ id, onAllowed, t }) {
   const [list, setList] = useState(null)
@@ -14,14 +20,14 @@ function Senders({ id, onAllowed, t }) {
     connectorsApi.senders(id).then((r) => setList(r.senders || [])).catch((e) => setError(e?.message || ''))
   }, [id])
   useEffect(() => { load() }, [load])
-  if (error) return <p className="tg-error" role="alert">{error}</p>
+  if (error) return <p className="cn-error" role="alert">{error}</p>
   if (list === null) return null
-  if (list.length === 0) return <p className="tg-muted">{t('noSenders')}</p>
+  if (list.length === 0) return <p className="cn-muted">{t('noSenders')}</p>
   return (
-    <ul className="tg-runs" aria-label={t('senders')} data-testid="sender-log">
+    <ul className="cn-runs" aria-label={t('senders')} data-testid="sender-log">
       {list.map((s) => (
         <li key={s.id}>
-          <span className={`tg-status tg-status--${s.allowed ? 'done' : 'skipped'}`}>{s.allowed ? t('accepted') : t('ignored')}</span>
+          <span className={`cn-status cn-status--${s.allowed ? 'done' : 'skipped'}`}>{s.allowed ? t('accepted') : t('ignored')}</span>
           <span>{senderLine(s)}</span>
           {!s.allowed && (
             <button type="button" className="btn btn-secondary btn-sm"
@@ -36,10 +42,33 @@ function Senders({ id, onAllowed, t }) {
   )
 }
 
-// Bindings of Telegram bots to saved agents. The bindings, the sealed token and
-// the sender log live in core; this page edits them through the core API.
-export default function Telegram() {
-  const { t } = useTranslation('telegram')
+// The default fields of a token: one password field.
+function SingleToken({ form, setForm, t }) {
+  return (
+    <label className="cn-field">
+      <span>{t('token')}</span>
+      <input className="input" type="password" autoComplete="off" value={form.token || ''} required={!form.id}
+        placeholder={form.id ? t('tokenSaved') : ''} onChange={(e) => setForm({ ...form, token: e.target.value })} />
+      <span className="cn-muted">{t('tokenHelp')}</span>
+    </label>
+  )
+}
+
+const ONE_LIST = [{ key: 'allow', label: 'allow', hint: 'allowHint', testId: 'connector-allow' }]
+
+/**
+ * @param {object} props
+ * @param {string} props.kind          the kind of the bindings, such as telegram
+ * @param {string} props.ns            the i18n namespace of the add-on
+ * @param {string} props.testId        the test id of the page
+ * @param {Function} [props.TokenFields] the fields of the token ({ form, setForm, t })
+ * @param {Function} [props.tokenOf]   the secret that the fields make, '' when not typed
+ * @param {Array} [props.lists]        the allowlists: { key, label, hint, testId, match }
+ * @param {Function} [props.Help]      a block under the intro ({ t })
+ * @param {string} [props.notifyMode]  the inputMode of the notification field
+ */
+export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text' }) {
+  const { t } = useTranslation(ns)
   const [items, setItems] = useState([])
   const [agents, setAgents] = useState([])
   const [off, setOff] = useState('')
@@ -59,10 +88,10 @@ export default function Telegram() {
   const load = useCallback(async () => {
     try {
       const res = await connectorsApi.list()
-      setItems((res.connectors || []).filter((c) => c.kind === 'telegram'))
+      setItems((res.connectors || []).filter((c) => c.kind === kind))
       setOff('')
     } catch (e) { fail(e) }
-  }, [fail])
+  }, [fail, kind])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { agentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
@@ -70,16 +99,25 @@ export default function Telegram() {
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
   const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote('') }
 
+  // Saving with a new token checks it at once: the platform says which bot
+  // it belongs to, or why it refuses it. The binding is saved either way.
   const save = async (e) => {
     e.preventDefault()
     setBusy(true)
     setError('')
+    setNote('')
     try {
-      const body = connectorPayload(form)
-      if (form.id) await connectorsApi.update(form.id, body)
-      else await connectorsApi.create(body)
+      const token = tokenOf(form).trim()
+      const body = connectorPayload(form, kind, token)
+      const saved = form.id ? await connectorsApi.update(form.id, body) : await connectorsApi.create(body)
       setForm(null)
       await load()
+      if (token && saved?.id) {
+        try {
+          const r = await connectorsApi.test(saved.id)
+          setNote(t('testOk', { bot: r.bot_username }))
+        } catch (err) { setError(t('checkFailed', { reason: err?.message || '' })) }
+      }
     } catch (err) { fail(err) } finally { setBusy(false) }
   }
 
@@ -90,44 +128,40 @@ export default function Telegram() {
 
   if (off) {
     return (
-      <div className="tg-page" data-testid="telegram-page">
-        <h1 className="page-title tg-title">{t('title')}</h1>
-        <div className="tg-notice" role="note">{off}</div>
+      <div className="cn-page" data-testid={testId}>
+        <h1 className="page-title cn-title">{t('title')}</h1>
+        <div className="cn-notice" role="note">{off}</div>
       </div>
     )
   }
 
   return (
-    <div className="tg-page" data-testid="telegram-page">
-      <header className="tg-head">
-        <h1 className="page-title tg-title">{t('title')}</h1>
+    <div className="cn-page" data-testid={testId}>
+      <header className="cn-head">
+        <h1 className="page-title cn-title">{t('title')}</h1>
         <button type="button" className="btn btn-primary btn-sm" onClick={() => open(emptyConnector())}>
           <Icon name="plus" /> {t('new')}
         </button>
       </header>
-      <p className="tg-muted">{t('intro')}</p>
+      <p className="cn-muted">{t('intro')}</p>
+      {Help && <Help t={t} />}
 
       {error && (
-        <div className="tg-error" role="alert">
+        <div className="cn-error" role="alert">
           <span>{error}</span>
-          <button type="button" className="tg-link" onClick={() => setError('')}>×</button>
+          <button type="button" className="cn-link" onClick={() => setError('')}>×</button>
         </div>
       )}
-      {note && <p className="tg-muted" role="status">{note}</p>}
+      {note && <p className="cn-muted" role="status">{note}</p>}
 
       {form && (
-        <form className="tg-form" onSubmit={save} aria-label={form.id ? t('edit') : t('new')}>
-          <label className="tg-field">
+        <form className="cn-form" onSubmit={save} aria-label={form.id ? t('edit') : t('new')}>
+          <label className="cn-field">
             <span>{t('name')}</span>
             <input className="input" value={form.name} required maxLength={80} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </label>
-          <label className="tg-field">
-            <span>{t('token')}</span>
-            <input className="input" type="password" autoComplete="off" value={form.token} required={!form.id}
-              placeholder={form.id ? t('tokenSaved') : ''} onChange={(e) => setForm({ ...form, token: e.target.value })} />
-            <span className="tg-muted">{t('tokenHelp')}</span>
-          </label>
-          <label className="tg-field">
+          <TokenFields form={form} setForm={setForm} t={t} />
+          <label className="cn-field">
             <span>{t('agent')}</span>
             <select className="input" aria-label={t('agent')} value={form.agent_id} required onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
               <option value="">{t('agentNone')}</option>
@@ -136,57 +170,57 @@ export default function Telegram() {
               ))}
             </select>
           </label>
-          <fieldset className="tg-field">
+          <fieldset className="cn-field">
             <legend>{t('who')}</legend>
-            <label className="tg-radio">
+            <label className="cn-radio">
               <input type="radio" name="who" checked={!form.accept_any} onChange={() => { setForm({ ...form, accept_any: false }); setConfirmed(false) }} />
               <span>{t('onlyListed')}</span>
             </label>
-            <label className="tg-radio">
+            <label className="cn-radio">
               <input type="radio" name="who" checked={form.accept_any} onChange={() => setForm({ ...form, accept_any: true })} />
               <span>{t('anyone')}</span>
             </label>
           </fieldset>
           {form.accept_any && (
-            <div className="tg-error tg-warning" role="alert" data-testid="anyone-warning">
+            <div className="cn-error cn-warning" role="alert" data-testid="anyone-warning">
               <span>{t('anyoneWarning')}</span>
-              <label className="tg-radio">
+              <label className="cn-radio">
                 <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
                 <span>{t('anyoneConfirm')}</span>
               </label>
             </div>
           )}
-          {!form.accept_any && (
-            <NameList label={t('allow')} hint={t('allowHint')} value={form.allow}
-              onChange={(v) => setForm({ ...form, allow: v })} testId="connector-allow" />
-          )}
-          <label className="tg-field">
+          {!form.accept_any && lists.map((l, i) => (
+            <NameList key={l.key} label={t(l.label)} hint={t(l.hint)} value={listEntries(form.allow, lists, i)}
+              onChange={(v) => setForm({ ...form, allow: replaceList(form.allow, lists, i, v) })} testId={l.testId} />
+          ))}
+          <label className="cn-field">
             <span>{t('notifyChat')}</span>
-            <input className="input" inputMode="numeric" value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />
-            <span className="tg-muted">{t('notifyHelp')}</span>
+            <input className="input" inputMode={notifyMode} value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />
+            <span className="cn-muted">{t('notifyHelp')}</span>
           </label>
-          <div className="tg-actions">
-            <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !canSave(form, confirmed)}>{t('save')}</button>
+          <div className="cn-actions">
+            <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()))}>{t('save')}</button>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setForm(null)}>{t('cancel')}</button>
           </div>
         </form>
       )}
 
-      <ul className="tg-list">
+      <ul className="cn-list">
         {items.map((c) => (
-          <li key={c.id} className="tg-row" data-testid="connector-row">
-            <div className="tg-row__text">
-              <span className="tg-row__name">{c.name}</span>
-              <span className="tg-muted">
+          <li key={c.id} className="cn-row" data-testid="connector-row">
+            <div className="cn-row__text">
+              <span className="cn-row__name">{c.name}</span>
+              <span className="cn-muted">
                 {t('agentOf', { name: agentName(c.agent_id) })}
                 {' · '}
                 {t('accepts', { who: c.accept_any ? t('modes.anyone') : (c.allow || []).length === 0 ? t('modes.nobody') : t('modes.listed', { count: c.allow.length }) })}
               </span>
-              {c.active === false && <span className="tg-muted" data-testid="connector-inactive">{t('inactive', { reason: c.reason })}</span>}
+              {c.active === false && <span className="cn-muted" data-testid="connector-inactive">{t('inactive', { reason: c.reason })}</span>}
               {openSenders === c.id && <Senders id={c.id} onAllowed={load} t={t} />}
             </div>
-            <span className="tg-row__actions">
-              <label className="tg-radio">
+            <span className="cn-row__actions">
+              <label className="cn-radio">
                 <input type="checkbox" checked={c.enabled} aria-label={t('onFor', { name: c.name })}
                   onChange={(e) => {
                     const on = e.target.checked
@@ -206,7 +240,7 @@ export default function Telegram() {
           </li>
         ))}
       </ul>
-      {items.length === 0 && !form && <p className="tg-muted">{t('empty')}</p>}
+      {items.length === 0 && !form && <p className="cn-muted">{t('empty')}</p>}
       <ConfirmDialog
         open={Boolean(toDelete)}
         title={t('confirmDelete.title', { name: toDelete?.name || '' })}

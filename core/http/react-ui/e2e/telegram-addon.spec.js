@@ -1,58 +1,11 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
+import { connectorApi as api } from './connector-fixtures.js'
 
 // The page of the Telegram add-on (the real built bundle, inside the add-on
 // shell) with the core API stubbed: the token only goes in, "anyone"
 // needs a confirmation, and a sender in the log can be allowed.
-
-const AGENTS = [
-  { id: 'a1', name: 'Support', model: 'qwen3-8b', mcp_servers: [], addons: [], collections: [], skills: [] },
-  { id: 'a2', name: 'No model', model: '', mcp_servers: [], addons: [], collections: [], skills: [] },
-]
-
-function api(page, initial = []) {
-  const s = { items: structuredClone(initial), calls: [], senders: [{ id: '42', name: 'Newcomer', count: 2, allowed: false, first: '2026-10-27T08:00:00Z', last: '2026-10-27T08:05:00Z' }] }
-  const rec = (method, url, body) => s.calls.push({ method, url: new URL(url).pathname, body })
-  return {
-    s,
-    async install() {
-      await page.route('**/api/chats/agents*', r => r.fulfill({ json: { agents: AGENTS } }))
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/senders\/[^/?]+\/allow$/, r => {
-        rec('POST', r.request().url(), null)
-        s.senders = s.senders.map(x => ({ ...x, allowed: true }))
-        return r.fulfill({ json: s.items[0] })
-      })
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/senders$/, r => r.fulfill({ json: { senders: s.senders } }))
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/test$/, r => r.fulfill({ json: { bot_id: 1, bot_username: 'support_bot' } }))
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/(enable|disable)$/, r => {
-        const verb = new URL(r.request().url()).pathname.split('/').pop()
-        rec('POST', r.request().url(), null)
-        s.items = s.items.map(x => ({ ...x, enabled: verb === 'enable' }))
-        return r.fulfill({ json: s.items[0] })
-      })
-      await page.route(/\/api\/chats\/connectors\/[^/?]+$/, r => {
-        const req = r.request()
-        rec(req.method(), req.url(), req.postDataJSON?.())
-        if (req.method() === 'DELETE') { s.items = []; return r.fulfill({ status: 204, body: '' }) }
-        s.items = s.items.map(x => ({ ...x, ...req.postDataJSON(), token: undefined, has_token: true }))
-        return r.fulfill({ json: s.items[0] })
-      })
-      await page.route(/\/api\/chats\/connectors(\?.*)?$/, r => {
-        const req = r.request()
-        if (req.method() === 'POST') {
-          const b = req.postDataJSON()
-          rec('POST', req.url(), b)
-          s.items.push({ id: 'b1', kind: 'telegram', allow: [], ...b, token: undefined, has_token: true })
-          return r.fulfill({ status: 201, json: s.items.at(-1) })
-        }
-        return r.fulfill({ json: { connectors: s.items } })
-      })
-      await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
-      await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
-    },
-  }
-}
 
 const PAGE = '/app/addons/telegram/bots'
 
@@ -82,6 +35,8 @@ test.describe('Telegram add-on', () => {
     const body = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
     expect(body).toMatchObject({ name: 'Support bot', token: '555:secret-token', agent_id: 'a1', allow: ['42'], accept_any: false })
     await expect(page.locator('body')).not.toContainText('secret-token')
+    // A new token is checked as soon as it is saved.
+    await expect(page.getByText('Connected to @support_bot.')).toBeVisible()
   })
 
   test('the token field is empty on edit, and an update without a new token sends none', async ({ page }) => {

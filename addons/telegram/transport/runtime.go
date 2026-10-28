@@ -2,11 +2,9 @@ package transport
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strconv"
-	"time"
 
+	"github.com/mudler/LocalAI/addons/internal/connector"
 	"github.com/mudler/LocalAI/addons/internal/idle"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -27,100 +25,60 @@ type Runtime struct {
 
 var _ contract.ConnectorRuntime = Runtime{}
 
-// Connector serves one call of the host. A failure of Telegram is an answer
-// with a typed error, not an error of the route: the host decides what it means.
+// Connector serves one call of the host through the shared route of the
+// connector add-ons.
 func (r Runtime) Connector(ctx context.Context, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
-	if req.Kind != Kind || req.Token == "" {
-		return contract.ConnectorResponse{}, fmt.Errorf("%w: unknown kind or no token", contract.ErrRefused)
-	}
 	api := r.API
 	if api == nil {
 		api = &API{}
 	}
-	var out contract.ConnectorResponse
-	var err error
-	switch req.Op {
-	case contract.ConnectorOpPoll:
-		out, err = r.poll(ctx, api, req)
-	case contract.ConnectorOpSend:
-		var chat int64
-		if chat, err = strconv.ParseInt(req.Chat, 10, 64); err == nil {
-			out.MessageID, err = r.send(ctx, api, req.Token, chat, req.Text)
-		}
-	case contract.ConnectorOpEdit:
-		var chat, msg int64
-		if chat, err = strconv.ParseInt(req.Chat, 10, 64); err == nil {
-			if msg, err = strconv.ParseInt(req.MessageID, 10, 64); err == nil {
-				err = api.Edit(ctx, req.Token, chat, msg, req.Text)
-			}
-		}
-	case contract.ConnectorOpTyping:
-		var chat int64
-		if chat, err = strconv.ParseInt(req.Chat, 10, 64); err == nil {
-			err = api.Typing(ctx, req.Token, chat)
-		}
-	case contract.ConnectorOpMe:
-		var bot Bot
-		if bot, err = api.Me(ctx, req.Token); err == nil {
-			out.BotID, out.BotUsername = strconv.FormatInt(bot.ID, 10), bot.Username
-		}
-	default:
-		return contract.ConnectorResponse{}, fmt.Errorf("%w: unknown op", contract.ErrRefused)
-	}
+	return connector.Serve(ctx, platform{api}, req)
+}
+
+// platform is the Bot API as a connector.Platform. Telegram names chats and
+// messages with numbers; the contract carries them as text.
+type platform struct{ api *API }
+
+func (platform) Kind() string  { return Kind }
+func (platform) MaxRunes() int { return MaxMessageRunes }
+
+func (p platform) Poll(ctx context.Context, token string, offset int64, wait int) ([]contract.ConnectorMessage, error) {
+	return p.api.Updates(ctx, token, offset, wait)
+}
+
+func (p platform) Send(ctx context.Context, req contract.ConnectorRequest) (string, error) {
+	chat, err := strconv.ParseInt(req.Chat, 10, 64)
 	if err != nil {
-		return contract.ConnectorResponse{Error: typed(err)}, nil
+		return "", err
 	}
-	return out, nil
+	id, err := p.api.Send(ctx, req.Token, chat, req.Text)
+	return strconv.FormatInt(id, 10), err
 }
 
-func (r Runtime) poll(ctx context.Context, api *API, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
-	wait := min(max(req.TimeoutSeconds, 0), contract.MaxPollSeconds)
-	ups, err := api.Updates(ctx, req.Token, req.Offset, wait)
+func (p platform) Edit(ctx context.Context, req contract.ConnectorRequest) error {
+	chat, err := strconv.ParseInt(req.Chat, 10, 64)
 	if err != nil {
-		return contract.ConnectorResponse{}, err
+		return err
 	}
-	next := req.Offset
-	for _, u := range ups {
-		next = max(next, u.Cursor+1)
+	msg, err := strconv.ParseInt(req.MessageID, 10, 64)
+	if err != nil {
+		return err
 	}
-	return contract.ConnectorResponse{Updates: ups, NextOffset: next}, nil
+	return p.api.Edit(ctx, req.Token, chat, msg, req.Text)
 }
 
-// send cuts the text to the limit of Telegram and sends the parts in order. A
-// wait that Telegram asks for is kept once before the part is given up.
-func (r Runtime) send(ctx context.Context, api *API, token string, chat int64, text string) (string, error) {
-	last := int64(0)
-	for _, part := range Split(text, MaxMessageRunes) {
-		id, err := api.Send(ctx, token, chat, part)
-		var ra *RetryAfter
-		if errors.As(err, &ra) {
-			timer := time.NewTimer(time.Duration(ra.Seconds) * time.Second)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return "", ctx.Err()
-			case <-timer.C:
-			}
-			id, err = api.Send(ctx, token, chat, part)
-		}
-		if err != nil {
-			return "", err
-		}
-		last = id
+func (p platform) Typing(ctx context.Context, req contract.ConnectorRequest) error {
+	chat, err := strconv.ParseInt(req.Chat, 10, 64)
+	if err != nil {
+		return err
 	}
-	return strconv.FormatInt(last, 10), nil
+	return p.api.Typing(ctx, req.Token, chat)
 }
 
-// typed maps an error of the Bot API to the typed error of the contract.
-func typed(err error) *contract.ConnectorError {
-	var ra *RetryAfter
-	switch {
-	case errors.Is(err, ErrUnauthorized):
-		return &contract.ConnectorError{Code: contract.ConnectorUnauthorized, Message: err.Error()}
-	case errors.Is(err, ErrConflict):
-		return &contract.ConnectorError{Code: contract.ConnectorConflict, Message: err.Error()}
-	case errors.As(err, &ra):
-		return &contract.ConnectorError{Code: contract.ConnectorRateLimited, Message: err.Error(), RetryAfter: ra.Seconds}
+func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
+	bot, err := p.api.Me(ctx, token)
+	if err != nil {
+		return connector.Bot{}, err
 	}
-	return &contract.ConnectorError{Code: contract.ConnectorFailed, Message: err.Error()}
+	return connector.Bot{ID: strconv.FormatInt(bot.ID, 10), Username: bot.Username}, nil
 }
