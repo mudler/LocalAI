@@ -160,8 +160,10 @@ type s2sSession struct {
 	outputRate int
 
 	// forwarding is true while speech of a VAD turn is being forwarded
-	// (AudioBufferLock).
-	forwarding bool
+	// (AudioBufferLock). turnHasAudio is true once the turn queued any audio:
+	// the backend refuses a commit of an empty buffer (AudioBufferLock).
+	forwarding   bool
+	turnHasAudio bool
 
 	mu        sync.Mutex
 	sentItems map[string]struct{}
@@ -330,7 +332,7 @@ func (s *s2sSession) pump() {
 				continue
 			}
 			if resp.GetEvent() == "error" {
-				typ, msg := s2sErrorMeta(resp.GetMeta())
+				typ, msg, _ := s2sErrorMeta(resp.GetMeta())
 				if typ == "response_cancel_not_active" {
 					continue
 				}
@@ -344,10 +346,15 @@ func (s *s2sSession) pump() {
 	}
 }
 
-func s2sErrorMeta(meta []byte) (errType, message string) {
+// s2sErrorMeta reads an error event. responseScoped is true when the error
+// answers the response.create (or ends the stream) and no response.done follows
+// it. Any other error is about something else, such as a refused session.update,
+// and a running response goes on.
+func s2sErrorMeta(meta []byte) (errType, message string, responseScoped bool) {
 	var m struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
+		Type           string `json:"type"`
+		Message        string `json:"message"`
+		ResponseScoped bool   `json:"response_scoped"`
 	}
 	_ = json.Unmarshal(meta, &m)
 	if m.Type == "" {
@@ -356,7 +363,7 @@ func s2sErrorMeta(meta []byte) (errType, message string) {
 	if m.Message == "" {
 		m.Message = "the speech-to-speech backend reported an error"
 	}
-	return m.Type, m.Message
+	return m.Type, m.Message, m.ResponseScoped
 }
 
 // open sends the config and waits for session.created, which carries the
@@ -450,10 +457,11 @@ func (s *s2sSession) sendCancel() {
 }
 
 // forwardPCM resamples session-rate PCM to the backend input rate and queues it
-// as frames of at most s2sFrameChunkMs. It never blocks on the stream.
-func (s *s2sSession) forwardPCM(pcm []byte, rate int) {
+// as frames of at most s2sFrameChunkMs. It never blocks on the stream. It
+// returns the number of bytes queued.
+func (s *s2sSession) forwardPCM(pcm []byte, rate int) int {
 	if len(pcm) < 2 {
-		return
+		return 0
 	}
 	pcm = pcm[:len(pcm)&^1]
 	if s.inputRate > 0 && rate > 0 && rate != s.inputRate {
@@ -473,6 +481,7 @@ func (s *s2sSession) forwardPCM(pcm []byte, rate int) {
 			Frame: &proto.AudioToAudioFrame{Pcm: frame},
 		}})
 	}
+	return len(pcm)
 }
 
 func (s *s2sSession) markSent(id string) {
@@ -671,8 +680,8 @@ func (s *Session) s2sOnAppendLocked(chunk []byte) {
 	if st == nil || len(chunk) == 0 {
 		return
 	}
-	if st.forwarding {
-		st.forwardPCM(chunk, s.InputSampleRate)
+	if st.forwarding && st.forwardPCM(chunk, s.InputSampleRate) > 0 {
+		st.turnHasAudio = true
 	}
 }
 
@@ -686,7 +695,9 @@ func (s *Session) s2sCommitAudio(audio []byte, conv *Conversation) {
 		return
 	}
 	st.forwardPendingItems(conv)
-	st.forwardPCM(audio, s.InputSampleRate)
+	if st.forwardPCM(audio, s.InputSampleRate) == 0 {
+		return
+	}
 	if err := st.control("input_audio_buffer.commit", nil); err != nil {
 		xlog.Warn("s2s: committing the input audio failed", "error", err)
 	}
@@ -739,7 +750,7 @@ func (s *Session) s2sBeginTurn(speechStartSec float64) {
 	if startByte > len(s.InputAudioBuffer) {
 		startByte = len(s.InputAudioBuffer)
 	}
-	st.forwardPCM(s.InputAudioBuffer[startByte:], s.InputSampleRate)
+	st.turnHasAudio = st.forwardPCM(s.InputAudioBuffer[startByte:], s.InputSampleRate) > 0
 	st.forwarding = true
 }
 
@@ -752,6 +763,11 @@ func (s *Session) s2sEndTurn() {
 	s.AudioBufferLock.Lock()
 	defer s.AudioBufferLock.Unlock()
 	st.forwarding = false
+	if !st.turnHasAudio {
+		// A turn that forwarded nothing has nothing to commit.
+		return
+	}
+	st.turnHasAudio = false
 	// Queued, not awaited: the lock is held and the queue keeps the order.
 	st.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
 		Control: &proto.AudioToAudioControl{Event: "input_audio_buffer.commit"},
@@ -1055,6 +1071,14 @@ func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, 
 		isWebRTC: isWebRTC,
 	}
 
+	// Events left over from an earlier response must not reach this one.
+	for drained := false; !drained; {
+		select {
+		case <-st.events:
+		default:
+			drained = true
+		}
+	}
 	st.cancelSent.Store(false)
 	st.active.Store(true)
 	defer st.active.Store(false)
@@ -1124,13 +1148,19 @@ func (tn *s2sTurn) handle(ev *proto.AudioToAudioResponse, toolTurn int) bool {
 			tn.toolCalls = append(tn.toolCalls, functions.FuncCallResults{Name: m.Name, Arguments: args})
 		}
 	case "error":
-		typ, msg := s2sErrorMeta(ev.GetMeta())
+		typ, msg, scoped := s2sErrorMeta(ev.GetMeta())
 		if typ == "response_cancel_not_active" {
 			// The response ended just as the cancel went out; its own
 			// response.done is on the way.
 			return false
 		}
 		sendError(tn.t, typ, msg, "", "")
+		if !scoped {
+			// The backend reports problems that are not about this response
+			// (a refused session.update, an empty commit) and goes on
+			// generating. Its response.done still comes.
+			return false
+		}
 		tn.r.outcome = outcomeFailed
 		return true
 	case "response.done":

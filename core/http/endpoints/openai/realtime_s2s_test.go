@@ -173,6 +173,8 @@ var _ = Describe("realtime speech-to-speech", func() {
 		stream.script = replyScript
 		session, tr, conv := newHarness(stream, baseModel())
 
+		session.InputAudioBuffer = make([]byte, 640)
+		session.s2sBeginTurn(0)
 		session.s2sEndTurn()
 		session.issueClientCommit([]byte{1, 2, 3, 4}, conv, tr)
 		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
@@ -497,6 +499,82 @@ var _ = Describe("realtime speech-to-speech", func() {
 		DeferCleanup(st.close)
 		stream.push("error", nil, map[string]any{"type": "invalid_request_error", "message": "instructions cannot change"})
 		Eventually(got).Should(Receive(Equal("invalid_request_error: instructions cannot change")))
+	})
+
+	Describe("backend errors during a response", func() {
+		errorCodes := func(tr *fakeTransport) []string {
+			var out []string
+			for _, e := range tr.events() {
+				if ev, ok := e.(types.ErrorEvent); ok {
+					out = append(out, ev.Error.Code)
+				}
+			}
+			return out
+		}
+
+		It("keeps the response going after an error that is not about it", func() {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if isControl(req, "response.create") {
+					f.push("response.audio_transcript.delta", nil, map[string]any{"delta": "hi "})
+					f.push("error", nil, map[string]any{"type": "invalid_request_error", "message": "session.update: voice cannot change after the first audio or message"})
+					f.push("response.audio_transcript.delta", nil, map[string]any{"delta": "there"})
+					f.push("response.done", nil, map[string]any{"status": "completed", "text": "hi there"})
+				}
+			}
+			session, tr, conv := newHarness(stream, baseModel())
+
+			session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+			session.respSink.wait()
+
+			Expect(tr.transcriptDeltaText()).To(Equal("hi there"))
+			names := eventTypeNames(tr.events())
+			Expect(names[len(names)-1]).To(Equal("response.done"))
+			Expect(errorCodes(tr)).To(Equal([]string{"invalid_request_error"}), "the client still hears about the error")
+		})
+
+		It("ends the response on an error that answers its response.create", func() {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if isControl(req, "response.create") {
+					f.push("error", nil, map[string]any{"type": "conversation_empty", "message": "commit audio or create a message first", "response_scoped": true})
+				}
+			}
+			session, tr, conv := newHarness(stream, baseModel())
+
+			session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+			session.respSink.wait()
+
+			Expect(errorCodes(tr)).To(Equal([]string{"conversation_empty"}))
+			Expect(fromResponseCreated(tr.events())).To(Equal([]string{"response.created", "error"}))
+		})
+
+		It("does not take events of an earlier response for the next one", func() {
+			stream := newFakeS2SStream()
+			stream.script = replyScript
+			session, tr, conv := newHarness(stream, baseModel())
+			// What an earlier response left in the buffer.
+			session.s2s.events <- &proto.AudioToAudioResponse{Event: "response.audio_transcript.delta", Meta: []byte(`{"delta":"stale "}`)}
+			session.s2s.events <- &proto.AudioToAudioResponse{Event: "response.done", Meta: []byte(`{"status":"completed","text":"stale"}`)}
+
+			session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+			session.respSink.wait()
+
+			Expect(tr.transcriptDeltaText()).To(Equal("hi there"))
+		})
+
+		It("sends no commit when no audio was forwarded for the turn", func() {
+			stream := newFakeS2SStream()
+			session, _, _ := newHarness(stream, baseModel())
+
+			session.s2sEndTurn()
+			Expect(stream.controls()).To(BeEmpty())
+
+			session.InputAudioBuffer = make([]byte, 640)
+			session.s2sBeginTurn(0)
+			session.s2sEndTurn()
+			Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit"}))
+		})
 	})
 
 	Describe("the output mode on the wire", func() {
