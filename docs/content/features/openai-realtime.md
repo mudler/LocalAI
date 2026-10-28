@@ -475,10 +475,16 @@ Speech-to-speech over the Realtime API is experimental. It needs a llama.cpp bui
 
 ### Configuration
 
-The gallery has two builds of [LiquidAI LFM3-Audio-2B](https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF), both with the Q8_0 audio projector:
+The gallery has [LiquidAI LFM3-Audio-2B](https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF) in two quantizations (Q4_K_M or Q8_0 weights, both with the Q8_0 audio projector) and four shapes each. Every entry is independent: installing `lfm3-audio-2b` always gets the Q4_K_M build, never Q8_0.
 
-- `lfm3-audio-2b`: Q4_K_M weights (default).
-- `lfm3-audio-2b-q8`: Q8_0 weights.
+| Entry (Q4_K_M) | Entry (Q8_0) | Shape | VAD |
+|---|---|---|---|
+| `lfm3-audio-2b` | `lfm3-audio-2b-q8` | One speech-to-speech model | none, the client commits turns |
+| `lfm3-audio-2b-vad` | `lfm3-audio-2b-q8-vad` | One speech-to-speech model | `silero-vad-ggml` |
+| `lfm3-audio-2b-pipeline` | `lfm3-audio-2b-q8-pipeline` | Chained pipeline on the same model | none, the client commits turns |
+| `lfm3-audio-2b-pipeline-vad` | `lfm3-audio-2b-q8-pipeline-vad` | Chained pipeline on the same model | `silero-vad-ggml` |
+
+The gallery cannot install one model as a dependency of another. The `-vad` entries name `silero-vad-ggml` in `pipeline.vad`, so install it first with `local-ai models install silero-vad-ggml`. Without it, the session fails to start with a model-not-found error.
 
 Install one with `local-ai models install lfm3-audio-2b`. Its model configuration looks like this:
 
@@ -501,6 +507,28 @@ template:
 - **`pipeline.any_to_any: true`** runs the model as one speech-to-speech model. Without it, a `realtime_audio` model keeps the chained path (VAD, transcription, LLM, TTS).
 - **`parallel:2`** gives the model two slots. One is held by the session. The other serves transcription, TTS or chat calls at the same time.
 
+### Chained pipeline on LFM3
+
+The `-pipeline` entries do not use the speech-to-speech stream. They run the classic realtime pipeline (VAD, transcription, LLM, TTS), with the transcription, chat and speech stages all served by the one llama.cpp model: speech recognition through the transcription path, the reply through the chat path (with its templates, tools and streaming), and speech synthesis through the TTS path with the named voice `female` (or `male`). Choose it when you want the regular chat path or the text of each stage; choose the speech-to-speech entries for the lowest latency. The model configuration names itself in each slot and is not a `realtime_audio` model:
+
+```yaml
+name: lfm3-audio-2b-pipeline-vad
+backend: llama-cpp
+mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+parameters:
+  model: LFM3-Audio-2B-Q4_K_M.gguf
+known_usecases: [chat, transcript, tts]
+tts:
+  voice: female
+pipeline:
+  vad: silero-vad-ggml
+  transcription: lfm3-audio-2b-pipeline-vad
+  llm: lfm3-audio-2b-pipeline-vad
+  tts: lfm3-audio-2b-pipeline-vad
+```
+
+Keep the installed model name, because the slots refer to it. The `-pipeline` entries have no `vad` line. A chained pipeline without a VAD starts with turn detection off, refuses `turn_detection` of type `server_vad` in `session.update`, and expects `input_audio_buffer.commit` followed by `response.create`.
+
 ### Migrating from the liquid-audio backend
 
 The Python `liquid-audio` backend is removed, together with its importer and its gallery entries. It served LFM2-Audio models. Use the `llama-cpp` backend with `lfm3-audio-2b` or `lfm3-audio-2b-q8` instead, and set `pipeline.any_to_any: true` as shown above. A model with `backend: llama-cpp` and `realtime_audio` but without `pipeline.any_to_any` is refused with `invalid_pipeline`, because llama.cpp has no VAD, transcription or TTS of its own.
@@ -512,7 +540,7 @@ LFM2.5-Audio is not covered: llama.cpp does not run it, so there is no replaceme
 Speech-to-speech models do not have a VAD of their own. Turn detection depends on the pipeline:
 
 - **With a VAD model** (`pipeline.vad`, for example `silero-vad-ggml`, installed separately), the server detects the start and end of each turn. Use `turn_detection` with `server_vad` as in the rest of this page. Audio is forwarded from 300 ms before speech starts, so silence before the user speaks is not added to the model context.
-- **Without a VAD model**, server VAD is off. The client ends each turn with `input_audio_buffer.commit` and then sends `response.create`. Set `turn_detection` to `null` in `session.update` to make this explicit.
+- **Without a VAD model** (the plain `lfm3-audio-2b` entries), server VAD is off. The client ends each turn with `input_audio_buffer.commit` and then sends `response.create`. Set `turn_detection` to `null` in `session.update` to make this explicit.
 
 ### Tools
 
