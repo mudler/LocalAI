@@ -78,9 +78,15 @@ func (r agentRow) agent() (Agent, error) {
 	return a, nil
 }
 
-func isUniqueViolation(err error) bool {
+// isNameTaken reports a unique violation of the name index. A collision on the
+// primary key is a unique violation too, but it is not a name that is taken.
+// SQLite names the columns of the index and PostgreSQL names the index.
+func isNameTaken(err error) bool {
 	s := strings.ToLower(err.Error())
-	return strings.Contains(s, "unique") || strings.Contains(s, "duplicate key")
+	if !strings.Contains(s, "unique") && !strings.Contains(s, "duplicate key") {
+		return false
+	}
+	return strings.Contains(s, "name_key") || strings.Contains(s, "idx_studio_agents_name")
 }
 
 func (s *gormStore) Put(ctx context.Context, a Agent) error {
@@ -105,7 +111,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 		} else {
 			err = tx.Create(&row).Error
 		}
-		if err != nil && isUniqueViolation(err) {
+		if err != nil && isNameTaken(err) {
 			return ErrNameTaken
 		}
 		return err
