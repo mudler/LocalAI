@@ -49,6 +49,15 @@
 #include "decision_compat.h"
 #include "decision_images.h"
 #endif
+// server-realtime.cpp defines server_realtime_slot, which server-context.cpp
+// reaches through server-realtime.h (SERVER_TASK_TYPE_REALTIME). Upstream
+// llama.cpp compiles it into the server library; this TU must carry it too or
+// the link fails. Forks that predate the realtime split do not ship the file,
+// so the include is guarded.
+#if __has_include("server-realtime.cpp")
+#define LOCALAI_HAS_SERVER_REALTIME 1
+#include "server-realtime.cpp"
+#endif
 #include "server-context.cpp"
 
 // LocalAI
