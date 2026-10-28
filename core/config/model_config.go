@@ -1166,6 +1166,12 @@ type Pipeline struct {
 	// a diarize request they cannot serve. Speaker labels are per turn.
 	Diarization bool `yaml:"diarization,omitempty" json:"diarization,omitempty"`
 
+	// AnyToAny marks a realtime_audio model that serves the whole speech loop
+	// itself through AudioToAudioStream (for example LFM3-Audio on llama.cpp).
+	// true routes the session to that single stream; unset or false keeps the
+	// chained VAD, transcription, LLM and TTS pipeline the four slots describe.
+	AnyToAny *bool `yaml:"any_to_any,omitempty" json:"any_to_any,omitempty"`
+
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
 	// own reasoning_effort. Unset leaves the LLM model config in charge.

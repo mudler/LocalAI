@@ -569,6 +569,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       67,
 		},
+		"pipeline.any_to_any": {
+			Section:     "pipeline",
+			Label:       "Speech-to-Speech Model",
+			Description: "The model serves the whole speech loop itself (AudioToAudioStream), for example LFM3-Audio on llama.cpp. The Realtime session then uses this one model with no separate VAD, transcription, LLM or TTS slots. Leave off to keep the chained pipeline.",
+			Component:   "toggle",
+			Order:       69,
+		},
 		"pipeline.reasoning_effort": {
 			Section:     "pipeline",
 			Label:       "Reasoning Effort",
