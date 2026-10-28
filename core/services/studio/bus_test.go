@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/testutil"
@@ -188,5 +189,44 @@ func TestTheBroadcastBusCarriesControlBetweenInstances(t *testing.T) {
 	case c := <-got:
 		t.Fatalf("a control message for another chat reached this one: %+v", c)
 	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+// recordingBroadcaster keeps what the bus hands to Publish.
+type recordingBroadcaster struct {
+	messaging.Broadcaster
+	got []any
+}
+
+func (r *recordingBroadcaster) Publish(_ string, data any) error {
+	r.got = append(r.got, data)
+	return nil
+}
+
+// An event is encoded once on the way out: the bus sizes it while it encodes
+// it, and hands the bytes on. Passing the event itself made the message client
+// encode every streamed token a second time.
+func TestTheBroadcastBusHandsOnTheBytesItEncoded(t *testing.T) {
+	rb := &recordingBroadcaster{}
+	bus := studio.NewBroadcastBus(rb, nil)
+	bus.Publish("k", session.Event{Kind: session.KindText, Text: "hi"})
+	bus.Publish("k", session.Event{Kind: session.KindText, Text: strings.Repeat("x", 100<<10)})
+	if len(rb.got) != 2 {
+		t.Fatalf("published %d messages", len(rb.got))
+	}
+	for i, data := range rb.got {
+		raw, ok := data.(json.RawMessage)
+		if !ok {
+			t.Fatalf("message %d is %T, want json.RawMessage", i, data)
+		}
+		var ev session.Event
+		if err := json.Unmarshal(raw, &ev); err != nil || ev.Kind != session.KindText {
+			t.Fatalf("message %d does not decode: %v", i, err)
+		}
+	}
+	var long session.Event
+	_ = json.Unmarshal(rb.got[1].(json.RawMessage), &long)
+	if len(long.Text) > 1500 {
+		t.Fatalf("a long event was not cut: %d bytes", len(long.Text))
 	}
 }

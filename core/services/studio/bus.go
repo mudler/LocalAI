@@ -107,17 +107,25 @@ func eventSubject(key string) string   { return "chats.events." + token(key) }
 func controlSubject(key string) string { return "chats.control." + token(key) }
 
 func (b *broadcastBus) Publish(key string, ev session.Event) {
-	if err := b.b.Publish(eventSubject(key), fit(ev)); err != nil {
+	raw, err := encodeFit(ev)
+	if err != nil {
+		b.log.Warn("studio: could not encode an event", "error", err)
+		return
+	}
+	if err := b.b.Publish(eventSubject(key), raw); err != nil {
 		b.log.Warn("studio: could not publish an event", "error", err)
 	}
 }
 
-// fit trims an event to maxEventBytes. Events are for display, and the
-// transcript has the full text, so a long one is cut and never dropped.
-func fit(ev session.Event) session.Event {
+// encodeFit encodes an event and trims it to maxEventBytes. Events are for
+// display, and the transcript has the full text, so a long one is cut and
+// never dropped. The bytes are the message: the bus sizes the event while it
+// encodes it, and the message client does not encode it again.
+func encodeFit(ev session.Event) (json.RawMessage, error) {
 	ev = withoutAppPayload(ev)
-	if size(ev) <= maxEventBytes {
-		return ev
+	raw, err := json.Marshal(ev)
+	if err != nil || len(raw) <= maxEventBytes {
+		return raw, err
 	}
 	ev.Text = cut(ev.Text, 1500)
 	if ev.Tool != nil {
@@ -125,12 +133,13 @@ func fit(ev session.Event) session.Event {
 		t.Output, t.Summary = cut(t.Output, 1500), cut(t.Summary, 200)
 		ev.Tool = &t
 	}
-	if size(ev) > maxEventBytes {
-		ev.Change = nil
-		ev.IDs = nil
-		ev.Text = cut(ev.Text, 200)
+	if raw, err = json.Marshal(ev); err != nil || len(raw) <= maxEventBytes {
+		return raw, err
 	}
-	return ev
+	ev.Change = nil
+	ev.IDs = nil
+	ev.Text = cut(ev.Text, 200)
+	return json.Marshal(ev)
 }
 
 // withoutAppPayload drops the input and the result that an app card carries.
@@ -144,14 +153,6 @@ func withoutAppPayload(ev session.Event) session.Event {
 	c.App, t.Card = &a, &c
 	ev.Tool = &t
 	return ev
-}
-
-func size(ev session.Event) int {
-	raw, err := json.Marshal(ev)
-	if err != nil {
-		return 0
-	}
-	return len(raw)
 }
 
 func cut(s string, n int) string {
