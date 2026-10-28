@@ -128,6 +128,20 @@ if grep -q "llama_lazy_mode lazy_mode" llama.cpp/common/common.h; then
 else
     HAS_LAZY_MODE=0
 fi
+# Realtime conversations (SERVER_TASK_TYPE_REALTIME, server-realtime.cpp).
+# Forks that branched before the upstream realtime split lack the task type.
+if grep -q "SERVER_TASK_TYPE_REALTIME" llama.cpp/tools/server/server-task.h; then
+    HAS_REALTIME=1
+else
+    HAS_REALTIME=0
+fi
+# Per-session TTS voice (mtmd_helper_gen_audio_inp::set_voice). Older pins have
+# no voice selection for gen-audio models.
+if grep -q "set_voice" llama.cpp/tools/mtmd/mtmd-helper.h; then
+    HAS_TTS_VOICE=1
+else
+    HAS_TTS_VOICE=0
+fi
 # Newer servers return template state separately from the request JSON.
 if grep -q "common_chat_session & out_session" llama.cpp/tools/server/server-common.h; then
     HAS_CHAT_SESSION=1
@@ -152,6 +166,8 @@ cat > llama.cpp/tools/grpc-server/llama_compat.h <<EOF
 #define LOCALAI_HAS_MOE_CACHE ${HAS_MOE_CACHE}
 #define LOCALAI_HAS_LAZY_MODE ${HAS_LAZY_MODE}
 #define LOCALAI_HAS_RERANK_FILES ${HAS_RERANK_FILES}
+#define LOCALAI_HAS_REALTIME ${HAS_REALTIME}
+#define LOCALAI_HAS_TTS_VOICE ${HAS_TTS_VOICE}
 EOF
 
 set +e
