@@ -204,6 +204,27 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(names).To(ContainElements("conversation.item.added", "conversation.item.input_audio_transcription.completed"))
 	})
 
+	It("does not hold the response back while the input is transcribed", func() {
+		stream := newFakeS2SStream()
+		stream.script = replyScript
+		m := baseModel()
+		m.transcribeBlock = make(chan struct{})
+		session, tr, conv := newHarness(stream, m)
+
+		session.s2sEndTurn()
+		session.issueClientCommit([]byte{1, 2, 3, 4}, conv, tr)
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+
+		Eventually(func() int { return tr.countEvents(types.ServerEventTypeResponseDone) }, 2*time.Second).Should(Equal(1))
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(BeZero())
+
+		// The transcript still arrives once the ASR is done.
+		close(m.transcribeBlock)
+		Eventually(func() int {
+			return tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)
+		}, 2*time.Second).Should(Equal(1))
+	})
+
 	It("reports a failed input transcription without breaking the response", func() {
 		stream := newFakeS2SStream()
 		stream.script = replyScript

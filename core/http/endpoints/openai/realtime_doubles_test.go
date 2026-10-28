@@ -88,6 +88,9 @@ type fakeModel struct {
 	transcribeDeltas []string
 	transcribeFinal  *schema.TranscriptionResult
 	transcribeErr    error
+	// transcribeBlock, when set, holds every transcription until it closes or
+	// the call's context ends.
+	transcribeBlock chan struct{}
 	lastDiarize      bool // diarize flag of the last Transcribe/TranscribeStream call
 
 	// TranscribeLive scripting: liveErr makes the open fail (degrade path);
@@ -190,7 +193,22 @@ func (m *fakeModel) VAD(_ context.Context, req *schema.VADRequest) (*schema.VADR
 	return &schema.VADResponse{Segments: m.vadSegments}, nil
 }
 
-func (m *fakeModel) Transcribe(_ context.Context, _, _ string, _, diarize bool, _ string) (*schema.TranscriptionResult, error) {
+func (m *fakeModel) waitTranscribeBlock(ctx context.Context) error {
+	if m.transcribeBlock == nil {
+		return nil
+	}
+	select {
+	case <-m.transcribeBlock:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (m *fakeModel) Transcribe(ctx context.Context, _, _ string, _, diarize bool, _ string) (*schema.TranscriptionResult, error) {
+	if err := m.waitTranscribeBlock(ctx); err != nil {
+		return nil, err
+	}
 	m.lastDiarize = diarize
 	return m.transcribeFinal, m.transcribeErr
 }
@@ -241,7 +259,10 @@ func (m *fakeModel) TTSStream(_ context.Context, _, _, _ string, onAudio func(pc
 	return nil
 }
 
-func (m *fakeModel) TranscribeStream(_ context.Context, _, _ string, _, diarize bool, _ string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+func (m *fakeModel) TranscribeStream(ctx context.Context, _, _ string, _, diarize bool, _ string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+	if err := m.waitTranscribeBlock(ctx); err != nil {
+		return nil, err
+	}
 	m.lastDiarize = diarize
 	for _, d := range m.transcribeDeltas {
 		onDelta(d)

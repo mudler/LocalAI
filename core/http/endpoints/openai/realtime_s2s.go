@@ -787,7 +787,7 @@ func (s *Session) s2sAbortTurn() {
 }
 
 // s2sCommitTurn records a committed user turn: the user item, the input
-// transcription in parallel, and, for a VAD turn, the response. A client commit
+// transcription on the side, and, for a VAD turn, the response. A client commit
 // does not respond; the client sends response.create. The backend commit
 // control was already sent in order with the audio (s2sEndTurn).
 func s2sCommitTurn(ctx context.Context, utt []byte, itemID string, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
@@ -828,16 +828,18 @@ func s2sCommitTurn(ctx context.Context, utt []byte, itemID string, session *Sess
 	slot.appended = true
 	sendEvent(t, types.ConversationItemAddedEvent{Item: item})
 
-	var wg sync.WaitGroup
+	// The transcript is for the client only: the model already has the audio.
+	// It runs detached under the session context, so the commit slot is
+	// released at once. Waiting for it would put the ASR latency in front of
+	// every reply, and on a backend with few slots a busy ASR could block it.
 	if session.InputAudioTranscription != nil && !session.TranscriptionOnly {
-		wg.Go(func() { s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate) })
+		go s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate)
 	}
 	// A turn whose response context is already cancelled (a newer turn, or a
 	// response that is not interrupted) commits its item only.
 	if slot.source == respcoord.SourceVAD && ctx.Err() == nil {
 		triggerResponse(ctx, session, conv, t, nil)
 	}
-	wg.Wait()
 }
 
 // s2sTranscribeInput transcribes the committed audio of a user turn on the
