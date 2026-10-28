@@ -741,10 +741,6 @@ lfm2.5-8b-a1b-turbo-brilliance-q8	2b5e7d14f21d34aa	1de63f4ae75cc4c9
 lfm2.5-8b-a1b-ud-q4-k-m	0ac4fb822288834f	263f8313abda67e4
 lfm2.5-8b-a1b-ud-q5-k-m	b83925a5e3b29a5c	0ff938a9bd62b57b
 lfm2.5-8b-a1b-ud-q6-k	ce01c23fcca939f5	0b77cad30dbf9f37
-lfm2.5-audio-1.5b-asr	74afda871e1aa19a	cb76eb7d6450549a
-lfm2.5-audio-1.5b-chat	885d4ce952880708	bbebd03a511bdeb5
-lfm2.5-audio-1.5b-realtime	741b42e8456b210f	5cec0853616f6dbf
-lfm2.5-audio-1.5b-tts	69fa289e787fc130	737be4078fe19136
 lfm2.5-vl-1.6b	479cc1a80370ec8e	4fe05d3586ad5ec3
 lfm2.5-vl-1.6b-q8	bd0fdd818daeca7e	a4255a36c8befa24
 lfm2.5-vl-3b	46353b2ffd227315	f7e2e762a6f52e30
