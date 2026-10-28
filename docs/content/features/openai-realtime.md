@@ -501,6 +501,12 @@ template:
 - **`pipeline.any_to_any: true`** runs the model as one speech-to-speech model. Without it, a `realtime_audio` model keeps the chained path (VAD, transcription, LLM, TTS).
 - **`parallel:2`** gives the model two slots. One is held by the session. The other serves transcription, TTS or chat calls at the same time.
 
+### Migrating from the liquid-audio backend
+
+The Python `liquid-audio` backend is removed, together with its importer and its gallery entries. It served LFM2-Audio models. Use the `llama-cpp` backend with `lfm3-audio-2b` or `lfm3-audio-2b-q8` instead, and set `pipeline.any_to_any: true` as shown above. A model with `backend: llama-cpp` and `realtime_audio` but without `pipeline.any_to_any` is refused with `invalid_pipeline`, because llama.cpp has no VAD, transcription or TTS of its own.
+
+LFM2.5-Audio is not covered: llama.cpp does not run it, so there is no replacement for it. Remove the old model configurations that name `backend: liquid-audio`.
+
 ### Voice activity detection
 
 Speech-to-speech models do not have a VAD of their own. Turn detection depends on the pipeline:
@@ -527,7 +533,7 @@ Interruption works as described in [Controlling response interruption](#controll
 - **Voice.** The `voice` setting is not applied to speech-to-speech output. llama.cpp's realtime slot has no voice selection. The `voice` setting still applies to the [text-to-speech endpoint]({{%relref "features/text-to-audio" %}}).
 - **Context.** A session holds one slot for its whole life, and all its audio stays in the context. A long session reaches `context_size`. The session then sends an error and closes. There is no compaction for speech-to-speech sessions.
 - **Session updates after the first turn.** Once the first audio or message has been added, `instructions`, `tools` and `voice` cannot change. A `session.update` that tries to change them gets an `error`. `output_modalities` and `max_output_tokens` can still change.
-- **Not supported.** `conversation.item.truncate` and `conversation.item.delete` return an `error`, because the context cannot be cut by audio time. `input_audio_buffer.clear` drops audio that has not been sent to the model yet. Audio already sent stays in the context.
+- **Not supported.** `conversation.item.truncate` and `conversation.item.delete` return an `error`, because the context cannot be cut by audio time. `input_audio_buffer.clear` drops audio that has not been committed. Without a VAD model, the server keeps appended audio in its buffer and sends it to the model only at `input_audio_buffer.commit` (or at a `response.create` that finds uncommitted audio), so a clear discards it for good. With server VAD, audio is streamed to the model during a turn, and what was already sent stays in the context.
 - **Pipeline features.** The pipeline features that need a separate LLM call are rejected with `invalid_pipeline`: classifier mode, conversation compaction with a summary, `streaming.llm`, and voice recognition gating.
 - **Distributed mode.** The conversation state lives in one backend slot, so a session stays on the instance that opened it until it ends. See [distributed mode]({{%relref "features/distributed-mode" %}}) for how instances are chosen.
 
