@@ -197,7 +197,7 @@ var _ = Describe("realtime speech-to-speech", func() {
 
 		// A client commit does not start a response on its own.
 		Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
-		// The user item is added and its transcript reported (T7).
+		// The user item is added and its transcript reported.
 		names := eventTypeNames(tr.events())
 		Expect(names).To(ContainElements("conversation.item.added", "conversation.item.input_audio_transcription.completed"))
 	})

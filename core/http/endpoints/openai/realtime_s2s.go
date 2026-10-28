@@ -35,8 +35,10 @@ import (
 //
 // Event flow of one turn, manual commit:
 //
-//	client input_audio_buffer.append*   -> backend frames (resampled)
-//	client input_audio_buffer.commit    -> backend input_audio_buffer.commit,
+//	client input_audio_buffer.append*   -> held in the input buffer
+//	                                       (input_audio_buffer.clear drops it)
+//	client input_audio_buffer.commit    -> backend frames (resampled), then
+//	                                       input_audio_buffer.commit,
 //	                                       committed + conversation.item.added
 //	                                       (+ input transcription, see below)
 //	client response.create              -> backend response.create, then

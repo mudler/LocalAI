@@ -22,9 +22,6 @@ import (
 // (realtime_audio plus pipeline.any_to_any) that takes audio in and returns
 // audio, transcripts and tool calls over /v1/realtime.
 //
-// The S2S path is wired (T6), so the specs run. s2sEndpointReady stays as a
-// kill switch.
-//
 // Variants, chosen by environment, run the same specs:
 //   - mock (default, label Realtime): the realtime-s2s-mock fixture from
 //     e2e_suite_test.go, served by the mock backend's AudioToAudioStream.
@@ -40,11 +37,8 @@ import (
 //                         own transcript (e.g. omnilingual-0.3b-ctc-q8-sherpa)
 
 const (
-	// s2sEndpointReady gates every spec in this file. Flip it with T6.
-	s2sEndpointReady = true
-	s2sMockModel     = "realtime-s2s-mock"
-	s2sInputRate     = 24000
-	s2sSkipReason    = "pending T6: /v1/realtime does not route any_to_any models to AudioToAudioStream yet"
+	s2sMockModel = "realtime-s2s-mock"
+	s2sInputRate = 24000
 )
 
 // s2sResponseTimeout bounds one response. A real model on CPU is slow.
@@ -162,13 +156,6 @@ func keywordsIn(text string, keywords ...string) bool {
 	return false
 }
 
-// skipPending is the single gate for this file; see s2sEndpointReady.
-func skipPending() {
-	if !s2sEndpointReady {
-		Skip(s2sSkipReason)
-	}
-}
-
 // defineS2SSpecs registers the S2S specs for one variant. The bodies are the
 // same in both variants; "real" guards the assertions that need real weights.
 func defineS2SSpecs(variant string, realLabel bool) {
@@ -178,7 +165,6 @@ func defineS2SSpecs(variant string, realLabel bool) {
 		decorators = append(decorators, Label("real-models"))
 	}
 	Describe("Realtime S2S ("+variant+")", append(decorators, func() {
-		BeforeEach(skipPending)
 
 		It("reports the audio format and echoes session.update", func() {
 			conn := connectWS(s2sModel())
