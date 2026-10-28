@@ -821,6 +821,20 @@ test-extra-backend-llama-cpp-transcription: docker-build-llama-cpp
 	BACKEND_TEST_CTX_SIZE=2048 \
 	$(MAKE) test-extra-backend
 
+## LFM3-Audio (LiquidAI) through the llama-cpp backend: a named-voice TTS
+## (no speaker reference), the LFM3 ASR preset, and the tts/ttsstream/transcription
+## specs. Real weights, so it is a manual run and not part of CI. CPU is enough.
+test-extra-backend-llama-cpp-lfm3: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/main/LFM3-Audio-2B-Q4_K_M.gguf \
+	BACKEND_TEST_MMPROJ_URL=https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/main/mmproj-LFM3-Audio-2B-Q8_0.gguf \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,predict,tts,ttsstream,transcription \
+	BACKEND_TEST_CTX_SIZE=4096 \
+	BACKEND_TEST_TTS_TEXT="Hello from LocalAI." \
+	BACKEND_TEST_OPTIONS=parallel:2 \
+	$(MAKE) test-extra-backend
+
 ## privacy-filter: the PII/NER token-classification backend. Exercises the
 ## TokenClassify RPC and asserts byte-correct, UTF-8-aligned span offsets
 ## against the openai-privacy-filter multilingual GGUF (CPU-runnable, ~50M

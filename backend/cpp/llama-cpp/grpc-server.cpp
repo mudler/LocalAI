@@ -77,6 +77,7 @@
 #include "passthrough_options.h"
 #include "stream_peer.h"
 #include "tts_request_options.h"
+#include "transcription_prompt.h"
 #include <getopt.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
@@ -3202,20 +3203,24 @@ public:
                 "the loaded model does not support audio generation (no gen-audio mmproj)");
         }
 
+        // Qwen3-TTS Base takes a speaker reference file; LFM3-Audio takes a
+        // named voice through its "tts" chat template. Forks without the voice
+        // probe predate named voices, so they keep the reference rule.
+#if LOCALAI_HAS_TTS_VOICE
+        const bool needs_reference = ctx_server.impl->mtmd_cap.audio_gen_spk_ref;
+#else
+        const bool needs_reference = true;
+#endif
+
         std::map<std::string, std::string> params(request->params().begin(), request->params().end());
         const auto opts = llama_grpc::parse_tts_request_options(
             request->text(),
             request->voice(),
             request->has_language() ? request->language() : std::string(),
-            params);
+            params,
+            needs_reference);
         if (!opts.ok) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, opts.error);
-        }
-
-        auto wrapper = mtmd_helper_bitmap_init_from_file(ctx_server.impl->mctx, opts.voice_path.c_str(), false LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
-        if (!wrapper.bitmap) {
-            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-                "failed to read speaker reference audio: " + opts.voice_path);
         }
 
         task.tts_inp.set_prompt(opts.text);
@@ -3228,7 +3233,28 @@ public:
         if (!opts.language.empty()) {
             task.tts_inp.set_lang(opts.language);
         }
-        task.tts_inp.set_speaker_ref(mtmd::bitmap_ptr(wrapper.bitmap));
+
+        if (needs_reference) {
+            auto wrapper = mtmd_helper_bitmap_init_from_file(ctx_server.impl->mctx, opts.voice_path.c_str(), false LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
+            if (!wrapper.bitmap) {
+                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+                    "failed to read speaker reference audio: " + opts.voice_path);
+            }
+            task.tts_inp.set_speaker_ref(mtmd::bitmap_ptr(wrapper.bitmap));
+        }
+#if LOCALAI_HAS_TTS_VOICE
+        else {
+            // Same as upstream POST /tts: the model's "tts" template renders the
+            // prompt with the language and voice, and an empty voice takes the
+            // template default. Fall back to the raw text when there is no template.
+            const std::string tts_prompt = common_chat_get_tts_prompt(
+                ctx_server.impl->chat_params.tmpls.get(), opts.text, opts.language, opts.voice);
+            if (!tts_prompt.empty()) {
+                task.tts_inp.set_prompt(tts_prompt);
+            }
+            task.tts_inp.set_voice(opts.voice);
+        }
+#endif
         task.tts_inp.data.top_k    = opts.top_k;
         task.tts_inp.data.top_p    = opts.top_p;
         task.tts_inp.data.stream   = stream;
@@ -4214,24 +4240,37 @@ public:
 
         std::string b64 = base64_encode_bytes(bytes.data(), bytes.size());
 
-        // Build the same prompt upstream uses in convert_transcriptions_to_chatcmpl.
-        std::string user_prompt = "Transcribe audio to text";
-        if (!request->language().empty()) {
-            user_prompt += " (language: " + request->language() + ")";
-        }
-        if (!request->prompt().empty()) {
-            // Optional context hint from the caller.
-            user_prompt += "\n" + request->prompt();
-        }
+        // The model's own ASR preset, as upstream convert_transcriptions_to_chatcmpl
+        // builds it. LFM3 needs a system turn naming the language and an empty user
+        // turn; Qwen3-ASR gets a fixed user text and no system turn. Forks without
+        // the preset API keep the Qwen3-ASR text.
+#if LOCALAI_HAS_ASR_PRESET
+        const common_chat_prompt_preset preset =
+            common_chat_get_asr_prompt(ctx_server.impl->chat_params.tmpls.get(), request->language());
+        const std::string preset_system = preset.system;
+        const std::string preset_user = preset.user;
+        const bool preset_has_language = preset.has_language;
+#else
+        const std::string preset_system;
+        const std::string preset_user = "Transcribe audio to text";
+        const bool preset_has_language = false;
+#endif
+        const auto messages = llama_grpc::build_transcription_messages(
+            preset_system, preset_user, preset_has_language, request->language(), request->prompt());
 
         backend::PredictOptions synthetic;
         synthetic.set_usetokenizertemplate(true);
         synthetic.set_temperature(request->temperature());
         // Generation length: leave at 0 so parse_options uses -1 (model default).
         // The model's stop tokens / EOS handle termination naturally for ASR.
+        if (!messages.system.empty()) {
+            backend::Message* sys = synthetic.add_messages();
+            sys->set_role("system");
+            sys->set_content(messages.system);
+        }
         backend::Message* msg = synthetic.add_messages();
         msg->set_role("user");
-        msg->set_content(user_prompt);
+        msg->set_content(messages.user);
         synthetic.add_audios(b64);
 
         return Predict(context, &synthetic, out_reply);

@@ -18,7 +18,11 @@ struct tts_request_options {
     std::string error;
 
     std::string text;
+    // Speaker reference file, set only when the model needs one (Qwen3-TTS Base).
     std::string voice_path;
+    // Named voice, set only when the model takes a name (LFM3-Audio "tts"
+    // template: "female", "male"). Empty means the template default.
+    std::string voice;
     std::string language;
 
     // 0 / 0.0f mean "unset": upstream only overrides the sampler defaults when
@@ -83,26 +87,35 @@ inline tts_request_options reject(const std::string & message) {
 
 } // namespace detail
 
+// needs_reference is the model's mtmd_helper_cap.audio_gen_spk_ref. When true
+// (Qwen3-TTS Base), voice is a speaker reference file and is required. When
+// false (LFM3-Audio), voice is a named voice for the "tts" chat template, and
+// an empty voice lets the template pick its default.
 inline tts_request_options parse_tts_request_options(
         const std::string & text,
         const std::string & voice,
         const std::string & language,
-        const std::map<std::string, std::string> & params) {
+        const std::map<std::string, std::string> & params,
+        bool needs_reference) {
     if (text.empty()) {
         return detail::reject("text must be a non-empty string");
     }
 
-    // The Qwen3-TTS Base checkpoints have no built-in speaker. Without a
-    // reference clip the model picks an arbitrary voice, so an unset voice is
-    // a request error rather than a defaulted one.
-    if (voice.empty()) {
-        return detail::reject("voice must name a speaker reference audio file");
-    }
-
     tts_request_options opts;
-    opts.text       = text;
-    opts.voice_path = voice;
-    opts.language   = language;
+    opts.text     = text;
+    opts.language = language;
+
+    if (needs_reference) {
+        // The Qwen3-TTS Base checkpoints have no built-in speaker. Without a
+        // reference clip the model picks an arbitrary voice, so an unset voice
+        // is a request error rather than a defaulted one.
+        if (voice.empty()) {
+            return detail::reject("voice must name a speaker reference audio file");
+        }
+        opts.voice_path = voice;
+    } else {
+        opts.voice = voice;
+    }
 
     // Both values are range-checked here rather than left to the caller: the
     // consumer copies them straight into mtmd_helper::gen_audio::inp, and only
