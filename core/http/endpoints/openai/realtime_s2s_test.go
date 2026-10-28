@@ -180,7 +180,14 @@ var _ = Describe("realtime speech-to-speech", func() {
 		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
 		session.respSink.wait()
 
-		Expect(fromResponseCreated(tr.events())).To(Equal([]string{
+		// The transcript of the input comes on the side, at any point.
+		var inOrder []string
+		for _, n := range fromResponseCreated(tr.events()) {
+			if n != "conversation.item.input_audio_transcription.completed" {
+				inOrder = append(inOrder, n)
+			}
+		}
+		Expect(inOrder).To(Equal([]string{
 			"response.created",
 			"response.output_item.added",
 			"response.content_part.added",
