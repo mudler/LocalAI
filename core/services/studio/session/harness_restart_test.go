@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -70,5 +71,48 @@ func TestAChatCannotBeOpenedAsTheWorkspaceAdministrator(t *testing.T) {
 	a := workspace.Actor{Principal: workspace.StudioAdmin, ChatID: "c1"}
 	if _, err := m.Open(context.Background(), a, "c1"); !errors.Is(err, session.ErrInvalid) {
 		t.Fatalf("Open as the administrator = %v, want ErrInvalid", err)
+	}
+}
+
+// When the saved state of the harness cannot be read, the new harness gets the
+// transcript so far in the system prompt, oldest line first.
+func TestTheTranscriptSummaryKeepsTheOrderOfTheConversation(t *testing.T) {
+	h := &sessiontest.FakeHarness{}
+	m, err := session.New(session.Options{Store: sessiontest.NewMemoryStore(), Harness: h, StateDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = m.Close(context.Background()) })
+	ctx := context.Background()
+	a := workspace.Actor{Principal: "alice", ChatID: "c1"}
+	chat, err := m.Open(ctx, a, "c1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, text := range []string{"first question", "second question"} {
+		if err := chat.Send(ctx, session.Message{Text: text}); err != nil {
+			t.Fatal(err)
+		}
+		for done := false; !done; {
+			select {
+			case e := <-chat.Events():
+				done = e.Kind == session.KindTurnEnd
+			case <-time.After(5 * time.Second):
+				t.Fatal("the turn did not end")
+			}
+		}
+	}
+	if err := chat.Close(); err != nil {
+		t.Fatal(err)
+	}
+	h.FailResume = true
+	if _, err := m.Open(ctx, a, "c1"); err != nil {
+		t.Fatal(err)
+	}
+	starts := h.Starts()
+	prompt := starts[len(starts)-1].SystemPrompt
+	i, j := strings.Index(prompt, "first question"), strings.Index(prompt, "second question")
+	if i < 0 || j < 0 || i > j {
+		t.Fatalf("the summary is missing or out of order (first at %d, second at %d): %q", i, j, prompt)
 	}
 }

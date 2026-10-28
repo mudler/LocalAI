@@ -10,6 +10,7 @@ import (
 	"path"
 	"regexp"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -340,8 +341,9 @@ func (c *Chat) summary(ctx context.Context) string {
 		if size += len(l) + 1; size > 8<<10 {
 			break
 		}
-		lines = append([]string{l}, lines...)
+		lines = append(lines, l)
 	}
+	slices.Reverse(lines) // collected newest first
 	return strings.Join(lines, "\n")
 }
 
