@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -26,6 +29,7 @@ type fakeS2SStream struct {
 	recv   chan *proto.AudioToAudioResponse
 	script func(f *fakeS2SStream, req *proto.AudioToAudioRequest)
 	once   sync.Once
+	owner  *s2sSession // flushed before the sent requests are read
 }
 
 func newFakeS2SStream() *fakeS2SStream {
@@ -61,6 +65,9 @@ func (f *fakeS2SStream) push(event string, pcm []byte, meta any) {
 }
 
 func (f *fakeS2SStream) requests() []*proto.AudioToAudioRequest {
+	if f.owner != nil {
+		f.owner.flush()
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]*proto.AudioToAudioRequest(nil), f.sent...)
@@ -76,6 +83,26 @@ func (f *fakeS2SStream) controls() []string {
 	}
 	return out
 }
+
+// eofStream fails like a gRPC client stream whose call was rejected: Send
+// returns a bare io.EOF and Recv has the real status.
+type eofStream struct {
+	status error
+	failed chan struct{}
+	once   sync.Once
+}
+
+func (e *eofStream) Send(*proto.AudioToAudioRequest) error {
+	e.once.Do(func() { close(e.failed) })
+	return io.EOF
+}
+
+func (e *eofStream) Recv() (*proto.AudioToAudioResponse, error) {
+	<-e.failed
+	return nil, e.status
+}
+
+func (e *eofStream) Close() error { return nil }
 
 func isControl(r *proto.AudioToAudioRequest, event string) bool {
 	return r.GetControl() != nil && r.GetControl().GetEvent() == event
@@ -106,6 +133,7 @@ var _ = Describe("realtime speech-to-speech", func() {
 	newHarness := func(stream *fakeS2SStream, m *fakeModel) (*Session, *fakeTransport, *Conversation) {
 		st := newS2SSession(stream, nil, nil)
 		st.inputRate, st.outputRate = rate, 24000
+		stream.owner = st
 		session := &Session{
 			s2s:                     st,
 			TurnDetection:           &types.TurnDetectionUnion{ServerVad: &types.ServerVad{}},
@@ -331,34 +359,135 @@ var _ = Describe("realtime speech-to-speech", func() {
 		session.InputAudioBuffer = make([]byte, 3*rate*2) // 3 s
 
 		// Before the turn opens nothing goes out.
-		session.s2sOnAppendLocked(make([]byte, 640), false)
+		session.s2sOnAppendLocked(make([]byte, 640))
 		Expect(stream.requests()).To(BeEmpty())
 
 		session.s2sBeginTurn(2.0) // forwards from 1.7 s: 1.3 s of the buffer
 		Expect(framesBytes(stream)).To(Equal(int(1.3 * rate * 2)))
 
-		session.s2sOnAppendLocked(make([]byte, 640), false)
+		session.s2sOnAppendLocked(make([]byte, 640))
 		Expect(framesBytes(stream)).To(Equal(int(1.3*rate*2) + 640))
 
 		session.s2sEndTurn()
 		Expect(isControl(stream.requests()[len(stream.requests())-1], "input_audio_buffer.commit")).To(BeTrue())
-		session.s2sOnAppendLocked(make([]byte, 640), false)
-		Expect(framesBytes(stream)).To(Equal(int(1.3*rate*2) + 640), "forwarding stops at the commit")
+		session.s2sOnAppendLocked(make([]byte, 640))
+		Expect(framesBytes(stream)).To(Equal(int(1.3*rate*2)+640), "forwarding stops at the commit")
 	})
 
-	It("forwards every chunk when the client commits turns", func() {
+	It("holds manual-commit audio back until the commit", func() {
 		stream := newFakeS2SStream()
-		session, _, _ := newHarness(stream, baseModel())
-		session.s2sOnAppendLocked(make([]byte, 640), true)
+		session, _, conv := newHarness(stream, baseModel())
+		session.TurnDetection = nil
+		chunk := make([]byte, 640)
+		session.AudioBufferLock.Lock()
+		session.InputAudioBuffer = append(session.InputAudioBuffer, chunk...)
+		session.s2sOnAppendLocked(chunk)
+		session.AudioBufferLock.Unlock()
+		Expect(stream.requests()).To(BeEmpty(), "idle audio must not reach the model's context")
+
+		session.s2sCommitAudio(chunk, conv)
 		Expect(framesBytes(stream)).To(Equal(640))
+		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit"}))
 	})
 
-	It("resamples to the backend input rate", func() {
+	It("discards cleared manual-commit audio for good", func() {
+		stream := newFakeS2SStream()
+		session, tr, conv := newHarness(stream, baseModel())
+		session.TurnDetection = nil
+		session.AudioBufferLock.Lock()
+		session.InputAudioBuffer = make([]byte, 640)
+		session.s2sOnAppendLocked(make([]byte, 640))
+		session.AudioBufferLock.Unlock()
+
+		clearInputAudio(session)
+		commitClientAudio(session, conv, tr)
+		session.respSink.wait()
+		Expect(framesBytes(stream)).To(BeZero())
+	})
+
+	It("commits uncommitted audio before a response.create asks for an answer", func() {
+		stream := newFakeS2SStream()
+		stream.script = replyScript
+		session, tr, conv := newHarness(stream, baseModel())
+		session.TurnDetection = nil
+		session.InputAudioBuffer = make([]byte, 640)
+		Expect(session.hasBufferedInput()).To(BeTrue())
+
+		commitClientAudio(session, conv, tr)
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.respSink.wait()
+
+		Expect(session.hasBufferedInput()).To(BeFalse())
+		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit", "response.create"}))
+	})
+
+	It("keeps a text item ahead of the audio committed after it", func() {
+		stream := newFakeS2SStream()
+		session, _, conv := newHarness(stream, baseModel())
+		session.TurnDetection = nil
+		conv.Items = append(conv.Items, &types.MessageItemUnion{User: &types.MessageItemUser{
+			ID:      "t1",
+			Content: []types.MessageContentInput{{Type: types.MessageContentTypeInputText, Text: "hello"}},
+		}})
+
+		session.s2sCommitAudio(make([]byte, 640), conv)
+
+		var kinds []string
+		for _, r := range stream.requests() {
+			switch {
+			case r.GetFrame() != nil:
+				kinds = append(kinds, "frame")
+			case r.GetControl() != nil:
+				kinds = append(kinds, r.GetControl().GetEvent())
+			}
+		}
+		Expect(kinds).To(Equal([]string{"conversation.item.create", "frame", "input_audio_buffer.commit"}))
+	})
+
+	It("resamples a committed turn to the backend input rate", func() {
+		stream := newFakeS2SStream()
+		session, _, conv := newHarness(stream, baseModel())
+		session.InputSampleRate = 24000
+		session.s2sCommitAudio(make([]byte, 24000*2/10), conv) // 100 ms at 24 kHz
+		Expect(framesBytes(stream)).To(BeNumerically("~", rate*2/10, 8))
+	})
+
+	It("reports an open VAD turn so a tool result can be refused", func() {
 		stream := newFakeS2SStream()
 		session, _, _ := newHarness(stream, baseModel())
-		session.InputSampleRate = 24000
-		session.s2sOnAppendLocked(make([]byte, 24000*2/10), true) // 100 ms at 24 kHz
-		Expect(framesBytes(stream)).To(BeNumerically("~", rate*2/10, 8))
+		Expect(session.s2sUserTurnOpen()).To(BeFalse())
+		session.s2sBeginTurn(0)
+		Expect(session.s2sUserTurnOpen()).To(BeTrue())
+		session.s2sEndTurn()
+		Expect(session.s2sUserTurnOpen()).To(BeFalse())
+	})
+
+	It("calls onDead when the stream ends outside a response", func() {
+		stream := newFakeS2SStream()
+		st := newS2SSession(stream, nil, nil)
+		got := make(chan error, 1)
+		st.setOnDead(func(err error) { got <- err })
+		stream.Close()
+		Eventually(got).Should(Receive())
+		st.close()
+	})
+
+	It("does not call onDead for a deliberate close", func() {
+		stream := newFakeS2SStream()
+		st := newS2SSession(stream, nil, nil)
+		got := make(chan error, 1)
+		st.setOnDead(func(err error) { got <- err })
+		st.close()
+		Consistently(got, 200*time.Millisecond).ShouldNot(Receive())
+	})
+
+	It("surfaces the real status when Send fails with a bare EOF", func() {
+		stream := &eofStream{status: status.Error(codes.Unimplemented, "no such method"), failed: make(chan struct{})}
+		st := newS2SSession(stream, nil, nil)
+		DeferCleanup(st.close)
+		err := st.open(context.Background(), s2sConfig{})
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(errors.Unwrap(err))).To(Equal(codes.Unimplemented))
 	})
 
 	It("reports a backend error outside a response", func() {

@@ -1131,8 +1131,6 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				continue
 			}
 
-			manualTurns := session.s2s != nil && session.s2sManualTurns()
-
 			// Check buffer size limits before appending
 			session.AudioBufferLock.Lock()
 			newSize := len(session.InputAudioBuffer) + len(decodedAudio)
@@ -1145,7 +1143,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 			// Append to InputAudioBuffer
 			session.InputAudioBuffer = append(session.InputAudioBuffer, decodedAudio...)
-			session.s2sOnAppendLocked(decodedAudio, manualTurns)
+			session.s2sOnAppendLocked(decodedAudio)
 			session.AudioBufferLock.Unlock()
 
 		case types.InputAudioBufferCommitEvent:
@@ -1161,23 +1159,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				continue
 			}
 
-			session.AudioBufferLock.Lock()
-			allAudio := make([]byte, len(session.InputAudioBuffer))
-			copy(allAudio, session.InputAudioBuffer)
-			session.InputAudioBuffer = nil
-			session.AudioBufferLock.Unlock()
-			// Commit on the backend in order with the audio forwarded so far.
-			session.s2sEndTurn()
-
-			sendEvent(t, types.InputAudioBufferCommittedEvent{
-				ServerEventBase: types.ServerEventBase{},
-				ItemID:          generateItemID(),
-			})
-
-			// Issue through the shared commit-ordering boundary and record the
-			// in-flight commit so the back-to-back response.create waits for the
-			// STT before the LLM starts (client-commit LLM/STT race).
-			session.issueClientCommit(allAudio, conversation, t)
+			commitClientAudio(session, conversation, t)
 
 		case types.InputAudioBufferClearEvent:
 			xlog.Debug("recv", "message", string(msg))
@@ -1194,6 +1176,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			item := e.Item
 			if session.s2s != nil && !s2sItemSupported(item) {
 				sendError(t, "invalid_request_error", "this conversation item is "+s2sUnsupportedMessage, "", e.EventID)
+				continue
+			}
+			if item.FunctionCallOutput != nil && session.s2sUserTurnOpen() {
+				sendError(t, "invalid_request_error", "a tool result cannot be added while the user is speaking; send it after the turn ends", "", e.EventID)
 				continue
 			}
 			// Ensure IDs are present
@@ -1324,6 +1310,13 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					conversation.Items = append(conversation.Items, &item)
 				}
 				conversation.Lock.Unlock()
+			}
+
+			// A speech-to-speech session with client-driven turns holds the audio
+			// back until a commit; a response.create over uncommitted audio
+			// commits it first, so the model hears what the client sent.
+			if session.s2s != nil && session.s2sManualTurns() && session.hasBufferedInput() {
+				commitClientAudio(session, conversation, t)
 			}
 
 			// With client-driven turns the commit and this response.create are
@@ -1697,18 +1690,39 @@ func decodeOpusLoop(session *Session, opusBackend grpc.Backend, done chan struct
 			}
 
 			pcmBytes := sound.Int16toBytesLE(samples)
-			manualTurns := session.s2s != nil && session.s2sManualTurns()
 			session.AudioBufferLock.Lock()
 			newSize := len(session.InputAudioBuffer) + len(pcmBytes)
 			if newSize <= maxAudioBufferSize {
 				session.InputAudioBuffer = append(session.InputAudioBuffer, pcmBytes...)
-				session.s2sOnAppendLocked(pcmBytes, manualTurns)
+				session.s2sOnAppendLocked(pcmBytes)
 			}
 			session.AudioBufferLock.Unlock()
 		case <-done:
 			return
 		}
 	}
+}
+
+// commitClientAudio commits the buffered input audio on a client's request. On
+// a speech-to-speech session the audio goes to the backend only now, ahead of
+// the commit, so a cleared buffer never reaches it.
+func commitClientAudio(session *Session, conversation *Conversation, t Transport) {
+	session.AudioBufferLock.Lock()
+	allAudio := make([]byte, len(session.InputAudioBuffer))
+	copy(allAudio, session.InputAudioBuffer)
+	session.InputAudioBuffer = nil
+	session.AudioBufferLock.Unlock()
+	session.s2sCommitAudio(allAudio, conversation)
+
+	sendEvent(t, types.InputAudioBufferCommittedEvent{
+		ServerEventBase: types.ServerEventBase{},
+		ItemID:          generateItemID(),
+	})
+
+	// Issue through the shared commit-ordering boundary and record the
+	// in-flight commit so the back-to-back response.create waits for the
+	// STT before the LLM starts (client-commit LLM/STT race).
+	session.issueClientCommit(allAudio, conversation, t)
 }
 
 // noSpeechHoldbackSec is how much of the tail of an inspected, segment-free

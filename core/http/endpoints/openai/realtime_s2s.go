@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -128,7 +129,14 @@ type s2sSession struct {
 	stream S2SStream
 	cancel context.CancelFunc
 
-	sendMu sync.Mutex
+	// outbound is the ordered write queue. Frames and controls are written
+	// by one goroutine, so a caller holding AudioBufferLock never blocks on
+	// gRPC flow control and the wire order is the enqueue order.
+	outMu   sync.Mutex
+	outQ    []s2sOutbound
+	outWake chan struct{}
+	quit    chan struct{}
+	closed  atomic.Bool
 
 	// events carries response-scoped events from the reader goroutine to the
 	// response in flight. dead closes when the stream fails or ends.
@@ -157,9 +165,29 @@ type s2sSession struct {
 	sentItems map[string]struct{}
 	last      s2sSentConfig
 
-	onError   func(errType, message string)
+	onError func(errType, message string)
+	// onDead is called when the stream ends outside a response and the
+	// session was not closed on purpose (guarded by mu).
+	onDead    func(err error)
 	closeOnce sync.Once
 }
+
+func (s *s2sSession) setOnDead(f func(err error)) {
+	s.mu.Lock()
+	s.onDead = f
+	s.mu.Unlock()
+}
+
+// s2sOutbound is one queued request. done is nil for a frame, whose failure
+// is only logged; a control waits on it.
+type s2sOutbound struct {
+	req  *proto.AudioToAudioRequest
+	done chan error
+}
+
+// s2sEOFGrace bounds the wait for the real status when a Send fails with a
+// bare EOF.
+const s2sEOFGrace = 2 * time.Second
 
 // s2sSentConfig remembers what the backend already has, so a session.update
 // sends only what changed.
@@ -180,9 +208,83 @@ func newS2SSession(stream S2SStream, cancel context.CancelFunc, onError func(err
 		sem:       make(chan struct{}, 1),
 		sentItems: map[string]struct{}{},
 		onError:   onError,
+		outWake:   make(chan struct{}, 1),
+		quit:      make(chan struct{}),
 	}
 	go s.pump()
+	go s.writer()
 	return s
+}
+
+// writer is the only caller of stream.Send.
+func (s *s2sSession) writer() {
+	for {
+		s.outMu.Lock()
+		batch := s.outQ
+		s.outQ = nil
+		s.outMu.Unlock()
+		if len(batch) == 0 {
+			select {
+			case <-s.outWake:
+				continue
+			case <-s.quit:
+				return
+			}
+		}
+		for i, o := range batch {
+			if s.closed.Load() {
+				for _, rest := range batch[i:] {
+					if rest.done != nil {
+						rest.done <- errS2SClosed
+					}
+				}
+				break
+			}
+			var err error
+			if o.req != nil {
+				err = s.sendErr(s.stream.Send(o.req))
+			}
+			if o.done != nil {
+				o.done <- err
+			} else if err != nil {
+				xlog.Warn("s2s: sending input audio failed", "error", err)
+			}
+		}
+	}
+}
+
+var errS2SClosed = errors.New("the speech-to-speech session is closed")
+
+// sendErr replaces a bare EOF from Send with the stream's real status. gRPC
+// reports a failed call (UNIMPLEMENTED, a full context) as io.EOF on Send and
+// puts the status on Recv, which only the pump reads.
+func (s *s2sSession) sendErr(err error) error {
+	if err == nil || !errors.Is(err, io.EOF) {
+		return err
+	}
+	select {
+	case <-s.dead:
+		if s.deadErr != nil && !errors.Is(s.deadErr, io.EOF) {
+			return s.deadErr
+		}
+	case <-time.After(s2sEOFGrace):
+	}
+	return err
+}
+
+func (s *s2sSession) enqueue(o s2sOutbound) {
+	s.outMu.Lock()
+	s.outQ = append(s.outQ, o)
+	s.outMu.Unlock()
+	select {
+	case s.outWake <- struct{}{}:
+	default:
+	}
+}
+
+// flush waits until everything queued so far has been written.
+func (s *s2sSession) flush() {
+	_ = s.send(nil)
 }
 
 // pump is the only reader of the stream. Setup events are consumed here,
@@ -195,6 +297,12 @@ func (s *s2sSession) pump() {
 		resp, err := s.stream.Recv()
 		if err != nil {
 			s.deadErr = err
+			s.mu.Lock()
+			onDead := s.onDead
+			s.mu.Unlock()
+			if onDead != nil && !s.closed.Load() && !s.active.Load() {
+				go onDead(err)
+			}
 			return
 		}
 		switch resp.GetEvent() {
@@ -286,6 +394,8 @@ func (s *s2sSession) open(ctx context.Context, cfg s2sConfig) error {
 // close ends the stream. Safe to call more than once.
 func (s *s2sSession) close() {
 	s.closeOnce.Do(func() {
+		s.closed.Store(true)
+		close(s.quit)
 		if s.cancel != nil {
 			s.cancel()
 		}
@@ -293,10 +403,22 @@ func (s *s2sSession) close() {
 	})
 }
 
+// send queues req behind everything already queued and waits for the write. A
+// nil req only waits for the queue to drain.
 func (s *s2sSession) send(req *proto.AudioToAudioRequest) error {
-	s.sendMu.Lock()
-	defer s.sendMu.Unlock()
-	return s.stream.Send(req)
+	done := make(chan error, 1)
+	s.enqueue(s2sOutbound{req: req, done: done})
+	select {
+	case err := <-done:
+		return err
+	case <-s.quit:
+		return errS2SClosed
+	}
+}
+
+// sendAsync queues req without waiting. The caller may hold AudioBufferLock.
+func (s *s2sSession) sendAsync(req *proto.AudioToAudioRequest) {
+	s.enqueue(s2sOutbound{req: req})
 }
 
 // control sends one control message; payload is JSON-encoded when not nil.
@@ -325,8 +447,8 @@ func (s *s2sSession) sendCancel() {
 	}
 }
 
-// forwardPCM resamples session-rate PCM to the backend input rate and sends it
-// as frames of at most s2sFrameChunkMs.
+// forwardPCM resamples session-rate PCM to the backend input rate and queues it
+// as frames of at most s2sFrameChunkMs. It never blocks on the stream.
 func (s *s2sSession) forwardPCM(pcm []byte, rate int) {
 	if len(pcm) < 2 {
 		return
@@ -345,12 +467,9 @@ func (s *s2sSession) forwardPCM(pcm []byte, rate int) {
 		// The slice is not retained past Send, but copy anyway: gRPC may keep
 		// the message until it is written.
 		frame := append([]byte(nil), pcm[off:end]...)
-		if err := s.send(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Frame{
+		s.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Frame{
 			Frame: &proto.AudioToAudioFrame{Pcm: frame},
-		}}); err != nil {
-			xlog.Warn("s2s: sending input audio failed", "error", err)
-			return
-		}
+		}})
 	}
 }
 
@@ -358,6 +477,18 @@ func (s *s2sSession) markSent(id string) {
 	s.mu.Lock()
 	s.sentItems[id] = struct{}{}
 	s.mu.Unlock()
+}
+
+// claim marks id as sent and reports whether the caller is the first to do so.
+// The commit handler and a response can both forward pending items.
+func (s *s2sSession) claim(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.sentItems[id]; ok {
+		return false
+	}
+	s.sentItems[id] = struct{}{}
+	return true
 }
 
 // forwardPendingItems sends the client's text messages and tool results that
@@ -373,15 +504,11 @@ func (s *s2sSession) forwardPendingItems(conv *Conversation) {
 		if id == "" {
 			continue
 		}
-		s.mu.Lock()
-		_, sent := s.sentItems[id]
-		s.mu.Unlock()
-		if sent {
-			continue
-		}
 		switch {
 		case item.FunctionCallOutput != nil:
-			s.markSent(id)
+			if !s.claim(id) {
+				continue
+			}
 			if err := s.control("conversation.item.create", map[string]any{
 				"type":    "function_call_output",
 				"call_id": item.FunctionCallOutput.CallID,
@@ -390,7 +517,9 @@ func (s *s2sSession) forwardPendingItems(conv *Conversation) {
 				xlog.Warn("s2s: forwarding a tool result failed", "error", err)
 			}
 		case item.User != nil:
-			s.markSent(id)
+			if !s.claim(id) {
+				continue
+			}
 			var text strings.Builder
 			for _, c := range item.User.Content {
 				if c.Type == types.MessageContentTypeInputText {
@@ -453,6 +582,13 @@ func openS2SForSession(session *Session, opener s2sOpener, t Transport) error {
 		st.close()
 		return err
 	}
+	st.setOnDead(func(err error) {
+		// The stream is gone and every later response would fail the same
+		// way: tell the client and end the session.
+		xlog.Error("s2s: the stream ended outside a response", "error", err)
+		sendError(t, "server_error", fmt.Sprintf("the speech-to-speech stream ended: %v", err), "", "")
+		_ = t.Close()
+	})
 	session.s2s = st
 	return nil
 }
@@ -522,17 +658,53 @@ func (s *Session) s2sManualTurns() bool {
 }
 
 // s2sOnAppendLocked forwards a chunk that was just appended to the input
-// buffer. Without a VAD every chunk goes straight to the backend; with one,
-// chunks go only while a turn is open. The caller holds AudioBufferLock, which
-// keeps the chunk ordered after the pre-roll and before the commit.
-func (s *Session) s2sOnAppendLocked(chunk []byte, manual bool) {
+// buffer while a VAD turn is open. Without a VAD (manual commit) nothing is
+// forwarded: the audio stays in the input buffer until the client commits it,
+// so input_audio_buffer.clear really discards it and idle audio never reaches
+// the model's context. The caller holds AudioBufferLock, which keeps the chunk
+// ordered after the pre-roll and before the commit; the write itself is queued
+// and does not block.
+func (s *Session) s2sOnAppendLocked(chunk []byte) {
 	st := s.s2s
 	if st == nil || len(chunk) == 0 {
 		return
 	}
-	if manual || st.forwarding {
+	if st.forwarding {
 		st.forwardPCM(chunk, s.InputSampleRate)
 	}
+}
+
+// s2sCommitAudio sends a client-committed turn to the backend: first the text
+// and tool-result items created so far, so a text item keeps its place before
+// the audio committed after it, then the audio, then the commit. Call it
+// without AudioBufferLock.
+func (s *Session) s2sCommitAudio(audio []byte, conv *Conversation) {
+	st := s.s2s
+	if st == nil {
+		return
+	}
+	st.forwardPendingItems(conv)
+	st.forwardPCM(audio, s.InputSampleRate)
+	if err := st.control("input_audio_buffer.commit", nil); err != nil {
+		xlog.Warn("s2s: committing the input audio failed", "error", err)
+	}
+}
+
+// hasBufferedInput reports whether uncommitted input audio is waiting.
+func (s *Session) hasBufferedInput() bool {
+	s.AudioBufferLock.Lock()
+	defer s.AudioBufferLock.Unlock()
+	return len(s.InputAudioBuffer) > 0
+}
+
+// s2sUserTurnOpen reports whether a VAD turn is being streamed to the backend.
+func (s *Session) s2sUserTurnOpen() bool {
+	if s.s2s == nil {
+		return false
+	}
+	s.AudioBufferLock.Lock()
+	defer s.AudioBufferLock.Unlock()
+	return s.s2s.forwarding
 }
 
 // s2sBeginTurn starts forwarding a VAD turn. speechStartSec is where speech
@@ -578,9 +750,10 @@ func (s *Session) s2sEndTurn() {
 	s.AudioBufferLock.Lock()
 	defer s.AudioBufferLock.Unlock()
 	st.forwarding = false
-	if err := st.control("input_audio_buffer.commit", nil); err != nil {
-		xlog.Warn("s2s: committing the input audio failed", "error", err)
-	}
+	// Queued, not awaited: the lock is held and the queue keeps the order.
+	st.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
+		Control: &proto.AudioToAudioControl{Event: "input_audio_buffer.commit"},
+	}})
 }
 
 // s2sAbortTurn stops forwarding a turn the VAD dropped as noise. Audio already
