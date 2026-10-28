@@ -53,17 +53,7 @@ func (a *Application) startStudioTriggers(svc *studio.Service) {
 	}
 	opts := studio.TriggerOptions{Store: st}
 	if a.Distributed() != nil && a.authDB != nil {
-		lock := advisorylock.NewHeldLock(a.authDB, advisorylock.KeyChatsTriggers)
-		opts.Lead = func(ctx context.Context) bool {
-			if lock.Held() {
-				return lock.Verify(ctx)
-			}
-			ok, err := lock.TryAcquire(ctx)
-			if err != nil {
-				xlog.Warn("Triggers: could not try the leader lock", "error", err)
-			}
-			return ok
-		}
+		opts.Lead = a.studioLeader(advisorylock.KeyChatsTriggers, "Triggers")
 	}
 	host, err := studio.NewTriggers(svc, opts)
 	if err != nil {

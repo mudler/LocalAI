@@ -143,6 +143,7 @@ type Application struct {
 	studioMCPStore       mcpconns.Store
 	studioMCPConns       *mcpconns.Service
 	studioConnectors     *studio.Connectors
+	studioLocks          []*advisorylock.HeldLock // leader locks of the chat hosts, closed by Shutdown
 	studioConnectorsStop context.CancelFunc
 	studioProvider       *provider.Provider
 	studioService        *studio.Service
@@ -649,6 +650,7 @@ func (a *Application) Shutdown() error {
 		if a.studioTriggers != nil {
 			a.studioTriggers.Close()
 		}
+		a.closeStudioLocks() // after both hosts: a running host would take a released lock back
 		if a.studioService != nil {
 			_ = a.studioService.Close(context.Background())
 		}

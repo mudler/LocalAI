@@ -84,17 +84,7 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	}
 	opts := studio.ConnectorOptions{Store: a.studioConnStore, Transport: tr, Poll: contract.MaxPollSeconds}
 	if a.Distributed() != nil && a.authDB != nil {
-		lock := advisorylock.NewHeldLock(a.authDB, advisorylock.KeyChatsConnectors)
-		opts.Lead = func(ctx context.Context) bool {
-			if lock.Held() {
-				return lock.Verify(ctx)
-			}
-			ok, err := lock.TryAcquire(ctx)
-			if err != nil {
-				xlog.Warn("Connectors: could not try the leader lock", "error", err)
-			}
-			return ok
-		}
+		opts.Lead = a.studioLeader(advisorylock.KeyChatsConnectors, "Connectors")
 	}
 	c, err := studio.NewConnectors(svc, opts)
 	if err != nil {
