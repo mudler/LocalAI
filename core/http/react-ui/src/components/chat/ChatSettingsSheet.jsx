@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
+import { REASONING_EFFORTS, settingsBody, settingsChanged, settingsErrors, settingsForm } from '../../utils/chatSettings'
 
 // eslint-disable-next-line no-unused-vars
 function Switch({ checked, onChange, label }) {
@@ -21,8 +22,79 @@ function Switch({ checked, onChange, label }) {
 // agent, the LocalAI tools) and, for admins, what the model is. The server keeps
 // the chat, its model and its tools; the switches of the tools and skills are in
 // the composer.
+// The settings the server keeps with an open chat: a system prompt, the
+// sampling values, the reasoning effort and the context size. Save sends them
+// all (PATCH /api/chats/{id}); they apply from the next turn.
+// eslint-disable-next-line no-unused-vars -- used as JSX below
+function AnswerSettings({ settings, onSave }) {
+  const { t } = useTranslation('chat')
+  const [form, setForm] = useState(() => settingsForm(settings))
+  const [state, setState] = useState({ kind: 'idle', message: '' })
+  useEffect(() => { setForm(settingsForm(settings)) }, [settings])
+  const errors = settingsErrors(form)
+  const changed = settingsChanged(form, settings)
+  const set = (key) => (e) => { setForm(f => ({ ...f, [key]: e.target.value })); setState({ kind: 'idle', message: '' }) }
+  const save = async (e) => {
+    e.preventDefault()
+    if (Object.keys(errors).length > 0) return
+    setState({ kind: 'busy', message: '' })
+    try {
+      await onSave(settingsBody(form))
+      setState({ kind: 'saved', message: '' })
+    } catch (err) {
+      setState({ kind: 'error', message: err.message || t('settings.saveFailed') })
+    }
+  }
+  const field = (key, label, extra = {}) => (
+    <div className="cx-field">
+      <label className="cx-field__label" htmlFor={`cx-set-${key}`}>{label}</label>
+      <input
+        id={`cx-set-${key}`}
+        className="cx-in"
+        inputMode="decimal"
+        value={form[key]}
+        onChange={set(key)}
+        placeholder={t('settings.modelDefault')}
+        aria-invalid={errors[key] ? true : undefined}
+        aria-describedby={errors[key] ? `cx-set-${key}-err` : undefined}
+        {...extra}
+      />
+      {errors[key] && <p className="cx-help cx-help--err" id={`cx-set-${key}-err`}>{t(`settings.invalid.${errors[key]}`)}</p>}
+    </div>
+  )
+  return (
+    <form className="cx-sec" data-testid="chat-answer-settings" onSubmit={save}>
+      <h3>{t('settings.answers')}</h3>
+      <p className="cx-help">{t('settings.answersHelp')}</p>
+      <div className="cx-field">
+        <label className="cx-field__label" htmlFor="cx-set-system_prompt">{t('settings.systemPrompt')}</label>
+        <textarea id="cx-set-system_prompt" className="cx-ta" value={form.system_prompt} onChange={set('system_prompt')} placeholder={t('settings.systemPromptPlaceholder')} />
+      </div>
+      {field('temperature', t('settings.temperature'))}
+      {field('top_p', t('settings.topP'))}
+      {field('top_k', t('settings.topK'), { inputMode: 'numeric' })}
+      {field('context_size', t('settings.contextSize'), { inputMode: 'numeric' })}
+      <div className="cx-field" role="group" aria-label={t('settings.reasoningEffort')}>
+        <span className="cx-field__label">{t('settings.reasoningEffort')}</span>
+        <div className="cx-seg">
+          {REASONING_EFFORTS.map(v => (
+            <button key={v || 'default'} type="button" aria-pressed={form.reasoning_effort === v} onClick={() => set('reasoning_effort')({ target: { value: v } })}>
+              {v ? t(`settings.effort.${v}`) : t('settings.effort.default')}
+            </button>
+          ))}
+        </div>
+      </div>
+      {state.kind === 'error' && <p className="cx-notice cx-notice--error" role="alert" data-testid="chat-settings-error">{state.message}</p>}
+      {state.kind === 'saved' && <p className="cx-help" role="status">{t('settings.saved')}</p>}
+      <button type="submit" className="cx-btn cx-btn--primary" disabled={!changed || state.kind === 'busy' || Object.keys(errors).length > 0} data-testid="chat-settings-save">
+        {state.kind === 'busy' ? t('settings.saving') : t('settings.save')}
+      </button>
+    </form>
+  )
+}
+
 export default function ChatSettingsSheet({
-  chat, agent, isAdmin, focusMode, onFocusMode, modelInfo, onEditConfig, onEditAgent, onDelete, onClose,
+  chat, agent, isAdmin, focusMode, onFocusMode, modelInfo, onEditConfig, onEditAgent, onDelete, onClose, onSaveSettings,
 }) {
   const { t } = useTranslation('chat')
   const sheetRef = useRef(null)
@@ -40,7 +112,7 @@ export default function ChatSettingsSheet({
     const onKey = (e) => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCloseRef.current(); return }
       if (e.key !== 'Tab' || !sheetRef.current) return
-      const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'))
       if (focusable.length === 0) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
@@ -104,6 +176,8 @@ export default function ChatSettingsSheet({
             </div>
           </section>
 
+          {onSaveSettings && <AnswerSettings settings={chat.settings} onSave={onSaveSettings} />}
+
           {agent && (
             <section className="cx-sec" data-testid="chat-agent-info">
               <h3>{t('settings.agent')}</h3>
@@ -132,7 +206,7 @@ export default function ChatSettingsSheet({
             </section>
           )}
 
-          <section className="cx-sec">
+          {onDelete && <section className="cx-sec">
             <h3>{t('settings.conversation')}</h3>
             <div className="cx-danger">
               <span>{t('settings.deleteHelp')}</span>
@@ -140,7 +214,7 @@ export default function ChatSettingsSheet({
                 <Icon name="trash" /> {t('menu.deleteChat')}
               </button>
             </div>
-          </section>
+          </section>}
         </div>
       </div>
     </div>,

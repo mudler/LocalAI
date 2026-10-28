@@ -143,7 +143,26 @@ export const chatsApi = {
   }),
   get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
-  rename: (id, title) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'PATCH', body: JSON.stringify({ title }) }),
+  rename: (id, title) => chatsApi.update(id, { title }),
+  // Changes the title, the model or the settings (system prompt, sampling,
+  // reasoning effort, context size). A title or a model answers 409 while a
+  // turn runs; settings apply from the next turn.
+  update: (id, fields) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'PATCH', body: JSON.stringify(fields) }),
+  // Regenerate and edit start a new turn; both answer 409 while one runs.
+  regenerate: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/regenerate`, {}),
+  editMessage: (id, seq, text) => postJSON(`${API_CONFIG.endpoints.chat(id)}/messages/${Number(seq)}/edit`, { text }),
+  fork: (id, fromSeq, title) => postJSON(`${API_CONFIG.endpoints.chat(id)}/fork`, {
+    ...(fromSeq ? { from_seq: Number(fromSeq) } : {}), ...(title ? { title } : {}),
+  }),
+  search: (text, limit) => fetchJSON(`${API_CONFIG.endpoints.chats}/search${q({ q: text, limit })}`),
+  exportUrl: (id, format) => apiUrl(`${API_CONFIG.endpoints.chat(id)}/export${q({ format })}`),
+  // chat is the JSON export (GET .../export?format=json); model replaces its model.
+  importChat: (chat, model) => postJSON(`${API_CONFIG.endpoints.chats}/import`, { chat, ...(model ? { model } : {}) }),
+  // The raw localStorage value of the old chat page, sent as it is.
+  importBrowser: (raw) => fetchJSON(`${API_CONFIG.endpoints.chats}/import/browser`, { method: 'POST', body: raw }),
+  subAgents: (id) => fetchJSON(`${API_CONFIG.endpoints.chat(id)}/agents`),
+  subAgentMessages: (id, agentId) => fetchJSON(`${API_CONFIG.endpoints.chat(id)}/agents/${encodeURIComponent(agentId)}/messages`),
+  stopSubAgent: (id, agentId) => postJSON(`${API_CONFIG.endpoints.chat(id)}/agents/${encodeURIComponent(agentId)}/stop`, {}),
   // The server returns at most 1000 entries a call, oldest first, so a long
   // chat is read page by page: the newest messages are on the last page.
   messages: async (id, after = 0) => {
@@ -266,6 +285,43 @@ export const chatAgentsApi = {
   create: (body) => postJSON('/api/chats/agents', body),
   update: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   remove: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'DELETE' }),
+  // The agent file of the server (kind localai-agent). Import takes it, the
+  // body of a create, or an export of the old agents; it always makes a new
+  // agent and says in `warnings` what it changed.
+  exportFile: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/export`),
+  importFile: (data) => postJSON('/api/chats/agents/import', data),
+  templates: () => fetchJSON('/api/chats/agents/templates'),
+  fromTemplate: (id, name) => postJSON(`/api/chats/agents/templates/${enc2(id)}/create`, name ? { name } : {}),
+  runs: (id, limit) => fetchJSON(`/api/chats/agents/${enc2(id)}/runs${q({ limit })}`),
+}
+
+// The administrator's view of every user's agents, triggers and connectors.
+export const chatAdminApi = {
+  agents: () => fetchJSON('/api/chats/admin/agents'),
+  deleteAgent: (id) => fetchJSON(`/api/chats/admin/agents/${enc2(id)}`, { method: 'DELETE' }),
+  triggers: () => fetchJSON('/api/chats/admin/triggers'),
+  triggerRuns: (id) => fetchJSON(`/api/chats/admin/triggers/${enc2(id)}/runs`),
+  disableTrigger: (id) => postJSON(`/api/chats/admin/triggers/${enc2(id)}/disable`, {}),
+  deleteTrigger: (id) => fetchJSON(`/api/chats/admin/triggers/${enc2(id)}`, { method: 'DELETE' }),
+  connectors: () => fetchJSON('/api/chats/admin/connectors'),
+  disableConnector: (id) => postJSON(`/api/chats/admin/connectors/${enc2(id)}/disable`, {}),
+  deleteConnector: (id) => fetchJSON(`/api/chats/admin/connectors/${enc2(id)}`, { method: 'DELETE' }),
+}
+
+// Agent tasks and their jobs (the mcp_jobs feature): a prompt template run in
+// the background by a model or a saved agent, from the page or over the API.
+export const agentJobsApi = {
+  tasks: (allUsers) => fetchJSON(`/api/agent/tasks${q({ all_users: allUsers ? 'true' : undefined })}`),
+  task: (id) => fetchJSON(`/api/agent/tasks/${enc2(id)}`),
+  createTask: (task) => postJSON('/api/agent/tasks', task),
+  updateTask: (id, task) => fetchJSON(`/api/agent/tasks/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(task) }),
+  deleteTask: (id) => fetchJSON(`/api/agent/tasks/${enc2(id)}`, { method: 'DELETE' }),
+  run: (taskId, parameters) => postJSON('/api/agent/jobs/execute', { task_id: taskId, parameters: parameters || {} }),
+  jobs: ({ taskId, status, limit, allUsers } = {}) => fetchJSON(`/api/agent/jobs${q({ task_id: taskId, status, limit, all_users: allUsers ? 'true' : undefined })}`),
+  job: (id) => fetchJSON(`/api/agent/jobs/${enc2(id)}`),
+  cancel: (id) => postJSON(`/api/agent/jobs/${enc2(id)}/cancel`, {}),
+  rerun: (id) => postJSON(`/api/agent/jobs/${enc2(id)}/rerun`, {}),
+  deleteJob: (id) => fetchJSON(`/api/agent/jobs/${enc2(id)}`, { method: 'DELETE' }),
 }
 
 // The messaging connectors. The add-on of a platform adds and edits bindings
@@ -288,9 +344,10 @@ export const chatTriggersApi = {
   run: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/run`, {}),
   runs: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/runs`),
   preview: (when, tz) => fetchJSON(`/api/chats/triggers/preview${q({ when, tz, n: 3 })}`),
-  proposals: () => fetchJSON('/api/chats/triggers/proposals'),
+  proposals: (chat) => fetchJSON(`/api/chats/triggers/proposals${q({ chat })}`),
   confirm: (id, timeZone) => postJSON(`/api/chats/triggers/proposals/${enc2(id)}/confirm`, timeZone ? { time_zone: timeZone } : {}),
   dismiss: (id) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`, { method: 'DELETE' }),
+  editProposal: (id, body) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
 }
 
 // The inbox: what ended while the user was elsewhere.

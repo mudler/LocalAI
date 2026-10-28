@@ -57,3 +57,20 @@ export function addonChange(text) {
   if (doc.kind === 'proposal') return { kind: 'proposed', addonId: m[1] }
   return null
 }
+
+// The typed refusals of the add-on tools that the chat explains in plain words.
+// invalid_request is listed only when the add-on said why (message).
+export const REFUSAL_CODES = ['not_permitted', 'resource_unreachable', 'not_running', 'invalid_request']
+
+// { code, addonId, message } for a tool entry whose result is a typed refusal
+// ({"kind":"error","code":...}), or null. message is the add-on's own short
+// reason, when it gave one; it is shown as text, never as markup.
+export function toolRefusal(text) {
+  const doc = document(text)
+  if (!doc || doc.kind !== 'error' || !REFUSAL_CODES.includes(doc.code)) return null
+  const message = str(doc.message).slice(0, 300)
+  if (doc.code === 'invalid_request' && !message) return null
+  const first = typeof text === 'string' ? text.split('\n')[0] : ''
+  const m = NAME.exec(first.split(':')[0] || '')
+  return { code: doc.code, addonId: m ? m[1] : '', message }
+}

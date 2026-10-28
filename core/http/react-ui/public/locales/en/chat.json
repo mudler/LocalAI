@@ -38,12 +38,41 @@
     "focusModeDesc": "Collapse the sidebar and slim the header while a conversation is active. Esc restores them temporarily; turn this off to keep the full layout.",
     "behaviour": "Behaviour",
     "conversation": "This conversation",
-    "serverKept": "The server keeps this chat. Its model and agent are set when it starts.",
+    "serverKept": "The server keeps this chat and its settings. A new model or title needs the chat to be idle.",
     "manageModeOn": "This chat has the LocalAI management tools. Use /assistant to start another one.",
     "agent": "Agent",
     "agentHelp": "This chat runs with the agent {{name}}: its instructions and only the tools it grants.",
     "editAgent": "Edit agent",
-    "deleteHelp": "Delete this chat and its messages for good."
+    "deleteHelp": "Delete this chat and its messages for good.",
+    "answers": "Answers",
+    "answersHelp": "These apply from the next turn. Empty fields use the model's own values.",
+    "systemPrompt": "System prompt",
+    "systemPromptPlaceholder": "Added to the instructions of this chat",
+    "temperature": "Temperature",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "Context size (tokens)",
+    "reasoningEffort": "Reasoning effort",
+    "modelDefault": "Model default",
+    "effort": {
+      "default": "Default",
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "invalid": {
+      "temperature": "Use a number from 0 to 2.",
+      "topP": "Use a number above 0 and at most 1.",
+      "topK": "Use a whole number, 0 or more.",
+      "contextSize": "Use a whole number from 512 to 4194304.",
+      "effort": "Choose one of the listed values."
+    },
+    "save": "Save settings",
+    "saving": "Saving...",
+    "saved": "Saved. The next turn uses these settings.",
+    "saveFailed": "The settings could not be saved."
   },
   "empty": {
     "manageTitle": "Manage LocalAI by chatting",
@@ -73,7 +102,12 @@
     "copy": "Copy",
     "regenerate": "Regenerate",
     "jumpToLatest": "Jump to latest",
-    "reuse": "Edit and send again"
+    "reuse": "Edit and send again",
+    "editMessage": "Edit message",
+    "editHelp": "Sending the edit removes everything after this message and runs the chat again.",
+    "editSend": "Send edit",
+    "editCancel": "Cancel",
+    "branch": "Branch from here"
   },
   "streaming": {
     "transferring": "Transferring model...",
@@ -102,7 +136,12 @@
     "copied": "Copied to clipboard",
     "copyFailed": "Could not copy to clipboard",
     "chatCopied": "Chat copied to clipboard",
-    "newChatForModel": "A chat keeps its model. Started a new chat with {{model}}."
+    "newChatForModel": "A chat keeps its model. Started a new chat with {{model}}.",
+    "branched": "Branched into a new chat.",
+    "notAChat": "This file is not a chat export.",
+    "imported": "Imported \"{{title}}\".",
+    "importFailed": "The chat could not be imported: {{message}}",
+    "modelChanged": "The next turn uses {{model}}."
   },
   "menu": {
     "trigger": "Chats",
@@ -139,7 +178,9 @@
     "origin": {
       "trigger": "Started by a trigger",
       "connector": "From a connector"
-    }
+    },
+    "exportJson": "Export as JSON",
+    "importChat": "Import a chat"
   },
   "message": {
     "you": "You",
@@ -204,7 +245,7 @@
     "inEmptyBox": "in an empty box",
     "stop": "Stop the reply",
     "moveMessages": "Move between messages",
-    "onMessage": "On a message: copy, edit, regenerate",
+    "onMessage": "On a message: copy, edit, branch, regenerate",
     "close": "Close"
   },
   "picker": {
@@ -273,5 +314,19 @@
   },
   "assistant": {
     "chatTitle": "LocalAI assistant"
+  },
+  "browserImport": {
+    "found_one": "This browser still has {{count}} chat from the old chat page.",
+    "found_other": "This browser still has {{count}} chats from the old chat page.",
+    "import": "Import them",
+    "dismiss": "Not now",
+    "done": "Imported {{imported}}, skipped {{skipped}}, failed {{failed}}.",
+    "failed": "The old chats could not be imported: {{message}}"
+  },
+  "meter": {
+    "title": "Context the last model request used",
+    "usedOf": "{{used}} / {{limit}} tokens ({{pct}}%)",
+    "used": "{{used}} tokens",
+    "speed": "{{speed}} tok/s"
   }
 }

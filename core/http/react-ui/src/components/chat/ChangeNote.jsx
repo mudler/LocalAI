@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { addonChange } from '../../utils/addonChange'
+import { addonChange, toolRefusal } from '../../utils/addonChange'
 import { addonsApi } from '../../utils/addonsClient'
 import { runUndo, undoMessageKey } from '../../utils/addonUndo'
 import { newOperationId } from '../catalog/catalogState'
@@ -9,7 +9,7 @@ import { newOperationId } from '../catalog/catalogState'
 // Confirm: the line says what was done and whether it can be undone.
 export default function ChangeNote({ text, t }) {
   const c = addonChange(text)
-  if (!c) return null
+  if (!c) return <RefusalNote text={text} t={t} />
   if (c.kind === 'proposed') return <div className="cx-change">{t('tool.waiting', { addon: c.addonId })}</div>
   return (
     <div className="cx-change">
@@ -56,5 +56,20 @@ function UndoChange({ change, t }) {
         </button>
       )}
     </>
+  )
+}
+
+// A tool call the add-on refused with a typed code: what it means for the
+// person, in plain words, and the add-on's own reason when it gave one.
+// eslint-disable-next-line no-unused-vars -- used as JSX above
+function RefusalNote({ text, t }) {
+  const r = toolRefusal(text)
+  if (!r) return null
+  return (
+    <div className="cx-change cx-change--refused" role="note" data-testid="tool-refusal" data-code={r.code}>
+      {t(`tool.refused.${r.code}`, { addon: r.addonId || t('tool.refused.anAddon') })}
+      {r.message && r.code !== 'invalid_request' ? ` ${t('tool.refused.said', { message: r.message })}` : ''}
+      {r.code === 'invalid_request' ? ` ${r.message}` : ''}
+    </div>
   )
 }

@@ -8,8 +8,10 @@ import { useInbox } from '../hooks/useInbox'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts } from '../utils/artifacts'
 import {
-  threadRows, streamingParts, lastUserText, chatMarkdown, markdownFileName, menuChats, artifactSource,
+  threadRows, streamingParts, lastUserText, chatMarkdown, menuChats, artifactSource,
 } from '../utils/chatThread'
+import { contextReading, tokenCount } from '../utils/chatSettings'
+import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
 import { connectorRef } from '../utils/chatMCP'
 // eslint-disable-next-line no-unused-vars
 import CanvasPanel from '../components/CanvasPanel'
@@ -41,6 +43,8 @@ import SwitchMenu from '../components/chat/SwitchMenu'
 // eslint-disable-next-line no-unused-vars
 import AgentPicker from '../components/chat/AgentPicker'
 // eslint-disable-next-line no-unused-vars
+import SubAgentsMenu from '../components/chat/SubAgentsMenu'
+// eslint-disable-next-line no-unused-vars
 import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
 import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
@@ -70,14 +74,16 @@ const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
 // How long a deleted chat can be brought back before the server deletes it.
 const UNDO_MS = 6000
 
-function download(name, text) {
-  const blob = new Blob([text], { type: 'text/markdown' })
-  const url = URL.createObjectURL(blob)
+// The server writes the export file and names it; the link downloads it.
+function downloadFrom(url) {
   const a = document.createElement('a')
   a.href = url
-  a.download = name
+  a.download = ''
   a.click()
-  URL.revokeObjectURL(url)
+}
+
+function browserStorage() {
+  try { return window.localStorage } catch { return null }
 }
 
 // One chat state per account: the chats belong to the signed-in user, so a
@@ -128,6 +134,13 @@ function ChatPage() {
   const [editingPending, setEditingPending] = useState(null) // { id, text }
   // An error of this page (a send or a delete that failed); the hook has its own.
   const [localError, setLocalError] = useState('')
+  // The chats the old chat page left in this browser, offered for import once.
+  const [browserStores, setBrowserStores] = useState(() => {
+    const st = browserStorage()
+    try { if (st?.getItem(BROWSER_IMPORT_DISMISSED)) return [] } catch { return [] }
+    return browserChatStores(st)
+  })
+  const importInputRef = useRef(null)
   const pendingDeleteRef = useRef(null)
   const pendingArtifactRef = useRef(null)
   const { ids: loadedIds } = useLoadedModels()
@@ -432,7 +445,7 @@ function ChatPage() {
   }, [])
 
   const handlePaste = useCallback((e) => {
-    if (!chat.files.on || chat.running) return
+    if (!chat.files.on) return
     const items = e.clipboardData?.items
     if (!items) return
     const images = Array.from(items)
@@ -451,7 +464,7 @@ function ChatPage() {
       return new File([file], name, { type: file.type })
     })
     setFiles(prev => [...prev, ...named])
-  }, [chat.files.on, chat.running])
+  }, [chat.files.on])
 
   // Sends the composer. The message that starts a chat creates it first. In a
   // chat that exists a message always goes: while a turn runs it waits and
@@ -506,13 +519,24 @@ function ChatPage() {
     handleSend()
   }, [input, activeId, busy, effectiveModel, handleSend, navigate, location.pathname, location.search])
 
-  // Regenerate asks the question before that answer again, as a new message:
-  // the server keeps the transcript as it happened.
-  const handleRegenerate = useCallback((seq) => {
-    const before = messages.filter(m => m.seq < seq)
-    const text = lastUserText(before)
-    if (text) handleSend(text)
-  }, [messages, handleSend])
+  // Regenerate answers the last message again: the server removes what the
+  // model said after it and starts a new turn.
+  const handleRegenerate = useCallback(() => {
+    if (activeId) chat.regenerate(activeId)
+  }, [activeId, chat])
+
+  // Branch copies the chat up to and including the line into a new chat, which opens.
+  const handleFork = useCallback(async (seq) => {
+    if (!activeId) return
+    try {
+      const forked = await chatsApi.fork(activeId, seq)
+      await chat.refreshList()
+      navigate(`/app/chats/${encodeURIComponent(forked.id)}`)
+      addToast(t('toasts.branched'), 'success', 2500)
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }, [activeId, chat, navigate, addToast, t])
 
   // Up in an empty box edits the last waiting message, or puts your last
   // message back in the box to send again.
@@ -540,13 +564,41 @@ function ChatPage() {
   // The transcript of another chat is read when it is exported from the menu.
   const transcriptOf = async (id) => (id === activeId ? messages : (await chatsApi.messages(id)).messages || [])
   const serverChat = (id) => (id === activeId && chat.detail) || chat.chats.find(c => c.id === id) || { id, title: '' }
-  const exportChat = async (id) => {
+  const exportChat = (id, format = 'markdown') => downloadFrom(chatsApi.exportUrl(id, format))
+  // A JSON export (GET .../export?format=json) becomes a new chat. The file
+  // keeps its model unless this server does not have it: then the chat gets
+  // the model picked here.
+  const importChatFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
     try {
-      const c = serverChat(id)
-      download(markdownFileName(c.title), chatMarkdown(c, await transcriptOf(id)))
-    } catch (e) {
-      addToast(e.message, 'error')
+      const data = JSON.parse(await file.text())
+      const exported = data && typeof data === 'object' && data.chat ? data.chat : data
+      if (!exported || !Array.isArray(exported.messages)) throw new Error(t('toasts.notAChat'))
+      const known = chatModels.some(m => m.id === exported.model)
+      const conv = await chatsApi.importChat(exported, known ? '' : effectiveModel)
+      await chat.refreshList()
+      navigate(`/app/chats/${encodeURIComponent(conv.id)}`)
+      addToast(t('toasts.imported', { title: conv.title || tc('list.untitled') }), 'success', 2500)
+    } catch (err) {
+      addToast(t('toasts.importFailed', { message: err.message }), 'error')
     }
+  }
+  const runBrowserImport = async () => {
+    const st = browserStorage()
+    try {
+      const total = await importBrowserChats(st, browserStores, (raw) => chatsApi.importBrowser(raw))
+      addToast(t('browserImport.done', total), total.failed > 0 ? 'warning' : 'success', 4000)
+      await chat.refreshList()
+    } catch (err) {
+      addToast(t('browserImport.failed', { message: err.message }), 'error')
+    }
+    setBrowserStores(browserChatStores(st))
+  }
+  const dismissBrowserImport = () => {
+    try { browserStorage()?.setItem(BROWSER_IMPORT_DISMISSED, '1') } catch { /* private mode: asked again next time */ }
+    setBrowserStores([])
   }
   const copyChat = async (id) => {
     try {
@@ -610,14 +662,16 @@ function ChatPage() {
 
   const promptDelete = () => activeChat && requestDelete({ id: activeChat.id, name: title })
 
-  // A chat keeps the model it started with. Picking another model in a chat
-  // opens a new chat with it.
-  const pickModel = (next) => {
+  // Picking another model in a chat moves the chat to it from the next turn.
+  // The server refuses while a turn runs (409) and says why.
+  const pickModel = async (next) => {
     if (!activeId) { setDraftModel(next); return }
-    if (next && next !== activeChat?.model) {
-      setDraftModel(next)
-      navigate(`/app/chats?model=${encodeURIComponent(next)}`)
-      addToast(t('toasts.newChatForModel', { model: next }), 'info', 3000)
+    if (!next || next === activeChat?.model) return
+    try {
+      await chat.update(activeId, { model: next })
+      addToast(t('toasts.modelChanged', { model: next }), 'success', 2500)
+    } catch (e) {
+      addToast(e.message, 'error')
     }
   }
 
@@ -635,13 +689,11 @@ function ChatPage() {
   // The message component is memoised, so it gets one stable set of actions
   // that always call the latest handlers.
   const actionsRef = useRef(null)
-  actionsRef.current = { copyText, handleRegenerate, setInput, textareaRef }
+  actionsRef.current = { copyText, handleRegenerate, handleFork, edit: (seq, text) => chat.editMessage(activeId, seq, text) }
   const messageActions = useMemo(() => ({
     copy: (text) => actionsRef.current.copyText(text),
-    reuse: (text) => {
-      actionsRef.current.setInput(text)
-      actionsRef.current.textareaRef.current?.focus()
-    },
+    edit: (seq, text) => actionsRef.current.edit(seq, text),
+    fork: (seq) => actionsRef.current.handleFork(seq),
     regenerate: (seq) => actionsRef.current.handleRegenerate(seq),
     focusRelative: (index, delta) => {
       const els = Array.from(messagesRef.current?.querySelectorAll('[data-testid="chat-message"]') || [])
@@ -652,6 +704,13 @@ function ChatPage() {
   }), [])
 
   const rows = useMemo(() => threadRows(messages, chat.live), [messages, chat.live])
+  // Only the last answer can be answered again (the server cuts after the last
+  // message you sent).
+  const lastAnswerKey = useMemo(() => {
+    for (let i = rows.length - 1; i >= 0; i--) if (rows[i].kind === 'msg' && rows[i].msg.role === 'assistant') return rows[i].key
+    return ''
+  }, [rows])
+  const meter = contextReading(chat.usage)
   const streaming = streamingParts(chat.live)
   const sendLive = useCallback((text) => activeId && chat.send(activeId, text), [activeId, chat])
 
@@ -748,6 +807,7 @@ function ChatPage() {
         groups={[{ key: 'skills', title: '', rows: switches.skills.map((s) => ({ key: `${s.layer}-${s.name}`, label: s.name, title: s.description, on: s.enabled, onToggle: (on) => switches.toggleSkill(s.name, on) })) }]}
         error={switches.error} testId="chat-skills"
       />
+      <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
     </>
   )
 
@@ -786,6 +846,8 @@ function ChatPage() {
     { key: 'rename', icon: 'pencil', label: t('menu.rename'), hidden: !activeId, onClick: () => setRenaming(true) },
     { key: 'copy', icon: 'clipboard', label: t('menu.copyChat'), hidden: !hasThread, onClick: () => copyChat(activeId) },
     { key: 'export', icon: 'export', label: t('menu.exportMarkdown'), hidden: !hasThread, onClick: () => exportChat(activeId) },
+    { key: 'export-json', icon: 'download', label: t('menu.exportJson'), hidden: !hasThread, onClick: () => exportChat(activeId, 'json') },
+    { key: 'import', icon: 'import', label: t('menu.importChat'), onClick: () => importInputRef.current?.click() },
     { key: 'info', icon: 'info', label: t('header.modelInfo'), hidden: !(model && isAdmin), onClick: () => setShowSettings(true) },
     { key: 'keys', icon: 'keyboard', label: t('shortcuts.title'), onClick: () => setShowShortcuts(true) },
     { divider: true },
@@ -801,7 +863,7 @@ function ChatPage() {
       case 'canvas': toggleCanvasMode(); break
       case 'settings': setShowSettings(true); break
       case 'find': openFind(); break
-      case 'export': exportChat(activeId); break
+      case 'export': if (activeId) exportChat(activeId); break
       case 'delete': promptDelete(); break
       default: break
     }
@@ -831,6 +893,7 @@ function ChatPage() {
               onRename={(id, name) => chat.rename(id, name)}
               onExport={(c) => exportChat(c.id)}
               onCopyChat={(c) => copyChat(c.id)}
+              onSearch={(text) => chatsApi.search(text, 50)}
             />
           )}
           manageMode={manage}
@@ -864,7 +927,7 @@ function ChatPage() {
             {isEmpty && <EmptyHead name={activeId ? title : (pickedAgent?.name || '')} manage={manage} />}
             <div className="cx-thread" data-testid="chat-thread" role="region" aria-label={tc('transcript')} hidden={isEmpty}>
               {rows.map((row, i) => {
-                if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} />
+                if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} />
                 if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
                 return (
                   <ChatMessage
@@ -878,6 +941,8 @@ function ChatPage() {
                     activityItems={row.activity}
                     actions={messageActions}
                     conversationId={activeId}
+                    canRegenerate={!chat.running && row.key === lastAnswerKey}
+                    proposalTick={chat.ticks.proposals}
                   />
                 )
               })}
@@ -902,7 +967,7 @@ function ChatPage() {
                   message={chat.error || tc('status.failed')}
                   kept={false}
                   canRetry={!!lastUserText(messages)}
-                  onRetry={() => handleRegenerate(Number.MAX_SAFE_INTEGER)}
+                  onRetry={handleRegenerate}
                 />
               )}
 
@@ -935,6 +1000,15 @@ function ChatPage() {
           <div className="cx-dock__in">
             {!chat.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
             {!chat.files.on && <p className="cx-notice" role="note">{chat.files.reason || tc('attach.off')}</p>}
+            {browserStores.length > 0 && (
+              <p className="cx-notice" role="note" data-testid="browser-import">
+                <span>{t('browserImport.found', { count: browserStores.reduce((n, s) => n + s.count, 0) })}</span>
+                <span className="cx-pending__acts">
+                  <button type="button" className="cx-link" onClick={runBrowserImport}>{t('browserImport.import')}</button>
+                  <button type="button" className="cx-link" onClick={dismissBrowserImport}>{t('browserImport.dismiss')}</button>
+                </span>
+              </p>
+            )}
             {(localError || (chat.error && !(chat.lastTurn === 'failed' && !chat.running))) && (
               <p className="cx-notice cx-notice--error" role="alert">
                 <span>{localError || chat.error}</span>
@@ -965,8 +1039,7 @@ function ChatPage() {
               files={files}
               onRemoveFile={(f) => setFiles(prev => prev.filter(x => x !== f))}
               onAttach={chat.files.on ? attachFiles : undefined}
-              attachDisabled={chat.running}
-              attachTitle={chat.running ? tc('attach.busy') : undefined}
+              attachTitle={chat.running ? tc('attach.queued') : undefined}
               fileTestId="chat-file-input"
               placeholder={placeholder}
               slash={slashConfig}
@@ -989,6 +1062,23 @@ function ChatPage() {
               <span role="status" aria-live="polite" data-warn={(activeId && (chat.lastTurn === 'failed' || chat.lastTurn === 'interrupted') && !chat.running) || undefined}>
                 {status}
               </span>
+              {activeId && meter && (
+                <span
+                  className="cx-ctx cx-foot__tokens"
+                  data-testid="chat-context-meter"
+                  data-warn={meter.tone === 'warn' || undefined}
+                  data-hot={meter.tone === 'err' || undefined}
+                  title={t('meter.title')}
+                >
+                  {meter.pct !== null && <span className="cx-ctx__bar" aria-hidden="true"><i style={fillStyle(meter.pct)} /></span>}
+                  <span>
+                    {meter.limit
+                      ? t('meter.usedOf', { used: tokenCount(meter.used), limit: tokenCount(meter.limit), pct: meter.pct })
+                      : t('meter.used', { used: tokenCount(meter.used) })}
+                    {meter.speed !== null ? ` · ${t('meter.speed', { speed: meter.speed })}` : ''}
+                  </span>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -1029,10 +1119,12 @@ function ChatPage() {
           onEditConfig={() => navigate(`/app/model-editor/${encodeURIComponent(model)}`, { state: fromState(location, 'Chat') })}
           onEditAgent={() => navigate(`/app/agents/${encodeURIComponent(pickedAgent.id)}/edit`)}
           onDelete={activeId ? () => { setShowSettings(false); promptDelete() } : undefined}
+          onSaveSettings={activeId && activeChat?.kind !== 'subagent' ? (settings) => chat.update(activeId, { settings }) : undefined}
           onClose={() => setShowSettings(false)}
         />
       )}
       {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} canFind />}
+      <input ref={importInputRef} type="file" accept=".json,application/json" hidden onChange={importChatFile} data-testid="chat-import-input" />
       {pendingDelete && (
         <HomeUndoToast
           key={pendingDelete.id}

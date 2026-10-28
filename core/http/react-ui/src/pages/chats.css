@@ -458,3 +458,41 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* ---- Notes under a tool line: an add-on change, a refusal, a trigger proposal ---- */
+.cx-change {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.cx-change--refused {
+  padding: 8px 12px;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-warn-wash);
+  color: var(--dk-text);
+}
+.cx-proposal {
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.cx-proposal__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; font-size: 14px; }
+.cx-proposal__when { color: var(--dk-muted); font-family: var(--font-mono); font-size: 12.5px; }
+.cx-proposal .cx-help { margin: 4px 0 10px; }
+.cx-proposal__edit { display: grid; gap: 6px; margin-bottom: 4px; }
+.cx-proposal__edit .cx-pending__acts { margin-top: 6px; }
+.cx-bubble--edit { width: min(600px, 88%); }
+.cx-bubble--edit .cx-help { margin: 6px 0 8px; }
+
+/* ---- Composer foot: the context meter, the sub-agents ---- */
+.cx-foot .cx-ctx { height: auto; padding: 0; font-weight: 500; }
+.cx-subagents__list { display: grid; gap: 2px; max-height: 320px; overflow-y: auto; }
+.cx-subagents__row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 8px 10px; border-radius: var(--dk-radius-1); }
+.cx-subagents__row:hover { background: var(--dk-hover); }
+.cx-subagents__title { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.cx-subagents__state { color: var(--dk-muted); font-family: var(--font-mono); font-size: 11.5px; }
+.cx-subagents__acts { display: flex; gap: 10px; grid-row: span 2; align-items: center; }
+.cx-subagents__log { grid-column: 1 / -1; margin: 4px 0 0; padding: 8px 10px; max-height: 180px; overflow-y: auto; border-radius: var(--dk-radius-1); background: var(--dk-inset); font-size: 12.5px; white-space: pre-wrap; }

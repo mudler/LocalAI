@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { renderMarkdown, highlightAll } from '../../utils/markdown'
 import { toolLine, toolOutput } from '../../utils/chatThread'
-import { addonChange } from '../../utils/addonChange'
+import { addonChange, toolRefusal } from '../../utils/addonChange'
+import { proposalIds } from '../../utils/chatProposal'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import ChangeNote from './ChangeNote'
 // eslint-disable-next-line no-unused-vars
 import ChatAppFrame from '../ChatAppFrame'
+// eslint-disable-next-line no-unused-vars
+import ProposalCard from './ProposalCard'
 
 // What the thread says about reasoning and tool use: one quiet line that opens
 // inline into the steps. Everything it shows is in the transcript the server
@@ -58,14 +61,15 @@ function ToolStep({ text }) {
     <li className="cx-step">
       <h4>{t('activity.toolCall')} <code>{name || t('activity.tool')}</code></h4>
       {summary && <div className="cx-think">{summary}</div>}
-      {out && !addonChange(text) && <pre className="cx-out">{out}</pre>}
+      {out && !addonChange(text) && !toolRefusal(text) && <pre className="cx-out">{out}</pre>}
     </li>
   )
 }
 
-// One run of reasoning and tool lines between two messages. Add-on changes are
-// listed under the fold, so their Undo stays one click away.
-export function ActivityGroup({ items, id }) {
+// One run of reasoning and tool lines between two messages. Add-on changes,
+// refusals and trigger proposals are listed under the fold, so their buttons
+// and reasons stay in sight.
+export function ActivityGroup({ items, id, proposalTick = 0 }) {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
   const [expanded, setExpanded] = useState(false)
@@ -76,7 +80,8 @@ export function ActivityGroup({ items, id }) {
   }, [expanded])
 
   if (!items || items.length === 0) return null
-  const changes = items.filter(item => item.role === 'tool' && addonChange(item.text))
+  const changes = items.filter(item => item.role === 'tool' && (addonChange(item.text) || toolRefusal(item.text)))
+  const proposals = proposalIds(items)
   const icon = items.some(i => i.role === 'reasoning') ? 'lightbulb' : 'wrench'
 
   return (
@@ -98,6 +103,7 @@ export function ActivityGroup({ items, id }) {
         </ol>
       </FoldFrame>
       {changes.map((item) => <ChangeNote key={`c-${item.seq}`} text={item.text} t={tc} />)}
+      {proposals.map((pid) => <ProposalCard key={`p-${pid}`} id={pid} t={tc} tick={proposalTick} />)}
     </>
   )
 }

@@ -828,6 +828,7 @@
 .cx-in { height: 38px; padding: 0 12px; }
 .cx-ta:focus, .cx-in:focus { box-shadow: inset 0 0 0 1px var(--dk-accent-text), 0 0 0 1px var(--dk-accent-text); }
 .cx-help { margin: 6px 0 12px; color: var(--dk-muted); font-size: 12.5px; line-height: 1.45; }
+.cx-help--err { margin-bottom: 0; color: var(--dk-error-text); }
 .cx-field { margin: 0 0 16px; }
 .cx-field__label { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
 .cx-field__value { margin-left: auto; font-family: var(--font-mono); font-size: 13px; font-weight: 600; }

@@ -49,7 +49,8 @@
     "working": "Working…",
     "stopped": "Stopped",
     "failed": "The last turn failed.",
-    "interrupted": "The last turn was interrupted."
+    "interrupted": "The last turn was interrupted.",
+    "done": "Done"
   },
   "tool": {
     "running": "Running",
@@ -69,7 +70,15 @@
     "undoDenied": "Not undone. Your role on this data does not allow it.",
     "undoUnknown": "Not sure the undo went through. Press Undo to check; it will not run twice.",
     "undoUnavailable": "Not undone. The add-on could not be reached.",
-    "waiting": "{{addon}} left this change waiting; it was not applied."
+    "waiting": "{{addon}} left this change waiting; it was not applied.",
+    "refused": {
+      "anAddon": "the add-on",
+      "not_permitted": "You do not have the permission {{addon}} needs for this. Nothing was changed. An administrator can grant it.",
+      "resource_unreachable": "{{addon}} could not find that resource, or you have no access to it. Nothing was changed.",
+      "not_running": "{{addon}} is starting or stopped, so nothing was sent. Try again in a moment.",
+      "invalid_request": "{{addon}} refused the request:",
+      "said": "It said: {{message}}"
+    }
   },
   "app": {
     "title": "Interactive view of {{tool}}",
@@ -108,7 +117,8 @@
     "busy": "Files go with a message that starts a turn. Wait for this one to end or stop it.",
     "list": "Attached files",
     "remove": "Remove {{name}}",
-    "off": "Files are off on this server."
+    "off": "Files are off on this server.",
+    "queued": "A file sent now waits with its message until the model takes it at its next step."
   },
   "skills": {
     "summary": "Skills ({{on}} of {{total}} on)",
@@ -371,5 +381,35 @@
       "left": "The servers that were not imported stay in this browser."
     },
     "title": "MCP connectors"
+  },
+  "proposal": {
+    "loading": "Reading the proposed trigger...",
+    "unread": "The proposed trigger could not be read: {{message}}",
+    "created": "Trigger \"{{name}}\" is on.",
+    "open": "Open it",
+    "gone": "This proposed trigger was dismissed.",
+    "inactive": "Proposed trigger. It runs nothing until you create it.",
+    "name": "Name",
+    "schedule": "When (for example daily 08:00)",
+    "folder": "Folder to watch",
+    "saveEdit": "Save",
+    "cancelEdit": "Cancel",
+    "create": "Create trigger",
+    "edit": "Edit",
+    "dismiss": "Dismiss"
+  },
+  "subAgents": {
+    "label": "Sub-agents",
+    "title": "The sub-agents this chat started",
+    "heading": "{{running}} running, at most {{limit}} in the background",
+    "running": "Running",
+    "untitled": "Sub-agent",
+    "show": "Show",
+    "hide": "Hide",
+    "stop": "Stop",
+    "loading": "Reading...",
+    "empty": "Nothing yet.",
+    "task": "Task",
+    "answer": "Answer"
   }
 }

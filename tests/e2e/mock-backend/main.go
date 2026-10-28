@@ -127,8 +127,12 @@ func addonAnswer(prompt string) string {
 
 // promptHasAddonResult reports whether the host already answered the scripted
 // call: the broker's result documents carry a kind (a proposal, a result or an
-// error such as select_resource), and a refusal is prefixed.
+// error such as select_resource), and a refusal is prefixed. The chat's own
+// propose_trigger and background spawn_agent answers are plain sentences.
 func promptHasAddonResult(prompt string) bool {
+	if strings.Contains(prompt, "It is not active: the user must confirm") || strings.Contains(prompt, "Started sub-agent ") {
+		return true
+	}
 	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) || strings.Contains(prompt, `"kind":"error"`) || strings.Contains(prompt, `"kind":"applied"`) ||
 		strings.Contains(prompt, `"kind": "applied"`) ||
 		strings.Contains(prompt, `"kind": "proposal"`) || strings.Contains(prompt, `"kind": "result"`) || strings.Contains(prompt, `"kind": "error"`) || strings.Contains(prompt, "Error: ") ||

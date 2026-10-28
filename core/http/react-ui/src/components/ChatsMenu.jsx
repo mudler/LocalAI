@@ -7,11 +7,14 @@ import Icon from './Icon'
 const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '')
 
 // The chats come from the server list (see menuChats in utils/chatThread.js):
-// a name, the model and the times. The list holds no messages, so the search
-// looks at names and the line under a name says where the chat came from.
+// a name, the model and the times. The names are matched here at once; with
+// onSearch the server also finds the chats whose messages hold the text
+// (GET /api/chats/search), and the line under a name shows where it matched.
 function matches(chat, query) {
   return (chat.name || '').toLowerCase().includes(query)
 }
+
+const SEARCH_DELAY_MS = 250
 
 // The conversations list, opened on Ctrl or Cmd K. It reads like the Home
 // "Jump back in" list: one block per day, the model that answered, and the time.
@@ -29,6 +32,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
   onRename,
   onExport,
   onCopyChat,
+  onSearch,
 }, ref) {
   const { t, i18n } = useTranslation('chat')
   const [open, setOpen] = useState(false)
@@ -58,13 +62,31 @@ const ChatsMenu = forwardRef(function ChatsMenu({
   }), [openMenu, close])
 
   const query = search.trim().toLowerCase()
+  // What the server found for the query: chat id -> snippet ('' for a title hit).
+  const [hits, setHits] = useState({ query: '', snippets: {} })
+  useEffect(() => {
+    if (!onSearch || query.length < 2) return undefined
+    let live = true
+    const timer = setTimeout(() => {
+      onSearch(query)
+        .then((res) => {
+          if (!live) return
+          const snippets = {}
+          for (const h of res?.hits || []) if (h?.chat?.id) snippets[h.chat.id] = h.in_title ? '' : (h.snippet || '')
+          setHits({ query, snippets })
+        })
+        .catch(() => { if (live) setHits({ query, snippets: {} }) })
+    }, SEARCH_DELAY_MS)
+    return () => { live = false; clearTimeout(timer) }
+  }, [onSearch, query])
+  const snippets = useMemo(() => (hits.query === query ? hits.snippets : {}), [hits, query])
 
   // Chats that hold a message, and the one you are in. An empty placeholder is
   // not worth a row. Newest first, which is what the day blocks need.
   const items = useMemo(() => {
-    const found = query ? chats.filter(c => matches(c, query)) : chats
+    const found = query ? chats.filter(c => matches(c, query) || c.id in snippets) : chats
     return [...found].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-  }, [chats, query])
+  }, [chats, query, snippets])
 
   const groups = useMemo(() => groupConversations(items), [items])
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
@@ -214,7 +236,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                       const idx = n++
                       const selected = idx === activeIdx
                       const editing = editingId === chat.id
-                      const preview = chat.origin ? t(`menu.origin.${chat.origin}`, chat.origin) : ''
+                      const preview = snippets[chat.id] || (chat.origin ? t(`menu.origin.${chat.origin}`, chat.origin) : '')
                       return (
                         <div
                           key={chat.id}

@@ -6,10 +6,13 @@ import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWa
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
-  'turn_end', 'error', 'pending_delivered', 'sub_agent_done', 'compacted',
+  'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
+  'usage', 'trigger_proposed',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
+const SETTLE_READS = 8
+const SETTLE_MS = 250
 
 // State of the chats the server keeps: the list, one open chat with its
 // transcript and waiting messages, and the live events of a running turn.
@@ -33,12 +36,21 @@ export function useServerChat() {
   const [messages, setMessages] = useState([])
   const [live, setLive] = useState(emptyLive)
   const [notes, setNotes] = useState([])
+  // What the last model request used ({ used, limit, completion,
+  // tokens_per_second }). The server does not keep it: a reload has none until
+  // the next request.
+  const [usage, setUsage] = useState(null)
+  // Counts the sub-agent starts and ends and the trigger proposals, so the
+  // panels that list them read the server again.
+  const [ticks, setTicks] = useState({ subAgents: 0, proposals: 0 })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const sourceRef = useRef(null)
   const reconnectRef = useRef(null)
   const activeRef = useRef(null)
+  // Whether the last read of the open chat said a turn runs.
+  const runningRef = useRef(false)
   const attemptRef = useRef(0)
   // Counts the turns started, so that the end of one turn does not clear the
   // live view of the next.
@@ -70,6 +82,7 @@ export function useServerChat() {
       const [d, m] = await Promise.all([chatsApi.get(id), chatsApi.messages(id)])
       if (activeRef.current !== id) return 'stale'
       setDetail(d)
+      runningRef.current = Boolean(d?.running)
       setMessages(m.messages || [])
       endLive()
       return 'ok'
@@ -126,10 +139,24 @@ export function useServerChat() {
       },
       pending_delivered: () => refreshChat(id),
       compacted: (e) => setNotes(n => [...n, { kind: 'compacted', before: e.before, after: e.after }]),
-      sub_agent_done: (e) => setNotes(n => [...n, { kind: 'subAgentDone', title: e.text || '' }]),
+      sub_agent_started: () => setTicks(t => ({ ...t, subAgents: t.subAgents + 1 })),
+      sub_agent_done: (e) => {
+        setNotes(n => [...n, { kind: 'subAgentDone', title: e.text || '' }])
+        setTicks(t => ({ ...t, subAgents: t.subAgents + 1 }))
+      },
+      usage: (e) => { if (e.usage) setUsage(e.usage) },
+      trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
       error: (e) => { if (e.text) setError(e.text) },
-      turn_end: () => {
-        refreshChat(id, epochRef.current)
+      turn_end: async () => {
+        // The server publishes the end of a turn just before it records it, so
+        // a read at once can still say running. Read again, a few times, until
+        // the record agrees, unless a new turn started meanwhile.
+        const epoch = epochRef.current
+        for (let i = 0; i < SETTLE_READS; i++) {
+          const d = await refreshChat(id, epoch)
+          if (d !== 'ok' || epochRef.current !== epoch || !runningRef.current) break
+          await new Promise(r => setTimeout(r, SETTLE_MS))
+        }
         refreshList()
       },
     }
@@ -164,6 +191,7 @@ export function useServerChat() {
     epochRef.current++
     setLive(emptyLive())
     setNotes([])
+    setUsage(null)
     setError('')
     setDetail(null)
     setMessages([])
@@ -224,17 +252,39 @@ export function useServerChat() {
   const stop = useCallback((id) => act(id, () => chatsApi.stop(id)), [act])
   const sendNow = useCallback((id) => act(id, () => chatsApi.sendNow(id)), [act])
 
+  // A title or a model answers 409 while a turn runs; settings apply from the
+  // next turn. The caller gets the error to show where the change was made.
+  const update = useCallback(async (id, fields) => {
+    const out = await chatsApi.update(id, fields)
+    if (activeRef.current === id) setDetail(d => (d ? { ...d, ...out } : d))
+    await refreshList()
+    return out
+  }, [refreshList])
+
   // Renaming answers 409 while a turn runs; the error shows like any other.
   const rename = useCallback(async (id, title) => {
     setError('')
     try {
-      const out = await chatsApi.rename(id, title)
-      if (activeRef.current === id) setDetail(d => (d ? { ...d, title: out.title } : d))
+      await update(id, { title })
+    } catch (e) {
+      setError(e.message)
+      await refreshList()
+    }
+  }, [update, refreshList])
+
+  // Regenerate and edit cut the transcript and start a new turn: read it again.
+  const restart = useCallback(async (id, call) => {
+    setError('')
+    try {
+      const res = await call()
+      if (res?.started) setDetail(d => (d ? { ...d, running: true } : d))
     } catch (e) {
       setError(e.message)
     }
-    await refreshList()
-  }, [refreshList])
+    await refreshChat(id)
+  }, [refreshChat])
+  const regenerate = useCallback((id) => restart(id, () => chatsApi.regenerate(id)), [restart])
+  const editMessage = useCallback((id, seq, text) => restart(id, () => chatsApi.editMessage(id, seq, text)), [restart])
 
   const remove = useCallback(async (id) => {
     await chatsApi.delete(id)
@@ -243,11 +293,11 @@ export function useServerChat() {
   }, [refreshList, select])
 
   return {
-    chats, persistent, files, activeId, detail, messages, live, notes, error, loading,
+    chats, persistent, files, activeId, detail, messages, live, notes, error, loading, usage, ticks,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],
-    select, createChat, send, editPending, cancelPending, stop, sendNow, remove, rename, refreshList,
+    select, createChat, send, editPending, cancelPending, stop, sendNow, remove, rename, update, regenerate, editMessage, refreshList,
     clearError: () => setError(''),
   }
 }

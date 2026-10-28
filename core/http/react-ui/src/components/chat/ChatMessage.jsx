@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { renderMarkdown } from '../../utils/markdown'
 import { renderMarkdownWithArtifacts } from '../../utils/artifacts'
@@ -47,17 +47,24 @@ export function ErrorCard({ message, kept, onRetry, canRetry }) {
 // One message. The reader's messages are raised blocks on the right, the
 // model's are plain prose with its name above. Actions show on hover, on focus
 // and on the last message; the message itself takes focus so the arrow keys and
-// C, E and R work from the keyboard. The server keeps the transcript, so a sent
-// message is not changed in place: Edit puts its text back in the composer and
-// Regenerate asks the question before the answer again.
+// C, E, B and R work from the keyboard. The server keeps the transcript: Edit
+// replaces your message and runs the chat again from it, Regenerate answers the
+// last message again, and Branch copies the chat up to the message into a new one.
 function ChatMessage({
-  msg, isLast, model, warm, canvasMode, busy, activityItems, actions, conversationId,
+  msg, isLast, model, warm, canvasMode, busy, activityItems, actions, conversationId, canRegenerate, proposalTick,
 }) {
   const { t } = useTranslation('chat')
   const isUser = msg.role === 'user'
   const isAssistant = msg.role === 'assistant'
   const text = msg.text || ''
   const index = msg.seq
+  // The draft of an edit of your message, or null.
+  const [draft, setDraft] = useState(null)
+  const saveEdit = () => {
+    const next = (draft || '').trim()
+    setDraft(null)
+    if (next && next !== text.trim()) actions.edit(index, next)
+  }
 
   const html = useMemo(() => {
     if (isUser || !text) return ''
@@ -72,10 +79,13 @@ function ChatMessage({
     } else if (e.key === 'c') {
       e.preventDefault()
       actions.copy(text)
-    } else if (e.key === 'e' && isUser) {
+    } else if (e.key === 'e' && isUser && !busy) {
       e.preventDefault()
-      actions.reuse(text)
-    } else if (e.key === 'r' && isAssistant && !busy) {
+      setDraft(text)
+    } else if (e.key === 'b' && !busy) {
+      e.preventDefault()
+      actions.fork(index)
+    } else if (e.key === 'r' && canRegenerate) {
       e.preventDefault()
       actions.regenerate(index)
     }
@@ -98,9 +108,29 @@ function ChatMessage({
           {model && <b>{model}</b>}
         </div>
       )}
-      {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} />}
+      {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} proposalTick={proposalTick} />}
 
-      {isUser ? (
+      {isUser && draft !== null ? (
+        <div className="cx-bubble cx-bubble--edit" data-testid="message-edit">
+          <textarea
+            className="cx-ta"
+            aria-label={t('actions.editMessage')}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit() }
+              if (e.key === 'Escape') { e.preventDefault(); setDraft(null) }
+            }}
+            autoFocus
+          />
+          <p className="cx-help">{t('actions.editHelp')}</p>
+          <span className="cx-pending__acts">
+            <button type="button" className="cx-btn cx-btn--primary" onClick={saveEdit} disabled={!draft.trim()}>{t('actions.editSend')}</button>
+            <button type="button" className="cx-btn" onClick={() => setDraft(null)}>{t('actions.editCancel')}</button>
+          </span>
+        </div>
+      ) : isUser ? (
         <div className="cx-bubble" data-testid="message-content">
           {text && <div className="cx-text" dangerouslySetInnerHTML={{ __html: escapeHtml(text) }} />}
         </div>
@@ -112,14 +142,19 @@ function ChatMessage({
         <button type="button" className="cx-icobtn" onClick={() => actions.copy(text)} title={t('actions.copy')} aria-label={t('actions.copy')}>
           <Icon name="copy" />
         </button>
-        {isUser && (
-          <button type="button" className="cx-icobtn" onClick={() => actions.reuse(text)} title={t('actions.reuse')} aria-label={t('actions.reuse')}>
+        {isUser && !busy && draft === null && (
+          <button type="button" className="cx-icobtn" onClick={() => setDraft(text)} title={t('actions.editMessage')} aria-label={t('actions.editMessage')}>
             <Icon name="pencil" />
           </button>
         )}
-        {isAssistant && !busy && (
+        {canRegenerate && (
           <button type="button" className="cx-icobtn" onClick={() => actions.regenerate(index)} title={t('actions.regenerate')} aria-label={t('actions.regenerate')}>
             <Icon name="refresh" />
+          </button>
+        )}
+        {!busy && (
+          <button type="button" className="cx-icobtn" onClick={() => actions.fork(index)} title={t('actions.branch')} aria-label={t('actions.branch')}>
+            <Icon name="git-branch" />
           </button>
         )}
         {conversationId && <AddonSlot slot="chat.message.actions" context={{ conversationId, messageId: String(index), role: msg.role }} />}
@@ -130,10 +165,10 @@ function ChatMessage({
 
 // Tool-less rows that sit between messages: a run of reasoning and tool entries
 // that no assistant message follows yet.
-export function ActivityRow({ items, id }) {
+export function ActivityRow({ items, id, proposalTick }) {
   return (
     <div className="cx-row">
-      <ActivityGroup items={items} id={id} />
+      <ActivityGroup items={items} id={id} proposalTick={proposalTick} />
     </div>
   )
 }

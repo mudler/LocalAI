@@ -29,7 +29,7 @@ export default function ShortcutsDialog({ onClose, canFind }) {
     [t('shortcuts.editLast'), ['↑'], t('shortcuts.inEmptyBox')],
     [t('shortcuts.stop'), ['Esc']],
     [t('shortcuts.moveMessages'), ['↑', '↓']],
-    [t('shortcuts.onMessage'), ['C', 'E', 'R']],
+    [t('shortcuts.onMessage'), ['C', 'E', 'B', 'R']],
   ]
 
   return createPortal(
